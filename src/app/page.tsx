@@ -5,6 +5,7 @@ import { RetroWindow } from "@/components/retro-window"
 import { DesktopIcon } from "@/components/desktop-icon"
 import { RetroButton } from "@/components/retro-button"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { SystemClock } from "@/components/system-clock"
 import { useWindowManager } from "@/hooks/use-window-manager"
 import { FloatingWindow } from "@/components/floating-window"
 import { AboutWindow } from "@/components/window-content/about-window"
@@ -53,9 +54,7 @@ export default function HomePage() {
 
       {/* System Clock */}
       <div className="absolute top-4 right-4 z-10">
-        <div className="retro-button px-3 py-1">
-          <span className="font-pixel text-xs text-purple-600">14:19</span>
-        </div>
+        <SystemClock />
       </div>
 
       {/* Header/Navigation Window */}
