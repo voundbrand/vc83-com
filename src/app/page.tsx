@@ -36,12 +36,17 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-black via-purple-900/20 to-black crt-scanlines relative overflow-hidden">
       {/* Desktop Background Pattern */}
-      <div className="absolute inset-0 opacity-5">
-        <div className="grid grid-cols-20 grid-rows-20 h-full w-full">
-          {Array.from({ length: 400 }).map((_, i) => (
-            <div key={i} className="border border-purple-500/20"></div>
-          ))}
-        </div>
+      <div className="absolute inset-0 opacity-5 pointer-events-none">
+        <div 
+          className="h-full w-full"
+          style={{
+            backgroundImage: `
+              repeating-linear-gradient(0deg, transparent, transparent 49px, rgba(139, 92, 246, 0.1) 49px, rgba(139, 92, 246, 0.1) 50px),
+              repeating-linear-gradient(90deg, transparent, transparent 49px, rgba(139, 92, 246, 0.1) 49px, rgba(139, 92, 246, 0.1) 50px)
+            `,
+            backgroundSize: '50px 50px'
+          }}
+        />
       </div>
 
       {/* Desktop Icons */}
