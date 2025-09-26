@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Press_Start_2P } from "next/font/google";
-import { WindowManagerProvider } from "@/hooks/use-window-manager";
+import { Providers } from "./providers";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -34,9 +34,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${pressStart2P.variable} antialiased crt-scanlines`}
       >
-        <WindowManagerProvider>
+        <Providers>
           {children}
-        </WindowManagerProvider>
+        </Providers>
       </body>
     </html>
   );
