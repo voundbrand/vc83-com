@@ -12,8 +12,8 @@ import { EpisodesWindow } from "@/components/window-content/episodes-window"
 import { ContactWindow } from "@/components/window-content/contact-window"
 import { SubscribeWindow } from "@/components/window-content/subscribe-window"
 import { WelcomeWindow } from "@/components/window-content/welcome-window"
-import { NavigationWindow } from "@/components/window-content/navigation-window"
 import { useIsMobile } from "@/hooks/use-media-query"
+import { ThemeToggle } from "@/components/theme-toggle"
 
 export default function HomePage() {
   const [showStartMenu, setShowStartMenu] = useState(false)
@@ -40,24 +40,16 @@ export default function HomePage() {
     openWindow("welcome", "VC83 - Welcome", <WelcomeWindow />, { x: 100, y: 100 }, { width: 650, height: 450 })
   }
 
-  const openNavigationWindow = () => {
-    openWindow("navigation", "VC83 Navigation", <NavigationWindow />, { 
-      x: window.innerWidth / 2 - 300, 
-      y: 40 
-    }, { width: 600, height: 400 })
-  }
-
-  // Open navigation window on mount (desktop only)
+  // Open welcome window on mount (desktop only)
   useEffect(() => {
     if (!isMobile) {
-      openNavigationWindow()
       openWelcomeWindow()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile])
 
   const startMenuItems = [
     { label: "Welcome", icon: "🚀", onClick: openWelcomeWindow },
-    { label: "Navigation", icon: "🧭", onClick: openNavigationWindow },
     { divider: true },
     { label: "Episodes", icon: "💾", onClick: openEpisodesWindow },
     { label: "About", icon: "📁", onClick: openAboutWindow },
@@ -86,8 +78,9 @@ export default function HomePage() {
         <DesktopIcon icon="🔊" label="Subscribe" onClick={openSubscribeWindow} />
       </div>
 
-      {/* System Clock */}
-      <div className="absolute top-4 right-4 z-10 desktop-only">
+      {/* System Clock and Theme Toggle */}
+      <div className="absolute top-4 right-4 z-10 desktop-only flex items-center gap-2">
+        <ThemeToggle />
         <div className="retro-button px-3 py-1">
           <SystemClock />
         </div>
