@@ -14,8 +14,8 @@ export function EpisodeCard({ title, description, date }: EpisodeCardProps) {
   return (
     <RetroWindow title="Episode File" className="w-full">
       <div className="space-y-3">
-        <h3 className="font-pixel text-sm text-purple-600 dark:text-purple-400">{title}</h3>
-        <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{description}</p>
+        <h3 className="font-pixel text-sm text-purple-600">{title}</h3>
+        <p className="text-sm text-gray-700 leading-relaxed">{description}</p>
 
         {/* Retro Audio Player Placeholder */}
         <div className="bg-black p-3 border-2 inset border-gray-400">
@@ -29,7 +29,7 @@ export function EpisodeCard({ title, description, date }: EpisodeCardProps) {
         </div>
 
         <div className="flex justify-between items-center">
-          <span className="text-xs text-gray-500 font-pixel">{date}</span>
+          <span className="text-xs text-gray-600 font-pixel">{date}</span>
           <div className="flex gap-2">
             <RetroButton size="sm">PLAY</RetroButton>
             <RetroButton size="sm" variant="secondary">

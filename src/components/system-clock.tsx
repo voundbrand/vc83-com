@@ -20,10 +20,8 @@ export function SystemClock() {
   }, [])
 
   return (
-    <div className="retro-button px-3 py-1">
-      <span className="font-pixel text-xs text-purple-600">
-        {time || "00:00"}
-      </span>
-    </div>
+    <span className="font-pixel text-purple-600">
+      {time || "00:00"}
+    </span>
   )
 }

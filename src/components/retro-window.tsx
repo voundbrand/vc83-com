@@ -26,19 +26,19 @@ export function RetroWindow({
       <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-2 py-1 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-gray-300 border border-gray-400 flex items-center justify-center text-xs">📁</div>
-          <span className="font-pixel text-xs">{title}</span>
+          <span className="font-pixel">{title}</span>
         </div>
         <div className="flex gap-1">
-          <button className="w-4 h-4 bg-gray-300 border border-gray-400 text-xs text-gray-800 hover:bg-gray-200">
+          <button className="w-3 h-3 bg-gray-300 border border-gray-500 text-[10px] leading-none text-gray-800 hover:bg-gray-200 flex items-center justify-center font-bold">
             _
           </button>
-          <button className="w-4 h-4 bg-gray-300 border border-gray-400 text-xs text-gray-800 hover:bg-gray-200">
+          <button className="w-3 h-3 bg-gray-300 border border-gray-500 text-[10px] leading-none text-gray-800 hover:bg-gray-200 flex items-center justify-center font-bold">
             □
           </button>
           {closable && (
             <button
               onClick={onClose}
-              className="w-4 h-4 bg-gray-300 border border-gray-400 text-xs text-gray-800 hover:bg-red-200"
+              className="w-3 h-3 bg-gray-300 border border-gray-500 text-[10px] leading-none text-gray-800 hover:bg-red-200 flex items-center justify-center font-bold"
             >
               ×
             </button>
@@ -47,7 +47,7 @@ export function RetroWindow({
       </div>
 
       {/* Window Content */}
-      <div className="p-4 text-gray-800 dark:text-gray-200">{children}</div>
+      <div className="p-4">{children}</div>
     </div>
   )
 }

@@ -4,18 +4,18 @@ export function AboutWindow() {
       <div className="grid md:grid-cols-2 gap-8">
         <div>
           <h3 className="font-pixel text-sm text-purple-600 mb-4">THE STORY</h3>
-          <p className="text-sm leading-relaxed mb-4">
+          <p className="text-sm leading-relaxed mb-4 text-gray-700">
             From &apos;83 to VC83: No cash, no experience, pure hustle. Spotlighting MV&apos;s biotech, renewables, and SaaS
             unicorns. Inspired by 20VC, building seed deal networks.
           </p>
-          <p className="text-sm leading-relaxed">
+          <p className="text-sm leading-relaxed text-gray-700">
             Born in 1983, I&apos;m documenting my journey from zero to fund one while uncovering the hidden startup gems in
             Eastern Germany&apos;s most overlooked region.
           </p>
         </div>
         <div className="space-y-4">
-          <h3 className="font-pixel text-sm text-purple-400">STATS & INSPIRATION</h3>
-          <div className="space-y-2 text-sm">
+          <h3 className="font-pixel text-sm text-purple-600">STATS & INSPIRATION</h3>
+          <div className="space-y-2 text-sm text-gray-700">
             <div>📊 Inspired by Harry Stebbings</div>
             <div>🏢 MV&apos;s 200+ startups tracked</div>
             <div>💰 Zero-to-fund grind documented</div>

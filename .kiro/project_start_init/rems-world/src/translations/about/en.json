@@ -1,0 +1,400 @@
+{
+  "header": {
+    "home": "Home",
+    "about": "About",
+    "resume": "Resume",
+    "contact": "Contact",
+    "admin": "Admin",
+    "pizzaTracker": "Pizza Tracker"
+  },
+  "hero": {
+    "title": "Sales & Tech Enthusiast",
+    "subtitle": "this could be fun...",
+    "description": "I'm all about finding the sweet spot between technical work and communication. Even though I sometimes prefer the focused quiet of coding, I know my real strength is connecting with people. I've always been curious about what drives people, and when I see the opportunity to build something valuable together, I give it everything I've got.",
+    "cta": {
+      "contact": "Get in Touch",
+      "resume": "View Resume",
+      "tryTracker": "Try the tracker",
+      "scheduleCall": "Schedule a Call"
+    },
+    "features": {
+      "analytics": {
+        "title": "Real-time Analytics",
+        "description": "Track user preferences and behavior patterns instantly"
+      },
+      "testing": {
+        "title": "A/B Testing",
+        "description": "Compare different approaches and optimize for success"
+      },
+      "insights": {
+        "title": "Sales Insights",
+        "description": "Turn data into actionable sales strategies"
+      }
+    }
+  },
+  "contact": {
+    "title": "Let's Connect",
+    "subtitle": "Think I might be useful to your projects despite my questionable career choices? I'd love to hear from you!",
+    "form": {
+      "title": "Send a Message",
+      "description": "Drop me a line and I'll get back to you as soon as possible.",
+      "name": "Your Name",
+      "email": "your.email@company.com",
+      "subject": "Subject (optional)",
+      "message": "Tell me about the opportunity or just say hello!",
+      "send": "Send Message",
+      "sending": "Sending...",
+      "success": "Thanks for your message! I'll get back to you soon.",
+      "error": "Something went wrong. Please try again later.",
+      "offline": "You're offline. Your message will be sent when you reconnect."
+    },
+    "info": {
+      "title": "Get in Touch",
+      "description": "Multiple ways to reach me for different types of conversations.",
+      "email": "Email",
+      "phone": "Phone",
+      "ready": "Ready to See How I Can Help",
+      "readyDescription": "Think my questionable journey from bad EMC specialist to overly-attached agency owner might actually be useful to your projects? Let's find out if I can help drive growth without breaking anything!",
+      "scheduleCall": "Schedule a Call",
+      "viewPortfolio": "View Portfolio"
+    },
+    "demo": {
+      "title": "Real-time Demo",
+      "description": "This contact form uses Convex for real-time data persistence, built by someone who's perhaps a bit too proud of getting it to work on the first try. Messages are instantly saved to the database and can be viewed in real-time - which honestly isn't that impressive anymore, but here we are. A demonstration of modern web capabilities and my approach to building interactive experiences."
+    }
+  },
+  "pizzaTracker": {
+    "title": "Real-Time Pizza Tracker",
+    "subtitle": "Order your pizza and watch its journey from our kitchen to your door. Experience the power of real-time data tracking!",
+    "tabs": {
+      "order": "Place Order",
+      "track": "Track Orders",
+      "analytics": "Analytics"
+    },
+    "order": {
+      "title": "Order Your Pizza",
+      "description": "Fill in your details and we'll start making your pizza right away!",
+      "form": {
+        "name": "Your Name *",
+        "email": "Email (optional)",
+        "pizza": "Pizza Type",
+        "size": "Size",
+        "sizeOptions": {
+          "small": "Small (10\")",
+          "medium": "Medium (12\")",
+          "large": "Large (14\")"
+        },
+        "instructions": "Special Instructions (optional)",
+        "instructionsPlaceholder": "Extra cheese, well done, etc...",
+        "placeOrder": "Place Order",
+        "placingOrder": "Placing Order..."
+      },
+      "pizzaTypes": {
+        "margherita": "Margherita",
+        "pepperoni": "Pepperoni",
+        "hawaiian": "Hawaiian (with Pineapple!)",
+        "veggie": "Veggie Delight",
+        "bbq-chicken": "BBQ Chicken",
+        "meat-lovers": "Meat Lovers"
+      }
+    },
+    "track": {
+      "activeOrders": "Active Orders",
+      "activeOrdersDescription": "Real-time tracking of all pizza orders. Click \"Progress\" to simulate moving to the next stage.",
+      "noActiveOrders": "No active orders yet. Place an order to see it tracked in real-time!",
+      "ordered": "Ordered",
+      "progressOrder": "Progress Order",
+      "stats": {
+        "totalOrders": "Total Orders",
+        "inProgress": "In Progress",
+        "ready": "Ready",
+        "delivered": "Delivered"
+      },
+      "loadingOrders": "Loading orders..."
+    },
+    "analytics": {
+      "popularity": "Pizza Popularity",
+      "popularityDescription": "Most ordered pizza types",
+      "insights": "Order Insights",
+      "insightsDescription": "Real-time analytics demonstration",
+      "noData": "No data yet. Orders will appear here!",
+      "metrics": {
+        "avgPrepTime": "Average Prep Time",
+        "peakHour": "Peak Hour",
+        "popularSize": "Most Popular Size",
+        "pineappleOrders": "Pineapple Pizza Orders",
+        "orders": "orders"
+      },
+      "recentOrders": "Recent Orders",
+      "recentOrdersDescription": "Last 10 orders placed",
+      "table": {
+        "customer": "Customer",
+        "pizza": "Pizza",
+        "size": "Size",
+        "status": "Status",
+        "time": "Time"
+      },
+      "noOrders": "No orders yet. Place the first order!"
+    },
+    "status": {
+      "ordered": "Order Received",
+      "preparing": "Preparing",
+      "baking": "In the Oven",
+      "ready": "Ready!",
+      "delivered": "Delivered"
+    },
+    "demo": {
+      "title": "Live Demo",
+      "description": "This tracker demonstrates real-time capabilities using Convex. Updates are instantly synced across all connected clients!"
+    }
+  },
+  "resume": {
+    "title": "Resume & Portfolio",
+    "subtitle": "Builder, Operator, Problem Solver",
+    "download": "Download PDF",
+    "shortVersion": {
+      "title": "THE SHORT VERSION",
+      "description": "Builder and operator who learned sales by necessity. 18+ years solving technical problems for real businesses - from implementing EMC storage systems at Volkswagen to building complete digital infrastructure for a 500-employee manufacturing company. Never lost a customer because I focus on actually fixing things rather than just talking about solutions.\n\nBuilt and scaled my own businesses while co-managing a 20-person pharmacy operation. As a tech enthusiast with coding experience and sales expertise who loves to teach, I'm ready to help technical teams bridge the gap between building and selling."
+    },
+    "experience": {
+      "title": "EXPERIENCE",
+      "current": "Present",
+      "achievements": "Key Achievements",
+      "jobs": {
+        "voundBrand": {
+          "title": "Founder",
+          "company": "Vound Brand UG",
+          "duration": "2013-2025",
+          "description": "Marketing agency serving B2B clients with €240K+ ARR",
+          "results": [
+            "Maintained customer retention across 7 enterprise clients",
+            "Grew primary relationship from €300/month to €5K/month",
+            "Managed contracts worth €14.4K-€60K annually per client",
+            "No customer churn in 3+ years of active operation"
+          ],
+          "responsibilities": [
+            "Technical Implementation: Designed digital marketing infrastructure for 500-employee manufacturing company - integrations between CRM, analytics, automation tools, and reporting dashboards",
+            "Account Growth: Identified additional service opportunities based on usage patterns and business needs",
+            "Customer Success: Served as trusted advisor to executives, translating technical capabilities into business outcomes",
+            "Service Delivery: Maintained responsive, solution-focused approach to customer issues"
+          ],
+          "learning": "Learned that focused relationships with the right customers work better than trying to serve everyone."
+        },
+        "apotheke": {
+          "title": "Co-Owner & Operations Manager",
+          "company": "Neue Apotheke am Markt",
+          "duration": "2016-2025",
+          "description": "Operations, IT, finance and team management for family business transition",
+          "responsibilities": [
+            "Business Operations: Managed established business during ownership transition",
+            "Team Leadership: Led 20 employees through transition period with full retention",
+            "Systems Management: Implemented IT infrastructure connecting POS, inventory, accounting, and regulatory compliance systems",
+            "Crisis Management: Maintained business continuity during 2020-2022 industry challenges"
+          ],
+          "learning": "Experience managing established operations while implementing necessary changes."
+        },
+        "northbit": {
+          "title": "Software Developer & Business Development",
+          "company": "Northbit GmbH (now e-patrol)",
+          "duration": "2009-2012",
+          "description": "Digital rights management platform for music industry",
+          "responsibilities": [
+            "Client Development: Acquired major US distributor (Ingrooves, San Francisco) through relationship building",
+            "Technical Development: Built algorithms for worldwide music distribution, release scheduling, and format optimization",
+            "Business Communication: Served as English/German liaison for international partnerships",
+            "Industry Relations: Represented company at Cannes Music Festival for rights holder relationships"
+          ],
+          "learning": "Experience scaling technical and customer responsibilities in a startup environment."
+        },
+        "emc": {
+          "title": "Implementation Specialist",
+          "company": "EMC Deutschland GmbH",
+          "duration": "2008-2009",
+          "description": "Enterprise storage solutions",
+          "responsibilities": [
+            "Enterprise Projects: Implemented EMC Avamar backup solutions at Media-Saturn, Volkswagen AG, and Fraunhofer Institute",
+            "Technical Consulting: Advised enterprise clients on storage architecture and integration strategies",
+            "Customer Relations: Managed post-sales relationships for system performance and satisfaction"
+          ],
+          "learning": "First experience combining technical work with customer-facing responsibilities."
+        }
+      }
+    },
+    "skills": {
+      "title": "TECHNICAL FOUNDATION",
+      "categories": {
+        "programming": {
+          "title": "Programming & Development",
+          "items": "Python, JavaScript, TypeScript, Next.js, Ruby on Rails, SQL"
+        },
+        "ai": {
+          "title": "AI-Assisted Development",
+          "items": "Experience with Cursor, Claude, and other AI coding tools"
+        },
+        "enterprise": {
+          "title": "Enterprise Systems",
+          "items": "EMC Avamar/Celerra, VMware ESX, Linux/Unix administration"
+        },
+        "cloud": {
+          "title": "Cloud & DevOps",
+          "items": "AWS, Docker, Shell scripting, CI/CD practices"
+        },
+        "analytics": {
+          "title": "Analytics & Data",
+          "items": "Product analytics implementation, CRM integration, reporting automation"
+        },
+        "business": {
+          "title": "Business Tools",
+          "items": "CRM systems, marketing automation, project management platforms"
+        },
+        "recent": {
+          "title": "Recent Project",
+          "items": "Building event management platform (February 2025) - full-stack development with TypeScript/Next.js stack."
+        }
+      }
+    },
+    "certifications": {
+      "title": "CERTIFICATIONS & EDUCATION",
+      "items": [
+        "EMC Proven Professional (2008)",
+        "ITIL V3 Foundations",
+        "CompTIA A+, Network+",
+        "IHK Wirtschaftsfachwirt (2017) - German business management certification",
+        "Associates of Applied Science - Business Software Applications, Heald College (2004)"
+      ]
+    },
+    "myValues": {
+      "badge": "Pizza is always there for me...",
+      "title": "My Values as a Developer & Sales Professional",
+      "intro": "What drives me in tech and business:\nThree core principles:",
+      "reasons": [
+        {
+          "title": "Build First, Sell What Works",
+          "content": "I've learned that the best sales come from deeply understanding what you've built. As someone who codes and sells, I bridge the gap between 'it works' and 'here's why you need it.' Being professional without being boring is the sweet spot I aim for."
+        },
+        {
+          "title": "Teaching is the Best Learning",
+          "content": "After years of being a one-person show, I've discovered that teaching others what I know forces me to truly understand it myself. My random mix of skills (talking to people, fixing things that break, explaining complex tech simply) becomes most valuable when I'm helping others level up."
+        },
+        {
+          "title": "Scale Through Collaboration",
+          "content": "I've gotten comfortable being the person everyone comes to when stuff breaks. Now I want to work with teams building at scales that make my current problems look quaint - millions of events, thousands of users, architectural challenges I haven't even discovered yet."
+        }
+      ],
+      "closing": "As a tech enthusiast with coding experience and sales expertise who loves to teach, I thrive when helping technical teams understand their users and helping users understand technical products. I've lived through the exact frustrations that come from cobbling together tools, so I can authentically connect with both builders and buyers."
+    }
+  },
+  "bio": {
+    "title": "About Me",
+    "subtitle": "Builder, Operator, Problem Solver",
+    "tabs": {
+      "bio": "Bio",
+      "readme": "README"
+    },
+    "profile": {
+      "name": "REMINGTON SPLETTSTÖSSER",
+      "title": "Founder eventrrr / Biz-Ops",
+      "location": "Pasewalk, Germany"
+    },
+    "details": {
+      "title": "Details",
+      "joined": "Affiliation:",
+      "joinedValue": "Free Agent",
+      "pineapple": "Pineapple on pizza:",
+      "pineappleValue": "🍍",
+      "location": "Location:",
+      "languages": "Languages:",
+      "languagesValue": "Native English, Fluent German",
+      "workAuth": "Work Authorization:",
+      "workAuthValue": "EU Work Authorization"
+    },
+    "links": {
+      "title": "Links",
+      "github": "GitHub",
+      "linkedin": "LinkedIn",
+      "twitter": "Twitter"
+    },
+    "achievements": {
+      "title": "Achievements",
+      "items": [
+        "Grew marketing agency to €240K+ ARR while co-managing 20-employee pharmacy",
+        "Scaled client relationships from €300/month to €5K/month through problem-solving focus",
+        "Zero customer churn in 3+ years by prioritizing customer success over sales"
+      ]
+    },
+    "content": {
+      "bio": "I started off as a bad implementation specialist at EMC, became a worse startup developer at Northbit, then somehow bootstrapped a marketing agency on the side to make some money. I wasn't particularly good at any of it.\n\nAfter realizing I kept my agency too small on purpose and had three kids to think about, my wife took over her family's pharmacy and I ended up handling the business side - finances, IT for 25 workstations, marketing, and helping manage 20 employees while she focused on the pharmacy work. Meanwhile I grew my marketing agency to €240K+ ARR. We learned how to grow relationships from €300/month to €5K/month by actually solving problems instead of just selling services.\n\nI started building my own event management platform in February 2025 as a way to inject myself into the startup scene in Mecklenburg-Vorpommern and branch out to Berlin. Everyone needs events, so I figured it was a good entry point. As a tech enthusiast with coding experience and sales expertise who loves to teach, I'm always looking for opportunities to help teams build better products.\n\nI live in Pasewalk, Germany but travel back to Northern California once or twice a year (3-4 weeks) to connect with family and get some proper California sun.",
+      "readme": {
+        "intro": "I'm from Auburn, California, now living in Pasewalk, Germany (my wife's hometown). I travel back to Northern California once a year for at least three or four weeks, sometimes twice a year in February or over Easter holidays, connecting back to my family and spending time in the California sun.\n\nI started off as a bad implementation specialist at EMC, became a worse startup developer at Northbit, bootstrapped a marketing agency that I kept too small on purpose, somehow ended up co-running a pharmacy with 20 employees, and now I'm ready for new challenges in the tech world.\n\nI tend to work 8am to 5pm, dinner break, sauna (this is critical), then three nights a week another 9-11pm shift.",
+        "responsibilities": {
+          "title": "Areas of responsibility (if you'll have me)",
+          "items": [
+            "Help technical teams realize what becomes possible when their tools actually work together",
+            "Bridge the gap between complex technical capabilities and real business outcomes",
+            "Be the person teams call when they need someone who actually understands both the code and the business"
+          ]
+        },
+        "quirks": {
+          "title": "Quirks",
+          "items": [
+            "I hop around a lot in conversations - working on \"reading the room\" because sometimes random creative discussions are exactly what's needed, but when focused efficient conversations are required, I like to make notes and keep a short agenda, which keeps me from wandering.",
+            "I've evolved toward doing 90-minute bouts of uninterrupted deep work, with meetings and comms squeezed into 5-15 minute coffee/walk breaks between. Longer meetings are fine when needed, but usually aren't in my experience.",
+            "I take things too seriously sometimes. I don't take myself too seriously, but I do take work too seriously. The best flow comes from me being useful and getting things done well - I like to tone down my ego and have no problem admitting when I'm wrong. Ego is sometimes useful when you need to make a point, but I like to err on the side of less ego. I don't need to take credit for things. I just like to be useful. Obviously, I appreciate when people appreciate my work, but it's all about just getting shit done."
+          ]
+        },
+        "values": {
+          "title": "What I value",
+          "items": [
+            "Being useful to others. I'd rather have mistakes than analysis paralysis.",
+            "Async work is gold.",
+            "Initiative - colleagues who solve things on their own instead of waiting for permission.",
+            "The sauna - that's where I literally let the steam off and stay emotionally stable."
+          ]
+        },
+        "help": {
+          "title": "How I can help you",
+          "items": [
+            "I'm the person people come to for everything they can't solve on their own. Since I own my own business and help run my wife's pharmacy, if employees can't do it, I do it.",
+            "I'm naturally good at mediating conflicts - I go into fair, emotionally neutral mediator mode.",
+            "I can help you figure out what's actually worth your time vs. what just feels urgent."
+          ]
+        },
+        "helpMe": {
+          "title": "How you can help me",
+          "items": [
+            "Take initiative. Do things. I'd rather course-correct than steer from scratch.",
+            "Be direct about what's working and what isn't.",
+            "Help me understand where I fit best - I'm open to wherever you think I'd be most useful."
+          ]
+        },
+        "personal": {
+          "title": "Personal",
+          "items": [
+            "Weekends are sacred family time.",
+            "I practice Brazilian Jiu-Jitsu 2-3 times a week (would do it daily if I could - I'm hooked).",
+            "Working toward being more nomad-ready, though the kids love school too much to homeschool them."
+          ]
+        },
+        "strategy": {
+          "title": "Personal strategy",
+          "items": [
+            "Two north stars guide everything:",
+            "1. My definition of freedom: do what I want, when I want, with the people I want, wherever I want",
+            "2. If it's not a HELL YES, then it's a NO"
+          ],
+          "footer": "Living a \"HELL YES\" life means if I hesitate for even a second on a decision, that hesitation tells me everything."
+        }
+      }
+    },
+    "location": {
+      "title": "Location - Pasewalk, Germany (1.5h from Berlin)"
+    }
+  },
+  "footer": {
+    "builtWith": "Built with",
+    "convex": "Real-time data by Convex",
+    "portfolio": "Portfolio",
+    "viewCode": "View Code on GitHub",
+    "contact": "Contact"
+  }
+}

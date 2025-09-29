@@ -6,7 +6,7 @@ export function ContactWindow() {
       <div className="space-y-6">
         <div className="text-center">
           <h3 className="font-pixel text-sm text-purple-600 mb-2">JOIN THE VC83 NETWORK</h3>
-          <p className="text-sm">Join for episode drops, MV deal alerts, VC tips.</p>
+          <p className="text-sm text-gray-700">Join for episode drops, MV deal alerts, VC tips.</p>
         </div>
 
         <div className="space-y-4">
@@ -18,12 +18,12 @@ export function ContactWindow() {
             />
             <RetroButton>SUBSCRIBE</RetroButton>
           </div>
-          <p className="text-xs text-gray-500 text-center">No spam, just pure VC insights from the Baltic coast.</p>
+          <p className="text-xs text-gray-600 text-center">No spam, just pure VC insights from the Baltic coast.</p>
         </div>
 
         <div className="border-t border-gray-400 pt-4">
-          <h4 className="font-pixel text-xs text-purple-400 mb-3">CONNECT</h4>
-          <div className="space-y-2 text-sm">
+          <h4 className="font-pixel text-xs text-purple-600 mb-3">CONNECT</h4>
+          <div className="space-y-2 text-sm text-gray-700">
             <div>📧 hello@vc83.com</div>
             <div>🐦 @vc83pod</div>
             <div>💼 LinkedIn/vc83</div>

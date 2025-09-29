@@ -12,11 +12,11 @@ interface RetroButtonProps {
 }
 
 export function RetroButton({ children, onClick, variant = "primary", size = "md", className }: RetroButtonProps) {
-  const baseClasses = "retro-button font-pixel text-xs"
+  const baseClasses = "retro-button font-pixel"
 
   const variantClasses = {
-    primary: "bg-purple-600 text-gray-800 border-purple-700",
-    secondary: "bg-gray-300 text-black border-gray-400",
+    primary: "bg-purple-600 text-white border-purple-700",
+    secondary: "bg-gray-300 text-gray-800 border-gray-400",
     outline: "bg-transparent text-purple-600 border-purple-600",
   }
 

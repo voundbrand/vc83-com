@@ -24,14 +24,35 @@ const WindowManagerContext = createContext<WindowManagerContextType | undefined>
 export function WindowManagerProvider({ children }: { children: ReactNode }) {
   const [windows, setWindows] = useState<Window[]>([])
   const [nextZIndex, setNextZIndex] = useState(100)
+  const [cascadeOffset, setCascadeOffset] = useState({ x: 100, y: 100 })
 
-  const openWindow = (id: string, title: string, component: ReactNode, position = { x: 100, y: 100 }) => {
+  const openWindow = (id: string, title: string, component: ReactNode, position?: { x: number; y: number }) => {
     setWindows((prev) => {
       const existing = prev.find((w) => w.id === id)
       if (existing) {
         // Focus existing window
         return prev.map((w) => (w.id === id ? { ...w, isOpen: true, zIndex: nextZIndex } : w))
       }
+      
+      // Calculate position with cascade effect
+      let windowPosition = position || { ...cascadeOffset }
+      
+      // Viewport constraints
+      const maxX = window.innerWidth - 400 // Approximate window width
+      const maxY = window.innerHeight - 300 // Approximate window height
+      
+      // Reset cascade if it goes too far
+      if (windowPosition.x > maxX || windowPosition.y > maxY) {
+        windowPosition = { x: 100, y: 100 }
+        setCascadeOffset({ x: 100, y: 100 })
+      } else if (!position) {
+        // Update cascade offset for next window
+        setCascadeOffset({
+          x: cascadeOffset.x + 30,
+          y: cascadeOffset.y + 30
+        })
+      }
+      
       // Create new window
       return [
         ...prev,
@@ -40,7 +61,7 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
           title,
           component,
           isOpen: true,
-          position,
+          position: windowPosition,
           zIndex: nextZIndex,
         },
       ]

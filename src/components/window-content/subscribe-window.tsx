@@ -47,7 +47,7 @@ export function SubscribeWindow() {
       <div className="text-center space-y-4">
         <div className="text-4xl">🔊</div>
         <h2 className="font-pixel text-lg text-purple-600">Subscribe to VC83</h2>
-        <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+        <p className="text-sm text-gray-700 leading-relaxed">
           Never miss an episode! Subscribe on your favorite podcast platform:
         </p>
       </div>
@@ -83,7 +83,7 @@ export function SubscribeWindow() {
       </div>
 
       <div className="text-center">
-        <p className="text-xs text-gray-500 dark:text-gray-400">🎧 Available on all major podcast platforms</p>
+        <p className="text-xs text-gray-600">🎧 Available on all major podcast platforms</p>
       </div>
     </div>
   )

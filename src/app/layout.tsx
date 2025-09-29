@@ -22,6 +22,7 @@ const pressStart2P = Press_Start_2P({
 export const metadata: Metadata = {
   title: "VC83 - Retro Desktop Podcast",
   description: "VC insights from Mecklenburg-Vorpommern, Germany. From '83 to VC83.",
+  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no",
 };
 
 export default function RootLayout({

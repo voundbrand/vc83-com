@@ -1,21 +1,24 @@
 "use client"
 
-import { useState } from "react"
-import { RetroWindow } from "@/components/retro-window"
+import { useState, useEffect } from "react"
+import { ClientOnly } from "@/components/client-only"
 import { DesktopIcon } from "@/components/desktop-icon"
-import { RetroButton } from "@/components/retro-button"
-import { ThemeToggle } from "@/components/theme-toggle"
 import { SystemClock } from "@/components/system-clock"
 import { useWindowManager } from "@/hooks/use-window-manager"
 import { FloatingWindow } from "@/components/floating-window"
+import { StartMenu } from "@/components/start-menu"
 import { AboutWindow } from "@/components/window-content/about-window"
 import { EpisodesWindow } from "@/components/window-content/episodes-window"
 import { ContactWindow } from "@/components/window-content/contact-window"
 import { SubscribeWindow } from "@/components/window-content/subscribe-window"
+import { WelcomeWindow } from "@/components/window-content/welcome-window"
+import { NavigationWindow } from "@/components/window-content/navigation-window"
+import { useIsMobile } from "@/hooks/use-media-query"
 
 export default function HomePage() {
-  const [showHero, setShowHero] = useState(true)
+  const [showStartMenu, setShowStartMenu] = useState(false)
   const { windows, openWindow } = useWindowManager()
+  const isMobile = useIsMobile()
 
   const openAboutWindow = () => {
     openWindow("about", "About VC83", <AboutWindow />, { x: 150, y: 150 })
@@ -33,24 +36,50 @@ export default function HomePage() {
     openWindow("subscribe", "Subscribe to VC83", <SubscribeWindow />, { x: 300, y: 150 })
   }
 
+  const openWelcomeWindow = () => {
+    openWindow("welcome", "VC83 - Welcome", <WelcomeWindow />, { x: 100, y: 100 })
+  }
+
+  const openNavigationWindow = () => {
+    openWindow("navigation", "VC83 Navigation", <NavigationWindow />, { 
+      x: window.innerWidth / 2 - 300, 
+      y: 40 
+    })
+  }
+
+  // Open navigation window on mount (desktop only)
+  useEffect(() => {
+    if (!isMobile) {
+      openNavigationWindow()
+      openWelcomeWindow()
+    }
+  }, [isMobile])
+
+  const startMenuItems = [
+    { label: "Welcome", icon: "🚀", onClick: openWelcomeWindow },
+    { label: "Navigation", icon: "🧭", onClick: openNavigationWindow },
+    { divider: true },
+    { label: "Episodes", icon: "💾", onClick: openEpisodesWindow },
+    { label: "About", icon: "📁", onClick: openAboutWindow },
+    { label: "Contact", icon: "📧", onClick: openContactWindow },
+    { label: "Subscribe", icon: "🔊", onClick: openSubscribeWindow }
+  ]
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-black via-purple-900/20 to-black crt-scanlines relative overflow-hidden">
       {/* Desktop Background Pattern */}
-      <div className="absolute inset-0 opacity-5 pointer-events-none">
-        <div 
-          className="h-full w-full"
-          style={{
-            backgroundImage: `
-              repeating-linear-gradient(0deg, transparent, transparent 49px, rgba(139, 92, 246, 0.1) 49px, rgba(139, 92, 246, 0.1) 50px),
-              repeating-linear-gradient(90deg, transparent, transparent 49px, rgba(139, 92, 246, 0.1) 49px, rgba(139, 92, 246, 0.1) 50px)
-            `,
-            backgroundSize: '50px 50px'
-          }}
-        />
+      <div className="absolute inset-0 opacity-5">
+        <div className="grid grid-cols-20 grid-rows-20 h-full w-full">
+          {Array.from({ length: 400 }).map((_, i) => (
+            <div key={i} className="border border-purple-500/20"></div>
+          ))}
+        </div>
       </div>
 
+      <ClientOnly>
+
       {/* Desktop Icons */}
-      <div className="absolute top-4 left-4 space-y-4 z-10">
+      <div className={isMobile ? "desktop-grid-mobile" : "absolute top-4 left-4 space-y-4 z-10 desktop-only"}>
         <DesktopIcon icon="💾" label="Episodes" onClick={openEpisodesWindow} />
         <DesktopIcon icon="📁" label="About" onClick={openAboutWindow} />
         <DesktopIcon icon="📧" label="Contact" onClick={openContactWindow} />
@@ -58,74 +87,12 @@ export default function HomePage() {
       </div>
 
       {/* System Clock */}
-      <div className="absolute top-4 right-4 z-10">
-        <SystemClock />
+      <div className="absolute top-4 right-4 z-10 desktop-only">
+        <div className="retro-button px-3 py-1">
+          <SystemClock />
+        </div>
       </div>
 
-      {/* Header/Navigation Window */}
-      <div className="fixed top-8 left-1/2 transform -translate-x-1/2 z-20">
-        <RetroWindow title="VC83 Navigation" className="min-w-[600px]">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <h1 className="font-pixel text-lg text-purple-600">
-                VC<span className="text-purple-400 text-sm align-super">83</span>
-              </h1>
-            </div>
-            <nav className="flex items-center gap-4">
-              <RetroButton size="sm">HOME</RetroButton>
-              <RetroButton size="sm" variant="secondary" onClick={openEpisodesWindow}>
-                EPISODES
-              </RetroButton>
-              <RetroButton size="sm" variant="secondary" onClick={openAboutWindow}>
-                ABOUT
-              </RetroButton>
-              <RetroButton size="sm" variant="secondary" onClick={openContactWindow}>
-                CONTACT
-              </RetroButton>
-              <ThemeToggle />
-            </nav>
-          </div>
-        </RetroWindow>
-      </div>
-
-      {/* Main Content - Hero Section Only */}
-      <div className="pt-32 px-4">
-        {/* Hero Section */}
-        {showHero && (
-          <section className="flex justify-center">
-            <RetroWindow title="VC83 - Welcome" className="max-w-4xl" closable onClose={() => setShowHero(false)}>
-              <div className="text-center space-y-6">
-                <div className="bg-gradient-to-b from-purple-600 to-black p-8 rounded-none">
-                  <h1 className="font-pixel text-xl text-white mb-4 leading-relaxed">
-                    VC83: Born in &apos;83, Betting Big on Mecklenburg-Vorpommern&apos;s Startup Gems
-                  </h1>
-                  <p className="text-white text-base leading-relaxed max-w-2xl mx-auto">
-                    Raw VC truths from zero to fund one—interviews and underdog plays for Eastern Germany&apos;s rising
-                    scene.
-                  </p>
-                </div>
-
-                <div className="flex justify-center gap-4 flex-wrap">
-                  <RetroButton size="lg">🎧 LISTEN TO EP. 1</RetroButton>
-                  <RetroButton size="lg" variant="outline">
-                    📻 SUBSCRIBE ON SPOTIFY
-                  </RetroButton>
-                </div>
-
-                <div className="flex items-center justify-center gap-6 pt-4">
-                  <div className="w-24 h-24 bg-gray-300 border-4 border-gray-500 flex items-center justify-center">
-                    <span className="font-pixel text-xs">HOST</span>
-                  </div>
-                  <div className="text-left">
-                    <h3 className="font-pixel text-sm text-purple-600 mb-1">[Your Name]</h3>
-                    <p className="text-purple-400 text-sm">Rostock Hustler Decoding VC</p>
-                  </div>
-                </div>
-              </div>
-            </RetroWindow>
-          </section>
-        )}
-      </div>
 
       {windows.map((window) =>
         window.isOpen ? (
@@ -142,27 +109,43 @@ export default function HomePage() {
       )}
 
       {/* Footer Taskbar */}
-      <footer className="fixed bottom-0 left-0 right-0 bg-gradient-to-r from-gray-300 to-gray-400 dark:from-gray-700 dark:to-gray-800 border-t-2 border-gray-500 px-4 py-2 z-10">
+      <footer className={`fixed bottom-0 left-0 right-0 retro-window dark:retro-window-dark border-t border-gray-400 z-10 ${isMobile ? 'px-4 py-2' : 'px-1 py-0.5'}`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="retro-button px-2 py-1">
-              <span className="font-pixel text-xs text-gray-800 dark:text-gray-200">START</span>
+            <div className="relative">
+              <button 
+                className={`retro-button ${isMobile ? 'px-4 py-2 text-sm' : 'px-2 py-0.5 text-xs'}`}
+                onClick={() => setShowStartMenu(!showStartMenu)}
+                data-start-button
+              >
+                <span className="font-pixel text-gray-800">START</span>
+              </button>
+              <StartMenu 
+                items={startMenuItems}
+                isOpen={showStartMenu}
+                onClose={() => setShowStartMenu(false)}
+              />
             </div>
-            <div className="flex gap-2">
-              <a href="#" className="text-purple-600 hover:text-purple-400 text-sm">
-                @vc83pod
-              </a>
-              <a href="#" className="text-purple-600 hover:text-purple-400 text-sm">
-                LinkedIn
-              </a>
-              <a href="#" className="text-purple-600 hover:text-purple-400 text-sm">
-                Spotify
-              </a>
-            </div>
+            {!isMobile && (
+              <div className="flex gap-2">
+                <a href="#" className="text-purple-600 hover:text-purple-400 text-xs">
+                  @vc83pod
+                </a>
+                <a href="#" className="text-purple-600 hover:text-purple-400 text-xs">
+                  LinkedIn
+                </a>
+                <a href="#" className="text-purple-600 hover:text-purple-400 text-xs">
+                  Spotify
+                </a>
+              </div>
+            )}
           </div>
-          <div className="text-xs text-gray-600 dark:text-gray-400">© 2025 VC83 | Built in Rostock</div>
+          {!isMobile && (
+            <div className="text-[10px] text-gray-600 dark:text-gray-400">© 2025 VC83 | Built in Rostock</div>
+          )}
         </div>
       </footer>
+      </ClientOnly>
     </div>
   )
 }
