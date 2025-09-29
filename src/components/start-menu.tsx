@@ -64,10 +64,10 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
                   item.onClick?.()
                   onClose()
                 }}
-                className="w-full px-3 py-1 text-left hover:bg-purple-600 hover:text-white flex items-center gap-2 transition-colors text-gray-800 dark:text-gray-200"
+                className="w-full px-3 py-1 text-left hover:bg-purple-600 hover:text-white flex items-center gap-2 transition-colors font-pixel"
               >
                 {item.icon && <span className="text-base">{item.icon}</span>}
-                <span className="font-pixel">{item.label || ''}</span>
+                <span>{item.label || ''}</span>
               </button>
             )}
           </div>
