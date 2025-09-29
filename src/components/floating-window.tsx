@@ -24,19 +24,38 @@ export function FloatingWindow({
   initialPosition = { x: 100, y: 100 },
   zIndex,
 }: FloatingWindowProps) {
-  const { closeWindow, focusWindow } = useWindowManager()
-  const [position, setPosition] = useState(initialPosition)
+  const { windows, closeWindow, focusWindow, resizeWindow, moveWindow, maximizeWindow, minimizeWindow, restoreWindow } = useWindowManager()
+  const windowState = windows.find(w => w.id === id)
   const [isDragging, setIsDragging] = useState(false)
+  const [isResizing, setIsResizing] = useState(false)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
+  const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 })
   const windowRef = useRef<HTMLDivElement>(null)
   const isMobile = useIsMobile()
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    if (windowState?.isMaximized) return
     e.preventDefault()
     setIsDragging(true)
+    const pos = windowState?.position || initialPosition
     setDragOffset({
-      x: e.clientX - position.x,
-      y: e.clientY - position.y,
+      x: e.clientX - pos.x,
+      y: e.clientY - pos.y,
+    })
+    focusWindow(id)
+  }
+
+  const handleResizeMouseDown = (e: React.MouseEvent) => {
+    if (windowState?.isMaximized) return
+    e.preventDefault()
+    e.stopPropagation()
+    setIsResizing(true)
+    const size = windowState?.size || { width: 800, height: 500 }
+    setResizeStart({
+      x: e.clientX,
+      y: e.clientY,
+      width: size.width,
+      height: size.height,
     })
     focusWindow(id)
   }
@@ -48,21 +67,30 @@ export function FloatingWindow({
         const newY = e.clientY - dragOffset.y
         
         // Viewport constraints
-        const maxX = window.innerWidth - (windowRef.current?.offsetWidth || 400)
-        const maxY = window.innerHeight - (windowRef.current?.offsetHeight || 300)
+        const maxX = window.innerWidth - (windowState?.size?.width || 800)
+        const maxY = window.innerHeight - (windowState?.size?.height || 500)
         
-        setPosition({
+        moveWindow(id, {
           x: Math.max(0, Math.min(newX, maxX)),
           y: Math.max(0, Math.min(newY, maxY)),
+        })
+      } else if (isResizing) {
+        const deltaX = e.clientX - resizeStart.x
+        const deltaY = e.clientY - resizeStart.y
+        
+        resizeWindow(id, {
+          width: resizeStart.width + deltaX,
+          height: resizeStart.height + deltaY,
         })
       }
     }
 
     const handleMouseUp = () => {
       setIsDragging(false)
+      setIsResizing(false)
     }
 
-    if (isDragging) {
+    if (isDragging || isResizing) {
       document.addEventListener("mousemove", handleMouseMove)
       document.addEventListener("mouseup", handleMouseUp)
     }
@@ -71,7 +99,7 @@ export function FloatingWindow({
       document.removeEventListener("mousemove", handleMouseMove)
       document.removeEventListener("mouseup", handleMouseUp)
     }
-  }, [isDragging, dragOffset])
+  }, [isDragging, isResizing, dragOffset, resizeStart, id, moveWindow, resizeWindow, windowState])
 
   // Use MobilePanel on mobile devices
   if (isMobile) {
@@ -89,14 +117,18 @@ export function FloatingWindow({
   return (
     <div
       ref={windowRef}
-      className={`fixed retro-window dark:retro-window-dark rounded-none ${isDragging ? 'window-drag-shadow' : ''} ${className}`}
+      className={`fixed retro-window dark:retro-window-dark rounded-none flex flex-col ${isDragging ? 'window-drag-shadow' : ''} ${className}`}
       style={{
-        left: position.x,
-        top: position.y,
-        zIndex: zIndex,
+        left: windowState?.position?.x || initialPosition.x,
+        top: windowState?.position?.y || initialPosition.y,
+        width: windowState?.isMaximized ? '100%' : (windowState?.size?.width || 800) + 'px',
+        height: windowState?.isMaximized ? 'calc(100vh - 40px)' : (windowState?.size?.height || 500) + 'px',
+        maxHeight: windowState?.isMaximized ? 'calc(100vh - 40px)' : '90vh',
+        zIndex: windowState?.zIndex || zIndex,
         cursor: isDragging ? "grabbing" : "default",
-        opacity: isDragging ? 0.95 : 1,
-        transition: isDragging ? "none" : "opacity 0.2s",
+        opacity: isDragging || isResizing ? 0.95 : 1,
+        transition: isDragging || isResizing ? "none" : "opacity 0.2s",
+        display: windowState?.isMinimized ? 'none' : 'flex',
       }}
       onClick={() => focusWindow(id)}
     >
@@ -107,10 +139,28 @@ export function FloatingWindow({
       >
         <span className="font-pixel text-white select-none">{title}</span>
         <div className="flex gap-1">
-          <button className="w-3 h-3 bg-gray-300 border border-gray-500 text-[10px] leading-none text-gray-800 hover:bg-gray-200 flex items-center justify-center font-bold">
+          <button 
+            className="w-3 h-3 bg-gray-300 border border-gray-500 text-[10px] leading-none text-gray-800 hover:bg-gray-200 flex items-center justify-center font-bold"
+            onClick={(e) => {
+              e.stopPropagation()
+              minimizeWindow(id)
+            }}
+            title="Minimize"
+          >
             _
           </button>
-          <button className="w-3 h-3 bg-gray-300 border border-gray-500 text-[10px] leading-none text-gray-800 hover:bg-gray-200 flex items-center justify-center font-bold">
+          <button 
+            className="w-3 h-3 bg-gray-300 border border-gray-500 text-[10px] leading-none text-gray-800 hover:bg-gray-200 flex items-center justify-center font-bold"
+            onClick={(e) => {
+              e.stopPropagation()
+              if (windowState?.isMaximized) {
+                restoreWindow(id)
+              } else {
+                maximizeWindow(id)
+              }
+            }}
+            title={windowState?.isMaximized ? "Restore" : "Maximize"}
+          >
             □
           </button>
           <button
@@ -119,6 +169,7 @@ export function FloatingWindow({
               e.stopPropagation()
               closeWindow(id)
             }}
+            title="Close"
           >
             ×
           </button>
@@ -126,7 +177,20 @@ export function FloatingWindow({
       </div>
 
       {/* Content */}
-      <div className="p-4">{children}</div>
+      <div className="flex-1 overflow-hidden flex flex-col">
+        <div className="flex-1 p-4 overflow-auto">{children}</div>
+      </div>
+
+      {/* Resize Handle */}
+      {!windowState?.isMaximized && (
+        <div
+          className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize"
+          onMouseDown={handleResizeMouseDown}
+          style={{
+            background: 'linear-gradient(135deg, transparent 50%, #666 50%)',
+          }}
+        />
+      )}
     </div>
   )
 }

@@ -21,30 +21,30 @@ export default function HomePage() {
   const isMobile = useIsMobile()
 
   const openAboutWindow = () => {
-    openWindow("about", "About VC83", <AboutWindow />, { x: 150, y: 150 })
+    openWindow("about", "About VC83", <AboutWindow />, { x: 150, y: 150 }, { width: 700, height: 500 })
   }
 
   const openEpisodesWindow = () => {
-    openWindow("episodes", "Episode Archive", <EpisodesWindow />, { x: 200, y: 100 })
+    openWindow("episodes", "Episode Archive", <EpisodesWindow />, { x: 200, y: 100 }, { width: 850, height: 600 })
   }
 
   const openContactWindow = () => {
-    openWindow("contact", "Contact & Subscribe", <ContactWindow />, { x: 250, y: 200 })
+    openWindow("contact", "Contact & Subscribe", <ContactWindow />, { x: 250, y: 200 }, { width: 600, height: 450 })
   }
 
   const openSubscribeWindow = () => {
-    openWindow("subscribe", "Subscribe to VC83", <SubscribeWindow />, { x: 300, y: 150 })
+    openWindow("subscribe", "Subscribe to VC83", <SubscribeWindow />, { x: 300, y: 150 }, { width: 600, height: 500 })
   }
 
   const openWelcomeWindow = () => {
-    openWindow("welcome", "VC83 - Welcome", <WelcomeWindow />, { x: 100, y: 100 })
+    openWindow("welcome", "VC83 - Welcome", <WelcomeWindow />, { x: 100, y: 100 }, { width: 650, height: 450 })
   }
 
   const openNavigationWindow = () => {
     openWindow("navigation", "VC83 Navigation", <NavigationWindow />, { 
       x: window.innerWidth / 2 - 300, 
       y: 40 
-    })
+    }, { width: 600, height: 400 })
   }
 
   // Open navigation window on mount (desktop only)

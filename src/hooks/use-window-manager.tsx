@@ -8,14 +8,22 @@ interface Window {
   component: ReactNode
   isOpen: boolean
   position: { x: number; y: number }
+  size: { width: number; height: number }
   zIndex: number
+  isMaximized?: boolean
+  isMinimized?: boolean
 }
 
 interface WindowManagerContextType {
   windows: Window[]
-  openWindow: (id: string, title: string, component: ReactNode, position?: { x: number; y: number }) => void
+  openWindow: (id: string, title: string, component: ReactNode, position?: { x: number; y: number }, size?: { width: number; height: number }) => void
   closeWindow: (id: string) => void
   focusWindow: (id: string) => void
+  resizeWindow: (id: string, size: { width: number; height: number }) => void
+  moveWindow: (id: string, position: { x: number; y: number }) => void
+  maximizeWindow: (id: string) => void
+  minimizeWindow: (id: string) => void
+  restoreWindow: (id: string) => void
   isWindowOpen: (id: string) => boolean
 }
 
@@ -26,7 +34,7 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
   const [nextZIndex, setNextZIndex] = useState(100)
   const [cascadeOffset, setCascadeOffset] = useState({ x: 100, y: 100 })
 
-  const openWindow = (id: string, title: string, component: ReactNode, position?: { x: number; y: number }) => {
+  const openWindow = (id: string, title: string, component: ReactNode, position?: { x: number; y: number }, size?: { width: number; height: number }) => {
     setWindows((prev) => {
       const existing = prev.find((w) => w.id === id)
       if (existing) {
@@ -62,7 +70,10 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
           component,
           isOpen: true,
           position: windowPosition,
+          size: size || { width: 800, height: 500 },
           zIndex: nextZIndex,
+          isMaximized: false,
+          isMinimized: false,
         },
       ]
     })
@@ -82,6 +93,67 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
     return windows.find((w) => w.id === id)?.isOpen || false
   }
 
+  const resizeWindow = (id: string, size: { width: number; height: number }) => {
+    setWindows((prev) => prev.map((w) => {
+      if (w.id === id) {
+        // Apply min/max constraints
+        const constrainedSize = {
+          width: Math.min(Math.max(size.width, 400), window.innerWidth - 50),
+          height: Math.min(Math.max(size.height, 300), window.innerHeight - 50)
+        }
+        return { ...w, size: constrainedSize }
+      }
+      return w
+    }))
+  }
+
+  const moveWindow = (id: string, position: { x: number; y: number }) => {
+    setWindows((prev) => prev.map((w) => {
+      if (w.id === id) {
+        return { ...w, position }
+      }
+      return w
+    }))
+  }
+
+  const maximizeWindow = (id: string) => {
+    setWindows((prev) => prev.map((w) => {
+      if (w.id === id) {
+        return {
+          ...w,
+          isMaximized: true,
+          position: { x: 0, y: 0 },
+          size: { width: window.innerWidth, height: window.innerHeight - 40 } // Leave space for taskbar
+        }
+      }
+      return w
+    }))
+  }
+
+  const minimizeWindow = (id: string) => {
+    setWindows((prev) => prev.map((w) => {
+      if (w.id === id) {
+        return { ...w, isMinimized: true }
+      }
+      return w
+    }))
+  }
+
+  const restoreWindow = (id: string) => {
+    setWindows((prev) => prev.map((w) => {
+      if (w.id === id) {
+        return {
+          ...w,
+          isMaximized: false,
+          isMinimized: false,
+          position: { x: 100, y: 100 }, // Default restore position
+          size: { width: 800, height: 500 } // Default restore size
+        }
+      }
+      return w
+    }))
+  }
+
   return (
     <WindowManagerContext.Provider
       value={{
@@ -89,6 +161,11 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
         openWindow,
         closeWindow,
         focusWindow,
+        resizeWindow,
+        moveWindow,
+        maximizeWindow,
+        minimizeWindow,
+        restoreWindow,
         isWindowOpen,
       }}
     >
