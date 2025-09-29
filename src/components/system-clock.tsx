@@ -20,7 +20,7 @@ export function SystemClock() {
   }, [])
 
   return (
-    <span className="font-pixel text-purple-600">
+    <span className="font-pixel text-purple-600 text-xs">
       {time || "00:00"}
     </span>
   )

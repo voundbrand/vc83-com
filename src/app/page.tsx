@@ -81,7 +81,7 @@ export default function HomePage() {
       {/* System Clock and Theme Toggle */}
       <div className="absolute top-4 right-4 z-10 desktop-only flex items-center gap-2">
         <ThemeToggle />
-        <div className="retro-button px-3 py-1">
+        <div className="retro-button px-2 py-1 text-xs">
           <SystemClock />
         </div>
       </div>
