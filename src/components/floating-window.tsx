@@ -117,7 +117,7 @@ export function FloatingWindow({
   return (
     <div
       ref={windowRef}
-      className={`fixed retro-window dark:retro-window-dark rounded-none flex flex-col ${isDragging ? 'window-drag-shadow' : ''} ${className}`}
+      className={`fixed retro-window window-corners flex flex-col ${isDragging ? 'window-drag-shadow' : ''} ${className}`}
       style={{
         left: windowState?.position?.x || initialPosition.x,
         top: windowState?.position?.y || initialPosition.y,
@@ -132,25 +132,27 @@ export function FloatingWindow({
       }}
       onClick={() => focusWindow(id)}
     >
-      {/* Title Bar */}
+      {/* Title Bar - Classic Win95 Blue */}
       <div
-        className={`bg-gradient-to-r from-purple-600 to-purple-700 text-white px-2 py-1 flex items-center justify-between ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} select-none`}
+        className={`retro-titlebar window-titlebar-corners flex items-center justify-between ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} select-none`}
         onMouseDown={handleMouseDown}
       >
-        <span className="font-pixel text-white select-none">{title}</span>
-        <div className="flex gap-1">
-          <button 
-            className="w-3 h-3 bg-gray-300 border border-gray-500 text-[10px] leading-none text-gray-800 hover:bg-gray-200 flex items-center justify-center font-bold"
+        <span className="text-white font-semibold text-sm select-none">{title}</span>
+        <div className="flex gap-[2px]">
+          {/* Minimize Button */}
+          <button
+            className="retro-control-button"
             onClick={(e) => {
               e.stopPropagation()
               minimizeWindow(id)
             }}
             title="Minimize"
           >
-            _
+            <span className="select-none">−</span>
           </button>
-          <button 
-            className="w-3 h-3 bg-gray-300 border border-gray-500 text-[10px] leading-none text-gray-800 hover:bg-gray-200 flex items-center justify-center font-bold"
+          {/* Maximize/Restore Button */}
+          <button
+            className="retro-control-button"
             onClick={(e) => {
               e.stopPropagation()
               if (windowState?.isMaximized) {
@@ -161,33 +163,34 @@ export function FloatingWindow({
             }}
             title={windowState?.isMaximized ? "Restore" : "Maximize"}
           >
-            □
+            <span className="select-none">{windowState?.isMaximized ? "⧉" : "□"}</span>
           </button>
+          {/* Close Button */}
           <button
-            className="w-3 h-3 bg-gray-300 border border-gray-500 text-[10px] leading-none text-gray-800 hover:bg-red-200 flex items-center justify-center font-bold"
+            className="retro-control-button"
             onClick={(e) => {
               e.stopPropagation()
               closeWindow(id)
             }}
             title="Close"
           >
-            ×
+            <span className="select-none">×</span>
           </button>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-hidden flex flex-col">
-        <div className="flex-1 p-4 overflow-auto">{children}</div>
+      {/* Content - Apply global window background */}
+      <div className="flex-1 overflow-hidden flex flex-col retro-scrollbar" style={{ background: 'var(--win95-bg)', color: 'var(--win95-text)' }}>
+        <div className="flex-1 overflow-auto">{children}</div>
       </div>
 
-      {/* Resize Handle */}
+      {/* Resize Handle - Win95 style grip */}
       {!windowState?.isMaximized && (
         <div
           className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize"
           onMouseDown={handleResizeMouseDown}
           style={{
-            background: 'linear-gradient(135deg, transparent 50%, #666 50%)',
+            background: 'repeating-linear-gradient(45deg, #808080 0px, #808080 2px, transparent 2px, transparent 4px)',
           }}
         />
       )}

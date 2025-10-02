@@ -12,6 +12,8 @@ interface Window {
   zIndex: number
   isMaximized?: boolean
   isMinimized?: boolean
+  savedPosition?: { x: number; y: number }
+  savedSize?: { width: number; height: number }
 }
 
 interface WindowManagerContextType {
@@ -133,7 +135,12 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
   const minimizeWindow = (id: string) => {
     setWindows((prev) => prev.map((w) => {
       if (w.id === id) {
-        return { ...w, isMinimized: true }
+        return { 
+          ...w, 
+          isMinimized: true,
+          savedPosition: w.position,
+          savedSize: w.size
+        }
       }
       return w
     }))
@@ -146,12 +153,14 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
           ...w,
           isMaximized: false,
           isMinimized: false,
-          position: { x: 100, y: 100 }, // Default restore position
-          size: { width: 800, height: 500 } // Default restore size
+          position: w.savedPosition || w.position || { x: 100, y: 100 },
+          size: w.savedSize || w.size || { width: 800, height: 500 },
+          zIndex: nextZIndex
         }
       }
       return w
     }))
+    setNextZIndex((prev) => prev + 1)
   }
 
   return (

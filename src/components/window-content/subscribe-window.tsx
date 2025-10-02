@@ -46,8 +46,8 @@ export function SubscribeWindow() {
     <div className="p-6 space-y-6">
       <div className="text-center space-y-4">
         <div className="text-4xl">🔊</div>
-        <h2 className="font-pixel text-lg text-purple-600">Subscribe to VC83</h2>
-        <p className="text-sm text-gray-700 leading-relaxed">
+        <h2 className="font-pixel text-lg" style={{ color: 'var(--win95-highlight)' }}>Subscribe to VC83</h2>
+        <p className="text-sm leading-relaxed" style={{ color: 'var(--win95-text)' }}>
           Never miss an episode! Subscribe on your favorite podcast platform:
         </p>
       </div>
@@ -57,7 +57,8 @@ export function SubscribeWindow() {
           <a
             key={platform.name}
             href={platform.url}
-            className={`${platform.color} text-white p-3 rounded-none border-2 border-gray-500 hover:border-gray-400 transition-colors flex items-center gap-3 text-sm font-pixel`}
+            className={`${platform.color} text-white p-3 rounded-none border-2 transition-colors flex items-center gap-3 text-sm font-pixel`}
+            style={{ borderColor: 'var(--win95-border)' }}
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -67,14 +68,14 @@ export function SubscribeWindow() {
         ))}
       </div>
 
-      <div className="border-t-2 border-gray-300 dark:border-gray-600 pt-4 space-y-3">
-        <h3 className="font-pixel text-sm text-purple-600">RSS Feed</h3>
+      <div className="border-t-2 pt-4 space-y-3" style={{ borderColor: 'var(--win95-border)' }}>
+        <h3 className="font-pixel text-sm" style={{ color: 'var(--win95-highlight)' }}>RSS Feed</h3>
         <div className="flex gap-2">
           <input
             type="text"
             value="https://vc83.com/feed.xml"
             readOnly
-            className="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border-2 border-gray-400 text-sm font-mono"
+            className="flex-1 px-3 py-2 border-2 text-sm font-mono retro-input"
           />
           <RetroButton size="sm" onClick={() => navigator.clipboard.writeText("https://vc83.com/feed.xml")}>
             COPY
@@ -83,7 +84,7 @@ export function SubscribeWindow() {
       </div>
 
       <div className="text-center">
-        <p className="text-xs text-gray-600">🎧 Available on all major podcast platforms</p>
+        <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>🎧 Available on all major podcast platforms</p>
       </div>
     </div>
   )

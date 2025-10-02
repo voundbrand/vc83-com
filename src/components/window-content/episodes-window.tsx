@@ -1,55 +1,62 @@
-import { EpisodeCard } from "@/components/episode-card"
+"use client";
+
+import { useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import { Doc } from "../../../convex/_generated/dataModel";
+import { EpisodeCard } from "@/components/episode-card";
 
 export function EpisodesWindow() {
+  // Guest access enabled - no auth required for published episodes
+  const episodes = useQuery(api.app_podcasting.getEpisodes, {});
+
+  if (episodes === undefined) {
+    return (
+      <div className="flex flex-col h-full items-center justify-center">
+        <div className="animate-pulse" style={{ color: 'var(--win95-text)' }}>Loading episodes...</div>
+      </div>
+    );
+  }
+
+  if (episodes.length === 0) {
+    return (
+      <div className="flex flex-col h-full">
+        <div className="text-center mb-4 flex-shrink-0">
+          <h2 className="font-pixel text-lg" style={{ color: 'var(--win95-text)' }}>EPISODE ARCHIVE</h2>
+        </div>
+        <div className="flex-1 overflow-y-auto px-2 pb-2 flex items-center justify-center">
+          <div className="text-center">
+            <p className="mb-2">No episodes available yet.</p>
+            <p className="text-sm">Check back soon for our first episode!</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full">
       <div className="text-center mb-4 flex-shrink-0">
-        <h2 className="font-pixel text-lg text-purple-600">EPISODE ARCHIVE</h2>
+        <h2 className="font-pixel text-lg" style={{ color: 'var(--win95-text)' }}>EPISODE ARCHIVE</h2>
+        <p className="text-xs mt-1">{episodes.length} episode{episodes.length !== 1 ? 's' : ''} available</p>
       </div>
       <div className="flex-1 overflow-y-auto px-2 pb-2">
         <div className="grid md:grid-cols-2 gap-4 min-w-[650px]">
-        <EpisodeCard
-          title="Ep. 1: Legal Landmines Every Startup Can Dodge"
-          description="My zero-knowledge sprint through startup legal pitfalls—cap tables, contracts, MV fixes."
-          date="OCT 2025"
-        />
-        <EpisodeCard
-          title="Ep. 2: Biotech Boom in the Baltic"
-          description="Why Mecklenburg-Vorpommern is becoming Germany's unexpected biotech hub."
-          date="NOV 2025"
-        />
-        <EpisodeCard
-          title="Ep. 3: From Rostock to Unicorn"
-          description="Tracking the journey of MV's most promising SaaS startups and their funding rounds."
-          date="DEC 2025"
-        />
-        <EpisodeCard
-          title="Ep. 4: Angel Networks in the East"
-          description="Building investor relationships from Berlin to the Baltic Sea."
-          date="JAN 2026"
-        />
-        <EpisodeCard
-          title="Ep. 5: Maritime Tech Revolution"
-          description="How MV's shipping heritage is driving innovation in maritime technology."
-          date="FEB 2026"
-        />
-        <EpisodeCard
-          title="Ep. 6: Green Energy Gold Rush"
-          description="Offshore wind investments and the renewable energy startup ecosystem."
-          date="MAR 2026"
-        />
-        <EpisodeCard
-          title="Ep. 7: The Tourism Tech Frontier"
-          description="Digital transformation in MV's tourism sector - from booking to blockchain."
-          date="APR 2026"
-        />
-        <EpisodeCard
-          title="Ep. 8: University Spinoffs"
-          description="How Rostock and Greifswald universities are breeding grounds for startups."
-          date="MAY 2026"
-        />
+          {episodes.map((episode: Doc<"app_podcasting">) => (
+            <EpisodeCard
+              key={episode._id}
+              title={`Ep. ${episode.episodeNumber}: ${episode.title}`}
+              description={episode.description}
+              date={new Date(episode.publishDate).toLocaleDateString("en-US", {
+                month: "short",
+                year: "numeric",
+              }).toUpperCase()}
+              audioUrl={episode.audioUrl}
+              embedUrl={episode.embedUrl}
+              duration={episode.duration}
+            />
+          ))}
         </div>
       </div>
     </div>
-  )
+  );
 }

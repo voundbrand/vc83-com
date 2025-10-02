@@ -1,15 +1,74 @@
 @import "tailwindcss";
 
 :root {
-  --background: #1A1A1A;
-  --foreground: #E0E0E0;
-  --retro-purple: #8B5CF6;
-  --retro-purple-light: #A78BFA;
-  --retro-purple-dark: #7C3AED;
-  --retro-bg: #1A1A1A;
-  --retro-window-bg: #F0F0F0;
-  --retro-text: #2A2A2A;
-  --retro-border: #C0C0C0;
+  /* Desktop background - Windows 95 Classic Teal */
+  --background: #008080;
+  --foreground: #1f2937;
+
+  /* Win95 Colors - Lighter Gray */
+  --win95-bg: #f0f0f0;
+  --win95-bg-light: #ffffff;
+  --win95-border: #d0d0d0;
+  --win95-border-light: #e8e8e8;
+  --win95-text: #1f2937; /* gray-800 */
+  --win95-highlight: #000080;
+
+  /* Hover States */
+  --win95-hover-bg: #000080; /* Windows 95 menu hover blue */
+  --win95-hover-text: #ffffff; /* White text on hover */
+  --win95-hover-light: #e8e8e8; /* Subtle hover for buttons */
+
+  /* Active/Selected States */
+  --win95-selected-bg: #000080;
+  --win95-selected-text: #ffffff;
+  --win95-active-border: #000000;
+
+  /* Button States */
+  --win95-button-face: #c0c0c0; /* Classic Windows button gray */
+  --win95-button-light: #ffffff; /* Button highlight edge */
+  --win95-button-dark: #808080; /* Button shadow edge */
+  --win95-button-darkest: #000000; /* Button deep shadow */
+  --win95-button-hover: #d0d0d0; /* Button hover state */
+
+  /* Titlebar & Window Elements */
+  --win95-titlebar: linear-gradient(180deg, #000080 0%, #1084d0 100%);
+  --win95-titlebar-inactive: linear-gradient(180deg, #808080 0%, #a0a0a0 100%);
+  --win95-titlebar-text: #ffffff;
+  --win95-window-icon-bg: #c0c0c0;
+  --win95-window-icon-border: #808080;
+
+  /* Input & Form Elements */
+  --win95-input-bg: #ffffff;
+  --win95-input-text: #000000;
+  --win95-input-border-dark: #808080;
+  --win95-input-border-light: #ffffff;
+  --win95-input-placeholder: #808080;
+  --win95-input-focus-outline: #000080;
+
+  /* Scrollbar */
+  --win95-scrollbar-track: #c0c0c0;
+  --win95-scrollbar-thumb: #808080;
+  --win95-scrollbar-button: #c0c0c0;
+
+  /* Desktop Elements */
+  --desktop-icon-text: #ffffff;
+  --desktop-icon-hover-bg: rgba(255, 255, 255, 0.1);
+  --desktop-icon-active-bg: rgba(0, 0, 128, 0.3);
+  --desktop-grid-overlay: rgba(255, 255, 255, 0.1);
+
+  /* Audio Player (Retro Terminal Style) */
+  --audio-player-bg: #000000;
+  --audio-player-text: #00ff00; /* Green terminal text */
+  --audio-player-track-bg: #1a1a1a;
+  --audio-player-progress: #00ff00;
+
+  /* Semantic Colors */
+  --neutral-gray: #6b7280;
+  --error: #ef4444;
+  --success: #10b981;
+
+  /* Shadow */
+  --win95-shadow: 2px 2px 0 rgba(0, 0, 0, 0.25);
 }
 
 @theme inline {
@@ -20,27 +79,100 @@
 }
 
 .dark {
-  --background: #0A0A0A;
-  --foreground: #E0E0E0;
-  --retro-window-bg: #2A2A2A;
-  --retro-text: #E0E0E0;
-  --retro-border: #404040;
+  --background: #2d2d2d;
+  --foreground: #e0e0e0;
+  --win95-bg: #3d3d3d;
+  --win95-bg-light: #4d4d4d;
+  --win95-border: #1d1d1d;
+  --win95-border-light: #5d5d5d;
+  --win95-text: #e0e0e0;
+  --win95-highlight: #4169e1;
+
+  /* Hover States - Dark Mode */
+  --win95-hover-bg: #4169e1;
+  --win95-hover-text: #ffffff;
+  --win95-hover-light: #4d4d4d;
+
+  /* Active/Selected States - Dark Mode */
+  --win95-selected-bg: #4169e1;
+  --win95-selected-text: #ffffff;
+  --win95-active-border: #5d5d5d;
+
+  /* Button States - Dark Mode */
+  --win95-button-face: #3d3d3d;
+  --win95-button-light: #5d5d5d;
+  --win95-button-dark: #2d2d2d;
+  --win95-button-darkest: #1d1d1d;
+  --win95-button-hover: #4d4d4d;
+
+  /* Titlebar & Window Elements - Dark Mode */
+  --win95-titlebar: linear-gradient(180deg, #4169e1 0%, #3159d1 100%);
+  --win95-titlebar-inactive: linear-gradient(180deg, #3d3d3d 0%, #2d2d2d 100%);
+  --win95-titlebar-text: #ffffff;
+  --win95-window-icon-bg: #4d4d4d;
+  --win95-window-icon-border: #2d2d2d;
+
+  /* Input & Form Elements - Dark Mode */
+  --win95-input-bg: #2d2d2d;
+  --win95-input-text: #e0e0e0;
+  --win95-input-border-dark: #1d1d1d;
+  --win95-input-border-light: #5d5d5d;
+  --win95-input-placeholder: #808080;
+  --win95-input-focus-outline: #4169e1;
+
+  /* Scrollbar - Dark Mode */
+  --win95-scrollbar-track: #2d2d2d;
+  --win95-scrollbar-thumb: #5d5d5d;
+  --win95-scrollbar-button: #3d3d3d;
+
+  /* Desktop Elements - Dark Mode */
+  --desktop-icon-text: #e0e0e0;
+  --desktop-icon-hover-bg: rgba(255, 255, 255, 0.1);
+  --desktop-icon-active-bg: rgba(65, 105, 225, 0.3);
+  --desktop-grid-overlay: rgba(255, 255, 255, 0.05);
+
+  /* Audio Player (Retro Terminal Style) - Dark Mode */
+  --audio-player-bg: #000000;
+  --audio-player-text: #00ff00;
+  --audio-player-track-bg: #1a1a1a;
+  --audio-player-progress: #00ff00;
+}
+
+/* Window Style Classes - Mac vs Windows */
+[data-window-style="mac"] .window-corners {
+  border-radius: 8px;
+}
+
+[data-window-style="mac"] .window-titlebar-corners {
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+}
+
+[data-window-style="windows"] .window-corners {
+  border-radius: 0px;
+}
+
+[data-window-style="windows"] .window-titlebar-corners {
+  border-top-left-radius: 0px;
+  border-top-right-radius: 0px;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 0.875rem;
+  line-height: 1.5;
 }
 
-/* Retro-specific styles */
+/* Retro Windows 95 Components */
 @layer utilities {
+  /* Typography */
   .font-pixel {
-    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-    font-size: 11px;
-    line-height: 1.4;
-    letter-spacing: 0px;
-    font-weight: 500;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    font-weight: 400;
   }
   
   .font-pixel-retro {
@@ -50,72 +182,211 @@ body {
     letter-spacing: 0px;
   }
 
+  /* Retro Window Styling */
   .retro-window {
-    background: linear-gradient(135deg, #f0f0f0 0%, #d0d0d0 100%);
-    border: 2px outset #c0c0c0;
-    box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-    color: #2a2a2a;
+    background: linear-gradient(135deg, var(--win95-bg-light) 0%, var(--win95-bg) 100%);
+    border: 2px solid;
+    border-color: var(--win95-button-light) var(--win95-button-dark) var(--win95-button-dark) var(--win95-button-light);
+    box-shadow: var(--win95-shadow);
+    color: var(--win95-text);
+    /* border-radius controlled via inline styles based on window style context */
   }
 
   .retro-window-dark {
-    background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
-    border: 2px outset #404040;
-    box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-    color: #e0e0e0;
+    background: linear-gradient(135deg, var(--win95-bg-light) 0%, var(--win95-bg) 100%);
+    border: 2px solid;
+    border-color: var(--win95-border-light) var(--win95-border) var(--win95-border) var(--win95-border-light);
+    box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.5);
+    color: var(--win95-text);
+    /* border-radius controlled via inline styles based on window style context */
   }
 
+  /* Title Bar */
+  .retro-titlebar {
+    background: var(--win95-titlebar);
+    border: none;
+    padding: 2px 3px;
+    color: var(--win95-titlebar-text);
+    font-weight: 600;
+    font-size: 0.875rem;
+    /* border-radius controlled via inline styles based on window style context */
+  }
+
+  .retro-titlebar-inactive {
+    background: var(--win95-titlebar-inactive);
+  }
+
+  /* Buttons */
   .retro-button {
-    border: 2px solid #808080;
-    background: linear-gradient(to bottom, #ffffff 0%, #dfdfdf 100%);
-    box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.25), inset 1px 1px 0 rgba(255, 255, 255, 0.5);
-    transition: all 0.1s ease;
-    color: #000000;
+    border: 2px solid;
+    border-color: var(--win95-button-light) var(--win95-button-dark) var(--win95-button-dark) var(--win95-button-light);
+    background: var(--win95-bg);
+    box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.25);
+    transition: all 0.15s ease;
+    color: var(--win95-text);
+    padding: 4px 12px;
+    font-weight: 600;
+    font-size: 0.875rem;
+    border-radius: 0px;
   }
 
   .retro-button:hover {
-    background: linear-gradient(to bottom, #f0f0f0 0%, #d0d0d0 100%);
+    background: var(--win95-hover-light);
+    transform: translateY(-1px);
   }
 
   .retro-button:active {
-    border: 2px solid #606060;
-    background: linear-gradient(to bottom, #dfdfdf 0%, #f0f0f0 100%);
-    box-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.25), 1px 1px 0 rgba(255, 255, 255, 0.5);
+    border-color: var(--win95-button-dark) var(--win95-button-light) var(--win95-button-light) var(--win95-button-dark);
+    box-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.25);
+    transform: translateY(0);
   }
 
-  .crt-scanlines {
+  .retro-button-primary {
+    background: var(--win95-highlight);
+    color: var(--win95-titlebar-text);
+    border-color: var(--win95-highlight) var(--win95-active-border) var(--win95-active-border) var(--win95-highlight);
+  }
+
+  .retro-button-primary:hover {
+    background: var(--win95-selected-bg);
+  }
+
+  .retro-button-primary:active {
+    border-color: var(--win95-active-border) var(--win95-highlight) var(--win95-highlight) var(--win95-active-border);
+  }
+
+  /* Form Inputs */
+  .retro-input {
+    border: 2px solid;
+    border-color: var(--win95-input-border-dark) var(--win95-input-border-light) var(--win95-input-border-light) var(--win95-input-border-dark);
+    background: var(--win95-input-bg);
+    padding: 4px 6px;
+    font-size: 0.875rem;
+    color: var(--win95-input-text);
+  }
+
+  .retro-input:focus {
+    outline: 1px solid var(--win95-input-focus-outline);
+    outline-offset: -2px;
+  }
+
+  .retro-input::placeholder {
+    color: var(--win95-input-placeholder);
+  }
+
+  /* Window Control Buttons - Base Styles */
+  .retro-control-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.15s ease;
     position: relative;
+    flex-shrink: 0;
   }
 
-  .crt-scanlines::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 2px,
-      rgba(0, 0, 0, 0.03) 2px,
-      rgba(0, 0, 0, 0.03) 4px
-    );
-    pointer-events: none;
-    z-index: 1;
+  /* Mac OS X Style - Colored Circles */
+  [data-window-style="mac"] .retro-control-button {
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    border: 0.5px solid rgba(0, 0, 0, 0.2);
+    font-size: 0;
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.5), 0 1px 2px rgba(0, 0, 0, 0.25);
   }
 
+  /* Mac - Green button (Maximize) */
+  [data-window-style="mac"] .retro-control-button:first-child {
+    background: linear-gradient(135deg, #00ca56 0%, #00a846 100%);
+  }
+
+  [data-window-style="mac"] .retro-control-button:first-child:hover {
+    background: linear-gradient(135deg, #10da66 0%, #10b856 100%);
+    font-size: 9px;
+    color: #005a28;
+  }
+
+  /* Mac - Yellow button (Minimize) */
+  [data-window-style="mac"] .retro-control-button:nth-child(2) {
+    background: linear-gradient(135deg, #ffbd2e 0%, #ffaa00 100%);
+  }
+
+  [data-window-style="mac"] .retro-control-button:nth-child(2):hover {
+    background: linear-gradient(135deg, #ffcd3e 0%, #ffba10 100%);
+    font-size: 9px;
+    color: #8b5a00;
+  }
+
+  /* Mac - Red button (Close) */
+  [data-window-style="mac"] .retro-control-button:nth-child(3) {
+    background: linear-gradient(135deg, #ff5f56 0%, #ff3b30 100%);
+  }
+
+  [data-window-style="mac"] .retro-control-button:nth-child(3):hover {
+    background: linear-gradient(135deg, #ff6966 0%, #ff4b40 100%);
+    font-size: 9px;
+    color: #5a0000;
+  }
+
+  /* Windows 95 Style - Square Buttons with Icons */
+  [data-window-style="windows"] .retro-control-button {
+    width: 16px;
+    height: 14px;
+    border: 1px solid;
+    border-color: var(--win95-button-light) var(--win95-button-darkest) var(--win95-button-darkest) var(--win95-button-light);
+    background: var(--win95-button-face);
+    border-radius: 0;
+    font-size: 10px;
+    color: var(--win95-text);
+    box-shadow: inset 1px 1px 0 var(--win95-bg-light), inset -1px -1px 0 var(--win95-button-dark);
+  }
+
+  [data-window-style="windows"] .retro-control-button:hover {
+    background: var(--win95-button-hover);
+  }
+
+  [data-window-style="windows"] .retro-control-button:active {
+    border-color: var(--win95-button-darkest) var(--win95-button-light) var(--win95-button-light) var(--win95-button-darkest);
+    box-shadow: inset -1px -1px 0 var(--win95-bg-light), inset 1px 1px 0 var(--win95-button-dark);
+    padding-top: 1px;
+    padding-left: 1px;
+  }
+
+  .retro-control-button:active {
+    transform: scale(0.9);
+  }
+
+  /* Panel/Group Box */
+  .retro-panel {
+    border: 2px solid;
+    border-color: var(--win95-input-border-dark) var(--win95-input-border-light) var(--win95-input-border-light) var(--win95-input-border-dark);
+    background: var(--win95-bg);
+    padding: 8px;
+    border-radius: 0px;
+  }
+
+  /* Desktop Icon */
   .desktop-icon {
-    @apply flex flex-col items-center justify-center p-2 rounded cursor-pointer hover:bg-white/10 transition-colors;
+    @apply flex flex-col items-center justify-center p-2 cursor-pointer;
     min-width: 80px;
     min-height: 80px;
+    color: var(--desktop-icon-text);
+    text-align: center;
   }
 
   .desktop-icon:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--desktop-icon-hover-bg);
   }
 
   .desktop-icon:active {
-    background: rgba(107, 70, 193, 0.3);
+    background: var(--desktop-icon-active-bg);
+  }
+
+  /* Menu Hover State */
+  .hover-menu-item:hover {
+    background: var(--win95-hover-bg) !important;
+    color: var(--win95-hover-text) !important;
   }
   
   /* Window dragging styles */
@@ -139,138 +410,49 @@ body {
   
   /* Window shadow effect when dragging */
   .window-drag-shadow {
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    box-shadow: 4px 4px 8px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Scrollbar (Windows 95 style) */
+  .retro-scrollbar::-webkit-scrollbar {
+    width: 16px;
+  }
+
+  .retro-scrollbar::-webkit-scrollbar-track {
+    background: var(--win95-scrollbar-track);
+  }
+
+  .retro-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--win95-scrollbar-thumb);
+    border: 2px solid;
+    border-color: var(--win95-button-light) var(--win95-button-darkest) var(--win95-button-darkest) var(--win95-button-light);
+  }
+
+  .retro-scrollbar::-webkit-scrollbar-button {
+    background: var(--win95-scrollbar-button);
+    border: 2px solid;
+    border-color: var(--win95-button-light) var(--win95-button-darkest) var(--win95-button-darkest) var(--win95-button-light);
+    height: 16px;
   }
 }
 
 /* Mobile-specific styles */
 @media (max-width: 767px) {
-  /* Disable CRT effects on mobile for performance */
-  .crt-scanlines::before {
-    display: none;
-  }
-
-  /* Ensure proper touch target sizes */
-  button, a, .desktop-icon {
-    min-height: 44px;
-    min-width: 44px;
-  }
-
-  /* Full-screen windows on mobile */
-  .floating-window {
-    position: fixed !important;
-    left: 0 !important;
-    top: 0 !important;
-    width: 100vw !important;
-    height: 100vh !important;
-    transform: none !important;
-    border-radius: 0 !important;
-    z-index: 1000 !important;
-  }
-
-  /* Hide desktop-only elements */
-  .desktop-only {
-    display: none !important;
-  }
-
-  /* Show mobile-only elements */
-  .mobile-only {
-    display: block !important;
-  }
-
-  /* Adjust START menu for mobile */
-  .start-menu-mobile {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    width: 100%;
-    z-index: 1100;
+  .retro-window {
     border-radius: 0;
   }
-
-  /* Mobile window title bar adjustments */
-  .window-title-bar {
-    height: 48px;
-    font-size: 14px;
-    padding: 0 12px;
-  }
-
-  /* Disable window dragging on mobile */
-  .window-draggable {
-    cursor: default !important;
-  }
-
-  /* Mobile button styles */
-  .retro-button {
-    padding: 12px 16px;
-    font-size: 14px;
-    min-height: 44px;
-  }
-
-  /* Ensure proper spacing for touch */
-  .mobile-spacing > * + * {
-    margin-top: 12px;
-  }
-
-  /* Mobile text optimization */
-  .font-pixel {
-    font-size: 13px;
-    line-height: 1.5;
-  }
-
-  .font-pixel-retro {
-    font-size: 11px;
-    line-height: 1.3;
-  }
-
-  /* Mobile desktop icon grid */
-  .desktop-grid-mobile {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-    padding: 8px;
-  }
-
-  /* Smaller desktop icons on mobile */
+  
   .desktop-icon {
-    min-width: 60px;
-    min-height: 60px;
-    padding: 8px 4px;
-  }
-
-  .desktop-icon svg {
-    width: 28px;
-    height: 28px;
-  }
-
-  .desktop-icon span {
-    font-size: 10px;
-    margin-top: 4px;
-  }
-
-  /* Mobile window content padding */
-  .window-content-mobile {
-    padding: 16px;
-    height: calc(100vh - 48px - 60px); /* Account for title bar and START menu */
-    overflow-y: auto;
-  }
-
-  /* Disable hover effects on touch devices */
-  @media (hover: none) {
-    .desktop-icon:hover {
-      background: transparent;
-    }
-
-    .retro-button:hover {
-      background: linear-gradient(to bottom, #ffffff 0%, #dfdfdf 100%);
-    }
+    min-width: 64px;
+    min-height: 64px;
   }
 }
 
-/* Desktop-only utilities */
-@media (min-width: 768px) {
-  .mobile-only {
-    display: none !important;
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

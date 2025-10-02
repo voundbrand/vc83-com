@@ -18,9 +18,9 @@ export function MobilePanel({ windowType, title, children, className = "" }: Mob
   };
 
   return (
-    <div className="fixed inset-0 bg-background z-50 flex flex-col">
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'var(--background)' }}>
       {/* Mobile Title Bar */}
-      <div className="flex items-center justify-between bg-gradient-to-r from-purple-600 to-purple-700 text-white px-4 h-12">
+      <div className="flex items-center justify-between px-4 h-12" style={{ background: 'var(--win95-titlebar)', color: 'var(--win95-titlebar-text)' }}>
         <h2 className="font-pixel-retro text-sm">{title}</h2>
         <button
           onClick={handleClose}
@@ -32,7 +32,7 @@ export function MobilePanel({ windowType, title, children, className = "" }: Mob
       </div>
 
       {/* Mobile Content */}
-      <div className={`flex-1 overflow-y-auto bg-white dark:bg-gray-900 ${className}`}>
+      <div className={`flex-1 overflow-y-auto ${className}`} style={{ background: 'var(--win95-bg)', color: 'var(--win95-text)' }}>
         {children}
       </div>
     </div>

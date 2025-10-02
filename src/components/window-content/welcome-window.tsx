@@ -1,36 +1,93 @@
-"use client"
+"use client";
 
-import { RetroButton } from "@/components/retro-button"
+import { useWindowManager } from "@/hooks/use-window-manager";
+import { RetroButton } from "@/components/retro-button";
 
+/**
+ * Welcome Window - First impression for non-logged-in visitors
+ * 
+ * This is NOT an app - it's an engaging landing experience that appears
+ * as a moveable window. Explains the Layer Cake concept and provides 
+ * clear CTAs to sign in/up.
+ */
 export function WelcomeWindow() {
+  const { openWindow, closeWindow } = useWindowManager();
+
+  const handleSignIn = () => {
+    // Import dynamically to avoid circular dependency
+    import("@/components/window-content/login-window").then(({ LoginWindow }) => {
+      closeWindow("welcome");
+      openWindow(
+        "login", 
+        "Sign In", 
+        <LoginWindow />, 
+        { x: 250, y: 150 }, 
+        { width: 500, height: 550 }
+      );
+    });
+  };
+
+  const handleSignUp = () => {
+    // Import dynamically to avoid circular dependency
+    import("@/components/window-content/register-window").then(({ RegisterWindow }) => {
+      closeWindow("welcome");
+      openWindow(
+        "register", 
+        "Create Account", 
+        <RegisterWindow />, 
+        { x: 200, y: 100 }, 
+        { width: 600, height: 650 }
+      );
+    });
+  };
+
   return (
-    <div className="text-center space-y-6 min-w-[600px]">
-      <div className="bg-gradient-to-b from-purple-600 to-black p-8 rounded-none -m-4 mb-4">
-        <h1 className="font-pixel text-lg text-white mb-4 leading-relaxed">
-          VC83: Born in '83, Betting Big on Mecklenburg-Vorpommern's Startup Gems
+    <div className="p-6 space-y-4 h-full overflow-y-auto" style={{ background: 'var(--win95-bg)' }}>
+      <div className="text-center mb-2">
+        <h1 className="text-3xl font-bold mb-2 font-['Press_Start_2P']" style={{ color: 'var(--win95-text)' }}>
+          🍰 L4YERCAK3
         </h1>
-        <p className="text-white text-sm leading-relaxed max-w-2xl mx-auto">
-          Raw VC truths from zero to fund one—interviews and underdog plays for Eastern Germany's rising
-          scene.
+        <p className="text-base italic leading-relaxed" style={{ color: 'var(--win95-text)' }}>
+          Stack Your Startup Tools Like a Pro
         </p>
       </div>
 
-      <div className="flex justify-center gap-4 flex-wrap">
-        <RetroButton size="lg">🎧 LISTEN TO EP. 1</RetroButton>
-        <RetroButton size="lg" variant="outline">
-          📻 SUBSCRIBE ON SPOTIFY
+      <div className="space-y-3 text-sm leading-relaxed border-2 p-4 shadow-inner" style={{
+        color: 'var(--win95-text)',
+        background: 'var(--win95-bg-light)',
+        borderColor: 'var(--win95-border)'
+      }}>
+        <p>
+          Imagine a retro desktop where you layer on marketing superpowers: invoicing that syncs with your CRM, analytics that visualize your funnels, scheduling that automates your workflows—all in one cozy workspace.
+        </p>
+        <p>
+          No more tab-juggling chaos. Just you, your tools, and that satisfying click of a floppy disk saving your next big idea.
+        </p>
+        <p className="text-center font-semibold pt-2 border-t" style={{
+          color: 'var(--win95-text)',
+          borderColor: 'var(--win95-border)'
+        }}>
+          Ready to layer up? Sign in to your workspace or create a free account to get started.
+        </p>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 justify-center pt-4">
+        <RetroButton variant="secondary" onClick={handleSignIn}>
+          Sign In
+        </RetroButton>
+        <RetroButton onClick={handleSignUp}>
+          Sign Up (Free)
         </RetroButton>
       </div>
 
-      <div className="flex items-center justify-center gap-6 pt-4">
-        <div className="w-24 h-24 bg-gray-300 border-4 border-gray-500 flex items-center justify-center">
-          <span className="font-pixel text-gray-700">HOST</span>
-        </div>
-        <div className="text-left">
-          <h3 className="font-pixel text-sm text-purple-600 mb-1">[Your Name]</h3>
-          <p className="text-gray-700 text-sm">Rostock Hustler Decoding VC</p>
-        </div>
+      {/* Footer Tease */}
+      <div className="text-xs text-center border-t-2 pt-3 mt-4" style={{
+        color: 'var(--neutral-gray)',
+        borderColor: 'var(--win95-border)'
+      }}>
+        Built for startups • Inspired by the &apos;90s • Powered by L4YERCAK3
       </div>
     </div>
-  )
+  );
 }
