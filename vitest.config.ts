@@ -4,8 +4,14 @@ export default defineConfig({
   test: {
     environment: "node",
     globals: true,
-    include: ["convex/tests/**/*.test.ts"],
+    include: ["tests/**/*.test.ts"],
     exclude: [".kiro/**/*"],
+    env: {
+      // Load test environment variables
+      ...process.env,
+      // Use your verified email for Resend test mode
+      TEST_EMAIL: "itsmetherealremington@gmail.com",
+    },
   },
   resolve: {
     conditions: ["import", "module", "browser", "default"],

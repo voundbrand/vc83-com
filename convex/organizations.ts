@@ -1,16 +1,16 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, QueryCtx, MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
-import { Id } from "./_generated/dataModel";
+import { Id, Doc } from "./_generated/dataModel";
 
 // Helper to check if user is a member of an organization
 async function checkOrgMembership(
-  ctx: any,
+  ctx: QueryCtx | MutationCtx,
   userId: Id<"users">,
   organizationId: Id<"organizations">
 ) {
   const membership = await ctx.db
     .query("organizationMembers")
-    .withIndex("by_user_and_org", (q: any) =>
+    .withIndex("by_user_and_org", (q) =>
       q.eq("userId", userId).eq("organizationId", organizationId)
     )
     .first();
@@ -319,7 +319,7 @@ export const updateOrganization = mutation({
     }
 
     // Build update object
-    const updates: any = {
+    const updates: Partial<Doc<"organizations">> = {
       updatedAt: Date.now(),
     };
 

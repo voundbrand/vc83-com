@@ -7,8 +7,10 @@ import { getCurrentContext, createAuditLog, requireOrgMembership } from "./helpe
 type OrgIdArg = { orgId: ReturnType<typeof v.id<"organizations">> };
 
 // Middleware to ensure all queries include organization context
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function orgScopedQuery<Args extends Record<string, any>>(
   args: Args & OrgIdArg,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   handler: (ctx: any, args: Args & { orgId: Id<"organizations"> }) => Promise<any>
 ) {
   return query({
@@ -27,8 +29,10 @@ export function orgScopedQuery<Args extends Record<string, any>>(
 }
 
 // Middleware for mutations that require organization context
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function orgScopedMutation<Args extends Record<string, any>>(
   args: Args & OrgIdArg,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   handler: (ctx: any, args: Args & { orgId: Id<"organizations"> }) => Promise<any>,
   options: {
     minRole?: "owner" | "admin" | "member" | "viewer";
@@ -130,21 +134,23 @@ export const validators = {
 
 // Rate limiting helper (database-backed for production reliability)
 export async function checkRateLimit(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ctx: any,
   key: string,
   maxRequests: number = 10,
   windowMs: number = 60000 // 1 minute
 ): Promise<boolean> {
   const now = Date.now();
-  
+
   const existing = await ctx.db
     .query("rateLimits")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .withIndex("by_key", (q: any) => q.eq("key", key))
     .first();
   
   if (existing && existing.expiresAt < now) {
     await ctx.db.delete(existing._id);
-    const newRecord = await ctx.db.insert("rateLimits", {
+    await ctx.db.insert("rateLimits", {
       key,
       count: 1,
       windowStart: now,
@@ -231,8 +237,8 @@ export const getRemainingInvitations = query({
     
     const pendingInvites = await ctx.db
       .query("invitations")
-      .withIndex("by_organization", (q: any) => q.eq("organizationId", args.orgId))
-      .filter((q: any) => q.eq(q.field("status"), "pending"))
+      .withIndex("by_organization", (q) => q.eq("organizationId", args.orgId))
+      .filter((q) => q.eq(q.field("status"), "pending"))
       .collect();
     
     const limits: Record<string, number> = {

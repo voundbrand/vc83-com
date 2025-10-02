@@ -1,12 +1,12 @@
 import { convexTest } from "convex-test";
 import { describe, test, expect } from "vitest";
-import { api } from "../_generated/api";
-import schema from "../schema";
+import { api } from "../convex/_generated/api";
+import schema from "../convex/schema";
 import { setupTestOrgs } from "./helpers";
 
 describe("Episode (Shared-Content) Data Isolation", () => {
   test("Only VC83 creators can create episodes", async () => {
-    const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+    const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
     const { userAId } = await setupTestOrgs(t);
 
     const asUserA = t.withIdentity({ subject: "usera@test.com", tokenIdentifier: `user|${userAId}`, email: "usera@test.com" });
@@ -23,7 +23,7 @@ describe("Episode (Shared-Content) Data Isolation", () => {
   });
 
   test("VC83 creators can create episodes", async () => {
-    const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+    const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
     const { vc83CreatorId } = await setupTestOrgs(t);
 
     const asCreator = t.withIdentity({ subject: "creator@vc83.com", tokenIdentifier: `user|${vc83CreatorId}`, email: "creator@vc83.com" });
@@ -40,7 +40,7 @@ describe("Episode (Shared-Content) Data Isolation", () => {
   });
 
   test("Guests can read published episodes", async () => {
-    const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+    const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
     const { vc83OrgId, vc83CreatorId } = await setupTestOrgs(t);
 
     await t.run(async (ctx) => {
@@ -68,7 +68,7 @@ describe("Episode (Shared-Content) Data Isolation", () => {
   });
 
   test("Guests cannot read draft episodes", async () => {
-    const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+    const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
     const { vc83OrgId, vc83CreatorId } = await setupTestOrgs(t);
 
     await t.run(async (ctx) => {
@@ -95,7 +95,7 @@ describe("Episode (Shared-Content) Data Isolation", () => {
   });
 
   test("VC83 creators can read draft episodes", async () => {
-    const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+    const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
     const { vc83OrgId, vc83CreatorId } = await setupTestOrgs(t);
 
     await t.run(async (ctx) => {
@@ -124,7 +124,7 @@ describe("Episode (Shared-Content) Data Isolation", () => {
   });
 
   test("Non-VC83 users cannot read draft episodes", async () => {
-    const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+    const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
     const { vc83OrgId, vc83CreatorId, userAId } = await setupTestOrgs(t);
 
     await t.run(async (ctx) => {
@@ -152,7 +152,7 @@ describe("Episode (Shared-Content) Data Isolation", () => {
   });
 
   test("Non-VC83 users cannot update episodes", async () => {
-    const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+    const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
     const { vc83OrgId, vc83CreatorId, userAId } = await setupTestOrgs(t);
 
     const episodeId = await t.run(async (ctx) => {
@@ -184,7 +184,7 @@ describe("Episode (Shared-Content) Data Isolation", () => {
   });
 
   test("Non-VC83 users cannot delete episodes", async () => {
-    const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+    const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
     const { vc83OrgId, vc83CreatorId, userAId } = await setupTestOrgs(t);
 
     const episodeId = await t.run(async (ctx) => {
@@ -215,7 +215,7 @@ describe("Episode (Shared-Content) Data Isolation", () => {
   });
 
   test("Audit logs are created for episode mutations", async () => {
-    const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+    const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
     const { vc83OrgId, vc83CreatorId } = await setupTestOrgs(t);
 
     const asCreator = t.withIdentity({ subject: "creator@vc83.com", tokenIdentifier: `user|${vc83CreatorId}`, email: "creator@vc83.com" });

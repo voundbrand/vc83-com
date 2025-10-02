@@ -1,17 +1,17 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, QueryCtx, MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 
 // Check if user has permission in organization
 export async function checkUserPermission(
-  ctx: any,
+  ctx: QueryCtx | MutationCtx,
   userId: Id<"users">,
   organizationId: Id<"organizations">,
   requiredRole: "owner" | "admin" | "member" | "viewer"
 ): Promise<boolean> {
   const membership = await ctx.db
     .query("organizationMembers")
-    .withIndex("by_user_and_org", (q: any) =>
+    .withIndex("by_user_and_org", (q) =>
       q.eq("userId", userId).eq("organizationId", organizationId)
     )
     .first();
@@ -97,7 +97,7 @@ export const inviteToOrganization = mutation({
       // Check if already a member
       const existingMembership = await ctx.db
         .query("organizationMembers")
-        .withIndex("by_user_and_org", (q: any) =>
+        .withIndex("by_user_and_org", (q) =>
           q.eq("userId", existingUser._id).eq("organizationId", args.organizationId)
         )
         .first();
@@ -182,7 +182,7 @@ export const acceptInvitation = mutation({
     // Check if already a member
     const existingMembership = await ctx.db
       .query("organizationMembers")
-      .withIndex("by_user_and_org", (q: any) =>
+      .withIndex("by_user_and_org", (q) =>
         q.eq("userId", args.userId).eq("organizationId", invitation.organizationId)
       )
       .first();
@@ -264,7 +264,7 @@ export const updateMemberRole = mutation({
     // Get target membership
     const targetMembership = await ctx.db
       .query("organizationMembers")
-      .withIndex("by_user_and_org", (q: any) =>
+      .withIndex("by_user_and_org", (q) =>
         q.eq("userId", args.targetUserId).eq("organizationId", args.organizationId)
       )
       .first();
@@ -281,7 +281,7 @@ export const updateMemberRole = mutation({
     // Only owners can create other admins
     const userMembership = await ctx.db
       .query("organizationMembers")
-      .withIndex("by_user_and_org", (q: any) =>
+      .withIndex("by_user_and_org", (q) =>
         q.eq("userId", args.userId).eq("organizationId", args.organizationId)
       )
       .first();
@@ -333,7 +333,7 @@ export const removeMember = mutation({
     // Get target membership
     const targetMembership = await ctx.db
       .query("organizationMembers")
-      .withIndex("by_user_and_org", (q: any) =>
+      .withIndex("by_user_and_org", (q) =>
         q.eq("userId", args.targetUserId).eq("organizationId", args.organizationId)
       )
       .first();
@@ -350,7 +350,7 @@ export const removeMember = mutation({
     // Only owners can remove admins
     const userMembership = await ctx.db
       .query("organizationMembers")
-      .withIndex("by_user_and_org", (q: any) =>
+      .withIndex("by_user_and_org", (q) =>
         q.eq("userId", args.userId).eq("organizationId", args.organizationId)
       )
       .first();
@@ -403,7 +403,7 @@ export const leaveOrganization = mutation({
     // Get membership
     const membership = await ctx.db
       .query("organizationMembers")
-      .withIndex("by_user_and_org", (q: any) =>
+      .withIndex("by_user_and_org", (q) =>
         q.eq("userId", args.userId).eq("organizationId", args.organizationId)
       )
       .first();

@@ -10,14 +10,14 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { convexTest } from "convex-test";
-import { api } from "../_generated/api";
-import schema from "../schema";
+import { api } from "../convex/_generated/api";
+import schema from "../convex/schema";
 
 describe("Email Verification", () => {
   let t: ReturnType<typeof convexTest>;
 
   beforeEach(() => {
-    t = convexTest(schema, import.meta.glob("../**/*.ts"));
+    t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
   });
 
   it("should send verification email after signup", async () => {
@@ -36,6 +36,7 @@ describe("Email Verification", () => {
     const verifications = await t.run(async (ctx) => {
       return await ctx.db
         .query("emailVerifications")
+        // @ts-expect-error - convex-test doesn't fully support custom index types
         .withIndex("by_user", (q) => q.eq("userId", result.userId))
         .collect();
     });
@@ -59,6 +60,7 @@ describe("Email Verification", () => {
     const verification = await t.run(async (ctx) => {
       return await ctx.db
         .query("emailVerifications")
+        // @ts-expect-error - convex-test doesn't fully support custom index types
         .withIndex("by_user", (q) => q.eq("userId", signupResult.userId))
         .first();
     });
@@ -110,6 +112,7 @@ describe("Email Verification", () => {
     const verification = await t.run(async (ctx) => {
       return await ctx.db
         .query("emailVerifications")
+        // @ts-expect-error - convex-test doesn't fully support custom index types
         .withIndex("by_user", (q) => q.eq("userId", signupResult.userId))
         .first();
     });
@@ -143,6 +146,7 @@ describe("Email Verification", () => {
     const verification = await t.run(async (ctx) => {
       return await ctx.db
         .query("emailVerifications")
+        // @ts-expect-error - convex-test doesn't fully support custom index types
         .withIndex("by_user", (q) => q.eq("userId", signupResult.userId))
         .first();
     });
@@ -173,6 +177,7 @@ describe("Email Verification", () => {
     const initialVerification = await t.run(async (ctx) => {
       return await ctx.db
         .query("emailVerifications")
+        // @ts-expect-error - convex-test doesn't fully support custom index types
         .withIndex("by_user", (q) => q.eq("userId", signupResult.userId))
         .first();
     });
@@ -191,6 +196,7 @@ describe("Email Verification", () => {
     const verifications = await t.run(async (ctx) => {
       return await ctx.db
         .query("emailVerifications")
+        // @ts-expect-error - convex-test doesn't fully support custom index types
         .withIndex("by_user", (q) => q.eq("userId", signupResult.userId))
         .collect();
     });
@@ -230,6 +236,7 @@ describe("Email Verification", () => {
     const verification = await t.run(async (ctx) => {
       return await ctx.db
         .query("emailVerifications")
+        // @ts-expect-error - convex-test doesn't fully support custom index types
         .withIndex("by_user", (q) => q.eq("userId", signupResult.userId))
         .first();
     });

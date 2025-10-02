@@ -1,6 +1,6 @@
 import { TestConvex } from "convex-test";
-import { Id } from "../_generated/dataModel";
-import schema from "../schema";
+import { Id } from "../convex/_generated/dataModel";
+import schema from "../convex/schema";
 
 export interface TestOrgs {
   vc83OrgId: Id<"organizations">;

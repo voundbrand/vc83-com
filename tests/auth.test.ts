@@ -1,12 +1,12 @@
 import { convexTest } from "convex-test";
 import { describe, test, expect } from "vitest";
-import { api } from "../_generated/api";
-import schema from "../schema";
+import { api } from "../convex/_generated/api";
+import schema from "../convex/schema";
 
 describe("Authentication System", () => {
   describe("Personal Account Registration", () => {
     test("Should create personal account with valid data", async () => {
-      const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+      const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
       
       const result = await t.mutation(api.auth.signUpPersonal, {
         firstName: "John",
@@ -66,7 +66,7 @@ describe("Authentication System", () => {
     });
 
     test("Should reject weak passwords", async () => {
-      const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+      const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
       
       await expect(async () => {
         await t.mutation(api.auth.signUpPersonal, {
@@ -79,7 +79,7 @@ describe("Authentication System", () => {
     });
 
     test("Should reject invalid email format", async () => {
-      const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+      const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
       
       await expect(async () => {
         await t.mutation(api.auth.signUpPersonal, {
@@ -92,7 +92,7 @@ describe("Authentication System", () => {
     });
 
     test("Should reject name that is too short", async () => {
-      const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+      const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
       
       await expect(async () => {
         await t.mutation(api.auth.signUpPersonal, {
@@ -105,7 +105,7 @@ describe("Authentication System", () => {
     });
 
     test("Should reject suspicious bot-like names", async () => {
-      const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+      const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
       
       await expect(async () => {
         await t.mutation(api.auth.signUpPersonal, {
@@ -118,7 +118,7 @@ describe("Authentication System", () => {
     });
 
     test("Should reject disposable email addresses", async () => {
-      const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+      const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
       
       await expect(async () => {
         await t.mutation(api.auth.signUpPersonal, {
@@ -131,7 +131,7 @@ describe("Authentication System", () => {
     });
 
     test("Should reject duplicate email addresses", async () => {
-      const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+      const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
       
       // Create first user
       await t.mutation(api.auth.signUpPersonal, {
@@ -155,7 +155,7 @@ describe("Authentication System", () => {
 
   describe("Business Account Registration", () => {
     test("Should create business account with valid data", async () => {
-      const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+      const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
       
       const result = await t.mutation(api.auth.signUpBusiness, {
         firstName: "John",
@@ -196,7 +196,7 @@ describe("Authentication System", () => {
     });
 
     test("Should accept valid German VAT ID", async () => {
-      const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+      const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
       
       const result = await t.mutation(api.auth.signUpBusiness, {
         firstName: "John",
@@ -221,7 +221,7 @@ describe("Authentication System", () => {
     });
 
     test("Should reject invalid German VAT ID format", async () => {
-      const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+      const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
       
       await expect(async () => {
         await t.mutation(api.auth.signUpBusiness, {
@@ -241,7 +241,7 @@ describe("Authentication System", () => {
     });
 
     test("Should require last name for business accounts", async () => {
-      const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+      const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
       
       await expect(async () => {
         await t.mutation(api.auth.signUpBusiness, {
@@ -260,7 +260,7 @@ describe("Authentication System", () => {
     });
 
     test("Should use contact email fallback to account email", async () => {
-      const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+      const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
       
       const result = await t.mutation(api.auth.signUpBusiness, {
         firstName: "John",
@@ -282,7 +282,7 @@ describe("Authentication System", () => {
     });
 
     test("Should store optional contact details", async () => {
-      const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+      const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
       
       const result = await t.mutation(api.auth.signUpBusiness, {
         firstName: "John",
@@ -311,7 +311,7 @@ describe("Authentication System", () => {
 
   describe("Password Security", () => {
     test("Should hash passwords before storage", async () => {
-      const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+      const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
       
       const password = "SecurePass123!";
       const result = await t.mutation(api.auth.signUpPersonal, {
@@ -335,7 +335,7 @@ describe("Authentication System", () => {
     });
 
     test("Should require minimum 8 characters", async () => {
-      const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+      const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
       
       await expect(async () => {
         await t.mutation(api.auth.signUpPersonal, {
@@ -348,7 +348,7 @@ describe("Authentication System", () => {
     });
 
     test("Should require uppercase letter", async () => {
-      const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+      const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
       
       await expect(async () => {
         await t.mutation(api.auth.signUpPersonal, {
@@ -361,7 +361,7 @@ describe("Authentication System", () => {
     });
 
     test("Should require lowercase letter", async () => {
-      const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+      const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
       
       await expect(async () => {
         await t.mutation(api.auth.signUpPersonal, {
@@ -374,7 +374,7 @@ describe("Authentication System", () => {
     });
 
     test("Should require number", async () => {
-      const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+      const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
       
       await expect(async () => {
         await t.mutation(api.auth.signUpPersonal, {
@@ -389,7 +389,7 @@ describe("Authentication System", () => {
 
   describe("User Authentication", () => {
     test("Should authenticate user with correct credentials", async () => {
-      const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+      const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
       
       // Create user
       await t.mutation(api.auth.signUpPersonal, {
@@ -413,7 +413,7 @@ describe("Authentication System", () => {
     });
 
     test("Should reject incorrect password", async () => {
-      const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+      const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
       
       // Create user
       await t.mutation(api.auth.signUpPersonal, {
@@ -433,7 +433,7 @@ describe("Authentication System", () => {
     });
 
     test("Should reject non-existent email", async () => {
-      const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+      const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
       
       await expect(async () => {
         await t.mutation(api.auth.signInWithPassword, {
@@ -444,7 +444,7 @@ describe("Authentication System", () => {
     });
 
     test("Should reject inactive users", async () => {
-      const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+      const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
       
       // Create user
       const result = await t.mutation(api.auth.signUpPersonal, {
@@ -469,7 +469,7 @@ describe("Authentication System", () => {
     });
 
     test("Should create audit log on successful login", async () => {
-      const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+      const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
       
       // Create user
       const signupResult = await t.mutation(api.auth.signUpPersonal, {
@@ -505,14 +505,14 @@ describe("Authentication System", () => {
 
   describe("Current User Query", () => {
     test("Should return null when not authenticated", async () => {
-      const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+      const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
       
       const user = await t.query(api.auth.currentUser, {});
       expect(user).toBeNull();
     });
 
     test("Should return user data when authenticated", async () => {
-      const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+      const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
       
       // Create user
       const result = await t.mutation(api.auth.signUpPersonal, {
@@ -537,7 +537,7 @@ describe("Authentication System", () => {
     });
 
     test("Should not return inactive users", async () => {
-      const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+      const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
       
       // Create user
       const result = await t.mutation(api.auth.signUpPersonal, {
@@ -566,7 +566,7 @@ describe("Authentication System", () => {
 
   describe("Workspace Generation", () => {
     test("Should generate creative workspace names for personal accounts", async () => {
-      const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+      const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
       
       const result = await t.mutation(api.auth.signUpPersonal, {
         firstName: "John",
@@ -585,7 +585,7 @@ describe("Authentication System", () => {
     });
 
     test("Should generate valid slugs from business names", async () => {
-      const t = convexTest(schema, import.meta.glob("../**/*.ts"));
+      const t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
       
       const result = await t.mutation(api.auth.signUpBusiness, {
         firstName: "John",

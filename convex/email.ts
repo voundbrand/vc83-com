@@ -12,10 +12,11 @@ import { v } from "convex/values";
 import { Resend } from "resend";
 
 // Initialize Resend with API key from environment
-const resend = new Resend(process.env.RESEND_API_KEY);
+// In test environment, use a dummy key to avoid errors
+const resend = new Resend(process.env.RESEND_API_KEY || "re_test_key");
 
 // Email configuration
-const FROM_EMAIL = "VC83 Podcast <noreply@vc83.com>";
+const FROM_EMAIL = "VC83 Podcast <noreply@mail.l4yercak3.com>";
 const APP_NAME = "VC83.com";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://vc83.com";
 

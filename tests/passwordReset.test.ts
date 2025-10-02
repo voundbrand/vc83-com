@@ -11,14 +11,14 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { convexTest } from "convex-test";
-import { api } from "../_generated/api";
-import schema from "../schema";
+import { api } from "../convex/_generated/api";
+import schema from "../convex/schema";
 
 describe("Password Reset", () => {
   let t: ReturnType<typeof convexTest>;
 
   beforeEach(() => {
-    t = convexTest(schema, import.meta.glob("../**/*.ts"));
+    t = convexTest(schema, import.meta.glob("../convex/**/*.ts"));
   });
 
   async function createVerifiedUser(email: string, password: string) {
@@ -34,6 +34,7 @@ describe("Password Reset", () => {
     const verification = await t.run(async (ctx) => {
       return await ctx.db
         .query("emailVerifications")
+        // @ts-expect-error - convex-test doesn't fully support custom index types
         .withIndex("by_user", (q) => q.eq("userId", signupResult.userId))
         .first();
     });
@@ -59,6 +60,7 @@ describe("Password Reset", () => {
     const resetTokens = await t.run(async (ctx) => {
       return await ctx.db
         .query("resetTokens")
+        // @ts-expect-error - convex-test doesn't fully support custom index types
         .withIndex("by_email", (q) => q.eq("email", "test@example.com"))
         .collect();
     });
@@ -82,6 +84,7 @@ describe("Password Reset", () => {
     const resetTokens = await t.run(async (ctx) => {
       return await ctx.db
         .query("resetTokens")
+        // @ts-expect-error - convex-test doesn't fully support custom index types
         .withIndex("by_email", (q) => q.eq("email", "nonexistent@example.com"))
         .collect();
     });
@@ -101,6 +104,7 @@ describe("Password Reset", () => {
     const resetToken = await t.run(async (ctx) => {
       return await ctx.db
         .query("resetTokens")
+        // @ts-expect-error - convex-test doesn't fully support custom index types
         .withIndex("by_email", (q) => q.eq("email", "test@example.com"))
         .first();
     });
@@ -136,6 +140,7 @@ describe("Password Reset", () => {
     const resetToken = await t.run(async (ctx) => {
       const token = await ctx.db
         .query("resetTokens")
+        // @ts-expect-error - convex-test doesn't fully support custom index types
         .withIndex("by_email", (q) => q.eq("email", "test@example.com"))
         .first();
 
@@ -168,6 +173,7 @@ describe("Password Reset", () => {
     const resetToken = await t.run(async (ctx) => {
       return await ctx.db
         .query("resetTokens")
+        // @ts-expect-error - convex-test doesn't fully support custom index types
         .withIndex("by_email", (q) => q.eq("email", "test@example.com"))
         .first();
     });
@@ -217,6 +223,7 @@ describe("Password Reset", () => {
     const resetToken = await t.run(async (ctx) => {
       return await ctx.db
         .query("resetTokens")
+        // @ts-expect-error - convex-test doesn't fully support custom index types
         .withIndex("by_email", (q) => q.eq("email", "test@example.com"))
         .first();
     });
@@ -242,6 +249,7 @@ describe("Password Reset", () => {
     const resetToken = await t.run(async (ctx) => {
       return await ctx.db
         .query("resetTokens")
+        // @ts-expect-error - convex-test doesn't fully support custom index types
         .withIndex("by_email", (q) => q.eq("email", "test@example.com"))
         .first();
     });
@@ -297,6 +305,7 @@ describe("Password Reset", () => {
     const firstToken = await t.run(async (ctx) => {
       return await ctx.db
         .query("resetTokens")
+        // @ts-expect-error - convex-test doesn't fully support custom index types
         .withIndex("by_email", (q) => q.eq("email", "test@example.com"))
         .first();
     });
@@ -310,6 +319,7 @@ describe("Password Reset", () => {
     const tokens = await t.run(async (ctx) => {
       return await ctx.db
         .query("resetTokens")
+        // @ts-expect-error - convex-test doesn't fully support custom index types
         .withIndex("by_email", (q) => q.eq("email", "test@example.com"))
         .collect();
     });
@@ -327,9 +337,10 @@ describe("Password Reset", () => {
     });
 
     // Get first token and expire the rate limit
-    const firstToken = await t.run(async (ctx) => {
+    await t.run(async (ctx) => {
       const token = await ctx.db
         .query("resetTokens")
+        // @ts-expect-error - convex-test doesn't fully support custom index types
         .withIndex("by_email", (q) => q.eq("email", "test@example.com"))
         .first();
 
@@ -337,8 +348,6 @@ describe("Password Reset", () => {
       await ctx.db.patch(token!._id, {
         createdAt: Date.now() - 6 * 60 * 1000,
       });
-
-      return token;
     });
 
     // Second request after rate limit
@@ -350,6 +359,7 @@ describe("Password Reset", () => {
     const tokens = await t.run(async (ctx) => {
       return await ctx.db
         .query("resetTokens")
+        // @ts-expect-error - convex-test doesn't fully support custom index types
         .withIndex("by_email", (q) => q.eq("email", "test@example.com"))
         .collect();
     });

@@ -226,7 +226,6 @@ export const seedAll = internalMutation({
     // 6. Summary
     const apps = await ctx.db.query("apps").collect();
     const episodes = await ctx.db.query("app_podcasting").collect();
-    const orgs = await ctx.db.query("organizations").collect();
 
     console.log("\n🎉 Seed complete!");
     console.log(`   👑 SuperAdmin Org: ${superAdminOrg!._id}`);

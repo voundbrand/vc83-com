@@ -165,7 +165,9 @@ export const checkRegistrationAttempt = mutation({
     
     // Log attempt
     await ctx.db.insert("auditLogs", {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       organizationId: "system" as any,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       userId: "system" as any,
       action: "registration.attempt",
       resource: "auth",
