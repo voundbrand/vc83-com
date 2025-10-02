@@ -34,7 +34,6 @@ import type * as schemas_appStoreSchemas from "../schemas/appStoreSchemas.js";
 import type * as schemas_coreSchemas from "../schemas/coreSchemas.js";
 import type * as schemas_utilitySchemas from "../schemas/utilitySchemas.js";
 import type * as security from "../security.js";
-import type * as tests_helpers from "../tests/helpers.js";
 
 /**
  * A utility for referencing Convex functions in your app's API.
@@ -66,7 +65,6 @@ declare const fullApi: ApiFromModules<{
   "schemas/coreSchemas": typeof schemas_coreSchemas;
   "schemas/utilitySchemas": typeof schemas_utilitySchemas;
   security: typeof security;
-  "tests/helpers": typeof tests_helpers;
 }>;
 export declare const api: FilterApi<
   typeof fullApi,
