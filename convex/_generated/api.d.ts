@@ -15,8 +15,12 @@ import type {
 } from "convex/server";
 import type * as auth from "../auth.js";
 import type * as cryptoActions from "../cryptoActions.js";
+import type * as emailService from "../emailService.js";
 import type * as helpers_appHelpers from "../helpers/appHelpers.js";
 import type * as internal_ from "../internal.js";
+import type * as organizationAddresses from "../organizationAddresses.js";
+import type * as organizationMutations from "../organizationMutations.js";
+import type * as organizations from "../organizations.js";
 import type * as rbac from "../rbac.js";
 import type * as schemas_appDataSchemas from "../schemas/appDataSchemas.js";
 import type * as schemas_appSchemaBase from "../schemas/appSchemaBase.js";
@@ -36,8 +40,12 @@ import type * as seedAdmin from "../seedAdmin.js";
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   cryptoActions: typeof cryptoActions;
+  emailService: typeof emailService;
   "helpers/appHelpers": typeof helpers_appHelpers;
   internal: typeof internal_;
+  organizationAddresses: typeof organizationAddresses;
+  organizationMutations: typeof organizationMutations;
+  organizations: typeof organizations;
   rbac: typeof rbac;
   "schemas/appDataSchemas": typeof schemas_appDataSchemas;
   "schemas/appSchemaBase": typeof schemas_appSchemaBase;

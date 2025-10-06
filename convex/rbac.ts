@@ -1,6 +1,6 @@
 import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
-import { Id } from "./_generated/dataModel";
+import { Id, Doc } from "./_generated/dataModel";
 
 /**
  * RBAC (Role-Based Access Control) System
@@ -705,25 +705,6 @@ export const checkPermission = query({
       }
     }
 
-    // Legacy check for backward compatibility
-    const legacyRole = user.roleId;
-    if (!legacyRole) return false;
-
-    const role = await ctx.db.get(legacyRole);
-    if (!role || !role.isActive) return false;
-
-    const rolePermissions = await ctx.db
-      .query("rolePermissions")
-      .withIndex("by_role", (q) => q.eq("roleId", legacyRole))
-      .collect();
-
-    for (const rolePerm of rolePermissions) {
-      const permission = await ctx.db.get(rolePerm.permissionId);
-      if (permission && permission.resource === args.resource && permission.action === args.action) {
-        return true;
-      }
-    }
-
     return false;
   },
 });
@@ -927,6 +908,39 @@ export const getRolePermissions = query({
 });
 
 /**
+ * Get all role-permission mappings for the entire system
+ * Returns a map of roleId -> permissions array
+ */
+export const getAllRolePermissions = query({
+  args: {},
+  handler: async (ctx) => {
+    // Get all role-permission mappings
+    const allMappings = await ctx.db.query("rolePermissions").collect();
+
+    // Group by role
+    const mappingsByRole: Record<string, string[]> = {};
+    for (const mapping of allMappings) {
+      const roleId = mapping.roleId;
+      if (!mappingsByRole[roleId]) {
+        mappingsByRole[roleId] = [];
+      }
+      mappingsByRole[roleId].push(mapping.permissionId);
+    }
+
+    // Fetch all permissions for each role
+    const result: Record<string, (Doc<"permissions"> | null)[]> = {};
+    for (const [roleId, permissionIds] of Object.entries(mappingsByRole)) {
+      const permissions = await Promise.all(
+        permissionIds.map(id => ctx.db.get(id as Id<"permissions">))
+      );
+      result[roleId] = permissions.filter(p => p !== null);
+    }
+
+    return result;
+  },
+});
+
+/**
  * Assign a role to a user in an organization
  */
 export const assignRoleToOrganization = mutation({
@@ -1070,36 +1084,11 @@ export const getUserPermissions = query({
           return permissions.filter(Boolean);
         }
       } catch {
-        // Fall through to legacy
+        // Fall through
       }
     }
 
-    // Legacy support
-    if (!user.roleId) return [];
-
-    const role = await ctx.db.get(user.roleId);
-    if (!role || !role.isActive) return [];
-
-    const rolePermissions = await ctx.db
-      .query("rolePermissions")
-      .withIndex("by_role", (q) => q.eq("roleId", user.roleId!))
-      .collect();
-
-    const permissions = [];
-    for (const rolePerm of rolePermissions) {
-      const permission = await ctx.db.get(rolePerm.permissionId);
-      if (permission) {
-        permissions.push({
-          id: permission._id,
-          name: permission.name,
-          resource: permission.resource,
-          action: permission.action,
-          description: permission.description,
-        });
-      }
-    }
-
-    return permissions;
+    return [];
   },
 });
 
@@ -1138,17 +1127,7 @@ export const getUserRole = query({
       }
     }
 
-    // Legacy support
-    if (!user.roleId) return null;
-
-    const role = await ctx.db.get(user.roleId);
-    if (!role) return null;
-
-    return {
-      id: role._id,
-      name: role.name,
-      description: role.description,
-    };
+    return null;
   },
 });
 
@@ -1169,12 +1148,6 @@ export const isSuperAdmin = query({
     // Check global role
     if (user.global_role_id) {
       const role = await ctx.db.get(user.global_role_id);
-      return role?.name === "super_admin";
-    }
-
-    // Legacy check
-    if (user.roleId) {
-      const role = await ctx.db.get(user.roleId);
       return role?.name === "super_admin";
     }
 

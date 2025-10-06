@@ -10,7 +10,9 @@ export function DesktopIcon({ icon, label, onClick }: DesktopIconProps) {
   return (
     <div className="desktop-icon" onClick={onClick}>
       <div className="text-2xl mb-1">{icon}</div>
-      <span className="text-center font-pixel leading-tight" style={{ color: 'var(--desktop-icon-text)' }}>{label}</span>
+      <span className="text-center font-pixel leading-tight" style={{ color: 'var(--desktop-icon-text)' }}>
+        {label}
+      </span>
     </div>
   )
 }

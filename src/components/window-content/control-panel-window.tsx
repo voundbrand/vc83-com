@@ -2,7 +2,8 @@
 
 import { useWindowManager } from "@/hooks/use-window-manager";
 import { SettingsWindow } from "./settings-window";
-import { useAuth } from "@/hooks/use-auth";
+import { ManageWindow } from "./manage-window";
+import { useIsSuperAdmin } from "@/hooks/use-auth";
 
 interface ControlPanelItem {
   id: string;
@@ -13,8 +14,7 @@ interface ControlPanelItem {
 
 export function ControlPanelWindow() {
   const { openWindow } = useWindowManager();
-  const { user } = useAuth();
-  const isSuperAdmin = user?.roleName === "super_admin";
+  const isSuperAdmin = useIsSuperAdmin();
 
   const openDesktopSettings = () => {
     openWindow(
@@ -26,8 +26,24 @@ export function ControlPanelWindow() {
     );
   };
 
+  const openManageWindow = () => {
+    openWindow(
+      "manage",
+      "Manage",
+      <ManageWindow />,
+      { x: 200, y: 50 },
+      { width: 800, height: 600 }
+    );
+  };
+
 
   const baseItems: ControlPanelItem[] = [
+    {
+      id: "manage",
+      icon: "🏢",
+      label: "Manage",
+      onClick: openManageWindow,
+    },
     {
       id: "accessibility",
       icon: "♿",

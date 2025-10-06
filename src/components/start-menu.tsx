@@ -54,13 +54,11 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
         isMobile ? "w-full start-menu-mobile" : "min-w-[200px]",
         className
       )}
-      style={{
-        zIndex: 10000
-      }}
+      style={{ zIndex: 'var(--z-index-start-menu)' }}
     >
       {/* Windows 95-style vertical stripe */}
-      <div className="w-8 flex items-center justify-center" style={{ background: 'var(--win95-border)' }}>
-        <div className="transform -rotate-90 whitespace-nowrap font-['Press_Start_2P'] text-sm tracking-wider" style={{ color: 'var(--win95-bg-light)' }}>
+      <div className="w-8 flex items-center justify-center retro-border" style={{ background: 'var(--win95-border)' }}>
+        <div className="transform -rotate-90 whitespace-nowrap font-['Press_Start_2P'] text-sm tracking-wider retro-bg-light" style={{ color: 'var(--win95-bg-light)' }}>
           L4YERCAK3
         </div>
       </div>
@@ -69,7 +67,7 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
         {items.map((item, index) => (
           <div key={index} className="relative">
             {item.divider ? (
-              <div className="h-[1px] mx-1 my-1" style={{ background: 'var(--win95-border)' }} />
+              <div className="h-[1px] mx-1 my-1 retro-border" style={{ background: 'var(--win95-border)' }} />
             ) : (
               <>
                 <button
@@ -87,8 +85,7 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
                       setOpenSubmenu(index);
                     }
                   }}
-                  className="w-full px-3 py-1 text-left flex items-center justify-between gap-2 transition-colors font-pixel hover-menu-item"
-                  style={{ color: 'var(--win95-text)' }}
+                  className="w-full px-3 py-1 text-left flex items-center justify-between gap-2 transition-colors font-pixel hover-menu-item retro-text"
                 >
                   <div className="flex items-center gap-2">
                     {item.icon && <span className="text-base">{item.icon}</span>}
@@ -116,8 +113,7 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
                             onClose();
                             setOpenSubmenu(null);
                           }}
-                          className="w-full px-3 py-1 text-left flex items-center gap-2 transition-colors font-pixel hover-menu-item"
-                          style={{ color: 'var(--win95-text)' }}
+                          className="w-full px-3 py-1 text-left flex items-center gap-2 transition-colors font-pixel hover-menu-item retro-text"
                         >
                           {subitem.icon && (
                             <span className="text-base">{subitem.icon}</span>

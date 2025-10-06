@@ -18,6 +18,7 @@ import {
   users,
   organizations,
   organizationMembers,
+  organizationAddresses,
   userPasswords,
   sessions,
   roles,
@@ -39,6 +40,7 @@ export default defineSchema({
   users,
   organizations,
   organizationMembers,
+  organizationAddresses,
   userPasswords,
   sessions,
 

@@ -461,19 +461,6 @@ export const getCurrentUser = query({
       ? validOrganizations.find(org => org?.id === user.defaultOrgId)
       : validOrganizations[0];
 
-    // Legacy role support
-    let legacyRole = null;
-    if (user.roleId) {
-      const role = await ctx.db.get(user.roleId);
-      if (role) {
-        legacyRole = {
-          id: role._id,
-          name: role.name,
-          description: role.description,
-        };
-      }
-    }
-
     return {
       id: user._id,
       email: user.email,
@@ -485,9 +472,6 @@ export const getCurrentUser = query({
       organizations: validOrganizations,
       currentOrganization: currentOrg || null,
       defaultOrgId: user.defaultOrgId,
-      // Legacy fields for backward compatibility
-      roleId: user.roleId,
-      roleName: legacyRole?.name,
     };
   },
 });
@@ -806,5 +790,25 @@ export const internalAddOrgMembership = internalMutation({
       invitedBy: args.invitedBy,
       invitedAt: Date.now(),
     });
+  },
+});
+
+// Internal query to get session by email
+export const getSessionByEmail = internalQuery({
+  args: {
+    email: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db
+      .query("sessions")
+      .filter((q) => q.eq(q.field("email"), args.email))
+      .order("desc")
+      .first();
+
+    if (!session || session.expiresAt < Date.now()) {
+      return null;
+    }
+
+    return session;
   },
 });

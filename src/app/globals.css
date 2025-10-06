@@ -70,9 +70,62 @@
   --neutral-gray: #6b7280;
   --error: #ef4444;
   --success: #10b981;
+  --warning: #f59e0b;
+  --info: #3b82f6;
 
   /* Shadow */
   --win95-shadow: 2px 2px 0 rgba(0, 0, 0, 0.25);
+
+  /* Table Styles */
+  --table-header-bg: #d0d0d0;
+  --table-header-text: #000000;
+  --table-row-even-bg: #f0f0f0;
+  --table-row-odd-bg: #ffffff;
+  --table-row-hover-bg: #e8e8ff;
+  --table-border: #c0c0c0;
+  --table-sort-arrow: #808080;
+
+  /* Modal/Dialog Styles */
+  --modal-overlay-bg: rgba(0, 0, 0, 0.5);
+  --modal-bg: #f0f0f0;
+  --modal-header-bg: linear-gradient(180deg, #000080 0%, #1084d0 100%);
+  --modal-header-text: #ffffff;
+  --modal-border: #000000;
+  --modal-shadow: 4px 4px 8px rgba(0, 0, 0, 0.3);
+
+  /* Status Badge Colors */
+  --badge-super-admin-bg: #7c3aed;
+  --badge-super-admin-text: #ffffff;
+  --badge-org-owner-bg: #dc2626;
+  --badge-org-owner-text: #ffffff;
+  --badge-manager-bg: #2563eb;
+  --badge-manager-text: #ffffff;
+  --badge-employee-bg: #16a34a;
+  --badge-employee-text: #ffffff;
+  --badge-viewer-bg: #6b7280;
+  --badge-viewer-text: #ffffff;
+  --badge-pending-bg: #fbbf24;
+  --badge-pending-text: #000000;
+  --badge-active-bg: #34d399;
+  --badge-active-text: #000000;
+  --badge-inactive-bg: #f87171;
+  --badge-inactive-text: #000000;
+
+  /* Notification Colors */
+  --notification-success-bg: #d1fae5;
+  --notification-success-border: #16a34a;
+  --notification-success-text: #14532d;
+  --notification-error-bg: #fee2e2;
+  --notification-error-border: #dc2626;
+  --notification-error-text: #7f1d1d;
+  --notification-info-bg: #e9d5ff;
+  --notification-info-border: #9333ea;
+  --notification-info-text: #581c87;
+
+  /* Z-index Layers */
+  --z-index-modal: 9000;
+  --z-index-notification: 9999;
+  --z-index-start-menu: 10000;
 }
 
 @theme inline {
@@ -144,6 +197,57 @@
   --audio-player-text: #00ff00;
   --audio-player-track-bg: #1a1a1a;
   --audio-player-progress: #00ff00;
+
+  /* Table Styles - Dark Mode */
+  --table-header-bg: #2d2d2d;
+  --table-header-text: #e0e0e0;
+  --table-row-even-bg: #3d3d3d;
+  --table-row-odd-bg: #4d4d4d;
+  --table-row-hover-bg: #5d5d5d;
+  --table-border: #1d1d1d;
+  --table-sort-arrow: #9ca3af;
+
+  /* Modal/Dialog Styles - Dark Mode */
+  --modal-overlay-bg: rgba(0, 0, 0, 0.7);
+  --modal-bg: #3d3d3d;
+  --modal-header-bg: linear-gradient(180deg, #1e40af 0%, #2563eb 100%);
+  --modal-header-text: #ffffff;
+  --modal-border: #1d1d1d;
+  --modal-shadow: 4px 4px 8px rgba(0, 0, 0, 0.5);
+
+  /* Status Badge Colors - Dark Mode (same as light for consistency) */
+  --badge-super-admin-bg: #7c3aed;
+  --badge-super-admin-text: #ffffff;
+  --badge-org-owner-bg: #dc2626;
+  --badge-org-owner-text: #ffffff;
+  --badge-manager-bg: #2563eb;
+  --badge-manager-text: #ffffff;
+  --badge-employee-bg: #16a34a;
+  --badge-employee-text: #ffffff;
+  --badge-viewer-bg: #6b7280;
+  --badge-viewer-text: #ffffff;
+  --badge-pending-bg: #fbbf24;
+  --badge-pending-text: #000000;
+  --badge-active-bg: #34d399;
+  --badge-active-text: #000000;
+  --badge-inactive-bg: #f87171;
+  --badge-inactive-text: #000000;
+
+  /* Notification Colors - Dark Mode */
+  --notification-success-bg: #14532d;
+  --notification-success-border: #22c55e;
+  --notification-success-text: #d1fae5;
+  --notification-error-bg: #7f1d1d;
+  --notification-error-border: #ef4444;
+  --notification-error-text: #fee2e2;
+  --notification-info-bg: #581c87;
+  --notification-info-border: #a855f7;
+  --notification-info-text: #e9d5ff;
+
+  /* Z-index Layers (same for dark mode) */
+  --z-index-modal: 9000;
+  --z-index-notification: 9999;
+  --z-index-start-menu: 10000;
 }
 
 /* Window Style Classes - Mac vs Windows */
@@ -568,6 +672,31 @@ body {
     border: 2px solid;
     border-color: var(--win95-button-light) var(--win95-button-darkest) var(--win95-button-darkest) var(--win95-button-light);
     height: 16px;
+  }
+
+  /* Notifications */
+  .notification-success {
+    background: var(--notification-success-bg);
+    border-color: var(--notification-success-border);
+    color: var(--notification-success-text);
+  }
+
+  .notification-error {
+    background: var(--notification-error-bg);
+    border-color: var(--notification-error-border);
+    color: var(--notification-error-text);
+  }
+
+  .notification-info {
+    background: var(--notification-info-bg);
+    border-color: var(--notification-info-border);
+    color: var(--notification-info-text);
+  }
+
+  /* Animation for notification progress bar */
+  @keyframes notification-shrink {
+    from { width: 100%; }
+    to { width: 0%; }
   }
 }
 

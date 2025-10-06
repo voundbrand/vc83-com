@@ -56,7 +56,7 @@ RESEND_API_KEY=re_xxxxxxxxxxxx
 RESEND_FROM_EMAIL=noreply@layercake.com
 
 # Application
-NEXT_PUBLIC_APP_URL=https://layercake.com
+NEXT_PUBLIC_APP_URL=https://app.layercake.com
 NODE_ENV=production
 
 # Optional: Analytics
@@ -101,18 +101,32 @@ At least one super_admin must exist to bootstrap the system.
 
 ### Seed Script Execution
 
+The system uses TypeScript seed scripts located in the `/scripts` directory to initialize the database with required roles, permissions, and initial users.
+
+**⚠️ IMPORTANT**: Scripts must be run in the exact order shown below:
+1. RBAC roles and permissions must be created first
+2. Super admin creates the initial organization
+3. Additional users are added to the existing organization
+
 #### Local Testing First
 
 ```bash
-# 1. Test with local Convex instance
+# 1. Start Convex in development mode
 npx convex dev
 
-# 2. In another terminal, run seed script
-npx convex run seedAdmin
+# 2. In another terminal, run the seed scripts in order:
+
+# Step 1: Seed RBAC roles and permissions (REQUIRED FIRST)
+npx tsx scripts/seed-rbac.ts
+
+# Step 2: Create super admin user with organization
+npx tsx scripts/seed-super-admin.ts
+
+# Step 3: (Optional) Add additional organization owners/managers
+npx tsx scripts/seed-org-manager.ts
 
 # 3. Verify seed data
-npx convex run internal:listRoles
-npx convex run internal:listPermissions
+npx tsx scripts/test-connection.ts
 ```
 
 #### Production Seeding
@@ -121,20 +135,51 @@ npx convex run internal:listPermissions
 # 1. Deploy Convex functions to production
 npx convex deploy --prod
 
-# 2. Run production seed script
-npx convex run --prod seedAdmin
+# 2. Set the production Convex URL in your environment
+export NEXT_PUBLIC_CONVEX_URL="your-production-convex-url"
 
-# 3. Verify production data
-npx convex run --prod internal:verifyProductionSeed
+# 3. Run seed scripts against production (BE CAREFUL!)
+
+# Step 1: Seed RBAC roles and permissions
+npx tsx scripts/seed-rbac.ts
+
+# Step 2: Create super admin user with organization
+npx tsx scripts/seed-super-admin.ts
+
+# Step 3: (Optional) Add additional organization owners/managers
+npx tsx scripts/seed-org-manager.ts
 ```
+
+### Initial Users Configuration
+
+The seed scripts create two initial users:
+
+1. **Super Admin User** (`seed-super-admin.ts`)
+   - Email: remington@voundbrand.com
+   - Name: Remington Admin
+   - Organization: Voundbrand
+   - Role: Global super_admin + org_owner in Voundbrand
+   - Access: Full platform control
+
+2. **Organization Owner** (`seed-org-manager.ts`)
+   - Email: itsmetherealremington@gmail.com
+   - Name: Max Manager
+   - Organization: Voundbrand
+   - Role: org_owner in Voundbrand
+   - Access: Full control over Voundbrand organization
+
+**Note**: Users will need to set their passwords on first login through the setup-password flow.
 
 ### Seed Data Verification Checklist
 
-- [ ] All 5 RBAC roles created
-- [ ] All permissions assigned correctly
-- [ ] Super admin user created and can login
-- [ ] Default organization created (if applicable)
-- [ ] Audit log table initialized
+- [ ] All 5 RBAC roles created (super_admin, org_owner, business_manager, employee, viewer)
+- [ ] All permissions assigned correctly to roles
+- [ ] Super admin user created (remington@voundbrand.com)
+- [ ] Organization owner created (itsmetherealremington@gmail.com)
+- [ ] Voundbrand organization created with correct settings
+- [ ] Both users assigned to Voundbrand organization
+- [ ] Audit log entries created for user creation
+- [ ] Users can set passwords on first login
 
 ---
 

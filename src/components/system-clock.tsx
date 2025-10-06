@@ -20,7 +20,7 @@ export function SystemClock() {
   }, [])
 
   return (
-    <span className="font-pixel text-xs" style={{ color: 'var(--win95-text)' }}>
+    <span className="font-pixel text-xs retro-text">
       {time || "00:00"}
     </span>
   )

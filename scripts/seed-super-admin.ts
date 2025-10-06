@@ -16,9 +16,9 @@ const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL || "https://aromatic-akita
 
 // Super Admin Configuration
 const SUPER_ADMIN = {
-  email: "remington@voundbrand.com",
+  email: "itsmetherealremington@gmail.com",
   firstName: "Remington",
-  lastName: "Admin",
+  lastName: "Splettstoesser",
   organizationName: "Voundbrand",
   organizationSlug: "voundbrand",
 };

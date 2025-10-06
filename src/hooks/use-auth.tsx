@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { useState, useEffect, createContext, useContext, ReactNode } from "react";
+import { useState, createContext, useContext, ReactNode } from "react";
 import { Id } from "../../convex/_generated/dataModel";
 
 interface Permission {
@@ -37,9 +37,6 @@ interface User {
   organizations: Organization[];
   currentOrganization?: Organization | null;
   defaultOrgId?: Id<"organizations"> | null;
-  // Legacy fields
-  roleId?: string;
-  roleName?: string | null;
 }
 
 interface AuthContextType {
@@ -60,15 +57,13 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [sessionId, setSessionId] = useState<string | null>(null);
-
-  // Load session from localStorage on mount
-  useEffect(() => {
-    const storedSession = localStorage.getItem("convex_session_id");
-    if (storedSession) {
-      setSessionId(storedSession);
+  // Initialize sessionId synchronously from localStorage to avoid race conditions
+  const [sessionId, setSessionId] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("convex_session_id");
     }
-  }, []);
+    return null;
+  });
 
   const userQuery = useQuery(
     api.auth.getCurrentUser,
@@ -183,8 +178,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isOwner: userQuery.currentOrganization.isOwner,
     } : null,
     defaultOrgId: userQuery.defaultOrgId,
-    roleId: userQuery.roleId,
-    roleName: userQuery.roleName,
   } : null;
 
   // Client-side permission checking with caching

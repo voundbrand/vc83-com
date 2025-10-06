@@ -16,11 +16,11 @@ const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL || "https://aromatic-akita
 
 // Organization Manager Configuration
 const ORG_MANAGER = {
-  email: "itsmetherealremington@gmail.com",
-  firstName: "Max",
-  lastName: "Manager",
+  email: "remington@voundbrand.com",
+  firstName: "Remington",
+  lastName: "Owner",
   organizationSlug: "voundbrand", // We'll look up the org by slug
-  roleName: "business_manager", // This gives manager-level permissions
+  roleName: "org_owner", // This gives full control over the organization
 };
 
 async function seedOrgManager() {
@@ -44,8 +44,8 @@ async function seedOrgManager() {
 
     console.log(`✅ Found organization: ${org.name} (ID: ${org._id})`);
 
-    // Step 2: Get the business_manager role
-    console.log("\n🔍 Step 2: Looking up business_manager role...");
+    // Step 2: Get the org_owner role
+    console.log("\n🔍 Step 2: Looking up org_owner role...");
     const roles = await client.query(api.rbac.getRoles, {});
     const managerRole = roles.find((r: { name: string }) => r.name === ORG_MANAGER.roleName);
 
@@ -75,20 +75,20 @@ async function seedOrgManager() {
       console.log("   👔 Role:", managerRole.name);
       console.log("   📋 Membership ID:", result.membershipId);
 
-      console.log("\n🎉 Setup complete! The manager has:");
-      console.log("   - Business Manager role in " + org.name);
-      console.log("   - Can manage operations and teams");
-      console.log("   - Can view and manage app data");
-      console.log("   - Can install apps for the organization");
-      console.log("   - Cannot manage billing or organization settings");
+      console.log("\n🎉 Setup complete! The org owner has:");
+      console.log("   - Organization Owner role in " + org.name);
+      console.log("   - Full control over the organization");
+      console.log("   - Can manage all organization settings and billing");
+      console.log("   - Can invite and manage all team members");
+      console.log("   - Can install and manage all apps for the organization");
 
       // Step 4: Verify permissions
-      console.log("\n🔍 Step 4: Verifying manager permissions...");
+      console.log("\n🔍 Step 4: Verifying org owner permissions...");
       const rolePermissions = await client.query(api.rbac.getRolePermissions, {
         roleId: managerRole._id,
       });
 
-      console.log(`✅ Manager has ${rolePermissions.length} permissions:`);
+      console.log(`✅ Org owner has ${rolePermissions.length} permissions:`);
       const samplePerms = rolePermissions.slice(0, 5);
       samplePerms.forEach((perm) => {
         if (!perm) return;

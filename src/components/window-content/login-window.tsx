@@ -120,11 +120,11 @@ export function LoginWindow() {
             </h2>
             <p className="text-sm retro-text-secondary">
               You are currently logged in
-              {user.roleName === "super_admin" && (
+              {user.isSuperAdmin && (
                 <span className="ml-2 text-green-600 font-bold">[SUPER ADMIN]</span>
               )}
-              {user.roleName && user.roleName !== "super_admin" && (
-                <span className="ml-2 text-blue-600">[{user.roleName.toUpperCase()}]</span>
+              {user.currentOrganization?.role && !user.isSuperAdmin && (
+                <span className="ml-2 text-blue-600">[{user.currentOrganization.role.name.toUpperCase()}]</span>
               )}
             </p>
           </div>

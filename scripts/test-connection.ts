@@ -28,7 +28,7 @@ async function testConnection() {
 
     console.log("\n✅ Convex is properly connected!");
   } catch (error) {
-    console.error("\n❌ Connection failed:", error.message || error);
+    console.error("\n❌ Connection failed:", error instanceof Error ? error.message : String(error));
     console.error("\nDetails:", error);
   }
 }

@@ -16,7 +16,6 @@ export const users = defineTable({
   defaultOrgId: v.optional(v.id("organizations")),
 
   // Role-based access control
-  roleId: v.optional(v.id("roles")), // Deprecated: use global_role_id for global roles, or organizationMembers.role for per-org roles
   global_role_id: v.optional(v.id("roles")), // Global super admin bypass role
 
   // User preferences
@@ -43,23 +42,43 @@ export const organizations = defineTable({
   // Basic info
   name: v.string(),
   slug: v.string(),
-  
+
   // Business details
   businessName: v.string(),
+  industry: v.optional(v.string()),
+  foundedYear: v.optional(v.number()),
+  employeeCount: v.optional(v.string()), // "1-10", "11-50", "51-200", etc.
   taxId: v.optional(v.string()),
+  vatNumber: v.optional(v.string()), // EU VAT number
+  companyRegistrationNumber: v.optional(v.string()),
+  legalEntityType: v.optional(v.string()), // LLC, Corp, etc.
+
+  // Legacy address fields (DEPRECATED - use organizationAddresses table instead)
+  // Kept for backward compatibility during migration
   street: v.optional(v.string()),
   city: v.optional(v.string()),
   postalCode: v.optional(v.string()),
   country: v.optional(v.string()),
-  
+
   // Contact info
   contactEmail: v.optional(v.string()),
+  billingEmail: v.optional(v.string()),
+  supportEmail: v.optional(v.string()),
   contactPhone: v.optional(v.string()),
+  faxNumber: v.optional(v.string()),
   website: v.optional(v.string()),
-  
+
+  // Social media
+  socialMedia: v.optional(v.object({
+    linkedin: v.optional(v.string()),
+    twitter: v.optional(v.string()),
+    facebook: v.optional(v.string()),
+    instagram: v.optional(v.string()),
+  })),
+
   // About/Bio
   bio: v.optional(v.string()),
-  
+
   // Plan and features
   plan: v.union(
     v.literal("free"), // Everyone starts free!
@@ -69,7 +88,7 @@ export const organizations = defineTable({
     v.literal("enterprise")
   ),
   isPersonalWorkspace: v.boolean(),
-  
+
   // Settings
   settings: v.optional(v.object({
     branding: v.optional(v.object({
@@ -81,8 +100,18 @@ export const organizations = defineTable({
       sso: v.optional(v.boolean()),
       apiAccess: v.optional(v.boolean()),
     })),
+    locale: v.optional(v.object({
+      language: v.optional(v.string()), // en, es, fr, etc.
+      currency: v.optional(v.string()), // USD, EUR, GBP, etc.
+      timezone: v.optional(v.string()), // America/New_York, etc.
+    })),
+    invoicing: v.optional(v.object({
+      prefix: v.optional(v.string()), // INV-, etc.
+      nextNumber: v.optional(v.number()),
+      defaultTerms: v.optional(v.string()), // "Net 30", etc.
+    })),
   })),
-  
+
   // Metadata
   isActive: v.boolean(),
   createdAt: v.number(),
@@ -159,3 +188,41 @@ export const rolePermissions = defineTable({
   .index("by_role", ["roleId"])
   .index("by_permission", ["permissionId"])
   .index("by_role_permission", ["roleId", "permissionId"]);
+
+// Organization Addresses - Multi-address support for organizations
+export const organizationAddresses = defineTable({
+  organizationId: v.id("organizations"),
+
+  // Address Type
+  type: v.union(
+    v.literal("billing"),
+    v.literal("shipping"),
+    v.literal("mailing"),
+    v.literal("physical"),
+    v.literal("other")
+  ),
+  label: v.optional(v.string()), // Custom label: "Headquarters", "Warehouse 1", etc.
+
+  // Address Fields
+  addressLine1: v.string(),
+  addressLine2: v.optional(v.string()),
+  city: v.string(),
+  state: v.optional(v.string()), // State/Province/Region
+  postalCode: v.string(),
+  country: v.string(),
+  region: v.optional(v.string()), // Geographic region: EU, APAC, Americas, etc.
+
+  // Flags
+  isDefault: v.boolean(), // One default per type
+  isPrimary: v.boolean(), // Overall primary address for the organization
+  isActive: v.boolean(),
+
+  // Metadata
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_organization", ["organizationId"])
+  .index("by_org_and_type", ["organizationId", "type"])
+  .index("by_org_and_default", ["organizationId", "isDefault"])
+  .index("by_org_and_primary", ["organizationId", "isPrimary"])
+  .index("by_org_and_active", ["organizationId", "isActive"]);
