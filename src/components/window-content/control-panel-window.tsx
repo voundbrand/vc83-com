@@ -2,6 +2,7 @@
 
 import { useWindowManager } from "@/hooks/use-window-manager";
 import { SettingsWindow } from "./settings-window";
+import { useAuth } from "@/hooks/use-auth";
 
 interface ControlPanelItem {
   id: string;
@@ -12,6 +13,8 @@ interface ControlPanelItem {
 
 export function ControlPanelWindow() {
   const { openWindow } = useWindowManager();
+  const { user } = useAuth();
+  const isSuperAdmin = user?.roleName === "super_admin";
 
   const openDesktopSettings = () => {
     openWindow(
@@ -23,7 +26,8 @@ export function ControlPanelWindow() {
     );
   };
 
-  const controlPanelItems: ControlPanelItem[] = [
+
+  const baseItems: ControlPanelItem[] = [
     {
       id: "accessibility",
       icon: "♿",
@@ -110,12 +114,30 @@ export function ControlPanelWindow() {
     },
   ];
 
+  // Add super admin icon if user is super admin
+  const controlPanelItems: ControlPanelItem[] = isSuperAdmin
+    ? [
+        ...baseItems,
+        {
+          id: "super-admin",
+          icon: "🔐",
+          label: "Super Admin",
+          onClick: () => console.log("Super Admin Panel - Coming soon"),
+        },
+      ]
+    : baseItems;
+
   return (
     <div className="h-full flex flex-col" style={{ background: 'var(--win95-bg)' }}>
       {/* Header */}
       <div className="px-4 py-3 border-b-2" style={{ borderColor: 'var(--win95-border)' }}>
         <p className="text-sm" style={{ color: 'var(--win95-text)' }}>
           Use the settings in Control Panel to personalize your workspace.
+          {isSuperAdmin && (
+            <span className="ml-2 font-bold text-green-600">
+              [SUPER ADMIN MODE]
+            </span>
+          )}
         </p>
       </div>
 

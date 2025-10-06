@@ -11,7 +11,11 @@
   --win95-border: #d0d0d0;
   --win95-border-light: #e8e8e8;
   --win95-text: #1f2937; /* gray-800 */
+  --win95-text-secondary: #6b7280; /* gray-500 */
   --win95-highlight: #000080;
+
+  /* Primary color */
+  --primary: #000080;
 
   /* Hover States */
   --win95-hover-bg: #000080; /* Windows 95 menu hover blue */
@@ -86,7 +90,11 @@
   --win95-border: #1d1d1d;
   --win95-border-light: #5d5d5d;
   --win95-text: #e0e0e0;
+  --win95-text-secondary: #9ca3af; /* gray-400 in dark mode */
   --win95-highlight: #4169e1;
+
+  /* Primary color - dark mode */
+  --primary: #4169e1;
 
   /* Hover States - Dark Mode */
   --win95-hover-bg: #4169e1;
@@ -272,6 +280,133 @@ body {
 
   .retro-input::placeholder {
     color: var(--win95-input-placeholder);
+  }
+
+  /* Text Colors */
+  .retro-text {
+    color: var(--win95-text);
+  }
+
+  .retro-text-secondary {
+    color: var(--win95-text-secondary);
+  }
+
+  .retro-text-primary {
+    color: var(--primary);
+  }
+
+  /* Backgrounds */
+  .retro-bg {
+    background: var(--win95-bg);
+  }
+
+  .retro-bg-light {
+    background: var(--win95-bg-light);
+  }
+
+  /* Borders */
+  .retro-border {
+    border-color: var(--win95-border);
+  }
+
+  .retro-border-light {
+    border-color: var(--win95-border-light);
+  }
+
+  /* Error styles */
+  .retro-error {
+    border: 2px solid var(--error);
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--error);
+    padding: 8px;
+    font-size: 0.875rem;
+  }
+
+  /* Note/Info box */
+  .retro-note {
+    border: 1px solid var(--win95-border-light);
+    padding: 12px;
+    font-size: 0.75rem;
+    color: var(--win95-text-secondary);
+  }
+
+  /* Input with icon wrapper */
+  .retro-input-wrapper {
+    position: relative;
+    display: block;
+  }
+
+  .retro-input-wrapper .retro-input {
+    padding-right: 30px;
+    width: 100%;
+  }
+
+  /* Eye toggle button - inside the input field */
+  .retro-eye-toggle {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    padding: 2px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--win95-text-secondary);
+    transition: all 0.15s ease;
+    width: 20px;
+    height: 20px;
+  }
+
+  .retro-eye-toggle:hover {
+    color: var(--win95-text);
+  }
+
+  .retro-eye-toggle:active {
+    transform: translateY(-50%) scale(0.9);
+  }
+
+  /* Password validation feedback */
+  .retro-validation-success {
+    color: var(--success);
+    font-size: 0.75rem;
+    margin-top: 4px;
+  }
+
+  .retro-validation-error {
+    color: var(--error);
+    font-size: 0.75rem;
+    margin-top: 4px;
+  }
+
+  /* Small back button */
+  .retro-button-small {
+    border: 2px solid;
+    border-color: var(--win95-button-light) var(--win95-button-dark) var(--win95-button-dark) var(--win95-button-light);
+    background: var(--win95-bg);
+    box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.25);
+    transition: all 0.15s ease;
+    color: var(--win95-text);
+    padding: 2px 8px;
+    font-weight: 600;
+    font-size: 0.75rem;
+    border-radius: 0px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .retro-button-small:hover {
+    background: var(--win95-hover-light);
+    transform: translateY(-1px);
+  }
+
+  .retro-button-small:active {
+    border-color: var(--win95-button-dark) var(--win95-button-light) var(--win95-button-light) var(--win95-button-dark);
+    box-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.25);
+    transform: translateY(0);
   }
 
   /* Window Control Buttons - Base Styles */

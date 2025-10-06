@@ -1,40 +1,51 @@
 /**
  * ORGANIZED SCHEMA STRUCTURE
- * 
+ *
  * This schema is composed from modular definitions in the schemas/ directory.
  * See schemas/README.md for documentation on adding new apps.
- * 
+ *
  * Structure:
- * 1. Auth tables (from @convex-dev/auth)
- * 2. Core platform (users, organizations, memberships)
- * 3. App Store (apps registry, installations, purchases)
- * 4. Individual Apps (vc83pod, etc. - each is self-contained)
- * 5. Utilities (audit logs, invitations, email verification)
+ * 1. Core platform (users, organizations, memberships)
+ * 2. App Store (apps registry, installations, purchases)
+ * 3. Individual Apps (L4YERCAK3pod, etc. - each is self-contained)
+ * 4. Utilities (audit logs)
  */
 
 import { defineSchema } from "convex/server";
-import { authTables } from "@convex-dev/auth/server";
 
 // Import modular schema definitions
-import { users, organizations, organizationMembers } from "./schemas/coreSchemas";
+import {
+  users,
+  organizations,
+  organizationMembers,
+  userPasswords,
+  sessions,
+  roles,
+  permissions,
+  rolePermissions
+} from "./schemas/coreSchemas";
 import { apps, appInstallations, snapshots, snapshotLoads, purchases } from "./schemas/appStoreSchemas";
 import { app_podcasting } from "./schemas/appDataSchemas";
-import { auditLogs, invitations, emailVerifications, resetTokens, rateLimits } from "./schemas/utilitySchemas";
+import { auditLogs } from "./schemas/utilitySchemas";
 
 /**
  * MAIN SCHEMA EXPORT
- * 
+ *
  * All tables are defined in their respective schema modules.
  * This file simply composes them together.
  */
 export default defineSchema({
-  // 🔐 AUTH: Tables from @convex-dev/auth
-  ...authTables,
-
   // 👥 CORE: Platform foundation
   users,
   organizations,
   organizationMembers,
+  userPasswords,
+  sessions,
+
+  // 🔐 RBAC: Role-Based Access Control
+  roles,
+  permissions,
+  rolePermissions,
 
   // 🏪 APP STORE: Marketplace functionality
   apps,
@@ -47,7 +58,7 @@ export default defineSchema({
   // Each app is self-contained with its own table
   // All apps follow the appSchemaBase pattern (see schemas/appSchemaBase.ts)
   // NAMING: Always prefix with "app_"
-  app_podcasting,  // Podcasting App
+  // app_podcasting,  // Podcasting App
   // Add more apps here as they're created:
   // app_analytics,
   // app_subscribers,
@@ -55,10 +66,6 @@ export default defineSchema({
 
   // 🛠️ UTILITIES: Supporting functionality
   auditLogs,
-  invitations,
-  emailVerifications,
-  resetTokens,
-  rateLimits,
 });
 
 /**

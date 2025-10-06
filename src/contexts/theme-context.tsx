@@ -152,8 +152,8 @@ interface ThemeContextValue {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-const THEME_STORAGE_KEY = "vc83-theme";
-const WINDOW_STYLE_STORAGE_KEY = "vc83-window-style";
+const THEME_STORAGE_KEY = "L4YERCAK3-theme";
+const WINDOW_STYLE_STORAGE_KEY = "L4YERCAK3-window-style";
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   // Default to Windows 95 light theme and windows style

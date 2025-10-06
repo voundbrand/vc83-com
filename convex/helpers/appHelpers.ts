@@ -38,7 +38,7 @@ export function createAppHelpers(appCode: string) {
 
     const user = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", identity.email!))
+      .withIndex("email", (q) => q.eq("email", identity.email!))
       .first();
 
     if (!user) {
@@ -78,7 +78,7 @@ export function createAppHelpers(appCode: string) {
 
     const user = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", identity.email!))
+      .withIndex("email", (q) => q.eq("email", identity.email!))
       .first();
 
     if (!user) {
@@ -133,7 +133,7 @@ export async function getAuthenticatedUserContext(ctx: MutationCtx | QueryCtx): 
 
   const user = await ctx.db
     .query("users")
-    .withIndex("by_email", (q) => q.eq("email", identity.email!))
+    .withIndex("email", (q) => q.eq("email", identity.email!))
     .first();
 
   if (!user) {

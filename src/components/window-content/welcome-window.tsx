@@ -1,46 +1,12 @@
 "use client";
 
-import { useWindowManager } from "@/hooks/use-window-manager";
-import { RetroButton } from "@/components/retro-button";
-
 /**
- * Welcome Window - First impression for non-logged-in visitors
- * 
- * This is NOT an app - it's an engaging landing experience that appears
- * as a moveable window. Explains the Layer Cake concept and provides 
- * clear CTAs to sign in/up.
+ * Welcome Window - First impression for visitors
+ *
+ * This is an engaging landing experience that appears
+ * as a moveable window. Explains the Layer Cake concept.
  */
 export function WelcomeWindow() {
-  const { openWindow, closeWindow } = useWindowManager();
-
-  const handleSignIn = () => {
-    // Import dynamically to avoid circular dependency
-    import("@/components/window-content/login-window").then(({ LoginWindow }) => {
-      closeWindow("welcome");
-      openWindow(
-        "login", 
-        "Sign In", 
-        <LoginWindow />, 
-        { x: 250, y: 150 }, 
-        { width: 500, height: 550 }
-      );
-    });
-  };
-
-  const handleSignUp = () => {
-    // Import dynamically to avoid circular dependency
-    import("@/components/window-content/register-window").then(({ RegisterWindow }) => {
-      closeWindow("welcome");
-      openWindow(
-        "register", 
-        "Create Account", 
-        <RegisterWindow />, 
-        { x: 200, y: 100 }, 
-        { width: 600, height: 650 }
-      );
-    });
-  };
-
   return (
     <div className="p-6 space-y-4 h-full overflow-y-auto" style={{ background: 'var(--win95-bg)' }}>
       <div className="text-center mb-2">
@@ -67,18 +33,8 @@ export function WelcomeWindow() {
           color: 'var(--win95-text)',
           borderColor: 'var(--win95-border)'
         }}>
-          Ready to layer up? Sign in to your workspace or create a free account to get started.
+          Welcome to the retro desktop experience!
         </p>
-      </div>
-
-      {/* Action Buttons */}
-      <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 justify-center pt-4">
-        <RetroButton variant="secondary" onClick={handleSignIn}>
-          Sign In
-        </RetroButton>
-        <RetroButton onClick={handleSignUp}>
-          Sign Up (Free)
-        </RetroButton>
       </div>
 
       {/* Footer Tease */}

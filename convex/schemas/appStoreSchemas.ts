@@ -29,6 +29,8 @@ export const apps = defineTable({
   
   // Availability
   plans: v.array(v.union(
+    v.literal("free"),
+    v.literal("pro"),
     v.literal("personal"),
     v.literal("business"),
     v.literal("enterprise")

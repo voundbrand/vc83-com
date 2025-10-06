@@ -8,53 +8,39 @@ import { useWindowManager } from "@/hooks/use-window-manager"
 import { FloatingWindow } from "@/components/floating-window"
 import { StartMenu } from "@/components/start-menu"
 import { AboutWindow } from "@/components/window-content/about-window"
-import { EpisodesWindow } from "@/components/window-content/episodes-window"
-import { ContactWindow } from "@/components/window-content/contact-window"
-import { SubscribeWindow } from "@/components/window-content/subscribe-window"
 import { WelcomeWindow } from "@/components/window-content/welcome-window"
-import { LoginWindow } from "@/components/window-content/login-window"
-import { RegisterWindow } from "@/components/window-content/register-window"
 import { ControlPanelWindow } from "@/components/window-content/control-panel-window"
+import { LoginWindow } from "@/components/window-content/login-window"
 import { useIsMobile } from "@/hooks/use-media-query"
-import { OrganizationSwitcher } from "@/components/auth/organization-switcher"
 import { useAuth } from "@/hooks/use-auth"
 
 export default function HomePage() {
   const [showStartMenu, setShowStartMenu] = useState(false)
   const { windows, openWindow, restoreWindow, focusWindow } = useWindowManager()
   const isMobile = useIsMobile()
-  const { isAuthenticated, isLoading } = useAuth()
+  const { isSignedIn, signOut } = useAuth()
 
   const openAboutWindow = () => {
     openWindow("about", "About L4YERCAK3", <AboutWindow />, { x: 150, y: 150 }, { width: 700, height: 500 })
   }
 
   const openEpisodesWindow = () => {
-    openWindow("episodes", "Episode Archive", <EpisodesWindow />, { x: 200, y: 100 }, { width: 850, height: 600 })
+    openWindow("episodes", "Episode Archive", <div className="p-4">Episodes coming soon...</div>, { x: 200, y: 100 }, { width: 850, height: 600 })
   }
-
-  const openContactWindow = () => {
-    openWindow("contact", "Contact & Subscribe", <ContactWindow />, { x: 250, y: 200 }, { width: 600, height: 450 })
-  }
-
-  const openSubscribeWindow = () => {
-    openWindow("subscribe", "Subscribe to VC83", <SubscribeWindow />, { x: 300, y: 150 }, { width: 600, height: 500 })
-  }
-
   const openWelcomeWindow = () => {
     openWindow("welcome", "L4YERCAK3.exe", <WelcomeWindow />, { x: 100, y: 100 }, { width: 650, height: 500 })
   }
 
-  const openLoginWindow = () => {
-    openWindow("login", "Sign In", <LoginWindow />, { x: 250, y: 150 }, { width: 500, height: 550 })
-  }
-
-  const openRegisterWindow = () => {
-    openWindow("register", "Create Account", <RegisterWindow />, { x: 200, y: 100 }, { width: 600, height: 650 })
-  }
-
   const openSettingsWindow = () => {
     openWindow("settings", "Settings", <ControlPanelWindow />, { x: 200, y: 100 }, { width: 700, height: 550 })
+  }
+
+  const openLoginWindow = () => {
+    openWindow("login", "User Account", <LoginWindow />, { x: 250, y: 100 }, { width: 450, height: 620 })
+  }
+
+  const handleLogout = () => {
+    signOut()
   }
 
   // Open welcome window on mount (desktop only)
@@ -65,36 +51,24 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile])
 
-  const startMenuItems = isAuthenticated ? [
-    { 
-      label: "Programs", 
+  const startMenuItems = [
+    {
+      label: "Programs",
       icon: "📂",
       submenu: [
-        { label: "VC83 Podcast", icon: "🎙️", onClick: openEpisodesWindow },
-        { label: "Subscribe", icon: "🔊", onClick: openSubscribeWindow },
+        //{ label: "L4YERCAK3 Podcast", icon: "🎙️", onClick: openEpisodesWindow },
+        //{ label: "Subscribe", icon: "🔊", onClick: openSubscribeWindow },
       ]
     },
-    { label: "Documents", icon: "📄", onClick: () => console.log("Documents - Coming soon") },
+    //{ label: "Documents", icon: "📄", onClick: () => console.log("Documents - Coming soon") },
     { label: "Settings", icon: "⚙️", onClick: openSettingsWindow },
-    { label: "Help", icon: "❓", onClick: () => console.log("Help - Coming soon") },
-    { label: "Run AI", icon: "🤖", onClick: () => console.log("Run AI - Coming soon") },
-    { divider: true },
-    { label: "Sign Out", icon: "🚪", onClick: () => console.log("Sign out") },
-  ] : [
-    { 
-      label: "Programs", 
-      icon: "📂",
-      submenu: [
-        { label: "VC83 Podcast", icon: "🎙️", onClick: openEpisodesWindow },
-      ]
+    //{ label: "Help", icon: "❓", onClick: () => console.log("Help - Coming soon") },
+    //{ label: "Run AI", icon: "🤖", onClick: () => console.log("Run AI - Coming soon") },
+    {
+      label: isSignedIn ? "Log Out" : "Log In",
+      icon: isSignedIn ? "🔒" : "🔓",
+      onClick: isSignedIn ? handleLogout : openLoginWindow
     },
-    { label: "Documents", icon: "📄", onClick: () => console.log("Documents - Coming soon") },
-    { label: "Settings", icon: "⚙️", onClick: openSettingsWindow },
-    { label: "Help", icon: "❓", onClick: () => console.log("Help - Coming soon") },
-    { label: "Run AI", icon: "🤖", onClick: () => console.log("Run AI - Coming soon") },
-    { divider: true },
-    { label: "Sign In", icon: "🔑", onClick: openLoginWindow },
-    { label: "Create Account", icon: "👤", onClick: openRegisterWindow },
   ]
 
   return (
@@ -112,25 +86,8 @@ export default function HomePage() {
 
       {/* Desktop Icons */}
       <div className={isMobile ? "desktop-grid-mobile" : "absolute top-4 left-4 space-y-4 z-10 desktop-only"}>
-        {isAuthenticated ? (
-          <>
-            <DesktopIcon icon="💾" label="Episodes" onClick={openEpisodesWindow} />
-            <DesktopIcon icon="📁" label="About" onClick={openAboutWindow} />
-            <DesktopIcon icon="📧" label="Contact" onClick={openContactWindow} />
-            <DesktopIcon icon="🔊" label="Subscribe" onClick={openSubscribeWindow} />
-          </>
-        ) : (
-          <>
-            <DesktopIcon icon="🔑" label="Sign In" onClick={openLoginWindow} />
-            <DesktopIcon icon="👤" label="Register" onClick={openRegisterWindow} />
-            <DesktopIcon icon="📁" label="About" onClick={openAboutWindow} />
-          </>
-        )}
-      </div>
-
-      {/* Org Switcher */}
-      <div className="absolute top-4 right-4 z-10 desktop-only flex items-center gap-2">
-        {isAuthenticated && !isLoading && <OrganizationSwitcher />}
+        {/* <DesktopIcon icon="💾" label="Episodes" onClick={openEpisodesWindow} /> */}
+        {/* <DesktopIcon icon="📁" label="About" onClick={openAboutWindow} /> */}
       </div>
 
 

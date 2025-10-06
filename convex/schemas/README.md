@@ -10,7 +10,7 @@ schemas/
 ├── appSchemaBase.ts       # Base fields ALL apps must include
 ├── coreSchemas.ts         # Users, organizations, memberships
 ├── appStoreSchemas.ts     # Apps registry, installations, purchases
-├── appDataSchemas.ts      # Individual app tables (vc83pod, etc.)
+├── appDataSchemas.ts      # Individual app tables (L4YERCAK3pod, etc.)
 └── utilitySchemas.ts      # Audit logs, invitations, etc.
 ```
 
@@ -18,7 +18,7 @@ schemas/
 
 ### 1. Choose Your App Model
 
-**Shared Content App** (like vc83pod):
+**Shared Content App** (like L4YERCAK3pod):
 - Content created by ONE organization (the creator)
 - Other organizations can VIEW but not edit
 - Example: Podcast, blog, documentation
@@ -63,7 +63,7 @@ Add your app to the DEFAULT_APPS array:
   icon: "🎯",
   category: "content", // or analytics, marketing, etc.
   plans: ["personal", "business", "enterprise"],
-  creatorOrgId: VC83_ORG_ID, // Your creator org
+  creatorOrgId: L4YERCAK3_ORG_ID, // Your creator org
   appType: "shared-content", // or private-tool, interactive
   dataScope: "creator-owned", // or installer-owned, none
   // ... pricing fields
@@ -112,13 +112,13 @@ ALL app tables MUST include these fields from `appSchemaBase`:
 ## 🎨 Naming Conventions
 
 ### Table Names
-- Use lowercase, no spaces: `vc83pod`, `analytics`, `calendar`
+- Use lowercase, no spaces: `L4YERCAK3pod`, `analytics`, `calendar`
 - Match the app `code` field exactly
 - Keep it short but descriptive
 
 ### App Codes
 - Use the same value as the table name
-- This creates a 1:1 mapping: `code: "vc83pod"` → `vc83pod` table
+- This creates a 1:1 mapping: `code: "L4YERCAK3pod"` → `L4YERCAK3pod` table
 
 ### Module Names
 - Create `convex/yourappname.ts` to match your table
@@ -128,7 +128,7 @@ ALL app tables MUST include these fields from `appSchemaBase`:
 
 ### Shared Content (`shared-content`)
 ```
-Creator Org (VC83)     → Creates podcast episodes
+Creator Org (L4YERCAK3)     → Creates podcast episodes
 ↓
 Installer Orgs (A, B)  → Can VIEW episodes, cannot edit
 ```
@@ -173,13 +173,13 @@ When creating a new app:
 ```typescript
 // Get all records for an app
 const records = await ctx.db
-  .query("vc83pod")
+  .query("L4YERCAK3pod")
   .withIndex("by_creator", (q) => q.eq("creatorOrgId", creatorId))
   .collect();
 
 // Get published records only
 const published = await ctx.db
-  .query("vc83pod")
+  .query("L4YERCAK3pod")
   .withIndex("by_status", (q) => q.eq("status", "published"))
   .collect();
 ```
@@ -197,6 +197,6 @@ Each app should document:
 ## ❓ Questions?
 
 See the implementation examples:
-- `vc83pod` - A complete shared-content app
+- `L4YERCAK3pod` - A complete shared-content app
 - Main `schema.ts` - How modules are composed
-- `convex/vc83pod.ts` - Query/mutation patterns
+- `convex/L4YERCAK3pod.ts` - Query/mutation patterns

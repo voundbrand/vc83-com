@@ -1,178 +1,253 @@
 "use client";
 
-import { createContext, useContext, ReactNode, useEffect, useState } from "react";
-import { useAuthActions } from "@convex-dev/auth/react";
-import { useMutation, useQuery } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import { useState, useEffect, createContext, useContext, ReactNode } from "react";
 import { Id } from "../../convex/_generated/dataModel";
 
-interface User {
-  _id: Id<"users">;
-  firstName: string;
-  lastName?: string;
-  email: string;
-  defaultOrgId: Id<"organizations">;
-  emailVerified?: boolean;
+interface Permission {
+  id: string;
+  name: string;
+  resource: string;
+  action: string;
+}
+
+interface Role {
+  id: string;
+  name: string;
+  description?: string;
 }
 
 interface Organization {
-  _id: Id<"organizations">;
+  id: string;
   name: string;
   slug: string;
-  plan: "personal" | "business" | "enterprise";
-  isPersonalWorkspace: boolean;
+  role: Role;
+  permissions: Permission[];
+  isOwner: boolean;
 }
 
-interface PersonalSignUpData {
-  firstName: string;
+interface User {
+  id: string;
   email: string;
-  password: string;
-}
-
-interface BusinessSignUpData extends PersonalSignUpData {
-  lastName: string;
-  businessName: string;
-  taxId?: string;
-  street?: string;
-  city?: string;
-  postalCode?: string;
-  country?: string;
-  contactEmail?: string;
-  contactPhone?: string;
-  website?: string;
+  firstName?: string;
+  lastName?: string;
+  isSuperAdmin: boolean;
+  globalRole?: Role | null;
+  organizations: Organization[];
+  currentOrganization?: Organization | null;
+  defaultOrgId?: Id<"organizations"> | null;
+  // Legacy fields
+  roleId?: string;
+  roleName?: string | null;
 }
 
 interface AuthContextType {
   user: User | null;
-  currentOrg: Organization | null;
-  organizations: Organization[];
+  isSignedIn: boolean;
   isLoading: boolean;
-  isAuthenticated: boolean;
-  signUpPersonal: (data: PersonalSignUpData) => Promise<void>;
-  signUpBusiness: (data: BusinessSignUpData) => Promise<void>;
+  isSuperAdmin: boolean;
   signIn: (email: string, password: string) => Promise<void>;
+  setupPassword: (email: string, password: string, firstName?: string, lastName?: string) => Promise<void>;
+  checkNeedsPasswordSetup: (email: string) => Promise<{ userExists: boolean; needsSetup: boolean; userName: string | null }>;
   signOut: () => Promise<void>;
-  switchOrganization: (orgId: Id<"organizations">) => Promise<void>;
+  switchOrganization: (organizationId: string) => Promise<void>;
+  canPerform: (permission: string, resource?: string, organizationId?: string) => boolean;
+  canPerformMany: (permissions: string[], organizationId?: string) => Record<string, boolean>;
+  sessionId: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { signIn: convexSignIn, signOut: convexSignOut } = useAuthActions();
-  const [currentOrgId, setCurrentOrgId] = useState<Id<"organizations"> | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
-  // Mutations
-  const signUpPersonalMutation = useMutation(api.auth.signUpPersonal);
-  const signUpBusinessMutation = useMutation(api.auth.signUpBusiness);
+  // Load session from localStorage on mount
+  useEffect(() => {
+    const storedSession = localStorage.getItem("convex_session_id");
+    if (storedSession) {
+      setSessionId(storedSession);
+    }
+  }, []);
 
-  // Queries
-  const user = useQuery(api.auth.currentUser) || null;
-  const userOrgs = useQuery(api.organizations.getUserOrganizations) || [];
-  const currentOrgData = useQuery(
-    api.organizations.getOrganization,
-    currentOrgId ? { orgId: currentOrgId } : "skip"
+  const userQuery = useQuery(
+    api.auth.getCurrentUser,
+    sessionId ? { sessionId } : { sessionId: undefined }
   );
 
-  // Set initial org when user loads
-  useEffect(() => {
-    if (user && !currentOrgId) {
-      setCurrentOrgId(user.defaultOrgId);
-    }
-    if (user !== undefined) {
-      setIsLoading(false);
-    }
-  }, [user, currentOrgId]);
-
-  const signUpPersonal = async (data: PersonalSignUpData) => {
-    try {
-      // Get client IP (in production, this would come from a server endpoint)
-      const ipAddress = "127.0.0.1"; // Placeholder for dev
-      
-      await signUpPersonalMutation({
-        firstName: data.firstName,
-        email: data.email,
-        password: data.password,
-        ipAddress,
-      });
-      
-      // Auto sign-in after signup
-      await convexSignIn("password", { email: data.email, password: data.password });
-    } catch (error) {
-      console.error("Personal signup failed:", error);
-      throw error;
-    }
-  };
-
-  const signUpBusiness = async (data: BusinessSignUpData) => {
-    try {
-      const ipAddress = "127.0.0.1"; // Placeholder for dev
-      
-      await signUpBusinessMutation({
-        firstName: data.firstName,
-        lastName: data.lastName,
-        email: data.email,
-        password: data.password,
-        businessName: data.businessName,
-        taxId: data.taxId,
-        street: data.street || "",
-        city: data.city || "",
-        postalCode: data.postalCode || "",
-        country: data.country || "",
-        contactEmail: data.contactEmail,
-        contactPhone: data.contactPhone,
-        website: data.website,
-        ipAddress,
-      });
-      
-      // Auto sign-in after signup
-      await convexSignIn("password", { email: data.email, password: data.password });
-    } catch (error) {
-      console.error("Business signup failed:", error);
-      throw error;
-    }
-  };
+  const signInAction = useAction(api.auth.signIn);
+  const setupPasswordAction = useAction(api.auth.setupPassword);
+  const signOutMutation = useMutation(api.auth.signOut);
+  const switchOrgMutation = useMutation(api.auth.switchOrganization);
 
   const signIn = async (email: string, password: string) => {
-    try {
-      await convexSignIn("password", { email, password });
-    } catch (error) {
-      console.error("Sign in failed:", error);
-      throw error;
+    const result = await signInAction({ email, password });
+    if (result.sessionId) {
+      localStorage.setItem("convex_session_id", result.sessionId);
+      setSessionId(result.sessionId);
     }
+  };
+
+  const setupPassword = async (email: string, password: string, firstName?: string, lastName?: string) => {
+    const result = await setupPasswordAction({ email, password, firstName, lastName });
+    if (result.sessionId) {
+      localStorage.setItem("convex_session_id", result.sessionId);
+      setSessionId(result.sessionId);
+    }
+  };
+
+  const checkNeedsPasswordSetup = async (email: string) => {
+    // We'll use the Convex client directly for this query
+    const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
+    if (!convexUrl) {
+      throw new Error("Convex URL not configured");
+    }
+
+    const response = await fetch(`${convexUrl}/api/query`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        path: "auth:checkNeedsPasswordSetup",
+        args: { email },
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to check user status");
+    }
+
+    const result = await response.json();
+    return result.value || { userExists: false, needsSetup: false, userName: null };
   };
 
   const signOut = async () => {
-    try {
-      await convexSignOut();
-      setCurrentOrgId(null);
-    } catch (error) {
-      console.error("Sign out failed:", error);
-      throw error;
+    if (sessionId) {
+      await signOutMutation({ sessionId });
+      localStorage.removeItem("convex_session_id");
+      setSessionId(null);
     }
   };
 
-  const switchOrganization = async (orgId: Id<"organizations">) => {
-    setCurrentOrgId(orgId);
-    // Store preference in localStorage
-    if (typeof window !== "undefined") {
-      localStorage.setItem("currentOrgId", orgId);
+  const switchOrganization = async (organizationId: string) => {
+    if (!sessionId) {
+      throw new Error("No active session");
     }
+    await switchOrgMutation({
+      sessionId,
+      organizationId: organizationId as Id<"organizations">
+    });
+    // The user query will automatically refresh with the new org context
+  };
+
+  // Transform the user data to match our interface
+  const user: User | null = userQuery ? {
+    id: userQuery.id,
+    email: userQuery.email,
+    firstName: userQuery.firstName,
+    lastName: userQuery.lastName,
+    isSuperAdmin: userQuery.isSuperAdmin,
+    globalRole: userQuery.globalRole,
+    // Filter out null organizations and ensure proper typing
+    organizations: userQuery.organizations
+      .filter((org): org is NonNullable<typeof org> => org !== null)
+      .map(org => ({
+        id: org.id,
+        name: org.name,
+        slug: org.slug,
+        role: org.role,
+        permissions: org.permissions
+          .filter((p): p is NonNullable<typeof p> => p !== null)
+          .map(p => ({
+            id: p.id,
+            name: p.name,
+            resource: p.resource,
+            action: p.action,
+          })),
+        isOwner: org.isOwner,
+      })),
+    currentOrganization: userQuery.currentOrganization ? {
+      id: userQuery.currentOrganization.id,
+      name: userQuery.currentOrganization.name,
+      slug: userQuery.currentOrganization.slug,
+      role: userQuery.currentOrganization.role,
+      permissions: userQuery.currentOrganization.permissions
+        .filter((p): p is NonNullable<typeof p> => p !== null)
+        .map(p => ({
+          id: p.id,
+          name: p.name,
+          resource: p.resource,
+          action: p.action,
+        })),
+      isOwner: userQuery.currentOrganization.isOwner,
+    } : null,
+    defaultOrgId: userQuery.defaultOrgId,
+    roleId: userQuery.roleId,
+    roleName: userQuery.roleName,
+  } : null;
+
+  // Client-side permission checking with caching
+  const canPerform = (permission: string, resource?: string, organizationId?: string): boolean => {
+    if (!user) return false;
+
+    // Super admins can do everything
+    if (user.isSuperAdmin) return true;
+
+    // Check permissions in the current organization
+    const org = organizationId
+      ? user.organizations.find(o => o.id === organizationId)
+      : user.currentOrganization;
+
+    if (!org) return false;
+
+    // Check if the permission exists in the user's permissions
+    return org.permissions.some(p => {
+      if (p.name === permission) {
+        if (resource) {
+          return p.resource === resource;
+        }
+        return true;
+      }
+
+      // Check for wildcard permissions
+      if (p.name === '*') return true;
+
+      // Check for prefix wildcard (e.g., 'view_*')
+      if (p.name.endsWith('*')) {
+        const prefix = p.name.replace('*', '');
+        return permission.startsWith(prefix);
+      }
+
+      return false;
+    });
+  };
+
+  const canPerformMany = (permissions: string[], organizationId?: string): Record<string, boolean> => {
+    const results: Record<string, boolean> = {};
+
+    permissions.forEach(permission => {
+      results[permission] = canPerform(permission, undefined, organizationId);
+    });
+
+    return results;
   };
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        currentOrg: currentOrgData || null,
-        organizations: userOrgs,
-        isLoading,
-        isAuthenticated: !!user,
-        signUpPersonal,
-        signUpBusiness,
+        isSignedIn: !!user,
+        isLoading: userQuery === undefined,
+        isSuperAdmin: user?.isSuperAdmin || false,
         signIn,
+        setupPassword,
+        checkNeedsPasswordSetup,
         signOut,
         switchOrganization,
+        canPerform,
+        canPerformMany,
+        sessionId,
       }}
     >
       {children}
@@ -182,8 +257,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within AuthProvider");
+  if (context === undefined) {
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
+}
+
+// Convenience hooks for common permission checks
+export function usePermission(permission: string, resource?: string, organizationId?: string): boolean {
+  const { canPerform } = useAuth();
+  return canPerform(permission, resource, organizationId);
+}
+
+export function usePermissions(permissions: string[], organizationId?: string): Record<string, boolean> {
+  const { canPerformMany } = useAuth();
+  return canPerformMany(permissions, organizationId);
+}
+
+// Role-based convenience hooks
+export function useIsSuperAdmin(): boolean {
+  const { user } = useAuth();
+  return user?.isSuperAdmin || false;
+}
+
+export function useIsOrgOwner(organizationId?: string): boolean {
+  const { user } = useAuth();
+  if (!user) return false;
+
+  const org = organizationId
+    ? user.organizations.find(o => o.id === organizationId)
+    : user.currentOrganization;
+
+  return org?.role.name === 'org_owner' || false;
+}
+
+export function useIsManager(organizationId?: string): boolean {
+  const { user } = useAuth();
+  if (!user) return false;
+
+  const org = organizationId
+    ? user.organizations.find(o => o.id === organizationId)
+    : user.currentOrganization;
+
+  const role = org?.role.name;
+  return role === 'business_manager' || role === 'org_owner' || user.isSuperAdmin;
+}
+
+export function useCurrentOrganization(): Organization | null {
+  const { user } = useAuth();
+  return user?.currentOrganization || null;
+}
+
+export function useOrganizations(): Organization[] {
+  const { user } = useAuth();
+  return user?.organizations || [];
 }

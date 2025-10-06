@@ -125,16 +125,16 @@ export function AboutWindow() {
           borderColor: 'var(--win95-border)'
         }}>
           <a
-            href="https://twitter.com/vc83pod"
+            href="https://twitter.com/L4YERCAK3pod"
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm font-semibold underline"
             style={{ color: 'var(--win95-highlight)' }}
           >
-            @vc83pod (Twitter)
+            @L4YERCAK3pod (Twitter)
           </a>
           <a
-            href="https://www.linkedin.com/company/vc83"
+            href="https://www.linkedin.com/company/L4YERCAK3"
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm font-semibold underline"
@@ -143,7 +143,7 @@ export function AboutWindow() {
             LinkedIn
           </a>
           <a
-            href="https://open.spotify.com/show/vc83"
+            href="https://open.spotify.com/show/L4YERCAK3"
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm font-semibold underline"

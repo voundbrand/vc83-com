@@ -8,7 +8,6 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { useWindowManager } from "@/hooks/use-window-manager"
 import { FloatingWindow } from "@/components/floating-window"
 import { AboutWindow } from "@/components/window-content/about-window"
-import { EpisodesWindow } from "@/components/window-content/episodes-window"
 import { ContactWindow } from "@/components/window-content/contact-window"
 import { SubscribeWindow } from "@/components/window-content/subscribe-window"
 
@@ -18,10 +17,6 @@ export default function HomePage() {
 
   const openAboutWindow = () => {
     openWindow("about", "About VC83", <AboutWindow />, { x: 150, y: 150 })
-  }
-
-  const openEpisodesWindow = () => {
-    openWindow("episodes", "Episode Archive", <EpisodesWindow />, { x: 200, y: 100 })
   }
 
   const openContactWindow = () => {
@@ -45,7 +40,6 @@ export default function HomePage() {
 
       {/* Desktop Icons */}
       <div className="absolute top-4 left-4 space-y-4 z-10">
-        <DesktopIcon icon="💾" label="Episodes" onClick={openEpisodesWindow} />
         <DesktopIcon icon="📁" label="About" onClick={openAboutWindow} />
         <DesktopIcon icon="📧" label="Contact" onClick={openContactWindow} />
         <DesktopIcon icon="🔊" label="Subscribe" onClick={openSubscribeWindow} />
@@ -69,9 +63,6 @@ export default function HomePage() {
             </div>
             <nav className="flex items-center gap-4">
               <RetroButton size="sm">HOME</RetroButton>
-              <RetroButton size="sm" variant="secondary" onClick={openEpisodesWindow}>
-                EPISODES
-              </RetroButton>
               <RetroButton size="sm" variant="secondary" onClick={openAboutWindow}>
                 ABOUT
               </RetroButton>

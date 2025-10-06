@@ -1,538 +1,810 @@
-import { mutation, query } from "./_generated/server";
+import { action, mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
-import { hash, compare } from "bcryptjs";
-import { Password } from "@convex-dev/auth/providers/Password";
-import { convexAuth } from "@convex-dev/auth/server";
-import { internal } from "./_generated/api";
+import { Id } from "./_generated/dataModel";
+import { api, internal } from "./_generated/api";
 
-// Configure Convex Auth with Password provider
-export const { auth, signIn: authSignIn, signOut: authSignOut, store } = convexAuth({
-  providers: [Password],
-});
-
-// Default export for Convex deployment config
-export default convexAuth({
-  providers: [Password],
-});
-
-// Workspace name generator for personal accounts
-const workspaceNames = [
-  "Creative Studio",
-  "Digital Lab",
-  "Innovation Hub",
-  "Podcast HQ",
-  "Media Space",
-  "Content Zone",
-  "Creator Base",
-  "Story Lab",
-  "Audio Workshop",
-  "Broadcast Center",
-];
-
-const workspaceAdjectives = [
-  "Awesome",
-  "Creative",
-  "Digital",
-  "Dynamic",
-  "Epic",
-  "Fantastic",
-  "Great",
-  "Innovative",
-  "Modern",
-  "Vibrant",
-];
-
-function generateWorkspaceName(firstName: string): string {
-  const adjective = workspaceAdjectives[Math.floor(Math.random() * workspaceAdjectives.length)];
-  const workspace = workspaceNames[Math.floor(Math.random() * workspaceNames.length)];
-  return `${firstName}'s ${adjective} ${workspace}`;
-}
-
-function generateOrgSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .substring(0, 50);
-}
-
-function generateVerificationToken(): string {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  let token = "";
-  for (let i = 0; i < 32; i++) {
-    token += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return token;
-}
-
-// Sign up for personal account - minimal fields required
-export const signUpPersonal = mutation({
+// Check if user needs password setup (first-time login)
+export const checkNeedsPasswordSetup = query({
   args: {
-    firstName: v.string(),
     email: v.string(),
-    password: v.string(),
-    // Anti-bot fields
-    ipAddress: v.string(),
-    captchaToken: v.optional(v.string()),
-    behaviorData: v.optional(v.object({
-      sessionId: v.string(),
-      formCompletionTime: v.number(),
-      events: v.array(v.object({
-        type: v.string(),
-        timestamp: v.number(),
-      })),
-    })),
   },
   handler: async (ctx, args) => {
-    // Import validators
-    const { validators } = await import("./security");
-    
-    // 1. Password strength check first (no DB call needed)
-    const passwordCheck = validators.isStrongPassword(args.password);
-    if (!passwordCheck.valid) {
-      throw new Error(passwordCheck.errors.join(". "));
-    }
-    
-    // 2. Basic email format check
-    if (!validators.isValidEmail(args.email)) {
-      throw new Error("Invalid email format");
-    }
-    
-    // 3. Basic name validation
-    if (args.firstName.length < 2 || args.firstName.length > 50) {
-      throw new Error("Name must be between 2 and 50 characters");
-    }
-    
-    // Check for obvious bot patterns in name
-    const suspiciousNamePatterns = [/^test/i, /^user\d+/i, /^admin/i, /^bot/i];
-    if (suspiciousNamePatterns.some(pattern => pattern.test(args.firstName))) {
-      throw new Error("Invalid name");
-    }
-    
-    // Check for disposable email domains
-    const emailDomain = args.email.split("@")[1].toLowerCase();
-    const disposableEmails = ["tempmail.com", "throwaway.email", "guerrillamail.com", "mailinator.com"];
-    if (disposableEmails.includes(emailDomain)) {
-      throw new Error("Please use a permanent email address");
-    }
-    
-    // Check if email already exists
-    const existingUser = await ctx.db
-      .query("users")
-      .withIndex("by_email", (q) => q.eq("email", args.email))
-      .first();
-    
-    if (existingUser) {
-      throw new Error("Email already registered");
-    }
-
-    // Hash the password
-    const hashedPassword = await hash(args.password, 10);
-    
-    // Generate creative workspace name
-    const workspaceName = generateWorkspaceName(args.firstName);
-    const slug = generateOrgSlug(workspaceName);
-    
-    // Create organization first
-    const organizationId = await ctx.db.insert("organizations", {
-      name: workspaceName,
-      slug,
-      businessName: workspaceName, // Use workspace name as placeholder
-      plan: "personal",
-      isPersonalWorkspace: true,
-      isActive: true,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    });
-    
-    // Create user with reference to organization
-    const userId = await ctx.db.insert("users", {
-      firstName: args.firstName,
-      email: args.email,
-      defaultOrgId: organizationId,
-      isActive: true,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    });
-    
-    // Create membership (owner of their personal org)
-    await ctx.db.insert("organizationMembers", {
-      userId,
-      organizationId,
-      role: "owner",
-      isActive: true,
-      joinedAt: Date.now(),
-    });
-    
-    // Store auth credentials using Convex Auth
-    await ctx.db.insert("authAccounts", {
-      userId,
-      provider: "password",
-      providerAccountId: args.email,
-      secret: hashedPassword,
-    });
-    
-    // Mark user as unverified (email verification will be added in frontend)
-    await ctx.db.patch(userId, {
-      emailVerified: false,
-    });
-    
-    // Create audit log with IP
-    await ctx.db.insert("auditLogs", {
-      organizationId,
-      userId,
-      action: "user.signup.personal",
-      resource: "user",
-      resourceId: userId,
-      ipAddress: args.ipAddress,
-      metadata: {
-        emailDomain: emailDomain,
-        requiresVerification: true,
-      },
-      success: true,
-      createdAt: Date.now(),
-    });
-
-    // Generate verification token
-    const token = generateVerificationToken();
-    const expiresAt = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
-
-    // Store verification token
-    await ctx.db.insert("emailVerifications", {
-      userId,
-      email: args.email,
-      token,
-      expiresAt,
-      createdAt: Date.now(),
-      verified: false,
-    });
-
-    // Schedule verification email
-    await ctx.scheduler.runAfter(0, internal.email.sendVerificationEmail, {
-      email: args.email,
-      firstName: args.firstName,
-      token,
-    });
-
-    return {
-      userId,
-      organizationId,
-      message: "Personal account created successfully. Please check your email to verify your account.",
-      requiresEmailVerification: true,
-    };
-  },
-});
-
-// Sign up for business account - all fields required
-export const signUpBusiness = mutation({
-  args: {
-    // Personal info
-    firstName: v.string(),
-    lastName: v.string(),
-    email: v.string(),
-    password: v.string(),
-    
-    // Business info
-    businessName: v.string(),
-    taxId: v.optional(v.string()),
-    street: v.string(),
-    city: v.string(),
-    postalCode: v.string(),
-    country: v.string(),
-    
-    // Contact info
-    contactEmail: v.optional(v.string()),
-    contactPhone: v.optional(v.string()),
-    website: v.optional(v.string()),
-    
-    // Anti-bot fields
-    ipAddress: v.string(),
-    captchaToken: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    // Business accounts get enhanced validation
-    const { validators } = await import("./security");
-    
-    // Name validation for business accounts
-    if (args.firstName.length < 2 || args.firstName.length > 50) {
-      throw new Error("First name must be between 2 and 50 characters");
-    }
-    if (args.lastName.length < 2 || args.lastName.length > 50) {
-      throw new Error("Last name must be between 2 and 50 characters");
-    }
-    
-    // Password strength
-    const passwordCheck = validators.isStrongPassword(args.password);
-    if (!passwordCheck.valid) {
-      throw new Error(passwordCheck.errors.join(". "));
-    }
-    
-    // Email validation
-    if (!validators.isValidEmail(args.email)) {
-      throw new Error("Invalid email format");
-    }
-    
-    // For business accounts, discourage free email providers
-    const emailDomain = args.email.split("@")[1].toLowerCase();
-    const freeEmailProviders = ["gmail.com", "yahoo.com", "hotmail.com", "outlook.com"];
-    if (freeEmailProviders.includes(emailDomain)) {
-      // Warning but not blocking - some legitimate businesses use these
-      console.warn("Business signup with free email provider:", emailDomain);
-    }
-    // Check if email already exists
-    const existingUser = await ctx.db
-      .query("users")
-      .withIndex("by_email", (q) => q.eq("email", args.email))
-      .first();
-    
-    if (existingUser) {
-      throw new Error("Email already registered");
-    }
-    
-    // Validate German VAT ID format if provided
-    if (args.taxId) {
-      const vatRegex = /^DE\d{9}$/;
-      if (!vatRegex.test(args.taxId)) {
-        throw new Error("Invalid German VAT ID format (should be DE followed by 9 digits)");
-      }
-    }
-
-    // Hash the password
-    const hashedPassword = await hash(args.password, 10);
-    
-    // Generate org slug from business name
-    const slug = generateOrgSlug(args.businessName);
-    
-    // Create organization with full business details
-    const organizationId = await ctx.db.insert("organizations", {
-      name: args.businessName,
-      slug,
-      businessName: args.businessName,
-      taxId: args.taxId,
-      street: args.street,
-      city: args.city,
-      postalCode: args.postalCode,
-      country: args.country,
-      contactEmail: args.contactEmail || args.email,
-      contactPhone: args.contactPhone,
-      website: args.website,
-      plan: "business",
-      isPersonalWorkspace: false,
-      isActive: true,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    });
-    
-    // Create user
-    const userId = await ctx.db.insert("users", {
-      firstName: args.firstName,
-      lastName: args.lastName,
-      email: args.email,
-      defaultOrgId: organizationId,
-      isActive: true,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    });
-    
-    // Create membership (owner of business org)
-    await ctx.db.insert("organizationMembers", {
-      userId,
-      organizationId,
-      role: "owner",
-      isActive: true,
-      joinedAt: Date.now(),
-    });
-    
-    // Store auth credentials using Convex Auth
-    await ctx.db.insert("authAccounts", {
-      userId,
-      provider: "password",
-      providerAccountId: args.email,
-      secret: hashedPassword,
-    });
-    
-    // Mark as unverified
-    await ctx.db.patch(userId, {
-      emailVerified: false,
-    });
-    
-    // Create audit log
-    await ctx.db.insert("auditLogs", {
-      organizationId,
-      userId,
-      action: "user.signup.business",
-      resource: "user",
-      resourceId: userId,
-      ipAddress: args.ipAddress,
-      metadata: {
-        businessName: args.businessName,
-        plan: "business",
-        emailDomain: emailDomain,
-        requiresVerification: true,
-      },
-      success: true,
-      createdAt: Date.now(),
-    });
-
-    // Generate verification token
-    const token = generateVerificationToken();
-    const expiresAt = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
-
-    // Store verification token
-    await ctx.db.insert("emailVerifications", {
-      userId,
-      email: args.email,
-      token,
-      expiresAt,
-      createdAt: Date.now(),
-      verified: false,
-    });
-
-    // Schedule verification email
-    await ctx.scheduler.runAfter(0, internal.email.sendVerificationEmail, {
-      email: args.email,
-      firstName: args.firstName,
-      token,
-    });
-
-    return {
-      userId,
-      organizationId,
-      message: "Business account created successfully. Please check your email to verify your account.",
-      requiresEmailVerification: true,
-    };
-  },
-});
-
-// Get current authenticated user
-export const currentUser = query({
-  args: {},
-  handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return null;
-    }
-
-    // Find user by email from identity
     const user = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", identity.email!))
+      .withIndex("email", (q) => q.eq("email", args.email))
       .first();
 
-    if (!user || !user.isActive) {
-      return null;
+    if (!user) {
+      return { userExists: false, needsSetup: false };
     }
 
+    // Check if password is already set
+    const userPassword = await ctx.db
+      .query("userPasswords")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .first();
+
     return {
-      _id: user._id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      defaultOrgId: user.defaultOrgId,
-      emailVerified: user.emailVerified,
+      userExists: true,
+      needsSetup: !userPassword || !user.isPasswordSet,
+      userName: user.firstName || user.lastName || null,
     };
   },
 });
 
-// Sign out mutation
+// Setup password for first-time user (invite-only system)
+// This is an action because it needs to call the crypto action
+export const setupPassword = action({
+  args: {
+    email: v.string(),
+    password: v.string(),
+    firstName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<{
+    success: boolean;
+    sessionId: string;
+    user: { id: Id<"users">; email: string; firstName?: string; lastName?: string };
+  }> => {
+    // First, verify user exists and needs password setup
+    const checkResult: { userExists: boolean; hasPassword: boolean; userId: Id<"users"> | null } =
+      await ctx.runQuery(internal.auth.internalCheckUser, {
+        email: args.email,
+      });
+
+    if (!checkResult.userExists) {
+      throw new Error("User not found. Please contact an administrator.");
+    }
+
+    if (checkResult.hasPassword) {
+      throw new Error("Password already set. Please use sign in.");
+    }
+
+    // Hash the password using bcrypt in Node.js runtime
+    const passwordHash: string = await ctx.runAction(internal.cryptoActions.hashPassword, {
+      password: args.password,
+    });
+
+    // Store the password and update user via mutation
+    const result: {
+      success: boolean;
+      sessionId: string;
+      user: { id: Id<"users">; email: string; firstName?: string; lastName?: string };
+    } =
+      await ctx.runMutation(internal.auth.internalSetupPassword, {
+        userId: checkResult.userId!,
+        passwordHash,
+        firstName: args.firstName,
+        lastName: args.lastName,
+      });
+
+    // Log audit event
+    await ctx.runMutation(internal.rbac.logAudit, {
+      userId: checkResult.userId!,
+      organizationId: undefined, // Global action for initial setup
+      action: "setup_password",
+      resource: "users",
+      success: true,
+      metadata: { email: args.email },
+    });
+
+    return result;
+  },
+});
+
+// Internal query to check user (not exposed to client)
+export const internalCheckUser = internalQuery({
+  args: {
+    email: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", args.email))
+      .first();
+
+    if (!user) {
+      return { userExists: false, hasPassword: false, userId: null };
+    }
+
+    const userPassword = await ctx.db
+      .query("userPasswords")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .first();
+
+    return {
+      userExists: true,
+      hasPassword: !!userPassword,
+      userId: user._id,
+    };
+  },
+});
+
+// Internal mutation to store password (not exposed to client)
+export const internalSetupPassword = internalMutation({
+  args: {
+    userId: v.id("users"),
+    passwordHash: v.string(),
+    firstName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Store password
+    await ctx.db.insert("userPasswords", {
+      userId: args.userId,
+      passwordHash: args.passwordHash,
+      createdAt: Date.now(),
+    });
+
+    // Update user info
+    const updates: {
+      isPasswordSet: boolean;
+      updatedAt: number;
+      firstName?: string;
+      lastName?: string;
+    } = {
+      isPasswordSet: true,
+      updatedAt: Date.now(),
+    };
+
+    if (args.firstName) updates.firstName = args.firstName;
+    if (args.lastName) updates.lastName = args.lastName;
+
+    await ctx.db.patch(args.userId, updates);
+
+    // Create a session
+    const sessionId = await ctx.db.insert("sessions", {
+      userId: args.userId,
+      email: (await ctx.db.get(args.userId))!.email,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+    });
+
+    const user = await ctx.db.get(args.userId);
+
+    return {
+      success: true,
+      sessionId,
+      user: {
+        id: args.userId,
+        email: user!.email,
+        firstName: user!.firstName,
+        lastName: user!.lastName,
+      },
+    };
+  },
+});
+
+// Sign in action - uses bcrypt to verify password
+export const signIn = action({
+  args: {
+    email: v.string(),
+    password: v.string(),
+  },
+  handler: async (ctx, args): Promise<{
+    success: boolean;
+    sessionId: string;
+    user: { id: Id<"users">; email: string; firstName?: string; lastName?: string };
+  }> => {
+    // Get user and password hash
+    const userData: {
+      userExists: boolean;
+      passwordHash: string | null;
+      userId: Id<"users"> | null;
+      email: string | null;
+      defaultOrgId: Id<"organizations"> | undefined;
+      firstName?: string;
+      lastName?: string;
+    } = await ctx.runQuery(internal.auth.internalGetUserAuth, {
+      email: args.email,
+    });
+
+    if (!userData.userExists || !userData.passwordHash) {
+      throw new Error("Invalid credentials");
+    }
+
+    // Verify password using bcrypt
+    const isValid: boolean = await ctx.runAction(internal.cryptoActions.verifyPassword, {
+      password: args.password,
+      hash: userData.passwordHash,
+    });
+
+    if (!isValid) {
+      throw new Error("Invalid credentials");
+    }
+
+    // Create session via mutation
+    const result: {
+      success: boolean;
+      sessionId: string;
+      user: { id: Id<"users">; email: string; firstName?: string; lastName?: string };
+    } =
+      await ctx.runMutation(internal.auth.internalCreateSession, {
+        userId: userData.userId!,
+        email: userData.email!,
+      });
+
+    // Log audit event
+    await ctx.runMutation(internal.rbac.logAudit, {
+      userId: userData.userId!,
+      organizationId: userData.defaultOrgId,
+      action: "sign_in",
+      resource: "sessions",
+      success: true,
+      metadata: { email: args.email },
+    });
+
+    return result;
+  },
+});
+
+// Internal query to get user auth data
+export const internalGetUserAuth = internalQuery({
+  args: {
+    email: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", args.email))
+      .first();
+
+    if (!user) {
+      return { userExists: false, passwordHash: null, userId: null, email: null, defaultOrgId: undefined };
+    }
+
+    const userPassword = await ctx.db
+      .query("userPasswords")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .first();
+
+    return {
+      userExists: true,
+      passwordHash: userPassword?.passwordHash || null,
+      userId: user._id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      defaultOrgId: user.defaultOrgId,
+    };
+  },
+});
+
+// Internal mutation to create session
+export const internalCreateSession = internalMutation({
+  args: {
+    userId: v.id("users"),
+    email: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const sessionId = await ctx.db.insert("sessions", {
+      userId: args.userId,
+      email: args.email,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+    });
+
+    const user = await ctx.db.get(args.userId);
+
+    return {
+      success: true,
+      sessionId,
+      user: {
+        id: args.userId,
+        email: user!.email,
+        firstName: user!.firstName,
+        lastName: user!.lastName,
+      },
+    };
+  },
+});
+
+// Sign out mutation (doesn't need crypto)
 export const signOut = mutation({
-  args: {},
-  handler: async () => {
-    // Convex Auth will handle session cleanup automatically
+  args: {
+    sessionId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId as Id<"sessions">);
+    if (session) {
+      // Log audit event before deletion
+      await ctx.runMutation(internal.rbac.logAudit, {
+        userId: session.userId,
+        organizationId: undefined,
+        action: "sign_out",
+        resource: "sessions",
+        success: true,
+        metadata: {},
+      });
+    }
+
+    await ctx.db.delete(args.sessionId as Id<"sessions">);
     return { success: true };
   },
 });
 
-// Basic login mutation
-export const signInWithPassword = mutation({
+// Switch organization mutation
+export const switchOrganization = mutation({
   args: {
-    email: v.string(),
-    password: v.string(),
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
   },
   handler: async (ctx, args) => {
-    // Find user by email
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_email", (q) => q.eq("email", args.email))
-      .first();
-    
-    if (!user || !user.isActive) {
-      throw new Error("Invalid credentials");
+    const session = await ctx.db.get(args.sessionId as Id<"sessions">);
+    if (!session || session.expiresAt < Date.now()) {
+      throw new Error("Invalid or expired session");
     }
-    
-    // Get auth account
-    const authAccount = await ctx.db
-      .query("authAccounts")
-      .filter((q) => 
-        q.and(
-          q.eq(q.field("userId"), user._id),
-          q.eq(q.field("provider"), "password")
-        )
+
+    const user = await ctx.db.get(session.userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Check if user has access to this organization
+    const membership = await ctx.db
+      .query("organizationMembers")
+      .withIndex("by_user_and_org", (q) =>
+        q.eq("userId", user._id).eq("organizationId", args.organizationId)
       )
+      .filter((q) => q.eq(q.field("isActive"), true))
       .first();
-    
-    if (!authAccount || !authAccount.secret) {
-      throw new Error("Invalid credentials");
+
+    if (!membership && !user.global_role_id) {
+      throw new Error("Access denied: No membership in this organization");
     }
-    
-    // Verify password
-    const isValid = await compare(args.password, authAccount.secret);
-    if (!isValid) {
-      throw new Error("Invalid credentials");
+
+    // Update user's default organization
+    await ctx.db.patch(user._id, {
+      defaultOrgId: args.organizationId,
+      updatedAt: Date.now(),
+    });
+
+    // Log audit event
+    await ctx.runMutation(internal.rbac.logAudit, {
+      userId: user._id,
+      organizationId: args.organizationId,
+      action: "switch_organization",
+      resource: "organizations",
+      success: true,
+      metadata: { previousOrgId: user.defaultOrgId },
+    });
+
+    return { success: true };
+  },
+});
+
+// Get current user query with full RBAC context
+export const getCurrentUser = query({
+  args: {
+    sessionId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    if (!args.sessionId) {
+      return null;
     }
-    
-    // Enforce email verification
-    if (!user.emailVerified) {
-      throw new Error("Please verify your email before signing in. Check your inbox for the verification link.");
+
+    const session = await ctx.db.get(args.sessionId as Id<"sessions">);
+
+    if (!session || session.expiresAt < Date.now()) {
+      return null;
     }
-    
-    // Get default organization
-    const defaultOrg = await ctx.db.get(user.defaultOrgId);
-    if (!defaultOrg || !defaultOrg.isActive) {
-      throw new Error("Organization not found");
+
+    const user = await ctx.db.get(session.userId);
+    if (!user) {
+      return null;
     }
-    
-    // Get all user's organizations
+
+    // Check for global super admin role
+    let globalRole = null;
+    let isSuperAdmin = false;
+    if (user.global_role_id) {
+      const role = await ctx.db.get(user.global_role_id);
+      if (role) {
+        globalRole = {
+          id: role._id,
+          name: role.name,
+          description: role.description,
+        };
+        isSuperAdmin = role.name === 'super_admin';
+      }
+    }
+
+    // Get user's organizations and roles
     const memberships = await ctx.db
       .query("organizationMembers")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .filter((q) => q.eq(q.field("isActive"), true))
       .collect();
-    
+
     const organizations = await Promise.all(
       memberships.map(async (membership) => {
         const org = await ctx.db.get(membership.organizationId);
-        return org && org.isActive ? {
-          ...org,
-          role: membership.role,
-        } : null;
+        const role = await ctx.db.get(membership.role);
+        if (!org || !role) return null;
+
+        // Get permissions for the role
+        const rolePermissions = await ctx.db
+          .query("rolePermissions")
+          .withIndex("by_role", (q) => q.eq("roleId", membership.role))
+          .collect();
+
+        const permissions = await Promise.all(
+          rolePermissions.map(async (rp) => {
+            const permission = await ctx.db.get(rp.permissionId);
+            return permission ? {
+              id: permission._id,
+              name: permission.name,
+              resource: permission.resource,
+              action: permission.action,
+            } : null;
+          })
+        );
+
+        return {
+          id: org._id,
+          name: org.name,
+          slug: org.slug,
+          role: {
+            id: role._id,
+            name: role.name,
+            description: role.description,
+          },
+          permissions: permissions.filter(Boolean),
+          isOwner: membership.invitedBy === user._id,
+        };
       })
     );
-    
-    // Filter out null organizations
-    const activeOrgs = organizations.filter((org): org is NonNullable<typeof org> => org !== null);
-    
-    // Create audit log
-    await ctx.db.insert("auditLogs", {
-      organizationId: user.defaultOrgId,
-      userId: user._id,
-      action: "user.login",
-      resource: "user",
-      resourceId: user._id,
-      success: true,
-      createdAt: Date.now(),
-    });
-    
+
+    // Get the default/current organization
+    const validOrganizations = organizations.filter(Boolean);
+    const currentOrg = user.defaultOrgId
+      ? validOrganizations.find(org => org?.id === user.defaultOrgId)
+      : validOrganizations[0];
+
+    // Legacy role support
+    let legacyRole = null;
+    if (user.roleId) {
+      const role = await ctx.db.get(user.roleId);
+      if (role) {
+        legacyRole = {
+          id: role._id,
+          name: role.name,
+          description: role.description,
+        };
+      }
+    }
+
     return {
-      user: {
-        _id: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        defaultOrgId: user.defaultOrgId,
-      },
-      defaultOrganization: defaultOrg,
-      organizations: activeOrgs,
+      id: user._id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      isPasswordSet: user.isPasswordSet || false,
+      isSuperAdmin,
+      globalRole,
+      organizations: validOrganizations,
+      currentOrganization: currentOrg || null,
+      defaultOrgId: user.defaultOrgId,
+      // Legacy fields for backward compatibility
+      roleId: user.roleId,
+      roleName: legacyRole?.name,
     };
+  },
+});
+
+// Check if current user has a specific permission
+export const canUserPerform = query({
+  args: {
+    sessionId: v.optional(v.string()),
+    permission: v.string(),
+    resource: v.optional(v.string()),
+    organizationId: v.optional(v.id("organizations")),
+  },
+  handler: async (ctx, args) => {
+    if (!args.sessionId) {
+      return false;
+    }
+
+    const session = await ctx.db.get(args.sessionId as Id<"sessions">);
+    if (!session || session.expiresAt < Date.now()) {
+      return false;
+    }
+
+    const user = await ctx.db.get(session.userId);
+    if (!user) {
+      return false;
+    }
+
+    // Super admins can do everything
+    if (user.global_role_id) {
+      const role = await ctx.db.get(user.global_role_id);
+      if (role && role.name === "super_admin") {
+        return true;
+      }
+    }
+
+    // Determine which organization to check
+    const orgId = args.organizationId || user.defaultOrgId;
+    if (!orgId) {
+      return false;
+    }
+
+    // Get user's membership in the organization
+    const membership = await ctx.db
+      .query("organizationMembers")
+      .withIndex("by_user_and_org", (q) =>
+        q.eq("userId", user._id).eq("organizationId", orgId)
+      )
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .first();
+
+    if (!membership) {
+      return false;
+    }
+
+    // Check the permission
+    const role = await ctx.db.get(membership.role);
+    if (!role || !role.isActive) {
+      return false;
+    }
+
+    // Check if role has the specific permission
+    const permission = await ctx.db
+      .query("permissions")
+      .withIndex("by_name", (q) => q.eq("name", args.permission))
+      .first();
+
+    if (!permission) {
+      return false;
+    }
+
+    if (args.resource && permission.resource !== args.resource) {
+      return false;
+    }
+
+    // Check role-permission mapping
+    const hasPermission = await ctx.db
+      .query("rolePermissions")
+      .withIndex("by_role_permission", (q) =>
+        q.eq("roleId", membership.role).eq("permissionId", permission._id)
+      )
+      .first();
+
+    return !!hasPermission;
+  },
+});
+
+// Batch check multiple permissions
+export const canUserPerformMany = query({
+  args: {
+    sessionId: v.optional(v.string()),
+    permissions: v.array(v.string()),
+    organizationId: v.optional(v.id("organizations")),
+  },
+  handler: async (ctx, args) => {
+    if (!args.sessionId) {
+      const results: Record<string, boolean> = {};
+      args.permissions.forEach(p => results[p] = false);
+      return results;
+    }
+
+    const session = await ctx.db.get(args.sessionId as Id<"sessions">);
+    if (!session || session.expiresAt < Date.now()) {
+      const results: Record<string, boolean> = {};
+      args.permissions.forEach(p => results[p] = false);
+      return results;
+    }
+
+    const user = await ctx.db.get(session.userId);
+    if (!user) {
+      const results: Record<string, boolean> = {};
+      args.permissions.forEach(p => results[p] = false);
+      return results;
+    }
+
+    // Super admins can do everything
+    if (user.global_role_id) {
+      const role = await ctx.db.get(user.global_role_id);
+      if (role && role.name === "super_admin") {
+        const results: Record<string, boolean> = {};
+        args.permissions.forEach(p => results[p] = true);
+        return results;
+      }
+    }
+
+    // Determine which organization to check
+    const orgId = args.organizationId || user.defaultOrgId;
+    if (!orgId) {
+      const results: Record<string, boolean> = {};
+      args.permissions.forEach(p => results[p] = false);
+      return results;
+    }
+
+    // Get user's membership in the organization
+    const membership = await ctx.db
+      .query("organizationMembers")
+      .withIndex("by_user_and_org", (q) =>
+        q.eq("userId", user._id).eq("organizationId", orgId)
+      )
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .first();
+
+    if (!membership) {
+      const results: Record<string, boolean> = {};
+      args.permissions.forEach(p => results[p] = false);
+      return results;
+    }
+
+    // Get all permissions for the role
+    const rolePermissions = await ctx.db
+      .query("rolePermissions")
+      .withIndex("by_role", (q) => q.eq("roleId", membership.role))
+      .collect();
+
+    const permissionIds = new Set(rolePermissions.map(rp => rp.permissionId));
+
+    // Check each requested permission
+    const results: Record<string, boolean> = {};
+    for (const permName of args.permissions) {
+      const permission = await ctx.db
+        .query("permissions")
+        .withIndex("by_name", (q) => q.eq("name", permName))
+        .first();
+
+      results[permName] = permission ? permissionIds.has(permission._id) : false;
+    }
+
+    return results;
+  },
+});
+
+// Admin function to create a user (for invitation system)
+export const adminCreateUser = action({
+  args: {
+    sessionId: v.string(),
+    email: v.string(),
+    firstName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
+    organizationId: v.optional(v.id("organizations")),
+    roleId: v.optional(v.id("roles")),
+  },
+  handler: async (ctx, args): Promise<{ success: boolean; userId: Id<"users">; message: string }> => {
+    // Verify admin permissions
+    const canCreate: boolean = await ctx.runQuery(api.auth.canUserPerform, {
+      sessionId: args.sessionId,
+      permission: "manage_users",
+      resource: "users",
+      organizationId: args.organizationId,
+    });
+
+    if (!canCreate) {
+      throw new Error("Permission denied: Cannot create users");
+    }
+
+    // Get the admin user
+    const session: {
+      _id: Id<"sessions">;
+      userId: Id<"users">;
+      email: string;
+      createdAt: number;
+      expiresAt: number;
+    } | null = await ctx.runQuery(internal.auth.internalGetSession, {
+      sessionId: args.sessionId,
+    });
+
+    if (!session) {
+      throw new Error("Invalid session");
+    }
+
+    // Check if user already exists
+    const existingUser: { userExists: boolean; hasPassword: boolean; userId: Id<"users"> | null } =
+      await ctx.runQuery(internal.auth.internalCheckUser, {
+        email: args.email,
+      });
+
+    if (existingUser.userExists) {
+      throw new Error("User with this email already exists");
+    }
+
+    // Create the user
+    const userId: Id<"users"> = await ctx.runMutation(internal.auth.internalCreateUser, {
+      email: args.email,
+      firstName: args.firstName,
+      lastName: args.lastName,
+      invitedBy: session.userId,
+      isPasswordSet: false, // New users need to set password
+    });
+
+    // If organization and role specified, add membership
+    if (args.organizationId && args.roleId) {
+      await ctx.runMutation(internal.auth.internalAddOrgMembership, {
+        userId,
+        organizationId: args.organizationId,
+        roleId: args.roleId,
+        invitedBy: session.userId,
+      });
+    }
+
+    // Log audit event
+    await ctx.runMutation(internal.rbac.logAudit, {
+      userId: session.userId,
+      organizationId: args.organizationId,
+      action: "create_user",
+      resource: "users",
+      success: true,
+      metadata: {
+        newUserEmail: args.email,
+        newUserId: userId,
+      },
+    });
+
+    // TODO: Send invitation email via emailActions.ts
+
+    return {
+      success: true,
+      userId,
+      message: "User created. They will receive an email invitation to set their password.",
+    };
+  },
+});
+
+// Internal query to get session
+export const internalGetSession = internalQuery({
+  args: {
+    sessionId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId as Id<"sessions">);
+    if (!session || session.expiresAt < Date.now()) {
+      return null;
+    }
+    return session;
+  },
+});
+
+// Internal mutation to create user
+export const internalCreateUser = internalMutation({
+  args: {
+    email: v.string(),
+    firstName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
+    invitedBy: v.id("users"),
+    isPasswordSet: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await ctx.db.insert("users", {
+      email: args.email,
+      firstName: args.firstName,
+      lastName: args.lastName,
+      invitedBy: args.invitedBy,
+      invitedAt: Date.now(),
+      isPasswordSet: args.isPasswordSet,
+      isActive: true,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    return userId;
+  },
+});
+
+// Internal mutation to add org membership
+export const internalAddOrgMembership = internalMutation({
+  args: {
+    userId: v.id("users"),
+    organizationId: v.id("organizations"),
+    roleId: v.id("roles"),
+    invitedBy: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("organizationMembers", {
+      userId: args.userId,
+      organizationId: args.organizationId,
+      role: args.roleId,
+      isActive: true,
+      joinedAt: Date.now(),
+      invitedBy: args.invitedBy,
+      invitedAt: Date.now(),
+    });
   },
 });
