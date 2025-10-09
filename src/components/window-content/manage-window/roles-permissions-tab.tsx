@@ -4,14 +4,11 @@ import { useState } from "react";
 import { Shield, ChevronDown, ChevronRight, Lock, Eye, Edit, Check, X } from "lucide-react";
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
-
-interface RolesPermissionsTabProps {
-  canManageRoles: boolean;
-}
+import { PermissionGuard } from "@/components/permission";
 
 type ViewMode = "roles" | "permissions" | "matrix";
 
-export function RolesPermissionsTab({ canManageRoles }: RolesPermissionsTabProps) {
+export function RolesPermissionsTab() {
   const [viewMode, setViewMode] = useState<ViewMode>("roles");
   const [expandedRoles, setExpandedRoles] = useState<Set<string>>(new Set());
   const [expandedResources, setExpandedResources] = useState<Set<string>>(new Set());
@@ -71,7 +68,32 @@ export function RolesPermissionsTab({ canManageRoles }: RolesPermissionsTabProps
     appInstallations: "Apps & Integrations",
   };
 
+  // Use PermissionGuard for view access control
   return (
+    <PermissionGuard
+      permission="view_roles"
+      mode="show-fallback"
+      fallback={
+        <div className="space-y-4">
+          <div
+            className="p-4 border-2 flex items-start gap-2"
+            style={{
+              backgroundColor: 'var(--warning)',
+              borderColor: 'var(--win95-border)',
+              color: 'var(--win95-text)'
+            }}
+          >
+            <Lock size={20} className="mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="font-semibold text-sm">Access Restricted</p>
+              <p className="text-xs mt-1">
+                You don&apos;t have permission to view roles and permissions. Contact your organization owner for access.
+              </p>
+            </div>
+          </div>
+        </div>
+      }
+    >
     <div className="space-y-4">
       {/* Header with view mode tabs */}
       <div className="flex items-center justify-between">
@@ -129,7 +151,7 @@ export function RolesPermissionsTab({ canManageRoles }: RolesPermissionsTabProps
         </div>
       </div>
 
-      {!canManageRoles && (
+      <PermissionGuard permission="manage_roles" mode="show-fallback" fallback={
         <div
           className="p-3 border-2 flex items-start gap-2"
           style={{
@@ -146,7 +168,9 @@ export function RolesPermissionsTab({ canManageRoles }: RolesPermissionsTabProps
             </p>
           </div>
         </div>
-      )}
+      }>
+        {null}
+      </PermissionGuard>
 
       {/* View by Role */}
       {viewMode === "roles" && (
@@ -429,6 +453,7 @@ export function RolesPermissionsTab({ canManageRoles }: RolesPermissionsTabProps
         </div>
       </div>
     </div>
+    </PermissionGuard>
   );
 }
 

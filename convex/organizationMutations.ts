@@ -1,38 +1,17 @@
 import { v } from "convex/values";
 import { mutation } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
-
-/**
- * Helper to check if a role has a specific permission
- * Super admins and org owners have all organization permissions
- */
-async function hasOrgPermission(
-  role: { name: string },
-  permissionName: string
-): Promise<boolean> {
-  // Super admins and org owners always have organization permissions
-  if (role.name === "super_admin" || role.name === "org_owner") {
-    return true;
-  }
-
-  // For business_manager, check specific permissions
-  if (role.name === "business_manager") {
-    // Business managers can manage users but not organization settings
-    if (permissionName === "manage_users") {
-      return true;
-    }
-    if (permissionName === "manage_organization") {
-      return false; // Only owners can change org settings
-    }
-  }
-
-  // Employees and viewers don't have management permissions
-  return false;
-}
+import {
+  requireAuthenticatedUser,
+  requirePermission,
+  hasHigherOrEqualRole,
+} from "./rbacHelpers";
 
 /**
  * Update organization details
- * Requires org_owner or super_admin role
+ *
+ * @permission manage_organization - Required to update organization settings
+ * @roles org_owner, super_admin
  */
 export const updateOrganization = mutation({
   args: {
@@ -93,40 +72,31 @@ export const updateOrganization = mutation({
     }),
   },
   handler: async (ctx, args) => {
-    // Get session and verify
-    const session = await ctx.db.get(args.sessionId as Id<"sessions">);
+    // ✅ Verify authentication
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
-    if (!session || !session.userId) {
-      throw new Error("Invalid session");
-    }
-
-    // Get user's membership
-    const membership = await ctx.db
-      .query("organizationMembers")
-      .withIndex("by_user_and_org", (q) =>
-        q.eq("userId", session.userId).eq("organizationId", args.organizationId)
-      )
-      .first();
-
-    if (!membership || !membership.isActive) {
-      throw new Error("Not a member of this organization");
-    }
-
-    // Get role and check permissions
-    const role = await ctx.db.get(membership.role);
-    if (!role) {
-      throw new Error("Role not found");
-    }
-
-    // Only super_admin and org_owner can update organization settings
-    if (role.name !== "super_admin" && role.name !== "org_owner") {
-      throw new Error("You don't have permission to update organization settings");
-    }
+    // ✅ Check permission using RBAC system
+    await requirePermission(ctx, userId, "manage_organization", {
+      organizationId: args.organizationId,
+      errorMessage: "You don't have permission to update organization settings",
+    });
 
     // Update organization with updatedAt timestamp
     await ctx.db.patch(args.organizationId, {
       ...args.updates,
       updatedAt: Date.now(),
+    });
+
+    // Log success to audit trail
+    await ctx.db.insert("auditLogs", {
+      userId,
+      organizationId: args.organizationId,
+      action: "update_organization",
+      resource: "organizations",
+      resourceId: args.organizationId,
+      success: true,
+      metadata: { updatedFields: Object.keys(args.updates) },
+      createdAt: Date.now(),
     });
 
     return { success: true };
@@ -135,7 +105,15 @@ export const updateOrganization = mutation({
 
 /**
  * Update a user's role in an organization
- * Requires manage_users permission (org_owner, super_admin, or business_manager)
+ *
+ * @permission manage_users - Required to change user roles
+ * @roles org_owner, super_admin, business_manager (limited)
+ *
+ * Business rules:
+ * - Only super_admin can assign/remove super_admin role
+ * - Only super_admin and org_owner can assign/remove org_owner role
+ * - Business managers can only assign employee and viewer roles
+ * - Users cannot change their own role (except super_admin)
  */
 export const updateUserRole = mutation({
   args: {
@@ -145,35 +123,30 @@ export const updateUserRole = mutation({
     roleId: v.id("roles"),
   },
   handler: async (ctx, args) => {
-    // Get session and verify
-    const session = await ctx.db.get(args.sessionId as Id<"sessions">);
+    // ✅ Verify authentication
+    const { userId: currentUserId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
-    if (!session || !session.userId) {
-      throw new Error("Invalid session");
-    }
+    // ✅ Check base permission using RBAC system
+    await requirePermission(ctx, currentUserId, "manage_users", {
+      organizationId: args.organizationId,
+      errorMessage: "You don't have permission to manage users",
+    });
 
-    // Get current user's membership
+    // Get current user's role for additional business rules
     const currentUserMembership = await ctx.db
       .query("organizationMembers")
       .withIndex("by_user_and_org", (q) =>
-        q.eq("userId", session.userId).eq("organizationId", args.organizationId)
+        q.eq("userId", currentUserId).eq("organizationId", args.organizationId)
       )
       .first();
 
-    if (!currentUserMembership || !currentUserMembership.isActive) {
+    if (!currentUserMembership) {
       throw new Error("Not a member of this organization");
     }
 
-    // Get current user's role
     const currentUserRole = await ctx.db.get(currentUserMembership.role);
     if (!currentUserRole) {
-      throw new Error("Role not found");
-    }
-
-    // Check if current user has manage_users permission
-    const canManageUsers = await hasOrgPermission(currentUserRole, "manage_users");
-    if (!canManageUsers) {
-      throw new Error("You don't have permission to manage users");
+      throw new Error("Current user role not found");
     }
 
     // Get target user's membership
@@ -200,28 +173,27 @@ export const updateUserRole = mutation({
       throw new Error("Target user's role not found");
     }
 
-    // Permission rules for role changes:
-    // 1. Only super_admin can assign/remove super_admin role
+    // Business Rule 1: Only super_admin can assign/remove super_admin role
     if ((newRole.name === "super_admin" || targetCurrentRole.name === "super_admin")
         && currentUserRole.name !== "super_admin") {
       throw new Error("Only super admins can assign or remove super admin role");
     }
 
-    // 2. Only super_admin and org_owner can assign/remove org_owner role
+    // Business Rule 2: Only super_admin and org_owner can assign/remove org_owner role
     if ((newRole.name === "org_owner" || targetCurrentRole.name === "org_owner")
-        && currentUserRole.name !== "super_admin" && currentUserRole.name !== "org_owner") {
+        && !hasHigherOrEqualRole(currentUserRole.name, "org_owner")) {
       throw new Error("Only super admins and organization owners can assign or remove owner role");
     }
 
-    // 3. Business managers can only assign employee and viewer roles
+    // Business Rule 3: Business managers can only assign employee and viewer roles
     if (currentUserRole.name === "business_manager") {
       if (newRole.name !== "employee" && newRole.name !== "viewer") {
         throw new Error("Business managers can only assign employee or viewer roles");
       }
     }
 
-    // 4. Users cannot change their own role unless they're super_admin
-    if (args.userId === session.userId && currentUserRole.name !== "super_admin") {
+    // Business Rule 4: Users cannot change their own role unless they're super_admin
+    if (args.userId === currentUserId && currentUserRole.name !== "super_admin") {
       throw new Error("You cannot change your own role");
     }
 
@@ -230,13 +202,38 @@ export const updateUserRole = mutation({
       role: args.roleId,
     });
 
+    // Log success to audit trail
+    await ctx.db.insert("auditLogs", {
+      userId: currentUserId,
+      organizationId: args.organizationId,
+      action: "update_user_role",
+      resource: "organizationMembers",
+      resourceId: args.userId,
+      success: true,
+      metadata: {
+        targetUserId: args.userId,
+        oldRoleId: targetCurrentRole._id,
+        oldRoleName: targetCurrentRole.name,
+        newRoleId: newRole._id,
+        newRoleName: newRole.name,
+      },
+      createdAt: Date.now(),
+    });
+
     return { success: true };
   },
 });
 
 /**
  * Remove a user from an organization (soft delete)
- * Requires manage_users permission
+ *
+ * @permission manage_users - Required to remove users
+ * @roles org_owner, super_admin, business_manager
+ *
+ * Business rules:
+ * - Users cannot remove themselves (except super_admin)
+ * - Only super_admin can remove org_owner
+ * - Only super_admin can remove other super_admins
  */
 export const removeUserFromOrganization = mutation({
   args: {
@@ -245,39 +242,34 @@ export const removeUserFromOrganization = mutation({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    // Get session and verify
-    const session = await ctx.db.get(args.sessionId as Id<"sessions">);
+    // ✅ Verify authentication
+    const { userId: currentUserId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
-    if (!session || !session.userId) {
-      throw new Error("Invalid session");
-    }
+    // ✅ Check permission using RBAC system
+    await requirePermission(ctx, currentUserId, "manage_users", {
+      organizationId: args.organizationId,
+      errorMessage: "You don't have permission to manage users",
+    });
 
-    // Get current user's membership
+    // Get current user's role for business rules
     const currentUserMembership = await ctx.db
       .query("organizationMembers")
       .withIndex("by_user_and_org", (q) =>
-        q.eq("userId", session.userId).eq("organizationId", args.organizationId)
+        q.eq("userId", currentUserId).eq("organizationId", args.organizationId)
       )
       .first();
 
-    if (!currentUserMembership || !currentUserMembership.isActive) {
+    if (!currentUserMembership) {
       throw new Error("Not a member of this organization");
     }
 
-    // Get current user's role
     const currentUserRole = await ctx.db.get(currentUserMembership.role);
     if (!currentUserRole) {
       throw new Error("Role not found");
     }
 
-    // Check if current user has manage_users permission
-    const canManageUsers = await hasOrgPermission(currentUserRole, "manage_users");
-    if (!canManageUsers) {
-      throw new Error("You don't have permission to manage users");
-    }
-
-    // Prevent users from removing themselves unless they're super_admin
-    if (args.userId === session.userId && currentUserRole.name !== "super_admin") {
+    // Business Rule: Prevent users from removing themselves unless they're super_admin
+    if (args.userId === currentUserId && currentUserRole.name !== "super_admin") {
       throw new Error("You cannot remove yourself from the organization");
     }
 
@@ -299,12 +291,12 @@ export const removeUserFromOrganization = mutation({
       throw new Error("Target user role not found");
     }
 
-    // Only super_admin can remove org_owner
+    // Business Rule: Only super_admin can remove org_owner
     if (targetUserRole.name === "org_owner" && currentUserRole.name !== "super_admin") {
       throw new Error("Only super admins can remove organization owners");
     }
 
-    // Only super_admin can remove other super_admins
+    // Business Rule: Only super_admin can remove other super_admins
     if (targetUserRole.name === "super_admin" && currentUserRole.name !== "super_admin") {
       throw new Error("Only super admins can remove other super admins");
     }
@@ -314,13 +306,30 @@ export const removeUserFromOrganization = mutation({
       isActive: false,
     });
 
+    // Log success to audit trail
+    await ctx.db.insert("auditLogs", {
+      userId: currentUserId,
+      organizationId: args.organizationId,
+      action: "remove_user",
+      resource: "organizationMembers",
+      resourceId: args.userId,
+      success: true,
+      metadata: {
+        targetUserId: args.userId,
+        targetRoleName: targetUserRole.name,
+      },
+      createdAt: Date.now(),
+    });
+
     return { success: true };
   },
 });
 
 /**
  * Update user profile information
- * Users can update their own profile, or admins can update others
+ *
+ * @permission update_profile - Users can update their own profile
+ * @permission manage_users - Admins can update others' profiles
  */
 export const updateUserProfile = mutation({
   args: {
@@ -333,15 +342,11 @@ export const updateUserProfile = mutation({
     }),
   },
   handler: async (ctx, args) => {
-    // Get session and verify
-    const session = await ctx.db.get(args.sessionId as Id<"sessions">);
-
-    if (!session || !session.userId) {
-      throw new Error("Invalid session");
-    }
+    // ✅ Verify authentication
+    const { userId: currentUserId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
     // Check if user is updating their own profile
-    const isOwnProfile = session.userId === args.userId;
+    const isOwnProfile = currentUserId === args.userId;
 
     if (!isOwnProfile) {
       // Check if user has permission to update others
@@ -351,7 +356,7 @@ export const updateUserProfile = mutation({
       // Get all organizations where the current user has manage_users permission
       const currentUserMemberships = await ctx.db
         .query("organizationMembers")
-        .withIndex("by_user", (q) => q.eq("userId", session.userId))
+        .withIndex("by_user", (q) => q.eq("userId", currentUserId))
         .filter((q) => q.eq(q.field("isActive"), true))
         .collect();
 
@@ -382,6 +387,22 @@ export const updateUserProfile = mutation({
 
     // Update user profile
     await ctx.db.patch(args.userId, args.updates);
+
+    // Log success to audit trail
+    const user = await ctx.db.get(currentUserId);
+    await ctx.db.insert("auditLogs", {
+      userId: currentUserId,
+      organizationId: user?.defaultOrgId || ("" as Id<"organizations">),
+      action: isOwnProfile ? "update_own_profile" : "update_user_profile",
+      resource: "users",
+      resourceId: args.userId,
+      success: true,
+      metadata: {
+        targetUserId: args.userId,
+        updatedFields: Object.keys(args.updates),
+      },
+      createdAt: Date.now(),
+    });
 
     return { success: true };
   },

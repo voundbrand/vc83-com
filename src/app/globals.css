@@ -126,6 +126,9 @@
   --z-index-modal: 9000;
   --z-index-notification: 9999;
   --z-index-start-menu: 10000;
+
+  /* Layout Dimensions */
+  --taskbar-height: 48px;
 }
 
 @theme inline {

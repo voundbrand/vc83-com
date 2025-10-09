@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useImperativeHandle, forwardRef, useMemo } from "react";
+import { useQuery } from "convex/react";
+import { api } from "../../../../convex/_generated/api";
 import { OrganizationSection } from "./components/organization-section";
 import {
   Building2,
@@ -19,117 +21,235 @@ import {
   Receipt
 } from "lucide-react";
 import { Doc } from "../../../../convex/_generated/dataModel";
+import { usePermissions } from "@/contexts/permission-context";
 
 interface OrganizationDetailsFormProps {
   organization: Doc<"organizations"> & { members?: unknown[] };
-  canEdit: boolean;
   isEditing: boolean;
-  onSave: (updates: Partial<Doc<"organizations">>) => Promise<void>;
   isSaving: boolean;
 }
 
-export function OrganizationDetailsForm({
-  organization,
-  canEdit,
-  isEditing,
-  onSave,
-}: OrganizationDetailsFormProps) {
+// Ref handle for parent to trigger save
+export interface OrganizationDetailsFormRef {
+  getFormData: () => FormData;
+  hasChanges: () => boolean;
+}
+
+// Export the FormData type so parent can use it
+export interface FormData {
+  name: string;
+  businessName: string;
+  slug: string;
+  industry: string;
+  foundedYear: number;
+  employeeCount: string;
+  bio: string;
+  contactEmail: string;
+  billingEmail: string;
+  supportEmail: string;
+  contactPhone: string;
+  faxNumber: string;
+  website: string;
+  socialMedia: {
+    linkedin: string;
+    twitter: string;
+    facebook: string;
+    instagram: string;
+  };
+  taxId: string;
+  vatNumber: string;
+  companyRegistrationNumber: string;
+  legalEntityType: string;
+  settings: {
+    branding: {
+      primaryColor: string;
+      logo: string;
+    };
+    locale: {
+      language: string;
+      currency: string;
+      timezone: string;
+    };
+    invoicing: {
+      prefix: string;
+      nextNumber: number;
+      defaultTerms: string;
+    };
+  };
+}
+
+export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, OrganizationDetailsFormProps>(
+  function OrganizationDetailsForm({ organization, isEditing }, ref) {
+    // Check permissions inline using centralized context
+    const { hasPermission } = usePermissions();
+    const canEdit = hasPermission("manage_organization");
+
+    // Query ontology data for this organization
+    const profile = useQuery(api.organizationOntology.getOrganizationProfile, {
+      organizationId: organization._id
+    });
+    const contact = useQuery(api.organizationOntology.getOrganizationContact, {
+      organizationId: organization._id
+    });
+    const social = useQuery(api.organizationOntology.getOrganizationSocial, {
+      organizationId: organization._id
+    });
+    const legal = useQuery(api.organizationOntology.getOrganizationLegal, {
+      organizationId: organization._id
+    });
+    const brandingSettingsData = useQuery(api.organizationOntology.getOrganizationSettings, {
+      organizationId: organization._id,
+      subtype: "branding"
+    });
+    const localeSettingsData = useQuery(api.organizationOntology.getOrganizationSettings, {
+      organizationId: organization._id,
+      subtype: "locale"
+    });
+    const invoicingSettingsData = useQuery(api.organizationOntology.getOrganizationSettings, {
+      organizationId: organization._id,
+      subtype: "invoicing"
+    });
+
+    // Extract single objects from settings queries (they return arrays when no subtype)
+    const brandingSettings = useMemo(() =>
+      Array.isArray(brandingSettingsData) ? undefined : brandingSettingsData,
+      [brandingSettingsData]
+    );
+    const localeSettings = useMemo(() =>
+      Array.isArray(localeSettingsData) ? undefined : localeSettingsData,
+      [localeSettingsData]
+    );
+    const invoicingSettings = useMemo(() =>
+      Array.isArray(invoicingSettingsData) ? undefined : invoicingSettingsData,
+      [invoicingSettingsData]
+    );
+
   // Form state for all fields
   const [formData, setFormData] = useState({
-    // Basic Information
+    // Basic Information (CORE - Still on organizations table)
     name: organization.name || "",
     businessName: organization.businessName || "",
     slug: organization.slug || "",
-    industry: organization.industry || "",
-    foundedYear: organization.foundedYear || new Date().getFullYear(),
-    employeeCount: organization.employeeCount || "",
-    bio: organization.bio || "",
 
-    // Contact Information
-    contactEmail: organization.contactEmail || "",
-    billingEmail: organization.billingEmail || "",
-    supportEmail: organization.supportEmail || "",
-    contactPhone: organization.contactPhone || "",
-    faxNumber: organization.faxNumber || "",
-    website: organization.website || "",
+    // Profile fields - from ontology (organization_profile)
+    industry: profile?.customProperties?.industry || "",
+    foundedYear: profile?.customProperties?.foundedYear || new Date().getFullYear(),
+    employeeCount: profile?.customProperties?.employeeCount || "",
+    bio: profile?.customProperties?.bio || "",
+
+    // Contact Information - from ontology (organization_contact)
+    contactEmail: contact?.customProperties?.contactEmail || "",
+    billingEmail: contact?.customProperties?.billingEmail || "",
+    supportEmail: contact?.customProperties?.supportEmail || "",
+    contactPhone: contact?.customProperties?.contactPhone || "",
+    faxNumber: contact?.customProperties?.faxNumber || "",
+    website: contact?.customProperties?.website || "",
+
+    // Social Media - from ontology (organization_social)
     socialMedia: {
-      linkedin: organization.socialMedia?.linkedin || "",
-      twitter: organization.socialMedia?.twitter || "",
-      facebook: organization.socialMedia?.facebook || "",
-      instagram: organization.socialMedia?.instagram || "",
+      linkedin: social?.customProperties?.linkedin || "",
+      twitter: social?.customProperties?.twitter || "",
+      facebook: social?.customProperties?.facebook || "",
+      instagram: social?.customProperties?.instagram || "",
     },
 
-    // Legal & Tax
-    taxId: organization.taxId || "",
-    vatNumber: organization.vatNumber || "",
-    companyRegistrationNumber: organization.companyRegistrationNumber || "",
-    legalEntityType: organization.legalEntityType || "",
+    // Legal & Tax - from ontology (organization_legal)
+    taxId: legal?.customProperties?.taxId || "",
+    vatNumber: legal?.customProperties?.vatNumber || "",
+    companyRegistrationNumber: legal?.customProperties?.companyRegistrationNumber || "",
+    legalEntityType: legal?.customProperties?.legalEntityType || "",
 
-    // Settings
+    // Settings - from ontology (organization_settings with subtypes)
     settings: {
       branding: {
-        primaryColor: organization.settings?.branding?.primaryColor || "#6B46C1",
-        logo: organization.settings?.branding?.logo || "",
+        primaryColor: brandingSettings?.customProperties?.primaryColor || "#6B46C1",
+        logo: brandingSettings?.customProperties?.logo || "",
       },
       locale: {
-        language: organization.settings?.locale?.language || "en",
-        currency: organization.settings?.locale?.currency || "USD",
-        timezone: organization.settings?.locale?.timezone || "America/New_York",
+        language: localeSettings?.customProperties?.language || "en",
+        currency: localeSettings?.customProperties?.currency || "USD",
+        timezone: localeSettings?.customProperties?.timezone || "America/New_York",
       },
       invoicing: {
-        prefix: organization.settings?.invoicing?.prefix || "INV-",
-        nextNumber: organization.settings?.invoicing?.nextNumber || 1,
-        defaultTerms: organization.settings?.invoicing?.defaultTerms || "Net 30",
+        prefix: invoicingSettings?.customProperties?.prefix || "INV-",
+        nextNumber: invoicingSettings?.customProperties?.nextNumber || 1,
+        defaultTerms: invoicingSettings?.customProperties?.defaultTerms || "Net 30",
       },
     },
   });
 
-  // Update form data when organization changes
-  useState(() => {
+  // Update form data when organization or ontology data changes
+  useEffect(() => {
     if (organization && !isEditing) {
       setFormData({
+        // Core fields - from organizations table
         name: organization.name || "",
         businessName: organization.businessName || "",
         slug: organization.slug || "",
-        industry: organization.industry || "",
-        foundedYear: organization.foundedYear || new Date().getFullYear(),
-        employeeCount: organization.employeeCount || "",
-        bio: organization.bio || "",
-        contactEmail: organization.contactEmail || "",
-        billingEmail: organization.billingEmail || "",
-        supportEmail: organization.supportEmail || "",
-        contactPhone: organization.contactPhone || "",
-        faxNumber: organization.faxNumber || "",
-        website: organization.website || "",
+
+        // Profile fields - from ontology
+        industry: profile?.customProperties?.industry || "",
+        foundedYear: profile?.customProperties?.foundedYear || new Date().getFullYear(),
+        employeeCount: profile?.customProperties?.employeeCount || "",
+        bio: profile?.customProperties?.bio || "",
+
+        // Contact fields - from ontology
+        contactEmail: contact?.customProperties?.contactEmail || "",
+        billingEmail: contact?.customProperties?.billingEmail || "",
+        supportEmail: contact?.customProperties?.supportEmail || "",
+        contactPhone: contact?.customProperties?.contactPhone || "",
+        faxNumber: contact?.customProperties?.faxNumber || "",
+        website: contact?.customProperties?.website || "",
+
+        // Social media - from ontology
         socialMedia: {
-          linkedin: organization.socialMedia?.linkedin || "",
-          twitter: organization.socialMedia?.twitter || "",
-          facebook: organization.socialMedia?.facebook || "",
-          instagram: organization.socialMedia?.instagram || "",
+          linkedin: social?.customProperties?.linkedin || "",
+          twitter: social?.customProperties?.twitter || "",
+          facebook: social?.customProperties?.facebook || "",
+          instagram: social?.customProperties?.instagram || "",
         },
-        taxId: organization.taxId || "",
-        vatNumber: organization.vatNumber || "",
-        companyRegistrationNumber: organization.companyRegistrationNumber || "",
-        legalEntityType: organization.legalEntityType || "",
+
+        // Legal - from ontology
+        taxId: legal?.customProperties?.taxId || "",
+        vatNumber: legal?.customProperties?.vatNumber || "",
+        companyRegistrationNumber: legal?.customProperties?.companyRegistrationNumber || "",
+        legalEntityType: legal?.customProperties?.legalEntityType || "",
+
+        // Settings - from ontology
         settings: {
           branding: {
-            primaryColor: organization.settings?.branding?.primaryColor || "#6B46C1",
-            logo: organization.settings?.branding?.logo || "",
+            primaryColor: brandingSettings?.customProperties?.primaryColor || "#6B46C1",
+            logo: brandingSettings?.customProperties?.logo || "",
           },
           locale: {
-            language: organization.settings?.locale?.language || "en",
-            currency: organization.settings?.locale?.currency || "USD",
-            timezone: organization.settings?.locale?.timezone || "America/New_York",
+            language: localeSettings?.customProperties?.language || "en",
+            currency: localeSettings?.customProperties?.currency || "USD",
+            timezone: localeSettings?.customProperties?.timezone || "America/New_York",
           },
           invoicing: {
-            prefix: organization.settings?.invoicing?.prefix || "INV-",
-            nextNumber: organization.settings?.invoicing?.nextNumber || 1,
-            defaultTerms: organization.settings?.invoicing?.defaultTerms || "Net 30",
+            prefix: invoicingSettings?.customProperties?.prefix || "INV-",
+            nextNumber: invoicingSettings?.customProperties?.nextNumber || 1,
+            defaultTerms: invoicingSettings?.customProperties?.defaultTerms || "Net 30",
           },
         },
       });
     }
-  });
+  }, [organization, isEditing, profile, contact, social, legal, brandingSettings, localeSettings, invoicingSettings]);
+
+  // Expose methods to parent via ref
+  useImperativeHandle(ref, () => ({
+    getFormData: () => formData,
+    hasChanges: () => {
+      // Simple comparison - only check core organization fields
+      // Extended fields (industry, contact info, etc.) moved to ontology - will be compared separately later
+      return (
+        formData.name !== organization.name ||
+        formData.businessName !== organization.businessName ||
+        formData.slug !== organization.slug
+        // TODO: Add ontology field comparisons when implementing full ontology UI
+      );
+    },
+  }), [formData, organization]);
 
   const inputStyles = {
     backgroundColor: isEditing && canEdit ? 'var(--win95-input-bg)' : 'var(--win95-bg)',
@@ -202,7 +322,7 @@ export function OrganizationDetailsForm({
             </label>
             <input
               type="text"
-              value={isEditing ? formData.industry : (organization.industry || "")}
+              value={formData.industry}
               onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
               readOnly={!isEditing}
               disabled={!canEdit || !isEditing}
@@ -219,7 +339,7 @@ export function OrganizationDetailsForm({
             </label>
             <input
               type="number"
-              value={isEditing ? formData.foundedYear : (organization.foundedYear || "")}
+              value={formData.foundedYear}
               onChange={(e) => setFormData({ ...formData, foundedYear: parseInt(e.target.value) })}
               readOnly={!isEditing}
               disabled={!canEdit || !isEditing}
@@ -236,7 +356,7 @@ export function OrganizationDetailsForm({
               Employee Count
             </label>
             <select
-              value={isEditing ? formData.employeeCount : (organization.employeeCount || "")}
+              value={formData.employeeCount}
               onChange={(e) => setFormData({ ...formData, employeeCount: e.target.value })}
               disabled={!canEdit || !isEditing}
               className="w-full px-2 py-1 text-sm"
@@ -259,7 +379,7 @@ export function OrganizationDetailsForm({
             About / Bio
           </label>
           <textarea
-            value={isEditing ? formData.bio : (organization.bio || "")}
+            value={formData.bio}
             onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
             readOnly={!isEditing}
             disabled={!canEdit || !isEditing}
@@ -286,7 +406,7 @@ export function OrganizationDetailsForm({
             </label>
             <input
               type="email"
-              value={isEditing ? formData.contactEmail : (organization.contactEmail || "")}
+              value={formData.contactEmail}
               onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
               readOnly={!isEditing}
               disabled={!canEdit || !isEditing}
@@ -302,7 +422,7 @@ export function OrganizationDetailsForm({
             </label>
             <input
               type="email"
-              value={isEditing ? formData.billingEmail : (organization.billingEmail || "")}
+              value={formData.billingEmail}
               onChange={(e) => setFormData({ ...formData, billingEmail: e.target.value })}
               readOnly={!isEditing}
               disabled={!canEdit || !isEditing}
@@ -318,7 +438,7 @@ export function OrganizationDetailsForm({
             </label>
             <input
               type="email"
-              value={isEditing ? formData.supportEmail : (organization.supportEmail || "")}
+              value={formData.supportEmail}
               onChange={(e) => setFormData({ ...formData, supportEmail: e.target.value })}
               readOnly={!isEditing}
               disabled={!canEdit || !isEditing}
@@ -334,7 +454,7 @@ export function OrganizationDetailsForm({
             </label>
             <input
               type="tel"
-              value={isEditing ? formData.contactPhone : (organization.contactPhone || "")}
+              value={formData.contactPhone}
               onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
               readOnly={!isEditing}
               disabled={!canEdit || !isEditing}
@@ -349,7 +469,7 @@ export function OrganizationDetailsForm({
             </label>
             <input
               type="tel"
-              value={isEditing ? formData.faxNumber : (organization.faxNumber || "")}
+              value={formData.faxNumber}
               onChange={(e) => setFormData({ ...formData, faxNumber: e.target.value })}
               readOnly={!isEditing}
               disabled={!canEdit || !isEditing}
@@ -365,7 +485,7 @@ export function OrganizationDetailsForm({
             </label>
             <input
               type="url"
-              value={isEditing ? formData.website : (organization.website || "")}
+              value={formData.website}
               onChange={(e) => setFormData({ ...formData, website: e.target.value })}
               readOnly={!isEditing}
               disabled={!canEdit || !isEditing}
@@ -387,7 +507,7 @@ export function OrganizationDetailsForm({
               </label>
               <input
                 type="url"
-                value={isEditing ? formData.socialMedia.linkedin : (organization.socialMedia?.linkedin || "")}
+                value={formData.socialMedia.linkedin}
                 onChange={(e) => setFormData({
                   ...formData,
                   socialMedia: { ...formData.socialMedia, linkedin: e.target.value }
@@ -406,7 +526,7 @@ export function OrganizationDetailsForm({
               </label>
               <input
                 type="url"
-                value={isEditing ? formData.socialMedia.twitter : (organization.socialMedia?.twitter || "")}
+                value={formData.socialMedia.twitter}
                 onChange={(e) => setFormData({
                   ...formData,
                   socialMedia: { ...formData.socialMedia, twitter: e.target.value }
@@ -425,7 +545,7 @@ export function OrganizationDetailsForm({
               </label>
               <input
                 type="url"
-                value={isEditing ? formData.socialMedia.facebook : (organization.socialMedia?.facebook || "")}
+                value={formData.socialMedia.facebook}
                 onChange={(e) => setFormData({
                   ...formData,
                   socialMedia: { ...formData.socialMedia, facebook: e.target.value }
@@ -444,7 +564,7 @@ export function OrganizationDetailsForm({
               </label>
               <input
                 type="url"
-                value={isEditing ? formData.socialMedia.instagram : (organization.socialMedia?.instagram || "")}
+                value={formData.socialMedia.instagram}
                 onChange={(e) => setFormData({
                   ...formData,
                   socialMedia: { ...formData.socialMedia, instagram: e.target.value }
@@ -474,7 +594,7 @@ export function OrganizationDetailsForm({
             </label>
             <input
               type="text"
-              value={isEditing ? formData.taxId : (organization.taxId || "")}
+              value={formData.taxId}
               onChange={(e) => setFormData({ ...formData, taxId: e.target.value })}
               readOnly={!isEditing}
               disabled={!canEdit || !isEditing}
@@ -489,7 +609,7 @@ export function OrganizationDetailsForm({
             </label>
             <input
               type="text"
-              value={isEditing ? formData.vatNumber : (organization.vatNumber || "")}
+              value={formData.vatNumber}
               onChange={(e) => setFormData({ ...formData, vatNumber: e.target.value })}
               readOnly={!isEditing}
               disabled={!canEdit || !isEditing}
@@ -505,7 +625,7 @@ export function OrganizationDetailsForm({
             </label>
             <input
               type="text"
-              value={isEditing ? formData.companyRegistrationNumber : (organization.companyRegistrationNumber || "")}
+              value={formData.companyRegistrationNumber}
               onChange={(e) => setFormData({ ...formData, companyRegistrationNumber: e.target.value })}
               readOnly={!isEditing}
               disabled={!canEdit || !isEditing}
@@ -519,7 +639,7 @@ export function OrganizationDetailsForm({
               Legal Entity Type
             </label>
             <select
-              value={isEditing ? formData.legalEntityType : (organization.legalEntityType || "")}
+              value={formData.legalEntityType}
               onChange={(e) => setFormData({ ...formData, legalEntityType: e.target.value })}
               disabled={!canEdit || !isEditing}
               className="w-full px-2 py-1 text-sm"
@@ -561,7 +681,7 @@ export function OrganizationDetailsForm({
                 <div className="flex gap-2">
                   <input
                     type="color"
-                    value={isEditing ? formData.settings.branding.primaryColor : (organization.settings?.branding?.primaryColor || "#6B46C1")}
+                    value={formData.settings.branding.primaryColor}
                     onChange={(e) => setFormData({
                       ...formData,
                       settings: {
@@ -574,7 +694,7 @@ export function OrganizationDetailsForm({
                   />
                   <input
                     type="text"
-                    value={isEditing ? formData.settings.branding.primaryColor : (organization.settings?.branding?.primaryColor || "#6B46C1")}
+                    value={formData.settings.branding.primaryColor}
                     onChange={(e) => setFormData({
                       ...formData,
                       settings: {
@@ -596,7 +716,7 @@ export function OrganizationDetailsForm({
                 </label>
                 <input
                   type="url"
-                  value={isEditing ? formData.settings.branding.logo : (organization.settings?.branding?.logo || "")}
+                  value={formData.settings.branding.logo}
                   onChange={(e) => setFormData({
                     ...formData,
                     settings: {
@@ -626,7 +746,7 @@ export function OrganizationDetailsForm({
                   Language
                 </label>
                 <select
-                  value={isEditing ? formData.settings.locale.language : (organization.settings?.locale?.language || "en")}
+                  value={formData.settings.locale.language}
                   onChange={(e) => setFormData({
                     ...formData,
                     settings: {
@@ -652,7 +772,7 @@ export function OrganizationDetailsForm({
                   Currency
                 </label>
                 <select
-                  value={isEditing ? formData.settings.locale.currency : (organization.settings?.locale?.currency || "USD")}
+                  value={formData.settings.locale.currency}
                   onChange={(e) => setFormData({
                     ...formData,
                     settings: {
@@ -678,7 +798,7 @@ export function OrganizationDetailsForm({
                   Timezone
                 </label>
                 <select
-                  value={isEditing ? formData.settings.locale.timezone : (organization.settings?.locale?.timezone || "America/New_York")}
+                  value={formData.settings.locale.timezone}
                   onChange={(e) => setFormData({
                     ...formData,
                     settings: {
@@ -716,7 +836,7 @@ export function OrganizationDetailsForm({
                 </label>
                 <input
                   type="text"
-                  value={isEditing ? formData.settings.invoicing.prefix : (organization.settings?.invoicing?.prefix || "INV-")}
+                  value={formData.settings.invoicing.prefix}
                   onChange={(e) => setFormData({
                     ...formData,
                     settings: {
@@ -738,7 +858,7 @@ export function OrganizationDetailsForm({
                 </label>
                 <input
                   type="number"
-                  value={isEditing ? formData.settings.invoicing.nextNumber : (organization.settings?.invoicing?.nextNumber || 1)}
+                  value={formData.settings.invoicing.nextNumber}
                   onChange={(e) => setFormData({
                     ...formData,
                     settings: {
@@ -759,7 +879,7 @@ export function OrganizationDetailsForm({
                   Default Payment Terms
                 </label>
                 <select
-                  value={isEditing ? formData.settings.invoicing.defaultTerms : (organization.settings?.invoicing?.defaultTerms || "Net 30")}
+                  value={formData.settings.invoicing.defaultTerms}
                   onChange={(e) => setFormData({
                     ...formData,
                     settings: {
@@ -831,7 +951,8 @@ export function OrganizationDetailsForm({
               Enabled Features
             </label>
             <div className="flex flex-wrap gap-2">
-              {organization.settings?.features?.customDomain && (
+              {/* Features temporarily hidden - moved to ontology */}
+              {false && (
                 <span
                   className="px-2 py-1 text-xs font-semibold"
                   style={{
@@ -844,7 +965,7 @@ export function OrganizationDetailsForm({
                   Custom Domain
                 </span>
               )}
-              {organization.settings?.features?.sso && (
+              {false && (
                 <span
                   className="px-2 py-1 text-xs font-semibold"
                   style={{
@@ -857,7 +978,7 @@ export function OrganizationDetailsForm({
                   SSO
                 </span>
               )}
-              {organization.settings?.features?.apiAccess && (
+              {false && (
                 <span
                   className="px-2 py-1 text-xs font-semibold"
                   style={{
@@ -870,9 +991,8 @@ export function OrganizationDetailsForm({
                   API Access
                 </span>
               )}
-              {!organization.settings?.features?.customDomain &&
-               !organization.settings?.features?.sso &&
-               !organization.settings?.features?.apiAccess && (
+              {/* Show "no features" message since we haven't queried ontology yet */}
+              {true && (
                 <span className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
                   No additional features enabled
                 </span>
@@ -883,4 +1003,6 @@ export function OrganizationDetailsForm({
       </OrganizationSection>
     </div>
   );
-}
+});
+
+OrganizationDetailsForm.displayName = "OrganizationDetailsForm";

@@ -7,8 +7,17 @@
 
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
+import { config } from "dotenv";
 
-const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL || "https://aromatic-akita-723.convex.cloud";
+// Load .env.local
+config({ path: ".env.local" });
+
+const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL!;
+
+if (!CONVEX_URL) {
+  console.error("❌ Error: NEXT_PUBLIC_CONVEX_URL not found in .env.local");
+  process.exit(1);
+}
 
 async function seedRBAC() {
   const client = new ConvexHttpClient(CONVEX_URL);

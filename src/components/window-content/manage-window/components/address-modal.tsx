@@ -7,7 +7,7 @@ import { AddressForm } from "./address-form";
 interface AddressModalProps {
   isOpen: boolean;
   onClose: () => void;
-  address?: Doc<"organizationAddresses">;
+  address?: Doc<"objects">; // Changed from organizationAddresses
   onSubmit: (data: {
     type: "billing" | "shipping" | "mailing" | "physical" | "other";
     label?: string;

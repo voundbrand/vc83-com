@@ -2,6 +2,7 @@ import { action, query, internalMutation, internalQuery } from "./_generated/ser
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
+import { requireAuthenticatedUser, getUserContext, checkPermission } from "./rbacHelpers";
 
 // ============================================================================
 // QUERIES
@@ -9,31 +10,23 @@ import { internal } from "./_generated/api";
 
 /**
  * List all organizations (super admin only)
+ *
+ * @permission view_all_organizations - Super admin only
+ * @roles super_admin
  */
 export const listAll = query({
   args: {
     sessionId: v.string(), // Required - no Clerk fallback
   },
   handler: async (ctx, args) => {
-    // Get session and validate
-    const session = await ctx.db.get(args.sessionId as Id<"sessions">);
+    // Authenticate user
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
-    if (!session || session.expiresAt <= Date.now()) {
-      throw new Error("Invalid or expired session");
-    }
+    // Get user context to check super admin status
+    const userContext = await getUserContext(ctx, userId);
 
-    const user = await ctx.db.get(session.userId);
-    if (!user) {
-      throw new Error("User not found");
-    }
-
-    // Check if user is super admin
-    if (user.global_role_id) {
-      const role = await ctx.db.get(user.global_role_id);
-      if (role?.name !== "super_admin") {
-        throw new Error("Unauthorized: Only super admins can list all organizations");
-      }
-    } else {
+    // Only super admins can list all organizations
+    if (!userContext.isGlobal || userContext.roleName !== "super_admin") {
       throw new Error("Unauthorized: Only super admins can list all organizations");
     }
 
@@ -61,6 +54,9 @@ export const listAll = query({
 
 /**
  * Get organization by ID with detailed information
+ *
+ * @permission view_organization - Required to view organization details
+ * @roles org_owner, business_manager, employee, viewer, super_admin
  */
 export const getById = query({
   args: {
@@ -68,31 +64,13 @@ export const getById = query({
     sessionId: v.string(), // Required - no Clerk fallback
   },
   handler: async (ctx, args) => {
-    // Get session and validate
-    const session = await ctx.db.get(args.sessionId as Id<"sessions">);
+    // Authenticate user
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
-    if (!session || session.expiresAt <= Date.now()) {
-      throw new Error("Invalid or expired session");
-    }
+    // Check permission to view this organization
+    const hasAccess = await checkPermission(ctx, userId, "view_organization", args.organizationId);
 
-    const user = await ctx.db.get(session.userId);
-    if (!user) {
-      throw new Error("User not found");
-    }
-
-    // Check if user has access to this organization
-    const membership = await ctx.db
-      .query("organizationMembers")
-      .withIndex("by_user_and_org", (q) =>
-        q.eq("userId", user._id).eq("organizationId", args.organizationId)
-      )
-      .first();
-
-    // Allow super admins or organization members
-    const isSuperAdmin = user.global_role_id ?
-      (await ctx.db.get(user.global_role_id))?.name === "super_admin" : false;
-
-    if (!isSuperAdmin && !membership) {
+    if (!hasAccess) {
       throw new Error("Unauthorized: You don't have access to this organization");
     }
 
@@ -100,6 +78,10 @@ export const getById = query({
     if (!organization) {
       throw new Error("Organization not found");
     }
+
+    // Get user context to check super admin status
+    const userContext = await getUserContext(ctx, userId, args.organizationId);
+    const isSuperAdmin = userContext.isGlobal && userContext.roleName === "super_admin";
 
     // Get members with their roles
     const members = await ctx.db
@@ -110,24 +92,38 @@ export const getById = query({
 
     const membersWithDetails = await Promise.all(
       members.map(async (member) => {
-        const user = await ctx.db.get(member.userId);
+        const memberUser = await ctx.db.get(member.userId);
         const role = await ctx.db.get(member.role);
+
+        // Check if this member is a super admin
+        const memberIsSuperAdmin = memberUser?.global_role_id ?
+          (await ctx.db.get(memberUser.global_role_id))?.name === "super_admin" : false;
+
         return {
           ...member,
-          user: user ? {
-            id: user._id,
-            email: user.email,
-            firstName: user.firstName,
-            lastName: user.lastName,
+          user: memberUser ? {
+            id: memberUser._id,
+            email: memberUser.email,
+            firstName: memberUser.firstName,
+            lastName: memberUser.lastName,
           } : null,
           roleName: role?.name || "unknown",
+          isSuperAdmin: memberIsSuperAdmin,
         };
       })
     );
 
+    // Filter out super admin users unless the current user is also a super admin
+    const filteredMembers = membersWithDetails.filter(member => {
+      // If current user is super admin, show all members
+      if (isSuperAdmin) return true;
+      // Otherwise, hide super admin members
+      return !member.isSuperAdmin;
+    });
+
     return {
       ...organization,
-      members: membersWithDetails,
+      members: filteredMembers,
     };
   },
 });
@@ -172,6 +168,9 @@ export const getUserOrganizations = query({
 
 /**
  * Search users that can be invited to an organization
+ *
+ * @permission manage_users - Required to search and invite users
+ * @roles org_owner, business_manager, super_admin
  */
 export const searchUsersToInvite = query({
   args: {
@@ -180,36 +179,14 @@ export const searchUsersToInvite = query({
     sessionId: v.string(), // Required - no Clerk fallback
   },
   handler: async (ctx, args) => {
-    // Get session and validate
-    const session = await ctx.db.get(args.sessionId as Id<"sessions">);
+    // Authenticate user
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
-    if (!session || session.expiresAt <= Date.now()) {
-      throw new Error("Invalid or expired session");
-    }
+    // Check permission to manage users in this organization
+    const hasPermission = await checkPermission(ctx, userId, "manage_users", args.organizationId);
 
-    const user = await ctx.db.get(session.userId);
-    if (!user) {
-      throw new Error("User not found");
-    }
-
-    // Check permissions
-    const membership = await ctx.db
-      .query("organizationMembers")
-      .withIndex("by_user_and_org", (q) =>
-        q.eq("userId", session.userId).eq("organizationId", args.organizationId)
-      )
-      .first();
-
-    const isSuperAdmin = user.global_role_id ?
-      (await ctx.db.get(user.global_role_id))?.name === "super_admin" : false;
-
-    if (!isSuperAdmin && membership) {
-      const role = await ctx.db.get(membership.role);
-      if (role?.name !== "org_owner" && role?.name !== "business_manager") {
-        throw new Error("Unauthorized: Only org owners and managers can invite users");
-      }
-    } else if (!isSuperAdmin) {
-      throw new Error("Unauthorized");
+    if (!hasPermission) {
+      throw new Error("Unauthorized: Only org owners and managers can invite users");
     }
 
     // Get existing members to exclude

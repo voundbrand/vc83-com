@@ -51,19 +51,19 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
       ref={menuRef}
       className={cn(
         "absolute bottom-full left-0 mb-1 retro-window window-corners dark:retro-window-dark shadow-lg flex",
-        isMobile ? "w-full start-menu-mobile" : "min-w-[200px]",
+        isMobile ? "w-[180px] max-w-[90vw]" : "min-w-[200px]",
         className
       )}
       style={{ zIndex: 'var(--z-index-start-menu)' }}
     >
       {/* Windows 95-style vertical stripe */}
-      <div className="w-8 flex items-center justify-center retro-border" style={{ background: 'var(--win95-border)' }}>
-        <div className="transform -rotate-90 whitespace-nowrap font-['Press_Start_2P'] text-sm tracking-wider retro-bg-light" style={{ color: 'var(--win95-bg-light)' }}>
+      <div className="w-10 flex items-center justify-center retro-border py-6" style={{ background: 'var(--win95-border)', minHeight: '180px' }}>
+        <div className="transform -rotate-90 whitespace-nowrap font-['Press_Start_2P'] text-sm tracking-wider" style={{ color: 'var(--win95-text)' }}>
           L4YERCAK3
         </div>
       </div>
-      
-      <div className="flex-1 py-1">
+
+      <div className="flex-1 py-2">
         {items.map((item, index) => (
           <div key={index} className="relative">
             {item.divider ? (
@@ -85,24 +85,19 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
                       setOpenSubmenu(index);
                     }
                   }}
-                  className="w-full px-3 py-1 text-left flex items-center justify-between gap-2 transition-colors font-pixel hover-menu-item retro-text"
+                  className="w-full px-3 py-2 text-left flex items-center justify-between gap-2 transition-colors font-pixel hover-menu-item retro-text"
                 >
                   <div className="flex items-center gap-2">
                     {item.icon && <span className="text-base">{item.icon}</span>}
                     <span>{item.label || ""}</span>
                   </div>
-                  {item.submenu && <span className="text-xs">▶</span>}
+                  {item.submenu && <span className="text-xs" style={{ color: 'var(--win95-text)' }}>►</span>}
                 </button>
 
                 {/* Submenu */}
                 {item.submenu && openSubmenu === index && (
                   <div
-                    className={cn(
-                      "absolute retro-window window-corners dark:retro-window-dark shadow-lg",
-                      isMobile
-                        ? "left-0 top-full mt-1 w-full"
-                        : "left-full top-0 ml-1 min-w-[180px]"
-                    )}
+                    className="absolute left-full top-0 ml-1 min-w-[180px] retro-window window-corners dark:retro-window-dark shadow-lg"
                   >
                     <div className="py-1">
                       {item.submenu.map((subitem, subindex) => (
@@ -113,7 +108,7 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
                             onClose();
                             setOpenSubmenu(null);
                           }}
-                          className="w-full px-3 py-1 text-left flex items-center gap-2 transition-colors font-pixel hover-menu-item retro-text"
+                          className="w-full px-3 py-2 text-left flex items-center gap-2 transition-colors font-pixel hover-menu-item retro-text"
                         >
                           {subitem.icon && (
                             <span className="text-base">{subitem.icon}</span>

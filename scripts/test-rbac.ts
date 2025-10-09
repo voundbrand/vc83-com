@@ -4,7 +4,7 @@
  * Test RBAC functions
  */
 
-import { ConvexHttpClient } from "convex/browser";
+// import { ConvexHttpClient } from "convex/browser"; // Not used yet
 
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL || "https://cheerful-hamster-101.convex.cloud";
 

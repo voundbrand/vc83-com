@@ -65,11 +65,18 @@ export function FloatingWindow({
       if (isDragging) {
         const newX = e.clientX - dragOffset.x
         const newY = e.clientY - dragOffset.y
-        
-        // Viewport constraints
+
+        // Get taskbar height from CSS variable or default to 48px
+        const taskbarHeight = parseInt(
+          getComputedStyle(document.documentElement)
+            .getPropertyValue('--taskbar-height')
+            .replace('px', '')
+        ) || 48
+
+        // Viewport constraints - prevent dragging behind taskbar
         const maxX = window.innerWidth - (windowState?.size?.width || 800)
-        const maxY = window.innerHeight - (windowState?.size?.height || 500)
-        
+        const maxY = window.innerHeight - taskbarHeight - (windowState?.size?.height || 500)
+
         moveWindow(id, {
           x: Math.max(0, Math.min(newX, maxX)),
           y: Math.max(0, Math.min(newY, maxY)),
@@ -77,7 +84,7 @@ export function FloatingWindow({
       } else if (isResizing) {
         const deltaX = e.clientX - resizeStart.x
         const deltaY = e.clientY - resizeStart.y
-        
+
         resizeWindow(id, {
           width: resizeStart.width + deltaX,
           height: resizeStart.height + deltaY,
@@ -122,8 +129,8 @@ export function FloatingWindow({
         left: windowState?.position?.x || initialPosition.x,
         top: windowState?.position?.y || initialPosition.y,
         width: windowState?.isMaximized ? '100%' : (windowState?.size?.width || 800) + 'px',
-        height: windowState?.isMaximized ? 'calc(100vh - 40px)' : (windowState?.size?.height || 500) + 'px',
-        maxHeight: windowState?.isMaximized ? 'calc(100vh - 40px)' : '90vh',
+        height: windowState?.isMaximized ? 'calc(100vh - var(--taskbar-height, 48px))' : (windowState?.size?.height || 500) + 'px',
+        maxHeight: windowState?.isMaximized ? 'calc(100vh - var(--taskbar-height, 48px))' : 'calc(90vh - var(--taskbar-height, 48px))',
         zIndex: windowState?.zIndex || zIndex,
         cursor: isDragging ? "grabbing" : "default",
         opacity: isDragging || isResizing ? 0.95 : 1,

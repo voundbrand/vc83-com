@@ -7,24 +7,18 @@ import { RolesPermissionsTab } from "./roles-permissions-tab";
 import { OrganizationSection } from "./components/organization-section";
 import { AddressCard } from "./components/address-card";
 import { AddressModal } from "./components/address-modal";
-import { OrganizationDetailsForm } from "./organization-details-form";
+import { OrganizationDetailsForm, OrganizationDetailsFormRef } from "./organization-details-form";
 import { Users, Building2, AlertCircle, Loader2, Shield, Save, Crown, Edit2, X, MapPin, Plus } from "lucide-react";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   useAuth,
   useCurrentOrganization,
-  usePermission,
-  useIsSuperAdmin
 } from "@/hooks/use-auth";
+import { usePermissions } from "@/contexts/permission-context";
+import { PermissionGuard, PermissionButton } from "@/components/permission";
 import { Id, Doc } from "../../../../convex/_generated/dataModel";
 
 type TabType = "organization" | "users" | "roles";
-
-// Temporary type extension until Convex regenerates types
-interface OrganizationWithAddresses {
-  addresses?: Doc<"organizationAddresses">[];
-  [key: string]: unknown;
-}
 
 export function ManageWindow() {
   const [activeTab, setActiveTab] = useState<TabType>("organization");
@@ -33,25 +27,32 @@ export function ManageWindow() {
 
   // Address management state
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
-  const [editingAddress, setEditingAddress] = useState<Doc<"organizationAddresses"> | undefined>();
+  const [editingAddress, setEditingAddress] = useState<Doc<"objects"> | undefined>(); // Changed to objects
   const [isSubmittingAddress, setIsSubmittingAddress] = useState(false);
+
+  // Ref to organization form for accessing form data
+  const organizationFormRef = useRef<OrganizationDetailsFormRef>(null);
 
   // Use existing useAuth hooks
   const { user, isLoading, sessionId } = useAuth();
   const currentOrganization = useCurrentOrganization();
-  const isSuperAdmin = useIsSuperAdmin();
 
-  // Check permissions
-  const canInvite = usePermission("manage_users");
-  const canManageOrg = usePermission("manage_organization");
-  const canManageRoles = isSuperAdmin || currentOrganization?.role.name === "org_owner";
+  // Get super admin status for UI display purposes only (not for permission checks)
+  const { isSuperAdmin } = useAuth();
+
+  // Use permission context for silent checks (only where absolutely needed for conditional rendering)
+  const { hasPermission } = usePermissions();
 
   // Mutations
   const updateOrganization = useMutation(api.organizationMutations.updateOrganization);
-  const addAddress = useMutation(api.organizationAddresses.addAddress);
-  const updateAddress = useMutation(api.organizationAddresses.updateAddress);
-  const deleteAddress = useMutation(api.organizationAddresses.deleteAddress);
-  const setAsPrimary = useMutation(api.organizationAddresses.setAsPrimary);
+  const updateProfile = useMutation(api.organizationOntology.updateOrganizationProfile);
+  const updateContact = useMutation(api.organizationOntology.updateOrganizationContact);
+  const updateSocial = useMutation(api.organizationOntology.updateOrganizationSocial);
+  const updateLegal = useMutation(api.organizationOntology.updateOrganizationLegal);
+  const updateSettings = useMutation(api.organizationOntology.updateOrganizationSettings);
+  const createAddress = useMutation(api.organizationOntology.createOrganizationAddress);
+  const updateAddressMut = useMutation(api.organizationOntology.updateOrganizationAddress);
+  const deleteAddressMut = useMutation(api.organizationOntology.deleteOrganizationAddress);
 
   // Get organization ID
   const organizationId = currentOrganization?.id || user?.defaultOrgId;
@@ -61,24 +62,10 @@ export function ManageWindow() {
     organizationId && sessionId ? { organizationId: organizationId as Id<"organizations">, sessionId } : "skip"
   );
 
-  const handleSaveOrganization = async (updates: Partial<Doc<"organizations">>) => {
-    if (!sessionId || !organizationId) return;
-
-    setIsSavingOrg(true);
-    try {
-      await updateOrganization({
-        sessionId,
-        organizationId: organizationId as Id<"organizations">,
-        updates,
-      });
-      setIsEditingOrg(false);
-    } catch (error) {
-      console.error("Failed to update organization:", error);
-      alert("Failed to update organization. " + (error instanceof Error ? error.message : ""));
-    } finally {
-      setIsSavingOrg(false);
-    }
-  };
+  // Get organization addresses (from ontology)
+  const addresses = useQuery(api.organizationOntology.getOrganizationAddresses,
+    organizationId ? { organizationId: organizationId as Id<"organizations"> } : "skip"
+  );
 
   const handleCancelEdit = () => {
     setIsEditingOrg(false);
@@ -98,18 +85,25 @@ export function ManageWindow() {
     isDefault?: boolean;
     isPrimary?: boolean;
   }) => {
-    if (!organizationId) return;
+    if (!organizationId || !sessionId) return;
 
     setIsSubmittingAddress(true);
     try {
       if (editingAddress) {
-        await updateAddress({
-          addressId: editingAddress._id,
+        // Update existing address
+        await updateAddressMut({
+          sessionId,
+          addressId: editingAddress._id as Id<"objects">,
+          name: data.label || `${data.type} address`,
           ...data,
         });
       } else {
-        await addAddress({
+        // Create new address
+        await createAddress({
+          sessionId,
           organizationId: organizationId as Id<"organizations">,
+          subtype: data.type, // type → subtype
+          name: data.label || `${data.type} address`,
           ...data,
         });
       }
@@ -123,22 +117,31 @@ export function ManageWindow() {
     }
   };
 
-  const handleDeleteAddress = async (address: Doc<"organizationAddresses">) => {
+  const handleDeleteAddress = async (address: Doc<"objects">) => {
     if (!confirm("Are you sure you want to delete this address?")) {
       return;
     }
 
+    if (!sessionId) return;
+
     try {
-      await deleteAddress({ addressId: address._id });
+      await deleteAddressMut({ sessionId, addressId: address._id });
     } catch (error) {
       console.error("Failed to delete address:", error);
       alert("Failed to delete address. Please try again.");
     }
   };
 
-  const handleSetPrimary = async (address: Doc<"organizationAddresses">) => {
+  const handleSetPrimary = async (address: Doc<"objects">) => {
+    if (!sessionId) return;
+
     try {
-      await setAsPrimary({ addressId: address._id });
+      // Update address to set isPrimary=true
+      await updateAddressMut({
+        sessionId,
+        addressId: address._id,
+        isPrimary: true,
+      });
     } catch (error) {
       console.error("Failed to set primary address:", error);
       alert("Failed to set primary address. Please try again.");
@@ -273,8 +276,8 @@ export function ManageWindow() {
       <div className="flex-1 overflow-y-auto p-4">
         {activeTab === "organization" && (
           <div className="space-y-4">
-            {/* Permission Warning */}
-            {!canManageOrg && (
+            {/* Permission Warning - shown when user lacks permission */}
+            <PermissionGuard permission="manage_organization" mode="show-fallback" fallback={
               <div
                 className="mb-4 p-3 border-2 flex items-start gap-2"
                 style={{
@@ -291,10 +294,12 @@ export function ManageWindow() {
                   </p>
                 </div>
               </div>
-            )}
+            }>
+              {null}
+            </PermissionGuard>
 
             {/* Edit/Save Controls */}
-            {canManageOrg && (
+            <PermissionGuard permission="manage_organization">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
                   Organization Details
@@ -321,9 +326,93 @@ export function ManageWindow() {
                       </button>
                       <button
                         onClick={async () => {
-                          // This will be handled by the form
-                          // For now, just a placeholder
-                          setIsEditingOrg(false);
+                          if (!organizationFormRef.current || !sessionId || !organizationId) return;
+
+                          const formData = organizationFormRef.current.getFormData();
+
+                          setIsSavingOrg(true);
+                          try {
+                            // Update core organization fields
+                            await updateOrganization({
+                              sessionId,
+                              organizationId: organizationId as Id<"organizations">,
+                              updates: {
+                                name: formData.name,
+                                businessName: formData.businessName,
+                                slug: formData.slug,
+                              },
+                            });
+
+                            // Update ontology data in parallel
+                            await Promise.all([
+                              // Profile
+                              updateProfile({
+                                sessionId,
+                                organizationId: organizationId as Id<"organizations">,
+                                industry: formData.industry,
+                                foundedYear: formData.foundedYear,
+                                employeeCount: formData.employeeCount,
+                                bio: formData.bio,
+                              }),
+                              // Contact
+                              updateContact({
+                                sessionId,
+                                organizationId: organizationId as Id<"organizations">,
+                                contactEmail: formData.contactEmail,
+                                billingEmail: formData.billingEmail,
+                                supportEmail: formData.supportEmail,
+                                contactPhone: formData.contactPhone,
+                                faxNumber: formData.faxNumber,
+                                website: formData.website,
+                              }),
+                              // Social
+                              updateSocial({
+                                sessionId,
+                                organizationId: organizationId as Id<"organizations">,
+                                linkedin: formData.socialMedia.linkedin,
+                                twitter: formData.socialMedia.twitter,
+                                facebook: formData.socialMedia.facebook,
+                                instagram: formData.socialMedia.instagram,
+                              }),
+                              // Legal
+                              updateLegal({
+                                sessionId,
+                                organizationId: organizationId as Id<"organizations">,
+                                taxId: formData.taxId,
+                                vatNumber: formData.vatNumber,
+                                companyRegistrationNumber: formData.companyRegistrationNumber,
+                                legalEntityType: formData.legalEntityType,
+                              }),
+                              // Settings (branding)
+                              updateSettings({
+                                sessionId,
+                                organizationId: organizationId as Id<"organizations">,
+                                subtype: "branding",
+                                settings: formData.settings.branding,
+                              }),
+                              // Settings (locale)
+                              updateSettings({
+                                sessionId,
+                                organizationId: organizationId as Id<"organizations">,
+                                subtype: "locale",
+                                settings: formData.settings.locale,
+                              }),
+                              // Settings (invoicing)
+                              updateSettings({
+                                sessionId,
+                                organizationId: organizationId as Id<"organizations">,
+                                subtype: "invoicing",
+                                settings: formData.settings.invoicing,
+                              }),
+                            ]);
+
+                            setIsEditingOrg(false);
+                          } catch (error) {
+                            console.error("Failed to update organization:", error);
+                            alert("Failed to update organization. " + (error instanceof Error ? error.message : ""));
+                          } finally {
+                            setIsSavingOrg(false);
+                          }
                         }}
                         disabled={isSavingOrg}
                         className="px-3 py-1 text-xs font-semibold flex items-center gap-1"
@@ -361,15 +450,14 @@ export function ManageWindow() {
                   )}
                 </div>
               </div>
-            )}
+            </PermissionGuard>
 
             {/* Comprehensive Organization Details Form */}
             {organization && (
               <OrganizationDetailsForm
+                ref={organizationFormRef}
                 organization={organization}
-                canEdit={canManageOrg || false}
                 isEditing={isEditingOrg}
-                onSave={handleSaveOrganization}
                 isSaving={isSavingOrg}
               />
             )}
@@ -381,8 +469,9 @@ export function ManageWindow() {
               collapsible={true}
               defaultCollapsed={false}
               actions={
-                canManageOrg && (
-                  <button
+                <PermissionGuard permission="manage_organization">
+                  <PermissionButton
+                    permission="manage_organization"
                     onClick={(e) => {
                       e.stopPropagation(); // Prevent accordion toggle
                       setEditingAddress(undefined);
@@ -401,16 +490,17 @@ export function ManageWindow() {
                   >
                     <Plus className="w-3.5 h-3.5" />
                     Add Address
-                  </button>
-                )
+                  </PermissionButton>
+                </PermissionGuard>
               }
             >
-              {(!(organization as OrganizationWithAddresses)?.addresses || (organization as OrganizationWithAddresses).addresses?.length === 0) ? (
+              {(!addresses || addresses.length === 0) ? (
                 <div className="text-center py-8" style={{ color: 'var(--neutral-gray)' }}>
                   <MapPin className="w-8 h-8 mx-auto mb-2 opacity-50" />
                   <p className="text-sm">No addresses added yet</p>
-                  {canManageOrg && (
-                    <button
+                  <PermissionGuard permission="manage_organization">
+                    <PermissionButton
+                      permission="manage_organization"
                       onClick={() => {
                         setEditingAddress(undefined);
                         setIsAddressModalOpen(true);
@@ -427,20 +517,21 @@ export function ManageWindow() {
                       }}
                     >
                       Add Your First Address
-                    </button>
-                  )}
+                    </PermissionButton>
+                  </PermissionGuard>
                 </div>
               ) : (
                 <div className="space-y-4">
+                  {/* eslint-disable @typescript-eslint/no-explicit-any */}
                   {/* Primary Address */}
-                  {(organization as OrganizationWithAddresses).addresses?.find((a) => a.isPrimary) && (
+                  {addresses?.find((a) => (a.customProperties as any)?.isPrimary) && (
                     <div>
                       <h4 className="text-sm font-bold mb-2" style={{ color: 'var(--primary)' }}>
                         Primary Address
                       </h4>
                       <AddressCard
-                        address={(organization as OrganizationWithAddresses).addresses!.find((a) => a.isPrimary)!}
-                        canEdit={canManageOrg || false}
+                        address={addresses.find((a) => (a.customProperties as any)?.isPrimary)!}
+                        canEdit={hasPermission("manage_organization")}
                         onEdit={(addr) => {
                           setEditingAddress(addr);
                           setIsAddressModalOpen(true);
@@ -452,19 +543,19 @@ export function ManageWindow() {
                   )}
 
                   {/* Other Addresses */}
-                  {((organization as OrganizationWithAddresses).addresses?.filter((a) => !a.isPrimary).length || 0) > 0 && (
+                  {addresses?.filter((a) => !(a.customProperties as any)?.isPrimary).length > 0 && (
                     <div>
                       <h4 className="text-sm font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
                         Other Addresses
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {(organization as OrganizationWithAddresses).addresses!
-                          .filter((a) => !a.isPrimary)
+                        {addresses
+                          .filter((a) => !(a.customProperties as any)?.isPrimary)
                           .map((address) => (
                             <AddressCard
                               key={address._id}
                               address={address}
-                              canEdit={canManageOrg || false}
+                              canEdit={hasPermission("manage_organization")}
                               onEdit={(addr) => {
                                 setEditingAddress(addr);
                                 setIsAddressModalOpen(true);
@@ -476,6 +567,7 @@ export function ManageWindow() {
                       </div>
                     </div>
                   )}
+                  {/* eslint-enable @typescript-eslint/no-explicit-any */}
                 </div>
               )}
             </OrganizationSection>
@@ -497,7 +589,7 @@ export function ManageWindow() {
         {activeTab === "users" && (
           <div className="space-y-4">
             {/* Permission Warning for Viewers/Employees */}
-            {!canInvite && (
+            <PermissionGuard permission="manage_users" mode="show-fallback" fallback={
               <div
                 className="mb-4 p-3 border-2 flex items-start gap-2"
                 style={{
@@ -514,18 +606,19 @@ export function ManageWindow() {
                   </p>
                 </div>
               </div>
-            )}
+            }>
+              {null}
+            </PermissionGuard>
 
             {/* User Management Table */}
             <UserManagementTable
               organizationId={organizationId as Id<"organizations">}
-              canInvite={canInvite || false}
             />
           </div>
         )}
 
         {activeTab === "roles" && (
-          <RolesPermissionsTab canManageRoles={canManageRoles} />
+          <RolesPermissionsTab />
         )}
       </div>
 

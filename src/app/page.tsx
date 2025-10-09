@@ -2,31 +2,27 @@
 
 import { useState, useEffect } from "react"
 import { ClientOnly } from "@/components/client-only"
-import { DesktopIcon } from "@/components/desktop-icon"
 import { SystemClock } from "@/components/system-clock"
 import { useWindowManager } from "@/hooks/use-window-manager"
 import { FloatingWindow } from "@/components/floating-window"
 import { StartMenu } from "@/components/start-menu"
-import { AboutWindow } from "@/components/window-content/about-window"
 import { WelcomeWindow } from "@/components/window-content/welcome-window"
 import { ControlPanelWindow } from "@/components/window-content/control-panel-window"
 import { LoginWindow } from "@/components/window-content/login-window"
+import { LayerDocsWindow } from "@/components/window-content/layer-docs/layer-docs-window"
+import { WindowsMenu } from "@/components/windows-menu"
 import { useIsMobile } from "@/hooks/use-media-query"
-import { useAuth } from "@/hooks/use-auth"
+import { useAuth, useOrganizations, useCurrentOrganization, useIsSuperAdmin } from "@/hooks/use-auth"
 
 export default function HomePage() {
   const [showStartMenu, setShowStartMenu] = useState(false)
   const { windows, openWindow, restoreWindow, focusWindow } = useWindowManager()
   const isMobile = useIsMobile()
-  const { isSignedIn, signOut } = useAuth()
+  const { isSignedIn, signOut, switchOrganization } = useAuth()
+  const organizations = useOrganizations()
+  const currentOrg = useCurrentOrganization()
+  const isSuperAdmin = useIsSuperAdmin()
 
-  const openAboutWindow = () => {
-    openWindow("about", "About L4YERCAK3", <AboutWindow />, { x: 150, y: 150 }, { width: 700, height: 500 })
-  }
-
-  const openEpisodesWindow = () => {
-    openWindow("episodes", "Episode Archive", <div className="p-4">Episodes coming soon...</div>, { x: 200, y: 100 }, { width: 850, height: 600 })
-  }
   const openWelcomeWindow = () => {
     openWindow("welcome", "L4YERCAK3.exe", <WelcomeWindow />, { x: 100, y: 100 }, { width: 650, height: 500 })
   }
@@ -37,6 +33,10 @@ export default function HomePage() {
 
   const openLoginWindow = () => {
     openWindow("login", "User Account", <LoginWindow />, { x: 250, y: 100 }, { width: 450, height: 620 })
+  }
+
+  const openLayerDocsWindow = () => {
+    openWindow("layer-docs", "L4YER.docs", <LayerDocsWindow />, { x: 150, y: 80 }, { width: 1000, height: 650 })
   }
 
   const handleLogout = () => {
@@ -51,19 +51,33 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile])
 
+  // Build organization submenu items dynamically (NO role names)
+  const orgMenuItems = organizations.map(org => ({
+    label: org.name, // Just the organization name
+    icon: currentOrg?.id === org.id ? "✓" : "🏢",
+    onClick: () => switchOrganization(org.id)
+  }))
+
   const startMenuItems = [
     {
       label: "Programs",
       icon: "📂",
       submenu: [
+        { label: "L4YER.docs", icon: "📝", onClick: openLayerDocsWindow },
         //{ label: "L4YERCAK3 Podcast", icon: "🎙️", onClick: openEpisodesWindow },
         //{ label: "Subscribe", icon: "🔊", onClick: openSubscribeWindow },
       ]
     },
     //{ label: "Documents", icon: "📄", onClick: () => console.log("Documents - Coming soon") },
     { label: "Settings", icon: "⚙️", onClick: openSettingsWindow },
-    //{ label: "Help", icon: "❓", onClick: () => console.log("Help - Coming soon") },
-    //{ label: "Run AI", icon: "🤖", onClick: () => console.log("Run AI - Coming soon") },
+
+    // Add Organizations menu item (conditional)
+    ...(isSignedIn && organizations.length > 0 ? [{
+      label: "Organizations",
+      icon: "🏢",
+      submenu: orgMenuItems
+    }] : []),
+
     {
       label: isSignedIn ? "Log Out" : "Log In",
       icon: isSignedIn ? "🔒" : "🔓",
@@ -124,34 +138,82 @@ export default function HomePage() {
               />
             </div>
 
-            {/* Taskbar Buttons for Open/Minimized Windows */}
-            <div className="flex gap-1 flex-1 overflow-x-auto">
-              {windows.filter(w => w.isOpen).map((window) => (
-                <button
-                  key={window.id}
-                  className={`retro-button px-3 py-0.5 text-xs font-pixel truncate max-w-[150px] transition-all ${
-                    !window.isMinimized ? 'shadow-inner' : ''
-                  }`}
-                  style={{
-                    backgroundColor: !window.isMinimized ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-                    color: 'var(--win95-text)'
-                  }}
-                  onClick={() => {
-                    if (window.isMinimized) {
-                      restoreWindow(window.id)
-                    } else {
-                      focusWindow(window.id)
-                    }
-                  }}
-                  title={window.title}
-                >
-                  📄 {window.title}
-                </button>
-              ))}
-            </div>
-
-            {/* Clock - Far Right */}
+            {/* Desktop: Taskbar Buttons for Open/Minimized Windows */}
             {!isMobile && (
+              <div className="flex gap-1 flex-1 overflow-x-auto">
+                {windows.filter(w => w.isOpen).map((window) => (
+                  <button
+                    key={window.id}
+                    className={`retro-button px-3 py-0.5 text-xs font-pixel truncate max-w-[150px] transition-all ${
+                      !window.isMinimized ? 'shadow-inner' : ''
+                    }`}
+                    style={{
+                      backgroundColor: !window.isMinimized ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+                      color: 'var(--win95-text)'
+                    }}
+                    onClick={() => {
+                      if (window.isMinimized) {
+                        restoreWindow(window.id)
+                      } else {
+                        focusWindow(window.id)
+                      }
+                    }}
+                    title={window.title}
+                  >
+                    📄 {window.title}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Mobile: Compact Windows Menu */}
+            {isMobile && windows.filter(w => w.isOpen).length > 0 && (
+              <WindowsMenu
+                windows={windows.filter(w => w.isOpen)}
+                onWindowClick={(id) => {
+                  const window = windows.find(w => w.id === id)
+                  if (window?.isMinimized) {
+                    restoreWindow(id)
+                  } else {
+                    focusWindow(id)
+                  }
+                }}
+              />
+            )}
+
+            {/* Desktop: Clock and Super Admin Badge */}
+            {!isMobile && (
+              <>
+                {/* Super Admin Badge - Only if super admin */}
+                {isSuperAdmin && (
+                  <div
+                    className="ml-auto border-l-2 px-3 py-1 flex items-center gap-2"
+                    style={{
+                      borderColor: 'var(--win95-border)',
+                      background: 'var(--win95-bg-light)'
+                    }}
+                  >
+                    <span className="text-sm" title="Super Admin">🔐</span>
+                    <span className="text-[10px] font-pixel">ADMIN</span>
+                  </div>
+                )}
+
+                {/* Clock */}
+                <div
+                  className={`${isSuperAdmin ? '' : 'ml-auto'} border-l-2 px-3 py-1 flex items-center gap-2`}
+                  style={{
+                    borderColor: 'var(--win95-border)',
+                    background: 'var(--win95-bg-light)'
+                  }}
+                >
+                  <span className="text-[10px]">🕐</span>
+                  <SystemClock />
+                </div>
+              </>
+            )}
+
+            {/* Mobile: Super Admin Badge (no clock) */}
+            {isMobile && isSuperAdmin && (
               <div
                 className="ml-auto border-l-2 px-3 py-1 flex items-center gap-2"
                 style={{
@@ -159,8 +221,7 @@ export default function HomePage() {
                   background: 'var(--win95-bg-light)'
                 }}
               >
-                <span className="text-[10px]">🕐</span>
-                <SystemClock />
+                <span className="text-sm" title="Super Admin">🔐</span>
               </div>
             )}
           </div>

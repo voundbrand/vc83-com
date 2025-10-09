@@ -44,6 +44,7 @@ interface AuthContextType {
   isSignedIn: boolean;
   isLoading: boolean;
   isSuperAdmin: boolean;
+  permissions: string[]; // Array of permission names for current org
   signIn: (email: string, password: string) => Promise<void>;
   setupPassword: (email: string, password: string, firstName?: string, lastName?: string) => Promise<void>;
   checkNeedsPasswordSetup: (email: string) => Promise<{ userExists: boolean; needsSetup: boolean; userName: string | null }>;
@@ -226,6 +227,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return results;
   };
 
+  // Extract permission names for easy access
+  const permissions = user?.currentOrganization?.permissions.map(p => p.name) || [];
+
   return (
     <AuthContext.Provider
       value={{
@@ -233,6 +237,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isSignedIn: !!user,
         isLoading: userQuery === undefined,
         isSuperAdmin: user?.isSuperAdmin || false,
+        permissions, // Expose permissions array for PermissionProvider
         signIn,
         setupPassword,
         checkNeedsPasswordSetup,

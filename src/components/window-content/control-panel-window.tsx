@@ -3,7 +3,9 @@
 import { useWindowManager } from "@/hooks/use-window-manager";
 import { SettingsWindow } from "./settings-window";
 import { ManageWindow } from "./manage-window";
-import { useIsSuperAdmin } from "@/hooks/use-auth";
+import { OntologyAdminWindow } from "./ontology-admin";
+import { TranslationsWindow } from "./translations-window";
+import { usePermissions } from "@/contexts/permission-context";
 
 interface ControlPanelItem {
   id: string;
@@ -14,7 +16,7 @@ interface ControlPanelItem {
 
 export function ControlPanelWindow() {
   const { openWindow } = useWindowManager();
-  const isSuperAdmin = useIsSuperAdmin();
+  const { isSuperAdmin } = usePermissions();
 
   const openDesktopSettings = () => {
     openWindow(
@@ -36,6 +38,28 @@ export function ControlPanelWindow() {
     );
   };
 
+  const openOntologyAdmin = () => {
+    // Full screen window for ontology admin
+    const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 1200;
+    const screenHeight = typeof window !== 'undefined' ? window.innerHeight : 800;
+    openWindow(
+      "ontology-admin",
+      "🥷 Ontology Admin",
+      <OntologyAdminWindow />,
+      { x: 20, y: 20 },
+      { width: screenWidth - 40, height: screenHeight - 40 }
+    );
+  };
+
+  const openTranslations = () => {
+    openWindow(
+      "translations",
+      "Translations",
+      <TranslationsWindow />,
+      { x: 200, y: 100 },
+      { width: 1000, height: 700 }
+    );
+  };
 
   const baseItems: ControlPanelItem[] = [
     {
@@ -45,100 +69,28 @@ export function ControlPanelWindow() {
       onClick: openManageWindow,
     },
     {
-      id: "accessibility",
-      icon: "♿",
-      label: "Accessibility Options",
-      onClick: () => console.log("Accessibility - Coming soon"),
-    },
-    {
-      id: "add-hardware",
-      icon: "🔌",
-      label: "Add New Hardware",
-      onClick: () => console.log("Add Hardware - Coming soon"),
-    },
-    {
-      id: "add-remove",
-      icon: "📦",
-      label: "Add/Remove Programs",
-      onClick: () => console.log("Add/Remove - Coming soon"),
-    },
-    {
-      id: "date-time",
-      icon: "🕐",
-      label: "Date/Time",
-      onClick: () => console.log("Date/Time - Coming soon"),
-    },
-    {
       id: "desktop",
       icon: "🖥️",
       label: "Desktop",
       onClick: openDesktopSettings,
     },
     {
-      id: "fonts",
-      icon: "🔤",
-      label: "Fonts",
-      onClick: () => console.log("Fonts - Coming soon"),
-    },
-    {
-      id: "internet",
+      id: "translations",
       icon: "🌐",
-      label: "Internet Options",
-      onClick: () => console.log("Internet - Coming soon"),
-    },
-    {
-      id: "keyboard",
-      icon: "⌨️",
-      label: "Keyboard",
-      onClick: () => console.log("Keyboard - Coming soon"),
-    },
-    {
-      id: "mouse",
-      icon: "🖱️",
-      label: "Mouse",
-      onClick: () => console.log("Mouse - Coming soon"),
-    },
-    {
-      id: "network",
-      icon: "🔗",
-      label: "Network",
-      onClick: () => console.log("Network - Coming soon"),
-    },
-    {
-      id: "power",
-      icon: "🔋",
-      label: "Power Management",
-      onClick: () => console.log("Power - Coming soon"),
-    },
-    {
-      id: "printers",
-      icon: "🖨️",
-      label: "Printers",
-      onClick: () => console.log("Printers - Coming soon"),
-    },
-    {
-      id: "sounds",
-      icon: "🔊",
-      label: "Sounds",
-      onClick: () => console.log("Sounds - Coming soon"),
-    },
-    {
-      id: "system",
-      icon: "💻",
-      label: "System",
-      onClick: () => console.log("System - Coming soon"),
+      label: "Translations",
+      onClick: openTranslations,
     },
   ];
 
-  // Add super admin icon if user is super admin
+  // Add ontology admin icon if user is super admin
   const controlPanelItems: ControlPanelItem[] = isSuperAdmin
     ? [
         ...baseItems,
         {
-          id: "super-admin",
-          icon: "🔐",
-          label: "Super Admin",
-          onClick: () => console.log("Super Admin Panel - Coming soon"),
+          id: "ontology-admin",
+          icon: "🥷",
+          label: "Ontology",
+          onClick: openOntologyAdmin,
         },
       ]
     : baseItems;

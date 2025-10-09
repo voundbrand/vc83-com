@@ -34,17 +34,38 @@ export function OrganizationSection({
   };
 
   return (
-    <div className="border-2 border-gray-300 bg-white shadow-[2px_2px_0px_0px_rgba(0,0,0,0.3)] mb-4">
+    <div
+      className="border-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.3)] mb-4"
+      style={{
+        borderColor: 'var(--win95-border)',
+        background: 'var(--win95-bg-light)'
+      }}
+    >
       {/* Header */}
       <div
-        className={`bg-gray-100 px-4 py-3 border-b-2 border-gray-300 flex items-center justify-between ${
+        className={`px-4 py-3 border-b-2 flex items-center justify-between ${
           collapsible ? "cursor-pointer" : ""
         }`}
+        style={{
+          background: 'var(--win95-bg)',
+          borderColor: 'var(--win95-border)'
+        }}
         onClick={handleToggle}
       >
         <div className="flex items-center gap-2">
           {collapsible && (
-            <button className="hover:bg-gray-200 p-0.5">
+            <button
+              className="p-0.5 transition-colors"
+              style={{
+                color: 'var(--win95-text)'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'var(--win95-bg-light)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+              }}
+            >
               {isCollapsed ? (
                 <ChevronRight className="w-4 h-4" />
               ) : (
@@ -52,8 +73,8 @@ export function OrganizationSection({
               )}
             </button>
           )}
-          {icon && <span className="text-gray-600">{icon}</span>}
-          <h3 className="font-bold text-base">{title}</h3>
+          {icon && <span style={{ color: 'var(--neutral-gray)' }}>{icon}</span>}
+          <h3 className="font-bold text-base" style={{ color: 'var(--win95-text)' }}>{title}</h3>
         </div>
 
         <div className="flex items-center gap-2">
@@ -64,7 +85,17 @@ export function OrganizationSection({
                 e.stopPropagation();
                 onEdit();
               }}
-              className="px-3 py-1.5 bg-purple-600 text-white text-xs font-bold border-2 border-black hover:bg-purple-700 flex items-center gap-1"
+              className="px-3 py-1.5 text-white text-xs font-bold border-2 flex items-center gap-1 transition-colors"
+              style={{
+                backgroundColor: 'var(--win95-highlight)',
+                borderColor: 'var(--win95-border-dark)'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.opacity = '0.9';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.opacity = '1';
+              }}
             >
               <Edit2 className="w-3.5 h-3.5" />
               Edit

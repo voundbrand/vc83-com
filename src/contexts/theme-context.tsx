@@ -1,6 +1,9 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import { useAuth } from "@/hooks/use-auth";
 
 export type WindowStyle = "mac" | "windows";
 
@@ -156,28 +159,50 @@ const THEME_STORAGE_KEY = "L4YERCAK3-theme";
 const WINDOW_STYLE_STORAGE_KEY = "L4YERCAK3-window-style";
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const { sessionId } = useAuth();
+  const [isHydrated, setIsHydrated] = useState(false);
+
   // Default to Windows 95 light theme and windows style
   const defaultTheme = themes.find(t => t.id === "win95-light") || themes[0];
   const [currentTheme, setCurrentTheme] = useState<Theme>(defaultTheme);
   const [windowStyle, setWindowStyleState] = useState<WindowStyle>("windows");
 
-  // Load theme and window style from localStorage on mount
+  // Load preferences from Convex (only if signed in)
+  const userPrefs = useQuery(
+    api.userPreferences.get,
+    sessionId ? { sessionId } : "skip"
+  );
+
+  const updatePrefs = useMutation(api.userPreferences.update);
+
+  // Load from Convex when available (signed-in users)
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (userPrefs && !isHydrated) {
+      const theme = themes.find(t => t.id === userPrefs.themeId);
+      if (theme) setCurrentTheme(theme);
+      if (userPrefs.windowStyle) setWindowStyleState(userPrefs.windowStyle as WindowStyle);
+      setIsHydrated(true);
+    }
+  }, [userPrefs, isHydrated]);
 
-    const savedThemeId = localStorage.getItem(THEME_STORAGE_KEY);
-    if (savedThemeId) {
-      const savedTheme = themes.find((t) => t.id === savedThemeId);
-      if (savedTheme) {
-        setCurrentTheme(savedTheme);
+  // Fallback to localStorage if not signed in
+  useEffect(() => {
+    if (!sessionId && typeof window !== "undefined" && !isHydrated) {
+      const savedThemeId = localStorage.getItem(THEME_STORAGE_KEY);
+      if (savedThemeId) {
+        const savedTheme = themes.find((t) => t.id === savedThemeId);
+        if (savedTheme) {
+          setCurrentTheme(savedTheme);
+        }
       }
-    }
 
-    const savedWindowStyle = localStorage.getItem(WINDOW_STYLE_STORAGE_KEY) as WindowStyle;
-    if (savedWindowStyle) {
-      setWindowStyleState(savedWindowStyle);
+      const savedWindowStyle = localStorage.getItem(WINDOW_STYLE_STORAGE_KEY) as WindowStyle;
+      if (savedWindowStyle) {
+        setWindowStyleState(savedWindowStyle);
+      }
+      setIsHydrated(true);
     }
-  }, []);
+  }, [sessionId, isHydrated]);
 
   // Apply theme CSS variables and window style
   useEffect(() => {
@@ -206,17 +231,43 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     root.setAttribute("data-window-style", windowStyle);
   }, [currentTheme, windowStyle]);
 
-  const setTheme = (themeId: string) => {
+  const setTheme = async (themeId: string) => {
     const theme = themes.find((t) => t.id === themeId);
-    if (theme) {
-      setCurrentTheme(theme);
+    if (!theme) return;
+
+    setCurrentTheme(theme);
+
+    if (sessionId) {
+      // Save to Convex if signed in
+      try {
+        await updatePrefs({ sessionId, themeId });
+      } catch (error) {
+        console.error("Failed to save theme preference:", error);
+        // Fallback to localStorage on error
+        localStorage.setItem(THEME_STORAGE_KEY, themeId);
+      }
+    } else {
+      // Fallback to localStorage if not signed in
       localStorage.setItem(THEME_STORAGE_KEY, themeId);
     }
   };
 
-  const setWindowStyle = (style: WindowStyle) => {
+  const setWindowStyle = async (style: WindowStyle) => {
     setWindowStyleState(style);
-    localStorage.setItem(WINDOW_STYLE_STORAGE_KEY, style);
+
+    if (sessionId) {
+      // Save to Convex if signed in
+      try {
+        await updatePrefs({ sessionId, windowStyle: style });
+      } catch (error) {
+        console.error("Failed to save window style preference:", error);
+        // Fallback to localStorage on error
+        localStorage.setItem(WINDOW_STYLE_STORAGE_KEY, style);
+      }
+    } else {
+      // Fallback to localStorage if not signed in
+      localStorage.setItem(WINDOW_STYLE_STORAGE_KEY, style);
+    }
   };
 
   return (

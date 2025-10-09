@@ -39,81 +39,23 @@ export const users = defineTable({
   });
 
 export const organizations = defineTable({
-  // Basic info
-  name: v.string(),
-  slug: v.string(),
+  // Core multi-tenancy (ONLY the essentials!)
+  name: v.string(),                    // Display name
+  slug: v.string(),                    // URL-friendly identifier
+  businessName: v.string(),            // Legal business name
 
-  // Business details
-  businessName: v.string(),
-  industry: v.optional(v.string()),
-  foundedYear: v.optional(v.number()),
-  employeeCount: v.optional(v.string()), // "1-10", "11-50", "51-200", etc.
-  taxId: v.optional(v.string()),
-  vatNumber: v.optional(v.string()), // EU VAT number
-  companyRegistrationNumber: v.optional(v.string()),
-  legalEntityType: v.optional(v.string()), // LLC, Corp, etc.
-
-  // Legacy address fields (DEPRECATED - use organizationAddresses table instead)
-  // Kept for backward compatibility during migration
-  street: v.optional(v.string()),
-  city: v.optional(v.string()),
-  postalCode: v.optional(v.string()),
-  country: v.optional(v.string()),
-
-  // Contact info
-  contactEmail: v.optional(v.string()),
-  billingEmail: v.optional(v.string()),
-  supportEmail: v.optional(v.string()),
-  contactPhone: v.optional(v.string()),
-  faxNumber: v.optional(v.string()),
-  website: v.optional(v.string()),
-
-  // Social media
-  socialMedia: v.optional(v.object({
-    linkedin: v.optional(v.string()),
-    twitter: v.optional(v.string()),
-    facebook: v.optional(v.string()),
-    instagram: v.optional(v.string()),
-  })),
-
-  // About/Bio
-  bio: v.optional(v.string()),
-
-  // Plan and features
+  // Plan & status
   plan: v.union(
-    v.literal("free"), // Everyone starts free!
-    v.literal("pro"), // Paid plan via Stripe
+    v.literal("free"),
+    v.literal("pro"),
     v.literal("personal"),
     v.literal("business"),
     v.literal("enterprise")
   ),
   isPersonalWorkspace: v.boolean(),
-
-  // Settings
-  settings: v.optional(v.object({
-    branding: v.optional(v.object({
-      primaryColor: v.optional(v.string()),
-      logo: v.optional(v.string()),
-    })),
-    features: v.optional(v.object({
-      customDomain: v.optional(v.boolean()),
-      sso: v.optional(v.boolean()),
-      apiAccess: v.optional(v.boolean()),
-    })),
-    locale: v.optional(v.object({
-      language: v.optional(v.string()), // en, es, fr, etc.
-      currency: v.optional(v.string()), // USD, EUR, GBP, etc.
-      timezone: v.optional(v.string()), // America/New_York, etc.
-    })),
-    invoicing: v.optional(v.object({
-      prefix: v.optional(v.string()), // INV-, etc.
-      nextNumber: v.optional(v.number()),
-      defaultTerms: v.optional(v.string()), // "Net 30", etc.
-    })),
-  })),
+  isActive: v.boolean(),
 
   // Metadata
-  isActive: v.boolean(),
   createdAt: v.number(),
   updatedAt: v.number(),
 })
@@ -121,6 +63,14 @@ export const organizations = defineTable({
   .searchIndex("search_by_name", {
     searchField: "name",
   });
+
+// ❌ REMOVED (moved to ontology):
+// - industry, foundedYear, employeeCount → organization_profile object
+// - taxId, vatNumber, etc. → organization_legal object
+// - contactEmail, billingEmail, etc. → organization_contact object
+// - socialMedia, bio → organization_social object
+// - settings → organization_settings objects
+// - Legacy address fields → address objects
 
 export const organizationMembers = defineTable({
   userId: v.id("users"),
@@ -189,40 +139,30 @@ export const rolePermissions = defineTable({
   .index("by_permission", ["permissionId"])
   .index("by_role_permission", ["roleId", "permissionId"]);
 
-// Organization Addresses - Multi-address support for organizations
-export const organizationAddresses = defineTable({
-  organizationId: v.id("organizations"),
+// ❌ organizationAddresses TABLE REMOVED
+// Organization addresses are now stored as objects in the ontology system
+// See organizationOntology.ts for address management helpers
 
-  // Address Type
-  type: v.union(
-    v.literal("billing"),
-    v.literal("shipping"),
-    v.literal("mailing"),
-    v.literal("physical"),
-    v.literal("other")
-  ),
-  label: v.optional(v.string()), // Custom label: "Headquarters", "Warehouse 1", etc.
+// User Preferences - UI settings that sync across devices
+export const userPreferences = defineTable({
+  userId: v.id("users"),
 
-  // Address Fields
-  addressLine1: v.string(),
-  addressLine2: v.optional(v.string()),
-  city: v.string(),
-  state: v.optional(v.string()), // State/Province/Region
-  postalCode: v.string(),
-  country: v.string(),
-  region: v.optional(v.string()), // Geographic region: EU, APAC, Americas, etc.
+  // UI Preferences
+  themeId: v.string(), // "win95-light", "win95-dark", etc.
+  windowStyle: v.string(), // "windows" or "mac"
 
-  // Flags
-  isDefault: v.boolean(), // One default per type
-  isPrimary: v.boolean(), // Overall primary address for the organization
-  isActive: v.boolean(),
+  // Region Preferences
+  language: v.optional(v.string()), // ISO 639-1 language code: "en", "de", "pl", "es", "fr", "ja"
+
+  // Future preferences (easy to extend)
+  // timezone: v.optional(v.string()),
+  // dateFormat: v.optional(v.string()),
+  // timeFormat: v.optional(v.string()),
+  // fontSize: v.optional(v.string()),
+  // notificationsEnabled: v.optional(v.boolean()),
 
   // Metadata
-  createdAt: v.number(),
   updatedAt: v.number(),
+  createdAt: v.number(),
 })
-  .index("by_organization", ["organizationId"])
-  .index("by_org_and_type", ["organizationId", "type"])
-  .index("by_org_and_default", ["organizationId", "isDefault"])
-  .index("by_org_and_primary", ["organizationId", "isPrimary"])
-  .index("by_org_and_active", ["organizationId", "isActive"]);
+  .index("by_user", ["userId"]);

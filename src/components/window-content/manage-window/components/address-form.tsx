@@ -18,7 +18,7 @@ interface AddressFormData {
 }
 
 interface AddressFormProps {
-  initialData?: Doc<"organizationAddresses">;
+  initialData?: Doc<"objects">; // Changed from organizationAddresses
   onSubmit: (data: AddressFormData) => void | Promise<void>;
   onCancel: () => void;
   isSubmitting?: boolean;
@@ -30,18 +30,23 @@ export function AddressForm({
   onCancel,
   isSubmitting = false,
 }: AddressFormProps) {
+  // Extract data from ontology object structure
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const props = initialData?.customProperties as any;
+
   const [formData, setFormData] = useState<AddressFormData>({
-    type: initialData?.type || "billing",
-    label: initialData?.label || "",
-    addressLine1: initialData?.addressLine1 || "",
-    addressLine2: initialData?.addressLine2 || "",
-    city: initialData?.city || "",
-    state: initialData?.state || "",
-    postalCode: initialData?.postalCode || "",
-    country: initialData?.country || "",
-    region: initialData?.region || "",
-    isDefault: initialData?.isDefault || false,
-    isPrimary: initialData?.isPrimary || false,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    type: (initialData?.subtype as any) || "billing", // subtype replaces type
+    label: props?.label || "",
+    addressLine1: props?.addressLine1 || "",
+    addressLine2: props?.addressLine2 || "",
+    city: props?.city || "",
+    state: props?.state || "",
+    postalCode: props?.postalCode || "",
+    country: props?.country || "",
+    region: props?.region || "",
+    isDefault: props?.isDefault || false,
+    isPrimary: props?.isPrimary || false,
   });
 
   const [errors, setErrors] = useState<Partial<Record<keyof AddressFormData, string>>>({});

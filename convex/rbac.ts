@@ -51,7 +51,13 @@ export const BASE_ROLES = [
     name: 'viewer',
     description: 'Read-only access for audits, reviews, and approvals',
     isActive: true,
-    hierarchy: 4, // Lowest level
+    hierarchy: 4,
+  },
+  {
+    name: 'translator',
+    description: 'Specialized role for managing translations and internationalization',
+    isActive: true,
+    hierarchy: 3, // Same level as employee but specialized
   },
 ] as const;
 
@@ -66,6 +72,7 @@ export const PERMISSION_CATEGORIES = {
   REPORTING: 'reporting',
   APP_MANAGEMENT: 'app_management',
   VERTICAL_SPECIFIC: 'vertical_specific',
+  TRANSLATION: 'translation',
 } as const;
 
 /**
@@ -110,6 +117,34 @@ export const BASE_PERMISSIONS = [
     action: 'write_self',
     category: PERMISSION_CATEGORIES.USER_MANAGEMENT,
     description: 'Update own user profile'
+  },
+  {
+    name: 'view_roles',
+    resource: 'roles',
+    action: 'read',
+    category: PERMISSION_CATEGORIES.USER_MANAGEMENT,
+    description: 'View roles and their permissions'
+  },
+  {
+    name: 'manage_roles',
+    resource: 'roles',
+    action: 'write',
+    category: PERMISSION_CATEGORIES.USER_MANAGEMENT,
+    description: 'Create, update, and delete roles'
+  },
+  {
+    name: 'view_permissions',
+    resource: 'permissions',
+    action: 'read',
+    category: PERMISSION_CATEGORIES.USER_MANAGEMENT,
+    description: 'View available permissions'
+  },
+  {
+    name: 'manage_permissions',
+    resource: 'permissions',
+    action: 'write',
+    category: PERMISSION_CATEGORIES.USER_MANAGEMENT,
+    description: 'Assign and remove permissions from roles'
   },
 
   // Financial Management
@@ -231,6 +266,29 @@ export const BASE_PERMISSIONS = [
     category: PERMISSION_CATEGORIES.APP_MANAGEMENT,
     description: 'View installed apps and their configurations'
   },
+
+  // Translation Management - Simple permissions
+  {
+    name: 'view_translations',
+    resource: 'translations',
+    action: 'read',
+    category: PERMISSION_CATEGORIES.TRANSLATION,
+    description: 'View translations and progress'
+  },
+  {
+    name: 'manage_translations',
+    resource: 'translations',
+    action: 'write',
+    category: PERMISSION_CATEGORIES.TRANSLATION,
+    description: 'Create and edit translations'
+  },
+  {
+    name: 'approve_translations',
+    resource: 'translations',
+    action: 'approve',
+    category: PERMISSION_CATEGORIES.TRANSLATION,
+    description: 'Review and approve translations'
+  },
 ] as const;
 
 /**
@@ -243,6 +301,8 @@ export const ROLE_PERMISSION_MAPPINGS: Record<string, string[]> = {
   'org_owner': [
     'manage_organization',
     'manage_users',
+    'manage_roles',
+    'manage_permissions',
     'manage_financials',
     'manage_operations',
     'create_invoice',
@@ -252,11 +312,13 @@ export const ROLE_PERMISSION_MAPPINGS: Record<string, string[]> = {
     'install_apps',
     'manage_apps',
     'view_audit_logs',
-    'view_*', // All view permissions
+    'view_*', // All view permissions (includes view_roles, view_permissions)
   ],
 
   'business_manager': [
     'manage_users', // Limited to team management
+    'view_roles',
+    'view_permissions',
     'manage_operations',
     'create_task',
     'assign_task',
@@ -265,7 +327,7 @@ export const ROLE_PERMISSION_MAPPINGS: Record<string, string[]> = {
     'create_report',
     'install_apps',
     'manage_apps',
-    'view_*', // All view permissions
+    'view_*', // All view permissions (already includes view_roles, view_permissions)
   ],
 
   'employee': [
@@ -282,10 +344,21 @@ export const ROLE_PERMISSION_MAPPINGS: Record<string, string[]> = {
   'viewer': [
     'view_organization',
     'view_users',
+    'view_roles',
+    'view_permissions',
     'view_operations',
     'view_financials',
     'view_reports',
     'view_apps',
+  ],
+
+  'translator': [
+    'view_translations',
+    'manage_translations',
+    'approve_translations',
+    'view_organization',
+    'view_users',
+    'update_profile',
   ],
 };
 
@@ -1152,6 +1225,66 @@ export const isSuperAdmin = query({
     }
 
     return false;
+  },
+});
+
+// ============================================================================
+// TEST HELPER MUTATIONS (For Testing Only)
+// ============================================================================
+
+/**
+ * Create a test user - ONLY FOR TESTING
+ * In production, users are created through auth flows
+ */
+export const createTestUser = mutation({
+  args: {
+    email: v.string(),
+    firstName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
+    global_role_id: v.optional(v.id("roles")),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+
+    const userId = await ctx.db.insert("users", {
+      email: args.email,
+      firstName: args.firstName || args.email.split('@')[0],
+      lastName: args.lastName,
+      global_role_id: args.global_role_id,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return userId;
+  },
+});
+
+/**
+ * Create a test organization - ONLY FOR TESTING
+ * In production, organizations are created through proper flows
+ */
+export const createTestOrganization = mutation({
+  args: {
+    name: v.string(),
+    slug: v.string(),
+    creatorUserId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+
+    const orgId = await ctx.db.insert("organizations", {
+      name: args.name,
+      slug: args.slug,
+      businessName: args.name,
+      plan: "free",
+      isPersonalWorkspace: false,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return orgId;
   },
 });
 

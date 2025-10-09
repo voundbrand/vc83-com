@@ -3,11 +3,12 @@
 import { MapPin, Star, Edit2, Trash2 } from "lucide-react";
 import { Doc } from "../../../../../convex/_generated/dataModel";
 
+// Address is now stored as an object with type="address"
 interface AddressCardProps {
-  address: Doc<"organizationAddresses">;
-  onEdit?: (address: Doc<"organizationAddresses">) => void;
-  onDelete?: (address: Doc<"organizationAddresses">) => void;
-  onSetPrimary?: (address: Doc<"organizationAddresses">) => void;
+  address: Doc<"objects">;
+  onEdit?: (address: Doc<"objects">) => void;
+  onDelete?: (address: Doc<"objects">) => void;
+  onSetPrimary?: (address: Doc<"objects">) => void;
   canEdit?: boolean;
 }
 
@@ -19,12 +20,12 @@ const ADDRESS_TYPE_LABELS: Record<string, string> = {
   other: "Other",
 };
 
-const ADDRESS_TYPE_COLORS: Record<string, string> = {
-  billing: "bg-purple-100 text-purple-700 border-purple-300",
-  shipping: "bg-blue-100 text-blue-700 border-blue-300",
-  mailing: "bg-green-100 text-green-700 border-green-300",
-  physical: "bg-orange-100 text-orange-700 border-orange-300",
-  other: "bg-gray-100 text-gray-700 border-gray-300",
+const ADDRESS_TYPE_STYLES: Record<string, { bg: string; text: string; border: string }> = {
+  billing: { bg: '#f3e8ff', text: '#6B46C1', border: '#d8b4fe' },
+  shipping: { bg: '#dbeafe', text: '#1e40af', border: '#93c5fd' },
+  mailing: { bg: '#dcfce7', text: '#15803d', border: '#86efac' },
+  physical: { bg: '#fed7aa', text: '#c2410c', border: '#fdba74' },
+  other: { bg: 'var(--win95-bg)', text: 'var(--win95-text)', border: 'var(--win95-border)' },
 };
 
 export function AddressCard({
@@ -34,46 +35,70 @@ export function AddressCard({
   onSetPrimary,
   canEdit = false,
 }: AddressCardProps) {
+  // Address data is now in customProperties
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const props = address.customProperties as any;
+
   const formatAddress = () => {
     const parts = [
-      address.addressLine1,
-      address.addressLine2,
-      address.city,
-      address.state,
-      address.postalCode,
-      address.country,
+      props?.addressLine1,
+      props?.addressLine2,
+      props?.city,
+      props?.state,
+      props?.postalCode,
+      props?.country,
     ].filter(Boolean);
 
     return parts;
   };
 
   const addressParts = formatAddress();
-  const typeColor = ADDRESS_TYPE_COLORS[address.type] || ADDRESS_TYPE_COLORS.other;
-  const typeLabel = ADDRESS_TYPE_LABELS[address.type] || "Address";
+  // Subtype replaces the old "type" field (billing, shipping, etc.)
+  const addressType = address.subtype || "other";
+  const typeStyle = ADDRESS_TYPE_STYLES[addressType] || ADDRESS_TYPE_STYLES.other;
+  const typeLabel = ADDRESS_TYPE_LABELS[addressType] || "Address";
 
   return (
-    <div className="border-2 border-gray-300 bg-white p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+    <div
+      className="border-2 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+      style={{
+        borderColor: 'var(--win95-border)',
+        background: 'var(--win95-bg-light)'
+      }}
+    >
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">
-          <MapPin className="w-4 h-4 text-gray-600" />
+          <MapPin className="w-4 h-4" style={{ color: 'var(--neutral-gray)' }} />
           <div>
             <div className="flex items-center gap-2">
-              {address.isPrimary && (
-                <Star className="w-4 h-4 fill-yellow-400 text-yellow-600" />
+              {props?.isPrimary && (
+                <Star className="w-4 h-4 fill-yellow-400" style={{ color: '#ca8a04' }} />
               )}
-              <span className="font-bold text-sm">
-                {address.label || typeLabel}
+              <span className="font-bold text-sm" style={{ color: 'var(--win95-text)' }}>
+                {props?.label || address.name || typeLabel}
               </span>
             </div>
             <div className="flex items-center gap-2 mt-1">
               <span
-                className={`text-xs px-2 py-0.5 border ${typeColor} font-bold`}
+                className="text-xs px-2 py-0.5 border font-bold"
+                style={{
+                  backgroundColor: typeStyle.bg,
+                  color: typeStyle.text,
+                  borderColor: typeStyle.border
+                }}
               >
                 {typeLabel.toUpperCase()}
               </span>
-              {address.isDefault && (
-                <span className="text-xs px-2 py-0.5 border bg-green-100 text-green-700 border-green-300 font-bold">
+              {props?.isDefault && (
+                <span
+                  className="text-xs px-2 py-0.5 border font-bold"
+                  style={{
+                    backgroundColor: '#dcfce7',
+                    color: '#15803d',
+                    borderColor: '#86efac'
+                  }}
+                >
                   DEFAULT
                 </span>
               )}
@@ -84,10 +109,21 @@ export function AddressCard({
         {/* Actions */}
         {canEdit && (
           <div className="flex gap-1">
-            {!address.isPrimary && onSetPrimary && (
+            {!props?.isPrimary && onSetPrimary && (
               <button
                 onClick={() => onSetPrimary(address)}
-                className="p-1.5 hover:bg-gray-100 border-2 border-gray-300 bg-white text-xs font-bold"
+                className="p-1.5 border-2 text-xs font-bold transition-colors"
+                style={{
+                  borderColor: 'var(--win95-border)',
+                  background: 'var(--win95-bg-light)',
+                  color: 'var(--win95-text)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'var(--win95-bg)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'var(--win95-bg-light)';
+                }}
                 title="Set as primary address"
               >
                 <Star className="w-3.5 h-3.5" />
@@ -96,16 +132,38 @@ export function AddressCard({
             {onEdit && (
               <button
                 onClick={() => onEdit(address)}
-                className="p-1.5 hover:bg-gray-100 border-2 border-gray-300 bg-white text-xs font-bold"
+                className="p-1.5 border-2 text-xs font-bold transition-colors"
+                style={{
+                  borderColor: 'var(--win95-border)',
+                  background: 'var(--win95-bg-light)',
+                  color: 'var(--win95-text)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'var(--win95-bg)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'var(--win95-bg-light)';
+                }}
                 title="Edit address"
               >
                 <Edit2 className="w-3.5 h-3.5" />
               </button>
             )}
-            {onDelete && !address.isPrimary && (
+            {onDelete && !props?.isPrimary && (
               <button
                 onClick={() => onDelete(address)}
-                className="p-1.5 hover:bg-red-50 border-2 border-red-300 bg-white text-red-600 text-xs font-bold"
+                className="p-1.5 border-2 text-xs font-bold transition-colors"
+                style={{
+                  borderColor: '#fca5a5',
+                  background: 'var(--win95-bg-light)',
+                  color: '#dc2626'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#fef2f2';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'var(--win95-bg-light)';
+                }}
                 title="Delete address"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -116,16 +174,21 @@ export function AddressCard({
       </div>
 
       {/* Address Lines */}
-      <div className="space-y-1 text-sm text-gray-700">
+      <div className="space-y-1 text-sm" style={{ color: 'var(--win95-text)' }}>
         {addressParts.map((part, idx) => (
           <div key={idx}>{part}</div>
         ))}
       </div>
 
       {/* Region */}
-      {address.region && (
-        <div className="mt-2 pt-2 border-t border-gray-200">
-          <span className="text-xs text-gray-500">Region: {address.region}</span>
+      {props?.region && (
+        <div
+          className="mt-2 pt-2 border-t"
+          style={{ borderColor: 'var(--win95-border)' }}
+        >
+          <span className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
+            Region: {props.region}
+          </span>
         </div>
       )}
     </div>

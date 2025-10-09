@@ -5,40 +5,54 @@ import { Check } from "lucide-react";
 import { RetroButton } from "@/components/retro-button";
 import { useWindowManager } from "@/hooks/use-window-manager";
 import { useTheme, themes } from "@/contexts/theme-context";
+import { useTranslation } from "@/contexts/translation-context";
+import { useIsSuperAdmin } from "@/hooks/use-auth";
+import { OntologyAdminWindow } from "./ontology-admin";
 
-type TabType = "appearance" | "wallpaper";
+type TabType = "appearance" | "wallpaper" | "region" | "admin";
 
 export function SettingsWindow() {
-  const { closeWindow } = useWindowManager();
+  const { closeWindow, openWindow } = useWindowManager();
   const { currentTheme, setTheme, windowStyle, setWindowStyle } = useTheme();
+  const { locale, availableLocales, setLocale } = useTranslation();
+  const isSuperAdmin = useIsSuperAdmin();
   const [activeTab, setActiveTab] = useState<TabType>("appearance");
   const [selectedThemeId, setSelectedThemeId] = useState<string>(currentTheme.id);
+  const [selectedLanguage, setSelectedLanguage] = useState<string>(locale);
 
   // Sync local state with context theme when it changes externally
   useEffect(() => {
     setSelectedThemeId(currentTheme.id);
   }, [currentTheme.id]);
 
+  // Sync local state with context locale when it changes externally
+  useEffect(() => {
+    setSelectedLanguage(locale);
+  }, [locale]);
+
   const handleApply = () => {
     // Apply theme using unified context
     setTheme(selectedThemeId);
+    // Apply language using translation context
+    setLocale(selectedLanguage);
     closeWindow("settings");
   };
 
   const handleReset = () => {
     setSelectedThemeId("win95-light"); // Reset to default Windows 95 theme
+    setSelectedLanguage("en"); // Reset to default language
   };
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'var(--win95-bg)' }}>
+    <div className="flex flex-col min-h-full" style={{ background: 'var(--win95-bg)' }}>
       {/* Header */}
-      <div className="px-4 py-3 border-b-2" style={{ borderColor: 'var(--win95-border)' }}>
+      <div className="px-4 py-3 border-b-2 shrink-0" style={{ borderColor: 'var(--win95-border)' }}>
         <h2 className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>Desktop Settings</h2>
         <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>Customize your workspace appearance</p>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+      <div className="flex border-b-2 shrink-0" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors"
           style={{
@@ -61,10 +75,34 @@ export function SettingsWindow() {
         >
           Wallpaper
         </button>
+        <button
+          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors"
+          style={{
+            borderColor: 'var(--win95-border)',
+            background: activeTab === "region" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+            color: activeTab === "region" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+          }}
+          onClick={() => setActiveTab("region")}
+        >
+          🌍 Region
+        </button>
+        {isSuperAdmin && (
+          <button
+            className="px-4 py-2 text-xs font-bold border-r-2 transition-colors"
+            style={{
+              borderColor: 'var(--win95-border)',
+              background: activeTab === "admin" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+              color: activeTab === "admin" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+            }}
+            onClick={() => setActiveTab("admin")}
+          >
+            🥷 Admin
+          </button>
+        )}
       </div>
 
-      {/* Tab Content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-6">
+      {/* Tab Content - Add padding bottom for mobile buttons */}
+      <div className="flex-1 overflow-y-auto p-4 pb-20 space-y-6">
         {activeTab === "appearance" && (
           <>
             {/* Window Style Section */}
@@ -244,10 +282,155 @@ export function SettingsWindow() {
             </div>
           </div>
         )}
+
+        {activeTab === "region" && (
+          <>
+            {/* Language Section */}
+            <div>
+              <h3 className="text-xs font-bold mb-3 uppercase tracking-wide" style={{ color: 'var(--win95-text)' }}>
+                Language
+              </h3>
+              <div className="space-y-2">
+                {availableLocales.map((lang) => (
+                  <button
+                    key={lang}
+                    className="w-full flex items-center gap-3 p-3 border-2 rounded transition-all"
+                    style={{
+                      borderColor: selectedLanguage === lang ? 'var(--win95-text)' : 'var(--win95-border)',
+                      background: selectedLanguage === lang ? 'var(--win95-bg-light)' : 'transparent'
+                    }}
+                    onClick={() => setSelectedLanguage(lang)}
+                  >
+                    <div className="text-2xl">{getLanguageEmoji(lang)}</div>
+                    <div className="flex-1 text-left">
+                      <div className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
+                        {getLanguageName(lang)}
+                      </div>
+                      <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
+                        {getLanguageNativeName(lang)}
+                      </div>
+                    </div>
+                    {selectedLanguage === lang && <Check size={16} style={{ color: 'var(--win95-text)' }} />}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Timezone Section (Coming Soon) */}
+            <div>
+              <h3 className="text-xs font-bold mb-3 uppercase tracking-wide" style={{ color: 'var(--win95-text)' }}>
+                Timezone
+              </h3>
+              <div
+                className="p-4 border-2 rounded flex items-center justify-center opacity-50"
+                style={{
+                  borderColor: 'var(--win95-border)',
+                  background: 'var(--win95-bg-light)'
+                }}
+              >
+                <span className="text-xs italic" style={{ color: 'var(--neutral-gray)' }}>Coming Soon</span>
+              </div>
+            </div>
+
+            {/* Date & Time Format Section (Coming Soon) */}
+            <div>
+              <h3 className="text-xs font-bold mb-3 uppercase tracking-wide" style={{ color: 'var(--win95-text)' }}>
+                Date & Time Format
+              </h3>
+              <div
+                className="p-4 border-2 rounded flex items-center justify-center opacity-50"
+                style={{
+                  borderColor: 'var(--win95-border)',
+                  background: 'var(--win95-bg-light)'
+                }}
+              >
+                <span className="text-xs italic" style={{ color: 'var(--neutral-gray)' }}>Coming Soon</span>
+              </div>
+            </div>
+          </>
+        )}
+
+        {activeTab === "admin" && isSuperAdmin && (
+          <div>
+            <h3 className="text-xs font-bold mb-3 uppercase tracking-wide" style={{ color: 'var(--win95-text)' }}>
+              🥷 Super Admin Tools
+            </h3>
+            <div className="space-y-3">
+              {/* Ontology Admin */}
+              <button
+                className="w-full flex items-center gap-3 p-4 border-2 rounded transition-all hover:shadow-md"
+                style={{
+                  borderColor: 'var(--win95-border)',
+                  background: 'var(--win95-bg-light)',
+                }}
+                onClick={() => {
+                  // Open full-screen ontology admin window
+                  const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 1200;
+                  const screenHeight = typeof window !== 'undefined' ? window.innerHeight : 800;
+                  openWindow(
+                    "ontology-admin",
+                    "Ontology Admin",
+                    <OntologyAdminWindow />,
+                    { x: 20, y: 20 },
+                    { width: screenWidth - 40, height: screenHeight - 40 }
+                  );
+                  closeWindow("settings");
+                }}
+              >
+                <div className="text-3xl">🥷</div>
+                <div className="flex-1 text-left">
+                  <div className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
+                    Ontology Admin
+                  </div>
+                  <div className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
+                    Manage objects, links, types & configurations
+                  </div>
+                </div>
+              </button>
+
+              {/* Future Admin Tools */}
+              <div
+                className="w-full flex items-center gap-3 p-4 border-2 rounded opacity-50"
+                style={{
+                  borderColor: 'var(--win95-border)',
+                  background: 'var(--win95-bg-light)',
+                }}
+              >
+                <div className="text-3xl">👥</div>
+                <div className="flex-1 text-left">
+                  <div className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
+                    User Management
+                  </div>
+                  <div className="text-xs mt-1 italic" style={{ color: 'var(--neutral-gray)' }}>
+                    Coming Soon
+                  </div>
+                </div>
+              </div>
+
+              <div
+                className="w-full flex items-center gap-3 p-4 border-2 rounded opacity-50"
+                style={{
+                  borderColor: 'var(--win95-border)',
+                  background: 'var(--win95-bg-light)',
+                }}
+              >
+                <div className="text-3xl">📊</div>
+                <div className="flex-1 text-left">
+                  <div className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
+                    System Analytics
+                  </div>
+                  <div className="text-xs mt-1 italic" style={{ color: 'var(--neutral-gray)' }}>
+                    Coming Soon
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Action Buttons */}
-      <div className="flex gap-2 justify-end px-4 py-3 border-t-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+      {/* Action Buttons - Fixed at bottom on mobile with sticky positioning */}
+      <div className="flex gap-2 justify-end px-4 py-3 border-t-2 shrink-0 sticky bottom-0 z-10" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
         <RetroButton variant="secondary" onClick={handleReset}>
           Reset
         </RetroButton>
@@ -257,4 +440,41 @@ export function SettingsWindow() {
       </div>
     </div>
   );
+}
+
+// Language display helpers
+function getLanguageEmoji(code: string): string {
+  const emojiMap: Record<string, string> = {
+    en: "🇺🇸",
+    de: "🇩🇪",
+    pl: "🇵🇱",
+    es: "🇪🇸",
+    fr: "🇫🇷",
+    ja: "🇯🇵",
+  };
+  return emojiMap[code] || "🌐";
+}
+
+function getLanguageName(code: string): string {
+  const nameMap: Record<string, string> = {
+    en: "English",
+    de: "German",
+    pl: "Polish",
+    es: "Spanish",
+    fr: "French",
+    ja: "Japanese",
+  };
+  return nameMap[code] || code.toUpperCase();
+}
+
+function getLanguageNativeName(code: string): string {
+  const nativeNameMap: Record<string, string> = {
+    en: "English",
+    de: "Deutsch",
+    pl: "Polski",
+    es: "Español",
+    fr: "Français",
+    ja: "日本語",
+  };
+  return nativeNameMap[code] || code;
 }

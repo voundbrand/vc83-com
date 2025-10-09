@@ -18,16 +18,28 @@ import {
   users,
   organizations,
   organizationMembers,
-  organizationAddresses,
   userPasswords,
   sessions,
   roles,
   permissions,
-  rolePermissions
+  rolePermissions,
+  userPreferences
 } from "./schemas/coreSchemas";
 import { apps, appInstallations, snapshots, snapshotLoads, purchases } from "./schemas/appStoreSchemas";
-import { app_podcasting } from "./schemas/appDataSchemas";
+// import { app_podcasting } from "./schemas/appDataSchemas"; // Not yet used
 import { auditLogs } from "./schemas/utilitySchemas";
+// ❌ OLD TRANSLATION SCHEMAS - Replaced by ontology
+// import {
+//   systemTranslations,
+//   appTranslations,
+//   contentTranslations,
+//   translationNamespaces,
+//   translationKeys,
+//   supportedLocales
+// } from "./schemas/translationSchemas";
+
+// ✅ NEW ONTOLOGY SCHEMAS
+import { objects, objectLinks, objectActions } from "./schemas/ontologySchemas";
 
 /**
  * MAIN SCHEMA EXPORT
@@ -40,9 +52,9 @@ export default defineSchema({
   users,
   organizations,
   organizationMembers,
-  organizationAddresses,
   userPasswords,
   sessions,
+  userPreferences,
 
   // 🔐 RBAC: Role-Based Access Control
   roles,
@@ -68,6 +80,19 @@ export default defineSchema({
 
   // 🛠️ UTILITIES: Supporting functionality
   auditLogs,
+
+  // 🥷 ONTOLOGY: Universal object system
+  objects,        // Universal storage for all entity types
+  objectLinks,    // Relationships between objects
+  objectActions,  // Audit trail of actions
+
+  // ❌ OLD TRANSLATIONS - Replaced by ontology
+  // systemTranslations,
+  // appTranslations,
+  // contentTranslations,
+  // translationNamespaces,
+  // translationKeys,
+  // supportedLocales,
 });
 
 /**

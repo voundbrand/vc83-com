@@ -1,0 +1,1564 @@
+The worldwide SAS market is about $300
+0:02
+billion uh per year. The labor market in
+0:06
+the US alone is 13 trillion. What
+0:08
+software is now going after, the prize
+0:10
+that it's going after is the labor
+0:13
+market. Almost every software company
+0:15
+has basically taken a filing cabinet and
+0:18
+turned it into a database. But what's
+0:20
+happening now is the whole thing is
+0:21
+effectively done endto end.
+Historical Context: Automation and Labor
+0:27
+I'm going to talk about how software
+0:28
+eats labor. Um and uh you know first
+0:31
+Mark wrote an essay for the Wall Street
+0:33
+Journal a long time ago about 10 years
+0:35
+ago about how software eats the world. I
+0:37
+guess the labor labor force falls within
+0:39
+the world. So this is a natural
+0:41
+follow-up. But if there's only one
+0:43
+takeaway that I can leave with with you
+0:45
+today is that the labor market this is
+0:47
+almost obvious is so much bigger than
+0:49
+the software market. So the worldwide
+0:51
+SAS market is about $300 billion uh per
+0:55
+year. Uh worldwide market cap is about
+0:57
+$2.2 $2 trillion. The labor market in
+1:00
+the US alone is 13 trillion. So much
+1:03
+much bigger. And it doesn't mean that
+1:05
+the software market will suddenly be
+1:06
+worth $13 trillion a year. But what
+1:09
+software is now going after, the prize
+1:11
+that it's going after is the labor
+1:13
+market. And I figured there's nothing
+1:15
+better than starting a venture capital
+1:16
+conference with a picture of the world's
+1:18
+most famous communist. That's Karl Marx
+1:20
+right there. And if if you've read Dos
+1:22
+Capitol, which which I read back at
+1:24
+college, um if if you remember like the
+1:26
+the central tenant is that there's
+1:28
+capital and labor and capital exploits
+1:30
+labor. They're they're two distinct
+1:32
+things. But uh what's really exciting,
+1:34
+this is almost like a chemical equation
+1:36
+is that the capital that you give us, we
+1:39
+give to companies. What do the companies
+1:40
+do with the capital? They buy GPUs or
+1:43
+rent them. They hire engineers. They buy
+1:45
+coffee. They give coffee and GPUs to the
+1:48
+engineers. And then out pops software
+1:51
+that does the job of labor. And and this
+1:53
+is it's like the new E= MC². And we're
+1:56
+seeing this happen at so many companies.
+1:58
+And these companies are scaling so
+1:59
+quickly because they really are selling
+2:02
+into clients or you know end users and
+2:04
+saying, "Hey, we'll do this job for you.
+2:06
+We're not giving you software. We're
+2:08
+going to do a job for you." And that
+2:09
+that's the sales pitch. Um and obviously
+2:12
+like this concept is not new per se. I
+2:15
+mean like uh automation has been around
+2:18
+for a long time. So you know
+2:19
+seamstresses you know here here's a you
+2:22
+know a picture from I don't know
+2:23
+probably the 1600s or 1700s. The loom
+2:26
+replaced those jobs but you still had
+2:29
+somebody that had to operate the loom.
+2:31
+Um or steam ships. You know there there
+2:34
+were no iPhones back then. So I don't
+2:35
+actually have have a picture of Roman
+2:37
+Orsman but they probably look like this.
+2:39
+And sailboats and steam ships obviously
+2:41
+made that form of labor much more
+2:43
+efficient. But you still need somebody
+2:44
+to operate and you know shovel coal into
+2:46
+the steam ship and put the sails up on
+2:49
+the mast. Um and then of course the the
+2:51
+printing press invented by Gutenberg
+2:53
+like that was a big innovation. Um and
+2:55
+the steam powered press allowed you know
+2:57
+the LA Times to print out hundreds of
+2:59
+thousands of copies of that newspaper
+3:01
+versus somebody you know manually
+3:02
+cranking one each time. And uh and you
+3:04
+know lastly like the assembly line was a
+3:06
+massive innovation in terms of replacing
+3:08
+people that hand assembled every gizmo
+3:11
+and now you have an assembly line but
+3:12
+you know a lot of people worked on the
+3:13
+assembly line. So again this concept is
+3:15
+not new like you could always take
+3:17
+capital make a machine and then have
+3:20
+more efficient labor on the other side
+3:22
+but what's happening now is the whole
+3:23
+thing is effectively done end to end and
+The Filing Cabinet Era: Digitizing Records
+3:25
+I I want to take you through a journey
+3:27
+of what the software market has always
+3:29
+been because I think understanding the
+3:31
+past is the best window of actually
+3:33
+understanding the future and what's
+3:34
+possible. So my my thesis is that almost
+3:38
+every software company has basically
+3:40
+taken a filing cabinet and turned it
+3:42
+into a database. And this is where the
+3:45
+$2.2 trillion of market cap has come
+3:47
+from. This is where the $300 billion in
+3:49
+annual software revenue has come from.
+3:51
+And the first example that I'd like to
+3:52
+point to is a company called Saber
+3:54
+Systems. Um this is with two A's. if
+3:56
+you've seen it. It's a company in Texas,
+3:58
+but this was a joint project of American
+4:00
+Airlines and IBM back when IBM was the
+4:03
+the most powerful uh computer company in
+4:06
+the world, technology company in the
+4:07
+world because uh at least according to
+4:09
+chat GPT, I asked for some graphical
+4:11
+help here. Like what would it have
+Case Studies: Software Transforming Industries
+4:13
+looked like to book an airline ticket in
+4:15
+1959? Like what how did American
+4:17
+Airlines handle this? They probably had
+4:19
+like lots of filing cabinets with like
+4:22
+sheets like this. So Betty Owens calls
+4:24
+up and says, "I want to sit in four. I
+4:26
+want to sit in seat 4 A." Talks to
+4:28
+somebody on the phone. Oh, wait. No,
+4:30
+actually I want to cancel my flight.
+4:31
+They have to erase it. No, actually I
+4:32
+want to seat I want to sit in seat 2C.
+4:34
+Erase that again. You know, filing
+4:36
+cabinets basically kept track of
+4:38
+everything. It was pretty inefficient.
+4:40
+You had a lot of people that worked the
+4:41
+filing cabinets. You couldn't share
+4:42
+information from one office to another
+4:44
+because everything was doiciled in one
+4:45
+filing cabinet. Um, and Saber changed
+4:48
+the game by putting it all on an IBM
+4:50
+mainframe and then having lots of kind
+4:52
+of thin client terminals that were used
+4:54
+by travel agents around the world that
+4:55
+could access that mainframe. And this is
+4:58
+how travel was uh revolutionized. Uh,
+5:00
+Galileo did this for hotels. Amadeas did
+5:03
+this for Europe. I mean like big
+5:05
+companies came out of this. Um, and of
+5:07
+course the same process happened for
+5:09
+sales. So I think somebody yesterday
+5:10
+mentioned Glengary, Glenn Ross, great
+5:12
+movie. But if you remember there were
+5:13
+lots of business cards. You wanted to
+5:15
+get the Glengary leads. Those were the
+5:16
+good leads. Those were pieces of paper.
+5:19
+Um, and uh, for for those of you that
+5:21
+are old like me, you might remember a
+5:22
+company called Axe Systems in the 1980s.
+5:24
+This was one of the big CRM companies of
+5:27
+the day. Gold mine followed that in 1990
+5:30
+and then Tom Seville started Sevil
+5:32
+Systems in 1993. But all of these took
+5:33
+the filing cabinets of sales, you know,
+5:36
+put them originally in uh, kind of
+5:38
+mainframes and then Salesforce came in
+5:40
+in 1999, put that in the cloud. But you
+5:42
+know, again, the same salesperson that
+5:44
+accessed the physical file in a
+5:46
+fictional movie set in the 1950s would
+5:48
+now access a Salesforce record in 2010.
+5:51
+Same process, just different medium. Um,
+5:54
+manufacturing and inventory. This is
+5:55
+another big one. So, imagine that you're
+5:56
+a product manufacturer. How many widgets
+5:58
+do I own? You know, what's my inventory?
+6:01
+What's my sales? IBM again at the
+6:03
+forefront of this. But other companies,
+6:04
+you know, some that are around today
+6:05
+like SAP started in 1972. Bond, JD
+6:09
+Edwards, Epicor, Sage, I2, these are all
+6:12
+big companies that basically digitized
+6:14
+old-fashioned records. Um, my favorite
+6:17
+one just to show how pervasive this idea
+6:19
+is, is there was actually a big business
+6:21
+in library card cataloges. So, libraries
+6:23
+were have been around for a very, very
+6:25
+long time. You know, Library of
+6:26
+Alexandria, right? Like long long time.
+6:28
+um the Dewey decibel system comes out
+6:30
+and you know when I was growing up I'd
+6:32
+go to like the card catalog and figure
+6:34
+out okay they're all alphabetically
+6:35
+sorted and then eventually somebody
+6:37
+created started with this company called
+6:39
+OLC um built a you know reasonably sized
+6:42
+business and sort of innovative Cersei
+6:44
+Dynx of digitizing those card cataloges
+6:47
+where now you enter into a terminal at
+6:49
+the computer uh in the library and then
+6:51
+you figure out where your book is is it
+6:52
+in stock um legal case files you know
+6:56
+like every time I went to a law firm in
+6:58
+1980s it's like most of the square
+7:00
+footage was filing cabinets and
+7:02
+companies like PC Law like a lot of
+7:04
+Lexus Nexus and Reuters revenue comes
+7:06
+from you know selling to law firms
+7:08
+digitizing things that would otherwise
+7:10
+occupy so much square footage in the
+7:12
+nice you know Fifth Avenue uh you know
+7:14
+offices of of law firms
+7:17
+were accountants growing up and I
+7:19
+remember going to their office and again
+7:21
+there there was no room for a little
+7:22
+5-year-old to run around because all
+7:24
+filing cabinets you know into it comes
+7:26
+along with QuickBooks digitiz ized um
+7:29
+financial statements. Um Peach Tree,
+7:31
+this is a company from the 1970s, MYOB,
+7:33
+like lots of companies. Again, filing
+7:34
+cabinets, filing cabinets. You you get
+7:36
+the uh the drill here. U my my favorite
+7:39
+name in the history of software is
+7:40
+filing cabinets. The first electronic
+7:42
+health records company was a company
+7:44
+called Mumps, which arguably is the
+7:46
+worst name in the history of software.
+7:48
+It like somehow lost out to malaria or
+7:50
+measles or something, but this was Mass
+7:52
+General Hospital. um and they wanted to
+7:54
+replace their filing cabinets and they
+7:56
+came up with this programming language
+7:58
+and database system called Mums. But
+8:00
+Epic and Cerner, Epic is the biggest
+8:01
+electronic health records company in the
+8:03
+world. It was started in 1979. Um so
+8:06
+again and what they did was just
+8:08
+digitize these massive number of files
+8:10
+that every hospital system and doctor
+8:12
+would have in their office. And kind of
+8:14
+lastly here uh HR and payroll. So
+8:16
+actually even before Saber uh automated
+8:18
+data processing ADP was started in 1949.
+8:20
+How do you keep track of time and
+8:22
+attendance? You know, you had your time
+8:23
+slip, your time cards. How do I figure
+8:25
+out tax withholding? All of these
+8:27
+companies came out and the again the
+8:29
+progression was I take the file, I put
+8:31
+it in a mainframe and then companies
+8:33
+like you know workday was effectively
+8:35
+Peopleoft. It was the same team that
+8:36
+started Peopleoft. They put it in the
+8:38
+cloud. But the same process was there.
+The SaaS Business Model and Its Limits
+8:40
+The people that looked at your time and
+8:42
+attendance slip in 1940 were the same
+8:43
+people that looked at it in 2015. But
+8:45
+now the medium was not paper. It was not
+8:47
+mainframe. It was cloud. And the reason
+8:49
+why I mention all of this is because
+8:52
+nothing has actually gotten that much
+8:54
+more efficient because the filing
+8:55
+cabinets were read by humans. The
+8:57
+digital records are read by humans,
+8:59
+right? It's like this woman here,
+9:01
+whatever she's doing, looking at, you
+9:02
+know, help helping a customer with
+9:04
+customer support needs or something.
+9:05
+Once upon a time would have looked at a
+9:07
+piece of paper, now is looking at a
+9:09
+computer. And the reason why this is so
+9:12
+important to understand is because the
+9:14
+whole business model of software has to
+9:17
+change. It has to change. Um, this is
+9:19
+what I call to as a as homage to to
+9:22
+Starbucks here the the tall grande venty
+9:25
+model of SAS. Like if you go to any SAS
+9:27
+company in the world, you go to their
+9:29
+landing page, it probably looks like
+9:30
+this. This is a company called Zenesk.
+9:32
+It's now a private company. It was taken
+9:34
+private by Premier and Helman Freeman a
+9:36
+few years ago. Um, and this is a $2
+9:38
+billion ARR company that sells seats.
+9:41
+So, you know, their most popular like
+9:43
+the the Venty package is you get the
+9:45
+sweet professional $115 a month. But,
+9:48
+you know, we've talked about in the last
+9:50
+couple days how now AI does a really
+9:52
+good job answering customer support
+9:54
+queries. So, how many seats do you need
+9:57
+if every one of your agents is 9,000
+10:00
+times more productive? Imagine that you
+10:01
+have a thousand seats. And I I drew this
+10:03
+out for you so you could see it. Like,
+10:04
+imagine that I've got a,000 people
+10:06
+working in my customer support call
+10:07
+center. I pay each one fully loaded
+10:10
+$75,000 a year. So that's $75 million a
+10:13
+year in cost for people. Well, what's my
+10:15
+software cost? Well, it's a a,000 time
+10:18
+115* 12. It's about $1.4 million a year
+10:22
+for the software. So the people cost is
+10:23
+so much higher than the software cost.
+10:26
+And this could go one of two directions
+10:28
+for a company like Zenesk. If it turns
+10:30
+out that AI can answer all the
+10:31
+questions, how many seats do you need?
+10:33
+Zero. You don't need a single seat left.
+10:36
+the AI answers everything and then
+10:38
+Zenesk is charging per seat. So they
+10:39
+would go from 1.4 million to zero
+10:42
+dollars in revenue. That would be very
+10:43
+bad. On the other hand, I mean, look
+10:45
+look at the math here. Like if if each
+10:46
+human is answering 2,000 questions a
+10:48
+year, right now your fully loaded cost
+10:52
+as the the company that uses Zenesk as
+10:54
+your system of record for answering
+10:56
+customer support. It's about $37 of of
+11:00
+human cost and 69 cents of software
+11:02
+cost. Like the cost per answer is $38.
+11:05
+And this is, you know, rough rough uh
+11:07
+company example. Um maybe Zenesk could
+11:10
+charge $5 million a year. Like I, hey,
+11:12
+don't spend $75 million a year on
+11:14
+support anymore. Spend $5 million a year
+11:16
+on support. Just pay it all to us. Don't
+11:18
+pay us 1.4 million. Pay us 5 million.
+11:20
+Save75. And so Zenesk is really at the
+11:23
+precipice of it's like their revenue
+11:24
+could go to zero or their revenue could
+11:26
+3x. And like where's it going to go? I I
+11:29
+don't know the answer. They don't know
+11:30
+the answer. I've been talking to their
+11:31
+CEO. are piloting outcomebased pricing
+11:34
+in New Zealand right now. So New Zealand
+11:36
+holds the answer to all of our
+11:37
+questions. So uh stay tuned.
+11:40
+And um you know just to give again
+Labor Market Scale vs. Software Market
+11:42
+another example of just how much bigger
+11:45
+these labor or quasi labor markets are
+11:47
+like the $13 trillion of wages that we
+11:50
+talked about um you know software
+11:52
+revenue is very small. If you just take
+11:53
+one category like just just one
+11:55
+particular profession and take the
+11:57
+example of nurses just because we have a
+11:58
+portfolio company in this space um
+12:00
+nurses in the United States of America
+12:02
+earn about $650 billion a year. There
+12:04
+about four and a half million registered
+12:06
+nurses. That's bigger than the entire
+12:08
+worldwide software market. And it
+12:09
+doesn't mean that software will take
+12:11
+like the the nursing software market
+12:13
+will be this big. But it means like this
+12:15
+is the pool that you're really playing
+12:17
+against.
+The Shift: Software Doing the Job
+12:19
+And the reason why I wanted to start
+12:20
+with the filing cabinets is like this is
+12:22
+going to start moving to outcomes. Like
+12:24
+the the the software is going to go from
+12:26
+being the filing cabinet to effectively
+12:28
+operating on the filing cabinet. And
+12:30
+what does that mean? Well, you know,
+12:32
+take the first example. If I have the
+12:34
+filing cabinet for travel, you know,
+12:36
+maybe the software can rebook flights or
+12:38
+I want to book a trip for 75 kids at my
+12:41
+my son's high school and need to talk to
+12:42
+an agent. I don't need to talk to an
+12:44
+agent anymore. I just talk to the
+12:45
+software company. I talk directly to
+12:48
+United Airlines, you know, AI and they
+12:50
+do the entire thing for me. Sales, I
+12:52
+mean, this is kind of obvious. You know,
+12:54
+Salesforce charges per seat per month.
+12:56
+Salesforce should just sell for me. I
+12:58
+don't want to pay for a thousand seats.
+13:00
+I want to pay for customers. Like, hey,
+13:02
+go go go get me customers because you're
+13:04
+the backend for that anyway. Or survey
+13:06
+all of my customers. Do a 30-minute
+13:07
+phone call with every single one of
+13:08
+them. See how they're doing. Are they
+13:10
+happy? Are they going to re renew with
+13:11
+me? Yes or no? You know what about
+13:13
+manufacturing? Well, imagine that I make
+13:15
+widgets and there are these things
+13:17
+called tariffs that are happening. I'd
+13:18
+love to figure out what my tariff
+13:20
+exposure is. Let me just ask my ERP
+13:22
+system, research that for me. Um, or I
+13:25
+want you to do an audit or call my
+13:27
+suppliers and see if they're going to
+13:29
+still be able to to to ship me their
+13:31
+things on time. Uh, library card
+13:33
+cataloges, as crazy as this one is, you
+13:35
+know what? If my book is overdue, the
+13:37
+librarian shouldn't be calling me. the
+13:38
+library card software company should be
+13:40
+calling me saying, "Hey buddy, return
+13:42
+the book or order more books because
+13:43
+this one's very popular." You know, Ben
+13:45
+Ben's book is selling out. Order more
+13:47
+copies of that. Um, legal case files,
+13:49
+like a lot of software companies that
+13:50
+are popping up in this space. It's no
+13:52
+longer the system of record for like
+13:54
+time and attendance. Like, draft me a
+13:55
+contract. Like, do that work for me. You
+13:58
+could start billing out. Again, unclear
+14:00
+how the pricing model of this is going
+14:02
+to work, but start billing for that. Um,
+14:04
+accounting and bookkeeping. Um, you
+14:06
+know, AR aging summary, like this
+14:08
+concept has been around for a long time.
+14:10
+I have a lot of companies that owe me a
+14:11
+money, a lot of clients that owe me
+14:12
+money. Um, in 1940, I'd look at the
+14:15
+printout and say, I'm going to call
+14:16
+these customers and hopefully collect
+14:18
+for them or send the guy with the
+14:19
+crowbar or do something. In 2000, I'd
+14:22
+look at the QuickBooks thing and do the
+14:24
+same thing. Now, the software company
+14:26
+can go call like QuickBooks is going to
+14:28
+start calling customers uh of of their
+14:31
+clients and say, "Hey, you you owe me
+14:33
+money. please pay me back and I I can
+14:34
+accept a payment on the phone right now.
+14:36
+Um, health records. So, if you saw me
+14:38
+limp off stage, I sadly had Achilles
+14:40
+repair surgery about three months ago. I
+14:42
+don't recommend it. Uh, the day after my
+14:44
+surgery, I got a call from Stanford
+14:45
+Hospital saying, you know, Alex, on a
+14:47
+scale of 1 to 10, what's your pain
+14:48
+level? And I said, 11. And they said,
+14:50
+very funny. And I said, no, it really is
+14:52
+11. Um, and uh, an AI nurse can't do
+14:56
+CPR, right? An AI nurse can't attend to
+14:58
+a gunshot wound victim, but an AI nurse
+15:00
+can totally call a mid-40s patient like
+15:03
+me and say, "How are you doing? Is there
+15:05
+anything we can help with?" You know,
+15:06
+"Do you have a fever? Oh, you do? You
+15:08
+should go to the hospital right now."
+15:10
+And stuff like that. And again, these
+15:12
+are the outcomes. These are the
+15:13
+operations that can be performed on if
+15:16
+you have my medical record, that's what
+15:17
+you do with it. And charge for that.
+15:19
+Charge $20 for that outbound call. Um,
+15:21
+HR and payroll. How do I do a reference
+15:23
+check? How how do I make sure that you
+15:25
+on your resume you said you worked at
+15:26
+these three companies? You know what?
+15:28
+Workday should call those three
+15:29
+companies and say, "Did Alex really work
+15:31
+there?" Um explain benefits, help with
+15:34
+enrollment. Workday could probably
+15:35
+triple their revenue if they start doing
+15:38
+this because they're already the system
+15:39
+of record. So, um if you know the story
+15:41
+of Airbnb, uh Airbnb famously started by
+Case Study: Job Opening
+15:45
+somewhat scraping Craigslist. Craigslist
+15:47
+is this horrible site from the mid90s
+15:48
+that has not changed since the mid '90s.
+15:50
+And they have lots of listings for
+15:52
+apartments. and you go look at an
+15:53
+apartment and like half the time it's a
+15:55
+scam, half the time it's already been
+15:56
+booked or you know it's been relisted
+15:58
+every single day and they basically put
+16:00
+them in a better interface and called it
+16:02
+uh Airbnb and that's how they got
+16:03
+started. And this is one of the most
+16:05
+exciting things that we're seeing, which
+16:07
+is here's a real ad on Craigslist.
+16:09
+Because since I have so much copious
+16:11
+time due to my set Achilles injury, I I
+16:13
+used to run every day, a bike every day.
+16:14
+I can't do that anymore. So I hang out
+16:15
+on Craigslist looking for jobs. Not for
+16:17
+myself, of course. Uh and uh here's a
+16:20
+job for Plaza Lane Optometry. They're
+16:23
+hiring a front desk receptionist and
+16:25
+they've had this job opening for 6
+16:27
+months. It's been hanging out there for
+16:29
+6 months. the uh job pro like you have
+16:31
+to now say in California how much you're
+16:33
+char how much you're going to pay it's
+16:34
+$45,000 a year so supply and demand if
+16:36
+they probably said we're going to pay
+16:37
+$100,000 a year they would have filled
+16:39
+this job they're paying they need to pay
+16:40
+$45,000 a year to make this work within
+16:42
+their cost model or something if you
+16:44
+look at the job responsibilities if you
+16:46
+can read this like the first one is like
+16:48
+open and close the shop lock the door AI
+16:50
+can't do that but a lot of the other job
+16:52
+responsibilities AI can completely do
+16:54
+it's you know argue with insurance
+16:56
+company call patient the day before
+16:58
+their appointment to prevent no-shows.
+17:00
+If somebody doesn't show up, that's a
+17:02
+big that's a big opportunity cost for
+17:03
+the optometrist.
+17:05
+And if you were to look at the optometry
+17:07
+market and say, is that a good software
+17:09
+market? You would say categorically no.
+17:12
+Because Plaza optometry probably spends
+17:14
+$500 a year on software. They probably
+17:16
+have a Microsoft Office license. Uh they
+17:19
+probably have a website with Squarespace
+17:21
+or Wix and that's it. So they probably
+17:22
+spend $500 a year. So, in this new
+17:25
+world, and again, we're seeing a lot of
+17:26
+companies doing this. They peruse
+17:28
+Craigslist. They look for a job listing
+17:30
+and they're like, "Hey, Plaza Lane
+17:31
+Optometry, I want to apply for the job."
+17:33
+And you know, the optometry is like,
+17:34
+"Okay, that sounds great. Tell me about
+17:35
+your qualifications. Where did you work
+17:36
+before?" It's like, "I know this sounds
+17:38
+crazy, but I'm a software company and I
+17:41
+can I can't close the doors and do this,
+17:43
+but I can do these other eight things.
+17:44
+Can I give you a demo?" And at first,
+17:45
+the optometrist is like, "No, I want to
+17:47
+Oh, okay. I'll try it out." And by the
+17:49
+way, it's $20,000 a year, which is much
+17:51
+less than the $45,000 a year that you
+17:53
+were going to pay for a human that you
+17:54
+can't even hire. So this is happening
+17:57
+right now and it's incredible. And
+17:59
+again, like the software spend small for
+18:02
+these people, the effective labor spend
+18:04
+much much higher. And and this is what's
+18:07
+massively growing the market for a lot
+18:09
+of these obscure industries. So I just
+Real-World Examples: AI in Action
+18:11
+thought uh rather than me talk, I want
+18:13
+to give you an example. Um, this is one
+18:15
+of our portfolio companies, Happy Robot,
+18:17
+which serves the uh the freight and uh
+18:19
+and trucking space. So, so listen, this
+18:21
+is a a negotiation on the phone
+18:23
+conducted with a prospective client and
+18:25
+AI,
+18:27
+Illinois.
+18:28
+All right. So, this is Juliet, Illinois
+18:30
+to today between 6 a.m. and 2 p.m.
+18:32
+Delivers Monday between 6 a.m. and 4
+18:34
+p.m. I have 700 on this one. Would you
+18:37
+like to book this load? See?
+18:39
+Um, I'm going to need 800 for this one.
+18:42
+I can check on that.
+18:44
+So, um, we can't do eight at this point.
+18:46
+Any chance you could come a bit closer
+18:47
+to the loadboard rate?
+18:49
+I could I could do a 775.
+18:52
+That's really my lowest.
+18:54
+I understand. So, um, no chance you
+18:56
+could do any better than 775.
+19:00
+Um, how about 750?
+19:03
+Let me see.
+19:06
+Okay, I was able to get you 735 here.
+19:10
+735. Okay.
+19:14
+So that that's a closed transaction. Who
+19:16
+who's the robot and who's the human?
+19:17
+This is like the new touring test. I'll
+19:19
+let you guys quiz me afterwards on that
+19:21
+with with your own theories. Here's
+19:22
+another example. Um this is a company
+19:24
+called Salient that does collections. So
+19:26
+if you have if you're a lender, if
+19:28
+you're an auto lender, um you know, you
+19:32
+have to collect loan, you have to
+19:33
+collect uh re repayments on your loans.
+19:35
+And Salant serves a lot of auto lenders
+19:37
+in this country. And here's here's
+19:39
+another call from them. Currently, your
+19:40
+account is 51 days past due for $825.35.
+19:45
+Would you be able to make a payment
+19:46
+today?
+19:59
+So the cool thing there is that Salant
+20:02
+speaks dozens of languages. So it speaks
+20:05
+Tagalog, it speaks Vietnamese, Mandarin,
+20:07
+and again like this is a really
+20:10
+important point. It's not just about
+20:12
+cost. Um cost like this is where people
+20:15
+are getting this wrong. It's not like oh
+20:16
+AI is going to take all the jobs because
+20:17
+humans are too expensive and AI is
+20:19
+cheaper. AI does a bunch of things like
+20:22
+intermittent demand is a big one. Um,
+20:24
+imagine that I'm Black Friday retail.
+20:27
+I'm a retailer and people know that, you
+20:29
+know, sales are much higher around Black
+20:31
+Friday. So, I would have to hire tons of
+20:33
+cashiers or if I'm an online retailer,
+20:36
+hire lots of customer support people to
+20:38
+go answer queries and whatnot and then
+20:40
+what do I do on January 1st? Do I fire
+20:43
+them all and then rehire them in
+20:45
+November? But actually, I should
+20:46
+probably hire them in September because
+20:47
+I have to train them. Kind of tricky.
+20:49
+And there are a lot of other industries
+20:51
+that have intermittent demand issues. I
+20:53
+mean, United Airlines, if they have bad
+20:55
+weather over Chicago, which of course
+20:56
+never happens, they can't just hire and
+20:59
+train 10,000 people overnight, but
+The Human Element: Demoralizing Jobs & Language
+21:01
+again, AI very, very good at that. The
+21:03
+other example is there there are a lot
+21:05
+of demoralizing jobs out there. What is
+21:07
+a demoralizing job? Well, collections is
+21:10
+kind of a demoralizing job because you
+21:11
+go call people and say, "Hey, you're
+21:12
+overdue." About half the time, and I've
+21:15
+listened to some of these calls, there
+21:17
+are lots of expletives on the on the
+21:19
+other side, right? So, it's like, "Hey,
+21:20
+you owe me money." It's like, "F you,
+21:21
+you never call me again." and it's like
+21:22
+h call back again hey you owe me money f
+21:24
+you never call me again a human would
+21:26
+get kind of tired of that it's not a fun
+21:28
+job um AI doesn't get bothered so again
+21:31
+demoralizing jobs very very good
+21:33
+regulatory certainty so go back to this
+21:35
+um you know I co-ounded a company called
+21:37
+the firm um we got trained every quarter
+21:40
+on UDAP unfair defect sorry unfair
+21:43
+deceptive and abusive practices so there
+21:45
+are lots of laws that mandate what you
+21:47
+can and can't say to a customer so
+21:49
+imagine that you're calling a customer
+21:50
+say hey you owe me money the customer
+21:52
+says, "F you." And then you have
+21:54
+somebody on the other end who's had a
+21:55
+kind of a bad day and you can't blame
+21:56
+them. It's like, "F you back, customer."
+21:59
+They're going to get in trouble for
+22:00
+that, right? And you have more certainty
+22:03
+when you can program effectively a robot
+22:05
+to conduct the entire call end to end
+22:07
+much more so than people. And my my
+22:10
+favorite example here is somebody who
+22:11
+studied, you know, too I I I speak
+22:13
+Russian, Japanese, and a smattering of
+22:15
+Spanish and and spent way too much time
+22:16
+learning that stuff. Languages,
+22:18
+languages, languages. I mean, it's just
+22:20
+fact that a nurse, an AI nurse, like
+22:22
+what if I only spoke Farsy? Does
+22:24
+Stanford have any Farsy speaking nurses
+22:27
+that can call me about my pain level?
+22:28
+What if I only spoke Mongolian? Like,
+22:30
+now they do. An AI nurse, an AI
+22:33
+collections agent, an AI negotiator.
+22:35
+Like, all of these things can be done in
+22:37
+dozens of different languages instantly.
+22:39
+And you just wouldn't hire a human for
+22:41
+that. can't get somebody in Iowa that
+22:43
+speaks Serbian um on demand
+22:45
+intermittently with a demoralizing job
+22:47
+and so on and so forth. You know, AI
+22:49
+does great. Um and and it's also very
+22:51
+important that AI expands the market and
+Market Expansion: New Opportunities with AI
+22:52
+this is why I wanted to start with the
+22:54
+story of filing cabinets because there
+22:56
+was no software company for compliance
+22:59
+because uh this is actually a fact from
+23:00
+the Bureau of Labor Statistics. The
+23:02
+fastest growing job in America is
+23:04
+manicurist pedicurist. AI can't do that.
+23:07
+Uh the second fact fastest is compliance
+23:10
+officer. So compliance officer uh you
+23:13
+don't need software for compliance
+23:14
+officers. If you're a city bank, you
+23:16
+need more people. Um and no company has
+23:19
+popped up effectively doing software
+23:21
+because it's like the software market's
+23:23
+kind of small. The people market's very
+23:25
+large. Now you can roll into city and
+23:28
+say, "Hey, I will do compliance for you
+23:30
+endtoend as a software solution. Pay me
+23:33
+$10 million a year and I'm your software
+23:35
+product that kind of tracks everything."
+23:37
+Because before they would just h they
+23:38
+would just get more Microsoft Office
+23:40
+licenses or collections like there is no
+23:42
+software company for collections. There
+23:43
+are collections people at collections
+23:45
+firms. Now you can actually enter
+23:48
+potentially with the wedge of voice and
+23:49
+this is going to get commoditized
+23:51
+quickly and we realize this. But you can
+23:53
+backfill into a software company with
+23:55
+real software revenue, real software
+23:57
+margins, real software retention. Um,
+23:59
+the other thing that you're going to
+24:00
+start seeing us do is there are a lot of
+24:03
+nonAI companies that now work because of
+24:06
+AI. So, because of my said very sad
+24:09
+injury, I'm I'm a big cyclist as I
+24:11
+mentioned. Uh, my garage looks like this
+24:13
+with a lot of bikes that aren't being
+24:15
+used. Um, I hope to use them again in
+24:17
+the future. Why isn't there an Airbnb
+24:19
+for bicycles? Why hasn't somebody built
+24:21
+that? Well, I'll tell you why. It's a
+24:22
+very bad idea. That's why nobody's done
+24:23
+it. And why is it a bad idea? Because
+24:25
+the central tenant, AI, not AI. It could
+24:27
+be in 2000 BC. It doesn't really matter.
+24:29
+If your customer acquisition cost plus
+24:32
+your cost of goods sold is greater than
+24:35
+your lifetime value, do not proceed.
+24:38
+That's not a business. But now with AI,
+24:40
+um, you know, imagine that I wanted to
+24:42
+start Airbnb for bicycles. Well, how am
+24:44
+I going to go get the people that have
+24:45
+spare bicycles in their garage? Am I
+24:47
+gonna hire a bunch of like, you know,
+24:49
+expensive Stanford kids in Palo Alto and
+24:51
+have to give them 20 different flavors
+24:53
+of coconut water and, you know, cater to
+24:55
+their millennial needs in order for them
+24:56
+to work in the sales operation in Palo
+24:58
+Alto? No, I'm going to have an AI sales
+24:59
+rep call everybody. And the cost per AI
+25:02
+sales rep per year is a few hundred
+25:03
+bucks, not $100,000. Uh, no coconut
+25:06
+water necessary. Well, what if there's
+25:08
+an emergency? Well, you know, now
+25:09
+there's a 1-800 number that you call
+25:10
+that's an AI rep that can do everything.
+25:12
+Call the police, call whatever. Um, and
+25:14
+you know, lastly, like how do I screen
+25:16
+this person, do a background check, is
+25:17
+the bicycle good, is it stole, like
+25:19
+whatever you would need to do this this
+25:20
+silly business that we're not going to
+25:21
+fund. Um, AI can do this as well. So,
+25:24
+you actually have a whole category of of
+25:26
+business which was like it would have
+25:28
+worked except for this pesky customer
+25:30
+acquisition cost or pesky pesky cost of
+25:33
+goods sold. And of course, AI, you can
+25:35
+vibe code your way into one of these
+25:37
+businesses anyway. Um so you know
+25:39
+massively expands the size of the market
+25:41
+the nonAI market given the AI
+25:44
+infrastructure just allowing you know
+25:46
+CAC to come down COGS to come down for
+25:48
+now I mean every company is going to
+25:50
+start using these tools so you know it
+25:51
+will it will become a version of the
+25:53
+yoga bear quote it's so crowded nobody
+25:54
+goes here anymore but now lot of
+25:56
+companies kind of prosecuting sometimes
+25:59
+older new ideas that just wouldn't have
+26:01
+worked 5 years ago
+Conclusion: The Future of Software and Labor
+26:03
+um and this is a global opportunity
+26:04
+right I mean like the the US labor
+26:06
+market big it's 13 trillion a year. The
+26:08
+worldwide labor market's so much bigger.
+26:10
+And our job on on behalf of your capital
+26:13
+here, our our labor on behalf of your
+26:14
+capital is to find the best companies
+26:16
+that will make software look small. So,
+26:18
+thank you very much.

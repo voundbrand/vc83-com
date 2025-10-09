@@ -58,7 +58,7 @@ export const createSuperAdminUser = mutation({
       orgId = existingOrg._id;
       console.log(`Using existing organization: ${existingOrg.name}`);
     } else {
-      // Create organization
+      // Create organization (simplified schema)
       orgId = await ctx.db.insert("organizations", {
         name: args.organizationName,
         businessName: args.organizationName,
@@ -68,13 +68,6 @@ export const createSuperAdminUser = mutation({
         isPersonalWorkspace: false,
         createdAt: now,
         updatedAt: now,
-        settings: {
-          features: {
-            apiAccess: true,
-            customDomain: true,
-            sso: true,
-          },
-        },
       });
       console.log(`Created new organization: ${args.organizationName}`);
     }
@@ -90,6 +83,25 @@ export const createSuperAdminUser = mutation({
       createdAt: now,
       updatedAt: now,
     });
+
+    // If this is a new organization, create settings objects (ontology pattern)
+    if (!existingOrg) {
+      await ctx.db.insert("objects", {
+        organizationId: orgId,
+        type: "organization_settings",
+        subtype: "features",
+        name: `${args.organizationSlug}-features`,
+        status: "active",
+        customProperties: {
+          apiAccess: true,
+          customDomain: true,
+          sso: true,
+        },
+        createdBy: userId,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
 
     // Also add them as org_owner to their organization for consistency
     const orgOwnerRole = await ctx.db

@@ -18,7 +18,10 @@ export function MobilePanel({ windowType, title, children, className = "" }: Mob
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'var(--background)' }}>
+    <div className="fixed top-0 left-0 right-0 z-50 flex flex-col" style={{
+      background: 'var(--background)',
+      bottom: 'var(--taskbar-height, 48px)' // Reserve space for taskbar, default 48px if not set
+    }}>
       {/* Mobile Title Bar */}
       <div className="flex items-center justify-between px-4 h-12" style={{ background: 'var(--win95-titlebar)', color: 'var(--win95-titlebar-text)' }}>
         <h2 className="font-pixel-retro text-sm">{title}</h2>

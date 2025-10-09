@@ -7,17 +7,18 @@ import { InviteUserModal } from "./invite-user-modal";
 import { UserEditModal } from "./user-edit-modal";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
-import { useAuth, useIsSuperAdmin, usePermission } from "@/hooks/use-auth";
+import { useAuth } from "@/hooks/use-auth";
+import { usePermissions } from "@/contexts/permission-context";
+import { PermissionGuard, PermissionButton } from "@/components/permission";
 
 interface UserManagementTableProps {
   organizationId: Id<"organizations">;
-  canInvite?: boolean;
 }
 
 type SortField = "name" | "email" | "role" | "joinedAt";
 type SortDirection = "asc" | "desc";
 
-export function UserManagementTable({ organizationId, canInvite = false }: UserManagementTableProps) {
+export function UserManagementTable({ organizationId }: UserManagementTableProps) {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<{
@@ -30,8 +31,7 @@ export function UserManagementTable({ organizationId, canInvite = false }: UserM
 
   // Get session and permissions from auth context
   const { sessionId, user: currentUser } = useAuth();
-  const isSuperAdmin = useIsSuperAdmin();
-  const canManageUsers = usePermission("manage_users");
+  const { hasPermission } = usePermissions();
   const removeUser = useMutation(api.organizationMutations.removeUserFromOrganization);
 
   // Get organization with members
@@ -99,8 +99,9 @@ export function UserManagementTable({ organizationId, canInvite = false }: UserM
             Team Members ({sortedMembers?.length || 0})
           </h3>
 
-          {canInvite && (
-            <button
+          <PermissionGuard permission="manage_users">
+            <PermissionButton
+              permission="manage_users"
               onClick={() => setShowInviteModal(true)}
               className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold"
               style={{
@@ -115,8 +116,8 @@ export function UserManagementTable({ organizationId, canInvite = false }: UserM
             >
               <UserPlus size={16} />
               Invite User
-            </button>
-          )}
+            </PermissionButton>
+          </PermissionGuard>
         </div>
 
         {/* Table */}
@@ -229,7 +230,7 @@ export function UserManagementTable({ organizationId, canInvite = false }: UserM
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex gap-1">
-                      {(canManageUsers || isSuperAdmin || currentUser?.id === member.user?.id) && (
+                      {(hasPermission("manage_users") || currentUser?.id === member.user?.id) && (
                         <button
                           onClick={() => {
                             setSelectedUser({
@@ -251,8 +252,9 @@ export function UserManagementTable({ organizationId, canInvite = false }: UserM
                           <Edit2 size={14} />
                         </button>
                       )}
-                      {canManageUsers && member.user?.id !== currentUser?.id && (
-                        <button
+                      {hasPermission("manage_users") && member.user?.id !== currentUser?.id && (
+                        <PermissionButton
+                          permission="manage_users"
                           onClick={async () => {
                             if (confirm(`Remove ${member.user?.email} from the organization?`)) {
                               try {
@@ -277,7 +279,7 @@ export function UserManagementTable({ organizationId, canInvite = false }: UserM
                           title="Remove User"
                         >
                           <Trash2 size={14} />
-                        </button>
+                        </PermissionButton>
                       )}
                     </div>
                   </td>
@@ -324,8 +326,8 @@ export function UserManagementTable({ organizationId, canInvite = false }: UserM
           organizationId={organizationId}
           currentRoleId={selectedUser.currentRoleId}
           sessionId={sessionId}
-          canEditRole={canManageUsers || isSuperAdmin}
-          canEditProfile={canManageUsers || isSuperAdmin || currentUser?.id === selectedUser.user?.id}
+          canEditRole={hasPermission("manage_users")}
+          canEditProfile={hasPermission("manage_users") || currentUser?.id === selectedUser.user?.id}
         />
       )}
     </>
