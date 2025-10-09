@@ -11,8 +11,18 @@
 
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
+import { config } from "dotenv";
 
-const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL || "https://aromatic-akita-723.convex.cloud";
+// Load environment variables from .env.local
+config({ path: ".env.local" });
+
+if (!process.env.NEXT_PUBLIC_CONVEX_URL) {
+  console.error("❌ Error: NEXT_PUBLIC_CONVEX_URL not found in .env.local");
+  console.error("Please set NEXT_PUBLIC_CONVEX_URL in your .env.local file");
+  process.exit(1);
+}
+
+const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL;
 
 // Organization Manager Configuration
 const ORG_MANAGER = {
