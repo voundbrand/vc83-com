@@ -15,6 +15,8 @@ import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
  * - Checkout Products: List of all checkout products
  * - Settings: Stripe configuration (future)
  * - Analytics: Sales metrics (future)
+ *
+ * Note: To create checkout pages, use Web Publishing → Create Page → Link Products
  */
 
 type TabType = "products" | "settings" | "analytics";

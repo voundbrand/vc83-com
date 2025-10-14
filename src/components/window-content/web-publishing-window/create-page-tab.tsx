@@ -142,7 +142,13 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
         if (theme) setSelectedThemeId(theme._id);
       }
 
-      setTemplateContent(page.customProperties?.templateContent || {});
+      // Load template content and linked products
+      const content = page.customProperties?.templateContent || {};
+      setTemplateContent(content);
+
+      // Extract linked products from templateContent
+      const linkedProds = (content as { linkedProducts?: string[] }).linkedProducts || [];
+      setLinkedProducts(linkedProds);
     }
   }, [editMode, availableTemplates, availableThemes]);
 
@@ -239,10 +245,48 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
         templateContent
       );
 
-      // Add linked products to custom properties
+      // Transform linked products into checkout tickets format
+      // This embeds product data into the page so we don't need auth at runtime
+      let checkoutTickets: Array<{
+        id: string;
+        name: string;
+        price: number;
+        originalPrice?: number;
+        description: string;
+        features: string[];
+        currency: string;
+        checkoutUrl: string;
+      }> = [];
+
+      // Check if mergedContent has checkout with tickets
+      const existingCheckout = mergedContent.checkout as { tickets?: Array<unknown> } | undefined;
+      if (existingCheckout?.tickets) {
+        checkoutTickets = existingCheckout.tickets as typeof checkoutTickets;
+      }
+
+      if (linkedProducts.length > 0 && availableProducts) {
+        checkoutTickets = availableProducts
+          .filter(p => linkedProducts.includes(p._id))
+          .map(product => ({
+            id: product._id,
+            name: product.name,
+            price: (product.customProperties?.price as number) || 0, // Keep in cents
+            originalPrice: undefined,
+            description: product.description || "",
+            features: [],
+            currency: (product.customProperties?.currency as string) || "USD",
+            checkoutUrl: `/checkout/${currentOrg.slug}/${product.customProperties?.slug || product._id}`,
+          }));
+      }
+
+      // Add linked products and transformed tickets to custom properties
       const customPropertiesWithProducts = {
         ...mergedContent,
-        linkedProducts, // Array of product IDs
+        linkedProducts, // Keep the product IDs for reference
+        checkout: {
+          ...(typeof mergedContent.checkout === 'object' && mergedContent.checkout !== null ? mergedContent.checkout as Record<string, unknown> : {}),
+          tickets: checkoutTickets, // Embed product data as tickets
+        },
       };
 
       if (editMode) {
@@ -581,7 +625,7 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
               {availableProducts.map((product) => {
                 const productId = product._id;
                 const isLinked = linkedProducts.includes(productId);
-                const price = product.customProperties?.priceInCents as number || 0;
+                const price = product.customProperties?.price as number || 0;
                 const currency = (product.customProperties?.currency as string) || "usd";
 
                 return (
@@ -720,7 +764,44 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
                     templateContent
                   );
 
+                  // Transform linked products into checkout tickets for preview
+                  let previewCheckoutTickets: Array<{
+                    id: string;
+                    name: string;
+                    price: number;
+                    originalPrice?: number;
+                    description: string;
+                    features: string[];
+                    currency: string;
+                    checkoutUrl: string;
+                  }> = [];
+
+                  if (linkedProducts.length > 0 && availableProducts) {
+                    previewCheckoutTickets = availableProducts
+                      .filter(p => linkedProducts.includes(p._id))
+                      .map(product => ({
+                        id: product._id,
+                        name: product.name,
+                        price: (product.customProperties?.price as number) || 0, // Keep in cents
+                        originalPrice: undefined,
+                        description: product.description || "",
+                        features: [],
+                        currency: (product.customProperties?.currency as string) || "USD",
+                        checkoutUrl: `/checkout/${currentOrg.slug}/${product.customProperties?.slug || product._id}`,
+                      }));
+                  }
+
                   // Create mock page/data objects for preview
+                  // Include transformed product data in preview content
+                  const previewContentWithProducts = {
+                    ...previewContent,
+                    linkedProducts,
+                    checkout: {
+                      ...(typeof previewContent.checkout === 'object' && previewContent.checkout !== null ? previewContent.checkout as Record<string, unknown> : {}),
+                      tickets: previewCheckoutTickets, // Add transformed tickets for preview
+                    },
+                  };
+
                   const mockPage = {
                     _id: "preview" as Id<"objects">,
                     organizationId: currentOrg?.id as Id<"organizations">,
@@ -734,7 +815,7 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
                       metaDescription: metaDescription || "",
                       templateCode,
                       themeCode,
-                      templateContent: previewContent,
+                      templateContent: previewContentWithProducts,
                     },
                   };
 
@@ -743,7 +824,7 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
                     organizationId: currentOrg?.id as Id<"organizations">,
                     type: "simple_page",
                     name: metaTitle || "Preview Content",
-                    customProperties: previewContent,
+                    customProperties: previewContentWithProducts,
                   };
 
                   const mockOrg = {

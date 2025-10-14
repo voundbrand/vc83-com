@@ -15,6 +15,8 @@
   color: var(--color-text);
   background: var(--color-background);
   line-height: var(--line-height-normal);
+  /* Ensure no overflow restrictions that break sticky */
+  overflow: visible;
 }
 
 /* ==========================================================================
@@ -91,17 +93,15 @@
    ========================================================================== */
 
 .layoutGrid {
-  display: grid;
-  grid-template-columns: 1fr;
   max-width: var(--layout-maxWidth-2xl);
   margin: 0 auto;
 }
 
 @media (min-width: 1024px) {
   .layoutGrid {
+    display: grid;
     grid-template-columns: 1fr 400px;
     gap: var(--spacing-2xl);
-    padding-right: var(--spacing-lg);
   }
 }
 
@@ -119,7 +119,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+  overflow: clip; /* Use clip instead of hidden to preserve sticky */
 }
 
 .heroBackground {
@@ -878,20 +878,38 @@
    Sidebar (Desktop Checkout)
    ========================================================================== */
 
-.sidebar {
-  display: none;
+/* Sidebar sticky styles now use Tailwind classes directly in JSX:
+   - aside className="hidden lg:block"
+   - div className="sticky top-8 pt-8"
+   This matches the working prototype structure exactly.
+*/
+
+/* Checkout Placeholder (when no products linked) */
+.checkoutPlaceholder {
+  background: var(--color-surface);
+  border: 2px dashed var(--color-border);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-2xl);
+  text-align: center;
 }
 
-@media (min-width: 1024px) {
-  .sidebar {
-    display: block;
-  }
+.placeholderIcon {
+  font-size: 3rem;
+  margin-bottom: var(--spacing-lg);
+  opacity: 0.3;
 }
 
-.sidebarSticky {
-  position: sticky;
-  top: 2rem; /* 32px - matches prototype top-8 */
-  padding-top: 2rem; /* 32px - matches prototype pt-8 */
+.placeholderTitle {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-textLight);
+  margin-bottom: var(--spacing-md);
+}
+
+.placeholderText {
+  font-size: var(--font-size-sm);
+  color: var(--color-textLight);
+  line-height: var(--line-height-relaxed);
 }
 
 .checkoutCard {

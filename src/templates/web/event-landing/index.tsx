@@ -7,12 +7,12 @@
 
 "use client";
 
-import { useState } from "react";
-import { useQuery } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
+import { useMemo } from "react";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { TemplateProps } from "../../types";
 import { EventLandingContent } from "./schema";
+import { TicketCheckoutCard } from "../../checkout/ticket-checkout/ticket-checkout-card";
+import { CheckoutItem } from "../../checkout/core/types";
 import styles from "./styles.module.css";
 import {
   Users,
@@ -22,9 +22,6 @@ import {
   MapPin,
   Calendar,
   Clock,
-  Check,
-  Minus,
-  Plus,
 } from "lucide-react";
 
 // Icon mapping for dynamic icon names
@@ -40,49 +37,46 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 
 export function EventLandingTemplate({
   page,
-  data,
   organization,
   theme,
 }: TemplateProps) {
-  const [selectedTicketIndex, setSelectedTicketIndex] = useState(0);
-  const [quantity, setQuantity] = useState(1);
-
   // Get template content from page.customProperties.templateContent
   // This is where the content is actually stored when creating/editing pages
   const content =
     (page.customProperties?.templateContent as unknown as EventLandingContent) ||
     ({} as EventLandingContent);
 
-  // Get linked products from customProperties
-  const linkedProductIds = (page.customProperties?.templateContent as { linkedProducts?: string[] })?.linkedProducts || [];
+  // Transform tickets from content into CheckoutItem format for TicketCheckoutCard
+  // Note: Prices are stored in cents, convert to dollars for display
+  const checkoutItems: CheckoutItem[] = useMemo(() => {
+    return content.checkout?.tickets?.map(ticket => ({
+      id: ticket.id as Id<"objects">,
+      name: ticket.name,
+      description: ticket.description || "",
+      price: ticket.price / 100, // Convert cents to dollars for display
+      originalPrice: ticket.originalPrice ? ticket.originalPrice / 100 : undefined,
+      currency: ticket.currency || "USD",
+      features: ticket.features || [],
+      customProperties: {
+        checkoutUrl: ticket.checkoutUrl || "#",
+      },
+    })) || [];
+  }, [content.checkout?.tickets]);
 
-  // Fetch linked products data
-  const linkedProducts = useQuery(
-    api.productOntology.getProducts,
-    linkedProductIds.length > 0 && organization._id
-      ? { sessionId: "public", organizationId: organization._id as Id<"organizations"> }
-      : "skip"
-  );
-
-  // Transform products into ticket format for the template
-  const ticketsFromProducts = linkedProducts?.filter(p => linkedProductIds.includes(p._id)).map(product => ({
-    id: product._id,
-    name: product.name,
-    price: (product.customProperties?.priceInCents as number) / 100 || 0,
-    originalPrice: undefined, // Could be added as a product field
-    description: product.description || "",
-    features: [], // Could be parsed from description or added as product field
-    checkoutUrl: `/checkout/${organization.slug}/${product.customProperties?.slug || product._id}`,
-  })) || [];
-
-  // Merge tickets: use schema defaults OR linked products
+  // Merge content with checkout items
   const mergedContent = {
     ...content,
     checkout: {
       ...content.checkout,
-      tickets: ticketsFromProducts.length > 0 ? ticketsFromProducts : (content.checkout?.tickets || []),
+      tickets: checkoutItems,
     },
   };
+
+  // Calculate pricing for mobile checkout preview
+  const minPrice = useMemo(() => {
+    if (checkoutItems.length === 0) return 0;
+    return Math.min(...checkoutItems.map((t) => t.price));
+  }, [checkoutItems]);
 
   // Apply theme as CSS variables
   const cssVars = {
@@ -141,16 +135,6 @@ export function EventLandingTemplate({
     "--layout-maxWidth-2xl": theme.layout.maxWidth["2xl"],
   } as React.CSSProperties;
 
-  // Get selected ticket data from merged content
-  const selectedTicket =
-    mergedContent.checkout?.tickets?.[selectedTicketIndex] ||
-    mergedContent.checkout?.tickets?.[0];
-  const subtotal = selectedTicket ? selectedTicket.price * quantity : 0;
-  const savings = selectedTicket && selectedTicket.originalPrice
-    ? (selectedTicket.originalPrice - selectedTicket.price) * quantity
-    : 0;
-  const total = subtotal;
-
   return (
     <div className={styles.template} style={cssVars}>
       {/* Navigation - Sticky at top */}
@@ -181,7 +165,7 @@ export function EventLandingTemplate({
       {/* Two-column layout: Main content + Sticky sidebar */}
       <div className={styles.layoutGrid}>
         {/* Main Content */}
-        <main className={styles.mainContent}>
+        <main className={`${styles.mainContent} lg:pr-8`}>
           {/* Hero Section */}
           {mergedContent.hero && (
             <section className={styles.hero} id="hero">
@@ -523,176 +507,51 @@ export function EventLandingTemplate({
         </main>
 
         {/* Sticky Checkout Sidebar (Desktop only) */}
-        {mergedContent.checkout &&
-          content.checkout.tickets &&
-          content.checkout.tickets.length > 0 && (
-            <aside className={styles.sidebar}>
-              <div className={styles.sidebarSticky}>
-                <div className={styles.checkoutCard} id="checkout">
-                  <h3 className={styles.checkoutTitle}>
-                    {mergedContent.checkout.title}
-                  </h3>
-                  {mergedContent.checkout.description && (
-                    <p className={styles.checkoutDescription}>
-                      {mergedContent.checkout.description}
-                    </p>
-                  )}
-
-                  {/* Ticket selection with radio buttons */}
-                  <div className={styles.ticketSelection}>
-                    <label className={styles.ticketSelectionLabel}>
-                      Select Ticket Type
-                    </label>
-                    <div className={styles.ticketOptions}>
-                      {mergedContent.checkout.tickets.map((ticket, index) => (
-                        <label
-                          key={ticket.id}
-                          className={`${styles.ticketOptionCard} ${
-                            selectedTicketIndex === index
-                              ? styles.ticketOptionCardSelected
-                              : ""
-                          }`}
-                          onClick={() => setSelectedTicketIndex(index)}
-                        >
-                          <input
-                            type="radio"
-                            name="ticket"
-                            value={index}
-                            checked={selectedTicketIndex === index}
-                            onChange={() => setSelectedTicketIndex(index)}
-                            className={styles.ticketRadio}
-                          />
-                          <div className={styles.ticketOptionContent}>
-                            <div className={styles.ticketOptionHeader}>
-                              <span className={styles.ticketOptionName}>
-                                {ticket.name.replace(" Ticket", "")}
-                              </span>
-                            </div>
-                            <div className={styles.ticketOptionDetails}>
-                              {ticket.description}
-                            </div>
-                            <div className={styles.ticketOptionPrice}>
-                              <span className={styles.ticketPriceCurrent}>
-                                ${ticket.price}
-                              </span>
-                              {ticket.originalPrice && (
-                                <span className={styles.ticketPriceOriginal}>
-                                  ${ticket.originalPrice}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* What's Included */}
-                  {selectedTicket && selectedTicket.features && (
-                    <div className={styles.checkoutFeatures}>
-                      <label className={styles.checkoutFeaturesLabel}>
-                        What&apos;s Included
-                      </label>
-                      <ul className={styles.featuresList}>
-                        {selectedTicket.features.map((feature, idx) => (
-                          <li key={idx} className={styles.featureItem}>
-                            <Check className={styles.featureIcon} />
-                            {feature}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Quantity selector */}
-                  <div className={styles.quantitySection}>
-                    <label className={styles.quantityLabel}>Quantity</label>
-                    <div className={styles.quantityControls}>
-                      <button
-                        className={styles.quantityButton}
-                        onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                        disabled={quantity <= 1}
-                      >
-                        <Minus className={styles.quantityIcon} />
-                      </button>
-                      <input
-                        type="number"
-                        value={quantity}
-                        onChange={(e) =>
-                          setQuantity(
-                            Math.max(1, Math.min(10, Number(e.target.value) || 1))
-                          )
-                        }
-                        className={styles.quantityInput}
-                      />
-                      <button
-                        className={styles.quantityButton}
-                        onClick={() => setQuantity(Math.min(10, quantity + 1))}
-                        disabled={quantity >= 10}
-                      >
-                        <Plus className={styles.quantityIcon} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Subtotal and Savings */}
-                  <div className={styles.checkoutSummary}>
-                    <div className={styles.summaryRow}>
-                      <span className={styles.summaryLabel}>Subtotal</span>
-                      <span className={styles.summaryValue}>${subtotal}</span>
-                    </div>
-                    {savings > 0 && (
-                      <div className={styles.summaryRow}>
-                        <span className={styles.summaryLabel}>Early Bird Savings</span>
-                        <span className={styles.summarySavings}>-${savings}</span>
-                      </div>
-                    )}
-                    <div className={`${styles.summaryRow} ${styles.summaryTotal}`}>
-                      <span className={styles.summaryLabel}>Total</span>
-                      <span className={styles.summaryValue}>${total}</span>
-                    </div>
-                  </div>
-
-                  {/* Checkout button */}
-                  {selectedTicket && (
-                    <a
-                      href={selectedTicket.checkoutUrl}
-                      className={styles.checkoutButton}
-                    >
-                      PROCEED TO CHECKOUT
-                    </a>
-                  )}
-
-                  <p className={styles.checkoutSecure}>
-                    Secure checkout powered by Stripe
-                  </p>
-                </div>
+        <aside className="hidden lg:block">
+          <div className="sticky top-8 pt-8">
+            {checkoutItems.length > 0 ? (
+              <TicketCheckoutCard
+                eventId={page._id as Id<"objects">}
+                eventName={mergedContent.hero?.headline || page.name}
+                eventDate={new Date(mergedContent.hero?.date || Date.now())}
+                venue={mergedContent.hero?.location}
+                tickets={checkoutItems}
+                organizationId={organization._id as Id<"organizations">}
+                theme={theme}
+                maxTicketsPerOrder={10}
+              />
+            ) : (
+              <div className={styles.checkoutPlaceholder}>
+                <div className={styles.placeholderIcon}>🛒</div>
+                <h3 className={styles.placeholderTitle}>No Products Linked</h3>
+                <p className={styles.placeholderText}>
+                  Link products to this page to enable checkout.
+                  Click the "Link" button next to products in the editor.
+                </p>
               </div>
-            </aside>
-          )}
+            )}
+          </div>
+        </aside>
       </div>
 
       {/* Mobile Checkout - Fixed at bottom */}
-      {mergedContent.checkout &&
-        content.checkout.tickets &&
-        content.checkout.tickets.length > 0 && (
-          <div className={styles.mobileCheckout}>
-            <div className={styles.mobileCheckoutContent}>
-              <div>
-                <div className={styles.mobileCheckoutTitle}>
-                  Get Your Ticket
-                </div>
-                <div className={styles.mobileCheckoutPrice}>
-                  From $
-                  {Math.min(...content.checkout.tickets.map((t) => t.price))}
-                </div>
+      {checkoutItems.length > 0 && (
+        <div className={styles.mobileCheckout}>
+          <div className={styles.mobileCheckoutContent}>
+            <div>
+              <div className={styles.mobileCheckoutTitle}>
+                Get Your Ticket
               </div>
-              <a href="#checkout" className={styles.mobileCheckoutButton}>
-                View Tickets
-              </a>
+              <div className={styles.mobileCheckoutPrice}>
+                From ${minPrice}
+              </div>
             </div>
+            <a href="#checkout" className={styles.mobileCheckoutButton}>
+              View Tickets
+            </a>
           </div>
-        )}
+        </div>
+      )}
     </div>
   );
 }
