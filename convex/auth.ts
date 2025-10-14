@@ -331,6 +331,46 @@ export const signOut = mutation({
   },
 });
 
+// Set default organization mutation (for first-time users)
+export const setDefaultOrganization = mutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId as Id<"sessions">);
+    if (!session || session.expiresAt < Date.now()) {
+      throw new Error("Ungültige oder abgelaufene Sitzung");
+    }
+
+    const user = await ctx.db.get(session.userId);
+    if (!user) {
+      throw new Error("Benutzer nicht gefunden");
+    }
+
+    // Check if user has access to this organization
+    const membership = await ctx.db
+      .query("organizationMembers")
+      .withIndex("by_user_and_org", (q) =>
+        q.eq("userId", user._id).eq("organizationId", args.organizationId)
+      )
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .first();
+
+    if (!membership && !user.global_role_id) {
+      throw new Error("Zugriff verweigert: Keine Mitgliedschaft in dieser Organisation");
+    }
+
+    // Update user's default organization
+    await ctx.db.patch(user._id, {
+      defaultOrgId: args.organizationId,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
 // Switch organization mutation
 export const switchOrganization = mutation({
   args: {
@@ -466,9 +506,12 @@ export const getCurrentUser = query({
 
     // Get the default/current organization
     const validOrganizations = organizations.filter(Boolean);
+
+    // If user has no defaultOrgId but has organizations, use the first one
+    // (Frontend should call setDefaultOrganization mutation to persist this)
     const currentOrg = user.defaultOrgId
       ? validOrganizations.find(org => org?.id === user.defaultOrgId)
-      : validOrganizations[0];
+      : validOrganizations[0]; // Fallback to first org
 
     return {
       id: user._id,

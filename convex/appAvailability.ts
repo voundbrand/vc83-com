@@ -315,21 +315,29 @@ export const bulkSetAppAvailability = mutation({
 export const getAvailabilityMatrix = query({
   args: { sessionId: v.string() },
   handler: async (ctx, { sessionId }) => {
-    const { userId } = await requireAuthenticatedUser(ctx, sessionId);
-    const userContext = await getUserContext(ctx, userId);
+    try {
+      const { userId } = await requireAuthenticatedUser(ctx, sessionId);
+      const userContext = await getUserContext(ctx, userId);
 
-    if (!userContext.isGlobal || userContext.roleName !== "super_admin") {
-      throw new Error("Super admin access required to view availability matrix");
+      if (!userContext.isGlobal || userContext.roleName !== "super_admin") {
+        // Return null instead of throwing - UI will handle gracefully
+        return null;
+      }
+
+      const organizations = await ctx.db.query("organizations").collect();
+      const apps = await ctx.db.query("apps").collect();
+      const availabilities = await ctx.db.query("appAvailabilities").collect();
+
+      return {
+        organizations,
+        apps,
+        availabilities,
+      };
+    } catch (error) {
+      // Catch any permission errors (like user switching) and return null
+      // This prevents crashes and allows UI to show friendly message
+      console.error("Access error in getAvailabilityMatrix:", error);
+      return null;
     }
-
-    const organizations = await ctx.db.query("organizations").collect();
-    const apps = await ctx.db.query("apps").collect();
-    const availabilities = await ctx.db.query("appAvailabilities").collect();
-
-    return {
-      organizations,
-      apps,
-      availabilities,
-    };
   },
 });

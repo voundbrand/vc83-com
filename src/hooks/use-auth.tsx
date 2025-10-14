@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { useState, createContext, useContext, ReactNode } from "react";
+import { useState, createContext, useContext, ReactNode, useEffect } from "react";
 import { Id } from "../../convex/_generated/dataModel";
 
 interface Permission {
@@ -77,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const setupPasswordAction = useAction(api.auth.setupPassword);
   const signOutMutation = useMutation(api.auth.signOut);
   const switchOrgMutation = useMutation(api.auth.switchOrganization);
+  const setDefaultOrgMutation = useMutation(api.auth.setDefaultOrganization);
 
   const signIn = async (email: string, password: string) => {
     const result = await signInAction({ email, password });
@@ -138,6 +139,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     // The user query will automatically refresh with the new org context
   };
+
+  // Auto-persist defaultOrgId if user has organizations but no defaultOrgId
+  // This fixes the issue where organization owners see no apps on first login
+  useEffect(() => {
+    if (sessionId && userQuery && !userQuery.defaultOrgId && userQuery.currentOrganization) {
+      // User has organizations but no defaultOrgId set - persist the first one
+      setDefaultOrgMutation({
+        sessionId,
+        organizationId: userQuery.currentOrganization.id as Id<"organizations">
+      }).catch((error) => {
+        console.error("Failed to set default organization:", error);
+      });
+    }
+  }, [sessionId, userQuery, setDefaultOrgMutation]);
 
   // Transform the user data to match our interface
   const user: User | null = userQuery ? {

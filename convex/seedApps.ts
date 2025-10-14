@@ -361,6 +361,219 @@ export const registerMediaLibraryApp = mutation({
 });
 
 /**
+ * Register Products app only
+ *
+ * Simple mutation to register the Products app for event management.
+ * No authentication required - this is a one-time setup mutation.
+ *
+ * @returns App ID if created, or existing app ID if already registered
+ */
+export const registerProductsApp = mutation({
+  args: {},
+  handler: async (ctx) => {
+    // Check if Products app already exists
+    const existing = await ctx.db
+      .query("apps")
+      .withIndex("by_code", (q) => q.eq("code", "products"))
+      .first();
+
+    if (existing) {
+      console.log("Products app already registered:", existing._id);
+      return {
+        appId: existing._id,
+        message: "Products app already registered",
+        app: existing,
+      };
+    }
+
+    // Find or create a system organization to own the app
+    let systemOrg = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", "system"))
+      .first();
+
+    // If no system org exists, just use the first organization
+    if (!systemOrg) {
+      const firstOrg = await ctx.db.query("organizations").first();
+      if (!firstOrg) {
+        throw new Error(
+          "No organizations found. Create an organization first before registering apps."
+        );
+      }
+      systemOrg = firstOrg;
+    }
+
+    // Create the Products app record
+    const appId = await ctx.db.insert("apps", {
+      code: "products",
+      name: "Products",
+      description: "Product management for events, tickets, merchandise, and digital goods",
+      icon: "🎟️",
+      category: "commerce",
+      plans: ["pro", "business", "enterprise"],
+      creatorOrgId: systemOrg._id,
+      dataScope: "installer-owned",
+      status: "active",
+      version: "1.0.0",
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    const app = await ctx.db.get(appId);
+
+    console.log("Products app registered successfully:", appId);
+
+    return {
+      appId,
+      message: "Products app registered successfully",
+      app,
+    };
+  },
+});
+
+/**
+ * Register Tickets app only
+ *
+ * Simple mutation to register the Tickets app for event management.
+ * No authentication required - this is a one-time setup mutation.
+ *
+ * @returns App ID if created, or existing app ID if already registered
+ */
+export const registerTicketsApp = mutation({
+  args: {},
+  handler: async (ctx) => {
+    // Check if Tickets app already exists
+    const existing = await ctx.db
+      .query("apps")
+      .withIndex("by_code", (q) => q.eq("code", "tickets"))
+      .first();
+
+    if (existing) {
+      console.log("Tickets app already registered:", existing._id);
+      return {
+        appId: existing._id,
+        message: "Tickets app already registered",
+        app: existing,
+      };
+    }
+
+    // Find or create a system organization to own the app
+    let systemOrg = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", "system"))
+      .first();
+
+    // If no system org exists, just use the first organization
+    if (!systemOrg) {
+      const firstOrg = await ctx.db.query("organizations").first();
+      if (!firstOrg) {
+        throw new Error(
+          "No organizations found. Create an organization first before registering apps."
+        );
+      }
+      systemOrg = firstOrg;
+    }
+
+    // Create the Tickets app record
+    const appId = await ctx.db.insert("apps", {
+      code: "tickets",
+      name: "Tickets",
+      description: "Ticket management for events - issue, track, and validate tickets",
+      icon: "🎫",
+      category: "commerce",
+      plans: ["pro", "business", "enterprise"],
+      creatorOrgId: systemOrg._id,
+      dataScope: "installer-owned",
+      status: "active",
+      version: "1.0.0",
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    const app = await ctx.db.get(appId);
+
+    console.log("Tickets app registered successfully:", appId);
+
+    return {
+      appId,
+      message: "Tickets app registered successfully",
+      app,
+    };
+  },
+});
+
+/**
+ * Register Events app only
+ *
+ * Simple mutation to register the Events app for event management.
+ * No authentication required - this is a one-time setup mutation.
+ *
+ * @returns App ID if created, or existing app ID if already registered
+ */
+export const registerEventsApp = mutation({
+  args: {},
+  handler: async (ctx) => {
+    // Check if Events app already exists
+    const existing = await ctx.db
+      .query("apps")
+      .withIndex("by_code", (q) => q.eq("code", "events"))
+      .first();
+
+    if (existing) {
+      console.log("Events app already registered:", existing._id);
+      return {
+        appId: existing._id,
+        message: "Events app already registered",
+        app: existing,
+      };
+    }
+
+    // Find or create a system organization to own the app
+    let systemOrg = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", "system"))
+      .first();
+
+    // If no system org exists, just use the first organization
+    if (!systemOrg) {
+      const firstOrg = await ctx.db.query("organizations").first();
+      if (!firstOrg) {
+        throw new Error(
+          "No organizations found. Create an organization first before registering apps."
+        );
+      }
+      systemOrg = firstOrg;
+    }
+
+    // Create the Events app record
+    const appId = await ctx.db.insert("apps", {
+      code: "events",
+      name: "Events",
+      description: "Event management - create, organize, and manage events, conferences, and meetups",
+      icon: "📅",
+      category: "commerce",
+      plans: ["pro", "business", "enterprise"],
+      creatorOrgId: systemOrg._id,
+      dataScope: "installer-owned",
+      status: "active",
+      version: "1.0.0",
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    const app = await ctx.db.get(appId);
+
+    console.log("Events app registered successfully:", appId);
+
+    return {
+      appId,
+      message: "Events app registered successfully",
+      app,
+    };
+  },
+});
+
+/**
  * Enable all system apps for an organization
  *
  * Convenience function to enable Payments and Web Publishing for a specific org.

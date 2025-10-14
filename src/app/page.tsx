@@ -13,6 +13,10 @@ import { LayerDocsWindow } from "@/components/window-content/layer-docs/layer-do
 import { PaymentsWindow } from "@/components/window-content/payments-window"
 import { WebPublishingWindow } from "@/components/window-content/web-publishing-window"
 import MediaLibraryWindow from "@/components/window-content/media-library-window"
+import { ProductsWindow } from "@/components/window-content/products-window"
+import { TicketsWindow } from "@/components/window-content/tickets-window"
+import { EventsWindow } from "@/components/window-content/events-window"
+import { AllAppsWindow } from "@/components/window-content/all-apps-window"
 import { WindowsMenu } from "@/components/windows-menu"
 import { useIsMobile } from "@/hooks/use-media-query"
 import { useAuth, useOrganizations, useCurrentOrganization, useIsSuperAdmin, useAccountDeletionStatus } from "@/hooks/use-auth"
@@ -57,6 +61,22 @@ export default function HomePage() {
 
   const openMediaLibraryWindow = () => {
     openWindow("media-library", "Media Library", <MediaLibraryWindow />, { x: 240, y: 160 }, { width: 1000, height: 700 })
+  }
+
+  const openProductsWindow = () => {
+    openWindow("products", "Products", <ProductsWindow />, { x: 260, y: 180 }, { width: 950, height: 650 })
+  }
+
+  const openTicketsWindow = () => {
+    openWindow("tickets", "Tickets", <TicketsWindow />, { x: 280, y: 200 }, { width: 950, height: 650 })
+  }
+
+  const openEventsWindow = () => {
+    openWindow("events", "Events", <EventsWindow />, { x: 300, y: 220 }, { width: 950, height: 650 })
+  }
+
+  const openAllAppsWindow = () => {
+    openWindow("all-apps", "All Applications", <AllAppsWindow />, { x: 150, y: 100 }, { width: 800, height: 600 })
   }
 
   const handleLogout = () => {
@@ -119,14 +139,40 @@ export default function HomePage() {
     }
   }
 
+  // DEBUG: Log app availability data
+  console.log('[DEBUG] App availability:', {
+    isSignedIn,
+    currentOrg,
+    availableApps: {
+      'media-library': isAppAvailable("media-library"),
+      'payments': isAppAvailable("payments"),
+      'products': isAppAvailable("products"),
+      'tickets': isAppAvailable("tickets"),
+      'events': isAppAvailable("events"),
+      'web-publishing': isAppAvailable("web-publishing"),
+    }
+  });
+
   // Build Programs submenu dynamically based on app availability
   const programsSubmenu = [
+    // All Apps - always show for authenticated users
+    { label: "All Applications", icon: "📱", onClick: requireAuth(openAllAppsWindow) },
+    { divider: true }, // Visual separator
     // { label: "L4YER.docs", icon: "📝", onClick: requireAuth(openLayerDocsWindow) }, // Hidden for now
     ...(isAppAvailable("media-library") ? [
       { label: "Media Library", icon: "📁", onClick: requireAuth(openMediaLibraryWindow) }
     ] : []),
     ...(isAppAvailable("payments") ? [
       { label: "Payments", icon: "💳", onClick: requireAuth(openPaymentsWindow) }
+    ] : []),
+    ...(isAppAvailable("products") ? [
+      { label: "Products", icon: "📦", onClick: requireAuth(openProductsWindow) }
+    ] : []),
+    ...(isAppAvailable("tickets") ? [
+      { label: "Tickets", icon: "🎟️", onClick: requireAuth(openTicketsWindow) }
+    ] : []),
+    ...(isAppAvailable("events") ? [
+      { label: "Events", icon: "📅", onClick: requireAuth(openEventsWindow) }
     ] : []),
     // Web Publishing app - enabled via app availability
     ...(isAppAvailable("web-publishing") ? [

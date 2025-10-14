@@ -313,6 +313,80 @@ export const BASE_PERMISSIONS = [
     category: PERMISSION_CATEGORIES.ORG_MANAGEMENT,
     description: 'Ontologie-System verwalten: Objekte, Links und Typen erstellen/bearbeiten (nur Super-Administrator)'
   },
+
+  // Web Publishing Permissions
+  {
+    name: 'view_published_pages',
+    resource: 'published_pages',
+    action: 'read',
+    category: PERMISSION_CATEGORIES.OPERATIONS,
+    description: 'View published pages and pages in the organization'
+  },
+  {
+    name: 'create_published_pages',
+    resource: 'published_pages',
+    action: 'create',
+    category: PERMISSION_CATEGORIES.OPERATIONS,
+    description: 'Create new published pages'
+  },
+  {
+    name: 'edit_published_pages',
+    resource: 'published_pages',
+    action: 'write',
+    category: PERMISSION_CATEGORIES.OPERATIONS,
+    description: 'Edit existing published pages'
+  },
+  {
+    name: 'publish_pages',
+    resource: 'published_pages',
+    action: 'publish',
+    category: PERMISSION_CATEGORIES.OPERATIONS,
+    description: 'Publish or unpublish pages'
+  },
+  {
+    name: 'delete_published_pages',
+    resource: 'published_pages',
+    action: 'delete',
+    category: PERMISSION_CATEGORIES.OPERATIONS,
+    description: 'Delete published pages'
+  },
+
+  // Template Management Permissions
+  {
+    name: 'view_templates',
+    resource: 'templates',
+    action: 'read',
+    category: PERMISSION_CATEGORIES.OPERATIONS,
+    description: 'View templates available to the organization'
+  },
+  {
+    name: 'create_templates',
+    resource: 'templates',
+    action: 'create',
+    category: PERMISSION_CATEGORIES.OPERATIONS,
+    description: 'Create new templates'
+  },
+  {
+    name: 'edit_templates',
+    resource: 'templates',
+    action: 'write',
+    category: PERMISSION_CATEGORIES.OPERATIONS,
+    description: 'Edit existing templates'
+  },
+  {
+    name: 'apply_templates',
+    resource: 'templates',
+    action: 'apply',
+    category: PERMISSION_CATEGORIES.OPERATIONS,
+    description: 'Apply templates to create pages or content'
+  },
+  {
+    name: 'delete_templates',
+    resource: 'templates',
+    action: 'delete',
+    category: PERMISSION_CATEGORIES.OPERATIONS,
+    description: 'Delete templates'
+  },
 ] as const;
 
 /**

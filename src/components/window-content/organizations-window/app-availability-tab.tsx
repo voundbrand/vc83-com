@@ -14,18 +14,43 @@ import { Id } from "../../../../convex/_generated/dataModel";
  * Displays a matrix: rows = organizations, columns = apps, cells = toggle buttons.
  */
 export function AppAvailabilityTab() {
-  const { sessionId, user } = useAuth();
+  const { sessionId } = useAuth();
 
-  // Fetch availability matrix data
+  // Fetch availability matrix data with error handling
   const matrixData = useQuery(
     api.appAvailability.getAvailabilityMatrix,
     sessionId ? { sessionId } : "skip"
   );
 
-  if (!matrixData) {
+  // Check if query returned an error (Convex queries can throw errors)
+  // The error will be caught by useQuery and the component won't crash
+  if (!matrixData && sessionId) {
+    // Still loading or error occurred
     return (
       <div className="flex items-center justify-center p-8">
         <Loader2 size={32} className="animate-spin text-purple-600" />
+      </div>
+    );
+  }
+
+  // Handle case where user doesn't have access
+  if (!matrixData) {
+    return (
+      <div className="p-4">
+        <div className="border-2 border-red-600 bg-red-50 p-4">
+          <div className="flex items-start gap-2">
+            <AlertCircle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h4 className="font-bold text-sm text-red-900">Access Denied</h4>
+              <p className="text-xs text-red-800 mt-1">
+                You don&apos;t have permission to view app availability settings. This feature is only available to super administrators.
+              </p>
+              <p className="text-xs text-red-700 mt-2">
+                If you recently switched users or organizations, please close this window and refresh the page.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

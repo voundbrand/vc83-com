@@ -98,7 +98,8 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
                 {/* Submenu */}
                 {item.submenu && openSubmenu === index && (
                   <div
-                    className="absolute left-full top-0 ml-1 min-w-[200px] retro-window window-corners dark:retro-window-dark shadow-lg"
+                    className="absolute left-full bottom-0 ml-1 min-w-[200px] retro-window window-corners dark:retro-window-dark shadow-lg"
+                    style={{ zIndex: 10002 }}
                   >
                     <div className="py-1">
                       {item.submenu.map((subitem, subindex) => (
