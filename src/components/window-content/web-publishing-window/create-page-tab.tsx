@@ -102,10 +102,19 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
     sessionId ? { sessionId } : "skip"
   );
 
-  // Fetch available products (for linking)
+  // Check if checkout app is available for this org
+  const availableApps = useQuery(
+    api.appAvailability.getAvailableApps,
+    sessionId && currentOrg?.id ? { sessionId, organizationId: currentOrg.id as Id<"organizations"> } : "skip"
+  );
+  const checkoutAppAvailable = availableApps?.some(app => app.code === "checkout");
+
+  // Fetch available products (for linking) - only if checkout app is available
   const availableProducts = useQuery(
     api.productOntology.getProducts,
-    sessionId && currentOrg?.id ? { sessionId, organizationId: currentOrg.id as Id<"organizations"> } : "skip"
+    sessionId && currentOrg?.id && checkoutAppAvailable
+      ? { sessionId, organizationId: currentOrg.id as Id<"organizations"> }
+      : "skip"
   );
 
   const createPage = useMutation(api.publishingOntology.createPublishedPage);
@@ -551,7 +560,23 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
             Connect products to this page. They'll appear in your template's checkout UI.
           </p>
 
-          {availableProducts && availableProducts.length > 0 ? (
+          {/* Checkout app not available */}
+          {availableApps !== undefined && !checkoutAppAvailable ? (
+            <div className="border-2 border-yellow-600 bg-yellow-50 p-3">
+              <div className="flex items-start gap-2">
+                <AlertCircle size={16} className="text-yellow-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-bold text-xs text-yellow-900 mb-1">Checkout App Required</h4>
+                  <p className="text-xs text-yellow-800 mb-2">
+                    To link products to your pages, you need the Checkout app enabled for your organization.
+                  </p>
+                  <p className="text-xs text-yellow-700">
+                    <span className="font-bold">Contact your administrator</span> to enable the Checkout app, or visit the Control Panel if you're an admin.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : availableProducts && availableProducts.length > 0 ? (
             <div className="space-y-2 max-h-60 overflow-y-auto">
               {availableProducts.map((product) => {
                 const productId = product._id;
@@ -599,11 +624,11 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
                 );
               })}
             </div>
-          ) : (
+          ) : checkoutAppAvailable ? (
             <div className="text-xs text-gray-500 bg-gray-50 p-3 border-2 border-gray-300">
               No products yet. Create products in the Products app first.
             </div>
-          )}
+          ) : null}
 
           {linkedProducts.length > 0 && (
             <p className="text-xs text-green-600 font-bold mt-2">
