@@ -31,6 +31,7 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
   const getOnboardingUrl = useAction(api.stripeConnect.getStripeOnboardingUrl);
   const refreshAccountStatus = useMutation(api.stripeConnect.refreshAccountStatus);
   const disconnectStripe = useMutation(api.stripeConnect.disconnectStripeConnect);
+  const handleOAuthCallbackMutation = useMutation(api.stripeConnect.handleOAuthCallback);
 
   // Get Stripe Connect config from payment providers
   const stripeProvider = organization?.paymentProviders?.find(
@@ -42,32 +43,52 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
   const onboardingCompleted = stripeProvider?.metadata?.onboardingCompleted ?? false;
   const testMode = stripeProvider?.isTestMode ?? false; // Show actual mode
 
-  // Auto-refresh status after returning from Stripe onboarding
+  // Handle OAuth callback from Stripe
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const shouldRefresh = urlParams.get('openWindow') === 'payments' && urlParams.get('tab') === 'stripe';
+    const code = urlParams.get('code'); // OAuth authorization code
+    const state = urlParams.get('state'); // Organization ID (CSRF protection)
 
-    if (shouldRefresh && stripeConnectId && sessionId) {
-      // Small delay to ensure webhook has processed
-      const timer = setTimeout(() => {
-        refreshAccountStatus({
-          sessionId,
-          organizationId,
-        }).catch(err => console.error('Failed to auto-refresh status:', err));
-      }, 2000);
+    // Handle OAuth callback (detected by presence of code and state params)
+    if (code && state && sessionId) {
+      console.log('Processing Stripe OAuth callback...');
 
-      return () => clearTimeout(timer);
+      // Complete OAuth connection
+      handleOAuthCallbackMutation({
+        sessionId,
+        organizationId: state as Id<"organizations">,
+        code,
+        state,
+        isTestMode: selectedMode === "test", // Use selected mode
+      }).then(() => {
+        console.log('OAuth callback processed successfully');
+        // Clean up URL parameters and show success
+        window.history.replaceState({}, '', window.location.pathname);
+
+        // Refresh status after a delay to show the connected account
+        setTimeout(() => {
+          refreshAccountStatus({
+            sessionId,
+            organizationId,
+          }).catch(err => console.error('Failed to refresh after OAuth:', err));
+        }, 2000);
+      }).catch(err => {
+        console.error('Failed to process OAuth callback:', err);
+        alert('Failed to connect Stripe account. Please try again.');
+      });
+
+      return;
     }
-  }, [stripeConnectId, sessionId, organizationId, refreshAccountStatus]);
+  }, [sessionId, organizationId, selectedMode, refreshAccountStatus, handleOAuthCallbackMutation]);
 
   const handleStartOnboarding = async () => {
     if (!sessionId) return;
 
     setIsOnboarding(true);
     try {
-      // Create return URL that will reopen the Payments window
-      const returnUrl = `${window.location.origin}?openWindow=payments&tab=stripe`;
-      const refreshUrl = window.location.href;
+      // OAuth redirect URI with openWindow parameter to restore the window after OAuth
+      const returnUrl = `${window.location.origin}?openWindow=payments`;
+      const refreshUrl = `${window.location.origin}?openWindow=payments`;
 
       const isTestMode = selectedMode === "test";
 
@@ -341,11 +362,18 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
             color: "var(--win95-text)",
           }}
         >
-          <p className="font-semibold mb-1">Note:</p>
-          <p>
-            You&apos;ll be redirected to Stripe to complete the onboarding process. You&apos;ll need to provide your
-            business information, bank account details, and tax information.
-          </p>
+          <p className="font-semibold mb-1">Connect Your Stripe Account:</p>
+          <ul className="list-disc list-inside space-y-1 mt-2">
+            <li>
+              <strong>Already have Stripe?</strong> You&apos;ll be able to sign in with your existing account
+            </li>
+            <li>
+              <strong>New to Stripe?</strong> You can create an account during the connection process
+            </li>
+            <li>
+              Have ready: business information, bank details, and tax ID
+            </li>
+          </ul>
         </div>
       </div>
     );

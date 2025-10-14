@@ -384,8 +384,95 @@ export const validateSession = internalQuery({
 });
 
 /**
+ * HANDLE OAUTH CALLBACK
+ * Completes the OAuth flow by exchanging authorization code for account ID
+ */
+export const handleOAuthCallback = mutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    code: v.string(), // Authorization code from Stripe OAuth
+    state: v.string(), // State parameter for CSRF protection
+    isTestMode: v.boolean(),
+  },
+  handler: async (ctx, { sessionId, organizationId, code, state, isTestMode }) => {
+    const session = await ctx.db
+      .query("sessions")
+      .filter((q) => q.eq(q.field("_id"), sessionId))
+      .first();
+
+    if (!session) throw new Error("Invalid session");
+
+    // Verify state matches organizationId for CSRF protection
+    if (state !== organizationId) {
+      throw new Error("Invalid state parameter - possible CSRF attack");
+    }
+
+    // Schedule action to complete OAuth and get account ID
+    await ctx.scheduler.runAfter(
+      0,
+      internal.stripeConnect.completeOAuthConnection,
+      {
+        organizationId,
+        code,
+        isTestMode,
+      }
+    );
+
+    return { success: true };
+  },
+});
+
+/**
+ * COMPLETE OAUTH CONNECTION (Internal Action)
+ * Exchanges OAuth code for account ID and stores in database
+ */
+export const completeOAuthConnection = internalAction({
+  args: {
+    organizationId: v.id("organizations"),
+    code: v.string(),
+    isTestMode: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    // Get Stripe provider
+    const provider = getProviderByCode("stripe-connect");
+
+    // Check if provider supports OAuth
+    if (!provider.completeOAuthConnection) {
+      throw new Error("Provider does not support OAuth connection");
+    }
+
+    // Exchange authorization code for account ID
+    const result = await provider.completeOAuthConnection(args.code);
+
+    // Get account status
+    const accountStatus = await provider.getAccountStatus(result.accountId);
+
+    // Save to database
+    await ctx.runMutation(
+      internal.stripeConnect.updateStripeConnectAccountInternal,
+      {
+        organizationId: args.organizationId,
+        stripeAccountId: result.accountId,
+        accountStatus: accountStatus.status,
+        chargesEnabled: accountStatus.chargesEnabled,
+        payoutsEnabled: accountStatus.payoutsEnabled,
+        onboardingCompleted: accountStatus.onboardingCompleted,
+        isTestMode: args.isTestMode,
+      }
+    );
+
+    console.log(
+      `Completed OAuth connection for org ${args.organizationId}: ${result.accountId}`
+    );
+
+    return { success: true, accountId: result.accountId };
+  },
+});
+
+/**
  * CREATE STRIPE ACCOUNT LINK (Using Provider)
- * Uses the StripeConnectProvider to create account and onboarding link
+ * Uses the StripeConnectProvider OAuth flow
  */
 export const createStripeAccountLink = internalAction({
   args: {
@@ -418,7 +505,7 @@ export const createStripeAccountLink = internalAction({
       // (Provider will handle this internally)
     }
 
-    // Start account connection using provider
+    // Start OAuth flow using provider
     const result = await provider.startAccountConnection({
       organizationId: args.organizationId,
       organizationName: org.name,
@@ -427,22 +514,11 @@ export const createStripeAccountLink = internalAction({
       refreshUrl: args.refreshUrl,
     });
 
-    // Save account ID to database
-    await ctx.runMutation(
-      internal.stripeConnect.updateStripeConnectAccountInternal,
-      {
-        organizationId: args.organizationId,
-        stripeAccountId: result.accountId,
-        accountStatus: result.status,
-        chargesEnabled: false,
-        payoutsEnabled: false,
-        onboardingCompleted: !result.requiresOnboarding,
-        isTestMode: args.isTestMode, // Pass organization's preference
-      }
-    );
+    // Note: Account ID will be saved after OAuth callback completes
+    // For now, just return the OAuth URL
 
     console.log(
-      `Created Connected Account ${result.accountId} for org ${args.organizationId}`
+      `Started OAuth connection for org ${args.organizationId}`
     );
 
     return { url: result.onboardingUrl || "" };

@@ -67,14 +67,28 @@ export interface IPaymentProvider {
   /**
    * Start account connection/onboarding process
    *
-   * For Stripe: Creates Connect account + onboarding link
+   * For Stripe: OAuth flow (supports existing accounts)
    * For PayPal: OAuth flow
    * For Manual: Just saves bank details
    *
    * @param params - Connection parameters
-   * @returns Connection result with onboarding URL (if needed)
+   * @returns Connection result with onboarding/OAuth URL (if needed)
    */
   startAccountConnection(params: ConnectionParams): Promise<ConnectionResult>;
+
+  /**
+   * Complete OAuth connection (optional - for OAuth-based providers)
+   *
+   * Exchanges OAuth authorization code for account details.
+   * Only needed for providers that use OAuth (Stripe, PayPal).
+   *
+   * @param authorizationCode - OAuth authorization code from callback
+   * @returns Account ID and connection details
+   */
+  completeOAuthConnection?(authorizationCode: string): Promise<{
+    accountId: string;
+    livemode: boolean;
+  }>;
 
   /**
    * Get current account status

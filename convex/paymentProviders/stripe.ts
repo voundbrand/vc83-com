@@ -105,59 +105,94 @@ export class StripeConnectProvider implements IPaymentProvider {
   // =========================================
 
   /**
-   * Start Stripe Connect account connection
+   * Start Stripe Connect account connection using OAuth
    *
-   * Creates a Standard Connect account and generates onboarding link.
-   * The user will be redirected to Stripe to complete onboarding.
+   * Uses OAuth flow which supports BOTH:
+   * - Connecting existing Stripe accounts (user signs in)
+   * - Creating new Stripe accounts (user creates one during OAuth)
    *
    * @param params - Connection parameters
-   * @returns Connection result with onboarding URL
+   * @returns Connection result with OAuth URL
    */
   async startAccountConnection(
     params: ConnectionParams
   ): Promise<ConnectionResult> {
     try {
-      // Create Stripe Connected Account
-      const accountParams: Stripe.AccountCreateParams = {
-        type: "standard", // Standard = user has full control
-        business_profile: {
-          name: params.organizationName,
-        },
-        metadata: {
-          organizationId: params.organizationId,
-          platform: "L4YERCAK3",
-          ...params.metadata,
-        },
-      };
-
-      // Only include email if it's provided and valid
-      if (params.organizationEmail && params.organizationEmail.includes('@')) {
-        accountParams.email = params.organizationEmail;
+      // Get Stripe Client ID from environment
+      const clientId = process.env.STRIPE_CLIENT_ID;
+      if (!clientId) {
+        throw new Error("STRIPE_CLIENT_ID is not configured");
       }
 
-      const account = await this.stripe.accounts.create(accountParams);
-
-      // Create onboarding link
-      const accountLink = await this.stripe.accountLinks.create({
-        account: account.id,
-        refresh_url: params.refreshUrl,
-        return_url: params.returnUrl,
-        type: "account_onboarding",
+      // Build OAuth authorization URL
+      const oauthParams = new URLSearchParams({
+        response_type: "code",
+        client_id: clientId,
+        scope: "read_write",
+        redirect_uri: params.returnUrl,
+        state: params.organizationId, // Use org ID as state for CSRF protection
       });
 
+      // Add user email if provided (helps pre-fill form)
+      if (params.organizationEmail && params.organizationEmail.includes('@')) {
+        oauthParams.append("stripe_user[email]", params.organizationEmail);
+      }
+
+      // Add business name if provided
+      if (params.organizationName) {
+        oauthParams.append("stripe_user[business_name]", params.organizationName);
+      }
+
+      const oauthUrl = `https://connect.stripe.com/oauth/authorize?${oauthParams.toString()}`;
+
       return {
-        accountId: account.id,
-        onboardingUrl: accountLink.url,
+        accountId: "", // Will be set after OAuth callback
+        onboardingUrl: oauthUrl,
         status: "pending",
         requiresOnboarding: true,
         metadata: {
-          created: account.created,
-          country: account.country,
+          method: "oauth",
+          organizationId: params.organizationId,
         },
       };
     } catch (error) {
       throw new AccountConnectionError(
-        `Failed to create Stripe Connect account: ${error instanceof Error ? error.message : "Unknown error"}`,
+        `Failed to start Stripe OAuth connection: ${error instanceof Error ? error.message : "Unknown error"}`,
+        this.providerCode,
+        error instanceof Stripe.errors.StripeError ? error.code : undefined,
+        { originalError: error }
+      );
+    }
+  }
+
+  /**
+   * Complete OAuth connection by exchanging authorization code for account ID
+   *
+   * @param authorizationCode - Code from OAuth callback
+   * @returns Account ID and connection details
+   */
+  async completeOAuthConnection(authorizationCode: string): Promise<{
+    accountId: string;
+    livemode: boolean;
+  }> {
+    try {
+      // Exchange authorization code for access token
+      const response = await this.stripe.oauth.token({
+        grant_type: "authorization_code",
+        code: authorizationCode,
+      });
+
+      if (!response.stripe_user_id) {
+        throw new Error("No account ID returned from Stripe OAuth");
+      }
+
+      return {
+        accountId: response.stripe_user_id,
+        livemode: response.livemode ?? false,
+      };
+    } catch (error) {
+      throw new AccountConnectionError(
+        `Failed to complete OAuth connection: ${error instanceof Error ? error.message : "Unknown error"}`,
         this.providerCode,
         error instanceof Stripe.errors.StripeError ? error.code : undefined,
         { originalError: error }
