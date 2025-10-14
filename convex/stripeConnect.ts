@@ -112,8 +112,9 @@ export const startOnboarding = mutation({
     organizationId: v.id("organizations"),
     returnUrl: v.string(),
     refreshUrl: v.string(),
+    isTestMode: v.optional(v.boolean()), // Organization's choice for test/live mode
   },
-  handler: async (ctx, { sessionId, organizationId, returnUrl, refreshUrl }) => {
+  handler: async (ctx, { sessionId, organizationId, returnUrl, refreshUrl, isTestMode = false }) => {
     const session = await ctx.db
       .query("sessions")
       .filter((q) => q.eq(q.field("_id"), sessionId))
@@ -138,6 +139,7 @@ export const startOnboarding = mutation({
         organizationId,
         returnUrl,
         refreshUrl,
+        isTestMode,
       }
     );
 
@@ -162,18 +164,15 @@ export const updateStripeConnectAccount = mutation({
     chargesEnabled: v.boolean(),
     payoutsEnabled: v.boolean(),
     onboardingCompleted: v.boolean(),
+    isTestMode: v.boolean(), // Organization's choice for test/live mode
   },
   handler: async (ctx, args) => {
-    // Detect test mode from Stripe API key used (stored in environment)
-    const stripeSecretKey = process.env.STRIPE_SECRET_KEY || "";
-    const isTestMode = stripeSecretKey.startsWith("sk_test_");
-
     await updateOrgProviderConfig(ctx, args.organizationId, {
       providerCode: "stripe-connect",
       accountId: args.stripeAccountId,
       status: args.accountStatus,
       isDefault: true, // Stripe is default if it's the only one
-      isTestMode, // Detect from environment's Stripe key
+      isTestMode: args.isTestMode, // Use organization's preference
       connectedAt: Date.now(),
       lastStatusCheck: Date.now(),
       metadata: {
@@ -204,18 +203,15 @@ export const updateStripeConnectAccountInternal = internalMutation({
     chargesEnabled: v.boolean(),
     payoutsEnabled: v.boolean(),
     onboardingCompleted: v.boolean(),
+    isTestMode: v.boolean(), // Organization's choice for test/live mode
   },
   handler: async (ctx, args) => {
-    // Detect test mode from Stripe API key
-    const stripeSecretKey = process.env.STRIPE_SECRET_KEY || "";
-    const isTestMode = stripeSecretKey.startsWith("sk_test_");
-
     await updateOrgProviderConfig(ctx, args.organizationId, {
       providerCode: "stripe-connect",
       accountId: args.stripeAccountId,
       status: args.accountStatus,
       isDefault: true,
-      isTestMode,
+      isTestMode: args.isTestMode, // Use organization's preference
       connectedAt: Date.now(),
       lastStatusCheck: Date.now(),
       metadata: {
@@ -344,6 +340,7 @@ export const getStripeOnboardingUrl = action({
     organizationId: v.id("organizations"),
     returnUrl: v.string(),
     refreshUrl: v.string(),
+    isTestMode: v.optional(v.boolean()), // Organization's choice for test/live mode
   },
   handler: async (ctx, args): Promise<{ url: string }> => {
     // Validate session
@@ -363,6 +360,7 @@ export const getStripeOnboardingUrl = action({
         organizationId: args.organizationId,
         returnUrl: args.returnUrl,
         refreshUrl: args.refreshUrl,
+        isTestMode: args.isTestMode ?? false, // Default to live mode (false)
       }
     );
 
@@ -394,6 +392,7 @@ export const createStripeAccountLink = internalAction({
     organizationId: v.id("organizations"),
     returnUrl: v.string(),
     refreshUrl: v.string(),
+    isTestMode: v.boolean(), // Organization's choice for test/live mode
   },
   handler: async (ctx, args) => {
     // Get organization
@@ -438,6 +437,7 @@ export const createStripeAccountLink = internalAction({
         chargesEnabled: false,
         payoutsEnabled: false,
         onboardingCompleted: !result.requiresOnboarding,
+        isTestMode: args.isTestMode, // Pass organization's preference
       }
     );
 
@@ -459,6 +459,20 @@ export const refreshAccountStatusFromStripe = internalAction({
     accountId: v.string(),
   },
   handler: async (ctx, { organizationId, accountId }) => {
+    // Get organization to preserve isTestMode
+    const org = await ctx.runQuery(
+      internal.stripeConnect.getOrganizationInternal,
+      { organizationId }
+    );
+
+    if (!org) {
+      throw new Error("Organization not found");
+    }
+
+    // Get existing config to preserve isTestMode setting
+    const existingProvider = org.paymentProviders?.find(p => p.providerCode === "stripe-connect");
+    const isTestMode = existingProvider?.isTestMode ?? false;
+
     // Get Stripe provider
     const provider = getProviderByCode("stripe-connect");
 
@@ -475,6 +489,7 @@ export const refreshAccountStatusFromStripe = internalAction({
         chargesEnabled: status.chargesEnabled,
         payoutsEnabled: status.payoutsEnabled,
         onboardingCompleted: status.onboardingCompleted,
+        isTestMode, // Preserve organization's mode preference
       }
     );
 

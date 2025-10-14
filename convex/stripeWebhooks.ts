@@ -66,6 +66,10 @@ export const processWebhook = internalAction({
         );
 
         if (org) {
+          // Get existing config to preserve isTestMode setting
+          const existingProvider = org.paymentProviders?.find(p => p.providerCode === "stripe-connect");
+          const isTestMode = existingProvider?.isTestMode ?? false;
+
           await ctx.runMutation(
             internal.stripeConnect.updateStripeConnectAccountInternal,
             {
@@ -75,6 +79,7 @@ export const processWebhook = internalAction({
               chargesEnabled: status === "active",
               payoutsEnabled: status === "active",
               onboardingCompleted: status === "active",
+              isTestMode, // Preserve organization's mode preference
             }
           );
         }

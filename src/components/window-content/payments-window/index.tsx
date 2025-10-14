@@ -160,8 +160,12 @@ export function PaymentsWindow() {
           <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
             Powered by Stripe Connect
           </p>
-          <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-            Mode: Test
+          <p className="text-xs font-semibold" style={{
+            color: organization?.paymentProviders?.find((p) => p.providerCode === "stripe-connect")?.isTestMode
+              ? "var(--warning)"
+              : "var(--success)"
+          }}>
+            Mode: {organization?.paymentProviders?.find((p) => p.providerCode === "stripe-connect")?.isTestMode ? "Test" : "Live"}
           </p>
         </div>
       </div>

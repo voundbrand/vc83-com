@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
@@ -14,6 +14,7 @@ import {
   CreditCard,
   DollarSign,
   Zap,
+  RotateCw,
 } from "lucide-react";
 
 interface StripeConnectSectionProps {
@@ -25,6 +26,7 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
   const { sessionId } = useAuth();
   const [isOnboarding, setIsOnboarding] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [selectedMode, setSelectedMode] = useState<"test" | "live">("live"); // Default to live mode
   const startOnboarding = useMutation(api.stripeConnect.startOnboarding);
   const getOnboardingUrl = useAction(api.stripeConnect.getStripeOnboardingUrl);
   const refreshAccountStatus = useMutation(api.stripeConnect.refreshAccountStatus);
@@ -38,7 +40,25 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
   const stripeConnectId = stripeProvider?.accountId;
   const accountStatus = stripeProvider?.status;
   const onboardingCompleted = stripeProvider?.metadata?.onboardingCompleted ?? false;
-  const testMode = stripeProvider?.isTestMode ?? true; // Default to test mode for safety
+  const testMode = stripeProvider?.isTestMode ?? false; // Show actual mode
+
+  // Auto-refresh status after returning from Stripe onboarding
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const shouldRefresh = urlParams.get('openWindow') === 'payments' && urlParams.get('tab') === 'stripe';
+
+    if (shouldRefresh && stripeConnectId && sessionId) {
+      // Small delay to ensure webhook has processed
+      const timer = setTimeout(() => {
+        refreshAccountStatus({
+          sessionId,
+          organizationId,
+        }).catch(err => console.error('Failed to auto-refresh status:', err));
+      }, 2000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [stripeConnectId, sessionId, organizationId, refreshAccountStatus]);
 
   const handleStartOnboarding = async () => {
     if (!sessionId) return;
@@ -49,12 +69,15 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
       const returnUrl = `${window.location.origin}?openWindow=payments&tab=stripe`;
       const refreshUrl = window.location.href;
 
+      const isTestMode = selectedMode === "test";
+
       // Step 1: Create the Stripe account
       await startOnboarding({
         sessionId,
         organizationId,
         refreshUrl,
         returnUrl,
+        isTestMode, // Pass organization's mode preference
       });
 
       // Step 2: Wait for account creation, then get the onboarding URL
@@ -66,6 +89,7 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
         organizationId,
         refreshUrl,
         returnUrl,
+        isTestMode, // Pass organization's mode preference
       });
 
       if (result.url) {
@@ -209,6 +233,75 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
           </div>
         </div>
 
+        {/* Mode Selection */}
+        <div
+          className="p-4 border-2"
+          style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        >
+          <h4 className="font-bold text-sm mb-3" style={{ color: "var(--win95-text)" }}>
+            Choose Connection Mode
+          </h4>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setSelectedMode("live")}
+              className="flex-1 p-3 border-2 text-left transition-all"
+              style={{
+                borderColor: selectedMode === "live" ? "var(--primary)" : "var(--win95-border)",
+                background: selectedMode === "live" ? "var(--primary-light)" : "var(--win95-bg)",
+                borderTopColor: selectedMode === "live" ? "var(--primary)" : "var(--win95-button-dark)",
+                borderLeftColor: selectedMode === "live" ? "var(--primary)" : "var(--win95-button-dark)",
+                borderBottomColor: selectedMode === "live" ? "var(--primary)" : "var(--win95-button-light)",
+                borderRightColor: selectedMode === "live" ? "var(--primary)" : "var(--win95-button-light)",
+              }}
+            >
+              <div className="flex items-start gap-2">
+                <CheckCircle2
+                  size={16}
+                  style={{ color: selectedMode === "live" ? "var(--success)" : "var(--neutral-gray)" }}
+                  className="mt-0.5"
+                />
+                <div className="flex-1">
+                  <p className="font-bold text-xs mb-1" style={{ color: "var(--win95-text)" }}>
+                    Live Mode (Recommended)
+                  </p>
+                  <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                    Process real payments and accept money from customers
+                  </p>
+                </div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => setSelectedMode("test")}
+              className="flex-1 p-3 border-2 text-left transition-all"
+              style={{
+                borderColor: selectedMode === "test" ? "var(--warning)" : "var(--win95-border)",
+                background: selectedMode === "test" ? "var(--warning-light)" : "var(--win95-bg)",
+                borderTopColor: selectedMode === "test" ? "var(--warning)" : "var(--win95-button-dark)",
+                borderLeftColor: selectedMode === "test" ? "var(--warning)" : "var(--win95-button-dark)",
+                borderBottomColor: selectedMode === "test" ? "var(--warning)" : "var(--win95-button-light)",
+                borderRightColor: selectedMode === "test" ? "var(--warning)" : "var(--win95-button-light)",
+              }}
+            >
+              <div className="flex items-start gap-2">
+                <RotateCw
+                  size={16}
+                  style={{ color: selectedMode === "test" ? "var(--warning)" : "var(--neutral-gray)" }}
+                  className="mt-0.5"
+                />
+                <div className="flex-1">
+                  <p className="font-bold text-xs mb-1" style={{ color: "var(--win95-text)" }}>
+                    Test Mode
+                  </p>
+                  <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                    Test your checkout flow with Stripe test cards
+                  </p>
+                </div>
+              </div>
+            </button>
+          </div>
+        </div>
+
         {/* CTA */}
         <div className="flex justify-center pt-4">
           <button
@@ -233,7 +326,7 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
             ) : (
               <>
                 <ExternalLink size={16} />
-                Connect Stripe Account
+                Connect Stripe Account ({selectedMode === "test" ? "Test" : "Live"} Mode)
               </>
             )}
           </button>
