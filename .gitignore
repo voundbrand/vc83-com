@@ -43,5 +43,8 @@ next-env.d.ts
 # kiro directory (AI agent working files)
 .kiro/
 
+# kiro projects for reference (large files, local only)
+.kiro/projects_for_reference/
+
 # clerk configuration (can include secrets)
 /.clerk/

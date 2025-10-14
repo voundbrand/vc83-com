@@ -1,12 +1,17 @@
 import { internalAction } from "./_generated/server";
 import { v } from "convex/values";
 import { Resend } from "resend";
+import {
+  getNewUserInvitationText,
+  getExistingUserInvitationText,
+  getPasswordResetText,
+} from "./emailService_plain_text";
 
 // Initialize Resend client (will be created in the action)
 const createResendClient = () => {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
-    throw new Error("RESEND_API_KEY is not configured");
+    throw new Error("RESEND_API_KEY ist nicht konfiguriert");
   }
   return new Resend(apiKey);
 };
@@ -24,27 +29,39 @@ export const sendInvitationEmail = internalAction({
   },
   handler: async (ctx, args) => {
     const resend = createResendClient();
-    const fromEmail = process.env.RESEND_FROM_EMAIL || "noreply@l4yercak3.com";
+    // AUTH_RESEND_FROM should already be in the format "Name <email@domain.com>" or "email@domain.com"
+    // Use 'team' or 'support' instead of 'noreply' for better deliverability
+    const fromEmail = process.env.AUTH_RESEND_FROM || "L4YERCAK3 <team@mail.l4yercak3.com>";
 
     const subject = args.isNewUser
-      ? `You're invited to join ${args.organizationName} on L4YERCAK3`
-      : `You've been added to ${args.organizationName} on L4YERCAK3`;
+      ? `Du wurdest zu ${args.organizationName} auf L4YERCAK3 eingeladen`
+      : `Du wurdest zu ${args.organizationName} hinzugefügt`;
 
     const html = args.isNewUser
       ? getNewUserInvitationEmail(args)
       : getExistingUserInvitationEmail(args);
 
+    // Generate plain text version for better deliverability
+    const text = args.isNewUser
+      ? getNewUserInvitationText(args)
+      : getExistingUserInvitationText(args);
+
     try {
       const { data, error } = await resend.emails.send({
-        from: `L4YERCAK3 <${fromEmail}>`,
+        from: fromEmail, // Use the value directly, don't wrap it again
+        replyTo: "team@mail.l4yercak3.com", // Allow users to reply (better deliverability)
         to: args.to,
         subject,
         html,
+        text, // Include plain text version to avoid spam filters
+        headers: {
+          'X-Entity-Ref-ID': `invite-${Date.now()}`, // Add tracking header
+        },
       });
 
       if (error) {
         console.error("Failed to send invitation email:", error);
-        throw new Error(`Failed to send email: ${error.message}`);
+        throw new Error(`E-Mail konnte nicht gesendet werden: ${error.message}`);
       }
 
       console.log("Invitation email sent successfully:", data);
@@ -67,24 +84,36 @@ export const sendPasswordResetEmail = internalAction({
   },
   handler: async (ctx, args) => {
     const resend = createResendClient();
-    const fromEmail = process.env.RESEND_FROM_EMAIL || "noreply@l4yercak3.com";
+    // AUTH_RESEND_FROM should already be in the format "Name <email@domain.com>" or "email@domain.com"
+    // Use 'team' or 'support' instead of 'noreply' for better deliverability
+    const fromEmail = process.env.AUTH_RESEND_FROM || "L4YERCAK3 <team@mail.l4yercak3.com>";
 
     const html = getPasswordResetEmail({
       userName: args.userName,
       resetLink: args.resetLink,
     });
 
+    const text = getPasswordResetText({
+      userName: args.userName,
+      resetLink: args.resetLink,
+    });
+
     try {
       const { data, error } = await resend.emails.send({
-        from: `L4YERCAK3 <${fromEmail}>`,
+        from: fromEmail, // Use the value directly, don't wrap it again
+        replyTo: "team@mail.l4yercak3.com", // Allow users to reply (better deliverability)
         to: args.to,
         subject: "Reset your L4YERCAK3 password",
         html,
+        text, // Include plain text version to avoid spam filters
+        headers: {
+          'X-Entity-Ref-ID': `reset-${Date.now()}`, // Add tracking header
+        },
       });
 
       if (error) {
         console.error("Failed to send password reset email:", error);
-        throw new Error(`Failed to send email: ${error.message}`);
+        throw new Error(`E-Mail konnte nicht gesendet werden: ${error.message}`);
       }
 
       console.log("Password reset email sent successfully:", data);
@@ -104,6 +133,7 @@ export const sendPasswordResetEmail = internalAction({
  * Email template for new user invitations
  */
 function getNewUserInvitationEmail(args: {
+  to: string;
   organizationName: string;
   inviterName: string;
   setupLink: string;
@@ -115,7 +145,8 @@ function getNewUserInvitationEmail(args: {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+    /* Removed Google Fonts import for better email deliverability */
+    /* Using system fonts only to avoid external resource loading */
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -142,7 +173,7 @@ function getNewUserInvitationEmail(args: {
     }
 
     .header h1 {
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Courier New', Courier, monospace; /* Changed from Press Start 2P to avoid external fonts */
       font-size: 20px;
       color: #FFFFFF;
       margin: 0;
@@ -236,29 +267,33 @@ function getNewUserInvitationEmail(args: {
     </div>
 
     <div class="content">
-      <div class="greeting">Welcome to L4YERCAK3! 🎉</div>
+      <div class="greeting">Willkommen bei L4YERCAK3! 🎉</div>
 
       <div class="message">
-        <p><strong>${args.inviterName}</strong> has invited you to join <strong>${args.organizationName}</strong> on L4YERCAK3.</p>
+        <p><strong>${args.inviterName}</strong> hat dich zu <strong>${args.organizationName}</strong> auf L4YERCAK3 eingeladen.</p>
 
-        <p>L4YERCAK3 is a retro desktop-style workflow tool where you can layer on marketing superpowers: invoicing that syncs with your CRM, analytics that visualize your funnels, scheduling that automates your workflows—all in one cozy workspace.</p>
+        <p>L4YERCAK3 (ausgesprochen "Layer Cake") ist eine B2B-Workflow-Plattform, die Unternehmen hilft, ihre Abläufe zu optimieren. Wir bringen alle digitalen Tools zusammen, die dein Unternehmen braucht—CRM, E-Mail-Workflows, Rechnungsstellung, Projektmanagement, Formular-Builder und mehr—in einem integrierten Arbeitsbereich mit KI-gestützter Automatisierung.</p>
 
-        <p>To get started, you'll need to set up your password and complete your profile.</p>
+        <p>Jedes Tool ist eine "Schicht", die nahtlos mit den anderen zusammenarbeitet, sodass deine Kundendaten zwischen deinem CRM, Rechnungen, E-Mail-Kampagnen und Projekten fließen. Kein Wechseln mehr zwischen Dutzenden separater Tools.</p>
+
+        <p><strong>So fängst du an:</strong></p>
+        <ol style="margin-left: 20px;">
+          <li>Besuche <a href="${args.setupLink}" style="color: #6B46C1;">${args.setupLink}</a></li>
+          <li>Klicke auf das Startmenü und öffne das Login-Fenster</li>
+          <li>Gib diese E-Mail-Adresse ein: <strong>${args.to}</strong></li>
+          <li>Erstelle dein Passwort</li>
+          <li>Leg los!</li>
+        </ol>
       </div>
 
       <div class="button-wrapper">
-        <a href="${args.setupLink}" class="button">Set Up Your Account</a>
-      </div>
-
-      <div class="link-fallback">
-        <div class="link-fallback-label">Or copy and paste this link into your browser:</div>
-        <div class="link-fallback-url">${args.setupLink}</div>
+        <a href="${args.setupLink}" class="button">L4YERCAK3 besuchen</a>
       </div>
 
       <div class="divider"></div>
 
       <div class="message">
-        <p>This invitation link will expire in 7 days. If you have any questions, please contact your organization administrator.</p>
+        <p>Fragen? Kontaktiere deinen Organisationsadministrator.</p>
       </div>
     </div>
 
@@ -289,7 +324,8 @@ function getExistingUserInvitationEmail(args: {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+    /* Removed Google Fonts import for better email deliverability */
+    /* Using system fonts only to avoid external resource loading */
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -316,7 +352,7 @@ function getExistingUserInvitationEmail(args: {
     }
 
     .header h1 {
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Courier New', Courier, monospace; /* Changed from Press Start 2P to avoid external fonts */
       font-size: 20px;
       color: #FFFFFF;
       margin: 0;
@@ -384,16 +420,18 @@ function getExistingUserInvitationEmail(args: {
     </div>
 
     <div class="content">
-      <div class="greeting">You've been added to a new organization! 🎯</div>
+      <div class="greeting">Du bist jetzt in einer neuen Organisation! 🎯</div>
 
       <div class="message">
-        <p><strong>${args.inviterName}</strong> has added you to <strong>${args.organizationName}</strong> on L4YERCAK3.</p>
+        <p><strong>${args.inviterName}</strong> hat dich zu <strong>${args.organizationName}</strong> auf L4YERCAK3 hinzugefügt.</p>
 
-        <p>You can now access this organization's workspace with all its apps and data. Sign in with your existing account to get started.</p>
+        <p>Du kannst jetzt auf den Arbeitsbereich dieser Organisation mit allen Apps und Daten zugreifen—CRM-Kontakte, Projekte, Rechnungen, E-Mail-Kampagnen und mehr. Alles ist bereit für dich.</p>
+
+        <p>Melde dich mit deinem bestehenden Konto an, um loszulegen.</p>
       </div>
 
       <div class="button-wrapper">
-        <a href="${args.setupLink}" class="button">Sign In to L4YERCAK3</a>
+        <a href="${args.setupLink}" class="button">Bei L4YERCAK3 anmelden</a>
       </div>
     </div>
 
@@ -425,7 +463,8 @@ function getPasswordResetEmail(args: {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+    /* Removed Google Fonts import for better email deliverability */
+    /* Using system fonts only to avoid external resource loading */
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -452,7 +491,7 @@ function getPasswordResetEmail(args: {
     }
 
     .header h1 {
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Courier New', Courier, monospace; /* Changed from Press Start 2P to avoid external fonts */
       font-size: 20px;
       color: #FFFFFF;
       margin: 0;

@@ -22,6 +22,7 @@ interface Organization {
   id: string;
   name: string;
   slug: string;
+  isActive: boolean;
   role: Role;
   permissions: Permission[];
   isOwner: boolean;
@@ -37,6 +38,7 @@ interface User {
   organizations: Organization[];
   currentOrganization?: Organization | null;
   defaultOrgId?: Id<"organizations"> | null;
+  scheduledDeletionDate?: number; // Timestamp for account deletion grace period
 }
 
 interface AuthContextType {
@@ -145,6 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     lastName: userQuery.lastName,
     isSuperAdmin: userQuery.isSuperAdmin,
     globalRole: userQuery.globalRole,
+    scheduledDeletionDate: userQuery.scheduledDeletionDate,
     // Filter out null organizations and ensure proper typing
     organizations: userQuery.organizations
       .filter((org): org is NonNullable<typeof org> => org !== null)
@@ -152,6 +155,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         id: org.id,
         name: org.name,
         slug: org.slug,
+        isActive: org.isActive,
         role: org.role,
         permissions: org.permissions
           .filter((p): p is NonNullable<typeof p> => p !== null)
@@ -167,6 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       id: userQuery.currentOrganization.id,
       name: userQuery.currentOrganization.name,
       slug: userQuery.currentOrganization.slug,
+      isActive: userQuery.currentOrganization.isActive,
       role: userQuery.currentOrganization.role,
       permissions: userQuery.currentOrganization.permissions
         .filter((p): p is NonNullable<typeof p> => p !== null)
@@ -309,4 +314,32 @@ export function useCurrentOrganization(): Organization | null {
 export function useOrganizations(): Organization[] {
   const { user } = useAuth();
   return user?.organizations || [];
+}
+
+// Account deletion status hook
+export function useAccountDeletionStatus(): {
+  isScheduledForDeletion: boolean;
+  deletionDate: Date | null;
+  daysRemaining: number | null;
+} {
+  const { user } = useAuth();
+
+  if (!user?.scheduledDeletionDate) {
+    return {
+      isScheduledForDeletion: false,
+      deletionDate: null,
+      daysRemaining: null,
+    };
+  }
+
+  const deletionDate = new Date(user.scheduledDeletionDate);
+  const now = Date.now();
+  const msRemaining = user.scheduledDeletionDate - now;
+  const daysRemaining = Math.ceil(msRemaining / (1000 * 60 * 60 * 24));
+
+  return {
+    isScheduledForDeletion: true,
+    deletionDate,
+    daysRemaining: daysRemaining > 0 ? daysRemaining : 0,
+  };
 }

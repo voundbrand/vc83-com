@@ -23,9 +23,10 @@ import {
   roles,
   permissions,
   rolePermissions,
-  userPreferences
+  userPreferences,
+  organizationMedia
 } from "./schemas/coreSchemas";
-import { apps, appInstallations, snapshots, snapshotLoads, purchases } from "./schemas/appStoreSchemas";
+import { apps, appInstallations, snapshots, snapshotLoads, purchases, appAvailabilities } from "./schemas/appStoreSchemas";
 // import { app_podcasting } from "./schemas/appDataSchemas"; // Not yet used
 import { auditLogs } from "./schemas/utilitySchemas";
 // ❌ OLD TRANSLATION SCHEMAS - Replaced by ontology
@@ -55,6 +56,7 @@ export default defineSchema({
   userPasswords,
   sessions,
   userPreferences,
+  organizationMedia,
 
   // 🔐 RBAC: Role-Based Access Control
   roles,
@@ -64,6 +66,7 @@ export default defineSchema({
   // 🏪 APP STORE: Marketplace functionality
   apps,
   appInstallations,
+  appAvailabilities,
   snapshots,
   snapshotLoads,
   purchases,

@@ -1,0 +1,679 @@
+Checking for new versions...
+
+A newer version of the Stripe CLI is available, please update to: v1.31.0
+Getting ready...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+2025-10-10 12:20:37   --> connect account.updated [evt_1SGdRBECcF6binZCFcZwZYWZ]
+2025-10-10 12:20:38  <--  [400] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGdRBECcF6binZCFcZwZYWZ]
+2025-10-10 12:20:40   --> connect account.application.authorized [evt_1SGdREECcF6binZCs1zCIQ0y]
+2025-10-10 12:20:40  <--  [400] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGdREECcF6binZCs1zCIQ0y]
+2025-10-10 12:21:39   --> connect account.updated [evt_1SGdSBECcF6binZC7RZfgrQb]
+2025-10-10 12:21:39  <--  [400] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGdSBECcF6binZC7RZfgrQb]
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+2025-10-10 15:31:27   --> connect account.application.authorized [evt_1SGgPqE6TisLE1RfDD1Bexzb]
+2025-10-10 15:31:27   --> connect account.updated [evt_1SGgPrE6TisLE1RfZQtUY91b]
+2025-10-10 15:31:27  <--  [400] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgPqE6TisLE1RfDD1Bexzb]
+2025-10-10 15:31:28  <--  [400] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgPrE6TisLE1RfZQtUY91b]
+2025-10-10 15:32:26   --> connect account.updated [evt_1SGgQoE6TisLE1Rfo2gQ2CN5]
+2025-10-10 15:32:26  <--  [400] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgQoE6TisLE1Rfo2gQ2CN5]
+2025-10-10 15:32:47   --> connect account.updated [evt_1SGgR8EDuJvkKKdU9OjbB96j]
+2025-10-10 15:32:47  <--  [400] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgR8EDuJvkKKdU9OjbB96j]
+2025-10-10 15:32:48   --> connect account.application.authorized [evt_1SGgR9EDuJvkKKdUh1tIrfzD]
+2025-10-10 15:32:48  <--  [400] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgR9EDuJvkKKdUh1tIrfzD]
+2025-10-10 15:33:46   --> connect account.updated [evt_1SGgS6EDuJvkKKdUYszv00mT]
+2025-10-10 15:33:46  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgS6EDuJvkKKdUYszv00mT]
+2025-10-10 15:34:47   --> connect account.updated [evt_1SGgT4EFqMeBww74tHWLNA8w]
+2025-10-10 15:34:47  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgT4EFqMeBww74tHWLNA8w]
+2025-10-10 15:34:47   --> connect account.application.authorized [evt_1SGgT5EFqMeBww74kYR4xDLF]
+2025-10-10 15:34:47  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgT5EFqMeBww74kYR4xDLF]
+2025-10-10 15:35:48   --> connect account.updated [evt_1SGgU4EFqMeBww74wVJq1ejt]
+2025-10-10 15:35:49  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgU4EFqMeBww74wVJq1ejt]
+2025-10-10 15:42:44   --> connect account.application.authorized [evt_1SGgalCZYVKpp1EiFvXHBEKa]
+2025-10-10 15:42:44  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgalCZYVKpp1EiFvXHBEKa]
+2025-10-10 15:43:43   --> connect account.updated [evt_1SGgbjCZYVKpp1EirleV37uo]
+2025-10-10 15:43:43  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgbjCZYVKpp1EirleV37uo]
+2025-10-10 16:03:52   --> connect account.updated [evt_1SGgvECZYVKpp1Ei2A3Y6m1m]
+2025-10-10 16:03:53  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvECZYVKpp1Ei2A3Y6m1m]
+2025-10-10 16:04:15   --> connect account.updated [evt_1SGgvbCZYVKpp1Ei4yY1KEox]
+2025-10-10 16:04:15   --> connect capability.updated [evt_1SGgvbCZYVKpp1EirMWvccO8]
+2025-10-10 16:04:15   --> connect capability.updated [evt_1SGgvbCZYVKpp1EinGi8VHVI]
+2025-10-10 16:04:15  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvbCZYVKpp1Ei4yY1KEox]
+2025-10-10 16:04:15   --> connect capability.updated [evt_1SGgvbCZYVKpp1EiUzarXBZ3]
+2025-10-10 16:04:15   --> connect capability.updated [evt_1SGgvbCZYVKpp1EizCPevGRn]
+2025-10-10 16:04:15   --> connect capability.updated [evt_1SGgvbCZYVKpp1EiucGlpM0i]
+2025-10-10 16:04:15   --> connect capability.updated [evt_1SGgvbCZYVKpp1EiZL6KfdO9]
+2025-10-10 16:04:15  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvbCZYVKpp1EirMWvccO8]
+2025-10-10 16:04:15  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvbCZYVKpp1EinGi8VHVI]
+2025-10-10 16:04:15   --> connect capability.updated [evt_1SGgvbCZYVKpp1EiAzFL1B7M]
+2025-10-10 16:04:15  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvbCZYVKpp1EiUzarXBZ3]
+2025-10-10 16:04:15   --> connect capability.updated [evt_1SGgvbCZYVKpp1EiRcOaDJ2j]
+2025-10-10 16:04:15  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvbCZYVKpp1EiucGlpM0i]
+2025-10-10 16:04:15  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvbCZYVKpp1EizCPevGRn]
+2025-10-10 16:04:16  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvbCZYVKpp1EiZL6KfdO9]
+2025-10-10 16:04:16  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvbCZYVKpp1EiAzFL1B7M]
+2025-10-10 16:04:16   --> connect capability.updated [evt_1SGgvbCZYVKpp1EioIG8AAmG]
+2025-10-10 16:04:16   --> connect capability.updated [evt_1SGgvbCZYVKpp1EihMBzTa2k]
+2025-10-10 16:04:16  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvbCZYVKpp1EiRcOaDJ2j]
+2025-10-10 16:04:16   --> connect capability.updated [evt_1SGgvbCZYVKpp1EiMCnFN15g]
+2025-10-10 16:04:16  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvbCZYVKpp1EioIG8AAmG]
+2025-10-10 16:04:16   --> connect capability.updated [evt_1SGgvcCZYVKpp1EiYIwz9HEX]
+2025-10-10 16:04:16  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvbCZYVKpp1EihMBzTa2k]
+2025-10-10 16:04:16   --> connect capability.updated [evt_1SGgvcCZYVKpp1EisepMHxrF]
+2025-10-10 16:04:16  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvbCZYVKpp1EiMCnFN15g]
+2025-10-10 16:04:16   --> connect capability.updated [evt_1SGgvcCZYVKpp1EiUqjGXwiT]
+2025-10-10 16:04:16  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvcCZYVKpp1EiYIwz9HEX]
+2025-10-10 16:04:16  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvcCZYVKpp1EisepMHxrF]
+2025-10-10 16:04:16  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvcCZYVKpp1EiUqjGXwiT]
+2025-10-10 16:04:19   --> connect account.updated [evt_1SGgvfCZYVKpp1EiF9Jta27m]
+2025-10-10 16:04:19   --> connect capability.updated [evt_1SGgvfCZYVKpp1EilRSlgTIu]
+2025-10-10 16:04:20   --> connect capability.updated [evt_1SGgvfCZYVKpp1Ei5ZWD9w4T]
+2025-10-10 16:04:20  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvfCZYVKpp1EilRSlgTIu]
+2025-10-10 16:04:20   --> connect capability.updated [evt_1SGgvfCZYVKpp1EihgG98KzI]
+2025-10-10 16:04:20   --> connect capability.updated [evt_1SGgvfCZYVKpp1EiCpDajDi6]
+2025-10-10 16:04:20   --> connect capability.updated [evt_1SGgvgCZYVKpp1EiqDuScLrL]
+2025-10-10 16:04:20   --> connect capability.updated [evt_1SGgvgCZYVKpp1EiVahIVm48]
+2025-10-10 16:04:20  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvfCZYVKpp1Ei5ZWD9w4T]
+2025-10-10 16:04:20   --> connect capability.updated [evt_1SGgvgCZYVKpp1Ei5N0kFF80]
+2025-10-10 16:04:20  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvfCZYVKpp1EihgG98KzI]
+2025-10-10 16:04:20   --> connect capability.updated [evt_1SGgvgCZYVKpp1EiYcUI9rq1]
+2025-10-10 16:04:20  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvfCZYVKpp1EiCpDajDi6]
+2025-10-10 16:04:20  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvgCZYVKpp1EiqDuScLrL]
+2025-10-10 16:04:20   --> connect capability.updated [evt_1SGgvgCZYVKpp1Ei0dnTC1Hc]
+2025-10-10 16:04:20  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvgCZYVKpp1EiVahIVm48]
+2025-10-10 16:04:20  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvgCZYVKpp1Ei5N0kFF80]
+2025-10-10 16:04:20   --> connect capability.updated [evt_1SGgvgCZYVKpp1Eij8S9jwik]
+2025-10-10 16:04:20  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvgCZYVKpp1EiYcUI9rq1]
+2025-10-10 16:04:20   --> connect capability.updated [evt_1SGgvgCZYVKpp1EiCy0TRnmw]
+2025-10-10 16:04:20  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvgCZYVKpp1Ei0dnTC1Hc]
+2025-10-10 16:04:20   --> connect capability.updated [evt_1SGgvgCZYVKpp1EiTUbao3iU]
+2025-10-10 16:04:20  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvgCZYVKpp1Eij8S9jwik]
+2025-10-10 16:04:20   --> connect capability.updated [evt_1SGgvgCZYVKpp1EihaE3TYQJ]
+2025-10-10 16:04:20  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvgCZYVKpp1EiCy0TRnmw]
+2025-10-10 16:04:20   --> connect capability.updated [evt_1SGgvgCZYVKpp1Eicp9yRtXc]
+2025-10-10 16:04:20  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvgCZYVKpp1EiTUbao3iU]
+2025-10-10 16:04:20  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvgCZYVKpp1EihaE3TYQJ]
+2025-10-10 16:04:21  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvgCZYVKpp1Eicp9yRtXc]
+2025-10-10 16:04:21  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvfCZYVKpp1EiF9Jta27m]
+2025-10-10 16:04:30   --> connect account.updated [evt_1SGgvqCZYVKpp1Ei9DrvkLMP]
+2025-10-10 16:04:30   --> connect capability.updated [evt_1SGgvqCZYVKpp1EiH8BKvZFj]
+2025-10-10 16:04:30   --> connect capability.updated [evt_1SGgvqCZYVKpp1Ei5oG65vSF]
+2025-10-10 16:04:30   --> connect capability.updated [evt_1SGgvqCZYVKpp1EiXDhcOeL1]
+2025-10-10 16:04:30  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvqCZYVKpp1Ei9DrvkLMP]
+2025-10-10 16:04:30  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvqCZYVKpp1EiH8BKvZFj]
+2025-10-10 16:04:30   --> connect capability.updated [evt_1SGgvqCZYVKpp1EihafNenpE]
+2025-10-10 16:04:30   --> connect capability.updated [evt_1SGgvqCZYVKpp1EildNMueys]
+2025-10-10 16:04:30  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvqCZYVKpp1EiXDhcOeL1]
+2025-10-10 16:04:30  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvqCZYVKpp1Ei5oG65vSF]
+2025-10-10 16:04:30   --> connect capability.updated [evt_1SGgvqCZYVKpp1EiIfggr2R6]
+2025-10-10 16:04:31   --> connect capability.updated [evt_1SGgvqCZYVKpp1EiwHcq7REC]
+2025-10-10 16:04:31  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvqCZYVKpp1EihafNenpE]
+2025-10-10 16:04:31  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvqCZYVKpp1EiIfggr2R6]
+2025-10-10 16:04:31   --> connect capability.updated [evt_1SGgvqCZYVKpp1EiJF9HNx7S]
+2025-10-10 16:04:31   --> connect capability.updated [evt_1SGgvqCZYVKpp1EikeOAYtFQ]
+2025-10-10 16:04:31  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvqCZYVKpp1EildNMueys]
+2025-10-10 16:04:31  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvqCZYVKpp1EiwHcq7REC]
+2025-10-10 16:04:31   --> connect capability.updated [evt_1SGgvrCZYVKpp1Eis34Z6fxZ]
+2025-10-10 16:04:31  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvqCZYVKpp1EiJF9HNx7S]
+2025-10-10 16:04:31  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvqCZYVKpp1EikeOAYtFQ]
+2025-10-10 16:04:31  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvrCZYVKpp1Eis34Z6fxZ]
+2025-10-10 16:04:31   --> connect capability.updated [evt_1SGgvrCZYVKpp1EiRtsVOiqK]
+2025-10-10 16:04:31   --> connect capability.updated [evt_1SGgvrCZYVKpp1EiIEr6P7eD]
+2025-10-10 16:04:31   --> connect capability.updated [evt_1SGgvrCZYVKpp1EioLuacPxq]
+2025-10-10 16:04:31   --> connect capability.updated [evt_1SGgvrCZYVKpp1EikiYGqS63]
+2025-10-10 16:04:31  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvrCZYVKpp1EiIEr6P7eD]
+2025-10-10 16:04:31  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvrCZYVKpp1EiRtsVOiqK]
+2025-10-10 16:04:31  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvrCZYVKpp1EikiYGqS63]
+2025-10-10 16:04:31  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvrCZYVKpp1EioLuacPxq]
+2025-10-10 16:04:38   --> connect account.updated [evt_1SGgvxCZYVKpp1Eiw2Q9UTjP]
+2025-10-10 16:04:38   --> connect capability.updated [evt_1SGgvxCZYVKpp1Ei0q5mcNcD]
+2025-10-10 16:04:38   --> connect capability.updated [evt_1SGgvyCZYVKpp1EiDFRBUOHF]
+2025-10-10 16:04:38  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvxCZYVKpp1Eiw2Q9UTjP]
+2025-10-10 16:04:38  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvxCZYVKpp1Ei0q5mcNcD]
+2025-10-10 16:04:38   --> connect capability.updated [evt_1SGgvyCZYVKpp1EibFukjMiX]
+2025-10-10 16:04:38   --> connect capability.updated [evt_1SGgvyCZYVKpp1EiYv9TStCv]
+2025-10-10 16:04:38   --> connect capability.updated [evt_1SGgvyCZYVKpp1EigwsThVZs]
+2025-10-10 16:04:38   --> connect capability.updated [evt_1SGgvyCZYVKpp1EiJQ3WFXKF]
+2025-10-10 16:04:38  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvyCZYVKpp1EibFukjMiX]
+2025-10-10 16:04:38  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvyCZYVKpp1EiDFRBUOHF]
+2025-10-10 16:04:38   --> connect capability.updated [evt_1SGgvyCZYVKpp1EiQ6qc7iY0]
+2025-10-10 16:04:38  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvyCZYVKpp1EiYv9TStCv]
+2025-10-10 16:04:38   --> connect capability.updated [evt_1SGgvyCZYVKpp1Ei8AK6WHw1]
+2025-10-10 16:04:38  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvyCZYVKpp1EigwsThVZs]
+2025-10-10 16:04:38  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvyCZYVKpp1EiJQ3WFXKF]
+2025-10-10 16:04:38   --> connect capability.updated [evt_1SGgvyCZYVKpp1EiHHbjFKTB]
+2025-10-10 16:04:38  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvyCZYVKpp1EiQ6qc7iY0]
+2025-10-10 16:04:38   --> connect capability.updated [evt_1SGgvyCZYVKpp1Eimni5Gb4q]
+2025-10-10 16:04:38  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvyCZYVKpp1Ei8AK6WHw1]
+2025-10-10 16:04:38   --> connect capability.updated [evt_1SGgvyCZYVKpp1EiSHMj0gj6]
+2025-10-10 16:04:38  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvyCZYVKpp1EiHHbjFKTB]
+2025-10-10 16:04:38   --> connect capability.updated [evt_1SGgvyCZYVKpp1EijQqeXj9i]
+2025-10-10 16:04:38  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvyCZYVKpp1Eimni5Gb4q]
+2025-10-10 16:04:39   --> connect capability.updated [evt_1SGgvyCZYVKpp1EiYHJwc4OX]
+2025-10-10 16:04:39  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvyCZYVKpp1EiSHMj0gj6]
+2025-10-10 16:04:39   --> connect capability.updated [evt_1SGgvyCZYVKpp1EiQcRjmEyt]
+2025-10-10 16:04:39  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvyCZYVKpp1EijQqeXj9i]
+2025-10-10 16:04:39  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvyCZYVKpp1EiYHJwc4OX]
+2025-10-10 16:04:39  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgvyCZYVKpp1EiQcRjmEyt]
+2025-10-10 16:04:45   --> connect account.updated [evt_1SGgw5CZYVKpp1EiiVUqLyev]
+2025-10-10 16:04:45   --> connect capability.updated [evt_1SGgw5CZYVKpp1EijGd6SePv]
+2025-10-10 16:04:45   --> connect capability.updated [evt_1SGgw5CZYVKpp1Eihwn2fxzs]
+2025-10-10 16:04:45   --> connect capability.updated [evt_1SGgw5CZYVKpp1EiBEFhHgw5]
+2025-10-10 16:04:45  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgw5CZYVKpp1EiiVUqLyev]
+2025-10-10 16:04:45  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgw5CZYVKpp1EijGd6SePv]
+2025-10-10 16:04:45   --> connect capability.updated [evt_1SGgw5CZYVKpp1Ei49e1yYhE]
+2025-10-10 16:04:46  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgw5CZYVKpp1EiBEFhHgw5]
+2025-10-10 16:04:46   --> connect capability.updated [evt_1SGgw5CZYVKpp1Eilucj3Xl4]
+2025-10-10 16:04:46   --> connect capability.updated [evt_1SGgw5CZYVKpp1EiOEnFVSV8]
+2025-10-10 16:04:46   --> connect capability.updated [evt_1SGgw5CZYVKpp1EiQlyQKocU]
+2025-10-10 16:04:46  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgw5CZYVKpp1Eihwn2fxzs]
+2025-10-10 16:04:46   --> connect capability.updated [evt_1SGgw5CZYVKpp1EiMp6CUCM1]
+2025-10-10 16:04:46  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgw5CZYVKpp1Ei49e1yYhE]
+2025-10-10 16:04:46   --> connect capability.updated [evt_1SGgw6CZYVKpp1Ei3yacVpSU]
+2025-10-10 16:04:46  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgw5CZYVKpp1EiOEnFVSV8]
+2025-10-10 16:04:46  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgw5CZYVKpp1EiQlyQKocU]
+2025-10-10 16:04:46  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgw5CZYVKpp1Eilucj3Xl4]
+2025-10-10 16:04:46  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgw5CZYVKpp1EiMp6CUCM1]
+2025-10-10 16:04:46   --> connect capability.updated [evt_1SGgw6CZYVKpp1Eir6zsXYnE]
+2025-10-10 16:04:46  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgw6CZYVKpp1Ei3yacVpSU]
+2025-10-10 16:04:46   --> connect capability.updated [evt_1SGgw6CZYVKpp1EidQ5defi0]
+2025-10-10 16:04:46   --> connect capability.updated [evt_1SGgw6CZYVKpp1Ei0LgzQBo1]
+2025-10-10 16:04:46  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgw6CZYVKpp1Eir6zsXYnE]
+2025-10-10 16:04:46   --> connect capability.updated [evt_1SGgw6CZYVKpp1Ei49srx76M]
+2025-10-10 16:04:46  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgw6CZYVKpp1EidQ5defi0]
+2025-10-10 16:04:46   --> connect capability.updated [evt_1SGgw6CZYVKpp1EidsvhnnBh]
+2025-10-10 16:04:46  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgw6CZYVKpp1Ei0LgzQBo1]
+2025-10-10 16:04:46  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgw6CZYVKpp1Ei49srx76M]
+2025-10-10 16:04:46  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgw6CZYVKpp1EidsvhnnBh]
+2025-10-10 16:05:16   --> connect account.updated [evt_1SGgwaEQu5inhU428KfFq2JR]
+2025-10-10 16:05:16  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwaEQu5inhU428KfFq2JR]
+2025-10-10 16:05:16   --> connect capability.updated [evt_1SGgwaEQu5inhU42Ma6ULTlM]
+2025-10-10 16:05:16  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwaEQu5inhU42Ma6ULTlM]
+2025-10-10 16:05:16   --> connect capability.updated [evt_1SGgwaEQu5inhU42cXRBBmjO]
+2025-10-10 16:05:17  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwaEQu5inhU42cXRBBmjO]
+2025-10-10 16:05:17   --> connect capability.updated [evt_1SGgwaEQu5inhU42WcmI37Vt]
+2025-10-10 16:05:17  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwaEQu5inhU42WcmI37Vt]
+2025-10-10 16:05:17   --> connect capability.updated [evt_1SGgwbEQu5inhU42BrJVw6aB]
+2025-10-10 16:05:17  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwbEQu5inhU42BrJVw6aB]
+2025-10-10 16:05:17   --> connect capability.updated [evt_1SGgwbEQu5inhU42DcCbykZz]
+2025-10-10 16:05:17  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwbEQu5inhU42DcCbykZz]
+2025-10-10 16:05:17   --> connect capability.updated [evt_1SGgwbEQu5inhU42iWdlZGS1]
+2025-10-10 16:05:18  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwbEQu5inhU42iWdlZGS1]
+2025-10-10 16:05:18   --> connect capability.updated [evt_1SGgwcEQu5inhU42EryN9Mq4]
+2025-10-10 16:05:18  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwcEQu5inhU42EryN9Mq4]
+2025-10-10 16:05:18   --> connect capability.updated [evt_1SGgwcEQu5inhU42tz3S7Z7z]
+2025-10-10 16:05:18  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwcEQu5inhU42tz3S7Z7z]
+2025-10-10 16:05:18   --> connect capability.updated [evt_1SGgwcEQu5inhU42Q9zIDJo5]
+2025-10-10 16:05:19  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwcEQu5inhU42Q9zIDJo5]
+2025-10-10 16:05:19   --> connect capability.updated [evt_1SGgwcEQu5inhU42Diqt9Q92]
+2025-10-10 16:05:19  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwcEQu5inhU42Diqt9Q92]
+2025-10-10 16:05:19   --> connect capability.updated [evt_1SGgwdEQu5inhU422sAcR4An]
+2025-10-10 16:05:19  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwdEQu5inhU422sAcR4An]
+2025-10-10 16:05:19   --> connect capability.updated [evt_1SGgwdEQu5inhU42O6xEgzMt]
+2025-10-10 16:05:19  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwdEQu5inhU42O6xEgzMt]
+2025-10-10 16:05:20   --> connect capability.updated [evt_1SGgwdEQu5inhU42p7PsVr1D]
+2025-10-10 16:05:20  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwdEQu5inhU42p7PsVr1D]
+2025-10-10 16:05:20   --> connect capability.updated [evt_1SGgweEQu5inhU42XEQ9sekU]
+2025-10-10 16:05:20  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgweEQu5inhU42XEQ9sekU]
+2025-10-10 16:05:22   --> connect account.updated [evt_1SGgwgCZYVKpp1EiFN8Bg3Jg]
+2025-10-10 16:05:23   --> connect capability.updated [evt_1SGgwgCZYVKpp1EiGeJk9RYd]
+2025-10-10 16:05:23   --> connect capability.updated [evt_1SGgwgCZYVKpp1EiHWDN28D6]
+2025-10-10 16:05:23   --> connect capability.updated [evt_1SGgwgCZYVKpp1EivYn94dzD]
+2025-10-10 16:05:23  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwgCZYVKpp1EiFN8Bg3Jg]
+2025-10-10 16:05:23   --> connect capability.updated [evt_1SGgwhCZYVKpp1Ein8cuvWaQ]
+2025-10-10 16:05:23  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwgCZYVKpp1EiGeJk9RYd]
+2025-10-10 16:05:23   --> connect capability.updated [evt_1SGgwhCZYVKpp1EiD62nm1Di]
+2025-10-10 16:05:23   --> connect capability.updated [evt_1SGgwhCZYVKpp1EiHq5g0qkZ]
+2025-10-10 16:05:23  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwgCZYVKpp1EiHWDN28D6]
+2025-10-10 16:05:23   --> connect capability.updated [evt_1SGgwhCZYVKpp1Ei32McYDT3]
+2025-10-10 16:05:23  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwgCZYVKpp1EivYn94dzD]
+2025-10-10 16:05:23   --> connect capability.updated [evt_1SGgwhCZYVKpp1EihbxewEej]
+2025-10-10 16:05:23   --> connect capability.updated [evt_1SGgwhCZYVKpp1EigDKCRd1N]
+2025-10-10 16:05:23  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwhCZYVKpp1Ein8cuvWaQ]
+2025-10-10 16:05:23  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwhCZYVKpp1EiD62nm1Di]
+2025-10-10 16:05:23   --> connect capability.updated [evt_1SGgwhCZYVKpp1EiQVs2SjWw]
+2025-10-10 16:05:23  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwhCZYVKpp1Ei32McYDT3]
+2025-10-10 16:05:23  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwhCZYVKpp1EiHq5g0qkZ]
+2025-10-10 16:05:23  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwhCZYVKpp1EihbxewEej]
+2025-10-10 16:05:23   --> connect capability.updated [evt_1SGgwhCZYVKpp1EiiagG9MYW]
+2025-10-10 16:05:23  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwhCZYVKpp1EigDKCRd1N]
+2025-10-10 16:05:23   --> connect capability.updated [evt_1SGgwhCZYVKpp1Ei68lw6Qby]
+2025-10-10 16:05:23  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwhCZYVKpp1EiQVs2SjWw]
+2025-10-10 16:05:23   --> connect capability.updated [evt_1SGgwhCZYVKpp1Ei70INdCHt]
+2025-10-10 16:05:23  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwhCZYVKpp1EiiagG9MYW]
+2025-10-10 16:05:23   --> connect capability.updated [evt_1SGgwhCZYVKpp1Ein6QYzIFl]
+2025-10-10 16:05:23  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwhCZYVKpp1Ei68lw6Qby]
+2025-10-10 16:05:23  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwhCZYVKpp1Ei70INdCHt]
+2025-10-10 16:05:23   --> connect person.updated [evt_1SGgwhEQu5inhU42qXqY3fWF]
+2025-10-10 16:05:23  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwhCZYVKpp1Ein6QYzIFl]
+2025-10-10 16:05:24   --> connect person.updated [evt_1SGgwhCZYVKpp1Ei0isdMFFz]
+2025-10-10 16:05:24  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwhEQu5inhU42qXqY3fWF]
+2025-10-10 16:05:24  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwhCZYVKpp1Ei0isdMFFz]
+2025-10-10 16:05:36   --> connect account.updated [evt_1SGgwuCZYVKpp1EiZYDkLQs7]
+2025-10-10 16:05:36   --> connect capability.updated [evt_1SGgwuCZYVKpp1EiHCmlNW7j]
+2025-10-10 16:05:36   --> connect capability.updated [evt_1SGgwuCZYVKpp1Eij5o7vu3F]
+2025-10-10 16:05:36   --> connect capability.updated [evt_1SGgwuCZYVKpp1Ei4hsXIMUC]
+2025-10-10 16:05:36  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwuCZYVKpp1EiZYDkLQs7]
+2025-10-10 16:05:36  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwuCZYVKpp1EiHCmlNW7j]
+2025-10-10 16:05:36   --> connect capability.updated [evt_1SGgwuCZYVKpp1EiceTp7TIc]
+2025-10-10 16:05:36   --> connect capability.updated [evt_1SGgwuCZYVKpp1EiKAx9O7SB]
+2025-10-10 16:05:36  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwuCZYVKpp1Eij5o7vu3F]
+2025-10-10 16:05:36   --> connect capability.updated [evt_1SGgwuCZYVKpp1EiYCN66NiI]
+2025-10-10 16:05:36  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwuCZYVKpp1Ei4hsXIMUC]
+2025-10-10 16:05:36   --> connect capability.updated [evt_1SGgwuCZYVKpp1EiFXYZfGgP]
+2025-10-10 16:05:36   --> connect capability.updated [evt_1SGgwuCZYVKpp1EiSUfHaTGE]
+2025-10-10 16:05:36  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwuCZYVKpp1EiKAx9O7SB]
+2025-10-10 16:05:36  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwuCZYVKpp1EiceTp7TIc]
+2025-10-10 16:05:36  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwuCZYVKpp1EiYCN66NiI]
+2025-10-10 16:05:36   --> connect capability.updated [evt_1SGgwuCZYVKpp1EiVpQg25tz]
+2025-10-10 16:05:36   --> connect capability.updated [evt_1SGgwuCZYVKpp1Ei8UaH8jAr]
+2025-10-10 16:05:36  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwuCZYVKpp1EiFXYZfGgP]
+2025-10-10 16:05:36   --> connect capability.updated [evt_1SGgwuCZYVKpp1Eix7jxzH6d]
+2025-10-10 16:05:36  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwuCZYVKpp1EiSUfHaTGE]
+2025-10-10 16:05:37   --> connect capability.updated [evt_1SGgwuCZYVKpp1EiFqE70EcQ]
+2025-10-10 16:05:37  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwuCZYVKpp1EiVpQg25tz]
+2025-10-10 16:05:37  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwuCZYVKpp1Ei8UaH8jAr]
+2025-10-10 16:05:37   --> connect capability.updated [evt_1SGgwuCZYVKpp1EibjVbpPm6]
+2025-10-10 16:05:37  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwuCZYVKpp1Eix7jxzH6d]
+2025-10-10 16:05:37  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwuCZYVKpp1EiFqE70EcQ]
+2025-10-10 16:05:37   --> connect capability.updated [evt_1SGgwvCZYVKpp1EifAnkxgwu]
+2025-10-10 16:05:37  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwuCZYVKpp1EibjVbpPm6]
+2025-10-10 16:05:37  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgwvCZYVKpp1EifAnkxgwu]
+2025-10-10 16:05:45   --> connect tax.settings.updated [evt_1SGgx3CZYVKpp1EiiTu2249T]
+2025-10-10 16:05:45  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgx3CZYVKpp1EiiTu2249T]
+2025-10-10 16:06:03   --> connect capability.updated [evt_1SGgxLCZYVKpp1EiDnuCPmfK]
+2025-10-10 16:06:04  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgxLCZYVKpp1EiDnuCPmfK]
+2025-10-10 16:06:04   --> connect capability.updated [evt_1SGgxLCZYVKpp1EiGKA9mdqd]
+2025-10-10 16:06:04   --> connect capability.updated [evt_1SGgxLCZYVKpp1EiUD9QYUuC]
+2025-10-10 16:06:04  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgxLCZYVKpp1EiGKA9mdqd]
+2025-10-10 16:06:04  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgxLCZYVKpp1EiUD9QYUuC]
+2025-10-10 16:06:04   --> connect capability.updated [evt_1SGgxMCZYVKpp1EiOp2gEuPw]
+2025-10-10 16:06:04  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgxMCZYVKpp1EiOp2gEuPw]
+2025-10-10 16:06:04   --> connect capability.updated [evt_1SGgxMCZYVKpp1Eit7Z0Qv6m]
+2025-10-10 16:06:04   --> connect capability.updated [evt_1SGgxMCZYVKpp1EiTUSjR60B]
+2025-10-10 16:06:04  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgxMCZYVKpp1Eit7Z0Qv6m]
+2025-10-10 16:06:05  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgxMCZYVKpp1EiTUSjR60B]
+2025-10-10 16:06:05   --> connect capability.updated [evt_1SGgxMCZYVKpp1EiNfKDFSkv]
+2025-10-10 16:06:05  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgxMCZYVKpp1EiNfKDFSkv]
+2025-10-10 16:06:05   --> connect capability.updated [evt_1SGgxNCZYVKpp1EirA5b2YZn]
+2025-10-10 16:06:05  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgxNCZYVKpp1EirA5b2YZn]
+2025-10-10 16:06:05   --> connect capability.updated [evt_1SGgxNCZYVKpp1EiVZda5LsS]
+2025-10-10 16:06:05  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgxNCZYVKpp1EiVZda5LsS]
+2025-10-10 16:06:06   --> connect capability.updated [evt_1SGgxNCZYVKpp1EivoWXQEsz]
+2025-10-10 16:06:06  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgxNCZYVKpp1EivoWXQEsz]
+2025-10-10 16:06:06   --> connect capability.updated [evt_1SGgxOCZYVKpp1Ei3VxWwuQj]
+2025-10-10 16:06:06  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgxOCZYVKpp1Ei3VxWwuQj]
+2025-10-10 16:06:06   --> connect capability.updated [evt_1SGgxOCZYVKpp1EiFYtsBi7f]
+2025-10-10 16:06:06  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgxOCZYVKpp1EiFYtsBi7f]
+2025-10-10 16:06:06   --> connect capability.updated [evt_1SGgxOCZYVKpp1EiNCQ4JpOp]
+2025-10-10 16:06:06  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgxOCZYVKpp1EiNCQ4JpOp]
+2025-10-10 16:06:07   --> connect capability.updated [evt_1SGgxOCZYVKpp1EiFAZAMNAT]
+2025-10-10 16:06:07  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgxOCZYVKpp1EiFAZAMNAT]
+2025-10-10 16:06:08   --> connect account.updated [evt_1SGgxQCZYVKpp1EiugWnm3u9]
+2025-10-10 16:06:08  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgxQCZYVKpp1EiugWnm3u9]
+2025-10-10 16:06:55   --> connect account.updated [evt_1SGgyBEQu5inhU42peOnDJT2]
+2025-10-10 16:06:55  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgyBEQu5inhU42peOnDJT2]
+2025-10-10 16:06:55   --> connect capability.updated [evt_1SGgyBEQu5inhU42gJ3iHMl5]
+2025-10-10 16:06:55   --> connect capability.updated [evt_1SGgyBEQu5inhU42vdFv9JK9]
+2025-10-10 16:06:55  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgyBEQu5inhU42gJ3iHMl5]
+2025-10-10 16:06:56   --> connect capability.updated [evt_1SGgyBEQu5inhU42QbtTs60h]
+2025-10-10 16:06:56  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgyBEQu5inhU42vdFv9JK9]
+2025-10-10 16:06:56  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgyBEQu5inhU42QbtTs60h]
+2025-10-10 16:06:56   --> connect capability.updated [evt_1SGgyCEQu5inhU42u8gJu6GH]
+2025-10-10 16:06:56  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgyCEQu5inhU42u8gJu6GH]
+2025-10-10 16:06:56   --> connect capability.updated [evt_1SGgyCEQu5inhU42O8n5DizR]
+2025-10-10 16:06:56  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgyCEQu5inhU42O8n5DizR]
+2025-10-10 16:06:56   --> connect capability.updated [evt_1SGgyCEQu5inhU42VYd7g2Xn]
+2025-10-10 16:06:56  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgyCEQu5inhU42VYd7g2Xn]
+2025-10-10 16:06:57   --> connect capability.updated [evt_1SGgyCEQu5inhU42sBttkCcy]
+2025-10-10 16:06:57   --> connect capability.updated [evt_1SGgyCEQu5inhU424cJTESNy]
+2025-10-10 16:06:57  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgyCEQu5inhU42sBttkCcy]
+2025-10-10 16:06:57  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgyCEQu5inhU424cJTESNy]
+2025-10-10 16:06:57   --> connect capability.updated [evt_1SGgyDEQu5inhU42FhwMrzJ1]
+2025-10-10 16:06:57  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgyDEQu5inhU42FhwMrzJ1]
+2025-10-10 16:06:57   --> connect capability.updated [evt_1SGgyDEQu5inhU42qOYtfd2f]
+2025-10-10 16:06:57   --> connect capability.updated [evt_1SGgyDEQu5inhU42W3XZjz5C]
+2025-10-10 16:06:58  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgyDEQu5inhU42qOYtfd2f]
+2025-10-10 16:06:58  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgyDEQu5inhU42W3XZjz5C]
+2025-10-10 16:06:58   --> connect capability.updated [evt_1SGgyDEQu5inhU42qpYe53nB]
+2025-10-10 16:06:58  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgyDEQu5inhU42qpYe53nB]
+2025-10-10 16:06:58   --> connect capability.updated [evt_1SGgyEEQu5inhU42yLSMV3vv]
+2025-10-10 16:06:58   --> connect capability.updated [evt_1SGgyEEQu5inhU42gfMmNnw1]
+2025-10-10 16:06:58  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgyEEQu5inhU42yLSMV3vv]
+2025-10-10 16:06:58  <--  [200] POST https://aromatic-akita-723.convex.site/stripe-webhooks [evt_1SGgyEEQu5inhU42gfMmNnw1]
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+time="Sun, 12 Oct 2025 01:45:11 CEST" level=error msg="Error when writing ping message: write tcp 192.168.188.193:53958->54.187.159.182:443: write: broken pipe" prefix=websocket.Client.writePump
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+Ready! You are using Stripe API Version [2020-08-27]. Your webhook signing secret is whsec_3c5cc8127ec4e42a0f97868818916fff91e88f226ddf2fce9be12b90d6b19998 (^C to quit)
+Session expired, reconnecting...
+
+time="Mon, 13 Oct 2025 07:01:37 CEST" level=fatal msg="Error while authenticating with Stripe: Post "https://api.stripe.com/v1/stripecli/sessions": dial tcp: lookup api.stripe.com: no such host"

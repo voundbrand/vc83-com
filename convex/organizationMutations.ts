@@ -78,7 +78,7 @@ export const updateOrganization = mutation({
     // ✅ Check permission using RBAC system
     await requirePermission(ctx, userId, "manage_organization", {
       organizationId: args.organizationId,
-      errorMessage: "You don't have permission to update organization settings",
+      errorMessage: "Du hast keine Berechtigung, die Organisationseinstellungen zu ändern",
     });
 
     // Update organization with updatedAt timestamp
@@ -129,7 +129,7 @@ export const updateUserRole = mutation({
     // ✅ Check base permission using RBAC system
     await requirePermission(ctx, currentUserId, "manage_users", {
       organizationId: args.organizationId,
-      errorMessage: "You don't have permission to manage users",
+      errorMessage: "Du hast keine Berechtigung, Benutzer zu verwalten",
     });
 
     // Get current user's role for additional business rules
@@ -141,12 +141,12 @@ export const updateUserRole = mutation({
       .first();
 
     if (!currentUserMembership) {
-      throw new Error("Not a member of this organization");
+      throw new Error("Kein Mitglied dieser Organisation");
     }
 
     const currentUserRole = await ctx.db.get(currentUserMembership.role);
     if (!currentUserRole) {
-      throw new Error("Current user role not found");
+      throw new Error("Aktuelle Benutzerrolle nicht gefunden");
     }
 
     // Get target user's membership
@@ -158,43 +158,43 @@ export const updateUserRole = mutation({
       .first();
 
     if (!targetUserMembership) {
-      throw new Error("User is not a member of this organization");
+      throw new Error("Benutzer ist kein Mitglied dieser Organisation");
     }
 
     // Get the new role to validate it exists
     const newRole = await ctx.db.get(args.roleId);
     if (!newRole) {
-      throw new Error("Invalid role");
+      throw new Error("Ungültige Rolle");
     }
 
     // Get the target user's current role
     const targetCurrentRole = await ctx.db.get(targetUserMembership.role);
     if (!targetCurrentRole) {
-      throw new Error("Target user's role not found");
+      throw new Error("Rolle des Zielbenutzers nicht gefunden");
     }
 
     // Business Rule 1: Only super_admin can assign/remove super_admin role
     if ((newRole.name === "super_admin" || targetCurrentRole.name === "super_admin")
         && currentUserRole.name !== "super_admin") {
-      throw new Error("Only super admins can assign or remove super admin role");
+      throw new Error("Nur Super-Admins können die Super-Admin-Rolle zuweisen oder entfernen");
     }
 
     // Business Rule 2: Only super_admin and org_owner can assign/remove org_owner role
     if ((newRole.name === "org_owner" || targetCurrentRole.name === "org_owner")
         && !hasHigherOrEqualRole(currentUserRole.name, "org_owner")) {
-      throw new Error("Only super admins and organization owners can assign or remove owner role");
+      throw new Error("Nur Super-Admins und Organisationsinhaber können die Inhaber-Rolle zuweisen oder entfernen");
     }
 
     // Business Rule 3: Business managers can only assign employee and viewer roles
     if (currentUserRole.name === "business_manager") {
       if (newRole.name !== "employee" && newRole.name !== "viewer") {
-        throw new Error("Business managers can only assign employee or viewer roles");
+        throw new Error("Geschäftsführer können nur Mitarbeiter- und Betrachter-Rollen zuweisen");
       }
     }
 
     // Business Rule 4: Users cannot change their own role unless they're super_admin
     if (args.userId === currentUserId && currentUserRole.name !== "super_admin") {
-      throw new Error("You cannot change your own role");
+      throw new Error("Du kannst deine eigene Rolle nicht ändern");
     }
 
     // Update the user's role
@@ -248,7 +248,7 @@ export const removeUserFromOrganization = mutation({
     // ✅ Check permission using RBAC system
     await requirePermission(ctx, currentUserId, "manage_users", {
       organizationId: args.organizationId,
-      errorMessage: "You don't have permission to manage users",
+      errorMessage: "Du hast keine Berechtigung, Benutzer zu verwalten",
     });
 
     // Get current user's role for business rules
@@ -260,17 +260,17 @@ export const removeUserFromOrganization = mutation({
       .first();
 
     if (!currentUserMembership) {
-      throw new Error("Not a member of this organization");
+      throw new Error("Kein Mitglied dieser Organisation");
     }
 
     const currentUserRole = await ctx.db.get(currentUserMembership.role);
     if (!currentUserRole) {
-      throw new Error("Role not found");
+      throw new Error("Rolle nicht gefunden");
     }
 
     // Business Rule: Prevent users from removing themselves unless they're super_admin
     if (args.userId === currentUserId && currentUserRole.name !== "super_admin") {
-      throw new Error("You cannot remove yourself from the organization");
+      throw new Error("Du kannst dich nicht selbst aus der Organisation entfernen");
     }
 
     // Get target user's membership
@@ -282,23 +282,23 @@ export const removeUserFromOrganization = mutation({
       .first();
 
     if (!targetUserMembership) {
-      throw new Error("User is not a member of this organization");
+      throw new Error("Benutzer ist kein Mitglied dieser Organisation");
     }
 
     // Get target user's role
     const targetUserRole = await ctx.db.get(targetUserMembership.role);
     if (!targetUserRole) {
-      throw new Error("Target user role not found");
+      throw new Error("Rolle des Zielbenutzers nicht gefunden");
     }
 
     // Business Rule: Only super_admin can remove org_owner
     if (targetUserRole.name === "org_owner" && currentUserRole.name !== "super_admin") {
-      throw new Error("Only super admins can remove organization owners");
+      throw new Error("Nur Super-Admins können Organisationsinhaber entfernen");
     }
 
     // Business Rule: Only super_admin can remove other super_admins
     if (targetUserRole.name === "super_admin" && currentUserRole.name !== "super_admin") {
-      throw new Error("Only super admins can remove other super admins");
+      throw new Error("Nur Super-Admins können andere Super-Admins entfernen");
     }
 
     // Mark membership as inactive (soft delete)
@@ -381,7 +381,7 @@ export const updateUserProfile = mutation({
       }
 
       if (!canEditOthers) {
-        throw new Error("You can only update your own profile or profiles of users in your organization");
+        throw new Error("Du kannst nur dein eigenes Profil oder Profile von Benutzern in deiner Organisation aktualisieren");
       }
     }
 

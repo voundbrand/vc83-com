@@ -76,6 +76,13 @@
   /* Shadow */
   --win95-shadow: 2px 2px 0 rgba(0, 0, 0, 0.25);
 
+  /* Glass/Blur Effects (for modern themes) */
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-bg-light: rgba(255, 255, 255, 0.85);
+  --glass-border: rgba(255, 255, 255, 0.2);
+  --glass-blur: 20px;
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+
   /* Table Styles */
   --table-header-bg: #d0d0d0;
   --table-header-text: #000000;
@@ -247,6 +254,13 @@
   --notification-info-border: #a855f7;
   --notification-info-text: #e9d5ff;
 
+  /* Glass/Blur Effects - Dark Mode */
+  --glass-bg: rgba(30, 30, 30, 0.7);
+  --glass-bg-light: rgba(45, 45, 45, 0.85);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-blur: 20px;
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+
   /* Z-index Layers (same for dark mode) */
   --z-index-modal: 9000;
   --z-index-notification: 9999;
@@ -270,6 +284,86 @@
 [data-window-style="windows"] .window-titlebar-corners {
   border-top-left-radius: 0px;
   border-top-right-radius: 0px;
+}
+
+/* Mac Style - Apply rounded corners to ALL elements */
+[data-window-style="mac"] .retro-window {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+[data-window-style="mac"] .retro-window-dark {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+[data-window-style="mac"] .retro-button {
+  border-radius: 6px;
+}
+
+[data-window-style="mac"] .retro-button-primary {
+  border-radius: 6px;
+}
+
+[data-window-style="mac"] .retro-button-small {
+  border-radius: 4px;
+}
+
+[data-window-style="mac"] .retro-input {
+  border-radius: 6px;
+}
+
+[data-window-style="mac"] textarea.retro-input {
+  border-radius: 6px;
+}
+
+[data-window-style="mac"] select.retro-input {
+  border-radius: 6px;
+}
+
+/* Mac Style - Modals with rounded corners */
+[data-window-style="mac"] .glass-theme .retro-window,
+[data-window-style="mac"] .glass-theme .retro-window-dark {
+  border-radius: 12px;
+}
+
+/* Mac Style - Panels and cards */
+[data-window-style="mac"] .glass-panel {
+  border-radius: 8px;
+}
+
+[data-window-style="mac"] .glass-button {
+  border-radius: 6px;
+}
+
+/* Mac Style - Add rounded corners to ALL divs/containers that act like windows/panels */
+[data-window-style="mac"] div[style*="borderColor"] {
+  border-radius: 8px;
+}
+
+[data-window-style="mac"] div[class*="border-"] {
+  border-radius: 6px;
+}
+
+/* Mac Style - Specific rounded corners for common patterns */
+[data-window-style="mac"] .p-4.border-2,
+[data-window-style="mac"] .p-6.border-2,
+[data-window-style="mac"] .border-4 {
+  border-radius: 8px;
+}
+
+[data-window-style="mac"] .fixed.inset-0 > div {
+  border-radius: 12px;
+}
+
+/* Mac Style - Tables and lists */
+[data-window-style="mac"] table {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+[data-window-style="mac"] .overflow-hidden {
+  border-radius: 8px;
 }
 
 body {
@@ -327,6 +421,27 @@ body {
     /* border-radius controlled via inline styles based on window style context */
   }
 
+  /* Glass theme titlebar - dark text on light background */
+  .glass-theme:not(.dark) .retro-titlebar {
+    color: #1f2937 !important; /* Dark text for light glass theme */
+  }
+
+  /* Override any inline text-white classes in glass light theme */
+  .glass-theme:not(.dark) .retro-titlebar .text-white,
+  .glass-theme:not(.dark) .retro-titlebar span {
+    color: #1f2937 !important; /* Dark text for light glass theme */
+  }
+
+  /* Glass theme dark - keep white text */
+  .glass-theme.dark .retro-titlebar {
+    color: #ffffff !important; /* White text for dark glass theme */
+  }
+
+  .glass-theme.dark .retro-titlebar .text-white,
+  .glass-theme.dark .retro-titlebar span {
+    color: #ffffff !important; /* White text for dark glass theme */
+  }
+
   .retro-titlebar-inactive {
     background: var(--win95-titlebar-inactive);
   }
@@ -368,6 +483,34 @@ body {
 
   .retro-button-primary:active {
     border-color: var(--win95-active-border) var(--win95-highlight) var(--win95-highlight) var(--win95-active-border);
+  }
+
+  /* Glass light theme - ensure dark text on light buttons */
+  .glass-theme:not(.dark) .retro-button {
+    color: #1f2937 !important; /* Dark text for light glass theme buttons */
+  }
+
+  /* Glass theme button text - ensure proper contrast on primary buttons */
+  .glass-theme .retro-button-primary,
+  .glass-theme .retro-button.retro-button-primary {
+    color: #ffffff !important; /* White text on primary buttons in glass theme */
+    background: var(--win95-highlight) !important;
+  }
+
+  /* Ensure primary button text is always white in glass theme, even with font-pixel */
+  .glass-theme .retro-button-primary.font-pixel,
+  .glass-theme button.retro-button-primary {
+    color: #ffffff !important;
+  }
+
+  /* Glass light theme - ensure proper contrast on all text-white elements */
+  .glass-theme:not(.dark) .text-white {
+    color: #1f2937 !important; /* Override white text in light glass theme */
+  }
+
+  /* Keep white text in dark glass theme */
+  .glass-theme.dark .text-white {
+    color: #ffffff !important;
   }
 
   /* Form Inputs */
@@ -630,6 +773,22 @@ body {
     background: var(--win95-hover-bg) !important;
     color: var(--win95-hover-text) !important;
   }
+
+  /* Glass theme hover - use glass effect instead of solid color */
+  .glass-theme .hover-menu-item:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: var(--win95-text) !important; /* Keep text visible */
+  }
+
+  /* Glass theme dark hover */
+  .glass-theme.dark .hover-menu-item:hover {
+    background: rgba(255, 255, 255, 0.15) !important;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: #ffffff !important; /* White text for dark theme hover */
+  }
   
   /* Window dragging styles */
   .window-dragging {
@@ -713,6 +872,86 @@ body {
     min-width: 64px;
     min-height: 64px;
   }
+}
+
+/* Glass/Blur Effect Classes (for modern themes) */
+.glass-window {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+.glass-panel {
+  background: var(--glass-bg-light);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+}
+
+.glass-button {
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  transition: all 0.2s ease;
+}
+
+.glass-button:hover {
+  background: var(--glass-bg-light);
+  border-color: var(--win95-highlight);
+}
+
+/* Apply glass effect to windows when glass-theme is active */
+.glass-theme .retro-window {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+.glass-theme .retro-window-dark {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+/* Glass theme input fields */
+.glass-theme .retro-input {
+  background: var(--glass-bg-light);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+}
+
+/* Glass theme buttons */
+.glass-theme .retro-button {
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+.glass-theme .retro-button:hover {
+  background: var(--glass-bg-light);
+}
+
+/* Glass theme titlebar - make it transparent like the window */
+.glass-theme .retro-titlebar {
+  background: var(--glass-bg) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+/* Glass theme - remove colored gradients from titlebar */
+.glass-theme .retro-titlebar-inactive {
+  background: var(--glass-bg) !important;
 }
 
 /* Accessibility */

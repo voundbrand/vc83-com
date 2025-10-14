@@ -20,20 +20,6 @@ export const createSuperAdminUser = mutation({
   handler: async (ctx, args) => {
     const now = Date.now();
 
-    // Check if user already exists
-    const existingUser = await ctx.db
-      .query("users")
-      .withIndex("email", (q) => q.eq("email", args.email))
-      .first();
-
-    if (existingUser) {
-      return {
-        success: false,
-        message: `User with email ${args.email} already exists`,
-        userId: existingUser._id
-      };
-    }
-
     // Get super_admin role (must run seedRBAC first)
     const superAdminRole = await ctx.db
       .query("roles")
@@ -43,12 +29,18 @@ export const createSuperAdminUser = mutation({
     if (!superAdminRole) {
       return {
         success: false,
-        message: "Super admin role not found. Please run seedRBAC first."
+        message: "Super-Admin-Rolle nicht gefunden. Bitte führe zuerst seedRBAC aus."
       };
     }
 
-    // Check if organization exists
+    const orgOwnerRole = await ctx.db
+      .query("roles")
+      .withIndex("by_name", (q) => q.eq("name", "org_owner"))
+      .first();
+
+    // STEP 1: Ensure organization exists (create if needed)
     let orgId;
+    let orgCreated = false;
     const existingOrg = await ctx.db
       .query("organizations")
       .withIndex("by_slug", (q) => q.eq("slug", args.organizationSlug))
@@ -58,7 +50,7 @@ export const createSuperAdminUser = mutation({
       orgId = existingOrg._id;
       console.log(`Using existing organization: ${existingOrg.name}`);
     } else {
-      // Create organization (simplified schema)
+      // Create organization
       orgId = await ctx.db.insert("organizations", {
         name: args.organizationName,
         businessName: args.organizationName,
@@ -69,23 +61,54 @@ export const createSuperAdminUser = mutation({
         createdAt: now,
         updatedAt: now,
       });
+      orgCreated = true;
       console.log(`Created new organization: ${args.organizationName}`);
     }
 
-    // Create user with global super admin role
-    const userId = await ctx.db.insert("users", {
-      email: args.email,
-      firstName: args.firstName,
-      lastName: args.lastName,
-      defaultOrgId: orgId,
-      global_role_id: superAdminRole._id, // This gives them global super admin access
-      isActive: true,
-      createdAt: now,
-      updatedAt: now,
-    });
+    // STEP 2: Check if user already exists
+    const existingUser = await ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", args.email))
+      .first();
 
-    // If this is a new organization, create settings objects (ontology pattern)
-    if (!existingOrg) {
+    let userId;
+    let userCreated = false;
+
+    if (existingUser) {
+      userId = existingUser._id;
+      console.log(`User ${args.email} already exists`);
+
+      // Update their defaultOrgId if not set
+      if (!existingUser.defaultOrgId) {
+        await ctx.db.patch(userId, {
+          defaultOrgId: orgId,
+        });
+      }
+
+      // Ensure they have super_admin role
+      if (existingUser.global_role_id !== superAdminRole._id) {
+        await ctx.db.patch(userId, {
+          global_role_id: superAdminRole._id,
+        });
+      }
+    } else {
+      // Create new user with global super admin role
+      userId = await ctx.db.insert("users", {
+        email: args.email,
+        firstName: args.firstName,
+        lastName: args.lastName,
+        defaultOrgId: orgId,
+        global_role_id: superAdminRole._id,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      userCreated = true;
+      console.log(`Created new user: ${args.email}`);
+    }
+
+    // STEP 3: Create organization settings if new org
+    if (orgCreated) {
       await ctx.db.insert("objects", {
         organizationId: orgId,
         type: "organization_settings",
@@ -103,24 +126,29 @@ export const createSuperAdminUser = mutation({
       });
     }
 
-    // Also add them as org_owner to their organization for consistency
-    const orgOwnerRole = await ctx.db
-      .query("roles")
-      .withIndex("by_name", (q) => q.eq("name", "org_owner"))
-      .first();
-
+    // STEP 4: Ensure user is org_owner in the organization
     if (orgOwnerRole) {
-      await ctx.db.insert("organizationMembers", {
-        userId,
-        organizationId: orgId,
-        role: orgOwnerRole._id, // They're org_owner in their own org
-        isActive: true,
-        joinedAt: now,
-        acceptedAt: now,
-      });
+      const existingMembership = await ctx.db
+        .query("organizationMembers")
+        .withIndex("by_user_and_org", (q) =>
+          q.eq("userId", userId).eq("organizationId", orgId)
+        )
+        .first();
+
+      if (!existingMembership) {
+        await ctx.db.insert("organizationMembers", {
+          userId,
+          organizationId: orgId,
+          role: orgOwnerRole._id,
+          isActive: true,
+          joinedAt: now,
+          acceptedAt: now,
+        });
+        console.log(`Added user as org_owner to ${args.organizationName}`);
+      }
     }
 
-    // Create audit log entry
+    // STEP 5: Create audit log entry
     await ctx.db.insert("auditLogs", {
       userId,
       organizationId: orgId,
@@ -132,15 +160,21 @@ export const createSuperAdminUser = mutation({
         email: args.email,
         organizationName: args.organizationName,
         createdBy: "seed_script",
+        userCreated,
+        orgCreated,
       },
       createdAt: now,
     });
 
     return {
       success: true,
-      message: `Super admin user ${args.email} created successfully with organization ${args.organizationName}`,
+      message: userCreated
+        ? `Super-Admin-Benutzer ${args.email} erfolgreich mit Organisation ${args.organizationName} erstellt`
+        : `Super-Admin ${args.email} aktualisiert, Organisation ${args.organizationName} sichergestellt`,
       userId,
       organizationId: orgId,
+      userCreated,
+      orgCreated,
     };
   },
 });
@@ -180,7 +214,7 @@ export const createOrgManagerUser = mutation({
       if (existingMembership) {
         return {
           success: false,
-          message: `User ${args.email} is already a member of this organization`,
+          message: `Benutzer ${args.email} ist bereits Mitglied dieser Organisation`,
           userId: existingUser._id,
         };
       }
@@ -220,7 +254,7 @@ export const createOrgManagerUser = mutation({
 
       return {
         success: true,
-        message: `Existing user ${args.email} added to organization with specified role`,
+        message: `Bestehender Benutzer ${args.email} zur Organisation mit festgelegter Rolle hinzugefügt`,
         userId: existingUser._id,
         membershipId,
       };
@@ -265,7 +299,7 @@ export const createOrgManagerUser = mutation({
 
     return {
       success: true,
-      message: `User ${args.email} created and added to organization with specified role`,
+      message: `Benutzer ${args.email} erstellt und zur Organisation mit festgelegter Rolle hinzugefügt`,
       userId,
       membershipId,
     };

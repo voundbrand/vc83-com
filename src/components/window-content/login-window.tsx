@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Eye, EyeOff } from "lucide-react";
+import { useTranslation } from "@/contexts/translation-context";
 
 export function LoginWindow() {
   const [mode, setMode] = useState<"check" | "signin" | "setup">("check");
@@ -19,10 +20,11 @@ export function LoginWindow() {
   const [passwordMatch, setPasswordMatch] = useState<boolean | null>(null);
 
   const { user, isSignedIn, signIn, setupPassword, checkNeedsPasswordSetup, signOut } = useAuth();
+  const { t } = useTranslation();
 
   const handleCheckEmail = async () => {
     if (!email) {
-      setError("Please enter your email address");
+      setError(t('ui.login.error_email_required'));
       return;
     }
 
@@ -33,7 +35,7 @@ export function LoginWindow() {
       const result = await checkNeedsPasswordSetup(email);
 
       if (!result.userExists) {
-        setError("No account found. Please contact an administrator for access.");
+        setError(t('ui.login.error_no_account'));
         setLoading(false);
         return;
       }
@@ -45,7 +47,7 @@ export function LoginWindow() {
         setMode("signin");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
+      setError(err instanceof Error ? err.message : t('ui.login.error_generic'));
     } finally {
       setLoading(false);
     }
@@ -59,7 +61,7 @@ export function LoginWindow() {
     try {
       await signIn(email, password);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Invalid credentials");
+      setError(err instanceof Error ? err.message : t('ui.login.error_invalid_credentials'));
     } finally {
       setLoading(false);
     }
@@ -88,12 +90,12 @@ export function LoginWindow() {
     e.preventDefault();
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match");
+      setError(t('ui.login.error_passwords_mismatch'));
       return;
     }
 
     if (password.length < 6) {
-      setError("Password must be at least 6 characters");
+      setError(t('ui.login.error_password_length'));
       return;
     }
 
@@ -103,7 +105,7 @@ export function LoginWindow() {
     try {
       await setupPassword(email, password, firstName || undefined, lastName || undefined);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
+      setError(err instanceof Error ? err.message : t('ui.login.error_generic'));
     } finally {
       setLoading(false);
     }
@@ -116,23 +118,23 @@ export function LoginWindow() {
           <div className="text-center space-y-2">
             <div className="text-6xl mb-4">👤</div>
             <h2 className="font-pixel text-lg retro-text">
-              Welcome, {user.firstName || user.email}!
+              {t('ui.login.welcome', { name: user.firstName || user.email })}
             </h2>
             <p className="text-sm retro-text-secondary">
-              You are currently logged in
+              {t('ui.login.status_logged_in')}
               {user.isSuperAdmin && (
-                <span className="ml-2 text-green-600 font-bold">[SUPER ADMIN]</span>
+                <span className="ml-2 font-bold" style={{ color: 'var(--success)' }}>[SUPER ADMIN]</span>
               )}
               {user.currentOrganization?.role && !user.isSuperAdmin && (
-                <span className="ml-2 text-blue-600">[{user.currentOrganization.role.name.toUpperCase()}]</span>
+                <span className="ml-2" style={{ color: 'var(--info)' }}>[{user.currentOrganization.role.name.toUpperCase()}]</span>
               )}
             </p>
           </div>
 
           <div className="space-y-3">
             <div className="text-sm space-y-1 retro-text-secondary">
-              <p>Email: {user.email}</p>
-              <p>User ID: {user.id}</p>
+              <p>{t('ui.login.label_email')}: {user.email}</p>
+              <p>{t('ui.login.label_user_id')}: {user.id}</p>
             </div>
           </div>
 
@@ -140,7 +142,7 @@ export function LoginWindow() {
             onClick={() => signOut()}
             className="retro-button px-6 py-2"
           >
-            <span className="font-pixel text-xs">LOG OUT</span>
+            <span className="font-pixel text-xs">{t('ui.login.button_sign_out')}</span>
           </button>
         </div>
       </div>
@@ -156,10 +158,10 @@ export function LoginWindow() {
             <div className="text-center mb-6">
               <div className="text-4xl mb-2">🔐</div>
               <h2 className="font-pixel text-lg retro-text">
-                ACCESS SYSTEM
+                {t('ui.login.title_system_access')}
               </h2>
               <p className="text-xs mt-2 retro-text-secondary">
-                Enter your email to continue
+                {t('ui.login.subtitle_enter_email')}
               </p>
             </div>
 
@@ -172,7 +174,7 @@ export function LoginWindow() {
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-pixel mb-1 retro-text">
-                  EMAIL
+                  {t('ui.login.label_email')}
                 </label>
                 <input
                   type="email"
@@ -181,7 +183,7 @@ export function LoginWindow() {
                   onChange={(e) => setEmail(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleCheckEmail()}
                   className="w-full retro-input"
-                  placeholder="user@example.com"
+                  placeholder={t('ui.login.placeholder_email')}
                 />
               </div>
 
@@ -191,14 +193,14 @@ export function LoginWindow() {
                 className="w-full retro-button py-2"
               >
                 <span className="font-pixel text-xs">
-                  {loading ? "CHECKING..." : "CONTINUE"}
+                  {loading ? t('ui.login.button_checking') : t('ui.login.button_continue')}
                 </span>
               </button>
             </div>
 
             <div className="mt-6 retro-note">
               <p className="text-xs">
-                <strong>Note:</strong> This is an invite-only system. You must have been granted access by an administrator to sign in.
+                <strong>{t('ui.login.note_title')}</strong> {t('ui.login.note_invitation_only')}
               </p>
             </div>
           </div>
@@ -217,10 +219,10 @@ export function LoginWindow() {
               <div className="text-center mb-6">
                 <div className="text-4xl mb-2">🎉</div>
                 <h2 className="font-pixel text-lg retro-text">
-                  WELCOME!
+                  {t('ui.login.title_welcome')}
                 </h2>
                 <p className="text-sm mt-2 retro-text-secondary">
-                  {welcomeUser ? `Hello ${welcomeUser}! ` : ''}Set up your password to continue
+                  {welcomeUser ? t('ui.login.subtitle_hello', { name: welcomeUser }) + ' ' : ''}{t('ui.login.subtitle_setup_password')}
                 </p>
               </div>
 
@@ -232,7 +234,7 @@ export function LoginWindow() {
 
               <div>
                 <label className="block text-xs font-pixel mb-1 retro-text">
-                  FIRST NAME (Optional)
+                  {t('ui.login.label_first_name')}
                 </label>
                 <input
                   type="text"
@@ -244,7 +246,7 @@ export function LoginWindow() {
 
               <div>
                 <label className="block text-xs font-pixel mb-1 retro-text">
-                  LAST NAME (Optional)
+                  {t('ui.login.label_last_name')}
                 </label>
                 <input
                   type="text"
@@ -256,7 +258,7 @@ export function LoginWindow() {
 
               <div>
                 <label className="block text-xs font-pixel mb-1 retro-text">
-                  PASSWORD
+                  {t('ui.login.label_password')}
                 </label>
                 <div className="retro-input-wrapper">
                   <input
@@ -265,13 +267,13 @@ export function LoginWindow() {
                     value={password}
                     onChange={(e) => handlePasswordChange(e.target.value)}
                     className="w-full retro-input"
-                    placeholder="Minimum 6 characters"
+                    placeholder={t('ui.login.placeholder_password')}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="retro-eye-toggle"
-                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-label={showPassword ? t('ui.login.aria_hide_password') : t('ui.login.aria_show_password')}
                   >
                     {showPassword ? <Eye size={14} /> : <EyeOff size={14} />}
                   </button>
@@ -280,7 +282,7 @@ export function LoginWindow() {
 
               <div>
                 <label className="block text-xs font-pixel mb-1 retro-text">
-                  CONFIRM PASSWORD
+                  {t('ui.login.label_confirm_password')}
                 </label>
                 <div className="retro-input-wrapper">
                   <input
@@ -294,14 +296,14 @@ export function LoginWindow() {
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     className="retro-eye-toggle"
-                    aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                    aria-label={showConfirmPassword ? t('ui.login.aria_hide_password') : t('ui.login.aria_show_password')}
                   >
                     {showConfirmPassword ? <Eye size={14} /> : <EyeOff size={14} />}
                   </button>
                 </div>
                 {passwordMatch !== null && (
                   <p className={passwordMatch ? "retro-validation-success" : "retro-validation-error"}>
-                    {passwordMatch ? "✓ Passwords match" : "✗ Passwords do not match"}
+                    {passwordMatch ? t('ui.login.validation_passwords_match') : t('ui.login.validation_passwords_mismatch')}
                   </p>
                 )}
               </div>
@@ -312,7 +314,7 @@ export function LoginWindow() {
                 className="w-full retro-button py-2"
               >
                 <span className="font-pixel text-xs">
-                  {loading ? "SETTING UP..." : "SET PASSWORD"}
+                  {loading ? t('ui.login.button_setting_up') : t('ui.login.button_set_password')}
                 </span>
               </button>
             </form>
@@ -331,7 +333,7 @@ export function LoginWindow() {
               className="mt-4 retro-button-small"
             >
               <span>←</span>
-              <span className="font-pixel">BACK</span>
+              <span className="font-pixel">{t('ui.login.button_back')}</span>
             </button>
           </div>
         </div>
@@ -348,7 +350,7 @@ export function LoginWindow() {
             <div className="text-center mb-6">
               <div className="text-4xl mb-2">🔐</div>
               <h2 className="font-pixel text-lg retro-text">
-                SIGN IN
+                {t('ui.login.title_sign_in')}
               </h2>
               <p className="text-sm mt-2 retro-text-secondary">
                 {email}
@@ -363,7 +365,7 @@ export function LoginWindow() {
 
             <div>
               <label className="block text-xs font-pixel mb-1 retro-text">
-                PASSWORD
+                {t('ui.login.label_password')}
               </label>
               <div className="retro-input-wrapper">
                 <input
@@ -378,7 +380,7 @@ export function LoginWindow() {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="retro-eye-toggle"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-label={showPassword ? t('ui.login.aria_hide_password') : t('ui.login.aria_show_password')}
                 >
                   {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                 </button>
@@ -391,7 +393,7 @@ export function LoginWindow() {
               className="w-full retro-button py-2"
             >
               <span className="font-pixel text-xs">
-                {loading ? "SIGNING IN..." : "SIGN IN"}
+                {loading ? t('ui.login.button_signing_in') : t('ui.login.button_sign_in')}
               </span>
             </button>
           </form>
@@ -407,7 +409,7 @@ export function LoginWindow() {
             className="mt-4 retro-button-small"
           >
             <span>←</span>
-            <span className="font-pixel">USE DIFFERENT EMAIL</span>
+            <span className="font-pixel">{t('ui.login.button_use_different_email')}</span>
           </button>
         </div>
       </div>

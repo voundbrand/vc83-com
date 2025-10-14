@@ -59,6 +59,7 @@ export const objects = defineTable({
 
   // Translation-specific indexes
   .index("by_org_type_locale", ["organizationId", "type", "locale"])
+  .index("by_org_type_locale_name", ["organizationId", "type", "locale", "name"])
   .index("by_type_locale", ["type", "locale"])
 
   // Search indexes

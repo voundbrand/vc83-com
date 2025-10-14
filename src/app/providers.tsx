@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/contexts/theme-context";
 import { AuthProvider } from "@/hooks/use-auth";
 import { PermissionProvider } from "@/contexts/permission-context";
 import { TranslationProvider } from "@/contexts/translation-context";
+import { MediaSelectionProvider } from "@/contexts/media-selection-context";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -14,9 +15,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <PermissionProvider>
           <TranslationProvider>
             <ThemeProvider>
-              <WindowManagerProvider>
-                {children}
-              </WindowManagerProvider>
+              <MediaSelectionProvider>
+                <WindowManagerProvider>
+                  {children}
+                </WindowManagerProvider>
+              </MediaSelectionProvider>
             </ThemeProvider>
           </TranslationProvider>
         </PermissionProvider>

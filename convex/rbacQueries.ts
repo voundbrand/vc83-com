@@ -240,30 +240,30 @@ export const assignRole = mutation({
     try {
       // Manual validation for required fields
       if (!userId) {
-        return { success: false, error: "User ID is required" };
+        return { success: false, error: "Benutzer-ID ist erforderlich" };
       }
       if (!roleId) {
-        return { success: false, error: "Role ID is required" };
+        return { success: false, error: "Rollen-ID ist erforderlich" };
       }
       if (!organizationId) {
-        return { success: false, error: "Organization ID is required" };
+        return { success: false, error: "Organisations-ID ist erforderlich" };
       }
       if (!assignedBy) {
-        return { success: false, error: "Assigner ID is required" };
+        return { success: false, error: "Zuweiser-ID ist erforderlich" };
       }
 
       // Validate ID formats (Convex IDs are non-empty strings with specific patterns)
       if (userId.length < 10) {
-        return { success: false, error: "Invalid user ID format" };
+        return { success: false, error: "Ungültiges Benutzer-ID-Format" };
       }
       if (roleId.length < 10) {
-        return { success: false, error: "Invalid role ID format" };
+        return { success: false, error: "Ungültiges Rollen-ID-Format" };
       }
       if (organizationId.length < 10) {
-        return { success: false, error: "Invalid organization ID format" };
+        return { success: false, error: "Ungültiges Organisations-ID-Format" };
       }
       if (assignedBy.length < 10) {
-        return { success: false, error: "Invalid assigner ID format" };
+        return { success: false, error: "Ungültiges Zuweiser-ID-Format" };
       }
 
       // Type cast after validation
@@ -275,28 +275,28 @@ export const assignRole = mutation({
       // Verify user exists
       const user = await ctx.db.get(userIdTyped);
       if (!user) {
-        return { success: false, error: "User not found" };
+        return { success: false, error: "Benutzer nicht gefunden" };
       }
 
       // Verify role exists and is active
       const role = await ctx.db.get(roleIdTyped);
       if (!role) {
-        return { success: false, error: "Role not found" };
+        return { success: false, error: "Rolle nicht gefunden" };
       }
       if (!role.isActive) {
-        return { success: false, error: "Role is inactive" };
+        return { success: false, error: "Rolle ist inaktiv" };
       }
 
       // Verify organization exists
       const org = await ctx.db.get(orgIdTyped);
       if (!org) {
-        return { success: false, error: "Organization not found" };
+        return { success: false, error: "Organisation nicht gefunden" };
       }
 
       // Verify assigner exists
       const assigner = await ctx.db.get(assignedByTyped);
       if (!assigner) {
-        return { success: false, error: "Assigner not found" };
+        return { success: false, error: "Zuweiser nicht gefunden" };
       }
 
       // Check if membership exists
@@ -341,13 +341,13 @@ export const assignRole = mutation({
 
       return {
         success: true,
-        message: `Role ${role.name} assigned to user`,
+        message: `Rolle ${role.name} dem Benutzer zugewiesen`,
       };
     } catch (error) {
       console.error("Error assigning role:", error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error occurred",
+        error: error instanceof Error ? error.message : "Unbekannter Fehler aufgetreten",
       };
     }
   },
@@ -367,30 +367,30 @@ export const removeRole = mutation({
     try {
       // Manual validation for required fields
       if (!userId) {
-        return { success: false, error: "User ID is required" };
+        return { success: false, error: "Benutzer-ID ist erforderlich" };
       }
       if (!roleId) {
-        return { success: false, error: "Role ID is required" };
+        return { success: false, error: "Rollen-ID ist erforderlich" };
       }
       if (!organizationId) {
-        return { success: false, error: "Organization ID is required" };
+        return { success: false, error: "Organisations-ID ist erforderlich" };
       }
       if (!removedBy) {
-        return { success: false, error: "Remover ID is required" };
+        return { success: false, error: "Entferner-ID ist erforderlich" };
       }
 
       // Validate ID formats (Convex IDs are non-empty strings with specific patterns)
       if (userId.length < 10) {
-        return { success: false, error: "Invalid user ID format" };
+        return { success: false, error: "Ungültiges Benutzer-ID-Format" };
       }
       if (roleId.length < 10) {
-        return { success: false, error: "Invalid role ID format" };
+        return { success: false, error: "Ungültiges Rollen-ID-Format" };
       }
       if (organizationId.length < 10) {
-        return { success: false, error: "Invalid organization ID format" };
+        return { success: false, error: "Ungültiges Organisations-ID-Format" };
       }
       if (removedBy.length < 10) {
-        return { success: false, error: "Invalid remover ID format" };
+        return { success: false, error: "Ungültiges Entferner-ID-Format" };
       }
 
       // Type cast after validation
@@ -408,11 +408,11 @@ export const removeRole = mutation({
         .first();
 
       if (!membership) {
-        return { success: false, error: "User is not a member of this organization" };
+        return { success: false, error: "Benutzer ist kein Mitglied dieser Organisation" };
       }
 
       if (membership.role !== roleIdTyped) {
-        return { success: false, error: "User does not have this role" };
+        return { success: false, error: "Benutzer hat diese Rolle nicht" };
       }
 
       // Get role name for logging
@@ -437,13 +437,13 @@ export const removeRole = mutation({
 
       return {
         success: true,
-        message: `Role removed from user`,
+        message: `Rolle vom Benutzer entfernt`,
       };
     } catch (error) {
       console.error("Error removing role:", error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error occurred",
+        error: error instanceof Error ? error.message : "Unbekannter Fehler aufgetreten",
       };
     }
   },

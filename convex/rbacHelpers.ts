@@ -1,5 +1,6 @@
-import { QueryCtx, MutationCtx } from "./_generated/server";
+import { QueryCtx, MutationCtx, internalQuery, internalMutation } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
+import { v } from "convex/values";
 
 /**
  * RBAC Helper Functions for Backend Permission Enforcement
@@ -52,15 +53,15 @@ export async function requireAuthenticatedUser(
   const session = await ctx.db.get(sessionId as Id<"sessions">);
 
   if (!session) {
-    throw new Error("Invalid session: Session not found");
+    throw new Error("Ungültige Sitzung: Sitzung nicht gefunden");
   }
 
   if (!session.userId) {
-    throw new Error("Invalid session: No user associated with session");
+    throw new Error("Ungültige Sitzung: Kein Benutzer mit der Sitzung verknüpft");
   }
 
   if (session.expiresAt <= Date.now()) {
-    throw new Error("Session expired: Please log in again");
+    throw new Error("Sitzung abgelaufen: Bitte melde dich erneut an");
   }
 
   return {
@@ -89,7 +90,7 @@ export async function getUserContext(
 ): Promise<UserContext> {
   const user = await ctx.db.get(userId);
   if (!user) {
-    throw new Error("User not found");
+    throw new Error("Benutzer nicht gefunden");
   }
 
   // Check for global super admin role
@@ -112,7 +113,7 @@ export async function getUserContext(
     if (user.defaultOrgId) {
       organizationId = user.defaultOrgId;
     } else {
-      throw new Error("Organization required for non-global users");
+      throw new Error("Organisation erforderlich für Nicht-Global-Benutzer");
     }
   }
 
@@ -126,12 +127,12 @@ export async function getUserContext(
     .first();
 
   if (!membership) {
-    throw new Error("Access denied: No active membership in organization");
+    throw new Error("Zugriff verweigert: Keine aktive Mitgliedschaft in der Organisation");
   }
 
   const role = await ctx.db.get(membership.role);
   if (!role || !role.isActive) {
-    throw new Error("Access denied: Invalid or inactive role");
+    throw new Error("Zugriff verweigert: Ungültige oder inaktive Rolle");
   }
 
   return {
@@ -276,7 +277,7 @@ export async function requirePermission(
   if (!hasPermission) {
     const message =
       options?.errorMessage ||
-      `Permission denied: You need '${permission}' permission to perform this action`;
+      `Berechtigung verweigert: Du benötigst die Berechtigung '${permission}', um diese Aktion auszuführen`;
 
     // Log the permission denial for audit trail
     try {
@@ -370,7 +371,7 @@ export async function requireAnyPermission(
 
   const message =
     options?.errorMessage ||
-    `Permission denied: You need one of [${permissions.join(", ")}] permissions`;
+    `Berechtigung verweigert: Du benötigst eine der folgenden Berechtigungen [${permissions.join(", ")}]`;
 
   throw new Error(message);
 }
@@ -409,7 +410,7 @@ export async function requireAllPermissions(
   if (missingPermissions.length > 0) {
     const message =
       options?.errorMessage ||
-      `Permission denied: You need [${missingPermissions.join(", ")}] permissions`;
+      `Berechtigung verweigert: Du benötigst folgende Berechtigungen [${missingPermissions.join(", ")}]`;
 
     throw new Error(message);
   }
@@ -460,7 +461,7 @@ export async function requireOrganizationMembership(
 
   if (!isMember) {
     throw new Error(
-      "Access denied: You must be a member of this organization"
+      "Zugriff verweigert: Du musst Mitglied dieser Organisation sein"
     );
   }
 }
@@ -563,7 +564,38 @@ export async function requireCanManageUser(
 
   if (!canManage) {
     throw new Error(
-      "Permission denied: You cannot manage this user due to role hierarchy restrictions"
+      "Berechtigung verweigert: Du kannst diesen Benutzer aufgrund von Rollenhierarchie-Einschränkungen nicht verwalten"
     );
   }
 }
+
+// ============================================================================
+// INTERNAL QUERY WRAPPERS FOR ACTIONS
+// ============================================================================
+
+/**
+ * Internal query wrapper for requireAuthenticatedUser (for use in actions)
+ */
+export const requireAuthenticatedUserQuery = internalQuery({
+  args: { sessionId: v.string() },
+  handler: async (ctx, args) => {
+    return await requireAuthenticatedUser(ctx, args.sessionId);
+  },
+});
+
+/**
+ * Internal mutation wrapper for requirePermission (for use in actions)
+ * Uses mutation because it needs to write audit logs
+ */
+export const requirePermissionMutation = internalMutation({
+  args: {
+    userId: v.id("users"),
+    permission: v.string(),
+    organizationId: v.optional(v.id("organizations")),
+  },
+  handler: async (ctx, args) => {
+    await requirePermission(ctx, args.userId, args.permission, {
+      organizationId: args.organizationId,
+    });
+  },
+});

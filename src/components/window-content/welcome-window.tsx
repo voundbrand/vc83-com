@@ -1,12 +1,18 @@
 "use client";
 
+import { useTranslation } from "@/contexts/translation-context";
+
 /**
  * Welcome Window - First impression for visitors
  *
  * This is an engaging landing experience that appears
  * as a moveable window. Explains the Layer Cake concept.
+ *
+ * ✅ Now fully internationalized with translation support
  */
 export function WelcomeWindow() {
+  const { t } = useTranslation();
+
   return (
     <div className="p-6 space-y-4 h-full overflow-y-auto" style={{ background: 'var(--win95-bg)' }}>
       <div className="text-center mb-2">
@@ -14,7 +20,7 @@ export function WelcomeWindow() {
           🍰 L4YERCAK3
         </h1>
         <p className="text-base italic leading-relaxed" style={{ color: 'var(--win95-text)' }}>
-          Stack Your Startup Tools Like a Pro
+          {t("ui.welcome.tagline")}
         </p>
       </div>
 
@@ -24,16 +30,16 @@ export function WelcomeWindow() {
         borderColor: 'var(--win95-border)'
       }}>
         <p>
-          Imagine a retro desktop where you layer on marketing superpowers: invoicing that syncs with your CRM, analytics that visualize your funnels, scheduling that automates your workflows—all in one cozy workspace.
+          {t("ui.welcome.description_para1")}
         </p>
         <p>
-          No more tab-juggling chaos. Just you, your tools, and that satisfying click of a floppy disk saving your next big idea.
+          {t("ui.welcome.description_para2")}
         </p>
         <p className="text-center font-semibold pt-2 border-t" style={{
           color: 'var(--win95-text)',
           borderColor: 'var(--win95-border)'
         }}>
-          Welcome to the retro desktop experience!
+          {t("ui.welcome.greeting")}
         </p>
       </div>
 
@@ -42,7 +48,7 @@ export function WelcomeWindow() {
         color: 'var(--neutral-gray)',
         borderColor: 'var(--win95-border)'
       }}>
-        Built for startups • Inspired by the &apos;90s • Powered by L4YERCAK3
+        {t("ui.welcome.footer")}
       </div>
     </div>
   );

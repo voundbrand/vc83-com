@@ -20,7 +20,7 @@ interface TranslationContextValue {
   locale: string;
   setLocale: (locale: string) => void;
   availableLocales: string[];
-  t: (key: string, fallback?: string) => string;
+  t: (key: string, params?: Record<string, string | number> | string) => string;
   formatDate: (date: Date) => string;
   formatNumber: (num: number) => string;
   isLoading: boolean;
@@ -94,21 +94,33 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
   };
 
   // Translation function: t('desktop.welcome-icon') => 'Welcome'
-  const t = (key: string, fallback?: string): string => {
+  // Supports interpolation: t('welcome', { name: 'John' }) => 'Welcome, John!'
+  const t = (key: string, params?: Record<string, string | number> | string): string => {
+    // Handle legacy string fallback parameter
+    const fallback = typeof params === 'string' ? params : undefined;
+    const interpolationParams = typeof params === 'object' ? params : undefined;
+
     if (!translationsMap) {
       return fallback || key;
     }
 
     // Look up translation in the key-value map
     // Map structure: { "desktop.welcome-icon": "Welcome", ... }
-    const value = translationsMap[key];
+    let value = translationsMap[key];
 
-    if (value) {
-      return value;
+    if (!value) {
+      // Fallback: return the fallback or key
+      return fallback || key;
     }
 
-    // Fallback: return the fallback or key
-    return fallback || key;
+    // Interpolate parameters if provided
+    if (interpolationParams) {
+      Object.entries(interpolationParams).forEach(([paramKey, paramValue]) => {
+        value = value.replace(new RegExp(`\\{${paramKey}\\}`, 'g'), String(paramValue));
+      });
+    }
+
+    return value;
   };
 
   // Format date according to locale

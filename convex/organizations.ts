@@ -27,7 +27,7 @@ export const listAll = query({
 
     // Only super admins can list all organizations
     if (!userContext.isGlobal || userContext.roleName !== "super_admin") {
-      throw new Error("Unauthorized: Only super admins can list all organizations");
+      throw new Error("Nicht autorisiert: Nur Super-Administratoren können alle Organisationen auflisten");
     }
 
     // Get all organizations with member counts
@@ -71,12 +71,12 @@ export const getById = query({
     const hasAccess = await checkPermission(ctx, userId, "view_organization", args.organizationId);
 
     if (!hasAccess) {
-      throw new Error("Unauthorized: You don't have access to this organization");
+      throw new Error("Nicht autorisiert: Du hast keinen Zugriff auf diese Organisation");
     }
 
     const organization = await ctx.db.get(args.organizationId);
     if (!organization) {
-      throw new Error("Organization not found");
+      throw new Error("Organisation nicht gefunden");
     }
 
     // Get user context to check super admin status
@@ -140,7 +140,7 @@ export const getUserOrganizations = query({
     const session = await ctx.db.get(args.sessionId as Id<"sessions">);
 
     if (!session || session.expiresAt <= Date.now()) {
-      throw new Error("Invalid or expired session");
+      throw new Error("Ungültige oder abgelaufene Sitzung");
     }
 
     // Get all organization memberships for this user
@@ -162,6 +162,7 @@ export const getUserOrganizations = query({
       })
     );
 
+    // Filter out null organizations but keep inactive ones (for management UI)
     return organizationsWithRoles.filter(item => item.organization);
   },
 });
@@ -186,7 +187,7 @@ export const searchUsersToInvite = query({
     const hasPermission = await checkPermission(ctx, userId, "manage_users", args.organizationId);
 
     if (!hasPermission) {
-      throw new Error("Unauthorized: Only org owners and managers can invite users");
+      throw new Error("Nicht autorisiert: Nur Organisationsbesitzer und Manager können Benutzer einladen");
     }
 
     // Get existing members to exclude
@@ -230,9 +231,13 @@ export const searchUsersToInvite = query({
 
 /**
  * Invite a user to an organization
+ *
+ * @permission manage_users - Required to invite users
+ * @roles org_owner, business_manager, super_admin
  */
 export const inviteUser = action({
   args: {
+    sessionId: v.string(),
     email: v.string(),
     organizationId: v.id("organizations"),
     roleId: v.id("roles"),
@@ -241,37 +246,24 @@ export const inviteUser = action({
     sendEmail: v.optional(v.boolean()), // Default true
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    // Get current user session
-    const session = await ctx.runQuery(internal.auth.getSessionByEmail, {
-      email: identity.email!,
+    // Authenticate user
+    const { userId: inviterId } = await ctx.runQuery(internal.rbacHelpers.requireAuthenticatedUserQuery, {
+      sessionId: args.sessionId,
     });
-
-    if (!session) {
-      throw new Error("Invalid session");
-    }
 
     // Check permissions
-    const hasPermission = await ctx.runQuery(internal.organizations.checkInvitePermission, {
-      userId: session.userId,
+    await ctx.runMutation(internal.rbacHelpers.requirePermissionMutation, {
+      userId: inviterId,
+      permission: "manage_users",
       organizationId: args.organizationId,
-      targetRoleId: args.roleId,
     });
-
-    if (!hasPermission) {
-      throw new Error("Unauthorized: You don't have permission to invite users with this role");
-    }
 
     // Check if user already exists
     const existingUser = await ctx.runQuery(internal.organizations.getUserByEmail, {
       email: args.email,
     });
 
-    let userId: Id<"users">;
+    let newUserId: Id<"users">;
     let isNewUser = false;
 
     if (existingUser) {
@@ -282,17 +274,17 @@ export const inviteUser = action({
       });
 
       if (existingMembership) {
-        throw new Error("User is already a member of this organization");
+        throw new Error("This user is already a member of your organization");
       }
 
-      userId = existingUser._id;
+      newUserId = existingUser._id;
     } else {
       // Create new user
-      userId = await ctx.runMutation(internal.organizations.createInvitedUser, {
+      newUserId = await ctx.runMutation(internal.organizations.createInvitedUser, {
         email: args.email,
         firstName: args.firstName,
         lastName: args.lastName,
-        invitedBy: session.userId,
+        invitedBy: inviterId,
         defaultOrgId: args.organizationId,
       });
       isNewUser = true;
@@ -300,10 +292,10 @@ export const inviteUser = action({
 
     // Add user to organization
     await ctx.runMutation(internal.organizations.addUserToOrganization, {
-      userId,
+      userId: newUserId,
       organizationId: args.organizationId,
       roleId: args.roleId,
-      invitedBy: session.userId,
+      invitedBy: inviterId,
     });
 
     // Send invitation email (if enabled)
@@ -313,7 +305,7 @@ export const inviteUser = action({
       });
 
       const inviter = await ctx.runQuery(internal.organizations.getUser, {
-        userId: session.userId,
+        userId: inviterId,
       });
 
       await ctx.runAction(internal.emailService.sendInvitationEmail, {
@@ -321,15 +313,13 @@ export const inviteUser = action({
         organizationName: organization.name,
         inviterName: inviter.firstName || inviter.email,
         isNewUser,
-        setupLink: isNewUser
-          ? `${process.env.NEXT_PUBLIC_APP_URL}/auth/setup-password?email=${encodeURIComponent(args.email)}`
-          : `${process.env.NEXT_PUBLIC_APP_URL}/auth/sign-in`,
+        setupLink: process.env.NEXT_PUBLIC_APP_URL || "https://app.l4yercak3.com",
       });
     }
 
     // Log audit event
     await ctx.runMutation(internal.rbac.logAudit, {
-      userId: session.userId,
+      userId: inviterId,
       organizationId: args.organizationId,
       action: "invite_user",
       resource: "users",
@@ -343,8 +333,93 @@ export const inviteUser = action({
 
     return {
       success: true,
-      userId,
+      userId: newUserId,
       isNewUser,
+    };
+  },
+});
+
+/**
+ * Resend invitation email to a user
+ *
+ * @permission manage_users - Required to resend invitations
+ * @roles org_owner, business_manager, super_admin
+ */
+export const resendInvitation = action({
+  args: {
+    sessionId: v.string(),
+    userId: v.id("users"),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    // Authenticate user
+    const { userId: resenderId } = await ctx.runQuery(internal.rbacHelpers.requireAuthenticatedUserQuery, {
+      sessionId: args.sessionId,
+    });
+
+    // Check permissions
+    await ctx.runMutation(internal.rbacHelpers.requirePermissionMutation, {
+      userId: resenderId,
+      permission: "manage_users",
+      organizationId: args.organizationId,
+    });
+
+    // Get user and membership details
+    const user = await ctx.runQuery(internal.organizations.getUser, {
+      userId: args.userId,
+    });
+
+    const membership = await ctx.runQuery(internal.organizations.checkMembership, {
+      userId: args.userId,
+      organizationId: args.organizationId,
+    });
+
+    if (!membership) {
+      throw new Error("User is not a member of this organization");
+    }
+
+    // Check if already accepted
+    if (membership.acceptedAt) {
+      throw new Error("This user has already accepted the invitation and is active");
+    }
+
+    // Get organization and resender details
+    const organization = await ctx.runQuery(internal.organizations.getOrganization, {
+      organizationId: args.organizationId,
+    });
+
+    const resender = await ctx.runQuery(internal.organizations.getUser, {
+      userId: resenderId,
+    });
+
+    // Check if user needs password setup (invited users without password)
+    const isNewUser = !user.isPasswordSet;
+
+    // Send invitation email
+    await ctx.runAction(internal.emailService.sendInvitationEmail, {
+      to: user.email,
+      organizationName: organization.name,
+      inviterName: resender.firstName || resender.email,
+      isNewUser,
+      setupLink: process.env.NEXT_PUBLIC_APP_URL || "https://app.l4yercak3.com",
+    });
+
+    // Log audit event
+    await ctx.runMutation(internal.rbac.logAudit, {
+      userId: resenderId,
+      organizationId: args.organizationId,
+      action: "resend_invitation",
+      resource: "users",
+      success: true,
+      metadata: {
+        targetUserId: args.userId,
+        userEmail: user.email,
+      },
+    });
+
+    return {
+      success: true,
+      message: "Invitation email resent successfully",
     };
   },
 });
@@ -492,5 +567,531 @@ export const getUser = internalQuery({
     const user = await ctx.db.get(args.userId);
     if (!user) throw new Error("User not found");
     return user;
+  },
+});
+
+// ============================================================================
+// ORGANIZATION CREATION (SUPER ADMIN ONLY)
+// ============================================================================
+
+/**
+ * Create a new organization (super admin only)
+ *
+ * This mutation creates a complete organization with:
+ * - Base organization record
+ * - organization_settings ontology object with defaults
+ * - Creator added as org_owner (optional)
+ * - Full audit trail
+ *
+ * @permission create_system_organization - Only super admins can create organizations
+ * @roles super_admin
+ */
+export const createOrganization = action({
+  args: {
+    sessionId: v.string(),
+    businessName: v.string(), // REQUIRED: Legal business name
+    description: v.optional(v.string()),
+    industry: v.optional(v.string()),
+    contactEmail: v.optional(v.string()),
+    contactPhone: v.optional(v.string()),
+    addCreatorAsOwner: v.optional(v.boolean()), // Default: true
+  },
+  handler: async (ctx, args): Promise<{ success: boolean; organizationId: Id<"organizations">; slug: string; message: string }> => {
+    // 1. Authenticate user
+    const authResult = await ctx.runQuery(internal.rbacHelpers.requireAuthenticatedUserQuery, {
+      sessionId: args.sessionId,
+    });
+    const userId: Id<"users"> = authResult.userId;
+
+    // 2. Check permission (will throw if user doesn't have permission)
+    await ctx.runMutation(internal.rbacHelpers.requirePermissionMutation, {
+      userId,
+      permission: "create_system_organization",
+    });
+
+    // 3. Validate business name
+    if (!args.businessName || args.businessName.trim().length === 0) {
+      throw new Error("Business name is required");
+    }
+
+    // 4. Generate slug from business name
+    const slug = args.businessName
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-") // Replace non-alphanumeric with dashes
+      .replace(/^-+|-+$/g, ""); // Remove leading/trailing dashes
+
+    // 5. Check for duplicate slug
+    const existingOrg = await ctx.runQuery(internal.organizations.getOrgBySlug, {
+      slug,
+    });
+
+    if (existingOrg) {
+      throw new Error(`An organization with the slug "${slug}" already exists. Please use a different business name.`);
+    }
+
+    // 6. Create the organization
+    const organizationId: Id<"organizations"> = await ctx.runMutation(internal.organizations.createOrgRecord, {
+      businessName: args.businessName,
+      name: args.businessName, // Display name = business name
+      slug,
+      description: args.description,
+      createdBy: userId,
+    });
+
+    // 7. Create organization_settings ontology object
+    await ctx.runMutation(internal.organizations.createOrgSettings, {
+      organizationId,
+      createdBy: userId,
+    });
+
+    // 8. Save contact information (if provided)
+    if (args.contactEmail || args.contactPhone) {
+      await ctx.runMutation(internal.organizationOntology.createOrgContact, {
+        organizationId,
+        createdBy: userId,
+        primaryEmail: args.contactEmail,
+        primaryPhone: args.contactPhone,
+      });
+    }
+
+    // 9. Save profile information (if provided)
+    if (args.industry || args.description) {
+      await ctx.runMutation(internal.organizationOntology.createOrgProfile, {
+        organizationId,
+        createdBy: userId,
+        industry: args.industry,
+        bio: args.description,
+      });
+    }
+
+    // 10. Add creator as org_owner (if requested, default true)
+    if (args.addCreatorAsOwner !== false) {
+      await ctx.runMutation(internal.organizations.addCreatorAsOwner, {
+        userId,
+        organizationId,
+      });
+    }
+
+    // 11. Log success audit
+    await ctx.runMutation(internal.rbac.logAudit, {
+      userId,
+      organizationId,
+      action: "create_organization",
+      resource: "organizations",
+      resourceId: organizationId,
+      success: true,
+      metadata: {
+        businessName: args.businessName,
+        slug,
+        addedCreatorAsOwner: args.addCreatorAsOwner !== false,
+      },
+    });
+
+    return {
+      success: true,
+      organizationId,
+      slug,
+      message: `Organization "${args.businessName}" created successfully`,
+    };
+  },
+});
+
+// ============================================================================
+// INTERNAL MUTATIONS FOR ORGANIZATION CREATION
+// ============================================================================
+
+export const getOrgBySlug = internalQuery({
+  args: { slug: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", args.slug))
+      .first();
+  },
+});
+
+export const createOrgRecord = internalMutation({
+  args: {
+    businessName: v.string(),
+    name: v.string(),
+    slug: v.string(),
+    description: v.optional(v.string()),
+    createdBy: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+
+    const orgData: {
+      businessName: string;
+      name: string;
+      slug: string;
+      plan: "free";
+      isPersonalWorkspace: boolean;
+      isActive: boolean;
+      createdAt: number;
+      updatedAt: number;
+      description?: string;
+    } = {
+      businessName: args.businessName,
+      name: args.name,
+      slug: args.slug,
+      plan: "free" as const, // Default plan
+      isPersonalWorkspace: false,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    // Only add description if provided
+    if (args.description) {
+      orgData.description = args.description;
+    }
+
+    return await ctx.db.insert("organizations", orgData);
+  },
+});
+
+export const createOrgSettings = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    createdBy: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+
+    // Create organization_settings ontology object with defaults
+    await ctx.db.insert("objects", {
+      organizationId: args.organizationId,
+      type: "organization_settings",
+      subtype: "main",
+      name: "Organization Settings",
+      status: "active",
+      customProperties: {
+        timezone: "Europe/Berlin",
+        dateFormat: "DD.MM.YYYY",
+        language: "de",
+      },
+      createdBy: args.createdBy,
+      createdAt: now,
+      updatedAt: now,
+    });
+  },
+});
+
+export const addCreatorAsOwner = internalMutation({
+  args: {
+    userId: v.id("users"),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    // Get org_owner role
+    const orgOwnerRole = await ctx.db
+      .query("roles")
+      .withIndex("by_name", (q) => q.eq("name", "org_owner"))
+      .first();
+
+    if (!orgOwnerRole) {
+      throw new Error("org_owner role not found. Please run RBAC seeding.");
+    }
+
+    const now = Date.now();
+
+    // Add user as organization member with org_owner role
+    await ctx.db.insert("organizationMembers", {
+      userId: args.userId,
+      organizationId: args.organizationId,
+      role: orgOwnerRole._id,
+      isActive: true,
+      joinedAt: now,
+      invitedBy: args.userId, // Self-invited
+      invitedAt: now,
+      acceptedAt: now, // Auto-accepted for creator
+    });
+  },
+});
+
+// ============================================================================
+// ORGANIZATION DELETION
+// ============================================================================
+
+/**
+ * Delete an organization (org owner or super admin only)
+ *
+ * This mutation soft-deletes an organization by setting isActive = false
+ * Only org owners and super admins can delete organizations
+ *
+ * @permission delete_organization or super admin
+ * @roles org_owner, super_admin
+ */
+export const deleteOrganization = action({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args): Promise<{ success: boolean; message: string }> => {
+    // Call internal mutation to handle the deletion
+    const result = await ctx.runMutation(internal.organizations.deleteOrganizationInternal, {
+      sessionId: args.sessionId,
+      organizationId: args.organizationId,
+    });
+
+    return result;
+  },
+});
+
+export const deleteOrganizationInternal = internalMutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args): Promise<{ success: boolean; message: string }> => {
+    // 1. Authenticate user
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    // 2. Get organization
+    const organization = await ctx.db.get(args.organizationId);
+
+    if (!organization) {
+      throw new Error("Organization not found");
+    }
+
+    // 3. Check if user is org owner or super admin
+    const userContext = await getUserContext(ctx, userId);
+
+    // Check if super admin
+    const isSuperAdmin = userContext.isGlobal && userContext.roleName === "super_admin";
+
+    // Check if org owner of this organization
+    const membership = await ctx.db
+      .query("organizationMembers")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("organizationId"), args.organizationId),
+          q.eq(q.field("isActive"), true)
+        )
+      )
+      .first();
+
+    let isOrgOwner = false;
+    if (membership) {
+      const role = await ctx.db.get(membership.role);
+      isOrgOwner = role?.name === "org_owner";
+    }
+
+    if (!isSuperAdmin && !isOrgOwner) {
+      throw new Error("Not authorized: Only organization owners and super admins can delete organizations");
+    }
+
+    // 4. Soft delete the organization
+    await ctx.db.patch(args.organizationId, {
+      isActive: false,
+      updatedAt: Date.now(),
+    });
+
+    return {
+      success: true,
+      message: `Organization "${organization.name}" has been deleted successfully`,
+    };
+  },
+});
+
+export const getOrgMembership = internalQuery({
+  args: {
+    userId: v.id("users"),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    const membership = await ctx.db
+      .query("organizationMembers")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("organizationId"), args.organizationId),
+          q.eq(q.field("isActive"), true)
+        )
+      )
+      .first();
+
+    if (!membership) return null;
+
+    const role = await ctx.db.get(membership.role);
+    return {
+      ...membership,
+      role: role?.name || "unknown",
+    };
+  },
+});
+
+export const softDeleteOrganization = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.organizationId, {
+      isActive: false,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+/**
+ * Restore an archived organization (super admin only)
+ *
+ * This mutation restores a soft-deleted organization by setting isActive = true
+ * Only super admins can restore organizations (typically after permanent deletion)
+ *
+ * @permission super admin only
+ * @roles super_admin
+ */
+export const restoreOrganization = action({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args): Promise<{ success: boolean; message: string }> => {
+    const result = await ctx.runMutation(internal.organizations.restoreOrganizationInternal, {
+      sessionId: args.sessionId,
+      organizationId: args.organizationId,
+    });
+    return result;
+  },
+});
+
+export const restoreOrganizationInternal = internalMutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args): Promise<{ success: boolean; message: string }> => {
+    // 1. Authenticate user
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    // 2. Get organization
+    const organization = await ctx.db.get(args.organizationId);
+    if (!organization) {
+      throw new Error("Organization not found");
+    }
+
+    // 3. Check if organization is archived
+    if (organization.isActive) {
+      throw new Error("Organization is already active");
+    }
+
+    // 4. Check if user is super admin (only super admins can restore)
+    const userContext = await getUserContext(ctx, userId);
+    const isSuperAdmin = userContext.isGlobal && userContext.roleName === "super_admin";
+
+    if (!isSuperAdmin) {
+      throw new Error("Not authorized: Only super admins can restore archived organizations");
+    }
+
+    // 5. Restore the organization
+    await ctx.db.patch(args.organizationId, {
+      isActive: true,
+      updatedAt: Date.now(),
+    });
+
+    // 6. Log audit event
+    await ctx.runMutation(internal.rbac.logAudit, {
+      userId,
+      organizationId: args.organizationId,
+      action: "restore_organization",
+      resource: "organizations",
+      success: true,
+      metadata: { organizationName: organization.name },
+    });
+
+    return {
+      success: true,
+      message: `Organization "${organization.name}" has been restored successfully`,
+    };
+  },
+});
+
+/**
+ * Permanently delete an organization (org owner or super admin only)
+ *
+ * This mutation HARD DELETES an organization and all related data
+ * Only works on organizations that are already soft-deleted (isActive = false)
+ *
+ * @permission delete_organization or super admin
+ * @roles org_owner, super_admin
+ */
+export const permanentlyDeleteOrganization = action({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args): Promise<{ success: boolean; message: string }> => {
+    // Call internal mutation to handle the permanent deletion
+    const result = await ctx.runMutation(internal.organizations.permanentlyDeleteOrganizationInternal, {
+      sessionId: args.sessionId,
+      organizationId: args.organizationId,
+    });
+
+    return result;
+  },
+});
+
+export const permanentlyDeleteOrganizationInternal = internalMutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args): Promise<{ success: boolean; message: string }> => {
+    // 1. Authenticate user
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    // 2. Get organization
+    const organization = await ctx.db.get(args.organizationId);
+
+    if (!organization) {
+      throw new Error("Organization not found");
+    }
+
+    // 3. Check if organization is already soft-deleted
+    if (organization.isActive) {
+      throw new Error("Cannot permanently delete an active organization. Please deactivate it first.");
+    }
+
+    // 4. Check if user is org owner or super admin
+    const userContext = await getUserContext(ctx, userId);
+
+    // Check if super admin
+    const isSuperAdmin = userContext.isGlobal && userContext.roleName === "super_admin";
+
+    // Check if org owner of this organization
+    const membership = await ctx.db
+      .query("organizationMembers")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("organizationId"), args.organizationId),
+          q.eq(q.field("isActive"), true)
+        )
+      )
+      .first();
+
+    let isOrgOwner = false;
+    if (membership) {
+      const role = await ctx.db.get(membership.role);
+      isOrgOwner = role?.name === "org_owner";
+    }
+
+    if (!isSuperAdmin && !isOrgOwner) {
+      throw new Error("Not authorized: Only organization owners and super admins can permanently delete organizations");
+    }
+
+    // 5. HARD DELETE - Remove all related data
+    // TODO: Add cleanup for all related tables (objects, etc.)
+    // For now, just delete the organization record
+    await ctx.db.delete(args.organizationId);
+
+    return {
+      success: true,
+      message: `Organization "${organization.name}" has been permanently deleted from the database`,
+    };
   },
 });

@@ -33,7 +33,7 @@ export const seedAll = internalMutation({
     }
 
     if (!systemOrg) {
-      throw new Error("Failed to create system organization");
+      throw new Error("Systemorganisation konnte nicht erstellt werden");
     }
 
     // Get or create system user
@@ -55,7 +55,7 @@ export const seedAll = internalMutation({
     }
 
     if (!systemUser) {
-      throw new Error("Failed to create system user");
+      throw new Error("Systembenutzer konnte nicht erstellt werden");
     }
 
     console.log("✅ System organization and user ready");
@@ -181,7 +181,17 @@ export const seedAll = internalMutation({
 
     console.log(`✅ Created ${plSystemTranslations.length} Polish system translations`);
 
-    // Seed organization ontology data
+    // ============================================================================
+    // ONTOLOGY TRANSLATIONS - Now using separate seed files!
+    // ============================================================================
+    console.log("⚠️  Ontology translations moved to separate seed files");
+    console.log("    Run: npx convex run translations/seedWelcomeTranslations:seed");
+    console.log("    Run: npx convex run translations/seedAddressTranslations:seed");
+    console.log("    Run: npx convex run translations/seedProfileTranslations:seed");
+
+    // ============================================================================
+    // ORGANIZATION ONTOLOGY DATA - Now using translation keys!
+    // ============================================================================
     console.log("Seeding organization ontology data...");
 
     // Create organization profile
@@ -194,8 +204,10 @@ export const seedAll = internalMutation({
         industry: "Technology",
         foundedYear: 2024,
         employeeCount: "1-10",
-        bio: "System organization for platform administration",
-        description: "Core platform organization managing L4YERCAK3 infrastructure"
+        // ✅ Store ONLY translation keys - no fallback!
+        // If translation is missing, key will be visible in UI for debugging
+        bioKey: "org.profile.system.bio",
+        descriptionKey: "org.profile.system.description",
       },
       createdBy: systemUser._id,
       createdAt: Date.now(),
@@ -259,8 +271,9 @@ export const seedAll = internalMutation({
       organizationId: systemOrg._id,
       type: "address",
       subtype: "physical",
-      name: "L4YERCAK3 Headquarters",
-      description: "Main office location",
+      // ✅ Store translation key - if missing, key will show in UI for debugging
+      name: "org.address.headquarters.name",
+      description: "org.address.headquarters.description",
       status: "active",
       customProperties: {
         addressLine1: "123 Tech Street",
@@ -272,7 +285,8 @@ export const seedAll = internalMutation({
         region: "Americas",
         isDefault: true,
         isPrimary: true,
-        label: "Headquarters"
+        // ✅ Only translation key - no fallback!
+        labelKey: "org.address.label.headquarters",
       },
       createdBy: systemUser._id,
       createdAt: Date.now(),
@@ -284,8 +298,9 @@ export const seedAll = internalMutation({
       organizationId: systemOrg._id,
       type: "address",
       subtype: "billing",
-      name: "L4YERCAK3 Billing Address",
-      description: "Primary billing address",
+      // ✅ Store translation key - if missing, key will show in UI for debugging
+      name: "org.address.billing.name",
+      description: "org.address.billing.description",
       status: "active",
       customProperties: {
         addressLine1: "123 Tech Street",
@@ -297,7 +312,8 @@ export const seedAll = internalMutation({
         region: "Americas",
         isDefault: true,
         isPrimary: false,
-        label: "Billing"
+        // ✅ Only translation key - no fallback!
+        labelKey: "org.address.label.billing",
       },
       createdBy: systemUser._id,
       createdAt: Date.now(),

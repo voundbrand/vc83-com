@@ -25,39 +25,45 @@ import { Id, Doc } from "./_generated/dataModel";
 export const BASE_ROLES = [
   {
     name: 'super_admin',
-    description: 'Global system administrator with complete platform access',
+    description: 'Globaler Systemadministrator mit vollständigem Plattformzugriff',
     isActive: true,
     hierarchy: 0, // Highest level
   },
   {
-    name: 'org_owner',
-    description: 'Organization owner with full control including billing and team management',
+    name: 'enterprise_owner',
+    description: 'Unternehmensinhaber - kann mehrere Organisationen systemweit erstellen und verwalten',
     isActive: true,
-    hierarchy: 1,
+    hierarchy: 1, // Can create system organizations
   },
   {
-    name: 'business_manager',
-    description: 'Manages operations and teams (project manager, event coordinator, etc.)',
+    name: 'org_owner',
+    description: 'Organisationsinhaber mit voller Kontrolle einschließlich Abrechnung und Teamverwaltung',
     isActive: true,
     hierarchy: 2,
   },
   {
-    name: 'employee',
-    description: 'Executes day-to-day tasks and operations',
+    name: 'business_manager',
+    description: 'Verwaltet Betrieb und Teams (Projektmanager, Event-Koordinator, usw.)',
     isActive: true,
     hierarchy: 3,
   },
   {
-    name: 'viewer',
-    description: 'Read-only access for audits, reviews, and approvals',
+    name: 'employee',
+    description: 'Führt tägliche Aufgaben und Abläufe aus',
     isActive: true,
     hierarchy: 4,
   },
   {
-    name: 'translator',
-    description: 'Specialized role for managing translations and internationalization',
+    name: 'viewer',
+    description: 'Nur-Lese-Zugriff für Audits, Reviews und Genehmigungen',
     isActive: true,
-    hierarchy: 3, // Same level as employee but specialized
+    hierarchy: 5,
+  },
+  {
+    name: 'translator',
+    description: 'Spezialisierte Rolle für die Verwaltung von Übersetzungen und Internationalisierung',
+    isActive: true,
+    hierarchy: 4, // Same level as employee but specialized
   },
 ] as const;
 
@@ -86,14 +92,14 @@ export const BASE_PERMISSIONS = [
     resource: 'organizations',
     action: 'write',
     category: PERMISSION_CATEGORIES.ORG_MANAGEMENT,
-    description: 'Create, update, and delete organization settings'
+    description: 'Erstellen, aktualisieren und löschen von Organisationseinstellungen'
   },
   {
     name: 'view_organization',
     resource: 'organizations',
     action: 'read',
     category: PERMISSION_CATEGORIES.ORG_MANAGEMENT,
-    description: 'View organization details and settings'
+    description: 'Organisationsdetails und -einstellungen anzeigen'
   },
 
   // User/Team Management
@@ -102,49 +108,49 @@ export const BASE_PERMISSIONS = [
     resource: 'users',
     action: 'write',
     category: PERMISSION_CATEGORIES.USER_MANAGEMENT,
-    description: 'Invite, remove, and assign roles to users'
+    description: 'Benutzer einladen, entfernen und Rollen zuweisen'
   },
   {
     name: 'view_users',
     resource: 'users',
     action: 'read',
     category: PERMISSION_CATEGORIES.USER_MANAGEMENT,
-    description: 'View team members and their roles'
+    description: 'Teammitglieder und ihre Rollen anzeigen'
   },
   {
     name: 'update_profile',
     resource: 'users',
     action: 'write_self',
     category: PERMISSION_CATEGORIES.USER_MANAGEMENT,
-    description: 'Update own user profile'
+    description: 'Eigenes Benutzerprofil aktualisieren'
   },
   {
     name: 'view_roles',
     resource: 'roles',
     action: 'read',
     category: PERMISSION_CATEGORIES.USER_MANAGEMENT,
-    description: 'View roles and their permissions'
+    description: 'Rollen und ihre Berechtigungen anzeigen'
   },
   {
     name: 'manage_roles',
     resource: 'roles',
     action: 'write',
     category: PERMISSION_CATEGORIES.USER_MANAGEMENT,
-    description: 'Create, update, and delete roles'
+    description: 'Rollen erstellen, aktualisieren und löschen'
   },
   {
     name: 'view_permissions',
     resource: 'permissions',
     action: 'read',
     category: PERMISSION_CATEGORIES.USER_MANAGEMENT,
-    description: 'View available permissions'
+    description: 'Verfügbare Berechtigungen anzeigen'
   },
   {
     name: 'manage_permissions',
     resource: 'permissions',
     action: 'write',
     category: PERMISSION_CATEGORIES.USER_MANAGEMENT,
-    description: 'Assign and remove permissions from roles'
+    description: 'Berechtigungen zu Rollen zuweisen und entfernen'
   },
 
   // Financial Management
@@ -153,28 +159,28 @@ export const BASE_PERMISSIONS = [
     resource: 'purchases',
     action: 'write',
     category: PERMISSION_CATEGORIES.FINANCIALS,
-    description: 'Manage billing, subscriptions, and financial settings'
+    description: 'Abrechnung, Abonnements und Finanzeinstellungen verwalten'
   },
   {
     name: 'create_invoice',
     resource: 'invoices',
     action: 'write',
     category: PERMISSION_CATEGORIES.FINANCIALS,
-    description: 'Create and generate invoices'
+    description: 'Rechnungen erstellen und generieren'
   },
   {
     name: 'approve_invoice',
     resource: 'invoices',
     action: 'approve',
     category: PERMISSION_CATEGORIES.FINANCIALS,
-    description: 'Approve and sign off on invoices'
+    description: 'Rechnungen genehmigen und abzeichnen'
   },
   {
     name: 'view_financials',
     resource: 'purchases',
     action: 'read',
     category: PERMISSION_CATEGORIES.FINANCIALS,
-    description: 'View financial reports and billing information'
+    description: 'Finanzberichte und Abrechnungsinformationen anzeigen'
   },
 
   // Operations Management
@@ -183,35 +189,35 @@ export const BASE_PERMISSIONS = [
     resource: 'operations',
     action: 'write',
     category: PERMISSION_CATEGORIES.OPERATIONS,
-    description: 'Full CRUD on tasks, projects, and events'
+    description: 'Vollständige CRUD-Operationen für Aufgaben, Projekte und Events'
   },
   {
     name: 'create_task',
     resource: 'tasks',
     action: 'write',
     category: PERMISSION_CATEGORIES.OPERATIONS,
-    description: 'Create new tasks, projects, or event items'
+    description: 'Neue Aufgaben, Projekte oder Event-Elemente erstellen'
   },
   {
     name: 'assign_task',
     resource: 'tasks',
     action: 'assign',
     category: PERMISSION_CATEGORIES.OPERATIONS,
-    description: 'Delegate tasks to team members'
+    description: 'Aufgaben an Teammitglieder delegieren'
   },
   {
     name: 'execute_task',
     resource: 'tasks',
     action: 'update',
     category: PERMISSION_CATEGORIES.OPERATIONS,
-    description: 'Complete and update assigned tasks'
+    description: 'Zugewiesene Aufgaben abschließen und aktualisieren'
   },
   {
     name: 'view_operations',
     resource: 'operations',
     action: 'read',
     category: PERMISSION_CATEGORIES.OPERATIONS,
-    description: 'View tasks, projects, and operational data'
+    description: 'Aufgaben, Projekte und Betriebsdaten anzeigen'
   },
 
   // Reporting and Analytics
@@ -220,28 +226,28 @@ export const BASE_PERMISSIONS = [
     resource: 'reports',
     action: 'write',
     category: PERMISSION_CATEGORIES.REPORTING,
-    description: 'Generate custom reports and analytics'
+    description: 'Benutzerdefinierte Berichte und Analysen generieren'
   },
   {
     name: 'view_reports',
     resource: 'reports',
     action: 'read',
     category: PERMISSION_CATEGORIES.REPORTING,
-    description: 'Access dashboards and reports'
+    description: 'Auf Dashboards und Berichte zugreifen'
   },
   {
     name: 'export_data',
     resource: 'reports',
     action: 'export',
     category: PERMISSION_CATEGORIES.REPORTING,
-    description: 'Download and export data'
+    description: 'Daten herunterladen und exportieren'
   },
   {
     name: 'view_audit_logs',
     resource: 'auditLogs',
     action: 'read',
     category: PERMISSION_CATEGORIES.REPORTING,
-    description: 'View audit trail and security logs'
+    description: 'Prüfpfad und Sicherheitsprotokolle anzeigen'
   },
 
   // App Management
@@ -250,21 +256,21 @@ export const BASE_PERMISSIONS = [
     resource: 'appInstallations',
     action: 'write',
     category: PERMISSION_CATEGORIES.APP_MANAGEMENT,
-    description: 'Install and configure apps from the app store'
+    description: 'Apps aus dem App Store installieren und konfigurieren'
   },
   {
     name: 'manage_apps',
     resource: 'appInstallations',
     action: 'manage',
     category: PERMISSION_CATEGORIES.APP_MANAGEMENT,
-    description: 'Configure and manage installed apps'
+    description: 'Installierte Apps konfigurieren und verwalten'
   },
   {
     name: 'view_apps',
     resource: 'appInstallations',
     action: 'read',
     category: PERMISSION_CATEGORIES.APP_MANAGEMENT,
-    description: 'View installed apps and their configurations'
+    description: 'Installierte Apps und ihre Konfigurationen anzeigen'
   },
 
   // Translation Management - Simple permissions
@@ -273,21 +279,39 @@ export const BASE_PERMISSIONS = [
     resource: 'translations',
     action: 'read',
     category: PERMISSION_CATEGORIES.TRANSLATION,
-    description: 'View translations and progress'
+    description: 'Übersetzungen und Fortschritt anzeigen'
   },
   {
     name: 'manage_translations',
     resource: 'translations',
     action: 'write',
     category: PERMISSION_CATEGORIES.TRANSLATION,
-    description: 'Create and edit translations'
+    description: 'Übersetzungen erstellen und bearbeiten'
   },
   {
     name: 'approve_translations',
     resource: 'translations',
     action: 'approve',
     category: PERMISSION_CATEGORIES.TRANSLATION,
-    description: 'Review and approve translations'
+    description: 'Übersetzungen überprüfen und genehmigen'
+  },
+
+  // System Administration - Organization Management
+  {
+    name: 'create_system_organization',
+    resource: 'organizations',
+    action: 'create',
+    category: PERMISSION_CATEGORIES.ORG_MANAGEMENT,
+    description: 'Neue Organisationen systemweit erstellen (nur Super-Administrator)'
+  },
+
+  // System Administration - Ontology Management
+  {
+    name: 'manage_ontology',
+    resource: 'ontology',
+    action: 'manage',
+    category: PERMISSION_CATEGORIES.ORG_MANAGEMENT,
+    description: 'Ontologie-System verwalten: Objekte, Links und Typen erstellen/bearbeiten (nur Super-Administrator)'
   },
 ] as const;
 
@@ -297,6 +321,24 @@ export const BASE_PERMISSIONS = [
  */
 export const ROLE_PERMISSION_MAPPINGS: Record<string, string[]> = {
   'super_admin': ['*'], // All permissions via wildcard
+
+  'enterprise_owner': [
+    'create_system_organization', // Can create organizations system-wide
+    'manage_organization',
+    'manage_users',
+    'manage_roles',
+    'manage_permissions',
+    'manage_financials',
+    'manage_operations',
+    'create_invoice',
+    'approve_invoice',
+    'create_report',
+    'export_data',
+    'install_apps',
+    'manage_apps',
+    'view_audit_logs',
+    'view_*', // All view permissions
+  ],
 
   'org_owner': [
     'manage_organization',
@@ -401,72 +443,101 @@ export const seedRBAC = mutation({
       v.literal('events'),
       v.literal('hr_employee')
     )),
+    force: v.optional(v.boolean()), // Allow forcing re-seed to pick up new permissions
   },
-  handler: async (ctx, { includeVertical }) => {
-    // Check if already seeded
-    const existingSuper = await ctx.db
-      .query("roles")
-      .withIndex("by_name", (q) => q.eq("name", "super_admin"))
-      .first();
-
-    if (existingSuper) {
-      return {
-        message: "RBAC already seeded",
-        skipped: true,
-        rolesCount: 0,
-        permissionsCount: 0,
-      };
-    }
-
+  handler: async (ctx, { includeVertical, force }) => {
     const now = Date.now();
     const roleIds: Record<string, Id<"roles">> = {};
     const permissionIds: Record<string, Id<"permissions">> = {};
 
-    // Insert base permissions
+    // Upsert base permissions (add new ones, skip existing)
     let permissionCount = 0;
-    for (const perm of BASE_PERMISSIONS) {
-      const permId = await ctx.db.insert("permissions", {
-        name: perm.name,
-        resource: perm.resource,
-        action: perm.action,
-        description: perm.description,
-        createdAt: now,
-      });
-      permissionIds[perm.name] = permId;
-      permissionCount++;
-    }
+    let permissionsAdded = 0;
+    let permissionsSkipped = 0;
 
-    // Insert vertical-specific permissions if requested
-    if (includeVertical) {
-      const verticalPerms = VERTICAL_PERMISSIONS[includeVertical];
-      for (const perm of verticalPerms) {
+    for (const perm of BASE_PERMISSIONS) {
+      // Check if permission already exists
+      const existing = await ctx.db
+        .query("permissions")
+        .withIndex("by_name", (q) => q.eq("name", perm.name))
+        .first();
+
+      if (existing) {
+        permissionIds[perm.name] = existing._id;
+        permissionsSkipped++;
+      } else {
         const permId = await ctx.db.insert("permissions", {
           name: perm.name,
           resource: perm.resource,
           action: perm.action,
-          description: `${includeVertical}: ${perm.name}`,
+          description: perm.description,
           createdAt: now,
         });
         permissionIds[perm.name] = permId;
+        permissionsAdded++;
+      }
+      permissionCount++;
+    }
+
+    // Upsert vertical-specific permissions if requested
+    if (includeVertical) {
+      const verticalPerms = VERTICAL_PERMISSIONS[includeVertical];
+      for (const perm of verticalPerms) {
+        const existing = await ctx.db
+          .query("permissions")
+          .withIndex("by_name", (q) => q.eq("name", perm.name))
+          .first();
+
+        if (existing) {
+          permissionIds[perm.name] = existing._id;
+          permissionsSkipped++;
+        } else {
+          const permId = await ctx.db.insert("permissions", {
+            name: perm.name,
+            resource: perm.resource,
+            action: perm.action,
+            description: `${includeVertical}: ${perm.name}`,
+            createdAt: now,
+          });
+          permissionIds[perm.name] = permId;
+          permissionsAdded++;
+        }
         permissionCount++;
       }
     }
 
-    // Insert roles
+    // Upsert roles (add new ones, skip existing)
     let roleCount = 0;
+    let rolesAdded = 0;
+    let rolesSkipped = 0;
+
     for (const role of BASE_ROLES) {
-      const roleId = await ctx.db.insert("roles", {
-        name: role.name,
-        description: role.description,
-        isActive: role.isActive,
-        createdAt: now,
-        updatedAt: now,
-      });
-      roleIds[role.name] = roleId;
+      const existing = await ctx.db
+        .query("roles")
+        .withIndex("by_name", (q) => q.eq("name", role.name))
+        .first();
+
+      if (existing) {
+        roleIds[role.name] = existing._id;
+        rolesSkipped++;
+      } else {
+        const roleId = await ctx.db.insert("roles", {
+          name: role.name,
+          description: role.description,
+          isActive: role.isActive,
+          createdAt: now,
+          updatedAt: now,
+        });
+        roleIds[role.name] = roleId;
+        rolesAdded++;
+      }
       roleCount++;
     }
 
-    // Map permissions to roles
+    // Map permissions to roles (upsert - skip existing mappings)
+    let roleMappingsAdded = 0;
+    let roleMappingsSkipped = 0;
+
     for (const [roleName, permNames] of Object.entries(ROLE_PERMISSION_MAPPINGS)) {
       const roleId = roleIds[roleName];
       if (!roleId) continue;
@@ -475,43 +546,85 @@ export const seedRBAC = mutation({
         if (permName === '*') {
           // Grant all permissions to super_admin
           for (const permId of Object.values(permissionIds)) {
-            await ctx.db.insert("rolePermissions", {
-              roleId,
-              permissionId: permId,
-              createdAt: now,
-            });
+            // Check if mapping already exists
+            const existingMapping = await ctx.db
+              .query("rolePermissions")
+              .withIndex("by_role", (q) => q.eq("roleId", roleId))
+              .filter((q) => q.eq(q.field("permissionId"), permId))
+              .first();
+
+            if (!existingMapping) {
+              await ctx.db.insert("rolePermissions", {
+                roleId,
+                permissionId: permId,
+                createdAt: now,
+              });
+              roleMappingsAdded++;
+            } else {
+              roleMappingsSkipped++;
+            }
           }
         } else if (permName.endsWith('*')) {
           // Wildcard matching (e.g., 'view_*')
           const prefix = permName.replace('*', '');
           for (const [pName, pId] of Object.entries(permissionIds)) {
             if (pName.startsWith(prefix)) {
-              await ctx.db.insert("rolePermissions", {
-                roleId,
-                permissionId: pId,
-                createdAt: now,
-              });
+              const existingMapping = await ctx.db
+                .query("rolePermissions")
+                .withIndex("by_role", (q) => q.eq("roleId", roleId))
+                .filter((q) => q.eq(q.field("permissionId"), pId))
+                .first();
+
+              if (!existingMapping) {
+                await ctx.db.insert("rolePermissions", {
+                  roleId,
+                  permissionId: pId,
+                  createdAt: now,
+                });
+                roleMappingsAdded++;
+              } else {
+                roleMappingsSkipped++;
+              }
             }
           }
         } else {
           // Direct permission mapping
           const permId = permissionIds[permName];
           if (permId) {
-            await ctx.db.insert("rolePermissions", {
-              roleId,
-              permissionId: permId,
-              createdAt: now,
-            });
+            const existingMapping = await ctx.db
+              .query("rolePermissions")
+              .withIndex("by_role", (q) => q.eq("roleId", roleId))
+              .filter((q) => q.eq(q.field("permissionId"), permId))
+              .first();
+
+            if (!existingMapping) {
+              await ctx.db.insert("rolePermissions", {
+                roleId,
+                permissionId: permId,
+                createdAt: now,
+              });
+              roleMappingsAdded++;
+            } else {
+              roleMappingsSkipped++;
+            }
           }
         }
       }
     }
 
     return {
-      message: "RBAC seeded successfully",
-      skipped: false,
+      message: permissionsAdded > 0 || rolesAdded > 0
+        ? `RBAC aktualisiert: ${permissionsAdded} neue Berechtigungen, ${rolesAdded} neue Rollen`
+        : "RBAC bereits vollständig - keine Änderungen",
+      skipped: permissionsAdded === 0 && rolesAdded === 0,
       rolesCount: roleCount,
+      rolesAdded,
+      rolesSkipped,
       permissionsCount: permissionCount,
+      permissionsAdded,
+      permissionsSkipped,
+      roleMappingsAdded,
+      roleMappingsSkipped,
     };
   },
 });
@@ -1225,6 +1338,86 @@ export const isSuperAdmin = query({
     }
 
     return false;
+  },
+});
+
+/**
+ * Get assignable roles for a user
+ * Users can only assign roles at their hierarchy level or below
+ * @returns Array of roles that the user can assign to others
+ */
+export const getAssignableRoles = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.optional(v.id("organizations")),
+  },
+  handler: async (ctx, { sessionId, organizationId }) => {
+    // Get session
+    const session = await ctx.db.get(sessionId as Id<"sessions">);
+    if (!session || session.expiresAt < Date.now()) {
+      throw new Error("Invalid or expired session");
+    }
+
+    // Get user
+    const user = await ctx.db.get(session.userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Determine user's role and hierarchy
+    let userHierarchy = 999; // Default to lowest
+
+    // Check global role first
+    if (user.global_role_id) {
+      const globalRole = await ctx.db.get(user.global_role_id);
+      if (globalRole) {
+        const roleConfig = BASE_ROLES.find(r => r.name === globalRole.name);
+        if (roleConfig) {
+          userHierarchy = roleConfig.hierarchy;
+        }
+      }
+    }
+    // Check organization role
+    else if (organizationId) {
+      const membership = await ctx.db
+        .query("organizationMembers")
+        .withIndex("by_user_and_org", (q) =>
+          q.eq("userId", session.userId).eq("organizationId", organizationId)
+        )
+        .filter((q) => q.eq(q.field("isActive"), true))
+        .first();
+
+      if (membership) {
+        const orgRole = await ctx.db.get(membership.role);
+        if (orgRole) {
+          const roleConfig = BASE_ROLES.find(r => r.name === orgRole.name);
+          if (roleConfig) {
+            userHierarchy = roleConfig.hierarchy;
+          }
+        }
+      }
+    }
+
+    // Get all active roles
+    const allRoles = await ctx.db
+      .query("roles")
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+
+    // Filter roles: user can assign roles at their level or below
+    // Exception: super_admin (hierarchy 0) can assign any role
+    const assignableRoles = allRoles.filter(role => {
+      const roleConfig = BASE_ROLES.find(r => r.name === role.name);
+      if (!roleConfig) return false; // Unknown roles can't be assigned
+
+      // Super admin can assign any role
+      if (userHierarchy === 0) return true;
+
+      // Users can only assign roles with hierarchy >= their own (higher number = lower privilege)
+      return roleConfig.hierarchy > userHierarchy;
+    });
+
+    return assignableRoles;
   },
 });
 

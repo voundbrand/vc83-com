@@ -5,7 +5,10 @@ import { SettingsWindow } from "./settings-window";
 import { ManageWindow } from "./manage-window";
 import { OntologyAdminWindow } from "./ontology-admin";
 import { TranslationsWindow } from "./translations-window";
+import { OrganizationsWindow } from "./organizations-window";
 import { usePermissions } from "@/contexts/permission-context";
+import { useAuth } from "@/hooks/use-auth";
+import { useTranslation } from "@/contexts/translation-context";
 
 interface ControlPanelItem {
   id: string;
@@ -17,6 +20,8 @@ interface ControlPanelItem {
 export function ControlPanelWindow() {
   const { openWindow } = useWindowManager();
   const { isSuperAdmin } = usePermissions();
+  const { canPerform } = useAuth();
+  const { t } = useTranslation();
 
   const openDesktopSettings = () => {
     openWindow(
@@ -34,7 +39,7 @@ export function ControlPanelWindow() {
       "Manage",
       <ManageWindow />,
       { x: 200, y: 50 },
-      { width: 800, height: 600 }
+      { width: 950, height: 600 }
     );
   };
 
@@ -61,46 +66,75 @@ export function ControlPanelWindow() {
     );
   };
 
+  const openOrganizations = () => {
+    openWindow(
+      "organizations",
+      "System Organizations",
+      <OrganizationsWindow />,
+      { x: 250, y: 140 },
+      { width: 800, height: 600 }
+    );
+  };
+
+  // Base items that everyone sees
   const baseItems: ControlPanelItem[] = [
-    {
-      id: "manage",
-      icon: "🏢",
-      label: "Manage",
-      onClick: openManageWindow,
-    },
     {
       id: "desktop",
       icon: "🖥️",
-      label: "Desktop",
+      label: t('ui.controlpanel.item.desktop'),
       onClick: openDesktopSettings,
-    },
-    {
-      id: "translations",
-      icon: "🌐",
-      label: "Translations",
-      onClick: openTranslations,
     },
   ];
 
-  // Add ontology admin icon if user is super admin
-  const controlPanelItems: ControlPanelItem[] = isSuperAdmin
-    ? [
-        ...baseItems,
-        {
-          id: "ontology-admin",
-          icon: "🥷",
-          label: "Ontology",
-          onClick: openOntologyAdmin,
-        },
-      ]
-    : baseItems;
+  // Conditionally add items based on permissions
+  const controlPanelItems: ControlPanelItem[] = [...baseItems];
+
+  // Manage - requires manage_users or manage_organization
+  if (canPerform('manage_users') || canPerform('manage_organization')) {
+    controlPanelItems.push({
+      id: "manage",
+      icon: "🏢",
+      label: t('ui.controlpanel.item.manage'),
+      onClick: openManageWindow,
+    });
+  }
+
+  // Translations - requires manage_translations
+  if (canPerform('manage_translations')) {
+    controlPanelItems.push({
+      id: "translations",
+      icon: "🌐",
+      label: t('ui.controlpanel.item.translations'),
+      onClick: openTranslations,
+    });
+  }
+
+  // System Organizations - requires create_system_organization (super admin only)
+  if (canPerform('create_system_organization')) {
+    controlPanelItems.push({
+      id: "system-organizations",
+      icon: "🏢",
+      label: t('ui.controlpanel.item.system_organizations'),
+      onClick: openOrganizations,
+    });
+  }
+
+  // Ontology - requires manage_ontology (super admin only)
+  if (canPerform('manage_ontology')) {
+    controlPanelItems.push({
+      id: "ontology-admin",
+      icon: "🥷",
+      label: t('ui.controlpanel.item.ontology'),
+      onClick: openOntologyAdmin,
+    });
+  }
 
   return (
     <div className="h-full flex flex-col" style={{ background: 'var(--win95-bg)' }}>
       {/* Header */}
       <div className="px-4 py-3 border-b-2" style={{ borderColor: 'var(--win95-border)' }}>
         <p className="text-sm" style={{ color: 'var(--win95-text)' }}>
-          Use the settings in Control Panel to personalize your workspace.
+          {t('ui.controlpanel.description')}
           {isSuperAdmin && (
             <span className="ml-2 font-bold text-green-600">
               [SUPER ADMIN MODE]

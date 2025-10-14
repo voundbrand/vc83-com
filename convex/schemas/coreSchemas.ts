@@ -27,6 +27,9 @@ export const users = defineTable({
   invitedBy: v.optional(v.id("users")),
   invitedAt: v.optional(v.number()),
 
+  // Account deletion (grace period)
+  scheduledDeletionDate: v.optional(v.number()), // 2-week grace period before permanent deletion
+
   // Metadata
   isActive: v.optional(v.boolean()),
   createdAt: v.optional(v.number()),
@@ -55,9 +58,31 @@ export const organizations = defineTable({
   isPersonalWorkspace: v.boolean(),
   isActive: v.boolean(),
 
+  // Stripe Customer ID (for platform billing only - NOT Connect)
+  // This is for when L4YERCAK3 charges the organization for subscriptions/usage
+  stripeCustomerId: v.optional(v.string()),           // Stripe customer ID (cus_...)
+
+  // Multi-Provider Payment Integration
+  paymentProviders: v.optional(v.array(v.object({
+    providerCode: v.string(),           // e.g., "stripe-connect", "paypal", "square"
+    accountId: v.string(),              // Provider-specific account ID
+    status: v.union(
+      v.literal("pending"),
+      v.literal("active"),
+      v.literal("restricted"),
+      v.literal("disabled")
+    ),
+    isDefault: v.boolean(),             // Is this the default provider?
+    isTestMode: v.boolean(),            // Test mode (can be toggled even in production)
+    connectedAt: v.number(),            // When account was connected
+    lastStatusCheck: v.optional(v.number()), // Last time status was refreshed
+    metadata: v.optional(v.any()),      // Provider-specific metadata (e.g., chargesEnabled, payoutsEnabled)
+  }))),
+
   // Metadata
   createdAt: v.number(),
   updatedAt: v.number(),
+  email: v.optional(v.string()),        // Organization contact email
 })
   .index("by_slug", ["slug"])
   .searchIndex("search_by_name", {
@@ -166,3 +191,44 @@ export const userPreferences = defineTable({
   createdAt: v.number(),
 })
   .index("by_user", ["userId"]);
+
+// Organization Media - File storage for images, documents, etc.
+export const organizationMedia = defineTable({
+  // Ownership
+  organizationId: v.id("organizations"),
+  uploadedBy: v.id("users"),
+
+  // Convex Storage
+  storageId: v.id("_storage"), // Convex file storage ID
+
+  // File metadata
+  filename: v.string(),
+  mimeType: v.string(),
+  sizeBytes: v.number(),
+
+  // Optional: Image-specific metadata
+  width: v.optional(v.number()),
+  height: v.optional(v.number()),
+
+  // Usage tracking
+  usageCount: v.optional(v.number()), // How many templates use this
+  lastUsedAt: v.optional(v.number()),
+
+  // Organization & categorization
+  category: v.optional(v.union(
+    v.literal("template"), // Used in web templates
+    v.literal("logo"),     // Organization logo
+    v.literal("avatar"),   // User avatars
+    v.literal("general")   // General media
+  )),
+  tags: v.optional(v.array(v.string())), // For searching
+  description: v.optional(v.string()),
+
+  // Metadata
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_organization", ["organizationId"])
+  .index("by_organization_and_category", ["organizationId", "category"])
+  .index("by_storage_id", ["storageId"])
+  .index("by_uploaded_by", ["uploadedBy"]);

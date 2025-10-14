@@ -14,7 +14,7 @@ type TabType = "appearance" | "wallpaper" | "region" | "admin";
 export function SettingsWindow() {
   const { closeWindow, openWindow } = useWindowManager();
   const { currentTheme, setTheme, windowStyle, setWindowStyle } = useTheme();
-  const { locale, availableLocales, setLocale } = useTranslation();
+  const { locale, availableLocales, setLocale, t } = useTranslation();
   const isSuperAdmin = useIsSuperAdmin();
   const [activeTab, setActiveTab] = useState<TabType>("appearance");
   const [selectedThemeId, setSelectedThemeId] = useState<string>(currentTheme.id);
@@ -47,8 +47,8 @@ export function SettingsWindow() {
     <div className="flex flex-col min-h-full" style={{ background: 'var(--win95-bg)' }}>
       {/* Header */}
       <div className="px-4 py-3 border-b-2 shrink-0" style={{ borderColor: 'var(--win95-border)' }}>
-        <h2 className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>Desktop Settings</h2>
-        <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>Customize your workspace appearance</p>
+        <h2 className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>{t('ui.settings.title')}</h2>
+        <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>{t('ui.settings.subtitle')}</p>
       </div>
 
       {/* Tabs */}
@@ -62,7 +62,7 @@ export function SettingsWindow() {
           }}
           onClick={() => setActiveTab("appearance")}
         >
-          Appearance
+          {t('ui.settings.tab_appearance')}
         </button>
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors"
@@ -73,7 +73,7 @@ export function SettingsWindow() {
           }}
           onClick={() => setActiveTab("wallpaper")}
         >
-          Wallpaper
+          {t('ui.settings.tab_wallpaper')}
         </button>
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors"
@@ -84,7 +84,7 @@ export function SettingsWindow() {
           }}
           onClick={() => setActiveTab("region")}
         >
-          🌍 Region
+          🌍 {t('ui.settings.tab_region')}
         </button>
         {isSuperAdmin && (
           <button
@@ -96,7 +96,7 @@ export function SettingsWindow() {
             }}
             onClick={() => setActiveTab("admin")}
           >
-            🥷 Admin
+            🥷 {t('ui.settings.tab_admin')}
           </button>
         )}
       </div>
@@ -108,7 +108,7 @@ export function SettingsWindow() {
             {/* Window Style Section */}
             <div>
               <h3 className="text-xs font-bold mb-3 uppercase tracking-wide" style={{ color: 'var(--win95-text)' }}>
-                Window Style
+                {t('ui.settings.section_window_style')}
               </h3>
               <div className="space-y-2">
                 <button
@@ -121,8 +121,8 @@ export function SettingsWindow() {
                 >
                   <div className="text-2xl">🪟</div>
                   <div className="flex-1 text-left">
-                    <div className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>Classic Windows 95</div>
-                    <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>Sharp edges and classic styling</div>
+                    <div className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>{t('ui.settings.window_style_windows_title')}</div>
+                    <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>{t('ui.settings.window_style_windows_desc')}</div>
                   </div>
                   {windowStyle === "windows" && <Check size={16} style={{ color: 'var(--win95-text)' }} />}
                 </button>
@@ -136,8 +136,8 @@ export function SettingsWindow() {
                 >
                   <div className="text-2xl">🍎</div>
                   <div className="flex-1 text-left">
-                    <div className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>Mac OS X Style</div>
-                    <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>Rounded edges and smooth design</div>
+                    <div className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>{t('ui.settings.window_style_mac_title')}</div>
+                    <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>{t('ui.settings.window_style_mac_desc')}</div>
                   </div>
                   {windowStyle === "mac" && <Check size={16} style={{ color: 'var(--win95-text)' }} />}
                 </button>
@@ -147,7 +147,7 @@ export function SettingsWindow() {
             {/* Color Theme Section */}
             <div>
           <h3 className="text-xs font-bold mb-3 uppercase tracking-wide" style={{ color: 'var(--win95-text)' }}>
-            Color Scheme
+            {t('ui.settings.section_color_theme')}
           </h3>
           <div className="space-y-2">
             {themes.map((theme) => (
@@ -206,7 +206,7 @@ export function SettingsWindow() {
                 <span className="flex-1 text-left text-sm font-medium" style={{ color: theme.comingSoon ? 'var(--neutral-gray)' : 'var(--win95-text)' }}>
                   {theme.name}
                   {theme.comingSoon && (
-                    <span className="ml-2 text-xs italic" style={{ color: 'var(--neutral-gray)' }}>(Coming Soon)</span>
+                    <span className="ml-2 text-xs italic" style={{ color: 'var(--neutral-gray)' }}>({t('ui.settings.coming_soon')})</span>
                   )}
                 </span>
 
@@ -222,7 +222,7 @@ export function SettingsWindow() {
         {/* Preview Section */}
         <div>
           <h3 className="text-xs font-bold mb-3 uppercase tracking-wide" style={{ color: 'var(--win95-text)' }}>
-            Preview
+            {t('ui.settings.section_preview')}
           </h3>
           <div
             className="border-2 rounded p-4"
@@ -245,7 +245,7 @@ export function SettingsWindow() {
                   color: "#ffffff",
                 }}
               >
-                Sample Window
+                {t('ui.settings.preview_window_title')}
               </div>
               <p
                 className="text-xs"
@@ -253,7 +253,7 @@ export function SettingsWindow() {
                   color: themes.find((t) => t.id === selectedThemeId)?.colors.win95Text,
                 }}
               >
-                This is how your desktop will look with the selected theme.
+                {t('ui.settings.preview_window_desc')}
               </p>
             </div>
           </div>
@@ -264,7 +264,7 @@ export function SettingsWindow() {
         {activeTab === "wallpaper" && (
           <div>
             <h3 className="text-xs font-bold mb-3 uppercase tracking-wide" style={{ color: 'var(--win95-text)' }}>
-              Desktop Background
+              {t('ui.settings.section_wallpaper')}
             </h3>
             <div className="grid grid-cols-3 gap-3">
               {Array.from({ length: 9 }).map((_, i) => (
@@ -276,7 +276,7 @@ export function SettingsWindow() {
                     background: 'var(--win95-bg-light)'
                   }}
                 >
-                  <span className="text-xs italic" style={{ color: 'var(--neutral-gray)' }}>Coming Soon</span>
+                  <span className="text-xs italic" style={{ color: 'var(--neutral-gray)' }}>{t('ui.settings.coming_soon')}</span>
                 </div>
               ))}
             </div>
@@ -288,7 +288,7 @@ export function SettingsWindow() {
             {/* Language Section */}
             <div>
               <h3 className="text-xs font-bold mb-3 uppercase tracking-wide" style={{ color: 'var(--win95-text)' }}>
-                Language
+                {t('ui.settings.section_language')}
               </h3>
               <div className="space-y-2">
                 {availableLocales.map((lang) => (
@@ -319,7 +319,7 @@ export function SettingsWindow() {
             {/* Timezone Section (Coming Soon) */}
             <div>
               <h3 className="text-xs font-bold mb-3 uppercase tracking-wide" style={{ color: 'var(--win95-text)' }}>
-                Timezone
+                {t('ui.settings.section_timezone')}
               </h3>
               <div
                 className="p-4 border-2 rounded flex items-center justify-center opacity-50"
@@ -328,14 +328,14 @@ export function SettingsWindow() {
                   background: 'var(--win95-bg-light)'
                 }}
               >
-                <span className="text-xs italic" style={{ color: 'var(--neutral-gray)' }}>Coming Soon</span>
+                <span className="text-xs italic" style={{ color: 'var(--neutral-gray)' }}>{t('ui.settings.coming_soon')}</span>
               </div>
             </div>
 
             {/* Date & Time Format Section (Coming Soon) */}
             <div>
               <h3 className="text-xs font-bold mb-3 uppercase tracking-wide" style={{ color: 'var(--win95-text)' }}>
-                Date & Time Format
+                {t('ui.settings.section_datetime_format')}
               </h3>
               <div
                 className="p-4 border-2 rounded flex items-center justify-center opacity-50"
@@ -344,7 +344,7 @@ export function SettingsWindow() {
                   background: 'var(--win95-bg-light)'
                 }}
               >
-                <span className="text-xs italic" style={{ color: 'var(--neutral-gray)' }}>Coming Soon</span>
+                <span className="text-xs italic" style={{ color: 'var(--neutral-gray)' }}>{t('ui.settings.coming_soon')}</span>
               </div>
             </div>
           </>
@@ -380,10 +380,10 @@ export function SettingsWindow() {
                 <div className="text-3xl">🥷</div>
                 <div className="flex-1 text-left">
                   <div className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
-                    Ontology Admin
+                    {t('ui.settings.admin_ontology_title')}
                   </div>
                   <div className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-                    Manage objects, links, types & configurations
+                    {t('ui.settings.admin_ontology_desc')}
                   </div>
                 </div>
               </button>
@@ -399,10 +399,10 @@ export function SettingsWindow() {
                 <div className="text-3xl">👥</div>
                 <div className="flex-1 text-left">
                   <div className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
-                    User Management
+                    {t('ui.settings.admin_user_management_title')}
                   </div>
                   <div className="text-xs mt-1 italic" style={{ color: 'var(--neutral-gray)' }}>
-                    Coming Soon
+                    {t('ui.settings.coming_soon')}
                   </div>
                 </div>
               </div>
@@ -417,10 +417,10 @@ export function SettingsWindow() {
                 <div className="text-3xl">📊</div>
                 <div className="flex-1 text-left">
                   <div className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
-                    System Analytics
+                    {t('ui.settings.admin_system_analysis_title')}
                   </div>
                   <div className="text-xs mt-1 italic" style={{ color: 'var(--neutral-gray)' }}>
-                    Coming Soon
+                    {t('ui.settings.coming_soon')}
                   </div>
                 </div>
               </div>
@@ -432,10 +432,10 @@ export function SettingsWindow() {
       {/* Action Buttons - Fixed at bottom on mobile with sticky positioning */}
       <div className="flex gap-2 justify-end px-4 py-3 border-t-2 shrink-0 sticky bottom-0 z-10" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
         <RetroButton variant="secondary" onClick={handleReset}>
-          Reset
+          {t('ui.settings.button_reset')}
         </RetroButton>
         <RetroButton onClick={handleApply}>
-          Apply
+          {t('ui.settings.button_apply')}
         </RetroButton>
       </div>
     </div>

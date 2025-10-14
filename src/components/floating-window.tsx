@@ -73,9 +73,13 @@ export function FloatingWindow({
             .replace('px', '')
         ) || 48
 
+        // Get actual rendered window dimensions (accounting for max-height constraint)
+        const actualWidth = windowRef.current?.offsetWidth || windowState?.size?.width || 800
+        const actualHeight = windowRef.current?.offsetHeight || windowState?.size?.height || 500
+
         // Viewport constraints - prevent dragging behind taskbar
-        const maxX = window.innerWidth - (windowState?.size?.width || 800)
-        const maxY = window.innerHeight - taskbarHeight - (windowState?.size?.height || 500)
+        const maxX = window.innerWidth - actualWidth
+        const maxY = window.innerHeight - taskbarHeight - actualHeight
 
         moveWindow(id, {
           x: Math.max(0, Math.min(newX, maxX)),

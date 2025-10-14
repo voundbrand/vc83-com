@@ -6,6 +6,7 @@ import { useIsMobile } from "@/hooks/use-media-query";
 
 interface StartMenuItem {
   label?: string;
+  fullLabel?: string; // Full text for tooltip (in case label is truncated)
   icon?: string;
   onClick?: () => void;
   divider?: boolean;
@@ -54,7 +55,7 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
         isMobile ? "w-[180px] max-w-[90vw]" : "min-w-[200px]",
         className
       )}
-      style={{ zIndex: 'var(--z-index-start-menu)' }}
+      style={{ zIndex: 10001, position: 'fixed', bottom: 'calc(var(--taskbar-height) - 14px)', left: '4px' }}
     >
       {/* Windows 95-style vertical stripe */}
       <div className="w-10 flex items-center justify-center retro-border py-6" style={{ background: 'var(--win95-border)', minHeight: '180px' }}>
@@ -97,7 +98,7 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
                 {/* Submenu */}
                 {item.submenu && openSubmenu === index && (
                   <div
-                    className="absolute left-full top-0 ml-1 min-w-[180px] retro-window window-corners dark:retro-window-dark shadow-lg"
+                    className="absolute left-full top-0 ml-1 min-w-[200px] retro-window window-corners dark:retro-window-dark shadow-lg"
                   >
                     <div className="py-1">
                       {item.submenu.map((subitem, subindex) => (
@@ -109,11 +110,12 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
                             setOpenSubmenu(null);
                           }}
                           className="w-full px-3 py-2 text-left flex items-center gap-2 transition-colors font-pixel hover-menu-item retro-text"
+                          title={subitem.fullLabel || subitem.label} // Show full name on hover
                         >
                           {subitem.icon && (
                             <span className="text-base">{subitem.icon}</span>
                           )}
-                          <span>{subitem.label || ""}</span>
+                          <span className="truncate">{subitem.label || ""}</span>
                         </button>
                       ))}
                     </div>

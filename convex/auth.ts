@@ -53,11 +53,11 @@ export const setupPassword = action({
       });
 
     if (!checkResult.userExists) {
-      throw new Error("User not found. Please contact an administrator.");
+      throw new Error("Benutzer nicht gefunden. Bitte kontaktiere einen Administrator.");
     }
 
     if (checkResult.hasPassword) {
-      throw new Error("Password already set. Please use sign in.");
+      throw new Error("Passwort bereits festgelegt. Bitte verwende die Anmeldung.");
     }
 
     // Hash the password using bcrypt in Node.js runtime
@@ -195,12 +195,19 @@ export const signIn = action({
       defaultOrgId: Id<"organizations"> | undefined;
       firstName?: string;
       lastName?: string;
+      isActive: boolean;
     } = await ctx.runQuery(internal.auth.internalGetUserAuth, {
       email: args.email,
     });
 
     if (!userData.userExists || !userData.passwordHash) {
-      throw new Error("Invalid credentials");
+      throw new Error("Ungültige Anmeldedaten");
+    }
+
+    // Allow login during grace period - user will see warning banner in UI
+    // Only block login if account is permanently deleted (isActive: false)
+    if (userData.isActive === false) {
+      throw new Error("Dieses Konto wurde dauerhaft gelöscht.");
     }
 
     // Verify password using bcrypt
@@ -210,7 +217,7 @@ export const signIn = action({
     });
 
     if (!isValid) {
-      throw new Error("Invalid credentials");
+      throw new Error("Ungültige Anmeldedaten");
     }
 
     // Create session via mutation
@@ -250,7 +257,7 @@ export const internalGetUserAuth = internalQuery({
       .first();
 
     if (!user) {
-      return { userExists: false, passwordHash: null, userId: null, email: null, defaultOrgId: undefined };
+      return { userExists: false, passwordHash: null, userId: null, email: null, defaultOrgId: undefined, isActive: false };
     }
 
     const userPassword = await ctx.db
@@ -266,6 +273,7 @@ export const internalGetUserAuth = internalQuery({
       firstName: user.firstName,
       lastName: user.lastName,
       defaultOrgId: user.defaultOrgId,
+      isActive: user.isActive ?? true, // Default to true for existing users
     };
   },
 });
@@ -332,12 +340,12 @@ export const switchOrganization = mutation({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId as Id<"sessions">);
     if (!session || session.expiresAt < Date.now()) {
-      throw new Error("Invalid or expired session");
+      throw new Error("Ungültige oder abgelaufene Sitzung");
     }
 
     const user = await ctx.db.get(session.userId);
     if (!user) {
-      throw new Error("User not found");
+      throw new Error("Benutzer nicht gefunden");
     }
 
     // Check if user has access to this organization
@@ -350,7 +358,7 @@ export const switchOrganization = mutation({
       .first();
 
     if (!membership && !user.global_role_id) {
-      throw new Error("Access denied: No membership in this organization");
+      throw new Error("Zugriff verweigert: Keine Mitgliedschaft in dieser Organisation");
     }
 
     // Update user's default organization
@@ -444,6 +452,7 @@ export const getCurrentUser = query({
           id: org._id,
           name: org.name,
           slug: org.slug,
+          isActive: org.isActive, // Include isActive field
           role: {
             id: role._id,
             name: role.name,
@@ -472,6 +481,7 @@ export const getCurrentUser = query({
       organizations: validOrganizations,
       currentOrganization: currentOrg || null,
       defaultOrgId: user.defaultOrgId,
+      scheduledDeletionDate: user.scheduledDeletionDate, // For grace period warning banner
     };
   },
 });
@@ -662,7 +672,7 @@ export const adminCreateUser = action({
     });
 
     if (!canCreate) {
-      throw new Error("Permission denied: Cannot create users");
+      throw new Error("Berechtigung verweigert: Benutzer können nicht erstellt werden");
     }
 
     // Get the admin user
@@ -677,7 +687,7 @@ export const adminCreateUser = action({
     });
 
     if (!session) {
-      throw new Error("Invalid session");
+      throw new Error("Ungültige Sitzung");
     }
 
     // Check if user already exists
@@ -687,7 +697,7 @@ export const adminCreateUser = action({
       });
 
     if (existingUser.userExists) {
-      throw new Error("User with this email already exists");
+      throw new Error("Ein Benutzer mit dieser E-Mail-Adresse existiert bereits");
     }
 
     // Create the user
@@ -727,7 +737,7 @@ export const adminCreateUser = action({
     return {
       success: true,
       userId,
-      message: "User created. They will receive an email invitation to set their password.",
+      message: "Benutzer erstellt. Der Benutzer erhält eine E-Mail-Einladung, um sein Passwort festzulegen.",
     };
   },
 });
@@ -810,5 +820,31 @@ export const getSessionByEmail = internalQuery({
     }
 
     return session;
+  },
+});
+
+// Internal query to get session by ID
+export const getSessionById = internalQuery({
+  args: {
+    sessionId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId as Id<"sessions">);
+
+    if (!session || session.expiresAt < Date.now()) {
+      return null;
+    }
+
+    return session;
+  },
+});
+
+// Internal mutation to delete session
+export const deleteSession = internalMutation({
+  args: {
+    sessionId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.delete(args.sessionId as Id<"sessions">);
   },
 });

@@ -85,7 +85,7 @@ export const createObject = mutation({
       .filter(q => q.eq(q.field("_id"), args.sessionId))
       .first();
 
-    if (!session) throw new Error("Invalid session");
+    if (!session) throw new Error("Ungültige Sitzung");
 
     return await ctx.db.insert("objects", {
       organizationId: args.organizationId,
@@ -235,7 +235,7 @@ export const createLink = mutation({
       .filter(q => q.eq(q.field("_id"), args.sessionId))
       .first();
 
-    if (!session) throw new Error("Invalid session");
+    if (!session) throw new Error("Ungültige Sitzung");
 
     return await ctx.db.insert("objectLinks", {
       organizationId: args.organizationId,
@@ -281,7 +281,7 @@ export const logAction = mutation({
       .filter(q => q.eq(q.field("_id"), args.sessionId))
       .first();
 
-    if (!session) throw new Error("Invalid session");
+    if (!session) throw new Error("Ungültige Sitzung");
 
     return await ctx.db.insert("objectActions", {
       organizationId: args.organizationId,

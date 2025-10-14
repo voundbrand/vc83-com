@@ -13,24 +13,36 @@
  * - address (with subtypes): Physical, billing, shipping, mailing addresses
  */
 
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
+import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser, requirePermission } from "./rbacHelpers";
+import { translateObject, translateObjects } from "./translationResolver";
 
 /**
  * GET ORGANIZATION PROFILE
  * Retrieves profile information (industry, bio, employee count, etc.)
+ *
+ * @param locale - Optional locale for translation (e.g., "en", "de", "pl")
  */
 export const getOrganizationProfile = query({
-  args: { organizationId: v.id("organizations") },
-  handler: async (ctx, { organizationId }) => {
-    return await ctx.db
+  args: {
+    organizationId: v.id("organizations"),
+    locale: v.optional(v.string())
+  },
+  handler: async (ctx, { organizationId, locale = "en" }) => {
+    const profile = await ctx.db
       .query("objects")
       .withIndex("by_org_type", q =>
         q.eq("organizationId", organizationId)
          .eq("type", "organization_profile")
       )
       .first();
+
+    if (!profile) return null;
+
+    // ✅ Translate profile fields based on locale
+    return await translateObject(ctx, profile, locale);
   },
 });
 
@@ -115,11 +127,14 @@ export const getOrganizationSettings = query({
 /**
  * GET ORGANIZATION ADDRESSES
  * Retrieves organization addresses, optionally filtered by subtype
+ *
+ * @param locale - Optional locale for translation (e.g., "en", "de", "pl")
  */
 export const getOrganizationAddresses = query({
   args: {
     organizationId: v.id("organizations"),
     subtype: v.optional(v.string()), // "billing", "shipping", "physical", "mailing", etc.
+    locale: v.optional(v.string())
   },
   handler: async (ctx, args) => {
     const baseQuery = ctx.db
@@ -129,24 +144,33 @@ export const getOrganizationAddresses = query({
          .eq("type", "address")
       );
 
+    let addresses;
     if (args.subtype) {
-      return await baseQuery
+      addresses = await baseQuery
         .filter(q => q.eq(q.field("subtype"), args.subtype))
         .collect();
+    } else {
+      addresses = await baseQuery.collect();
     }
 
-    return await baseQuery.collect();
+    // ✅ Translate all addresses based on locale
+    return await translateObjects(ctx, addresses, args.locale || "en");
   },
 });
 
 /**
  * GET PRIMARY ADDRESS
  * Retrieves the primary address for an organization
+ *
+ * @param locale - Optional locale for translation (e.g., "en", "de", "pl")
  */
 export const getPrimaryAddress = query({
-  args: { organizationId: v.id("organizations") },
-  handler: async (ctx, { organizationId }) => {
-    return await ctx.db
+  args: {
+    organizationId: v.id("organizations"),
+    locale: v.optional(v.string())
+  },
+  handler: async (ctx, { organizationId, locale = "en" }) => {
+    const address = await ctx.db
       .query("objects")
       .withIndex("by_org_type", q =>
         q.eq("organizationId", organizationId)
@@ -154,6 +178,11 @@ export const getPrimaryAddress = query({
       )
       .filter(q => q.eq(q.field("customProperties.isPrimary"), true))
       .first();
+
+    if (!address) return null;
+
+    // ✅ Translate address fields based on locale
+    return await translateObject(ctx, address, locale);
   },
 });
 
@@ -202,7 +231,7 @@ export const updateOrganizationProfile = mutation({
     } else {
       // Create new profile
       const org = await ctx.db.get(organizationId);
-      if (!org) throw new Error("Organization not found");
+      if (!org) throw new Error("Organisation nicht gefunden");
 
       return await ctx.db.insert("objects", {
         organizationId,
@@ -259,7 +288,7 @@ export const updateOrganizationLegal = mutation({
       return legal._id;
     } else {
       const org = await ctx.db.get(organizationId);
-      if (!org) throw new Error("Organization not found");
+      if (!org) throw new Error("Organisation nicht gefunden");
 
       return await ctx.db.insert("objects", {
         organizationId,
@@ -318,7 +347,7 @@ export const updateOrganizationContact = mutation({
       return contact._id;
     } else {
       const org = await ctx.db.get(organizationId);
-      if (!org) throw new Error("Organization not found");
+      if (!org) throw new Error("Organisation nicht gefunden");
 
       return await ctx.db.insert("objects", {
         organizationId,
@@ -375,7 +404,7 @@ export const updateOrganizationSocial = mutation({
       return social._id;
     } else {
       const org = await ctx.db.get(organizationId);
-      if (!org) throw new Error("Organization not found");
+      if (!org) throw new Error("Organisation nicht gefunden");
 
       return await ctx.db.insert("objects", {
         organizationId,
@@ -429,7 +458,7 @@ export const updateOrganizationSettings = mutation({
       return settingsObj._id;
     } else {
       const org = await ctx.db.get(args.organizationId);
-      if (!org) throw new Error("Organization not found");
+      if (!org) throw new Error("Organisation nicht gefunden");
 
       return await ctx.db.insert("objects", {
         organizationId: args.organizationId,
@@ -517,8 +546,8 @@ export const updateOrganizationAddress = mutation({
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
     const address = await ctx.db.get(args.addressId);
-    if (!address) throw new Error("Address not found");
-    if (address.type !== "address") throw new Error("Invalid object type");
+    if (!address) throw new Error("Adresse nicht gefunden");
+    if (address.type !== "address") throw new Error("Ungültiger Objekttyp");
 
     await requirePermission(ctx, userId, "manage_organization", {
       organizationId: address.organizationId
@@ -554,8 +583,8 @@ export const deleteOrganizationAddress = mutation({
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
     const address = await ctx.db.get(args.addressId);
-    if (!address) throw new Error("Address not found");
-    if (address.type !== "address") throw new Error("Invalid object type");
+    if (!address) throw new Error("Adresse nicht gefunden");
+    if (address.type !== "address") throw new Error("Ungültiger Objekttyp");
 
     await requirePermission(ctx, userId, "manage_organization", {
       organizationId: address.organizationId
@@ -567,5 +596,85 @@ export const deleteOrganizationAddress = mutation({
     });
 
     return args.addressId;
+  },
+});
+
+// ============================================================================
+// INTERNAL MUTATIONS FOR ORGANIZATION CREATION
+// ============================================================================
+
+/**
+ * Create organization contact information (internal use only)
+ * Used during organization creation to save contact info to ontology
+ */
+export const createOrgContact = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    createdBy: v.id("users"),
+    primaryEmail: v.optional(v.string()),
+    supportEmail: v.optional(v.string()),
+    primaryPhone: v.optional(v.string()),
+    supportPhone: v.optional(v.string()),
+    website: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const org = await ctx.db.get(args.organizationId);
+    if (!org) throw new Error("Organization not found");
+
+    // Build custom properties from provided fields
+    const customProperties: Record<string, string> = {};
+    if (args.primaryEmail) customProperties.primaryEmail = args.primaryEmail;
+    if (args.supportEmail) customProperties.supportEmail = args.supportEmail;
+    if (args.primaryPhone) customProperties.primaryPhone = args.primaryPhone;
+    if (args.supportPhone) customProperties.supportPhone = args.supportPhone;
+    if (args.website) customProperties.website = args.website;
+
+    return await ctx.db.insert("objects", {
+      organizationId: args.organizationId,
+      type: "organization_contact",
+      name: `${org.slug}-contact`,
+      status: "active",
+      customProperties,
+      createdBy: args.createdBy,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+/**
+ * Create organization profile information (internal use only)
+ * Used during organization creation to save profile info to ontology
+ */
+export const createOrgProfile = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    createdBy: v.id("users"),
+    industry: v.optional(v.string()),
+    foundedYear: v.optional(v.number()),
+    employeeCount: v.optional(v.string()),
+    bio: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const org = await ctx.db.get(args.organizationId);
+    if (!org) throw new Error("Organization not found");
+
+    // Build custom properties from provided fields
+    const customProperties: Record<string, string | number> = {};
+    if (args.industry) customProperties.industry = args.industry;
+    if (args.foundedYear) customProperties.foundedYear = args.foundedYear;
+    if (args.employeeCount) customProperties.employeeCount = args.employeeCount;
+    if (args.bio) customProperties.bio = args.bio;
+
+    return await ctx.db.insert("objects", {
+      organizationId: args.organizationId,
+      type: "organization_profile",
+      name: `${org.slug}-profile`,
+      status: "active",
+      customProperties,
+      createdBy: args.createdBy,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
   },
 });

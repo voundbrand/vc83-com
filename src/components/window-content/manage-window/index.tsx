@@ -17,10 +17,12 @@ import {
 import { usePermissions } from "@/contexts/permission-context";
 import { PermissionGuard, PermissionButton } from "@/components/permission";
 import { Id, Doc } from "../../../../convex/_generated/dataModel";
+import { useTranslation } from "@/contexts/translation-context";
 
 type TabType = "organization" | "users" | "roles";
 
 export function ManageWindow() {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabType>("organization");
   const [isEditingOrg, setIsEditingOrg] = useState(false);
   const [isSavingOrg, setIsSavingOrg] = useState(false);
@@ -155,7 +157,7 @@ export function ManageWindow() {
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
             <Loader2 size={48} className="animate-spin mx-auto mb-4" style={{ color: 'var(--primary)' }} />
-            <p style={{ color: 'var(--win95-text)' }}>Loading...</p>
+            <p style={{ color: 'var(--win95-text)' }}>{t("ui.manage.loading")}</p>
           </div>
         </div>
       </div>
@@ -168,7 +170,7 @@ export function ManageWindow() {
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
             <AlertCircle size={48} style={{ color: 'var(--error)' }} className="mx-auto mb-4" />
-            <p style={{ color: 'var(--win95-text)' }}>Not authenticated</p>
+            <p style={{ color: 'var(--win95-text)' }}>{t("ui.manage.not_authenticated")}</p>
           </div>
         </div>
       </div>
@@ -181,9 +183,9 @@ export function ManageWindow() {
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
             <Building2 size={48} style={{ color: 'var(--warning)' }} className="mx-auto mb-4" />
-            <p style={{ color: 'var(--win95-text)' }} className="font-semibold">No Organization</p>
+            <p style={{ color: 'var(--win95-text)' }} className="font-semibold">{t("ui.manage.no_organization")}</p>
             <p style={{ color: 'var(--win95-text-secondary)' }} className="text-sm mt-2">
-              You need to be part of an organization to access management features.
+              {t("ui.manage.no_organization_message")}
             </p>
           </div>
         </div>
@@ -199,7 +201,7 @@ export function ManageWindow() {
           <div>
             <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
               <Building2 size={16} />
-              Manage
+              {t("ui.manage.title")}
               {isSuperAdmin && (
                 <span
                   className="inline-flex items-center px-2 py-0.5 text-xs font-bold"
@@ -211,12 +213,12 @@ export function ManageWindow() {
                   }}
                 >
                   <Crown size={10} className="mr-1" />
-                  SUPER ADMIN
+                  {t("ui.manage.super_admin")}
                 </span>
               )}
             </h2>
             <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-              Organization, users, and permissions management
+              {t("ui.manage.subtitle")}
             </p>
           </div>
 
@@ -226,7 +228,7 @@ export function ManageWindow() {
               {currentOrganization?.name}
             </p>
             <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-              Your role: {formatRoleName(currentOrganization?.role.name || "")}
+              {t("ui.manage.your_role")}: {formatRoleName(currentOrganization?.role.name || "", t)}
             </p>
           </div>
         </div>
@@ -244,7 +246,7 @@ export function ManageWindow() {
           onClick={() => setActiveTab("organization")}
         >
           <Building2 size={14} />
-          Organization
+          {t("ui.manage.tab.organization")}
         </button>
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
@@ -256,7 +258,7 @@ export function ManageWindow() {
           onClick={() => setActiveTab("users")}
         >
           <Users size={14} />
-          Users & Invites
+          {t("ui.manage.tab.users_invites")}
         </button>
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
@@ -268,7 +270,7 @@ export function ManageWindow() {
           onClick={() => setActiveTab("roles")}
         >
           <Shield size={14} />
-          Roles & Permissions
+          {t("ui.manage.tab.roles_permissions")}
         </button>
       </div>
 
@@ -464,7 +466,7 @@ export function ManageWindow() {
 
             {/* Addresses Section */}
             <OrganizationSection
-              title="Addresses"
+              title={t("ui.manage.org.section.addresses")}
               icon={<MapPin className="w-4 h-4" />}
               collapsible={true}
               defaultCollapsed={false}
@@ -489,7 +491,7 @@ export function ManageWindow() {
                     }}
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    Add Address
+                    {t("ui.manage.org.add_address")}
                   </PermissionButton>
                 </PermissionGuard>
               }
@@ -497,7 +499,7 @@ export function ManageWindow() {
               {(!addresses || addresses.length === 0) ? (
                 <div className="text-center py-8" style={{ color: 'var(--neutral-gray)' }}>
                   <MapPin className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">No addresses added yet</p>
+                  <p className="text-sm">{t("ui.manage.org.no_addresses")}</p>
                   <PermissionGuard permission="manage_organization">
                     <PermissionButton
                       permission="manage_organization"
@@ -516,7 +518,7 @@ export function ManageWindow() {
                         borderRightColor: "var(--win95-button-dark)",
                       }}
                     >
-                      Add Your First Address
+                      {t("ui.manage.org.add_first_address")}
                     </PermissionButton>
                   </PermissionGuard>
                 </div>
@@ -527,7 +529,7 @@ export function ManageWindow() {
                   {addresses?.find((a) => (a.customProperties as any)?.isPrimary) && (
                     <div>
                       <h4 className="text-sm font-bold mb-2" style={{ color: 'var(--primary)' }}>
-                        Primary Address
+                        {t("ui.manage.org.primary_address")}
                       </h4>
                       <AddressCard
                         address={addresses.find((a) => (a.customProperties as any)?.isPrimary)!}
@@ -546,7 +548,7 @@ export function ManageWindow() {
                   {addresses?.filter((a) => !(a.customProperties as any)?.isPrimary).length > 0 && (
                     <div>
                       <h4 className="text-sm font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
-                        Other Addresses
+                        {t("ui.manage.org.other_addresses")}
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {addresses
@@ -602,7 +604,7 @@ export function ManageWindow() {
                 <div className="text-sm">
                   <p className="font-semibold">Limited Access</p>
                   <p className="text-xs mt-1">
-                    As {formatRoleName(currentOrganization?.role.name || "")}, you can view team members but cannot send invitations.
+                    As {formatRoleName(currentOrganization?.role.name || "", t)}, you can view team members but cannot send invitations.
                   </p>
                 </div>
               </div>
@@ -641,15 +643,16 @@ export function ManageWindow() {
   );
 }
 
-// Helper function to format role names
-function formatRoleName(role: string): string {
-  const roleDisplay: Record<string, string> = {
-    super_admin: "Super Admin",
-    org_owner: "Organization Owner",
-    business_manager: "Business Manager",
-    employee: "Employee",
-    viewer: "Viewer",
+// Helper function to format role names with translations
+function formatRoleName(role: string, t: (key: string) => string): string {
+  const roleKeyMap: Record<string, string> = {
+    super_admin: "ui.manage.roles.super_admin",
+    org_owner: "ui.manage.roles.org_owner",
+    business_manager: "ui.manage.roles.business_manager",
+    employee: "ui.manage.roles.employee",
+    viewer: "ui.manage.roles.viewer",
   };
-  return roleDisplay[role] || role;
+  const key = roleKeyMap[role];
+  return key ? t(key) : role;
 }
 

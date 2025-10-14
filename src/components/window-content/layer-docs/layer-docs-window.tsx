@@ -76,7 +76,7 @@ export function LayerDocsWindow() {
           <button className="retro-button px-2 py-1 text-xs font-pixel" title="Underline">
             <span style={{ color: 'var(--win95-text)' }}>U</span>
           </button>
-          <div className="w-px h-4 bg-gray-400 mx-1"></div>
+          <div className="w-px h-4 mx-1" style={{ background: 'var(--win95-border)' }}></div>
           <button className="retro-button px-2 py-1 text-xs font-pixel" title="Heading">
             <span style={{ color: 'var(--win95-text)' }}>H1</span>
           </button>
@@ -89,13 +89,13 @@ export function LayerDocsWindow() {
         <div className="flex-1 p-8 overflow-y-auto">
           <div className="max-w-3xl mx-auto">
             <div className="mb-6">
-              <h1 className="text-3xl font-pixel mb-4" style={{ color: '#6B46C1' }}>
+              <h1 className="text-3xl font-pixel mb-4" style={{ color: 'var(--win95-highlight)' }}>
                 🎨 Welcome to L4YER.docs
               </h1>
             </div>
 
-            <div className="space-y-4 text-gray-700 leading-relaxed">
-              <h2 className="text-xl font-pixel mt-6 mb-3" style={{ color: '#2A2A2A' }}>
+            <div className="space-y-4 leading-relaxed" style={{ color: 'var(--win95-text)' }}>
+              <h2 className="text-xl font-pixel mt-6 mb-3" style={{ color: 'var(--win95-text)' }}>
                 # Getting Started
               </h2>
 
@@ -104,7 +104,7 @@ export function LayerDocsWindow() {
                 and collaborate with your team.
               </p>
 
-              <h2 className="text-xl font-pixel mt-6 mb-3" style={{ color: '#2A2A2A' }}>
+              <h2 className="text-xl font-pixel mt-6 mb-3" style={{ color: 'var(--win95-text)' }}>
                 ## Features
               </h2>
 
@@ -116,8 +116,8 @@ export function LayerDocsWindow() {
                 <li>Organization-scoped content</li>
               </ul>
 
-              <div className="mt-8 p-4 border-2 border-dashed border-gray-300 rounded text-center text-gray-500">
-                <p className="text-sm">Type <code className="px-2 py-1 bg-gray-100 rounded">/</code> for commands</p>
+              <div className="mt-8 p-4 border-2 border-dashed rounded text-center" style={{ borderColor: 'var(--win95-border)', color: 'var(--win95-text-secondary)' }}>
+                <p className="text-sm">Type <code className="px-2 py-1 rounded" style={{ background: 'var(--win95-bg-light)' }}>/</code> for commands</p>
               </div>
             </div>
           </div>
@@ -154,11 +154,11 @@ export function LayerDocsWindow() {
               <span className="font-pixel text-xs">L4YER.docs</span>
               <div className="ml-auto flex gap-1">
                 <button
-                  className="w-4 h-4 bg-gray-300 border border-black flex items-center justify-center text-xs leading-none hover:bg-gray-400"
+                  className="retro-control-button"
                   onClick={() => setShowComingSoon(false)}
                   title="Close"
                 >
-                  ×
+                  <span>×</span>
                 </button>
               </div>
             </div>
@@ -167,7 +167,7 @@ export function LayerDocsWindow() {
           <div className="space-y-4">
             <div className="text-6xl mb-4">📝</div>
 
-            <h2 className="text-2xl font-pixel mb-4" style={{ color: '#6B46C1' }}>
+            <h2 className="text-2xl font-pixel mb-4" style={{ color: 'var(--win95-highlight)' }}>
               Coming Soon
             </h2>
 
@@ -183,7 +183,7 @@ export function LayerDocsWindow() {
                 background: 'var(--win95-bg-light)'
               }}
             >
-              <p className="text-xs font-pixel mb-2" style={{ color: '#6B46C1' }}>
+              <p className="text-xs font-pixel mb-2" style={{ color: 'var(--win95-highlight)' }}>
                 Planned Features:
               </p>
               <ul className="text-xs space-y-1" style={{ color: 'var(--win95-text)' }}>
@@ -197,7 +197,7 @@ export function LayerDocsWindow() {
             </div>
 
             <p className="text-xs mt-6" style={{ color: 'var(--win95-text)' }}>
-              See <code className="px-2 py-1 bg-gray-700 text-white text-[10px]">
+              See <code className="px-2 py-1 text-[10px]" style={{ background: 'var(--win95-bg)', color: 'var(--win95-text)' }}>
                 .kiro/notion_ui_wiki/000_prd.md
               </code> for details
             </p>

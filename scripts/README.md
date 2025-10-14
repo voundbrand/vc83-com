@@ -2,6 +2,26 @@
 
 This directory contains scripts for seeding your Convex database with initial data.
 
+## 🚀 Quick Start - Seed Everything
+
+**Run this single command to seed your entire database:**
+
+```bash
+./scripts/seed-all.sh
+```
+
+This master script will:
+1. ✅ Check your environment configuration
+2. ✅ Seed RBAC system (roles & permissions)
+3. ✅ Create super admin user
+4. ✅ Seed ontology data
+5. ✅ Seed all UI translations (~1,200 strings)
+6. ✅ Optionally create organization managers
+
+**Total time:** ~2-3 minutes
+
+---
+
 ## Environment Setup
 
 All scripts now properly use environment variables from `.env.local`. **No hardcoded URLs!**
@@ -10,24 +30,21 @@ All scripts now properly use environment variables from `.env.local`. **No hardc
 
 **For Development:**
 ```bash
-cp .env.dev .env.local
+./scripts/switch-env.sh dev
 ```
 
 **For Production:**
 ```bash
-cp .env.prod .env.local
+./scripts/switch-env.sh prod
 ```
 
 **IMPORTANT:** Always check which environment you're using before running seed scripts!
 
-```bash
-# Check current environment
-grep NEXT_PUBLIC_CONVEX_URL .env.local
-```
 
-## Seeding Order
 
-Run these scripts in order for a fresh database:
+## Manual Seeding (Optional)
+
+If you prefer to run individual scripts instead of the master script, follow this order:
 
 ### 1. Seed RBAC System (Foundation)
 ```bash
@@ -41,13 +58,46 @@ npx tsx scripts/seed-super-admin.ts
 ```
 Creates the super admin user with global privileges and their organization.
 
-### 3. Seed Ontology Data (Optional)
+### 3. Seed Ontology Data (Required)
 ```bash
 npx convex run seedOntologyData:seedAll
 ```
 Seeds system translations, organization profiles, and settings.
 
-### 4. Seed Organization Manager (Optional)
+### 4. Seed UI Translations (Required)
+**⚠️ IMPORTANT:** After running `seedOntologyData:seedAll`, you must seed the UI translations or you'll see translation keys instead of text!
+
+```bash
+# Welcome Window
+npx convex run translations/seedWelcomeTranslations:seed
+
+# Manage Window (all parts required)
+npx convex run translations/seedManage_01_MainWindow:seed
+npx convex run translations/seedManage_02_Organization:seed
+npx convex run translations/seedManage_03_Users:seed
+npx convex run translations/seedManage_04_RolesPermissions:seed
+npx convex run translations/seedManage_03b_DeleteAccount:seed
+
+# Other UI elements
+npx convex run translations/seedAddressTranslations:seed
+npx convex run translations/seedProfileTranslations:seed
+```
+
+**Quick seed all UI translations (recommended):**
+```bash
+npx convex run translations/seedWelcomeTranslations:seed && \
+npx convex run translations/seedManage_01_MainWindow:seed && \
+npx convex run translations/seedManage_02_Organization:seed && \
+npx convex run translations/seedManage_03_Users:seed && \
+npx convex run translations/seedManage_04_RolesPermissions:seed && \
+npx convex run translations/seedManage_03b_DeleteAccount:seed && \
+npx convex run translations/seedAddressTranslations:seed && \
+npx convex run translations/seedProfileTranslations:seed
+```
+
+This seeds ~1,200 translations across all UI components.
+
+### 5. Seed Organization Manager (Optional)
 ```bash
 npx tsx scripts/seed-org-manager.ts
 ```

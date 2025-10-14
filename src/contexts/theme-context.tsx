@@ -83,6 +83,76 @@ export const themes: Theme[] = [
       foreground: "#1f2937",
     },
   },
+  {
+    id: "win95-purple-dark",
+    name: "Windows 95 Purple Dark",
+    colors: {
+      background: "#2d2d2d", // Dark desktop
+      win95Bg: "#3d3d3d",
+      win95BgLight: "#4d4d4d",
+      win95Border: "#1d1d1d",
+      win95BorderLight: "#5d5d5d",
+      win95Text: "#ffffff", // White text for dark mode
+      win95Highlight: "#9F7AEA", // Lighter purple for dark mode (better visibility)
+      foreground: "#ffffff",
+    },
+  },
+  {
+    id: "win95-green",
+    name: "Windows 95 Green",
+    colors: {
+      background: "#059669", // Emerald green wallpaper
+      win95Bg: "#f0f0f0",
+      win95BgLight: "#ffffff",
+      win95Border: "#d0d0d0",
+      win95BorderLight: "#e8e8e8",
+      win95Text: "#1f2937",
+      win95Highlight: "#059669", // Emerald green accent
+      foreground: "#1f2937",
+    },
+  },
+  {
+    id: "win95-green-dark",
+    name: "Windows 95 Green Dark",
+    colors: {
+      background: "#2d2d2d", // Dark desktop
+      win95Bg: "#3d3d3d",
+      win95BgLight: "#4d4d4d",
+      win95Border: "#1d1d1d",
+      win95BorderLight: "#5d5d5d",
+      win95Text: "#ffffff", // White text for dark mode
+      win95Highlight: "#10b981", // Lighter green for dark mode (better visibility)
+      foreground: "#ffffff",
+    },
+  },
+  {
+    id: "glass-light",
+    name: "Modern Glass",
+    colors: {
+      background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", // Purple gradient wallpaper
+      win95Bg: "rgba(255, 255, 255, 0.7)", // Translucent white with blur
+      win95BgLight: "rgba(255, 255, 255, 0.85)",
+      win95Border: "rgba(255, 255, 255, 0.2)",
+      win95BorderLight: "rgba(255, 255, 255, 0.3)",
+      win95Text: "#1f2937", // Dark text for light backgrounds
+      win95Highlight: "#667eea", // Purple accent
+      foreground: "#1f2937",
+    },
+  },
+  {
+    id: "glass-dark",
+    name: "Modern Glass Dark",
+    colors: {
+      background: "linear-gradient(135deg, #1e3a8a 0%, #312e81 100%)", // Deep blue gradient wallpaper
+      win95Bg: "rgba(30, 30, 30, 0.7)", // Translucent dark with blur
+      win95BgLight: "rgba(45, 45, 45, 0.85)",
+      win95Border: "rgba(255, 255, 255, 0.1)",
+      win95BorderLight: "rgba(255, 255, 255, 0.15)",
+      win95Text: "#ffffff", // White text for dark mode
+      win95Highlight: "#60a5fa", // Light blue accent
+      foreground: "#ffffff",
+    },
+  },
   // Coming Soon Themes
   {
     id: "ocean-blue",
@@ -158,6 +228,26 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 const THEME_STORAGE_KEY = "L4YERCAK3-theme";
 const WINDOW_STYLE_STORAGE_KEY = "L4YERCAK3-window-style";
 
+/**
+ * Adjust color brightness for titlebar gradient
+ */
+function adjustBrightness(color: string, factor: number): string {
+  // Convert hex to RGB
+  const hex = color.replace("#", "");
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+
+  // Adjust brightness
+  const newR = Math.min(255, Math.floor(r * factor));
+  const newG = Math.min(255, Math.floor(g * factor));
+  const newB = Math.min(255, Math.floor(b * factor));
+
+  // Convert back to hex
+  const toHex = (n: number) => n.toString(16).padStart(2, "0");
+  return `#${toHex(newR)}${toHex(newG)}${toHex(newB)}`;
+}
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { sessionId } = useAuth();
   const [isHydrated, setIsHydrated] = useState(false);
@@ -220,11 +310,33 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     root.style.setProperty("--win95-text", currentTheme.colors.win95Text);
     root.style.setProperty("--win95-highlight", currentTheme.colors.win95Highlight);
 
-    // Update dark class for dark theme
-    if (currentTheme.id === "win95-dark") {
+    // Update titlebar gradient to match theme highlight color
+    // BUT: For glass themes, keep titlebar transparent (handled by CSS)
+    const glassThemes = ["glass-light", "glass-dark"];
+    if (!glassThemes.includes(currentTheme.id)) {
+      const highlightColor = currentTheme.colors.win95Highlight;
+      const titlebarGradient = `linear-gradient(180deg, ${highlightColor} 0%, ${adjustBrightness(highlightColor, 1.2)} 100%)`;
+      root.style.setProperty("--win95-titlebar", titlebarGradient);
+      root.style.setProperty("--modal-header-bg", titlebarGradient);
+    } else {
+      // Glass themes use transparent titlebar (set by CSS)
+      root.style.setProperty("--win95-titlebar", "var(--glass-bg)");
+      root.style.setProperty("--modal-header-bg", "var(--glass-bg)");
+    }
+
+    // Update dark class for dark themes
+    const darkThemes = ["win95-dark", "win95-purple-dark", "win95-green-dark", "glass-dark"];
+    if (darkThemes.includes(currentTheme.id)) {
       root.classList.add("dark");
     } else {
       root.classList.remove("dark");
+    }
+
+    // Add glass theme class for special styling
+    if (glassThemes.includes(currentTheme.id)) {
+      root.classList.add("glass-theme");
+    } else {
+      root.classList.remove("glass-theme");
     }
 
     // Apply window style data attribute

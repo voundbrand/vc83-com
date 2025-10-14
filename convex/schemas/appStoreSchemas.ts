@@ -2,7 +2,7 @@ import { defineTable } from "convex/server";
 import { v } from "convex/values";
 
 /**
- * App Store schemas - registry, installations, snapshots, and purchases
+ * App Store schemas - registry, installations, snapshots, purchases, and availability
  * Powers the multi-tenant app marketplace functionality
  */
 
@@ -197,16 +197,16 @@ export const purchases = defineTable({
   userId: v.id("users"),
   organizationId: v.id("organizations"),
   appId: v.id("apps"),
-  
+
   // Payment details
   stripePaymentIntentId: v.string(),
   stripeCustomerId: v.optional(v.string()),
   stripeSubscriptionId: v.optional(v.string()),
-  
+
   // Amount
   amount: v.number(),
   currency: v.string(),
-  
+
   // Status
   status: v.union(
     v.literal("pending"),
@@ -214,11 +214,11 @@ export const purchases = defineTable({
     v.literal("failed"),
     v.literal("refunded")
   ),
-  
+
   // Subscription details
   billingPeriodStart: v.optional(v.number()),
   billingPeriodEnd: v.optional(v.number()),
-  
+
   // Metadata
   purchasedAt: v.number(),
   confirmedAt: v.optional(v.number()),
@@ -230,3 +230,23 @@ export const purchases = defineTable({
   .index("by_stripe_payment", ["stripePaymentIntentId"])
   .index("by_stripe_subscription", ["stripeSubscriptionId"])
   .index("by_status", ["status"]);
+
+/**
+ * App Availabilities
+ * Controls which apps are visible/accessible to specific organizations
+ * Super admin managed - enables/disables apps per org
+ */
+export const appAvailabilities = defineTable({
+  appId: v.id("apps"),
+  organizationId: v.id("organizations"),
+
+  // Availability toggle
+  isAvailable: v.boolean(),
+
+  // Audit trail
+  approvedBy: v.id("users"),
+  approvedAt: v.number(),
+})
+  .index("by_org", ["organizationId"])
+  .index("by_app", ["appId"])
+  .index("by_org_app", ["organizationId", "appId"]);

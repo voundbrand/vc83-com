@@ -56,7 +56,7 @@ export const update = mutation({
     const session = await ctx.db.get(sessionId as Id<"sessions">);
 
     if (!session) {
-      throw new Error("Invalid session");
+      throw new Error("Ungültige Sitzung");
     }
 
     // Find existing preferences

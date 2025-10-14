@@ -10,9 +10,13 @@ import { WelcomeWindow } from "@/components/window-content/welcome-window"
 import { ControlPanelWindow } from "@/components/window-content/control-panel-window"
 import { LoginWindow } from "@/components/window-content/login-window"
 import { LayerDocsWindow } from "@/components/window-content/layer-docs/layer-docs-window"
+import { PaymentsWindow } from "@/components/window-content/payments-window"
+import { WebPublishingWindow } from "@/components/window-content/web-publishing-window"
+import MediaLibraryWindow from "@/components/window-content/media-library-window"
 import { WindowsMenu } from "@/components/windows-menu"
 import { useIsMobile } from "@/hooks/use-media-query"
-import { useAuth, useOrganizations, useCurrentOrganization, useIsSuperAdmin } from "@/hooks/use-auth"
+import { useAuth, useOrganizations, useCurrentOrganization, useIsSuperAdmin, useAccountDeletionStatus } from "@/hooks/use-auth"
+import { useAvailableApps } from "@/hooks/use-app-availability"
 
 export default function HomePage() {
   const [showStartMenu, setShowStartMenu] = useState(false)
@@ -22,6 +26,10 @@ export default function HomePage() {
   const organizations = useOrganizations()
   const currentOrg = useCurrentOrganization()
   const isSuperAdmin = useIsSuperAdmin()
+  const deletionStatus = useAccountDeletionStatus()
+
+  // Use the new hook for app availability
+  const { isAppAvailable } = useAvailableApps()
 
   const openWelcomeWindow = () => {
     openWindow("welcome", "L4YERCAK3.exe", <WelcomeWindow />, { x: 100, y: 100 }, { width: 650, height: 500 })
@@ -35,48 +43,115 @@ export default function HomePage() {
     openWindow("login", "User Account", <LoginWindow />, { x: 250, y: 100 }, { width: 450, height: 620 })
   }
 
-  const openLayerDocsWindow = () => {
-    openWindow("layer-docs", "L4YER.docs", <LayerDocsWindow />, { x: 150, y: 80 }, { width: 1000, height: 650 })
+  // const openLayerDocsWindow = () => {
+  //   openWindow("layer-docs", "L4YER.docs", <LayerDocsWindow />, { x: 150, y: 80 }, { width: 1000, height: 650 })
+  // }
+
+  const openPaymentsWindow = () => {
+    openWindow("payments", "Payment Management", <PaymentsWindow />, { x: 200, y: 120 }, { width: 900, height: 600 })
+  }
+
+  const openWebPublishingWindow = () => {
+    openWindow("web-publishing", "Web Publishing", <WebPublishingWindow />, { x: 220, y: 140 }, { width: 900, height: 600 })
+  }
+
+  const openMediaLibraryWindow = () => {
+    openWindow("media-library", "Media Library", <MediaLibraryWindow />, { x: 240, y: 160 }, { width: 1000, height: 700 })
   }
 
   const handleLogout = () => {
     signOut()
   }
 
-  // Open welcome window on mount (desktop only)
+  // Open welcome/login window on mount based on auth status
   useEffect(() => {
     if (!isMobile) {
-      openWelcomeWindow()
+      if (isSignedIn) {
+        // Authenticated: Show welcome window
+        openWelcomeWindow()
+      } else {
+        // Not authenticated: Show login window immediately
+        openLoginWindow()
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMobile])
+  }, [isMobile, isSignedIn])
 
-  // Build organization submenu items dynamically (NO role names)
-  const orgMenuItems = organizations.map(org => ({
-    label: org.name, // Just the organization name
+  // Handle return from Stripe onboarding
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const openWindowParam = params.get('openWindow');
+
+    if (openWindowParam === 'payments' && isSignedIn) {
+      // Open the Payments window
+      openPaymentsWindow();
+
+      // Clean up the URL (remove query params)
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSignedIn])
+
+  // Build organization submenu items dynamically with truncation
+  const truncateOrgName = (name: string, maxLength: number = 20) => {
+    if (name.length <= maxLength) return name;
+    return name.slice(0, maxLength) + '...';
+  };
+
+  // Filter to only show active organizations in the start menu
+  const activeOrganizations = organizations.filter(org => org.isActive);
+
+  const orgMenuItems = activeOrganizations.map(org => ({
+    label: truncateOrgName(org.name), // Truncate long names
+    fullLabel: org.name, // Keep full name for title attribute
     icon: currentOrg?.id === org.id ? "✓" : "🏢",
     onClick: () => switchOrganization(org.id)
   }))
+
+  // Helper to require authentication for actions
+  const requireAuth = (action: () => void) => {
+    return () => {
+      if (!isSignedIn) {
+        openLoginWindow()
+      } else {
+        action()
+      }
+    }
+  }
+
+  // Build Programs submenu dynamically based on app availability
+  const programsSubmenu = [
+    // { label: "L4YER.docs", icon: "📝", onClick: requireAuth(openLayerDocsWindow) }, // Hidden for now
+    ...(isAppAvailable("media-library") ? [
+      { label: "Media Library", icon: "📁", onClick: requireAuth(openMediaLibraryWindow) }
+    ] : []),
+    ...(isAppAvailable("payments") ? [
+      { label: "Payments", icon: "💳", onClick: requireAuth(openPaymentsWindow) }
+    ] : []),
+    // Web Publishing app - enabled via app availability
+    ...(isAppAvailable("web-publishing") ? [
+      { label: "Web Publishing", icon: "🌐", onClick: requireAuth(openWebPublishingWindow) }
+    ] : []),
+    //{ label: "L4YERCAK3 Podcast", icon: "🎙️", onClick: requireAuth(openEpisodesWindow) },
+    //{ label: "Subscribe", icon: "🔊", onClick: requireAuth(openSubscribeWindow) },
+  ]
 
   const startMenuItems = [
     {
       label: "Programs",
       icon: "📂",
-      submenu: [
-        { label: "L4YER.docs", icon: "📝", onClick: openLayerDocsWindow },
-        //{ label: "L4YERCAK3 Podcast", icon: "🎙️", onClick: openEpisodesWindow },
-        //{ label: "Subscribe", icon: "🔊", onClick: openSubscribeWindow },
-      ]
+      submenu: programsSubmenu
     },
-    //{ label: "Documents", icon: "📄", onClick: () => console.log("Documents - Coming soon") },
-    { label: "Settings", icon: "⚙️", onClick: openSettingsWindow },
+    //{ label: "Documents", icon: "📄", onClick: requireAuth(() => console.log("Documents - Coming soon")) },
 
-    // Add Organizations menu item (conditional)
-    ...(isSignedIn && organizations.length > 0 ? [{
+    // Organizations menu BEFORE Settings - only show if user has active organizations
+    ...(isSignedIn && activeOrganizations.length > 0 ? [{
       label: "Organizations",
       icon: "🏢",
       submenu: orgMenuItems
     }] : []),
+
+    { label: "Settings", icon: "⚙️", onClick: requireAuth(openSettingsWindow) },
 
     {
       label: isSignedIn ? "Log Out" : "Log In",
@@ -86,9 +161,9 @@ export default function HomePage() {
   ]
 
   return (
-    <div className="min-h-screen relative overflow-hidden" style={{ background: 'var(--background)' }}>
+    <div className="min-h-screen relative" style={{ background: 'var(--background)' }}>
       {/* Desktop Background Pattern - Win95 style */}
-      <div className="absolute inset-0 opacity-10">
+      <div className="absolute inset-0 opacity-10" style={{ zIndex: 0 }}>
         <div className="grid grid-cols-20 grid-rows-20 h-full w-full">
           {Array.from({ length: 400 }).map((_, i) => (
             <div key={i} className="border" style={{ borderColor: 'var(--desktop-grid-overlay)' }}></div>
@@ -120,7 +195,7 @@ export default function HomePage() {
       )}
 
       {/* Footer Taskbar */}
-      <footer className={`fixed bottom-0 left-0 right-0 retro-window dark:retro-window-dark border-t border-gray-400 ${isMobile ? 'px-4 py-2' : 'px-1 py-0.5'}`} style={{ zIndex: 9999, borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }}>
+      <footer className={`fixed bottom-0 left-0 right-0 retro-window dark:retro-window-dark border-t border-gray-400 ${isMobile ? 'px-4 py-2' : 'px-1 py-0.5'}`} style={{ zIndex: 9999, borderBottomLeftRadius: 0, borderBottomRightRadius: 0, overflow: 'visible' }}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 flex-1">
             <div className="relative">
@@ -181,13 +256,33 @@ export default function HomePage() {
               />
             )}
 
-            {/* Desktop: Clock and Super Admin Badge */}
+            {/* Desktop: Clock, Deletion Warning, and Super Admin Badge */}
             {!isMobile && (
               <>
+                {/* Account Deletion Warning - Show if scheduled for deletion */}
+                {isSignedIn && deletionStatus.isScheduledForDeletion && (
+                  <div
+                    className={`${!isSuperAdmin ? 'ml-auto' : ''} border-l-2 px-3 py-1 flex items-center gap-2 cursor-pointer hover:bg-gray-100 transition-colors`}
+                    style={{
+                      borderColor: 'var(--win95-border)',
+                      background: '#ffcccc' // Light red warning background
+                    }}
+                    onClick={openSettingsWindow}
+                    title={`Account scheduled for deletion on ${deletionStatus.deletionDate?.toLocaleDateString()}. Click to restore.`}
+                  >
+                    <span className="text-sm animate-pulse">⚠️</span>
+                    <span className="text-[10px] font-pixel text-red-600">
+                      {deletionStatus.daysRemaining === 1
+                        ? '1 DAY'
+                        : `${deletionStatus.daysRemaining} DAYS`}
+                    </span>
+                  </div>
+                )}
+
                 {/* Super Admin Badge - Only if super admin */}
                 {isSuperAdmin && (
                   <div
-                    className="ml-auto border-l-2 px-3 py-1 flex items-center gap-2"
+                    className={`${!isSignedIn || !deletionStatus.isScheduledForDeletion ? 'ml-auto' : ''} border-l-2 px-3 py-1 flex items-center gap-2`}
                     style={{
                       borderColor: 'var(--win95-border)',
                       background: 'var(--win95-bg-light)'
@@ -200,7 +295,7 @@ export default function HomePage() {
 
                 {/* Clock */}
                 <div
-                  className={`${isSuperAdmin ? '' : 'ml-auto'} border-l-2 px-3 py-1 flex items-center gap-2`}
+                  className={`${(!isSuperAdmin && (!isSignedIn || !deletionStatus.isScheduledForDeletion)) ? 'ml-auto' : ''} border-l-2 px-3 py-1 flex items-center gap-2`}
                   style={{
                     borderColor: 'var(--win95-border)',
                     background: 'var(--win95-bg-light)'

@@ -46,17 +46,13 @@ export const verifyPassword = internalAction({
  */
 export const generateSecureToken = internalAction({
   args: {
-    length: v.optional(v.number())
+    bytes: v.optional(v.number())
   },
   handler: async (ctx, args) => {
-    const length = args.length || 32;
+    const bytes = args.bytes || 32;
 
-    // Generate random bytes and convert to hex string
-    const salt = await bcrypt.genSalt(10);
-    // Use the salt as a source of randomness and hash it
-    const token = await bcrypt.hash(Date.now().toString() + salt, salt);
-
-    // Return a URL-safe token by replacing special characters
-    return token.replace(/[^a-zA-Z0-9]/g, '').substring(0, length);
+    // Use Node.js crypto to generate cryptographically secure random bytes
+    const crypto = await import("crypto");
+    return crypto.randomBytes(bytes).toString("hex");
   },
 });

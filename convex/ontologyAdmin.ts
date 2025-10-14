@@ -17,7 +17,7 @@ async function requireSuperAdmin(ctx: QueryCtx | MutationCtx, sessionId: string)
 
   const user = await ctx.db.get(userId);
   if (!user) {
-    throw new Error("User not found");
+    throw new Error("Benutzer nicht gefunden");
   }
 
   // Check if user has global super admin role
@@ -30,7 +30,7 @@ async function requireSuperAdmin(ctx: QueryCtx | MutationCtx, sessionId: string)
   }
 
   if (!isSuperAdmin) {
-    throw new Error("Access denied: Super admin privileges required");
+    throw new Error("Zugriff verweigert: Super-Admin-Berechtigungen erforderlich");
   }
 
   return { userId, user };
@@ -136,7 +136,7 @@ export const getObjectById = query({
 
     const object = await ctx.db.get(args.objectId);
     if (!object) {
-      throw new Error("Object not found");
+      throw new Error("Objekt nicht gefunden");
     }
 
     // Get organization
@@ -394,7 +394,7 @@ export const updateObject = mutation({
 
     const object = await ctx.db.get(args.objectId);
     if (!object) {
-      throw new Error("Object not found");
+      throw new Error("Objekt nicht gefunden");
     }
 
     const updates: Record<string, unknown> = {
@@ -437,7 +437,7 @@ export const deleteObject = mutation({
 
     const object = await ctx.db.get(args.objectId);
     if (!object) {
-      throw new Error("Object not found");
+      throw new Error("Objekt nicht gefunden");
     }
 
     // Soft delete by updating status
@@ -478,7 +478,7 @@ export const createLink = mutation({
     const toObject = await ctx.db.get(args.toObjectId);
 
     if (!fromObject || !toObject) {
-      throw new Error("One or both objects not found");
+      throw new Error("Eines oder beide Objekte nicht gefunden");
     }
 
     const linkId = await ctx.db.insert("objectLinks", {
@@ -518,7 +518,7 @@ export const deleteLink = mutation({
 
     const link = await ctx.db.get(args.linkId);
     if (!link) {
-      throw new Error("Link not found");
+      throw new Error("Verknüpfung nicht gefunden");
     }
 
     await ctx.db.delete(args.linkId);
@@ -653,7 +653,7 @@ export const saveFieldConfiguration = mutation({
           .first();
 
         if (!systemOrg) {
-          throw new Error("System organization not found - run seedOntologyData first");
+          throw new Error("Systemorganisation nicht gefunden - führe zuerst seedOntologyData aus");
         }
         targetOrgId = systemOrg._id;
       }
