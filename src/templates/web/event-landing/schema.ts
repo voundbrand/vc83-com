@@ -17,6 +17,7 @@ import { TemplateContentSchema, FieldType } from "../../schema-types";
  * TypeScript interface for event landing page content.
  */
 export interface EventLandingContent {
+  linkedEventId?: string; // ID of linked event from Event Management app
   hero: {
     headline: string;
     subheadline: string;
@@ -131,6 +132,7 @@ export const eventLandingSchema: TemplateContentSchema<EventLandingContent> = {
 
   // Default content for new pages
   defaultContent: {
+    linkedEventId: "", // Default to no event linked
     hero: {
       headline: "The Future of Innovation Starts Here",
       subheadline:
@@ -267,6 +269,26 @@ export const eventLandingSchema: TemplateContentSchema<EventLandingContent> = {
 
   // Field definitions for the form
   sections: [
+    {
+      id: "event-link",
+      label: "Event Data Source",
+      description: "Link to an event to auto-populate fields, or fill manually",
+      fields: [
+        {
+          id: "linkedEventId",
+          label: "Link to Event",
+          type: FieldType.EventLink,
+          required: false,
+          helpText: "Select an event from Event Management to auto-populate event details",
+          autoPopulateFields: {
+            eventName: "hero.headline",
+            eventDate: "hero.date",
+            eventLocation: "hero.location",
+            eventDescription: "about.description",
+          },
+        },
+      ],
+    },
     {
       id: "hero",
       label: "Hero Section",

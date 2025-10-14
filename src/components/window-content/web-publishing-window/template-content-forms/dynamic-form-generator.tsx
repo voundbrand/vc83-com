@@ -11,6 +11,10 @@ import { useWindowManager } from "@/hooks/use-window-manager";
 import { useAppAvailability } from "@/hooks/use-app-availability";
 import { AppUnavailableInline } from "@/components/app-unavailable";
 import MediaLibraryWindow from "@/components/window-content/media-library-window";
+import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
+import { useQuery } from "convex/react";
+import { api } from "../../../../../convex/_generated/api";
+import { Id } from "../../../../../convex/_generated/dataModel";
 import {
   TemplateContentSchema,
   FieldDefinition,
@@ -23,6 +27,7 @@ import {
   TextArrayFieldDefinition,
   ImageFieldDefinition,
   IconFieldDefinition,
+  EventLinkFieldDefinition,
 } from "@/templates/schema-types";
 
 interface DynamicFormGeneratorProps {
@@ -231,6 +236,17 @@ function FieldRenderer({
           field={field as IconFieldDefinition}
           value={value as string}
           onChange={handleChange}
+        />
+      );
+
+    case FieldType.EventLink:
+      return (
+        <EventLinkInput
+          field={field as EventLinkFieldDefinition}
+          value={value as string}
+          onChange={handleChange}
+          content={content}
+          onContentChange={onChange}
         />
       );
 
@@ -662,6 +678,168 @@ function IconInput({
         <div className="mt-2 text-2xl border-2 border-gray-300 p-2 bg-gray-50 text-center">
           {value}
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Event Link Input Component
+ *
+ * Allows linking to events from Event Management app.
+ * Auto-populates specified fields when an event is selected.
+ */
+function EventLinkInput({
+  field,
+  value,
+  onChange,
+  content,
+  onContentChange,
+}: {
+  field: EventLinkFieldDefinition;
+  value: string;
+  onChange: (value: string) => void;
+  content: Record<string, unknown>;
+  onContentChange: (content: Record<string, unknown>) => void;
+}) {
+  const { sessionId } = useAuth();
+  const currentOrg = useCurrentOrganization();
+
+  // Check if Event Management app is available
+  const { isAvailable: isEventAppAvailable, organizationName } = useAppAvailability("events");
+
+  // Fetch available events
+  const availableEvents = useQuery(
+    api.eventOntology.getEvents,
+    sessionId && currentOrg?.id && isEventAppAvailable
+      ? {
+          sessionId,
+          organizationId: currentOrg.id as Id<"organizations">,
+        }
+      : "skip"
+  );
+
+  // Handle event selection
+  const handleEventSelect = (eventId: string) => {
+    // Start with current content
+    let newContent = { ...content };
+
+    // FIRST: Store the event ID in the field
+    newContent = setNestedValue(newContent, field.id, eventId);
+
+    // If empty selection, just update and return
+    if (!eventId) {
+      onContentChange(newContent);
+      return;
+    }
+
+    // Find the selected event
+    const selectedEvent = availableEvents?.find((e) => e._id === eventId);
+    if (!selectedEvent) {
+      onContentChange(newContent);
+      return;
+    }
+
+    // Only auto-populate if configured
+    if (!field.autoPopulateFields) {
+      onContentChange(newContent);
+      return;
+    }
+
+    // Auto-populate fields based on configuration
+    if (field.autoPopulateFields.eventName) {
+      newContent = setNestedValue(newContent, field.autoPopulateFields.eventName, selectedEvent.name);
+    }
+
+    if (field.autoPopulateFields.eventDate && selectedEvent.customProperties?.startDate) {
+      const startDate = new Date(selectedEvent.customProperties.startDate as number);
+      const formattedDate = startDate.toLocaleDateString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+      newContent = setNestedValue(newContent, field.autoPopulateFields.eventDate, formattedDate);
+    }
+
+    if (field.autoPopulateFields.eventLocation && selectedEvent.customProperties?.location) {
+      newContent = setNestedValue(newContent, field.autoPopulateFields.eventLocation, selectedEvent.customProperties.location);
+    }
+
+    if (field.autoPopulateFields.eventDescription && selectedEvent.description) {
+      newContent = setNestedValue(newContent, field.autoPopulateFields.eventDescription, selectedEvent.description);
+    }
+
+    // Apply all updates at once
+    onContentChange(newContent);
+  };
+
+  // Get selected event details
+  const selectedEvent = availableEvents?.find((e) => e._id === value);
+
+  return (
+    <div>
+      <label className="block text-xs font-bold mb-1">
+        {field.label}
+        {field.required && <span className="text-red-600 ml-1">*</span>}
+      </label>
+
+      {isEventAppAvailable ? (
+        <>
+          <select
+            value={value || ""}
+            onChange={(e) => handleEventSelect(e.target.value)}
+            className="w-full px-2 py-1 text-xs border-2 border-gray-400 bg-white focus:border-purple-500 focus:outline-none"
+          >
+            <option value="">-- Select an event --</option>
+            {availableEvents?.map((event) => (
+              <option key={event._id} value={event._id}>
+                {event.name} ({event.subtype})
+              </option>
+            ))}
+          </select>
+
+          {field.helpText && (
+            <p className="text-xs text-gray-600 mt-1">{field.helpText}</p>
+          )}
+
+          {/* Selected Event Preview */}
+          {selectedEvent && (
+            <div className="mt-2 border-2 border-purple-400 p-3 bg-purple-50 rounded">
+              <p className="text-xs font-bold text-purple-900 mb-2">Linked Event:</p>
+              <div className="space-y-1 text-xs">
+                <p>
+                  <span className="font-bold">Name:</span> {selectedEvent.name}
+                </p>
+                <p>
+                  <span className="font-bold">Type:</span> {selectedEvent.subtype}
+                </p>
+                {selectedEvent.customProperties?.startDate && (
+                  <p>
+                    <span className="font-bold">Date:</span>{" "}
+                    {new Date(selectedEvent.customProperties.startDate as number).toLocaleDateString()}
+                  </p>
+                )}
+                {selectedEvent.customProperties?.location && (
+                  <p>
+                    <span className="font-bold">Location:</span>{" "}
+                    {selectedEvent.customProperties.location as string}
+                  </p>
+                )}
+              </div>
+              {field.autoPopulateFields && (
+                <p className="text-xs text-purple-700 mt-2 italic">
+                  ✓ Fields auto-populated from this event
+                </p>
+              )}
+            </div>
+          )}
+        </>
+      ) : (
+        <AppUnavailableInline
+          appName="Event Management"
+          organizationName={organizationName}
+        />
       )}
     </div>
   );

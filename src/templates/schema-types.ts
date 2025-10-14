@@ -31,6 +31,7 @@ export enum FieldType {
   TextArray = "text-array", // Array of strings
   Repeater = "repeater", // Array of objects
   Object = "object", // Nested object
+  EventLink = "event-link", // Link to an event to auto-populate template fields
 }
 
 /**
@@ -170,6 +171,23 @@ export interface ObjectFieldDefinition extends BaseFieldDefinition {
 }
 
 /**
+ * Event Link Field
+ *
+ * Links a web page to an event from Event Management app.
+ * When an event is selected, specified fields are auto-populated with event data.
+ */
+export interface EventLinkFieldDefinition extends BaseFieldDefinition {
+  type: FieldType.EventLink;
+  autoPopulateFields?: {
+    eventName?: string; // Field ID to populate with event name
+    eventDate?: string; // Field ID to populate with event start date
+    eventEndDate?: string; // Field ID to populate with event end date
+    eventLocation?: string; // Field ID to populate with event location
+    eventDescription?: string; // Field ID to populate with event description
+  };
+}
+
+/**
  * Union of All Field Types
  */
 export type FieldDefinition =
@@ -185,7 +203,8 @@ export type FieldDefinition =
   | SelectFieldDefinition
   | TextArrayFieldDefinition
   | RepeaterFieldDefinition
-  | ObjectFieldDefinition;
+  | ObjectFieldDefinition
+  | EventLinkFieldDefinition;
 
 /**
  * Section Definition
