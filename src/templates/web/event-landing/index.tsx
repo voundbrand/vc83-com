@@ -8,6 +8,9 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "convex/react";
+import { api } from "../../../../convex/_generated/api";
+import { Id } from "../../../../convex/_generated/dataModel";
 import { TemplateProps } from "../../types";
 import { EventLandingContent } from "./schema";
 import styles from "./styles.module.css";
@@ -49,6 +52,37 @@ export function EventLandingTemplate({
   const content =
     (page.customProperties?.templateContent as unknown as EventLandingContent) ||
     ({} as EventLandingContent);
+
+  // Get linked products from customProperties
+  const linkedProductIds = (page.customProperties?.templateContent as { linkedProducts?: string[] })?.linkedProducts || [];
+
+  // Fetch linked products data
+  const linkedProducts = useQuery(
+    api.productOntology.getProducts,
+    linkedProductIds.length > 0 && organization._id
+      ? { sessionId: "public", organizationId: organization._id as Id<"organizations"> }
+      : "skip"
+  );
+
+  // Transform products into ticket format for the template
+  const ticketsFromProducts = linkedProducts?.filter(p => linkedProductIds.includes(p._id)).map(product => ({
+    id: product._id,
+    name: product.name,
+    price: (product.customProperties?.priceInCents as number) / 100 || 0,
+    originalPrice: undefined, // Could be added as a product field
+    description: product.description || "",
+    features: [], // Could be parsed from description or added as product field
+    checkoutUrl: `/checkout/${organization.slug}/${product.customProperties?.slug || product._id}`,
+  })) || [];
+
+  // Merge tickets: use schema defaults OR linked products
+  const mergedContent = {
+    ...content,
+    checkout: {
+      ...content.checkout,
+      tickets: ticketsFromProducts.length > 0 ? ticketsFromProducts : (content.checkout?.tickets || []),
+    },
+  };
 
   // Apply theme as CSS variables
   const cssVars = {
@@ -107,10 +141,10 @@ export function EventLandingTemplate({
     "--layout-maxWidth-2xl": theme.layout.maxWidth["2xl"],
   } as React.CSSProperties;
 
-  // Get selected ticket data
+  // Get selected ticket data from merged content
   const selectedTicket =
-    content.checkout?.tickets?.[selectedTicketIndex] ||
-    content.checkout?.tickets?.[0];
+    mergedContent.checkout?.tickets?.[selectedTicketIndex] ||
+    mergedContent.checkout?.tickets?.[0];
   const subtotal = selectedTicket ? selectedTicket.price * quantity : 0;
   const savings = selectedTicket && selectedTicket.originalPrice
     ? (selectedTicket.originalPrice - selectedTicket.price) * quantity
@@ -149,13 +183,13 @@ export function EventLandingTemplate({
         {/* Main Content */}
         <main className={styles.mainContent}>
           {/* Hero Section */}
-          {content.hero && (
+          {mergedContent.hero && (
             <section className={styles.hero} id="hero">
               {(content.hero.videoUrl || content.hero.imageUrl) && (
                 <div className={styles.heroBackground}>
-                  {content.hero.imageUrl && (
+                  {mergedContent.hero.imageUrl && (
                     <img
-                      src={content.hero.imageUrl}
+                      src={mergedContent.hero.imageUrl}
                       alt="Event"
                       className={styles.heroBackgroundImage}
                     />
@@ -166,30 +200,30 @@ export function EventLandingTemplate({
               <div className={styles.heroGradientOverlay} />
 
               <div className={styles.heroContent}>
-                <div className={styles.heroDateBadge}>{content.hero.date}</div>
+                <div className={styles.heroDateBadge}>{mergedContent.hero.date}</div>
 
-                <h1 className={styles.heroTitle}>{content.hero.headline}</h1>
+                <h1 className={styles.heroTitle}>{mergedContent.hero.headline}</h1>
 
                 <p className={styles.heroSubtitle}>
-                  {content.hero.subheadline}
+                  {mergedContent.hero.subheadline}
                 </p>
 
                 <div className={styles.heroInfo}>
                   <div className={styles.heroInfoItem}>
                     <MapPin className={styles.heroIcon} />
-                    <span>{content.hero.location}</span>
+                    <span>{mergedContent.hero.location}</span>
                   </div>
                   <span className={styles.heroDivider}>•</span>
                   <div className={styles.heroInfoItem}>
                     <Calendar className={styles.heroIcon} />
-                    <span>{content.hero.format}</span>
+                    <span>{mergedContent.hero.format}</span>
                   </div>
                 </div>
 
-                {content.hero.ctaButtons &&
+                {mergedContent.hero.ctaButtons &&
                   content.hero.ctaButtons.length > 0 && (
                     <div className={styles.heroButtons}>
-                      {content.hero.ctaButtons.map((btn) => (
+                      {mergedContent.hero.ctaButtons.map((btn) => (
                         <a
                           key={btn.id}
                           href={btn.url}
@@ -209,18 +243,18 @@ export function EventLandingTemplate({
           )}
 
           {/* About Section */}
-          {content.about && (
+          {mergedContent.about && (
             <section className={styles.section} id="about">
               <div className={styles.sectionHeader}>
-                <h2 className={styles.sectionTitle}>{content.about.title}</h2>
+                <h2 className={styles.sectionTitle}>{mergedContent.about.title}</h2>
                 <p className={styles.sectionDescription}>
-                  {content.about.description}
+                  {mergedContent.about.description}
                 </p>
               </div>
 
-              {content.about.stats && content.about.stats.length > 0 && (
+              {mergedContent.about.stats && content.about.stats.length > 0 && (
                 <div className={styles.statsGrid}>
-                  {content.about.stats.map((stat) => {
+                  {mergedContent.about.stats.map((stat) => {
                     const IconComponent =
                       iconMap[stat.icon.toLowerCase()] || Users;
                     return (
@@ -234,9 +268,9 @@ export function EventLandingTemplate({
                 </div>
               )}
 
-              {content.about.highlights && content.about.highlights.length > 0 && (
+              {mergedContent.about.highlights && content.about.highlights.length > 0 && (
                 <div className={styles.highlightsGrid}>
-                  {content.about.highlights.map((highlight) => {
+                  {mergedContent.about.highlights.map((highlight) => {
                     const IconComponent =
                       iconMap[highlight.icon.toLowerCase()] || Lightbulb;
                     return (
@@ -259,17 +293,17 @@ export function EventLandingTemplate({
           )}
 
           {/* Agenda Section */}
-          {content.agenda &&
+          {mergedContent.agenda &&
             content.agenda.days &&
             content.agenda.days.length > 0 && (
               <section className={styles.section} id="agenda">
-                <h2 className={styles.sectionTitle}>{content.agenda.title}</h2>
+                <h2 className={styles.sectionTitle}>{mergedContent.agenda.title}</h2>
                 <p className={styles.sectionSubtitle}>
-                  {content.agenda.subtitle}
+                  {mergedContent.agenda.subtitle}
                 </p>
 
                 <div className={styles.agendaDays}>
-                  {content.agenda.days.map((day) => (
+                  {mergedContent.agenda.days.map((day) => (
                     <div key={day.id} className={styles.agendaDayContainer}>
                       <h3 className={styles.agendaDayTitle}>{day.date}</h3>
                       <div className={styles.agendaSessions}>
@@ -321,19 +355,19 @@ export function EventLandingTemplate({
 
           {/* Speakers, Testimonials, FAQ sections continue... */}
           {/* (keeping original code for these sections) */}
-          {content.speakers &&
+          {mergedContent.speakers &&
             content.speakers.speakers &&
             content.speakers.speakers.length > 0 && (
               <section className={styles.section} id="speakers">
                 <h2 className={styles.sectionTitle}>
-                  {content.speakers.title}
+                  {mergedContent.speakers.title}
                 </h2>
                 <p className={styles.sectionSubtitle}>
-                  {content.speakers.subtitle}
+                  {mergedContent.speakers.subtitle}
                 </p>
 
                 <div className={styles.speakersGrid}>
-                  {content.speakers.speakers.map((speaker) => (
+                  {mergedContent.speakers.speakers.map((speaker) => (
                     <div key={speaker.id} className={styles.speakerCard}>
                       <div className={styles.speakerImageWrapper}>
                         <img
@@ -402,19 +436,19 @@ export function EventLandingTemplate({
               </section>
             )}
 
-          {content.testimonials &&
+          {mergedContent.testimonials &&
             content.testimonials.testimonials &&
             content.testimonials.testimonials.length > 0 && (
               <section className={styles.section} id="testimonials">
                 <h2 className={styles.sectionTitle}>
-                  {content.testimonials.title}
+                  {mergedContent.testimonials.title}
                 </h2>
                 <p className={styles.sectionSubtitle}>
-                  {content.testimonials.subtitle}
+                  {mergedContent.testimonials.subtitle}
                 </p>
 
                 <div className={styles.testimonialsGrid}>
-                  {content.testimonials.testimonials.map((testimonial) => (
+                  {mergedContent.testimonials.testimonials.map((testimonial) => (
                     <div key={testimonial.id} className={styles.testimonialCard}>
                       <div className={styles.testimonialStars}>
                         {[...Array(5)].map((_, i) => (
@@ -457,15 +491,15 @@ export function EventLandingTemplate({
               </section>
             )}
 
-          {content.faq &&
+          {mergedContent.faq &&
             content.faq.questions &&
             content.faq.questions.length > 0 && (
               <section className={styles.section} id="faq">
-                <h2 className={styles.sectionTitle}>{content.faq.title}</h2>
-                <p className={styles.sectionSubtitle}>{content.faq.subtitle}</p>
+                <h2 className={styles.sectionTitle}>{mergedContent.faq.title}</h2>
+                <p className={styles.sectionSubtitle}>{mergedContent.faq.subtitle}</p>
 
                 <div className={styles.faqList}>
-                  {content.faq.questions.map((faq) => (
+                  {mergedContent.faq.questions.map((faq) => (
                     <div key={faq.id} className={styles.faqItem}>
                       <h3 className={styles.faqQuestion}>{faq.question}</h3>
                       <p className={styles.faqAnswer}>{faq.answer}</p>
@@ -473,14 +507,14 @@ export function EventLandingTemplate({
                   ))}
                 </div>
 
-                {content.faq.contactEmail && (
+                {mergedContent.faq.contactEmail && (
                   <div className={styles.faqContact}>
                     <h3 className={styles.faqContactTitle}>Still have questions?</h3>
                     <p className={styles.faqContactText}>
                       Our team is here to help you with any inquiries.
                     </p>
-                    <a href={`mailto:${content.faq.contactEmail}`} className={styles.faqContactLink}>
-                      {content.faq.contactEmail}
+                    <a href={`mailto:${mergedContent.faq.contactEmail}`} className={styles.faqContactLink}>
+                      {mergedContent.faq.contactEmail}
                     </a>
                   </div>
                 )}
@@ -489,18 +523,18 @@ export function EventLandingTemplate({
         </main>
 
         {/* Sticky Checkout Sidebar (Desktop only) */}
-        {content.checkout &&
+        {mergedContent.checkout &&
           content.checkout.tickets &&
           content.checkout.tickets.length > 0 && (
             <aside className={styles.sidebar}>
               <div className={styles.sidebarSticky}>
                 <div className={styles.checkoutCard} id="checkout">
                   <h3 className={styles.checkoutTitle}>
-                    {content.checkout.title}
+                    {mergedContent.checkout.title}
                   </h3>
-                  {content.checkout.description && (
+                  {mergedContent.checkout.description && (
                     <p className={styles.checkoutDescription}>
-                      {content.checkout.description}
+                      {mergedContent.checkout.description}
                     </p>
                   )}
 
@@ -510,7 +544,7 @@ export function EventLandingTemplate({
                       Select Ticket Type
                     </label>
                     <div className={styles.ticketOptions}>
-                      {content.checkout.tickets.map((ticket, index) => (
+                      {mergedContent.checkout.tickets.map((ticket, index) => (
                         <label
                           key={ticket.id}
                           className={`${styles.ticketOptionCard} ${
@@ -639,7 +673,7 @@ export function EventLandingTemplate({
       </div>
 
       {/* Mobile Checkout - Fixed at bottom */}
-      {content.checkout &&
+      {mergedContent.checkout &&
         content.checkout.tickets &&
         content.checkout.tickets.length > 0 && (
           <div className={styles.mobileCheckout}>
