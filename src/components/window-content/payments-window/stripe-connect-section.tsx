@@ -62,8 +62,19 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
         isTestMode: selectedMode === "test", // Use selected mode
       }).then(() => {
         console.log('OAuth callback processed successfully');
-        // Clean up URL parameters and show success
-        window.history.replaceState({}, '', window.location.pathname);
+
+        // Check if we should reopen the payments window
+        const shouldReopenPayments = localStorage.getItem('stripe_oauth_reopen_payments');
+
+        // Clean up URL parameters
+        const cleanUrl = shouldReopenPayments
+          ? `${window.location.pathname}?openWindow=payments`
+          : window.location.pathname;
+
+        window.history.replaceState({}, '', cleanUrl);
+
+        // Clear the localStorage flag
+        localStorage.removeItem('stripe_oauth_reopen_payments');
 
         // Refresh status after a delay to show the connected account
         setTimeout(() => {
@@ -75,6 +86,7 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
       }).catch(err => {
         console.error('Failed to process OAuth callback:', err);
         alert('Failed to connect Stripe account. Please try again.');
+        localStorage.removeItem('stripe_oauth_reopen_payments');
       });
 
       return;
@@ -86,9 +98,12 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
 
     setIsOnboarding(true);
     try {
-      // OAuth redirect URI with openWindow parameter to restore the window after OAuth
-      const returnUrl = `${window.location.origin}?openWindow=payments`;
-      const refreshUrl = `${window.location.origin}?openWindow=payments`;
+      // Store flag to reopen payments window after OAuth completes
+      localStorage.setItem('stripe_oauth_reopen_payments', 'true');
+
+      // OAuth redirect URI - must be clean (no query params)
+      const returnUrl = window.location.origin;
+      const refreshUrl = window.location.origin;
 
       const isTestMode = selectedMode === "test";
 
