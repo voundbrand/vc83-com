@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
-import { Loader2, AlertCircle, FileText, ExternalLink, Check, ChevronDown, ChevronUp, Palette, Eye } from "lucide-react";
+import { Loader2, AlertCircle, FileText, ExternalLink, Check, ChevronDown, ChevronUp, Palette, Eye, ShoppingCart } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { getTemplateSchema, getTemplateComponent, getTheme } from "@/templates/registry";
 import { DynamicFormGenerator } from "./template-content-forms/dynamic-form-generator";
@@ -84,6 +84,7 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
   const [slug, setSlug] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
   const [templateContent, setTemplateContent] = useState<Record<string, unknown>>({});
+  const [linkedProducts, setLinkedProducts] = useState<string[]>([]); // Array of product IDs
   const [isCreating, setIsCreating] = useState(false);
   const [createdPageUrl, setCreatedPageUrl] = useState<string | null>(null);
   const [templateAccordionOpen, setTemplateAccordionOpen] = useState(true); // Auto-open
@@ -99,6 +100,12 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
   const availableThemes = useQuery(
     api.templateAvailability.getAllSystemThemes,
     sessionId ? { sessionId } : "skip"
+  );
+
+  // Fetch available products (for linking)
+  const availableProducts = useQuery(
+    api.productOntology.getProducts,
+    sessionId && currentOrg?.id ? { sessionId, organizationId: currentOrg.id as Id<"organizations"> } : "skip"
   );
 
   const createPage = useMutation(api.publishingOntology.createPublishedPage);
@@ -223,6 +230,12 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
         templateContent
       );
 
+      // Add linked products to custom properties
+      const customPropertiesWithProducts = {
+        ...mergedContent,
+        linkedProducts, // Array of product IDs
+      };
+
       if (editMode) {
         // UPDATE existing page
         await updatePage({
@@ -233,7 +246,7 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
           metaDescription,
           templateCode,
           themeCode,
-          templateContent: mergedContent,
+          templateContent: customPropertiesWithProducts,
         });
 
         alert("Page updated successfully!");
@@ -249,7 +262,7 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
           metaDescription,
           templateCode,
           themeCode,
-          templateContent: mergedContent,
+          templateContent: customPropertiesWithProducts,
         });
 
         setCreatedPageUrl(result.publicUrl);
@@ -526,6 +539,77 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
           <p className="text-xs text-gray-500 mt-1">
             {metaDescription.length}/160 characters
           </p>
+        </div>
+
+        {/* LINK PRODUCTS */}
+        <div className="border-t-2 border-gray-400 pt-4">
+          <h4 className="text-xs font-bold mb-2 flex items-center gap-2">
+            <ShoppingCart size={14} />
+            Link Products (Optional)
+          </h4>
+          <p className="text-xs text-gray-600 mb-3">
+            Connect products to this page. They'll appear in your template's checkout UI.
+          </p>
+
+          {availableProducts && availableProducts.length > 0 ? (
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {availableProducts.map((product) => {
+                const productId = product._id;
+                const isLinked = linkedProducts.includes(productId);
+                const price = product.customProperties?.priceInCents as number || 0;
+                const currency = (product.customProperties?.currency as string) || "usd";
+
+                return (
+                  <div
+                    key={productId}
+                    className="border-2 p-2 flex items-start justify-between"
+                    style={{
+                      borderColor: isLinked ? "#6B46C1" : "#D1D5DB",
+                      backgroundColor: isLinked ? "#F3E8FF" : "white"
+                    }}
+                  >
+                    <div className="flex-1">
+                      <div className="font-bold text-xs">{product.name}</div>
+                      <div className="text-xs text-gray-600">
+                        {new Intl.NumberFormat('en-US', {
+                          style: 'currency',
+                          currency: currency.toUpperCase(),
+                        }).format(price / 100)}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isLinked) {
+                          setLinkedProducts(linkedProducts.filter(id => id !== productId));
+                        } else {
+                          setLinkedProducts([...linkedProducts, productId]);
+                        }
+                      }}
+                      className="px-2 py-1 text-xs font-bold border-2 transition-colors"
+                      style={{
+                        borderColor: isLinked ? "#6B46C1" : "#D1D5DB",
+                        backgroundColor: isLinked ? "#6B46C1" : "white",
+                        color: isLinked ? "white" : "#6B7280"
+                      }}
+                    >
+                      {isLinked ? "✓ Linked" : "Link"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-xs text-gray-500 bg-gray-50 p-3 border-2 border-gray-300">
+              No products yet. Create products in the Products app first.
+            </div>
+          )}
+
+          {linkedProducts.length > 0 && (
+            <p className="text-xs text-green-600 font-bold mt-2">
+              ✓ {linkedProducts.length} product{linkedProducts.length !== 1 ? 's' : ''} linked
+            </p>
+          )}
         </div>
 
         {/* DYNAMIC CONTENT FORM */}

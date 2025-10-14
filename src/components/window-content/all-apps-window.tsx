@@ -10,6 +10,7 @@ import MediaLibraryWindow from "@/components/window-content/media-library-window
 import { ProductsWindow } from "@/components/window-content/products-window";
 import { TicketsWindow } from "@/components/window-content/tickets-window";
 import { EventsWindow } from "@/components/window-content/events-window";
+import { CheckoutWindow } from "@/components/window-content/checkout-window";
 
 /**
  * All Apps Window
@@ -104,6 +105,11 @@ export function AllAppsWindow() {
       },
       'events': {
         component: <EventsWindow />,
+        width: 950,
+        height: 650
+      },
+      'checkout': {
+        component: <CheckoutWindow />,
         width: 950,
         height: 650
       },

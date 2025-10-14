@@ -574,6 +574,77 @@ export const registerEventsApp = mutation({
 });
 
 /**
+ * Register Checkout app only
+ *
+ * Simple mutation to register the Checkout app for payment processing.
+ * No authentication required - this is a one-time setup mutation.
+ *
+ * @returns App ID if created, or existing app ID if already registered
+ */
+export const registerCheckoutApp = mutation({
+  args: {},
+  handler: async (ctx) => {
+    // Check if Checkout app already exists
+    const existing = await ctx.db
+      .query("apps")
+      .withIndex("by_code", (q) => q.eq("code", "checkout"))
+      .first();
+
+    if (existing) {
+      console.log("Checkout app already registered:", existing._id);
+      return {
+        appId: existing._id,
+        message: "Checkout app already registered",
+        app: existing,
+      };
+    }
+
+    // Find or create a system organization to own the app
+    let systemOrg = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", "system"))
+      .first();
+
+    // If no system org exists, just use the first organization
+    if (!systemOrg) {
+      const firstOrg = await ctx.db.query("organizations").first();
+      if (!firstOrg) {
+        throw new Error(
+          "No organizations found. Create an organization first before registering apps."
+        );
+      }
+      systemOrg = firstOrg;
+    }
+
+    // Create the Checkout app record
+    const appId = await ctx.db.insert("apps", {
+      code: "checkout",
+      name: "Checkout",
+      description: "Create and manage checkout pages for products, tickets, and services with Stripe integration",
+      icon: "🛒",
+      category: "commerce",
+      plans: ["pro", "business", "enterprise"],
+      creatorOrgId: systemOrg._id,
+      dataScope: "installer-owned",
+      status: "active",
+      version: "1.0.0",
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    const app = await ctx.db.get(appId);
+
+    console.log("Checkout app registered successfully:", appId);
+
+    return {
+      appId,
+      message: "Checkout app registered successfully",
+      app,
+    };
+  },
+});
+
+/**
  * Enable all system apps for an organization
  *
  * Convenience function to enable Payments and Web Publishing for a specific org.
