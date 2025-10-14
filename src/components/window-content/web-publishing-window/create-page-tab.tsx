@@ -557,7 +557,7 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
             Link Products (Optional)
           </h4>
           <p className="text-xs text-gray-600 mb-3">
-            Connect products to this page. They'll appear in your template's checkout UI.
+            Connect products to this page. They&apos;ll appear in your template&apos;s checkout UI.
           </p>
 
           {/* Checkout app not available */}
@@ -571,7 +571,7 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
                     To link products to your pages, you need the Checkout app enabled for your organization.
                   </p>
                   <p className="text-xs text-yellow-700">
-                    <span className="font-bold">Contact your administrator</span> to enable the Checkout app, or visit the Control Panel if you're an admin.
+                    <span className="font-bold">Contact your administrator</span> to enable the Checkout app, or visit the Control Panel if you&apos;re an admin.
                   </p>
                 </div>
               </div>

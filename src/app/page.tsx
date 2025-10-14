@@ -9,13 +9,13 @@ import { StartMenu } from "@/components/start-menu"
 import { WelcomeWindow } from "@/components/window-content/welcome-window"
 import { ControlPanelWindow } from "@/components/window-content/control-panel-window"
 import { LoginWindow } from "@/components/window-content/login-window"
-import { LayerDocsWindow } from "@/components/window-content/layer-docs/layer-docs-window"
 import { PaymentsWindow } from "@/components/window-content/payments-window"
 import { WebPublishingWindow } from "@/components/window-content/web-publishing-window"
 import MediaLibraryWindow from "@/components/window-content/media-library-window"
 import { ProductsWindow } from "@/components/window-content/products-window"
 import { TicketsWindow } from "@/components/window-content/tickets-window"
 import { EventsWindow } from "@/components/window-content/events-window"
+import { CheckoutWindow } from "@/components/window-content/checkout-window"
 import { AllAppsWindow } from "@/components/window-content/all-apps-window"
 import { WindowsMenu } from "@/components/windows-menu"
 import { useIsMobile } from "@/hooks/use-media-query"
@@ -73,6 +73,10 @@ export default function HomePage() {
 
   const openEventsWindow = () => {
     openWindow("events", "Events", <EventsWindow />, { x: 300, y: 220 }, { width: 950, height: 650 })
+  }
+
+  const openCheckoutWindow = () => {
+    openWindow("checkout", "Checkout", <CheckoutWindow />, { x: 320, y: 240 }, { width: 950, height: 650 })
   }
 
   const openAllAppsWindow = () => {
@@ -149,6 +153,7 @@ export default function HomePage() {
       'products': isAppAvailable("products"),
       'tickets': isAppAvailable("tickets"),
       'events': isAppAvailable("events"),
+      'checkout': isAppAvailable("checkout"),
       'web-publishing': isAppAvailable("web-publishing"),
     }
   });
@@ -173,6 +178,9 @@ export default function HomePage() {
     ] : []),
     ...(isAppAvailable("events") ? [
       { label: "Events", icon: "📅", onClick: requireAuth(openEventsWindow) }
+    ] : []),
+    ...(isAppAvailable("checkout") ? [
+      { label: "Checkout", icon: "🛒", onClick: requireAuth(openCheckoutWindow) }
     ] : []),
     // Web Publishing app - enabled via app availability
     ...(isAppAvailable("web-publishing") ? [
