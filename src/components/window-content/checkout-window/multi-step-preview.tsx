@@ -241,6 +241,14 @@ function StaticStepPreview({
   // Check if any product has a form linked
   const hasProductsWithForms = linkedProducts.some((p) => p.customProperties?.formId);
 
+  // Format price helper
+  const formatPrice = (amount: number, currency: string = "USD") => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: currency.toUpperCase(),
+    }).format(amount / 100);
+  };
+
   const steps = [
     {
       title: "Step 1: Product Selection",
@@ -265,7 +273,7 @@ function StaticStepPreview({
                     {product.name}
                   </p>
                   <p className="text-xs" style={{ color: theme?.colors.textLight }}>
-                    ${(product.price / 100).toFixed(2)}
+                    {formatPrice(product.price, product.currency)}
                     {product.customProperties?.formId && (
                       <span className="ml-2 text-xs font-bold" style={{ color: theme?.colors.primary }}>
                         📋 Form Required
@@ -376,6 +384,20 @@ function StaticStepPreview({
                   </div>
                   <p className="text-xs text-center" style={{ color: theme?.colors.textLight }}>
                     ... additional form fields based on product requirements ...
+                  </p>
+                </div>
+                <div
+                  className="mt-4 p-3 border-2 rounded"
+                  style={{
+                    borderColor: theme?.colors.info,
+                    background: `${theme?.colors.info}10`,
+                  }}
+                >
+                  <p className="text-xs font-bold mb-1" style={{ color: theme?.colors.textDark }}>
+                    ℹ️ Static Preview - Example Only
+                  </p>
+                  <p className="text-xs" style={{ color: theme?.colors.textLight }}>
+                    This shows example form fields. Switch to <strong>Interactive</strong> mode to see the actual form configured for your products.
                   </p>
                 </div>
               </div>

@@ -4,16 +4,20 @@
  * STEP 1: PRODUCT SELECTION
  *
  * Multi-product selection with individual quantity controls per ticket.
- * Shows line item display with order summary.
+ * Shows line item display with order summary and tax calculation.
  */
 
 import { useState } from "react";
 import { Check, ShoppingCart } from "lucide-react";
 import { CheckoutProduct } from "@/templates/checkout/types";
 import { Id } from "../../../../convex/_generated/dataModel";
+import { calculateCheckoutTax } from "@/lib/tax-calculator";
+import { useQuery } from "convex/react";
+import { api } from "../../../../convex/_generated/api";
 import styles from "../styles/multi-step.module.css";
 
 interface ProductSelectionStepProps {
+  organizationId: Id<"organizations">;
   linkedProducts: CheckoutProduct[];
   initialSelection?: Array<{
     productId: Id<"objects">;
@@ -27,14 +31,28 @@ interface ProductSelectionStepProps {
       price: number;
     }>;
     totalPrice: number;
+    taxCalculation?: {
+      subtotal: number;
+      taxAmount: number;
+      total: number;
+      taxRate: number;
+      isTaxable: boolean;
+      taxBehavior: "exclusive" | "inclusive" | "automatic";
+    };
   }) => void;
 }
 
 export function ProductSelectionStep({
+  organizationId,
   linkedProducts,
   initialSelection,
   onComplete,
 }: ProductSelectionStepProps) {
+  // Fetch organization tax settings
+  const taxSettings = useQuery(api.organizationTaxSettings.getPublicTaxSettings, {
+    organizationId,
+  });
+
   // Track quantities for each product (productId -> quantity)
   const [quantities, setQuantities] = useState<Record<string, number>>(() => {
     const initial: Record<string, number> = {};
@@ -90,9 +108,46 @@ export function ProductSelectionStep({
     });
 
   const totalQuantity = lineItems.reduce((sum, item) => sum + item.quantity, 0);
-  const subtotal = lineItems.reduce((sum, item) => sum + item.subtotal, 0);
   const totalSavings = lineItems.reduce((sum, item) => sum + item.savings, 0);
-  const total = subtotal;
+
+  // Calculate tax using organization settings
+  const getTaxRate = () => {
+    if (!taxSettings?.taxEnabled) return 0;
+
+    // Try to find active rate for origin address
+    const activeRate = taxSettings.customRates?.find(
+      (rate) => rate.active &&
+        rate.jurisdiction === `${taxSettings.originAddress.country}-${taxSettings.originAddress.state || ""}`
+    );
+
+    if (activeRate) {
+      return activeRate.rate * 100; // Convert decimal to percentage
+    }
+
+    // Fallback to default rates by country/state
+    if (taxSettings.originAddress.country === "US") {
+      const stateRates: Record<string, number> = {
+        "CA": 8.5,
+        "NY": 8.875,
+        "TX": 8.25,
+        "FL": 6.0,
+      };
+      return stateRates[taxSettings.originAddress.state || ""] || 0;
+    }
+
+    return 0;
+  };
+
+  const taxRate = getTaxRate();
+  const defaultTaxBehavior = taxSettings?.defaultTaxBehavior || "exclusive";
+
+  const taxCalculation = calculateCheckoutTax(
+    lineItems.map((item) => ({ product: item.product, quantity: item.quantity })),
+    taxRate,
+    defaultTaxBehavior
+  );
+
+  const { subtotal, taxAmount, total } = taxCalculation;
 
   const hasSelection = lineItems.length > 0;
 
@@ -109,6 +164,15 @@ export function ProductSelectionStep({
         price: item.product.price,
       })),
       totalPrice: total,
+      // Include tax calculation for payment processing
+      taxCalculation: {
+        subtotal,
+        taxAmount,
+        total,
+        taxRate,
+        isTaxable: taxCalculation.isTaxable,
+        taxBehavior: taxCalculation.taxBehavior,
+      },
     });
   };
 
@@ -266,7 +330,7 @@ export function ProductSelectionStep({
             ))}
           </ul>
 
-          {/* Pricing Summary */}
+          {/* Pricing Summary with Tax Breakdown */}
           <div className={styles.pricingSummary}>
             <div className={styles.priceRow}>
               <span className={styles.priceLabel}>Subtotal ({totalQuantity} {totalQuantity === 1 ? "ticket" : "tickets"})</span>
@@ -276,6 +340,18 @@ export function ProductSelectionStep({
               <div className={styles.priceRow}>
                 <span className={styles.priceLabel}>Early Bird Savings</span>
                 <span className={styles.savingsValue}>-{formatPrice(totalSavings)}</span>
+              </div>
+            )}
+            {/* Tax Line */}
+            {taxCalculation.isTaxable && taxAmount > 0 && (
+              <div className={styles.priceRow}>
+                <span className={styles.priceLabel}>
+                  Tax ({taxRate}%)
+                  <span style={{ fontSize: "0.7rem", marginLeft: "0.25rem", opacity: 0.7 }}>
+                    {taxCalculation.taxBehavior === "inclusive" ? "💶 included" : "💵 added"}
+                  </span>
+                </span>
+                <span className={styles.priceValue}>{formatPrice(taxAmount)}</span>
               </div>
             )}
             <div className={`${styles.priceRow} ${styles.totalRow}`}>

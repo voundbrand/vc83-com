@@ -221,6 +221,7 @@ export function MultiStepCheckout({
       case "product-selection":
         return (
           <ProductSelectionStep
+            organizationId={organizationId}
             linkedProducts={linkedProducts}
             onComplete={(data) => handleStepComplete(data)}
           />

@@ -134,6 +134,51 @@ export const getTaxSettings = query({
 });
 
 /**
+ * Get tax settings for public checkout pages (no auth required)
+ * Returns only the information needed for tax calculation
+ */
+export const getPublicTaxSettings = query({
+  args: {
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    const settings = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId)
+         .eq("type", "organization_settings")
+      )
+      .filter((q) => q.eq(q.field("subtype"), "tax"))
+      .first();
+
+    if (!settings) {
+      return null;
+    }
+
+    // Return only public-safe tax calculation data
+    const customProps = settings.customProperties as Record<string, unknown>;
+    return {
+      taxEnabled: customProps.taxEnabled as boolean || false,
+      defaultTaxBehavior: (customProps.defaultTaxBehavior as "inclusive" | "exclusive" | "automatic") || "exclusive",
+      defaultTaxCode: customProps.defaultTaxCode as string || "",
+      // Get tax rate from custom rates or origin address
+      customRates: customProps.customRates as Array<{
+        jurisdiction: string;
+        rate: number;
+        name: string;
+        type: string;
+        active: boolean;
+      }> || [],
+      originAddress: customProps.originAddress as {
+        country: string;
+        state?: string;
+        city: string;
+      } || { country: "US", city: "" },
+    };
+  },
+});
+
+/**
  * GET TAX REGISTRATIONS
  * Returns all tax registrations for an organization
  */
