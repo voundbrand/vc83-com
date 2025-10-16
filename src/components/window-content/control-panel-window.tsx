@@ -2,10 +2,10 @@
 
 import { useWindowManager } from "@/hooks/use-window-manager";
 import { SettingsWindow } from "./settings-window";
-import { ManageWindow } from "./manage-window";
+import { ManageWindow } from "./org-owner-manage-window";
 import { OntologyAdminWindow } from "./ontology-admin";
 import { TranslationsWindow } from "./translations-window";
-import { OrganizationsWindow } from "./organizations-window";
+import { OrganizationsWindow } from "./super-admin-organizations-window";
 import { usePermissions } from "@/contexts/permission-context";
 import { useAuth } from "@/hooks/use-auth";
 import { useTranslation } from "@/contexts/translation-context";

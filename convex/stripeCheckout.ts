@@ -45,6 +45,10 @@ export const createStripeCheckoutSession = action({
         country: v.string(),
       })
     ),
+    // B2B transaction support
+    isB2B: v.optional(v.boolean()),
+    taxId: v.optional(v.string()), // VAT/Tax ID for B2B customers
+    taxIdType: v.optional(v.string()), // Type of tax ID (e.g., "eu_vat", "gb_vat", "us_ein")
     successUrl: v.string(),
     cancelUrl: v.string(),
     metadata: v.optional(v.record(v.string(), v.string())),
@@ -127,6 +131,23 @@ export const createStripeCheckoutSession = action({
         // Customer will enter their address during checkout for tax calculation
       } else {
         sessionParams.billing_address_collection = "auto";
+      }
+
+      // B2B Tax ID Support
+      // Stripe Tax will automatically apply reverse charge for EU B2B with valid VAT
+      if (args.isB2B && args.taxId && args.taxIdType) {
+        // Pass tax ID data to Stripe for validation and reverse charge
+        sessionParams.tax_id_collection = {
+          enabled: true, // Enable tax ID collection in checkout
+        };
+
+        // Store the tax ID in metadata so we can validate it after checkout
+        sessionParams.metadata = {
+          ...sessionParams.metadata,
+          isB2B: "true",
+          customerTaxId: args.taxId,
+          customerTaxIdType: args.taxIdType,
+        };
       }
     }
 

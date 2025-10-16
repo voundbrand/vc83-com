@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { X, User, Shield, Save, AlertCircle, Mail, Trash2 } from "lucide-react";
 import { useMutation, useQuery, useAction } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
-import { Id } from "../../../../convex/_generated/dataModel";
+import { api } from "../../../../../convex/_generated/api";
+import { Id } from "../../../../../convex/_generated/dataModel";
 import { useTranslation } from "@/contexts/translation-context";
 import { formatRoleName } from "@/utils/roleFormatter";
 import { DeleteAccountModal } from "./delete-account-modal";

@@ -7,6 +7,7 @@ import { Id } from "../../../../convex/_generated/dataModel";
 import { Loader2, Save, X, ChevronDown } from "lucide-react";
 import { useAppAvailability } from "@/hooks/use-app-availability";
 import { AppUnavailableInline } from "@/components/app-unavailable";
+import { getTaxCodesForCountry } from "@/lib/tax-calculator";
 
 interface ProductFormProps {
   sessionId: string;
@@ -97,6 +98,12 @@ export function ProductForm({
     isEventsAppAvailable && sessionId
       ? { sessionId, organizationId }
       : "skip"
+  );
+
+  // Get organization tax settings to determine available tax codes
+  const orgTaxSettings = useQuery(
+    api.organizationTaxSettings.getPublicTaxSettings,
+    { organizationId }
   );
 
   // Get published forms for dropdown
@@ -317,6 +324,16 @@ export function ProductForm({
     );
   }
 
+  // Get the organization's origin country for tax code filtering
+  const originCountry = orgTaxSettings?.originAddress?.country || "US";
+  const availableTaxCodes = getTaxCodesForCountry(originCountry);
+  const orgDefaultTaxCode = orgTaxSettings?.defaultTaxCode as string | undefined;
+
+  // Find the human-readable label for the organization's default tax code
+  const defaultTaxCodeLabel = orgDefaultTaxCode
+    ? availableTaxCodes?.codes.find(c => c.value === orgDefaultTaxCode)?.label || orgDefaultTaxCode
+    : "Not set";
+
   return (
     <form onSubmit={handleSubmit} className="p-6 space-y-4">
       {/* Product Type */}
@@ -513,28 +530,33 @@ export function ProductForm({
                   color: "var(--win95-input-text)",
                 }}
               >
-                <option value="">-- Use Organization Default --</option>
-                <optgroup label="Event & Entertainment">
-                  <option value="txcd_10401000">Event Tickets - Admission to shows, concerts, events</option>
-                  <option value="txcd_10401100">Entertainment Services - Live performances</option>
-                </optgroup>
-                <optgroup label="Physical Goods">
-                  <option value="txcd_99999999">General - Tangible personal property</option>
-                  <option value="txcd_30011000">Clothing - General apparel</option>
-                  <option value="txcd_30061100">Books - Physical books</option>
-                </optgroup>
-                <optgroup label="Digital Products">
-                  <option value="txcd_10103000">Digital Products - Downloads, streaming</option>
-                  <option value="txcd_10501000">Software - Digital software products</option>
-                </optgroup>
-                <optgroup label="Services">
-                  <option value="txcd_10301000">Professional Services - Consulting, coaching</option>
-                  <option value="txcd_10201000">Lodging - Accommodation services</option>
-                  <option value="txcd_10103100">Food & Beverage - Meal services</option>
-                </optgroup>
+                <option value="">
+                  {orgDefaultTaxCode
+                    ? `-- Use Organization Default (${defaultTaxCodeLabel}) --`
+                    : `-- No Organization Default Set --`
+                  }
+                </option>
+
+                {availableTaxCodes && (
+                  <optgroup label={`${availableTaxCodes.flag} ${availableTaxCodes.label}`}>
+                    {availableTaxCodes.codes.map((code) => (
+                      <option key={code.value} value={code.value}>
+                        {code.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+
+                {!availableTaxCodes && (
+                  <option disabled>No tax codes available for {originCountry}</option>
+                )}
               </select>
               <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                💡 Stripe tax codes determine tax rates by jurisdiction. Leave empty to use organization default.
+                💡 Showing tax codes for {availableTaxCodes?.flag} {originCountry}.
+                {orgDefaultTaxCode
+                  ? ` Org default: ${defaultTaxCodeLabel}`
+                  : ` No org default - configure in tax settings.`
+                }
               </p>
             </div>
 

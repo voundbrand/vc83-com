@@ -438,6 +438,10 @@ export class StripeConnectProvider implements IPaymentProvider {
             message: "Tax settings updated (no action required)",
           };
 
+        // Checkout events
+        case "checkout.session.completed":
+          return await this.handleCheckoutSessionCompleted(stripeEvent.data.object);
+
         // Payment events
         case "payment_intent.succeeded":
           return await this.handlePaymentSucceeded(stripeEvent.data.object);
@@ -448,12 +452,25 @@ export class StripeConnectProvider implements IPaymentProvider {
         case "charge.refunded":
           return await this.handleChargeRefunded(stripeEvent.data.object);
 
-        // Invoice events (future)
+        // Invoice events
+        case "invoice.created":
+          return await this.handleInvoiceCreated(stripeEvent.data.object);
+
+        case "invoice.finalized":
+          return await this.handleInvoiceFinalized(stripeEvent.data.object);
+
+        case "invoice.paid":
         case "invoice.payment_succeeded":
           return await this.handleInvoicePaymentSucceeded(stripeEvent.data.object);
 
         case "invoice.payment_failed":
           return await this.handleInvoicePaymentFailed(stripeEvent.data.object);
+
+        case "invoice.payment_action_required":
+          return await this.handleInvoicePaymentActionRequired(stripeEvent.data.object);
+
+        case "invoice.marked_uncollectible":
+          return await this.handleInvoiceMarkedUncollectible(stripeEvent.data.object);
 
         default:
           return {
@@ -629,6 +646,64 @@ export class StripeConnectProvider implements IPaymentProvider {
   }
 
   /**
+   * Handle checkout.session.completed webhook
+   *
+   * This is the primary event for Stripe Checkout completion.
+   * Contains customer details, payment status, and tax calculation results.
+   * Critical for B2B: includes validated tax IDs and reverse charge info.
+   */
+  private async handleCheckoutSessionCompleted(
+    session: Stripe.Checkout.Session
+  ): Promise<WebhookHandlingResult> {
+    console.log(`Checkout session completed: ${session.id}`, {
+      paymentStatus: session.payment_status,
+      amountTotal: session.amount_total,
+      amountSubtotal: session.amount_subtotal,
+      currency: session.currency,
+    });
+
+    // Extract tax information
+    const taxAmount = session.total_details?.amount_tax || 0;
+
+    // Extract customer tax IDs (B2B)
+    const customerTaxIds = session.customer_details?.tax_ids || [];
+    const isB2B = session.metadata?.isB2B === "true";
+
+    // Log tax calculation results
+    if (taxAmount === 0 && isB2B && customerTaxIds.length > 0) {
+      console.log("B2B Reverse Charge Applied:", {
+        taxIds: customerTaxIds.map(t => ({
+          type: t.type,
+          value: t.value,
+        })),
+      });
+    }
+
+    return {
+      success: true,
+      actionTaken: "checkout_completed",
+      message: `Checkout session ${session.id} completed`,
+      metadata: {
+        sessionId: session.id,
+        paymentIntentId: session.payment_intent as string,
+        paymentStatus: session.payment_status,
+        amountTotal: session.amount_total,
+        amountSubtotal: session.amount_subtotal,
+        taxAmount,
+        currency: session.currency,
+        customerEmail: session.customer_details?.email,
+        customerTaxIds: customerTaxIds.map(t => ({
+          type: t.type,
+          value: t.value,
+        })),
+        isB2B,
+        organizationId: session.metadata?.organizationId,
+        productId: session.metadata?.productId,
+      },
+    };
+  }
+
+  /**
    * Handle payment_intent.succeeded webhook
    */
   private async handlePaymentSucceeded(
@@ -697,32 +772,134 @@ export class StripeConnectProvider implements IPaymentProvider {
   }
 
   /**
-   * Handle invoice.payment_succeeded webhook (Future)
+   * Handle invoice.created webhook
+   */
+  private async handleInvoiceCreated(
+    invoice: Stripe.Invoice
+  ): Promise<WebhookHandlingResult> {
+    console.log(`Invoice created: ${invoice.id}`, {
+      customer: invoice.customer,
+      amount_due: invoice.amount_due,
+      status: invoice.status,
+    });
+
+    return {
+      success: true,
+      actionTaken: "invoice_created",
+      message: `Invoice ${invoice.id} created`,
+      metadata: {
+        invoiceId: invoice.id,
+        customerId: invoice.customer,
+        amountDue: invoice.amount_due,
+      },
+    };
+  }
+
+  /**
+   * Handle invoice.finalized webhook
+   */
+  private async handleInvoiceFinalized(
+    invoice: Stripe.Invoice
+  ): Promise<WebhookHandlingResult> {
+    console.log(`Invoice finalized: ${invoice.id}`, {
+      number: invoice.number,
+      due_date: invoice.due_date,
+    });
+
+    return {
+      success: true,
+      actionTaken: "invoice_finalized",
+      message: `Invoice ${invoice.id} finalized`,
+      metadata: {
+        invoiceId: invoice.id,
+        invoiceNumber: invoice.number,
+        dueDate: invoice.due_date,
+      },
+    };
+  }
+
+  /**
+   * Handle invoice.paid / invoice.payment_succeeded webhook
    */
   private async handleInvoicePaymentSucceeded(
     invoice: Stripe.Invoice
   ): Promise<WebhookHandlingResult> {
-    console.log(`Invoice paid: ${invoice.id}`);
+    console.log(`Invoice paid: ${invoice.id}`, {
+      amount_paid: invoice.amount_paid,
+      status: invoice.status,
+    });
 
     return {
       success: true,
       actionTaken: "invoice_paid",
       message: `Invoice ${invoice.id} paid`,
+      metadata: {
+        invoiceId: invoice.id,
+        amountPaid: invoice.amount_paid,
+        status: invoice.status,
+      },
     };
   }
 
   /**
-   * Handle invoice.payment_failed webhook (Future)
+   * Handle invoice.payment_failed webhook
    */
   private async handleInvoicePaymentFailed(
     invoice: Stripe.Invoice
   ): Promise<WebhookHandlingResult> {
-    console.log(`Invoice payment failed: ${invoice.id}`);
+    console.log(`Invoice payment failed: ${invoice.id}`, {
+      attempt_count: invoice.attempt_count,
+      next_payment_attempt: invoice.next_payment_attempt,
+    });
 
     return {
       success: true,
       actionTaken: "invoice_failed",
       message: `Invoice ${invoice.id} payment failed`,
+      metadata: {
+        invoiceId: invoice.id,
+        attemptCount: invoice.attempt_count,
+        nextAttempt: invoice.next_payment_attempt,
+      },
+    };
+  }
+
+  /**
+   * Handle invoice.payment_action_required webhook
+   */
+  private async handleInvoicePaymentActionRequired(
+    invoice: Stripe.Invoice
+  ): Promise<WebhookHandlingResult> {
+    console.log(`Invoice requires action: ${invoice.id}`, {
+      hosted_invoice_url: invoice.hosted_invoice_url,
+    });
+
+    return {
+      success: true,
+      actionTaken: "invoice_action_required",
+      message: `Invoice ${invoice.id} requires payment action`,
+      metadata: {
+        invoiceId: invoice.id,
+        hostedUrl: invoice.hosted_invoice_url,
+      },
+    };
+  }
+
+  /**
+   * Handle invoice.marked_uncollectible webhook
+   */
+  private async handleInvoiceMarkedUncollectible(
+    invoice: Stripe.Invoice
+  ): Promise<WebhookHandlingResult> {
+    console.log(`Invoice marked uncollectible: ${invoice.id}`);
+
+    return {
+      success: true,
+      actionTaken: "invoice_uncollectible",
+      message: `Invoice ${invoice.id} marked as uncollectible`,
+      metadata: {
+        invoiceId: invoice.id,
+      },
     };
   }
 }

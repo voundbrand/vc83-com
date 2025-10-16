@@ -520,11 +520,16 @@ export interface WebhookHandlingResult {
     | "payment_succeeded"
     | "payment_failed"
     | "payment_cancelled"
+    | "checkout_completed"
     | "account_updated"
     | "account_disabled"
     | "refund_processed"
+    | "invoice_created"
+    | "invoice_finalized"
     | "invoice_paid"
     | "invoice_failed"
+    | "invoice_action_required"
+    | "invoice_uncollectible"
     | "other";
 
   /** ID of affected object (if any) */

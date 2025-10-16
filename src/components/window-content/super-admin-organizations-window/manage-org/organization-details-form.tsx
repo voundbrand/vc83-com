@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useImperativeHandle, forwardRef, useMemo } from "react";
 import { useQuery } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
+import { api } from "../../../../../convex/_generated/api";
 import { OrganizationSection } from "./components/organization-section";
 import { useTranslation } from "@/contexts/translation-context";
 import {
@@ -21,9 +21,9 @@ import {
   Languages,
   Receipt
 } from "lucide-react";
-import { Doc } from "../../../../convex/_generated/dataModel";
+import { Doc } from "../../../../../convex/_generated/dataModel";
 import { usePermissions } from "@/contexts/permission-context";
-import { getLegalEntitiesForCountry } from "../../../../convex/legalEntityTypes";
+import { getLegalEntitiesForCountry } from "../../../../../convex/legalEntityTypes";
 
 interface OrganizationDetailsFormProps {
   organization: Doc<"organizations"> & { members?: unknown[] };

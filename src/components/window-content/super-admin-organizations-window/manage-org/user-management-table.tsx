@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { UserPlus, ChevronUp, ChevronDown, User, Shield, Mail, Calendar, Edit2, Trash2 } from "lucide-react";
-import { Id } from "../../../../convex/_generated/dataModel";
+import { Id } from "../../../../../convex/_generated/dataModel";
 import { InviteUserModal } from "./invite-user-modal";
 import { UserEditModal } from "./user-edit-modal";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
+import { api } from "../../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { usePermissions } from "@/contexts/permission-context";
 import { PermissionGuard, PermissionButton } from "@/components/permission";

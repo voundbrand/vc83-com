@@ -8,7 +8,7 @@ import { Id } from "../../../../convex/_generated/dataModel";
 import { ConfirmationModal } from "@/components/confirmation-modal";
 import { useState } from "react";
 import { useWindowManager } from "@/hooks/use-window-manager";
-import { AdminManageWindow } from "../admin-manage-window";
+import { AdminManageWindow } from "./manage-org";
 import { useTranslation } from "@/contexts/translation-context";
 
 /**

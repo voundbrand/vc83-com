@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
+import { api } from "../../../../../convex/_generated/api";
 import { UserManagementTable } from "./user-management-table";
 import { RolesPermissionsTab } from "./roles-permissions-tab";
 import { OrganizationSection } from "./components/organization-section";
@@ -11,7 +11,7 @@ import { OrganizationDetailsForm, OrganizationDetailsFormRef } from "./organizat
 import { Users, Building2, AlertCircle, Loader2, Shield, Save, Crown, Edit2, X, MapPin, Plus } from "lucide-react";
 import { useState, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { Id, Doc } from "../../../../convex/_generated/dataModel";
+import { Id, Doc } from "../../../../../convex/_generated/dataModel";
 import { useTranslation } from "@/contexts/translation-context";
 type TabType = "organization" | "users" | "roles";
 

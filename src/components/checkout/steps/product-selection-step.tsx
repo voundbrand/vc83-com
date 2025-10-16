@@ -11,7 +11,7 @@ import { useState } from "react";
 import { Check, ShoppingCart } from "lucide-react";
 import { CheckoutProduct } from "@/templates/checkout/types";
 import { Id } from "../../../../convex/_generated/dataModel";
-import { calculateCheckoutTax } from "@/lib/tax-calculator";
+import { calculateCheckoutTax, getTaxRateByCode, getDefaultTaxRate as getDefaultTaxRateByCountry } from "@/lib/tax-calculator";
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import styles from "../styles/multi-step.module.css";
@@ -111,10 +111,11 @@ export function ProductSelectionStep({
   const totalSavings = lineItems.reduce((sum, item) => sum + item.savings, 0);
 
   // Calculate tax using organization settings
-  const getTaxRate = () => {
+  // Get default tax rate for products without a tax code
+  const getDefaultTaxRate = () => {
     if (!taxSettings?.taxEnabled) return 0;
 
-    // Try to find active rate for origin address
+    // Try to find active custom rate for origin address
     const activeRate = taxSettings.customRates?.find(
       (rate) => rate.active &&
         rate.jurisdiction === `${taxSettings.originAddress.country}-${taxSettings.originAddress.state || ""}`
@@ -124,26 +125,25 @@ export function ProductSelectionStep({
       return activeRate.rate * 100; // Convert decimal to percentage
     }
 
-    // Fallback to default rates by country/state
-    if (taxSettings.originAddress.country === "US") {
-      const stateRates: Record<string, number> = {
-        "CA": 8.5,
-        "NY": 8.875,
-        "TX": 8.25,
-        "FL": 6.0,
-      };
-      return stateRates[taxSettings.originAddress.state || ""] || 0;
+    // Use organization's default tax code if set
+    if (taxSettings.defaultTaxCode) {
+      return getTaxRateByCode(taxSettings.defaultTaxCode, 0);
     }
 
-    return 0;
+    // Fallback to country-level standard rates from our comprehensive mapping
+    return getDefaultTaxRateByCountry(
+      taxSettings.originAddress.country,
+      taxSettings.originAddress.state
+    );
   };
 
-  const taxRate = getTaxRate();
+  const defaultTaxRate = getDefaultTaxRate();
   const defaultTaxBehavior = taxSettings?.defaultTaxBehavior || "exclusive";
 
+  // Calculate tax - the calculator will use each product's tax code if available
   const taxCalculation = calculateCheckoutTax(
     lineItems.map((item) => ({ product: item.product, quantity: item.quantity })),
-    taxRate,
+    defaultTaxRate,
     defaultTaxBehavior
   );
 
@@ -169,7 +169,7 @@ export function ProductSelectionStep({
         subtotal,
         taxAmount,
         total,
-        taxRate,
+        taxRate: defaultTaxRate,
         isTaxable: taxCalculation.isTaxable,
         taxBehavior: taxCalculation.taxBehavior,
       },
@@ -342,18 +342,64 @@ export function ProductSelectionStep({
                 <span className={styles.savingsValue}>-{formatPrice(totalSavings)}</span>
               </div>
             )}
-            {/* Tax Line */}
-            {taxCalculation.isTaxable && taxAmount > 0 && (
-              <div className={styles.priceRow}>
-                <span className={styles.priceLabel}>
-                  Tax ({taxRate}%)
-                  <span style={{ fontSize: "0.7rem", marginLeft: "0.25rem", opacity: 0.7 }}>
-                    {taxCalculation.taxBehavior === "inclusive" ? "💶 included" : "💵 added"}
-                  </span>
-                </span>
-                <span className={styles.priceValue}>{formatPrice(taxAmount)}</span>
-              </div>
-            )}
+            {/* Tax Lines - Show breakdown if multiple tax rates */}
+            {taxCalculation.isTaxable && taxAmount > 0 && (() => {
+              // Group line items by tax rate to show separate lines
+              const taxGroups = taxCalculation.lineItems.reduce((groups, item) => {
+                if (!item.taxable || item.taxAmount === 0) return groups;
+
+                // Calculate effective rate for this item
+                const effectiveRate = item.subtotal > 0
+                  ? (item.taxAmount / item.subtotal) * 100
+                  : 0;
+                const rateKey = effectiveRate.toFixed(1);
+
+                if (!groups[rateKey]) {
+                  groups[rateKey] = { rate: effectiveRate, amount: 0, count: 0 };
+                }
+                groups[rateKey].amount += item.taxAmount;
+                groups[rateKey].count += 1;
+
+                return groups;
+              }, {} as Record<string, { rate: number; amount: number; count: number }>);
+
+              const taxEntries = Object.entries(taxGroups);
+
+              // If only one tax rate, show single line
+              if (taxEntries.length === 1) {
+                const [rateStr, { rate }] = taxEntries[0];
+                return (
+                  <div className={styles.priceRow}>
+                    <span className={styles.priceLabel}>
+                      Tax ({rateStr}%)
+                      <span style={{ fontSize: "0.7rem", marginLeft: "0.25rem", opacity: 0.7 }}>
+                        {taxCalculation.taxBehavior === "inclusive" ? "💶 included" : "💵 added"}
+                      </span>
+                    </span>
+                    <span className={styles.priceValue}>{formatPrice(taxAmount)}</span>
+                  </div>
+                );
+              }
+
+              // Multiple tax rates - show breakdown
+              return (
+                <>
+                  {taxEntries.map(([rateStr, { amount, count }]) => (
+                    <div key={rateStr} className={styles.priceRow}>
+                      <span className={styles.priceLabel}>
+                        Tax ({rateStr}%)
+                        {count > 1 && (
+                          <span style={{ fontSize: "0.7rem", marginLeft: "0.25rem", opacity: 0.7 }}>
+                            {count} items
+                          </span>
+                        )}
+                      </span>
+                      <span className={styles.priceValue}>{formatPrice(amount)}</span>
+                    </div>
+                  ))}
+                </>
+              );
+            })()}
             <div className={`${styles.priceRow} ${styles.totalRow}`}>
               <span className={styles.totalLabel}>Total</span>
               <span className={styles.totalValue}>{formatPrice(total)}</span>

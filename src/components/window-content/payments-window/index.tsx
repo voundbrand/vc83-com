@@ -10,10 +10,10 @@ import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
 import { CreditCard, History, Loader2, AlertCircle, Building2 } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 
-type TabType = "connect" | "transactions";
+type TabType = "stripe" | "transactions";
 
 export function PaymentsWindow() {
-  const [activeTab, setActiveTab] = useState<TabType>("connect");
+  const [activeTab, setActiveTab] = useState<TabType>("stripe");
   const { user, isLoading, sessionId } = useAuth();
   const currentOrganization = useCurrentOrganization();
   const organizationId = currentOrganization?.id || user?.defaultOrgId;
@@ -91,7 +91,7 @@ export function PaymentsWindow() {
               Payment Management
             </h2>
             <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-              Manage Stripe Connect and view transactions
+              Manage Stripe payments, tax settings, and transactions
             </p>
           </div>
 
@@ -118,13 +118,13 @@ export function PaymentsWindow() {
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
           style={{
             borderColor: "var(--win95-border)",
-            background: activeTab === "connect" ? "var(--win95-bg-light)" : "var(--win95-bg)",
-            color: activeTab === "connect" ? "var(--win95-text)" : "var(--neutral-gray)",
+            background: activeTab === "stripe" ? "var(--win95-bg-light)" : "var(--win95-bg)",
+            color: activeTab === "stripe" ? "var(--win95-text)" : "var(--neutral-gray)",
           }}
-          onClick={() => setActiveTab("connect")}
+          onClick={() => setActiveTab("stripe")}
         >
           <CreditCard size={14} />
-          Stripe Connect
+          Stripe
         </button>
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
@@ -142,7 +142,7 @@ export function PaymentsWindow() {
 
       {/* Tab Content */}
       <div className="flex-1 overflow-y-auto p-4">
-        {activeTab === "connect" && (
+        {activeTab === "stripe" && (
           <StripeConnectSection organizationId={organizationId as Id<"organizations">} organization={organization} />
         )}
 
@@ -158,7 +158,7 @@ export function PaymentsWindow() {
       >
         <div className="flex justify-between items-center">
           <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-            Powered by Stripe Connect
+            Powered by Stripe
           </p>
           <p className="text-xs font-semibold" style={{
             color: organization?.paymentProviders?.find((p) => p.providerCode === "stripe-connect")?.isTestMode

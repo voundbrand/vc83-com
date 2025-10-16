@@ -11,7 +11,7 @@
  */
 
 import { useState } from "react";
-import { User, Mail, Phone, MessageSquare, ArrowLeft } from "lucide-react";
+import { User, Mail, Phone, MessageSquare, ArrowLeft, Building2, FileText } from "lucide-react";
 import styles from "../styles/multi-step.module.css";
 
 interface CustomerInfo {
@@ -19,6 +19,10 @@ interface CustomerInfo {
   name: string;
   phone?: string;
   notes?: string;
+  // B2B fields
+  transactionType?: "B2C" | "B2B";
+  companyName?: string;
+  vatNumber?: string;
 }
 
 interface CustomerInfoStepProps {
@@ -36,6 +40,13 @@ export function CustomerInfoStep({
   const [name, setName] = useState(initialData?.name || "");
   const [phone, setPhone] = useState(initialData?.phone || "");
   const [notes, setNotes] = useState(initialData?.notes || "");
+
+  // B2B fields
+  const [transactionType, setTransactionType] = useState<"B2C" | "B2B">(
+    initialData?.transactionType || "B2C"
+  );
+  const [companyName, setCompanyName] = useState(initialData?.companyName || "");
+  const [vatNumber, setVatNumber] = useState(initialData?.vatNumber || "");
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -57,6 +68,21 @@ export function CustomerInfoStep({
       newErrors.name = "Name is required";
     }
 
+    // B2B validations
+    if (transactionType === "B2B") {
+      if (!companyName.trim()) {
+        newErrors.companyName = "Company name is required for business transactions";
+      }
+
+      // VAT number format validation (basic EU format check)
+      if (vatNumber.trim()) {
+        const vatRegex = /^[A-Z]{2}[0-9A-Z]{2,13}$/;
+        if (!vatRegex.test(vatNumber.trim().replace(/[\s.-]/g, ""))) {
+          newErrors.vatNumber = "Please enter a valid VAT number (e.g., DE123456789, GB999999973)";
+        }
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -73,6 +99,9 @@ export function CustomerInfoStep({
         name: name.trim(),
         phone: phone.trim() || undefined,
         notes: notes.trim() || undefined,
+        transactionType,
+        companyName: transactionType === "B2B" ? companyName.trim() : undefined,
+        vatNumber: transactionType === "B2B" && vatNumber.trim() ? vatNumber.trim() : undefined,
       });
     }
   };

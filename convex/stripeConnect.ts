@@ -20,6 +20,8 @@ import {
 } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
+import { Id } from "./_generated/dataModel";
+import Stripe from "stripe";
 import {
   getProviderByCode,
   updateOrgProviderConfig,
@@ -83,6 +85,21 @@ export const findOrgByStripeAccount = internalQuery({
     }
 
     return null;
+  },
+});
+
+/**
+ * GET SESSION (helper for actions) - INTERNAL
+ */
+export const getSessionInternal = internalQuery({
+  args: {
+    sessionId: v.string(),
+  },
+  handler: async (ctx, { sessionId }) => {
+    return await ctx.db
+      .query("sessions")
+      .filter((q) => q.eq(q.field("_id"), sessionId))
+      .first();
   },
 });
 
@@ -228,6 +245,9 @@ export const updateStripeConnectAccountInternal = internalMutation({
 /**
  * REFRESH ACCOUNT STATUS
  * Refresh Stripe Connect account status from Stripe
+ * NOTE: This now returns immediately with basic info.
+ * The actual refresh happens asynchronously via scheduler.
+ * For synchronous refresh with full tax info, see refreshAccountStatusSync below.
  */
 export const refreshAccountStatus = mutation({
   args: {
@@ -261,6 +281,57 @@ export const refreshAccountStatus = mutation({
     );
 
     return { success: true };
+  },
+});
+
+/**
+ * REFRESH ACCOUNT STATUS (SYNCHRONOUS)
+ * Synchronously refresh Stripe Connect account status and tax settings
+ * Returns full status including tax configuration
+ */
+export const refreshAccountStatusSync = action({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, { sessionId, organizationId }): Promise<{
+    success: boolean;
+    accountStatus: string;
+    taxStatus: string;
+    taxSyncResult?: {
+      success: boolean;
+      taxEnabled: boolean;
+      settingsFound: boolean;
+    };
+    invoiceSettingsResult?: {
+      success: boolean;
+      settingsFound: boolean;
+      invoicingEnabled: boolean;
+    };
+  }> => {
+    // Verify session
+    const session = await ctx.runQuery(internal.stripeConnect.getSessionInternal, { sessionId });
+    if (!session) throw new Error("Invalid session");
+
+    // Get organization
+    const org = await ctx.runQuery(internal.stripeConnect.getOrganizationInternal, { organizationId });
+    if (!org) throw new Error("Organization not found");
+
+    const config = getOrgProviderConfig(org, "stripe-connect");
+    if (!config) {
+      throw new Error("No Stripe account connected");
+    }
+
+    // Call refresh action directly and return results
+    const result = await ctx.runAction(
+      internal.stripeConnect.refreshAccountStatusFromStripe,
+      {
+        organizationId,
+        accountId: config.accountId,
+      }
+    );
+
+    return result;
   },
 });
 
@@ -534,7 +605,21 @@ export const refreshAccountStatusFromStripe = internalAction({
     organizationId: v.id("organizations"),
     accountId: v.string(),
   },
-  handler: async (ctx, { organizationId, accountId }) => {
+  handler: async (ctx, { organizationId, accountId }): Promise<{
+    success: boolean;
+    accountStatus: string;
+    taxStatus: string;
+    taxSyncResult?: {
+      success: boolean;
+      taxEnabled: boolean;
+      settingsFound: boolean;
+    };
+    invoiceSettingsResult?: {
+      success: boolean;
+      settingsFound: boolean;
+      invoicingEnabled: boolean;
+    };
+  }> => {
     // Get organization to preserve isTestMode
     const org = await ctx.runQuery(
       internal.stripeConnect.getOrganizationInternal,
@@ -546,7 +631,7 @@ export const refreshAccountStatusFromStripe = internalAction({
     }
 
     // Get existing config to preserve isTestMode setting
-    const existingProvider = org.paymentProviders?.find(p => p.providerCode === "stripe-connect");
+    const existingProvider = org.paymentProviders?.find((p: { providerCode: string }) => p.providerCode === "stripe-connect");
     const isTestMode = existingProvider?.isTestMode ?? false;
 
     // Get Stripe provider
@@ -571,6 +656,293 @@ export const refreshAccountStatusFromStripe = internalAction({
 
     console.log(
       `Refreshed account status for ${accountId}: ${status.status}`
+    );
+
+    // ALSO check if Stripe Tax is configured in the Stripe Dashboard
+    // This allows users who already set up tax in Stripe to sync it
+    let stripeTaxStatus: { status: string; defaultsStatus?: string } = { status: 'inactive' };
+    let taxSyncResult;
+    try {
+      // Initialize Stripe with our platform credentials
+      // We'll use stripeAccount parameter to access the connected account
+      const Stripe = (await import("stripe")).default;
+      const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+      if (!stripeSecretKey) {
+        throw new Error("STRIPE_SECRET_KEY not configured");
+      }
+      const stripe = new Stripe(stripeSecretKey, { apiVersion: "2025-09-30.clover" });
+
+      // Retrieve tax settings from the connected account
+      // stripeAccount parameter routes this to their account
+      const taxSettings = await stripe.tax.settings.retrieve({
+        stripeAccount: accountId, // Their connected Stripe account
+      });
+
+      stripeTaxStatus = {
+        status: taxSettings.status,
+        defaultsStatus: taxSettings.defaults?.tax_behavior ?? undefined,
+      };
+
+      console.log("Stripe Tax status:", stripeTaxStatus);
+
+      // If Stripe Tax is active, update our tax settings to reflect that
+      if (taxSettings.status === "active") {
+        taxSyncResult = await ctx.runMutation(
+          internal.organizationTaxSettings.syncFromStripeInternal,
+          {
+            organizationId,
+            stripeTaxActive: true,
+          }
+        );
+        console.log("✅ Synced tax settings from Stripe:", taxSyncResult);
+      }
+    } catch (error) {
+      // Tax settings might not be available or accessible
+      // This is non-critical, so just log and continue
+      console.log("Could not check Stripe Tax settings:", error);
+    }
+
+    // Check if Stripe Invoicing capability is configured
+    let invoiceSettingsResult: { success: boolean; settingsFound: boolean; invoicingEnabled: boolean } | undefined;
+    try {
+      console.log("🔍 Checking Stripe Invoicing capability...");
+
+      // Initialize Stripe (reuse from tax check or create if not exists)
+      const Stripe = (await import("stripe")).default;
+      const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+      if (!stripeSecretKey) {
+        throw new Error("STRIPE_SECRET_KEY not configured");
+      }
+      const stripe = new Stripe(stripeSecretKey, { apiVersion: "2025-09-30.clover" });
+
+      // Retrieve account with capabilities expanded to check invoicing capability
+      const accountWithCapabilities = await stripe.accounts.retrieve(
+        accountId,
+        { expand: ["capabilities"] }
+      );
+
+      console.log("📋 Account capabilities:", JSON.stringify(accountWithCapabilities.capabilities, null, 2));
+
+      // Check if invoicing capability is active
+      // Note: TypeScript doesn't know about the 'invoicing' capability by default
+      const capabilities = accountWithCapabilities.capabilities as Record<string, string | undefined>;
+      const hasInvoicingCapability = capabilities?.invoicing === "active";
+
+      console.log(`💳 Invoicing capability status: ${capabilities?.invoicing || "not found"}`);
+      console.log(`💳 Has invoicing capability: ${hasInvoicingCapability}`);
+
+      // Check for proper business profile setup (required for invoicing)
+      const hasBusinessProfile = !!(
+        accountWithCapabilities.business_profile?.name ||
+        accountWithCapabilities.company?.name
+      );
+
+      console.log(`🏢 Business profile name: ${accountWithCapabilities.business_profile?.name || "not set"}`);
+      console.log(`🏢 Company name: ${accountWithCapabilities.company?.name || "not set"}`);
+      console.log(`🏢 Has business profile: ${hasBusinessProfile}`);
+
+      // Optional: Check if any invoices have been created
+      let hasCreatedInvoices = false;
+      try {
+        const invoices = await stripe.invoices.list(
+          { limit: 1 },
+          { stripeAccount: accountId }
+        );
+        hasCreatedInvoices = invoices.data.length > 0;
+        console.log(`📄 Has created invoices: ${hasCreatedInvoices}`);
+      } catch (invoiceError) {
+        console.log("📄 Could not check for existing invoices:", invoiceError);
+      }
+
+      // Overall invoicing readiness
+      const isInvoicingEnabled = hasInvoicingCapability && hasBusinessProfile;
+      console.log(`🎯 Overall invoicing enabled: ${isInvoicingEnabled}`);
+
+      if (!isInvoicingEnabled) {
+        const missing = [];
+        if (!hasInvoicingCapability) missing.push("invoicing capability not active");
+        if (!hasBusinessProfile) missing.push("business profile incomplete");
+        console.log(`❗ Missing requirements for invoicing: ${missing.join(", ")}`);
+      }
+
+      // Sync invoice settings if invoicing is enabled
+      if (isInvoicingEnabled) {
+        const syncResult = await ctx.runMutation(
+          internal.organizationInvoiceSettings.syncInvoiceSettingsFromStripe,
+          {
+            organizationId,
+            stripeInvoiceSettings: {
+              defaultCollectionMethod: "send_invoice",
+              defaultPaymentTerms: "net_30",
+              defaultAutoAdvance: true,
+              defaultDaysUntilDue: 30,
+            },
+          }
+        );
+        invoiceSettingsResult = syncResult as { success: boolean; settingsFound: boolean; invoicingEnabled: boolean };
+        console.log("✅ Synced invoice settings from Stripe:", invoiceSettingsResult);
+      } else {
+        invoiceSettingsResult = {
+          success: true,
+          settingsFound: false,
+          invoicingEnabled: false,
+        };
+        console.log("ℹ️ Invoicing not enabled - requirements not met");
+      }
+    } catch (error) {
+      // Invoice settings check is non-critical
+      console.log("Could not check Stripe Invoicing capability:", error);
+      invoiceSettingsResult = {
+        success: false,
+        settingsFound: false,
+        invoicingEnabled: false,
+      };
+    }
+
+    return {
+      success: true,
+      accountStatus: status.status,
+      taxStatus: stripeTaxStatus.status,
+      taxSyncResult,
+      invoiceSettingsResult,
+    };
+  },
+});
+
+/**
+ * Request Stripe Invoicing capability for connected account
+ */
+export const requestInvoicingCapability = internalAction({
+  args: {
+    organizationId: v.id("organizations"),
+  },
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    success: boolean;
+    status: string;
+    isActive: boolean;
+    isPending: boolean;
+    requirementsNeeded: string[];
+  }> => {
+    // Get organization and its Stripe account
+    const org = await ctx.runQuery(
+      internal.organizations.getOrganization,
+      {
+        organizationId: args.organizationId,
+      }
+    );
+
+    if (!org) {
+      throw new Error("Organization not found");
+    }
+
+    const stripeProvider = org.paymentProviders?.find(
+      (p) => p.providerCode === "stripe-connect"
+    );
+
+    if (!stripeProvider?.accountId) {
+      throw new Error("Stripe account not connected");
+    }
+
+    // Initialize Stripe client with platform credentials
+    const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+    if (!stripeSecretKey) {
+      throw new Error("Stripe secret key not configured");
+    }
+
+    const stripe = new Stripe(stripeSecretKey, {
+      apiVersion: "2025-09-30.clover",
+    });
+
+    try {
+      console.log("🔧 Enabling invoicing for account:", stripeProvider.accountId);
+
+      // Stripe Invoicing is automatically available for all accounts
+      // The "enable" action is really just setting it up in our system
+      // and ensuring the account has the required business profile
+
+      const account = await stripe.accounts.retrieve(stripeProvider.accountId);
+
+      const hasBusinessProfile = !!(
+        account.business_profile?.name || account.company?.name
+      );
+
+      if (!hasBusinessProfile) {
+        throw new Error(
+          "Business profile is required for invoicing. Please complete your business profile in the Stripe Dashboard."
+        );
+      }
+
+      // Check if any invoices have been created (indicates invoicing is "active")
+      const invoices = await stripe.invoices.list(
+        { limit: 1 },
+        { stripeAccount: stripeProvider.accountId }
+      );
+
+      const hasCreatedInvoices = invoices.data.length > 0;
+
+      console.log("✅ Invoicing is available for this account");
+      console.log("📋 Business profile:", hasBusinessProfile ? "Set" : "Not set");
+      console.log("📄 Has created invoices:", hasCreatedInvoices);
+
+      // Sync invoice settings to our database
+      await ctx.runMutation(
+        internal.organizationInvoiceSettings.syncInvoiceSettingsFromStripe,
+        {
+          organizationId: args.organizationId,
+          stripeInvoiceSettings: {
+            defaultCollectionMethod: "send_invoice",
+            defaultPaymentTerms: "net_30",
+            defaultAutoAdvance: true,
+            defaultDaysUntilDue: 30,
+          },
+        }
+      );
+
+      return {
+        success: true,
+        status: "active", // Invoicing is always available if business profile is set
+        isActive: true,
+        isPending: false,
+        requirementsNeeded: [],
+      };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      console.error("❌ Failed to enable invoicing:", error);
+      throw new Error(`Failed to enable invoicing: ${errorMessage}`);
+    }
+  },
+});
+
+/**
+ * Mutation to trigger invoicing capability request (exposed to frontend)
+ */
+export const triggerInvoicingCapabilityRequest = mutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args): Promise<{ success: boolean }> => {
+    // Validate session
+    const session = await ctx.db
+      .query("sessions")
+      .filter((q) => q.eq(q.field("_id"), args.sessionId))
+      .first();
+
+    if (!session) {
+      throw new Error("Invalid session");
+    }
+
+    // Trigger the action
+    await ctx.scheduler.runAfter(
+      0,
+      internal.stripeConnect.requestInvoicingCapability,
+      {
+        organizationId: args.organizationId,
+      }
     );
 
     return { success: true };

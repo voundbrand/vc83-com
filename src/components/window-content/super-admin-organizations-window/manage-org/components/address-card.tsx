@@ -1,7 +1,7 @@
 "use client";
 
 import { MapPin, Star, Edit2, Trash2 } from "lucide-react";
-import { Doc } from "../../../../../convex/_generated/dataModel";
+import { Doc } from "../../../../../../convex/_generated/dataModel";
 import { useTranslation } from "@/contexts/translation-context";
 
 // Address is now stored as an object with type="address"

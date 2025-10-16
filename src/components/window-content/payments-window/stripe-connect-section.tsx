@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useMutation, useAction } from "convex/react";
+import { useMutation, useAction, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
+import { useNotification } from "@/hooks/use-notification";
 import { Id, Doc } from "../../../../convex/_generated/dataModel";
 import {
   ExternalLink,
@@ -15,7 +16,11 @@ import {
   DollarSign,
   Zap,
   RotateCw,
+  Receipt,
+  Info,
+  FileText,
 } from "lucide-react";
+import { StripeInvoiceSection } from "./stripe-invoice-section";
 
 interface StripeConnectSectionProps {
   organizationId: Id<"organizations">;
@@ -24,12 +29,15 @@ interface StripeConnectSectionProps {
 
 export function StripeConnectSection({ organizationId, organization }: StripeConnectSectionProps) {
   const { sessionId } = useAuth();
+  const notification = useNotification();
   const [isOnboarding, setIsOnboarding] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedMode, setSelectedMode] = useState<"test" | "live">("live"); // Default to live mode
   const startOnboarding = useMutation(api.stripeConnect.startOnboarding);
   const getOnboardingUrl = useAction(api.stripeConnect.getStripeOnboardingUrl);
   const refreshAccountStatus = useMutation(api.stripeConnect.refreshAccountStatus);
+  const refreshAccountStatusSync = useAction(api.stripeConnect.refreshAccountStatusSync);
   const disconnectStripe = useMutation(api.stripeConnect.disconnectStripeConnect);
   const handleOAuthCallbackMutation = useMutation(api.stripeConnect.handleOAuthCallback);
 
@@ -42,6 +50,17 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
   const accountStatus = stripeProvider?.status;
   const onboardingCompleted = stripeProvider?.metadata?.onboardingCompleted ?? false;
   const testMode = stripeProvider?.isTestMode ?? false; // Show actual mode
+
+  // Get tax settings
+  const taxSettings = useQuery(
+    api.organizationTaxSettings.getTaxSettings,
+    sessionId && organizationId
+      ? { sessionId, organizationId }
+      : "skip"
+  );
+
+
+  const taxEnabled = taxSettings?.customProperties?.taxEnabled ?? false;
 
   // Handle OAuth callback from Stripe
   useEffect(() => {
@@ -143,13 +162,44 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
   const handleRefreshStatus = async () => {
     if (!sessionId || !stripeConnectId) return;
 
+    setIsRefreshing(true);
     try {
-      await refreshAccountStatus({
+      const result = await refreshAccountStatusSync({
         sessionId,
         organizationId,
       });
+
+      // Show success notification with tax status details
+      if (result.taxStatus === 'active') {
+        if (result.taxSyncResult?.settingsFound) {
+          notification.success(
+            'Settings Refreshed',
+            `✅ Stripe Tax is active and synced. Tax calculations are enabled for checkout.`,
+            true
+          );
+        } else {
+          notification.info(
+            'Tax Settings Not Found',
+            `Stripe Tax is active but local settings not found. Please configure tax settings first.`,
+            true
+          );
+        }
+      } else {
+        notification.info(
+          'Settings Refreshed',
+          `Stripe Tax is ${result.taxStatus || 'not configured'}. Enable Stripe Tax in your Stripe Dashboard to use automatic tax calculations.`,
+          true
+        );
+      }
     } catch (error) {
       console.error("Failed to refresh status:", error);
+      notification.error(
+        'Refresh Failed',
+        error instanceof Error ? error.message : 'Failed to refresh settings from Stripe',
+        true
+      );
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -417,7 +467,8 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
           </div>
           <button
             onClick={handleRefreshStatus}
-            className="px-3 py-1 text-xs font-semibold"
+            disabled={isRefreshing}
+            className="px-3 py-1 text-xs font-semibold flex items-center gap-2 disabled:opacity-50"
             style={{
               backgroundColor: "var(--win95-button-face)",
               color: "var(--win95-text)",
@@ -428,7 +479,17 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
               borderRightColor: "var(--win95-button-dark)",
             }}
           >
-            Refresh
+            {isRefreshing ? (
+              <>
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Syncing...
+              </>
+            ) : (
+              <>
+                <RotateCw className="w-3 h-3" />
+                Refresh
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -567,6 +628,110 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
           </button>
         </div>
       </div>
+
+      {/* Tax Settings Section */}
+      {stripeConnectId && (
+        <div
+          className="p-4 border-2"
+          style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <Receipt size={20} style={{ color: "var(--primary)" }} />
+            <h3 className="font-bold text-sm" style={{ color: "var(--win95-text)" }}>
+              Tax Settings (Stripe Tax)
+            </h3>
+          </div>
+
+          {taxEnabled ? (
+            <>
+              <div className="space-y-2 mb-3">
+                <div className="flex justify-between text-xs">
+                  <span style={{ color: "var(--neutral-gray)" }}>Tax Behavior:</span>
+                  <span className="font-mono" style={{ color: "var(--win95-text)" }}>
+                    {taxSettings?.customProperties?.defaultTaxBehavior || "exclusive"}
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span style={{ color: "var(--neutral-gray)" }}>Default Tax Code:</span>
+                  <span className="font-mono" style={{ color: "var(--win95-text)" }}>
+                    {taxSettings?.customProperties?.defaultTaxCode || "txcd_10000000"}
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span style={{ color: "var(--neutral-gray)" }}>Origin Country:</span>
+                  <span className="font-mono" style={{ color: "var(--win95-text)" }}>
+                    {taxSettings?.customProperties?.originAddress?.country || "Not set"}
+                  </span>
+                </div>
+              </div>
+
+              <div
+                className="p-3 border-2 text-xs"
+                style={{
+                  borderColor: "var(--win95-border)",
+                  background: "var(--info-light)",
+                }}
+              >
+                <p className="font-semibold mb-2 flex items-center gap-2">
+                  <Info size={14} />
+                  Stripe Tax Features
+                </p>
+                <ul className="list-disc list-inside space-y-1" style={{ color: "var(--neutral-gray)" }}>
+                  <li>Automatic calculation for 135+ countries</li>
+                  <li>B2B reverse charge for EU VAT</li>
+                  <li>Real-time tax rate updates</li>
+                  <li>Tax reporting and filing support</li>
+                </ul>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                Tax settings are not configured for this organization. Configure tax settings to enable automatic tax calculation with Stripe Tax.
+              </p>
+              <button
+                onClick={() => {
+                  // TODO: Open organization tax settings modal or navigate to settings
+                  alert("Tax settings configuration coming soon! For now, please configure via organization settings.");
+                }}
+                className="w-full px-4 py-2 text-xs font-semibold flex items-center justify-center gap-2"
+                style={{
+                  backgroundColor: "var(--primary)",
+                  color: "white",
+                  border: "2px solid",
+                  borderTopColor: "var(--win95-button-light)",
+                  borderLeftColor: "var(--win95-button-light)",
+                  borderBottomColor: "var(--win95-button-dark)",
+                  borderRightColor: "var(--win95-button-dark)",
+                }}
+              >
+                <Receipt size={14} />
+                Setup Tax Settings
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Invoice Settings Section */}
+      {stripeConnectId && (
+        <div
+          className="p-4 border-2"
+          style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <FileText size={20} style={{ color: "var(--primary)" }} />
+            <h3 className="font-bold text-sm" style={{ color: "var(--win95-text)" }}>
+              Invoice Settings (Stripe Invoicing)
+            </h3>
+          </div>
+
+          <StripeInvoiceSection
+            organizationId={organizationId}
+            organization={organization}
+          />
+        </div>
+      )}
     </div>
   );
 }

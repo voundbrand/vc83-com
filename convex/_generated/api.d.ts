@@ -37,6 +37,7 @@ import type * as migrations_updateExistingHaffForms from "../migrations/updateEx
 import type * as ontologyAdmin from "../ontologyAdmin.js";
 import type * as ontologyHelpers from "../ontologyHelpers.js";
 import type * as ontologyTranslations from "../ontologyTranslations.js";
+import type * as organizationInvoiceSettings from "../organizationInvoiceSettings.js";
 import type * as organizationMedia from "../organizationMedia.js";
 import type * as organizationMutations from "../organizationMutations.js";
 import type * as organizationOntology from "../organizationOntology.js";
@@ -69,7 +70,6 @@ import type * as seedTemplates from "../seedTemplates.js";
 import type * as stripeCheckout from "../stripeCheckout.js";
 import type * as stripeConnect from "../stripeConnect.js";
 import type * as stripeWebhooks from "../stripeWebhooks.js";
-import type * as stripeWebhooks_old from "../stripeWebhooks_old.js";
 import type * as templateAvailability from "../templateAvailability.js";
 import type * as templateOntology from "../templateOntology.js";
 import type * as ticketOntology from "../ticketOntology.js";
@@ -130,6 +130,7 @@ declare const fullApi: ApiFromModules<{
   ontologyAdmin: typeof ontologyAdmin;
   ontologyHelpers: typeof ontologyHelpers;
   ontologyTranslations: typeof ontologyTranslations;
+  organizationInvoiceSettings: typeof organizationInvoiceSettings;
   organizationMedia: typeof organizationMedia;
   organizationMutations: typeof organizationMutations;
   organizationOntology: typeof organizationOntology;
@@ -162,7 +163,6 @@ declare const fullApi: ApiFromModules<{
   stripeCheckout: typeof stripeCheckout;
   stripeConnect: typeof stripeConnect;
   stripeWebhooks: typeof stripeWebhooks;
-  stripeWebhooks_old: typeof stripeWebhooks_old;
   templateAvailability: typeof templateAvailability;
   templateOntology: typeof templateOntology;
   ticketOntology: typeof ticketOntology;

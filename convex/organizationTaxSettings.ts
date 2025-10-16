@@ -22,7 +22,7 @@
  *    - Tax behavior per product
  */
 
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser, requirePermission } from "./rbacHelpers";
 
@@ -120,13 +120,13 @@ export const getTaxSettings = query({
   handler: async (ctx, args) => {
     await requireAuthenticatedUser(ctx, args.sessionId);
 
+    // Tax settings are stored in organization_legal object, not organization_settings
     const settings = await ctx.db
       .query("objects")
       .withIndex("by_org_type", (q) =>
         q.eq("organizationId", args.organizationId)
-         .eq("type", "organization_settings")
+         .eq("type", "organization_legal")
       )
-      .filter((q) => q.eq(q.field("subtype"), "tax"))
       .first();
 
     return settings;
@@ -136,32 +136,49 @@ export const getTaxSettings = query({
 /**
  * Get tax settings for public checkout pages (no auth required)
  * Returns only the information needed for tax calculation
+ *
+ * Tax settings are stored in organization_legal object
+ * Tax origin address is stored in organization_address with isTaxOrigin flag
  */
 export const getPublicTaxSettings = query({
   args: {
     organizationId: v.id("organizations"),
   },
   handler: async (ctx, args) => {
-    const settings = await ctx.db
+    // Get tax settings from organization_legal object
+    const legal = await ctx.db
       .query("objects")
       .withIndex("by_org_type", (q) =>
         q.eq("organizationId", args.organizationId)
-         .eq("type", "organization_settings")
+         .eq("type", "organization_legal")
       )
-      .filter((q) => q.eq(q.field("subtype"), "tax"))
       .first();
 
-    if (!settings) {
+    if (!legal) {
       return null;
     }
 
+    // Get tax origin address (address with isTaxOrigin flag)
+    const addresses = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId)
+         .eq("type", "address")
+      )
+      .collect();
+
+    const taxOriginAddress = addresses.find(addr =>
+      (addr.customProperties as { isTaxOrigin?: boolean })?.isTaxOrigin === true
+    );
+
     // Return only public-safe tax calculation data
-    const customProps = settings.customProperties as Record<string, unknown>;
+    const customProps = legal.customProperties as Record<string, unknown>;
+    const addressProps = taxOriginAddress?.customProperties as Record<string, unknown> | undefined;
+
     return {
       taxEnabled: customProps.taxEnabled as boolean || false,
       defaultTaxBehavior: (customProps.defaultTaxBehavior as "inclusive" | "exclusive" | "automatic") || "exclusive",
       defaultTaxCode: customProps.defaultTaxCode as string || "",
-      // Get tax rate from custom rates or origin address
       customRates: customProps.customRates as Array<{
         jurisdiction: string;
         rate: number;
@@ -169,11 +186,11 @@ export const getPublicTaxSettings = query({
         type: string;
         active: boolean;
       }> || [],
-      originAddress: customProps.originAddress as {
-        country: string;
-        state?: string;
-        city: string;
-      } || { country: "US", city: "" },
+      originAddress: addressProps ? {
+        country: addressProps.country as string || "US",
+        state: addressProps.state as string | undefined,
+        city: addressProps.city as string || "",
+      } : { country: "US", city: "" },
     };
   },
 });
@@ -500,5 +517,51 @@ export const deleteTaxRegistration = mutation({
     });
 
     return args.registrationId;
+  },
+});
+
+/**
+ * SYNC TAX SETTINGS FROM STRIPE (Internal)
+ *
+ * Called when refreshing Stripe account status to sync tax configuration.
+ * If Stripe Tax is active in the Stripe Dashboard, we enable it in our settings.
+ */
+export const syncFromStripeInternal = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    stripeTaxActive: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    // Tax settings are stored in organization_legal object
+    const organizationLegal = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q
+          .eq("organizationId", args.organizationId)
+          .eq("type", "organization_legal")
+      )
+      .first();
+
+    if (organizationLegal) {
+      // Update existing legal settings to sync tax status from Stripe
+      await ctx.db.patch(organizationLegal._id, {
+        customProperties: {
+          ...organizationLegal.customProperties,
+          taxEnabled: args.stripeTaxActive,
+        },
+        updatedAt: Date.now(),
+      });
+
+      console.log(`✅ Synced tax status: taxEnabled=${args.stripeTaxActive} for org ${args.organizationId}`);
+    } else if (args.stripeTaxActive) {
+      // If no legal settings exist and Stripe Tax is active, log warning
+      console.log("⚠️ Stripe Tax is active but no organization_legal object exists. User should configure tax settings.");
+    }
+
+    return {
+      success: true,
+      taxEnabled: args.stripeTaxActive,
+      settingsFound: !!organizationLegal
+    };
   },
 });

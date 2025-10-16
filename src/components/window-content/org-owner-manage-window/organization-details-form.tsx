@@ -24,6 +24,7 @@ import {
 import { Doc } from "../../../../convex/_generated/dataModel";
 import { usePermissions } from "@/contexts/permission-context";
 import { getLegalEntitiesForCountry } from "../../../../convex/legalEntityTypes";
+import { getTaxCodesForCountry } from "@/lib/tax-calculator";
 
 interface OrganizationDetailsFormProps {
   organization: Doc<"organizations"> & { members?: unknown[] };
@@ -144,6 +145,11 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
     // Get available legal entity types based on tax origin address country
     const availableLegalEntities = taxOriginCountry
       ? getLegalEntitiesForCountry(taxOriginCountry)
+      : undefined;
+
+    // Get available tax codes for the organization's country
+    const availableTaxCodes = taxOriginCountry
+      ? getTaxCodesForCountry(taxOriginCountry)
       : null;
 
     // Extract single objects from settings queries (they return arrays when no subtype)
@@ -874,18 +880,33 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
               <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
                 Default Tax Code
               </label>
-              <input
-                type="text"
-                value={formData.defaultTaxCode}
-                onChange={(e) => setFormData({ ...formData, defaultTaxCode: e.target.value })}
-                readOnly={!isEditing}
-                disabled={!canEdit || !isEditing || !formData.taxEnabled}
-                placeholder="txcd_00000000 (or leave empty for standard rate)"
-                className="w-full px-2 py-1 text-sm font-mono"
-                style={inputStyles}
-              />
+              {availableTaxCodes ? (
+                <select
+                  value={formData.defaultTaxCode}
+                  onChange={(e) => setFormData({ ...formData, defaultTaxCode: e.target.value })}
+                  disabled={!canEdit || !isEditing || !formData.taxEnabled}
+                  className="w-full px-2 py-1 text-sm"
+                  style={inputStyles}
+                >
+                  <option value="">-- No Default (products must specify their own) --</option>
+                  <optgroup label={`${availableTaxCodes.flag} ${availableTaxCodes.label}`}>
+                    {availableTaxCodes.codes.map((code) => (
+                      <option key={code.value} value={code.value}>
+                        {code.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                </select>
+              ) : (
+                <div className="w-full px-2 py-1 text-sm" style={inputStyles}>
+                  <p className="text-red-600">⚠️ No tax origin address set</p>
+                </div>
+              )}
               <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-                Tax code applied to products without specific codes (provider-specific format)
+                {availableTaxCodes
+                  ? `Products without a tax code will use this default (${taxOriginCountry})`
+                  : "Set a tax origin address first to select tax codes"
+                }
               </p>
             </div>
           </div>

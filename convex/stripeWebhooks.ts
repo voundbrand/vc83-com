@@ -106,6 +106,39 @@ export const processWebhook = internalAction({
         }
       }
 
+      if (result.actionTaken === "checkout_completed" && result.metadata) {
+        // Store checkout completion data
+        console.log("Checkout completed:", {
+          sessionId: result.metadata.sessionId,
+          paymentIntentId: result.metadata.paymentIntentId,
+          paymentStatus: result.metadata.paymentStatus,
+          amountTotal: result.metadata.amountTotal,
+          taxAmount: result.metadata.taxAmount,
+          currency: result.metadata.currency,
+          customerEmail: result.metadata.customerEmail,
+          isB2B: result.metadata.isB2B,
+          customerTaxIds: result.metadata.customerTaxIds,
+        });
+
+        // Future: Store in transactions table with full checkout details
+        // await ctx.runMutation(internal.transactions.createTransaction, {
+        //   type: "checkout",
+        //   providerCode: "stripe",
+        //   providerTransactionId: result.metadata.sessionId,
+        //   paymentIntentId: result.metadata.paymentIntentId,
+        //   organizationId: result.metadata.organizationId,
+        //   productId: result.metadata.productId,
+        //   amountTotal: result.metadata.amountTotal,
+        //   amountSubtotal: result.metadata.amountSubtotal,
+        //   taxAmount: result.metadata.taxAmount,
+        //   currency: result.metadata.currency,
+        //   customerEmail: result.metadata.customerEmail,
+        //   customerTaxIds: result.metadata.customerTaxIds,
+        //   isB2B: result.metadata.isB2B,
+        //   status: result.metadata.paymentStatus,
+        // });
+      }
+
       if (result.actionTaken === "payment_succeeded" && result.metadata) {
         // TODO: Create transaction record in database
         console.log("Payment succeeded:", {

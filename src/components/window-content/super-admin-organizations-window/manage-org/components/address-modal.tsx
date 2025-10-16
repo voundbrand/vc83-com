@@ -1,7 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
-import { Doc } from "../../../../../convex/_generated/dataModel";
+import { Doc } from "../../../../../../convex/_generated/dataModel";
 import { AddressForm } from "./address-form";
 import { useTranslation } from "@/contexts/translation-context";
 

@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Doc } from "../../../../../convex/_generated/dataModel";
+import { Doc } from "../../../../../../convex/_generated/dataModel";
 import { useTranslation } from "@/contexts/translation-context";
-import { getSupportedCountries } from "../../../../../convex/legalEntityTypes";
+import { getSupportedCountries } from "../../../../../../convex/legalEntityTypes";
 
 interface AddressFormData {
   type: "billing" | "shipping" | "mailing" | "physical" | "other";
