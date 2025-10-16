@@ -69,6 +69,10 @@ export function ProductForm({
     formId: "", // Linked form for registration data collection
     formTiming: "duringCheckout" as "duringCheckout" | "afterPurchase" | "standalone",
     formRequired: true, // Whether form must be completed
+    // NEW: Tax Settings
+    taxable: true, // Whether this product is taxable
+    taxCode: "", // Stripe tax code (e.g., "txcd_10401000" for event tickets)
+    taxBehavior: "exclusive" as "exclusive" | "inclusive" | "automatic", // How to handle tax in price
   });
   const [saving, setSaving] = useState(false);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
@@ -161,6 +165,10 @@ export function ProductForm({
         requiresBillingAddress: (props.requiresBillingAddress as boolean) ?? false,
         // Event linking
         takeOverEventDates: false, // Reset for edit mode
+        // Tax settings
+        taxable: (props.taxable as boolean) ?? true,
+        taxCode: (props.taxCode as string) || "",
+        taxBehavior: (props.taxBehavior as "exclusive" | "inclusive" | "automatic") || "exclusive",
       });
     }
   }, [existingProduct]);
@@ -184,6 +192,13 @@ export function ProductForm({
 
       // Build custom properties for all product types
       const customProperties: Record<string, unknown> = {};
+
+      // Tax settings (applies to all product types)
+      customProperties.taxable = formData.taxable;
+      if (formData.taxCode) {
+        customProperties.taxCode = formData.taxCode;
+      }
+      customProperties.taxBehavior = formData.taxBehavior;
 
       // Form linking (generalized - works for all product types)
       if (formData.formId) {
@@ -447,6 +462,109 @@ export function ProductForm({
         <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
           Available quantity. Leave empty for unlimited inventory.
         </p>
+      </div>
+
+      {/* TAX SETTINGS - Applies to all product types */}
+      <div className="space-y-4 p-4 border-2 rounded" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}>
+        <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+          💰 Tax Settings
+        </h3>
+        <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+          Configure how taxes are calculated and displayed for this product
+        </p>
+
+        {/* Taxable Toggle */}
+        <div className="flex items-center justify-between p-3 border-2 rounded" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
+          <div className="flex-1">
+            <label className="block text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
+              Product is Taxable
+            </label>
+            <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+              {formData.taxable ? "✅ Tax will be calculated for this product" : "⚠️ Product is tax-exempt"}
+            </p>
+          </div>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={formData.taxable}
+              onChange={(e) => setFormData({ ...formData, taxable: e.target.checked })}
+              className="w-5 h-5"
+            />
+            <span className="text-sm font-bold" style={{ color: formData.taxable ? "var(--success)" : "var(--neutral-gray)" }}>
+              {formData.taxable ? "Taxable" : "Tax-Exempt"}
+            </span>
+          </label>
+        </div>
+
+        {/* Tax Code - Only show if taxable */}
+        {formData.taxable && (
+          <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--win95-border)" }}>
+            <div>
+              <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+                Tax Code (Optional)
+              </label>
+              <select
+                value={formData.taxCode}
+                onChange={(e) => setFormData({ ...formData, taxCode: e.target.value })}
+                className="w-full px-3 py-2 text-sm border-2"
+                style={{
+                  borderColor: "var(--win95-border)",
+                  background: "var(--win95-input-bg)",
+                  color: "var(--win95-input-text)",
+                }}
+              >
+                <option value="">-- Use Organization Default --</option>
+                <optgroup label="Event & Entertainment">
+                  <option value="txcd_10401000">Event Tickets - Admission to shows, concerts, events</option>
+                  <option value="txcd_10401100">Entertainment Services - Live performances</option>
+                </optgroup>
+                <optgroup label="Physical Goods">
+                  <option value="txcd_99999999">General - Tangible personal property</option>
+                  <option value="txcd_30011000">Clothing - General apparel</option>
+                  <option value="txcd_30061100">Books - Physical books</option>
+                </optgroup>
+                <optgroup label="Digital Products">
+                  <option value="txcd_10103000">Digital Products - Downloads, streaming</option>
+                  <option value="txcd_10501000">Software - Digital software products</option>
+                </optgroup>
+                <optgroup label="Services">
+                  <option value="txcd_10301000">Professional Services - Consulting, coaching</option>
+                  <option value="txcd_10201000">Lodging - Accommodation services</option>
+                  <option value="txcd_10103100">Food & Beverage - Meal services</option>
+                </optgroup>
+              </select>
+              <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+                💡 Stripe tax codes determine tax rates by jurisdiction. Leave empty to use organization default.
+              </p>
+            </div>
+
+            {/* Tax Behavior */}
+            <div>
+              <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+                Tax Behavior
+              </label>
+              <select
+                value={formData.taxBehavior}
+                onChange={(e) => setFormData({ ...formData, taxBehavior: e.target.value as "exclusive" | "inclusive" | "automatic" })}
+                className="w-full px-3 py-2 text-sm border-2"
+                style={{
+                  borderColor: "var(--win95-border)",
+                  background: "var(--win95-input-bg)",
+                  color: "var(--win95-input-text)",
+                }}
+              >
+                <option value="exclusive">💵 Exclusive (US-style) - Tax added on top of price</option>
+                <option value="inclusive">💶 Inclusive (EU-style) - Tax included in price</option>
+                <option value="automatic">🔄 Automatic - Let Stripe decide based on currency/region</option>
+              </select>
+              <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+                {formData.taxBehavior === "exclusive" && "Price: $100 → Total: $100 + $8.50 tax = $108.50"}
+                {formData.taxBehavior === "inclusive" && "Price: €119 (includes €19 VAT) → Total: €119"}
+                {formData.taxBehavior === "automatic" && "USD/CAD/AUD → Exclusive | EUR/GBP → Inclusive"}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* FORM LINKING - Generalized for all product types */}

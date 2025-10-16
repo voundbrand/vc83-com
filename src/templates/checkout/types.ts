@@ -74,6 +74,10 @@ export interface CheckoutProduct {
     // Quantity limits
     minQuantity?: number;
     maxQuantity?: number;
+    // Tax settings
+    taxable?: boolean;
+    taxCode?: string;
+    taxBehavior?: "exclusive" | "inclusive" | "automatic";
   };
 }
 
