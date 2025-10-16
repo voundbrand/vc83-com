@@ -5,8 +5,8 @@
  * Allows multiple payment providers (Stripe, PayPal, etc.) with a unified interface.
  */
 
-import { Id } from "../../../../convex/_generated/dataModel";
-import { CheckoutItem, CheckoutSession, PaymentResult } from "../core/types";
+import { Id } from "../../../convex/_generated/dataModel";
+import { CheckoutItem, CheckoutSession, PaymentResult } from "../../templates/checkout/core/types";
 
 /**
  * Configuration for a payment provider.
@@ -18,6 +18,39 @@ export interface PaymentProviderConfig {
   isDefault: boolean;
   credentials: Record<string, string>; // API keys, secrets, etc.
   settings: Record<string, unknown>; // Provider-specific settings
+}
+
+/**
+ * Tax settings for checkout.
+ */
+export interface TaxSettings {
+  taxEnabled: boolean;
+  defaultTaxBehavior?: "inclusive" | "exclusive" | "automatic";
+  defaultTaxCode?: string;
+  originAddress?: {
+    addressLine1: string;
+    addressLine2?: string;
+    city: string;
+    state?: string;
+    postalCode: string;
+    country: string;
+  };
+  stripeSettings?: {
+    taxCalculationEnabled?: boolean;
+    taxCodeValidation?: boolean;
+  };
+}
+
+/**
+ * Customer address for tax calculation.
+ */
+export interface CustomerAddress {
+  addressLine1: string;
+  addressLine2?: string;
+  city: string;
+  state?: string;
+  postalCode: string;
+  country: string;
 }
 
 /**
@@ -42,6 +75,10 @@ export interface CreateSessionOptions {
   // Customization
   locale?: string;
   currency?: string;
+
+  // Tax configuration
+  taxSettings?: TaxSettings;
+  customerAddress?: CustomerAddress;
 }
 
 /**

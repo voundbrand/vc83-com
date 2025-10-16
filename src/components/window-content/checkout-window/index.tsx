@@ -1,28 +1,36 @@
 "use client";
 
 import { useState } from "react";
-import { ShoppingCart } from "lucide-react";
-import { CheckoutProductsTab } from "./checkout-products-tab";
+import { FileText, ShoppingCart, Settings, BarChart3 } from "lucide-react";
+import { CheckoutTemplatesTab } from "./checkout-templates-tab";
+import { CheckoutsListTab } from "./checkouts-list-tab";
+import { CreateCheckoutTab } from "./create-checkout-tab";
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
+import { Id } from "../../../../convex/_generated/dataModel";
 
 /**
- * Checkout Window - Org Owner Interface
- *
- * This window allows org owners to create and manage checkout products.
- * Checkout products wrap any object (product, ticket, event) to make it sellable.
+ * Checkout Window - Complete Checkout Management
  *
  * Tabs:
- * - Checkout Products: List of all checkout products
+ * - Checkouts: List of all checkout instances (like Pages in Web Publishing)
+ * - Create: Template selector + editor for creating/editing checkouts
+ * - Templates: Browse available templates
  * - Settings: Stripe configuration (future)
  * - Analytics: Sales metrics (future)
  *
- * Note: To create checkout pages, use Web Publishing → Create Page → Link Products
+ * Workflow:
+ * 1. User clicks "Create Checkout" → Goes to Create tab
+ * 2. Selects template → Opens editor
+ * 3. Configures checkout (payment, products, branding)
+ * 4. Saves → Appears in Checkouts tab
+ * 5. Can embed in Web Publishing or use standalone
  */
 
-type TabType = "products" | "settings" | "analytics";
+type TabType = "checkouts" | "create" | "templates" | "settings" | "analytics";
 
 export function CheckoutWindow() {
-  const [activeTab, setActiveTab] = useState<TabType>("products");
+  const [activeTab, setActiveTab] = useState<TabType>("checkouts");
+  const [editingInstanceId, setEditingInstanceId] = useState<Id<"objects"> | null>(null);
 
   // Check app availability
   const guard = useAppAvailabilityGuard({
@@ -33,16 +41,37 @@ export function CheckoutWindow() {
 
   if (guard) return guard;
 
+  // Handle navigation
+  const handleCreateNew = () => {
+    setEditingInstanceId(null);
+    setActiveTab("create");
+  };
+
+  const handleEdit = (instanceId: Id<"objects">) => {
+    setEditingInstanceId(instanceId);
+    setActiveTab("create");
+  };
+
+  const handleSaveComplete = () => {
+    setEditingInstanceId(null);
+    setActiveTab("checkouts");
+  };
+
+  const handleCancel = () => {
+    setEditingInstanceId(null);
+    setActiveTab("checkouts");
+  };
+
   return (
     <div className="flex flex-col h-full" style={{ background: 'var(--win95-bg)' }}>
       {/* Header */}
       <div className="px-4 py-3 border-b-2" style={{ borderColor: 'var(--win95-border)' }}>
         <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
           <ShoppingCart size={16} />
-          Checkout
+          Checkout Manager
         </h2>
         <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-          Create and manage checkout pages for your products
+          Create and manage checkout pages for your products and events
         </p>
       </div>
 
@@ -52,13 +81,37 @@ export function CheckoutWindow() {
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
           style={{
             borderColor: 'var(--win95-border)',
-            background: activeTab === "products" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-            color: activeTab === "products" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+            background: activeTab === "checkouts" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+            color: activeTab === "checkouts" ? 'var(--win95-text)' : 'var(--neutral-gray)'
           }}
-          onClick={() => setActiveTab("products")}
+          onClick={() => setActiveTab("checkouts")}
         >
           <ShoppingCart size={14} />
-          Checkout Products
+          Checkouts
+        </button>
+        <button
+          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
+          style={{
+            borderColor: 'var(--win95-border)',
+            background: activeTab === "create" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+            color: activeTab === "create" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+          }}
+          onClick={handleCreateNew}
+        >
+          <FileText size={14} />
+          Create
+        </button>
+        <button
+          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
+          style={{
+            borderColor: 'var(--win95-border)',
+            background: activeTab === "templates" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+            color: activeTab === "templates" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+          }}
+          onClick={() => setActiveTab("templates")}
+        >
+          <FileText size={14} />
+          Templates
         </button>
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2 opacity-50 cursor-not-allowed"
@@ -70,6 +123,7 @@ export function CheckoutWindow() {
           disabled
           title="Coming soon"
         >
+          <Settings size={14} />
           Settings
         </button>
         <button
@@ -82,15 +136,41 @@ export function CheckoutWindow() {
           disabled
           title="Coming soon"
         >
+          <BarChart3 size={14} />
           Analytics
         </button>
       </div>
 
       {/* Tab Content */}
-      <div className="flex-1 overflow-y-auto">
-        {activeTab === "products" && <CheckoutProductsTab />}
-        {activeTab === "settings" && <div className="p-4 text-xs text-gray-500">Stripe settings coming soon...</div>}
-        {activeTab === "analytics" && <div className="p-4 text-xs text-gray-500">Sales analytics coming soon...</div>}
+      <div className="flex-1 overflow-hidden">
+        {activeTab === "checkouts" && (
+          <CheckoutsListTab
+            onCreateNew={handleCreateNew}
+            onEdit={handleEdit}
+          />
+        )}
+        {activeTab === "create" && (
+          <CreateCheckoutTab
+            editingInstanceId={editingInstanceId}
+            onSaveComplete={handleSaveComplete}
+            onCancel={handleCancel}
+          />
+        )}
+        {activeTab === "templates" && <CheckoutTemplatesTab onCreateNew={handleCreateNew} />}
+        {activeTab === "settings" && (
+          <div className="p-8 text-center">
+            <Settings size={48} className="mx-auto text-gray-400 mb-4" />
+            <h3 className="font-bold text-sm mb-2">Settings Coming Soon</h3>
+            <p className="text-xs text-gray-500">Configure Stripe integration and checkout options</p>
+          </div>
+        )}
+        {activeTab === "analytics" && (
+          <div className="p-8 text-center">
+            <BarChart3 size={48} className="mx-auto text-gray-400 mb-4" />
+            <h3 className="font-bold text-sm mb-2">Analytics Coming Soon</h3>
+            <p className="text-xs text-gray-500">Track sales, conversions, and revenue metrics</p>
+          </div>
+        )}
       </div>
     </div>
   );

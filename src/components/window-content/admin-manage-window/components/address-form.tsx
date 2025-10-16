@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Doc } from "../../../../../convex/_generated/dataModel";
 import { useTranslation } from "@/contexts/translation-context";
+import { getSupportedCountries } from "../../../../../convex/legalEntityTypes";
 
 interface AddressFormData {
   type: "billing" | "shipping" | "mailing" | "physical" | "other";
@@ -16,6 +17,7 @@ interface AddressFormData {
   region?: string;
   isDefault?: boolean;
   isPrimary?: boolean;
+  isTaxOrigin?: boolean;
 }
 
 interface AddressFormProps {
@@ -32,6 +34,9 @@ export function AddressForm({
   isSubmitting = false,
 }: AddressFormProps) {
   const { t } = useTranslation();
+
+  // Get supported countries for dropdown
+  const supportedCountries = getSupportedCountries();
 
   // Extract data from ontology object structure
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -50,6 +55,7 @@ export function AddressForm({
     region: props?.region || "",
     isDefault: props?.isDefault || false,
     isPrimary: props?.isPrimary || false,
+    isTaxOrigin: props?.isTaxOrigin || false,
   });
 
   const [errors, setErrors] = useState<Partial<Record<keyof AddressFormData, string>>>({});
@@ -222,18 +228,26 @@ export function AddressForm({
           <label className="block text-sm font-bold mb-1">
             {t("ui.manage.address.form.country_label")} *
           </label>
-          <input
-            type="text"
+          <select
             value={formData.country}
             onChange={(e) => handleChange("country", e.target.value)}
-            placeholder={t("ui.manage.address.form.country_placeholder")}
             className={`w-full retro-input ${errors.country ? "border-2" : ""}`}
             style={errors.country ? { borderColor: 'var(--error)' } : {}}
             disabled={isSubmitting}
-          />
+          >
+            <option value="">Select a country...</option>
+            {supportedCountries.map((country) => (
+              <option key={country.code} value={country.code}>
+                {country.name} ({country.code})
+              </option>
+            ))}
+          </select>
           {errors.country && (
             <p className="text-xs mt-1" style={{ color: 'var(--error)' }}>{errors.country}</p>
           )}
+          <p className="text-xs mt-1 retro-text-secondary">
+            Country code is used to determine tax nexus and legal entity types
+          </p>
         </div>
       </div>
 
@@ -281,6 +295,23 @@ export function AddressForm({
             {t("ui.manage.address.form.primary_checkbox")}
           </span>
         </label>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={formData.isTaxOrigin}
+            onChange={(e) => handleChange("isTaxOrigin", e.target.checked)}
+            className="w-4 h-4"
+            disabled={isSubmitting}
+          />
+          <span className="text-sm font-bold retro-text">
+            Use this address as tax origin (determines tax nexus)
+          </span>
+        </label>
+        {formData.isTaxOrigin && (
+          <p className="text-xs ml-6 retro-text-secondary">
+            This address determines where your business must collect tax.
+          </p>
+        )}
       </div>
 
       {/* Actions */}

@@ -18,6 +18,7 @@ import { TemplateContentSchema, FieldType } from "../../schema-types";
  */
 export interface EventLandingContent {
   linkedEventId?: string; // ID of linked event from Event Management app
+  linkedCheckoutId?: string; // ID of linked checkout instance from Checkout app
   hero: {
     headline: string;
     subheadline: string;
@@ -107,15 +108,8 @@ export interface EventLandingContent {
   checkout: {
     title: string;
     description: string;
-    tickets: Array<{
-      id: string;
-      name: string;
-      price: number;
-      originalPrice?: number;
-      description: string;
-      features: string[];
-      checkoutUrl: string;
-    }>;
+    // Products will be fetched from linked checkout instance
+    // No manual ticket entry needed
   };
 }
 
@@ -133,6 +127,7 @@ export const eventLandingSchema: TemplateContentSchema<EventLandingContent> = {
   // Default content for new pages
   defaultContent: {
     linkedEventId: "", // Default to no event linked
+    linkedCheckoutId: "", // Default to no checkout linked
     hero: {
       headline: "The Future of Innovation Starts Here",
       subheadline:
@@ -233,46 +228,15 @@ export const eventLandingSchema: TemplateContentSchema<EventLandingContent> = {
     checkout: {
       title: "Get Your Ticket",
       description: "Early bird pricing ends soon!",
-      tickets: [
-        {
-          id: crypto.randomUUID(),
-          name: "In-Person Ticket",
-          price: 599,
-          originalPrice: 799,
-          description: "Full access to all sessions and networking events",
-          features: [
-            "Access to all sessions",
-            "Networking events",
-            "Meals included",
-            "Swag bag",
-            "Recording access",
-          ],
-          checkoutUrl: "/checkout",
-        },
-        {
-          id: crypto.randomUUID(),
-          name: "Virtual Ticket",
-          price: 199,
-          originalPrice: 299,
-          description: "Live stream access and recordings",
-          features: [
-            "Live stream access",
-            "Interactive Q&A",
-            "Virtual networking",
-            "Recording access",
-          ],
-          checkoutUrl: "/checkout",
-        },
-      ],
     },
   },
 
   // Field definitions for the form
   sections: [
     {
-      id: "event-link",
-      label: "Event Data Source",
-      description: "Link to an event to auto-populate fields, or fill manually",
+      id: "data-sources",
+      label: "Data Sources",
+      description: "Link to event and checkout to auto-populate content",
       fields: [
         {
           id: "linkedEventId",
@@ -286,6 +250,13 @@ export const eventLandingSchema: TemplateContentSchema<EventLandingContent> = {
             eventLocation: "hero.location",
             eventDescription: "about.description",
           },
+        },
+        {
+          id: "linkedCheckoutId",
+          label: "Link to Checkout",
+          type: FieldType.CheckoutLink,
+          required: false,
+          helpText: "Select a checkout instance to automatically display products/tickets",
         },
       ],
     },
@@ -841,8 +812,8 @@ export const eventLandingSchema: TemplateContentSchema<EventLandingContent> = {
     },
     {
       id: "checkout",
-      label: "Checkout/Tickets",
-      description: "Ticket options and pricing",
+      label: "Checkout Section",
+      description: "Products/tickets are automatically loaded from linked checkout",
       fields: [
         {
           id: "checkout.title",
@@ -859,73 +830,6 @@ export const eventLandingSchema: TemplateContentSchema<EventLandingContent> = {
           required: false,
           placeholder: "Early bird pricing ends soon!",
           maxLength: 200,
-        },
-        {
-          id: "checkout.tickets",
-          label: "Ticket Types",
-          type: FieldType.Repeater,
-          minItems: 1,
-          maxItems: 10,
-          defaultItem: {
-            id: "",
-            name: "",
-            price: 0,
-            description: "",
-            features: [],
-            checkoutUrl: "",
-          },
-          fields: [
-            {
-              id: "name",
-              label: "Ticket Name",
-              type: FieldType.Text,
-              required: true,
-              placeholder: "In-Person Ticket",
-              maxLength: 100,
-            },
-            {
-              id: "price",
-              label: "Price",
-              type: FieldType.Number,
-              required: true,
-              min: 0,
-              helpText: "Current price in dollars",
-            },
-            {
-              id: "originalPrice",
-              label: "Original Price",
-              type: FieldType.Number,
-              required: false,
-              min: 0,
-              helpText: "Optional: Shows as crossed out",
-            },
-            {
-              id: "description",
-              label: "Description",
-              type: FieldType.Text,
-              required: true,
-              placeholder: "Full access to all sessions",
-              maxLength: 200,
-            },
-            {
-              id: "features",
-              label: "Features",
-              type: FieldType.TextArray,
-              required: true,
-              minItems: 1,
-              maxItems: 20,
-              placeholder: "Access to all sessions, Networking events, Meals included",
-              helpText: "What's included in this ticket",
-            },
-            {
-              id: "checkoutUrl",
-              label: "Checkout URL",
-              type: FieldType.Url,
-              required: true,
-              placeholder: "/checkout?ticket=in-person",
-              helpText: "Link to checkout/payment page",
-            },
-          ],
         },
       ],
     },

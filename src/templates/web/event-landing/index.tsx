@@ -8,6 +8,8 @@
 "use client";
 
 import { useMemo } from "react";
+import { useQuery } from "convex/react";
+import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { TemplateProps } from "../../types";
 import { EventLandingContent } from "./schema";
@@ -39,6 +41,7 @@ export function EventLandingTemplate({
   page,
   organization,
   theme,
+  sessionId,
 }: TemplateProps) {
   // Get template content from page.customProperties.templateContent
   // This is where the content is actually stored when creating/editing pages
@@ -46,31 +49,54 @@ export function EventLandingTemplate({
     (page.customProperties?.templateContent as unknown as EventLandingContent) ||
     ({} as EventLandingContent);
 
-  // Transform tickets from content into CheckoutItem format for TicketCheckoutCard
-  // Note: Prices are stored in cents, convert to dollars for display
-  const checkoutItems: CheckoutItem[] = useMemo(() => {
-    return content.checkout?.tickets?.map(ticket => ({
-      id: ticket.id as Id<"objects">,
-      name: ticket.name,
-      description: ticket.description || "",
-      price: ticket.price / 100, // Convert cents to dollars for display
-      originalPrice: ticket.originalPrice ? ticket.originalPrice / 100 : undefined,
-      currency: ticket.currency || "USD",
-      features: ticket.features || [],
-      customProperties: {
-        checkoutUrl: ticket.checkoutUrl || "#",
-      },
-    })) || [];
-  }, [content.checkout?.tickets]);
+  // Fetch checkout instance if linked
+  const checkoutInstance = useQuery(
+    api.checkoutOntology.getCheckoutInstanceById,
+    content.linkedCheckoutId && sessionId
+      ? {
+          sessionId,
+          instanceId: content.linkedCheckoutId as Id<"objects">,
+        }
+      : "skip"
+  );
 
-  // Merge content with checkout items
-  const mergedContent = {
-    ...content,
-    checkout: {
-      ...content.checkout,
-      tickets: checkoutItems,
-    },
-  };
+  // Get product IDs from checkout instance
+  const productIds = useMemo(() => {
+    if (!checkoutInstance?.customProperties?.linkedProducts) return [];
+    return checkoutInstance.customProperties.linkedProducts as Id<"objects">[];
+  }, [checkoutInstance]);
+
+  // Fetch products from checkout instance
+  const products = useQuery(
+    api.productOntology.getProductsByIds,
+    productIds.length > 0 && sessionId
+      ? {
+          sessionId,
+          productIds,
+        }
+      : "skip"
+  );
+
+  // Transform products into CheckoutItem format for TicketCheckoutCard
+  const checkoutItems: CheckoutItem[] = useMemo(() => {
+    if (!products) return [];
+
+    return products.map(product => ({
+      id: product._id,
+      name: product.name,
+      description: product.description || "",
+      price: (product.customProperties?.price as number) / 100, // Convert cents to dollars
+      originalPrice: product.customProperties?.originalPrice
+        ? (product.customProperties.originalPrice as number) / 100
+        : undefined,
+      currency: (product.customProperties?.currency as string) || "USD",
+      features: (product.customProperties?.features as string[]) || [],
+      customProperties: product.customProperties,
+    }));
+  }, [products]);
+
+  // Use content as-is (checkout items come from products query)
+  const mergedContent = content;
 
   // Calculate pricing for mobile checkout preview
   const minPrice = useMemo(() => {
@@ -526,7 +552,7 @@ export function EventLandingTemplate({
                 <h3 className={styles.placeholderTitle}>No Products Linked</h3>
                 <p className={styles.placeholderText}>
                   Link products to this page to enable checkout.
-                  Click the "Link" button next to products in the editor.
+                  Click the &ldquo;Link&rdquo; button next to products in the editor.
                 </p>
               </div>
             )}

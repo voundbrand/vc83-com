@@ -181,22 +181,6 @@ export const seedSystemThemes = mutation({
       throw new Error("System organization not found");
     }
 
-    // Check if themes already exist
-    const existingThemes = await ctx.db
-      .query("objects")
-      .withIndex("by_org_type", (q) =>
-        q.eq("organizationId", systemOrg._id).eq("type", "theme")
-      )
-      .collect();
-
-    if (existingThemes.length > 0) {
-      console.log(`${existingThemes.length} themes already exist. Skipping seed.`);
-      return {
-        message: "Themes already exist",
-        count: existingThemes.length,
-      };
-    }
-
     // Get system user (if exists) or use first user
     const systemUser = await ctx.db
       .query("users")
@@ -209,33 +193,89 @@ export const seedSystemThemes = mutation({
       throw new Error("No users found. Create a user first before seeding themes.");
     }
 
-    // 1. MODERN GRADIENT THEME (maps to webPublishingThemes array in /src/templates/themes.ts)
-    const modernGradient = await ctx.db.insert("objects", {
-      organizationId: systemOrg._id,
-      type: "theme",
-      subtype: "color-scheme",
-      name: "Modern Gradient",
-      status: "published",
-      customProperties: {
-        code: "modern-gradient", // Maps to code in /src/templates/themes.ts
-        description: "Purple gradient with L4YERCAK3 branding",
-        category: "brand",
-        colorScheme: "purple-gradient",
-        previewImageUrl: "https://cdn.l4yercak3.com/themes/modern-gradient.png",
-        author: "L4YERCAK3 Design Team",
-        version: "1.0.0",
-      },
-      createdBy: firstUser._id,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    });
+    const createdThemes = [];
+    const skippedThemes = [];
 
-    console.log("✅ Seeded 1 system theme (modern-gradient)");
-    console.log("💡 To add more themes: Add to webPublishingThemes array in /src/templates/themes.ts");
+    // 1. MODERN GRADIENT THEME (light) - maps to webPublishingThemes array in /src/templates/themes.ts
+    const existingModernGradient = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", systemOrg._id).eq("type", "theme")
+      )
+      .filter((q) => q.eq(q.field("customProperties.code"), "modern-gradient"))
+      .first();
+
+    if (!existingModernGradient) {
+      const modernGradient = await ctx.db.insert("objects", {
+        organizationId: systemOrg._id,
+        type: "theme",
+        subtype: "color-scheme",
+        name: "Modern Gradient",
+        status: "published",
+        customProperties: {
+          code: "modern-gradient", // Maps to code in /src/templates/themes.ts
+          description: "Purple gradient with L4YERCAK3 branding - Light theme",
+          category: "brand",
+          colorScheme: "purple-gradient-light",
+          previewImageUrl: "https://cdn.l4yercak3.com/themes/modern-gradient.png",
+          author: "L4YERCAK3 Design Team",
+          version: "1.0.0",
+        },
+        createdBy: firstUser._id,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+      createdThemes.push(modernGradient);
+      console.log("✅ Created modern-gradient theme");
+    } else {
+      skippedThemes.push("modern-gradient");
+      console.log("⏭️  Skipping modern-gradient (already exists)");
+    }
+
+    // 2. MODERN GRADIENT DARK THEME - maps to webPublishingThemes array in /src/templates/themes.ts
+    const existingModernGradientDark = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", systemOrg._id).eq("type", "theme")
+      )
+      .filter((q) => q.eq(q.field("customProperties.code"), "modern-gradient-dark"))
+      .first();
+
+    if (!existingModernGradientDark) {
+      const modernGradientDark = await ctx.db.insert("objects", {
+        organizationId: systemOrg._id,
+        type: "theme",
+        subtype: "color-scheme",
+        name: "Modern Gradient Dark",
+        status: "published",
+        customProperties: {
+          code: "modern-gradient-dark", // Maps to code in /src/templates/themes.ts
+          description: "Purple gradient with L4YERCAK3 branding - Dark theme",
+          category: "brand",
+          colorScheme: "purple-gradient-dark",
+          previewImageUrl: "https://cdn.l4yercak3.com/themes/modern-gradient-dark.png",
+          author: "L4YERCAK3 Design Team",
+          version: "1.0.0",
+        },
+        createdBy: firstUser._id,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+      createdThemes.push(modernGradientDark);
+      console.log("✅ Created modern-gradient-dark theme");
+    } else {
+      skippedThemes.push("modern-gradient-dark");
+      console.log("⏭️  Skipping modern-gradient-dark (already exists)");
+    }
+
+    console.log(`\n✅ Seeding complete: ${createdThemes.length} created, ${skippedThemes.length} skipped`);
+    console.log("💡 To add more themes: Add to webPublishingThemes array in /src/templates/themes.ts and run this mutation again");
 
     return {
-      themes: [modernGradient],
-      message: "Successfully seeded 1 system theme. Add more themes in /src/templates/themes.ts!",
+      themes: createdThemes,
+      message: `Successfully seeded ${createdThemes.length} new theme(s). Add more themes in /src/templates/themes.ts!`,
+      created: createdThemes.length,
+      skipped: skippedThemes.length,
     };
   },
 });

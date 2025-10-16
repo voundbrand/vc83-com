@@ -1,86 +1,106 @@
 /**
  * TICKET CHECKOUT TEMPLATE SCHEMA
  *
- * Schema definition for ticket checkout pages.
- * This template is specifically for selling event tickets with payment processing.
- *
- * @module templates/checkout/ticket-checkout
+ * Defines the configuration schema for the ticket checkout template.
+ * Used by the Checkout Manager to generate dynamic configuration forms.
  */
 
-import { TemplateContentSchema, FieldType } from "../../schema-types";
+import type { CheckoutTemplateSchema } from "../types";
 
-export const ticketCheckoutSchema: TemplateContentSchema = {
-  templateCode: "ticket-checkout",
-  templateName: "Ticket Checkout",
-  description: "Professional checkout page for selling event tickets with integrated payment processing",
+export const ticketCheckoutSchema: CheckoutTemplateSchema = {
+  code: "ticket-checkout",
+  name: "Event Ticket Checkout",
+  version: "1.0.0",
+  description: "Multi-tier event ticket checkout with quantity selection and secure payments",
 
-  // Default content structure
-  defaultContent: {
-    event: {
-      showEventInfo: true,
-      showVenueDetails: true,
-    },
-    tickets: {
-      maxTicketsPerOrder: 10,
-    },
-    checkout: {
-      successMessage: "Thank you for your ticket purchase!",
-      successRedirectUrl: "",
-    },
-  },
+  // NOTE: Template capabilities (supportsFormIntegration, etc.) are stored
+  // in the database template record (seedCheckoutTemplates.ts), not here.
+  // This schema only defines the configuration UI fields.
 
-  // Content sections (SectionDefinition[])
-  sections: [
+  fields: [
     {
-      id: "event",
-      label: "Event Information",
-      description: "Event details displayed on the checkout page",
-      fields: [
-        {
-          id: "showEventInfo",
-          type: FieldType.Boolean,
-          label: "Show Event Information",
-          defaultValue: true,
-        },
-        {
-          id: "showVenueDetails",
-          type: FieldType.Boolean,
-          label: "Show Venue Details",
-          defaultValue: true,
-        },
-      ],
-    },
-    {
-      id: "tickets",
-      label: "Ticket Display",
-      description: "Configure how tickets are displayed (tickets are automatically loaded from linked products)",
-      fields: [
-        {
-          id: "maxTicketsPerOrder",
-          type: FieldType.Number,
-          label: "Maximum Tickets Per Order",
-          defaultValue: 10,
-        },
-      ],
-    },
-    {
-      id: "checkout",
+      key: "settings",
       label: "Checkout Settings",
-      description: "Payment and checkout configuration",
+      type: "group",
       fields: [
         {
-          id: "successMessage",
-          type: FieldType.Text,
-          label: "Success Message",
-          defaultValue: "Thank you for your ticket purchase!",
+          key: "title",
+          label: "Checkout Title",
+          type: "text",
+          required: true,
+          placeholder: "e.g., Event Ticket Sales",
+          helpText: "Display name for your checkout page",
         },
         {
-          id: "successRedirectUrl",
-          type: FieldType.Text,
-          label: "Success Redirect URL (optional)",
-          defaultValue: "",
+          key: "description",
+          label: "Description",
+          type: "textarea",
+          required: false,
+          placeholder: "Brief description of your event or products...",
+          helpText: "Optional description shown to customers",
+        },
+        {
+          key: "max_tickets_per_order",
+          label: "Max Tickets Per Order",
+          type: "number",
+          required: false,
+          defaultValue: 10,
+          min: 1,
+          max: 100,
+          helpText: "Maximum number of tickets a customer can purchase in one transaction",
+        },
+        {
+          key: "currency",
+          label: "Currency",
+          type: "select",
+          required: true,
+          options: [
+            { value: "usd", label: "USD - US Dollar" },
+            { value: "eur", label: "EUR - Euro" },
+            { value: "gbp", label: "GBP - British Pound" },
+            { value: "cad", label: "CAD - Canadian Dollar" },
+            { value: "aud", label: "AUD - Australian Dollar" },
+          ],
+          defaultValue: "usd",
+          helpText: "Currency for pricing and transactions",
+        },
+      ],
+    },
+    {
+      key: "customBranding",
+      label: "Branding & Appearance",
+      type: "group",
+      fields: [
+        {
+          key: "primary_color",
+          label: "Primary Color",
+          type: "color",
+          required: false,
+          defaultValue: "#6B46C1",
+          helpText: "Main accent color for buttons and highlights",
+        },
+        {
+          key: "show_event_details",
+          label: "Show Event Details",
+          type: "checkbox",
+          required: false,
+          defaultValue: true,
+          helpText: "Display event name, date, and venue information",
         },
       ],
     },
   ],
+
+  defaultConfig: {
+    settings: {
+      title: "Ticket Checkout",
+      description: "",
+      max_tickets_per_order: 10,
+      currency: "usd",
+    },
+    customBranding: {
+      primary_color: "#6B46C1",
+      show_event_details: true,
+    },
+  },
 };

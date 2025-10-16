@@ -12,14 +12,21 @@ import type { Id } from "../../convex/_generated/dataModel";
  */
 export interface ThemeColors {
   primary: string;
+  primaryLight?: string; // Light variant for backgrounds
+  primaryDark?: string; // Dark variant for hover states
   secondary: string;
   accent: string;
   background: string;
   surface: string;
+  surfaceHover?: string; // Hover state for surface elements
   text: string;
   textLight: string;
   textDark: string;
   border: string;
+  borderHover?: string; // Hover state for borders
+  buttonPrimary?: string; // Primary button background
+  buttonPrimaryText?: string; // Primary button text color
+  buttonPrimaryHover?: string; // Primary button hover background
   success: string;
   warning: string;
   error: string;
@@ -200,6 +207,7 @@ export interface TemplateProps {
   data: SourceData; // Content data from linked object
   organization: Organization; // Organization info
   theme: Theme; // Theme object for styling
+  sessionId?: string; // Optional session ID for authenticated queries
 }
 
 /**
@@ -208,3 +216,76 @@ export interface TemplateProps {
  * All template components must accept these props and render JSX.
  */
 export type TemplateComponent = (props: TemplateProps) => React.ReactElement;
+
+/**
+ * Form Template Props
+ *
+ * Props passed to form template components.
+ */
+export interface FormTemplateProps {
+  formId: Id<"objects">; // The form template metadata
+  eventId?: Id<"objects">; // Optional event context
+  ticketId?: Id<"objects">; // Optional ticket context
+  organizationId: Id<"organizations">;
+  theme: Theme; // Theme for styling
+  onSubmit: (data: FormSubmissionData) => Promise<void>;
+  onCancel?: () => void;
+  initialData?: Record<string, unknown>; // Pre-filled data
+  mode?: "standalone" | "checkout" | "embedded"; // Display context
+}
+
+/**
+ * Form Submission Data
+ *
+ * Standardized structure for form responses.
+ */
+export interface FormSubmissionData {
+  // Personal Information
+  salutation?: string;
+  title?: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  mobilePhone?: string;
+
+  // Organization
+  organization?: string;
+  profession?: string;
+
+  // Category/Type Selection
+  attendeeCategory?: string;
+
+  // Event-Specific
+  arrivalTime?: string;
+  accommodation?: string;
+  activity?: string;
+  specialRequests?: string;
+  billingAddress?: string;
+
+  // Add-ons/Extras
+  additionalParticipants?: number;
+  extraSelections?: string[];
+
+  // Open fields
+  otherInfo?: string;
+  comments?: string;
+
+  // Support activities (for volunteers/organizers)
+  supportActivities?: string[];
+
+  // Metadata
+  submittedAt: number;
+  ipAddress?: string;
+  userAgent?: string;
+
+  // Extensible for custom fields
+  [key: string]: unknown;
+}
+
+/**
+ * Form Template Component Type
+ *
+ * All form template components must accept these props.
+ */
+export type FormTemplateComponent = (props: FormTemplateProps) => React.ReactElement;

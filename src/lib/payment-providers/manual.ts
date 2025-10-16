@@ -14,7 +14,7 @@ import {
   ProviderError,
   ProviderErrorType,
 } from "./types";
-import { CheckoutSession, PaymentResult } from "../core/types";
+import { CheckoutSession, PaymentResult } from "../../templates/checkout/core/types";
 
 export class ManualPaymentProvider implements IPaymentProvider {
   readonly providerCode = "manual";

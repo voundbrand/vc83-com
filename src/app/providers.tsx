@@ -11,19 +11,19 @@ import { MediaSelectionProvider } from "@/contexts/media-selection-context";
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ConvexClientProvider>
-      <AuthProvider>
-        <PermissionProvider>
-          <TranslationProvider>
-            <ThemeProvider>
-              <MediaSelectionProvider>
-                <WindowManagerProvider>
+      <WindowManagerProvider>
+        <AuthProvider>
+          <PermissionProvider>
+            <TranslationProvider>
+              <ThemeProvider>
+                <MediaSelectionProvider>
                   {children}
-                </WindowManagerProvider>
-              </MediaSelectionProvider>
-            </ThemeProvider>
-          </TranslationProvider>
-        </PermissionProvider>
-      </AuthProvider>
+                </MediaSelectionProvider>
+              </ThemeProvider>
+            </TranslationProvider>
+          </PermissionProvider>
+        </AuthProvider>
+      </WindowManagerProvider>
     </ConvexClientProvider>
   );
 }

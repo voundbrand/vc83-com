@@ -21,6 +21,7 @@ interface AddressModalProps {
     region?: string;
     isDefault?: boolean;
     isPrimary?: boolean;
+    isTaxOrigin?: boolean;
   }) => void | Promise<void>;
   isSubmitting?: boolean;
 }

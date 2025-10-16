@@ -162,7 +162,7 @@ export function isEarlyBirdAvailable(
 ): boolean {
   const earlyBirdEndDate = item.customProperties?.earlyBirdEndDate;
 
-  if (!earlyBirdEndDate) {
+  if (!earlyBirdEndDate || typeof earlyBirdEndDate !== 'string' && typeof earlyBirdEndDate !== 'number') {
     return false;
   }
 
@@ -181,7 +181,7 @@ export function getDisplayPrice(item: CheckoutItem): {
   const isEarlyBird = isEarlyBirdAvailable(item);
   const earlyBirdPrice = item.customProperties?.earlyBirdPrice;
 
-  if (isEarlyBird && earlyBirdPrice) {
+  if (isEarlyBird && typeof earlyBirdPrice === 'number') {
     return {
       current: earlyBirdPrice,
       original: item.price,

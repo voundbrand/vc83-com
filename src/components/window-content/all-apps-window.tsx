@@ -11,6 +11,7 @@ import { ProductsWindow } from "@/components/window-content/products-window";
 import { TicketsWindow } from "@/components/window-content/tickets-window";
 import { EventsWindow } from "@/components/window-content/events-window";
 import { CheckoutWindow } from "@/components/window-content/checkout-window";
+import { FormsWindow } from "@/components/window-content/forms-window";
 
 /**
  * All Apps Window
@@ -110,6 +111,11 @@ export function AllAppsWindow() {
       },
       'checkout': {
         component: <CheckoutWindow />,
+        width: 950,
+        height: 650
+      },
+      'forms': {
+        component: <FormsWindow />,
         width: 950,
         height: 650
       },

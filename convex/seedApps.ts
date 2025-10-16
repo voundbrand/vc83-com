@@ -645,6 +645,77 @@ export const registerCheckoutApp = mutation({
 });
 
 /**
+ * Register Forms app only
+ *
+ * Simple mutation to register the Forms app for creating registration forms, surveys, and applications.
+ * No authentication required - this is a one-time setup mutation.
+ *
+ * @returns App ID if created, or existing app ID if already registered
+ */
+export const registerFormsApp = mutation({
+  args: {},
+  handler: async (ctx) => {
+    // Check if Forms app already exists
+    const existing = await ctx.db
+      .query("apps")
+      .withIndex("by_code", (q) => q.eq("code", "forms"))
+      .first();
+
+    if (existing) {
+      console.log("Forms app already registered:", existing._id);
+      return {
+        appId: existing._id,
+        message: "Forms app already registered",
+        app: existing,
+      };
+    }
+
+    // Find or create a system organization to own the app
+    let systemOrg = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", "system"))
+      .first();
+
+    // If no system org exists, just use the first organization
+    if (!systemOrg) {
+      const firstOrg = await ctx.db.query("organizations").first();
+      if (!firstOrg) {
+        throw new Error(
+          "No organizations found. Create an organization first before registering apps."
+        );
+      }
+      systemOrg = firstOrg;
+    }
+
+    // Create the Forms app record
+    const appId = await ctx.db.insert("apps", {
+      code: "forms",
+      name: "Forms",
+      description: "Create dynamic forms for event registrations, surveys, and applications with conditional logic and pricing",
+      icon: "📋",
+      category: "commerce",
+      plans: ["pro", "business", "enterprise"],
+      creatorOrgId: systemOrg._id,
+      dataScope: "installer-owned",
+      status: "active",
+      version: "1.0.0",
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    const app = await ctx.db.get(appId);
+
+    console.log("Forms app registered successfully:", appId);
+
+    return {
+      appId,
+      message: "Forms app registered successfully",
+      app,
+    };
+  },
+});
+
+/**
  * Enable all system apps for an organization
  *
  * Convenience function to enable Payments and Web Publishing for a specific org.

@@ -1,53 +1,103 @@
 /**
  * CHECKOUT TEMPLATE REGISTRY
  *
- * Central registry for all checkout template variants.
- * Provides type-safe access to templates by type.
+ * Central registry for all checkout templates.
+ * Similar to the web template registry but for checkout pages.
  */
 
-import { TicketCheckoutTemplate } from "./ticket-checkout";
-import { ProductCheckoutTemplate } from "./product-checkout";
-import { ServiceCheckoutTemplate } from "./service-checkout";
+import React, { type ComponentType } from "react";
+import type { CheckoutTemplateProps, CheckoutTemplateSchema } from "./types";
 
-/**
- * Registry of all available checkout templates.
- */
-export const checkoutTemplates = {
-  ticket: TicketCheckoutTemplate,
-  product: ProductCheckoutTemplate,
-  service: ServiceCheckoutTemplate,
-} as const;
+// Import templates
+import { MultiStepCheckout } from "@/components/checkout/multi-step-checkout";
+import { ticketCheckoutSchema } from "./ticket-checkout/schema";
+import type { Id } from "../../../convex/_generated/dataModel";
 
 /**
- * Type for valid checkout template keys.
+ * Template Registration Entry
  */
-export type CheckoutTemplateType = keyof typeof checkoutTemplates;
-
-/**
- * Get a checkout template by type.
- *
- * @param type - The template type to retrieve
- * @returns The template component
- */
-export function getCheckoutTemplate(type: CheckoutTemplateType) {
-  return checkoutTemplates[type];
+interface CheckoutTemplateRegistration {
+  code: string;
+  name: string;
+  component: ComponentType<CheckoutTemplateProps>;
+  schema: CheckoutTemplateSchema;
 }
 
 /**
- * Check if a template type is valid.
- *
- * @param type - The type to check
- * @returns True if the type exists in the registry
+ * Adapter: Use MultiStepCheckout for ticket checkout template
+ * This new component supports forms, multiple products, and full checkout flow
  */
-export function isValidCheckoutType(type: string): type is CheckoutTemplateType {
-  return type in checkoutTemplates;
+function TicketCheckoutAdapter({
+  linkedProducts,
+  organizationId,
+}: CheckoutTemplateProps) {
+  // Extract payment providers from configuration
+  // For now, default to Stripe - this should come from organization settings
+  const paymentProviders = ["stripe"];
+
+  // MultiStepCheckout handles everything:
+  // - Product selection with quantity controls
+  // - Customer information collection
+  // - Registration form (if product has formId)
+  // - Payment processing
+  // - Confirmation
+  return React.createElement(MultiStepCheckout, {
+    organizationId: organizationId,
+    linkedProducts: linkedProducts,
+    paymentProviders: paymentProviders,
+    onComplete: (result) => {
+      console.log("Checkout completed:", result);
+      // In preview mode, just log. In production, this would trigger actual checkout
+    },
+  });
 }
 
 /**
- * Get all available template types.
- *
- * @returns Array of template type keys
+ * Checkout Template Registry
  */
-export function getAvailableCheckoutTypes(): CheckoutTemplateType[] {
-  return Object.keys(checkoutTemplates) as CheckoutTemplateType[];
+const checkoutTemplateRegistry: Record<string, CheckoutTemplateRegistration> = {
+  "ticket-checkout": {
+    code: "ticket-checkout",
+    name: "Event Ticket Checkout",
+    component: TicketCheckoutAdapter as ComponentType<CheckoutTemplateProps>,
+    schema: ticketCheckoutSchema,
+  },
+  // Future templates will be added here:
+  // "product-checkout": { ... },
+  // "service-checkout": { ... },
+};
+
+/**
+ * Get complete template registration
+ */
+export function getCheckoutTemplate(code: string): CheckoutTemplateRegistration | undefined {
+  return checkoutTemplateRegistry[code];
+}
+
+/**
+ * Get template component
+ */
+export function getCheckoutComponent(code: string): ComponentType<CheckoutTemplateProps> | undefined {
+  return checkoutTemplateRegistry[code]?.component;
+}
+
+/**
+ * Get template schema
+ */
+export function getCheckoutSchema(code: string): CheckoutTemplateSchema | undefined {
+  return checkoutTemplateRegistry[code]?.schema;
+}
+
+/**
+ * List all available templates
+ */
+export function listCheckoutTemplates(): CheckoutTemplateRegistration[] {
+  return Object.values(checkoutTemplateRegistry);
+}
+
+/**
+ * Check if template exists
+ */
+export function hasCheckoutTemplate(code: string): boolean {
+  return code in checkoutTemplateRegistry;
 }

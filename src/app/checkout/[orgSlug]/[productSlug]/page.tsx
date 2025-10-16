@@ -1,11 +1,15 @@
 /**
  * PUBLIC CHECKOUT PAGE
  *
- * Phase 3: Hosted checkout pages
- * URL: /checkout/{org-slug}/{product-slug}
+ * URL: /checkout/{org-slug}/{checkout-slug}
  *
- * This is a public-facing page where customers can purchase products.
- * It's separate from the retro desktop UI.
+ * This is a public-facing page where customers can purchase products through
+ * a checkout instance. The checkout instance defines which products are available
+ * and uses a specific template for rendering.
+ *
+ * This route handles both:
+ * - Product checkouts: /checkout/{org}/{product-slug} (legacy)
+ * - Checkout instances: /checkout/{org}/{checkout-slug} (new)
  */
 
 import { Metadata } from "next";
@@ -14,17 +18,17 @@ import { CheckoutPageClient } from "./checkout-page-client";
 type Props = {
   params: Promise<{
     orgSlug: string;
-    productSlug: string;
+    productSlug: string; // Can be either product slug OR checkout instance publicSlug
   }>;
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { orgSlug, productSlug } = await params;
 
-  // TODO: Fetch product details for proper SEO
+  // TODO: Fetch checkout instance details for proper SEO
   return {
     title: `Checkout - ${productSlug}`,
-    description: `Purchase ${productSlug} from ${orgSlug}`,
+    description: `Secure checkout for ${orgSlug}`,
   };
 }
 
@@ -34,7 +38,7 @@ export default async function CheckoutPage({ params }: Props) {
   return (
     <CheckoutPageClient
       orgSlug={orgSlug}
-      productSlug={productSlug}
+      slug={productSlug} // This can be checkout publicSlug or product slug
     />
   );
 }

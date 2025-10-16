@@ -249,7 +249,7 @@ export const updateOrganizationProfile = mutation({
 
 /**
  * UPDATE ORGANIZATION LEGAL
- * Creates or updates organization legal information
+ * Creates or updates organization legal information and tax collection settings
  */
 export const updateOrganizationLegal = mutation({
   args: {
@@ -259,6 +259,14 @@ export const updateOrganizationLegal = mutation({
     vatNumber: v.optional(v.string()),
     companyRegistrationNumber: v.optional(v.string()),
     legalEntityType: v.optional(v.string()),
+    // Tax Collection Settings
+    taxEnabled: v.optional(v.boolean()),
+    defaultTaxBehavior: v.optional(v.union(
+      v.literal("inclusive"),
+      v.literal("exclusive"),
+      v.literal("automatic")
+    )),
+    defaultTaxCode: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
@@ -495,6 +503,7 @@ export const createOrganizationAddress = mutation({
     region: v.optional(v.string()),
     isDefault: v.optional(v.boolean()),
     isPrimary: v.optional(v.boolean()),
+    isTaxOrigin: v.optional(v.boolean()),
     label: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -540,6 +549,7 @@ export const updateOrganizationAddress = mutation({
     region: v.optional(v.string()),
     isDefault: v.optional(v.boolean()),
     isPrimary: v.optional(v.boolean()),
+    isTaxOrigin: v.optional(v.boolean()),
     label: v.optional(v.string()),
   },
   handler: async (ctx, args) => {

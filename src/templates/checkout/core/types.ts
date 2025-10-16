@@ -24,6 +24,11 @@ export interface CheckoutItem {
   stripePriceId?: string;
   metadata?: Record<string, unknown>;
   customProperties?: Record<string, unknown>;
+
+  // Tax configuration
+  taxCode?: string; // Stripe tax code (e.g., "txcd_10000000")
+  taxBehavior?: "inclusive" | "exclusive" | "automatic";
+  taxable?: boolean;
 }
 
 /**

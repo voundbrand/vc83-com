@@ -32,6 +32,7 @@ export enum FieldType {
   Repeater = "repeater", // Array of objects
   Object = "object", // Nested object
   EventLink = "event-link", // Link to an event to auto-populate template fields
+  CheckoutLink = "checkout-link", // Link to a checkout instance to auto-populate products
 }
 
 /**
@@ -188,6 +189,17 @@ export interface EventLinkFieldDefinition extends BaseFieldDefinition {
 }
 
 /**
+ * Checkout Link Field
+ *
+ * Links a web page to a checkout instance from Checkout app.
+ * When a checkout is selected, products are automatically fetched and displayed.
+ */
+export interface CheckoutLinkFieldDefinition extends BaseFieldDefinition {
+  type: FieldType.CheckoutLink;
+  helpText?: string;
+}
+
+/**
  * Union of All Field Types
  */
 export type FieldDefinition =
@@ -204,7 +216,8 @@ export type FieldDefinition =
   | TextArrayFieldDefinition
   | RepeaterFieldDefinition
   | ObjectFieldDefinition
-  | EventLinkFieldDefinition;
+  | EventLinkFieldDefinition
+  | CheckoutLinkFieldDefinition;
 
 /**
  * Section Definition

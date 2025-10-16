@@ -14,7 +14,7 @@ import {
   ProviderError,
   ProviderErrorType,
 } from "./types";
-import { CheckoutSession, PaymentResult } from "../core/types";
+import { CheckoutSession, PaymentResult } from "../../templates/checkout/core/types";
 
 export class StripePaymentProvider implements IPaymentProvider {
   readonly providerCode = "stripe";
@@ -62,18 +62,34 @@ export class StripePaymentProvider implements IPaymentProvider {
     }
 
     try {
+      // Prepare tax configuration from options
+      const taxConfig = options.taxSettings ? {
+        automaticTaxEnabled: options.taxSettings.taxEnabled,
+        originAddress: options.taxSettings.originAddress,
+        stripeSettings: options.taxSettings.stripeSettings,
+      } : undefined;
+
+      // Extract tax codes from items
+      const itemsWithTax = options.items.map((item) => ({
+        ...item,
+        taxCode: item.taxCode || options.taxSettings?.defaultTaxCode,
+        taxBehavior: item.taxBehavior || options.taxSettings?.defaultTaxBehavior || "exclusive",
+      }));
+
       // Call Convex action to create Stripe session
       // This would be replaced with actual Convex action call
       const response = await fetch("/api/checkout/create-stripe-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          items: options.items,
+          items: itemsWithTax,
           quantity: options.quantity,
           organizationId: options.organizationId,
           successUrl: options.successUrl,
           cancelUrl: options.cancelUrl,
           metadata: options.metadata,
+          taxConfig,
+          customerAddress: options.customerAddress,
         }),
       });
 
@@ -114,19 +130,13 @@ export class StripePaymentProvider implements IPaymentProvider {
       );
     }
 
-    try {
-      const result = await this.stripe.redirectToCheckout({
-        sessionId: session.id,
-      });
-
-      if (result.error) {
-        throw new Error(result.error.message);
-      }
-    } catch (error) {
+    // Redirect to Stripe Checkout URL directly
+    if (session.url) {
+      window.location.href = session.url;
+    } else {
       throw new ProviderError(
         ProviderErrorType.PROVIDER_ERROR,
-        "Failed to redirect to Stripe checkout",
-        error
+        "No checkout URL provided in session"
       );
     }
   }

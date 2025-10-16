@@ -4,6 +4,7 @@ import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useState, createContext, useContext, ReactNode, useEffect } from "react";
 import { Id } from "../../convex/_generated/dataModel";
+import { useWindowManager } from "./use-window-manager";
 
 interface Permission {
   id: string;
@@ -68,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return null;
   });
 
+  const { closeAllWindows } = useWindowManager();
   const userQuery = useQuery(
     api.auth.getCurrentUser,
     sessionId ? { sessionId } : { sessionId: undefined }
@@ -123,6 +125,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     if (sessionId) {
+      // Close all windows before signing out to prevent permission issues
+      closeAllWindows();
       await signOutMutation({ sessionId });
       localStorage.removeItem("convex_session_id");
       setSessionId(null);

@@ -17,6 +17,7 @@
  */
 
 import { query, mutation } from "./_generated/server";
+import { internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser } from "./rbacHelpers";
 
@@ -56,6 +57,73 @@ export const getProducts = query({
 });
 
 /**
+ * GET PRODUCTS WITH FORMS
+ * Returns all products for an organization with linked form data included
+ */
+export const getProductsWithForms = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    subtype: v.optional(v.string()), // Filter by product type
+    status: v.optional(v.string()),  // Filter by status
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const q = ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "product")
+      );
+
+    let products = await q.collect();
+
+    // Apply filters
+    if (args.subtype) {
+      products = products.filter((p) => p.subtype === args.subtype);
+    }
+
+    if (args.status) {
+      products = products.filter((p) => p.status === args.status);
+    }
+
+    // For each product, fetch linked form
+    const productsWithForms = await Promise.all(
+      products.map(async (product) => {
+        // Find linked form via objectLinks
+        const formLinks = await ctx.db
+          .query("objectLinks")
+          .withIndex("by_from_object", (q) => q.eq("fromObjectId", product._id))
+          .collect();
+
+        const formLink = formLinks.find((link) => link.linkType === "requiresForm");
+
+        if (formLink) {
+          // Fetch the form
+          const form = await ctx.db.get(formLink.toObjectId);
+          if (form && form.type === "form") {
+            // Add form data to customProperties
+            return {
+              ...product,
+              customProperties: {
+                ...product.customProperties,
+                formId: form._id,
+                formTiming: formLink.properties?.timing || "duringCheckout",
+                formRequired: formLink.properties?.required ?? true,
+              },
+            };
+          }
+        }
+
+        return product;
+      })
+    );
+
+    return productsWithForms;
+  },
+});
+
+/**
  * GET PRODUCT
  * Get a single product by ID
  */
@@ -71,6 +139,53 @@ export const getProduct = query({
 
     if (!product || product.type !== "product") {
       throw new Error("Product not found");
+    }
+
+    return product;
+  },
+});
+
+/**
+ * GET PRODUCT WITH FORM
+ * Get a single product by ID with linked form data included
+ */
+export const getProductWithForm = query({
+  args: {
+    sessionId: v.string(),
+    productId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const product = await ctx.db.get(args.productId);
+
+    if (!product || product.type !== "product") {
+      throw new Error("Product not found");
+    }
+
+    // Find linked form via objectLinks
+    const formLinks = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_from_object", (q) => q.eq("fromObjectId", args.productId))
+      .collect();
+
+    const formLink = formLinks.find((link) => link.linkType === "requiresForm");
+
+    if (formLink) {
+      // Fetch the form
+      const form = await ctx.db.get(formLink.toObjectId);
+      if (form && form.type === "form") {
+        // Add form data to customProperties
+        return {
+          ...product,
+          customProperties: {
+            ...product.customProperties,
+            formId: form._id,
+            formTiming: formLink.properties?.timing || "duringCheckout",
+            formRequired: formLink.properties?.required ?? true,
+          },
+        };
+      }
     }
 
     return product;
@@ -119,6 +234,7 @@ export const createProduct = mutation({
       currency: args.currency || "USD",
       inventory: args.inventory ?? null,
       sold: 0, // Track sales count
+      eventId: args.eventId, // Store event link for easy access
       ...(args.customProperties || {}),
     };
 
@@ -270,6 +386,60 @@ export const publishProduct = mutation({
 });
 
 /**
+ * UNLINK FORM FROM PRODUCT
+ * Remove form link from a product (clears customProperties.formId)
+ */
+export const unlinkFormFromProduct = mutation({
+  args: {
+    sessionId: v.string(),
+    productId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const product = await ctx.db.get(args.productId);
+    if (!product || product.type !== "product") {
+      throw new Error("Product not found");
+    }
+
+    // Remove form data from customProperties
+    const updatedCustomProperties = { ...product.customProperties };
+    delete updatedCustomProperties.formId;
+    delete updatedCustomProperties.formTiming;
+    delete updatedCustomProperties.formRequired;
+
+    await ctx.db.patch(args.productId, {
+      customProperties: updatedCustomProperties,
+      updatedAt: Date.now(),
+    });
+
+    // Also delete any objectLinks with requiresForm (if they exist)
+    const formLinks = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_from_object", (q) => q.eq("fromObjectId", args.productId))
+      .collect();
+
+    for (const link of formLinks) {
+      if (link.linkType === "requiresForm") {
+        await ctx.db.delete(link._id);
+      }
+    }
+
+    // Log the action
+    await ctx.db.insert("objectActions", {
+      organizationId: product.organizationId,
+      objectId: args.productId,
+      actionType: "form_unlinked",
+      performedBy: userId,
+      performedAt: Date.now(),
+      actionData: {},
+    });
+
+    return { success: true };
+  },
+});
+
+/**
  * INCREMENT SOLD COUNT
  * Track product sales (called after successful purchase)
  */
@@ -319,5 +489,54 @@ export const incrementSold = mutation({
     });
 
     return { newSold, newInventory };
+  },
+});
+
+/**
+ * GET PRODUCTS BY IDS
+ * Batch fetch multiple products by their IDs
+ * Used for displaying products linked to checkout instances
+ */
+export const getProductsByIds = query({
+  args: {
+    sessionId: v.string(),
+    productIds: v.array(v.id("objects")),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    // Fetch all products in parallel
+    const products = await Promise.all(
+      args.productIds.map(async (id) => {
+        const product = await ctx.db.get(id);
+        if (!product || product.type !== "product") {
+          return null;
+        }
+        return product;
+      })
+    );
+
+    // Filter out null values (products that don't exist or aren't products)
+    return products.filter((p) => p !== null);
+  },
+});
+
+/**
+ * GET PRODUCT INTERNAL
+ * Internal query for getting a product without auth check
+ * Used by actions that have their own auth/validation logic
+ */
+export const getProductInternal = internalQuery({
+  args: {
+    productId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const product = await ctx.db.get(args.productId);
+
+    if (!product || product.type !== "product") {
+      return null;
+    }
+
+    return product;
   },
 });

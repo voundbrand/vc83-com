@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useImperativeHandle, forwardRef, useMemo } from "react";
-import { useQuery } from "convex/react";
+import { useQuery, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { OrganizationSection } from "./components/organization-section";
 import { useTranslation } from "@/contexts/translation-context";
@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { Doc } from "../../../../convex/_generated/dataModel";
 import { usePermissions } from "@/contexts/permission-context";
+import { getLegalEntitiesForCountry } from "../../../../convex/legalEntityTypes";
 
 interface OrganizationDetailsFormProps {
   organization: Doc<"organizations"> & { members?: unknown[] };
@@ -61,6 +62,9 @@ export interface FormData {
   vatNumber: string;
   companyRegistrationNumber: string;
   legalEntityType: string;
+  taxEnabled: boolean;
+  defaultTaxBehavior: "inclusive" | "exclusive" | "automatic";
+  defaultTaxCode: string;
   settings: {
     branding: {
       primaryColor: string;
@@ -85,6 +89,16 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
     // Check permissions inline using centralized context
     const { hasPermission } = usePermissions();
     const canEdit = hasPermission("manage_organization");
+
+    // VAT validation
+    const validateVATAction = useAction(api.vatValidation.validateVATNumber);
+    const [isValidatingVAT, setIsValidatingVAT] = useState(false);
+    const [vatValidationResult, setVatValidationResult] = useState<{
+      valid: boolean;
+      name?: string;
+      address?: string;
+      error?: string;
+    } | null>(null);
 
     // Query ontology data for this organization
     const profile = useQuery(api.organizationOntology.getOrganizationProfile, {
@@ -111,6 +125,26 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
       organizationId: organization._id,
       subtype: "invoicing"
     });
+
+    // Load addresses to find tax origin
+    const addresses = useQuery(api.organizationOntology.getOrganizationAddresses, {
+      organizationId: organization._id,
+    });
+
+    // Find tax origin address
+    const taxOriginAddress = addresses?.find(
+      (addr) => (addr.customProperties as { isTaxOrigin?: boolean })?.isTaxOrigin
+    );
+
+    // Get country from tax origin address
+    const taxOriginCountry = taxOriginAddress
+      ? (taxOriginAddress.customProperties as { country?: string })?.country
+      : null;
+
+    // Get available legal entity types based on tax origin address country
+    const availableLegalEntities = taxOriginCountry
+      ? getLegalEntitiesForCountry(taxOriginCountry)
+      : null;
 
     // Extract single objects from settings queries (they return arrays when no subtype)
     const brandingSettings = useMemo(() =>
@@ -160,6 +194,9 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
     vatNumber: legal?.customProperties?.vatNumber || "",
     companyRegistrationNumber: legal?.customProperties?.companyRegistrationNumber || "",
     legalEntityType: legal?.customProperties?.legalEntityType || "",
+    taxEnabled: legal?.customProperties?.taxEnabled || false,
+    defaultTaxBehavior: legal?.customProperties?.defaultTaxBehavior || "exclusive" as "inclusive" | "exclusive" | "automatic",
+    defaultTaxCode: legal?.customProperties?.defaultTaxCode || "",
 
     // Settings - from ontology (organization_settings with subtypes)
     settings: {
@@ -216,6 +253,9 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
         vatNumber: legal?.customProperties?.vatNumber || "",
         companyRegistrationNumber: legal?.customProperties?.companyRegistrationNumber || "",
         legalEntityType: legal?.customProperties?.legalEntityType || "",
+        taxEnabled: legal?.customProperties?.taxEnabled || false,
+        defaultTaxBehavior: legal?.customProperties?.defaultTaxBehavior || "exclusive",
+        defaultTaxCode: legal?.customProperties?.defaultTaxCode || "",
 
         // Settings - from ontology
         settings: {
@@ -589,74 +629,265 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
         collapsible={true}
         defaultCollapsed={true}
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
-              {t("ui.manage.org.tax_id")}
-            </label>
-            <input
-              type="text"
-              value={formData.taxId}
-              onChange={(e) => setFormData({ ...formData, taxId: e.target.value })}
-              readOnly={!isEditing}
-              disabled={!canEdit || !isEditing}
-              className="w-full px-2 py-1 text-sm font-mono"
-              style={inputStyles}
-            />
-          </div>
+        {/* Legal Entity Information */}
+        <div className="mb-6">
+          <p className="text-xs font-semibold mb-3" style={{ color: 'var(--win95-text)' }}>
+            Legal Entity
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                {t("ui.manage.org.tax_id")}
+              </label>
+              <input
+                type="text"
+                value={formData.taxId}
+                onChange={(e) => setFormData({ ...formData, taxId: e.target.value })}
+                readOnly={!isEditing}
+                disabled={!canEdit || !isEditing}
+                className="w-full px-2 py-1 text-sm font-mono"
+                style={inputStyles}
+              />
+            </div>
 
-          <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
-              {t("ui.manage.org.vat_number")}
-            </label>
-            <input
-              type="text"
-              value={formData.vatNumber}
-              onChange={(e) => setFormData({ ...formData, vatNumber: e.target.value })}
-              readOnly={!isEditing}
-              disabled={!canEdit || !isEditing}
-              placeholder={t("ui.manage.org.vat_number_placeholder")}
-              className="w-full px-2 py-1 text-sm font-mono"
-              style={inputStyles}
-            />
-          </div>
+            <div>
+              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                {t("ui.manage.org.vat_number")}
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={formData.vatNumber}
+                  onChange={(e) => setFormData({ ...formData, vatNumber: e.target.value.toUpperCase() })}
+                  readOnly={!isEditing}
+                  disabled={!canEdit || !isEditing}
+                  placeholder="GB123456789 or DE123456789"
+                  className="flex-1 px-2 py-1 text-sm font-mono"
+                  style={inputStyles}
+                />
+                {isEditing && formData.vatNumber && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setIsValidatingVAT(true);
+                      setVatValidationResult(null);
+                      try {
+                        const result = await validateVATAction({ vatNumber: formData.vatNumber });
+                        setVatValidationResult(result);
+                      } catch (error) {
+                        setVatValidationResult({
+                          valid: false,
+                          error: error instanceof Error ? error.message : "Validation failed"
+                        });
+                      } finally {
+                        setIsValidatingVAT(false);
+                      }
+                    }}
+                    disabled={isValidatingVAT}
+                    className="px-2 py-1 text-xs font-semibold whitespace-nowrap"
+                    style={{
+                      backgroundColor: "var(--primary)",
+                      color: "white",
+                      border: "2px solid",
+                      borderTopColor: "var(--win95-button-light)",
+                      borderLeftColor: "var(--win95-button-light)",
+                      borderBottomColor: "var(--win95-button-dark)",
+                      borderRightColor: "var(--win95-button-dark)",
+                      opacity: isValidatingVAT ? 0.6 : 1,
+                    }}
+                  >
+                    {isValidatingVAT ? "Verifying..." : "Verify VAT"}
+                  </button>
+                )}
+              </div>
+              {/* VAT Validation Result */}
+              {vatValidationResult && (
+                <div
+                  className="mt-2 p-2 border-2 text-xs"
+                  style={{
+                    backgroundColor: vatValidationResult.valid ? 'var(--success-bg, #d4edda)' : 'var(--error-bg, #f8d7da)',
+                    borderColor: vatValidationResult.valid ? 'var(--success, #28a745)' : 'var(--error, #dc3545)',
+                    color: 'var(--win95-text)',
+                  }}
+                >
+                  {vatValidationResult.valid ? (
+                    <>
+                      <p className="font-semibold" style={{ color: 'var(--success, #28a745)' }}>
+                        ✅ VAT Number Valid
+                      </p>
+                      {vatValidationResult.name && (
+                        <p className="mt-1"><strong>Company:</strong> {vatValidationResult.name}</p>
+                      )}
+                      {vatValidationResult.address && (
+                        <p className="mt-1"><strong>Address:</strong> {vatValidationResult.address}</p>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-semibold" style={{ color: 'var(--error, #dc3545)' }}>
+                        ❌ VAT Number Invalid
+                      </p>
+                      {vatValidationResult.error && (
+                        <p className="mt-1">{vatValidationResult.error}</p>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+              <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
+                EU VAT format: Country code + number (e.g., DE123456789)
+              </p>
+            </div>
 
-          <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
-              {t("ui.manage.org.company_registration_number")}
-            </label>
-            <input
-              type="text"
-              value={formData.companyRegistrationNumber}
-              onChange={(e) => setFormData({ ...formData, companyRegistrationNumber: e.target.value })}
-              readOnly={!isEditing}
-              disabled={!canEdit || !isEditing}
-              className="w-full px-2 py-1 text-sm font-mono"
-              style={inputStyles}
-            />
-          </div>
+            <div>
+              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                {t("ui.manage.org.company_registration_number")}
+              </label>
+              <input
+                type="text"
+                value={formData.companyRegistrationNumber}
+                onChange={(e) => setFormData({ ...formData, companyRegistrationNumber: e.target.value })}
+                readOnly={!isEditing}
+                disabled={!canEdit || !isEditing}
+                className="w-full px-2 py-1 text-sm font-mono"
+                style={inputStyles}
+              />
+            </div>
 
-          <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
-              {t("ui.manage.org.legal_entity_type")}
-            </label>
-            <select
-              value={formData.legalEntityType}
-              onChange={(e) => setFormData({ ...formData, legalEntityType: e.target.value })}
-              disabled={!canEdit || !isEditing}
-              className="w-full px-2 py-1 text-sm"
-              style={inputStyles}
-            >
-              <option value="">{t("ui.manage.org.legal_entity_type_select")}</option>
-              <option value="LLC">LLC</option>
-              <option value="Corporation">Corporation</option>
-              <option value="S-Corp">S-Corporation</option>
-              <option value="C-Corp">C-Corporation</option>
-              <option value="Partnership">Partnership</option>
-              <option value="Sole Proprietorship">Sole Proprietorship</option>
-              <option value="Non-Profit">Non-Profit</option>
-              <option value="Other">Other</option>
-            </select>
+            <div>
+              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                {t("ui.manage.org.legal_entity_type")}
+              </label>
+
+              {/* Show warning if no tax origin address */}
+              {!taxOriginAddress && (
+                <div className="mb-2 p-2 border-2 text-xs" style={{
+                  backgroundColor: '#fef3c7',
+                  color: '#92400e',
+                  borderColor: '#fcd34d'
+                }}>
+                  ⚠️ Please add an address and mark it as &quot;tax origin&quot; in the Addresses section above first.
+                </div>
+              )}
+
+              {/* Show country if tax origin exists */}
+              {taxOriginAddress && availableLegalEntities && (
+                <div className="mb-1 text-xs" style={{ color: 'var(--neutral-gray)' }}>
+                  Country: {availableLegalEntities.countryName} ({availableLegalEntities.country})
+                </div>
+              )}
+
+              <select
+                value={formData.legalEntityType}
+                onChange={(e) => setFormData({ ...formData, legalEntityType: e.target.value })}
+                disabled={!canEdit || !isEditing || !taxOriginAddress}
+                className="w-full px-2 py-1 text-sm"
+                style={inputStyles}
+              >
+                <option value="">
+                  {!taxOriginAddress
+                    ? "Add tax origin address first"
+                    : t("ui.manage.org.legal_entity_type_select")}
+                </option>
+                {availableLegalEntities?.entities.map((entity) => (
+                  <option key={entity.code} value={entity.code} title={entity.description}>
+                    {entity.code} - {entity.name}
+                    {entity.minShareCapital ? ` (Min: ${entity.minShareCapital})` : ""}
+                  </option>
+                ))}
+              </select>
+
+              {/* Show description for selected entity */}
+              {formData.legalEntityType && availableLegalEntities && (
+                <div className="mt-2 p-2 text-xs border-2" style={{
+                  backgroundColor: 'var(--win95-bg-light)',
+                  borderColor: 'var(--win95-border)',
+                  color: 'var(--neutral-gray)'
+                }}>
+                  {(() => {
+                    const selectedEntity = availableLegalEntities.entities.find(e => e.code === formData.legalEntityType);
+                    if (!selectedEntity) return null;
+                    return (
+                      <>
+                        <strong>{selectedEntity.localName}</strong>
+                        <br />
+                        {selectedEntity.description}
+                        <br />
+                        <span style={{ fontSize: '0.65rem' }}>
+                          Liability: {selectedEntity.liability} | VAT Eligible: {selectedEntity.vatEligible ? 'Yes' : 'No'}
+                          {selectedEntity.minShareCapital && ` | Min Capital: ${selectedEntity.minShareCapital}`}
+                        </span>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Tax Collection Settings */}
+        <div className="border-t-2 pt-4" style={{ borderColor: 'var(--win95-border)' }}>
+          <p className="text-xs font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
+            <Receipt className="w-3.5 h-3.5" />
+            Tax Collection Settings
+          </p>
+          <div className="space-y-4">
+            {/* Enable Tax Collection */}
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="taxEnabled"
+                checked={formData.taxEnabled}
+                onChange={(e) => setFormData({ ...formData, taxEnabled: e.target.checked })}
+                disabled={!canEdit || !isEditing}
+                className="w-4 h-4"
+              />
+              <label htmlFor="taxEnabled" className="text-sm font-semibold" style={{ color: 'var(--win95-text)' }}>
+                Enable tax collection for this organization
+              </label>
+            </div>
+
+            {/* Tax Behavior */}
+            <div>
+              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                Default Tax Behavior
+              </label>
+              <select
+                value={formData.defaultTaxBehavior}
+                onChange={(e) => setFormData({ ...formData, defaultTaxBehavior: e.target.value as "inclusive" | "exclusive" | "automatic" })}
+                disabled={!canEdit || !isEditing || !formData.taxEnabled}
+                className="w-full px-2 py-1 text-sm"
+                style={inputStyles}
+              >
+                <option value="exclusive">Exclusive (Tax added at checkout)</option>
+                <option value="inclusive">Inclusive (Tax included in price)</option>
+                <option value="automatic">Automatic (Provider determines)</option>
+              </select>
+              <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
+                How tax should be calculated on products by default
+              </p>
+            </div>
+
+            {/* Default Tax Code */}
+            <div>
+              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                Default Tax Code
+              </label>
+              <input
+                type="text"
+                value={formData.defaultTaxCode}
+                onChange={(e) => setFormData({ ...formData, defaultTaxCode: e.target.value })}
+                readOnly={!isEditing}
+                disabled={!canEdit || !isEditing || !formData.taxEnabled}
+                placeholder="txcd_00000000 (or leave empty for standard rate)"
+                className="w-full px-2 py-1 text-sm font-mono"
+                style={inputStyles}
+              />
+              <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
+                Tax code applied to products without specific codes (provider-specific format)
+              </p>
+            </div>
           </div>
         </div>
       </OrganizationSection>

@@ -1,0 +1,216 @@
+/* HaffSymposium Registration Form Styles */
+
+.formContainer {
+  max-width: 900px;
+  margin: 0 auto;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md, 1.5rem);
+}
+
+.header {
+  padding: 2rem;
+  color: white;
+  text-align: center;
+}
+
+.headerTitle {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.headerSubtitle {
+  font-size: 1rem;
+  opacity: 0.9;
+}
+
+.section {
+  padding: 1.5rem;
+  margin: 1rem;
+  background: #f8fafc;
+  border-radius: 8px;
+  border-left: 4px solid var(--color-primary, #4299e1);
+}
+
+.sectionTitle {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #2d3748;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.625rem;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.formGroup {
+  margin-bottom: 1.25rem;
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+.label {
+  font-weight: 500;
+  color: #4a5568;
+  margin-bottom: 0.5rem;
+  display: block;
+  font-size: 0.875rem;
+}
+
+.input,
+.textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.input:focus,
+.textarea:focus {
+  outline: none;
+  border-color: var(--color-primary, #4299e1);
+  box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+}
+
+.textarea {
+  resize: vertical;
+  font-family: inherit;
+}
+
+.radioGroup,
+.checkboxGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.radioItem,
+.checkboxItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding: 0.75rem;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  border: 1px solid #e2e8f0;
+}
+
+.radioItem:hover,
+.checkboxItem:hover {
+  background: #edf2f7;
+  border-color: #cbd5e0;
+}
+
+.radioItem input[type="radio"],
+.checkboxItem input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+  margin-top: 0.125rem;
+  cursor: pointer;
+}
+
+.radioItem label,
+.checkboxItem label {
+  margin: 0;
+  cursor: pointer;
+  flex: 1;
+}
+
+.note {
+  background: #fef5e7;
+  border: 1px solid #f6e05e;
+  border-radius: 6px;
+  padding: 0.875rem;
+  margin: 0.875rem 0;
+  font-size: 0.875rem;
+  color: #744210;
+}
+
+.error {
+  display: block;
+  color: #e53e3e;
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.submitButton {
+  padding: 1rem 2.5rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+  cursor: pointer;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  margin: 1.5rem 1rem 1rem;
+}
+
+.submitButton:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(66, 153, 225, 0.3);
+}
+
+.submitButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cancelButton {
+  padding: 0.875rem 2rem;
+  border: 2px solid #e2e8f0;
+  background: white;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #4a5568;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin: 0 1rem 1rem;
+}
+
+.cancelButton:hover {
+  border-color: #cbd5e0;
+  background: #f7fafc;
+}
+
+@media (max-width: 768px) {
+  .formRow {
+    grid-template-columns: 1fr;
+  }
+
+  .formContainer {
+    border-radius: 0;
+    margin: 0;
+  }
+
+  .header {
+    padding: 1.5rem;
+  }
+
+  .section {
+    margin: 0.5rem;
+    padding: 1rem;
+  }
+
+  .submitButton,
+  .cancelButton {
+    width: calc(100% - 2rem);
+    margin-left: 1rem;
+    margin-right: 1rem;
+  }
+}

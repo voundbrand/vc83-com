@@ -1,12 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, Plus, Grid3x3, FileText } from "lucide-react";
+import { Building2, Plus, Grid3x3, FileText, Receipt } from "lucide-react";
 import { SystemOrganizationsTab } from "./system-organizations-tab";
 import { OrganizationsListTab } from "./organizations-list-tab";
 import { AppAvailabilityTab } from "./app-availability-tab";
 import { TemplatesTab } from "./templates-tab";
+import { TaxSettingsTab } from "./tax-settings-tab";
 import { useTranslation } from "@/contexts/translation-context";
+import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
+import { Id } from "../../../../convex/_generated/dataModel";
 
 /**
  * Organizations Window - Tabbed Interface for Organization Management
@@ -18,11 +21,14 @@ import { useTranslation } from "@/contexts/translation-context";
  * - Templates: Manage which templates are available to which orgs (super admin only)
  */
 
-type TabType = "list" | "create" | "app-availability" | "templates";
+type TabType = "list" | "create" | "app-availability" | "templates" | "tax-settings";
 
 export function OrganizationsWindow() {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabType>("list");
+  const { sessionId } = useAuth();
+  const currentOrganization = useCurrentOrganization();
+  const organizationId = currentOrganization?.id;
 
   return (
     <div className="flex flex-col h-full" style={{ background: 'var(--win95-bg)' }}>
@@ -75,7 +81,7 @@ export function OrganizationsWindow() {
           App Availability
         </button>
         <button
-          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2"
+          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
           style={{
             borderColor: 'var(--win95-border)',
             background: activeTab === "templates" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
@@ -86,6 +92,18 @@ export function OrganizationsWindow() {
           <FileText size={14} />
           Templates
         </button>
+        <button
+          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2"
+          style={{
+            borderColor: 'var(--win95-border)',
+            background: activeTab === "tax-settings" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+            color: activeTab === "tax-settings" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+          }}
+          onClick={() => setActiveTab("tax-settings")}
+        >
+          <Receipt size={14} />
+          Tax Settings
+        </button>
       </div>
 
       {/* Tab Content */}
@@ -94,6 +112,12 @@ export function OrganizationsWindow() {
         {activeTab === "create" && <SystemOrganizationsTab />}
         {activeTab === "app-availability" && <AppAvailabilityTab />}
         {activeTab === "templates" && <TemplatesTab />}
+        {activeTab === "tax-settings" && sessionId && organizationId && (
+          <TaxSettingsTab
+            sessionId={sessionId}
+            organizationId={organizationId as Id<"organizations">}
+          />
+        )}
       </div>
     </div>
   );

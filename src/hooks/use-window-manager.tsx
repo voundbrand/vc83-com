@@ -20,6 +20,7 @@ interface WindowManagerContextType {
   windows: Window[]
   openWindow: (id: string, title: string, component: ReactNode, position?: { x: number; y: number }, size?: { width: number; height: number }) => void
   closeWindow: (id: string) => void
+  closeAllWindows: () => void
   focusWindow: (id: string) => void
   resizeWindow: (id: string, size: { width: number; height: number }) => void
   moveWindow: (id: string, position: { x: number; y: number }) => void
@@ -84,6 +85,12 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
 
   const closeWindow = (id: string) => {
     setWindows((prev) => prev.map((w) => (w.id === id ? { ...w, isOpen: false } : w)))
+  }
+
+  const closeAllWindows = () => {
+    setWindows((prev) => prev.map((w) => ({ ...w, isOpen: false })))
+    // Reset cascade offset when all windows are closed
+    setCascadeOffset({ x: 100, y: 100 })
   }
 
   const focusWindow = (id: string) => {
@@ -169,6 +176,7 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
         windows,
         openWindow,
         closeWindow,
+        closeAllWindows,
         focusWindow,
         resizeWindow,
         moveWindow,

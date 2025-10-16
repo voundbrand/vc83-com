@@ -74,27 +74,31 @@ export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
     region?: string;
     isDefault?: boolean;
     isPrimary?: boolean;
+    isTaxOrigin?: boolean;
   }) => {
     if (!organizationId || !sessionId) return;
 
     setIsSubmittingAddress(true);
     try {
+      // Extract type and spread the rest (type is not in mutation args, only subtype)
+      const { type, ...addressData } = data;
+
       if (editingAddress) {
         // Update existing address
         await updateAddressMut({
           sessionId,
           addressId: editingAddress._id as Id<"objects">,
-          name: data.label || `${data.type} address`,
-          ...data,
+          name: data.label || `${type} address`,
+          ...addressData,
         });
       } else {
         // Create new address
         await createAddress({
           sessionId,
           organizationId: organizationId as Id<"organizations">,
-          subtype: data.type, // type → subtype
-          name: data.label || `${data.type} address`,
-          ...data,
+          subtype: type, // type → subtype
+          name: data.label || `${type} address`,
+          ...addressData,
         });
       }
       setIsAddressModalOpen(false);

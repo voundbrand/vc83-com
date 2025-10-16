@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { Doc } from "../../../../convex/_generated/dataModel";
 import { usePermissions } from "@/contexts/permission-context";
+import { getLegalEntitiesForCountry } from "../../../../convex/legalEntityTypes";
 
 interface OrganizationDetailsFormProps {
   organization: Doc<"organizations"> & { members?: unknown[] };
@@ -125,6 +126,26 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
       Array.isArray(invoicingSettingsData) ? undefined : invoicingSettingsData,
       [invoicingSettingsData]
     );
+
+  // Load addresses to find tax origin
+  const addresses = useQuery(api.organizationOntology.getOrganizationAddresses, {
+    organizationId: organization._id,
+  });
+
+  // Find tax origin address
+  const taxOriginAddress = addresses?.find(
+    (addr) => (addr.customProperties as { isTaxOrigin?: boolean })?.isTaxOrigin
+  );
+
+  // Get country from tax origin address
+  const taxOriginCountry = taxOriginAddress
+    ? (taxOriginAddress.customProperties as { country?: string })?.country
+    : null;
+
+  // Get available legal entity types based on tax origin address country
+  const availableLegalEntities = taxOriginCountry
+    ? getLegalEntitiesForCountry(taxOriginCountry)
+    : null;
 
   // Form state for all fields
   const [formData, setFormData] = useState({
@@ -640,23 +661,70 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
             <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
               {t("ui.manage.org.legal_entity_type")}
             </label>
+
+            {/* Show warning if no tax origin address */}
+            {!taxOriginAddress && (
+              <div className="mb-2 p-2 border-2 text-xs" style={{
+                backgroundColor: '#fef3c7',
+                color: '#92400e',
+                borderColor: '#fcd34d'
+              }}>
+                ⚠️ Please add an address and mark it as &quot;tax origin&quot; in the Addresses section above first.
+              </div>
+            )}
+
+            {/* Show country if tax origin exists */}
+            {taxOriginAddress && availableLegalEntities && (
+              <div className="mb-1 text-xs" style={{ color: 'var(--neutral-gray)' }}>
+                Country: {availableLegalEntities.countryName} ({availableLegalEntities.country})
+              </div>
+            )}
+
             <select
               value={formData.legalEntityType}
               onChange={(e) => setFormData({ ...formData, legalEntityType: e.target.value })}
-              disabled={!canEdit || !isEditing}
+              disabled={!canEdit || !isEditing || !taxOriginAddress}
               className="w-full px-2 py-1 text-sm"
               style={inputStyles}
             >
-              <option value="">{t("ui.manage.org.legal_entity_type_select")}</option>
-              <option value="LLC">LLC</option>
-              <option value="Corporation">Corporation</option>
-              <option value="S-Corp">S-Corporation</option>
-              <option value="C-Corp">C-Corporation</option>
-              <option value="Partnership">Partnership</option>
-              <option value="Sole Proprietorship">Sole Proprietorship</option>
-              <option value="Non-Profit">Non-Profit</option>
-              <option value="Other">Other</option>
+              <option value="">
+                {!taxOriginAddress
+                  ? "Add tax origin address first"
+                  : t("ui.manage.org.legal_entity_type_select")}
+              </option>
+              {availableLegalEntities?.entities.map((entity) => (
+                <option key={entity.code} value={entity.code} title={entity.description}>
+                  {entity.code} - {entity.name}
+                  {entity.minShareCapital ? ` (Min: ${entity.minShareCapital})` : ""}
+                </option>
+              ))}
             </select>
+
+            {/* Show description for selected entity */}
+            {formData.legalEntityType && availableLegalEntities && (
+              <div className="mt-2 p-2 text-xs border-2" style={{
+                backgroundColor: 'var(--win95-bg-light)',
+                borderColor: 'var(--win95-border)',
+                color: 'var(--neutral-gray)'
+              }}>
+                {(() => {
+                  const selectedEntity = availableLegalEntities.entities.find(e => e.code === formData.legalEntityType);
+                  if (!selectedEntity) return null;
+                  return (
+                    <>
+                      <strong>{selectedEntity.localName}</strong>
+                      <br />
+                      {selectedEntity.description}
+                      <br />
+                      <span style={{ fontSize: '0.65rem' }}>
+                        Liability: {selectedEntity.liability} | VAT Eligible: {selectedEntity.vatEligible ? 'Yes' : 'No'}
+                        {selectedEntity.minShareCapital && ` | Min Capital: ${selectedEntity.minShareCapital}`}
+                      </span>
+                    </>
+                  );
+                })()}
+              </div>
+            )}
           </div>
         </div>
       </OrganizationSection>

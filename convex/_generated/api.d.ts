@@ -19,22 +19,28 @@ import type * as appAvailability from "../appAvailability.js";
 import type * as auth from "../auth.js";
 import type * as checkoutOntology from "../checkoutOntology.js";
 import type * as checkoutSessions from "../checkoutSessions.js";
+import type * as checkoutTemplateAvailability from "../checkoutTemplateAvailability.js";
 import type * as crons from "../crons.js";
 import type * as cryptoActions from "../cryptoActions.js";
 import type * as emailService from "../emailService.js";
 import type * as emailService_plain_text from "../emailService_plain_text.js";
 import type * as eventOntology from "../eventOntology.js";
+import type * as formTemplateAvailability from "../formTemplateAvailability.js";
+import type * as formsOntology from "../formsOntology.js";
 import type * as helpers_appHelpers from "../helpers/appHelpers.js";
 import type * as http from "../http.js";
 import type * as http_old from "../http_old.js";
 import type * as internal_ from "../internal.js";
 import type * as invitationOntology from "../invitationOntology.js";
+import type * as legalEntityTypes from "../legalEntityTypes.js";
+import type * as migrations_updateExistingHaffForms from "../migrations/updateExistingHaffForms.js";
 import type * as ontologyAdmin from "../ontologyAdmin.js";
 import type * as ontologyHelpers from "../ontologyHelpers.js";
 import type * as ontologyTranslations from "../ontologyTranslations.js";
 import type * as organizationMedia from "../organizationMedia.js";
 import type * as organizationMutations from "../organizationMutations.js";
 import type * as organizationOntology from "../organizationOntology.js";
+import type * as organizationTaxSettings from "../organizationTaxSettings.js";
 import type * as organizations from "../organizations.js";
 import type * as paymentProviders_helpers from "../paymentProviders/helpers.js";
 import type * as paymentProviders_index from "../paymentProviders/index.js";
@@ -56,8 +62,11 @@ import type * as schemas_utilitySchemas from "../schemas/utilitySchemas.js";
 import type * as seedAdmin from "../seedAdmin.js";
 import type * as seedApps from "../seedApps.js";
 import type * as seedCheckoutApp from "../seedCheckoutApp.js";
+import type * as seedCheckoutTemplates from "../seedCheckoutTemplates.js";
+import type * as seedFormTemplates from "../seedFormTemplates.js";
 import type * as seedOntologyData from "../seedOntologyData.js";
 import type * as seedTemplates from "../seedTemplates.js";
+import type * as stripeCheckout from "../stripeCheckout.js";
 import type * as stripeConnect from "../stripeConnect.js";
 import type * as stripeWebhooks from "../stripeWebhooks.js";
 import type * as stripeWebhooks_old from "../stripeWebhooks_old.js";
@@ -86,6 +95,7 @@ import type * as translations_seedProfileTranslations from "../translations/seed
 import type * as translations_seedSettings from "../translations/seedSettings.js";
 import type * as translations_seedWelcomeTranslations from "../translations/seedWelcomeTranslations.js";
 import type * as userPreferences from "../userPreferences.js";
+import type * as vatValidation from "../vatValidation.js";
 
 /**
  * A utility for referencing Convex functions in your app's API.
@@ -102,22 +112,28 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   checkoutOntology: typeof checkoutOntology;
   checkoutSessions: typeof checkoutSessions;
+  checkoutTemplateAvailability: typeof checkoutTemplateAvailability;
   crons: typeof crons;
   cryptoActions: typeof cryptoActions;
   emailService: typeof emailService;
   emailService_plain_text: typeof emailService_plain_text;
   eventOntology: typeof eventOntology;
+  formTemplateAvailability: typeof formTemplateAvailability;
+  formsOntology: typeof formsOntology;
   "helpers/appHelpers": typeof helpers_appHelpers;
   http: typeof http;
   http_old: typeof http_old;
   internal: typeof internal_;
   invitationOntology: typeof invitationOntology;
+  legalEntityTypes: typeof legalEntityTypes;
+  "migrations/updateExistingHaffForms": typeof migrations_updateExistingHaffForms;
   ontologyAdmin: typeof ontologyAdmin;
   ontologyHelpers: typeof ontologyHelpers;
   ontologyTranslations: typeof ontologyTranslations;
   organizationMedia: typeof organizationMedia;
   organizationMutations: typeof organizationMutations;
   organizationOntology: typeof organizationOntology;
+  organizationTaxSettings: typeof organizationTaxSettings;
   organizations: typeof organizations;
   "paymentProviders/helpers": typeof paymentProviders_helpers;
   "paymentProviders/index": typeof paymentProviders_index;
@@ -139,8 +155,11 @@ declare const fullApi: ApiFromModules<{
   seedAdmin: typeof seedAdmin;
   seedApps: typeof seedApps;
   seedCheckoutApp: typeof seedCheckoutApp;
+  seedCheckoutTemplates: typeof seedCheckoutTemplates;
+  seedFormTemplates: typeof seedFormTemplates;
   seedOntologyData: typeof seedOntologyData;
   seedTemplates: typeof seedTemplates;
+  stripeCheckout: typeof stripeCheckout;
   stripeConnect: typeof stripeConnect;
   stripeWebhooks: typeof stripeWebhooks;
   stripeWebhooks_old: typeof stripeWebhooks_old;
@@ -169,6 +188,7 @@ declare const fullApi: ApiFromModules<{
   "translations/seedSettings": typeof translations_seedSettings;
   "translations/seedWelcomeTranslations": typeof translations_seedWelcomeTranslations;
   userPreferences: typeof userPreferences;
+  vatValidation: typeof vatValidation;
 }>;
 export declare const api: FilterApi<
   typeof fullApi,

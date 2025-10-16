@@ -387,6 +387,57 @@ export const BASE_PERMISSIONS = [
     category: PERMISSION_CATEGORIES.OPERATIONS,
     description: 'Delete templates'
   },
+
+  // Forms Management Permissions
+  {
+    name: 'view_forms',
+    resource: 'forms',
+    action: 'read',
+    category: PERMISSION_CATEGORIES.OPERATIONS,
+    description: 'View forms in the organization'
+  },
+  {
+    name: 'create_forms',
+    resource: 'forms',
+    action: 'create',
+    category: PERMISSION_CATEGORIES.OPERATIONS,
+    description: 'Create new forms'
+  },
+  {
+    name: 'edit_forms',
+    resource: 'forms',
+    action: 'write',
+    category: PERMISSION_CATEGORIES.OPERATIONS,
+    description: 'Edit existing forms'
+  },
+  {
+    name: 'publish_forms',
+    resource: 'forms',
+    action: 'publish',
+    category: PERMISSION_CATEGORIES.OPERATIONS,
+    description: 'Publish or unpublish forms'
+  },
+  {
+    name: 'delete_forms',
+    resource: 'forms',
+    action: 'delete',
+    category: PERMISSION_CATEGORIES.OPERATIONS,
+    description: 'Delete forms'
+  },
+  {
+    name: 'manage_forms',
+    resource: 'forms',
+    action: 'manage',
+    category: PERMISSION_CATEGORIES.OPERATIONS,
+    description: 'Full forms management (create, edit, publish, delete)'
+  },
+  {
+    name: 'view_form_responses',
+    resource: 'formResponses',
+    action: 'read',
+    category: PERMISSION_CATEGORIES.OPERATIONS,
+    description: 'View form submissions and responses'
+  },
 ] as const;
 
 /**
@@ -428,6 +479,7 @@ export const ROLE_PERMISSION_MAPPINGS: Record<string, string[]> = {
     'install_apps',
     'manage_apps',
     'view_audit_logs',
+    'manage_forms',
     'view_*', // All view permissions (includes view_roles, view_permissions)
   ],
 
@@ -443,6 +495,7 @@ export const ROLE_PERMISSION_MAPPINGS: Record<string, string[]> = {
     'create_report',
     'install_apps',
     'manage_apps',
+    'manage_forms',
     'view_*', // All view permissions (already includes view_roles, view_permissions)
   ],
 
@@ -455,6 +508,12 @@ export const ROLE_PERMISSION_MAPPINGS: Record<string, string[]> = {
     'view_operations',
     'view_apps',
     'view_reports',
+    'create_forms',
+    'edit_forms',
+    'publish_forms',
+    'delete_forms',
+    'view_forms',
+    'view_form_responses',
   ],
 
   'viewer': [
@@ -466,6 +525,8 @@ export const ROLE_PERMISSION_MAPPINGS: Record<string, string[]> = {
     'view_financials',
     'view_reports',
     'view_apps',
+    'view_forms',
+    'view_form_responses',
   ],
 
   'translator': [

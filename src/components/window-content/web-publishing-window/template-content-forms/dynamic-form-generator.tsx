@@ -28,6 +28,7 @@ import {
   ImageFieldDefinition,
   IconFieldDefinition,
   EventLinkFieldDefinition,
+  CheckoutLinkFieldDefinition,
 } from "@/templates/schema-types";
 
 interface DynamicFormGeneratorProps {
@@ -247,6 +248,15 @@ function FieldRenderer({
           onChange={handleChange}
           content={content}
           onContentChange={onChange}
+        />
+      );
+
+    case FieldType.CheckoutLink:
+      return (
+        <CheckoutLinkInput
+          field={field as CheckoutLinkFieldDefinition}
+          value={value as string}
+          onChange={handleChange}
         />
       );
 
@@ -838,6 +848,110 @@ function EventLinkInput({
       ) : (
         <AppUnavailableInline
           appName="Event Management"
+          organizationName={organizationName}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Checkout Link Input Component
+ *
+ * Allows linking to checkout instances from Checkout app.
+ * Products from the checkout are automatically displayed in the template.
+ */
+function CheckoutLinkInput({
+  field,
+  value,
+  onChange,
+}: {
+  field: CheckoutLinkFieldDefinition;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const { sessionId } = useAuth();
+  const currentOrg = useCurrentOrganization();
+
+  // Check if Checkout app is available
+  const { isAvailable: isCheckoutAppAvailable, organizationName } = useAppAvailability("checkout");
+
+  // Fetch available checkout instances
+  const availableCheckouts = useQuery(
+    api.checkoutOntology.getCheckoutInstances,
+    sessionId && currentOrg?.id && isCheckoutAppAvailable
+      ? {
+          sessionId,
+          organizationId: currentOrg.id as Id<"organizations">,
+          status: "published", // Only show published checkouts
+        }
+      : "skip"
+  );
+
+  // Get selected checkout details
+  const selectedCheckout = availableCheckouts?.find((c) => c._id === value);
+
+  // Get product count
+  const productCount = selectedCheckout?.customProperties?.linkedProducts
+    ? (selectedCheckout.customProperties.linkedProducts as string[]).length
+    : 0;
+
+  return (
+    <div>
+      <label className="block text-xs font-bold mb-1">
+        {field.label}
+        {field.required && <span className="text-red-600 ml-1">*</span>}
+      </label>
+
+      {isCheckoutAppAvailable ? (
+        <>
+          <select
+            value={value || ""}
+            onChange={(e) => onChange(e.target.value)}
+            className="w-full px-2 py-1 text-xs border-2 border-gray-400 bg-white focus:border-purple-500 focus:outline-none"
+          >
+            <option value="">-- Select a checkout --</option>
+            {availableCheckouts?.map((checkout) => (
+              <option key={checkout._id} value={checkout._id}>
+                {checkout.name} ({checkout.subtype})
+              </option>
+            ))}
+          </select>
+
+          {field.helpText && (
+            <p className="text-xs text-gray-600 mt-1">{field.helpText}</p>
+          )}
+
+          {/* Selected Checkout Preview */}
+          {selectedCheckout && (
+            <div className="mt-2 border-2 border-purple-400 p-3 bg-purple-50 rounded">
+              <p className="text-xs font-bold text-purple-900 mb-2">Linked Checkout:</p>
+              <div className="space-y-1 text-xs">
+                <p>
+                  <span className="font-bold">Name:</span> {selectedCheckout.name}
+                </p>
+                <p>
+                  <span className="font-bold">Type:</span> {selectedCheckout.subtype}
+                </p>
+                <p>
+                  <span className="font-bold">Products:</span> {productCount} linked
+                </p>
+                {selectedCheckout.customProperties?.paymentProvider && (
+                  <p>
+                    <span className="font-bold">Payment:</span>{" "}
+                    {selectedCheckout.customProperties.paymentProvider as string}
+                  </p>
+                )}
+              </div>
+              <p className="text-xs text-purple-700 mt-2 italic">
+                ✓ Products will be displayed from this checkout
+              </p>
+            </div>
+          )}
+        </>
+      ) : (
+        <AppUnavailableInline
+          appName="Checkout"
           organizationName={organizationName}
         />
       )}

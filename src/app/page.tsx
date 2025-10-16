@@ -16,6 +16,7 @@ import { ProductsWindow } from "@/components/window-content/products-window"
 import { TicketsWindow } from "@/components/window-content/tickets-window"
 import { EventsWindow } from "@/components/window-content/events-window"
 import { CheckoutWindow } from "@/components/window-content/checkout-window"
+import { FormsWindow } from "@/components/window-content/forms-window"
 import { AllAppsWindow } from "@/components/window-content/all-apps-window"
 import { WindowsMenu } from "@/components/windows-menu"
 import { useIsMobile } from "@/hooks/use-media-query"
@@ -77,6 +78,10 @@ export default function HomePage() {
 
   const openCheckoutWindow = () => {
     openWindow("checkout", "Checkout", <CheckoutWindow />, { x: 320, y: 240 }, { width: 950, height: 650 })
+  }
+
+  const openFormsWindow = () => {
+    openWindow("forms", "Forms", <FormsWindow />, { x: 340, y: 260 }, { width: 950, height: 650 })
   }
 
   const openAllAppsWindow = () => {
@@ -154,6 +159,7 @@ export default function HomePage() {
       'tickets': isAppAvailable("tickets"),
       'events': isAppAvailable("events"),
       'checkout': isAppAvailable("checkout"),
+      'forms': isAppAvailable("forms"),
       'web-publishing': isAppAvailable("web-publishing"),
     }
   });
@@ -181,6 +187,9 @@ export default function HomePage() {
     ] : []),
     ...(isAppAvailable("checkout") ? [
       { label: "Checkout", icon: "🛒", onClick: requireAuth(openCheckoutWindow) }
+    ] : []),
+    ...(isAppAvailable("forms") ? [
+      { label: "Forms", icon: "📋", onClick: requireAuth(openFormsWindow) }
     ] : []),
     // Web Publishing app - enabled via app availability
     ...(isAppAvailable("web-publishing") ? [

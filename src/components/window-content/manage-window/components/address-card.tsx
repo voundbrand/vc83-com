@@ -103,6 +103,19 @@ export function AddressCard({
                   {t("ui.manage.address.default_badge")}
                 </span>
               )}
+              {props?.isTaxOrigin && (
+                <span
+                  className="text-xs px-2 py-0.5 border font-bold"
+                  style={{
+                    backgroundColor: '#fef3c7',
+                    color: '#92400e',
+                    borderColor: '#fcd34d'
+                  }}
+                  title="Tax origin address for tax nexus calculation"
+                >
+                  TAX ORIGIN
+                </span>
+              )}
             </div>
           </div>
         </div>
