@@ -110,11 +110,17 @@ export function CustomerInfoStep({
    * Check if form is valid (for button state)
    */
   const isValid = () => {
-    return (
+    const basicValid =
       email.trim().length > 0 &&
       name.trim().length > 0 &&
-      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-    );
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+    // Additional B2B validation
+    if (transactionType === "B2B") {
+      return basicValid && companyName.trim().length > 0;
+    }
+
+    return basicValid;
   };
 
   return (
@@ -208,6 +214,92 @@ export function CustomerInfoStep({
             className={styles.textarea}
           />
         </div>
+
+        {/* Transaction Type Selector */}
+        <div className={styles.formField}>
+          <label className={styles.fieldLabel}>
+            <Building2 size={16} />
+            Transaction Type <span className={styles.required}>*</span>
+          </label>
+          <div style={{ display: "flex", gap: "16px", marginTop: "8px" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+              <input
+                type="radio"
+                name="transactionType"
+                value="B2C"
+                checked={transactionType === "B2C"}
+                onChange={(e) => setTransactionType(e.target.value as "B2C")}
+                style={{ cursor: "pointer" }}
+              />
+              <span>Individual/Consumer</span>
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+              <input
+                type="radio"
+                name="transactionType"
+                value="B2B"
+                checked={transactionType === "B2B"}
+                onChange={(e) => setTransactionType(e.target.value as "B2B")}
+                style={{ cursor: "pointer" }}
+              />
+              <span>Business/Company</span>
+            </label>
+          </div>
+          <p className={styles.helperText}>
+            Select if this purchase is for a business (requires company details)
+          </p>
+        </div>
+
+        {/* B2B Fields - Show only when B2B is selected */}
+        {transactionType === "B2B" && (
+          <>
+            {/* Company Name */}
+            <div className={styles.formField}>
+              <label className={styles.fieldLabel}>
+                <Building2 size={16} />
+                Company Name <span className={styles.required}>*</span>
+              </label>
+              <input
+                type="text"
+                value={companyName}
+                onChange={(e) => {
+                  setCompanyName(e.target.value);
+                  if (errors.companyName) setErrors({ ...errors, companyName: "" });
+                }}
+                placeholder="Acme Corporation"
+                className={`${styles.input} ${errors.companyName ? styles.inputError : ""}`}
+                required={transactionType === "B2B"}
+              />
+              {errors.companyName && (
+                <p className={styles.errorMessage}>{errors.companyName}</p>
+              )}
+            </div>
+
+            {/* VAT Number (Optional for B2B) */}
+            <div className={styles.formField}>
+              <label className={styles.fieldLabel}>
+                <FileText size={16} />
+                VAT Number <span className={styles.optional}>(Optional)</span>
+              </label>
+              <input
+                type="text"
+                value={vatNumber}
+                onChange={(e) => {
+                  setVatNumber(e.target.value);
+                  if (errors.vatNumber) setErrors({ ...errors, vatNumber: "" });
+                }}
+                placeholder="DE123456789 or GB999999973"
+                className={`${styles.input} ${errors.vatNumber ? styles.inputError : ""}`}
+              />
+              {errors.vatNumber && (
+                <p className={styles.errorMessage}>{errors.vatNumber}</p>
+              )}
+              <p className={styles.helperText}>
+                EU VAT number format: 2-letter country code + digits (e.g., DE123456789)
+              </p>
+            </div>
+          </>
+        )}
 
         {/* Actions */}
         <div className={styles.actionButtons}>

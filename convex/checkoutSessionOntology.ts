@@ -368,6 +368,11 @@ export const updateCheckoutSession = mutation({
       customerPhone: v.optional(v.string()),
       customerNotes: v.optional(v.string()),
 
+      // B2B fields
+      transactionType: v.optional(v.union(v.literal("B2C"), v.literal("B2B"))),
+      companyName: v.optional(v.string()),
+      vatNumber: v.optional(v.string()),
+
       // Cart
       selectedProducts: v.optional(
         v.array(
@@ -457,6 +462,7 @@ export const completeCheckoutSessionInternal = internalMutation({
     paymentIntentId: v.string(),
     purchasedItemIds: v.optional(v.array(v.string())),
     crmContactId: v.optional(v.id("objects")),
+    crmOrganizationId: v.optional(v.id("objects")), // B2B organization
     userId: v.optional(v.id("users")),
   },
   handler: async (ctx, args) => {
@@ -482,6 +488,7 @@ export const completeCheckoutSessionInternal = internalMutation({
         completedAt: Date.now(),
         purchasedItemIds: args.purchasedItemIds || [],
         crmContactId: args.crmContactId,
+        crmOrganizationId: args.crmOrganizationId, // Store B2B organization ID
       },
       updatedAt: Date.now(),
     });
@@ -517,6 +524,7 @@ export const completeCheckoutSession = mutation({
     paymentIntentId: v.string(),
     purchasedItemIds: v.optional(v.array(v.string())), // Generic purchase items (not just tickets!)
     crmContactId: v.optional(v.id("objects")),
+    crmOrganizationId: v.optional(v.id("objects")), // B2B organization
   },
   handler: async (ctx, args): Promise<{ success: boolean }> => {
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
@@ -527,6 +535,7 @@ export const completeCheckoutSession = mutation({
       paymentIntentId: args.paymentIntentId,
       purchasedItemIds: args.purchasedItemIds,
       crmContactId: args.crmContactId,
+      crmOrganizationId: args.crmOrganizationId,
       userId,
     });
   },

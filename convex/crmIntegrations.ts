@@ -47,6 +47,220 @@ async function getOrCreateSystemUser(ctx: MutationCtx) {
 }
 
 // ============================================================================
+// B2B ORGANIZATION INTEGRATION
+// ============================================================================
+
+/**
+ * CREATE OR UPDATE CRM ORGANIZATION (INTERNAL - No Auth Required)
+ *
+ * Creates or updates a CRM organization record for B2B transactions.
+ * Features:
+ * - Deduplication by company name + organizationId
+ * - Stores VAT number, billing address, contact info
+ * - Returns organization ID for linking to contacts
+ */
+export const createCRMOrganization = internalMutation({
+  args: {
+    organizationId: v.id("organizations"), // Platform org (seller)
+    companyName: v.string(),
+    vatNumber: v.optional(v.string()),
+    billingAddress: v.optional(v.string()),
+    email: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    website: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<Id<"objects">> => {
+    // Get or create system user for internal operations
+    const systemUser = await getOrCreateSystemUser(ctx);
+    const userId = systemUser._id;
+
+    // 1. Check if organization already exists by company name (deduplication)
+    const existingOrgs = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "crm_organization")
+      )
+      .collect();
+
+    const existingOrg = existingOrgs.find(
+      (org) => org.customProperties?.companyName?.toLowerCase() === args.companyName.toLowerCase()
+    );
+
+    if (existingOrg) {
+      // Organization exists - update info
+      await ctx.db.patch(existingOrg._id, {
+        customProperties: {
+          ...existingOrg.customProperties,
+          vatNumber: args.vatNumber || existingOrg.customProperties?.vatNumber,
+          billingAddress: args.billingAddress || existingOrg.customProperties?.billingAddress,
+          email: args.email || existingOrg.customProperties?.email,
+          phone: args.phone || existingOrg.customProperties?.phone,
+          website: args.website || existingOrg.customProperties?.website,
+          lastUpdated: Date.now(),
+        },
+        updatedAt: Date.now(),
+      });
+
+      // Log action
+      await ctx.db.insert("objectActions", {
+        organizationId: args.organizationId,
+        objectId: existingOrg._id,
+        actionType: "organization_updated",
+        actionData: {
+          updatedFields: ["vatNumber", "billingAddress", "contact_info"],
+        },
+        performedBy: userId,
+        performedAt: Date.now(),
+      });
+
+      return existingOrg._id;
+    }
+
+    // 2. Create new CRM organization
+    const orgId = await ctx.db.insert("objects", {
+      organizationId: args.organizationId,
+      type: "crm_organization",
+      subtype: "business_customer",
+      name: args.companyName,
+      description: `B2B customer organization - ${new Date().toLocaleDateString()}`,
+      status: "active",
+      customProperties: {
+        companyName: args.companyName,
+        vatNumber: args.vatNumber,
+        billingAddress: args.billingAddress,
+        email: args.email,
+        phone: args.phone,
+        website: args.website,
+
+        // Tracking
+        createdFromCheckout: true,
+        createdAt: Date.now(),
+        lastUpdated: Date.now(),
+
+        // Tagging
+        tags: ["b2b", "customer", "organization"],
+        source: "checkout",
+      },
+      createdBy: userId,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    // 3. Log creation action
+    await ctx.db.insert("objectActions", {
+      organizationId: args.organizationId,
+      objectId: orgId,
+      actionType: "organization_created",
+      actionData: {
+        companyName: args.companyName,
+        source: "checkout",
+      },
+      performedBy: userId,
+      performedAt: Date.now(),
+    });
+
+    return orgId;
+  },
+});
+
+/**
+ * LINK CONTACT TO ORGANIZATION (INTERNAL)
+ *
+ * Creates a relationship between a CRM contact and a CRM organization.
+ * Used for B2B transactions where a contact represents a person at a company.
+ */
+export const linkContactToOrganization = internalMutation({
+  args: {
+    contactId: v.id("objects"),
+    organizationId: v.id("objects"), // CRM organization (not platform org!)
+    role: v.optional(v.string()), // e.g., "buyer", "decision_maker", "billing_contact"
+  },
+  handler: async (ctx, args): Promise<Id<"objectLinks">> => {
+    // Get or create system user for internal operations
+    const systemUser = await getOrCreateSystemUser(ctx);
+    const userId = systemUser._id;
+
+    // 1. Validate contact exists
+    const contact = await ctx.db.get(args.contactId);
+    if (!contact || contact.type !== "crm_contact") {
+      throw new Error("Invalid contact");
+    }
+
+    // 2. Validate organization exists
+    const organization = await ctx.db.get(args.organizationId);
+    if (!organization || organization.type !== "crm_organization") {
+      throw new Error("Invalid organization");
+    }
+
+    // 3. Check if link already exists
+    const existingLinks = await ctx.db
+      .query("objectLinks")
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("fromObjectId"), args.contactId),
+          q.eq(q.field("toObjectId"), args.organizationId),
+          q.eq(q.field("linkType"), "works_at")
+        )
+      )
+      .collect();
+
+    if (existingLinks.length > 0) {
+      // Link already exists, update role if provided
+      if (args.role) {
+        await ctx.db.patch(existingLinks[0]._id, {
+          properties: {
+            ...existingLinks[0].properties,
+            role: args.role,
+            updatedAt: Date.now(),
+          },
+        });
+      }
+      return existingLinks[0]._id;
+    }
+
+    // 4. Create link
+    const linkId = await ctx.db.insert("objectLinks", {
+      organizationId: contact.organizationId, // Platform organization
+      fromObjectId: args.contactId,
+      toObjectId: args.organizationId,
+      linkType: "works_at",
+      properties: {
+        role: args.role || "contact",
+        linkedAt: Date.now(),
+        source: "checkout",
+      },
+      createdBy: userId,
+      createdAt: Date.now(),
+    });
+
+    // 5. Update contact with organization reference
+    await ctx.db.patch(args.contactId, {
+      customProperties: {
+        ...contact.customProperties,
+        linkedOrganizationId: args.organizationId,
+        organizationRole: args.role || "contact",
+      },
+      updatedAt: Date.now(),
+    });
+
+    // 6. Log action
+    await ctx.db.insert("objectActions", {
+      organizationId: contact.organizationId,
+      objectId: args.contactId,
+      actionType: "linked_to_organization",
+      actionData: {
+        organizationId: args.organizationId,
+        role: args.role,
+      },
+      performedBy: userId,
+      performedAt: Date.now(),
+    });
+
+    return linkId;
+  },
+});
+
+// ============================================================================
 // CHECKOUT INTEGRATION
 // ============================================================================
 

@@ -121,6 +121,11 @@ export const createPurchaseItemInternal = internalMutation({
     buyerEmail: v.string(),
     buyerName: v.string(),
     buyerPhone: v.optional(v.string()),
+    // B2B fields
+    buyerTransactionType: v.optional(v.union(v.literal("B2C"), v.literal("B2B"))),
+    buyerCompanyName: v.optional(v.string()),
+    buyerVatNumber: v.optional(v.string()),
+    crmOrganizationId: v.optional(v.id("objects")),
     fulfillmentType: v.string(),
     registrationData: v.optional(v.any()),
     userId: v.optional(v.id("users")),
@@ -170,6 +175,11 @@ export const createPurchaseItemInternal = internalMutation({
           buyerEmail: args.buyerEmail,
           buyerName: args.buyerName,
           buyerPhone: args.buyerPhone,
+          // B2B buyer info
+          buyerTransactionType: args.buyerTransactionType,
+          buyerCompanyName: args.buyerCompanyName,
+          buyerVatNumber: args.buyerVatNumber,
+          crmOrganizationId: args.crmOrganizationId,
           registrationData: args.registrationData,
           fulfillmentType: args.fulfillmentType,
           fulfillmentStatus: "pending",

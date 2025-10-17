@@ -603,7 +603,52 @@ export const completeCheckoutWithTickets = action({
 
     const createdPurchaseItems: string[] = [];
 
-    // 4. Create form responses for audit trail (if forms were used)
+    // 4. AUTO-CREATE CRM CONTACT & B2B ORGANIZATION (if applicable)
+    // Do this BEFORE creating purchase items so we can link them
+    let crmContactId: Id<"objects"> | undefined;
+    let crmOrganizationId: Id<"objects"> | undefined;
+
+    try {
+      const contactResult = await ctx.runMutation(internal.crmIntegrations.autoCreateContactFromCheckoutInternal, {
+        checkoutSessionId: args.checkoutSessionId,
+      });
+      crmContactId = contactResult.contactId;
+
+      // B2B ORGANIZATION CREATION (if B2B transaction)
+      const transactionType = session.customProperties?.transactionType as "B2C" | "B2B" | undefined;
+      const companyName = session.customProperties?.companyName as string | undefined;
+      const vatNumber = session.customProperties?.vatNumber as string | undefined;
+
+      if (transactionType === "B2B" && companyName) {
+        try {
+          // Create CRM organization
+          crmOrganizationId = await ctx.runMutation(internal.crmIntegrations.createCRMOrganization, {
+            organizationId,
+            companyName,
+            vatNumber,
+            email: customerEmail,
+            phone: customerPhone,
+          });
+
+          // Link contact to organization
+          await ctx.runMutation(internal.crmIntegrations.linkContactToOrganization, {
+            contactId: crmContactId,
+            organizationId: crmOrganizationId,
+            role: "buyer",
+          });
+
+          console.log(`B2B: Created organization ${crmOrganizationId} and linked to contact ${crmContactId}`);
+        } catch (orgError) {
+          console.error("Failed to create CRM organization (non-critical):", orgError);
+          // Don't fail checkout if organization creation fails
+        }
+      }
+    } catch (error) {
+      console.error("Failed to create CRM contact:", error);
+      // Don't fail the whole checkout if CRM creation fails
+    }
+
+    // 5. Create form responses for audit trail (if forms were used)
     if (formResponses && formResponses.length > 0) {
       for (const formResp of formResponses) {
         await ctx.runMutation(api.formsOntology.createFormResponse, {
@@ -637,6 +682,11 @@ export const completeCheckoutWithTickets = action({
       // Determine fulfillment type from product
       const fulfillmentType = product.subtype || "ticket"; // Default to ticket for backward compatibility
 
+      // Extract B2B info from session for purchase_items
+      const transactionType = session.customProperties?.transactionType as "B2C" | "B2B" | undefined;
+      const companyName = session.customProperties?.companyName as string | undefined;
+      const vatNumber = session.customProperties?.vatNumber as string | undefined;
+
       // Create purchase_items (one per quantity)
       // Use internal mutation since we're in a backend action (no user session)
       const purchaseItemsResult = await ctx.runMutation(internal.purchaseOntology.createPurchaseItemInternal, {
@@ -649,6 +699,11 @@ export const completeCheckoutWithTickets = action({
         buyerEmail: customerEmail,
         buyerName: customerName,
         buyerPhone: customerPhone,
+        // B2B fields
+        buyerTransactionType: transactionType,
+        buyerCompanyName: companyName,
+        buyerVatNumber: vatNumber,
+        crmOrganizationId, // Link to CRM organization if B2B
         fulfillmentType,
         registrationData: undefined, // Will be set below if forms exist
         userId: undefined, // Guest checkout - no user account required
@@ -731,29 +786,18 @@ export const completeCheckoutWithTickets = action({
       }
     }
 
-    // 6. AUTO-CREATE CRM CONTACT (NEW!)
-    let crmContactId: Id<"objects"> | undefined;
-    try {
-      const contactResult = await ctx.runMutation(internal.crmIntegrations.autoCreateContactFromCheckoutInternal, {
-        checkoutSessionId: args.checkoutSessionId,
-      });
-      crmContactId = contactResult.contactId;
-    } catch (error) {
-      console.error("Failed to create CRM contact:", error);
-      // Don't fail the whole checkout if CRM creation fails
-    }
-
-    // 7. Mark session as completed
+    // 6. Mark session as completed
     // Use internal mutation since we're in a backend action
     await ctx.runMutation(internal.checkoutSessionOntology.completeCheckoutSessionInternal, {
       checkoutSessionId: args.checkoutSessionId,
       paymentIntentId: args.paymentIntentId,
       purchasedItemIds: createdPurchaseItems, // Store purchase_item IDs (generic!)
       crmContactId,
+      crmOrganizationId, // Pass B2B organization ID
       userId: undefined, // Guest checkout - no user account required
     });
 
-    // 8. SEND ORDER CONFIRMATION EMAIL (non-blocking)
+    // 7. SEND ORDER CONFIRMATION EMAIL (non-blocking)
     // Sends ONE email with all ticket PDFs and invoice PDF attached
     try {
       await ctx.runAction(internal.ticketGeneration.sendOrderConfirmationEmail, {
