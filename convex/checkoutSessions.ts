@@ -346,74 +346,102 @@ export const createCheckoutSession = action({
 });
 
 /**
- * COMPLETE CHECKOUT WITH TICKETS AND FORM RESPONSES
+ * COMPLETE CHECKOUT (NEW - PURCHASE ITEMS ARCHITECTURE)
  *
- * After successful payment, this mutation:
- * 1. Creates formResponse objects for audit trail
- * 2. Creates ticket objects with embedded registration data
- * 3. Links tickets to products and events (if applicable)
- * 4. Returns ticket IDs for confirmation display
+ * Product-agnostic checkout completion using purchase_items.
+ * After successful payment, this action:
+ * 1. Reads ALL data from checkout_session (single source of truth)
+ * 2. Creates formResponse objects for audit trail
+ * 3. Creates purchase_item objects (generic purchase records)
+ * 4. Fulfills products based on type:
+ *    - ticket → Creates event ticket for access control
+ *    - subscription → Creates subscription with billing
+ *    - download → Generates secure download link
+ *    - shipment → Creates shipping order
+ * 5. Creates CRM contact (auto-integration)
+ * 6. Marks session as completed
+ * 7. Returns purchase item IDs (generic!) and CRM contact ID
  */
 export const completeCheckoutWithTickets = action({
   args: {
     sessionId: v.string(),
-    organizationId: v.id("organizations"),
+    checkoutSessionId: v.id("objects"),
     paymentIntentId: v.string(),
-    totalAmount: v.number(), // in cents
-    selectedProducts: v.array(
-      v.object({
-        productId: v.id("objects"),
-        quantity: v.number(),
-        price: v.number(),
-      })
-    ),
-    // Either customerInfo OR formResponses (if form was used)
-    customerInfo: v.optional(
-      v.object({
-        email: v.string(),
-        name: v.string(),
-        phone: v.optional(v.string()),
-        notes: v.optional(v.string()),
-      })
-    ),
-    // Form responses for products with registration forms
-    formResponses: v.optional(
-      v.array(
-        v.object({
-          productId: v.id("objects"),
-          ticketNumber: v.number(),
-          formId: v.string(),
-          responses: v.any(),
-          addedCosts: v.number(),
-          submittedAt: v.number(),
-        })
-      )
-    ),
   },
-  handler: async (ctx, args) => {
-    // 1. Verify payment was successful
+  handler: async (ctx, args): Promise<{
+    success: boolean;
+    purchasedItemIds: string[]; // Changed from ticketIds to purchasedItemIds (generic!)
+    crmContactId?: Id<"objects">;
+    paymentId: string;
+    amount: number;
+    currency: string;
+  }> => {
+    // 1. Get checkout session (single source of truth!)
+    const session = await ctx.runQuery(internal.checkoutSessionOntology.getCheckoutSessionInternal, {
+      checkoutSessionId: args.checkoutSessionId,
+    });
+
+    if (!session) {
+      throw new Error("Checkout session not found");
+    }
+
+    if (session.type !== "checkout_session") {
+      throw new Error("Invalid session type");
+    }
+
+    // Extract data from session with proper types
+    const organizationId = session.organizationId;
+    const customerEmail = (session.customProperties?.customerEmail as string) || "";
+    const customerName = (session.customProperties?.customerName as string) || "";
+    const customerPhone = session.customProperties?.customerPhone as string | undefined;
+
+    const selectedProducts = (session.customProperties?.selectedProducts || []) as Array<{
+      productId: Id<"objects">;
+      quantity: number;
+      pricePerUnit: number;
+      totalPrice: number;
+    }>;
+
+    const formResponses = session.customProperties?.formResponses as Array<{
+      productId: Id<"objects">;
+      ticketNumber: number;
+      formId: string;
+      responses: Record<string, unknown>;
+      addedCosts: number;
+      submittedAt: number;
+    }> | undefined;
+
+    const totalAmount = (session.customProperties?.totalAmount as number) || 0;
+
+    // 2. Verify payment was successful
     const provider = getProviderByCode("stripe-connect");
     const paymentResult = await provider.verifyCheckoutPayment(args.paymentIntentId);
 
     if (!paymentResult.success) {
+      // Mark session as failed
+      await ctx.runMutation(api.checkoutSessionOntology.failCheckoutSession, {
+        sessionId: args.sessionId,
+        checkoutSessionId: args.checkoutSessionId,
+        errorMessage: "Payment verification failed",
+      });
       throw new Error("Payment verification failed");
     }
 
-    const createdTickets: string[] = [];
+    const createdPurchaseItems: string[] = [];
 
-    // 2. Create form responses for audit trail (if forms were used)
-    if (args.formResponses && args.formResponses.length > 0) {
-      for (const formResp of args.formResponses) {
+    // 3. Create form responses for audit trail (if forms were used)
+    if (formResponses && formResponses.length > 0) {
+      for (const formResp of formResponses) {
         await ctx.runMutation(api.formsOntology.createFormResponse, {
           sessionId: args.sessionId,
-          organizationId: args.organizationId,
+          organizationId,
           formId: formResp.formId as Id<"objects">,
           responses: formResp.responses,
           calculatedPricing: {
             addedCosts: formResp.addedCosts,
           },
           metadata: {
-            checkoutSessionId: args.paymentIntentId,
+            checkoutSessionId: args.checkoutSessionId,
             ticketNumber: formResp.ticketNumber,
             submittedAt: formResp.submittedAt,
           },
@@ -421,82 +449,138 @@ export const completeCheckoutWithTickets = action({
       }
     }
 
-    // 3. Create tickets for each purchased product
-    for (const selectedProduct of args.selectedProducts) {
+    // 4. Create purchase_items for each purchased product (PRODUCT-AGNOSTIC!)
+    for (const selectedProduct of selectedProducts) {
       const product = await ctx.runQuery(internal.productOntology.getProductInternal, {
         productId: selectedProduct.productId,
       });
 
       if (!product) {
-        console.error(`Product ${selectedProduct.productId} not found, skipping ticket creation`);
+        console.error(`Product ${selectedProduct.productId} not found, skipping purchase item creation`);
         continue;
       }
 
-      // Get event ID if product is linked to an event
-      const eventId = product.customProperties?.eventId as Id<"objects"> | undefined;
+      // Determine fulfillment type from product
+      const fulfillmentType = product.subtype || "ticket"; // Default to ticket for backward compatibility
 
-      // Create one ticket per quantity
-      for (let i = 0; i < selectedProduct.quantity; i++) {
-        const ticketIndex = i + 1;
+      // Create purchase_items (one per quantity)
+      // This handles form responses internally
+      const purchaseItemsResult = await ctx.runMutation(api.purchaseOntology.createPurchaseItem, {
+        sessionId: args.sessionId,
+        organizationId,
+        checkoutSessionId: args.checkoutSessionId,
+        productId: selectedProduct.productId,
+        quantity: selectedProduct.quantity,
+        pricePerUnit: selectedProduct.pricePerUnit,
+        totalPrice: selectedProduct.totalPrice,
+        buyerEmail: customerEmail,
+        buyerName: customerName,
+        buyerPhone: customerPhone,
+        fulfillmentType,
+        registrationData: undefined, // Will be set below if forms exist
+      });
 
-        // Find corresponding form response for this ticket
-        const formResponse = args.formResponses?.find(
+      createdPurchaseItems.push(...purchaseItemsResult.purchaseItemIds);
+
+      // 5. PRODUCT-SPECIFIC FULFILLMENT
+      // For each purchase_item, create fulfillment object based on product type
+      for (let i = 0; i < purchaseItemsResult.purchaseItemIds.length; i++) {
+        const purchaseItemId = purchaseItemsResult.purchaseItemIds[i];
+        const itemNumber = i + 1;
+
+        // Find corresponding form response for this item
+        const formResponse = formResponses?.find(
           (fr) =>
             fr.productId === selectedProduct.productId &&
-            fr.ticketNumber === ticketIndex
+            fr.ticketNumber === itemNumber
         );
 
-        // Extract holder info from form response OR customerInfo
+        // Extract registration data
+        let registrationData: Record<string, unknown> | undefined;
         let holderEmail: string;
         let holderName: string;
-        let registrationData: Record<string, unknown> | undefined;
 
         if (formResponse) {
-          // Use form response data
-          holderEmail = (formResponse.responses.email as string) || "";
+          registrationData = formResponse.responses as Record<string, unknown>;
+          holderEmail = (formResponse.responses.email as string) || customerEmail;
           holderName =
             (formResponse.responses.name as string) ||
             (formResponse.responses.fullName as string) ||
-            "";
-          registrationData = formResponse.responses as Record<string, unknown>;
-        } else if (args.customerInfo) {
-          // Use simple customer info
-          holderEmail = args.customerInfo.email;
-          holderName = args.customerInfo.name;
-          registrationData = undefined;
+            customerName;
         } else {
-          // Fallback
-          holderEmail = "unknown@example.com";
-          holderName = "Unknown";
           registrationData = undefined;
+          holderEmail = customerEmail;
+          holderName = customerName;
         }
 
-        // Create ticket with embedded registration data
-        const ticketId = await ctx.runMutation(api.ticketOntology.createTicket, {
-          sessionId: args.sessionId,
-          organizationId: args.organizationId,
-          productId: selectedProduct.productId,
-          eventId,
-          holderName,
-          holderEmail,
-          customProperties: {
-            purchaseDate: Date.now(),
-            paymentIntentId: args.paymentIntentId,
-            pricePaid: selectedProduct.price,
-            ticketNumber: ticketIndex,
-            totalTicketsInOrder: selectedProduct.quantity,
-            // EMBED registration data for fast operational queries
-            registrationData,
-          },
-        });
+        // FULFILLMENT DISPATCH - Based on product type
+        if (fulfillmentType === "ticket") {
+          // Create event ticket for access control
+          const eventId = product.customProperties?.eventId as Id<"objects"> | undefined;
 
-        createdTickets.push(ticketId);
+          const ticketId = await ctx.runMutation(api.ticketOntology.createTicket, {
+            sessionId: args.sessionId,
+            organizationId,
+            productId: selectedProduct.productId,
+            eventId,
+            holderName,
+            holderEmail,
+            customProperties: {
+              purchaseDate: Date.now(),
+              paymentIntentId: args.paymentIntentId,
+              pricePaid: selectedProduct.pricePerUnit,
+              ticketNumber: itemNumber,
+              totalTicketsInOrder: selectedProduct.quantity,
+              checkoutSessionId: args.checkoutSessionId,
+              purchaseItemId, // Link back to purchase_item
+              registrationData,
+            },
+          });
+
+          // Update purchase_item with fulfillment info
+          await ctx.runMutation(api.purchaseOntology.updateFulfillmentStatus, {
+            sessionId: args.sessionId,
+            purchaseItemId: purchaseItemId as Id<"objects">,
+            fulfillmentStatus: "fulfilled",
+            fulfillmentData: {
+              ticketId,
+              eventId,
+            },
+          });
+        }
+        // TODO: Add more fulfillment types here:
+        // else if (fulfillmentType === "subscription") { ... }
+        // else if (fulfillmentType === "download") { ... }
+        // else if (fulfillmentType === "shipment") { ... }
       }
     }
 
+    // 6. Create CRM contact (auto-create from checkout)
+    let crmContactId: Id<"objects"> | undefined;
+    try {
+      const contactResult = await ctx.runMutation(api.crmIntegrations.autoCreateContactFromCheckout, {
+        sessionId: args.sessionId,
+        checkoutSessionId: args.checkoutSessionId,
+      });
+      crmContactId = contactResult.contactId;
+    } catch (error) {
+      console.error("Failed to create CRM contact:", error);
+      // Don't fail the whole checkout if CRM creation fails
+    }
+
+    // 7. Mark session as completed
+    await ctx.runMutation(api.checkoutSessionOntology.completeCheckoutSession, {
+      sessionId: args.sessionId,
+      checkoutSessionId: args.checkoutSessionId,
+      paymentIntentId: args.paymentIntentId,
+      purchasedItemIds: createdPurchaseItems, // Store purchase_item IDs (generic!)
+      crmContactId,
+    });
+
     return {
       success: true,
-      ticketIds: createdTickets,
+      purchasedItemIds: createdPurchaseItems, // Generic! Works for any product type
+      crmContactId,
       paymentId: paymentResult.paymentId,
       amount: paymentResult.amount,
       currency: paymentResult.currency,

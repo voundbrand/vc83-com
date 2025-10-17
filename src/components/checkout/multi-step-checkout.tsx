@@ -12,7 +12,9 @@
  * 5. Confirmation - Success page with receipt/ticket
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useMutation } from "convex/react";
+import { api } from "../../../convex/_generated/api";
 import { CheckoutProduct } from "@/templates/checkout/types";
 import { Id } from "../../../convex/_generated/dataModel";
 import { ProductSelectionStep } from "./steps/product-selection-step";
@@ -93,6 +95,35 @@ export function MultiStepCheckout({
 }: MultiStepCheckoutProps) {
   const [currentStep, setCurrentStep] = useState<CheckoutStep>("product-selection");
   const [stepData, setStepData] = useState<CheckoutStepData>(initialStepData || {});
+  const [checkoutSessionId, setCheckoutSessionId] = useState<Id<"objects"> | null>(null);
+
+  // Mutations for checkout session management
+  const createCheckoutSession = useMutation(api.checkoutSessionOntology.createCheckoutSession);
+  const updateCheckoutSession = useMutation(api.checkoutSessionOntology.updateCheckoutSession);
+
+  /**
+   * Create checkout session when component mounts
+   * This is the shopping cart that will track everything
+   */
+  useEffect(() => {
+    const initCheckoutSession = async () => {
+      try {
+        const result = await createCheckoutSession({
+          sessionId: "public", // TODO: Get actual session if user is logged in
+          organizationId,
+          // checkoutInstanceId will be added when we implement checkout instances
+        });
+        setCheckoutSessionId(result.checkoutSessionId);
+        console.log("✅ Created checkout_session:", result.checkoutSessionId);
+      } catch (error) {
+        console.error("Failed to create checkout session:", error);
+      }
+    };
+
+    if (!checkoutSessionId) {
+      initCheckoutSession();
+    }
+  }, [organizationId, createCheckoutSession, checkoutSessionId]);
 
   /**
    * Determine next step based on current state
@@ -166,10 +197,38 @@ export function MultiStepCheckout({
 
   /**
    * Handle step completion and advance to next step
+   * NOW: Also updates the checkout_session in database
    */
-  const handleStepComplete = (data: Partial<CheckoutStepData>) => {
+  const handleStepComplete = async (data: Partial<CheckoutStepData>) => {
     const updatedData = { ...stepData, ...data };
     setStepData(updatedData);
+
+    // Update checkout_session with latest data
+    if (checkoutSessionId) {
+      try {
+        await updateCheckoutSession({
+          sessionId: "public",
+          checkoutSessionId,
+          updates: {
+            customerEmail: updatedData.customerInfo?.email,
+            customerName: updatedData.customerInfo?.name,
+            customerPhone: updatedData.customerInfo?.phone,
+            selectedProducts: updatedData.selectedProducts?.map(sp => ({
+              productId: sp.productId,
+              quantity: sp.quantity,
+              pricePerUnit: sp.price, // Map price to pricePerUnit
+              totalPrice: sp.price * sp.quantity // Calculate totalPrice
+            })),
+            formResponses: updatedData.formResponses,
+            stepProgress: [currentStep], // Track which step was just completed
+            currentStep,
+          },
+        });
+        console.log("✅ Updated checkout_session:", checkoutSessionId);
+      } catch (error) {
+        console.error("Failed to update checkout session:", error);
+      }
+    }
 
     const nextStep = getNextStep(currentStep);
     if (nextStep) {
@@ -282,6 +341,7 @@ export function MultiStepCheckout({
             }
             organizationId={organizationId}
             sessionId="public" // TODO: Get actual session if user is logged in
+            checkoutSessionId={checkoutSessionId || undefined} // PASS REAL CHECKOUT SESSION ID!
             customerInfo={customerInfo}
             selectedProducts={stepData.selectedProducts || []}
             formResponses={stepData.formResponses}

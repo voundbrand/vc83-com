@@ -24,6 +24,7 @@ interface PaymentFormStepProps {
   totalAmount: number; // in cents (includes base + form costs)
   organizationId: Id<"organizations">;
   sessionId: string;
+  checkoutSessionId?: Id<"objects">; // NEW: Optional checkout session ID (will be created in parent)
   customerInfo: {
     email: string;
     name: string;
@@ -46,7 +47,7 @@ interface PaymentFormStepProps {
     success: boolean;
     transactionId: string;
     receiptUrl?: string;
-    ticketIds?: string[];
+    purchasedItemIds?: string[]; // Changed from ticketIds to purchasedItemIds
   }) => void;
   onBack: () => void;
 }
@@ -56,6 +57,7 @@ export function PaymentFormStep({
   totalAmount,
   organizationId,
   sessionId,
+  checkoutSessionId,
   customerInfo,
   selectedProducts,
   formResponses,
@@ -109,22 +111,23 @@ export function PaymentFormStep({
       await new Promise((resolve) => setTimeout(resolve, 2000));
       const mockPaymentIntentId = `pi_${Date.now()}`;
 
-      // Complete checkout: create form responses + tickets
+      // Verify we have a checkout session
+      if (!checkoutSessionId) {
+        throw new Error("Checkout session not initialized. Please refresh and try again.");
+      }
+
+      // Complete checkout: reads ALL data from checkout_session!
       const result = await completeCheckout({
         sessionId,
-        organizationId,
+        checkoutSessionId, // ✅ Using REAL checkout session ID
         paymentIntentId: mockPaymentIntentId,
-        totalAmount,
-        selectedProducts,
-        customerInfo,
-        formResponses,
       });
 
       onComplete({
         success: result.success,
         transactionId: result.paymentId,
         receiptUrl: "#", // TODO: Generate receipt URL
-        ticketIds: result.ticketIds,
+        purchasedItemIds: result.purchasedItemIds, // ✅ Generic purchased items
       });
     } catch (err) {
       console.error("Payment/Checkout error:", err);
