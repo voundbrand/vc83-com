@@ -27,10 +27,11 @@
  * 4. Track fulfillment status (pending → fulfilled → delivered)
  */
 
-import { mutation, query, internalMutation } from "./_generated/server";
+import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser } from "./rbacHelpers";
 import type { Id } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
 
 // ============================================================================
 // PURCHASE_ITEM OPERATIONS
@@ -105,80 +106,78 @@ import type { Id } from "./_generated/dataModel";
  */
 
 /**
- * CREATE PURCHASE ITEM
+ * INTERNAL: Create purchase items without authentication
  *
- * Creates a generic purchase record after successful payment.
- * This is called by completeCheckout for each product × quantity.
+ * Called from backend actions after payment verification.
  */
-export const createPurchaseItem = mutation({
+export const createPurchaseItemInternal = internalMutation({
   args: {
-    sessionId: v.string(),
     organizationId: v.id("organizations"),
     checkoutSessionId: v.id("objects"),
     productId: v.id("objects"),
-    quantity: v.number(), // Note: Will create this many separate purchase_items
-    pricePerUnit: v.number(), // cents
-    totalPrice: v.number(), // cents (quantity × pricePerUnit)
+    quantity: v.number(),
+    pricePerUnit: v.number(),
+    totalPrice: v.number(),
     buyerEmail: v.string(),
     buyerName: v.string(),
     buyerPhone: v.optional(v.string()),
-    fulfillmentType: v.string(), // "ticket" | "subscription" | "download" | "shipment"
-    registrationData: v.optional(v.any()), // Form data if applicable
+    fulfillmentType: v.string(),
+    registrationData: v.optional(v.any()),
+    userId: v.optional(v.id("users")),
   },
   handler: async (ctx, args) => {
-    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
-
-    // Get product details for naming
     const product = await ctx.db.get(args.productId);
     if (!product || product.type !== "product") {
       throw new Error("Invalid product");
     }
 
+    // Get userId - if not provided (guest checkout), use system user
+    let userId = args.userId;
+    if (!userId) {
+      const systemUser = await ctx.db
+        .query("users")
+        .filter(q => q.eq(q.field("email"), "system@l4yercak3.com"))
+        .first();
+
+      if (!systemUser) {
+        throw new Error("System user not found - run seed script first");
+      }
+
+      userId = systemUser._id;
+    }
+
     const purchaseItemIds: Id<"objects">[] = [];
 
-    // Create one purchase_item per quantity
-    // This allows individual tracking (important for tickets, subscriptions, etc.)
     for (let i = 0; i < args.quantity; i++) {
       const itemNumber = i + 1;
 
       const purchaseItemId = await ctx.db.insert("objects", {
         organizationId: args.organizationId,
         type: "purchase_item",
-        subtype: args.fulfillmentType, // ticket, subscription, download, shipment
+        subtype: args.fulfillmentType,
         name: `${product.name} - Item ${itemNumber}`,
         description: `Purchase from ${new Date().toLocaleDateString()}`,
-        status: "pending", // pending → fulfilled → delivered/completed
-
+        status: "pending",
         customProperties: {
-          // Purchase context
           checkoutSessionId: args.checkoutSessionId,
           productId: args.productId,
           productName: product.name,
-          quantity: 1, // Each purchase_item is quantity 1
-          itemNumber, // Which item in a multi-quantity purchase (1, 2, 3...)
+          quantity: 1,
+          itemNumber,
           totalItemsInOrder: args.quantity,
           pricePerUnit: args.pricePerUnit,
-          totalPrice: args.pricePerUnit, // Always pricePerUnit since quantity=1
-
-          // Buyer info (denormalized for convenience)
+          totalPrice: args.pricePerUnit,
           buyerEmail: args.buyerEmail,
           buyerName: args.buyerName,
           buyerPhone: args.buyerPhone,
-
-          // Registration data (if product had form)
           registrationData: args.registrationData,
-
-          // Fulfillment tracking
           fulfillmentType: args.fulfillmentType,
           fulfillmentStatus: "pending",
-          fulfillmentData: null, // Will be filled by fulfillment hook
-
-          // Dates
+          fulfillmentData: null,
           purchasedAt: Date.now(),
           fulfilledAt: null,
           expiresAt: null,
         },
-
         createdBy: userId,
         createdAt: Date.now(),
         updatedAt: Date.now(),
@@ -186,7 +185,6 @@ export const createPurchaseItem = mutation({
 
       purchaseItemIds.push(purchaseItemId);
 
-      // Log action
       await ctx.db.insert("objectActions", {
         organizationId: args.organizationId,
         objectId: purchaseItemId,
@@ -206,25 +204,78 @@ export const createPurchaseItem = mutation({
 });
 
 /**
- * UPDATE FULFILLMENT STATUS
+ * CREATE PURCHASE ITEM (PUBLIC)
  *
- * Updates fulfillment status and data after product-specific fulfillment.
- * Called by fulfillment hooks (ticket creation, subscription setup, etc.)
+ * Creates a generic purchase record after successful payment.
+ * Requires authentication via sessionId.
  */
-export const updateFulfillmentStatus = mutation({
+export const createPurchaseItem = mutation({
   args: {
     sessionId: v.string(),
-    purchaseItemId: v.id("objects"),
-    fulfillmentStatus: v.string(), // "pending" | "fulfilled" | "failed" | "cancelled"
-    fulfillmentData: v.optional(v.any()),
-    fulfilledAt: v.optional(v.number()),
+    organizationId: v.id("organizations"),
+    checkoutSessionId: v.id("objects"),
+    productId: v.id("objects"),
+    quantity: v.number(), // Note: Will create this many separate purchase_items
+    pricePerUnit: v.number(), // cents
+    totalPrice: v.number(), // cents (quantity × pricePerUnit)
+    buyerEmail: v.string(),
+    buyerName: v.string(),
+    buyerPhone: v.optional(v.string()),
+    fulfillmentType: v.string(), // "ticket" | "subscription" | "download" | "shipment"
+    registrationData: v.optional(v.any()), // Form data if applicable
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{ purchaseItemIds: Id<"objects">[] }> => {
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
+    // Delegate to internal mutation
+    return await ctx.runMutation(internal.purchaseOntology.createPurchaseItemInternal, {
+      organizationId: args.organizationId,
+      checkoutSessionId: args.checkoutSessionId,
+      productId: args.productId,
+      quantity: args.quantity,
+      pricePerUnit: args.pricePerUnit,
+      totalPrice: args.totalPrice,
+      buyerEmail: args.buyerEmail,
+      buyerName: args.buyerName,
+      buyerPhone: args.buyerPhone,
+      fulfillmentType: args.fulfillmentType,
+      registrationData: args.registrationData,
+      userId,
+    });
+  },
+});
+
+/**
+ * INTERNAL: Update fulfillment status without authentication
+ * Called from backend actions after fulfillment
+ */
+export const updateFulfillmentStatusInternal = internalMutation({
+  args: {
+    purchaseItemId: v.id("objects"),
+    fulfillmentStatus: v.string(),
+    fulfillmentData: v.optional(v.any()),
+    fulfilledAt: v.optional(v.number()),
+    userId: v.optional(v.id("users")),
+  },
+  handler: async (ctx, args) => {
     const purchaseItem = await ctx.db.get(args.purchaseItemId);
     if (!purchaseItem || purchaseItem.type !== "purchase_item") {
       throw new Error("Purchase item not found");
+    }
+
+    // Get userId - if not provided, use system user
+    let userId = args.userId;
+    if (!userId) {
+      const systemUser = await ctx.db
+        .query("users")
+        .filter(q => q.eq(q.field("email"), "system@l4yercak3.com"))
+        .first();
+
+      if (!systemUser) {
+        throw new Error("System user not found - run seed script first");
+      }
+
+      userId = systemUser._id;
     }
 
     // Update fulfillment status
@@ -253,6 +304,34 @@ export const updateFulfillmentStatus = mutation({
     });
 
     return { success: true };
+  },
+});
+
+/**
+ * UPDATE FULFILLMENT STATUS (PUBLIC)
+ *
+ * Updates fulfillment status and data after product-specific fulfillment.
+ * Requires authentication via sessionId
+ */
+export const updateFulfillmentStatus = mutation({
+  args: {
+    sessionId: v.string(),
+    purchaseItemId: v.id("objects"),
+    fulfillmentStatus: v.string(), // "pending" | "fulfilled" | "failed" | "cancelled"
+    fulfillmentData: v.optional(v.any()),
+    fulfilledAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args): Promise<{ success: boolean }> => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    // Delegate to internal mutation
+    return await ctx.runMutation(internal.purchaseOntology.updateFulfillmentStatusInternal, {
+      purchaseItemId: args.purchaseItemId,
+      fulfillmentStatus: args.fulfillmentStatus,
+      fulfillmentData: args.fulfillmentData,
+      fulfilledAt: args.fulfilledAt,
+      userId,
+    });
   },
 });
 
@@ -367,7 +446,7 @@ export const getPurchaseItemsByBuyer = query({
 /**
  * GET PURCHASE ITEM INTERNAL (for actions/mutations)
  */
-export const getPurchaseItemInternal = query({
+export const getPurchaseItemInternal = internalQuery({
   args: {
     purchaseItemId: v.id("objects"),
   },

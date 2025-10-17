@@ -618,6 +618,16 @@ export const getPublicCheckoutProducts = query({
           }
         }
 
+        // DEBUG: Log product structure
+        console.log("📦 [Product Structure]:", {
+          id: product._id,
+          name: product.name,
+          type: product.type,
+          subtype: product.subtype,
+          hasSubtype: 'subtype' in product,
+          allKeys: Object.keys(product)
+        });
+
         return {
           ...product,
           linkedForm: formData,

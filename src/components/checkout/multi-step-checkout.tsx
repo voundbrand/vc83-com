@@ -36,6 +36,21 @@ export interface CheckoutStepData {
     price: number;
   }>;
   totalPrice?: number;
+  taxCalculation?: {
+    subtotal: number;
+    taxAmount: number;
+    total: number;
+    taxRate: number;
+    isTaxable: boolean;
+    taxBehavior: "exclusive" | "inclusive" | "automatic";
+    lineItems?: Array<{
+      subtotal: number;
+      taxAmount: number;
+      taxRate: number;
+      taxable: boolean;
+      taxCode?: string;
+    }>;
+  };
 
   // Step 2: Customer Information
   customerInfo?: {
@@ -64,6 +79,8 @@ export interface CheckoutStepData {
     success: boolean;
     transactionId: string;
     receiptUrl?: string;
+    purchasedItemIds?: string[];
+    checkoutSessionId?: string; // Add checkoutSessionId to payment result
   };
 }
 
@@ -98,8 +115,8 @@ export function MultiStepCheckout({
   const [checkoutSessionId, setCheckoutSessionId] = useState<Id<"objects"> | null>(null);
 
   // Mutations for checkout session management
-  const createCheckoutSession = useMutation(api.checkoutSessionOntology.createCheckoutSession);
-  const updateCheckoutSession = useMutation(api.checkoutSessionOntology.updateCheckoutSession);
+  const createPublicCheckoutSession = useMutation(api.checkoutSessionOntology.createPublicCheckoutSession);
+  const updateCheckoutSession = useMutation(api.checkoutSessionOntology.updatePublicCheckoutSession);
 
   /**
    * Create checkout session when component mounts
@@ -108,13 +125,12 @@ export function MultiStepCheckout({
   useEffect(() => {
     const initCheckoutSession = async () => {
       try {
-        const result = await createCheckoutSession({
-          sessionId: "public", // TODO: Get actual session if user is logged in
+        const result = await createPublicCheckoutSession({
           organizationId,
           // checkoutInstanceId will be added when we implement checkout instances
         });
         setCheckoutSessionId(result.checkoutSessionId);
-        console.log("✅ Created checkout_session:", result.checkoutSessionId);
+        console.log("✅ Created public checkout_session:", result.checkoutSessionId);
       } catch (error) {
         console.error("Failed to create checkout session:", error);
       }
@@ -123,7 +139,7 @@ export function MultiStepCheckout({
     if (!checkoutSessionId) {
       initCheckoutSession();
     }
-  }, [organizationId, createCheckoutSession, checkoutSessionId]);
+  }, [organizationId, createPublicCheckoutSession, checkoutSessionId]);
 
   /**
    * Determine next step based on current state
@@ -206,8 +222,12 @@ export function MultiStepCheckout({
     // Update checkout_session with latest data
     if (checkoutSessionId) {
       try {
+        // Calculate total amount (base + form costs)
+        const baseAmount = updatedData.totalPrice || 0;
+        const formCosts = updatedData.formResponses?.reduce((sum, fr) => sum + (fr.addedCosts || 0), 0) || 0;
+        const totalAmount = baseAmount + formCosts;
+
         await updateCheckoutSession({
-          sessionId: "public",
           checkoutSessionId,
           updates: {
             customerEmail: updatedData.customerInfo?.email,
@@ -217,14 +237,44 @@ export function MultiStepCheckout({
               productId: sp.productId,
               quantity: sp.quantity,
               pricePerUnit: sp.price, // Map price to pricePerUnit
-              totalPrice: sp.price * sp.quantity // Calculate totalPrice
+              totalPrice: sp.price * sp.quantity // Calculate totalPrice per product
             })),
+            totalAmount, // ADD TOTAL AMOUNT (includes tax and form costs)
+            subtotal: updatedData.taxCalculation?.subtotal, // ADD SUBTOTAL
+            taxAmount: updatedData.taxCalculation?.taxAmount, // ADD TAX AMOUNT
+            taxDetails: updatedData.taxCalculation?.lineItems ? (() => {
+              // Group line items by tax CODE (not rate) - only combine same tax codes
+              const taxByCode = updatedData.taxCalculation.lineItems.reduce((acc, item) => {
+                if (!item.taxable || item.taxAmount === 0) return acc;
+
+                // Use tax code as key, or "default" if no code
+                const codeKey = item.taxCode || "default";
+
+                if (!acc[codeKey]) {
+                  acc[codeKey] = {
+                    taxCode: item.taxCode || "Tax",
+                    rate: item.taxRate,
+                    amount: 0
+                  };
+                }
+                acc[codeKey].amount += item.taxAmount;
+                return acc;
+              }, {} as Record<string, { taxCode: string; rate: number; amount: number }>);
+
+              return Object.entries(taxByCode).map(([_, data]) => ({
+                jurisdiction: data.taxCode, // Use actual tax code
+                taxName: "Tax",
+                taxRate: data.rate,
+                taxAmount: data.amount,
+              }));
+            })() : undefined,
+            currency: linkedProducts[0]?.currency || "USD", // Add currency
             formResponses: updatedData.formResponses,
             stepProgress: [currentStep], // Track which step was just completed
             currentStep,
           },
         });
-        console.log("✅ Updated checkout_session:", checkoutSessionId);
+        console.log("✅ Updated checkout_session:", checkoutSessionId, "Total:", totalAmount);
       } catch (error) {
         console.error("Failed to update checkout session:", error);
       }
@@ -342,6 +392,7 @@ export function MultiStepCheckout({
             organizationId={organizationId}
             sessionId="public" // TODO: Get actual session if user is logged in
             checkoutSessionId={checkoutSessionId || undefined} // PASS REAL CHECKOUT SESSION ID!
+            linkedProducts={linkedProducts} // Pass full product data for tax settings
             customerInfo={customerInfo}
             selectedProducts={stepData.selectedProducts || []}
             formResponses={stepData.formResponses}
@@ -356,6 +407,7 @@ export function MultiStepCheckout({
           <ConfirmationStep
             checkoutData={stepData}
             linkedProducts={linkedProducts}
+            checkoutSessionId={checkoutSessionId || undefined}
           />
         );
 

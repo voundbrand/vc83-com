@@ -320,19 +320,30 @@ export class StripeConnectProvider implements IPaymentProvider {
    * Checks if a PaymentIntent was successfully completed.
    *
    * @param sessionId - PaymentIntent ID (pi_xxx)
+   * @param connectedAccountId - Optional connected account ID (required for Stripe Connect)
    * @returns Payment verification result
    */
   async verifyCheckoutPayment(
-    sessionId: string
+    sessionId: string,
+    connectedAccountId?: string
   ): Promise<PaymentVerificationResult> {
     try {
-      const paymentIntent = await this.stripe.paymentIntents.retrieve(sessionId);
+      // For Stripe Connect, we need to specify which account the payment intent belongs to
+      const requestOptions = connectedAccountId
+        ? { stripeAccount: connectedAccountId }
+        : {};
+
+      const paymentIntent = await this.stripe.paymentIntents.retrieve(
+        sessionId,
+        requestOptions
+      );
 
       // Get payment method details if available
       let paymentMethodDetails: PaymentVerificationResult["paymentMethod"];
       if (paymentIntent.payment_method) {
         const pm = await this.stripe.paymentMethods.retrieve(
-          paymentIntent.payment_method as string
+          paymentIntent.payment_method as string,
+          requestOptions
         );
         paymentMethodDetails = {
           type: pm.type,

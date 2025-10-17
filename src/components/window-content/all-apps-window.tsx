@@ -12,6 +12,7 @@ import { TicketsWindow } from "@/components/window-content/tickets-window";
 import { EventsWindow } from "@/components/window-content/events-window";
 import { CheckoutWindow } from "@/components/window-content/checkout-window";
 import { FormsWindow } from "@/components/window-content/forms-window";
+import { CRMWindow } from "@/components/window-content/crm-window";
 
 /**
  * All Apps Window
@@ -118,6 +119,11 @@ export function AllAppsWindow() {
         component: <FormsWindow />,
         width: 950,
         height: 650
+      },
+      'crm': {
+        component: <CRMWindow />,
+        width: 1100,
+        height: 700
       },
     };
 

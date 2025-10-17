@@ -38,6 +38,13 @@ interface ProductSelectionStepProps {
       taxRate: number;
       isTaxable: boolean;
       taxBehavior: "exclusive" | "inclusive" | "automatic";
+      lineItems?: Array<{
+        subtotal: number;
+        taxAmount: number;
+        taxRate: number;
+        taxable: boolean;
+        taxCode?: string;
+      }>;
     };
   }) => void;
 }
@@ -172,6 +179,13 @@ export function ProductSelectionStep({
         taxRate: defaultTaxRate,
         isTaxable: taxCalculation.isTaxable,
         taxBehavior: taxCalculation.taxBehavior,
+        lineItems: taxCalculation.lineItems.map(item => ({
+          subtotal: item.subtotal,
+          taxAmount: item.taxAmount,
+          taxRate: item.taxCode ? getTaxRateByCode(item.taxCode, defaultTaxRate) : defaultTaxRate,
+          taxable: item.taxable,
+          taxCode: item.taxCode,
+        })),
       },
     });
   };

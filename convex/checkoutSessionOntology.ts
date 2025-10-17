@@ -25,9 +25,38 @@
  * - Email: Send cart abandonment reminders
  */
 
-import { mutation, query, internalQuery } from "./_generated/server";
+import { mutation, query, internalQuery, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser } from "./rbacHelpers";
+import type { MutationCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
+
+/**
+ * Helper: Get or create system user for anonymous actions
+ */
+async function getOrCreateSystemUser(ctx: MutationCtx) {
+  let systemUser = await ctx.db
+    .query("users")
+    .filter((q) => q.eq(q.field("email"), "system@l4yercak3.com"))
+    .first();
+
+  if (!systemUser) {
+    const systemUserId = await ctx.db.insert("users", {
+      email: "system@l4yercak3.com",
+      firstName: "System",
+      lastName: "User",
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+    systemUser = await ctx.db.get(systemUserId);
+  }
+
+  if (!systemUser) {
+    throw new Error("Failed to create system user");
+  }
+
+  return systemUser;
+}
 
 // ============================================================================
 // CHECKOUT_SESSION OPERATIONS
@@ -158,6 +187,171 @@ export const createCheckoutSession = mutation({
 });
 
 /**
+ * CREATE PUBLIC CHECKOUT SESSION
+ *
+ * Public version that doesn't require authentication.
+ * Used for anonymous checkout flows (non-logged-in customers).
+ */
+export const createPublicCheckoutSession = mutation({
+  args: {
+    organizationId: v.id("organizations"),
+    checkoutInstanceId: v.optional(v.id("objects")),
+    customerEmail: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // No authentication required for public checkouts
+    // Get or create system user for tracking actions
+    const systemUser = await getOrCreateSystemUser(ctx);
+
+    // Create session object (use system user for createdBy)
+    const checkoutSessionId = await ctx.db.insert("objects", {
+      organizationId: args.organizationId,
+      type: "checkout_session",
+      subtype: "active",
+      name: `Public Checkout ${new Date().toISOString()}`,
+      status: "active",
+      customProperties: {
+        checkoutInstanceId: args.checkoutInstanceId,
+        customerEmail: args.customerEmail,
+        selectedProducts: [],
+        subtotal: 0,
+        taxAmount: 0,
+        totalAmount: 0,
+        currency: "usd",
+        formResponses: [],
+        stepProgress: ["started"],
+        startedAt: Date.now(),
+        expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+        isPublic: true, // Mark as public checkout
+      },
+      createdBy: systemUser!._id, // Use system user for public checkouts
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    // Log action (use system user for performedBy)
+    await ctx.db.insert("objectActions", {
+      organizationId: args.organizationId,
+      objectId: checkoutSessionId,
+      actionType: "public_checkout_session_created",
+      actionData: {
+        checkoutInstanceId: args.checkoutInstanceId,
+      },
+      performedBy: systemUser!._id, // Use system user
+      performedAt: Date.now(),
+    });
+
+    return { checkoutSessionId };
+  },
+});
+
+/**
+ * UPDATE CHECKOUT SESSION (PUBLIC)
+ *
+ * Public version - Updates checkout session without requiring authentication.
+ * Used during multi-step anonymous checkout flow.
+ */
+export const updatePublicCheckoutSession = mutation({
+  args: {
+    checkoutSessionId: v.id("objects"),
+    updates: v.object({
+      // Customer info
+      customerEmail: v.optional(v.string()),
+      customerName: v.optional(v.string()),
+      customerPhone: v.optional(v.string()),
+      customerNotes: v.optional(v.string()),
+
+      // Cart
+      selectedProducts: v.optional(
+        v.array(
+          v.object({
+            productId: v.id("objects"),
+            quantity: v.number(),
+            pricePerUnit: v.number(),
+            totalPrice: v.number(),
+          })
+        )
+      ),
+      subtotal: v.optional(v.number()),
+      taxAmount: v.optional(v.number()),
+      taxDetails: v.optional(
+        v.array(
+          v.object({
+            jurisdiction: v.string(),
+            taxName: v.string(),
+            taxRate: v.number(),
+            taxAmount: v.number(),
+          })
+        )
+      ),
+      totalAmount: v.optional(v.number()),
+      currency: v.optional(v.string()),
+
+      // Form responses
+      formResponses: v.optional(
+        v.array(
+          v.object({
+            productId: v.id("objects"),
+            ticketNumber: v.number(),
+            formId: v.string(),
+            responses: v.any(),
+            addedCosts: v.number(),
+            submittedAt: v.number(),
+          })
+        )
+      ),
+
+      // Payment
+      paymentProvider: v.optional(v.string()),
+      paymentIntentId: v.optional(v.string()),
+
+      // Progress tracking
+      stepProgress: v.optional(v.array(v.string())),
+      currentStep: v.optional(v.string()),
+    }),
+  },
+  handler: async (ctx, args) => {
+    // Get or create system user for tracking actions
+    const systemUser = await getOrCreateSystemUser(ctx);
+
+    // Get session
+    const session = await ctx.db.get(args.checkoutSessionId);
+    if (!session || session.type !== "checkout_session") {
+      throw new Error("Checkout session not found");
+    }
+
+    // Check if session expired
+    const expiresAt = session.customProperties?.expiresAt as number;
+    if (expiresAt && Date.now() > expiresAt) {
+      throw new Error("Checkout session has expired");
+    }
+
+    // Update session
+    await ctx.db.patch(args.checkoutSessionId, {
+      customProperties: {
+        ...(session.customProperties || {}),
+        ...args.updates,
+      },
+      updatedAt: Date.now(),
+    });
+
+    // Log action
+    await ctx.db.insert("objectActions", {
+      organizationId: session.organizationId,
+      objectId: args.checkoutSessionId,
+      actionType: "checkout_session_updated",
+      actionData: {
+        updatedFields: Object.keys(args.updates),
+      },
+      performedBy: systemUser._id,
+      performedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
  * UPDATE CHECKOUT SESSION
  *
  * Updates session as customer progresses through checkout.
@@ -254,26 +448,28 @@ export const updateCheckoutSession = mutation({
 });
 
 /**
- * COMPLETE CHECKOUT SESSION
- *
- * Marks session as completed after successful payment.
- * This triggers downstream actions (create purchase items, CRM contact, etc.)
+ * INTERNAL: Complete checkout session without authentication
+ * Called from backend actions after payment verification
  */
-export const completeCheckoutSession = mutation({
+export const completeCheckoutSessionInternal = internalMutation({
   args: {
-    sessionId: v.string(),
     checkoutSessionId: v.id("objects"),
     paymentIntentId: v.string(),
-    purchasedItemIds: v.optional(v.array(v.string())), // Generic purchase items (not just tickets!)
+    purchasedItemIds: v.optional(v.array(v.string())),
     crmContactId: v.optional(v.id("objects")),
+    userId: v.optional(v.id("users")),
   },
   handler: async (ctx, args) => {
-    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
-
     // Get session
     const session = await ctx.db.get(args.checkoutSessionId);
     if (!session || session.type !== "checkout_session") {
       throw new Error("Checkout session not found");
+    }
+
+    // Get userId - if not provided, use system user
+    let userId = args.userId;
+    if (!userId) {
+      userId = (await getOrCreateSystemUser(ctx))._id;
     }
 
     // Update session to completed
@@ -284,7 +480,7 @@ export const completeCheckoutSession = mutation({
         paymentIntentId: args.paymentIntentId,
         paymentStatus: "succeeded",
         completedAt: Date.now(),
-        purchasedItemIds: args.purchasedItemIds || [], // Generic!
+        purchasedItemIds: args.purchasedItemIds || [],
         crmContactId: args.crmContactId,
       },
       updatedAt: Date.now(),
@@ -298,13 +494,41 @@ export const completeCheckoutSession = mutation({
       actionData: {
         paymentIntentId: args.paymentIntentId,
         totalAmount: session.customProperties?.totalAmount,
-        purchasedItemCount: args.purchasedItemIds?.length || 0, // Generic!
+        purchasedItemCount: args.purchasedItemIds?.length || 0,
       },
       performedBy: userId,
       performedAt: Date.now(),
     });
 
     return { success: true };
+  },
+});
+
+/**
+ * COMPLETE CHECKOUT SESSION (PUBLIC)
+ *
+ * Marks session as completed after successful payment.
+ * Requires authentication via sessionId
+ */
+export const completeCheckoutSession = mutation({
+  args: {
+    sessionId: v.string(),
+    checkoutSessionId: v.id("objects"),
+    paymentIntentId: v.string(),
+    purchasedItemIds: v.optional(v.array(v.string())), // Generic purchase items (not just tickets!)
+    crmContactId: v.optional(v.id("objects")),
+  },
+  handler: async (ctx, args): Promise<{ success: boolean }> => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    // Delegate to internal mutation
+    return await ctx.runMutation(internal.checkoutSessionOntology.completeCheckoutSessionInternal, {
+      checkoutSessionId: args.checkoutSessionId,
+      paymentIntentId: args.paymentIntentId,
+      purchasedItemIds: args.purchasedItemIds,
+      crmContactId: args.crmContactId,
+      userId,
+    });
   },
 });
 

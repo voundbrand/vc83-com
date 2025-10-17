@@ -60,6 +60,7 @@ export interface CheckoutProduct {
   description: string;
   price: number; // in cents
   currency: string;
+  subtype?: string; // "ticket" | "physical" | "digital" - product fulfillment type
   customProperties?: {
     slug?: string;
     stripePriceId?: string;

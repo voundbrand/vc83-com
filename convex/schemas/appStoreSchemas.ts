@@ -25,7 +25,8 @@ export const apps = defineTable({
     v.literal("collaboration"),
     v.literal("finance"),
     v.literal("administration"),
-    v.literal("commerce")
+    v.literal("commerce"),
+    v.literal("business")
   ),
   
   // Availability

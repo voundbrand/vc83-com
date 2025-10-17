@@ -10,20 +10,38 @@
  * - Email confirmation sent notice
  */
 
-import { CheckCircle, Download, Mail } from "lucide-react";
+import { useState } from "react";
+import { CheckCircle, Download, Mail, Loader2 } from "lucide-react";
+import { useAction } from "convex/react";
+import { api } from "../../../../convex/_generated/api";
 import { CheckoutStepData } from "../multi-step-checkout";
 import { CheckoutProduct } from "@/templates/checkout/types";
+import { Id } from "../../../../convex/_generated/dataModel";
 import styles from "../styles/multi-step.module.css";
 
 interface ConfirmationStepProps {
   checkoutData: CheckoutStepData;
   linkedProducts: CheckoutProduct[];
+  checkoutSessionId?: Id<"objects">;
 }
 
 export function ConfirmationStep({
   checkoutData,
   linkedProducts,
+  checkoutSessionId,
 }: ConfirmationStepProps) {
+  const [isDownloadingReceipt, setIsDownloadingReceipt] = useState(false);
+  const [isDownloadingTicket, setIsDownloadingTicket] = useState(false);
+
+  // Actions for PDF generation
+  const generateInvoicePDF = useAction(api.pdfGeneration.generateInvoicePDF);
+  const generateTicketPDF = useAction(api.pdfGeneration.generateTicketPDF);
+  const getTicketIdsFromCheckout = useAction(api.pdfGeneration.getTicketIdsFromCheckout);
+
+  // Get checkoutSessionId from either prop OR paymentResult (fallback)
+  const sessionId = checkoutSessionId ||
+    (checkoutData.paymentResult?.checkoutSessionId as Id<"objects"> | undefined);
+
   /**
    * Format price for display
    * Uses the currency from the first product (assumes all products use same currency)
@@ -36,9 +54,108 @@ export function ConfirmationStep({
     }).format(amount / 100);
   };
 
+  /**
+   * Download invoice/receipt PDF
+   */
+  const handleDownloadReceipt = async () => {
+    if (!sessionId) {
+      alert("Checkout session not found. Please refresh the page.");
+      return;
+    }
+
+    setIsDownloadingReceipt(true);
+    try {
+      const pdf = await generateInvoicePDF({ checkoutSessionId: sessionId });
+      if (pdf) {
+        // Create download link
+        const link = document.createElement("a");
+        link.href = `data:${pdf.contentType};base64,${pdf.content}`;
+        link.download = pdf.filename;
+        link.click();
+      }
+    } catch (error) {
+      console.error("Failed to download receipt:", error);
+      alert("Failed to download receipt. Please try again.");
+    } finally {
+      setIsDownloadingReceipt(false);
+    }
+  };
+
+  /**
+   * Download ALL ticket PDFs (downloads separately or zips if multiple)
+   */
+  const handleDownloadTicket = async () => {
+    if (!sessionId) {
+      alert("Checkout session not found. Please refresh the page.");
+      return;
+    }
+
+    setIsDownloadingTicket(true);
+    try {
+      // Fetch actual ticket IDs from purchase items
+      const ticketIds = await getTicketIdsFromCheckout({ checkoutSessionId: sessionId });
+
+      if (ticketIds.length === 0) {
+        alert("No tickets found. Please contact support.");
+        return;
+      }
+
+      // Download each ticket PDF
+      for (const ticketId of ticketIds) {
+        const pdf = await generateTicketPDF({
+          ticketId,
+          checkoutSessionId: sessionId,
+        });
+        if (pdf) {
+          // Create download link
+          const link = document.createElement("a");
+          link.href = `data:${pdf.contentType};base64,${pdf.content}`;
+          link.download = pdf.filename;
+          link.click();
+
+          // Small delay between downloads to prevent browser blocking
+          if (ticketIds.length > 1) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Failed to download tickets:", error);
+      alert("Failed to download tickets. Please try again.");
+    } finally {
+      setIsDownloadingTicket(false);
+    }
+  };
+
   const totalAmount =
     (checkoutData.totalPrice || 0) +
     (checkoutData.formResponses?.reduce((sum, fr) => sum + (fr.addedCosts || 0), 0) || 0);
+
+  // Check if any products are tickets
+  // Check multiple possible locations for ticket indicator
+  const hasTicketProducts = linkedProducts.some((p) => {
+    // Check subtype field (most common)
+    if (p.subtype === "ticket") return true;
+
+    // Fallback: check if customProperties has ticket-related fields
+    const customProps = p.customProperties as Record<string, unknown> | undefined;
+    if (customProps && "ticketTier" in customProps) return true; // Has ticket-specific property
+
+    return false;
+  });
+
+  // DEBUG: Log product data to understand structure
+  console.log("🎫 Confirmation Step Debug:");
+  console.log("- linkedProducts:", linkedProducts);
+  console.log("- linkedProducts FULL:", linkedProducts.map(p => ({
+    _id: p._id,
+    name: p.name,
+    subtype: p.subtype,
+    allKeys: Object.keys(p)
+  })));
+  console.log("- hasTicketProducts:", hasTicketProducts);
+  console.log("- purchasedItemIds:", checkoutData.paymentResult?.purchasedItemIds);
+  console.log("- sessionId:", sessionId);
 
   return (
     <div className={styles.stepContainer}>
@@ -51,7 +168,9 @@ export function ConfirmationStep({
           Payment Successful!
         </h2>
         <p className={styles.confirmationSubtitle}>
-          Your order has been confirmed.
+          {hasTicketProducts
+            ? "Your tickets have been sent to your email with QR codes."
+            : "Your order has been confirmed."}
         </p>
       </div>
 
@@ -103,8 +222,17 @@ export function ConfirmationStep({
             Confirmation Email Sent
           </p>
           <p className={styles.infoBoxText}>
-            We&apos;ve sent a confirmation email with your receipt and ticket to{" "}
-            <strong>{checkoutData.customerInfo?.email}</strong>
+            {hasTicketProducts ? (
+              <>
+                We&apos;ve sent your tickets (with QR codes) and receipt to{" "}
+                <strong>{checkoutData.customerInfo?.email}</strong>
+              </>
+            ) : (
+              <>
+                We&apos;ve sent a confirmation email with your receipt to{" "}
+                <strong>{checkoutData.customerInfo?.email}</strong>
+              </>
+            )}
           </p>
         </div>
       </div>
@@ -113,39 +241,36 @@ export function ConfirmationStep({
       <div className={styles.downloadButtons}>
         <button
           type="button"
-          onClick={() => {
-            // TODO: Implement receipt download
-            console.log("Download receipt");
-          }}
+          onClick={handleDownloadReceipt}
+          disabled={isDownloadingReceipt}
           className={styles.secondaryButton}
         >
-          <Download size={20} />
-          Download Receipt
+          {isDownloadingReceipt ? (
+            <Loader2 size={20} className="animate-spin" />
+          ) : (
+            <Download size={20} />
+          )}
+          {isDownloadingReceipt ? "Downloading..." : "Download Receipt"}
         </button>
 
-        <button
-          type="button"
-          onClick={() => {
-            // TODO: Implement ticket download
-            console.log("Download ticket");
-          }}
-          className={styles.primaryButton}
-        >
-          <Download size={20} />
-          Download Ticket
-        </button>
-      </div>
-
-      {/* QR Code Placeholder */}
-      <div className={styles.qrSection}>
-        <div className={styles.qrContainer}>
-          <div className={styles.qrPlaceholder}>
-            <p>[QR Code]</p>
-          </div>
-          <p className={styles.qrText}>
-            Scan this code at the event entrance
-          </p>
-        </div>
+        {hasTicketProducts && (
+          <button
+            type="button"
+            onClick={handleDownloadTicket}
+            disabled={isDownloadingTicket}
+            className={styles.primaryButton}
+          >
+            {isDownloadingTicket ? (
+              <Loader2 size={20} className="animate-spin" />
+            ) : (
+              <Download size={20} />
+            )}
+            {isDownloadingTicket
+              ? "Downloading..."
+              : `Download Ticket${(checkoutData.paymentResult?.purchasedItemIds?.length || 0) > 1 ? 's' : ''}`
+            }
+          </button>
+        )}
       </div>
 
       {/* Support Info */}

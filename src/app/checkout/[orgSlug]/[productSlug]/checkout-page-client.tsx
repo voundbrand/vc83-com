@@ -91,6 +91,7 @@ export function CheckoutPageClient({ orgSlug, slug }: CheckoutPageClientProps) {
       description: product.description || "",
       price: Number((product.customProperties as Record<string, unknown>)?.price || 0), // ✅ Price is in cents in 'price' field
       currency: String((product.customProperties as Record<string, unknown>)?.currency || settings.currency || "usd"),
+      subtype: product.subtype, // ✅ Include subtype ("ticket" | "physical" | "digital")
       customProperties: product.customProperties as Record<string, unknown>,
     }));
 

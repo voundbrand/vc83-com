@@ -14,16 +14,47 @@ import { v } from "convex/values";
 import { requireAuthenticatedUser } from "./rbacHelpers";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import type { MutationCtx } from "./_generated/server";
+
+/**
+ * Get or create system user for internal operations (guest checkout, etc.)
+ */
+async function getOrCreateSystemUser(ctx: MutationCtx) {
+  const systemEmail = "system@l4yercak3.com";
+  const existingUser = await ctx.db
+    .query("users")
+    .filter((q) => q.eq(q.field("email"), systemEmail))
+    .first();
+
+  if (existingUser) {
+    return existingUser;
+  }
+
+  // Create system user if it doesn't exist
+  const userId = await ctx.db.insert("users", {
+    email: systemEmail,
+    firstName: "System",
+    lastName: "User",
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+
+  const newUser = await ctx.db.get(userId);
+  if (!newUser) {
+    throw new Error("Failed to create system user");
+  }
+  return newUser;
+}
 
 // ============================================================================
 // CHECKOUT INTEGRATION
 // ============================================================================
 
 /**
- * AUTO-CREATE CONTACT FROM CHECKOUT SESSION (NEW!)
+ * AUTO-CREATE CONTACT FROM CHECKOUT SESSION (INTERNAL - No Auth Required)
  *
- * Reads checkout_session object and auto-creates CRM contact.
- * This is the MAIN integration hook called after successful checkout.
+ * Internal mutation for creating CRM contacts from checkout without requiring authentication.
+ * Used by backend actions (like payment completion) that run without user sessions.
  *
  * Features:
  * - Deduplication by email
@@ -31,18 +62,23 @@ import type { Id } from "./_generated/dataModel";
  * - Enriches with purchase history from session
  * - Links to organization if B2B checkout
  */
-export const autoCreateContactFromCheckout = mutation({
+export const autoCreateContactFromCheckoutInternal = internalMutation({
   args: {
-    sessionId: v.string(),
     checkoutSessionId: v.id("objects"),
   },
   handler: async (ctx, args): Promise<{ contactId: Id<"objects">; isNew: boolean }> => {
-    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    // Get or create system user for internal operations
+    const systemUser = await getOrCreateSystemUser(ctx);
+    const userId = systemUser._id;
 
     // 1. Get checkout session (single source of truth!)
-    const session: any = await ctx.runQuery(internal.checkoutSessionOntology.getCheckoutSessionInternal, {
+    const session = await ctx.runQuery(internal.checkoutSessionOntology.getCheckoutSessionInternal, {
       checkoutSessionId: args.checkoutSessionId,
-    });
+    }) as {
+      type: string;
+      organizationId: Id<"organizations">;
+      customProperties?: Record<string, unknown>;
+    };
 
     if (!session || session.type !== "checkout_session") {
       throw new Error("Checkout session not found");
@@ -75,15 +111,15 @@ export const autoCreateContactFromCheckout = mutation({
     const lastName = nameParts.slice(1).join(" ") || "";
 
     // 3. Check if contact already exists by email (deduplication)
-    const existingContacts: any[] = await ctx.db
+    const existingContacts = await ctx.db
       .query("objects")
       .withIndex("by_org_type", (q) =>
         q.eq("organizationId", organizationId).eq("type", "crm_contact")
       )
       .collect();
 
-    const existingContact: any = existingContacts.find(
-      (c: any) => c.customProperties?.email === customerEmail
+    const existingContact = existingContacts.find(
+      (c) => c.customProperties?.email === customerEmail
     );
 
     if (existingContact) {
@@ -169,6 +205,27 @@ export const autoCreateContactFromCheckout = mutation({
     });
 
     return { contactId, isNew: true };
+  },
+});
+
+/**
+ * AUTO-CREATE CONTACT FROM CHECKOUT SESSION (PUBLIC - With Auth)
+ *
+ * Public mutation that requires authentication.
+ * This is for authenticated user flows (future enhancement).
+ */
+export const autoCreateContactFromCheckout = mutation({
+  args: {
+    sessionId: v.string(),
+    checkoutSessionId: v.id("objects"),
+  },
+  handler: async (ctx, args): Promise<{ contactId: Id<"objects">; isNew: boolean }> => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    // Delegate to internal mutation with userId
+    return await ctx.runMutation(internal.crmIntegrations.autoCreateContactFromCheckoutInternal, {
+      checkoutSessionId: args.checkoutSessionId,
+    });
   },
 });
 

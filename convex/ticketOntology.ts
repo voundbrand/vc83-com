@@ -23,10 +23,11 @@
  * - NO check-in system yet (add when events need it)
  */
 
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser } from "./rbacHelpers";
+import { internal } from "./_generated/api";
 
 /**
  * GET TICKETS
@@ -88,6 +89,23 @@ export const getTicket = query({
       throw new Error("Ticket not found");
     }
 
+    return ticket;
+  },
+});
+
+/**
+ * GET TICKET (INTERNAL - No Auth Required)
+ * Internal query for ticket data access by backend actions
+ */
+export const getTicketInternal = internalQuery({
+  args: {
+    ticketId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const ticket = await ctx.db.get(args.ticketId);
+    if (!ticket || ticket.type !== "ticket") {
+      return null;
+    }
     return ticket;
   },
 });
@@ -157,22 +175,20 @@ export const getProductByTicket = query({
 });
 
 /**
- * CREATE TICKET
- * Issue a new ticket from a product
+ * INTERNAL: Create ticket without authentication
+ * Called from backend actions after payment verification
  */
-export const createTicket = mutation({
+export const createTicketInternal = internalMutation({
   args: {
-    sessionId: v.string(),
     organizationId: v.id("organizations"),
-    productId: v.id("objects"), // Product this ticket is issued from
-    eventId: v.optional(v.id("objects")), // Optional event to link ticket to
+    productId: v.id("objects"),
+    eventId: v.optional(v.id("objects")),
     holderName: v.string(),
     holderEmail: v.string(),
     customProperties: v.optional(v.record(v.string(), v.any())),
+    userId: v.optional(v.id("users")),
   },
   handler: async (ctx, args) => {
-    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
-
     // Validate product exists
     const product = await ctx.db.get(args.productId);
     if (!product || product.type !== "product") {
@@ -187,21 +203,35 @@ export const createTicket = mutation({
       }
     }
 
+    // Get userId - if not provided (guest checkout), use system user
+    let userId = args.userId;
+    if (!userId) {
+      const systemUser = await ctx.db
+        .query("users")
+        .filter(q => q.eq(q.field("email"), "system@l4yercak3.com"))
+        .first();
+
+      if (!systemUser) {
+        throw new Error("System user not found - run seed script first");
+      }
+
+      userId = systemUser._id;
+    }
+
     // Build customProperties with ticket data
     const customProperties = {
       productId: args.productId,
       holderName: args.holderName,
       holderEmail: args.holderEmail,
       purchaseDate: Date.now(),
-      // GRAVEL ROAD: No QR codes, check-in system, or transfer mechanism yet
       ...(args.customProperties || {}),
     };
 
-    // Create ticket object - subtype removed, inherit from product
+    // Create ticket object
     const ticketId = await ctx.db.insert("objects", {
       organizationId: args.organizationId,
       type: "ticket",
-      subtype: "ticket", // Generic subtype, actual type comes from product
+      subtype: "ticket",
       name: `${product.name} - ${args.holderName}`,
       description: `Ticket for ${args.holderName}`,
       status: "issued",
@@ -239,6 +269,37 @@ export const createTicket = mutation({
     }
 
     return ticketId;
+  },
+});
+
+/**
+ * CREATE TICKET (PUBLIC)
+ * Issue a new ticket from a product
+ * Requires authentication via sessionId
+ */
+export const createTicket = mutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    productId: v.id("objects"), // Product this ticket is issued from
+    eventId: v.optional(v.id("objects")), // Optional event to link ticket to
+    holderName: v.string(),
+    holderEmail: v.string(),
+    customProperties: v.optional(v.record(v.string(), v.any())),
+  },
+  handler: async (ctx, args): Promise<Id<"objects">> => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    // Delegate to internal mutation
+    return await ctx.runMutation(internal.ticketOntology.createTicketInternal, {
+      organizationId: args.organizationId,
+      productId: args.productId,
+      eventId: args.eventId,
+      holderName: args.holderName,
+      holderEmail: args.holderEmail,
+      customProperties: args.customProperties,
+      userId,
+    });
   },
 });
 
@@ -459,5 +520,27 @@ export const getTicketsByEvent = query({
     }
 
     return tickets;
+  },
+});
+
+/**
+ * GET TICKETS BY CHECKOUT (INTERNAL)
+ * Get all tickets created during a specific checkout session
+ * Used by email system to send ticket emails after purchase
+ */
+export const getTicketsByCheckoutInternal = internalQuery({
+  args: {
+    checkoutSessionId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const tickets = await ctx.db
+      .query("objects")
+      .withIndex("by_type", (q) => q.eq("type", "ticket"))
+      .collect();
+
+    // Filter tickets that belong to this checkout session
+    return tickets.filter(
+      (t) => t.customProperties?.checkoutSessionId === args.checkoutSessionId
+    );
   },
 });

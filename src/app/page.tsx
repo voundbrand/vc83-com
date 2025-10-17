@@ -18,6 +18,7 @@ import { EventsWindow } from "@/components/window-content/events-window"
 import { CheckoutWindow } from "@/components/window-content/checkout-window"
 import { FormsWindow } from "@/components/window-content/forms-window"
 import { AllAppsWindow } from "@/components/window-content/all-apps-window"
+import { CRMWindow } from "@/components/window-content/crm-window"
 import { WindowsMenu } from "@/components/windows-menu"
 import { useIsMobile } from "@/hooks/use-media-query"
 import { useAuth, useOrganizations, useCurrentOrganization, useIsSuperAdmin, useAccountDeletionStatus } from "@/hooks/use-auth"
@@ -86,6 +87,10 @@ export default function HomePage() {
 
   const openAllAppsWindow = () => {
     openWindow("all-apps", "All Applications", <AllAppsWindow />, { x: 150, y: 100 }, { width: 800, height: 600 })
+  }
+
+  const openCRMWindow = () => {
+    openWindow("crm", "CRM", <CRMWindow />, { x: 360, y: 280 }, { width: 1100, height: 700 })
   }
 
   const handleLogout = () => {
@@ -161,6 +166,7 @@ export default function HomePage() {
       'checkout': isAppAvailable("checkout"),
       'forms': isAppAvailable("forms"),
       'web-publishing': isAppAvailable("web-publishing"),
+      'crm': isAppAvailable("crm"),
     }
   });
 
@@ -194,6 +200,10 @@ export default function HomePage() {
     // Web Publishing app - enabled via app availability
     ...(isAppAvailable("web-publishing") ? [
       { label: "Web Publishing", icon: "🌐", onClick: requireAuth(openWebPublishingWindow) }
+    ] : []),
+    // CRM app - customer relationship management
+    ...(isAppAvailable("crm") ? [
+      { label: "CRM", icon: "👥", onClick: requireAuth(openCRMWindow) }
     ] : []),
     //{ label: "L4YERCAK3 Podcast", icon: "🎙️", onClick: requireAuth(openEpisodesWindow) },
     //{ label: "Subscribe", icon: "🔊", onClick: requireAuth(openSubscribeWindow) },

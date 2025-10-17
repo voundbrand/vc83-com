@@ -137,10 +137,12 @@ export interface IPaymentProvider {
    * Verify that a payment was completed successfully
    *
    * @param sessionId - Provider-specific session ID
+   * @param connectedAccountId - Optional connected account ID (for Stripe Connect)
    * @returns Payment verification result
    */
   verifyCheckoutPayment(
-    sessionId: string
+    sessionId: string,
+    connectedAccountId?: string
   ): Promise<PaymentVerificationResult>;
 
   // =========================================
