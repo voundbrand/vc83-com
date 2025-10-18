@@ -429,6 +429,11 @@ export const createPaymentIntentForSession = action({
     const totalAmount = (session.customProperties?.totalAmount as number) || 0;
     const currency = (session.customProperties?.currency as string) || "usd";
 
+    // B2B fields
+    const transactionType = (session.customProperties?.transactionType as "B2C" | "B2B" | undefined) || "B2C";
+    const companyName = session.customProperties?.companyName as string | undefined;
+    const vatNumber = session.customProperties?.vatNumber as string | undefined;
+
     // DEBUG: Log the amount we're trying to charge
     console.log("=== STRIPE PAYMENT INTENT DEBUG ===");
     console.log("Total Amount from session:", totalAmount);
@@ -485,6 +490,13 @@ export const createPaymentIntentForSession = action({
       connectedAccountId,
       successUrl: "",
       cancelUrl: "",
+      metadata: {
+        // B2B metadata for Stripe PaymentIntent
+        transactionType,
+        companyName: companyName || "",
+        vatNumber: vatNumber || "",
+        checkoutSessionId: args.checkoutSessionId,
+      },
     });
 
     // Store payment intent details in checkout session for reuse (so we can reuse it if user goes back)

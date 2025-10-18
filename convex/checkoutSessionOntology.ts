@@ -261,6 +261,18 @@ export const updatePublicCheckoutSession = mutation({
       customerPhone: v.optional(v.string()),
       customerNotes: v.optional(v.string()),
 
+      // B2B fields
+      transactionType: v.optional(v.union(v.literal("B2C"), v.literal("B2B"))),
+      companyName: v.optional(v.string()),
+      vatNumber: v.optional(v.string()),
+
+      // Billing address
+      billingStreet: v.optional(v.string()),
+      billingCity: v.optional(v.string()),
+      billingState: v.optional(v.string()),
+      billingPostalCode: v.optional(v.string()),
+      billingCountry: v.optional(v.string()),
+
       // Cart
       selectedProducts: v.optional(
         v.array(
@@ -372,6 +384,13 @@ export const updateCheckoutSession = mutation({
       transactionType: v.optional(v.union(v.literal("B2C"), v.literal("B2B"))),
       companyName: v.optional(v.string()),
       vatNumber: v.optional(v.string()),
+
+      // Billing address
+      billingStreet: v.optional(v.string()),
+      billingCity: v.optional(v.string()),
+      billingState: v.optional(v.string()),
+      billingPostalCode: v.optional(v.string()),
+      billingCountry: v.optional(v.string()),
 
       // Cart
       selectedProducts: v.optional(

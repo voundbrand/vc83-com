@@ -19,19 +19,43 @@ import { CheckoutProduct } from "@/templates/checkout/types";
 import { ModernTicketPDF } from "@/components/tickets/modern-ticket-pdf";
 import { ModernReceiptPDF } from "@/components/tickets/modern-receipt-pdf";
 import { Id } from "../../../../convex/_generated/dataModel";
-import styles from "../styles/multi-step.module.css";
 
 interface ConfirmationStepProps {
   checkoutData: CheckoutStepData;
   linkedProducts: CheckoutProduct[];
 }
 
+interface TicketData {
+  ticketNumber: string;
+  holderName: string;
+  holderEmail: string;
+  eventName: string;
+  eventDescription?: string;
+  eventDate?: number;
+  eventLocation?: string;
+  qrCodeDataUrl?: string;
+  productPrice?: number;
+  currency?: string;
+  [key: string]: unknown;
+}
+
+interface ReceiptData {
+  [key: string]: unknown;
+}
+
+interface PaymentResultWithTickets {
+  ticketIds?: Id<"objects">[];
+  checkoutSessionId?: Id<"objects">;
+  transactionId?: string;
+  [key: string]: unknown;
+}
+
 export function ConfirmationStepEnhanced({
   checkoutData,
   linkedProducts,
 }: ConfirmationStepProps) {
-  const [ticketData, setTicketData] = useState<any>(null);
-  const [receiptData, setReceiptData] = useState<any>(null);
+  const [ticketData, setTicketData] = useState<TicketData | null>(null);
+  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
   const [loading, setLoading] = useState(true);
 
   const generateTicketPDF = useAction(api.ticketGeneration.generateTicketPDFData);
@@ -45,14 +69,12 @@ export function ConfirmationStepEnhanced({
         setLoading(true);
 
         // Get ticket IDs from payment result
-        const ticketIds = (checkoutData.paymentResult as any).ticketIds as
-          | Id<"objects">[]
-          | undefined;
-        const checkoutSessionId = (checkoutData.paymentResult as any)
-          .checkoutSessionId as Id<"objects">;
+        const paymentResult = checkoutData.paymentResult as PaymentResultWithTickets;
+        const ticketIds = paymentResult.ticketIds;
+        const checkoutSessionId = paymentResult.checkoutSessionId;
 
         // Load ticket data (use first ticket for display)
-        if (ticketIds && ticketIds.length > 0) {
+        if (ticketIds && ticketIds.length > 0 && checkoutSessionId) {
           const ticket = await generateTicketPDF({
             ticketId: ticketIds[0],
             checkoutSessionId,
@@ -91,7 +113,7 @@ export function ConfirmationStepEnhanced({
 
   if (loading) {
     return (
-      <div className={styles.stepContainer}>
+      <div className="max-w-6xl mx-auto px-4 py-12">
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
         </div>

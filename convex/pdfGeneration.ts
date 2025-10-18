@@ -231,6 +231,13 @@ export const generateInvoicePDF = action({
 
       // 2. Get seller organization info
       const organizationId = session.organizationId;
+
+      // Get the actual organization record (has businessName field)
+      const organization = await ctx.runQuery(
+        internal.checkoutSessions.getOrganizationInternal,
+        { organizationId }
+      );
+
       const sellerOrg = await ctx.runQuery(
         api.organizationOntology.getOrganizationProfile,
         { organizationId }
@@ -245,6 +252,12 @@ export const generateInvoicePDF = action({
         api.organizationOntology.getOrganizationContact,
         { organizationId }
       ) as Doc<"objects"> | null;
+
+      // Get tax settings for origin address
+      const taxSettings = await ctx.runQuery(
+        api.organizationTaxSettings.getPublicTaxSettings,
+        { organizationId }
+      );
 
       // 3. Get purchase items
       const purchaseItemIds = (session.customProperties?.purchasedItemIds as Id<"objects">[]) || [];
@@ -286,6 +299,13 @@ export const generateInvoicePDF = action({
       const buyerCompanyName = session.customProperties?.companyName as string | undefined;
       const buyerVatNumber = session.customProperties?.vatNumber as string | undefined;
 
+      // Extract billing address
+      const billingStreet = session.customProperties?.billingStreet as string | undefined;
+      const billingCity = session.customProperties?.billingCity as string | undefined;
+      const billingState = session.customProperties?.billingState as string | undefined;
+      const billingPostalCode = session.customProperties?.billingPostalCode as string | undefined;
+      const billingCountry = session.customProperties?.billingCountry as string | undefined;
+
       // 6. Create PDF
       const doc = new jsPDF({
         orientation: "portrait",
@@ -322,10 +342,46 @@ export const generateInvoicePDF = action({
       doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
       let fromYPos = 52;
-      doc.text(sellerOrg?.name || "L4YERCAK3.com", 20, fromYPos);
+
+      // Show business name with priority: legal entity > org businessName > org name > profile
+      const businessName = sellerLegal?.customProperties?.legalEntityName as string | undefined ||
+                          organization?.businessName ||
+                          organization?.name ||
+                          sellerOrg?.name ||
+                          "L4YERCAK3.com";
+      doc.text(businessName, 20, fromYPos);
       fromYPos += 6;
 
-      if (sellerLegal?.customProperties?.address) {
+      // Use tax origin address if available, otherwise fall back to legal address
+      if (taxSettings?.originAddress) {
+        const origin = taxSettings.originAddress;
+
+        // Street address (addressLine1)
+        if (origin.addressLine1) {
+          doc.text(origin.addressLine1, 20, fromYPos);
+          fromYPos += 6;
+        }
+
+        // Street address line 2 (optional)
+        if (origin.addressLine2) {
+          doc.text(origin.addressLine2, 20, fromYPos);
+          fromYPos += 6;
+        }
+
+        // City, State, Postal Code
+        const cityLine = [
+          origin.city,
+          origin.state,
+          origin.postalCode
+        ].filter(Boolean).join(", ");
+        doc.text(cityLine, 20, fromYPos);
+        fromYPos += 6;
+
+        // Country
+        doc.text(origin.country, 20, fromYPos);
+        fromYPos += 6;
+      } else if (sellerLegal?.customProperties?.address) {
+        // Fallback to legal address
         doc.text(sellerLegal.customProperties.address as string, 20, fromYPos);
         fromYPos += 6;
       }
@@ -375,6 +431,27 @@ export const generateInvoicePDF = action({
 
         doc.text(`Attn: ${session.customProperties?.customerName as string}`, pageWidth / 2 + 10, billToYPos);
         billToYPos += 6;
+
+        // Billing address
+        if (billingStreet) {
+          doc.text(billingStreet, pageWidth / 2 + 10, billToYPos);
+          billToYPos += 6;
+        }
+
+        if (billingCity || billingState || billingPostalCode) {
+          const cityLine = [
+            billingCity,
+            billingState,
+            billingPostalCode
+          ].filter(Boolean).join(", ");
+          doc.text(cityLine, pageWidth / 2 + 10, billToYPos);
+          billToYPos += 6;
+        }
+
+        if (billingCountry) {
+          doc.text(billingCountry, pageWidth / 2 + 10, billToYPos);
+          billToYPos += 6;
+        }
       } else {
         // B2C: Show customer name
         doc.text(session.customProperties?.customerName as string, pageWidth / 2 + 10, billToYPos);
@@ -386,6 +463,7 @@ export const generateInvoicePDF = action({
 
       if (session.customProperties?.customerPhone) {
         doc.text(session.customProperties.customerPhone as string, pageWidth / 2 + 10, billToYPos);
+        billToYPos += 6;
       }
 
       // Items table (adjusted Y position for seller/buyer info)

@@ -187,10 +187,18 @@ export const getPublicTaxSettings = query({
         active: boolean;
       }> || [],
       originAddress: addressProps ? {
-        country: addressProps.country as string || "US",
-        state: addressProps.state as string | undefined,
+        addressLine1: addressProps.addressLine1 as string || "",
+        addressLine2: addressProps.addressLine2 as string | undefined,
         city: addressProps.city as string || "",
-      } : { country: "US", city: "" },
+        state: addressProps.state as string | undefined,
+        postalCode: addressProps.postalCode as string || "",
+        country: addressProps.country as string || "US",
+      } : {
+        addressLine1: "",
+        city: "",
+        postalCode: "",
+        country: "US"
+      },
     };
   },
 });

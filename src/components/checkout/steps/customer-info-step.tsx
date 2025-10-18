@@ -11,7 +11,7 @@
  */
 
 import { useState } from "react";
-import { User, Mail, Phone, MessageSquare, ArrowLeft, Building2, FileText } from "lucide-react";
+import { User, Mail, Phone, MessageSquare, ArrowLeft, Building2, FileText, MapPin } from "lucide-react";
 import styles from "../styles/multi-step.module.css";
 
 interface CustomerInfo {
@@ -23,6 +23,14 @@ interface CustomerInfo {
   transactionType?: "B2C" | "B2B";
   companyName?: string;
   vatNumber?: string;
+  // Billing address
+  billingAddress?: {
+    street: string;
+    city: string;
+    state?: string;
+    postalCode: string;
+    country: string;
+  };
 }
 
 interface CustomerInfoStepProps {
@@ -47,6 +55,13 @@ export function CustomerInfoStep({
   );
   const [companyName, setCompanyName] = useState(initialData?.companyName || "");
   const [vatNumber, setVatNumber] = useState(initialData?.vatNumber || "");
+
+  // Billing address fields
+  const [street, setStreet] = useState(initialData?.billingAddress?.street || "");
+  const [city, setCity] = useState(initialData?.billingAddress?.city || "");
+  const [state, setState] = useState(initialData?.billingAddress?.state || "");
+  const [postalCode, setPostalCode] = useState(initialData?.billingAddress?.postalCode || "");
+  const [country, setCountry] = useState(initialData?.billingAddress?.country || "");
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -81,6 +96,20 @@ export function CustomerInfoStep({
           newErrors.vatNumber = "Please enter a valid VAT number (e.g., DE123456789, GB999999973)";
         }
       }
+
+      // Billing address validation for B2B
+      if (!street.trim()) {
+        newErrors.street = "Street address is required for business transactions";
+      }
+      if (!city.trim()) {
+        newErrors.city = "City is required for business transactions";
+      }
+      if (!postalCode.trim()) {
+        newErrors.postalCode = "Postal code is required for business transactions";
+      }
+      if (!country.trim()) {
+        newErrors.country = "Country is required for business transactions";
+      }
     }
 
     setErrors(newErrors);
@@ -102,6 +131,13 @@ export function CustomerInfoStep({
         transactionType,
         companyName: transactionType === "B2B" ? companyName.trim() : undefined,
         vatNumber: transactionType === "B2B" && vatNumber.trim() ? vatNumber.trim() : undefined,
+        billingAddress: transactionType === "B2B" ? {
+          street: street.trim(),
+          city: city.trim(),
+          state: state.trim() || undefined,
+          postalCode: postalCode.trim(),
+          country: country.trim(),
+        } : undefined,
       });
     }
   };
@@ -117,7 +153,12 @@ export function CustomerInfoStep({
 
     // Additional B2B validation
     if (transactionType === "B2B") {
-      return basicValid && companyName.trim().length > 0;
+      return basicValid &&
+        companyName.trim().length > 0 &&
+        street.trim().length > 0 &&
+        city.trim().length > 0 &&
+        postalCode.trim().length > 0 &&
+        country.trim().length > 0;
     }
 
     return basicValid;
@@ -297,6 +338,117 @@ export function CustomerInfoStep({
               <p className={styles.helperText}>
                 EU VAT number format: 2-letter country code + digits (e.g., DE123456789)
               </p>
+            </div>
+
+            {/* Billing Address Section */}
+            <div className={styles.formField} style={{ marginTop: "24px" }}>
+              <label className={styles.fieldLabel} style={{ fontSize: "16px", fontWeight: "600" }}>
+                <MapPin size={16} />
+                Billing Address
+              </label>
+              <p className={styles.helperText} style={{ marginTop: "4px" }}>
+                Required for business invoices
+              </p>
+            </div>
+
+            {/* Street Address */}
+            <div className={styles.formField}>
+              <label className={styles.fieldLabel}>
+                Street Address <span className={styles.required}>*</span>
+              </label>
+              <input
+                type="text"
+                value={street}
+                onChange={(e) => {
+                  setStreet(e.target.value);
+                  if (errors.street) setErrors({ ...errors, street: "" });
+                }}
+                placeholder="123 Main Street, Suite 100"
+                className={`${styles.input} ${errors.street ? styles.inputError : ""}`}
+                required={transactionType === "B2B"}
+              />
+              {errors.street && (
+                <p className={styles.errorMessage}>{errors.street}</p>
+              )}
+            </div>
+
+            {/* City and State/Province (side by side) */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+              <div className={styles.formField}>
+                <label className={styles.fieldLabel}>
+                  City <span className={styles.required}>*</span>
+                </label>
+                <input
+                  type="text"
+                  value={city}
+                  onChange={(e) => {
+                    setCity(e.target.value);
+                    if (errors.city) setErrors({ ...errors, city: "" });
+                  }}
+                  placeholder="San Francisco"
+                  className={`${styles.input} ${errors.city ? styles.inputError : ""}`}
+                  required={transactionType === "B2B"}
+                />
+                {errors.city && (
+                  <p className={styles.errorMessage}>{errors.city}</p>
+                )}
+              </div>
+
+              <div className={styles.formField}>
+                <label className={styles.fieldLabel}>
+                  State/Province <span className={styles.optional}>(Optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={state}
+                  onChange={(e) => setState(e.target.value)}
+                  placeholder="CA"
+                  className={styles.input}
+                />
+              </div>
+            </div>
+
+            {/* Postal Code and Country (side by side) */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+              <div className={styles.formField}>
+                <label className={styles.fieldLabel}>
+                  Postal Code <span className={styles.required}>*</span>
+                </label>
+                <input
+                  type="text"
+                  value={postalCode}
+                  onChange={(e) => {
+                    setPostalCode(e.target.value);
+                    if (errors.postalCode) setErrors({ ...errors, postalCode: "" });
+                  }}
+                  placeholder="94105"
+                  className={`${styles.input} ${errors.postalCode ? styles.inputError : ""}`}
+                  required={transactionType === "B2B"}
+                />
+                {errors.postalCode && (
+                  <p className={styles.errorMessage}>{errors.postalCode}</p>
+                )}
+              </div>
+
+              <div className={styles.formField}>
+                <label className={styles.fieldLabel}>
+                  Country <span className={styles.required}>*</span>
+                </label>
+                <input
+                  type="text"
+                  value={country}
+                  onChange={(e) => {
+                    setCountry(e.target.value);
+                    if (errors.country) setErrors({ ...errors, country: "" });
+                  }}
+                  placeholder="United States"
+                  className={`${styles.input} ${errors.country ? styles.inputError : ""}`}
+                  required={transactionType === "B2B"}
+                />
+                {errors.country && (
+                  <p className={styles.errorMessage}>{errors.country}</p>
+                )}
+              </div>
             </div>
           </>
         )}

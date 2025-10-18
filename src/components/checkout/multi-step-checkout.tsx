@@ -58,6 +58,17 @@ export interface CheckoutStepData {
     name: string;
     phone?: string;
     notes?: string;
+    // B2B fields
+    transactionType?: "B2C" | "B2B";
+    companyName?: string;
+    vatNumber?: string;
+    billingAddress?: {
+      street: string;
+      city: string;
+      state?: string;
+      postalCode: string;
+      country: string;
+    };
   };
 
   // Step 2.5: Registration Form (conditional)
@@ -233,6 +244,16 @@ export function MultiStepCheckout({
             customerEmail: updatedData.customerInfo?.email,
             customerName: updatedData.customerInfo?.name,
             customerPhone: updatedData.customerInfo?.phone,
+            // B2B fields
+            transactionType: updatedData.customerInfo?.transactionType,
+            companyName: updatedData.customerInfo?.companyName,
+            vatNumber: updatedData.customerInfo?.vatNumber,
+            // Billing address
+            billingStreet: updatedData.customerInfo?.billingAddress?.street,
+            billingCity: updatedData.customerInfo?.billingAddress?.city,
+            billingState: updatedData.customerInfo?.billingAddress?.state,
+            billingPostalCode: updatedData.customerInfo?.billingAddress?.postalCode,
+            billingCountry: updatedData.customerInfo?.billingAddress?.country,
             selectedProducts: updatedData.selectedProducts?.map(sp => ({
               productId: sp.productId,
               quantity: sp.quantity,

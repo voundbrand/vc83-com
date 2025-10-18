@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
-import { Loader2, Save, X } from "lucide-react";
+import { Loader2, Save, X, ChevronDown, ChevronUp, Building2, Trash2, Edit2 } from "lucide-react";
+import { OrganizationFormModal } from "../crm-window/organization-form-modal";
 
 interface EventFormProps {
   sessionId: string;
@@ -33,6 +34,27 @@ export function EventForm({
     capacity: "",
   });
   const [saving, setSaving] = useState(false);
+  const [showSponsors, setShowSponsors] = useState(false);
+  const [selectedSponsorOrgId, setSelectedSponsorOrgId] = useState<string>("");
+  const [sponsorLevel, setSponsorLevel] = useState<"platinum" | "gold" | "silver" | "bronze" | "community">("gold");
+  const [addingSponsor, setAddingSponsor] = useState(false);
+  const [editingSponsorId, setEditingSponsorId] = useState<Id<"objects"> | null>(null);
+
+  // Handler for when sponsor organization is selected - auto-populate level from CRM
+  const handleSponsorOrgChange = (orgId: string) => {
+    setSelectedSponsorOrgId(orgId);
+
+    if (orgId && sponsorOrganizations) {
+      const selectedOrg = sponsorOrganizations.find(org => org._id === orgId);
+      if (selectedOrg?.customProperties?.sponsorLevel) {
+        const level = selectedOrg.customProperties.sponsorLevel as "platinum" | "gold" | "silver" | "bronze" | "community";
+        setSponsorLevel(level);
+      } else {
+        // Default to gold if no level is set
+        setSponsorLevel("gold");
+      }
+    }
+  };
 
   // Get existing event if editing
   const existingEvent = useQuery(
@@ -42,6 +64,22 @@ export function EventForm({
 
   const createEvent = useMutation(api.eventOntology.createEvent);
   const updateEvent = useMutation(api.eventOntology.updateEvent);
+  const linkSponsor = useMutation(api.eventOntology.linkSponsorToEvent);
+  const unlinkSponsor = useMutation(api.eventOntology.unlinkSponsorFromEvent);
+
+  // Get sponsor CRM organizations (only if editing an existing event)
+  const sponsorOrganizations = useQuery(
+    api.crmOntology.getCrmOrganizations,
+    eventId && sessionId
+      ? { sessionId, organizationId, status: "active" }
+      : "skip"
+  );
+
+  // Get current sponsors for this event
+  const currentSponsors = useQuery(
+    api.eventOntology.getSponsorsByEvent,
+    eventId && sessionId ? { sessionId, eventId } : "skip"
+  );
 
   // Load existing event data
   useEffect(() => {
@@ -67,8 +105,66 @@ export function EventForm({
     }
   }, [existingEvent]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAddSponsor = async () => {
+    if (!eventId || !selectedSponsorOrgId) {
+      alert("Please select a sponsor organization");
+      return;
+    }
+
+    setAddingSponsor(true);
+    try {
+      await linkSponsor({
+        sessionId,
+        eventId,
+        crmOrganizationId: selectedSponsorOrgId as Id<"objects">,
+        sponsorLevel,
+        displayOrder: (currentSponsors?.length || 0) + 1,
+      });
+      setSelectedSponsorOrgId("");
+      setSponsorLevel("gold");
+    } catch (error) {
+      console.error("Failed to add sponsor:", error);
+      alert("Failed to add sponsor. Please try again.");
+    } finally {
+      setAddingSponsor(false);
+    }
+  };
+
+  const handleRemoveSponsor = async (sponsorId: Id<"objects">) => {
+    if (!eventId) return;
+
+    if (!confirm("Remove this sponsor from the event?")) return;
+
+    try {
+      await unlinkSponsor({
+        sessionId,
+        eventId,
+        crmOrganizationId: sponsorId,
+      });
+    } catch (error) {
+      console.error("Failed to remove sponsor:", error);
+      alert("Failed to remove sponsor. Please try again.");
+    }
+  };
+
+  const getSponsorLevelColor = (level: string) => {
+    switch (level) {
+      case "platinum":
+        return { bg: "bg-gray-100", border: "border-gray-400", text: "text-gray-700" };
+      case "gold":
+        return { bg: "bg-yellow-100", border: "border-yellow-500", text: "text-yellow-700" };
+      case "silver":
+        return { bg: "bg-gray-200", border: "border-gray-500", text: "text-gray-700" };
+      case "bronze":
+        return { bg: "bg-orange-100", border: "border-orange-500", text: "text-orange-700" };
+      case "community":
+        return { bg: "bg-blue-100", border: "border-blue-400", text: "text-blue-700" };
+      default:
+        return { bg: "bg-gray-100", border: "border-gray-400", text: "text-gray-700" };
+    }
+  };
+
+  const handleSubmit = async () => {
     setSaving(true);
 
     try {
@@ -133,7 +229,7 @@ export function EventForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="p-6 space-y-4">
+    <div className="p-6 space-y-4">
       {/* Event Type */}
       <div>
         <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
@@ -316,6 +412,167 @@ export function EventForm({
         </p>
       </div>
 
+      {/* Sponsors Section (Only for existing events) */}
+      {eventId && (
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => setShowSponsors(!showSponsors)}
+            className="flex items-center justify-between w-full text-left py-2 px-3 border-2"
+            style={{
+              borderColor: "var(--win95-border)",
+              background: "var(--win95-bg-light)",
+              color: "var(--win95-text)",
+            }}
+          >
+            <span className="text-sm font-bold">🌟 Event Sponsors (Optional)</span>
+            {showSponsors ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </button>
+
+          {showSponsors && (
+            <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--win95-border)" }}>
+              {/* Add Sponsor */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                  Add Sponsor
+                </label>
+                <div className="flex gap-2 items-center">
+                  <select
+                    value={selectedSponsorOrgId}
+                    onChange={(e) => handleSponsorOrgChange(e.target.value)}
+                    className="flex-1 px-2 py-1.5 text-sm border-2"
+                    style={{
+                      borderColor: "var(--win95-border)",
+                      background: "var(--win95-input-bg)",
+                      color: "var(--win95-input-text)",
+                    }}
+                  >
+                    <option value="">-- Select CRM Organization --</option>
+                    {sponsorOrganizations
+                      ?.filter((org) => org.subtype === "sponsor")
+                      .map((org) => (
+                        <option key={org._id} value={org._id}>
+                          {org.name}
+                        </option>
+                      ))}
+                  </select>
+                  {selectedSponsorOrgId && (
+                    <span
+                      className={`px-2 py-1 text-xs font-bold border-2 flex-shrink-0 ${
+                        getSponsorLevelColor(sponsorLevel).bg
+                      } ${getSponsorLevelColor(sponsorLevel).border} ${
+                        getSponsorLevelColor(sponsorLevel).text
+                      }`}
+                    >
+                      {sponsorLevel.toUpperCase()}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleAddSponsor}
+                    disabled={addingSponsor || !selectedSponsorOrgId}
+                    className="px-3 py-1.5 text-sm font-bold border-2 flex-shrink-0"
+                    style={{
+                      borderColor: "var(--win95-border)",
+                      background: "var(--primary)",
+                      color: "white",
+                    }}
+                  >
+                    {addingSponsor ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      "Add"
+                    )}
+                  </button>
+                </div>
+                <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                  Select a sponsor organization. The sponsor level is set in CRM and will be used automatically.
+                </p>
+              </div>
+
+              {/* Current Sponsors List */}
+              {currentSponsors && currentSponsors.length > 0 && (
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                    Current Sponsors ({currentSponsors.length})
+                  </label>
+                  <div className="space-y-1">
+                    {currentSponsors.map((sponsor) => {
+                      const level = sponsor.sponsorshipProperties?.sponsorLevel || "community";
+                      const colors = getSponsorLevelColor(level);
+                      return (
+                        <div
+                          key={sponsor._id}
+                          className="flex items-center justify-between gap-2 p-2 border-2"
+                          style={{
+                            borderColor: "var(--win95-border)",
+                            background: "var(--win95-bg-light)",
+                          }}
+                        >
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <Building2 size={16} style={{ color: "var(--primary)" }} className="flex-shrink-0" />
+                            <span className="text-sm font-semibold truncate" style={{ color: "var(--win95-text)" }}>
+                              {sponsor.name}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {/* Sponsor Level Badge (Read-only) */}
+                            <span
+                              className={`px-2 py-1 text-xs font-bold border-2 ${colors.bg} ${colors.border} ${colors.text}`}
+                            >
+                              {level.toUpperCase()}
+                            </span>
+                            {/* Edit Sponsor button - opens CRM organization modal */}
+                            <button
+                              type="button"
+                              onClick={() => setEditingSponsorId(sponsor._id)}
+                              className="px-2 py-1 text-xs border-2 hover:bg-blue-100 transition-colors"
+                              style={{
+                                borderColor: "var(--win95-border)",
+                                color: "var(--primary)",
+                              }}
+                              title="Edit sponsor in CRM"
+                            >
+                              <Edit2 size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveSponsor(sponsor._id)}
+                              className="px-2 py-1 text-xs border-2 hover:bg-red-100 transition-colors"
+                              style={{
+                                borderColor: "var(--win95-border)",
+                                color: "var(--error)",
+                              }}
+                              title="Remove sponsor"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {currentSponsors && currentSponsors.length === 0 && (
+                <div
+                  className="text-center py-4 border-2"
+                  style={{
+                    borderColor: "var(--win95-border)",
+                    background: "var(--win95-bg-light)",
+                  }}
+                >
+                  <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                    No sponsors added yet
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Info Box */}
       <div
         className="p-3 border-2 rounded"
@@ -326,6 +583,7 @@ export function EventForm({
       >
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
           💡 Events start in &ldquo;Draft&rdquo; status. Click &ldquo;Publish&rdquo; to make them visible to attendees.
+          {!eventId && " Save the event first to add sponsors."}
         </p>
       </div>
 
@@ -346,7 +604,8 @@ export function EventForm({
           Cancel
         </button>
         <button
-          type="submit"
+          type="button"
+          onClick={handleSubmit}
           disabled={saving}
           className="px-4 py-2 text-sm font-bold flex items-center gap-2 border-2 transition-colors"
           style={{
@@ -368,6 +627,18 @@ export function EventForm({
           )}
         </button>
       </div>
-    </form>
+
+      {/* Organization Edit Modal (for editing sponsors) */}
+      {editingSponsorId && (
+        <OrganizationFormModal
+          editId={editingSponsorId}
+          onClose={() => setEditingSponsorId(null)}
+          onSuccess={() => {
+            setEditingSponsorId(null);
+            // The sponsor list will auto-refresh via the currentSponsors query
+          }}
+        />
+      )}
+    </div>
   );
 }

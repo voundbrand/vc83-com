@@ -17,12 +17,12 @@
  * - "completed" - Event has ended
  * - "cancelled" - Event was cancelled
  *
- * GRAVEL ROAD APPROACH:
- * - Start simple: name, dates, location, description
- * - NO agenda yet (add when users need scheduling)
- * - NO sponsors yet (add when events have sponsors)
- * - NO capacity limits yet (add when events fill up)
- * - NO attendee management yet (add when needed)
+ * Event Features:
+ * - ✅ Agenda/Schedule management (customProperties.agenda)
+ * - ✅ Sponsor management (objectLinks with linkType "sponsors")
+ * - ✅ Product/Ticket offerings (objectLinks with linkType "offers")
+ * - ⏳ Capacity limits (add when events fill up)
+ * - ⏳ Attendee management (add when needed)
  */
 
 import { query, mutation } from "./_generated/server";
@@ -124,7 +124,8 @@ export const createEvent = mutation({
       endDate: args.endDate,
       location: args.location,
       timezone: "America/Los_Angeles", // Default timezone (gravel road)
-      // GRAVEL ROAD: No capacity, agenda, sponsors, etc. yet
+      agenda: [], // Event schedule/agenda array
+      maxCapacity: null, // Optional capacity limit
       ...(args.customProperties || {}),
     };
 
@@ -403,5 +404,279 @@ export const getTicketsByEvent = query({
     }
 
     return tickets;
+  },
+});
+
+/**
+ * LINK SPONSOR TO EVENT
+ * Create objectLink: event --[sponsored_by]--> crm_organization
+ * Allows marking CRM organizations as sponsors for an event
+ */
+export const linkSponsorToEvent = mutation({
+  args: {
+    sessionId: v.string(),
+    eventId: v.id("objects"),
+    crmOrganizationId: v.id("objects"),
+    sponsorLevel: v.optional(v.string()), // "platinum", "gold", "silver", "bronze", "community"
+    displayOrder: v.optional(v.number()),
+    logoUrl: v.optional(v.string()),
+    websiteUrl: v.optional(v.string()),
+    description: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    // Validate event exists
+    const event = await ctx.db.get(args.eventId);
+    if (!event || !("type" in event) || event.type !== "event") {
+      throw new Error("Event not found");
+    }
+
+    // Validate CRM organization exists
+    const crmOrg = await ctx.db.get(args.crmOrganizationId);
+    if (!crmOrg || !("type" in crmOrg) || crmOrg.type !== "crm_organization") {
+      throw new Error("CRM organization not found");
+    }
+
+    // Check if link already exists
+    const existingLinks = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_from_object", (q) => q.eq("fromObjectId", args.eventId))
+      .collect();
+
+    const existingLink = existingLinks.find(
+      (link) => link.toObjectId === args.crmOrganizationId && link.linkType === "sponsored_by"
+    );
+
+    if (existingLink) {
+      throw new Error("This organization is already a sponsor for this event");
+    }
+
+    // Update CRM organization's sponsor level to stay consistent
+    const sponsorLevelValue = args.sponsorLevel ?? "community";
+    await ctx.db.patch(args.crmOrganizationId, {
+      customProperties: {
+        ...crmOrg.customProperties,
+        sponsorLevel: sponsorLevelValue,
+      },
+      updatedAt: Date.now(),
+    });
+
+    // Create sponsor link
+    const linkId = await ctx.db.insert("objectLinks", {
+      organizationId: event.organizationId,
+      fromObjectId: args.eventId,
+      toObjectId: args.crmOrganizationId,
+      linkType: "sponsored_by",
+      properties: {
+        sponsorLevel: sponsorLevelValue,
+        displayOrder: args.displayOrder ?? 0,
+        logoUrl: args.logoUrl,
+        websiteUrl: args.websiteUrl,
+        description: args.description,
+      },
+      createdAt: Date.now(),
+    });
+
+    return linkId;
+  },
+});
+
+/**
+ * GET SPONSORS BY EVENT
+ * Get all CRM organizations sponsoring an event
+ */
+export const getSponsorsByEvent = query({
+  args: {
+    sessionId: v.string(),
+    eventId: v.id("objects"),
+    sponsorLevel: v.optional(v.string()), // Filter by sponsor level
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    // Get all sponsor links for this event
+    const links = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_from_link_type", (q) =>
+        q.eq("fromObjectId", args.eventId).eq("linkType", "sponsored_by")
+      )
+      .collect();
+
+    // Filter by sponsor level if specified
+    let filteredLinks = links;
+    if (args.sponsorLevel) {
+      filteredLinks = links.filter(
+        (link) => link.properties?.sponsorLevel === args.sponsorLevel
+      );
+    }
+
+    // Get sponsor organizations
+    const sponsors = [];
+    for (const link of filteredLinks) {
+      const sponsor = await ctx.db.get(link.toObjectId);
+      if (sponsor && ("type" in sponsor) && sponsor.type === "crm_organization") {
+        sponsors.push({
+          ...sponsor,
+          sponsorshipProperties: link.properties,
+        });
+      }
+    }
+
+    // Sort by displayOrder
+    sponsors.sort((a, b) => {
+      const orderA = a.sponsorshipProperties?.displayOrder ?? 999;
+      const orderB = b.sponsorshipProperties?.displayOrder ?? 999;
+      return orderA - orderB;
+    });
+
+    return sponsors;
+  },
+});
+
+/**
+ * UNLINK SPONSOR FROM EVENT
+ * Remove a sponsor relationship from an event
+ */
+export const unlinkSponsorFromEvent = mutation({
+  args: {
+    sessionId: v.string(),
+    eventId: v.id("objects"),
+    crmOrganizationId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    // Find the sponsor link
+    const links = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_from_link_type", (q) =>
+        q.eq("fromObjectId", args.eventId).eq("linkType", "sponsored_by")
+      )
+      .collect();
+
+    const sponsorLink = links.find(
+      (link) => link.toObjectId === args.crmOrganizationId
+    );
+
+    if (!sponsorLink) {
+      throw new Error("Sponsor link not found");
+    }
+
+    await ctx.db.delete(sponsorLink._id);
+
+    return { success: true };
+  },
+});
+
+/**
+ * UPDATE EVENT SPONSOR
+ * Update sponsor level and other properties for an event sponsor
+ * This also syncs the sponsor level to the CRM organization for consistency
+ */
+export const updateEventSponsor = mutation({
+  args: {
+    sessionId: v.string(),
+    eventId: v.id("objects"),
+    crmOrganizationId: v.id("objects"),
+    sponsorLevel: v.optional(v.string()),
+    displayOrder: v.optional(v.number()),
+    logoUrl: v.optional(v.string()),
+    websiteUrl: v.optional(v.string()),
+    description: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    // Find the sponsor link
+    const links = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_from_link_type", (q) =>
+        q.eq("fromObjectId", args.eventId).eq("linkType", "sponsored_by")
+      )
+      .collect();
+
+    const sponsorLink = links.find(
+      (link) => link.toObjectId === args.crmOrganizationId
+    );
+
+    if (!sponsorLink) {
+      throw new Error("Sponsor link not found");
+    }
+
+    // Get the CRM organization
+    const crmOrg = await ctx.db.get(args.crmOrganizationId);
+    if (!crmOrg || !("type" in crmOrg) || crmOrg.type !== "crm_organization") {
+      throw new Error("CRM organization not found");
+    }
+
+    // Update the sponsor link with new properties
+    const updatedProperties = {
+      ...sponsorLink.properties,
+      ...(args.sponsorLevel && { sponsorLevel: args.sponsorLevel }),
+      ...(args.displayOrder !== undefined && { displayOrder: args.displayOrder }),
+      ...(args.logoUrl !== undefined && { logoUrl: args.logoUrl }),
+      ...(args.websiteUrl !== undefined && { websiteUrl: args.websiteUrl }),
+      ...(args.description !== undefined && { description: args.description }),
+    };
+
+    await ctx.db.patch(sponsorLink._id, {
+      properties: updatedProperties,
+    });
+
+    // If sponsor level changed, update the CRM organization to stay consistent
+    if (args.sponsorLevel) {
+      await ctx.db.patch(args.crmOrganizationId, {
+        customProperties: {
+          ...crmOrg.customProperties,
+          sponsorLevel: args.sponsorLevel,
+        },
+        updatedAt: Date.now(),
+      });
+    }
+
+    return { success: true };
+  },
+});
+
+/**
+ * UPDATE EVENT AGENDA
+ * Update the event's agenda/schedule
+ */
+export const updateEventAgenda = mutation({
+  args: {
+    sessionId: v.string(),
+    eventId: v.id("objects"),
+    agenda: v.array(
+      v.object({
+        time: v.string(), // "09:00 AM" or ISO timestamp
+        title: v.string(),
+        description: v.optional(v.string()),
+        speaker: v.optional(v.string()),
+        location: v.optional(v.string()), // Room/venue within event
+        duration: v.optional(v.number()), // In minutes
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const event = await ctx.db.get(args.eventId);
+
+    if (!event || !("type" in event) || event.type !== "event") {
+      throw new Error("Event not found");
+    }
+
+    const currentProps = event.customProperties || {};
+
+    await ctx.db.patch(args.eventId, {
+      customProperties: {
+        ...currentProps,
+        agenda: args.agenda,
+      },
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
   },
 });

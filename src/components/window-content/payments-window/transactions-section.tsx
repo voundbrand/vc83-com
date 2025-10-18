@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { Id } from "../../../../convex/_generated/dataModel";
+import { TransactionDetailModal } from "./transaction-detail-modal";
 import {
   Search,
   Filter,
@@ -23,7 +24,8 @@ interface TransactionsSectionProps {
   organizationId: Id<"organizations">;
 }
 
-type TransactionStatus = "all" | "completed" | "pending" | "failed" | "refunded";
+type TransactionStatus = "all" | "completed" | "pending" | "failed" | "abandoned";
+type TransactionType = "all" | "B2C" | "B2B";
 type SortField = "date" | "amount" | "customer";
 type SortDirection = "asc" | "desc";
 
@@ -31,20 +33,80 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
   const { sessionId } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<TransactionStatus>("all");
+  const [transactionTypeFilter, setTransactionTypeFilter] = useState<TransactionType>("all");
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
-  const [selectedTransaction, setSelectedTransaction] = useState<string | null>(null);
+  const [selectedTransaction, setSelectedTransaction] = useState<Id<"objects"> | null>(null);
 
-  // TODO: Replace with actual transaction query once checkoutOntology queries are implemented
-  const transactions = useQuery(
-    api.ontologyHelpers.getObjects,
-    organizationId
+  // Date range filter (last 30 days by default)
+  const [dateRange, setDateRange] = useState<"all" | "7d" | "30d" | "90d" | "custom">("30d");
+  const [customDateFrom, setCustomDateFrom] = useState<string>("");
+  const [customDateTo, setCustomDateTo] = useState<string>("");
+
+  // Memoize date range calculation to prevent infinite re-renders
+  const dateRangeParams = useMemo(() => {
+    const now = Date.now();
+    const day = 24 * 60 * 60 * 1000;
+
+    if (dateRange === "custom" && customDateFrom && customDateTo) {
+      return {
+        dateFrom: new Date(customDateFrom).getTime(),
+        dateTo: new Date(customDateTo).getTime() + day - 1, // End of day
+      };
+    }
+
+    switch (dateRange) {
+      case "7d":
+        return { dateFrom: now - 7 * day, dateTo: now };
+      case "30d":
+        return { dateFrom: now - 30 * day, dateTo: now };
+      case "90d":
+        return { dateFrom: now - 90 * day, dateTo: now };
+      default:
+        return {};
+    }
+  }, [dateRange, customDateFrom, customDateTo]);
+
+  // Get transactions from transactionOntology
+  const transactionsData = useQuery(
+    api.transactionOntology.getOrganizationTransactions,
+    organizationId && sessionId
       ? {
+          sessionId,
           organizationId,
-          type: "payment_transaction",
+          status: statusFilter,
+          transactionType: transactionTypeFilter,
+          ...dateRangeParams,
         }
       : "skip"
   );
+
+  // Get transaction stats (with same date range as transactions)
+  const stats = useQuery(
+    api.transactionOntology.getTransactionStats,
+    organizationId && sessionId
+      ? {
+          sessionId,
+          organizationId,
+          ...dateRangeParams,
+        }
+      : "skip"
+  );
+
+  const transactions = transactionsData?.transactions;
+
+  // Show loading state if no session yet
+  if (!sessionId) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-sm" style={{ color: "var(--neutral-gray)" }}>
+            Loading session...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -74,11 +136,13 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
     }
   };
 
-  const formatCurrency = (cents: number, currency: string = "usd") => {
+  const formatCurrency = (cents: number, currency?: string) => {
     const amount = cents / 100;
+    // Use organization currency for stats, or specific currency for transactions
+    const displayCurrency = currency || stats?.currency || "USD";
     return new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency: currency.toUpperCase(),
+      currency: displayCurrency.toUpperCase(),
     }).format(amount);
   };
 
@@ -92,21 +156,19 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
     }).format(new Date(timestamp));
   };
 
-  // Filter and sort transactions
+  // Client-side search filter (backend handles status and type filters)
   const filteredTransactions = transactions
-    ?.filter((tx: { status?: string; customProperties?: { customerEmail?: string; customerName?: string } }) => {
-      // Status filter
-      if (statusFilter !== "all" && tx.status !== statusFilter) return false;
-      // Search filter
+    ?.filter((tx) => {
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
-        const email = (tx.customProperties?.customerEmail || "").toLowerCase();
-        const name = (tx.customProperties?.customerName || "").toLowerCase();
-        if (!email.includes(query) && !name.includes(query)) return false;
+        const email = (tx.customerEmail || "").toLowerCase();
+        const name = (tx.customerName || "").toLowerCase();
+        const company = (tx.companyName || "").toLowerCase();
+        return email.includes(query) || name.includes(query) || company.includes(query);
       }
       return true;
     })
-    .sort((a: { _creationTime: number; customProperties?: { amountTotal?: number; customerName?: string } }, b: { _creationTime: number; customProperties?: { amountTotal?: number; customerName?: string } }) => {
+    .sort((a, b) => {
       let aValue: number | string = 0;
       let bValue: number | string = 0;
 
@@ -116,12 +178,12 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
           bValue = b._creationTime;
           break;
         case "amount":
-          aValue = a.customProperties?.amountTotal || 0;
-          bValue = b.customProperties?.amountTotal || 0;
+          aValue = a.totalAmount;
+          bValue = b.totalAmount;
           break;
         case "customer":
-          aValue = a.customProperties?.customerName || "";
-          bValue = b.customProperties?.customerName || "";
+          aValue = a.customerName;
+          bValue = b.customerName;
           break;
       }
 
@@ -173,7 +235,45 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
             <option value="completed">Completed</option>
             <option value="pending">Pending</option>
             <option value="failed">Failed</option>
-            <option value="refunded">Refunded</option>
+            <option value="abandoned">Abandoned</option>
+          </select>
+        </div>
+
+        {/* Transaction Type Filter */}
+        <div>
+          <select
+            value={transactionTypeFilter}
+            onChange={(e) => setTransactionTypeFilter(e.target.value as TransactionType)}
+            className="px-4 py-2 text-sm border-2 cursor-pointer"
+            style={{
+              borderColor: "var(--win95-border)",
+              background: "white",
+              color: "var(--win95-text)",
+            }}
+          >
+            <option value="all">All Types</option>
+            <option value="B2C">B2C Only</option>
+            <option value="B2B">B2B Only</option>
+          </select>
+        </div>
+
+        {/* Date Range Filter */}
+        <div>
+          <select
+            value={dateRange}
+            onChange={(e) => setDateRange(e.target.value as typeof dateRange)}
+            className="px-4 py-2 text-sm border-2 cursor-pointer"
+            style={{
+              borderColor: "var(--win95-border)",
+              background: "white",
+              color: "var(--win95-text)",
+            }}
+          >
+            <option value="7d">Last 7 Days</option>
+            <option value="30d">Last 30 Days</option>
+            <option value="90d">Last 90 Days</option>
+            <option value="all">All Time</option>
+            <option value="custom">Custom Range</option>
           </select>
         </div>
 
@@ -195,6 +295,44 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
         </button>
       </div>
 
+      {/* Custom Date Range Inputs */}
+      {dateRange === "custom" && (
+        <div className="flex gap-3 items-center">
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+              From:
+            </label>
+            <input
+              type="date"
+              value={customDateFrom}
+              onChange={(e) => setCustomDateFrom(e.target.value)}
+              className="px-3 py-1.5 text-sm border-2"
+              style={{
+                borderColor: "var(--win95-border)",
+                background: "white",
+                color: "var(--win95-text)",
+              }}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+              To:
+            </label>
+            <input
+              type="date"
+              value={customDateTo}
+              onChange={(e) => setCustomDateTo(e.target.value)}
+              className="px-3 py-1.5 text-sm border-2"
+              style={{
+                borderColor: "var(--win95-border)",
+                background: "white",
+                color: "var(--win95-text)",
+              }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div
@@ -208,10 +346,10 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
             </span>
           </div>
           <p className="text-2xl font-bold" style={{ color: "var(--win95-text)" }}>
-            {formatCurrency(0)}
+            {formatCurrency(stats?.completedRevenue || 0)} {/* Uses org currency */}
           </p>
           <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-            0 transactions
+            {stats?.completedTransactions || 0} completed
           </p>
         </div>
 
@@ -226,10 +364,10 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
             </span>
           </div>
           <p className="text-2xl font-bold" style={{ color: "var(--win95-text)" }}>
-            {formatCurrency(0)}
+            {formatCurrency(stats?.pendingRevenue || 0)} {/* Uses org currency */}
           </p>
           <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-            0 pending
+            {stats?.pendingTransactions || 0} pending
           </p>
         </div>
 
@@ -244,10 +382,10 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
             </span>
           </div>
           <p className="text-2xl font-bold" style={{ color: "var(--win95-text)" }}>
-            {formatCurrency(0)}
+            {formatCurrency(stats?.averageTransactionValue || 0)} {/* Uses org currency */}
           </p>
           <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-            Last 30 days
+            {stats?.b2bTransactions || 0} B2B / {stats?.b2cTransactions || 0} B2C
           </p>
         </div>
       </div>
@@ -339,8 +477,8 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
           </div>
         ) : (
           <div className="divide-y-2" style={{ borderColor: "var(--win95-border)" }}>
-            {filteredTransactions.map((tx: { _id: string; _creationTime: number; status?: string; customProperties?: { customerName?: string; customerEmail?: string; amountTotal?: number; currency?: string; paymentMethod?: string } }) => {
-              const statusColors = getStatusBadgeColor(tx.status || "unknown");
+            {filteredTransactions.map((tx) => {
+              const statusColors = getStatusBadgeColor(tx.status);
               return (
                 <button
                   key={tx._id}
@@ -354,18 +492,35 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
 
                   {/* Customer */}
                   <div>
-                    <p className="text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
-                      {tx.customProperties?.customerName || "Unknown Customer"}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
+                        {tx.transactionType === "B2B" && tx.companyName
+                          ? tx.companyName
+                          : tx.customerName}
+                      </p>
+                      {tx.transactionType === "B2B" && (
+                        <span
+                          className="px-1.5 py-0.5 text-[10px] font-bold rounded"
+                          style={{
+                            backgroundColor: "var(--primary-light)",
+                            color: "var(--primary)",
+                          }}
+                        >
+                          B2B
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                      {tx.customProperties?.customerEmail || "No email"}
+                      {tx.transactionType === "B2B" && tx.companyName
+                        ? `${tx.customerName} • ${tx.customerEmail}`
+                        : tx.customerEmail}
                     </p>
                   </div>
 
                   {/* Amount */}
                   <div className="text-right">
                     <p className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
-                      {formatCurrency(tx.customProperties?.amountTotal || 0, tx.customProperties?.currency)}
+                      {formatCurrency(tx.totalAmount, tx.currency)}
                     </p>
                   </div>
 
@@ -378,14 +533,14 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
                         color: statusColors.text,
                       }}
                     >
-                      {getStatusIcon(tx.status || "unknown")}
-                      {tx.status || "Unknown"}
+                      {getStatusIcon(tx.status)}
+                      {tx.status}
                     </div>
                   </div>
 
                   {/* Payment Method */}
                   <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                    {tx.customProperties?.paymentMethod || "Card"}
+                    {tx.paymentMethod || "Card"}
                   </div>
                 </button>
               );
@@ -393,6 +548,15 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
           </div>
         )}
       </div>
+
+      {/* Transaction Detail Modal */}
+      {selectedTransaction && sessionId && (
+        <TransactionDetailModal
+          checkoutSessionId={selectedTransaction}
+          sessionId={sessionId}
+          onClose={() => setSelectedTransaction(null)}
+        />
+      )}
     </div>
   );
 }

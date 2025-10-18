@@ -687,6 +687,55 @@ export function ProductForm({
             🎫 Ticket Settings
           </h3>
 
+          {/* Event Association - Only if Events app is available */}
+          {isEventsAppAvailable ? (
+            <div>
+              <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+                📅 Associated Event (Optional)
+              </label>
+              <select
+                value={formData.eventId}
+                onChange={(e) => setFormData({ ...formData, eventId: e.target.value })}
+                className="w-full px-3 py-2 text-sm border-2"
+                style={{
+                  borderColor: "var(--win95-border)",
+                  background: "var(--win95-input-bg)",
+                  color: "var(--win95-input-text)",
+                }}
+              >
+                <option value="">-- No Event (Standalone Ticket) --</option>
+                {events?.map((event) => (
+                  <option key={event._id} value={event._id}>
+                    {event.name} ({new Date((event.customProperties as {startDate?: number})?.startDate || 0).toLocaleDateString()})
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+                Link this ticket to an event to include event details, agenda, and sponsors in the attendee experience
+              </p>
+            </div>
+          ) : (
+            <div className="p-3 border-2 rounded" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}>
+              <div className="flex items-start gap-3">
+                <div className="text-2xl">📅</div>
+                <div>
+                  <p className="text-sm font-semibold mb-1" style={{ color: "var(--win95-text)" }}>
+                    Event Linking Unavailable
+                  </p>
+                  <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                    <AppUnavailableInline
+                      appName="Events"
+                      organizationName={organizationName || "your organization"}
+                    />
+                  </p>
+                  <p className="text-xs mt-2" style={{ color: "var(--neutral-gray)" }}>
+                    Enable Events to link tickets to specific events with agendas and sponsors
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Active/Inactive Status Toggle */}
           <div className="flex items-center justify-between p-3 border-2 rounded" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
             <div className="flex-1">

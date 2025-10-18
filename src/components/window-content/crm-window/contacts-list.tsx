@@ -4,8 +4,9 @@ import { useState } from "react"
 import { useQuery } from "convex/react"
 import { api } from "../../../../convex/_generated/api"
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth"
-import { Search, Filter, Plus } from "lucide-react"
+import { Search, Filter, Plus, Edit } from "lucide-react"
 import type { Id } from "../../../../convex/_generated/dataModel"
+import { ContactFormModal } from "./contact-form-modal"
 
 interface ContactsListProps {
   selectedId: Id<"objects"> | null
@@ -24,6 +25,8 @@ export function ContactsList({ selectedId, onSelect }: ContactsListProps) {
   const [sourceFilter, setSourceFilter] = useState<SourceType>("")
   const [stageFilter, setStageFilter] = useState<LifecycleStage>("")
   const [showFilters, setShowFilters] = useState(false)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [editingId, setEditingId] = useState<Id<"objects"> | null>(null)
 
   // Query contacts
   const contacts = useQuery(
@@ -109,7 +112,7 @@ export function ContactsList({ selectedId, onSelect }: ContactsListProps) {
           <button
             className="retro-button px-3 py-1.5 flex items-center gap-1"
             title="Add new contact"
-            onClick={() => alert("Add contact feature coming soon!")}
+            onClick={() => setShowAddModal(true)}
           >
             <Plus size={14} />
           </button>
@@ -189,52 +192,91 @@ export function ContactsList({ selectedId, onSelect }: ContactsListProps) {
               const purchaseCount = typeof props.purchaseCount === "number" ? props.purchaseCount : 0
 
               return (
-                <button
+                <div
                   key={contact._id}
-                  onClick={() => onSelect(contact._id)}
-                  className={`w-full text-left p-3 hover:bg-blue-50 transition-colors ${
+                  className={`w-full text-left p-3 hover:bg-blue-50 transition-colors group relative ${
                     selectedId === contact._id ? "bg-blue-100 border-l-4 border-blue-500" : ""
                   }`}
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-sm truncate">{fullName}</div>
-                      <div className="text-xs text-gray-600 truncate">{email}</div>
+                  <div
+                    onClick={() => onSelect(contact._id)}
+                    className="cursor-pointer"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-sm truncate">{fullName}</div>
+                        <div className="text-xs text-gray-600 truncate">{email}</div>
 
-                      {/* Stats row */}
-                      {totalSpent > 0 && (
-                        <div className="text-xs text-gray-500 mt-1">
-                          ${(totalSpent / 100).toFixed(2)} • {purchaseCount} purchase{purchaseCount !== 1 ? "s" : ""}
-                        </div>
-                      )}
+                        {/* Stats row */}
+                        {totalSpent > 0 && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            ${(totalSpent / 100).toFixed(2)} • {purchaseCount} purchase{purchaseCount !== 1 ? "s" : ""}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Tags row */}
+                    <div className="flex gap-1 mt-2 flex-wrap">
+                      <span
+                        className={`px-1.5 py-0.5 text-[10px] font-pixel border ${
+                          stage === "customer"
+                            ? "bg-green-100 border-green-400 text-green-700"
+                            : stage === "prospect"
+                            ? "bg-blue-100 border-blue-400 text-blue-700"
+                            : stage === "lead"
+                            ? "bg-yellow-100 border-yellow-400 text-yellow-700"
+                            : "bg-gray-100 border-gray-400 text-gray-700"
+                        }`}
+                      >
+                        {stage.toUpperCase()}
+                      </span>
+                      <span className="px-1.5 py-0.5 text-[10px] bg-gray-100 border border-gray-400 text-gray-600">
+                        {source.toUpperCase()}
+                      </span>
                     </div>
                   </div>
 
-                  {/* Tags row */}
-                  <div className="flex gap-1 mt-2 flex-wrap">
-                    <span
-                      className={`px-1.5 py-0.5 text-[10px] font-pixel border ${
-                        stage === "customer"
-                          ? "bg-green-100 border-green-400 text-green-700"
-                          : stage === "prospect"
-                          ? "bg-blue-100 border-blue-400 text-blue-700"
-                          : stage === "lead"
-                          ? "bg-yellow-100 border-yellow-400 text-yellow-700"
-                          : "bg-gray-100 border-gray-400 text-gray-700"
-                      }`}
-                    >
-                      {stage.toUpperCase()}
-                    </span>
-                    <span className="px-1.5 py-0.5 text-[10px] bg-gray-100 border border-gray-400 text-gray-600">
-                      {source.toUpperCase()}
-                    </span>
-                  </div>
-                </button>
+                  {/* Edit button - appears on hover */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setEditingId(contact._id)
+                    }}
+                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 bg-white border-2 border-gray-400 hover:bg-gray-100"
+                    title="Edit contact"
+                  >
+                    <Edit size={14} className="text-gray-600" />
+                  </button>
+                </div>
               )
             })}
           </div>
         )}
       </div>
+
+      {/* Add Contact Modal */}
+      {showAddModal && (
+        <ContactFormModal
+          onClose={() => setShowAddModal(false)}
+          onSuccess={(contactId) => {
+            setShowAddModal(false);
+            onSelect(contactId);
+          }}
+        />
+      )}
+
+      {/* Edit Contact Modal */}
+      {editingId && (
+        <ContactFormModal
+          editId={editingId}
+          onClose={() => setEditingId(null)}
+          onSuccess={(contactId) => {
+            setEditingId(null);
+            onSelect(contactId);
+          }}
+        />
+      )}
     </div>
   )
 }

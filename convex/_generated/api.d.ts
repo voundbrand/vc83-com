@@ -79,6 +79,7 @@ import type * as templateAvailability from "../templateAvailability.js";
 import type * as templateOntology from "../templateOntology.js";
 import type * as ticketGeneration from "../ticketGeneration.js";
 import type * as ticketOntology from "../ticketOntology.js";
+import type * as transactionOntology from "../transactionOntology.js";
 import type * as translationResolver from "../translationResolver.js";
 import type * as translations__translationHelpers from "../translations/_translationHelpers.js";
 import type * as translations_seedAddressTranslations from "../translations/seedAddressTranslations.js";
@@ -178,6 +179,7 @@ declare const fullApi: ApiFromModules<{
   templateOntology: typeof templateOntology;
   ticketGeneration: typeof ticketGeneration;
   ticketOntology: typeof ticketOntology;
+  transactionOntology: typeof transactionOntology;
   translationResolver: typeof translationResolver;
   "translations/_translationHelpers": typeof translations__translationHelpers;
   "translations/seedAddressTranslations": typeof translations_seedAddressTranslations;
