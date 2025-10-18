@@ -66,14 +66,19 @@ export const generateTicketPDFData = action({
     holderEmail: string;
     eventName: string;
     eventDescription?: string;
-    eventDate?: number;
     eventLocation?: string;
+    eventStartDate?: number;
+    eventEndDate?: number;
+    eventAgenda?: Array<{ time: string; title: string; description?: string }>;
+    eventSponsors?: Array<{ name: string; level?: string }>;
     ticketType: string;
     purchaseDate: number;
     qrCodeDataUrl: string;
     organizationName: string;
     pricePerUnit: number;
     currency: string;
+    // Legacy field for backwards compatibility
+    eventDate?: number;
   }> => {
     // 1. Get ticket data
     const ticket = await ctx.runQuery(internal.ticketOntology.getTicketInternal, {
@@ -106,31 +111,69 @@ export const generateTicketPDFData = action({
       throw new Error("Checkout session not found");
     }
 
-    // 4. Generate QR code
+    // 4. Extract event info - prefer from checkout session, fallback to product
+    console.log("🎫 [generateTicketPDFData] Session custom properties:", {
+      hasEventName: !!session.customProperties?.eventName,
+      eventName: session.customProperties?.eventName,
+      hasEventSponsors: !!session.customProperties?.eventSponsors,
+      eventSponsors: session.customProperties?.eventSponsors,
+      allSessionKeys: Object.keys(session.customProperties || {})
+    });
+
+    const eventName = (session.customProperties?.eventName as string) || product.name;
+    const eventDescription = (session.customProperties?.eventDescription as string) || product.description || "";
+    const eventLocation = (session.customProperties?.eventLocation as string) ||
+      (product.customProperties?.location as string | undefined);
+    const eventStartDate = (session.customProperties?.eventStartDate as number) ||
+      (session.customProperties?.eventDate as number) ||
+      (product.customProperties?.eventDate as number | undefined);
+    const eventEndDate = (session.customProperties?.eventEndDate as number) || undefined;
+    const eventAgenda = session.customProperties?.eventAgenda as Array<{ time: string; title: string; description?: string }> | undefined;
+    const eventSponsors = session.customProperties?.eventSponsors as Array<{ name: string; level?: string }> | undefined;
+
+    console.log("✅ [generateTicketPDFData] Extracted event data:", {
+      eventName,
+      eventDescription,
+      eventLocation,
+      eventStartDate,
+      eventEndDate,
+      hasAgenda: !!eventAgenda,
+      agendaItemCount: eventAgenda?.length || 0,
+      hasSponsors: !!eventSponsors,
+      sponsorCount: eventSponsors?.length || 0,
+      sponsors: eventSponsors
+    });
+
+    // 5. Generate QR code
     const qrResult = await ctx.runAction(api.ticketGeneration.generateTicketQR, {
       ticketId: args.ticketId,
       holderEmail: ticket.customProperties?.holderEmail as string,
       holderName: ticket.customProperties?.holderName as string,
-      eventName: product.name,
-      eventDate: product.customProperties?.eventDate as number | undefined,
+      eventName,
+      eventDate: eventStartDate, // Use eventStartDate for QR code
     });
     const qrCodeDataUrl = qrResult.qrCodeDataUrl;
 
-    // 5. Return structured ticket data for PDF generation
+    // 6. Return structured ticket data for PDF generation
     return {
       ticketNumber: ticket.customProperties?.ticketNumber || ticket._id.substring(0, 12),
       holderName: ticket.customProperties?.holderName as string,
       holderEmail: ticket.customProperties?.holderEmail as string,
-      eventName: product.name,
-      eventDescription: product.description,
-      eventDate: product.customProperties?.eventDate as number | undefined,
-      eventLocation: product.customProperties?.location as string | undefined,
+      eventName,
+      eventDescription,
+      eventLocation,
+      eventStartDate,
+      eventEndDate,
+      eventAgenda,
+      eventSponsors,
       ticketType: ticket.subtype || "standard",
       purchaseDate: ticket.createdAt,
       qrCodeDataUrl,
       organizationName:
         (session.customProperties?.organizationName as string) || "L4YERCAK3",
       pricePerUnit: ticket.customProperties?.pricePerUnit as number,
+      // Legacy field for backwards compatibility
+      eventDate: eventStartDate,
       currency: (session.customProperties?.currency as string) || "USD",
     };
   },
@@ -303,9 +346,28 @@ export const sendOrderConfirmationEmail = internalAction({
       }
 
       // 5. Create Eventbrite-style email HTML
-      const eventName = firstProduct?.name || "Event";
-      const eventDate = firstProduct?.customProperties?.eventDate as number | undefined;
-      const eventLocation = firstProduct?.customProperties?.location as string | undefined;
+      // Prefer event data from checkout session (which we now store), fallback to product
+      console.log("📧 [sendOrderConfirmationEmail] Session custom properties:", {
+        hasEventName: !!session.customProperties?.eventName,
+        eventName: session.customProperties?.eventName,
+        hasEventSponsors: !!session.customProperties?.eventSponsors,
+        eventSponsors: session.customProperties?.eventSponsors,
+        allSessionKeys: Object.keys(session.customProperties || {})
+      });
+
+      const eventName = (session.customProperties?.eventName as string) || firstProduct?.name || "Event";
+      const eventSponsors = session.customProperties?.eventSponsors as Array<{ name: string; level?: string }> | undefined;
+      const eventDate = (session.customProperties?.eventDate as number) ||
+        (firstProduct?.customProperties?.eventDate as number | undefined);
+      const eventLocation = (session.customProperties?.eventLocation as string) ||
+        (firstProduct?.customProperties?.location as string | undefined);
+
+      console.log("✅ [sendOrderConfirmationEmail] Extracted event data for email:", {
+        eventName,
+        hasSponsors: !!eventSponsors,
+        sponsorCount: eventSponsors?.length || 0,
+        sponsors: eventSponsors
+      });
       const orderNumber = session._id.substring(0, 12);
       const totalAmount = (session.customProperties?.totalAmount as number) || 0;
       const subtotalAmount = (session.customProperties?.subtotal as number) || totalAmount;
@@ -361,6 +423,12 @@ export const sendOrderConfirmationEmail = internalAction({
       <p>${args.recipientName}, you've got tickets!</p>
       <div class="event-box">
         <h2 style="margin-top: 0;">${eventName}</h2>
+        ${eventSponsors && eventSponsors.length > 0 ? (() => {
+          if (eventSponsors.length === 1) {
+            return `<p style="color: #6B46C1; font-weight: 600;">Presented by ${eventSponsors[0].name}</p>`;
+          }
+          return `<p style="color: #6B46C1; font-weight: 600;">Presented by:</p><ul style="color: #6B46C1; margin: 5px 0 15px 20px; padding: 0;">${eventSponsors.map(s => `<li>${s.name}${s.level ? ` (${s.level})` : ''}</li>`).join('')}</ul>`;
+        })() : ""}
         <p><strong>${ticketCount} x Ticket</strong></p>
         <p><strong>${formattedDate}</strong></p>
         ${eventLocation ? `<p>${eventLocation}</p>` : ""}

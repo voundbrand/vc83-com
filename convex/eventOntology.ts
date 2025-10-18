@@ -25,7 +25,7 @@
  * - ⏳ Attendee management (add when needed)
  */
 
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser } from "./rbacHelpers";
 
@@ -678,5 +678,18 @@ export const updateEventAgenda = mutation({
     });
 
     return { success: true };
+  },
+});
+
+/**
+ * GET EVENT INTERNAL
+ * Internal query for use in actions - get event by ID
+ */
+export const getEventInternal = internalQuery({
+  args: {
+    eventId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.eventId);
   },
 });

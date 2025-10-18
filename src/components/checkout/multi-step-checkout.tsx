@@ -238,6 +238,32 @@ export function MultiStepCheckout({
         const formCosts = updatedData.formResponses?.reduce((sum, fr) => sum + (fr.addedCosts || 0), 0) || 0;
         const totalAmount = baseAmount + formCosts;
 
+        // Extract event information from first product (if product has eventId)
+        const eventInfo: {
+          eventName?: string;
+          eventSponsors?: Array<{ name: string; level?: string }>;
+          eventDate?: number;
+          eventLocation?: string
+        } = {};
+
+        if (updatedData.selectedProducts && updatedData.selectedProducts.length > 0) {
+          // Get first product to check for event data (loaded by getPublicCheckoutProducts)
+          const firstProduct = linkedProducts.find(p => p._id === updatedData.selectedProducts![0].productId);
+
+          if (firstProduct) {
+            // 🎯 Event data comes directly from product (loaded via objectLinks)
+            eventInfo.eventName = firstProduct.eventName;
+            eventInfo.eventDate = firstProduct.customProperties?.eventDate as number | undefined;
+            eventInfo.eventLocation = firstProduct.customProperties?.location as string | undefined;
+
+            // 🎯 ALL sponsors come directly from product (loaded via objectLinks)
+            if (firstProduct.eventSponsors && firstProduct.eventSponsors.length > 0) {
+              eventInfo.eventSponsors = firstProduct.eventSponsors;
+              console.log(`📊 [Checkout] Event: ${eventInfo.eventName}, Sponsors: ${firstProduct.eventSponsors.map(s => s.name).join(', ')}`);
+            }
+          }
+        }
+
         await updateCheckoutSession({
           checkoutSessionId,
           updates: {
@@ -293,9 +319,11 @@ export function MultiStepCheckout({
             formResponses: updatedData.formResponses,
             stepProgress: [currentStep], // Track which step was just completed
             currentStep,
+            // Event information (from product->event link)
+            ...eventInfo,
           },
         });
-        console.log("✅ Updated checkout_session:", checkoutSessionId, "Total:", totalAmount);
+        console.log("✅ Updated checkout_session:", checkoutSessionId, "Total:", totalAmount, "Event:", eventInfo.eventName);
       } catch (error) {
         console.error("Failed to update checkout session:", error);
       }

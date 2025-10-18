@@ -61,7 +61,28 @@ export interface CheckoutProduct {
   price: number; // in cents
   currency: string;
   subtype?: string; // "ticket" | "physical" | "digital" - product fulfillment type
+  // 🎯 Event data loaded directly from objectLinks (by getPublicCheckoutProducts)
+  eventName?: string; // Event name
+  eventDescription?: string; // Event description
+  eventLocation?: string; // Event location (e.g., "123 Main St, City, State")
+  eventStartDate?: number; // Event start timestamp
+  eventEndDate?: number; // Event end timestamp
+  eventAgenda?: Array<{ // Event agenda/schedule
+    time: string;
+    title: string;
+    description?: string;
+  }>;
+  eventSponsors?: Array<{ // Event sponsors
+    name: string;
+    level?: string; // platinum, gold, silver, bronze, community - optional
+  }>;
   customProperties?: {
+    // Backend stores price and currency in customProperties
+    price?: number; // Price in cents
+    currency?: string; // USD, EUR, etc.
+    // Event data loaded from objectLinks
+    eventId?: string; // Event ID if linked
+    eventName?: string; // Event name if linked
     slug?: string;
     stripePriceId?: string;
     ticketTier?: string;
@@ -79,6 +100,9 @@ export interface CheckoutProduct {
     taxable?: boolean;
     taxCode?: string;
     taxBehavior?: "exclusive" | "inclusive" | "automatic";
+    // Additional event metadata (from event object customProperties)
+    eventDate?: number;
+    location?: string;
   };
 }
 

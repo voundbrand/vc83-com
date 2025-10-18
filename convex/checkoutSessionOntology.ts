@@ -320,6 +320,24 @@ export const updatePublicCheckoutSession = mutation({
       // Progress tracking
       stepProgress: v.optional(v.array(v.string())),
       currentStep: v.optional(v.string()),
+
+      // Event information (from product->event link)
+      eventName: v.optional(v.string()),
+      eventDescription: v.optional(v.string()),
+      eventLocation: v.optional(v.string()),
+      eventStartDate: v.optional(v.number()),
+      eventEndDate: v.optional(v.number()),
+      eventAgenda: v.optional(v.array(v.object({
+        time: v.string(),
+        title: v.string(),
+        description: v.optional(v.string()),
+      }))),
+      eventSponsors: v.optional(v.array(v.object({
+        name: v.string(),
+        level: v.optional(v.string()), // platinum, gold, silver, bronze, community - optional
+      }))),
+      // Legacy field for backwards compatibility
+      eventDate: v.optional(v.number()),
     }),
   },
   handler: async (ctx, args) => {
@@ -429,6 +447,24 @@ export const updateCheckoutSession = mutation({
       // Progress tracking
       stepProgress: v.optional(v.array(v.string())),
       currentStep: v.optional(v.string()),
+
+      // Event information (from product->event link)
+      eventName: v.optional(v.string()),
+      eventDescription: v.optional(v.string()),
+      eventLocation: v.optional(v.string()),
+      eventStartDate: v.optional(v.number()),
+      eventEndDate: v.optional(v.number()),
+      eventAgenda: v.optional(v.array(v.object({
+        time: v.string(),
+        title: v.string(),
+        description: v.optional(v.string()),
+      }))),
+      eventSponsors: v.optional(v.array(v.object({
+        name: v.string(),
+        level: v.optional(v.string()), // platinum, gold, silver, bronze, community - optional
+      }))),
+      // Legacy field for backwards compatibility
+      eventDate: v.optional(v.number()),
     }),
   },
   handler: async (ctx, args) => {

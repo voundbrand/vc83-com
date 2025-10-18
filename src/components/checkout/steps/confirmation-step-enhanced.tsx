@@ -30,16 +30,38 @@ interface TicketData {
   holderName: string;
   holderEmail: string;
   eventName: string;
+  eventSponsors?: Array<{ name: string; level?: string }>; // NEW: Multiple event sponsors
   eventDescription?: string;
   eventDate?: number;
   eventLocation?: string;
-  qrCodeDataUrl?: string;
-  productPrice?: number;
-  currency?: string;
+  ticketType: string;
+  purchaseDate: number;
+  qrCodeDataUrl: string;
+  organizationName: string;
+  pricePerUnit: number;
+  currency: string;
   [key: string]: unknown;
 }
 
 interface ReceiptData {
+  receiptNumber: string;
+  purchaseDate: number;
+  customerName: string;
+  customerEmail: string;
+  items: Array<{
+    productName: string;
+    quantity: number;
+    pricePerUnit: number;
+    totalPrice: number;
+  }>;
+  subtotal: number;
+  taxAmount: number;
+  total: number;
+  currency: string;
+  paymentMethod: string;
+  organizationName: string;
+  organizationAddress: string;
+  paymentIntentId: string;
   [key: string]: unknown;
 }
 

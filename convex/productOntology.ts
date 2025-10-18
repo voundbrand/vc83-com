@@ -87,35 +87,57 @@ export const getProductsWithForms = query({
       products = products.filter((p) => p.status === args.status);
     }
 
-    // For each product, fetch linked form
+    // For each product, fetch linked form AND event data
     const productsWithForms = await Promise.all(
       products.map(async (product) => {
-        // Find linked form via objectLinks
-        const formLinks = await ctx.db
+        // Find all objectLinks FROM this product (product->form)
+        const linksFromProduct = await ctx.db
           .query("objectLinks")
           .withIndex("by_from_object", (q) => q.eq("fromObjectId", product._id))
           .collect();
 
-        const formLink = formLinks.find((link) => link.linkType === "requiresForm");
+        // Find all objectLinks TO this product (event->product)
+        const linksToProduct = await ctx.db
+          .query("objectLinks")
+          .withIndex("by_to_object", (q) => q.eq("toObjectId", product._id))
+          .collect();
 
+        // Extract form link (product->form "requiresForm")
+        const formLink = linksFromProduct.find((link) => link.linkType === "requiresForm");
+        let formData = {};
         if (formLink) {
-          // Fetch the form
           const form = await ctx.db.get(formLink.toObjectId);
           if (form && form.type === "form") {
-            // Add form data to customProperties
-            return {
-              ...product,
-              customProperties: {
-                ...product.customProperties,
-                formId: form._id,
-                formTiming: formLink.properties?.timing || "duringCheckout",
-                formRequired: formLink.properties?.required ?? true,
-              },
+            formData = {
+              formId: form._id,
+              formTiming: formLink.properties?.timing || "duringCheckout",
+              formRequired: formLink.properties?.required ?? true,
             };
           }
         }
 
-        return product;
+        // 🎯 Extract event link (event->product "offers")
+        const eventLink = linksToProduct.find((link) => link.linkType === "offers");
+        let eventData = {};
+        if (eventLink) {
+          const event = await ctx.db.get(eventLink.fromObjectId);
+          if (event && event.type === "event") {
+            eventData = {
+              eventId: event._id,
+              eventName: event.name,
+            };
+          }
+        }
+
+        // Add both form AND event data to customProperties
+        return {
+          ...product,
+          customProperties: {
+            ...product.customProperties,
+            ...formData,
+            ...eventData, // ✅ Add event info
+          },
+        };
       })
     );
 
@@ -125,7 +147,7 @@ export const getProductsWithForms = query({
 
 /**
  * GET PRODUCT
- * Get a single product by ID
+ * Get a single product by ID with linked form and event data
  */
 export const getProduct = query({
   args: {
@@ -141,7 +163,55 @@ export const getProduct = query({
       throw new Error("Product not found");
     }
 
-    return product;
+    // Find all links for this product
+    const allLinks = await ctx.db
+      .query("objectLinks")
+      .collect();
+
+    // Find form link (product->form "requiresForm")
+    const formLink = allLinks.find(
+      (link) =>
+        link.fromObjectId === args.productId && link.linkType === "requiresForm"
+    );
+
+    // Find event link (event->product "offers")
+    const eventLink = allLinks.find(
+      (link) =>
+        link.toObjectId === args.productId && link.linkType === "offers"
+    );
+
+    // Build customProperties with form and event data
+    let enrichedCustomProperties = { ...product.customProperties };
+
+    // Add form data if exists
+    if (formLink) {
+      const form = await ctx.db.get(formLink.toObjectId);
+      if (form && form.type === "form") {
+        enrichedCustomProperties = {
+          ...enrichedCustomProperties,
+          formId: form._id,
+          formTiming: formLink.properties?.timing || "duringCheckout",
+          formRequired: formLink.properties?.required ?? true,
+        };
+      }
+    }
+
+    // Add event data if exists
+    if (eventLink) {
+      const event = await ctx.db.get(eventLink.fromObjectId);
+      if (event && event.type === "event") {
+        enrichedCustomProperties = {
+          ...enrichedCustomProperties,
+          eventId: event._id, // Store eventId for the form
+          eventName: event.name,
+        };
+      }
+    }
+
+    return {
+      ...product,
+      customProperties: enrichedCustomProperties,
+    };
   },
 });
 
@@ -285,6 +355,7 @@ export const updateProduct = mutation({
     price: v.optional(v.number()),
     inventory: v.optional(v.number()),
     status: v.optional(v.string()), // "draft" | "active" | "sold_out" | "archived"
+    eventId: v.optional(v.union(v.id("objects"), v.null())), // Optional: Update event link (null to remove)
     customProperties: v.optional(v.record(v.string(), v.any())),
   },
   handler: async (ctx, args) => {
@@ -294,6 +365,14 @@ export const updateProduct = mutation({
 
     if (!product || product.type !== "product") {
       throw new Error("Product not found");
+    }
+
+    // Validate event if provided
+    if (args.eventId !== undefined && args.eventId !== null) {
+      const event = await ctx.db.get(args.eventId);
+      if (!event || event.type !== "event") {
+        throw new Error("Invalid event ID");
+      }
     }
 
     // Build update object
@@ -314,18 +393,60 @@ export const updateProduct = mutation({
     }
 
     // Update customProperties
-    if (args.price !== undefined || args.inventory !== undefined || args.customProperties) {
+    if (args.price !== undefined || args.inventory !== undefined || args.eventId !== undefined || args.customProperties) {
       const currentProps = product.customProperties || {};
 
       updates.customProperties = {
         ...currentProps,
         ...(args.price !== undefined && { price: args.price }),
         ...(args.inventory !== undefined && { inventory: args.inventory }),
+        ...(args.eventId !== undefined && { eventId: args.eventId }), // Update eventId in customProperties
         ...(args.customProperties || {}),
       };
     }
 
     await ctx.db.patch(args.productId, updates);
+
+    // Handle event link updates
+    if (args.eventId !== undefined) {
+      // Find existing event link (event->product "offers")
+      const allEventLinks = await ctx.db
+        .query("objectLinks")
+        .withIndex("by_to_object", (q) => q.eq("toObjectId", args.productId))
+        .collect();
+
+      const existingEventLink = allEventLinks.find(
+        (link) => link.linkType === "offers"
+      );
+
+      if (args.eventId === null) {
+        // Remove event link if exists
+        if (existingEventLink) {
+          await ctx.db.delete(existingEventLink._id);
+        }
+      } else {
+        // Update or create event link
+        if (existingEventLink) {
+          // Update existing link to point to new event
+          await ctx.db.patch(existingEventLink._id, {
+            fromObjectId: args.eventId,
+          });
+        } else {
+          // Create new event link
+          await ctx.db.insert("objectLinks", {
+            organizationId: product.organizationId,
+            fromObjectId: args.eventId,
+            toObjectId: args.productId,
+            linkType: "offers",
+            properties: {
+              displayOrder: 0,
+              isFeatured: false,
+            },
+            createdAt: Date.now(),
+          });
+        }
+      }
+    }
 
     return args.productId;
   },
@@ -512,6 +633,59 @@ export const getProductsByIds = query({
         if (!product || product.type !== "product") {
           return null;
         }
+
+        // Enrich product with event data if product is linked to an event
+        if (product.customProperties?.eventId) {
+          const eventId = product.customProperties.eventId;
+
+          // Only process if eventId is a valid Id type
+          if (typeof eventId === 'string' && eventId.startsWith('j')) {
+            const event = await ctx.db.get(eventId as unknown as Parameters<typeof ctx.db.get>[0]);
+
+            // Type guard to check if this is an event object
+            if (event && 'type' in event && event.type === "event") {
+              // Fetch ALL sponsors from objectLinks (sponsored_by relationship)
+              const eventSponsors: Array<{ name: string; level?: string }> = [];
+
+              try {
+                const sponsorLinks = await ctx.db
+                  .query("objectLinks")
+                  .withIndex("by_from_link_type", (q) =>
+                    q.eq("fromObjectId", event._id)
+                     .eq("linkType", "sponsored_by")
+                  )
+                  .collect();
+
+                // Fetch all sponsor organizations
+                for (const link of sponsorLinks) {
+                  const sponsorOrg = await ctx.db.get(link.toObjectId);
+                  if (sponsorOrg && 'name' in sponsorOrg) {
+                    eventSponsors.push({
+                      name: sponsorOrg.name as string,
+                      level: link.properties?.sponsorLevel as string | undefined,
+                    });
+                  }
+                }
+              } catch (e) {
+                // If sponsor fetch fails, continue without sponsors
+                console.warn("Failed to fetch event sponsors:", e);
+              }
+
+              // Add event information to product customProperties
+              return {
+                ...product,
+                customProperties: {
+                  ...product.customProperties,
+                  eventName: 'name' in event ? event.name as string : undefined,
+                  eventSponsors: eventSponsors.length > 0 ? eventSponsors : undefined,
+                  eventDate: event.customProperties?.startDate as number | undefined,
+                  location: event.customProperties?.location as string | undefined,
+                },
+              };
+            }
+          }
+        }
+
         return product;
       })
     );

@@ -74,16 +74,24 @@ export const generateTicketPDF = action({
         { organizationId }
       ) as Doc<"objects"> | null;
 
-      // 5. Generate QR code using external API
+      // 5. Extract event data - prefer from session, fallback to product
+      const eventName = (session.customProperties?.eventName as string) || product.name;
+      const eventSponsors = session.customProperties?.eventSponsors as Array<{ name: string; level?: string }> | undefined;
+      const eventDate = (session.customProperties?.eventDate as number) ||
+        (product.customProperties?.eventDate as number | undefined);
+      const eventLocation = (session.customProperties?.eventLocation as string) ||
+        (product.customProperties?.location as string | undefined);
+
+      // 6. Generate QR code using external API
       const qrResult = await ctx.runAction(api.ticketGeneration.generateTicketQR, {
         ticketId: args.ticketId,
         holderEmail: ticket.customProperties?.holderEmail as string,
         holderName: ticket.customProperties?.holderName as string,
-        eventName: product.name,
-        eventDate: product.customProperties?.eventDate as number | undefined,
+        eventName,
+        eventDate,
       });
 
-      // 5. Create PDF (A4 size)
+      // 7. Create PDF (A4 size)
       const doc = new jsPDF({
         orientation: "portrait",
         unit: "mm",
@@ -103,24 +111,51 @@ export const generateTicketPDF = action({
       doc.setFontSize(24);
       doc.setTextColor(0, 0, 0);
       doc.setFont("helvetica", "bold");
-      doc.text(product.name, 20, 40, { maxWidth: pageWidth - 100 });
+      doc.text(eventName, 20, 40, { maxWidth: pageWidth - 100 });
+
+      // Event sponsors (if available) - display all sponsors
+      let currentY = 55;
+      if (eventSponsors && eventSponsors.length > 0) {
+        doc.setFontSize(12);
+        doc.setTextColor(107, 70, 193); // Purple color for sponsors
+        doc.setFont("helvetica", "normal");
+
+        // If only one sponsor, simple format
+        if (eventSponsors.length === 1) {
+          doc.text(`Presented by ${eventSponsors[0].name}`, 20, currentY);
+          currentY += 10;
+        } else {
+          // Multiple sponsors - list them all
+          doc.text("Presented by:", 20, currentY);
+          currentY += 7;
+          doc.setFontSize(10);
+          eventSponsors.forEach((sponsor, index) => {
+            const sponsorText = sponsor.level
+              ? `${sponsor.name} (${sponsor.level})`
+              : sponsor.name;
+            doc.text(`• ${sponsorText}`, 25, currentY);
+            currentY += 5;
+          });
+          currentY += 3; // Extra spacing after sponsor list
+        }
+      }
 
       // Ticket type
       doc.setFontSize(16);
       doc.setTextColor(0, 0, 0);
       doc.setFont("helvetica", "normal");
-      doc.text(ticket.subtype || "Standard", 20, 55);
+      doc.text(ticket.subtype || "Standard", 20, currentY);
+      currentY += 15;
 
       // Location
       doc.setFontSize(12);
       doc.setTextColor(80, 80, 80);
-      const location = product.customProperties?.location as string | undefined;
-      if (location) {
-        doc.text(location, 20, 70, { maxWidth: pageWidth - 100 });
+      if (eventLocation) {
+        doc.text(eventLocation, 20, currentY, { maxWidth: pageWidth - 100 });
+        currentY += 10;
       }
 
       // Date/Time
-      const eventDate = product.customProperties?.eventDate as number | undefined;
       if (eventDate) {
         const formattedDate = new Date(eventDate).toLocaleDateString("en-US", {
           weekday: "long",
@@ -130,7 +165,8 @@ export const generateTicketPDF = action({
           hour: "numeric",
           minute: "2-digit",
         });
-        doc.text(formattedDate, 20, location ? 80 : 70);
+        doc.text(formattedDate, 20, currentY);
+        currentY += 10;
       }
 
       // QR Code (right side, large)
@@ -140,16 +176,18 @@ export const generateTicketPDF = action({
       doc.addImage(qrResult.qrCodeDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
 
       // Order Information section
+      currentY += 10;
       doc.setFontSize(10);
       doc.setTextColor(150, 150, 150);
-      doc.text("Order Information", 20, 110);
+      doc.text("Order Information", 20, currentY);
 
+      currentY += 8;
       doc.setFontSize(11);
       doc.setTextColor(0, 0, 0);
       doc.text(
         `Order #${session._id.substring(0, 12)}. Ordered by ${ticket.customProperties?.holderName} on ${new Date(session.createdAt).toLocaleDateString()}`,
         20,
-        118,
+        currentY,
         { maxWidth: pageWidth - 40 }
       );
 

@@ -125,7 +125,7 @@ export function ProductForm({
         price: ((props.price || 0) / 100).toString(),
         currency: props.currency || "USD",
         inventory: props.inventory?.toString() || "",
-        eventId: "", // Event association is create-only, not shown in edit mode
+        eventId: (props.eventId as string) || "", // Load existing event association
         // Form linking (generalized for all product types)
         formId: (props.formId as string) || "",
         formTiming: (props.formTiming as "duringCheckout" | "afterPurchase" | "standalone") || "duringCheckout",
@@ -289,6 +289,7 @@ export function ProductForm({
           description: formData.description,
           price: priceInCents,
           inventory: inventory || undefined,
+          eventId: formData.eventId ? (formData.eventId as Id<"objects">) : null,
           customProperties,
         });
       } else {

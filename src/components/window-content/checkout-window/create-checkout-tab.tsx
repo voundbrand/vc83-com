@@ -406,13 +406,14 @@ export function CreateCheckoutTab({
       const product = products?.find((p) => p._id === productId);
       if (!product) return null;
 
+      const props = (product.customProperties || {}) as CheckoutProduct["customProperties"];
       const checkoutProduct: CheckoutProduct = {
         _id: product._id as string,
         name: product.name,
         description: product.description || "",
-        price: (product.customProperties?.price as number) || 0, // ✅ Price is stored in cents in the 'price' field
-        currency: (product.customProperties?.currency as string) || "usd",
-        customProperties: product.customProperties as CheckoutProduct["customProperties"],
+        price: props?.price || 0, // ✅ Price is stored in cents in customProperties
+        currency: props?.currency || "usd",
+        customProperties: props,
       };
       return checkoutProduct;
     })
@@ -739,13 +740,14 @@ export function CreateCheckoutTab({
               <div className="space-y-2 max-h-60 overflow-y-auto">
                 {products.map((product) => {
                   const isSelected = selectedProducts.includes(product._id);
-                  const price = (product.customProperties?.price as number) || 0;
-                  const currency = (product.customProperties?.currency as string) || "usd";
+                  const props = (product.customProperties || {}) as CheckoutProduct["customProperties"];
+                  const price = props?.price || 0;
+                  const currency = props?.currency || "usd";
 
                   // Check if product has a linked form
-                  const hasForm = !!(product.customProperties?.formId);
-                  const formTiming = (product.customProperties?.formTiming as string) || "duringCheckout";
-                  const formRequired = (product.customProperties?.formRequired as boolean) ?? true;
+                  const hasForm = !!props?.formId;
+                  const formTiming = props?.formTiming || "duringCheckout";
+                  const formRequired = props?.formRequired ?? true;
 
                   // ✅ CHECK IF CHECKOUT TEMPLATE SUPPORTS FORMS (from database)
                   const selectedTemplate = availableTemplates?.find(t =>
@@ -782,47 +784,86 @@ export function CreateCheckoutTab({
                               }).format(price / 100)}
                             </div>
 
-                            {/* Form Requirement Badge */}
-                            {hasForm && (
-                              <div className="flex items-center gap-1 mt-2">
-                                <span
-                                  className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded"
-                                  style={{
-                                    backgroundColor: "#EFF6FF",
-                                    color: "#1E40AF",
-                                    border: "1px solid #BFDBFE",
-                                  }}
-                                >
-                                  📋 Form {formRequired ? "Required" : "Optional"}
-                                </span>
-                                {formTiming === "duringCheckout" && (
+                            {/* Event & Form Status Badges */}
+                            <div className="flex flex-wrap items-center gap-1 mt-2">
+                              {/* Event Badge - ALWAYS SHOW */}
+                              {(() => {
+                                const eventName = props?.eventName || null;
+                                const hasEvent = !!eventName;
+
+                                if (hasEvent) {
+                                  return (
+                                    <span
+                                      className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded font-semibold"
+                                      style={{
+                                        backgroundColor: "#F0FDF4",
+                                        color: "#15803D",
+                                        border: "1px solid #BBF7D0",
+                                      }}
+                                      title={`Linked to event: ${eventName}`}
+                                    >
+                                      🎉 {eventName}
+                                    </span>
+                                  );
+                                } else {
+                                  return (
+                                    <span
+                                      className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded font-semibold"
+                                      style={{
+                                        backgroundColor: "#FEE2E2",
+                                        color: "#991B1B",
+                                        border: "1px solid #FCA5A5",
+                                      }}
+                                      title="This product is not linked to any event"
+                                    >
+                                      ⚠️ No Event
+                                    </span>
+                                  );
+                                }
+                              })()}
+
+                              {/* Form Requirement Badge */}
+                              {hasForm && (
+                                <>
                                   <span
-                                    className="text-xs px-2 py-0.5 rounded"
+                                    className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded"
                                     style={{
-                                      backgroundColor: "#F0FDF4",
-                                      color: "#15803D",
-                                      border: "1px solid #BBF7D0",
+                                      backgroundColor: "#EFF6FF",
+                                      color: "#1E40AF",
+                                      border: "1px solid #BFDBFE",
                                     }}
-                                    title="Form will be collected during checkout"
                                   >
-                                    🛒 In Checkout
+                                    📋 Form {formRequired ? "Required" : "Optional"}
                                   </span>
-                                )}
-                                {formTiming === "afterPurchase" && (
-                                  <span
-                                    className="text-xs px-2 py-0.5 rounded"
-                                    style={{
-                                      backgroundColor: "#FEF3C7",
-                                      color: "#92400E",
-                                      border: "1px solid #FDE68A",
-                                    }}
-                                    title="Form link sent via email after purchase"
-                                  >
-                                    ✉️ After Purchase
-                                  </span>
-                                )}
-                              </div>
-                            )}
+                                  {formTiming === "duringCheckout" && (
+                                    <span
+                                      className="text-xs px-2 py-0.5 rounded"
+                                      style={{
+                                        backgroundColor: "#F0FDF4",
+                                        color: "#15803D",
+                                        border: "1px solid #BBF7D0",
+                                      }}
+                                      title="Form will be collected during checkout"
+                                    >
+                                      🛒 In Checkout
+                                    </span>
+                                  )}
+                                  {formTiming === "afterPurchase" && (
+                                    <span
+                                      className="text-xs px-2 py-0.5 rounded"
+                                      style={{
+                                        backgroundColor: "#FEF3C7",
+                                        color: "#92400E",
+                                        border: "1px solid #FDE68A",
+                                      }}
+                                      title="Form link sent via email after purchase"
+                                    >
+                                      ✉️ After Purchase
+                                    </span>
+                                  )}
+                                </>
+                              )}
+                            </div>
 
                             {/* Warning if product is incompatible */}
                             {isIncompatible && (

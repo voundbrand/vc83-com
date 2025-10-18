@@ -82,7 +82,7 @@ export function CheckoutPageClient({ orgSlug, slug }: CheckoutPageClientProps) {
   // Load theme from theme code
   const theme = getThemeByCode(themeCode);
 
-  // Transform products to CheckoutProduct format
+  // Transform products to CheckoutProduct format with event data
   const linkedProducts = (linkedProductsData || [])
     .filter((product) => product !== null)
     .map((product) => ({
@@ -93,6 +93,9 @@ export function CheckoutPageClient({ orgSlug, slug }: CheckoutPageClientProps) {
       currency: String((product.customProperties as Record<string, unknown>)?.currency || settings.currency || "usd"),
       subtype: product.subtype, // ✅ Include subtype ("ticket" | "physical" | "digital")
       customProperties: product.customProperties as Record<string, unknown>,
+      // 🎯 Include event data and sponsors from backend
+      eventName: (product as unknown as { eventName?: string }).eventName,
+      eventSponsors: (product as unknown as { eventSponsors?: Array<{ name: string; level?: string }> }).eventSponsors || [],
     }));
 
   // Get template component from registry

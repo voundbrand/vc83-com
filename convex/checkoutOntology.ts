@@ -587,7 +587,7 @@ export const getPublicCheckoutProducts = query({
       return [];
     }
 
-    // Fetch all products
+    // Fetch all products WITH event data and sponsors
     const products = await Promise.all(
       linkedProductIds.map(async (productId) => {
         try {
@@ -618,6 +618,63 @@ export const getPublicCheckoutProducts = query({
           }
         }
 
+        // 🎯 LOAD EVENT DATA AND SPONSORS (same logic as getProductsByIds)
+        let eventData = null;
+        let eventSponsors: Array<{ name: string; level?: string }> = [];
+
+        // Find event link (event->product "offers")
+        const eventLinks = await ctx.db
+          .query("objectLinks")
+          .withIndex("by_to_object", (q) => q.eq("toObjectId", product._id))
+          .filter((q) => q.eq(q.field("linkType"), "offers"))
+          .collect();
+
+        if (eventLinks.length > 0) {
+          const event = await ctx.db.get(eventLinks[0].fromObjectId);
+          if (event && event.type === "event") {
+            console.log("🎉 [getPublicCheckoutProducts] Found event:", event.name);
+            eventData = event;
+
+            // Load ALL sponsors for this event
+            const sponsorLinks = await ctx.db
+              .query("objectLinks")
+              .withIndex("by_from_object", (q) => q.eq("fromObjectId", event._id))
+              .filter((q) => q.eq(q.field("linkType"), "sponsored_by"))
+              .collect();
+
+            console.log(`🏢 [getPublicCheckoutProducts] Found ${sponsorLinks.length} sponsor links`);
+
+            // Fetch all sponsor organizations
+            const sponsorResults = await Promise.all(
+              sponsorLinks.map(async (link) => {
+                const sponsor = await ctx.db.get(link.toObjectId);
+                if (sponsor && sponsor.type === "crm_organization") {
+                  const level = (link.properties as Record<string, unknown> | undefined)?.sponsorLevel as string | undefined;
+                  console.log(`🏢 [getPublicCheckoutProducts] Sponsor: ${sponsor.name}${level ? ` (${level})` : ""}`);
+                  return {
+                    name: sponsor.name,
+                    ...(level && { level }), // Only include level if defined
+                  };
+                }
+                return null;
+              })
+            );
+            eventSponsors = sponsorResults.filter((s): s is { name: string; level?: string } => s !== null);
+          }
+        }
+
+        // Extract event details from customProperties
+        const eventProps = eventData?.customProperties as Record<string, unknown> | undefined;
+        const eventDetails = eventData ? {
+          eventName: eventData.name,
+          eventDescription: eventData.description || "",
+          eventLocation: eventProps?.location as string | undefined,
+          eventStartDate: eventProps?.startDate as number | undefined,
+          eventEndDate: eventProps?.endDate as number | undefined,
+          eventAgenda: eventProps?.agenda as Array<{ time: string; title: string; description?: string }> | undefined,
+          eventSponsors,
+        } : {};
+
         // DEBUG: Log product structure
         console.log("📦 [Product Structure]:", {
           id: product._id,
@@ -625,12 +682,17 @@ export const getPublicCheckoutProducts = query({
           type: product.type,
           subtype: product.subtype,
           hasSubtype: 'subtype' in product,
+          eventName: eventData?.name,
+          eventLocation: eventProps?.location,
+          eventStartDate: eventProps?.startDate,
+          sponsorCount: eventSponsors.length,
           allKeys: Object.keys(product)
         });
 
         return {
           ...product,
           linkedForm: formData,
+          ...eventDetails, // Spread all event details at top level
         };
         } catch (error) {
           console.error("Error fetching product:", productId, error);
