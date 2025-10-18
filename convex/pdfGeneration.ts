@@ -62,7 +62,19 @@ export const generateTicketPDF = action({
         throw new Error("Checkout session not found");
       }
 
-      // 4. Generate QR code using external API
+      // 4. Get seller organization info for footer
+      const organizationId = session.organizationId;
+      const sellerOrg = await ctx.runQuery(
+        api.organizationOntology.getOrganizationProfile,
+        { organizationId }
+      ) as Doc<"objects"> | null;
+
+      const sellerContact = await ctx.runQuery(
+        api.organizationOntology.getOrganizationContact,
+        { organizationId }
+      ) as Doc<"objects"> | null;
+
+      // 5. Generate QR code using external API
       const qrResult = await ctx.runAction(api.ticketGeneration.generateTicketQR, {
         ticketId: args.ticketId,
         holderEmail: ticket.customProperties?.holderEmail as string,
@@ -157,10 +169,25 @@ export const generateTicketPDF = action({
       doc.setTextColor(100, 100, 100);
       doc.text(session._id, qrX, qrY + qrSize + 5, { align: "center", maxWidth: qrSize });
 
-      // Footer
+      // Footer with seller organization info
       doc.setFontSize(10);
       doc.setTextColor(150, 150, 150);
-      doc.text("Present this ticket at the event entrance", 20, pageHeight - 20);
+      doc.text("Present this ticket at the event entrance", 20, pageHeight - 30);
+
+      // Seller info footer
+      doc.setFontSize(8);
+      doc.setTextColor(180, 180, 180);
+      const footerY = pageHeight - 22;
+
+      const footerParts: string[] = [];
+      if (sellerOrg?.name) footerParts.push(sellerOrg.name);
+      if (sellerContact?.customProperties?.primaryEmail) footerParts.push(sellerContact.customProperties.primaryEmail as string);
+      if (sellerContact?.customProperties?.primaryPhone) footerParts.push(sellerContact.customProperties.primaryPhone as string);
+      if (sellerContact?.customProperties?.website) footerParts.push(sellerContact.customProperties.website as string);
+
+      if (footerParts.length > 0) {
+        doc.text(footerParts.join(" • "), 20, footerY, { maxWidth: pageWidth - 40 });
+      }
 
       // Convert to base64
       const pdfBase64 = doc.output("datauristring").split(",")[1];
@@ -202,7 +229,24 @@ export const generateInvoicePDF = action({
         throw new Error("Checkout session not found");
       }
 
-      // 2. Get purchase items
+      // 2. Get seller organization info
+      const organizationId = session.organizationId;
+      const sellerOrg = await ctx.runQuery(
+        api.organizationOntology.getOrganizationProfile,
+        { organizationId }
+      ) as Doc<"objects"> | null;
+
+      const sellerLegal = await ctx.runQuery(
+        api.organizationOntology.getOrganizationLegal,
+        { organizationId }
+      ) as Doc<"objects"> | null;
+
+      const sellerContact = await ctx.runQuery(
+        api.organizationOntology.getOrganizationContact,
+        { organizationId }
+      ) as Doc<"objects"> | null;
+
+      // 3. Get purchase items
       const purchaseItemIds = (session.customProperties?.purchasedItemIds as Id<"objects">[]) || [];
       const purchaseItems = await Promise.all(
         purchaseItemIds.map((id: Id<"objects">) =>
@@ -212,7 +256,7 @@ export const generateInvoicePDF = action({
         )
       ) as (Doc<"objects"> | null)[];
 
-      // 3. Get product details for each item
+      // 4. Get product details for each item
       const itemsWithProducts = await Promise.all(
         purchaseItems.map(async (item) => {
           if (!item) return null;
@@ -231,13 +275,18 @@ export const generateInvoicePDF = action({
 
       const validItems = itemsWithProducts.filter((item) => item !== null);
 
-      // 4. Calculate totals
+      // 5. Calculate totals
       const subtotal = validItems.reduce((sum, item) => sum + item.totalPrice, 0);
       const taxAmount = (session.customProperties?.taxAmount as number) || 0;
       const total = (session.customProperties?.totalAmount as number) || subtotal;
       const currency = (session.customProperties?.currency as string) || "USD";
 
-      // 5. Create PDF
+      // Extract B2B info
+      const transactionType = session.customProperties?.transactionType as "B2C" | "B2B" | undefined;
+      const buyerCompanyName = session.customProperties?.companyName as string | undefined;
+      const buyerVatNumber = session.customProperties?.vatNumber as string | undefined;
+
+      // 6. Create PDF
       const doc = new jsPDF({
         orientation: "portrait",
         unit: "mm",
@@ -264,19 +313,83 @@ export const generateInvoicePDF = action({
         { align: "right" }
       );
 
-      // Bill To
+      // FROM (Seller Organization)
       doc.setFontSize(12);
       doc.setTextColor(0, 0, 0);
       doc.setFont("helvetica", "bold");
-      doc.text("Bill To:", 20, 45);
+      doc.text("FROM:", 20, 45);
 
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(11);
-      doc.text(session.customProperties?.customerName as string, 20, 52);
-      doc.text(session.customProperties?.customerEmail as string, 20, 59);
+      doc.setFontSize(10);
+      let fromYPos = 52;
+      doc.text(sellerOrg?.name || "L4YERCAK3.com", 20, fromYPos);
+      fromYPos += 6;
 
-      // Items table
-      let yPos = 80;
+      if (sellerLegal?.customProperties?.address) {
+        doc.text(sellerLegal.customProperties.address as string, 20, fromYPos);
+        fromYPos += 6;
+      }
+
+      if (sellerLegal?.customProperties?.taxId) {
+        doc.text(`Tax ID: ${sellerLegal.customProperties.taxId}`, 20, fromYPos);
+        fromYPos += 6;
+      }
+
+      if (sellerLegal?.customProperties?.vatNumber) {
+        doc.text(`VAT: ${sellerLegal.customProperties.vatNumber}`, 20, fromYPos);
+        fromYPos += 6;
+      }
+
+      if (sellerContact?.customProperties?.primaryEmail) {
+        doc.text(sellerContact.customProperties.primaryEmail as string, 20, fromYPos);
+        fromYPos += 6;
+      }
+
+      if (sellerContact?.customProperties?.primaryPhone) {
+        doc.text(sellerContact.customProperties.primaryPhone as string, 20, fromYPos);
+        fromYPos += 6;
+      }
+
+      // BILL TO (Buyer - B2B vs B2C)
+      let billToYPos = 45;
+      doc.setFontSize(12);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont("helvetica", "bold");
+      doc.text(transactionType === "B2B" ? "BILL TO:" : "CUSTOMER:", pageWidth / 2 + 10, billToYPos);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      billToYPos += 7;
+
+      if (transactionType === "B2B" && buyerCompanyName) {
+        // B2B: Show company name prominently
+        doc.setFont("helvetica", "bold");
+        doc.text(buyerCompanyName, pageWidth / 2 + 10, billToYPos);
+        billToYPos += 6;
+        doc.setFont("helvetica", "normal");
+
+        if (buyerVatNumber) {
+          doc.text(`VAT: ${buyerVatNumber}`, pageWidth / 2 + 10, billToYPos);
+          billToYPos += 6;
+        }
+
+        doc.text(`Attn: ${session.customProperties?.customerName as string}`, pageWidth / 2 + 10, billToYPos);
+        billToYPos += 6;
+      } else {
+        // B2C: Show customer name
+        doc.text(session.customProperties?.customerName as string, pageWidth / 2 + 10, billToYPos);
+        billToYPos += 6;
+      }
+
+      doc.text(session.customProperties?.customerEmail as string, pageWidth / 2 + 10, billToYPos);
+      billToYPos += 6;
+
+      if (session.customProperties?.customerPhone) {
+        doc.text(session.customProperties.customerPhone as string, pageWidth / 2 + 10, billToYPos);
+      }
+
+      // Items table (adjusted Y position for seller/buyer info)
+      let yPos = Math.max(fromYPos, billToYPos) + 15;
       doc.setFontSize(10);
       doc.setTextColor(100, 100, 100);
       doc.text("Item", 20, yPos);
