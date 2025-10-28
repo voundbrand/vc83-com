@@ -203,16 +203,12 @@ export function MultiStepCheckout({
 
   /**
    * Determine next step based on current state
+   * 🚨 NEW ORDER: registration-form comes BEFORE customer-info
    */
   const getNextStep = (current: CheckoutStep): CheckoutStep | null => {
     switch (current) {
       case "product-selection": {
-        // ✅ ALWAYS go to customer-info first (NEVER skip it)
-        return "customer-info";
-      }
-
-      case "customer-info": {
-        // ✅ AFTER customer-info, check if we need form template
+        // ✅ NEW: Check if we need registration form FIRST
         const needsForm = stepData.selectedProducts?.some((sp) => {
           const product = linkedProducts.find((p) => p._id === sp.productId);
 
@@ -233,30 +229,35 @@ export function MultiStepCheckout({
         });
 
         // DEBUG: Log decision
-        console.log("🔍 [MultiStepCheckout] Form decision after customer-info:", {
+        console.log("🔍 [MultiStepCheckout] After product selection:", {
           needsForm,
-          nextStep: needsForm ? "registration-form" : (availableProviders.length > 1 ? "payment-method" : "payment-form"),
+          nextStep: needsForm ? "registration-form" : "customer-info",
         });
 
-        // If product has form template, inject it as next step
+        // If product has form template, show it BEFORE customer-info
+        // This allows us to know employer BEFORE collecting billing details
         if (needsForm) {
           return "registration-form";
         }
 
-        // Otherwise, go straight to payment (show payment-method step if multiple providers)
-        if (availableProviders.length > 1) {
-          return "payment-method";
-        }
-        return "payment-form";
+        // Otherwise, go to customer-info (no employer context)
+        return "customer-info";
       }
 
       case "registration-form": {
-        // After form, evaluate payment rules based on form responses
-        // Check if invoice is enforced
+        // ✅ NEW: After registration form, ALWAYS go to customer-info
+        // Customer-info will be dynamic based on form responses (employer billing)
+        return "customer-info";
+      }
+
+      case "customer-info": {
+        // After customer-info, check if invoice is enforced (from payment rules)
+        // Note: payment rules were evaluated after registration-form
         if (paymentRulesResult?.enforceInvoice) {
           return "invoice-enforcement";
         }
-        // Otherwise check payment method step
+
+        // Otherwise, go to payment (show payment-method step if multiple providers)
         if (availableProviders.length > 1) {
           return "payment-method";
         }
@@ -464,39 +465,40 @@ export function MultiStepCheckout({
 
   /**
    * Handle going back to previous step
+   * 🚨 NEW FLOW: product-selection -> registration-form -> customer-info -> payment
    */
   const handleBack = () => {
     // Determine previous step
     switch (currentStep) {
-      case "customer-info":
+      case "registration-form":
+        // ✅ NEW: Registration form comes AFTER product selection
         setCurrentStep("product-selection");
         break;
-      case "registration-form":
-        // ✅ Registration form comes after customer-info now
-        setCurrentStep("customer-info");
+      case "customer-info":
+        // ✅ NEW: Customer-info comes AFTER registration form (if present)
+        const hasForm = stepData.formResponses;
+        setCurrentStep(hasForm ? "registration-form" : "product-selection");
         break;
       case "invoice-enforcement":
-        setCurrentStep("registration-form");
+        // Invoice enforcement comes after customer-info
+        setCurrentStep("customer-info");
         break;
       case "payment-method":
-        // Check if we came from invoice enforcement or form
+        // Payment method comes after invoice enforcement (if present) or customer-info
         if (paymentRulesResult?.enforceInvoice) {
           setCurrentStep("invoice-enforcement");
         } else {
-          const hasForm = stepData.formResponses;
-          setCurrentStep(hasForm ? "registration-form" : "customer-info");
+          setCurrentStep("customer-info");
         }
         break;
       case "payment-form":
-        // Check if we came from invoice enforcement or payment method
+        // Payment form comes after payment method or invoice enforcement
         if (paymentRulesResult?.enforceInvoice) {
           setCurrentStep("invoice-enforcement");
         } else if (availableProviders.length > 1) {
           setCurrentStep("payment-method");
         } else {
-          // Go back to form or customer info
-          const hasForm = stepData.formResponses;
-          setCurrentStep(hasForm ? "registration-form" : "customer-info");
+          setCurrentStep("customer-info");
         }
         break;
       default:
@@ -523,6 +525,8 @@ export function MultiStepCheckout({
           <CustomerInfoStep
             initialData={stepData.customerInfo}
             forceB2B={forceB2B}
+            formResponses={stepData.formResponses} // NEW: Pass form responses for employer detection
+            linkedProducts={linkedProducts} // NEW: Pass products for invoice config
             onComplete={(data) => handleStepComplete({ customerInfo: data })}
             onBack={handleBack}
           />
