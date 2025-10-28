@@ -204,12 +204,16 @@ export function MultiStepCheckout({
   /**
    * Determine next step based on current state
    * 🚨 NEW ORDER: registration-form comes BEFORE customer-info
+   *
+   * NOTE: This function is called from handleStepComplete with updatedData,
+   * so we need to pass the updated data as a parameter
    */
-  const getNextStep = (current: CheckoutStep): CheckoutStep | null => {
+  const getNextStep = (current: CheckoutStep, data: CheckoutStepData = stepData): CheckoutStep | null => {
     switch (current) {
       case "product-selection": {
         // ✅ NEW: Check if we need registration form FIRST
-        const needsForm = stepData.selectedProducts?.some((sp) => {
+        // Use the passed data parameter instead of stepData
+        const needsForm = data.selectedProducts?.some((sp) => {
           const product = linkedProducts.find((p) => p._id === sp.productId);
 
           // DEBUG: Log each product check
@@ -232,6 +236,7 @@ export function MultiStepCheckout({
         console.log("🔍 [MultiStepCheckout] After product selection:", {
           needsForm,
           nextStep: needsForm ? "registration-form" : "customer-info",
+          selectedProducts: data.selectedProducts,
         });
 
         // If product has form template, show it BEFORE customer-info
@@ -454,7 +459,8 @@ export function MultiStepCheckout({
       }
     }
 
-    const nextStep = getNextStep(currentStep);
+    // Pass updatedData to getNextStep so it can check the new selectedProducts
+    const nextStep = getNextStep(currentStep, updatedData);
     if (nextStep) {
       setCurrentStep(nextStep);
     } else {
