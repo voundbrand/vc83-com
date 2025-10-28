@@ -30,10 +30,19 @@ interface CheckoutTemplateRegistration {
 function TicketCheckoutAdapter({
   linkedProducts,
   organizationId,
+  configuration,
 }: CheckoutTemplateProps) {
   // Extract payment providers from configuration
-  // For now, default to Stripe - this should come from organization settings
-  const paymentProviders = ["stripe"];
+  const paymentProviders = (configuration?.paymentProviders as string[]) || ["stripe"];
+
+  // Extract Force B2B setting from configuration
+  const forceB2B = (configuration?.forceB2B as boolean) || false;
+
+  console.log("🔍 [TicketCheckoutAdapter] Configuration:", {
+    forceB2B,
+    paymentProviders,
+    fullConfig: configuration
+  });
 
   // MultiStepCheckout handles everything:
   // - Product selection with quantity controls
@@ -45,6 +54,7 @@ function TicketCheckoutAdapter({
     organizationId: organizationId,
     linkedProducts: linkedProducts,
     paymentProviders: paymentProviders,
+    forceB2B: forceB2B, // ✅ Pass Force B2B setting to checkout flow
     onComplete: (result) => {
       console.log("Checkout completed:", result);
       // In preview mode, just log. In production, this would trigger actual checkout

@@ -266,8 +266,9 @@ export const updatePublicCheckoutSession = mutation({
       companyName: v.optional(v.string()),
       vatNumber: v.optional(v.string()),
 
-      // Billing address
-      billingStreet: v.optional(v.string()),
+      // Billing address (matches BillingAddress interface)
+      billingLine1: v.optional(v.string()),
+      billingLine2: v.optional(v.string()),
       billingCity: v.optional(v.string()),
       billingState: v.optional(v.string()),
       billingPostalCode: v.optional(v.string()),
@@ -281,6 +282,16 @@ export const updatePublicCheckoutSession = mutation({
             quantity: v.number(),
             pricePerUnit: v.number(),
             totalPrice: v.number(),
+          })
+        )
+      ),
+      // IMPORTANT: 'items' field for invoice provider compatibility
+      // Simpler format used by invoice.ts to read products
+      items: v.optional(
+        v.array(
+          v.object({
+            productId: v.id("objects"),
+            quantity: v.number(),
           })
         )
       ),
@@ -403,8 +414,9 @@ export const updateCheckoutSession = mutation({
       companyName: v.optional(v.string()),
       vatNumber: v.optional(v.string()),
 
-      // Billing address
-      billingStreet: v.optional(v.string()),
+      // Billing address (matches BillingAddress interface)
+      billingLine1: v.optional(v.string()),
+      billingLine2: v.optional(v.string()),
       billingCity: v.optional(v.string()),
       billingState: v.optional(v.string()),
       billingPostalCode: v.optional(v.string()),
@@ -784,5 +796,31 @@ export const getCheckoutSessionInternal = internalQuery({
   },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.checkoutSessionId);
+  },
+});
+
+/**
+ * INTERNAL: Patch checkout session custom properties
+ *
+ * Simple patch operation for updating customProperties from actions.
+ * Used by payment providers to update session data after ticket generation.
+ */
+export const patchCheckoutSessionInternal = internalMutation({
+  args: {
+    checkoutSessionId: v.id("objects"),
+    customProperties: v.any(),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.checkoutSessionId);
+    if (!session || session.type !== "checkout_session") {
+      throw new Error("Checkout session not found");
+    }
+
+    await ctx.db.patch(args.checkoutSessionId, {
+      customProperties: args.customProperties,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
   },
 });

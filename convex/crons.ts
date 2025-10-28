@@ -31,4 +31,25 @@ crons.daily(
   internal.accountManagement.permanentlyDeleteExpiredAccounts
 );
 
+/**
+ * Cleanup Expired Invoice PDF Cache
+ *
+ * Runs daily at 3 AM UTC to remove expired PDF files from storage.
+ * Deletes PDFs older than 30 days to prevent storage bloat.
+ *
+ * What it does:
+ * 1. Finds all checkout sessions with expired PDF cache
+ * 2. Deletes PDF from Convex storage
+ * 3. Removes cache reference from transaction customProperties
+ * 4. Logs cleanup count
+ */
+crons.daily(
+  "Cleanup expired invoice PDF cache",
+  {
+    hourUTC: 3, // 3 AM UTC
+    minuteUTC: 0,
+  },
+  internal.transactionInvoicing.cleanupExpiredPdfCache
+);
+
 export default crons;

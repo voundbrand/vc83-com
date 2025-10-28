@@ -385,6 +385,141 @@ export function calculateCheckoutTax(
 }
 
 /**
+ * Calculate tax for a single addon
+ *
+ * @param addon - Addon with tax configuration
+ * @param defaultTaxRate - Fallback tax rate if addon doesn't specify
+ * @param defaultTaxBehavior - Fallback tax behavior
+ * @returns Line item tax calculation for addon
+ */
+export function calculateAddonTax(
+  addon: {
+    addonId: string;
+    name: string;
+    quantity: number;
+    pricePerUnit: number;
+    totalPrice: number;
+    currency: string;
+    taxable: boolean;
+    taxCode?: string;
+    taxBehavior?: "exclusive" | "inclusive";
+  },
+  defaultTaxRate: number = 0,
+  defaultTaxBehavior: "exclusive" | "inclusive" | "automatic" = "exclusive"
+): LineItemWithTax {
+  const taxBehavior = addon.taxBehavior || defaultTaxBehavior;
+  const subtotalBeforeTax = addon.totalPrice; // Already in cents
+
+  // If addon is not taxable, return zero tax
+  if (!addon.taxable) {
+    return {
+      productId: addon.addonId,
+      productName: addon.name,
+      quantity: addon.quantity,
+      unitPrice: addon.pricePerUnit,
+      subtotal: subtotalBeforeTax,
+      taxAmount: 0,
+      total: subtotalBeforeTax,
+      taxable: false,
+      taxCode: addon.taxCode,
+      taxBehavior,
+    };
+  }
+
+  // Get tax rate for this addon
+  // Priority: addon taxCode > defaultTaxRate
+  const addonTaxRate = getTaxRateByCode(addon.taxCode, defaultTaxRate);
+
+  // Calculate tax based on behavior
+  let subtotal: number;
+  let taxAmount: number;
+  let total: number;
+
+  if (taxBehavior === "inclusive") {
+    // Tax is already included in the price
+    total = subtotalBeforeTax;
+    const taxMultiplier = 1 + (addonTaxRate / 100);
+    subtotal = Math.round(total / taxMultiplier);
+    taxAmount = total - subtotal;
+  } else {
+    // Exclusive (default) or Automatic
+    subtotal = subtotalBeforeTax;
+    taxAmount = Math.round(subtotal * (addonTaxRate / 100));
+    total = subtotal + taxAmount;
+  }
+
+  return {
+    productId: addon.addonId,
+    productName: addon.name,
+    quantity: addon.quantity,
+    unitPrice: addon.pricePerUnit,
+    subtotal,
+    taxAmount,
+    total,
+    taxable: true,
+    taxCode: addon.taxCode,
+    taxBehavior,
+  };
+}
+
+/**
+ * Calculate checkout tax including both products and their addons
+ *
+ * @param products - Array of products with quantities
+ * @param addons - Array of calculated addons from all products
+ * @param defaultTaxRate - Organization default tax rate (percentage)
+ * @param defaultTaxBehavior - Organization default tax behavior
+ * @returns Total tax calculation with separate line items for products and addons
+ */
+export function calculateCheckoutTaxWithAddons(
+  products: Array<{ product: CheckoutProduct; quantity: number }>,
+  addons: Array<{
+    addonId: string;
+    name: string;
+    quantity: number;
+    pricePerUnit: number;
+    totalPrice: number;
+    currency: string;
+    taxable: boolean;
+    taxCode?: string;
+    taxBehavior?: "exclusive" | "inclusive";
+  }>,
+  defaultTaxRate: number = 0,
+  defaultTaxBehavior: "exclusive" | "inclusive" | "automatic" = "exclusive"
+): TaxCalculation & { lineItems: LineItemWithTax[] } {
+  // Calculate product taxes
+  const productLineItems = products.map(({ product, quantity }) =>
+    calculateProductTax(product, quantity, defaultTaxRate, defaultTaxBehavior)
+  );
+
+  // Calculate addon taxes
+  const addonLineItems = addons.map((addon) =>
+    calculateAddonTax(addon, defaultTaxRate, defaultTaxBehavior)
+  );
+
+  // Combine all line items
+  const lineItems = [...productLineItems, ...addonLineItems];
+
+  const subtotal = lineItems.reduce((sum, item) => sum + item.subtotal, 0);
+  const taxAmount = lineItems.reduce((sum, item) => sum + item.taxAmount, 0);
+  const total = lineItems.reduce((sum, item) => sum + item.total, 0);
+  const isTaxable = lineItems.some((item) => item.taxable);
+
+  // Determine overall tax behavior (use first taxable item's behavior)
+  const taxBehavior = lineItems.find((item) => item.taxable)?.taxBehavior || defaultTaxBehavior;
+
+  return {
+    subtotal,
+    taxAmount,
+    total,
+    taxRate: defaultTaxRate,
+    taxBehavior,
+    isTaxable,
+    lineItems,
+  };
+}
+
+/**
  * Format tax amount for display
  *
  * @param amount - Amount in cents

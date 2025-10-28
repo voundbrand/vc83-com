@@ -19,6 +19,7 @@ import { CheckoutWindow } from "@/components/window-content/checkout-window"
 import { FormsWindow } from "@/components/window-content/forms-window"
 import { AllAppsWindow } from "@/components/window-content/all-apps-window"
 import { CRMWindow } from "@/components/window-content/crm-window"
+import { InvoicingWindow } from "@/components/window-content/invoicing-window"
 import { WindowsMenu } from "@/components/windows-menu"
 import { useIsMobile } from "@/hooks/use-media-query"
 import { useAuth, useOrganizations, useCurrentOrganization, useIsSuperAdmin, useAccountDeletionStatus } from "@/hooks/use-auth"
@@ -91,6 +92,10 @@ export default function HomePage() {
 
   const openCRMWindow = () => {
     openWindow("crm", "CRM", <CRMWindow />, { x: 360, y: 280 }, { width: 1100, height: 700 })
+  }
+
+  const openInvoicingWindow = () => {
+    openWindow("invoicing", "Invoicing", <InvoicingWindow />, { x: 380, y: 300 }, { width: 950, height: 650 })
   }
 
   const handleLogout = () => {
@@ -167,6 +172,7 @@ export default function HomePage() {
       'forms': isAppAvailable("forms"),
       'web-publishing': isAppAvailable("web-publishing"),
       'crm': isAppAvailable("crm"),
+      'app_invoicing': isAppAvailable("app_invoicing"),
     }
   });
 
@@ -204,6 +210,10 @@ export default function HomePage() {
     // CRM app - customer relationship management
     ...(isAppAvailable("crm") ? [
       { label: "CRM", icon: "👥", onClick: requireAuth(openCRMWindow) }
+    ] : []),
+    // Invoicing app - B2B/B2C invoice management
+    ...(isAppAvailable("app_invoicing") ? [
+      { label: "Invoicing", icon: "💳", onClick: requireAuth(openInvoicingWindow) }
     ] : []),
     //{ label: "L4YERCAK3 Podcast", icon: "🎙️", onClick: requireAuth(openEpisodesWindow) },
     //{ label: "Subscribe", icon: "🔊", onClick: requireAuth(openSubscribeWindow) },

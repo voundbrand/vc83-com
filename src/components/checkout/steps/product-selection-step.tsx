@@ -148,6 +148,8 @@ export function ProductSelectionStep({
   const defaultTaxBehavior = taxSettings?.defaultTaxBehavior || "exclusive";
 
   // Calculate tax - the calculator will use each product's tax code if available
+  // NOTE: Addon taxes are not calculated here since we don't have form responses yet
+  // Addon taxes are calculated in the payment step after registration is complete
   const taxCalculation = calculateCheckoutTax(
     lineItems.map((item) => ({ product: item.product, quantity: item.quantity })),
     defaultTaxRate,

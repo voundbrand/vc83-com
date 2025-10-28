@@ -14,6 +14,23 @@
  * - "active" - Available for sale
  * - "sold_out" - No more inventory
  * - "archived" - No longer offered
+ *
+ * B2B Invoicing Configuration (customProperties.invoiceConfig):
+ * Used when checkout has invoice payment provider enabled.
+ * - employerSourceField: string - Form field ID containing employer/organization info
+ * - employerMapping: Record<string, string | null> - Maps form values to CRM organization names
+ * - defaultPaymentTerms: "net30" | "net60" | "net90" - Default invoice payment terms
+ *
+ * Example invoiceConfig:
+ * {
+ *   employerSourceField: "attendee_category",
+ *   employerMapping: {
+ *     "ameos": "AMEOS Klinikum Ueckermünde",
+ *     "haffnet": "HaffNet e.V.",
+ *     "external": null // No invoice for external attendees
+ *   },
+ *   defaultPaymentTerms: "net30"
+ * }
  */
 
 import { query, mutation } from "./_generated/server";
@@ -357,6 +374,12 @@ export const updateProduct = mutation({
     status: v.optional(v.string()), // "draft" | "active" | "sold_out" | "archived"
     eventId: v.optional(v.union(v.id("objects"), v.null())), // Optional: Update event link (null to remove)
     customProperties: v.optional(v.record(v.string(), v.any())),
+    // B2B Invoicing configuration (optional) - used when checkout has invoice payment enabled
+    invoiceConfig: v.optional(v.object({
+      employerSourceField: v.string(), // Form field ID
+      employerMapping: v.record(v.string(), v.union(v.string(), v.null())), // form value -> org name
+      defaultPaymentTerms: v.optional(v.union(v.literal("net30"), v.literal("net60"), v.literal("net90"))),
+    })),
   },
   handler: async (ctx, args) => {
     await requireAuthenticatedUser(ctx, args.sessionId);
@@ -393,16 +416,34 @@ export const updateProduct = mutation({
     }
 
     // Update customProperties
-    if (args.price !== undefined || args.inventory !== undefined || args.eventId !== undefined || args.customProperties) {
+    if (args.price !== undefined || args.inventory !== undefined || args.eventId !== undefined || args.customProperties || args.invoiceConfig !== undefined) {
       const currentProps = product.customProperties || {};
 
-      updates.customProperties = {
+      // ⚠️ CRITICAL FIX: When args.customProperties is provided, it should COMPLETELY
+      // replace the nested properties, not merge them. This is especially important
+      // for arrays like 'addons' where deletions need to persist.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const updatedCustomProperties: Record<string, any> = {
         ...currentProps,
         ...(args.price !== undefined && { price: args.price }),
         ...(args.inventory !== undefined && { inventory: args.inventory }),
-        ...(args.eventId !== undefined && { eventId: args.eventId }), // Update eventId in customProperties
-        ...(args.customProperties || {}),
+        ...(args.eventId !== undefined && { eventId: args.eventId }),
       };
+
+      // If customProperties provided, merge them but REPLACE arrays completely
+      if (args.customProperties) {
+        for (const [key, value] of Object.entries(args.customProperties)) {
+          // Always replace the value directly (don't merge arrays)
+          updatedCustomProperties[key] = value;
+        }
+      }
+
+      // Handle invoiceConfig updates
+      if (args.invoiceConfig !== undefined) {
+        updatedCustomProperties.invoiceConfig = args.invoiceConfig;
+      }
+
+      updates.customProperties = updatedCustomProperties;
     }
 
     await ctx.db.patch(args.productId, updates);

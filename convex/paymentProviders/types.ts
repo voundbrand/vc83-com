@@ -272,6 +272,34 @@ export interface AccountStatus {
 }
 
 // =========================================
+// ADDRESS TYPES
+// =========================================
+
+/**
+ * Standardized billing/shipping address format
+ * Compatible with Stripe, PayPal, Square, and other payment providers
+ */
+export interface BillingAddress {
+  /** Street address, P.O. box, company name, etc. */
+  line1: string;
+
+  /** Apartment, suite, unit, building, floor, etc. (optional) */
+  line2?: string;
+
+  /** City, district, suburb, town, or village */
+  city: string;
+
+  /** State, county, province, or region (optional) */
+  state?: string;
+
+  /** ZIP or postal code */
+  postalCode: string;
+
+  /** Two-letter country code (ISO 3166-1 alpha-2) */
+  country: string;
+}
+
+// =========================================
 // CHECKOUT TYPES
 // =========================================
 
@@ -302,6 +330,15 @@ export interface CheckoutSessionParams {
 
   /** Customer name (optional) */
   customerName?: string;
+
+  /** Customer phone (optional) */
+  customerPhone?: string;
+
+  /** Billing address for payment processing */
+  billingAddress?: BillingAddress;
+
+  /** Shipping address (if different from billing) */
+  shippingAddress?: BillingAddress;
 
   /** URL to redirect on successful payment */
   successUrl: string;
@@ -716,3 +753,12 @@ export class WebhookVerificationError extends PaymentProviderError {
     this.name = "WebhookVerificationError";
   }
 }
+
+// =========================================
+// PAYMENT PROVIDER TYPE LITERAL
+// =========================================
+
+/**
+ * Supported payment provider types
+ */
+export type PaymentProviderType = "stripe" | "stripe-connect" | "manual" | "invoice";

@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
-import { ShoppingCart, ArrowLeft, Loader2, AlertCircle, Eye, FileText, Check, Palette, ChevronDown, ChevronUp, CreditCard } from "lucide-react";
+import { ShoppingCart, ArrowLeft, Loader2, AlertCircle, Eye, FileText, Check, Palette, ChevronDown, ChevronUp, CreditCard, Building2 } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { CheckoutPreview } from "./checkout-preview";
 import { getCheckoutSchema } from "@/templates/checkout/registry";
@@ -50,6 +50,7 @@ export function CreateCheckoutTab({
   const [selectedThemeId, setSelectedThemeId] = useState<string>("");
   const [themeAccordionOpen, setThemeAccordionOpen] = useState(true);
   const [selectedPaymentProviders, setSelectedPaymentProviders] = useState<string[]>([]);
+  const [forceB2B, setForceB2B] = useState(false);
 
   // Fetch available templates
   const availableTemplates = useQuery(
@@ -89,6 +90,14 @@ export function CreateCheckoutTab({
       : "skip"
   );
 
+  // Check if invoice payment is available (dynamic check based on Invoicing app availability)
+  const invoiceAvailability = useQuery(
+    api.paymentProviders.invoiceAvailability.checkInvoicePaymentAvailability,
+    sessionId && currentOrg?.id
+      ? { sessionId, organizationId: currentOrg.id as Id<"organizations"> }
+      : "skip"
+  );
+
   // Fetch existing checkout data if editing
   const existingCheckout = useQuery(
     api.checkoutOntology.getCheckoutInstanceById,
@@ -116,6 +125,7 @@ export function CreateCheckoutTab({
       setPublicSlug((config.publicSlug as string) || "");
       setSelectedProducts((config.linkedProducts as Id<"objects">[]) || []);
       setSelectedPaymentProviders((config.paymentProviders as string[]) || []);
+      setForceB2B((config.forceB2B as boolean) || false);
 
       // Load theme CODE from config, then find the database theme ID for UI display
       const savedThemeCode = (config.themeCode as string) || "";
@@ -205,6 +215,7 @@ export function CreateCheckoutTab({
             publicSlug,
             paymentProviders: selectedPaymentProviders,
             themeCode, // Save theme CODE, not ID
+            forceB2B, // Save Force B2B setting
           },
         });
       } else {
@@ -221,6 +232,7 @@ export function CreateCheckoutTab({
             publicSlug,
             paymentProviders: selectedPaymentProviders,
             themeCode, // Save theme CODE, not ID
+            forceB2B, // Save Force B2B setting
           },
         });
       }
@@ -419,6 +431,30 @@ export function CreateCheckoutTab({
     })
     .filter((p) => p !== null) as CheckoutProduct[];
 
+  // Combine static payment providers (Stripe) with dynamic invoice availability
+  const availablePaymentProviders = React.useMemo(() => {
+    const providers = [];
+
+    // Add Stripe and other stored providers
+    if (organization?.paymentProviders) {
+      providers.push(...organization.paymentProviders);
+    }
+
+    // Dynamically add invoice provider if Invoicing app is enabled
+    if (invoiceAvailability?.available) {
+      providers.push({
+        providerCode: "invoice",
+        accountId: "invoice-system",
+        status: "active" as const,
+        isDefault: false,
+        isTestMode: false,
+        connectedAt: Date.now(),
+      });
+    }
+
+    return providers;
+  }, [organization?.paymentProviders, invoiceAvailability?.available]);
+
   // Step 2: Editor View with Live Preview
   return (
     <div className="flex flex-col h-full">
@@ -515,6 +551,36 @@ export function CreateCheckoutTab({
             </p>
           </div>
 
+          {/* Force B2B Setting */}
+          <div className="mb-4 border-t-2 border-gray-400 pt-4">
+            <label className="flex items-start gap-3 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={forceB2B}
+                onChange={(e) => setForceB2B(e.target.checked)}
+                className="mt-1 cursor-pointer"
+                style={{ width: "18px", height: "18px" }}
+              />
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <Building2 size={14} />
+                  <span className="text-xs font-bold">Require Organization Info (Force B2B)</span>
+                </div>
+                <p className="text-xs text-gray-600">
+                  When enabled, customers must provide company/organization details (company name, VAT number, billing address).
+                  Use this for employer-invoiced events or B2B-only products.
+                </p>
+                {forceB2B && (
+                  <div className="mt-2 p-2 rounded" style={{ backgroundColor: "#EFF6FF", border: "1px solid #BFDBFE" }}>
+                    <p className="text-xs font-bold" style={{ color: "#1E40AF" }}>
+                      ✓ Organization info will be required for all purchases
+                    </p>
+                  </div>
+                )}
+              </div>
+            </label>
+          </div>
+
           {/* Payment Provider Selection */}
           <div className="mb-4 border-t-2 border-gray-400 pt-4">
             <label className="block text-xs font-bold mb-2 flex items-center gap-2">
@@ -525,7 +591,7 @@ export function CreateCheckoutTab({
               Select payment providers to offer during checkout. Customers will choose their preferred method.
             </p>
 
-            {!organization || !organization.paymentProviders || organization.paymentProviders.length === 0 ? (
+            {!availablePaymentProviders || availablePaymentProviders.length === 0 ? (
               <div className="border-2 border-red-600 bg-red-50 p-4">
                 <div className="flex items-start gap-2">
                   <AlertCircle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
@@ -543,7 +609,7 @@ export function CreateCheckoutTab({
             ) : (
               <>
                 <div className="space-y-2">
-                  {organization.paymentProviders.map((provider) => {
+                  {availablePaymentProviders.map((provider) => {
                     const isSelected = selectedPaymentProviders.includes(provider.providerCode);
                     const isActive = provider.status === "active";
 
@@ -578,18 +644,24 @@ export function CreateCheckoutTab({
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
-                              <div className="font-bold text-sm capitalize">
-                                {provider.providerCode.replace("-", " ")}
+                              <div className="font-bold text-sm">
+                                {provider.providerCode === "stripe-connect"
+                                  ? "Stripe"
+                                  : provider.providerCode === "invoice"
+                                  ? "Invoice (Pay Later)"
+                                  : provider.providerCode.replace("-", " ")}
                               </div>
-                              <span
-                                className="text-xs px-2 py-0.5 rounded"
-                                style={{
-                                  backgroundColor: provider.isTestMode ? "#FEF3C7" : "#D1FAE5",
-                                  color: provider.isTestMode ? "#92400E" : "#065F46",
-                                }}
-                              >
-                                {provider.isTestMode ? "Test Mode" : "Live Mode"}
-                              </span>
+                              {provider.providerCode !== "invoice" && (
+                                <span
+                                  className="text-xs px-2 py-0.5 rounded"
+                                  style={{
+                                    backgroundColor: provider.isTestMode ? "#FEF3C7" : "#D1FAE5",
+                                    color: provider.isTestMode ? "#92400E" : "#065F46",
+                                  }}
+                                >
+                                  {provider.isTestMode ? "Test Mode" : "Live Mode"}
+                                </span>
+                              )}
                               {provider.isDefault && (
                                 <span
                                   className="text-xs px-2 py-0.5 rounded"
@@ -607,9 +679,16 @@ export function CreateCheckoutTab({
                                 {provider.status}
                               </span>
                             </p>
-                            <p className="text-xs text-gray-500 mt-1">
-                              Account: {provider.accountId.substring(0, 20)}...
-                            </p>
+                            {provider.providerCode !== "invoice" && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                Account: {provider.accountId.substring(0, 20)}...
+                              </p>
+                            )}
+                            {provider.providerCode === "invoice" && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                Customers can choose to receive an invoice and pay later
+                              </p>
+                            )}
                           </div>
                           {isSelected && (
                             <Check size={20} className="text-purple-600 flex-shrink-0" />
@@ -974,6 +1053,7 @@ export function CreateCheckoutTab({
                 organizationId={currentOrg.id as Id<"organizations">}
                 theme={getTheme(availableThemes?.find(t => t._id === selectedThemeId)?.customProperties?.code as string)}
                 paymentProviders={selectedPaymentProviders}
+                forceB2B={forceB2B}
               />
             </div>
           ) : (

@@ -56,7 +56,7 @@ async function getOrCreateSystemUser(ctx: MutationCtx) {
  * Creates or updates a CRM organization record for B2B transactions.
  * Features:
  * - Deduplication by company name + organizationId
- * - Stores VAT number, billing address, contact info
+ * - Stores VAT number, billing address (structured), contact info
  * - Returns organization ID for linking to contacts
  */
 export const createCRMOrganization = internalMutation({
@@ -64,10 +64,20 @@ export const createCRMOrganization = internalMutation({
     organizationId: v.id("organizations"), // Platform org (seller)
     companyName: v.string(),
     vatNumber: v.optional(v.string()),
-    billingAddress: v.optional(v.string()),
+    // Structured billing address (matches BillingAddress interface)
+    billingAddress: v.optional(v.object({
+      line1: v.string(),
+      line2: v.optional(v.string()),
+      city: v.string(),
+      state: v.optional(v.string()),
+      postalCode: v.string(),
+      country: v.string(),
+    })),
     email: v.optional(v.string()),
     phone: v.optional(v.string()),
     website: v.optional(v.string()),
+    // Track if user chose separate billing vs. org address
+    useSeparateBillingAddress: v.optional(v.boolean()),
   },
   handler: async (ctx, args): Promise<Id<"objects">> => {
     // Get or create system user for internal operations
@@ -93,6 +103,7 @@ export const createCRMOrganization = internalMutation({
           ...existingOrg.customProperties,
           vatNumber: args.vatNumber || existingOrg.customProperties?.vatNumber,
           billingAddress: args.billingAddress || existingOrg.customProperties?.billingAddress,
+          useSeparateBillingAddress: args.useSeparateBillingAddress ?? existingOrg.customProperties?.useSeparateBillingAddress,
           email: args.email || existingOrg.customProperties?.email,
           phone: args.phone || existingOrg.customProperties?.phone,
           website: args.website || existingOrg.customProperties?.website,
@@ -128,6 +139,7 @@ export const createCRMOrganization = internalMutation({
         companyName: args.companyName,
         vatNumber: args.vatNumber,
         billingAddress: args.billingAddress,
+        useSeparateBillingAddress: args.useSeparateBillingAddress ?? false,
         email: args.email,
         phone: args.phone,
         website: args.website,
@@ -265,6 +277,39 @@ export const linkContactToOrganization = internalMutation({
 // ============================================================================
 
 /**
+ * FIND CRM ORGANIZATION BY NAME (NO AUTH)
+ *
+ * Searches for existing CRM organizations by company name.
+ * Used during checkout to link contacts to employer organizations.
+ */
+export const findCrmOrganizationByName = query({
+  args: {
+    organizationId: v.id("organizations"),
+    searchName: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const orgs = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId)
+         .eq("type", "crm_organization")
+      )
+      .collect();
+
+    // Fuzzy match by name (case-insensitive, partial match)
+    const normalized = args.searchName.toLowerCase().trim();
+    return orgs.find(org => {
+      const orgName = (org.name || "").toLowerCase();
+      const companyName = (org.customProperties?.companyName as string || "").toLowerCase();
+      return orgName.includes(normalized) ||
+             normalized.includes(orgName) ||
+             companyName.includes(normalized) ||
+             normalized.includes(companyName);
+    });
+  },
+});
+
+/**
  * AUTO-CREATE CONTACT FROM CHECKOUT SESSION (INTERNAL - No Auth Required)
  *
  * Internal mutation for creating CRM contacts from checkout without requiring authentication.
@@ -315,6 +360,16 @@ export const autoCreateContactFromCheckoutInternal = internalMutation({
     }>;
     const totalAmount: number = session.customProperties?.totalAmount as number;
 
+    // Extract form responses (for additional contact data like salutation, title, profession)
+    const formResponses = session.customProperties?.formResponses as Array<{
+      productId: Id<"objects">;
+      ticketNumber: number;
+      formId: string;
+      responses: Record<string, unknown>;
+      addedCosts: number;
+      submittedAt: number;
+    }> | undefined;
+
     if (!customerEmail || !customerName) {
       throw new Error("Customer email and name are required");
     }
@@ -323,6 +378,60 @@ export const autoCreateContactFromCheckoutInternal = internalMutation({
     const nameParts = customerName.trim().split(" ");
     const firstName = nameParts[0] || "";
     const lastName = nameParts.slice(1).join(" ") || "";
+
+    // 3. Extract additional contact data from form responses (if available)
+    // Get data from first form response (if multiple tickets, use first one)
+    const firstFormResponse = formResponses && formResponses.length > 0 ? formResponses[0] : null;
+    const formData = firstFormResponse?.responses || {};
+
+    const salutation = formData.salutation as string | undefined;
+    const title = formData.title as string | undefined;
+    const profession = formData.profession as string | undefined; // Fachrichtung
+    const attendeeCategory = formData.attendee_category as string | undefined; // external, ameos, haffnet, speaker, sponsor, orga
+
+    // B2B: Extract employer name and link to organization
+    const employerName = session.customProperties?.employerName as string | undefined;
+    let crmOrganizationId: Id<"objects"> | undefined = undefined;
+
+    // If employer name provided, find or create organization
+    if (employerName) {
+      // Try to find existing organization
+      const orgs = await ctx.db
+        .query("objects")
+        .withIndex("by_org_type", (q) =>
+          q.eq("organizationId", organizationId).eq("type", "crm_organization")
+        )
+        .collect();
+
+      const normalized = employerName.toLowerCase().trim();
+      const existingOrg = orgs.find(org => {
+        const orgName = (org.name || "").toLowerCase();
+        const companyName = (org.customProperties?.companyName as string || "").toLowerCase();
+        return orgName.includes(normalized) ||
+               normalized.includes(orgName) ||
+               companyName.includes(normalized) ||
+               normalized.includes(companyName);
+      });
+
+      if (existingOrg) {
+        crmOrganizationId = existingOrg._id;
+      } else {
+        // Create new organization using EXISTING function
+        crmOrganizationId = await ctx.runMutation(internal.crmIntegrations.createCRMOrganization, {
+          organizationId,
+          companyName: employerName,
+          billingAddress: session.customProperties?.billingAddress as {
+            line1: string;
+            line2?: string;
+            city: string;
+            state?: string;
+            postalCode: string;
+            country: string;
+          } | undefined,
+          email: session.customProperties?.customerEmail as string | undefined,
+        });
+      }
+    }
 
     // 3. Check if contact already exists by email (deduplication)
     const existingContacts = await ctx.db
@@ -337,7 +446,7 @@ export const autoCreateContactFromCheckoutInternal = internalMutation({
     );
 
     if (existingContact) {
-      // Contact exists - update last purchase info
+      // Contact exists - update last purchase info AND enrich with form data if available
       const currentTotalSpent = (existingContact.customProperties?.totalSpent as number) || 0;
       const currentPurchaseCount = (existingContact.customProperties?.purchaseCount as number) || 0;
 
@@ -348,6 +457,11 @@ export const autoCreateContactFromCheckoutInternal = internalMutation({
           purchaseCount: currentPurchaseCount + 1,
           lastPurchaseAt: Date.now(),
           lastCheckoutSessionId: args.checkoutSessionId,
+          // Enrich with form data (if not already set)
+          ...(salutation && !existingContact.customProperties?.salutation ? { salutation } : {}),
+          ...(title && !existingContact.customProperties?.title ? { title } : {}),
+          ...(profession && !existingContact.customProperties?.profession ? { profession } : {}),
+          ...(attendeeCategory && !existingContact.customProperties?.attendeeCategory ? { attendeeCategory } : {}),
         },
         updatedAt: Date.now(),
       });
@@ -366,6 +480,15 @@ export const autoCreateContactFromCheckoutInternal = internalMutation({
         performedAt: Date.now(),
       });
 
+      // If B2B organization exists and not already linked, link it
+      if (crmOrganizationId && !existingContact.customProperties?.linkedOrganizationId) {
+        await ctx.runMutation(internal.crmIntegrations.linkContactToOrganization, {
+          contactId: existingContact._id,
+          organizationId: crmOrganizationId,
+          role: "attendee",
+        });
+      }
+
       return { contactId: existingContact._id, isNew: false };
     }
 
@@ -383,6 +506,12 @@ export const autoCreateContactFromCheckoutInternal = internalMutation({
         email: customerEmail,
         phone: customerPhone,
 
+        // Form data (from HaffSymposium registration or similar forms)
+        ...(salutation ? { salutation } : {}),
+        ...(title ? { title } : {}),
+        ...(profession ? { profession } : {}), // Fachrichtung
+        ...(attendeeCategory ? { attendeeCategory } : {}), // external, ameos, haffnet, speaker, sponsor, orga
+
         // Purchase tracking
         totalSpent: totalAmount,
         purchaseCount: 1,
@@ -393,16 +522,33 @@ export const autoCreateContactFromCheckoutInternal = internalMutation({
         // Source tracking
         source: "checkout",
         sourceRef: args.checkoutSessionId,
-        tags: ["customer", "checkout", "paid"],
+        tags: [
+          "customer",
+          "checkout",
+          "paid",
+          ...(attendeeCategory ? [`attendee:${attendeeCategory}`] : []), // Tag for filtering (e.g., "attendee:external", "attendee:speaker")
+        ],
 
         // Lifecycle
         lifecycleStage: "customer",
         createdFromCheckout: true,
+
+        // B2B: Link to organization if exists
+        ...(crmOrganizationId ? { linkedOrganizationId: crmOrganizationId } : {}),
       },
       createdBy: userId,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     });
+
+    // Link contact to organization if B2B checkout
+    if (crmOrganizationId) {
+      await ctx.runMutation(internal.crmIntegrations.linkContactToOrganization, {
+        contactId,
+        organizationId: crmOrganizationId,
+        role: "attendee",
+      });
+    }
 
     // 5. Log creation action
     await ctx.db.insert("objectActions", {

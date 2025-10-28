@@ -144,6 +144,10 @@ export function ConfirmationStep({
     return false;
   });
 
+  // Check if this is an invoice checkout (B2B employer paying)
+  // In this case, employee gets tickets but no receipt (employer gets invoice)
+  const isInvoiceCheckout = checkoutData.selectedPaymentProvider === "invoice";
+
   // DEBUG: Log product data to understand structure
   console.log("🎫 Confirmation Step Debug:");
   console.log("- linkedProducts:", linkedProducts);
@@ -156,6 +160,7 @@ export function ConfirmationStep({
   console.log("- hasTicketProducts:", hasTicketProducts);
   console.log("- purchasedItemIds:", checkoutData.paymentResult?.purchasedItemIds);
   console.log("- sessionId:", sessionId);
+  console.log("- isInvoiceCheckout:", isInvoiceCheckout);
 
   return (
     <div className={styles.stepContainer}>
@@ -168,7 +173,9 @@ export function ConfirmationStep({
           Payment Successful!
         </h2>
         <p className={styles.confirmationSubtitle}>
-          {hasTicketProducts
+          {isInvoiceCheckout
+            ? "Your tickets have been sent to your email. An invoice will be sent to your employer for payment."
+            : hasTicketProducts
             ? "Your tickets have been sent to your email with QR codes."
             : "Your order has been confirmed."}
         </p>
@@ -203,6 +210,110 @@ export function ConfirmationStep({
               </div>
             );
           })}
+
+          {/* Form Add-ons */}
+          {checkoutData.formResponses?.some(fr => fr.addedCosts > 0) && (
+            <>
+              {checkoutData.formResponses
+                .filter((fr) => fr.addedCosts > 0)
+                .map((fr) => (
+                  <div key={`confirmation-addon-${fr.productId}-${fr.ticketNumber}`} className={`${styles.summaryItem} italic`}>
+                    <span>+ Ticket {fr.ticketNumber} add-ons</span>
+                    <span>{formatPrice(fr.addedCosts)}</span>
+                  </div>
+                ))}
+            </>
+          )}
+        </div>
+
+        {/* Subtotal and Tax Breakdown */}
+        <div className={styles.summarySection}>
+          {/* Subtotal */}
+          <div className={styles.summaryItem}>
+            <span className="text-gray-600">Subtotal:</span>
+            <span>
+              {formatPrice(
+                checkoutData.taxCalculation?.subtotal ||
+                (checkoutData.selectedProducts?.reduce((sum, sp) => sum + (sp.price * sp.quantity), 0) || 0) +
+                (checkoutData.formResponses?.reduce((sum, fr) => sum + (fr.addedCosts || 0), 0) || 0)
+              )}
+            </span>
+          </div>
+
+          {/* Tax Lines - Show breakdown if available */}
+          {checkoutData.taxCalculation?.isTaxable && checkoutData.taxCalculation.taxAmount > 0 && (() => {
+            const lineItems = checkoutData.taxCalculation.lineItems;
+            if (!lineItems || lineItems.length === 0) {
+              // Fallback: Show single tax line with taxRate from calculation
+              return (
+                <div className={styles.summaryItem}>
+                  <span className="text-gray-600">
+                    Tax ({checkoutData.taxCalculation.taxRate.toFixed(1)}%)
+                    <span className="text-xs ml-1 opacity-70">
+                      {checkoutData.taxCalculation.taxBehavior === "inclusive" ? "💶 included" : "💵 added"}
+                    </span>
+                  </span>
+                  <span>{formatPrice(checkoutData.taxCalculation.taxAmount)}</span>
+                </div>
+              );
+            }
+
+            // Group line items by tax rate to show separate lines for each tax type
+            const taxGroups = lineItems.reduce((groups, item) => {
+              if (!item.taxable || item.taxAmount === 0) return groups;
+
+              // Calculate effective rate for this item
+              const effectiveRate = item.subtotal > 0
+                ? (item.taxAmount / item.subtotal) * 100
+                : 0;
+              const rateKey = effectiveRate.toFixed(1);
+
+              if (!groups[rateKey]) {
+                groups[rateKey] = { rate: effectiveRate, amount: 0, count: 0 };
+              }
+              groups[rateKey].amount += item.taxAmount;
+              groups[rateKey].count += 1;
+
+              return groups;
+            }, {} as Record<string, { rate: number; amount: number; count: number }>);
+
+            const taxEntries = Object.entries(taxGroups);
+
+            // If only one tax rate, show single line
+            if (taxEntries.length === 1) {
+              const [rateStr] = taxEntries[0];
+              return (
+                <div className={styles.summaryItem}>
+                  <span className="text-gray-600">
+                    Tax ({rateStr}%)
+                    <span className="text-xs ml-1 opacity-70">
+                      {checkoutData.taxCalculation.taxBehavior === "inclusive" ? "💶 included" : "💵 added"}
+                    </span>
+                  </span>
+                  <span>{formatPrice(checkoutData.taxCalculation.taxAmount)}</span>
+                </div>
+              );
+            }
+
+            // Multiple tax rates - show breakdown with separate lines
+            return (
+              <>
+                {taxEntries.map(([rateStr, { amount, count }]) => (
+                  <div key={rateStr} className={styles.summaryItem}>
+                    <span className="text-gray-600">
+                      Tax ({rateStr}%)
+                      {count > 1 && (
+                        <span className="text-xs ml-1 opacity-70">
+                          {count} items
+                        </span>
+                      )}
+                    </span>
+                    <span>{formatPrice(amount)}</span>
+                  </div>
+                ))}
+              </>
+            );
+          })()}
         </div>
 
         {/* Total */}
@@ -222,7 +333,13 @@ export function ConfirmationStep({
             Confirmation Email Sent
           </p>
           <p className={styles.infoBoxText}>
-            {hasTicketProducts ? (
+            {isInvoiceCheckout ? (
+              <>
+                We&apos;ve sent your tickets (with QR codes) to{" "}
+                <strong>{checkoutData.customerInfo?.email}</strong>.
+                The invoice will be sent separately to your employer.
+              </>
+            ) : hasTicketProducts ? (
               <>
                 We&apos;ve sent your tickets (with QR codes) and receipt to{" "}
                 <strong>{checkoutData.customerInfo?.email}</strong>
@@ -239,19 +356,22 @@ export function ConfirmationStep({
 
       {/* Download Actions */}
       <div className={styles.downloadButtons}>
-        <button
-          type="button"
-          onClick={handleDownloadReceipt}
-          disabled={isDownloadingReceipt}
-          className={styles.secondaryButton}
-        >
-          {isDownloadingReceipt ? (
-            <Loader2 size={20} className="animate-spin" />
-          ) : (
-            <Download size={20} />
-          )}
-          {isDownloadingReceipt ? "Downloading..." : "Download Receipt"}
-        </button>
+        {/* Hide receipt button for invoice checkout (employer pays, not customer) */}
+        {!isInvoiceCheckout && (
+          <button
+            type="button"
+            onClick={handleDownloadReceipt}
+            disabled={isDownloadingReceipt}
+            className={styles.secondaryButton}
+          >
+            {isDownloadingReceipt ? (
+              <Loader2 size={20} className="animate-spin" />
+            ) : (
+              <Download size={20} />
+            )}
+            {isDownloadingReceipt ? "Downloading..." : "Download Receipt"}
+          </button>
+        )}
 
         {hasTicketProducts && (
           <button

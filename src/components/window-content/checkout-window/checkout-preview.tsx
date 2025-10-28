@@ -21,6 +21,7 @@ interface CheckoutPreviewProps {
   organizationId: Id<"organizations">;
   theme?: Theme;
   paymentProviders?: string[];
+  forceB2B?: boolean;
 }
 
 /**
@@ -132,6 +133,7 @@ export function CheckoutPreview({
   organizationId,
   theme = defaultTheme,
   paymentProviders = [],
+  forceB2B = false,
 }: CheckoutPreviewProps) {
   // Check if this is the ticket-checkout template (uses multi-step)
   const isMultiStep = templateCode === "ticket-checkout";
@@ -144,6 +146,7 @@ export function CheckoutPreview({
         organizationId={organizationId}
         paymentProviders={paymentProviders}
         theme={theme}
+        forceB2B={forceB2B}
       />
     );
   }

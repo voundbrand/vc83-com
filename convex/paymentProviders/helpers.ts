@@ -7,7 +7,9 @@
  * @module paymentProviders/helpers
  */
 
+import { query } from "../_generated/server";
 import { QueryCtx, MutationCtx } from "../_generated/server";
+import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
 import { paymentProviders } from "./manager";
 import { IPaymentProvider, OrganizationProviderConfig } from "./types";
@@ -187,3 +189,66 @@ export function hasProviderConnected(
   const config = getOrgProviderConfig(org, providerCode);
   return !!config && config.status !== "disabled";
 }
+
+// =========================================
+// PROVIDER AVAILABILITY QUERIES
+// =========================================
+
+/**
+ * Get all available payment providers for an organization
+ *
+ * Returns providers stored in the "objects" table with type "payment_provider_config"
+ * that are active for the given organization.
+ */
+export const getAvailableProviders = query({
+  args: { organizationId: v.id("organizations") },
+  handler: async (ctx, { organizationId }) => {
+    // Get all active provider configs for org from objects table
+    const providerConfigs = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", organizationId).eq("type", "payment_provider_config")
+      )
+      .filter((q) => q.eq(q.field("status"), "active"))
+      .collect();
+
+    return providerConfigs.map((config) => {
+      const props = config.customProperties || {};
+      return {
+        providerCode: props.providerCode as string,
+        providerName: config.name,
+        isDefault: props.isDefault as boolean,
+        isTestMode: props.isTestMode as boolean,
+        capabilities: {
+          supportsB2B: props.supportsB2B as boolean,
+          supportsB2C: props.supportsB2C as boolean,
+        },
+      };
+    });
+  },
+});
+
+/**
+ * Get default payment provider for organization
+ *
+ * Returns the provider code of the default provider, or null if none configured.
+ */
+export const getDefaultProvider = query({
+  args: { organizationId: v.id("organizations") },
+  handler: async (ctx, { organizationId }) => {
+    const defaultConfig = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", organizationId).eq("type", "payment_provider_config")
+      )
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("status"), "active"),
+          q.eq(q.field("customProperties.isDefault"), true)
+        )
+      )
+      .first();
+
+    return defaultConfig?.customProperties?.providerCode as string | null;
+  },
+});

@@ -22,12 +22,13 @@
  * - Stores array of form responses (one per ticket)
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { CheckoutProduct } from "@/templates/checkout/types";
 import { ArrowLeft, FileText, Loader2, Copy } from "lucide-react";
+import { calculateAddonsFromResponses, calculateTotalAddonCost, type ProductAddon } from "@/types/product-addons";
 import styles from "../styles/multi-step.module.css";
 
 interface FormResponse {
@@ -124,9 +125,31 @@ export function RegistrationFormStep({
 
   // Multi-ticket state
   const [currentTicketIndex, setCurrentTicketIndex] = useState(0);
-  const [completedForms, setCompletedForms] = useState<FormResponse[]>(initialData || []);
+  const [completedForms, setCompletedForms] = useState<FormResponse[]>(() => {
+    // IMPORTANT: When initialData exists but currentTicketIndex would be beyond it,
+    // we need to only include forms up to where we currently are.
+    // This prevents duplication when navigating back and then forward again.
+    return initialData || [];
+  });
   const [currentResponses, setCurrentResponses] = useState<Record<string, unknown>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Reset form state when component mounts or when initialData changes
+  // This ensures we start fresh if the user navigates back from payment step
+  useEffect(() => {
+    if (initialData && initialData.length > 0) {
+      // User navigated back with existing data - restore state
+      setCompletedForms(initialData);
+      // Set current ticket to the last completed form
+      setCurrentTicketIndex(Math.min(initialData.length, totalTickets - 1));
+      console.log(`🔄 [RegistrationForm] Restored ${initialData.length} existing forms, current ticket: ${initialData.length + 1}/${totalTickets}`);
+    } else {
+      // Fresh start
+      setCompletedForms([]);
+      setCurrentTicketIndex(0);
+      setCurrentResponses({});
+    }
+  }, [initialData, totalTickets]);
 
   // Get current product info
   const getCurrentTicketInfo = () => {
@@ -153,24 +176,34 @@ export function RegistrationFormStep({
   const currentTicketInfo = getCurrentTicketInfo();
 
   /**
-   * Calculate added costs from form responses
-   * Example: Boat excursion adds €60, Workshop adds €50
+   * Calculate added costs from form responses using product addon configuration
+   * This replaces hardcoded logic with flexible product-level addon system
    */
   const calculateAddedCosts = (_responses: Record<string, unknown>): number => {
-    if (!formSchema?.customProperties?.formSchema?.fields) return 0;
+    if (!currentTicketInfo) return 0;
 
-    const total = 0;
+    // Get product for this ticket
+    const product = linkedProducts.find((p) => p._id === currentTicketInfo.productId);
+    if (!product) return 0;
 
-    // TODO: Implement dynamic pricing logic based on field responses
-    // Example: Check if response includes add-ons with prices
-    // const fields = formSchema.customProperties.formSchema.fields as Array<any>;
-    // fields.forEach(field => {
-    //   if (field.addsPrice && _responses[field.key]) {
-    //     total += field.addsPrice;
-    //   }
-    // });
+    // Get addon configuration from product
+    const productAddons = (product.customProperties as { addons?: ProductAddon[] } | undefined)?.addons;
+    if (!productAddons || productAddons.length === 0) return 0;
 
-    return total;
+    // Calculate addons based on form responses
+    const calculatedAddons = calculateAddonsFromResponses(productAddons, _responses);
+    const totalCost = calculateTotalAddonCost(calculatedAddons);
+
+    // Debug log
+    console.log("🔧 [RegistrationForm] Calculated addons:", {
+      productId: product._id,
+      productName: product.name,
+      addonConfigCount: productAddons.length,
+      calculatedAddons,
+      totalCost,
+    });
+
+    return totalCost;
   };
 
   /**
@@ -231,7 +264,24 @@ export function RegistrationFormStep({
       submittedAt: Date.now(),
     };
 
-    const updatedForms = [...completedForms, formResponse];
+    // IMPORTANT: Check if we're replacing an existing form response for this ticket
+    // This prevents duplication when user goes back and then forward again
+    const existingIndex = completedForms.findIndex(
+      (form) => form.ticketNumber === currentTicketInfo.ticketNumber
+    );
+
+    let updatedForms: FormResponse[];
+    if (existingIndex >= 0) {
+      // Replace existing form for this ticket
+      updatedForms = [...completedForms];
+      updatedForms[existingIndex] = formResponse;
+      console.log(`🔄 [RegistrationForm] Replaced form for ticket ${currentTicketInfo.ticketNumber}`);
+    } else {
+      // Add new form response
+      updatedForms = [...completedForms, formResponse];
+      console.log(`➕ [RegistrationForm] Added new form for ticket ${currentTicketInfo.ticketNumber}`);
+    }
+
     setCompletedForms(updatedForms);
 
     // Check if we have more tickets to fill out
@@ -310,6 +360,7 @@ export function RegistrationFormStep({
         type: string;
         required?: boolean;
         placeholder?: string;
+        helpText?: string;
         options?: Array<{ value: string; label: string }>;
       }>;
       conditional?: {
@@ -327,6 +378,7 @@ export function RegistrationFormStep({
       type: string;
       required?: boolean;
       placeholder?: string;
+      helpText?: string;
       options?: Array<{ value: string; label: string }>;
     }>;
   } | undefined;
@@ -472,6 +524,11 @@ export function RegistrationFormStep({
                     {field.required && <span className={styles.required}>*</span>}
                   </label>
 
+                  {/* Help Text */}
+                  {field.helpText && (
+                    <p className={styles.helpText}>{field.helpText}</p>
+                  )}
+
                   {/* Text Input */}
                   {field.type === "text" && (
                     <input
@@ -528,6 +585,19 @@ export function RegistrationFormStep({
                     />
                   )}
 
+                  {/* Time Input */}
+                  {field.type === "time" && (
+                    <input
+                      type="time"
+                      value={(currentResponses[field.id] as string) || ""}
+                      onChange={(e) => {
+                        setCurrentResponses({ ...currentResponses, [field.id]: e.target.value });
+                        if (errors[field.id]) setErrors({ ...errors, [field.id]: "" });
+                      }}
+                      className={`${styles.input} ${errors[field.id] ? styles.inputError : ""}`}
+                    />
+                  )}
+
                   {/* Select Dropdown */}
                   {field.type === "select" && field.options && (
                     <select
@@ -538,7 +608,7 @@ export function RegistrationFormStep({
                       }}
                       className={`${styles.select} ${errors[field.id] ? styles.inputError : ""}`}
                     >
-                      <option value="">-- Select --</option>
+                      <option value="">Bitte wählen</option>
                       {field.options.map((option) => (
                         <option key={option.value} value={option.value}>
                           {option.label}
@@ -569,8 +639,40 @@ export function RegistrationFormStep({
                     </div>
                   )}
 
-                  {/* Checkbox */}
-                  {field.type === "checkbox" && (
+                  {/* Checkbox Group (Multiple Options) */}
+                  {field.type === "checkbox" && field.options && (
+                    <div className={styles.checkboxGroup}>
+                      {field.options.map((option) => (
+                        <label key={option.value} className={styles.checkboxLabel}>
+                          <input
+                            type="checkbox"
+                            value={option.value}
+                            checked={(currentResponses[field.id] as string[] || []).includes(option.value)}
+                            onChange={(e) => {
+                              const current = (currentResponses[field.id] as string[]) || [];
+                              if (e.target.checked) {
+                                setCurrentResponses({
+                                  ...currentResponses,
+                                  [field.id]: [...current, option.value]
+                                });
+                              } else {
+                                setCurrentResponses({
+                                  ...currentResponses,
+                                  [field.id]: current.filter(v => v !== option.value)
+                                });
+                              }
+                              if (errors[field.id]) setErrors({ ...errors, [field.id]: "" });
+                            }}
+                            className={styles.checkbox}
+                          />
+                          <span>{option.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Single Checkbox (No Options) */}
+                  {field.type === "checkbox" && !field.options && (
                     <label className={styles.checkboxLabel}>
                       <input
                         type="checkbox"

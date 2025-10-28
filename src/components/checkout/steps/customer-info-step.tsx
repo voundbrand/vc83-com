@@ -23,9 +23,10 @@ interface CustomerInfo {
   transactionType?: "B2C" | "B2B";
   companyName?: string;
   vatNumber?: string;
-  // Billing address
+  // Billing address (matches BillingAddress interface)
   billingAddress?: {
-    street: string;
+    line1: string;
+    line2?: string;
     city: string;
     state?: string;
     postalCode: string;
@@ -35,12 +36,14 @@ interface CustomerInfo {
 
 interface CustomerInfoStepProps {
   initialData?: CustomerInfo;
+  forceB2B?: boolean; // Force B2B mode (require organization info)
   onComplete: (data: CustomerInfo) => void;
   onBack: () => void;
 }
 
 export function CustomerInfoStep({
   initialData,
+  forceB2B = false,
   onComplete,
   onBack,
 }: CustomerInfoStepProps) {
@@ -49,19 +52,27 @@ export function CustomerInfoStep({
   const [phone, setPhone] = useState(initialData?.phone || "");
   const [notes, setNotes] = useState(initialData?.notes || "");
 
-  // B2B fields
+  // B2B fields - auto-set to B2B if forced
   const [transactionType, setTransactionType] = useState<"B2C" | "B2B">(
-    initialData?.transactionType || "B2C"
+    forceB2B ? "B2B" : (initialData?.transactionType || "B2C")
   );
   const [companyName, setCompanyName] = useState(initialData?.companyName || "");
   const [vatNumber, setVatNumber] = useState(initialData?.vatNumber || "");
 
-  // Billing address fields
-  const [street, setStreet] = useState(initialData?.billingAddress?.street || "");
+  // Debug logging for Force B2B
+  console.log("🔍 [CustomerInfoStep] Force B2B State:", {
+    forceB2B,
+    transactionType,
+    shouldShowB2BFields: transactionType === "B2B"
+  });
+
+  // Billing address fields (using line1/line2 format)
+  const [line1, setLine1] = useState(initialData?.billingAddress?.line1 || "");
+  const [line2, setLine2] = useState(initialData?.billingAddress?.line2 || "");
   const [city, setCity] = useState(initialData?.billingAddress?.city || "");
   const [state, setState] = useState(initialData?.billingAddress?.state || "");
   const [postalCode, setPostalCode] = useState(initialData?.billingAddress?.postalCode || "");
-  const [country, setCountry] = useState(initialData?.billingAddress?.country || "");
+  const [country, setCountry] = useState(initialData?.billingAddress?.country || "DE");
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -98,8 +109,8 @@ export function CustomerInfoStep({
       }
 
       // Billing address validation for B2B
-      if (!street.trim()) {
-        newErrors.street = "Street address is required for business transactions";
+      if (!line1.trim()) {
+        newErrors.line1 = "Street address is required for business transactions";
       }
       if (!city.trim()) {
         newErrors.city = "City is required for business transactions";
@@ -132,7 +143,8 @@ export function CustomerInfoStep({
         companyName: transactionType === "B2B" ? companyName.trim() : undefined,
         vatNumber: transactionType === "B2B" && vatNumber.trim() ? vatNumber.trim() : undefined,
         billingAddress: transactionType === "B2B" ? {
-          street: street.trim(),
+          line1: line1.trim(),
+          line2: line2.trim() || undefined,
           city: city.trim(),
           state: state.trim() || undefined,
           postalCode: postalCode.trim(),
@@ -155,7 +167,7 @@ export function CustomerInfoStep({
     if (transactionType === "B2B") {
       return basicValid &&
         companyName.trim().length > 0 &&
-        street.trim().length > 0 &&
+        line1.trim().length > 0 &&
         city.trim().length > 0 &&
         postalCode.trim().length > 0 &&
         country.trim().length > 0;
@@ -262,33 +274,46 @@ export function CustomerInfoStep({
             <Building2 size={16} />
             Transaction Type <span className={styles.required}>*</span>
           </label>
-          <div style={{ display: "flex", gap: "16px", marginTop: "8px" }}>
-            <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
-              <input
-                type="radio"
-                name="transactionType"
-                value="B2C"
-                checked={transactionType === "B2C"}
-                onChange={(e) => setTransactionType(e.target.value as "B2C")}
-                style={{ cursor: "pointer" }}
-              />
-              <span>Individual/Consumer</span>
-            </label>
-            <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
-              <input
-                type="radio"
-                name="transactionType"
-                value="B2B"
-                checked={transactionType === "B2B"}
-                onChange={(e) => setTransactionType(e.target.value as "B2B")}
-                style={{ cursor: "pointer" }}
-              />
-              <span>Business/Company</span>
-            </label>
-          </div>
-          <p className={styles.helperText}>
-            Select if this purchase is for a business (requires company details)
-          </p>
+          {forceB2B ? (
+            <div className="mt-2 p-3 rounded" style={{ backgroundColor: "#EFF6FF", border: "1px solid #BFDBFE" }}>
+              <p className="text-sm font-bold" style={{ color: "#1E40AF" }}>
+                🏢 Business/Organization Purchase Required
+              </p>
+              <p className="text-xs mt-1" style={{ color: "#1E40AF" }}>
+                This checkout requires organization information. Company details and billing address are mandatory.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div style={{ display: "flex", gap: "16px", marginTop: "8px" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+                  <input
+                    type="radio"
+                    name="transactionType"
+                    value="B2C"
+                    checked={transactionType === "B2C"}
+                    onChange={(e) => setTransactionType(e.target.value as "B2C")}
+                    style={{ cursor: "pointer" }}
+                  />
+                  <span>Individual/Consumer</span>
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+                  <input
+                    type="radio"
+                    name="transactionType"
+                    value="B2B"
+                    checked={transactionType === "B2B"}
+                    onChange={(e) => setTransactionType(e.target.value as "B2B")}
+                    style={{ cursor: "pointer" }}
+                  />
+                  <span>Business/Company</span>
+                </label>
+              </div>
+              <p className={styles.helperText}>
+                Select if this purchase is for a business (requires company details)
+              </p>
+            </>
+          )}
         </div>
 
         {/* B2B Fields - Show only when B2B is selected */}
@@ -351,25 +376,42 @@ export function CustomerInfoStep({
               </p>
             </div>
 
-            {/* Street Address */}
+            {/* Street Address - Line 1 */}
             <div className={styles.formField}>
               <label className={styles.fieldLabel}>
                 Street Address <span className={styles.required}>*</span>
               </label>
               <input
                 type="text"
-                value={street}
+                value={line1}
                 onChange={(e) => {
-                  setStreet(e.target.value);
-                  if (errors.street) setErrors({ ...errors, street: "" });
+                  setLine1(e.target.value);
+                  if (errors.line1) setErrors({ ...errors, line1: "" });
                 }}
-                placeholder="123 Main Street, Suite 100"
-                className={`${styles.input} ${errors.street ? styles.inputError : ""}`}
+                placeholder="Hauptstraße 123"
+                className={`${styles.input} ${errors.line1 ? styles.inputError : ""}`}
                 required={transactionType === "B2B"}
               />
-              {errors.street && (
-                <p className={styles.errorMessage}>{errors.street}</p>
+              {errors.line1 && (
+                <p className={styles.errorMessage}>{errors.line1}</p>
               )}
+            </div>
+
+            {/* Street Address - Line 2 (Optional) */}
+            <div className={styles.formField}>
+              <label className={styles.fieldLabel}>
+                Address Line 2 <span className={styles.optional}>(Optional)</span>
+              </label>
+              <input
+                type="text"
+                value={line2}
+                onChange={(e) => setLine2(e.target.value)}
+                placeholder="Suite 100, Floor 2"
+                className={styles.input}
+              />
+              <p className={styles.helperText}>
+                Apartment, suite, unit, building, floor, etc.
+              </p>
             </div>
 
             {/* City and State/Province (side by side) */}
@@ -434,20 +476,34 @@ export function CustomerInfoStep({
                 <label className={styles.fieldLabel}>
                   Country <span className={styles.required}>*</span>
                 </label>
-                <input
-                  type="text"
+                <select
                   value={country}
                   onChange={(e) => {
                     setCountry(e.target.value);
                     if (errors.country) setErrors({ ...errors, country: "" });
                   }}
-                  placeholder="United States"
                   className={`${styles.input} ${errors.country ? styles.inputError : ""}`}
                   required={transactionType === "B2B"}
-                />
+                >
+                  <option value="DE">Deutschland</option>
+                  <option value="AT">Österreich</option>
+                  <option value="CH">Schweiz</option>
+                  <option value="PL">Polen</option>
+                  <option value="FR">Frankreich</option>
+                  <option value="NL">Niederlande</option>
+                  <option value="BE">Belgien</option>
+                  <option value="DK">Dänemark</option>
+                  <option value="SE">Schweden</option>
+                  <option value="NO">Norwegen</option>
+                  <option value="GB">Vereinigtes Königreich</option>
+                  <option value="US">USA</option>
+                </select>
                 {errors.country && (
                   <p className={styles.errorMessage}>{errors.country}</p>
                 )}
+                <p className={styles.helperText}>
+                  ISO 3166-1 alpha-2 country code (e.g., DE for Germany)
+                </p>
               </div>
             </div>
           </>

@@ -43,7 +43,8 @@ export const haffSymposiumFormSchema: FormSchema = {
     },
     {
       id: "personal_info",
-      title: "Persönliche Angaben",
+      title: "Zusätzliche Angaben",
+      description: "Name, E-Mail, Telefon und Firma wurden bereits im vorherigen Schritt erfasst.",
       fields: [
         {
           id: "salutation",
@@ -66,37 +67,6 @@ export const haffSymposiumFormSchema: FormSchema = {
             { value: "Prof.", label: "Prof." },
             { value: "Prof. Dr.", label: "Prof. Dr." },
           ],
-        },
-        {
-          id: "first_name",
-          type: "text",
-          label: "Vorname",
-          required: true,
-        },
-        {
-          id: "last_name",
-          type: "text",
-          label: "Nachname",
-          required: true,
-        },
-        {
-          id: "mobile_phone",
-          type: "phone",
-          label: "Handynummer",
-          required: false,
-        },
-        {
-          id: "private_email",
-          type: "email",
-          label: "Private Mail-Adresse",
-          required: true,
-        },
-        {
-          id: "organization",
-          type: "textarea",
-          label: "Praxis/Organisation mit kompletter Anschrift",
-          placeholder: "Name der Praxis/Organisation\nStraße und Hausnummer\nPLZ und Ort",
-          required: false,
         },
         {
           id: "profession",
@@ -143,7 +113,6 @@ export const haffSymposiumFormSchema: FormSchema = {
           label: "Ich möchte an folgender Aktivität am 01.06.2024 teilnehmen",
           required: false,
           options: [
-            { value: "", label: "Bitte wählen" },
             { value: "workshop_a", label: "Workshop A" },
             { value: "workshop_b", label: "Workshop B" },
             { value: "exkursion", label: "Exkursion" },
@@ -165,13 +134,6 @@ export const haffSymposiumFormSchema: FormSchema = {
           type: "textarea",
           label: "Möchten Sie uns etwas Bestimmtes mitteilen?",
           placeholder: "z.B. eine Lebensmittelunverträglichkeit, Informationen zu einer Begleitperson oder Ähnliches",
-          required: false,
-        },
-        {
-          id: "billing_address_external",
-          type: "textarea",
-          label: "Wie lautet Ihre korrekte Rechnungsadresse?",
-          placeholder: "Vollständige Rechnungsadresse für die Teilnahmegebühren",
           required: false,
         },
       ],
@@ -221,7 +183,6 @@ export const haffSymposiumFormSchema: FormSchema = {
           label: "Ich möchte an folgender Aktivität am 01.06.2024 teilnehmen",
           required: false,
           options: [
-            { value: "", label: "Bitte wählen" },
             { value: "workshop_a", label: "Workshop A" },
             { value: "workshop_b", label: "Workshop B" },
             { value: "exkursion", label: "Exkursion" },
@@ -292,7 +253,6 @@ export const haffSymposiumFormSchema: FormSchema = {
           label: "Ich möchte an folgender Aktivität am 01.06.2024 teilnehmen",
           required: false,
           options: [
-            { value: "", label: "Bitte wählen" },
             { value: "workshop_a", label: "Workshop A" },
             { value: "workshop_b", label: "Workshop B" },
             { value: "exkursion", label: "Exkursion" },
@@ -314,13 +274,6 @@ export const haffSymposiumFormSchema: FormSchema = {
           type: "textarea",
           label: "Möchten Sie uns etwas Bestimmtes mitteilen?",
           placeholder: "z.B. eine Lebensmittelunverträglichkeit, Informationen zu einer Begleitperson oder Ähnliches",
-          required: false,
-        },
-        {
-          id: "billing_address_haffnet",
-          type: "textarea",
-          label: "Wie lautet Ihre korrekte Rechnungsadresse?",
-          placeholder: "Vollständige Rechnungsadresse für die Teilnahmegebühren",
           required: false,
         },
       ],
@@ -369,7 +322,6 @@ export const haffSymposiumFormSchema: FormSchema = {
           label: "Ich möchte an folgender Aktivität am 01.06.2024 teilnehmen",
           required: false,
           options: [
-            { value: "", label: "Bitte wählen" },
             { value: "workshop_a", label: "Workshop A" },
             { value: "workshop_b", label: "Workshop B" },
             { value: "exkursion", label: "Exkursion" },
@@ -446,7 +398,6 @@ export const haffSymposiumFormSchema: FormSchema = {
           label: "Ich möchte an folgender Aktivität am 01.06.2024 teilnehmen",
           required: false,
           options: [
-            { value: "", label: "Bitte wählen" },
             { value: "workshop_a", label: "Workshop A" },
             { value: "workshop_b", label: "Workshop B" },
             { value: "exkursion", label: "Exkursion" },

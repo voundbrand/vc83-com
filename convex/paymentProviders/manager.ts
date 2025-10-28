@@ -11,6 +11,7 @@
 
 import { IPaymentProvider } from "./types";
 import { createStripeProvider } from "./stripe";
+import { createInvoiceProvider } from "./invoice";
 
 /**
  * Payment Provider Manager
@@ -43,6 +44,7 @@ export class PaymentProviderManager {
    *
    * Currently supports:
    * - Stripe Connect (if API keys configured)
+   * - Invoice Provider (always available)
    *
    * Future providers:
    * - PayPal
@@ -69,6 +71,15 @@ export class PaymentProviderManager {
       console.warn(
         "Stripe Connect not configured (missing STRIPE_SECRET_KEY or STRIPE_WEBHOOK_SECRET)"
       );
+    }
+
+    // Register Invoice Provider (always available)
+    try {
+      const invoiceProvider = createInvoiceProvider();
+      this.registerProvider(invoiceProvider);
+      console.log("✓ Registered Invoice provider");
+    } catch (error) {
+      console.error("Failed to register Invoice provider:", error);
     }
 
     // Future: Register other providers

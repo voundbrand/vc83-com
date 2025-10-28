@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
@@ -8,6 +8,73 @@ import { Loader2, Save, X, ChevronDown } from "lucide-react";
 import { useAppAvailability } from "@/hooks/use-app-availability";
 import { AppUnavailableInline } from "@/components/app-unavailable";
 import { getTaxCodesForCountry } from "@/lib/tax-calculator";
+import { AddonManager } from "./addon-manager";
+import { ProductAddon } from "@/types/product-addons";
+import { InvoicingConfigSection, InvoiceConfig } from "./invoicing-config-section";
+
+/**
+ * Helper: Extract all field IDs, labels, types, and options from a form template
+ */
+function extractFormFields(
+  formTemplate: { customProperties?: { formSchema?: { sections?: unknown[]; fields?: unknown[] } } } | null | undefined
+): Array<{ id: string; label: string; type?: string; options?: Array<{ value: string; label: string }> }> {
+  const fields: Array<{ id: string; label: string; type?: string; options?: Array<{ value: string; label: string }> }> = [];
+
+  if (!formTemplate?.customProperties?.formSchema) {
+    return fields;
+  }
+
+  const schema = formTemplate.customProperties.formSchema as {
+    sections?: Array<{
+      fields?: Array<{
+        id?: string;
+        label?: string;
+        type?: string;
+        options?: Array<{ value: string; label: string }>;
+      }>
+    }>;
+    fields?: Array<{
+      id?: string;
+      label?: string;
+      type?: string;
+      options?: Array<{ value: string; label: string }>;
+    }>;
+  };
+
+  // Extract from sections (if form has sections)
+  if (schema.sections && Array.isArray(schema.sections)) {
+    for (const section of schema.sections) {
+      if (section.fields && Array.isArray(section.fields)) {
+        for (const field of section.fields) {
+          if (field.id && field.label) {
+            fields.push({
+              id: field.id,
+              label: field.label,
+              type: field.type,
+              options: field.options,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  // Extract from top-level fields (if form has no sections)
+  if (schema.fields && Array.isArray(schema.fields)) {
+    for (const field of schema.fields) {
+      if (field.id && field.label) {
+        fields.push({
+          id: field.id,
+          label: field.label,
+          type: field.type,
+          options: field.options,
+        });
+      }
+    }
+  }
+
+  return fields;
+}
 
 interface ProductFormProps {
   sessionId: string;
@@ -74,6 +141,10 @@ export function ProductForm({
     taxable: true, // Whether this product is taxable
     taxCode: "", // Stripe tax code (e.g., "txcd_10401000" for event tickets)
     taxBehavior: "exclusive" as "exclusive" | "inclusive" | "automatic", // How to handle tax in price
+    // NEW: Addons
+    addons: [] as ProductAddon[], // Product addons configuration
+    // NEW: B2B Invoicing Configuration (nullable - only set if configured)
+    invoiceConfig: null as InvoiceConfig | null,
   });
   const [saving, setSaving] = useState(false);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
@@ -113,6 +184,20 @@ export function ProductForm({
       ? { sessionId, organizationId, status: "published" }
       : "skip"
   );
+
+  // Get selected form template to extract field IDs for addon mapping and invoicing config
+  const selectedFormTemplate = useQuery(
+    api.formsOntology.getPublicForm,
+    formData.formId && formData.formId.length >= 28 // Validate it's a Convex ID
+      ? { formId: formData.formId as Id<"objects"> }
+      : "skip"
+  );
+
+  // Extract available form fields for addon field mapping and invoicing config
+  const availableFormFields = useMemo(() => {
+    if (!selectedFormTemplate) return [];
+    return extractFormFields(selectedFormTemplate);
+  }, [selectedFormTemplate]);
 
   // Load existing product data
   useEffect(() => {
@@ -176,6 +261,10 @@ export function ProductForm({
         taxable: (props.taxable as boolean) ?? true,
         taxCode: (props.taxCode as string) || "",
         taxBehavior: (props.taxBehavior as "exclusive" | "inclusive" | "automatic") || "exclusive",
+        // Addons
+        addons: (props.addons as ProductAddon[]) || [],
+        // B2B Invoicing Configuration
+        invoiceConfig: (props.invoiceConfig as InvoiceConfig) || null,
       });
     }
   }, [existingProduct]);
@@ -206,6 +295,15 @@ export function ProductForm({
         customProperties.taxCode = formData.taxCode;
       }
       customProperties.taxBehavior = formData.taxBehavior;
+
+      // Addons (applies to all product types)
+      // ALWAYS set addons, even if empty array (to ensure deletions persist)
+      customProperties.addons = formData.addons || [];
+
+      // B2B Invoicing Configuration (applies to all product types) - only store if configured
+      if (formData.invoiceConfig) {
+        customProperties.invoiceConfig = formData.invoiceConfig;
+      }
 
       // Form linking (generalized - works for all product types)
       if (formData.formId) {
@@ -291,6 +389,7 @@ export function ProductForm({
           inventory: inventory || undefined,
           eventId: formData.eventId ? (formData.eventId as Id<"objects">) : null,
           customProperties,
+          invoiceConfig: formData.invoiceConfig || undefined,
         });
       } else {
         // Create new product
@@ -680,6 +779,25 @@ export function ProductForm({
           </div>
         )}
       </div>
+
+      {/* ADDONS - Applies to all product types */}
+      <AddonManager
+        addons={formData.addons}
+        currency={formData.currency}
+        onChange={(addons) => setFormData({ ...formData, addons })}
+        availableFormFields={availableFormFields}
+      />
+
+      {/* B2B INVOICING CONFIGURATION - Only show if form is linked */}
+      {formData.formId && (
+        <InvoicingConfigSection
+          config={formData.invoiceConfig}
+          onChange={(invoiceConfig) => setFormData({ ...formData, invoiceConfig })}
+          availableFormFields={availableFormFields}
+          sessionId={sessionId}
+          organizationId={organizationId}
+        />
+      )}
 
       {/* TICKET-SPECIFIC SETTINGS - Only show when subtype is "ticket" */}
       {formData.subtype === "ticket" && (

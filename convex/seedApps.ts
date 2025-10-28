@@ -138,10 +138,39 @@ export const seedSystemApps = mutation({
       console.log("Created Media Library app:", mediaLibraryAppId);
     }
 
+    // Check if Invoicing app already exists
+    const existingInvoicing = await ctx.db
+      .query("apps")
+      .withIndex("by_code", (q) => q.eq("code", "app_invoicing"))
+      .first();
+
+    let invoicingAppId;
+    if (existingInvoicing) {
+      invoicingAppId = existingInvoicing._id;
+      console.log("Invoicing app already exists:", invoicingAppId);
+    } else {
+      invoicingAppId = await ctx.db.insert("apps", {
+        code: "app_invoicing",
+        name: "B2B/B2C Invoicing",
+        description: "Comprehensive invoicing system with B2B consolidation, payment tracking, and automated billing workflows",
+        icon: "💳",
+        category: "finance",
+        plans: ["business", "enterprise"],
+        creatorOrgId: systemOrg._id,
+        dataScope: "installer-owned",
+        status: "active",
+        version: "1.0.0",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+      console.log("Created Invoicing app:", invoicingAppId);
+    }
+
     return {
       paymentsAppId,
       publishingAppId,
       mediaLibraryAppId,
+      invoicingAppId,
       systemOrgId: systemOrg._id,
     };
   },
@@ -781,6 +810,77 @@ export const registerCRMApp = mutation({
     return {
       appId,
       message: "CRM app registered successfully",
+      app,
+    };
+  },
+});
+
+/**
+ * Register Invoicing app only
+ *
+ * Simple mutation to register the Invoicing app for B2B/B2C invoice management.
+ * No authentication required - this is a one-time setup mutation.
+ *
+ * @returns App ID if created, or existing app ID if already registered
+ */
+export const registerInvoicingApp = mutation({
+  args: {},
+  handler: async (ctx) => {
+    // Check if Invoicing app already exists
+    const existing = await ctx.db
+      .query("apps")
+      .withIndex("by_code", (q) => q.eq("code", "app_invoicing"))
+      .first();
+
+    if (existing) {
+      console.log("Invoicing app already registered:", existing._id);
+      return {
+        appId: existing._id,
+        message: "Invoicing app already registered",
+        app: existing,
+      };
+    }
+
+    // Find or create a system organization to own the app
+    let systemOrg = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", "system"))
+      .first();
+
+    // If no system org exists, just use the first organization
+    if (!systemOrg) {
+      const firstOrg = await ctx.db.query("organizations").first();
+      if (!firstOrg) {
+        throw new Error(
+          "No organizations found. Create an organization first before registering apps."
+        );
+      }
+      systemOrg = firstOrg;
+    }
+
+    // Create the Invoicing app record
+    const appId = await ctx.db.insert("apps", {
+      code: "app_invoicing",
+      name: "B2B/B2C Invoicing",
+      description: "Comprehensive invoicing system with B2B consolidation, payment tracking, and automated billing workflows",
+      icon: "💳",
+      category: "finance",
+      plans: ["business", "enterprise"],
+      creatorOrgId: systemOrg._id,
+      dataScope: "installer-owned",
+      status: "active",
+      version: "1.0.0",
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    const app = await ctx.db.get(appId);
+
+    console.log("Invoicing app registered successfully:", appId);
+
+    return {
+      appId,
+      message: "Invoicing app registered successfully",
       app,
     };
   },

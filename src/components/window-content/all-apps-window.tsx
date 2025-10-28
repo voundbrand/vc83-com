@@ -13,6 +13,7 @@ import { EventsWindow } from "@/components/window-content/events-window";
 import { CheckoutWindow } from "@/components/window-content/checkout-window";
 import { FormsWindow } from "@/components/window-content/forms-window";
 import { CRMWindow } from "@/components/window-content/crm-window";
+import { InvoicingWindow } from "@/components/window-content/invoicing-window";
 
 /**
  * All Apps Window
@@ -124,6 +125,11 @@ export function AllAppsWindow() {
         component: <CRMWindow />,
         width: 1100,
         height: 700
+      },
+      'app_invoicing': {
+        component: <InvoicingWindow />,
+        width: 950,
+        height: 650
       },
     };
 

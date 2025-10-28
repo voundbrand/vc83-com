@@ -74,7 +74,7 @@ import {
 export class StripeConnectProvider implements IPaymentProvider {
   // Provider identity
   readonly providerCode = "stripe-connect";
-  readonly providerName = "Stripe Connect";
+  readonly providerName = "Stripe";
   readonly providerIcon = "💳";
 
   private stripe: Stripe;
@@ -266,6 +266,21 @@ export class StripeConnectProvider implements IPaymentProvider {
       // Calculate total amount
       const totalAmount = params.priceInCents * params.quantity;
 
+      // Build shipping address for Stripe (used as billing address in this context)
+      const shipping = params.billingAddress
+        ? {
+            address: {
+              line1: params.billingAddress.line1,
+              line2: params.billingAddress.line2 || undefined,
+              city: params.billingAddress.city,
+              state: params.billingAddress.state || undefined,
+              postal_code: params.billingAddress.postalCode,
+              country: params.billingAddress.country,
+            },
+            name: params.customerName || params.customerEmail || "Customer",
+          }
+        : undefined;
+
       // Create PaymentIntent
       const paymentIntent = await this.stripe.paymentIntents.create(
         {
@@ -282,6 +297,7 @@ export class StripeConnectProvider implements IPaymentProvider {
             ...params.metadata,
           },
           receipt_email: params.customerEmail,
+          shipping,
         },
         params.connectedAccountId
           ? {

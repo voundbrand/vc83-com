@@ -11,6 +11,7 @@ export * from "./types";
 
 // Providers
 export { StripeConnectProvider, createStripeProvider } from "./stripe";
+export { InvoicePaymentProvider, createInvoiceProvider, invoicePaymentProvider, initiateInvoicePayment } from "./invoice";
 
 // Manager
 export { PaymentProviderManager, paymentProviders, getPaymentProviderManager } from "./manager";
@@ -24,4 +25,6 @@ export {
   removeOrgProviderConfig,
   getConnectedAccountId,
   hasProviderConnected,
+  getAvailableProviders,
+  getDefaultProvider,
 } from "./helpers";

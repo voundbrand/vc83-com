@@ -5,12 +5,13 @@ import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { StripeConnectSection } from "./stripe-connect-section";
 import { TransactionsSection } from "./transactions-section";
+import { InvoicingSection } from "./invoicing-section";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
-import { CreditCard, History, Loader2, AlertCircle, Building2 } from "lucide-react";
+import { CreditCard, History, Loader2, AlertCircle, Building2, FileText } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 
-type TabType = "stripe" | "transactions";
+type TabType = "stripe" | "transactions" | "invoicing";
 
 export function PaymentsWindow() {
   const [activeTab, setActiveTab] = useState<TabType>("stripe");
@@ -130,6 +131,18 @@ export function PaymentsWindow() {
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
           style={{
             borderColor: "var(--win95-border)",
+            background: activeTab === "invoicing" ? "var(--win95-bg-light)" : "var(--win95-bg)",
+            color: activeTab === "invoicing" ? "var(--win95-text)" : "var(--neutral-gray)",
+          }}
+          onClick={() => setActiveTab("invoicing")}
+        >
+          <FileText size={14} />
+          Invoicing
+        </button>
+        <button
+          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2"
+          style={{
+            borderColor: "var(--win95-border)",
             background: activeTab === "transactions" ? "var(--win95-bg-light)" : "var(--win95-bg)",
             color: activeTab === "transactions" ? "var(--win95-text)" : "var(--neutral-gray)",
           }}
@@ -141,13 +154,19 @@ export function PaymentsWindow() {
       </div>
 
       {/* Tab Content */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto">
         {activeTab === "stripe" && (
-          <StripeConnectSection organizationId={organizationId as Id<"organizations">} organization={organization} />
+          <div className="p-4">
+            <StripeConnectSection organizationId={organizationId as Id<"organizations">} organization={organization} />
+          </div>
         )}
 
+        {activeTab === "invoicing" && <InvoicingSection />}
+
         {activeTab === "transactions" && (
-          <TransactionsSection organizationId={organizationId as Id<"organizations">} />
+          <div className="p-4">
+            <TransactionsSection organizationId={organizationId as Id<"organizations">} />
+          </div>
         )}
       </div>
 

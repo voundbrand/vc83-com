@@ -214,6 +214,37 @@ export const createPurchaseItemInternal = internalMutation({
 });
 
 /**
+ * UPDATE PURCHASE ITEM FULFILLMENT DATA (INTERNAL)
+ *
+ * Updates fulfillmentData for a purchase item.
+ * Used by payment providers to link tickets after creation.
+ */
+export const updatePurchaseItemFulfillmentInternal = internalMutation({
+  args: {
+    purchaseItemId: v.id("objects"),
+    fulfillmentData: v.any(),
+  },
+  handler: async (ctx, args) => {
+    const purchaseItem = await ctx.db.get(args.purchaseItemId);
+    if (!purchaseItem || purchaseItem.type !== "purchase_item") {
+      throw new Error("Purchase item not found");
+    }
+
+    await ctx.db.patch(args.purchaseItemId, {
+      customProperties: {
+        ...purchaseItem.customProperties,
+        fulfillmentData: args.fulfillmentData,
+        fulfillmentStatus: "fulfilled",
+        fulfilledAt: Date.now(),
+      },
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
  * CREATE PURCHASE ITEM (PUBLIC)
  *
  * Creates a generic purchase record after successful payment.

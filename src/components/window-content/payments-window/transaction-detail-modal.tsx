@@ -1,6 +1,7 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useState } from "react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import {
@@ -13,6 +14,7 @@ import {
   MapPin,
   FileText,
   Loader2,
+  Download,
 } from "lucide-react";
 
 interface TransactionDetailModalProps {
@@ -26,6 +28,8 @@ export function TransactionDetailModal({
   sessionId,
   onClose,
 }: TransactionDetailModalProps) {
+  const [isGenerating, setIsGenerating] = useState(false);
+
   // Get full transaction details
   const transaction = useQuery(
     api.transactionOntology.getTransactionDetail,
@@ -35,14 +39,17 @@ export function TransactionDetailModal({
     }
   );
 
-  // Get invoice URL if available
-  const invoiceData = useQuery(
-    api.transactionOntology.getTransactionInvoice,
+  // Get invoice URL if available (check cache)
+  const invoiceCache = useQuery(
+    api.transactionInvoicing.getTransactionInvoiceUrl,
     {
       sessionId,
       checkoutSessionId,
     }
   );
+
+  // Generate invoice action (creates PDF on-demand)
+  const generateInvoice = useAction(api.transactionInvoicing.generateTransactionInvoice);
 
   const formatCurrency = (cents: number, currency: string = "usd") => {
     const amount = cents / 100;
@@ -82,12 +89,34 @@ export function TransactionDetailModal({
   }
 
   const handleDownloadInvoice = async () => {
-    if (invoiceData?.invoiceUrl) {
-      // Open invoice in new tab
-      window.open(invoiceData.invoiceUrl, "_blank");
-    } else {
-      // TODO: Trigger invoice generation
-      alert("Invoice generation coming soon!");
+    try {
+      setIsGenerating(true);
+
+      // Check if cached
+      if (invoiceCache?.invoiceUrl) {
+        // Cached - open instantly
+        window.open(invoiceCache.invoiceUrl, "_blank");
+        return;
+      }
+
+      // Generate PDF on-demand
+      const result = await generateInvoice({
+        sessionId,
+        checkoutSessionId,
+        forceRegenerate: false,
+      });
+
+      if (result?.invoiceUrl) {
+        // Open generated PDF
+        window.open(result.invoiceUrl, "_blank");
+      } else {
+        alert("Failed to generate invoice. Please try again.");
+      }
+    } catch (error) {
+      console.error("Invoice generation error:", error);
+      alert("Error generating invoice. Please contact support.");
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -367,7 +396,8 @@ export function TransactionDetailModal({
             {transaction.status === "completed" && (
               <button
                 onClick={handleDownloadInvoice}
-                className="px-4 py-2 text-sm font-semibold flex items-center gap-2"
+                disabled={isGenerating}
+                className="px-4 py-2 text-sm font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{
                   backgroundColor: "var(--primary)",
                   color: "white",
@@ -378,8 +408,17 @@ export function TransactionDetailModal({
                   borderRightColor: "var(--win95-button-dark)",
                 }}
               >
-                <FileText size={14} />
-                {invoiceData?.invoiceUrl ? "Download Invoice" : "Generate Invoice"}
+                {isGenerating ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    {invoiceCache?.cached ? <Download size={14} /> : <FileText size={14} />}
+                    {invoiceCache?.cached ? "Download Invoice" : "Generate Invoice"}
+                  </>
+                )}
               </button>
             )}
             <button

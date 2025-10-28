@@ -12,7 +12,7 @@ The **App Availability System** controls which apps appear in the START menu for
 
 First, create a record in the `apps` table that represents your app.
 
-**For Payments (existing functionality):**
+**For ALL system apps (Payments, Invoicing, etc.):**
 ```bash
 npx convex run seedApps:seedSystemApps --sessionId "YOUR_SESSION_ID"
 ```
@@ -20,6 +20,13 @@ npx convex run seedApps:seedSystemApps --sessionId "YOUR_SESSION_ID"
 This creates:
 - ✅ Payments app record in `apps` table
 - ✅ Web Publishing app record in `apps` table
+- ✅ Media Library app record in `apps` table
+- ✅ B2B/B2C Invoicing app record in `apps` table
+
+**For Invoicing app only:**
+```bash
+npx convex run seedApps:registerInvoicingApp
+```
 
 **For future apps:**
 Add them to `convex/seedApps.ts` or create via mutation:
@@ -144,6 +151,19 @@ const crmAppId = await ctx.db.insert("apps", {
 - **Registration:** ⚠️ Needs to run `seedSystemApps`
 - **UI:** ✅ Payments window exists
 - **Menu:** ✅ START → Programs → Payments
+
+### B2B/B2C Invoicing
+- **Status:** ✅ Functionality exists (invoicingOntology.ts)
+- **Registration:** ✅ Ready - run `seedSystemApps` or `registerInvoicingApp`
+- **UI:** ❌ Not built yet (needs InvoicingWindow component)
+- **Menu:** ⏳ Will appear after app is enabled for org
+- **Plans:** business, enterprise only
+- **Features:**
+  - Consolidated B2B invoices (multiple employees → single employer invoice)
+  - Individual B2C invoices
+  - Invoice rules and automation
+  - CRM integration for billing details
+  - Payment tracking and due dates
 
 ### Web Publishing (Future)
 - **Status:** 📋 Planned

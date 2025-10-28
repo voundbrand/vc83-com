@@ -13,7 +13,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { CheckoutProduct } from "@/templates/checkout/types";
 import { Id } from "../../../convex/_generated/dataModel";
@@ -23,6 +23,8 @@ import { RegistrationFormStep } from "./steps/registration-form-step";
 import { PaymentMethodStep } from "./steps/payment-method-step";
 import { PaymentFormStep } from "./steps/payment-form-step";
 import { ConfirmationStep } from "./steps/confirmation-step";
+import { InvoiceEnforcementStep } from "./steps/invoice-enforcement-step";
+import { evaluatePaymentRules, type PaymentRulesResult } from "../../../convex/paymentRulesEngine";
 import styles from "./styles/multi-step.module.css";
 
 /**
@@ -62,8 +64,10 @@ export interface CheckoutStepData {
     transactionType?: "B2C" | "B2B";
     companyName?: string;
     vatNumber?: string;
+    // Billing address (matches BillingAddress interface)
     billingAddress?: {
-      street: string;
+      line1: string;
+      line2?: string;
       city: string;
       state?: string;
       postalCode: string;
@@ -102,6 +106,7 @@ type CheckoutStep =
   | "product-selection"
   | "customer-info"
   | "registration-form"
+  | "invoice-enforcement"
   | "payment-method"
   | "payment-form"
   | "confirmation";
@@ -110,6 +115,7 @@ interface MultiStepCheckoutProps {
   organizationId: Id<"organizations">;
   linkedProducts: CheckoutProduct[];
   paymentProviders: string[];
+  forceB2B?: boolean; // Force B2B mode (require organization info)
   onComplete?: (result: CheckoutStepData) => void;
   initialStepData?: Partial<CheckoutStepData>; // For preview: pre-populate with selected products
 }
@@ -118,16 +124,59 @@ export function MultiStepCheckout({
   organizationId,
   linkedProducts,
   paymentProviders,
+  forceB2B = false,
   onComplete,
   initialStepData,
 }: MultiStepCheckoutProps) {
   const [currentStep, setCurrentStep] = useState<CheckoutStep>("product-selection");
   const [stepData, setStepData] = useState<CheckoutStepData>(initialStepData || {});
   const [checkoutSessionId, setCheckoutSessionId] = useState<Id<"objects"> | null>(null);
+  const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
+  const [availableProviders, setAvailableProviders] = useState<string[]>(paymentProviders);
+  const [paymentRulesResult, setPaymentRulesResult] = useState<PaymentRulesResult | null>(null);
+
+  // Query available payment providers from ontology
+  const providersQuery = useQuery(
+    api.paymentProviders.helpers.getAvailableProviders,
+    { organizationId }
+  );
 
   // Mutations for checkout session management
   const createPublicCheckoutSession = useMutation(api.checkoutSessionOntology.createPublicCheckoutSession);
   const updateCheckoutSession = useMutation(api.checkoutSessionOntology.updatePublicCheckoutSession);
+
+  /**
+   * Sync available providers from query
+   */
+  useEffect(() => {
+    if (providersQuery) {
+      const providerCodes = providersQuery.map((p: {
+        providerCode: string;
+        providerName: string;
+        isDefault: boolean;
+        isTestMode: boolean;
+      }) => p.providerCode);
+      setAvailableProviders(providerCodes);
+
+      // Auto-select if only one provider
+      if (providerCodes.length === 1) {
+        setSelectedProvider(providerCodes[0]);
+        console.log("🔧 [Checkout] Auto-selected single provider:", providerCodes[0]);
+      } else if (providerCodes.length > 1) {
+        // Auto-select default provider if available
+        const defaultProvider = providersQuery.find((p: {
+          providerCode: string;
+          providerName: string;
+          isDefault: boolean;
+          isTestMode: boolean;
+        }) => p.isDefault);
+        if (defaultProvider) {
+          setSelectedProvider(defaultProvider.providerCode);
+          console.log("🔧 [Checkout] Auto-selected default provider:", defaultProvider.providerCode);
+        }
+      }
+    }
+  }, [providersQuery]);
 
   /**
    * Create checkout session when component mounts
@@ -158,7 +207,12 @@ export function MultiStepCheckout({
   const getNextStep = (current: CheckoutStep): CheckoutStep | null => {
     switch (current) {
       case "product-selection": {
-        // Check if any selected product needs registration form
+        // ✅ ALWAYS go to customer-info first (NEVER skip it)
+        return "customer-info";
+      }
+
+      case "customer-info": {
+        // ✅ AFTER customer-info, check if we need form template
         const needsForm = stepData.selectedProducts?.some((sp) => {
           const product = linkedProducts.find((p) => p._id === sp.productId);
 
@@ -179,33 +233,38 @@ export function MultiStepCheckout({
         });
 
         // DEBUG: Log decision
-        console.log("🔍 [MultiStepCheckout] Form decision:", {
+        console.log("🔍 [MultiStepCheckout] Form decision after customer-info:", {
           needsForm,
-          nextStep: needsForm ? "registration-form" : "customer-info",
+          nextStep: needsForm ? "registration-form" : (availableProviders.length > 1 ? "payment-method" : "payment-form"),
         });
 
-        // If product has form, skip customer-info and go straight to registration-form
-        // The registration form will collect email, name, and other info
+        // If product has form template, inject it as next step
         if (needsForm) {
           return "registration-form";
         }
 
-        // Otherwise, go to customer-info for simple products without forms
-        return "customer-info";
-      }
-
-      case "customer-info":
-        // After customer info (for products WITHOUT forms), go to payment
-        if (paymentProviders.length > 1) {
+        // Otherwise, go straight to payment (show payment-method step if multiple providers)
+        if (availableProviders.length > 1) {
           return "payment-method";
         }
         return "payment-form";
+      }
 
-      case "registration-form":
-        // After form, check payment method
-        if (paymentProviders.length > 1) {
+      case "registration-form": {
+        // After form, evaluate payment rules based on form responses
+        // Check if invoice is enforced
+        if (paymentRulesResult?.enforceInvoice) {
+          return "invoice-enforcement";
+        }
+        // Otherwise check payment method step
+        if (availableProviders.length > 1) {
           return "payment-method";
         }
+        return "payment-form";
+      }
+
+      case "invoice-enforcement":
+        // After invoice enforcement confirmation, go directly to payment form
         return "payment-form";
 
       case "payment-method":
@@ -225,10 +284,49 @@ export function MultiStepCheckout({
   /**
    * Handle step completion and advance to next step
    * NOW: Also updates the checkout_session in database
+   * ALSO: Evaluates payment rules after form submission
    */
   const handleStepComplete = async (data: Partial<CheckoutStepData>) => {
     const updatedData = { ...stepData, ...data };
     setStepData(updatedData);
+
+    // ========================================================================
+    // PAYMENT RULES EVALUATION (after form submission)
+    // ========================================================================
+    if (currentStep === "registration-form" && data.formResponses) {
+      // Get first product (assuming single product checkout for now)
+      const firstProductId = stepData.selectedProducts?.[0]?.productId;
+      const product = firstProductId ? linkedProducts.find((p) => p._id === firstProductId) : null;
+
+      if (product) {
+        // Convert CheckoutProduct to format expected by evaluatePaymentRules
+        const productForRules = {
+          _id: product._id as Id<"objects">,
+          name: product.name,
+          customProperties: product.customProperties,
+        };
+
+        const rulesResult = evaluatePaymentRules(
+          productForRules,
+          data.formResponses,
+          availableProviders
+        );
+
+        console.log("🔍 [Checkout] Payment rules evaluated:", rulesResult);
+        setPaymentRulesResult(rulesResult);
+
+        // Update available providers based on rules
+        if (rulesResult.errors.length === 0) {
+          setAvailableProviders(rulesResult.availableProviders);
+
+          // Auto-select provider if only one available
+          if (rulesResult.availableProviders.length === 1) {
+            setSelectedProvider(rulesResult.availableProviders[0]);
+            console.log("🔧 [Checkout] Auto-selected provider from rules:", rulesResult.availableProviders[0]);
+          }
+        }
+      }
+    }
 
     // Update checkout_session with latest data
     if (checkoutSessionId) {
@@ -264,64 +362,90 @@ export function MultiStepCheckout({
           }
         }
 
+        // Determine payment provider with proper fallback
+        const providerToStore = selectedProvider ||
+                                updatedData.selectedPaymentProvider ||
+                                (availableProviders.length > 0 ? availableProviders[0] : null);
+
+        console.log("🔧 [Checkout] Storing payment provider:", {
+          selectedProvider,
+          fromStepData: updatedData.selectedPaymentProvider,
+          availableProviders,
+          storing: providerToStore
+        });
+
+        // Build updates object, conditionally including paymentProvider only if we have a value
+        const updates: Record<string, unknown> = {
+          customerEmail: updatedData.customerInfo?.email,
+          customerName: updatedData.customerInfo?.name,
+          customerPhone: updatedData.customerInfo?.phone,
+          // B2B fields
+          transactionType: updatedData.customerInfo?.transactionType,
+          companyName: updatedData.customerInfo?.companyName,
+          vatNumber: updatedData.customerInfo?.vatNumber,
+          // Billing address (using line1/line2 format)
+          billingLine1: updatedData.customerInfo?.billingAddress?.line1,
+          billingLine2: updatedData.customerInfo?.billingAddress?.line2,
+          billingCity: updatedData.customerInfo?.billingAddress?.city,
+          billingState: updatedData.customerInfo?.billingAddress?.state,
+          billingPostalCode: updatedData.customerInfo?.billingAddress?.postalCode,
+          billingCountry: updatedData.customerInfo?.billingAddress?.country,
+          selectedProducts: updatedData.selectedProducts?.map(sp => ({
+            productId: sp.productId,
+            quantity: sp.quantity,
+            pricePerUnit: sp.price, // Map price to pricePerUnit
+            totalPrice: sp.price * sp.quantity // Calculate totalPrice per product
+          })),
+          // IMPORTANT: Also store as 'items' for invoice provider compatibility
+          items: updatedData.selectedProducts?.map(sp => ({
+            productId: sp.productId,
+            quantity: sp.quantity
+          })),
+          totalAmount, // ADD TOTAL AMOUNT (includes tax and form costs)
+          subtotal: updatedData.taxCalculation?.subtotal, // ADD SUBTOTAL
+          taxAmount: updatedData.taxCalculation?.taxAmount, // ADD TAX AMOUNT
+          taxDetails: updatedData.taxCalculation?.lineItems ? (() => {
+            // Group line items by tax CODE (not rate) - only combine same tax codes
+            const taxByCode = updatedData.taxCalculation.lineItems.reduce((acc, item) => {
+              if (!item.taxable || item.taxAmount === 0) return acc;
+
+              // Use tax code as key, or "default" if no code
+              const codeKey = item.taxCode || "default";
+
+              if (!acc[codeKey]) {
+                acc[codeKey] = {
+                  taxCode: item.taxCode || "Tax",
+                  rate: item.taxRate,
+                  amount: 0
+                };
+              }
+              acc[codeKey].amount += item.taxAmount;
+              return acc;
+            }, {} as Record<string, { taxCode: string; rate: number; amount: number }>);
+
+            return Object.entries(taxByCode).map(([, data]) => ({
+              jurisdiction: data.taxCode, // Use actual tax code
+              taxName: "Tax",
+              taxRate: data.rate,
+              taxAmount: data.amount,
+            }));
+          })() : undefined,
+          currency: linkedProducts[0]?.currency || "USD", // Add currency
+          formResponses: updatedData.formResponses,
+          stepProgress: [currentStep], // Track which step was just completed
+          currentStep,
+          // Event information (from product->event link)
+          ...eventInfo,
+        };
+
+        // Only add paymentProvider if we have a valid value
+        if (providerToStore) {
+          updates.paymentProvider = providerToStore;
+        }
+
         await updateCheckoutSession({
           checkoutSessionId,
-          updates: {
-            customerEmail: updatedData.customerInfo?.email,
-            customerName: updatedData.customerInfo?.name,
-            customerPhone: updatedData.customerInfo?.phone,
-            // B2B fields
-            transactionType: updatedData.customerInfo?.transactionType,
-            companyName: updatedData.customerInfo?.companyName,
-            vatNumber: updatedData.customerInfo?.vatNumber,
-            // Billing address
-            billingStreet: updatedData.customerInfo?.billingAddress?.street,
-            billingCity: updatedData.customerInfo?.billingAddress?.city,
-            billingState: updatedData.customerInfo?.billingAddress?.state,
-            billingPostalCode: updatedData.customerInfo?.billingAddress?.postalCode,
-            billingCountry: updatedData.customerInfo?.billingAddress?.country,
-            selectedProducts: updatedData.selectedProducts?.map(sp => ({
-              productId: sp.productId,
-              quantity: sp.quantity,
-              pricePerUnit: sp.price, // Map price to pricePerUnit
-              totalPrice: sp.price * sp.quantity // Calculate totalPrice per product
-            })),
-            totalAmount, // ADD TOTAL AMOUNT (includes tax and form costs)
-            subtotal: updatedData.taxCalculation?.subtotal, // ADD SUBTOTAL
-            taxAmount: updatedData.taxCalculation?.taxAmount, // ADD TAX AMOUNT
-            taxDetails: updatedData.taxCalculation?.lineItems ? (() => {
-              // Group line items by tax CODE (not rate) - only combine same tax codes
-              const taxByCode = updatedData.taxCalculation.lineItems.reduce((acc, item) => {
-                if (!item.taxable || item.taxAmount === 0) return acc;
-
-                // Use tax code as key, or "default" if no code
-                const codeKey = item.taxCode || "default";
-
-                if (!acc[codeKey]) {
-                  acc[codeKey] = {
-                    taxCode: item.taxCode || "Tax",
-                    rate: item.taxRate,
-                    amount: 0
-                  };
-                }
-                acc[codeKey].amount += item.taxAmount;
-                return acc;
-              }, {} as Record<string, { taxCode: string; rate: number; amount: number }>);
-
-              return Object.entries(taxByCode).map(([_, data]) => ({
-                jurisdiction: data.taxCode, // Use actual tax code
-                taxName: "Tax",
-                taxRate: data.rate,
-                taxAmount: data.amount,
-              }));
-            })() : undefined,
-            currency: linkedProducts[0]?.currency || "USD", // Add currency
-            formResponses: updatedData.formResponses,
-            stepProgress: [currentStep], // Track which step was just completed
-            currentStep,
-            // Event information (from product->event link)
-            ...eventInfo,
-          },
+          updates: updates as Parameters<typeof updateCheckoutSession>[0]['updates'],
         });
         console.log("✅ Updated checkout_session:", checkoutSessionId, "Total:", totalAmount, "Event:", eventInfo.eventName);
       } catch (error) {
@@ -348,17 +472,26 @@ export function MultiStepCheckout({
         setCurrentStep("product-selection");
         break;
       case "registration-form":
-        // Registration form comes right after product selection
-        setCurrentStep("product-selection");
+        // ✅ Registration form comes after customer-info now
+        setCurrentStep("customer-info");
+        break;
+      case "invoice-enforcement":
+        setCurrentStep("registration-form");
         break;
       case "payment-method":
-        // Check if we came from form or customer info
-        const hasForm = stepData.formResponses;
-        setCurrentStep(hasForm ? "registration-form" : "customer-info");
+        // Check if we came from invoice enforcement or form
+        if (paymentRulesResult?.enforceInvoice) {
+          setCurrentStep("invoice-enforcement");
+        } else {
+          const hasForm = stepData.formResponses;
+          setCurrentStep(hasForm ? "registration-form" : "customer-info");
+        }
         break;
       case "payment-form":
-        // Check if we selected payment method
-        if (paymentProviders.length > 1) {
+        // Check if we came from invoice enforcement or payment method
+        if (paymentRulesResult?.enforceInvoice) {
+          setCurrentStep("invoice-enforcement");
+        } else if (availableProviders.length > 1) {
           setCurrentStep("payment-method");
         } else {
           // Go back to form or customer info
@@ -389,6 +522,7 @@ export function MultiStepCheckout({
         return (
           <CustomerInfoStep
             initialData={stepData.customerInfo}
+            forceB2B={forceB2B}
             onComplete={(data) => handleStepComplete({ customerInfo: data })}
             onBack={handleBack}
           />
@@ -405,17 +539,50 @@ export function MultiStepCheckout({
           />
         );
 
-      case "payment-method":
+      case "invoice-enforcement":
+        if (!paymentRulesResult?.enforceInvoice) {
+          // Fallback if accessed without enforcement
+          return <div>Error: Invoice enforcement step accessed without valid rules</div>;
+        }
         return (
-          <PaymentMethodStep
-            paymentProviders={paymentProviders}
-            initialSelection={stepData.selectedPaymentProvider}
-            onComplete={(provider) =>
-              handleStepComplete({ selectedPaymentProvider: provider })
-            }
+          <InvoiceEnforcementStep
+            rulesResult={paymentRulesResult}
+            selectedProducts={stepData.selectedProducts || []}
+            linkedProducts={linkedProducts}
+            formResponses={stepData.formResponses || []}
+            customerInfo={stepData.customerInfo!}
+            taxCalculation={stepData.taxCalculation}
+            onComplete={() => handleStepComplete({})}
             onBack={handleBack}
           />
         );
+
+      case "payment-method": {
+        // Get currency from first product
+        const productCurrency = (() => {
+          const firstProduct = linkedProducts.find((p) => p._id === stepData.selectedProducts?.[0]?.productId);
+          return firstProduct?.currency || "USD";
+        })();
+
+        // Calculate total amount (base + form costs)
+        const totalWithForms =
+          (stepData.totalPrice || 0) +
+          (stepData.formResponses?.reduce((sum, fr) => sum + (fr.addedCosts || 0), 0) || 0);
+
+        return (
+          <PaymentMethodStep
+            paymentProviders={availableProviders}
+            initialSelection={selectedProvider || undefined}
+            currency={productCurrency}
+            totalAmount={totalWithForms}
+            onComplete={(provider) => {
+              setSelectedProvider(provider);
+              handleStepComplete({ selectedPaymentProvider: provider });
+            }}
+            onBack={handleBack}
+          />
+        );
+      }
 
       case "payment-form": {
         // Extract customer info from either customerInfo step OR first form response
@@ -429,11 +596,22 @@ export function MultiStepCheckout({
               }
             : { email: "", name: "" });
 
+        // Determine payment provider with fallback chain
+        const paymentProviderCode = selectedProvider ||
+                                     stepData.selectedPaymentProvider ||
+                                     availableProviders[0] ||
+                                     "stripe-connect"; // Default fallback
+
+        console.log("🔧 [Checkout] Payment form provider:", {
+          selectedProvider,
+          fromStepData: stepData.selectedPaymentProvider,
+          availableProviders,
+          final: paymentProviderCode
+        });
+
         return (
           <PaymentFormStep
-            paymentProvider={
-              stepData.selectedPaymentProvider || paymentProviders[0]
-            }
+            paymentProvider={paymentProviderCode}
             totalAmount={
               (stepData.totalPrice || 0) +
               (stepData.formResponses?.reduce((sum, fr) => sum + (fr.addedCosts || 0), 0) || 0)
@@ -445,6 +623,7 @@ export function MultiStepCheckout({
             customerInfo={customerInfo}
             selectedProducts={stepData.selectedProducts || []}
             formResponses={stepData.formResponses}
+            rulesResult={paymentRulesResult} // Pass payment rules result
             onComplete={(result) => handleStepComplete({ paymentResult: result })}
             onBack={handleBack}
           />
@@ -479,6 +658,7 @@ export function MultiStepCheckout({
         currentStep={currentStep}
         stepData={stepData}
         onStepClick={handleStepClick}
+        showPaymentMethodStep={availableProviders.length > 1}
       />
 
       {/* Current Step Content */}
@@ -494,10 +674,12 @@ function CheckoutProgressBar({
   currentStep,
   stepData,
   onStepClick,
+  showPaymentMethodStep = false,
 }: {
   currentStep: CheckoutStep;
   stepData: CheckoutStepData;
   onStepClick?: (step: CheckoutStep) => void;
+  showPaymentMethodStep?: boolean;
 }) {
   const steps: Array<{ key: CheckoutStep; label: string; visible: boolean }> = [
     { key: "product-selection", label: "Products", visible: true },
@@ -508,9 +690,14 @@ function CheckoutProgressBar({
       visible: (stepData.formResponses && stepData.formResponses.length > 0) || currentStep === "registration-form",
     },
     {
+      key: "invoice-enforcement",
+      label: "Confirmation",
+      visible: currentStep === "invoice-enforcement",
+    },
+    {
       key: "payment-method",
       label: "Payment Method",
-      visible: false, // Only show if multiple providers
+      visible: showPaymentMethodStep || currentStep === "payment-method",
     },
     { key: "payment-form", label: "Payment", visible: true },
     { key: "confirmation", label: "Confirmation", visible: true },

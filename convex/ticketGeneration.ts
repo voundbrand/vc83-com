@@ -292,6 +292,7 @@ export const sendOrderConfirmationEmail = internalAction({
     checkoutSessionId: v.id("objects"),
     recipientEmail: v.string(),
     recipientName: v.string(),
+    includeInvoicePDF: v.optional(v.boolean()), // Optional: skip invoice for B2B (employer pays)
   },
   handler: async (ctx, args) => {
     try {
@@ -334,15 +335,18 @@ export const sendOrderConfirmationEmail = internalAction({
         }
       }
 
-      // 3. Generate invoice PDF
-      const invoicePDF = await ctx.runAction(api.pdfGeneration.generateInvoicePDF, {
-        checkoutSessionId: args.checkoutSessionId,
-      });
-
-      // 4. Combine all attachments
+      // 3. Generate invoice PDF (optional - skip for B2B when employer pays)
       const attachments = [...ticketPDFs];
-      if (invoicePDF) {
-        attachments.push(invoicePDF);
+
+      if (args.includeInvoicePDF !== false) {
+        // Default: include invoice PDF (B2C, direct payment)
+        const invoicePDF = await ctx.runAction(api.pdfGeneration.generateInvoicePDF, {
+          checkoutSessionId: args.checkoutSessionId,
+        });
+
+        if (invoicePDF) {
+          attachments.push(invoicePDF);
+        }
       }
 
       // 5. Create Eventbrite-style email HTML

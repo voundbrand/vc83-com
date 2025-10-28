@@ -19,6 +19,7 @@ interface MultiStepPreviewProps {
   organizationId: Id<"organizations">;
   paymentProviders: string[];
   theme?: Theme;
+  forceB2B?: boolean;
 }
 
 export function MultiStepPreview({
@@ -26,6 +27,7 @@ export function MultiStepPreview({
   organizationId,
   paymentProviders,
   theme,
+  forceB2B = false,
 }: MultiStepPreviewProps) {
   const [previewMode, setPreviewMode] = useState<"live" | "static">("static");
 
@@ -171,6 +173,7 @@ export function MultiStepPreview({
               organizationId={organizationId}
               linkedProducts={linkedProducts}
               paymentProviders={paymentProviders}
+              forceB2B={forceB2B}
             />
           ) : (
             <StaticStepPreview linkedProducts={linkedProducts} theme={theme} />
@@ -189,10 +192,12 @@ function LiveCheckoutPreview({
   organizationId,
   linkedProducts,
   paymentProviders,
+  forceB2B = false,
 }: {
   organizationId: Id<"organizations">;
   linkedProducts: CheckoutProduct[];
   paymentProviders: string[];
+  forceB2B?: boolean;
 }) {
   const [isInitialized, setIsInitialized] = useState(false);
 
@@ -215,6 +220,7 @@ function LiveCheckoutPreview({
       organizationId={organizationId}
       linkedProducts={linkedProducts}
       paymentProviders={paymentProviders}
+      forceB2B={forceB2B}
       onComplete={(result) => {
         console.log("[Preview] Checkout completed:", result);
         alert("Preview mode: Checkout flow completed!");

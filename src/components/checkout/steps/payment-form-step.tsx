@@ -18,9 +18,11 @@ import { api } from "../../../../convex/_generated/api";
 import { ArrowLeft, CreditCard, Loader2 } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { CheckoutProduct } from "@/templates/checkout/types";
-import { calculateCheckoutTax, getTaxRateByCode, getDefaultTaxRate as getDefaultTaxRateByCountry } from "@/lib/tax-calculator";
+import { calculateCheckoutTaxWithAddons, getTaxRateByCode, getDefaultTaxRate as getDefaultTaxRateByCountry } from "@/lib/tax-calculator";
 import { loadStripe, Stripe } from "@stripe/stripe-js";
 import type { StripeElements, StripeCardElement } from "@stripe/stripe-js";
+import { calculateAddonsFromResponses, type ProductAddon } from "@/types/product-addons";
+import { type PaymentRulesResult } from "../../../../convex/paymentRulesEngine";
 
 interface PaymentFormStepProps {
   paymentProvider: string;
@@ -47,6 +49,7 @@ interface PaymentFormStepProps {
     addedCosts: number;
     submittedAt: number;
   }>;
+  rulesResult?: PaymentRulesResult | null; // Payment rules result for employer-specific messaging
   onComplete: (result: {
     success: boolean;
     transactionId: string;
@@ -57,7 +60,36 @@ interface PaymentFormStepProps {
   onBack: () => void;
 }
 
-export function PaymentFormStep({
+export function PaymentFormStep(props: PaymentFormStepProps) {
+  // Route to provider-specific component based on paymentProvider
+  switch (props.paymentProvider) {
+    case "stripe-connect":
+    case "stripe":
+      return <StripePaymentForm {...props} />;
+
+    case "invoice":
+      return <InvoicePaymentForm {...props} />;
+
+    default:
+      return (
+        <div style={{ padding: "2rem", textAlign: "center" }}>
+          <p style={{ color: "#666", marginBottom: "1rem" }}>
+            Payment provider "{props.paymentProvider}" is not yet implemented.
+          </p>
+          <button onClick={props.onBack} style={{ padding: "0.5rem 1rem" }}>
+            ← Go Back
+          </button>
+        </div>
+      );
+  }
+}
+
+/**
+ * STRIPE PAYMENT FORM
+ *
+ * Handles Stripe Connect payment with Stripe Elements
+ */
+function StripePaymentForm({
   paymentProvider,
   totalAmount,
   organizationId,
@@ -226,9 +258,41 @@ export function PaymentFormStep({
   const defaultTaxRate = getDefaultTaxRate();
   const defaultTaxBehavior = taxSettings?.defaultTaxBehavior || "exclusive";
 
-  // Calculate tax using the comprehensive calculator (returns lineItems for grouping)
+  // Collect all addons from form responses
+  const allAddons = (formResponses || []).flatMap((fr) => {
+    const product = linkedProducts.find((p) => p._id === fr.productId);
+    if (!product) {
+      console.log("🔍 [PaymentStep] No product found for formResponse:", fr.productId);
+      return [];
+    }
+
+    const productAddons = (product.customProperties as { addons?: ProductAddon[] } | undefined)?.addons;
+    if (!productAddons) {
+      console.log("🔍 [PaymentStep] No addons configured for product:", {
+        productId: product._id,
+        productName: product.name,
+        customProperties: product.customProperties,
+      });
+      return [];
+    }
+
+    const calculated = calculateAddonsFromResponses(productAddons, fr.responses);
+    console.log("🔍 [PaymentStep] Calculated addons:", {
+      productId: product._id,
+      productName: product.name,
+      addonConfigCount: productAddons.length,
+      formResponses: fr.responses,
+      calculatedAddons: calculated,
+    });
+
+    return calculated;
+  });
+
+  console.log("🔍 [PaymentStep] All addons collected:", allAddons);
+
+  // Calculate tax using the comprehensive calculator with addons support
   const taxCalculation = taxSettings?.taxEnabled
-    ? calculateCheckoutTax(
+    ? calculateCheckoutTaxWithAddons(
         selectedProducts.map((sp) => {
           const fullProduct = linkedProducts.find((p) => p._id === sp.productId);
           return {
@@ -236,6 +300,7 @@ export function PaymentFormStep({
             quantity: sp.quantity,
           };
         }),
+        allAddons, // Include all calculated addons
         defaultTaxRate,
         defaultTaxBehavior
       )
@@ -359,6 +424,42 @@ export function PaymentFormStep({
               </div>
             );
           })}
+
+          {/* Form Add-ons (if any) - Using addon configuration */}
+          {formResponses && formResponses.some(fr => fr.addedCosts > 0) && (
+            <>
+              {formResponses
+                .filter((fr) => fr.addedCosts > 0)
+                .map((fr) => {
+                  // Get product for this form response
+                  const product = linkedProducts.find((p) => p._id === fr.productId);
+                  if (!product) return null;
+
+                  // Get addon configuration from product
+                  const productAddons = (product.customProperties as { addons?: ProductAddon[] } | undefined)?.addons;
+                  if (!productAddons) return null;
+
+                  // Calculate addons for this ticket
+                  const calculatedAddons = calculateAddonsFromResponses(productAddons, fr.responses);
+
+                  // Render each addon
+                  return calculatedAddons.map((addon) => (
+                    <div
+                      key={`addon-${fr.productId}-${fr.ticketNumber}-${addon.addonId}`}
+                      className="flex justify-between text-sm text-gray-700 mb-1 italic"
+                    >
+                      <span>
+                        {addon.icon && `${addon.icon} `}
+                        + {addon.name}
+                        {addon.quantity > 1 && ` × ${addon.quantity}`}
+                        {` (Ticket ${fr.ticketNumber})`}
+                      </span>
+                      <span>{formatPrice(addon.totalPrice, addon.currency)}</span>
+                    </div>
+                  ));
+                })}
+            </>
+          )}
         </div>
 
         {/* Pricing Summary with Tax Breakdown */}
@@ -370,7 +471,10 @@ export function PaymentFormStep({
               {selectedProducts.reduce((sum, sp) => sum + sp.quantity, 0) === 1 ? "item" : "items"})
             </span>
             <span className="font-medium">
-              {formatPrice(selectedProducts.reduce((sum, sp) => sum + (sp.price * sp.quantity), 0))}
+              {formatPrice(
+                selectedProducts.reduce((sum, sp) => sum + (sp.price * sp.quantity), 0) +
+                (formResponses?.reduce((sum, fr) => sum + (fr.addedCosts || 0), 0) || 0)
+              )}
             </span>
           </div>
 
@@ -542,4 +646,210 @@ export function PaymentFormStep({
       </div>
     </div>
   );
+}
+
+/**
+ * INVOICE PAYMENT FORM
+ *
+ * For B2B invoicing - no immediate payment required.
+ * Shows order summary and creates consolidated invoice for employer.
+ */
+function InvoicePaymentForm({
+  totalAmount,
+  organizationId,
+  checkoutSessionId,
+  linkedProducts,
+  customerInfo,
+  selectedProducts,
+  formResponses,
+  rulesResult,
+  onComplete,
+  onBack,
+}: PaymentFormStepProps) {
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Actions
+  const initiateInvoice = useAction(api.paymentProviders.invoice.initiateInvoicePayment);
+
+  // Get currency from first product
+  const currency = linkedProducts.find((p) => p._id === selectedProducts[0]?.productId)?.currency || "USD";
+
+  const handleCompleteRegistration = async () => {
+    if (!checkoutSessionId) {
+      setError("Checkout session not initialized");
+      return;
+    }
+
+    setIsProcessing(true);
+    setError(null);
+
+    try {
+      // Initiate invoice payment (creates invoice + tickets)
+      const result = await initiateInvoice({
+        sessionId: "public",
+        checkoutSessionId,
+        organizationId,
+      });
+
+      if (!result.success) {
+        setError(result.error || "Failed to create invoice");
+        setIsProcessing(false);
+        return;
+      }
+
+      // Complete checkout flow
+      onComplete({
+        success: true,
+        transactionId: result.invoiceId || "invoice_pending",
+        checkoutSessionId: checkoutSessionId,
+      });
+    } catch (err) {
+      console.error("Failed to create invoice:", err);
+      setError(err instanceof Error ? err.message : "Failed to create invoice");
+      setIsProcessing(false);
+    }
+  };
+
+  // Check if we have employer-specific details from rules engine
+  const employerName = rulesResult?.enforcementDetails?.employerName;
+  const paymentTerms = rulesResult?.enforcementDetails?.paymentTerms || "net30";
+  const paymentTermsText = {
+    net30: "Net 30",
+    net60: "Net 60",
+    net90: "Net 90",
+  }[paymentTerms];
+
+  return (
+    <div className="max-w-2xl mx-auto p-6">
+      <h2 className="text-2xl font-bold mb-6">📄 Invoice Payment</h2>
+
+      <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-6 mb-6">
+        <h3 className="text-lg font-semibold mb-3">How This Works</h3>
+        <ol className="space-y-2 text-sm">
+          <li>✅ <strong>Step 1:</strong> Complete your registration now</li>
+          <li>📧 <strong>Step 2:</strong> An invoice will be sent to {employerName || "your employer"}</li>
+          <li>💳 <strong>Step 3:</strong> {employerName || "Your employer"} pays the invoice ({paymentTermsText} terms)</li>
+          <li>🎫 <strong>Step 4:</strong> You receive your tickets immediately after invoice is accepted</li>
+        </ol>
+      </div>
+
+      {/* Order Summary */}
+      <div className="bg-gray-50 border-2 border-gray-300 rounded-lg p-6 mb-6">
+        <h3 className="text-lg font-semibold mb-4">Order Summary</h3>
+
+        {/* Products */}
+        {selectedProducts.map((sp) => {
+          const product = linkedProducts.find((p) => p._id === sp.productId);
+          return (
+            <div key={sp.productId} className="flex justify-between py-2 border-b">
+              <div>
+                <p className="font-medium">{product?.name}</p>
+                <p className="text-sm text-gray-600">Quantity: {sp.quantity}</p>
+              </div>
+              <p className="font-medium">{formatPrice(sp.price * sp.quantity, currency)}</p>
+            </div>
+          );
+        })}
+
+        {/* Form Addons */}
+        {formResponses && formResponses.some(fr => fr.addedCosts > 0) && (
+          <div className="mt-4 pt-4 border-t">
+            <p className="text-sm font-medium mb-2">Add-ons:</p>
+            {formResponses
+              .filter((fr) => fr.addedCosts > 0)
+              .map((fr) => (
+                <div key={`invoice-addon-${fr.productId}-${fr.ticketNumber}`} className="flex justify-between py-1 text-sm">
+                  <p className="text-gray-600">Ticket {fr.ticketNumber} extras</p>
+                  <p>{formatPrice(fr.addedCosts, currency)}</p>
+                </div>
+              ))}
+          </div>
+        )}
+
+        {/* Total */}
+        <div className="flex justify-between pt-4 mt-4 border-t-2 border-gray-400">
+          <p className="text-lg font-bold">Total Amount:</p>
+          <p className="text-lg font-bold">{formatPrice(totalAmount, currency)}</p>
+        </div>
+
+        <p className="text-xs text-gray-600 mt-2">
+          * This amount will be invoiced to your employer
+        </p>
+      </div>
+
+      {/* Acknowledgment */}
+      <div className="bg-white border-2 border-gray-300 rounded-lg p-6 mb-6">
+        <h3 className="text-md font-semibold mb-3">Acknowledgment</h3>
+        <div className="text-sm space-y-2">
+          <p>By clicking "Complete Registration", you acknowledge that:</p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>An invoice for <strong>{formatPrice(totalAmount, currency)}</strong> will be generated</li>
+            <li>The invoice will be sent to {employerName ? <strong>{employerName}</strong> : "your employer organization"}</li>
+            <li>Payment is due within {paymentTerms.replace("net", "")} days of invoice date ({paymentTermsText} terms)</li>
+            <li>Your registration will be confirmed upon invoice acceptance</li>
+            <li>Tickets will be delivered to: <strong>{customerInfo.email}</strong></li>
+          </ul>
+        </div>
+      </div>
+
+      {/* Error Display */}
+      {error && (
+        <div className="bg-red-50 border-2 border-red-300 rounded-lg p-4 mb-4">
+          <p className="text-sm text-red-900">{error}</p>
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex gap-4">
+        <button
+          type="button"
+          onClick={onBack}
+          disabled={isProcessing}
+          className="px-6 py-3 text-base font-bold border-2 border-gray-400 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors flex items-center gap-2"
+        >
+          <ArrowLeft size={16} />
+          Back
+        </button>
+
+        <button
+          type="button"
+          onClick={handleCompleteRegistration}
+          disabled={isProcessing}
+          className="flex-1 px-6 py-3 text-base font-bold border-2 border-purple-600 bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+        >
+          {isProcessing ? (
+            <>
+              <Loader2 size={20} className="animate-spin" />
+              Creating Invoice...
+            </>
+          ) : (
+            <>
+              Complete Registration →
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* Info Badge */}
+      <div className="mt-6 text-center">
+        <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
+          📄 Invoice will be sent to {employerName || "your employer"} for payment
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Helper: Format price for display
+ * NOTE: This is only used by InvoicePaymentForm component above.
+ * It gets currency from the component's scope via closure.
+ */
+function formatPrice(amountInCents: number, currencyCode = "USD"): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: currencyCode.toUpperCase(),
+    minimumFractionDigits: 2,
+  }).format(amountInCents / 100);
 }

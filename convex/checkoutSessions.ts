@@ -434,11 +434,32 @@ export const createPaymentIntentForSession = action({
     const companyName = session.customProperties?.companyName as string | undefined;
     const vatNumber = session.customProperties?.vatNumber as string | undefined;
 
+    // Billing address fields (for B2B transactions)
+    const billingLine1 = session.customProperties?.billingLine1 as string | undefined;
+    const billingLine2 = session.customProperties?.billingLine2 as string | undefined;
+    const billingCity = session.customProperties?.billingCity as string | undefined;
+    const billingState = session.customProperties?.billingState as string | undefined;
+    const billingPostalCode = session.customProperties?.billingPostalCode as string | undefined;
+    const billingCountry = session.customProperties?.billingCountry as string | undefined;
+
+    // Construct BillingAddress object (only if we have required fields)
+    const billingAddress = billingLine1 && billingCity && billingPostalCode && billingCountry
+      ? {
+          line1: billingLine1,
+          line2: billingLine2,
+          city: billingCity,
+          state: billingState,
+          postalCode: billingPostalCode,
+          country: billingCountry,
+        }
+      : undefined;
+
     // DEBUG: Log the amount we're trying to charge
     console.log("=== STRIPE PAYMENT INTENT DEBUG ===");
     console.log("Total Amount from session:", totalAmount);
     console.log("Currency:", currency);
     console.log("Customer:", customerEmail, customerName);
+    console.log("Billing Address:", billingAddress ? "✓ Present" : "✗ Not provided");
 
     // Validate minimum charge amount (Stripe requirements)
     // USD/EUR/etc: 50 cents minimum, JPY: 50 yen minimum
@@ -487,6 +508,7 @@ export const createPaymentIntentForSession = action({
       quantity: 1,
       customerEmail,
       customerName,
+      billingAddress, // ✅ Pass billing address to Stripe
       connectedAccountId,
       successUrl: "",
       cancelUrl: "",
@@ -633,11 +655,32 @@ export const completeCheckoutWithTickets = action({
 
       if (transactionType === "B2B" && companyName) {
         try {
-          // Create CRM organization
+          // Extract billing address from checkout session
+          const billingLine1 = session.customProperties?.billingLine1 as string | undefined;
+          const billingLine2 = session.customProperties?.billingLine2 as string | undefined;
+          const billingCity = session.customProperties?.billingCity as string | undefined;
+          const billingState = session.customProperties?.billingState as string | undefined;
+          const billingPostalCode = session.customProperties?.billingPostalCode as string | undefined;
+          const billingCountry = session.customProperties?.billingCountry as string | undefined;
+
+          // Construct BillingAddress object (only if we have required fields)
+          const billingAddress = billingLine1 && billingCity && billingPostalCode && billingCountry
+            ? {
+                line1: billingLine1,
+                line2: billingLine2,
+                city: billingCity,
+                state: billingState,
+                postalCode: billingPostalCode,
+                country: billingCountry,
+              }
+            : undefined;
+
+          // Create CRM organization with billing address
           crmOrganizationId = await ctx.runMutation(internal.crmIntegrations.createCRMOrganization, {
             organizationId,
             companyName,
             vatNumber,
+            billingAddress, // ✅ Now passing billing address
             email: customerEmail,
             phone: customerPhone,
           });

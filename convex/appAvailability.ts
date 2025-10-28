@@ -66,11 +66,16 @@ export const getAvailableApps = query({
     const { userId } = await requireAuthenticatedUser(ctx, sessionId);
     const userContext = await getUserContext(ctx, userId, organizationId);
 
-    // Super admins see all active apps
+    // Super admins see all active and approved apps
     if (userContext.isGlobal && userContext.roleName === "super_admin") {
       return await ctx.db
         .query("apps")
-        .filter((q) => q.eq(q.field("status"), "active"))
+        .filter((q) =>
+          q.or(
+            q.eq(q.field("status"), "active"),
+            q.eq(q.field("status"), "approved")
+          )
+        )
         .collect();
     }
 
@@ -87,7 +92,8 @@ export const getAvailableApps = query({
     const apps = [];
     for (const appId of availableAppIds) {
       const app = await ctx.db.get(appId);
-      if (app && app.status === "active") {
+      // Include both active and approved apps
+      if (app && (app.status === "active" || app.status === "approved")) {
         apps.push(app);
       }
     }
@@ -325,7 +331,16 @@ export const getAvailabilityMatrix = query({
       }
 
       const organizations = await ctx.db.query("organizations").collect();
-      const apps = await ctx.db.query("apps").collect();
+      // Only show active and approved apps in the matrix (exclude pending/rejected)
+      const apps = await ctx.db
+        .query("apps")
+        .filter((q) =>
+          q.or(
+            q.eq(q.field("status"), "active"),
+            q.eq(q.field("status"), "approved")
+          )
+        )
+        .collect();
       const availabilities = await ctx.db.query("appAvailabilities").collect();
 
       return {
