@@ -7,9 +7,9 @@
  */
 
 import { QueryCtx, MutationCtx } from "../_generated/server";
-import { Id } from "../_generated/dataModel";
+import { Id, Doc } from "../_generated/dataModel";
 import { WorkflowCustomProperties, BehaviorDefinition } from "./workflowOntology";
-import { Behavior, BehaviorContext, BehaviorExecutionResult } from "../../src/lib/behaviors/types";
+import { Behavior, BehaviorContext, BehaviorExecutionResult, InputSourceType } from "../../src/lib/behaviors/types";
 
 /**
  * Load workflow from objects table
@@ -43,7 +43,7 @@ export function convertWorkflowBehaviors(
     enabled: bd.enabled,
     triggers: bd.triggers
       ? {
-          inputTypes: bd.triggers.inputTypes as any,
+          inputTypes: bd.triggers.inputTypes as InputSourceType[],
           objectTypes: bd.triggers.objectTypes,
           workflows: bd.triggers.workflows,
         }
@@ -55,7 +55,7 @@ export function convertWorkflowBehaviors(
  * Validate workflow context has required inputs
  */
 export function validateWorkflowContext(
-  workflow: any,
+  workflow: Doc<"objects">,
   context: BehaviorContext
 ): { valid: boolean; errors: string[] } {
   const customProps = workflow.customProperties as WorkflowCustomProperties;
@@ -137,7 +137,7 @@ export async function loadWorkflowsByTrigger(
   ctx: QueryCtx | MutationCtx,
   organizationId: Id<"organizations">,
   triggerOn: string
-): Promise<Array<{ workflow: any; behaviors: Behavior[] }>> {
+): Promise<Array<{ workflow: Doc<"objects">; behaviors: Behavior[] }>> {
   // Query active workflows
   const workflows = await ctx.db
     .query("objects")
@@ -167,7 +167,7 @@ export async function loadWorkflowsByTrigger(
  * Extract all behaviors from multiple workflows
  */
 export function extractBehaviorsFromWorkflows(
-  workflows: Array<{ workflow: any; behaviors: Behavior[] }>
+  workflows: Array<{ workflow: Doc<"objects">; behaviors: Behavior[] }>
 ): Behavior[] {
   const allBehaviors: Behavior[] = [];
 

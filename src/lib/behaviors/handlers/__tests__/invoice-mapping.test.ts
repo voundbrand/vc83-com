@@ -17,12 +17,12 @@ describe("Invoice Mapping Behavior", () => {
 
   beforeEach(() => {
     context = {
-      organizationId: "test-org" as any,
+      organizationId: "test-org" as Id<"organizations">,
       sessionId: "test-session",
       workflow: "checkout",
       objects: [
         {
-          objectId: "product-1" as any,
+          objectId: "product-1" as Id<"objects">,
           objectType: "product",
           quantity: 1,
         },
@@ -389,8 +389,8 @@ describe("Invoice Mapping Behavior", () => {
       const config = {
         organizationSourceField: "employer",
         organizationMapping: { test: "org" },
-        defaultPaymentTerms: "invalid",
-      } as any;
+        defaultPaymentTerms: "invalid" as unknown,
+      } as InvoiceMappingConfig;
 
       const errors = invoiceMappingHandler.validate(config);
 

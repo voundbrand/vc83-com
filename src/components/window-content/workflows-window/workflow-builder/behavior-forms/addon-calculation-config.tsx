@@ -24,8 +24,8 @@ interface AddonCalculationConfigFormProps {
     type: string;
     options?: Array<{ value: string; label: string }>;
   }>;
-  availableForms?: any[];
-  availableProducts?: any[];
+  availableForms?: Array<{ _id: string; name: string }>;
+  availableProducts?: Array<{ _id: string; name: string }>;
 }
 
 export function AddonCalculationConfigForm({

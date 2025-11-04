@@ -19,6 +19,7 @@
 import { action } from "../../_generated/server";
 import { v } from "convex/values";
 import { api } from "../../_generated/api";
+import { Doc, Id } from "../../_generated/dataModel";
 
 /**
  * CONSOLIDATED INVOICE GENERATION ACTION (PHASE 3B)
@@ -81,7 +82,7 @@ export const executeConsolidatedInvoiceGeneration = action({
       };
     }
 
-    const steps: Array<{ step: string; status: string; message: string; data?: any }> = [];
+    const steps: Array<{ step: string; status: string; message: string; data?: Record<string, unknown> }> = [];
 
     try {
       // =========================================================================
@@ -94,14 +95,14 @@ export const executeConsolidatedInvoiceGeneration = action({
         message: "Searching for pending transactions linked to this organization..."
       });
 
-      let allTransactions: any[] = [];
+      let allTransactions: Doc<"objects">[] = [];
 
       try {
         // Query transactions for this CRM organization
         const result = await ctx.runQuery(api.transactionOntology.listTransactions, {
           sessionId: args.sessionId,
           organizationId: args.organizationId,
-          crmOrganizationId: args.config.crmOrganizationId as any,
+          crmOrganizationId: args.config.crmOrganizationId as Id<"objects">,
           invoicingStatus: "pending" as const, // Only pending transactions
         });
 
@@ -151,7 +152,7 @@ export const executeConsolidatedInvoiceGeneration = action({
         paymentStatus: args.config.paymentStatus,
       });
 
-      const eligibleTransactions = allTransactions.filter((tx: any) => {
+      const eligibleTransactions = allTransactions.filter((tx) => {
         const customProps = tx.customProperties || {};
 
         // Filter by event if specified
@@ -177,7 +178,7 @@ export const executeConsolidatedInvoiceGeneration = action({
       });
 
       console.log(`🧾 After filtering: ${eligibleTransactions.length} eligible transactions`);
-      const transactionIds = eligibleTransactions.map((t: any) => t._id);
+      const transactionIds = eligibleTransactions.map((t) => t._id);
 
       if (transactionIds.length === 0) {
         steps.push({
@@ -234,16 +235,16 @@ export const executeConsolidatedInvoiceGeneration = action({
         message: "Creating DRAFT invoice record (editable)..."
       });
 
-      let invoiceResult: any;
+      let invoiceResult: { invoiceId: Id<"objects">; [key: string]: unknown };
       try {
         invoiceResult = await ctx.runMutation(api.invoicingOntology.createDraftInvoiceFromTransactions, {
           sessionId: args.sessionId,
           organizationId: args.organizationId,
-          crmOrganizationId: args.config.crmOrganizationId as any,
-          transactionIds: transactionIds as any[],
-          paymentTerms: args.config.paymentTerms as any || "net30",
+          crmOrganizationId: args.config.crmOrganizationId as Id<"objects">,
+          transactionIds: transactionIds as Id<"objects">[],
+          paymentTerms: (args.config.paymentTerms as "due_on_receipt" | "net30" | "net60" | "net90") || "net30",
           notes: args.config.notes,
-        }) as any;
+        }) as { invoiceId: Id<"objects">; [key: string]: unknown };
       } catch (invoiceError) {
         console.error("❌ Failed to create draft invoice:", invoiceError);
         steps.push({
@@ -263,7 +264,7 @@ export const executeConsolidatedInvoiceGeneration = action({
           message: `Draft invoice creation failed: ${invoiceResult.error || 'Unknown reason'}`,
           data: invoiceResult
         });
-        throw new Error(invoiceResult.error || "Failed to create draft invoice");
+        throw new Error((invoiceResult.error as string) || "Failed to create draft invoice");
       }
 
       steps.push({
@@ -275,7 +276,7 @@ export const executeConsolidatedInvoiceGeneration = action({
           invoiceNumber: invoiceResult.invoiceNumber,
           transactionCount: invoiceResult.transactionCount,
           totalInCents: invoiceResult.totalInCents,
-          totalAmount: `€${(invoiceResult.totalInCents / 100).toFixed(2)}`,
+          totalAmount: `€${((invoiceResult.totalInCents as number) / 100).toFixed(2)}`,
           isDraft: invoiceResult.isDraft,
         }
       });
