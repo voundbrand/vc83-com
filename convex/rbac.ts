@@ -609,7 +609,7 @@ export const seedRBAC = mutation({
     )),
     force: v.optional(v.boolean()), // Allow forcing re-seed to pick up new permissions
   },
-  handler: async (ctx, { includeVertical, force }) => {
+  handler: async (ctx, { includeVertical }) => {
     const now = Date.now();
     const roleIds: Record<string, Id<"roles">> = {};
     const permissionIds: Record<string, Id<"permissions">> = {};

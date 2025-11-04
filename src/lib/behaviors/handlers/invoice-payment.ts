@@ -81,19 +81,19 @@ export const invoicePaymentHandler: BehaviorHandler<InvoicePaymentConfig> = {
    */
   extract: (
     config: InvoicePaymentConfig,
-    inputs: any[],
+    inputs: Array<{ type: string; data: unknown }>,
     context: Readonly<BehaviorContext>
   ) => {
     const { organizationId, workflowData = {}, behaviorData = {}, objects = [] } = context;
 
     // Get customer info from workflow data
-    const customerInfo = workflowData.customerInfo as any;
+    const customerInfo = workflowData.customerInfo as Record<string, unknown> | undefined;
 
     // Get employer from behavior data (set by employer-detection behavior)
-    const employerBehaviorData = behaviorData.employer_detection as any;
+    const employerBehaviorData = (behaviorData.employer_detection || {}) as Record<string, unknown>;
     const employerId = employerBehaviorData?.employerId as string | undefined;
     const employerName = employerBehaviorData?.employerName as string | undefined;
-    const employerBillingInfo = employerBehaviorData?.billingInfo as any;
+    const employerBillingInfo = employerBehaviorData?.billingInfo as Record<string, unknown> | undefined;
 
     // Get order details from objects and workflow data
     const productObjects = objects.filter(o => o.objectType === "product");
@@ -141,9 +141,10 @@ export const invoicePaymentHandler: BehaviorHandler<InvoicePaymentConfig> = {
    */
   apply: (
     config: InvoicePaymentConfig,
-    extractedData: any,
+    extractedData: unknown,
     context: Readonly<BehaviorContext>
-  ): BehaviorResult<any> => {
+  ): BehaviorResult<unknown> => {
+    const data = extractedData as Record<string, unknown>;
     const {
       organizationId,
       customerInfo,
@@ -156,7 +157,7 @@ export const invoicePaymentHandler: BehaviorHandler<InvoicePaymentConfig> = {
       taxCalculation,
       paymentTerms,
       billingAddress,
-    } = extractedData;
+    } = data;
 
     // Validate requirements
     if (config.requireCrmOrganization && !employerId) {
@@ -199,33 +200,37 @@ export const invoicePaymentHandler: BehaviorHandler<InvoicePaymentConfig> = {
     }
 
     // Build line items
-    const lineItems: any[] = [];
+    const lineItems: Array<Record<string, unknown>> = [];
 
-    if (config.includeDetailedLineItems) {
+    if (config.includeDetailedLineItems && Array.isArray(selectedProducts)) {
       // Add each product as separate line item
-      selectedProducts.forEach((sp: any) => {
-        const product = extractedData.products?.find((p: any) => p._id === sp.productId);
+      (selectedProducts as Array<Record<string, unknown>>).forEach((sp) => {
+        const products = data.products as Array<Record<string, unknown>> | undefined;
+        const product = products?.find((p) => p._id === sp.productId);
+        const price = typeof sp.price === 'number' ? sp.price : 0;
+        const quantity = typeof sp.quantity === 'number' ? sp.quantity : 1;
         lineItems.push({
           type: "product",
           description: product?.name || "Product",
-          quantity: sp.quantity,
-          unitPrice: sp.price,
-          totalPrice: sp.price * sp.quantity,
+          quantity,
+          unitPrice: price,
+          totalPrice: price * quantity,
           productId: sp.productId,
         });
       });
 
       // Add add-ons as separate line items
-      if (config.includeAddons && formResponses.length > 0) {
-        formResponses.forEach((fr: any) => {
-          if (fr.addedCosts > 0) {
+      if (config.includeAddons && Array.isArray(formResponses) && formResponses.length > 0) {
+        (formResponses as Array<Record<string, unknown>>).forEach((fr) => {
+          const addedCosts = fr.addedCosts as number;
+          if (addedCosts > 0) {
             lineItems.push({
               type: "addon",
-              description: `Add-ons (Ticket ${fr.ticketNumber})`,
+              description: `Add-ons (Ticket ${fr.ticketNumber as string})`,
               quantity: 1,
-              unitPrice: fr.addedCosts,
-              totalPrice: fr.addedCosts,
-              ticketNumber: fr.ticketNumber,
+              unitPrice: addedCosts,
+              totalPrice: addedCosts,
+              ticketNumber: fr.ticketNumber as string,
             });
           }
         });
@@ -242,32 +247,35 @@ export const invoicePaymentHandler: BehaviorHandler<InvoicePaymentConfig> = {
     }
 
     // Add tax line item
-    if (config.includeTaxBreakdown && taxCalculation && taxCalculation.taxAmount > 0) {
+    const taxCalc = taxCalculation as { taxAmount?: number; taxRate?: number; subtotal?: number } | undefined;
+    if (config.includeTaxBreakdown && taxCalc && typeof taxCalc.taxAmount === 'number' && taxCalc.taxAmount > 0) {
       lineItems.push({
         type: "tax",
-        description: `Tax (${taxCalculation.taxRate.toFixed(1)}%)`,
+        description: `Tax (${(taxCalc.taxRate || 0).toFixed(1)}%)`,
         quantity: 1,
-        unitPrice: taxCalculation.taxAmount,
-        totalPrice: taxCalculation.taxAmount,
+        unitPrice: taxCalc.taxAmount,
+        totalPrice: taxCalc.taxAmount,
       });
     }
 
     // Build invoice data
+    const custInfo = (customerInfo as Record<string, unknown> | undefined) || {};
+    const empBillingInfo = (employerBillingInfo as Record<string, unknown> | undefined) || {};
     const invoiceData = {
       // Customer/Employer info
-      billToName: employerName || customerInfo?.companyName || customerInfo?.name,
-      billToEmail: employerBillingInfo?.billingEmail || customerInfo?.email,
+      billToName: (employerName as string) || (custInfo.companyName as string) || (custInfo.name as string),
+      billToEmail: (empBillingInfo.billingEmail as string) || (custInfo.email as string),
       billToAddress: billingAddress,
-      vatNumber: employerBillingInfo?.vatNumber || customerInfo?.vatNumber,
+      vatNumber: (empBillingInfo.vatNumber as string) || (custInfo.vatNumber as string),
 
       // CRM linking
       crmOrganizationId: employerId,
 
       // Amounts
-      subtotal: taxCalculation?.subtotal || totalAmount,
-      taxAmount: taxCalculation?.taxAmount || 0,
+      subtotal: taxCalc?.subtotal || totalAmount,
+      taxAmount: taxCalc?.taxAmount || 0,
       totalAmount,
-      currency: extractedData.currency || "USD",
+      currency: (data.currency as string) || "USD",
 
       // Payment terms
       paymentTerms,

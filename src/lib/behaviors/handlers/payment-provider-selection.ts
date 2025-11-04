@@ -72,7 +72,7 @@ export const paymentProviderSelectionHandler: BehaviorHandler<PaymentProviderSel
    */
   extract: (
     _config: PaymentProviderSelectionConfig,
-    inputs: any[],
+    inputs: Array<{ type: string; data: unknown }>,
     context: Readonly<BehaviorContext>
   ) => {
     // Get employer from behavior data
@@ -109,9 +109,10 @@ export const paymentProviderSelectionHandler: BehaviorHandler<PaymentProviderSel
    */
   apply: (
     config: PaymentProviderSelectionConfig,
-    extractedData: any,
+    extractedData: unknown,
     context: Readonly<BehaviorContext>
-  ): BehaviorResult<any> => {
+  ): BehaviorResult<unknown> => {
+    const data = extractedData as Record<string, unknown>;
     const {
       customerType,
       hasEmployer,
@@ -120,7 +121,7 @@ export const paymentProviderSelectionHandler: BehaviorHandler<PaymentProviderSel
       productIds,
       productSubtypes,
       orderTotal,
-    } = extractedData;
+    } = data;
 
     // Check each rule to find matching providers
     for (const rule of config.rules) {
@@ -140,15 +141,17 @@ export const paymentProviderSelectionHandler: BehaviorHandler<PaymentProviderSel
       }
 
       // Specific employer IDs
-      if (conditions.employerIds && employerId) {
+      if (conditions.employerIds && typeof employerId === 'string') {
         if (!conditions.employerIds.includes(employerId)) {
           matches = false;
         }
       }
 
       // Form field condition
-      if (conditions.formField && conditions.formValues) {
-        const formValue = formResponses[0]?.responses[conditions.formField] as string;
+      if (conditions.formField && conditions.formValues && Array.isArray(formResponses)) {
+        const firstResponse = formResponses[0] as Record<string, unknown> | undefined;
+        const responses = firstResponse?.responses as Record<string, unknown> | undefined;
+        const formValue = responses?.[conditions.formField] as string;
         if (!conditions.formValues.includes(formValue)) {
           matches = false;
         }
@@ -156,7 +159,7 @@ export const paymentProviderSelectionHandler: BehaviorHandler<PaymentProviderSel
 
       // Product conditions
       if (conditions.productIds) {
-        const hasMatchingProduct = productIds.some((id: any) =>
+        const hasMatchingProduct = (productIds as string[]).some((id) =>
           conditions.productIds?.includes(id)
         );
         if (!hasMatchingProduct) {
@@ -165,8 +168,8 @@ export const paymentProviderSelectionHandler: BehaviorHandler<PaymentProviderSel
       }
 
       if (conditions.productSubtypes) {
-        const hasMatchingSubtype = productSubtypes.some((st: any) =>
-          conditions.productSubtypes?.includes(st as string)
+        const hasMatchingSubtype = (productSubtypes as string[]).some((st) =>
+          conditions.productSubtypes?.includes(st)
         );
         if (!hasMatchingSubtype) {
           matches = false;
@@ -174,11 +177,12 @@ export const paymentProviderSelectionHandler: BehaviorHandler<PaymentProviderSel
       }
 
       // Order amount conditions
-      if (conditions.minAmount && orderTotal < conditions.minAmount) {
+      const total = typeof orderTotal === 'number' ? orderTotal : 0;
+      if (conditions.minAmount && total < conditions.minAmount) {
         matches = false;
       }
 
-      if (conditions.maxAmount && orderTotal > conditions.maxAmount) {
+      if (conditions.maxAmount && total > conditions.maxAmount) {
         matches = false;
       }
 
@@ -216,7 +220,7 @@ export const paymentProviderSelectionHandler: BehaviorHandler<PaymentProviderSel
    * Validate configuration
    */
   validate: (config: PaymentProviderSelectionConfig, _context?: Partial<BehaviorContext>) => {
-    const errors: any[] = [];
+    const errors: Array<{ field: string; message: string; code: string; severity: "error" | "warning" }> = [];
 
     // Must have default providers
     if (!config.defaultProviders || config.defaultProviders.length === 0) {

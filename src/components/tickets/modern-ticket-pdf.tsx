@@ -7,7 +7,8 @@
  * Uses jsPDF for client-side PDF generation.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import Image from "next/image";
 import { Download, QrCode, Calendar, MapPin, Ticket } from "lucide-react";
 
 interface TicketData {
@@ -171,9 +172,11 @@ export function ModernTicketPDF({ ticketData }: { ticketData: TicketData }) {
           <div className="flex flex-col items-center justify-center space-y-6 bg-white/10 backdrop-blur-md rounded-2xl p-6">
             {/* QR Code */}
             <div className="bg-white p-4 rounded-2xl shadow-2xl">
-              <img
+              <Image
                 src={ticketData.qrCodeDataUrl}
                 alt="Ticket QR Code"
+                width={192}
+                height={192}
                 className="w-48 h-48"
               />
             </div>

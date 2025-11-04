@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Press_Start_2P } from "next/font/google";
 import { Providers } from "./providers";
 import { NotificationContainer } from "@/components/ui/notification-container";
@@ -23,7 +23,13 @@ const pressStart2P = Press_Start_2P({
 export const metadata: Metadata = {
   title: "L4YERCAK3 - Retro Desktop Podcast",
   description: "VC insights from Mecklenburg-Vorpommern, Germany. From '83 to L4YERCAK3.",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({

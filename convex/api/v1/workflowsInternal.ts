@@ -39,9 +39,10 @@ export const executeWorkflowInternal = internalMutation({
         .collect();
 
       const matchingWorkflow = workflows.find((w) => {
-        const customProps = w.customProperties as any;
+        const customProps = w.customProperties as Record<string, unknown> | undefined;
+        const execution = customProps?.execution as Record<string, unknown> | undefined;
         return (
-          customProps.execution?.triggerOn === args.trigger &&
+          execution?.triggerOn === args.trigger &&
           w.status === "active"
         );
       });
@@ -101,8 +102,8 @@ export const executeWorkflowInternal = internalMutation({
 
       // Execute workflow behaviors
       // This will trigger ticket generation, email sending, invoice creation, etc.
-      const customProps = matchingWorkflow.customProperties as any;
-      const behaviors = customProps.behaviors || [];
+      const customProps = matchingWorkflow.customProperties as Record<string, unknown> | undefined;
+      const behaviors = (customProps?.behaviors as Array<Record<string, unknown>>) || [];
 
       const behaviorResults = [];
 

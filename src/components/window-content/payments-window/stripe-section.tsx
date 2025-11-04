@@ -60,7 +60,6 @@ export function StripeSection({ organizationId, organization }: StripeSectionPro
 
   const stripeConnectId = stripeProvider?.accountId;
   const accountStatus = stripeProvider?.status;
-  const onboardingCompleted = stripeProvider?.metadata?.onboardingCompleted ?? false;
   const testMode = stripeProvider?.isTestMode ?? false;
 
   // Tax settings

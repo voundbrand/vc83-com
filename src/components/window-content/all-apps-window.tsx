@@ -1,7 +1,8 @@
 "use client";
 
+import React from "react";
 import { useAvailableApps } from "@/hooks/use-app-availability";
-import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
+import { useAuth } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
 import { useWindowManager } from "@/hooks/use-window-manager";
 import { PaymentsWindow } from "@/components/window-content/payments-window";
@@ -25,63 +26,11 @@ import { WorkflowsWindow } from "@/components/window-content/workflows-window";
  */
 export function AllAppsWindow() {
   const { isSignedIn } = useAuth();
-  const currentOrg = useCurrentOrganization();
   const { availableApps, isLoading, organizationName } = useAvailableApps();
   const { openWindow } = useWindowManager();
 
-  // Not signed in
-  if (!isSignedIn) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full p-8" style={{ background: 'var(--win95-bg)' }}>
-        <div className="text-center space-y-4">
-          <div className="text-4xl">🔒</div>
-          <h3 className="font-bold text-lg" style={{ color: 'var(--win95-text)' }}>
-            Sign In Required
-          </h3>
-          <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
-            Please sign in to view your installed applications.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Loading state
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-full" style={{ background: 'var(--win95-bg)' }}>
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 size={32} className="animate-spin" style={{ color: 'var(--win95-highlight)' }} />
-          <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
-            Loading applications...
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // No apps available
-  if (!availableApps || availableApps.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full p-8" style={{ background: 'var(--win95-bg)' }}>
-        <div className="text-center space-y-4">
-          <div className="text-4xl">📦</div>
-          <h3 className="font-bold text-lg" style={{ color: 'var(--win95-text)' }}>
-            No Apps Installed
-          </h3>
-          <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
-            {organizationName} has no applications installed yet.
-          </p>
-          <p className="text-xs mt-2" style={{ color: 'var(--neutral-gray)' }}>
-            Contact your administrator to install apps for your organization.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // App click handler - opens the app window
-  const handleAppClick = (appCode: string, appName: string) => {
+  // App click handler - opens the app window (must be defined before any returns)
+  const handleAppClick = React.useCallback((appCode: string, appName: string) => {
     // Map app codes to their window components and sizes
     const appWindowMap: Record<string, { component: React.ReactNode; width: number; height: number }> = {
       'payments': {
@@ -165,7 +114,7 @@ export function AllAppsWindow() {
         appName,
         <div className="flex items-center justify-center h-full" style={{ background: 'var(--win95-bg)' }}>
           <div className="text-center space-y-3">
-            <div className="text-5xl">{availableApps.find(a => a.code === appCode)?.icon || "📦"}</div>
+            <div className="text-5xl">{availableApps?.find(a => a.code === appCode)?.icon || "📦"}</div>
             <h3 className="font-bold" style={{ color: 'var(--win95-text)' }}>{appName}</h3>
             <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
               This application is coming soon!
@@ -176,7 +125,58 @@ export function AllAppsWindow() {
         { width: 600, height: 400 }
       );
     }
-  };
+  }, [openWindow, availableApps]);
+
+  // Not signed in
+  if (!isSignedIn) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-8" style={{ background: 'var(--win95-bg)' }}>
+        <div className="text-center space-y-4">
+          <div className="text-4xl">🔒</div>
+          <h3 className="font-bold text-lg" style={{ color: 'var(--win95-text)' }}>
+            Sign In Required
+          </h3>
+          <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
+            Please sign in to view your installed applications.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full" style={{ background: 'var(--win95-bg)' }}>
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 size={32} className="animate-spin" style={{ color: 'var(--win95-highlight)' }} />
+          <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
+            Loading applications...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // No apps available
+  if (!availableApps || availableApps.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-8" style={{ background: 'var(--win95-bg)' }}>
+        <div className="text-center space-y-4">
+          <div className="text-4xl">📦</div>
+          <h3 className="font-bold text-lg" style={{ color: 'var(--win95-text)' }}>
+            No Apps Installed
+          </h3>
+          <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
+            {organizationName} has no applications installed yet.
+          </p>
+          <p className="text-xs mt-2" style={{ color: 'var(--neutral-gray)' }}>
+            Contact your administrator to install apps for your organization.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full" style={{ background: 'var(--win95-bg)' }}>

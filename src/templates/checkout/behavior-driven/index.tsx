@@ -329,7 +329,6 @@ export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
         }
 
         // Determine next step
-        const invoiceInfo = behaviorResult ? getInvoiceMappingFromResults(behaviorResult) : null;
         const shouldSkipPayment = behaviorResult ? shouldSkipPaymentStep(behaviorResult) : false;
 
         const nextStep = getNextStep(currentStep, { shouldSkipPayment });
@@ -447,7 +446,7 @@ export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
         setIsProcessing(false);
       }
     },
-    [checkoutData, currentStep, config, executeBehaviors, checkoutSessionId, updateCheckoutSession]
+    [checkoutData, currentStep, config, executeBehaviors, checkoutSessionId, updateCheckoutSession, initiateInvoice, sessionId]
   );
 
   /**

@@ -7,7 +7,6 @@
 
 import { internalQuery } from "../../_generated/server";
 import { v } from "convex/values";
-import { Id } from "../../_generated/dataModel";
 
 /**
  * GET EVENTS INTERNAL
@@ -42,31 +41,34 @@ export const getEventsInternal = internalQuery({
 
     if (args.startDate) {
       events = events.filter((e) => {
-        const customProps = e.customProperties as any;
-        return customProps.startDate >= args.startDate!;
+        const customProps = e.customProperties as Record<string, unknown> | undefined;
+        return (customProps?.startDate as number | undefined) ?? 0 >= args.startDate!;
       });
     }
 
     if (args.endDate) {
       events = events.filter((e) => {
-        const customProps = e.customProperties as any;
-        return customProps.startDate <= args.endDate!;
+        const customProps = e.customProperties as Record<string, unknown> | undefined;
+        return (customProps?.startDate as number | undefined) ?? 0 <= args.endDate!;
       });
     }
 
     // Transform for API response (remove internal fields)
-    return events.map((event) => ({
-      id: event._id,
-      name: event.name,
-      description: event.description,
-      subtype: event.subtype,
-      status: event.status,
-      startDate: (event.customProperties as any).startDate,
-      endDate: (event.customProperties as any).endDate,
-      location: (event.customProperties as any).location,
-      capacity: (event.customProperties as any).capacity,
-      agenda: (event.customProperties as any).agenda,
-      metadata: (event.customProperties as any).metadata,
-    }));
+    return events.map((event) => {
+      const customProps = event.customProperties as Record<string, unknown> | undefined;
+      return {
+        id: event._id,
+        name: event.name,
+        description: event.description,
+        subtype: event.subtype,
+        status: event.status,
+        startDate: customProps?.startDate as number | undefined,
+        endDate: customProps?.endDate as number | undefined,
+        location: customProps?.location as string | undefined,
+        capacity: customProps?.capacity as number | undefined,
+        agenda: customProps?.agenda as string | undefined,
+        metadata: customProps?.metadata as Record<string, unknown> | undefined,
+      };
+    });
   },
 });

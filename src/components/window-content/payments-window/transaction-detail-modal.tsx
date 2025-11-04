@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery, useMutation, useAction } from "convex/react";
+import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import {
@@ -11,10 +10,7 @@ import {
   Package,
   Receipt,
   CreditCard,
-  MapPin,
-  FileText,
   Loader2,
-  Download,
 } from "lucide-react";
 
 interface TransactionDetailModalProps {
@@ -28,8 +24,6 @@ export function TransactionDetailModal({
   sessionId,
   onClose,
 }: TransactionDetailModalProps) {
-  const [isGenerating, setIsGenerating] = useState(false);
-
   // Get full transaction details (NEW: using actual transaction object)
   const transaction = useQuery(
     api.transactionOntology.getTransaction,
@@ -79,9 +73,9 @@ export function TransactionDetailModal({
   }
 
   // TODO: Implement invoice generation for new transaction system
-  const handleDownloadInvoice = async () => {
-    alert("Invoice generation coming soon!");
-  };
+  // const handleDownloadInvoice = async () => {
+  //   alert("Invoice generation coming soon!");
+  // };
 
   return (
     <div

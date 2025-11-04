@@ -4,7 +4,6 @@
 
 import { internalAction } from "../../_generated/server";
 import { v } from "convex/values";
-import { Id } from "../../_generated/dataModel";
 import { internal } from "../../_generated/api";
 
 /**
@@ -18,9 +17,9 @@ export const generateInvoicePdfInternal = internalAction({
   },
   handler: async (ctx, args): Promise<ArrayBuffer | null> => {
     // Get invoice data
-    const invoice: any = await ctx.runQuery(internal.invoicingOntology.getInvoiceByIdInternal, {
+    const invoice = await ctx.runQuery(internal.invoicingOntology.getInvoiceByIdInternal, {
       invoiceId: args.invoiceId,
-    });
+    }) as { _id: string; organizationId: string; status: string; customProperties?: Record<string, unknown> } | null;
 
     if (!invoice || invoice.organizationId !== args.organizationId) {
       return null;
@@ -29,9 +28,10 @@ export const generateInvoicePdfInternal = internalAction({
     // Generate PDF using existing PDF generation system
     // For now, return a placeholder
     // In production, call your actual PDF generation service
-    const dueDate = (invoice.customProperties as any)?.dueDate || Date.now();
-    const amount = (invoice.customProperties as any)?.amount || "TBD";
-    const paymentTerms = (invoice.customProperties as any)?.paymentTerms || "Net 30";
+    const customProps = invoice.customProperties as Record<string, unknown> | undefined;
+    const dueDate = (customProps?.dueDate as number) || Date.now();
+    const amount = (customProps?.amount as string | number) || "TBD";
+    const paymentTerms = (customProps?.paymentTerms as string) || "Net 30";
 
     const pdfContent = `
       INVOICE
@@ -55,7 +55,7 @@ export const generateInvoicePdfInternal = internalAction({
  * GET INVOICE FOR PDF
  * Internal query to get invoice data for PDF generation
  */
-export const getInvoiceForPdf: any = internalAction({
+export const getInvoiceForPdf = internalAction({
   args: {
     invoiceId: v.id("objects"),
     organizationId: v.id("organizations"),
@@ -67,20 +67,21 @@ export const getInvoiceForPdf: any = internalAction({
     amount: number;
     paymentTerms: string;
   } | null> => {
-    const invoice: any = await ctx.runQuery(internal.invoicingOntology.getInvoiceByIdInternal, {
+    const invoice = await ctx.runQuery(internal.invoicingOntology.getInvoiceByIdInternal, {
       invoiceId: args.invoiceId,
-    });
+    }) as { _id: string; organizationId: string; status: string; customProperties?: Record<string, unknown> } | null;
 
     if (!invoice || invoice.organizationId !== args.organizationId) {
       return null;
     }
 
+    const customProps = invoice.customProperties as Record<string, unknown> | undefined;
     return {
       id: invoice._id,
       status: invoice.status,
-      dueDate: (invoice.customProperties as any).dueDate,
-      amount: (invoice.customProperties as any).amount,
-      paymentTerms: (invoice.customProperties as any).paymentTerms,
+      dueDate: (customProps?.dueDate as number) || Date.now(),
+      amount: (customProps?.amount as number) || 0,
+      paymentTerms: (customProps?.paymentTerms as string) || "Net 30",
     };
   },
 });

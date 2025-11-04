@@ -11,7 +11,7 @@
  */
 
 import { v } from "convex/values";
-import { action, query, internalQuery, mutation, internalMutation } from "./_generated/server";
+import { action, query, internalQuery, internalMutation } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { getProviderByCode, getConnectedAccountId } from "./paymentProviders";
@@ -635,8 +635,6 @@ export const completeCheckoutAndFulfill = action({
       submittedAt: number;
     }> | undefined;
 
-    const totalAmount = (session.customProperties?.totalAmount as number) || 0;
-
     // ✅ CRITICAL: Extract behavior context from session
     const behaviorContext = session.customProperties?.behaviorContext as {
       invoiceMapping?: {
@@ -663,6 +661,10 @@ export const completeCheckoutAndFulfill = action({
         taxAmount: number;
         taxRate: number;
         taxDescription: string;
+      };
+      metadata?: {
+        isEmployerBilling?: boolean;
+        crmOrganizationId?: string;
       };
       allResults?: Array<{ type: string; success: boolean; data: unknown }>;
     } | undefined;
@@ -718,7 +720,7 @@ export const completeCheckoutAndFulfill = action({
       crmContactId = contactResult.contactId;
 
       // 🔥 FIRST: Check if employer-detection behavior already identified a CRM org
-      const behaviorMetadata = (behaviorContext as any)?.metadata;
+      const behaviorMetadata = behaviorContext?.metadata;
       const isEmployerBilling = behaviorMetadata?.isEmployerBilling === true;
       const employerOrgId = behaviorMetadata?.crmOrganizationId;
 
@@ -736,7 +738,7 @@ export const completeCheckoutAndFulfill = action({
         console.log("✅ [completeCheckoutAndFulfill] Using employer-detected CRM organization:", {
           crmOrganizationId,
           contactId: crmContactId,
-          employerFieldValue: behaviorMetadata?.employerFieldValue,
+          employerFieldValue: (behaviorMetadata as { employerFieldValue?: string })?.employerFieldValue,
         });
       }
 

@@ -11,8 +11,7 @@
  */
 
 import { httpAction } from "../../_generated/server";
-import { internal, api } from "../../_generated/api";
-import { Id } from "../../_generated/dataModel";
+import { internal } from "../../_generated/api";
 
 /**
  * GET EVENTS
@@ -64,7 +63,7 @@ export const getEvents = httpAction(async (ctx, request) => {
       );
     }
 
-    const { organizationId, userId } = authContext;
+    const { organizationId } = authContext;
 
     // 2. Parse query parameters
     const url = new URL(request.url);

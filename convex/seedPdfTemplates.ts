@@ -48,7 +48,7 @@ export const seedPdfTemplates = mutation({
 
       if (!existing) {
         // Create new template
-        const templateId = await ctx.db.insert("objects", {
+        await ctx.db.insert("objects", {
           organizationId: systemOrg._id,
           type: "template",
           subtype: "pdf",

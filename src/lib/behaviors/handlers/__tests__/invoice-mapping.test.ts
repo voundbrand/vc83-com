@@ -204,7 +204,7 @@ describe("Invoice Mapping Behavior", () => {
   });
 
   describe("apply", () => {
-    it("should create invoice action with mapped organization", () => {
+    it("should create invoice action with mapped organization", async () => {
       const config: InvoiceMappingConfig = {
         organizationSourceField: "employer",
         organizationMapping: {
@@ -223,7 +223,7 @@ describe("Invoice Mapping Behavior", () => {
         },
       };
 
-      const result = invoiceMappingHandler.apply(config, extracted, context);
+      const result = await invoiceMappingHandler.apply(config, extracted, context);
 
       expect(result.success).toBe(true);
       expect(result.data?.crmOrganizationId).toBe("org-123");
@@ -235,7 +235,7 @@ describe("Invoice Mapping Behavior", () => {
       expect(result.actions?.[0].when).toBe("deferred");
     });
 
-    it("should fail when mapping required but not found", () => {
+    it("should fail when mapping required but not found", async () => {
       const config: InvoiceMappingConfig = {
         organizationSourceField: "employer",
         organizationMapping: {},
@@ -252,14 +252,14 @@ describe("Invoice Mapping Behavior", () => {
         },
       };
 
-      const result = invoiceMappingHandler.apply(config, extracted, context);
+      const result = await invoiceMappingHandler.apply(config, extracted, context);
 
       expect(result.success).toBe(false);
       expect(result.errors).toBeDefined();
       expect(result.errors?.[0]).toContain("No CRM organization mapping found");
     });
 
-    it("should skip when mapping not required and not found", () => {
+    it("should skip when mapping not required and not found", async () => {
       const config: InvoiceMappingConfig = {
         organizationSourceField: "employer",
         organizationMapping: {},
@@ -276,14 +276,14 @@ describe("Invoice Mapping Behavior", () => {
         },
       };
 
-      const result = invoiceMappingHandler.apply(config, extracted, context);
+      const result = await invoiceMappingHandler.apply(config, extracted, context);
 
       expect(result.success).toBe(true);
       expect(result.skipped).toBe(true);
       expect(result.warnings).toBeDefined();
     });
 
-    it("should update context with invoice mapping data", () => {
+    it("should update context with invoice mapping data", async () => {
       const config: InvoiceMappingConfig = {
         organizationSourceField: "employer",
         organizationMapping: {
@@ -302,7 +302,7 @@ describe("Invoice Mapping Behavior", () => {
         },
       };
 
-      const result = invoiceMappingHandler.apply(config, extracted, context);
+      const result = await invoiceMappingHandler.apply(config, extracted, context);
 
       expect(result.modifiedContext?.workflowData?.billingOrganizationId).toBe(
         "org-123"
@@ -313,7 +313,7 @@ describe("Invoice Mapping Behavior", () => {
       expect(result.modifiedContext?.behaviorData?.invoice_mapping).toBeDefined();
     });
 
-    it("should use default payment terms when not specified", () => {
+    it("should use default payment terms when not specified", async () => {
       const config: InvoiceMappingConfig = {
         organizationSourceField: "employer",
         organizationMapping: {
@@ -331,7 +331,7 @@ describe("Invoice Mapping Behavior", () => {
         },
       };
 
-      const result = invoiceMappingHandler.apply(config, extracted, context);
+      const result = await invoiceMappingHandler.apply(config, extracted, context);
 
       expect(result.data?.paymentTerms).toBe("net30");
     });

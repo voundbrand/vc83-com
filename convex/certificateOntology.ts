@@ -1,5 +1,6 @@
 import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
+import type { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser, requirePermission } from "./rbacHelpers";
 import { internal } from "./_generated/api";
 
@@ -383,7 +384,7 @@ export const createCertificate = mutation({
     activityId: v.optional(v.string()),
     expirationMonths: v.optional(v.number()),
   },
-  handler: async (ctx, args): Promise<any> => {
+  handler: async (ctx, args): Promise<Id<"objects">> => {
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
     await requirePermission(ctx, userId, "issue_certificates", {

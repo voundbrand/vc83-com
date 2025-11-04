@@ -23,14 +23,12 @@ import {
   CheckoutSessionParams,
   CheckoutSessionResult,
   PaymentVerificationResult,
-  InvoiceParams,
   InvoiceResult,
   InvoiceSendResult,
   ProviderWebhookEvent,
   WebhookHandlingResult,
   AccountConnectionError,
   PaymentProcessingError,
-  WebhookVerificationError,
 } from "./types";
 
 // =========================================
@@ -399,7 +397,7 @@ export class StripeConnectProvider implements IPaymentProvider {
    *
    * NOT YET IMPLEMENTED - Will use Stripe Invoicing API
    */
-  async createInvoice(params: InvoiceParams): Promise<InvoiceResult> {
+  async createInvoice(): Promise<InvoiceResult> {
     throw new Error("Stripe invoicing not yet implemented");
   }
 
@@ -408,7 +406,7 @@ export class StripeConnectProvider implements IPaymentProvider {
    *
    * NOT YET IMPLEMENTED
    */
-  async sendInvoice(invoiceId: string): Promise<InvoiceSendResult> {
+  async sendInvoice(): Promise<InvoiceSendResult> {
     throw new Error("Stripe invoicing not yet implemented");
   }
 
@@ -417,7 +415,7 @@ export class StripeConnectProvider implements IPaymentProvider {
    *
    * NOT YET IMPLEMENTED
    */
-  async markInvoiceAsPaid(invoiceId: string): Promise<void> {
+  async markInvoiceAsPaid(): Promise<void> {
     throw new Error("Stripe invoicing not yet implemented");
   }
 

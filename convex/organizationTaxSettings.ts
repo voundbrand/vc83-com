@@ -335,7 +335,7 @@ export const updateTaxSettings = mutation({
       .filter((q) => q.eq(q.field("subtype"), "tax"))
       .first();
 
-    const { sessionId, organizationId, ...updates } = args;
+    const { organizationId, ...updates } = args;
 
     if (existingSettings) {
       // Update existing settings
@@ -421,7 +421,7 @@ export const createTaxRegistration = mutation({
       throw new Error(`Tax registration already exists for ${args.jurisdictionName}`);
     }
 
-    const { sessionId, organizationId, jurisdiction, ...registrationData } = args;
+    const { organizationId, jurisdiction, ...registrationData } = args;
 
     return await ctx.db.insert("objects", {
       organizationId,
@@ -478,7 +478,7 @@ export const updateTaxRegistration = mutation({
       organizationId: registration.organizationId
     });
 
-    const { sessionId, registrationId, status, ...updates } = args;
+    const { registrationId, status, ...updates } = args;
 
     const patch: Partial<typeof registration> = {
       updatedAt: Date.now(),

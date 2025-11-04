@@ -74,13 +74,13 @@ export const stripePaymentHandler: BehaviorHandler<StripePaymentConfig> = {
    */
   extract: (
     config: StripePaymentConfig,
-    inputs: any[],
+    inputs: Array<{ type: string; data: unknown }>,
     context: Readonly<BehaviorContext>
   ) => {
     const { organizationId, workflowData = {}, objects = [] } = context;
 
     // Get customer info from workflow data
-    const customerInfo = workflowData.customerInfo as any;
+    const customerInfo = workflowData.customerInfo as Record<string, unknown> | undefined;
 
     // Get order details from workflow data
     const totalAmount = (workflowData.totalPrice as number) || 0;
@@ -100,16 +100,16 @@ export const stripePaymentHandler: BehaviorHandler<StripePaymentConfig> = {
     // Build metadata
     const metadata: Record<string, string> = {
       organizationId: organizationId.toString(),
-      customerEmail: customerInfo?.email || "",
-      customerName: customerInfo?.name || "",
+      customerEmail: (customerInfo?.email as string) || "",
+      customerName: (customerInfo?.name as string) || "",
       ...(config.customMetadata || {}),
     };
 
     // Add B2B metadata
     if (customerInfo?.transactionType === "B2B") {
       metadata.transactionType = "B2B";
-      metadata.companyName = customerInfo?.companyName || "";
-      metadata.vatNumber = customerInfo?.vatNumber || "";
+      metadata.companyName = (customerInfo?.companyName as string) || "";
+      metadata.vatNumber = (customerInfo?.vatNumber as string) || "";
     }
 
     // Add product info from objects
@@ -134,9 +134,10 @@ export const stripePaymentHandler: BehaviorHandler<StripePaymentConfig> = {
    */
   apply: (
     config: StripePaymentConfig,
-    extractedData: any,
+    extractedData: unknown,
     context: Readonly<BehaviorContext>
-  ): BehaviorResult<any> => {
+  ): BehaviorResult<unknown> => {
+    const data = extractedData as Record<string, unknown>;
     const {
       customerInfo,
       totalAmount,
@@ -144,12 +145,13 @@ export const stripePaymentHandler: BehaviorHandler<StripePaymentConfig> = {
       taxCalculation,
       billingAddress,
       metadata,
-    } = extractedData;
+    } = data;
 
     // Build payment intent parameters
-    const paymentIntentParams: Record<string, any> = {
+    const currencyStr = typeof currency === 'string' ? currency : 'USD';
+    const paymentIntentParams: Record<string, unknown> = {
       amount: totalAmount,
-      currency: currency.toLowerCase(),
+      currency: currencyStr.toLowerCase(),
       metadata,
     };
 
@@ -177,11 +179,12 @@ export const stripePaymentHandler: BehaviorHandler<StripePaymentConfig> = {
     };
 
     // Build billing details to collect
+    const custInfo = customerInfo as Record<string, unknown> | undefined;
     const billingDetailsToCollect = {
       name: config.collectBillingDetails?.name ?? true,
       email: config.collectBillingDetails?.email ?? true,
       phone: config.collectBillingDetails?.phone ?? false,
-      address: config.collectBillingDetails?.address ?? (customerInfo?.transactionType === "B2B"),
+      address: config.collectBillingDetails?.address ?? (custInfo?.transactionType === "B2B"),
     };
 
     const result = {

@@ -702,7 +702,6 @@ function IconInput({
 function EventLinkInput({
   field,
   value,
-  onChange,
   content,
   onContentChange,
 }: {

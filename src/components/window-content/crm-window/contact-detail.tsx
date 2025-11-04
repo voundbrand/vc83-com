@@ -91,7 +91,6 @@ export function ContactDetail({ contactId }: ContactDetailProps) {
             <span className="text-xs font-pixel text-purple-700">ORGANIZATION</span>
           </div>
           {organizations.map((org) => {
-            const orgProps = org.customProperties || {}
             const relationship = org.relationship || {}
             return (
               <div key={org._id} className="space-y-1">

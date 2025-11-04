@@ -436,7 +436,6 @@ async function renderB2BConsolidated(
   context: any
 ): Promise<string> {
   const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
 
   // Header - "CONSOLIDATED INVOICE"
   doc.setFontSize(22);
@@ -571,7 +570,6 @@ async function renderB2BConsolidatedDetailed(
   context: any
 ): Promise<string> {
   const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
 
   // Similar to consolidated but with sub-items shown
   // Header

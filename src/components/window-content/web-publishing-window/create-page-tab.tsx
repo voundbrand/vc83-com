@@ -8,7 +8,6 @@ import { Loader2, AlertCircle, FileText, ExternalLink, Check, ChevronDown, Chevr
 import { Id } from "../../../../convex/_generated/dataModel";
 import { getTemplateSchema, getTemplateComponent, getTheme } from "@/templates/registry";
 import { DynamicFormGenerator } from "./template-content-forms/dynamic-form-generator";
-import type { LandingPageContent } from "@/templates/web/landing-page/schema";
 
 /**
  * Deep merge two objects

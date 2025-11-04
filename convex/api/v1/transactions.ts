@@ -59,7 +59,7 @@ export const getTransaction = httpAction(async (ctx, request) => {
       );
     }
 
-    const { organizationId, userId } = authContext;
+    const { organizationId } = authContext;
 
     // 2. Extract transaction ID from URL
     const url = new URL(request.url);

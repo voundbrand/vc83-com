@@ -160,7 +160,6 @@ export function ProductForm({
 
   const createProduct = useMutation(api.productOntology.createProduct);
   const updateProduct = useMutation(api.productOntology.updateProduct);
-  const linkFormToTicket = useMutation(api.formsOntology.linkFormToTicket);
   const unlinkFormFromProduct = useMutation(api.productOntology.unlinkFormFromProduct);
 
   // Get events for dropdown (only if Events app is available)

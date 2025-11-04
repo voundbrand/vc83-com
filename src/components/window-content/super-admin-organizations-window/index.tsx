@@ -7,8 +7,7 @@ import { OrganizationsListTab } from "./organizations-list-tab";
 import { AppAvailabilityTab } from "./app-availability-tab";
 import { TemplatesTab } from "./templates-tab";
 import { useTranslation } from "@/contexts/translation-context";
-import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
-import { Id } from "../../../../convex/_generated/dataModel";
+import { useCurrentOrganization } from "@/hooks/use-auth";
 
 /**
  * Organizations Window - Tabbed Interface for Organization Management
@@ -25,9 +24,6 @@ type TabType = "list" | "create" | "app-availability" | "templates";
 export function OrganizationsWindow() {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabType>("list");
-  const { sessionId } = useAuth();
-  const currentOrganization = useCurrentOrganization();
-  const organizationId = currentOrganization?.id;
 
   return (
     <div className="flex flex-col h-full" style={{ background: 'var(--win95-bg)' }}>

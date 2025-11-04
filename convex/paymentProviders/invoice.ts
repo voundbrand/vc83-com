@@ -366,9 +366,10 @@ export const initiateInvoicePayment = action({
 
 /**
  * Helper: Prepare invoice data for PDF template
+ * NOTE: Currently unused but kept for potential future PDF generation features
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function prepareInvoiceTemplateData(invoice: Doc<"objects">): Record<string, any> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function prepareInvoiceTemplateData(invoice: Doc<"objects">): Record<string, unknown> {
   const props = invoice.customProperties || {};
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const billTo = props.billTo as any;
@@ -441,7 +442,7 @@ export class InvoicePaymentProvider implements IPaymentProvider {
   // ACCOUNT CONNECTION (Not Applicable)
   // =========================================
 
-  async startAccountConnection(_params: ConnectionParams): Promise<ConnectionResult> {
+  async startAccountConnection(): Promise<ConnectionResult> {
     // No setup needed for invoice provider - it's always available
     return {
       accountId: "invoice-system",
@@ -450,7 +451,7 @@ export class InvoicePaymentProvider implements IPaymentProvider {
     };
   }
 
-  async getAccountStatus(_accountId: string): Promise<AccountStatus> {
+  async getAccountStatus(): Promise<AccountStatus> {
     return {
       accountId: "invoice-system",
       status: "active",
@@ -460,11 +461,11 @@ export class InvoicePaymentProvider implements IPaymentProvider {
     };
   }
 
-  async refreshAccountStatus(accountId: string): Promise<AccountStatus> {
-    return this.getAccountStatus(accountId);
+  async refreshAccountStatus(): Promise<AccountStatus> {
+    return this.getAccountStatus();
   }
 
-  async disconnectAccount(_accountId: string): Promise<void> {
+  async disconnectAccount(): Promise<void> {
     // No-op - invoice provider is always available
   }
 
@@ -472,7 +473,7 @@ export class InvoicePaymentProvider implements IPaymentProvider {
   // CHECKOUT (Creates Invoice Instead)
   // =========================================
 
-  async createCheckoutSession(params: CheckoutSessionParams): Promise<CheckoutSessionResult> {
+  async createCheckoutSession(): Promise<CheckoutSessionResult> {
     // For invoice provider, "checkout" means creating an invoice
     // The actual invoice creation happens in initiateInvoicePayment action
     // This just returns session info
@@ -507,17 +508,17 @@ export class InvoicePaymentProvider implements IPaymentProvider {
   // INVOICING (Primary Functionality)
   // =========================================
 
-  async createInvoice(_params: InvoiceParams): Promise<InvoiceResult> {
+  async createInvoice(): Promise<InvoiceResult> {
     // This method is for future Stripe/PayPal invoicing
     // For our invoice provider, invoicing happens via initiateInvoicePayment action
     throw new Error("Invoice provider uses initiateInvoicePayment action instead");
   }
 
-  async sendInvoice(_invoiceId: string): Promise<InvoiceSendResult> {
+  async sendInvoice(): Promise<InvoiceSendResult> {
     throw new Error("Invoice provider uses existing invoicing system");
   }
 
-  async markInvoiceAsPaid(_invoiceId: string): Promise<void> {
+  async markInvoiceAsPaid(): Promise<void> {
     throw new Error("Invoice provider uses existing invoicing system");
   }
 
@@ -525,14 +526,14 @@ export class InvoicePaymentProvider implements IPaymentProvider {
   // WEBHOOKS (Not Applicable)
   // =========================================
 
-  async handleWebhook(_event: ProviderWebhookEvent): Promise<WebhookHandlingResult> {
+  async handleWebhook(): Promise<WebhookHandlingResult> {
     return {
       success: true,
       message: "Invoice provider does not use webhooks",
     };
   }
 
-  verifyWebhookSignature(_payload: string, _signature: string): boolean {
+  verifyWebhookSignature(): boolean {
     return false; // No webhook signature verification needed
   }
 }

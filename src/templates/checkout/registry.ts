@@ -13,7 +13,6 @@ import { MultiStepCheckout } from "@/components/checkout/multi-step-checkout";
 import { ticketCheckoutSchema } from "./ticket-checkout/schema";
 import { BehaviorDrivenCheckout } from "./behavior-driven";
 import { behaviorDrivenSchema } from "./behavior-driven/schema";
-import type { Id } from "../../../convex/_generated/dataModel";
 
 /**
  * Template Registration Entry

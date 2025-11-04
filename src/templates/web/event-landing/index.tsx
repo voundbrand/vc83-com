@@ -8,6 +8,7 @@
 "use client";
 
 import { useMemo } from "react";
+import Image from "next/image";
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
@@ -198,10 +199,12 @@ export function EventLandingTemplate({
               {(content.hero.videoUrl || content.hero.imageUrl) && (
                 <div className={styles.heroBackground}>
                   {mergedContent.hero.imageUrl && (
-                    <img
+                    <Image
                       src={mergedContent.hero.imageUrl}
                       alt="Event"
+                      fill
                       className={styles.heroBackgroundImage}
+                      priority
                     />
                   )}
                 </div>
@@ -380,9 +383,11 @@ export function EventLandingTemplate({
                   {mergedContent.speakers.speakers.map((speaker) => (
                     <div key={speaker.id} className={styles.speakerCard}>
                       <div className={styles.speakerImageWrapper}>
-                        <img
+                        <Image
                           src={speaker.imageUrl}
                           alt={speaker.name}
+                          width={200}
+                          height={200}
                           className={styles.speakerImage}
                         />
                       </div>
@@ -479,9 +484,11 @@ export function EventLandingTemplate({
 
                       <div className={styles.testimonialAuthor}>
                         {testimonial.imageUrl && (
-                          <img
+                          <Image
                             src={testimonial.imageUrl}
                             alt={testimonial.author}
+                            width={60}
+                            height={60}
                             className={styles.testimonialImage}
                           />
                         )}

@@ -23,10 +23,16 @@ export const executeBehavior = action({
     sessionId: v.string(),
     organizationId: v.id("organizations"),
     behaviorType: v.string(),
-    config: v.any(), // Behavior-specific config
-    context: v.optional(v.any()), // Workflow context
+    config: v.any(), // Behavior-specific config - intentionally flexible for different behavior types
+    context: v.optional(v.any()), // Workflow context - intentionally flexible for different workflows
   },
-  handler: async (ctx, args): Promise<{ success: boolean; error?: string; message?: string; [key: string]: any }> => {
+  handler: async (ctx, args): Promise<{
+    success: boolean;
+    error?: string;
+    message?: string;
+    data?: unknown;
+    actions?: Array<{ type: string; payload: unknown; priority?: number; when?: string }>;
+  }> => {
     console.log(`🔧 Executing behavior: ${args.behaviorType}`);
 
     try {
@@ -106,16 +112,28 @@ export const executeBehaviors = action({
     behaviors: v.array(
       v.object({
         type: v.string(),
-        config: v.any(),
+        config: v.any(), // Behavior-specific config - intentionally flexible
         priority: v.optional(v.number()),
       })
     ),
-    context: v.optional(v.any()),
+    context: v.optional(v.any()), // Workflow context - intentionally flexible
     continueOnError: v.optional(v.boolean()),
     workflowId: v.optional(v.id("objects")),
     workflowName: v.optional(v.string()),
   },
-  handler: async (ctx, args): Promise<{ success: boolean; results: any[]; executedCount: number; totalCount: number; executionId?: Id<"workflowExecutionLogs"> }> => {
+  handler: async (ctx, args): Promise<{
+    success: boolean;
+    results: Array<{
+      behaviorType: string;
+      success: boolean;
+      error?: string;
+      message?: string;
+      data?: unknown;
+    }>;
+    executedCount: number;
+    totalCount: number;
+    executionId?: Id<"workflowExecutionLogs">;
+  }> => {
     console.log(`🔧 Executing ${args.behaviors.length} behaviors`);
 
     // Create execution log entry
@@ -142,7 +160,13 @@ export const executeBehaviors = action({
     // Sort by priority (highest first)
     const sortedBehaviors = [...args.behaviors].sort((a, b) => (b.priority || 0) - (a.priority || 0));
 
-    const results: any[] = [];
+    const results: Array<{
+      behaviorType: string;
+      success: boolean;
+      error?: string;
+      message?: string;
+      data?: unknown;
+    }> = [];
     let allSuccess = true;
 
     for (const behavior of sortedBehaviors) {
@@ -154,7 +178,7 @@ export const executeBehaviors = action({
         });
       }
 
-      const result: any = await ctx.runAction(api.workflows.behaviorExecutor.executeBehavior, {
+      const result = await ctx.runAction(api.workflows.behaviorExecutor.executeBehavior, {
         sessionId: args.sessionId,
         organizationId: args.organizationId,
         behaviorType: behavior.type,

@@ -4,7 +4,6 @@
 
 import { internalQuery } from "../../_generated/server";
 import { v } from "convex/values";
-import { Id } from "../../_generated/dataModel";
 
 /**
  * GET TRANSACTION INTERNAL
@@ -28,7 +27,7 @@ export const getTransactionInternal = internalQuery({
       return null;
     }
 
-    const customProps = transaction.customProperties as any;
+    const customProps = transaction.customProperties as Record<string, unknown> | undefined;
 
     // Get linked tickets
     const ticketLinks = await ctx.db
@@ -41,12 +40,12 @@ export const getTransactionInternal = internalQuery({
     for (const link of ticketLinks) {
       const ticket = await ctx.db.get(link.toObjectId);
       if (ticket) {
-        const ticketProps = ticket.customProperties as any;
+        const ticketProps = ticket.customProperties as Record<string, unknown> | undefined;
         tickets.push({
           id: ticket._id,
           status: ticket.status,
-          qrCode: ticketProps?.qrCode,
-          registrationData: ticketProps?.registrationData,
+          qrCode: ticketProps?.qrCode as string | undefined,
+          registrationData: ticketProps?.registrationData as Record<string, unknown> | undefined,
         });
       }
     }
@@ -62,11 +61,11 @@ export const getTransactionInternal = internalQuery({
     for (const link of invoiceLinks) {
       const invoice = await ctx.db.get(link.toObjectId);
       if (invoice) {
-        const invoiceProps = invoice.customProperties as any;
+        const invoiceProps = invoice.customProperties as Record<string, unknown> | undefined;
         invoices.push({
           id: invoice._id,
           status: invoice.status,
-          dueDate: invoiceProps?.dueDate,
+          dueDate: invoiceProps?.dueDate as number | undefined,
         });
       }
     }
@@ -77,9 +76,9 @@ export const getTransactionInternal = internalQuery({
       status: transaction.status,
       name: transaction.name,
       description: transaction.description,
-      createdAt: customProps.createdAt,
-      source: customProps.source,
-      trigger: customProps.trigger,
+      createdAt: customProps?.createdAt as number | undefined,
+      source: customProps?.source as string | undefined,
+      trigger: customProps?.trigger as string | undefined,
       tickets,
       invoices,
     };

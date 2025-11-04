@@ -11,8 +11,6 @@ import {
   CreateSessionOptions,
   SessionValidationResult,
   ProviderMetadata,
-  ProviderError,
-  ProviderErrorType,
 } from "./types";
 import { CheckoutSession, PaymentResult } from "../../templates/checkout/core/types";
 
@@ -53,7 +51,7 @@ export class ManualPaymentProvider implements IPaymentProvider {
     console.log("Payment Instructions:", this.getPaymentInstructions());
   }
 
-  async validateSession(sessionId: string): Promise<SessionValidationResult> {
+  async validateSession(): Promise<SessionValidationResult> {
     // For manual provider, validation must be done manually by admin
     return {
       valid: false,
@@ -61,7 +59,7 @@ export class ManualPaymentProvider implements IPaymentProvider {
     };
   }
 
-  async getPaymentResult(sessionId: string): Promise<PaymentResult> {
+  async getPaymentResult(): Promise<PaymentResult> {
     return {
       success: false,
       error: "Manual payment verification required",

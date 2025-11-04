@@ -20,7 +20,7 @@ interface CheckoutTemplatesTabProps {
   onCreateNew?: () => void;
 }
 
-export function CheckoutTemplatesTab({ onCreateNew }: CheckoutTemplatesTabProps) {
+export function CheckoutTemplatesTab({}: CheckoutTemplatesTabProps) {
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
 

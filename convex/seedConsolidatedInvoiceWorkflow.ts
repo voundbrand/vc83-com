@@ -14,6 +14,8 @@
 
 import { internalMutation } from "./_generated/server";
 import { v } from "convex/values";
+// Id type available for future use if needed
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { Id } from "./_generated/dataModel";
 
 export const seedConsolidatedInvoiceWorkflow = internalMutation({

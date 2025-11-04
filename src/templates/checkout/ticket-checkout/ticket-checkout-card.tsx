@@ -38,7 +38,6 @@ export interface TicketCheckoutCardProps {
 export function TicketCheckoutCard({
   tickets,
   theme,
-  onCheckout,
   maxTicketsPerOrder = 10,
 }: TicketCheckoutCardProps) {
   // Track quantities for each ticket type
@@ -71,7 +70,7 @@ export function TicketCheckoutCard({
 
   const currency = tickets[0]?.currency || 'USD';
 
-  const handleCheckout = () => {
+  const handleCheckout = React.useCallback(() => {
     if (lineItems.length === 0) return;
 
     // For now, redirect to first ticket's checkout URL with quantities as query params
@@ -81,7 +80,7 @@ export function TicketCheckoutCard({
       // TODO: Pass multiple ticket quantities to checkout
       window.location.href = checkoutUrl;
     }
-  };
+  }, [lineItems]);
 
   if (tickets.length === 0) {
     return null;

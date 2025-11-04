@@ -23,12 +23,12 @@ describe("BehaviorRegistry", () => {
     type: "test_behavior",
     name: "Test Behavior",
     description: "A test behavior for unit tests",
-    extract: (config: any, inputs, context) => {
+    extract: (config: Record<string, unknown>, inputs: InputSource[], context: BehaviorContext) => {
       const formInput = inputs.find((i) => i.type === "form");
       if (!formInput) return null;
-      return { value: formInput.data.testField };
+      return { value: (formInput.data as Record<string, unknown>).testField };
     },
-    apply: (config: any, extracted: any, context) => {
+    apply: (config: Record<string, unknown>, extracted: Record<string, unknown>, context: BehaviorContext) => {
       return {
         success: true,
         data: { processed: extracted.value },
@@ -41,7 +41,7 @@ describe("BehaviorRegistry", () => {
         ],
       };
     },
-    validate: (config: any) => {
+    validate: (config: Record<string, unknown>) => {
       if (!config.requiredField) {
         return [
           {
@@ -53,7 +53,7 @@ describe("BehaviorRegistry", () => {
       }
       return [];
     },
-  } as any;
+  } as BehaviorHandler;
 
   beforeEach(() => {
     registry = new BehaviorRegistry();
@@ -141,15 +141,18 @@ describe("BehaviorRegistry", () => {
       };
 
       const context: BehaviorContext = {
+        organizationId: "testOrg" as any,
+        workflow: "test",
+        objects: [],
         inputs: [
           {
             type: "form",
             data: { testField: "test-value" },
-            metadata: {},
+            metadata: {
+              timestamp: Date.now(),
+            },
           },
         ],
-        availableData: {},
-        metadata: {},
       };
 
       const result = await registry.execute(behavior, context);
@@ -195,15 +198,16 @@ describe("BehaviorRegistry", () => {
       };
 
       const context: BehaviorContext = {
+        organizationId: "testOrg" as any,
+        workflow: "test",
+        objects: [],
         inputs: [],
-        availableData: {},
-        metadata: {},
       };
 
       const result = await registry.execute(behavior, context);
 
       expect(result.success).toBe(false);
-      expect(result.error?.code).toBe("unknown_behavior");
+      expect(result.errors?.[0]).toContain("unknown_behavior");
     });
 
     it("should return error for invalid config", async () => {
@@ -213,15 +217,16 @@ describe("BehaviorRegistry", () => {
       };
 
       const context: BehaviorContext = {
+        organizationId: "testOrg" as any,
+        workflow: "test",
+        objects: [],
         inputs: [],
-        availableData: {},
-        metadata: {},
       };
 
       const result = await registry.execute(behavior, context);
 
       expect(result.success).toBe(false);
-      expect(result.error?.code).toBe("validation_failed");
+      expect(result.errors?.[0]).toContain("validation_failed");
     });
   });
 
@@ -254,15 +259,18 @@ describe("BehaviorRegistry", () => {
       ];
 
       const context: BehaviorContext = {
+        organizationId: "testOrg" as any,
+        workflow: "test",
+        objects: [],
         inputs: [
           {
             type: "form",
             data: { testField: "test-value" },
-            metadata: {},
+            metadata: {
+              timestamp: Date.now(),
+            },
           },
         ],
-        availableData: {},
-        metadata: {},
       };
 
       const result = await registry.executeMany(behaviors, context);
@@ -279,9 +287,10 @@ describe("BehaviorRegistry", () => {
       ];
 
       const context: BehaviorContext = {
+        organizationId: "testOrg" as any,
+        workflow: "test",
+        objects: [],
         inputs: [],
-        availableData: {},
-        metadata: {},
       };
 
       const result = await registry.executeMany(behaviors, context);
@@ -296,15 +305,18 @@ describe("BehaviorRegistry", () => {
       ];
 
       const context: BehaviorContext = {
+        organizationId: "testOrg" as any,
+        workflow: "test",
+        objects: [],
         inputs: [
           {
             type: "form",
             data: { testField: "test-value" },
-            metadata: {},
+            metadata: {
+              timestamp: Date.now(),
+            },
           },
         ],
-        availableData: {},
-        metadata: {},
       };
 
       const result = await registry.executeMany(behaviors, context);
@@ -372,9 +384,10 @@ describe("BehaviorRegistry", () => {
       ];
 
       const context: BehaviorContext = {
+        organizationId: "testOrg" as any,
+        workflow: "test",
+        objects: [],
         inputs: [],
-        availableData: {},
-        metadata: {},
       };
 
       const { result, batches } =
@@ -415,15 +428,18 @@ describe("BehaviorRegistry", () => {
       };
 
       const context: BehaviorContext = {
+        organizationId: "testOrg" as any,
+        workflow: "test",
+        objects: [],
         inputs: [
           {
             type: "form",
             data: { testField: "test-value" },
-            metadata: {},
+            metadata: {
+              timestamp: Date.now(),
+            },
           },
         ],
-        availableData: {},
-        metadata: {},
       };
 
       const result = await executeBehaviorsFromObject(object, context);
@@ -436,9 +452,10 @@ describe("BehaviorRegistry", () => {
       const object = {};
 
       const context: BehaviorContext = {
+        organizationId: "testOrg" as any,
+        workflow: "test",
+        objects: [],
         inputs: [],
-        availableData: {},
-        metadata: {},
       };
 
       const result = await executeBehaviorsFromObject(object, context);

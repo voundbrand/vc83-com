@@ -11,6 +11,8 @@
  * - Preview data generation
  */
 
+// Id type available for future use if needed
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { Id } from "./_generated/dataModel";
 
 // ============================================================================

@@ -3,7 +3,7 @@
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id, Doc } from "../../../../convex/_generated/dataModel";
-import { Edit2, Trash2, CheckCircle, Loader2, User, ArrowUpDown } from "lucide-react";
+import { Edit2, Trash2, CheckCircle, Loader2, User } from "lucide-react";
 import { useState, useMemo } from "react";
 import { TicketDetailModal } from "./ticket-detail-modal";
 

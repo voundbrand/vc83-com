@@ -6,7 +6,6 @@
 
 import { internalQuery } from "../../_generated/server";
 import { v } from "convex/values";
-import { Id } from "../../_generated/dataModel";
 
 /**
  * GET PRODUCT INTERNAL
@@ -30,7 +29,7 @@ export const getProductInternal = internalQuery({
       return null;
     }
 
-    const customProps = product.customProperties as any;
+    const customProps = product.customProperties as Record<string, unknown> | undefined;
 
     // Get linked form if exists
     const formLinks = await ctx.db
@@ -49,13 +48,13 @@ export const getProductInternal = internalQuery({
       subtype: product.subtype,
       status: product.status,
       pricing: {
-        basePrice: customProps.basePrice || 0,
-        currency: customProps.currency || "EUR",
-        taxInclusive: customProps.taxInclusive || false,
-        taxRate: customProps.taxRate || 0,
+        basePrice: (customProps?.basePrice as number) || 0,
+        currency: (customProps?.currency as string) || "EUR",
+        taxInclusive: (customProps?.taxInclusive as boolean) || false,
+        taxRate: (customProps?.taxRate as number) || 0,
       },
-      metadata: customProps.metadata || {},
-      invoiceConfig: customProps.invoiceConfig || null,
+      metadata: (customProps?.metadata as Record<string, unknown>) || {},
+      invoiceConfig: (customProps?.invoiceConfig as Record<string, unknown>) || null,
       linkedFormId,
     };
   },

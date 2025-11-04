@@ -66,7 +66,7 @@ export const getForm = httpAction(async (ctx, request) => {
       );
     }
 
-    const { organizationId, userId } = authContext;
+    const { organizationId } = authContext;
 
     // 2. Extract form ID from URL
     const url = new URL(request.url);

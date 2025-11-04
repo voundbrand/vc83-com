@@ -15,7 +15,6 @@
 
 import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
-import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser, requirePermission } from "./rbacHelpers";
 import { translateObject, translateObjects } from "./translationResolver";
 

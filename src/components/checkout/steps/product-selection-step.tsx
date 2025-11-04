@@ -7,7 +7,7 @@
  * Shows line item display with order summary and tax calculation.
  */
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { Check, ShoppingCart } from "lucide-react";
 import { CheckoutProduct } from "@/templates/checkout/types";
 import { Id } from "../../../../convex/_generated/dataModel";
@@ -195,7 +195,7 @@ export function ProductSelectionStep({
   /**
    * Get features list from product
    */
-  const getFeatures = (): string[] => {
+  const getFeatures = React.useCallback((): string[] => {
     // You can customize this based on your product data structure
     return [
       "Access to all sessions",
@@ -204,7 +204,7 @@ export function ProductSelectionStep({
       "Swag bag",
       "Recording access",
     ];
-  };
+  }, []);
 
   return (
     <div className={styles.stepContainer}>
@@ -383,7 +383,7 @@ export function ProductSelectionStep({
 
               // If only one tax rate, show single line
               if (taxEntries.length === 1) {
-                const [rateStr, { rate }] = taxEntries[0];
+                const [rateStr] = taxEntries[0];
                 return (
                   <div className={styles.priceRow}>
                     <span className={styles.priceLabel}>

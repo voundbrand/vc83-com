@@ -48,7 +48,6 @@ export interface CheckoutCoreState {
  */
 export function CheckoutCore({
   items,
-  organizationId,
   theme,
   config = {},
   callbacks = {},
@@ -96,25 +95,27 @@ export function CheckoutCore({
   }, [items]);
 
   // Handlers
-  const handleItemSelect = (index: number) => {
+  const handleItemSelect = React.useCallback((index: number) => {
     setSelectedItemIndex(index);
     callbacks.onItemSelect?.(items[index]);
-  };
+  }, [items, callbacks]);
 
-  const handleQuantityChange = (itemIndex: number, newQuantity: number) => {
+  const handleQuantityChange = React.useCallback((itemIndex: number, newQuantity: number) => {
     const clampedQuantity = Math.max(
       checkoutConfig.minQuantity || 1,
       Math.min(checkoutConfig.maxQuantity || 99, newQuantity)
     );
 
-    const newQuantities = [...quantities];
-    newQuantities[itemIndex] = clampedQuantity;
-    setQuantities(newQuantities);
+    setQuantities((prevQuantities) => {
+      const newQuantities = [...prevQuantities];
+      newQuantities[itemIndex] = clampedQuantity;
+      return newQuantities;
+    });
 
     callbacks.onQuantityChange?.(clampedQuantity);
-  };
+  }, [checkoutConfig.minQuantity, checkoutConfig.maxQuantity, callbacks]);
 
-  const handleCheckout = async () => {
+  const handleCheckout = React.useCallback(async () => {
     // Validate items
     if (!validation.valid) {
       setError({
@@ -145,18 +146,13 @@ export function CheckoutCore({
     } finally {
       setIsProcessing(false);
     }
-  };
+  }, [validation.valid, validation.errors, quantities, selectedItemIndex, items, callbacks]);
 
   // Apply theme styles
   const containerStyle: React.CSSProperties = {
     backgroundColor: theme.colors.background,
     color: theme.colors.text,
     fontFamily: theme.typography.fontFamily.body,
-  };
-
-  const accentStyle: React.CSSProperties = {
-    backgroundColor: theme.colors.primary,
-    color: theme.colors.background,
   };
 
   // Error state

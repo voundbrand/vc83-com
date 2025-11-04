@@ -82,15 +82,16 @@ export const taxCalculationHandler: BehaviorHandler<TaxCalculationConfig> = {
    */
   extract: (
     config: TaxCalculationConfig,
-    inputs: any[],
+    inputs: Array<{ type: string; data: unknown }>,
     context: Readonly<BehaviorContext>
   ) => {
     const { workflowData = {}, objects = [] } = context;
 
     // Get customer info from workflow data
-    const customerInfo = workflowData.customerInfo as any;
+    const customerInfo = workflowData.customerInfo as Record<string, unknown> | undefined;
+    const billingAddress = customerInfo?.billingAddress as Record<string, unknown> | undefined;
     const customerType = customerInfo?.transactionType || "B2C";
-    const billingCountry = customerInfo?.billingAddress?.country || "DE";
+    const billingCountry = billingAddress?.country || "DE";
     const vatNumber = customerInfo?.vatNumber;
 
     // Get selected products with details from objects
@@ -107,7 +108,8 @@ export const taxCalculationHandler: BehaviorHandler<TaxCalculationConfig> = {
     // Get add-ons from form responses (from inputs)
     const formResponses = inputs.filter(i => i.type === "form");
     const addons = formResponses.flatMap(fr => {
-      return (fr.data.addons as any[]) || [];
+      const data = fr.data as Record<string, unknown>;
+      return (data.addons as Array<Record<string, unknown>>) || [];
     });
 
     return {
@@ -124,16 +126,17 @@ export const taxCalculationHandler: BehaviorHandler<TaxCalculationConfig> = {
    */
   apply: (
     config: TaxCalculationConfig,
-    extractedData: any,
+    extractedData: unknown,
     context: Readonly<BehaviorContext>
-  ): BehaviorResult<any> => {
+  ): BehaviorResult<unknown> => {
+    const data = extractedData as Record<string, unknown>;
     const {
       customerType,
       billingCountry,
       vatNumber,
       selectedProducts,
       addons,
-    } = extractedData;
+    } = data;
 
     // If tax disabled, return zero tax
     if (!config.taxEnabled) {
@@ -159,15 +162,17 @@ export const taxCalculationHandler: BehaviorHandler<TaxCalculationConfig> = {
       }
 
       // Check jurisdiction
-      if (exemption.jurisdictions && !exemption.jurisdictions.includes(billingCountry)) {
+      if (exemption.jurisdictions && typeof billingCountry === 'string' && !exemption.jurisdictions.includes(billingCountry)) {
         return false;
       }
 
       // Check product subtypes
-      if (exemption.productSubtypes) {
-        const hasExemptProduct = selectedProducts.some((sp: any) =>
-          exemption.productSubtypes?.includes(sp.subtype)
-        );
+      if (exemption.productSubtypes && Array.isArray(selectedProducts)) {
+        const products = selectedProducts as Array<Record<string, unknown>>;
+        const hasExemptProduct = products.some((sp) => {
+          const subtype = sp.subtype as string | undefined;
+          return subtype && exemption.productSubtypes?.includes(subtype);
+        });
         if (!hasExemptProduct) {
           return false;
         }
@@ -183,7 +188,9 @@ export const taxCalculationHandler: BehaviorHandler<TaxCalculationConfig> = {
 
     if (isExempt) {
       // Calculate totals without tax
-      const subtotal = calculateSubtotal(selectedProducts, addons);
+      const products = (selectedProducts as Array<Record<string, unknown>>) || [];
+      const addonsList = (addons as Array<Record<string, unknown>>) || [];
+      const subtotal = calculateSubtotal(products, addonsList);
       return {
         success: true,
         data: {
@@ -208,7 +215,9 @@ export const taxCalculationHandler: BehaviorHandler<TaxCalculationConfig> = {
 
       // Reverse charge or exempt (no tax charged)
       if (rule === "reverse_charge" || rule === "exempt") {
-        const subtotal = calculateSubtotal(selectedProducts, addons);
+        const products = (selectedProducts as Array<Record<string, unknown>>) || [];
+        const addonsList = (addons as Array<Record<string, unknown>>) || [];
+        const subtotal = calculateSubtotal(products, addonsList);
         return {
           success: true,
           data: {
@@ -227,14 +236,19 @@ export const taxCalculationHandler: BehaviorHandler<TaxCalculationConfig> = {
     }
 
     // Calculate tax for each line item
-    const lineItems: any[] = [];
+    const lineItems: Array<Record<string, unknown>> = [];
     let totalTax = 0;
     let totalSubtotal = 0;
 
     // Products
-    for (const sp of selectedProducts) {
-      const taxRate = getTaxRate(config, sp.subtype, sp.taxCode, billingCountry);
-      const subtotal = sp.price * sp.quantity;
+    const products = (selectedProducts as Array<Record<string, unknown>>) || [];
+    for (const sp of products) {
+      const subtype = sp.subtype as string | undefined;
+      const taxCode = sp.taxCode as string | undefined;
+      const price = typeof sp.price === 'number' ? sp.price : 0;
+      const quantity = typeof sp.quantity === 'number' ? sp.quantity : 1;
+      const taxRate = getTaxRate(config, subtype, taxCode, billingCountry as string);
+      const subtotal = price * quantity;
       const taxAmount = calculateTaxAmount(subtotal, taxRate, config);
 
       lineItems.push({
@@ -244,7 +258,7 @@ export const taxCalculationHandler: BehaviorHandler<TaxCalculationConfig> = {
         taxRate,
         taxAmount,
         taxable: true,
-        taxCode: sp.taxCode,
+        taxCode,
       });
 
       totalSubtotal += subtotal;
@@ -252,9 +266,10 @@ export const taxCalculationHandler: BehaviorHandler<TaxCalculationConfig> = {
     }
 
     // Add-ons
-    for (const addon of addons) {
+    const addonsList = (addons as Array<Record<string, unknown>>) || [];
+    for (const addon of addonsList) {
       const taxRate = config.defaultTaxRate; // Addons use default rate
-      const subtotal = addon.totalPrice;
+      const subtotal = typeof addon.totalPrice === 'number' ? addon.totalPrice : 0;
       const taxAmount = calculateTaxAmount(subtotal, taxRate, config);
 
       lineItems.push({
@@ -368,9 +383,16 @@ export const taxCalculationHandler: BehaviorHandler<TaxCalculationConfig> = {
 /**
  * Helper: Calculate subtotal from products and addons
  */
-function calculateSubtotal(products: any[], addons: any[]): number {
-  const productTotal = products.reduce((sum, p) => sum + (p.price * p.quantity), 0);
-  const addonTotal = addons.reduce((sum, a) => sum + a.totalPrice, 0);
+function calculateSubtotal(products: Array<Record<string, unknown>>, addons: Array<Record<string, unknown>>): number {
+  const productTotal = products.reduce((sum, p) => {
+    const price = typeof p.price === 'number' ? p.price : 0;
+    const quantity = typeof p.quantity === 'number' ? p.quantity : 1;
+    return sum + (price * quantity);
+  }, 0);
+  const addonTotal = addons.reduce((sum, a) => {
+    const totalPrice = typeof a.totalPrice === 'number' ? a.totalPrice : 0;
+    return sum + totalPrice;
+  }, 0);
   return productTotal + addonTotal;
 }
 

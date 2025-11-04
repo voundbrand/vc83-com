@@ -580,7 +580,7 @@ export const autoCreateContactFromCheckout = mutation({
     checkoutSessionId: v.id("objects"),
   },
   handler: async (ctx, args): Promise<{ contactId: Id<"objects">; isNew: boolean }> => {
-    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    await requireAuthenticatedUser(ctx, args.sessionId);
 
     // Delegate to internal mutation with userId
     return await ctx.runMutation(internal.crmIntegrations.autoCreateContactFromCheckoutInternal, {

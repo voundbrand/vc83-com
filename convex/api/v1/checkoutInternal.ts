@@ -91,10 +91,10 @@ export const createCheckoutSessionInternal = internalAction({
     }
 
     // 2. Get product
-    const product: any = await ctx.runQuery(
+    const product = await ctx.runQuery(
       internal.productOntology.getProductInternal,
       { productId: args.productId }
-    );
+    ) as { name: string; customProperties?: Record<string, unknown> } | null;
 
     if (!product) {
       throw new Error("Product not found");
@@ -275,32 +275,39 @@ export const confirmPaymentInternal = internalAction({
 
     // 2. Verify payment using existing checkout completion logic
     // This reuses the same logic as the UI checkout flow
-    const result: any = await ctx.runAction(
+    const result = await ctx.runAction(
       api.checkoutSessions.completeCheckoutAndFulfill,
       {
         sessionId: args.sessionId,
         checkoutSessionId,
         paymentIntentId: args.paymentIntentId,
       }
-    );
+    ) as {
+      success: boolean;
+      paymentId: string;
+      purchasedItemIds: string[];
+      crmContactId?: Id<"objects">;
+      amount: number;
+      currency: string;
+    };
 
     // 3. Build response with download URLs
     const baseUrl = process.env.CONVEX_SITE_URL || "https://l4yercak3.com";
 
     // Get all purchase items to determine download URLs
-    const purchaseItems: any = await ctx.runQuery(
+    const purchaseItems = await ctx.runQuery(
       api.purchaseOntology.getPurchaseItemsByCheckout,
       {
         sessionId: args.sessionId,
         checkoutSessionId,
       }
-    );
+    ) as Array<{ customProperties?: Record<string, unknown> }> | null;
 
     // Build download URLs based on product types
     const downloads: Record<string, string> = {};
 
     // Check if any items are tickets (for backwards compatibility with old API clients)
-    const hasTickets = purchaseItems?.some((item: any) =>
+    const hasTickets = purchaseItems?.some((item) =>
       item.customProperties?.fulfillmentType === "ticket"
     );
 

@@ -13,6 +13,7 @@
  * Appears between registration-form and payment-form when enforceInvoice === true
  */
 
+import React from "react";
 import { CheckoutProduct } from "@/templates/checkout/types";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { type PaymentRulesResult } from "../../../../convex/paymentRulesEngine";
@@ -68,7 +69,6 @@ export function InvoiceEnforcementStep({
 
   // Extract employer ID (even if we might return early)
   const employerOrgId = rulesResult.enforcementDetails?.employerName;
-  const paymentTerms = rulesResult.enforcementDetails?.paymentTerms;
 
   // Fetch organization name from CRM using the org ID (must call hook unconditionally)
   const crmOrganization = useQuery(
@@ -81,6 +81,17 @@ export function InvoiceEnforcementStep({
   // Use organization name from CRM, fallback to ID if not loaded, or empty string for type safety
   const employerName = crmOrganization?.name || employerOrgId || "";
 
+  // Get currency from first product (calculate early for hook)
+  const currency = linkedProducts.find((p) => p._id === selectedProducts[0]?.productId)?.currency || "USD";
+
+  // Define formatPrice hook before any conditional returns
+  const formatPrice = React.useCallback((amount: number) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: currency.toUpperCase(),
+    }).format(amount / 100);
+  }, [currency]);
+
   // Check for enforcement after all hooks are called
   if (!rulesResult.enforceInvoice || !rulesResult.enforcementDetails) {
     return (
@@ -91,23 +102,13 @@ export function InvoiceEnforcementStep({
   }
 
   // Now TypeScript knows enforcementDetails exists - extract the required fields
-  const { employerName: confirmedEmployerOrgId, paymentTerms: confirmedPaymentTerms } = rulesResult.enforcementDetails;
+  const { paymentTerms: confirmedPaymentTerms } = rulesResult.enforcementDetails;
 
   // Calculate totals
   const baseTotal = selectedProducts.reduce((sum, sp) => sum + sp.price * sp.quantity, 0);
   const formAddons = formResponses.reduce((sum, fr) => sum + (fr.addedCosts || 0), 0);
   const subtotal = baseTotal + formAddons;
   const total = taxCalculation?.total || subtotal;
-
-  // Get currency from first product
-  const currency = linkedProducts.find((p) => p._id === selectedProducts[0]?.productId)?.currency || "USD";
-
-  const formatPrice = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: currency.toUpperCase(),
-    }).format(amount / 100);
-  };
 
   const paymentTermsText = {
     net30: t("ui.checkout.invoice_enforcement.notice.payment_terms_net30"),

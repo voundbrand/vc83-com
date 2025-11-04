@@ -16,7 +16,7 @@ export interface ValidationError {
 /**
  * Validate employer detection workflow config
  */
-export function validateEmployerDetection(config: any): ValidationError[] {
+export function validateEmployerDetection(config: Record<string, unknown>): ValidationError[] {
   const errors: ValidationError[] = [];
 
   if (!config.employerSourceField || typeof config.employerSourceField !== "string") {
@@ -49,7 +49,7 @@ export function validateEmployerDetection(config: any): ValidationError[] {
   }
 
   const validPaymentTerms = ["net30", "net60", "net90"];
-  if (config.defaultPaymentTerms && !validPaymentTerms.includes(config.defaultPaymentTerms)) {
+  if (config.defaultPaymentTerms && typeof config.defaultPaymentTerms === 'string' && !validPaymentTerms.includes(config.defaultPaymentTerms)) {
     errors.push({
       field: "defaultPaymentTerms",
       message: `defaultPaymentTerms must be one of: ${validPaymentTerms.join(", ")}`,
@@ -62,7 +62,7 @@ export function validateEmployerDetection(config: any): ValidationError[] {
 /**
  * Validate invoice mapping workflow config
  */
-export function validateInvoiceMapping(config: any): ValidationError[] {
+export function validateInvoiceMapping(config: Record<string, unknown>): ValidationError[] {
   const errors: ValidationError[] = [];
 
   // Check for organizationSourceField (new field name)
@@ -81,19 +81,19 @@ export function validateInvoiceMapping(config: any): ValidationError[] {
       field: "organizationMapping",
       message: "organizationMapping is required and must be an object",
     });
-  } else {
+  } else if (typeof mapping === 'object' && mapping !== null) {
     // Validate mapping structure (keys are strings, values are strings or null)
     for (const [key, value] of Object.entries(mapping)) {
       if (typeof key !== "string") {
         errors.push({
           field: "organizationMapping",
-          message: `Invalid mapping key: ${key} (must be string)`,
+          message: `Invalid mapping key: ${String(key)} (must be string)`,
         });
       }
       if (value !== null && typeof value !== "string") {
         errors.push({
           field: "organizationMapping",
-          message: `Invalid mapping value for "${key}": ${value} (must be string or null)`,
+          message: `Invalid mapping value for "${String(key)}": ${String(value)} (must be string or null)`,
         });
       }
     }
@@ -103,20 +103,21 @@ export function validateInvoiceMapping(config: any): ValidationError[] {
   const validPaymentTerms = ["net30", "net60", "net90"];
   if (
     config.defaultPaymentTerms &&
+    typeof config.defaultPaymentTerms === 'string' &&
     !validPaymentTerms.includes(config.defaultPaymentTerms)
   ) {
     errors.push({
       field: "defaultPaymentTerms",
-      message: `Invalid defaultPaymentTerms: ${config.defaultPaymentTerms} (must be one of: ${validPaymentTerms.join(", ")})`,
+      message: `Invalid defaultPaymentTerms: ${String(config.defaultPaymentTerms)} (must be one of: ${validPaymentTerms.join(", ")})`,
     });
   }
 
   // Validate template ID if provided
   const validTemplates = ["b2c_receipt", "b2b_single", "b2b_consolidated", "b2b_consolidated_detailed"];
-  if (config.templateId && !validTemplates.includes(config.templateId)) {
+  if (config.templateId && typeof config.templateId === 'string' && !validTemplates.includes(config.templateId)) {
     errors.push({
       field: "templateId",
-      message: `Invalid templateId: ${config.templateId} (must be one of: ${validTemplates.join(", ")})`,
+      message: `Invalid templateId: ${String(config.templateId)} (must be one of: ${validTemplates.join(", ")})`,
     });
   }
 
@@ -140,7 +141,7 @@ export function validateInvoiceMapping(config: any): ValidationError[] {
  */
 export function validateWorkflowConfigOld(
   workflowType: string,
-  config: any
+  config: Record<string, unknown>
 ): ValidationError[] {
   switch (workflowType) {
     case "employer-detection":
@@ -177,7 +178,7 @@ export function validateWorkflowConfigOld(
  * Validate workflow configuration (for standalone workflows with behaviors array)
  */
 export function validateWorkflowConfig(
-  behaviors: Array<{ type: string; config: any }>
+  behaviors: Array<{ type: string; config: Record<string, unknown> }>
 ): string[] {
   const errors: string[] = [];
 
@@ -197,23 +198,26 @@ export function validateWorkflowConfig(
  * Validate object references exist in database
  */
 export async function validateObjectReferences(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ctx: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   objects: Array<{ objectId: any; objectType: string }>
 ): Promise<string[]> {
   const errors: string[] = [];
 
   for (const obj of objects) {
     try {
-      const dbObject = await ctx.db.get(obj.objectId);
+      const dbObject = await ctx.db.get(obj.objectId) as { type?: string } | null;
+      const objIdStr = String(obj.objectId);
       if (!dbObject) {
-        errors.push(`Object not found: ${obj.objectId}`);
+        errors.push(`Object not found: ${objIdStr}`);
       } else if (dbObject.type !== obj.objectType) {
         errors.push(
-          `Object type mismatch for ${obj.objectId}: expected ${obj.objectType}, got ${dbObject.type}`
+          `Object type mismatch for ${objIdStr}: expected ${obj.objectType}, got ${dbObject.type || 'undefined'}`
         );
       }
     } catch (error) {
-      errors.push(`Error validating object ${obj.objectId}: ${error}`);
+      errors.push(`Error validating object ${String(obj.objectId)}: ${String(error)}`);
     }
   }
 

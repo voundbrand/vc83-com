@@ -290,7 +290,7 @@ export const createWorkflow = mutation({
           objectId: v.id("objects"),
           objectType: v.string(),
           role: v.string(),
-          config: v.optional(v.any()),
+          config: v.optional(v.any()), // Object-specific config - intentionally flexible
         })
       ),
       behaviors: v.array(
@@ -298,7 +298,7 @@ export const createWorkflow = mutation({
           type: v.string(),
           enabled: v.boolean(),
           priority: v.number(),
-          config: v.any(),
+          config: v.any(), // Behavior-specific config - intentionally flexible
           triggers: v.optional(
             v.object({
               inputTypes: v.optional(v.array(v.string())),
@@ -314,7 +314,7 @@ export const createWorkflow = mutation({
         outputActions: v.optional(v.array(v.string())),
         errorHandling: v.string(),
       }),
-      visualData: v.optional(v.any()),
+      visualData: v.optional(v.any()), // Visual workflow data - intentionally flexible for UI
     }),
   },
   handler: async (ctx, args) => {
@@ -406,7 +406,7 @@ export const updateWorkflow = mutation({
             objectId: v.id("objects"),
             objectType: v.string(),
             role: v.string(),
-            config: v.optional(v.any()),
+            config: v.optional(v.any()), // Object-specific config - intentionally flexible
           })
         )
       ),
@@ -417,7 +417,7 @@ export const updateWorkflow = mutation({
             type: v.string(),
             enabled: v.boolean(),
             priority: v.number(),
-            config: v.any(),
+            config: v.any(), // Behavior-specific config - intentionally flexible
             triggers: v.optional(
               v.object({
                 inputTypes: v.optional(v.array(v.string())),
@@ -436,7 +436,7 @@ export const updateWorkflow = mutation({
           errorHandling: v.string(),
         })
       ),
-      visualData: v.optional(v.any()),
+      visualData: v.optional(v.any()), // Visual workflow data - intentionally flexible for UI
     }),
   },
   handler: async (ctx, args) => {
@@ -649,25 +649,40 @@ export const executeWorkflow = action({
     sessionId: v.string(),
     workflowId: v.id("objects"),
     manualTrigger: v.optional(v.boolean()),
-    contextData: v.optional(v.any()), // Optional context overrides
+    contextData: v.optional(v.any()), // Optional context overrides - intentionally flexible
   },
-  handler: async (ctx, args): Promise<{ success: boolean; message?: string; error?: string; behaviorResults?: any[]; executedCount?: number; totalCount?: number; executionId?: any }> => {
+  handler: async (ctx, args): Promise<{
+    success: boolean;
+    message?: string;
+    error?: string;
+    behaviorResults?: Array<{
+      behaviorType: string;
+      success: boolean;
+      error?: string;
+      message?: string;
+      data?: unknown;
+      executionId?: Id<"workflowExecutionLogs">;
+    }>;
+    executedCount?: number;
+    totalCount?: number;
+    executionId?: Id<"workflowExecutionLogs">;
+  }> => {
     console.log("🚀 Executing workflow manually:", args.workflowId);
 
     // Get authenticated user (using internal query)
-    const authResult: any = await ctx.runQuery(
+    const authResult = await ctx.runQuery(
       internal.rbacHelpers.requireAuthenticatedUserQuery,
       {
         sessionId: args.sessionId,
       }
-    );
+    ) as { userId: Id<"users"> };
 
-    const userId: any = authResult.userId;
+    const userId = authResult.userId;
 
     // Get workflow (using public query)
-    const workflow: any = await ctx.runQuery(api.ontologyHelpers.getObject, {
+    const workflow = await ctx.runQuery(api.ontologyHelpers.getObject, {
       objectId: args.workflowId,
-    });
+    }) as { type: string; organizationId: Id<"organizations">; customProperties: WorkflowCustomProperties; name: string } | null;
 
     if (!workflow || workflow.type !== "workflow") {
       throw new Error("Workflow not found");
@@ -680,10 +695,10 @@ export const executeWorkflow = action({
       organizationId: workflow.organizationId,
     });
 
-    const customProps = workflow.customProperties as WorkflowCustomProperties;
+    const customProps = workflow.customProperties;
 
     // Build execution context
-    const context: any = {
+    const context: Record<string, unknown> = {
       organizationId: workflow.organizationId,
       sessionId: args.sessionId,
       workflow: customProps.execution.triggerOn.replace("_start", ""),
@@ -705,9 +720,9 @@ export const executeWorkflow = action({
 
     try {
       // Execute behaviors using the behavior executor (no dynamic imports!)
-      const result: any = await ctx.runAction(api.workflows.behaviorExecutor.executeBehaviors, {
+      const result = await ctx.runAction(api.workflows.behaviorExecutor.executeBehaviors, {
         sessionId: args.sessionId,
-        organizationId: workflow.organizationId as any,
+        organizationId: workflow.organizationId,
         behaviors: customProps.behaviors.map((b) => ({
           type: b.type,
           config: b.config,
@@ -739,7 +754,7 @@ export const executeWorkflow = action({
         message: result.success
           ? `Workflow "${workflow.name}" executed successfully. ${result.executedCount} of ${result.totalCount} behaviors completed.`
           : `Workflow execution completed with errors. ${result.executedCount} of ${result.totalCount} behaviors completed.`,
-        behaviorResults: result.results.map((r: any) => ({
+        behaviorResults: result.results.map((r) => ({
           ...r,
           executionId: result.executionId,
         })),

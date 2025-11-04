@@ -199,8 +199,6 @@ function LiveCheckoutPreview({
   paymentProviders: string[];
   forceB2B?: boolean;
 }) {
-  const [isInitialized, setIsInitialized] = useState(false);
-
   // Auto-select first product for preview (quantity 1)
   const initialSelectedProducts = linkedProducts.slice(0, 1).map((product) => {
     const customProps = product.customProperties as Record<string, unknown> | undefined;

@@ -18,7 +18,6 @@ import styles from "./styles.module.css";
 
 export function LandingPageTemplate({
   page,
-  data,
   organization,
   theme,
 }: TemplateProps) {

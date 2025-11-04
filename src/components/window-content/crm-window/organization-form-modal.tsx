@@ -77,7 +77,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
         name: existingOrg.name || "",
         website: props.website?.toString() || "",
         industry: props.industry?.toString() || "",
-        size: (props.size?.toString() || "") as typeof formData.size,
+        size: (props.size?.toString() || "") as "" | "1-10" | "11-50" | "51-200" | "201-500" | "501+",
         orgType: (existingOrg.subtype || "prospect") as OrgType,
         phone: props.phone?.toString() || "",
         billingEmail: props.billingEmail?.toString() || "",
@@ -87,7 +87,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
         state: address.state || "",
         postalCode: address.postalCode || "",
         country: address.country || "",
-        sponsorLevel: (props.sponsorLevel?.toString() || "") as typeof formData.sponsorLevel,
+        sponsorLevel: (props.sponsorLevel?.toString() || "") as "" | "platinum" | "gold" | "silver" | "bronze",
         logoUrl: props.logoUrl?.toString() || "",
         sponsorBio: props.sponsorBio?.toString() || "",
         tags: Array.isArray(props.tags) ? props.tags : [],
@@ -233,7 +233,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
           style={{ background: "var(--modal-header-bg)" }}
         >
           <span className="font-bold text-sm" style={{ color: "var(--modal-header-text)" }}>
-            {editId ? "Edit Organization" : "Add New Organization"}
+            {editId ? t("crm.organization_form.title.edit") : t("crm.organization_form.title.add_new")}
           </span>
           <button
             onClick={onClose}
@@ -249,12 +249,12 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
           {/* Basic Information */}
           <div className="space-y-3">
             <h3 className="text-sm font-bold border-b pb-2" style={{ color: "var(--win95-text)", borderColor: "var(--win95-border)" }}>
-              🏢 Organization Details
+              🏢 {t("crm.organization_form.sections.organization_details")}
             </h3>
 
             <div>
               <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                Organization Name <span style={{ color: "var(--error)" }}>*</span>
+                {t("crm.organization_form.labels.organization_name")} <span style={{ color: "var(--error)" }}>*</span>
               </label>
               <input
                 type="text"
@@ -272,7 +272,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
 
             <div>
               <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                Website
+                {t("crm.organization_form.labels.website")}
               </label>
               <input
                 type="text"
@@ -281,7 +281,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
                   setFormData({ ...formData, website: e.target.value });
                   setWebsiteError("");
                 }}
-                placeholder="example.com"
+                placeholder={t("crm.organization_form.placeholders.website")}
                 className="w-full px-2 py-1.5 text-sm border-2"
                 style={{
                   borderColor: websiteError ? "var(--error)" : "var(--win95-border)",
@@ -290,7 +290,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
                 }}
               />
               <p className="text-xs mt-1" style={{ color: "var(--win95-text)" }}>
-                Auto-prefixed with https:// if not provided
+                {t("crm.organization_form.helpers.website_prefix")}
               </p>
               {websiteError && (
                 <p className="text-xs mt-1" style={{ color: "var(--error)" }}>
@@ -302,7 +302,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                  Industry
+                  {t("crm.organization_form.labels.industry")}
                 </label>
                 <select
                   value={formData.industry}
@@ -314,22 +314,22 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
                     color: "var(--win95-input-text)",
                   }}
                 >
-                  <option value="">-- Select Industry --</option>
-                  <option value="Technology">Technology</option>
-                  <option value="Healthcare">Healthcare</option>
-                  <option value="Finance">Finance</option>
-                  <option value="Manufacturing">Manufacturing</option>
-                  <option value="Retail">Retail</option>
-                  <option value="Education">Education</option>
-                  <option value="Media">Media</option>
-                  <option value="Real Estate">Real Estate</option>
-                  <option value="Other">Other</option>
+                  <option value="">{t("crm.organization_form.placeholders.select_industry")}</option>
+                  <option value="Technology">{t("crm.organization_form.industries.technology")}</option>
+                  <option value="Healthcare">{t("crm.organization_form.industries.healthcare")}</option>
+                  <option value="Finance">{t("crm.organization_form.industries.finance")}</option>
+                  <option value="Manufacturing">{t("crm.organization_form.industries.manufacturing")}</option>
+                  <option value="Retail">{t("crm.organization_form.industries.retail")}</option>
+                  <option value="Education">{t("crm.organization_form.industries.education")}</option>
+                  <option value="Media">{t("crm.organization_form.industries.media")}</option>
+                  <option value="Real Estate">{t("crm.organization_form.industries.real_estate")}</option>
+                  <option value="Other">{t("crm.organization_form.industries.other")}</option>
                 </select>
               </div>
 
               <div>
                 <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                  Organization Size
+                  {t("crm.organization_form.labels.organization_size")}
                 </label>
                 <select
                   value={formData.size}
@@ -341,12 +341,12 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
                     color: "var(--win95-input-text)",
                   }}
                 >
-                  <option value="">-- Select Size --</option>
-                  <option value="1-10">1-10</option>
-                  <option value="11-50">11-50</option>
-                  <option value="51-200">51-200</option>
-                  <option value="201-500">201-500</option>
-                  <option value="501+">501+</option>
+                  <option value="">{t("crm.organization_form.placeholders.select_size")}</option>
+                  <option value="1-10">{t("crm.organization_form.sizes.1_10")}</option>
+                  <option value="11-50">{t("crm.organization_form.sizes.11_50")}</option>
+                  <option value="51-200">{t("crm.organization_form.sizes.51_200")}</option>
+                  <option value="201-500">{t("crm.organization_form.sizes.201_500")}</option>
+                  <option value="501+">{t("crm.organization_form.sizes.501_plus")}</option>
                 </select>
               </div>
             </div>
@@ -355,7 +355,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
           {/* Organization Type */}
           <div className="space-y-3">
             <h3 className="text-sm font-bold border-b pb-2" style={{ color: "var(--win95-text)", borderColor: "var(--win95-border)" }}>
-              🎯 Organization Type <span style={{ color: "var(--error)" }}>*</span>
+              🎯 {t("crm.organization_form.sections.organization_type")} <span style={{ color: "var(--error)" }}>*</span>
             </h3>
 
             <div className="grid grid-cols-4 gap-2">
@@ -374,7 +374,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
                       : "bg-gray-100 border-gray-400 text-gray-700 hover:bg-gray-200"
                   }`}
                 >
-                  Prospect
+                  {t("crm.organization_form.org_types.prospect")}
                 </div>
               </label>
 
@@ -393,7 +393,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
                       : "bg-gray-100 border-gray-400 text-gray-700 hover:bg-gray-200"
                   }`}
                 >
-                  Customer
+                  {t("crm.organization_form.org_types.customer")}
                 </div>
               </label>
 
@@ -412,7 +412,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
                       : "bg-gray-100 border-gray-400 text-gray-700 hover:bg-gray-200"
                   }`}
                 >
-                  Partner
+                  {t("crm.organization_form.org_types.partner")}
                 </div>
               </label>
 
@@ -431,13 +431,13 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
                       : "bg-gray-100 border-gray-400 text-gray-700 hover:bg-gray-200"
                   }`}
                 >
-                  Sponsor
+                  {t("crm.organization_form.org_types.sponsor")}
                 </div>
               </label>
             </div>
 
             <p className="text-xs" style={{ color: "var(--win95-text)" }}>
-              Select the relationship type for this organization
+              {t("crm.organization_form.helpers.org_type_description")}
             </p>
           </div>
 
@@ -453,7 +453,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
                 color: "var(--win95-text)",
               }}
             >
-              <span className="text-sm font-bold">📞 Contact Details (Optional)</span>
+              <span className="text-sm font-bold">📞 {t("crm.organization_form.sections.contact_details")}</span>
               {showContactDetails ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </button>
 
@@ -461,7 +461,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
               <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--win95-border)" }}>
                 <div>
                   <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                    Primary Phone
+                    {t("crm.organization_form.labels.primary_phone")}
                   </label>
                   <input
                     type="tel"
@@ -478,7 +478,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
 
                 <div>
                   <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                    Billing Email
+                    {t("crm.organization_form.labels.billing_email")}
                   </label>
                   <input
                     type="email"
@@ -503,7 +503,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
 
                 <div>
                   <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                    Tax ID / VAT Number
+                    {t("crm.organization_form.labels.tax_id")}
                   </label>
                   <input
                     type="text"
@@ -533,7 +533,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
                 color: "var(--win95-text)",
               }}
             >
-              <span className="text-sm font-bold">📍 Address (Optional)</span>
+              <span className="text-sm font-bold">📍 {t("crm.organization_form.sections.address")}</span>
               {showAddress ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </button>
 
@@ -541,7 +541,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
               <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--win95-border)" }}>
                 <input
                   type="text"
-                  placeholder="Street"
+                  placeholder={t("crm.organization_form.placeholders.street")}
                   value={formData.street}
                   onChange={(e) => setFormData({ ...formData, street: e.target.value })}
                   className="w-full px-2 py-1.5 text-sm border-2"
@@ -553,7 +553,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
                 />
                 <input
                   type="text"
-                  placeholder="City"
+                  placeholder={t("crm.organization_form.placeholders.city")}
                   value={formData.city}
                   onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                   className="w-full px-2 py-1.5 text-sm border-2"
@@ -566,7 +566,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
                 <div className="grid grid-cols-2 gap-3">
                   <input
                     type="text"
-                    placeholder="State/Province"
+                    placeholder={t("crm.organization_form.placeholders.state_province")}
                     value={formData.state}
                     onChange={(e) => setFormData({ ...formData, state: e.target.value })}
                     className="w-full px-2 py-1.5 text-sm border-2"
@@ -578,7 +578,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
                   />
                   <input
                     type="text"
-                    placeholder="Postal Code"
+                    placeholder={t("crm.organization_form.placeholders.postal_code")}
                     value={formData.postalCode}
                     onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
                     className="w-full px-2 py-1.5 text-sm border-2"
@@ -599,7 +599,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
                     color: "var(--win95-input-text)",
                   }}
                 >
-                  <option value="">-- Select Country --</option>
+                  <option value="">{t("crm.organization_form.placeholders.select_country")}</option>
                   {supportedCountries.map((country) => (
                     <option key={country.code} value={country.name}>
                       {country.name}
@@ -614,12 +614,12 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
           {formData.orgType === "sponsor" && (
             <div className="space-y-3">
               <h3 className="text-sm font-bold border-b pb-2" style={{ color: "var(--win95-text)", borderColor: "var(--win95-border)" }}>
-                🌟 Sponsorship Details
+                🌟 {t("crm.organization_form.sections.sponsorship_details")}
               </h3>
 
               <div>
                 <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                  Sponsor Level
+                  {t("crm.organization_form.labels.sponsor_level")}
                 </label>
                 <select
                   value={formData.sponsorLevel}
@@ -631,24 +631,24 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
                     color: "var(--win95-input-text)",
                   }}
                 >
-                  <option value="">-- Select Level --</option>
-                  <option value="platinum">Platinum</option>
-                  <option value="gold">Gold</option>
-                  <option value="silver">Silver</option>
-                  <option value="bronze">Bronze</option>
-                  <option value="community">Community</option>
+                  <option value="">{t("crm.organization_form.placeholders.select_level")}</option>
+                  <option value="platinum">{t("crm.organization_form.sponsor_levels.platinum")}</option>
+                  <option value="gold">{t("crm.organization_form.sponsor_levels.gold")}</option>
+                  <option value="silver">{t("crm.organization_form.sponsor_levels.silver")}</option>
+                  <option value="bronze">{t("crm.organization_form.sponsor_levels.bronze")}</option>
+                  <option value="community">{t("crm.organization_form.sponsor_levels.community")}</option>
                 </select>
               </div>
 
               <div>
                 <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                  Logo URL
+                  {t("crm.organization_form.labels.logo_url")}
                 </label>
                 <input
                   type="url"
                   value={formData.logoUrl}
                   onChange={(e) => setFormData({ ...formData, logoUrl: e.target.value })}
-                  placeholder="https://example.com/logo.png"
+                  placeholder={t("crm.organization_form.placeholders.logo_url")}
                   className="w-full px-2 py-1.5 text-sm border-2"
                   style={{
                     borderColor: "var(--win95-border)",
@@ -657,19 +657,19 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
                   }}
                 />
                 <p className="text-xs mt-1" style={{ color: "var(--win95-text)" }}>
-                  Optional - for event displays
+                  {t("crm.organization_form.helpers.logo_optional")}
                 </p>
               </div>
 
               <div>
                 <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                  Sponsor Bio
+                  {t("crm.organization_form.labels.sponsor_bio")}
                 </label>
                 <textarea
                   value={formData.sponsorBio}
                   onChange={(e) => setFormData({ ...formData, sponsorBio: e.target.value })}
                   rows={3}
-                  placeholder="Optional - shown on event pages"
+                  placeholder={t("crm.organization_form.placeholders.sponsor_bio")}
                   className="w-full px-2 py-1.5 text-sm border-2"
                   style={{
                     borderColor: "var(--win95-border)",
@@ -693,7 +693,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
                 color: "var(--win95-text)",
               }}
             >
-              <span className="text-sm font-bold">🏷️ Tags & Notes (Optional)</span>
+              <span className="text-sm font-bold">🏷️ {t("crm.organization_form.sections.tags_notes")}</span>
               {showTagsNotes ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </button>
 
@@ -701,7 +701,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
               <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--win95-border)" }}>
                 <div>
                   <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                    Tags
+                    {t("crm.organization_form.labels.tags")}
                   </label>
                   <div className="flex gap-2 mb-2">
                     <input
@@ -714,7 +714,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
                           handleAddTag();
                         }
                       }}
-                      placeholder="Enter tag and press Enter"
+                      placeholder={t("crm.organization_form.placeholders.tag_input")}
                       className="flex-1 px-2 py-1.5 text-sm border-2"
                       style={{
                         borderColor: "var(--win95-border)",
@@ -732,7 +732,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
                         color: "var(--win95-text)",
                       }}
                     >
-                      Add
+                      {t("crm.organization_form.buttons.add_tag")}
                     </button>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -761,13 +761,13 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
 
                 <div>
                   <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                    Notes
+                    {t("crm.organization_form.labels.notes")}
                   </label>
                   <textarea
                     value={formData.notes}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                     rows={4}
-                    placeholder="Add any additional information about this organization..."
+                    placeholder={t("crm.organization_form.placeholders.notes")}
                     className="w-full px-2 py-1.5 text-sm border-2"
                     style={{
                       borderColor: "var(--win95-border)",
@@ -793,7 +793,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
                 color: "var(--win95-text)",
               }}
             >
-              Cancel
+              {t("crm.organization_form.buttons.cancel")}
             </button>
             <button
               type="submit"
@@ -808,12 +808,12 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
               {saving ? (
                 <>
                   <Loader2 size={14} className="animate-spin" />
-                  Saving...
+                  {t("crm.organization_form.buttons.saving")}
                 </>
               ) : (
                 <>
                   <Save size={14} />
-                  Save Organization
+                  {t("crm.organization_form.buttons.save")}
                 </>
               )}
             </button>

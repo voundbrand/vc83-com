@@ -4,7 +4,6 @@
 
 import { internalAction } from "../../_generated/server";
 import { v } from "convex/values";
-import { Id } from "../../_generated/dataModel";
 import { internal } from "../../_generated/api";
 
 /**
@@ -18,9 +17,9 @@ export const generateTicketPdfInternal = internalAction({
   },
   handler: async (ctx, args): Promise<ArrayBuffer | null> => {
     // Get ticket data
-    const ticket: any = await ctx.runQuery(internal.ticketOntology.getTicketInternal, {
+    const ticket = await ctx.runQuery(internal.ticketOntology.getTicketInternal, {
       ticketId: args.ticketId,
-    });
+    }) as { _id: string; organizationId: string; customProperties?: Record<string, unknown> } | null;
 
     if (!ticket || ticket.organizationId !== args.organizationId) {
       return null;
@@ -29,8 +28,9 @@ export const generateTicketPdfInternal = internalAction({
     // Generate PDF using existing PDF generation system
     // For now, return a placeholder
     // In production, call your actual PDF generation service
-    const registrationData = (ticket.customProperties as any)?.registrationData || {};
-    const qrCode = (ticket.customProperties as any)?.qrCode || "N/A";
+    const customProps = ticket.customProperties as Record<string, unknown> | undefined;
+    const registrationData = (customProps?.registrationData as Record<string, unknown>) || {};
+    const qrCode = (customProps?.qrCode as string) || "N/A";
 
     const pdfContent = `
       Ticket Confirmation
@@ -52,7 +52,7 @@ export const generateTicketPdfInternal = internalAction({
  * GET TICKET FOR PDF
  * Internal query to get ticket data for PDF generation
  */
-export const getTicketForPdf: any = internalAction({
+export const getTicketForPdf = internalAction({
   args: {
     ticketId: v.id("objects"),
     organizationId: v.id("organizations"),
@@ -61,21 +61,22 @@ export const getTicketForPdf: any = internalAction({
     id: string;
     status: string;
     qrCode: string;
-    registrationData: any;
+    registrationData: Record<string, unknown>;
   } | null> => {
-    const ticket: any = await ctx.runQuery(internal.ticketOntology.getTicketInternal, {
+    const ticket = await ctx.runQuery(internal.ticketOntology.getTicketInternal, {
       ticketId: args.ticketId,
-    });
+    }) as { _id: string; organizationId: string; status: string; customProperties?: Record<string, unknown> } | null;
 
     if (!ticket || ticket.organizationId !== args.organizationId) {
       return null;
     }
 
+    const customProps = ticket.customProperties as Record<string, unknown> | undefined;
     return {
       id: ticket._id,
       status: ticket.status,
-      qrCode: (ticket.customProperties as any).qrCode,
-      registrationData: (ticket.customProperties as any).registrationData,
+      qrCode: (customProps?.qrCode as string) || "",
+      registrationData: (customProps?.registrationData as Record<string, unknown>) || {},
     };
   },
 });

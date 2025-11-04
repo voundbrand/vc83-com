@@ -28,7 +28,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser } from "./rbacHelpers";
-import { Id } from "./_generated/dataModel";
 
 // =========================================
 // REGISTER PAYMENT PROVIDERS

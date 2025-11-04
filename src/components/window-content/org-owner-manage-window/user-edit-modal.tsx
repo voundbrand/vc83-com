@@ -51,7 +51,7 @@ export function UserEditModal({
   const [resendSuccess, setResendSuccess] = useState(false);
   const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
 
-  const { signOut, user: currentUser } = useAuth();
+  const { user: currentUser } = useAuth();
   const updateUserRole = useMutation(api.organizationMutations.updateUserRole);
   const updateUserProfile = useMutation(api.organizationMutations.updateUserProfile);
   const resendInvitation = useAction(api.organizations.resendInvitation);

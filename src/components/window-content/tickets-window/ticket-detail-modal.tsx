@@ -1,8 +1,9 @@
 "use client";
 
 import { Doc, Id } from "../../../../convex/_generated/dataModel";
-import { X, Download, Printer, User, Mail, Phone, Calendar, DollarSign, Package, Loader2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { X, Download, Printer, User, Mail, Phone, Calendar, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import Image from "next/image";
 import QRCode from "qrcode";
 import { useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
@@ -15,7 +16,6 @@ interface TicketDetailModalProps {
 export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
   const [qrCode, setQrCode] = useState<string>("");
   const [isDownloading, setIsDownloading] = useState(false);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // PDF generation action
   const generateTicketPDF = useAction(api.pdfGeneration.generateTicketPDF);
@@ -173,7 +173,13 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                   background: "white",
                 }}
               >
-                <img src={qrCode} alt="Ticket QR Code" className="w-48 h-48 mb-2" />
+                <Image
+                  src={qrCode}
+                  alt="Ticket QR Code"
+                  width={192}
+                  height={192}
+                  className="w-48 h-48 mb-2"
+                />
                 <p className="text-xs text-center" style={{ color: "var(--neutral-gray)" }}>
                   Scan to verify ticket
                 </p>

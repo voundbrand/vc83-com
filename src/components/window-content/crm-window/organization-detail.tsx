@@ -3,7 +3,7 @@
 import { useQuery } from "convex/react"
 import { api } from "../../../../convex/_generated/api"
 import { useAuth } from "@/hooks/use-auth"
-import { Globe, Building2, Users, Tag, Calendar, DollarSign } from "lucide-react"
+import { Globe, Building2, Users, Tag, Calendar } from "lucide-react"
 import type { Id } from "../../../../convex/_generated/dataModel"
 
 interface OrganizationDetailProps {

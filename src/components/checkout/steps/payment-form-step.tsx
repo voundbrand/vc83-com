@@ -115,7 +115,7 @@ function StripePaymentForm({
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
   const [isCardComplete, setIsCardComplete] = useState(false);
   const [cardMountNode, setCardMountNode] = useState<HTMLDivElement | null>(null);
-  const [connectedAccountId, setConnectedAccountId] = useState<string | null>(null);
+  const [, setConnectedAccountId] = useState<string | null>(null);
 
   // Use ref to prevent double initialization in React Strict Mode
   const initializationAttempted = useRef(false);
@@ -177,7 +177,7 @@ function StripePaymentForm({
     };
 
     initializePayment();
-  }, [checkoutSessionId, createPaymentIntent]);
+  }, [checkoutSessionId, createPaymentIntent, t]);
 
   // Mount Stripe Card Element when elements and DOM node are ready
   useEffect(() => {

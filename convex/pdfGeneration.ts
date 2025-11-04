@@ -129,7 +129,7 @@ export const generateTicketPDF = action({
           doc.text("Presented by:", 20, currentY);
           currentY += 7;
           doc.setFontSize(10);
-          eventSponsors.forEach((sponsor, index) => {
+          eventSponsors.forEach((sponsor) => {
             const sponsorText = sponsor.level
               ? `${sponsor.name} (${sponsor.level})`
               : sponsor.name;

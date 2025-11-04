@@ -6,7 +6,6 @@
 
 import { internalQuery } from "../../_generated/server";
 import { v } from "convex/values";
-import { Id } from "../../_generated/dataModel";
 
 /**
  * GET FORM INTERNAL
@@ -30,7 +29,7 @@ export const getFormInternal = internalQuery({
       return null;
     }
 
-    const customProps = form.customProperties as any;
+    const customProps = form.customProperties as Record<string, unknown> | undefined;
 
     // Transform for API response
     return {
@@ -38,12 +37,12 @@ export const getFormInternal = internalQuery({
       name: form.name,
       description: form.description,
       status: form.status,
-      fields: customProps.fields || [],
-      settings: customProps.settings || {
+      fields: (customProps?.fields as unknown[]) || [],
+      settings: (customProps?.settings as Record<string, unknown>) || {
         submitButtonText: "Submit",
         successMessage: "Form submitted successfully",
       },
-      translations: customProps.translations || {},
+      translations: (customProps?.translations as Record<string, unknown>) || {},
     };
   },
 });

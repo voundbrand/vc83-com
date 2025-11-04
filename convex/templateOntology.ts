@@ -22,7 +22,7 @@ export const getAvailableTemplates = query({
   },
   handler: async (ctx, args) => {
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
-    const userContext = await getUserContext(ctx, userId, args.organizationId);
+    await getUserContext(ctx, userId, args.organizationId);
 
     // Check permission
     const hasPermission = await checkPermission(
@@ -449,7 +449,7 @@ export const removeTemplateFromPage = mutation({
     const page = await ctx.db.get(args.pageId);
     if (!page) throw new Error("Page not found");
 
-    const userContext = await getUserContext(ctx, userId, page.organizationId);
+    await getUserContext(ctx, userId, page.organizationId);
 
     // Check permission
     const hasPermission = await checkPermission(

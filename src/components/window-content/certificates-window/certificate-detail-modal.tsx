@@ -25,7 +25,6 @@ export function CertificateDetailModal({
   certificateId,
   sessionId,
   onClose,
-  onEdit,
 }: CertificateDetailModalProps) {
   const certificate = useQuery(api.certificateOntology.getCertificate, {
     sessionId,
