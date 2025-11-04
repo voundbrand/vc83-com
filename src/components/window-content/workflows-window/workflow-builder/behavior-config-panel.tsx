@@ -10,11 +10,13 @@
 import React, { useState } from "react";
 import { Zap, Plus, Settings, Trash2, Package, FileText, CreditCard, Building2, User, ArrowRight } from "lucide-react";
 import { BehaviorConfigModal } from "./behavior-config-modal";
+import type { Id } from "../../../../../convex/_generated/dataModel";
 
 interface WorkflowObject {
-  objectId: string;
+  objectId: Id<"objects">;
   objectType: string;
   role?: string;
+  config?: Record<string, unknown>;
 }
 
 interface WorkflowBehavior {

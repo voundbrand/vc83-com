@@ -157,7 +157,7 @@ export function PaymentProviderSelectionConfigForm({
                   <select
                     value={rule.conditions.customerType || ""}
                     onChange={(e) => updateRuleCondition(index, {
-                      customerType: e.target.value || undefined
+                      customerType: (e.target.value || undefined) as "B2C" | "B2B" | undefined
                     })}
                     className="retro-input w-full px-2 py-1 text-xs"
                   >

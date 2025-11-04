@@ -20,6 +20,14 @@ import { PaymentProviderSelectionConfigForm } from "./behavior-forms/payment-pro
 import { StripePaymentConfigForm } from "./behavior-forms/stripe-payment-config";
 import { InvoicePaymentConfigForm } from "./behavior-forms/invoice-payment-config";
 import { ConsolidatedInvoiceGenerationConfigForm } from "./behavior-forms/consolidated-invoice-generation-config";
+import type { FormLinkingConfig } from "@/lib/behaviors/handlers/form-linking";
+import type { AddonCalculationConfig } from "@/lib/behaviors/handlers/addon-calculation";
+import type { EmployerDetectionConfig } from "@/lib/behaviors/handlers/employer-detection";
+import type { InvoiceMappingConfig } from "@/lib/behaviors/handlers/invoice-mapping";
+import type { PaymentProviderSelectionConfig } from "@/lib/behaviors/handlers/payment-provider-selection";
+import type { StripePaymentConfig } from "@/lib/behaviors/handlers/stripe-payment";
+import type { InvoicePaymentConfig } from "@/lib/behaviors/handlers/invoice-payment";
+import type { ConsolidatedInvoiceGenerationConfig } from "@/lib/behaviors/handlers/consolidated-invoice-generation";
 
 interface WorkflowObject {
   objectId: Id<"objects">;
@@ -205,9 +213,9 @@ export function BehaviorConfigModal({
       case "form_linking":
         return (
           <FormLinkingConfigForm
-            config={config}
-            onChange={setConfig}
-            availableForms={getAvailableObjects("form")}
+            config={config as unknown as FormLinkingConfig}
+            onChange={(updatedConfig) => setConfig(updatedConfig as unknown as Record<string, unknown>)}
+            availableForms={getAvailableObjects("form") as Array<{ _id: string; name: string; subtype?: string }>}
           />
         );
 
@@ -215,11 +223,11 @@ export function BehaviorConfigModal({
       case "addon_calculation":
         return (
           <AddonCalculationConfigForm
-            config={config}
-            onChange={setConfig}
+            config={config as unknown as AddonCalculationConfig}
+            onChange={(updatedConfig) => setConfig(updatedConfig as unknown as Record<string, unknown>)}
             availableFormFields={getAvailableFormFields()}
-            availableForms={getAvailableObjects("form")}
-            availableProducts={getAvailableObjects("product")}
+            availableForms={getAvailableObjects("form") as Array<{ fields?: Record<string, unknown>[] }>}
+            availableProducts={getAvailableObjects("product") as unknown as Record<string, unknown>[]}
           />
         );
 
@@ -227,10 +235,10 @@ export function BehaviorConfigModal({
       case "employer_detection":
         return (
           <EmployerDetectionConfigForm
-            config={config}
-            onChange={setConfig}
-            availableForms={getAvailableObjects("form")}
-            availableCrmOrganizations={getCrmOrganizations()}
+            config={config as unknown as EmployerDetectionConfig}
+            onChange={(updatedConfig) => setConfig(updatedConfig as unknown as Record<string, unknown>)}
+            availableForms={getAvailableObjects("form") as Array<{ fields?: Record<string, unknown>[] }>}
+            availableCrmOrganizations={getCrmOrganizations() as unknown as Record<string, unknown>[]}
             sessionId={sessionId}
             organizationId={organizationId as Id<"objects">}
           />
@@ -240,10 +248,10 @@ export function BehaviorConfigModal({
       case "invoice_mapping":
         return (
           <InvoiceMappingConfigForm
-            config={config}
-            onChange={setConfig}
-            availableForms={getAvailableObjects("form")}
-            availableCrmOrganizations={getCrmOrganizations()}
+            config={config as unknown as InvoiceMappingConfig}
+            onChange={(updatedConfig) => setConfig(updatedConfig as unknown as Record<string, unknown>)}
+            availableForms={getAvailableObjects("form") as Array<{ fields?: Record<string, unknown>[] }>}
+            availableCrmOrganizations={getCrmOrganizations() as unknown as Record<string, unknown>[]}
             sessionId={sessionId}
             organizationId={organizationId as Id<"objects">}
           />
@@ -252,40 +260,40 @@ export function BehaviorConfigModal({
       case "payment-provider-selection":
         return (
           <PaymentProviderSelectionConfigForm
-            config={config}
-            onChange={setConfig}
-            availableForms={getAvailableObjects("form")}
-            availableProducts={getAvailableObjects("product")}
-            availableCrmOrganizations={getCrmOrganizations()}
+            config={config as unknown as PaymentProviderSelectionConfig}
+            onChange={(updatedConfig) => setConfig(updatedConfig as unknown as Record<string, unknown>)}
+            availableForms={getAvailableObjects("form") as unknown as Parameters<typeof PaymentProviderSelectionConfigForm>[0]["availableForms"]}
+            availableProducts={getAvailableObjects("product") as unknown as Parameters<typeof PaymentProviderSelectionConfigForm>[0]["availableProducts"]}
+            availableCrmOrganizations={getCrmOrganizations() as unknown as Parameters<typeof PaymentProviderSelectionConfigForm>[0]["availableCrmOrganizations"]}
           />
         );
 
       case "stripe-payment":
         return (
           <StripePaymentConfigForm
-            config={config}
-            onChange={setConfig}
+            config={config as unknown as StripePaymentConfig}
+            onChange={(updatedConfig) => setConfig(updatedConfig as unknown as Record<string, unknown>)}
           />
         );
 
       case "invoice-payment":
         return (
           <InvoicePaymentConfigForm
-            config={config}
-            onChange={setConfig}
-            availableCrmOrganizations={getCrmOrganizations()}
+            config={config as unknown as InvoicePaymentConfig}
+            onChange={(updatedConfig) => setConfig(updatedConfig as unknown as Record<string, unknown>)}
+            availableCrmOrganizations={getCrmOrganizations() as unknown as Parameters<typeof InvoicePaymentConfigForm>[0]["availableCrmOrganizations"]}
           />
         );
 
       case "consolidated-invoice-generation":
         return (
           <ConsolidatedInvoiceGenerationConfigForm
-            config={config}
-            onChange={setConfig}
+            config={config as unknown as ConsolidatedInvoiceGenerationConfig}
+            onChange={(updatedConfig) => setConfig(updatedConfig as unknown as Record<string, unknown>)}
             sessionId={sessionId}
             organizationId={organizationId as Id<"objects">}
-            availableEvents={getAvailableObjects("event")}
-            availableProducts={getAvailableObjects("product")}
+            availableEvents={getAvailableObjects("event") as Parameters<typeof ConsolidatedInvoiceGenerationConfigForm>[0]["availableEvents"]}
+            availableProducts={getAvailableObjects("product") as Parameters<typeof ConsolidatedInvoiceGenerationConfigForm>[0]["availableProducts"]}
           />
         );
 

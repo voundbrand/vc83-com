@@ -82,9 +82,9 @@ export function RegistrationFormStep({
     if (config.triggerConditions?.productSubtype) {
       const selectedSubtypes = selectedProducts.map(sp =>
         products.find(p => p._id === sp.productId)?.subtype
-      );
+      ).filter((st): st is string => st !== undefined);
       const matches = selectedSubtypes.some(st =>
-        config.triggerConditions.productSubtype?.includes(st)
+        config.triggerConditions?.productSubtype?.includes(st)
       );
       if (!matches) return false;
     }
