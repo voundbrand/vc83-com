@@ -226,8 +226,8 @@ export function BehaviorConfigModal({
             config={config as unknown as AddonCalculationConfig}
             onChange={(updatedConfig) => setConfig(updatedConfig as unknown as Record<string, unknown>)}
             availableFormFields={getAvailableFormFields()}
-            availableForms={(getAvailableObjects("form") || []).filter(f => f != null).map(f => ({ _id: String(f._id), name: ('name' in f ? String(f.name) : '') || "Unnamed" }))}
-            availableProducts={(getAvailableObjects("product") || []).filter(p => p != null).map(p => ({ _id: String(p._id), name: ('name' in p ? String(p.name) : '') || "Unnamed" }))}
+            availableForms={(getAvailableObjects("form") || []).filter(f => f != null && '_id' in f).map(f => ({ _id: String((f as Record<string, unknown>)._id), name: ('name' in f ? String((f as Record<string, unknown>).name) : '') || "Unnamed" }))}
+            availableProducts={(getAvailableObjects("product") || []).filter(p => p != null && '_id' in p).map(p => ({ _id: String((p as Record<string, unknown>)._id), name: ('name' in p ? String((p as Record<string, unknown>).name) : '') || "Unnamed" }))}
           />
         );
 

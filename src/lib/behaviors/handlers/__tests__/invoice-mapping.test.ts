@@ -11,6 +11,7 @@ import {
   type InvoiceMappingConfig,
 } from "../invoice-mapping";
 import type { InputSource, BehaviorContext } from "../../types";
+import type { Id } from "../../../../../convex/_generated/dataModel";
 
 describe("Invoice Mapping Behavior", () => {
   let context: BehaviorContext;
