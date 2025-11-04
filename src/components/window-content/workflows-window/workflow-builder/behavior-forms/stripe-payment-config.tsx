@@ -142,7 +142,7 @@ export function StripePaymentConfigForm({
               })}
               className="retro-input w-full px-2 py-1 text-xs"
             >
-              <option value="">Don't save</option>
+              <option value="">Don&apos;t save</option>
               <option value="on_session">On session (user present)</option>
               <option value="off_session">Off session (future charges)</option>
             </select>

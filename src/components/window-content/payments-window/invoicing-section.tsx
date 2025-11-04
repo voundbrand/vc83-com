@@ -116,7 +116,7 @@ export function InvoicingSection() {
           Invoice Payment Management
         </h3>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-          Enable B2B invoice payments with "Pay Later" option for business customers
+          Enable B2B invoice payments with &quot;Pay Later&quot; option for business customers
         </p>
       </div>
 
@@ -299,7 +299,7 @@ export function InvoicingSection() {
           <strong>How it works:</strong>
         </p>
         <ul className="list-disc list-inside space-y-0.5 ml-2">
-          <li>Customers select "Invoice (Pay Later)" at checkout</li>
+          <li>Customers select &quot;Invoice (Pay Later)&quot; at checkout</li>
           <li>Employer organizations are created automatically from form data</li>
           <li>Invoices are generated and can be sent via email or Stripe</li>
           <li>Track payment status in the Invoicing Window</li>

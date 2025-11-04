@@ -66,7 +66,7 @@ export function InvoiceEnforcementStep({
 }: InvoiceEnforcementStepProps) {
   const { t } = useTranslation();
 
-  // Extract employer details (even if we might return early)
+  // Extract employer ID (even if we might return early)
   const employerOrgId = rulesResult.enforcementDetails?.employerName;
   const paymentTerms = rulesResult.enforcementDetails?.paymentTerms;
 

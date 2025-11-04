@@ -325,7 +325,7 @@ export function PaymentProviderSelectionConfigForm({
 
           {(config.rules || []).length === 0 && (
             <div className="p-4 text-center text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-              No conditional rules. Click "Add Rule" to create payment provider conditions.
+              No conditional rules. Click &quot;Add Rule&quot; to create payment provider conditions.
             </div>
           )}
         </div>

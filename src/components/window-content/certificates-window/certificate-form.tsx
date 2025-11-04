@@ -113,7 +113,7 @@ export function CertificateForm({
           style={{ background: "#FEF3C7", borderColor: "#F59E0B", color: "#92400E" }}
         >
           <strong>Note:</strong> This is a simplified form for manual certificate issuance. In production,
-          certificates are usually auto-issued when attendees check in to events. You'll need to select
+          certificates are usually auto-issued when attendees check in to events. You&apos;ll need to select
           an existing transaction and event from your system.
         </div>
 
