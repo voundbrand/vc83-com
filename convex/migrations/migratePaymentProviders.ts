@@ -75,7 +75,7 @@ export const migratePaymentProviders = internalMutation({
     }
 
     // 1. Migrate Stripe Connect (from legacy stripeConnectAccountId field)
-    const stripeConnectAccountId = (org as any).stripeConnectAccountId as string | undefined;
+    const stripeConnectAccountId = (org as { stripeConnectAccountId?: string }).stripeConnectAccountId;
     if (stripeConnectAccountId) {
       const stripeProviderId = await ctx.db.insert("objects", {
         organizationId: args.organizationId,
