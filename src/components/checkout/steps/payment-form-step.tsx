@@ -229,7 +229,15 @@ function StripePaymentForm({
   // Get currency from first product (all products should have same currency)
   const currency = (() => {
     const firstProduct = linkedProducts.find((p) => p._id === selectedProducts[0]?.productId);
-    return firstProduct?.currency || "USD";
+    const curr = firstProduct?.currency || "EUR";
+
+    console.log('[StripePaymentForm] Currency from product:', {
+      productId: selectedProducts[0]?.productId,
+      productCurrency: firstProduct?.currency,
+      finalCurrency: curr
+    });
+
+    return curr;
   })();
 
   // Get default tax rate using the same logic as step 1
@@ -680,8 +688,14 @@ function InvoicePaymentForm({
   // Actions
   const initiateInvoice = useAction(api.paymentProviders.invoice.initiateInvoicePayment);
 
-  // Get currency from first product
-  const currency = linkedProducts.find((p) => p._id === selectedProducts[0]?.productId)?.currency || "USD";
+  // Get currency from first product (fallback to EUR if not set on product)
+  const currency = linkedProducts.find((p) => p._id === selectedProducts[0]?.productId)?.currency || "EUR";
+
+  console.log('[InvoicePaymentForm] Currency from product:', {
+    productId: selectedProducts[0]?.productId,
+    productCurrency: linkedProducts.find((p) => p._id === selectedProducts[0]?.productId)?.currency,
+    finalCurrency: currency
+  });
 
   const handleCompleteRegistration = async () => {
     if (!checkoutSessionId) {
@@ -864,9 +878,9 @@ function InvoicePaymentForm({
 /**
  * Helper: Format price for display
  * NOTE: This is only used by InvoicePaymentForm component above.
- * It gets currency from the component's scope via closure.
+ * Default changed from USD to EUR to match organization's currency settings.
  */
-function formatPrice(amountInCents: number, currencyCode = "USD"): string {
+function formatPrice(amountInCents: number, currencyCode = "EUR"): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: currencyCode.toUpperCase(),

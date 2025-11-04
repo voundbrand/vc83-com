@@ -87,7 +87,7 @@ export const stripePaymentHandler: BehaviorHandler<StripePaymentConfig> = {
 
     // Get currency from first product object
     const firstProduct = objects.find(o => o.objectType === "product");
-    const currency = firstProduct?.data?.currency || "USD";
+    const currency = firstProduct?.data?.currency || "EUR";
 
     // Get tax calculation from workflow data (set by tax-calculation behavior)
     const taxCalculation = workflowData.taxCalculation;

@@ -82,7 +82,7 @@ export function InvoiceEnforcementStep({
   const employerName = crmOrganization?.name || employerOrgId || "";
 
   // Get currency from first product (calculate early for hook)
-  const currency = linkedProducts.find((p) => p._id === selectedProducts[0]?.productId)?.currency || "USD";
+  const currency = linkedProducts.find((p) => p._id === selectedProducts[0]?.productId)?.currency || "EUR";
 
   // Define formatPrice hook before any conditional returns
   const formatPrice = React.useCallback((amount: number) => {

@@ -328,6 +328,6 @@ export function getAddonsFromResults(result: BehaviorExecutionResult): {
   return {
     lineItems: data.lineItems,
     totalAddonCost: data.totalAddonCost || 0,
-    currency: data.currency || "USD",
+    currency: data.currency || "EUR",
   };
 }

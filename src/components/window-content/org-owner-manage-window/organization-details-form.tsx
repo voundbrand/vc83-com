@@ -212,7 +212,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
       },
       locale: {
         language: localeSettings?.customProperties?.language || "en",
-        currency: localeSettings?.customProperties?.currency || "USD",
+        currency: localeSettings?.customProperties?.currency || "EUR",
         timezone: localeSettings?.customProperties?.timezone || "America/New_York",
       },
       invoicing: {
@@ -271,7 +271,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
           },
           locale: {
             language: localeSettings?.customProperties?.language || "en",
-            currency: localeSettings?.customProperties?.currency || "USD",
+            currency: localeSettings?.customProperties?.currency || "EUR",
             timezone: localeSettings?.customProperties?.timezone || "America/New_York",
           },
           invoicing: {
@@ -1064,14 +1064,27 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                   className="w-full px-2 py-1 text-sm"
                   style={inputStyles}
                 >
-                  <option value="America/New_York">Eastern Time</option>
-                  <option value="America/Chicago">Central Time</option>
-                  <option value="America/Denver">Mountain Time</option>
-                  <option value="America/Los_Angeles">Pacific Time</option>
-                  <option value="Europe/London">London</option>
-                  <option value="Europe/Paris">Paris</option>
-                  <option value="Asia/Tokyo">Tokyo</option>
-                  <option value="Australia/Sydney">Sydney</option>
+                  <optgroup label="Europe">
+                    <option value="Europe/Berlin">Berlin (CET/CEST)</option>
+                    <option value="Europe/Paris">Paris (CET/CEST)</option>
+                    <option value="Europe/London">London (GMT/BST)</option>
+                    <option value="Europe/Amsterdam">Amsterdam (CET/CEST)</option>
+                    <option value="Europe/Vienna">Vienna (CET/CEST)</option>
+                    <option value="Europe/Zurich">Zurich (CET/CEST)</option>
+                    <option value="Europe/Rome">Rome (CET/CEST)</option>
+                    <option value="Europe/Madrid">Madrid (CET/CEST)</option>
+                  </optgroup>
+                  <optgroup label="Americas">
+                    <option value="America/New_York">Eastern Time (ET)</option>
+                    <option value="America/Chicago">Central Time (CT)</option>
+                    <option value="America/Denver">Mountain Time (MT)</option>
+                    <option value="America/Los_Angeles">Pacific Time (PT)</option>
+                  </optgroup>
+                  <optgroup label="Asia & Pacific">
+                    <option value="Asia/Tokyo">Tokyo (JST)</option>
+                    <option value="Asia/Singapore">Singapore (SGT)</option>
+                    <option value="Australia/Sydney">Sydney (AEST)</option>
+                  </optgroup>
                 </select>
               </div>
             </div>

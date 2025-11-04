@@ -198,7 +198,7 @@ export const getOrganizationTransactions = query({
         vatNumber: props.vatNumber as string | undefined,
 
         totalAmount: (props.totalAmount as number) || 0,
-        currency: (props.currency as string) || "usd",
+        currency: (props.currency as string) || "eur",
         subtotal: (props.subtotal as number) || 0,
         taxAmount: (props.taxAmount as number) || 0,
 
@@ -268,7 +268,7 @@ export const getTransactionDetail = query({
       vatNumber: props.vatNumber as string | undefined,
 
       totalAmount: (props.totalAmount as number) || 0,
-      currency: (props.currency as string) || "usd",
+      currency: (props.currency as string) || "eur",
       subtotal: (props.subtotal as number) || 0,
       taxAmount: (props.taxAmount as number) || 0,
 
@@ -326,7 +326,7 @@ export const getTransactionStats = query({
       .filter((q) => q.eq(q.field("subtype"), "locale"))
       .first();
 
-    const organizationCurrency = (localeSettings?.customProperties?.currency as string) || "USD";
+    const organizationCurrency = (localeSettings?.customProperties?.currency as string) || "EUR";
 
     // Get all checkout sessions
     let sessions = await ctx.db

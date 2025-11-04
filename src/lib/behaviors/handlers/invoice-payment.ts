@@ -275,7 +275,7 @@ export const invoicePaymentHandler: BehaviorHandler<InvoicePaymentConfig> = {
       subtotal: taxCalc?.subtotal || totalAmount,
       taxAmount: taxCalc?.taxAmount || 0,
       totalAmount,
-      currency: (data.currency as string) || "USD",
+      currency: (data.currency as string) || "EUR",
 
       // Payment terms
       paymentTerms,

@@ -14,8 +14,9 @@
  */
 
 import { v } from "convex/values";
-import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
+import { mutation, query, internalMutation, internalQuery, internalAction } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
+import { api, internal } from "./_generated/api";
 import { requireAuthenticatedUser, checkPermission } from "./rbacHelpers";
 
 // ============================================================================
@@ -109,6 +110,7 @@ export const listInvoices = query({
 
     // Check permission - org owners automatically have view_financials
     const hasPermission = await checkPermission(ctx, userId, "view_financials", args.organizationId);
+    console.log(`📋 [listInvoices] Permission check for user ${userId}:`, { hasPermission, orgId: args.organizationId });
     if (!hasPermission) {
       throw new Error("Nicht autorisiert: Keine Berechtigung zum Anzeigen von Rechnungen");
     }
@@ -121,6 +123,17 @@ export const listInvoices = query({
       );
 
     const invoices = await invoiceQuery.collect();
+
+    console.log(`📋 [listInvoices] Found ${invoices.length} invoices for org ${args.organizationId}`);
+    console.log(`📋 [listInvoices] Sample invoice data:`, invoices.length > 0 ? {
+      id: invoices[0]._id,
+      type: invoices[0].type,
+      subtype: invoices[0].subtype,
+      organizationId: invoices[0].organizationId,
+      isDraft: invoices[0].customProperties?.isDraft,
+      paymentStatus: invoices[0].customProperties?.paymentStatus,
+      invoiceNumber: invoices[0].customProperties?.invoiceNumber,
+    } : 'No invoices found');
 
     // Apply filters
     let filteredInvoices = invoices;
@@ -1417,5 +1430,353 @@ export const enableInvoicingForOrg = internalMutation({
     });
 
     return { success: true, message: "App enabled", availabilityId };
+  },
+});
+
+/**
+ * CREATE SIMPLE INVOICE (B2C or B2B Single Transaction)
+ *
+ * Creates an invoice record for a single checkout session.
+ * This is called automatically after payment completion.
+ *
+ * Supports:
+ * - B2C: Simple receipt-style invoice (no VAT number)
+ * - B2B self-pay: Full invoice with company details and VAT
+ * - B2B employer: Records invoice but skips PDF generation
+ *
+ * @internal - Called from ticketGeneration after successful payment
+ */
+export const createSimpleInvoiceFromCheckout = internalMutation({
+  args: {
+    checkoutSessionId: v.id("objects"),
+    transactionIds: v.array(v.id("objects")),
+    ticketIds: v.optional(v.array(v.id("objects"))),
+    transactionType: v.union(v.literal("B2C"), v.literal("B2B")),
+    customerInfo: v.object({
+      email: v.string(),
+      name: v.string(),
+      companyName: v.optional(v.string()),
+      vatNumber: v.optional(v.string()),
+      billingAddress: v.optional(v.object({
+        line1: v.string(),
+        line2: v.optional(v.string()),
+        city: v.string(),
+        state: v.optional(v.string()),
+        postalCode: v.string(),
+        country: v.string(),
+      })),
+    }),
+    totalInCents: v.number(),
+    currency: v.string(),
+    isEmployerBilled: v.optional(v.boolean()), // If true, skip PDF, invoice employer later
+    crmContactId: v.optional(v.id("objects")), // CRM contact ID from auto-create
+    crmOrganizationId: v.optional(v.id("objects")), // CRM organization ID (B2B only)
+  },
+  handler: async (ctx, args) => {
+    // 1. Get checkout session to find organization
+    const session = await ctx.db.get(args.checkoutSessionId);
+    if (!session || session.type !== "checkout_session") {
+      throw new Error("Checkout session not found");
+    }
+
+    const organizationId = session.organizationId;
+
+    // 2. Fetch all transactions to build line items
+    const transactions = await Promise.all(
+      args.transactionIds.map(id => ctx.db.get(id))
+    );
+
+    const validTransactions = transactions.filter(
+      (t): t is NonNullable<typeof t> => t !== null && t.type === "transaction"
+    );
+
+    if (validTransactions.length === 0) {
+      throw new Error("No valid transactions found for invoice");
+    }
+
+    // 3. Build line items from transactions
+    const lineItems: InvoiceLineItem[] = validTransactions.map(tx => ({
+      transactionId: tx._id,
+      ticketId: tx.customProperties?.ticketId,
+      productId: tx.customProperties?.productId,
+      description: tx.customProperties?.productName
+        ? `${tx.customProperties.productName}${tx.customProperties.eventName ? ` - ${tx.customProperties.eventName}` : ""}`
+        : "Product",
+      productName: tx.customProperties?.productName as string | undefined,
+      eventName: tx.customProperties?.eventName as string | undefined,
+      eventLocation: tx.customProperties?.eventLocation as string | undefined,
+      customerName: args.customerInfo.name,
+      customerEmail: args.customerInfo.email,
+      customerId: tx.customProperties?.customerId,
+      quantity: (tx.customProperties?.quantity as number) || 1,
+      unitPriceInCents: (tx.customProperties?.unitPriceInCents as number) || 0,
+      totalPriceInCents: (tx.customProperties?.totalPriceInCents as number) || 0,
+      taxRatePercent: args.transactionType === "B2B" ? 19 : 0, // German VAT for B2B
+      taxAmountInCents: args.transactionType === "B2B"
+        ? Math.round((tx.customProperties?.totalPriceInCents as number || 0) * 0.19)
+        : 0,
+      canEdit: false, // Sealed invoices cannot be edited
+      canRemove: false,
+    }));
+
+    // 4. Calculate totals
+    const subtotalInCents = lineItems.reduce((sum, item) => sum + item.totalPriceInCents, 0);
+    const taxInCents = lineItems.reduce((sum, item) => sum + item.taxAmountInCents, 0);
+    const totalInCents = subtotalInCents + taxInCents;
+
+    // 5. Generate invoice number
+    const invoiceNumber = await generateInvoiceNumber(ctx, organizationId, "INV");
+
+    // 6. Determine invoice type and status
+    const invoiceType: InvoiceType = args.transactionType === "B2C" ? "b2c_single" : "b2b_single";
+    const paymentStatus: InvoiceStatus = args.isEmployerBilled
+      ? "awaiting_employer_payment"
+      : "paid"; // Already paid via Stripe
+
+    // 7. Build billTo information - prioritize CRM organization data for B2B
+    let billTo;
+
+    if (args.crmOrganizationId) {
+      // B2B: Fetch CRM organization for complete billing details
+      const crmOrg = await ctx.db.get(args.crmOrganizationId);
+      if (crmOrg && crmOrg.type === "crm_organization") {
+        const orgProps = crmOrg.customProperties || {};
+        billTo = {
+          type: "organization" as const,
+          name: orgProps.companyName as string || args.customerInfo.companyName || args.customerInfo.name,
+          email: orgProps.billingEmail as string || args.customerInfo.email,
+          ...(orgProps.vatNumber && { vatNumber: orgProps.vatNumber as string }),
+          ...(orgProps.billingAddress && { billingAddress: orgProps.billingAddress }),
+          // Store CRM organization link
+          crmOrganizationId: args.crmOrganizationId,
+        };
+      } else {
+        // Fallback if CRM org not found (shouldn't happen)
+        billTo = {
+          type: "organization" as const,
+          name: args.customerInfo.companyName || args.customerInfo.name,
+          email: args.customerInfo.email,
+          ...(args.customerInfo.billingAddress && { billingAddress: args.customerInfo.billingAddress }),
+          ...(args.customerInfo.vatNumber && { vatNumber: args.customerInfo.vatNumber }),
+        };
+      }
+    } else {
+      // B2C or fallback: Use checkout session data
+      billTo = {
+        type: args.transactionType === "B2C" ? ("individual" as const) : ("organization" as const),
+        name: args.transactionType === "B2C"
+          ? args.customerInfo.name
+          : (args.customerInfo.companyName || args.customerInfo.name),
+        email: args.customerInfo.email,
+        ...(args.customerInfo.billingAddress && { billingAddress: args.customerInfo.billingAddress }),
+        ...(args.customerInfo.vatNumber && { vatNumber: args.customerInfo.vatNumber }),
+      };
+    }
+
+    // 8. Get system user for createdBy (since this is internal)
+    const systemUser = await ctx.db
+      .query("users")
+      .filter(q => q.eq(q.field("email"), "system@l4yercak3.com"))
+      .first();
+
+    if (!systemUser) {
+      throw new Error("System user not found - run seed script first");
+    }
+
+    const createdBy = systemUser._id;
+
+    // 9. Create invoice record
+    const now = Date.now();
+
+    console.log(`📋 [createSimpleInvoiceFromCheckout] Creating invoice:`, {
+      organizationId,
+      type: "invoice",
+      subtype: invoiceType,
+      invoiceNumber,
+      isDraft: false,
+      paymentStatus,
+      checkoutSessionId: args.checkoutSessionId,
+      crmContactId: args.crmContactId,
+      crmOrganizationId: args.crmOrganizationId,
+    });
+
+    const invoiceId = await ctx.db.insert("objects", {
+      organizationId,
+      type: "invoice",
+      subtype: invoiceType,
+      name: `Invoice #${invoiceNumber}`,
+      status: paymentStatus,
+      customProperties: {
+        // === CORE INVOICE DATA ===
+        invoiceNumber,
+        invoiceDate: now,
+        dueDate: now, // Already paid (or employer will pay later)
+
+        // === CUSTOMER INFO ===
+        billTo,
+
+        // === LINE ITEMS ===
+        lineItems,
+
+        // === TOTALS ===
+        subtotalInCents,
+        taxInCents,
+        totalInCents,
+        currency: args.currency.toUpperCase(),
+
+        // === PAYMENT STATUS ===
+        paymentStatus,
+        paymentTerms: "due_on_receipt" as const,
+        ...(paymentStatus === "paid" && { paidAt: now }),
+
+        // === LINKS ===
+        checkoutSessionId: args.checkoutSessionId,
+        ...(args.ticketIds && args.ticketIds.length > 0 && { consolidatedTicketIds: args.ticketIds }),
+
+        // === CRM LINKS (for traceability) ===
+        ...(args.crmContactId && { crmContactId: args.crmContactId }),
+        ...(args.crmOrganizationId && { crmOrganizationId: args.crmOrganizationId }),
+
+        // === FLAGS ===
+        isDraft: false, // Always sealed for auto-invoices
+        isEmployerInvoiced: args.isEmployerBilled || false,
+        isConsolidated: false, // Single checkout, not consolidated
+      },
+      createdBy,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // 9. Link invoice to transactions
+    for (const tx of validTransactions) {
+      await ctx.db.patch(tx._id, {
+        customProperties: {
+          ...tx.customProperties,
+          invoiceId,
+          invoicingStatus: "invoiced",
+        },
+        updatedAt: now,
+      });
+    }
+
+    // 10. Schedule PDF generation (if not employer billed)
+    if (!args.isEmployerBilled) {
+      await ctx.scheduler.runAfter(0, internal.invoicingOntology.generateAndStorePDFForInvoice, {
+        invoiceId,
+        checkoutSessionId: args.checkoutSessionId,
+        crmOrganizationId: args.crmOrganizationId, // Pass CRM org for B2B billing display
+      });
+      console.log(`📄 [createSimpleInvoiceFromCheckout] Scheduled PDF generation for invoice ${invoiceNumber}`);
+    }
+
+    console.log(`✅ [createSimpleInvoiceFromCheckout] Created ${invoiceType} invoice ${invoiceNumber} for ${args.transactionType} checkout`);
+
+    return {
+      success: true,
+      invoiceId,
+      invoiceNumber,
+      transactionCount: validTransactions.length,
+      totalInCents,
+      shouldGeneratePDF: !args.isEmployerBilled, // Skip PDF if employer will be billed
+    };
+  },
+});
+
+// ============================================================================
+// PDF GENERATION FOR INVOICES
+// ============================================================================
+
+/**
+ * Internal mutation to update an invoice with PDF URL
+ * Called after PDF is generated and stored
+ */
+export const updateInvoiceWithPDF = internalMutation({
+  args: {
+    invoiceId: v.id("objects"),
+    pdfUrl: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const invoice = await ctx.db.get(args.invoiceId);
+    if (!invoice) {
+      throw new Error(`Invoice ${args.invoiceId} not found`);
+    }
+
+    await ctx.db.patch(args.invoiceId, {
+      customProperties: {
+        ...invoice.customProperties,
+        pdfUrl: args.pdfUrl,
+      },
+      updatedAt: Date.now(),
+    });
+
+    console.log(`✅ Updated invoice ${args.invoiceId} with PDF URL`);
+  },
+});
+
+/**
+ * Internal action to generate PDF and store it for an invoice
+ * This bridges the gap between mutation (invoice creation) and action (PDF generation)
+ *
+ * TIMING STRATEGY:
+ * - Invoices are created synchronously in createSimpleInvoiceFromCheckout
+ * - PDF generation is scheduled immediately after (async action)
+ * - Email with PDF attachment should wait for PDF to be ready
+ * - For employer-billed invoices, no PDF is generated (skip this step entirely)
+ */
+export const generateAndStorePDFForInvoice = internalAction({
+  args: {
+    invoiceId: v.id("objects"),
+    checkoutSessionId: v.id("objects"),
+    crmOrganizationId: v.optional(v.id("objects")), // B2B organization for billing display
+  },
+  handler: async (ctx, args) => {
+    try {
+      // 1. Generate PDF using existing action
+      const pdfResult = await ctx.runAction(api.pdfGeneration.generateInvoicePDF, {
+        checkoutSessionId: args.checkoutSessionId,
+        crmOrganizationId: args.crmOrganizationId, // Pass for B2B "BILL TO" section
+      });
+
+      if (!pdfResult) {
+        console.error(`❌ Failed to generate PDF for invoice ${args.invoiceId}`);
+        return null;
+      }
+
+      // 2. Convert base64 to blob and store in Convex storage
+      // Note: Buffer is not available in Convex runtime, use atob instead
+      const base64Data = pdfResult.content;
+      const binaryString = atob(base64Data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const storageId = await ctx.storage.store(
+        new Blob([bytes], { type: "application/pdf" })
+      );
+
+      // 3. Get URL from storage
+      const pdfUrl = await ctx.storage.getUrl(storageId);
+      if (!pdfUrl) {
+        console.error(`❌ Failed to get URL for stored PDF ${storageId}`);
+        return null;
+      }
+
+      // 4. Update invoice with PDF URL
+      await ctx.runMutation(internal.invoicingOntology.updateInvoiceWithPDF, {
+        invoiceId: args.invoiceId,
+        pdfUrl,
+      });
+
+      console.log(`✅ Generated and stored PDF for invoice ${args.invoiceId}`);
+
+      // TODO: Send invoice email with PDF attachment
+      // This is where you would schedule the email action if needed
+      // For now, emails are handled elsewhere in the checkout flow
+
+      return pdfUrl;
+    } catch (error) {
+      console.error(`❌ Error generating PDF for invoice ${args.invoiceId}:`, error);
+      return null;
+    }
   },
 });

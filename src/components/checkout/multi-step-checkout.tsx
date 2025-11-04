@@ -436,7 +436,7 @@ export function MultiStepCheckout({
               taxAmount: data.amount,
             }));
           })() : undefined,
-          currency: linkedProducts[0]?.currency || "USD", // Add currency
+          currency: linkedProducts[0]?.currency || "EUR", // Add currency
           formResponses: updatedData.formResponses,
           stepProgress: [currentStep], // Track which step was just completed
           currentStep,
@@ -571,7 +571,7 @@ export function MultiStepCheckout({
         // Get currency from first product
         const productCurrency = (() => {
           const firstProduct = linkedProducts.find((p) => p._id === stepData.selectedProducts?.[0]?.productId);
-          return firstProduct?.currency || "USD";
+          return firstProduct?.currency || "EUR";
         })();
 
         // Calculate total amount (base + form costs)

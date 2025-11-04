@@ -190,7 +190,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
       },
       locale: {
         language: localeSettings?.customProperties?.language || "en",
-        currency: localeSettings?.customProperties?.currency || "USD",
+        currency: localeSettings?.customProperties?.currency || "EUR",
         timezone: localeSettings?.customProperties?.timezone || "America/New_York",
       },
       invoicing: {
@@ -246,7 +246,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
           },
           locale: {
             language: localeSettings?.customProperties?.language || "en",
-            currency: localeSettings?.customProperties?.currency || "USD",
+            currency: localeSettings?.customProperties?.currency || "EUR",
             timezone: localeSettings?.customProperties?.timezone || "America/New_York",
           },
           invoicing: {

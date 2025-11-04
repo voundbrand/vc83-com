@@ -3,6 +3,52 @@
  *
  * Generates professional PDFs for tickets and receipts using jsPDF.
  * Style inspired by Eventbrite's clean, professional design.
+ *
+ * TODO: CUSTOM PDF TEMPLATE SUPPORT
+ * ==================================
+ * Modify PDF generation to support custom organization templates.
+ *
+ * IMPLEMENTATION STEPS:
+ *
+ * 1. UPDATE generateTicketPDF function:
+ *    - Add optional templateId parameter: templateId?: Id<"objects">
+ *    - Load custom template if provided, otherwise use org default or built-in
+ *    - Apply custom branding: logo, colors, fonts
+ *    - Apply custom layout: show/hide QR code, barcode, sponsors
+ *    - Merge custom fields into PDF content
+ *
+ * 2. UPDATE generateInvoicePDF function:
+ *    - Same template loading logic as tickets
+ *    - Support different templates for B2C receipts vs B2B invoices
+ *    - Apply company branding (logo, letterhead)
+ *    - Custom payment terms and bank details
+ *
+ * 3. ADD template rendering helper:
+ *    function applyCustomTemplate(doc: jsPDF, data: any, template: PdfTemplate) {
+ *      // Apply branding
+ *      if (template.branding.logoUrl) addLogo(doc, template.branding.logoUrl);
+ *      doc.setTextColor(template.branding.primaryColor);
+ *
+ *      // Apply layout
+ *      if (template.layout.showQrCode) addQRCode(doc, data.qrCode);
+ *      if (template.layout.headerText) addHeader(doc, template.layout.headerText);
+ *
+ *      // Add custom fields
+ *      template.customFields.forEach(field => {
+ *        addCustomField(doc, field.position, field.label, field.value);
+ *      });
+ *    }
+ *
+ * 4. FALLBACK LOGIC:
+ *    - Always try custom template first
+ *    - If template fails to load/render: fallback to built-in default
+ *    - Log errors but don't break PDF generation
+ *    - Ensure PDFs always generate even if customization fails
+ *
+ * RELATED FILES:
+ * - convex/ticketGeneration.ts (comprehensive TODO documentation)
+ * - convex/pdfTemplates.ts (NEW - template CRUD)
+ * - src/components/window-content/settings-window/pdf-templates-tab.tsx (NEW - UI)
  */
 
 import { action } from "./_generated/server";
@@ -77,8 +123,11 @@ export const generateTicketPDF = action({
       // 5. Extract event data - prefer from session, fallback to product
       const eventName = (session.customProperties?.eventName as string) || product.name;
       const eventSponsors = session.customProperties?.eventSponsors as Array<{ name: string; level?: string }> | undefined;
+      // Fix: Events use startDate, not eventDate
       const eventDate = (session.customProperties?.eventDate as number) ||
-        (product.customProperties?.eventDate as number | undefined);
+        (session.customProperties?.startDate as number) ||
+        (product.customProperties?.eventDate as number | undefined) ||
+        (product.customProperties?.startDate as number | undefined);
       const eventLocation = (session.customProperties?.eventLocation as string) ||
         (product.customProperties?.location as string | undefined);
 
@@ -191,15 +240,97 @@ export const generateTicketPDF = action({
         { maxWidth: pageWidth - 40 }
       );
 
-      // Price
-      const price = ((ticket.customProperties?.pricePaid as number) || 0) / 100;
-      const currency = session.customProperties?.currency as string || "USD";
+      // Price Breakdown - Get pricing from the linked transaction
+      const transactionId = ticket.customProperties?.transactionId as Id<"objects"> | undefined;
+      const currency = (session.customProperties?.currency as string) || "EUR";
+
+      let netPrice = 0;
+      let taxAmount = 0;
+      let totalPrice = 0;
+      let taxRate = 0;
+
+      if (transactionId) {
+        // Fetch the transaction to get accurate pricing
+        const transaction = await ctx.runQuery(internal.transactionOntology.getTransactionInternal, {
+          transactionId,
+        });
+
+        console.log(`📝 [generateTicketPDF] Transaction found: ${transactionId}`);
+        console.log(`   Transaction type: ${transaction?.type}`);
+        console.log(`   Transaction data:`, JSON.stringify(transaction?.customProperties, null, 2));
+
+        if (transaction && transaction.type === "transaction") {
+          // Transaction has the correct pricing in cents
+          const unitPriceInCents = (transaction.customProperties?.unitPriceInCents as number) || 0;
+          const totalPriceInCents = (transaction.customProperties?.totalPriceInCents as number) || 0;
+          const taxAmountInCents = (transaction.customProperties?.taxAmountInCents as number) || 0;
+
+          console.log(`   unitPriceInCents: ${unitPriceInCents}`);
+          console.log(`   taxAmountInCents: ${taxAmountInCents}`);
+          console.log(`   totalPriceInCents: ${totalPriceInCents}`);
+
+          // Convert from cents to currency units
+          netPrice = unitPriceInCents / 100;
+          totalPrice = totalPriceInCents / 100;
+          taxAmount = taxAmountInCents / 100;
+          taxRate = netPrice > 0 ? ((taxAmount / netPrice) * 100) : 0;
+
+          console.log(`   Calculated netPrice: ${netPrice}`);
+          console.log(`   Calculated taxAmount: ${taxAmount}`);
+          console.log(`   Calculated taxRate: ${taxRate}%`);
+          console.log(`   Calculated totalPrice: ${totalPrice}`);
+        }
+      } else {
+        console.log(`⚠️  [generateTicketPDF] No transaction ID found on ticket ${args.ticketId}`);
+      }
+
+      // Fallback: use session totals if transaction not found
+      if (totalPrice === 0) {
+        const totalAmount = (session.customProperties?.totalAmount as number) || 0;
+        const sessionTaxAmount = (session.customProperties?.taxAmount as number) || 0;
+        const subtotalAmount = totalAmount - sessionTaxAmount;
+
+        netPrice = subtotalAmount / 100;
+        taxAmount = sessionTaxAmount / 100;
+        totalPrice = totalAmount / 100;
+        taxRate = netPrice > 0 ? ((taxAmount / netPrice) * 100) : 0;
+      }
+
+      currentY += 10;
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.text("Price Breakdown", 20, currentY);
+
+      currentY += 7;
+      doc.setFontSize(11);
+      doc.setTextColor(0, 0, 0);
+      doc.text(`Subtotal:`, 20, currentY);
+      doc.text(`${currency.toUpperCase()} ${netPrice.toFixed(2)}`, 80, currentY);
+
+      console.log(`📊 [generateTicketPDF] Final display values:`);
+      console.log(`   taxAmount > 0? ${taxAmount > 0} (taxAmount = ${taxAmount})`);
+      console.log(`   taxRate: ${taxRate}%`);
+      console.log(`   Will display tax line: ${taxAmount > 0}`);
+
+      if (taxAmount > 0) {
+        currentY += 7;
+        doc.setTextColor(100, 100, 100);
+        doc.text(`Tax (${taxRate.toFixed(1)}%):`, 20, currentY);
+        doc.text(`${currency.toUpperCase()} ${taxAmount.toFixed(2)}`, 80, currentY);
+        console.log(`✅ [generateTicketPDF] Tax line added to PDF`);
+      } else {
+        console.log(`❌ [generateTicketPDF] Tax line NOT added (taxAmount = ${taxAmount})`);
+      }
+
+      currentY += 7;
       doc.setFontSize(14);
+      doc.setTextColor(0, 0, 0);
       doc.setFont("helvetica", "bold");
+      doc.text(`Total:`, 20, currentY);
       doc.text(
-        price === 0 ? "Free Order" : `${currency.toUpperCase()} ${price.toFixed(2)}`,
-        20,
-        130
+        totalPrice === 0 ? "Free" : `${currency.toUpperCase()} ${totalPrice.toFixed(2)}`,
+        80,
+        currentY
       );
 
       // Barcode number below QR
@@ -243,6 +374,24 @@ export const generateTicketPDF = action({
 });
 
 /**
+ * GENERATE RECEIPT PDF (Public - for B2C customers)
+ *
+ * Creates a receipt PDF for paid orders (Stripe, PayPal, etc.)
+ * This is a public action that can be called from the frontend.
+ */
+export const generateReceiptPDF = action({
+  args: {
+    checkoutSessionId: v.id("objects"),
+  },
+  handler: async (ctx, args): Promise<PDFAttachment | null> => {
+    // Reuse the invoice PDF generator but change the title to "RECEIPT"
+    return await ctx.runAction(api.pdfGeneration.generateInvoicePDF, {
+      checkoutSessionId: args.checkoutSessionId,
+    });
+  },
+});
+
+/**
  * GENERATE INVOICE/RECEIPT PDF
  *
  * Creates a professional receipt/invoice PDF with order summary and payment details.
@@ -250,6 +399,7 @@ export const generateTicketPDF = action({
 export const generateInvoicePDF = action({
   args: {
     checkoutSessionId: v.id("objects"),
+    crmOrganizationId: v.optional(v.id("objects")), // Optional: B2B employer organization
   },
   handler: async (ctx, args): Promise<PDFAttachment | null> => {
     try {
@@ -297,6 +447,19 @@ export const generateInvoicePDF = action({
         { organizationId }
       );
 
+      // 2.5. Get buyer CRM organization info (if B2B invoice with employerOrgId)
+      let buyerCrmOrg: Doc<"objects"> | null = null;
+      if (args.crmOrganizationId) {
+        buyerCrmOrg = await ctx.runQuery(api.crmOntology.getPublicCrmOrganizationBilling, {
+          crmOrganizationId: args.crmOrganizationId,
+        }) as Doc<"objects"> | null;
+        console.log("📄 [generateInvoicePDF] Found CRM org for BILL TO:", {
+          orgId: args.crmOrganizationId,
+          orgName: buyerCrmOrg?.name,
+          hasBillingAddress: !!buyerCrmOrg?.customProperties?.billingAddress,
+        });
+      }
+
       // 3. Get purchase items
       const purchaseItemIds = (session.customProperties?.purchasedItemIds as Id<"objects">[]) || [];
       const purchaseItems = await Promise.all(
@@ -307,30 +470,80 @@ export const generateInvoicePDF = action({
         )
       ) as (Doc<"objects"> | null)[];
 
-      // 4. Get product details for each item
-      const itemsWithProducts = await Promise.all(
+      // 4. Get product details AND transactions for each item
+      const itemsWithProductsAndTransactions = await Promise.all(
         purchaseItems.map(async (item) => {
           if (!item) return null;
           const productId = item.customProperties?.productId as Id<"objects">;
           const product = await ctx.runQuery(internal.productOntology.getProductInternal, {
             productId,
           }) as Doc<"objects"> | null;
+
+          // 🔥 CRITICAL: Get transaction to get ACCURATE tax info
+          const fulfillmentData = item.customProperties?.fulfillmentData as { ticketId?: Id<"objects"> } | undefined;
+          let transaction: Doc<"objects"> | null = null;
+
+          if (fulfillmentData?.ticketId) {
+            // Get ticket to find transaction
+            const ticket = await ctx.runQuery(internal.ticketOntology.getTicketInternal, {
+              ticketId: fulfillmentData.ticketId,
+            });
+
+            if (ticket) {
+              const transactionId = ticket.customProperties?.transactionId as Id<"objects"> | undefined;
+              if (transactionId) {
+                transaction = await ctx.runQuery(internal.transactionOntology.getTransactionInternal, {
+                  transactionId,
+                });
+              }
+            }
+          }
+
           return {
             productName: product?.name || "Unknown Product",
             quantity: item.customProperties?.quantity as number,
             pricePerUnit: item.customProperties?.pricePerUnit as number,
             totalPrice: item.customProperties?.totalPrice as number,
+            transaction, // Include transaction for tax data
           };
         })
       );
 
-      const validItems = itemsWithProducts.filter((item) => item !== null);
+      const validItems = itemsWithProductsAndTransactions.filter((item) => item !== null);
 
-      // 5. Calculate totals
-      const subtotal = validItems.reduce((sum, item) => sum + item.totalPrice, 0);
-      const taxAmount = (session.customProperties?.taxAmount as number) || 0;
-      const total = (session.customProperties?.totalAmount as number) || subtotal;
-      const currency = (session.customProperties?.currency as string) || "USD";
+      // 5. Calculate totals from TRANSACTIONS (accurate tax data)
+      const subtotal = validItems.reduce((sum, item) => {
+        // Use transaction unitPriceInCents if available (pre-tax amount)
+        if (item.transaction) {
+          const unitPrice = (item.transaction.customProperties?.unitPriceInCents as number) || 0;
+          return sum + unitPrice;
+        }
+        return sum + item.totalPrice;
+      }, 0);
+
+      const taxAmount = validItems.reduce((sum, item) => {
+        // Use transaction taxAmountInCents if available
+        if (item.transaction) {
+          const taxAmt = (item.transaction.customProperties?.taxAmountInCents as number) || 0;
+          return sum + taxAmt;
+        }
+        return sum;
+      }, 0);
+
+      const total = validItems.reduce((sum, item) => {
+        // Use transaction totalPriceInCents if available (includes tax)
+        if (item.transaction) {
+          const totalPrice = (item.transaction.customProperties?.totalPriceInCents as number) || 0;
+          return sum + totalPrice;
+        }
+        return sum + item.totalPrice;
+      }, 0);
+
+      const currency = (session.customProperties?.currency as string) || "EUR";
+
+      // Get tax rate from first transaction (assumes all items have same rate)
+      const firstTransaction = validItems.find(item => item.transaction)?.transaction;
+      const taxRatePercent = (firstTransaction?.customProperties?.taxRatePercent as number) || 0;
 
       // Extract B2B info
       const transactionType = session.customProperties?.transactionType as "B2C" | "B2B" | undefined;
@@ -444,19 +657,89 @@ export const generateInvoicePDF = action({
         fromYPos += 6;
       }
 
-      // BILL TO (Buyer - B2B vs B2C)
+      // BILL TO (Buyer - use CRM org if available, otherwise fallback to session data)
       let billToYPos = 45;
       doc.setFontSize(12);
       doc.setTextColor(0, 0, 0);
       doc.setFont("helvetica", "bold");
-      doc.text(transactionType === "B2B" ? "BILL TO:" : "CUSTOMER:", pageWidth / 2 + 10, billToYPos);
+      const isCRMBilling = !!buyerCrmOrg;
+      doc.text(isCRMBilling || transactionType === "B2B" ? "BILL TO:" : "CUSTOMER:", pageWidth / 2 + 10, billToYPos);
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
       billToYPos += 7;
 
-      if (transactionType === "B2B" && buyerCompanyName) {
-        // B2B: Show company name prominently
+      if (isCRMBilling && buyerCrmOrg) {
+        // B2B with CRM Organization: Use CRM org billing info
+        doc.setFont("helvetica", "bold");
+        doc.text(buyerCrmOrg.name, pageWidth / 2 + 10, billToYPos);
+        billToYPos += 6;
+        doc.setFont("helvetica", "normal");
+
+        // VAT number from CRM org
+        const crmVatNumber = buyerCrmOrg.customProperties?.vatNumber as string | undefined;
+        if (crmVatNumber) {
+          doc.text(`VAT: ${crmVatNumber}`, pageWidth / 2 + 10, billToYPos);
+          billToYPos += 6;
+        }
+
+        // Billing address from CRM org
+        const crmBillingAddress = buyerCrmOrg.customProperties?.billingAddress as {
+          line1?: string;
+          line2?: string;
+          city?: string;
+          state?: string;
+          postalCode?: string;
+          country?: string;
+        } | undefined;
+
+        if (crmBillingAddress?.line1) {
+          doc.text(crmBillingAddress.line1, pageWidth / 2 + 10, billToYPos);
+          billToYPos += 6;
+        }
+
+        if (crmBillingAddress?.line2) {
+          doc.text(crmBillingAddress.line2, pageWidth / 2 + 10, billToYPos);
+          billToYPos += 6;
+        }
+
+        if (crmBillingAddress?.city || crmBillingAddress?.state || crmBillingAddress?.postalCode) {
+          const cityLine = [
+            crmBillingAddress.city,
+            crmBillingAddress.state,
+            crmBillingAddress.postalCode
+          ].filter(Boolean).join(", ");
+          doc.text(cityLine, pageWidth / 2 + 10, billToYPos);
+          billToYPos += 6;
+        }
+
+        if (crmBillingAddress?.country) {
+          doc.text(crmBillingAddress.country, pageWidth / 2 + 10, billToYPos);
+          billToYPos += 6;
+        }
+
+        // Billing contact from CRM org
+        const crmBillingEmail = buyerCrmOrg.customProperties?.billingEmail as string | undefined;
+        const crmBillingContact = buyerCrmOrg.customProperties?.billingContact as string | undefined;
+
+        if (crmBillingContact) {
+          doc.text(`Contact: ${crmBillingContact}`, pageWidth / 2 + 10, billToYPos);
+          billToYPos += 6;
+        }
+
+        if (crmBillingEmail) {
+          doc.text(crmBillingEmail, pageWidth / 2 + 10, billToYPos);
+          billToYPos += 6;
+        }
+
+        // Customer as "Attn:" if different from billing contact
+        const customerName = session.customProperties?.customerName as string;
+        if (customerName && customerName !== crmBillingContact) {
+          doc.text(`Attn: ${customerName}`, pageWidth / 2 + 10, billToYPos);
+          billToYPos += 6;
+        }
+      } else if (transactionType === "B2B" && buyerCompanyName) {
+        // B2B without CRM org: Fallback to session data
         doc.setFont("helvetica", "bold");
         doc.text(buyerCompanyName, pageWidth / 2 + 10, billToYPos);
         billToYPos += 6;
@@ -496,8 +779,13 @@ export const generateInvoicePDF = action({
         billToYPos += 6;
       }
 
-      doc.text(session.customProperties?.customerEmail as string, pageWidth / 2 + 10, billToYPos);
-      billToYPos += 6;
+      // Customer email (always show if not already shown in CRM billing email)
+      const customerEmail = session.customProperties?.customerEmail as string;
+      const crmBillingEmail = buyerCrmOrg?.customProperties?.billingEmail as string | undefined;
+      if (customerEmail && customerEmail !== crmBillingEmail) {
+        doc.text(customerEmail, pageWidth / 2 + 10, billToYPos);
+        billToYPos += 6;
+      }
 
       if (session.customProperties?.customerPhone) {
         doc.text(session.customProperties.customerPhone as string, pageWidth / 2 + 10, billToYPos);
@@ -548,48 +836,16 @@ export const generateInvoicePDF = action({
         { align: "right" }
       );
 
-      // Tax breakdown (detailed if available, simple if not)
-      const taxDetails = session.customProperties?.taxDetails as Array<{
-        jurisdiction: string;
-        taxName: string;
-        taxRate: number;
-        taxAmount: number;
-      }> | undefined;
-
+      // Tax breakdown - USE TRANSACTION DATA (accurate tax rate)
       if (taxAmount > 0) {
-        if (taxDetails && taxDetails.length > 0) {
-          // Group tax amounts by rate (combine same rates)
-          const taxByRate = taxDetails.reduce((acc, tax) => {
-            // If taxRate > 1, it's already a percentage (e.g., 7.0), don't multiply by 100
-            // If taxRate < 1, it's a decimal (e.g., 0.07), multiply by 100
-            const ratePercent = tax.taxRate > 1 ? tax.taxRate : tax.taxRate * 100;
-            const rateKey = ratePercent.toFixed(1);
-            acc[rateKey] = (acc[rateKey] || 0) + tax.taxAmount;
-            return acc;
-          }, {} as Record<string, number>);
-
-          // Show one line per unique tax rate
-          Object.entries(taxByRate).forEach(([rate, amount]) => {
-            yPos += 7;
-            doc.text(`Tax (${rate}%):`, pageWidth - 80, yPos);
-            doc.text(
-              `${currency.toUpperCase()} ${(amount / 100).toFixed(2)}`,
-              pageWidth - 20,
-              yPos,
-              { align: "right" }
-            );
-          });
-        } else {
-          // Fallback if no detailed breakdown
-          yPos += 7;
-          doc.text("Tax:", pageWidth - 80, yPos);
-          doc.text(
-            `${currency.toUpperCase()} ${(taxAmount / 100).toFixed(2)}`,
-            pageWidth - 20,
-            yPos,
-            { align: "right" }
-          );
-        }
+        yPos += 7;
+        doc.text(`Tax (${taxRatePercent.toFixed(1)}%):`, pageWidth - 80, yPos);
+        doc.text(
+          `${currency.toUpperCase()} ${(taxAmount / 100).toFixed(2)}`,
+          pageWidth - 20,
+          yPos,
+          { align: "right" }
+        );
       }
 
       yPos += 10;

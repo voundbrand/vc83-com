@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
-import { Loader2, Save, X, ChevronDown, ChevronUp, Building2, Trash2, Edit2 } from "lucide-react";
+import { Loader2, Save, X, ChevronDown, ChevronUp, Building2, Trash2, Edit2, MapPin, CheckCircle, AlertCircle } from "lucide-react";
 import { OrganizationFormModal } from "../crm-window/organization-form-modal";
+import { EventDescriptionSection } from "./EventDescriptionSection";
+import { EventMediaSection } from "./EventMediaSection";
 
 interface EventFormProps {
   sessionId: string;
@@ -25,7 +27,6 @@ export function EventForm({
   const [formData, setFormData] = useState({
     subtype: "conference",
     name: "",
-    description: "",
     location: "",
     startDate: "",
     startTime: "",
@@ -33,12 +34,41 @@ export function EventForm({
     endTime: "",
     capacity: "",
   });
+
+  // Address validation state
+  const [validatingAddress, setValidatingAddress] = useState(false);
+  const [addressValidation, setAddressValidation] = useState<{
+    success: boolean;
+    formattedAddress?: string;
+    latitude?: number;
+    longitude?: number;
+    directionsUrl?: string;
+    googleMapsUrl?: string;
+    confidence?: string;
+    error?: string;
+  } | null>(null);
   const [saving, setSaving] = useState(false);
   const [showSponsors, setShowSponsors] = useState(false);
   const [selectedSponsorOrgId, setSelectedSponsorOrgId] = useState<string>("");
   const [sponsorLevel, setSponsorLevel] = useState<"platinum" | "gold" | "silver" | "bronze" | "community">("gold");
   const [addingSponsor, setAddingSponsor] = useState(false);
   const [editingSponsorId, setEditingSponsorId] = useState<Id<"objects"> | null>(null);
+
+  // New state for media and description sections
+  const [showMedia, setShowMedia] = useState(false);
+  const [showDescription, setShowDescription] = useState(false);
+  const [detailedDescription, setDetailedDescription] = useState("");
+
+  // Video state
+  const [eventVideos, setEventVideos] = useState<Array<{
+    id: string;
+    type: 'video';
+    videoUrl: string;
+    videoProvider: 'youtube' | 'vimeo' | 'other';
+    loop: boolean;
+    order: number;
+  }>>([]);
+  const [showVideoFirst, setShowVideoFirst] = useState(false);
 
   // Handler for when sponsor organization is selected - auto-populate level from CRM
   const handleSponsorOrgChange = (orgId: string) => {
@@ -66,6 +96,16 @@ export function EventForm({
   const updateEvent = useMutation(api.eventOntology.updateEvent);
   const linkSponsor = useMutation(api.eventOntology.linkSponsorToEvent);
   const unlinkSponsor = useMutation(api.eventOntology.unlinkSponsorFromEvent);
+  const updateLocationWithValidation = useMutation(api.eventOntology.updateEventLocationWithValidation);
+
+  // Address validation action
+  const validateAddress = useAction(api.addressValidation.validateAddress);
+
+  // New mutations for media and description
+  const linkMedia = useMutation(api.eventOntology.linkMediaToEvent);
+  const unlinkMedia = useMutation(api.eventOntology.unlinkMediaFromEvent);
+  const updateDescription = useMutation(api.eventOntology.updateEventDetailedDescription);
+  const updateEventMedia = useMutation(api.eventOntology.updateEventMedia);
 
   // Get sponsor CRM organizations (only if editing an existing event)
   const sponsorOrganizations = useQuery(
@@ -78,6 +118,12 @@ export function EventForm({
   // Get current sponsors for this event
   const currentSponsors = useQuery(
     api.eventOntology.getSponsorsByEvent,
+    eventId && sessionId ? { sessionId, eventId } : "skip"
+  );
+
+  // Get event media
+  const eventMedia = useQuery(
+    api.eventOntology.getEventMedia,
     eventId && sessionId ? { sessionId, eventId } : "skip"
   );
 
@@ -94,7 +140,6 @@ export function EventForm({
       setFormData({
         subtype: existingEvent.subtype || "conference",
         name: existingEvent.name || "",
-        description: existingEvent.description || "",
         location: (existingEvent.customProperties?.location as string) || "",
         startDate: startDate ? startDate.toISOString().split("T")[0] : "",
         startTime: startDate ? startDate.toTimeString().slice(0, 5) : "",
@@ -102,11 +147,42 @@ export function EventForm({
         endTime: endDate ? endDate.toTimeString().slice(0, 5) : "",
         capacity: existingEvent.customProperties?.capacity?.toString() || "",
       });
+
+      // Load detailed description
+      setDetailedDescription((existingEvent.customProperties?.detailedDescription as string) || "");
+
+      // Load videos if they exist
+      if (existingEvent.customProperties?.media?.items) {
+        const videos = existingEvent.customProperties.media.items.filter(
+          (item: any) => item.type === 'video'
+        );
+        setEventVideos(videos);
+        // Load showVideoFirst setting
+        setShowVideoFirst(existingEvent.customProperties.media.showVideoFirst || false);
+      }
+
+      // Load address validation data if available
+      if (existingEvent.customProperties?.formattedAddress) {
+        setAddressValidation({
+          success: true,
+          formattedAddress: existingEvent.customProperties.formattedAddress as string,
+          latitude: existingEvent.customProperties.latitude as number,
+          longitude: existingEvent.customProperties.longitude as number,
+          directionsUrl: existingEvent.customProperties.directionsUrl as string,
+          googleMapsUrl: existingEvent.customProperties.googleMapsUrl as string,
+          confidence: existingEvent.customProperties.addressConfidence as string,
+        });
+      }
     }
   }, [existingEvent]);
 
   const handleAddSponsor = async () => {
-    if (!eventId || !selectedSponsorOrgId) {
+    if (!eventId) {
+      alert("Please save the event first before adding sponsors");
+      return;
+    }
+
+    if (!selectedSponsorOrgId) {
       alert("Please select a sponsor organization");
       return;
     }
@@ -147,6 +223,99 @@ export function EventForm({
     }
   };
 
+  // Media handlers
+  const handleMediaLink = async (mediaId: Id<"organizationMedia">) => {
+    if (!eventId) {
+      alert("Please save the event first before adding media");
+      return;
+    }
+
+    try {
+      await linkMedia({
+        sessionId,
+        eventId,
+        mediaId,
+        isPrimary: !eventMedia || eventMedia.length === 0, // First image is primary
+        displayOrder: eventMedia?.length || 0,
+      });
+    } catch (error) {
+      console.error("Failed to link media:", error);
+      alert("Failed to add media. Please try again.");
+    }
+  };
+
+  const handleMediaUnlink = async (mediaId: Id<"organizationMedia">) => {
+    if (!eventId) return;
+
+    try {
+      await unlinkMedia({
+        sessionId,
+        eventId,
+        mediaId,
+      });
+    } catch (error) {
+      console.error("Failed to unlink media:", error);
+      alert("Failed to remove media. Please try again.");
+    }
+  };
+
+  // Description handler
+  const handleDescriptionChange = async (html: string) => {
+    setDetailedDescription(html);
+
+    // Auto-save if editing existing event (for new events, it will be saved on submit)
+    if (eventId) {
+      try {
+        await updateDescription({
+          sessionId,
+          eventId,
+          detailedDescription: html,
+        });
+      } catch (error) {
+        console.error("Failed to update description:", error);
+      }
+    }
+  };
+
+  // Address validation handler
+  const handleValidateAddress = async () => {
+    if (!formData.location.trim()) {
+      return;
+    }
+
+    setValidatingAddress(true);
+    setAddressValidation(null);
+
+    try {
+      const result = await validateAddress({ address: formData.location });
+
+      setAddressValidation(result);
+
+      // If validation successful and we're editing an event, save the validated data
+      if (result.success && eventId) {
+        await updateLocationWithValidation({
+          sessionId,
+          eventId,
+          location: formData.location,
+          formattedAddress: result.formattedAddress,
+          latitude: result.latitude,
+          longitude: result.longitude,
+          directionsUrl: result.directionsUrl,
+          googleMapsUrl: result.googleMapsUrl,
+          confidence: result.confidence,
+        });
+      }
+    } catch (error) {
+      console.error("Address validation error:", error);
+      setAddressValidation({
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to validate address. Please try again.",
+      });
+    } finally {
+      setValidatingAddress(false);
+    }
+  };
+
   const getSponsorLevelColor = (level: string) => {
     switch (level) {
       case "platinum":
@@ -179,17 +348,24 @@ export function EventForm({
 
       const capacity = formData.capacity ? parseInt(formData.capacity, 10) : undefined;
 
+      let finalEventId = eventId;
+
       if (eventId) {
         // Update existing event
+        // Update custom properties to include detailed description
+        const customProps: Record<string, unknown> = {};
+        if (capacity) customProps.capacity = capacity;
+        if (detailedDescription) customProps.detailedDescription = detailedDescription;
+
         await updateEvent({
           sessionId,
           eventId,
           name: formData.name,
-          description: formData.description,
+          description: undefined, // No longer using plain description
           location: formData.location || undefined,
           startDate: startDateTime,
           endDate: endDateTime,
-          customProperties: capacity ? { capacity } : undefined,
+          customProperties: Object.keys(customProps).length > 0 ? customProps : undefined,
         });
       } else {
         // Create new event - startDate, endDate, location are required
@@ -198,16 +374,61 @@ export function EventForm({
           return;
         }
 
-        await createEvent({
+        // Build custom properties with detailed description and address validation
+        const customProps: Record<string, unknown> = {};
+        if (capacity) customProps.capacity = capacity;
+        if (detailedDescription) customProps.detailedDescription = detailedDescription;
+
+        // Include validated address data if available
+        if (addressValidation?.success) {
+          customProps.formattedAddress = addressValidation.formattedAddress;
+          customProps.latitude = addressValidation.latitude;
+          customProps.longitude = addressValidation.longitude;
+          customProps.directionsUrl = addressValidation.directionsUrl;
+          customProps.googleMapsUrl = addressValidation.googleMapsUrl;
+          customProps.addressConfidence = addressValidation.confidence;
+          customProps.addressValidatedAt = Date.now();
+        }
+
+        finalEventId = await createEvent({
           sessionId,
           organizationId,
           subtype: formData.subtype,
           name: formData.name,
-          description: formData.description,
+          description: undefined, // No longer using plain description
           location: formData.location || "TBD",
           startDate: startDateTime,
           endDate: endDateTime,
-          customProperties: capacity ? { capacity } : undefined,
+          customProperties: Object.keys(customProps).length > 0 ? customProps : undefined,
+        });
+
+        console.log("Event created with ID:", finalEventId);
+      }
+
+      // Save videos if any exist and we have an event ID
+      if (finalEventId && eventVideos.length > 0) {
+        // Convert videos to media items
+        const mediaItems = [
+          // Include existing images as image type
+          ...(eventMedia?.map((img, index) => ({
+            id: img._id,
+            type: 'image' as const,
+            storageId: img.storageId,
+            filename: img.filename,
+            mimeType: img.mimeType,
+            order: index,
+          })) || []),
+          // Add videos
+          ...eventVideos,
+        ];
+
+        await updateEventMedia({
+          sessionId,
+          eventId: finalEventId,
+          media: {
+            items: mediaItems,
+            showVideoFirst: showVideoFirst,
+          },
         });
       }
 
@@ -279,42 +500,133 @@ export function EventForm({
         />
       </div>
 
-      {/* Description */}
-      <div>
-        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-          Description
-        </label>
-        <textarea
-          value={formData.description}
-          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-          placeholder="Describe the event, schedule, speakers, and what attendees can expect..."
-          rows={4}
-          className="w-full px-3 py-2 text-sm border-2"
-          style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-input-bg)",
-            color: "var(--win95-input-text)",
-          }}
-        />
-      </div>
+      {/* Description removed - now using rich text WYSIWYG editor below */}
 
-      {/* Location */}
-      <div>
+      {/* Location with Address Validation */}
+      <div className="space-y-2">
         <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
           Location
         </label>
-        <input
-          type="text"
-          value={formData.location}
-          onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-          placeholder="Convention Center, Online via Zoom, Central Park, etc."
-          className="w-full px-3 py-2 text-sm border-2"
-          style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-input-bg)",
-            color: "var(--win95-input-text)",
-          }}
-        />
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={formData.location}
+            onChange={(e) => {
+              setFormData({ ...formData, location: e.target.value });
+              setAddressValidation(null); // Clear validation when location changes
+            }}
+            placeholder="San Francisco Convention Center, 747 Howard St, SF"
+            className="flex-1 px-3 py-2 text-sm border-2"
+            style={{
+              borderColor: "var(--win95-border)",
+              background: "var(--win95-input-bg)",
+              color: "var(--win95-input-text)",
+            }}
+          />
+          <button
+            type="button"
+            onClick={handleValidateAddress}
+            disabled={validatingAddress || !formData.location.trim()}
+            className="px-3 py-2 text-sm font-bold border-2 flex items-center gap-2"
+            style={{
+              borderColor: "var(--win95-border)",
+              background: validatingAddress ? "var(--win95-button-face)" : "var(--primary)",
+              color: validatingAddress ? "var(--win95-text)" : "white",
+            }}
+            title="Validate address and get directions"
+          >
+            {validatingAddress ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <MapPin size={14} />
+            )}
+            {validatingAddress ? "Validating..." : "Verify"}
+          </button>
+        </div>
+
+        {/* Validation Results */}
+        {addressValidation && (
+          <div
+            className="p-3 border-2 rounded text-sm space-y-2"
+            style={{
+              borderColor: addressValidation.success ? "var(--success)" : "var(--error)",
+              background: addressValidation.success ? "var(--success-bg)" : "var(--error-bg)",
+            }}
+          >
+            {addressValidation.success ? (
+              <>
+                <div className="flex items-start gap-2">
+                  <CheckCircle size={16} className="flex-shrink-0 mt-0.5" style={{ color: "var(--success)" }} />
+                  <div className="flex-1">
+                    <p className="font-bold" style={{ color: "var(--success)" }}>
+                      Address Verified!
+                    </p>
+                    <p style={{ color: "var(--win95-text)" }}>
+                      {addressValidation.formattedAddress}
+                    </p>
+                    {addressValidation.confidence && (
+                      <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+                        Confidence: {addressValidation.confidence}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Directions Links */}
+                {addressValidation.googleMapsUrl && (
+                  <div className="flex gap-2 pt-2 border-t" style={{ borderColor: "var(--win95-border)" }}>
+                    <a
+                      href={addressValidation.googleMapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-2 py-1 text-xs border-2 hover:bg-blue-50 transition-colors"
+                      style={{
+                        borderColor: "var(--win95-border)",
+                        color: "var(--primary)",
+                      }}
+                    >
+                      📍 Open in Google Maps
+                    </a>
+                    {addressValidation.directionsUrl && (
+                      <a
+                        href={addressValidation.directionsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2 py-1 text-xs border-2 hover:bg-blue-50 transition-colors"
+                        style={{
+                          borderColor: "var(--win95-border)",
+                          color: "var(--primary)",
+                        }}
+                      >
+                        🗺️ Open in Radar Maps
+                      </a>
+                    )}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="flex items-start gap-2">
+                <AlertCircle size={16} className="flex-shrink-0 mt-0.5" style={{ color: "var(--error)" }} />
+                <div className="flex-1">
+                  <p className="font-bold mb-1" style={{ color: "var(--error)" }}>
+                    Could not verify address
+                  </p>
+                  <p className="text-xs" style={{ color: "var(--win95-text)" }}>
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                    {(addressValidation as any).error || addressValidation.formattedAddress || "Please check the location and try again"}
+                  </p>
+                  <p className="text-xs mt-2 italic" style={{ color: "var(--neutral-gray)" }}>
+                    💡 Tip: Include street number, postal code, and country for best results
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+          💡 Click &quot;Verify&quot; to validate the address and get automatic directions for attendees
+        </p>
       </div>
 
       {/* Start Date & Time */}
@@ -412,22 +724,45 @@ export function EventForm({
         </p>
       </div>
 
-      {/* Sponsors Section (Only for existing events) */}
-      {eventId && (
-        <div className="space-y-2">
-          <button
-            type="button"
-            onClick={() => setShowSponsors(!showSponsors)}
-            className="flex items-center justify-between w-full text-left py-2 px-3 border-2"
-            style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg-light)",
-              color: "var(--win95-text)",
-            }}
-          >
-            <span className="text-sm font-bold">🌟 Event Sponsors (Optional)</span>
-            {showSponsors ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-          </button>
+      {/* Media Section */}
+      <EventMediaSection
+        eventId={eventId || undefined}
+        organizationId={organizationId}
+        sessionId={sessionId}
+        linkedMediaIds={eventMedia?.map(m => m._id) || []}
+        onMediaLink={handleMediaLink}
+        onMediaUnlink={handleMediaUnlink}
+        videos={eventVideos}
+        onVideosChange={setEventVideos}
+        showVideoFirst={showVideoFirst}
+        onShowVideoFirstChange={setShowVideoFirst}
+        isOpen={showMedia}
+        onToggle={() => setShowMedia(!showMedia)}
+      />
+
+      {/* Description Section */}
+      <EventDescriptionSection
+        description={detailedDescription}
+        onDescriptionChange={handleDescriptionChange}
+        isOpen={showDescription}
+        onToggle={() => setShowDescription(!showDescription)}
+      />
+
+      {/* Sponsors Section */}
+      <div className="space-y-2">
+        <button
+          type="button"
+          onClick={() => setShowSponsors(!showSponsors)}
+          className="flex items-center justify-between w-full text-left py-2 px-3 border-2"
+          style={{
+            borderColor: "var(--win95-border)",
+            background: "var(--win95-bg-light)",
+            color: "var(--win95-text)",
+          }}
+        >
+          <span className="text-sm font-bold">🌟 Event Sponsors (Optional)</span>
+          {showSponsors ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </button>
 
           {showSponsors && (
             <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--win95-border)" }}>
@@ -570,8 +905,7 @@ export function EventForm({
               )}
             </div>
           )}
-        </div>
-      )}
+      </div>
 
       {/* Info Box */}
       <div
@@ -583,7 +917,7 @@ export function EventForm({
       >
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
           💡 Events start in &ldquo;Draft&rdquo; status. Click &ldquo;Publish&rdquo; to make them visible to attendees.
-          {!eventId && " Save the event first to add sponsors."}
+          {!eventId && " Note: Media and Sponsors can only be added after saving the event. Description is available now."}
         </p>
       </div>
 

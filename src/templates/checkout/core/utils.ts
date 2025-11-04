@@ -63,7 +63,7 @@ export function calculatePrice(
     tax,
     shipping,
     total,
-    currency: items[0]?.currency || "USD",
+    currency: items[0]?.currency || "EUR",
     formattedTotal: formatCurrency(total, items[0]?.currency),
   };
 }

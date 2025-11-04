@@ -26,10 +26,36 @@
  */
 
 import { mutation, query, internalQuery, internalMutation } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser } from "./rbacHelpers";
-import type { MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+
+/**
+ * Helper: Get organization currency from locale settings
+ * Defaults to "eur" if not set
+ */
+async function getOrganizationCurrency(
+  ctx: MutationCtx,
+  organizationId: Id<"organizations">
+): Promise<string> {
+  try {
+    const localeSettings = await ctx.runQuery(
+      internal.checkoutSessions.getOrgLocaleSettings,
+      { organizationId }
+    );
+
+    const currency = localeSettings?.customProperties?.currency
+      ? String(localeSettings.customProperties.currency).toLowerCase()
+      : "eur";
+
+    return currency;
+  } catch (error) {
+    console.error("[getOrganizationCurrency] Error fetching locale settings:", error);
+    return "eur"; // Fallback to EUR
+  }
+}
 
 /**
  * Helper: Get or create system user for anonymous actions
@@ -145,6 +171,9 @@ export const createCheckoutSession = mutation({
   handler: async (ctx, args) => {
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
+    // Get organization currency from locale settings
+    const currency = await getOrganizationCurrency(ctx, args.organizationId);
+
     // Create session object
     const checkoutSessionId = await ctx.db.insert("objects", {
       organizationId: args.organizationId,
@@ -159,7 +188,7 @@ export const createCheckoutSession = mutation({
         subtotal: 0,
         taxAmount: 0,
         totalAmount: 0,
-        currency: "usd",
+        currency,
         formResponses: [],
         stepProgress: ["started"],
         startedAt: Date.now(),
@@ -203,6 +232,9 @@ export const createPublicCheckoutSession = mutation({
     // Get or create system user for tracking actions
     const systemUser = await getOrCreateSystemUser(ctx);
 
+    // Get organization currency from locale settings
+    const currency = await getOrganizationCurrency(ctx, args.organizationId);
+
     // Create session object (use system user for createdBy)
     const checkoutSessionId = await ctx.db.insert("objects", {
       organizationId: args.organizationId,
@@ -217,7 +249,7 @@ export const createPublicCheckoutSession = mutation({
         subtotal: 0,
         taxAmount: 0,
         totalAmount: 0,
-        currency: "usd",
+        currency,
         formResponses: [],
         stepProgress: ["started"],
         startedAt: Date.now(),
@@ -580,11 +612,12 @@ export const completeCheckoutSessionInternal = internalMutation({
       performedAt: Date.now(),
     });
 
-    // 🔥 PHASE 3A: Create transactions for invoicing
-    // This runs asynchronously - errors won't block checkout completion
-    ctx.scheduler.runAfter(0, internal.createTransactionsFromCheckout.createTransactionsFromCheckout, {
-      checkoutSessionId: args.checkoutSessionId,
-    });
+    // 🔥 PHASE 3A: Transaction creation moved to completeCheckoutAndFulfill
+    // Previously scheduled here asynchronously, but this caused race condition where
+    // emails/PDFs were generated before transactions were linked to tickets.
+    // Now transactions are created synchronously in completeCheckoutAndFulfill BEFORE
+    // email/PDF generation to ensure tax data is available.
+    // See: convex/checkoutSessions.ts lines 1021-1034
 
     return { success: true };
   },

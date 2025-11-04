@@ -3,6 +3,97 @@
  *
  * Generates QR codes, PDFs, and handles email delivery for tickets.
  * Modern, production-ready ticket system with downloads and email.
+ *
+ * TODO: PDF TEMPLATE CUSTOMIZATION FEATURE
+ * ========================================
+ * Allow organizations to customize ticket and invoice PDF templates.
+ *
+ * IMPLEMENTATION PLAN:
+ *
+ * 1. BACKEND (convex/pdfTemplates.ts - NEW FILE):
+ *    - Create pdf_template object type in schema
+ *    - Fields: organizationId, templateType ("ticket" | "invoice"),
+ *      templateCode, customHtml, customCss, defaultFields, customFields
+ *    - CRUD mutations: createPdfTemplate, updatePdfTemplate, deletePdfTemplate
+ *    - Query: getPdfTemplatesByOrg, getActivePdfTemplate
+ *    - Template gallery with 3-5 pre-built designs per type
+ *
+ * 2. PDF GENERATION UPDATES (this file + pdfGeneration.ts):
+ *    - Add templateId parameter to generateTicketPDF and generateInvoicePDF
+ *    - If templateId provided: load custom template from database
+ *    - If no templateId: use default built-in template (current behavior)
+ *    - Merge custom fields with default data
+ *    - Apply custom CSS/HTML to PDF generation
+ *
+ * 3. ORGANIZATION SETTINGS UI (src/components/window-content/settings-window/):
+ *    - New tab: "PDF Templates"
+ *    - Template Gallery: Show preview cards for ticket/invoice templates
+ *    - Template Editor: Visual editor with live preview
+ *      - Upload logo
+ *      - Customize colors (brand colors)
+ *      - Edit header/footer text
+ *      - Add custom fields (e.g., "Special Instructions")
+ *      - Toggle elements (show/hide QR code, barcode, sponsors)
+ *    - Set default template per organization
+ *
+ * 4. TEMPLATE DATA MODEL:
+ *    interface PdfTemplate {
+ *      _id: Id<"objects">;
+ *      type: "pdf_template";
+ *      organizationId: Id<"organizations">;
+ *      templateType: "ticket" | "invoice";
+ *      name: string; // "Modern Blue Ticket", "Classic Invoice"
+ *      templateCode: string; // "modern-blue", "classic-invoice"
+ *      isDefault: boolean; // One default per type per org
+ *
+ *      // Visual customization
+ *      branding: {
+ *        logoUrl?: string;
+ *        primaryColor: string; // "#6B46C1"
+ *        secondaryColor: string;
+ *        fontFamily: string; // "Inter", "Roboto"
+ *      };
+ *
+ *      // Layout options
+ *      layout: {
+ *        showQrCode: boolean;
+ *        showBarcode: boolean;
+ *        showSponsors: boolean;
+ *        headerText?: string;
+ *        footerText?: string;
+ *      };
+ *
+ *      // Custom fields (e.g., "Dress Code", "Parking Info")
+ *      customFields: Array<{
+ *        key: string;
+ *        label: string;
+ *        value: string;
+ *        position: "header" | "body" | "footer";
+ *      }>;
+ *
+ *      // Advanced: Full HTML/CSS override
+ *      customHtml?: string;
+ *      customCss?: string;
+ *    }
+ *
+ * 5. USAGE FLOW:
+ *    - Organization admin goes to Settings → PDF Templates
+ *    - Selects template from gallery OR creates custom template
+ *    - Customizes branding (logo, colors, text)
+ *    - Clicks "Set as Default" → saves as org's default template
+ *    - Future ticket/invoice PDFs automatically use this template
+ *
+ * 6. FALLBACK BEHAVIOR:
+ *    - If no custom template: use built-in default (current behavior)
+ *    - If custom template fails to render: fallback to default + log error
+ *    - Always ensure PDFs generate even if customization breaks
+ *
+ * RELATED FILES TO UPDATE:
+ * - convex/pdfGeneration.ts (add template loading logic)
+ * - convex/pdfTemplates.ts (NEW - CRUD for templates)
+ * - convex/schema.ts (add pdf_template object type)
+ * - src/components/window-content/settings-window/pdf-templates-tab.tsx (NEW - UI)
+ * - src/lib/pdf-template-editor.tsx (NEW - visual editor component)
  */
 
 import { action, internalAction } from "./_generated/server";
@@ -124,8 +215,11 @@ export const generateTicketPDFData = action({
     const eventDescription = (session.customProperties?.eventDescription as string) || product.description || "";
     const eventLocation = (session.customProperties?.eventLocation as string) ||
       (product.customProperties?.location as string | undefined);
+    // Fix: Events use startDate, check multiple field names
     const eventStartDate = (session.customProperties?.eventStartDate as number) ||
+      (session.customProperties?.startDate as number) ||
       (session.customProperties?.eventDate as number) ||
+      (product.customProperties?.startDate as number | undefined) ||
       (product.customProperties?.eventDate as number | undefined);
     const eventEndDate = (session.customProperties?.eventEndDate as number) || undefined;
     const eventAgenda = session.customProperties?.eventAgenda as Array<{ time: string; title: string; description?: string }> | undefined;
@@ -174,7 +268,7 @@ export const generateTicketPDFData = action({
       pricePerUnit: ticket.customProperties?.pricePerUnit as number,
       // Legacy field for backwards compatibility
       eventDate: eventStartDate,
-      currency: (session.customProperties?.currency as string) || "USD",
+      currency: (session.customProperties?.currency as string) || "EUR",
     };
   },
 });
@@ -271,7 +365,7 @@ export const generateReceiptPDFData = action({
       subtotal,
       taxAmount,
       total,
-      currency: (session.customProperties?.currency as string) || "USD",
+      currency: (session.customProperties?.currency as string) || "EUR",
       paymentMethod: "Card", // From Stripe
       organizationName:
         (session.customProperties?.organizationName as string) || "L4YERCAK3",
@@ -340,8 +434,14 @@ export const sendOrderConfirmationEmail = internalAction({
 
       if (args.includeInvoicePDF !== false) {
         // Default: include invoice PDF (B2C, direct payment)
+        // For B2B: Get crmOrganizationId from first ticket (all tickets should have same employer)
+        const crmOrganizationId = allTickets.length > 0
+          ? allTickets[0].customProperties?.crmOrganizationId as Id<"objects"> | undefined
+          : undefined;
+
         const invoicePDF = await ctx.runAction(api.pdfGeneration.generateInvoicePDF, {
           checkoutSessionId: args.checkoutSessionId,
+          crmOrganizationId, // Pass CRM org ID for B2B invoices
         });
 
         if (invoicePDF) {
@@ -361,9 +461,15 @@ export const sendOrderConfirmationEmail = internalAction({
 
       const eventName = (session.customProperties?.eventName as string) || firstProduct?.name || "Event";
       const eventSponsors = session.customProperties?.eventSponsors as Array<{ name: string; level?: string }> | undefined;
+
+      // Fix: Events use startDate, not eventDate
       const eventDate = (session.customProperties?.eventDate as number) ||
-        (firstProduct?.customProperties?.eventDate as number | undefined);
+        (session.customProperties?.startDate as number) ||
+        (firstProduct?.customProperties?.eventDate as number | undefined) ||
+        (firstProduct?.customProperties?.startDate as number | undefined);
+
       const eventLocation = (session.customProperties?.eventLocation as string) ||
+        (session.customProperties?.location as string) ||
         (firstProduct?.customProperties?.location as string | undefined);
 
       console.log("✅ [sendOrderConfirmationEmail] Extracted event data for email:", {
@@ -373,19 +479,68 @@ export const sendOrderConfirmationEmail = internalAction({
         sponsors: eventSponsors
       });
       const orderNumber = session._id.substring(0, 12);
-      const totalAmount = (session.customProperties?.totalAmount as number) || 0;
-      const subtotalAmount = (session.customProperties?.subtotal as number) || totalAmount;
-      const taxAmount = (session.customProperties?.taxAmount as number) || 0;
-      const currency = (session.customProperties?.currency as string) || "USD";
+      const currency = (session.customProperties?.currency as string) || "EUR";
       const ticketCount = allTickets.length;
 
-      // Get tax breakdown by jurisdiction
-      const taxDetails = session.customProperties?.taxDetails as Array<{
-        jurisdiction: string;
-        taxName: string;
-        taxRate: number;
-        taxAmount: number;
-      }> | undefined;
+      // 🔥 CRITICAL: Get totals from TRANSACTIONS (accurate pricing with tax)
+      let subtotalAmount = 0;
+      let taxAmount = 0;
+      let totalAmount = 0;
+      let taxRatePercent = 0;
+
+      // Get transactions from all tickets
+      console.log(`📝 [sendOrderConfirmationEmail] Fetching transactions from ${allTickets.length} tickets`);
+
+      for (const ticket of allTickets) {
+        const transactionId = ticket.customProperties?.transactionId as Id<"objects"> | undefined;
+        console.log(`   Ticket ${ticket._id} has transactionId: ${transactionId || 'NONE'}`);
+
+        if (transactionId) {
+          const transaction = await ctx.runQuery(internal.transactionOntology.getTransactionInternal, {
+            transactionId,
+          });
+
+          console.log(`   Transaction ${transactionId} fetched:`, JSON.stringify({
+            type: transaction?.type,
+            unitPriceInCents: transaction?.customProperties?.unitPriceInCents,
+            taxAmountInCents: transaction?.customProperties?.taxAmountInCents,
+            totalPriceInCents: transaction?.customProperties?.totalPriceInCents,
+            taxRatePercent: transaction?.customProperties?.taxRatePercent,
+          }, null, 2));
+
+          if (transaction && transaction.type === "transaction") {
+            const unitPriceInCents = (transaction.customProperties?.unitPriceInCents as number) || 0;
+            const taxAmountInCents = (transaction.customProperties?.taxAmountInCents as number) || 0;
+            const totalPriceInCents = (transaction.customProperties?.totalPriceInCents as number) || 0;
+            const txRate = (transaction.customProperties?.taxRatePercent as number) || 0;
+
+            console.log(`   Adding to totals: unit=${unitPriceInCents}, tax=${taxAmountInCents}, total=${totalPriceInCents}`);
+
+            subtotalAmount += unitPriceInCents;
+            taxAmount += taxAmountInCents;
+            totalAmount += totalPriceInCents;
+
+            // Use tax rate from first transaction (assumes all tickets have same rate)
+            if (taxRatePercent === 0 && txRate > 0) {
+              taxRatePercent = txRate;
+            }
+          }
+        }
+      }
+
+      console.log(`📊 [sendOrderConfirmationEmail] Total calculations:`);
+      console.log(`   subtotalAmount: ${subtotalAmount} cents`);
+      console.log(`   taxAmount: ${taxAmount} cents`);
+      console.log(`   totalAmount: ${totalAmount} cents`);
+      console.log(`   taxRatePercent: ${taxRatePercent}%`);
+
+      // Fallback to session data if no transactions found
+      if (totalAmount === 0) {
+        totalAmount = (session.customProperties?.totalAmount as number) || 0;
+        taxAmount = (session.customProperties?.taxAmount as number) || 0;
+        subtotalAmount = totalAmount - taxAmount;
+        taxRatePercent = subtotalAmount > 0 ? ((taxAmount / subtotalAmount) * 100) : 0;
+      }
 
       const formattedDate = eventDate
         ? new Date(eventDate).toLocaleDateString("en-US", {
@@ -433,7 +588,7 @@ export const sendOrderConfirmationEmail = internalAction({
           }
           return `<p style="color: #6B46C1; font-weight: 600;">Presented by:</p><ul style="color: #6B46C1; margin: 5px 0 15px 20px; padding: 0;">${eventSponsors.map(s => `<li>${s.name}${s.level ? ` (${s.level})` : ''}</li>`).join('')}</ul>`;
         })() : ""}
-        <p><strong>${ticketCount} x Ticket</strong></p>
+        <p><strong>${ticketCount} x Ticket${ticketCount > 1 ? 's' : ''}</strong></p>
         <p><strong>${formattedDate}</strong></p>
         ${eventLocation ? `<p>${eventLocation}</p>` : ""}
       </div>
@@ -444,31 +599,23 @@ export const sendOrderConfirmationEmail = internalAction({
           <td style="padding: 8px;">Subtotal</td>
           <td style="padding: 8px; text-align: right;">${currency.toUpperCase()} ${(subtotalAmount / 100).toFixed(2)}</td>
         </tr>
-        ${taxAmount > 0 ? (() => {
-          // Group tax amounts by rate (combine same rates)
-          if (taxDetails && taxDetails.length > 0) {
-            const taxByRate = taxDetails.reduce((acc, tax) => {
-              // If taxRate > 1, it's already a percentage (e.g., 7.0), don't multiply by 100
-              // If taxRate < 1, it's a decimal (e.g., 0.07), multiply by 100
-              const ratePercent = tax.taxRate > 1 ? tax.taxRate : tax.taxRate * 100;
-              const rateKey = ratePercent.toFixed(1);
-              acc[rateKey] = (acc[rateKey] || 0) + tax.taxAmount;
-              return acc;
-            }, {} as Record<string, number>);
+        ${(() => {
+          console.log(`📊 [sendOrderConfirmationEmail] Email template tax check:`);
+          console.log(`   taxAmount > 0? ${taxAmount > 0} (taxAmount = ${taxAmount})`);
+          console.log(`   Will include tax line in email: ${taxAmount > 0}`);
 
-            return Object.entries(taxByRate).map(([rate, amount]) => `
+          if (taxAmount > 0) {
+            console.log(`✅ [sendOrderConfirmationEmail] Including tax line in email HTML`);
+            return `
         <tr style="border-bottom: 1px solid #e5e7eb;">
-          <td style="padding: 8px; color: #666;">Tax (${rate}%)</td>
-          <td style="padding: 8px; text-align: right; color: #666;">${currency.toUpperCase()} ${(amount / 100).toFixed(2)}</td>
-        </tr>`).join("");
-          }
-          // Fallback if no detailed breakdown
-          return `
-        <tr style="border-bottom: 1px solid #e5e7eb;">
-          <td style="padding: 8px; color: #666;">Tax</td>
+          <td style="padding: 8px; color: #666;">Tax (${taxRatePercent.toFixed(1)}%)</td>
           <td style="padding: 8px; text-align: right; color: #666;">${currency.toUpperCase()} ${(taxAmount / 100).toFixed(2)}</td>
         </tr>`;
-        })() : ""}
+          } else {
+            console.log(`❌ [sendOrderConfirmationEmail] NOT including tax line (taxAmount = ${taxAmount})`);
+            return '';
+          }
+        })()}
         <tr style="font-weight: bold; font-size: 18px;">
           <td style="padding: 12px 8px;">Total</td>
           <td style="padding: 12px 8px; text-align: right;">${formattedTotal}</td>

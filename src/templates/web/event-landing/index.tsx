@@ -7,15 +7,11 @@
 
 "use client";
 
-import { useMemo } from "react";
 import Image from "next/image";
-import { useQuery } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { TemplateProps } from "../../types";
 import { EventLandingContent } from "./schema";
-import { TicketCheckoutCard } from "../../checkout/ticket-checkout/ticket-checkout-card";
-import { CheckoutItem } from "../../checkout/core/types";
+import { CheckoutEmbed } from "@/components/checkout/checkout-embed";
 import styles from "./styles.module.css";
 import {
   Users,
@@ -50,60 +46,8 @@ export function EventLandingTemplate({
     (page.customProperties?.templateContent as unknown as EventLandingContent) ||
     ({} as EventLandingContent);
 
-  // Fetch checkout instance if linked
-  const checkoutInstance = useQuery(
-    api.checkoutOntology.getCheckoutInstanceById,
-    content.linkedCheckoutId && sessionId
-      ? {
-          sessionId,
-          instanceId: content.linkedCheckoutId as Id<"objects">,
-        }
-      : "skip"
-  );
-
-  // Get product IDs from checkout instance
-  const productIds = useMemo(() => {
-    if (!checkoutInstance?.customProperties?.linkedProducts) return [];
-    return checkoutInstance.customProperties.linkedProducts as Id<"objects">[];
-  }, [checkoutInstance]);
-
-  // Fetch products from checkout instance
-  const products = useQuery(
-    api.productOntology.getProductsByIds,
-    productIds.length > 0 && sessionId
-      ? {
-          sessionId,
-          productIds,
-        }
-      : "skip"
-  );
-
-  // Transform products into CheckoutItem format for TicketCheckoutCard
-  const checkoutItems: CheckoutItem[] = useMemo(() => {
-    if (!products) return [];
-
-    return products.map(product => ({
-      id: product._id,
-      name: product.name,
-      description: product.description || "",
-      price: (product.customProperties?.price as number) / 100, // Convert cents to dollars
-      originalPrice: product.customProperties?.originalPrice
-        ? (product.customProperties.originalPrice as number) / 100
-        : undefined,
-      currency: (product.customProperties?.currency as string) || "USD",
-      features: (product.customProperties?.features as string[]) || [],
-      customProperties: product.customProperties,
-    }));
-  }, [products]);
-
-  // Use content as-is (checkout items come from products query)
+  // Use content as-is
   const mergedContent = content;
-
-  // Calculate pricing for mobile checkout preview
-  const minPrice = useMemo(() => {
-    if (checkoutItems.length === 0) return 0;
-    return Math.min(...checkoutItems.map((t) => t.price));
-  }, [checkoutItems]);
 
   // Apply theme as CSS variables
   const cssVars = {
@@ -542,24 +486,27 @@ export function EventLandingTemplate({
         {/* Sticky Checkout Sidebar (Desktop only) */}
         <aside className="hidden lg:block">
           <div className="sticky top-8 pt-8">
-            {checkoutItems.length > 0 ? (
-              <TicketCheckoutCard
-                eventId={page._id as Id<"objects">}
-                eventName={mergedContent.hero?.headline || page.name}
-                eventDate={new Date(mergedContent.hero?.date || Date.now())}
-                venue={mergedContent.hero?.location}
-                tickets={checkoutItems}
+            {content.linkedCheckoutId ? (
+              <CheckoutEmbed
+                checkoutInstanceId={content.linkedCheckoutId as Id<"objects">}
                 organizationId={organization._id as Id<"organizations">}
-                theme={theme}
-                maxTicketsPerOrder={10}
+                sessionId={sessionId}
+                emptyState={
+                  <div className={styles.checkoutPlaceholder}>
+                    <div className={styles.placeholderIcon}>🛒</div>
+                    <h3 className={styles.placeholderTitle}>No Products Linked</h3>
+                    <p className={styles.placeholderText}>
+                      Link products to this checkout to enable purchase.
+                    </p>
+                  </div>
+                }
               />
             ) : (
               <div className={styles.checkoutPlaceholder}>
                 <div className={styles.placeholderIcon}>🛒</div>
-                <h3 className={styles.placeholderTitle}>No Products Linked</h3>
+                <h3 className={styles.placeholderTitle}>No Checkout Linked</h3>
                 <p className={styles.placeholderText}>
-                  Link products to this page to enable checkout.
-                  Click the &ldquo;Link&rdquo; button next to products in the editor.
+                  Link a checkout to this page to enable ticket purchases.
                 </p>
               </div>
             )}
@@ -568,7 +515,7 @@ export function EventLandingTemplate({
       </div>
 
       {/* Mobile Checkout - Fixed at bottom */}
-      {checkoutItems.length > 0 && (
+      {content.linkedCheckoutId && (
         <div className={styles.mobileCheckout}>
           <div className={styles.mobileCheckoutContent}>
             <div>
@@ -576,7 +523,7 @@ export function EventLandingTemplate({
                 Get Your Ticket
               </div>
               <div className={styles.mobileCheckoutPrice}>
-                From ${minPrice}
+                View available tickets
               </div>
             </div>
             <a href="#checkout" className={styles.mobileCheckoutButton}>

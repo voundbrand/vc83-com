@@ -87,8 +87,14 @@ export const seedSystemTemplates = mutation({
       createdTemplates.push(landingPage);
       console.log("✅ Created landing-page template");
     } else {
+      // Update existing template to ensure it has the correct subtype
+      await ctx.db.patch(existingLandingPage._id, {
+        subtype: "page",
+        status: "published",
+        updatedAt: Date.now(),
+      });
       skippedTemplates.push("landing-page");
-      console.log("⏭️  Skipping landing-page (already exists)");
+      console.log("✅ Updated landing-page template (added subtype: page)");
     }
 
     // 2. EVENT LANDING TEMPLATE (maps to /src/templates/web/event-landing/)
@@ -145,8 +151,14 @@ export const seedSystemTemplates = mutation({
       createdTemplates.push(eventLanding);
       console.log("✅ Created event-landing template");
     } else {
+      // Update existing template to ensure it has the correct subtype
+      await ctx.db.patch(existingEventLanding._id, {
+        subtype: "page",
+        status: "published",
+        updatedAt: Date.now(),
+      });
       skippedTemplates.push("event-landing");
-      console.log("⏭️  Skipping event-landing (already exists)");
+      console.log("✅ Updated event-landing template (added subtype: page)");
     }
 
     console.log(`\n✅ Seeding complete: ${createdTemplates.length} created, ${skippedTemplates.length} skipped`);

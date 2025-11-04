@@ -21,13 +21,18 @@ import { getInvoiceMappingFromResults } from "@/lib/behaviors/adapters/checkout-
 import type { Id } from "../../../../../convex/_generated/dataModel";
 import { loadStripe, Stripe, StripeElements, StripeCardElement } from "@stripe/stripe-js";
 
+export interface PaymentStepProps extends StepProps {
+  checkoutSessionId: string | null;
+}
+
 export function PaymentStep({
   organizationId,
   sessionId = "public",
   checkoutData,
+  checkoutSessionId,
   onComplete,
   onBack
-}: StepProps) {
+}: PaymentStepProps) {
   // UI State
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,6 +70,25 @@ export function PaymentStep({
     ? subtotal + taxCalculation.taxAmount  // subtotal + tax
     : subtotal; // no tax or tax-inclusive
 
+  // Get currency from selected products (should match organization's currency)
+  const currency = selectedProducts[0]
+    ? (selectedProducts.find(sp => {
+        const productId = typeof sp.productId === 'string' ? sp.productId : sp.productId;
+        return productId;
+      }))
+    : undefined;
+
+  // Helper to format currency
+  const formatCurrency = (amountInCents: number) => {
+    // TODO: Get actual currency from products/organization settings
+    // For now, default to EUR as that's the organization's currency
+    const currencyCode = "EUR"; // Placeholder - should come from product/org
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: currencyCode.toUpperCase(),
+    }).format(amountInCents / 100);
+  };
+
   /**
    * Initialize Stripe when user selects Stripe payment
    * Creates payment intent and loads Stripe.js
@@ -72,7 +96,10 @@ export function PaymentStep({
   useEffect(() => {
     const initializeStripe = async () => {
       if (selectedMethod !== "stripe" || initializationAttempted.current) return;
-      if (!checkoutData.paymentResult?.checkoutSessionId) return;
+      if (!checkoutSessionId) {
+        setError("Checkout session not found. Please start checkout again.");
+        return;
+      }
 
       initializationAttempted.current = true;
 
@@ -88,7 +115,7 @@ export function PaymentStep({
 
         // Create payment intent
         const result = await createPaymentIntent({
-          checkoutSessionId: checkoutData.paymentResult.checkoutSessionId as Id<"objects">,
+          checkoutSessionId: checkoutSessionId as Id<"objects">,
         });
 
         setClientSecret(result.clientSecret || null);
@@ -121,7 +148,7 @@ export function PaymentStep({
     };
 
     initializeStripe();
-  }, [selectedMethod, checkoutData.paymentResult?.checkoutSessionId, createPaymentIntent]);
+  }, [selectedMethod, checkoutSessionId, createPaymentIntent]);
 
   /**
    * Mount Stripe Card Element when ready
@@ -160,7 +187,7 @@ export function PaymentStep({
    */
   const handleInvoicePayment = async () => {
     // Validate we have a checkout session
-    if (!checkoutData.paymentResult?.checkoutSessionId) {
+    if (!checkoutSessionId) {
       setError("Checkout session not initialized. Please try again.");
       return;
     }
@@ -172,7 +199,7 @@ export function PaymentStep({
       // Initiate invoice payment (creates invoice + tickets)
       const result = await initiateInvoice({
         sessionId,
-        checkoutSessionId: checkoutData.paymentResult.checkoutSessionId as Id<"objects">,
+        checkoutSessionId: checkoutSessionId as Id<"objects">,
         organizationId,
       });
 
@@ -190,7 +217,7 @@ export function PaymentStep({
           transactionId: result.invoiceId || "invoice_pending",
           receiptUrl: result.pdfUrl || undefined,
           purchasedItemIds: checkoutData.selectedProducts?.map((sp) => sp.productId as string) || [],
-          checkoutSessionId: checkoutData.paymentResult.checkoutSessionId,
+          checkoutSessionId: checkoutSessionId,
         },
       });
     } catch (err) {
@@ -210,7 +237,7 @@ export function PaymentStep({
       return;
     }
 
-    if (!checkoutData.paymentResult?.checkoutSessionId) {
+    if (!checkoutSessionId) {
       setError("Checkout session not found. Please try again.");
       return;
     }
@@ -225,7 +252,7 @@ export function PaymentStep({
 
     try {
       console.log("💳 [Payment] Starting Stripe payment...");
-      console.log("💳 [Payment] Checkout session ID:", checkoutData.paymentResult.checkoutSessionId);
+      console.log("💳 [Payment] Checkout session ID:", checkoutSessionId);
       console.log("💳 [Payment] Selected products:", checkoutData.selectedProducts);
       console.log("💳 [Payment] Form responses:", checkoutData.formResponses);
       console.log("💳 [Payment] Customer info:", checkoutData.customerInfo);
@@ -254,7 +281,7 @@ export function PaymentStep({
       // Complete checkout - creates tickets and CRM records
       const result = await completeCheckout({
         sessionId,
-        checkoutSessionId: checkoutData.paymentResult.checkoutSessionId as Id<"objects">,
+        checkoutSessionId: checkoutSessionId as Id<"objects">,
         paymentIntentId,
       });
 
@@ -268,7 +295,7 @@ export function PaymentStep({
           transactionId: result.paymentId,
           receiptUrl: "#",
           purchasedItemIds: result.purchasedItemIds,
-          checkoutSessionId: checkoutData.paymentResult.checkoutSessionId,
+          checkoutSessionId: checkoutSessionId,
         },
       });
     } catch (err) {
@@ -366,7 +393,7 @@ export function PaymentStep({
             <div className="flex justify-between items-center">
               <span className="text-gray-600">Total Amount:</span>
               <span className="text-2xl font-bold text-purple-600">
-                ${(totalAmount / 100).toFixed(2)}
+                {formatCurrency(totalAmount)}
               </span>
             </div>
           </div>
@@ -434,7 +461,7 @@ export function PaymentStep({
               </>
             ) : (
               <>
-                Complete Payment ${(totalAmount / 100).toFixed(2)}
+                Complete Payment {formatCurrency(totalAmount)}
               </>
             )}
           </button>

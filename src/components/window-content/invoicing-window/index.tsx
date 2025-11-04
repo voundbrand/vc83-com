@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { FileText, CreditCard, Palette, X, Download, Mail, Edit, Lock, Calendar, User, History } from "lucide-react";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { type Id, type Doc } from "../../../../convex/_generated/dataModel";
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
@@ -58,7 +58,7 @@ export function InvoicingWindow() {
 
   // Separate draft and sealed invoices
   const draftInvoices = invoices?.filter(inv => inv.customProperties?.isDraft === true) || [];
-  const sealedInvoices = invoices?.filter(inv => inv.customProperties?.isDraft === false) || [];
+  const sealedInvoices = invoices?.filter(inv => inv.customProperties?.isDraft !== true) || []; // Catches false and undefined
 
   // Format helpers
   const formatCurrency = (cents: number, currency: string = "EUR") => {
@@ -371,7 +371,9 @@ interface InvoiceDetailModalProps {
 function InvoiceDetailModal({ invoice, onClose }: InvoiceDetailModalProps) {
   const { sessionId } = useAuth();
   const sealInvoiceMutation = useMutation(api.invoicingOntology.sealInvoice);
+  const generatePDFAction = useAction(api.pdfGeneration.generateInvoicePDF);
   const [isSealing, setIsSealing] = React.useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = React.useState(false);
 
   const props = invoice.customProperties || {};
   const billTo = props.billTo as { name?: string; billingEmail?: string; vatNumber?: string; billingAddress?: { city?: string; country?: string } } | undefined;
@@ -385,12 +387,47 @@ function InvoiceDetailModal({ invoice, onClose }: InvoiceDetailModalProps) {
   const dueDate = props.dueDate as number;
   const pdfUrl = props.pdfUrl as string | undefined;
   const isDraft = props.isDraft === true;
+  const checkoutSessionId = props.checkoutSessionId as Id<"objects"> | undefined;
 
   const handleDownloadPDF = () => {
     if (pdfUrl) {
       window.open(pdfUrl, "_blank");
     } else {
       alert("PDF not yet generated for this invoice");
+    }
+  };
+
+  const handleGeneratePDF = async () => {
+    if (!checkoutSessionId) return;
+
+    setIsGeneratingPDF(true);
+    try {
+      const pdfAttachment = await generatePDFAction({
+        checkoutSessionId,
+      });
+
+      if (pdfAttachment && pdfAttachment.content) {
+        alert("PDF generated successfully!");
+        // Convert base64 to blob and open in new tab
+        const byteCharacters = atob(pdfAttachment.content);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        window.open(url, "_blank");
+        // Close modal to refresh the list
+        onClose();
+      } else {
+        alert("Failed to generate PDF");
+      }
+    } catch (error) {
+      console.error("Failed to generate PDF:", error);
+      alert(`Failed to generate PDF: ${error instanceof Error ? error.message : "Unknown error"}`);
+    } finally {
+      setIsGeneratingPDF(false);
     }
   };
 

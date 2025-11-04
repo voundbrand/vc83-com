@@ -461,7 +461,7 @@ export const addonCalculationHandler: BehaviorHandler<
       type: "addon_calculation",
       lineItems,
       totalAddonCost,
-      currency: lineItems[0]?.currency || "USD",
+      currency: lineItems[0]?.currency || "EUR",
     };
 
     return {

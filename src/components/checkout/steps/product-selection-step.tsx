@@ -74,7 +74,7 @@ export function ProductSelectionStep({
    * Uses the currency from the first product (assumes all products use same currency)
    */
   const formatPrice = (amount: number) => {
-    const currency = linkedProducts[0]?.currency || "USD";
+    const currency = linkedProducts[0]?.currency || "EUR";
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: currency.toUpperCase(),

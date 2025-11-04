@@ -123,8 +123,8 @@ const checkoutTemplateRegistry: Record<string, CheckoutTemplateRegistration> = {
     component: TicketCheckoutAdapter as ComponentType<CheckoutTemplateProps>,
     schema: ticketCheckoutSchema,
   },
-  "behavior-driven": {
-    code: "behavior-driven",
+  "behavior-driven-checkout": {
+    code: "behavior-driven-checkout",
     name: "Behavior-Driven Checkout",
     component: BehaviorDrivenCheckoutAdapter as ComponentType<CheckoutTemplateProps>,
     schema: behaviorDrivenSchema,

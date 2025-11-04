@@ -64,14 +64,14 @@ export function CreateCheckoutTab({
   );
 
   // Fetch products for linking (WITH their linked forms)
-  // Only fetch ACTIVE products (ready to be sold in checkout)
+  // Show ALL products (active, draft, etc.) - let user decide what to link
   const products = useQuery(
     api.productOntology.getProductsWithForms,
     sessionId && currentOrg?.id
       ? {
           sessionId,
           organizationId: currentOrg.id as Id<"organizations">,
-          status: "active", // Only show published/active products
+          // Don't filter by status - show all products
         }
       : "skip"
   );
@@ -267,7 +267,7 @@ export function CreateCheckoutTab({
           name: product.name,
           description: product.description || "",
           price: props?.price || 0,
-          currency: props?.currency || "usd",
+          currency: props?.currency || "eur",
           customProperties: props,
         };
         return checkoutProduct;
@@ -824,7 +824,7 @@ export function CreateCheckoutTab({
                   const isSelected = selectedProducts.includes(product._id);
                   const props = (product.customProperties || {}) as CheckoutProduct["customProperties"];
                   const price = props?.price || 0;
-                  const currency = props?.currency || "usd";
+                  const currency = props?.currency || "eur";
 
                   // Check if product has a linked form
                   const hasForm = !!props?.formId;

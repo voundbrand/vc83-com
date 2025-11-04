@@ -122,7 +122,7 @@ export function ConfirmationStepEnhanced({
   }, [checkoutData.paymentResult, generateTicketPDF, generateReceiptPDF]);
 
   const formatPrice = (amount: number) => {
-    const currency = linkedProducts[0]?.currency || "USD";
+    const currency = linkedProducts[0]?.currency || "EUR";
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: currency.toUpperCase(),

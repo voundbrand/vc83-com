@@ -102,7 +102,7 @@ export const taxCalculationHandler: BehaviorHandler<TaxCalculationConfig> = {
       price: (obj.data?.price as number) || 0,
       subtype: obj.data?.subtype as string | undefined,
       taxCode: obj.data?.taxCode as string | undefined,
-      currency: (obj.data?.currency as string) || "USD",
+      currency: (obj.data?.currency as string) || "EUR",
     }));
 
     // Get add-ons from form responses (from inputs)

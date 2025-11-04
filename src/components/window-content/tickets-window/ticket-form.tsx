@@ -136,7 +136,7 @@ export function TicketForm({
               <option key={product._id} value={product._id}>
                 {product.name} - {new Intl.NumberFormat("en-US", {
                   style: "currency",
-                  currency: product.customProperties?.currency || "USD",
+                  currency: product.customProperties?.currency || "EUR",
                 }).format((product.customProperties?.price || 0) / 100)}
               </option>
             ))}

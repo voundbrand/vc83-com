@@ -100,9 +100,21 @@ export const createCheckoutSessionInternal = internalAction({
       throw new Error("Product not found");
     }
 
+    // Get Platform Org's currency from locale settings
+    const localeSettings = await ctx.runQuery(internal.checkoutSessions.getOrgLocaleSettings, {
+      organizationId: args.organizationId
+    });
+
+    // Normalize currency to lowercase for Stripe (accepts both but prefers lowercase)
+    const orgCurrency = localeSettings?.customProperties?.currency
+      ? String(localeSettings.customProperties.currency).toLowerCase()
+      : undefined;
+
     const priceInCents: number =
       (product.customProperties?.priceInCents as number) || 0;
-    const currency: string = (product.customProperties?.currency as string) || "usd";
+    const currency: string = orgCurrency
+      || (product.customProperties?.currency as string)?.toLowerCase()
+      || "eur";
 
     // 3. Get connected account ID
     const connectedAccountId = getConnectedAccountId(org, "stripe-connect");

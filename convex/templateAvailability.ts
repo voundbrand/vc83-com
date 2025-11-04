@@ -195,7 +195,9 @@ export const disableTemplateForOrg = mutation({
     );
 
     if (!existing) {
-      throw new Error("Template availability not found");
+      // No availability record exists - template was never enabled, so nothing to disable
+      // This is not an error - just return success
+      return { success: true, message: "Template was not enabled for this organization" };
     }
 
     // Update to disabled

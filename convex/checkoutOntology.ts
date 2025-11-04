@@ -128,8 +128,9 @@ export const createCheckoutInstance = mutation({
     const template = await ctx.db
       .query("objects")
       .withIndex("by_org_type", (q) =>
-        q.eq("organizationId", systemOrg._id).eq("type", "checkout_template")
+        q.eq("organizationId", systemOrg._id).eq("type", "template")
       )
+      .filter((q) => q.eq(q.field("subtype"), "checkout"))
       .filter((q) =>
         q.eq(q.field("customProperties.code"), args.templateCode)
       )
@@ -559,6 +560,31 @@ export const getPublicCheckoutInstance = query({
     console.log("🔍 [getPublicCheckoutInstance] Result:", instance ? "Found" : "Not found");
 
     return instance || null;
+  },
+});
+
+/**
+ * GET PUBLIC CHECKOUT INSTANCE BY ID
+ * Fetches a checkout instance by its ID for public pages
+ * No auth required - public query
+ */
+export const getPublicCheckoutInstanceById = query({
+  args: {
+    instanceId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const instance = await ctx.db.get(args.instanceId);
+
+    if (!instance || instance.type !== "checkout_instance") {
+      return null;
+    }
+
+    // Only return published checkouts for public access
+    if (instance.status !== "published") {
+      return null;
+    }
+
+    return instance;
   },
 });
 

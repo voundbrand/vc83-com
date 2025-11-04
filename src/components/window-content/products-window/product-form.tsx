@@ -207,7 +207,7 @@ export function ProductForm({
         name: existingProduct.name || "",
         description: existingProduct.description || "",
         price: ((props.price || 0) / 100).toString(),
-        currency: props.currency || "USD",
+        currency: props.currency || "EUR",
         inventory: props.inventory?.toString() || "",
         eventId: (props.eventId as string) || "", // Load existing event association
         // Form linking (generalized for all product types)

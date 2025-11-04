@@ -454,9 +454,9 @@ function WebTemplateRow({
       {templates.map((template) => {
         const templateCode = template.customProperties?.code as string;
         const availability = availabilities.find(
-          (a) => a.customProperties?.pageTemplateCode === templateCode
+          (a) => a.customProperties?.templateCode === templateCode
         );
-        const isAvailable = availability?.customProperties?.isEnabled ?? false;
+        const isAvailable = availability?.customProperties?.available ?? false;
         const isLoading = loadingTemplateCode === templateCode;
 
         return (

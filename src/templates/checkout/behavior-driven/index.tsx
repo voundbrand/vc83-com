@@ -285,6 +285,17 @@ export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
                 customerEmail: updatedData.customerInfo?.email,
                 customerName: updatedData.customerInfo?.name,
                 customerPhone: updatedData.customerInfo?.phone,
+                // 🔥 CRITICAL: Store B2B transaction info for CRM organization creation
+                transactionType: updatedData.customerInfo?.transactionType,
+                companyName: updatedData.customerInfo?.companyName,
+                vatNumber: updatedData.customerInfo?.vatNumber,
+                // 🔥 CRITICAL: Store billing address fields for CRM organization
+                billingLine1: updatedData.customerInfo?.billingAddress?.line1,
+                billingLine2: updatedData.customerInfo?.billingAddress?.line2,
+                billingCity: updatedData.customerInfo?.billingAddress?.city,
+                billingState: updatedData.customerInfo?.billingAddress?.state,
+                billingPostalCode: updatedData.customerInfo?.billingAddress?.postalCode,
+                billingCountry: updatedData.customerInfo?.billingAddress?.country,
                 selectedProducts: updatedData.selectedProducts?.map(sp => ({
                   productId: sp.productId as Id<"objects">,
                   quantity: sp.quantity,
@@ -490,6 +501,7 @@ export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
       products: config.products,
       theme: config.theme,
       workflowBehaviors,
+      checkoutSessionId, // Pass checkoutSessionId for payment step
       onComplete: handleStepComplete,
       onBack: currentStep !== "product-selection" && config.allowBackNavigation ? handleBack : undefined,
     };

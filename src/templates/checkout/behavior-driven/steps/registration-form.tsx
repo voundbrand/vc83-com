@@ -7,13 +7,14 @@
  * Supports conditional logic, sections, and all field types.
  */
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 import { StepProps } from "../types";
 import { FileText, ArrowLeft } from "lucide-react";
 import { executeCheckoutBehaviors, getAddonsFromResults } from "@/lib/behaviors/adapters/checkout-integration";
+import { useTranslation } from "@/contexts/translation-context";
 
 type FormField = {
   id: string;
@@ -54,6 +55,7 @@ export function RegistrationFormStep({
   onComplete,
   onBack
 }: StepProps) {
+  const { t } = useTranslation();
   const selectedProducts = checkoutData.selectedProducts || [];
 
   // ============================================================================
@@ -139,7 +141,7 @@ export function RegistrationFormStep({
     });
 
     if (!allComplete) {
-      alert("Please complete all registration forms");
+      alert(t("ui.checkout_template.behavior_driven.registration_form.errors.complete_all"));
       return;
     }
 
@@ -203,14 +205,23 @@ export function RegistrationFormStep({
     });
   };
 
+  // Track if we've already skipped this step to prevent infinite loops
+  const hasSkipped = useRef(false);
+
+  // Skip this step if no form is needed (use effect to avoid setState during render)
+  useEffect(() => {
+    if (!formId && !hasSkipped.current) {
+      hasSkipped.current = true;
+      onComplete({});
+    }
+  }, [formId, onComplete]);
+
   if (!formId) {
-    // No form needed, skip this step
-    onComplete({});
     return null;
   }
 
   if (!form) {
-    return <div className="p-6">Loading form...</div>;
+    return <div className="p-6">{t("ui.checkout_template.behavior_driven.registration_form.messages.loading")}</div>;
   }
 
   // Extract form schema with proper typing
@@ -350,7 +361,7 @@ export function RegistrationFormStep({
             required={field.required}
             className="w-full px-4 py-2 border-2 border-gray-300 rounded focus:border-purple-500 focus:outline-none"
           >
-            <option value="">Select...</option>
+            <option value="">{t("ui.checkout_template.behavior_driven.registration_form.controls.select_placeholder")}</option>
             {field.options.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
@@ -431,11 +442,15 @@ export function RegistrationFormStep({
       <div className="mb-8">
         <h2 className="text-3xl font-bold mb-2 flex items-center gap-3">
           <FileText size={32} />
-          Registration
+          {t("ui.checkout_template.behavior_driven.registration_form.headers.title")}
         </h2>
         <p className="text-gray-600">
-          Please provide information for each ticket holder ({ticketsNeedingForms.length}{" "}
-          {ticketsNeedingForms.length === 1 ? "ticket" : "tickets"})
+          {t("ui.checkout_template.behavior_driven.registration_form.headers.subtitle", {
+            count: ticketsNeedingForms.length,
+            label: ticketsNeedingForms.length === 1
+              ? t("ui.checkout_template.behavior_driven.registration_form.labels.ticket_singular")
+              : t("ui.checkout_template.behavior_driven.registration_form.labels.ticket_plural")
+          })}
         </p>
       </div>
 
@@ -446,7 +461,7 @@ export function RegistrationFormStep({
 
           return (
             <div key={ticketNum} className="bg-white border-2 border-gray-300 rounded-lg p-6 mb-6">
-              <h3 className="text-xl font-bold mb-4">Ticket #{ticketNum}</h3>
+              <h3 className="text-xl font-bold mb-4">{t("ui.checkout_template.behavior_driven.registration_form.labels.ticket_number", { number: ticketNum })}</h3>
 
               {/* Render sections if form has sections */}
               {formSchema?.sections && visibleSections.length > 0 ? (
@@ -483,7 +498,7 @@ export function RegistrationFormStep({
               className="px-6 py-3 text-lg font-bold border-2 border-gray-400 bg-white text-gray-700 hover:bg-gray-50 rounded transition-colors flex items-center gap-2"
             >
               <ArrowLeft size={20} />
-              Back
+              {t("ui.checkout_template.behavior_driven.registration_form.buttons.back")}
             </button>
           )}
 
@@ -491,7 +506,7 @@ export function RegistrationFormStep({
             type="submit"
             className="flex-1 px-6 py-3 text-lg font-bold border-2 border-purple-600 bg-purple-600 text-white hover:bg-purple-700 rounded transition-colors"
           >
-            Continue to Customer Info →
+            {t("ui.checkout_template.behavior_driven.registration_form.buttons.continue")}
           </button>
         </div>
       </form>

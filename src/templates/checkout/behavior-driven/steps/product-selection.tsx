@@ -14,8 +14,11 @@ import { StepProps } from "../types";
 import { ShoppingCart } from "lucide-react";
 import { Id } from "../../../../../convex/_generated/dataModel";
 import { calculateCheckoutTax, getTaxRateByCode, getDefaultTaxRate as getDefaultTaxRateByCountry } from "@/lib/tax-calculator";
+import { useTranslation } from "@/contexts/translation-context";
 
 export function ProductSelectionStep({ organizationId, products, checkoutData, onComplete }: StepProps) {
+  const { t } = useTranslation();
+
   // Fetch organization tax settings
   const taxSettings = useQuery(api.organizationTaxSettings.getPublicTaxSettings, {
     organizationId,
@@ -103,7 +106,7 @@ export function ProductSelectionStep({ organizationId, products, checkoutData, o
 
   const handleContinue = () => {
     if (selectedProducts.length === 0) {
-      alert("Please select at least one product");
+      alert(t("ui.checkout_template.behavior_driven.product_selection.errors.select_at_least_one"));
       return;
     }
 
@@ -137,9 +140,9 @@ export function ProductSelectionStep({ organizationId, products, checkoutData, o
       <div className="mb-8">
         <h2 className="text-3xl font-bold mb-2 flex items-center gap-3">
           <ShoppingCart size={32} />
-          Select Products
+          {t("ui.checkout_template.behavior_driven.product_selection.headers.title")}
         </h2>
-        <p className="text-gray-600">Choose your tickets and quantities</p>
+        <p className="text-gray-600">{t("ui.checkout_template.behavior_driven.product_selection.headers.subtitle")}</p>
       </div>
 
       {/* Product Grid */}
@@ -201,7 +204,7 @@ export function ProductSelectionStep({ organizationId, products, checkoutData, o
       {/* Cart Summary with Tax Breakdown */}
       {selectedProducts.length > 0 && (
         <div className="bg-purple-50 border-2 border-purple-300 rounded-lg p-6 mb-6">
-          <h3 className="text-lg font-bold mb-4">Cart Summary</h3>
+          <h3 className="text-lg font-bold mb-4">{t("ui.checkout_template.behavior_driven.product_selection.cart.title")}</h3>
           <div className="space-y-2 mb-4">
             {selectedProducts.map((sp) => {
               const product = products.find((p) => p._id === sp.productId);
@@ -211,7 +214,7 @@ export function ProductSelectionStep({ organizationId, products, checkoutData, o
                     {product?.name} × {sp.quantity}
                   </span>
                   <span className="font-medium">
-                    {formatPrice(sp.price * sp.quantity, product?.currency || "USD")}
+                    {formatPrice(sp.price * sp.quantity, product?.currency || "EUR")}
                   </span>
                 </div>
               );
@@ -220,8 +223,8 @@ export function ProductSelectionStep({ organizationId, products, checkoutData, o
           {/* Tax Breakdown */}
           <div className="space-y-2 pt-4 border-t-2 border-purple-200">
             <div className="flex justify-between text-sm">
-              <span>Subtotal:</span>
-              <span className="font-medium">{formatPrice(subtotal, products[0]?.currency || "USD")}</span>
+              <span>{t("ui.checkout_template.behavior_driven.product_selection.cart.subtotal")}</span>
+              <span className="font-medium">{formatPrice(subtotal, products[0]?.currency || "EUR")}</span>
             </div>
             {taxCalculation.isTaxable && taxAmount > 0 && (() => {
               // Calculate effective tax rate: (taxAmount / subtotal) * 100
@@ -230,20 +233,23 @@ export function ProductSelectionStep({ organizationId, products, checkoutData, o
               return (
                 <div className="flex justify-between text-sm">
                   <span>
-                    Tax ({effectiveTaxRate.toFixed(1)}%)
+                    {t("ui.checkout_template.behavior_driven.product_selection.cart.tax")} ({effectiveTaxRate.toFixed(1)}%)
                     <span className="text-xs ml-1 opacity-70">
-                      {taxCalculation.taxBehavior === "inclusive" ? "💶 included" : "💵 added"}
+                      {taxCalculation.taxBehavior === "inclusive"
+                        ? t("ui.checkout_template.behavior_driven.product_selection.cart.tax_included")
+                        : t("ui.checkout_template.behavior_driven.product_selection.cart.tax_added")
+                      }
                     </span>
                   </span>
-                  <span className="font-medium">{formatPrice(taxAmount, products[0]?.currency || "USD")}</span>
+                  <span className="font-medium">{formatPrice(taxAmount, products[0]?.currency || "EUR")}</span>
                 </div>
               );
             })()}
           </div>
           <div className="pt-4 border-t-2 border-purple-400 flex justify-between items-center">
-            <span className="text-xl font-bold">Total:</span>
+            <span className="text-xl font-bold">{t("ui.checkout_template.behavior_driven.product_selection.cart.total")}</span>
             <span className="text-2xl font-bold text-purple-600">
-              {formatPrice(total, products[0]?.currency || "USD")}
+              {formatPrice(total, products[0]?.currency || "EUR")}
             </span>
           </div>
         </div>
@@ -256,7 +262,7 @@ export function ProductSelectionStep({ organizationId, products, checkoutData, o
           disabled={selectedProducts.length === 0}
           className="flex-1 px-6 py-3 text-lg font-bold border-2 border-purple-600 bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed rounded transition-colors"
         >
-          Continue to Registration →
+          {t("ui.checkout_template.behavior_driven.product_selection.buttons.continue")}
         </button>
       </div>
     </div>

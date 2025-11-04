@@ -318,7 +318,7 @@ export const createProduct = mutation({
     // Build customProperties with product data
     const customProperties = {
       price: args.price,
-      currency: args.currency || "USD",
+      currency: args.currency || "EUR",
       inventory: args.inventory ?? null,
       sold: 0, // Track sales count
       eventId: args.eventId, // Store event link for easy access

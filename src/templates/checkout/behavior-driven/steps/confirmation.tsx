@@ -26,6 +26,7 @@ export function ConfirmationStep({ checkoutData, products }: StepProps) {
   // PDF generation actions
   const generateTicketPDF = useAction(api.pdfGeneration.generateTicketPDF);
   const getTicketIdsFromCheckout = useAction(api.pdfGeneration.getTicketIdsFromCheckout);
+  const generateInvoicePDF = useAction(api.pdfGeneration.generateInvoicePDF);
 
   // Fetch organization name from CRM using the org ID
   const crmOrganization = useQuery(
@@ -48,7 +49,7 @@ export function ConfirmationStep({ checkoutData, products }: StepProps) {
     }).format(amount / 100);
   };
 
-  const currency = products[0]?.currency || "USD";
+  const currency = products[0]?.currency || "EUR";
 
   // Calculate totals with add-ons AND form costs
   const productsSubtotal = selectedProducts.reduce((sum, sp) => sum + sp.price * sp.quantity, 0);
@@ -104,16 +105,32 @@ export function ConfirmationStep({ checkoutData, products }: StepProps) {
     }
   };
 
-  // Download receipt handler (placeholder for now)
+  // Download invoice/receipt handler
   const handleDownloadReceipt = async () => {
+    const checkoutSessionId = checkoutData.paymentResult?.checkoutSessionId;
+    if (!checkoutSessionId) {
+      alert("Checkout session not found. Please refresh the page.");
+      return;
+    }
+
     setIsDownloadingReceipt(true);
     try {
-      // TODO: Implement receipt PDF generation
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      alert("Receipt download coming soon!");
+      // Generate invoice PDF (works for both B2C receipts and B2B invoices)
+      const pdf = await generateInvoicePDF({
+        checkoutSessionId: checkoutSessionId as Id<"objects">,
+      });
+
+      if (pdf) {
+        const link = document.createElement("a");
+        link.href = `data:${pdf.contentType};base64,${pdf.content}`;
+        link.download = pdf.filename;
+        link.click();
+      } else {
+        alert("Invoice PDF not available. Please check your email or contact support.");
+      }
     } catch (error) {
-      console.error("Failed to download receipt:", error);
-      alert("Failed to download receipt. Please try again.");
+      console.error("Failed to download invoice/receipt:", error);
+      alert("Failed to download invoice/receipt. Please try again or check your email.");
     } finally {
       setIsDownloadingReceipt(false);
     }

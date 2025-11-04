@@ -23,7 +23,7 @@ interface PaymentMethodStepProps {
 export function PaymentMethodStep({
   paymentProviders,
   initialSelection,
-  currency = "USD",
+  currency = "EUR", // Changed from USD to EUR to match organization's currency
   totalAmount = 0,
   onComplete,
   onBack,

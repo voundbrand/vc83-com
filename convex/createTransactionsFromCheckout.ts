@@ -203,6 +203,72 @@ export const createTransactionsFromCheckout = internalAction({
       console.log(`✅ [createTransactionsFromCheckout] Linked ${ticketLinks.length} transactions to tickets`);
     }
 
+    // 9. CREATE INVOICE RECORD (NOW that transactions exist!)
+    // This must happen AFTER transactions are created
+    try {
+      const transactionType = (session.customProperties?.transactionType as "B2C" | "B2B") || "B2C";
+      const sessionCrmContactId = session.customProperties?.crmContactId as Id<"objects"> | undefined;
+      const sessionCrmOrganizationId = session.customProperties?.crmOrganizationId as Id<"objects"> | undefined;
+      const isEmployerBilled = !!sessionCrmOrganizationId && session.customProperties?.behaviorContext?.metadata?.isEmployerBilling === true;
+
+      // Get all tickets for invoice linking
+      const allTickets = await ctx.runQuery(internal.ticketOntology.getTicketsByCheckoutInternal, {
+        checkoutSessionId: args.checkoutSessionId,
+      });
+      const ticketIds = allTickets.map((ticket: { _id: Id<"objects"> }) => ticket._id);
+
+      // Build customer info for invoice
+      const customerInfo = {
+        email: customerEmail,
+        name: customerName,
+        ...(transactionType === "B2B" && {
+          companyName: session.customProperties?.companyName as string | undefined,
+          vatNumber: session.customProperties?.vatNumber as string | undefined,
+          billingAddress: session.customProperties?.billingLine1 ? {
+            line1: session.customProperties.billingLine1 as string,
+            line2: session.customProperties.billingLine2 as string | undefined,
+            city: session.customProperties.billingCity as string,
+            state: session.customProperties.billingState as string | undefined,
+            postalCode: session.customProperties.billingPostalCode as string,
+            country: session.customProperties.billingCountry as string,
+          } : undefined,
+        }),
+      };
+
+      // Calculate total from session
+      const totalInCents = session.customProperties?.totalAmount as number || 0;
+      const currency = session.customProperties?.currency as string || "EUR";
+
+      // Create invoice record with CRM links
+      const invoiceResult = await ctx.runMutation(internal.invoicingOntology.createSimpleInvoiceFromCheckout, {
+        checkoutSessionId: args.checkoutSessionId,
+        transactionIds, // ✅ NOW these exist!
+        ticketIds,
+        transactionType,
+        customerInfo,
+        totalInCents,
+        currency,
+        isEmployerBilled,
+        crmContactId: sessionCrmContactId,
+        crmOrganizationId: sessionCrmOrganizationId,
+      });
+
+      // Store invoice ID in session for confirmation page
+      await ctx.runMutation(internal.checkoutSessionOntology.patchCheckoutSessionInternal, {
+        checkoutSessionId: args.checkoutSessionId,
+        customProperties: {
+          ...(session.customProperties || {}),
+          invoiceId: invoiceResult.invoiceId,
+          invoiceNumber: invoiceResult.invoiceNumber,
+        },
+      });
+
+      console.log(`✅ [createTransactionsFromCheckout] Invoice created: ${invoiceResult.invoiceNumber}`);
+    } catch (invoiceError) {
+      console.error("Invoice creation failed (non-critical):", invoiceError);
+      // Don't fail transaction creation if invoice creation fails
+    }
+
     return {
       success: true,
       transactionIds,

@@ -14,6 +14,7 @@ import type {
   FunctionReference,
 } from "convex/server";
 import type * as accountManagement from "../accountManagement.js";
+import type * as addressValidation from "../addressValidation.js";
 import type * as api_auth from "../api/auth.js";
 import type * as api_v1_checkout from "../api/v1/checkout.js";
 import type * as api_v1_checkoutInternal from "../api/v1/checkoutInternal.js";
@@ -120,6 +121,17 @@ import type * as translationResolver from "../translationResolver.js";
 import type * as translations__translationHelpers from "../translations/_translationHelpers.js";
 import type * as translations_seedAddressTranslations from "../translations/seedAddressTranslations.js";
 import type * as translations_seedCRM_01_OrganizationForm from "../translations/seedCRM_01_OrganizationForm.js";
+import type * as translations_seedCheckoutTemplate_00_Main from "../translations/seedCheckoutTemplate_00_Main.js";
+import type * as translations_seedCheckoutTemplate_01_ProductSelection from "../translations/seedCheckoutTemplate_01_ProductSelection.js";
+import type * as translations_seedCheckoutTemplate_02_RegistrationForm from "../translations/seedCheckoutTemplate_02_RegistrationForm.js";
+import type * as translations_seedCheckoutTemplate_03_CustomerInfo from "../translations/seedCheckoutTemplate_03_CustomerInfo.js";
+import type * as translations_seedCheckoutTemplate_04_ReviewOrder from "../translations/seedCheckoutTemplate_04_ReviewOrder.js";
+import type * as translations_seedCheckoutTemplate_05_Payment from "../translations/seedCheckoutTemplate_05_Payment.js";
+import type * as translations_seedCheckoutTemplate_05a_PaymentMethods from "../translations/seedCheckoutTemplate_05a_PaymentMethods.js";
+import type * as translations_seedCheckoutTemplate_05b_PaymentForm from "../translations/seedCheckoutTemplate_05b_PaymentForm.js";
+import type * as translations_seedCheckoutTemplate_06_Confirmation from "../translations/seedCheckoutTemplate_06_Confirmation.js";
+import type * as translations_seedCheckoutTemplate_06a_ConfirmationSuccess from "../translations/seedCheckoutTemplate_06a_ConfirmationSuccess.js";
+import type * as translations_seedCheckoutTemplate_06b_ConfirmationInvoice from "../translations/seedCheckoutTemplate_06b_ConfirmationInvoice.js";
 import type * as translations_seedCheckout_01_CustomerInfo from "../translations/seedCheckout_01_CustomerInfo.js";
 import type * as translations_seedCheckout_01a_BasicInfo from "../translations/seedCheckout_01a_BasicInfo.js";
 import type * as translations_seedCheckout_01b_Errors from "../translations/seedCheckout_01b_Errors.js";
@@ -166,6 +178,7 @@ import type * as workflows_workflowValidation from "../workflows/workflowValidat
  */
 declare const fullApi: ApiFromModules<{
   accountManagement: typeof accountManagement;
+  addressValidation: typeof addressValidation;
   "api/auth": typeof api_auth;
   "api/v1/checkout": typeof api_v1_checkout;
   "api/v1/checkoutInternal": typeof api_v1_checkoutInternal;
@@ -272,6 +285,17 @@ declare const fullApi: ApiFromModules<{
   "translations/_translationHelpers": typeof translations__translationHelpers;
   "translations/seedAddressTranslations": typeof translations_seedAddressTranslations;
   "translations/seedCRM_01_OrganizationForm": typeof translations_seedCRM_01_OrganizationForm;
+  "translations/seedCheckoutTemplate_00_Main": typeof translations_seedCheckoutTemplate_00_Main;
+  "translations/seedCheckoutTemplate_01_ProductSelection": typeof translations_seedCheckoutTemplate_01_ProductSelection;
+  "translations/seedCheckoutTemplate_02_RegistrationForm": typeof translations_seedCheckoutTemplate_02_RegistrationForm;
+  "translations/seedCheckoutTemplate_03_CustomerInfo": typeof translations_seedCheckoutTemplate_03_CustomerInfo;
+  "translations/seedCheckoutTemplate_04_ReviewOrder": typeof translations_seedCheckoutTemplate_04_ReviewOrder;
+  "translations/seedCheckoutTemplate_05_Payment": typeof translations_seedCheckoutTemplate_05_Payment;
+  "translations/seedCheckoutTemplate_05a_PaymentMethods": typeof translations_seedCheckoutTemplate_05a_PaymentMethods;
+  "translations/seedCheckoutTemplate_05b_PaymentForm": typeof translations_seedCheckoutTemplate_05b_PaymentForm;
+  "translations/seedCheckoutTemplate_06_Confirmation": typeof translations_seedCheckoutTemplate_06_Confirmation;
+  "translations/seedCheckoutTemplate_06a_ConfirmationSuccess": typeof translations_seedCheckoutTemplate_06a_ConfirmationSuccess;
+  "translations/seedCheckoutTemplate_06b_ConfirmationInvoice": typeof translations_seedCheckoutTemplate_06b_ConfirmationInvoice;
   "translations/seedCheckout_01_CustomerInfo": typeof translations_seedCheckout_01_CustomerInfo;
   "translations/seedCheckout_01a_BasicInfo": typeof translations_seedCheckout_01a_BasicInfo;
   "translations/seedCheckout_01b_Errors": typeof translations_seedCheckout_01b_Errors;

@@ -134,7 +134,7 @@ export const getPublicCheckoutProduct = query({
       name: product.name,
       description: product.description,
       priceInCents: product.customProperties?.priceInCents || 0,
-      currency: product.customProperties?.currency || "usd",
+      currency: product.customProperties?.currency || "eur",
       previewImageUrl: product.customProperties?.previewImageUrl,
       metaTitle: product.customProperties?.metaTitle,
       metaDescription: product.customProperties?.metaDescription,
@@ -151,6 +151,24 @@ export const getOrganizationInternal = internalQuery({
   },
   handler: async (ctx, { organizationId }) => {
     return await ctx.db.get(organizationId);
+  },
+});
+
+/**
+ * INTERNAL: Get organization's locale settings for currency
+ */
+export const getOrgLocaleSettings = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, { organizationId }) => {
+    return await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", organizationId).eq("type", "organization_settings")
+      )
+      .filter((q) => q.eq(q.field("subtype"), "locale"))
+      .first();
   },
 });
 
@@ -208,8 +226,20 @@ export const createStripeCheckoutSession = action({
       throw new Error("Product not found");
     }
 
+    // Get Platform Org's currency from locale settings
+    const localeSettings = await ctx.runQuery(internal.checkoutSessions.getOrgLocaleSettings, {
+      organizationId: args.organizationId
+    });
+
+    // Normalize currency to lowercase for Stripe (accepts both but prefers lowercase)
+    const orgCurrency = localeSettings?.customProperties?.currency
+      ? String(localeSettings.customProperties.currency).toLowerCase()
+      : undefined;
+
     const priceInCents = targetProduct.customProperties?.priceInCents || 0;
-    const currency = targetProduct.customProperties?.currency || "usd";
+    const currency = orgCurrency
+      || (targetProduct.customProperties?.currency as string)?.toLowerCase()
+      || "eur";
 
     // Get payment provider
     const provider = getProviderByCode("stripe-connect");
@@ -340,8 +370,20 @@ export const createCheckoutSession = action({
       throw new Error("Product not found");
     }
 
+    // Get Platform Org's currency from locale settings
+    const localeSettings = await ctx.runQuery(internal.checkoutSessions.getOrgLocaleSettings, {
+      organizationId: args.organizationId
+    });
+
+    // Normalize currency to lowercase for Stripe (accepts both but prefers lowercase)
+    const orgCurrency = localeSettings?.customProperties?.currency
+      ? String(localeSettings.customProperties.currency).toLowerCase()
+      : undefined;
+
     const priceInCents = targetProduct.customProperties?.priceInCents || 0;
-    const currency = targetProduct.customProperties?.currency || "usd";
+    const currency = orgCurrency
+      || (targetProduct.customProperties?.currency as string)?.toLowerCase()
+      || "eur";
 
     // Get payment provider
     const provider = getProviderByCode(providerCode);
@@ -427,7 +469,7 @@ export const createPaymentIntentForSession = action({
     const customerEmail = (session.customProperties?.customerEmail as string) || "";
     const customerName = (session.customProperties?.customerName as string) || "";
     const totalAmount = (session.customProperties?.totalAmount as number) || 0;
-    const currency = (session.customProperties?.currency as string) || "usd";
+    const currency = (session.customProperties?.currency as string) || "eur";
 
     // B2B fields
     const transactionType = (session.customProperties?.transactionType as "B2C" | "B2B" | undefined) || "B2C";
@@ -976,13 +1018,37 @@ export const completeCheckoutAndFulfill = action({
       userId: undefined, // Guest checkout - no user account required
     });
 
+    // 6.5. CREATE TRANSACTIONS AND LINK TO TICKETS
+    // 🔥 CRITICAL: Must run BEFORE email/PDF generation so tax data is available!
+    // Previously this was scheduled asynchronously, causing race condition where
+    // PDFs/emails generated before transaction IDs were linked to tickets.
+    console.log("📝 [completeCheckoutAndFulfill] Creating transactions and linking to tickets...");
+    try {
+      await ctx.runAction(internal.createTransactionsFromCheckout.createTransactionsFromCheckout, {
+        checkoutSessionId: args.checkoutSessionId,
+      });
+      console.log("✅ [completeCheckoutAndFulfill] Transactions created and linked successfully");
+    } catch (transactionError) {
+      console.error("❌ [completeCheckoutAndFulfill] Transaction creation failed:", transactionError);
+      // Don't fail checkout, but log the error
+    }
+
+    // 6.6. Determine whether to include invoice PDF in email
+    const isEmployerBilled = !!crmOrganizationId && behaviorContext?.metadata?.isEmployerBilling === true;
+    const includeInvoicePDF = !isEmployerBilled; // Skip PDF for employer billing
+
+    if (isEmployerBilled) {
+      console.log("📋 [completeCheckoutAndFulfill] B2B employer billing detected - skipping invoice PDF");
+    }
+
     // 7. SEND ORDER CONFIRMATION EMAIL (non-blocking)
-    // Sends ONE email with all ticket PDFs and invoice PDF attached
+    // Sends ONE email with all ticket PDFs and (optionally) invoice PDF attached
     try {
       await ctx.runAction(internal.ticketGeneration.sendOrderConfirmationEmail, {
         checkoutSessionId: args.checkoutSessionId,
         recipientEmail: customerEmail,
         recipientName: customerName,
+        includeInvoicePDF, // ✅ Intelligent flag: skip PDF for employer billing
       });
     } catch (emailError) {
       // Don't fail checkout if emails fail - log and continue

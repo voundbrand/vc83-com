@@ -367,7 +367,10 @@ export const getPublicCrmOrganizationBilling = query({
       customProperties: {
         address: (org.customProperties as { address?: unknown })?.address,
         taxId: (org.customProperties as { taxId?: unknown })?.taxId,
+        vatNumber: (org.customProperties as { vatNumber?: unknown })?.vatNumber,
         billingEmail: (org.customProperties as { billingEmail?: unknown })?.billingEmail,
+        billingContact: (org.customProperties as { billingContact?: unknown })?.billingContact,
+        billingAddress: (org.customProperties as { billingAddress?: unknown })?.billingAddress,
         phone: (org.customProperties as { phone?: unknown })?.phone,
         website: (org.customProperties as { website?: unknown })?.website,
       },

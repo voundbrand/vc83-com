@@ -27,6 +27,7 @@
 
 import { query, mutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
+import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser } from "./rbacHelpers";
 
 /**
@@ -691,5 +692,337 @@ export const getEventInternal = internalQuery({
   },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.eventId);
+  },
+});
+
+/**
+ * LINK MEDIA TO EVENT
+ * Store media IDs in event's customProperties instead of using objectLinks
+ * (since objectLinks only works between objects table items)
+ */
+export const linkMediaToEvent = mutation({
+  args: {
+    sessionId: v.string(),
+    eventId: v.id("objects"),
+    mediaId: v.id("organizationMedia"),
+    isPrimary: v.optional(v.boolean()),
+    displayOrder: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    // Validate event exists
+    const event = await ctx.db.get(args.eventId);
+    if (!event || !("type" in event) || event.type !== "event") {
+      throw new Error("Event not found");
+    }
+
+    // Validate media exists
+    const media = await ctx.db.get(args.mediaId);
+    if (!media) {
+      throw new Error("Media not found");
+    }
+
+    const currentProps = event.customProperties || {};
+    const currentMediaLinks = (currentProps.mediaLinks as Array<{
+      mediaId: string;
+      isPrimary: boolean;
+      displayOrder: number;
+    }>) || [];
+
+    // Check if media is already linked
+    const existingIndex = currentMediaLinks.findIndex(
+      (link) => link.mediaId === args.mediaId
+    );
+
+    if (existingIndex !== -1) {
+      // Update existing link
+      currentMediaLinks[existingIndex] = {
+        mediaId: args.mediaId,
+        isPrimary: args.isPrimary ?? currentMediaLinks[existingIndex].isPrimary,
+        displayOrder: args.displayOrder ?? currentMediaLinks[existingIndex].displayOrder,
+      };
+    } else {
+      // Add new link
+      currentMediaLinks.push({
+        mediaId: args.mediaId,
+        isPrimary: args.isPrimary ?? false,
+        displayOrder: args.displayOrder ?? currentMediaLinks.length,
+      });
+    }
+
+    // If this is marked as primary, un-primary all others
+    if (args.isPrimary) {
+      currentMediaLinks.forEach((link) => {
+        if (link.mediaId !== args.mediaId) {
+          link.isPrimary = false;
+        }
+      });
+    }
+
+    await ctx.db.patch(args.eventId, {
+      customProperties: {
+        ...currentProps,
+        mediaLinks: currentMediaLinks,
+      },
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * UNLINK MEDIA FROM EVENT
+ * Remove media link from event's customProperties
+ */
+export const unlinkMediaFromEvent = mutation({
+  args: {
+    sessionId: v.string(),
+    eventId: v.id("objects"),
+    mediaId: v.id("organizationMedia"),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const event = await ctx.db.get(args.eventId);
+    if (!event || !("type" in event) || event.type !== "event") {
+      throw new Error("Event not found");
+    }
+
+    const currentProps = event.customProperties || {};
+    const currentMediaLinks = (currentProps.mediaLinks as Array<{
+      mediaId: string;
+      isPrimary: boolean;
+      displayOrder: number;
+    }>) || [];
+
+    // Filter out the media link
+    const updatedMediaLinks = currentMediaLinks.filter(
+      (link) => link.mediaId !== args.mediaId
+    );
+
+    await ctx.db.patch(args.eventId, {
+      customProperties: {
+        ...currentProps,
+        mediaLinks: updatedMediaLinks,
+      },
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * GET EVENT MEDIA
+ * Get all media linked to an event from customProperties
+ */
+export const getEventMedia = query({
+  args: {
+    sessionId: v.string(),
+    eventId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const event = await ctx.db.get(args.eventId);
+    if (!event || !("type" in event) || event.type !== "event") {
+      throw new Error("Event not found");
+    }
+
+    const currentProps = event.customProperties || {};
+    const mediaLinks = (currentProps.mediaLinks as Array<{
+      mediaId: string;
+      isPrimary: boolean;
+      displayOrder: number;
+    }>) || [];
+
+    // Get media objects with their URLs
+    const mediaItems = [];
+    for (const link of mediaLinks) {
+      const media = await ctx.db.get(link.mediaId as Id<"organizationMedia">);
+      if (media && "_id" in media && "_creationTime" in media) {
+        // Type guard to ensure we have an organizationMedia document
+        const url = await ctx.storage.getUrl(media.storageId as Id<"_storage">);
+        mediaItems.push({
+          _id: media._id,
+          organizationId: media.organizationId,
+          uploadedBy: media.uploadedBy,
+          storageId: media.storageId,
+          filename: media.filename,
+          mimeType: media.mimeType,
+          sizeBytes: media.sizeBytes,
+          width: media.width,
+          height: media.height,
+          category: media.category,
+          tags: media.tags,
+          description: media.description,
+          usageCount: media.usageCount,
+          lastUsedAt: media.lastUsedAt,
+          createdAt: media.createdAt,
+          updatedAt: media.updatedAt,
+          url,
+          isPrimary: link.isPrimary,
+          displayOrder: link.displayOrder,
+        });
+      }
+    }
+
+    // Sort by displayOrder, with primary first
+    mediaItems.sort((a, b) => {
+      if (a.isPrimary && !b.isPrimary) return -1;
+      if (!a.isPrimary && b.isPrimary) return 1;
+      return a.displayOrder - b.displayOrder;
+    });
+
+    return mediaItems;
+  },
+});
+
+/**
+ * UPDATE EVENT DETAILED DESCRIPTION
+ * Update the event's rich HTML description
+ */
+export const updateEventDetailedDescription = mutation({
+  args: {
+    sessionId: v.string(),
+    eventId: v.id("objects"),
+    detailedDescription: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const event = await ctx.db.get(args.eventId);
+
+    if (!event || !("type" in event) || event.type !== "event") {
+      throw new Error("Event not found");
+    }
+
+    const currentProps = event.customProperties || {};
+
+    await ctx.db.patch(args.eventId, {
+      customProperties: {
+        ...currentProps,
+        detailedDescription: args.detailedDescription,
+      },
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * UPDATE EVENT LOCATION WITH VALIDATION
+ * Updates event location and stores validated address data from Radar
+ */
+export const updateEventLocationWithValidation = mutation({
+  args: {
+    sessionId: v.string(),
+    eventId: v.id("objects"),
+    location: v.string(),
+    formattedAddress: v.optional(v.string()),
+    latitude: v.optional(v.number()),
+    longitude: v.optional(v.number()),
+    directionsUrl: v.optional(v.string()),
+    googleMapsUrl: v.optional(v.string()),
+    confidence: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const event = await ctx.db.get(args.eventId);
+
+    if (!event || !("type" in event) || event.type !== "event") {
+      throw new Error("Event not found");
+    }
+
+    const currentProps = event.customProperties || {};
+
+    // Store validated address information
+    const locationData: Record<string, unknown> = {
+      location: args.location,
+    };
+
+    if (args.formattedAddress) {
+      locationData.formattedAddress = args.formattedAddress;
+      locationData.latitude = args.latitude;
+      locationData.longitude = args.longitude;
+      locationData.directionsUrl = args.directionsUrl;
+      locationData.googleMapsUrl = args.googleMapsUrl;
+      locationData.addressConfidence = args.confidence;
+      locationData.addressValidatedAt = Date.now();
+    }
+
+    await ctx.db.patch(args.eventId, {
+      customProperties: {
+        ...currentProps,
+        ...locationData,
+      },
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * UPDATE EVENT MEDIA
+ * Update the event's media collection (images and videos)
+ */
+export const updateEventMedia = mutation({
+  args: {
+    sessionId: v.string(),
+    eventId: v.id("objects"),
+    media: v.object({
+      items: v.array(v.object({
+        id: v.string(),
+        type: v.union(v.literal('image'), v.literal('video')),
+        // Image fields
+        storageId: v.optional(v.string()),
+        filename: v.optional(v.string()),
+        mimeType: v.optional(v.string()),
+        focusPoint: v.optional(v.object({
+          x: v.number(),
+          y: v.number(),
+        })),
+        // Video fields
+        videoUrl: v.optional(v.string()),
+        videoProvider: v.optional(v.union(
+          v.literal('youtube'),
+          v.literal('vimeo'),
+          v.literal('other')
+        )),
+        loop: v.optional(v.boolean()),
+        thumbnailStorageId: v.optional(v.string()),
+        // Common fields
+        caption: v.optional(v.string()),
+        order: v.number(),
+      })),
+      primaryImageId: v.optional(v.string()),
+      showVideoFirst: v.optional(v.boolean()),
+    }),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const event = await ctx.db.get(args.eventId);
+
+    if (!event || !("type" in event) || event.type !== "event") {
+      throw new Error("Event not found");
+    }
+
+    const currentProps = event.customProperties || {};
+
+    await ctx.db.patch(args.eventId, {
+      customProperties: {
+        ...currentProps,
+        media: args.media,
+      },
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
   },
 });

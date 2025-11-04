@@ -273,7 +273,7 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
             originalPrice: undefined,
             description: product.description || "",
             features: [],
-            currency: (product.customProperties?.currency as string) || "USD",
+            currency: (product.customProperties?.currency as string) || "EUR",
             checkoutUrl: `/checkout/${currentOrg.slug}/${product.customProperties?.slug || product._id}`,
           }));
       }
@@ -625,7 +625,7 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
                 const productId = product._id;
                 const isLinked = linkedProducts.includes(productId);
                 const price = product.customProperties?.price as number || 0;
-                const currency = (product.customProperties?.currency as string) || "usd";
+                const currency = (product.customProperties?.currency as string) || "eur";
 
                 return (
                   <div
@@ -785,7 +785,7 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
                         originalPrice: undefined,
                         description: product.description || "",
                         features: [],
-                        currency: (product.customProperties?.currency as string) || "USD",
+                        currency: (product.customProperties?.currency as string) || "EUR",
                         checkoutUrl: `/checkout/${currentOrg.slug}/${product.customProperties?.slug || product._id}`,
                       }));
                   }

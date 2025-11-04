@@ -43,7 +43,7 @@ export function ReviewOrderStep({ checkoutData, products, onComplete, onBack }: 
     }).format(amount / 100);
   };
 
-  const currency = products[0]?.currency || "USD";
+  const currency = products[0]?.currency || "EUR";
 
   // Calculate totals with add-ons AND form costs
   const productsSubtotal = selectedProducts.reduce((sum, sp) => sum + sp.price * sp.quantity, 0);

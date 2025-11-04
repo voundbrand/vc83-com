@@ -154,7 +154,7 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
   const formatCurrency = (cents: number, currency?: string) => {
     const amount = cents / 100;
     // Use organization currency for stats, or specific currency for transactions
-    const displayCurrency = currency || stats?.currency || "USD";
+    const displayCurrency = currency || stats?.currency || "EUR";
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: displayCurrency.toUpperCase(),

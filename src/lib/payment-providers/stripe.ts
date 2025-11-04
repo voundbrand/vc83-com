@@ -106,7 +106,7 @@ export class StripePaymentProvider implements IPaymentProvider {
         items: options.items,
         quantity: options.quantity,
         total: this.calculateTotal(options.items, options.quantity),
-        currency: options.currency || options.items[0]?.currency || "usd",
+        currency: options.currency || options.items[0]?.currency || "eur",
         customerId: options.customerId,
         metadata: {
           ...options.metadata,

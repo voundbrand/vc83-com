@@ -56,8 +56,85 @@ export const seedCheckoutTemplates = mutation({
     // Define checkout templates to seed
     const checkoutTemplates = [
       {
+        code: "behavior-driven-checkout",
+        name: "Behavior-Driven Checkout",
+        description:
+          "Clean, flexible checkout template powered by the Universal Behavior System. Automatically adapts flow based on product behaviors - supports B2C payments, B2B invoicing, form collection, and smart step skipping. Perfect for events, products, and services that need dynamic checkout logic without hardcoded rules.",
+        category: "universal",
+        icon: "🔄",
+        previewImageUrl: "/images/checkout-templates/behavior-driven-preview.png",
+        supportsFormIntegration: true, // ✅ Full form support
+        features: [
+          "Behavior-powered business logic (no hardcoded rules)",
+          "6-step adaptive flow: Product → Form → Customer Info → Review → Payment → Confirmation",
+          "Smart step skipping (auto-skips payment for invoice checkouts)",
+          "Dynamic form collection (one form per product if needed)",
+          "Employer detection and B2B invoice mapping",
+          "Progress tracking with visual progress bar",
+          "Mobile-responsive design",
+          "Debug mode for development",
+          "Full TypeScript support",
+          "40% less code than hardcoded checkouts",
+          "Testable behavior isolation",
+          "Extensible with custom behaviors",
+        ],
+        componentProps: [
+          "organizationId: Org reference",
+          "products: Array of product items with behaviors",
+          "theme: Visual theme",
+          "allowBackNavigation: Enable back button (default: true)",
+          "showProgressBar: Show progress indicator (default: true)",
+          "debugMode: Enable debug panel (default: false)",
+          "onStepChange: Callback for step transitions",
+          "onBehaviorExecution: Callback for behavior execution",
+          "onComplete: Callback on checkout completion",
+        ],
+        dataStructure: {
+          product: {
+            id: "Product object ID",
+            name: "Product/ticket name",
+            description: "Product description",
+            price: "Price in cents",
+            currency: "USD, EUR, GBP, etc.",
+            customProperties: {
+              formId: "Optional form ID for registration",
+              behaviors: [
+                {
+                  type: "employer-detection | invoice-mapping | etc.",
+                  config: "Behavior-specific configuration",
+                  priority: "Execution priority (higher = earlier)",
+                },
+              ],
+            },
+          },
+        },
+        useCases: [
+          "Conference and event tickets with employer billing",
+          "B2B product sales with invoice mapping",
+          "Multi-product checkouts with registration forms",
+          "Service bookings with dynamic pricing",
+          "Any checkout needing flexible business logic",
+          "Testing new checkout behaviors before production",
+        ],
+        complexity: "simple",
+        estimatedSetupTime: "5 minutes",
+        requiredIntegrations: ["Stripe", "Behaviors System"],
+        supportedCurrencies: ["USD", "EUR", "GBP", "CAD", "AUD"],
+        layoutOptions: ["full-page"],
+        behaviorSupport: {
+          nativeBehaviors: [
+            "employer-detection",
+            "invoice-mapping",
+            "capacity-checking",
+            "discount-rules",
+          ],
+          customBehaviors: true,
+          behaviorExecutionTiming: ["eager", "lazy"],
+        },
+      },
+      {
         code: "ticket-checkout",
-        name: "Event Ticket Checkout",
+        name: "Event Ticket Checkout (Legacy)",
         description:
           "Multi-tier event ticket checkout with quantity selection, early bird pricing, and line item breakdown. Perfect for events with multiple ticket types (VIP, General, Student, etc.). Supports early bird discounts, original price display, and secure Stripe payments.",
         category: "ticket",

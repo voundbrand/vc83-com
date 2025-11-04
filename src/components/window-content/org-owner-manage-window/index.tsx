@@ -24,7 +24,7 @@ type TabType = "organization" | "users" | "roles";
 export function ManageWindow() {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabType>("organization");
-  const [isEditingOrg, setIsEditingOrg] = useState(false);
+  const [isEditingOrg, setIsEditingOrg] = useState(true); // Default to edit mode
   const [isSavingOrg, setIsSavingOrg] = useState(false);
 
   // Address management state

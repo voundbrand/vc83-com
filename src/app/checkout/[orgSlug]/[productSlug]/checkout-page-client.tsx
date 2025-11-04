@@ -58,9 +58,21 @@ export function CheckoutPageClient({ orgSlug, slug }: CheckoutPageClientProps) {
         <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
           <AlertCircle size={64} className="text-red-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Checkout Not Found</h1>
-          <p className="text-gray-600 mb-6">
+          <p className="text-gray-600 mb-4">
             The checkout page you&apos;re looking for doesn&apos;t exist or has been unpublished.
           </p>
+          <div className="bg-gray-50 rounded-lg p-4 mb-6 text-left">
+            <p className="text-sm text-gray-700 mb-2">
+              <strong>Looking for:</strong>
+            </p>
+            <ul className="text-xs text-gray-600 space-y-1 font-mono">
+              <li>• Organization: {orgSlug}</li>
+              <li>• Checkout Slug: {slug}</li>
+            </ul>
+            <p className="text-xs text-gray-500 mt-3">
+              Check the browser console for detailed logs about available checkouts.
+            </p>
+          </div>
           <Link
             href="/"
             className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
@@ -90,7 +102,7 @@ export function CheckoutPageClient({ orgSlug, slug }: CheckoutPageClientProps) {
       name: product.name,
       description: product.description || "",
       price: Number((product.customProperties as Record<string, unknown>)?.price || 0), // ✅ Price is in cents in 'price' field
-      currency: String((product.customProperties as Record<string, unknown>)?.currency || settings.currency || "usd"),
+      currency: String((product.customProperties as Record<string, unknown>)?.currency || settings.currency || "eur"),
       subtype: product.subtype, // ✅ Include subtype ("ticket" | "physical" | "digital")
       customProperties: product.customProperties as Record<string, unknown>,
       // 🎯 Include event data and sponsors from backend

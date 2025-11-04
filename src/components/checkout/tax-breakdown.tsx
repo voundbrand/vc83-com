@@ -26,7 +26,7 @@ interface TaxBreakdownProps {
 }
 
 export function TaxBreakdown({ calculation, showDetails = false }: TaxBreakdownProps) {
-  const formatPrice = (amount: number, currency: string = "USD") => {
+  const formatPrice = (amount: number, currency: string = "EUR") => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: currency.toUpperCase(),
@@ -107,7 +107,7 @@ interface CompactTaxBreakdownProps {
 }
 
 export function CompactTaxBreakdown({ calculation }: CompactTaxBreakdownProps) {
-  const formatPrice = (amount: number, currency: string = "USD") => {
+  const formatPrice = (amount: number, currency: string = "EUR") => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: currency.toUpperCase(),
@@ -170,6 +170,6 @@ export function calculateTaxFromItems(
     taxRate,
     total,
     taxBehavior,
-    currency: items[0]?.price ? "usd" : "usd", // Default to USD, should be passed in
+    currency: "eur", // Default to EUR (matches organization's currency settings)
   };
 }

@@ -175,7 +175,7 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
                 <span className="font-bold" style={{ color: "var(--win95-text)" }}>
                   {formatPrice(
                     product.customProperties?.price || 0,
-                    product.customProperties?.currency || "USD"
+                    product.customProperties?.currency || "EUR"
                   )}
                 </span>
               </div>
