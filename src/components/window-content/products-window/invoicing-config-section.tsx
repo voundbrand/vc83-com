@@ -8,7 +8,7 @@ import { Trash2, Plus, CreditCard } from "lucide-react";
 
 export interface InvoiceConfig {
   employerSourceField: string;
-  employerMapping: Record<string, string | null>;
+  employerMapping: Record<string, string | null>; // Maps form value to CRM organization ID
   defaultPaymentTerms?: "net30" | "net60" | "net90";
 }
 
@@ -231,7 +231,7 @@ export function InvoicingConfigSection({
                     →
                   </span>
 
-                  {/* Organization Name - Dropdown from CRM */}
+                  {/* Organization - Dropdown from CRM */}
                   <div className="flex-1">
                     <select
                       value={entry.orgName || ""}
@@ -244,7 +244,7 @@ export function InvoicingConfigSection({
                     >
                       <option value="">-- No Invoice (Disable) --</option>
                       {crmOrganizations?.map((org) => (
-                        <option key={org._id} value={org.name}>
+                        <option key={org._id} value={org._id}>
                           {org.name} {org.subtype ? `(${org.subtype})` : ""}
                         </option>
                       ))}

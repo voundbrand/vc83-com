@@ -253,6 +253,52 @@ export function CreateCheckoutTab({
     }
   };
 
+  // Transform products for preview (must be before early returns)
+  const linkedProductsForPreview: CheckoutProduct[] = React.useMemo(() => {
+    if (!products) return [];
+    return selectedProducts
+      .map((productId) => {
+        const product = products.find((p) => p._id === productId);
+        if (!product) return null;
+
+        const props = (product.customProperties || {}) as CheckoutProduct["customProperties"];
+        const checkoutProduct: CheckoutProduct = {
+          _id: product._id as string,
+          name: product.name,
+          description: product.description || "",
+          price: props?.price || 0,
+          currency: props?.currency || "usd",
+          customProperties: props,
+        };
+        return checkoutProduct;
+      })
+      .filter((p) => p !== null) as CheckoutProduct[];
+  }, [products, selectedProducts]);
+
+  // Combine static payment providers (Stripe) with dynamic invoice availability (must be before early returns)
+  const availablePaymentProviders = React.useMemo(() => {
+    const providers = [];
+
+    // Add Stripe and other stored providers
+    if (organization?.paymentProviders) {
+      providers.push(...organization.paymentProviders);
+    }
+
+    // Dynamically add invoice provider if Invoicing app is enabled
+    if (invoiceAvailability?.available) {
+      providers.push({
+        providerCode: "invoice",
+        accountId: "invoice-system",
+        status: "active" as const,
+        isDefault: false,
+        isTestMode: false,
+        connectedAt: Date.now(),
+      });
+    }
+
+    return providers;
+  }, [organization?.paymentProviders, invoiceAvailability?.available]);
+
   if (!sessionId || !currentOrg) {
     return (
       <div className="p-4">
@@ -411,49 +457,6 @@ export function CreateCheckoutTab({
       </div>
     );
   }
-
-  // Transform products for preview
-  const linkedProductsForPreview: CheckoutProduct[] = selectedProducts
-    .map((productId) => {
-      const product = products?.find((p) => p._id === productId);
-      if (!product) return null;
-
-      const props = (product.customProperties || {}) as CheckoutProduct["customProperties"];
-      const checkoutProduct: CheckoutProduct = {
-        _id: product._id as string,
-        name: product.name,
-        description: product.description || "",
-        price: props?.price || 0, // ✅ Price is stored in cents in customProperties
-        currency: props?.currency || "usd",
-        customProperties: props,
-      };
-      return checkoutProduct;
-    })
-    .filter((p) => p !== null) as CheckoutProduct[];
-
-  // Combine static payment providers (Stripe) with dynamic invoice availability
-  const availablePaymentProviders = React.useMemo(() => {
-    const providers = [];
-
-    // Add Stripe and other stored providers
-    if (organization?.paymentProviders) {
-      providers.push(...organization.paymentProviders);
-    }
-
-    // Dynamically add invoice provider if Invoicing app is enabled
-    if (invoiceAvailability?.available) {
-      providers.push({
-        providerCode: "invoice",
-        accountId: "invoice-system",
-        status: "active" as const,
-        isDefault: false,
-        isTestMode: false,
-        connectedAt: Date.now(),
-      });
-    }
-
-    return providers;
-  }, [organization?.paymentProviders, invoiceAvailability?.available]);
 
   // Step 2: Editor View with Live Preview
   return (

@@ -24,6 +24,7 @@
     "@stripe/react-stripe-js": "^5.2.0",
     "@stripe/stripe-js": "^8.0.0",
     "@types/bcryptjs": "^2.4.6",
+    "@xyflow/react": "^12.9.1",
     "bcryptjs": "^3.0.2",
     "clsx": "^2.1.1",
     "convex": "^1.27.3",

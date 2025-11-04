@@ -540,9 +540,9 @@ export const createPaymentIntentForSession = action({
 });
 
 /**
- * COMPLETE CHECKOUT (NEW - PURCHASE ITEMS ARCHITECTURE)
+ * COMPLETE CHECKOUT AND FULFILL (PRODUCT-AGNOSTIC)
  *
- * Product-agnostic checkout completion using purchase_items.
+ * Product-agnostic checkout completion using purchase_items architecture.
  * After successful payment, this action:
  * 1. Reads ALL data from checkout_session (single source of truth)
  * 2. Creates formResponse objects for audit trail
@@ -555,8 +555,10 @@ export const createPaymentIntentForSession = action({
  * 5. Creates CRM contact (auto-integration)
  * 6. Marks session as completed
  * 7. Returns purchase item IDs (generic!) and CRM contact ID
+ *
+ * Works for ANY product type - not just tickets!
  */
-export const completeCheckoutWithTickets = action({
+export const completeCheckoutAndFulfill = action({
   args: {
     sessionId: v.string(),
     checkoutSessionId: v.id("objects"),
@@ -570,18 +572,34 @@ export const completeCheckoutWithTickets = action({
     amount: number;
     currency: string;
   }> => {
+    console.log("🛍️ [completeCheckoutAndFulfill] Starting checkout fulfillment...");
+    console.log("🛍️ [completeCheckoutAndFulfill] Args:", {
+      sessionId: args.sessionId,
+      checkoutSessionId: args.checkoutSessionId,
+      paymentIntentId: args.paymentIntentId,
+    });
+
     // 1. Get checkout session (single source of truth!)
     const session = await ctx.runQuery(internal.checkoutSessionOntology.getCheckoutSessionInternal, {
       checkoutSessionId: args.checkoutSessionId,
     });
 
     if (!session) {
+      console.error("❌ [completeCheckoutAndFulfill] Checkout session not found!");
       throw new Error("Checkout session not found");
     }
 
     if (session.type !== "checkout_session") {
+      console.error("❌ [completeCheckoutAndFulfill] Invalid session type:", session.type);
       throw new Error("Invalid session type");
     }
+
+    console.log("🔍 [completeCheckoutAndFulfill] Session data:", {
+      sessionId: session._id,
+      type: session.type,
+      hasCustomProperties: !!session.customProperties,
+      customPropertyKeys: session.customProperties ? Object.keys(session.customProperties) : [],
+    });
 
     // Extract data from session with proper types
     const organizationId = session.organizationId;
@@ -596,6 +614,18 @@ export const completeCheckoutWithTickets = action({
       totalPrice: number;
     }>;
 
+    console.log("🔍 [completeCheckoutAndFulfill] Extracted data:", {
+      organizationId,
+      customerEmail,
+      customerName,
+      selectedProductsCount: selectedProducts.length,
+      selectedProducts: selectedProducts.map(sp => ({
+        productId: sp.productId,
+        quantity: sp.quantity,
+        pricePerUnit: sp.pricePerUnit,
+      })),
+    });
+
     const formResponses = session.customProperties?.formResponses as Array<{
       productId: Id<"objects">;
       ticketNumber: number;
@@ -606,6 +636,45 @@ export const completeCheckoutWithTickets = action({
     }> | undefined;
 
     const totalAmount = (session.customProperties?.totalAmount as number) || 0;
+
+    // ✅ CRITICAL: Extract behavior context from session
+    const behaviorContext = session.customProperties?.behaviorContext as {
+      invoiceMapping?: {
+        shouldInvoice: boolean;
+        employerOrgId?: string;
+        organizationName?: string;
+        paymentTerms?: string;
+        billingAddress?: {
+          line1: string;
+          line2?: string;
+          city: string;
+          state?: string;
+          postalCode: string;
+          country: string;
+        };
+      };
+      employerDetection?: {
+        employerBilling?: {
+          organizationName: string;
+          defaultPaymentTerms?: "net30" | "net60" | "net90";
+        };
+      };
+      taxCalculation?: {
+        taxAmount: number;
+        taxRate: number;
+        taxDescription: string;
+      };
+      allResults?: Array<{ type: string; success: boolean; data: unknown }>;
+    } | undefined;
+
+    console.log("🧠 [completeCheckoutAndFulfill] Behavior context from session:", {
+      hasBehaviorContext: !!behaviorContext,
+      invoiceMapping: behaviorContext?.invoiceMapping,
+      employerDetection: behaviorContext?.employerDetection,
+      behaviorTypes: behaviorContext?.allResults?.map(r => r.type),
+      // 🔍 DEBUG: Log full behavior context to find crmOrganizationId
+      fullBehaviorContext: JSON.stringify(behaviorContext, null, 2),
+    });
 
     // 2. Get organization and connected account (needed for payment verification)
     const org = await ctx.runQuery(internal.checkoutSessions.getOrganizationInternal, {
@@ -648,12 +717,35 @@ export const completeCheckoutWithTickets = action({
       });
       crmContactId = contactResult.contactId;
 
-      // B2B ORGANIZATION CREATION (if B2B transaction)
+      // 🔥 FIRST: Check if employer-detection behavior already identified a CRM org
+      const behaviorMetadata = (behaviorContext as any)?.metadata;
+      const isEmployerBilling = behaviorMetadata?.isEmployerBilling === true;
+      const employerOrgId = behaviorMetadata?.crmOrganizationId;
+
+      if (isEmployerBilling && employerOrgId) {
+        // Employer detection found an existing CRM organization - use it directly!
+        crmOrganizationId = employerOrgId as Id<"objects">;
+
+        // Link the contact to the employer organization
+        await ctx.runMutation(internal.crmIntegrations.linkContactToOrganization, {
+          contactId: crmContactId,
+          organizationId: crmOrganizationId,
+          role: "employee", // They're an employee, not the company buyer
+        });
+
+        console.log("✅ [completeCheckoutAndFulfill] Using employer-detected CRM organization:", {
+          crmOrganizationId,
+          contactId: crmContactId,
+          employerFieldValue: behaviorMetadata?.employerFieldValue,
+        });
+      }
+
+      // SECOND: B2B ORGANIZATION CREATION (if B2B self-pay transaction and no employer detected)
       const transactionType = session.customProperties?.transactionType as "B2C" | "B2B" | undefined;
       const companyName = session.customProperties?.companyName as string | undefined;
       const vatNumber = session.customProperties?.vatNumber as string | undefined;
 
-      if (transactionType === "B2B" && companyName) {
+      if (!crmOrganizationId && transactionType === "B2B" && companyName) {
         try {
           // Extract billing address from checkout session
           const billingLine1 = session.customProperties?.billingLine1 as string | undefined;
@@ -724,15 +816,30 @@ export const completeCheckoutWithTickets = action({
     }
 
     // 4. Create purchase_items for each purchased product (PRODUCT-AGNOSTIC!)
+    console.log("🛍️ [completeCheckoutAndFulfill] Creating purchase items for", selectedProducts.length, "products");
+
+    if (selectedProducts.length === 0) {
+      console.error("❌ [completeCheckoutAndFulfill] NO SELECTED PRODUCTS! Cannot complete checkout.");
+      throw new Error("No products selected - cannot complete checkout");
+    }
+
     for (const selectedProduct of selectedProducts) {
+      console.log("🔍 [completeCheckoutAndFulfill] Processing product:", selectedProduct.productId);
+
       const product = await ctx.runQuery(internal.productOntology.getProductInternal, {
         productId: selectedProduct.productId,
       });
 
       if (!product) {
-        console.error(`Product ${selectedProduct.productId} not found, skipping purchase item creation`);
+        console.error(`❌ [completeCheckoutAndFulfill] Product ${selectedProduct.productId} not found, skipping purchase item creation`);
         continue;
       }
+
+      console.log("✅ [completeCheckoutAndFulfill] Product found:", {
+        productId: product._id,
+        name: product.name,
+        subtype: product.subtype,
+      });
 
       // Determine fulfillment type from product
       const fulfillmentType = product.subtype || "ticket"; // Default to ticket for backward compatibility
@@ -741,6 +848,11 @@ export const completeCheckoutWithTickets = action({
       const transactionType = session.customProperties?.transactionType as "B2C" | "B2B" | undefined;
       const companyName = session.customProperties?.companyName as string | undefined;
       const vatNumber = session.customProperties?.vatNumber as string | undefined;
+
+      console.log("🛍️ [completeCheckoutAndFulfill] Creating purchase items...", {
+        quantity: selectedProduct.quantity,
+        fulfillmentType,
+      });
 
       // Create purchase_items (one per quantity)
       // Use internal mutation since we're in a backend action (no user session)
@@ -762,6 +874,11 @@ export const completeCheckoutWithTickets = action({
         fulfillmentType,
         registrationData: undefined, // Will be set below if forms exist
         userId: undefined, // Guest checkout - no user account required
+      });
+
+      console.log("✅ [completeCheckoutAndFulfill] Purchase items created:", {
+        count: purchaseItemsResult.purchaseItemIds.length,
+        ids: purchaseItemsResult.purchaseItemIds,
       });
 
       createdPurchaseItems.push(...purchaseItemsResult.purchaseItemIds);
@@ -813,12 +930,17 @@ export const completeCheckoutWithTickets = action({
             customProperties: {
               purchaseDate: Date.now(),
               paymentIntentId: args.paymentIntentId,
-              pricePaid: selectedProduct.pricePerUnit,
+              pricePaid: selectedProduct.pricePerUnit, // Legacy field (kept for compatibility)
+              totalPriceInCents: selectedProduct.pricePerUnit, // ✅ Required for invoice generation
               ticketNumber: itemNumber,
               totalTicketsInOrder: selectedProduct.quantity,
               checkoutSessionId: args.checkoutSessionId,
               purchaseItemId, // Link back to purchase_item
               registrationData,
+              eventId, // ✅ Store event ID in customProperties for invoice line items
+              // 🔥 CRITICAL: Link ticket to CRM organization for consolidated invoicing
+              crmOrganizationId, // Detected by employer-detection behavior
+              contactId: crmContactId, // Link to individual contact
             },
           });
 

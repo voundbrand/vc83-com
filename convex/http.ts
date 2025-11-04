@@ -240,4 +240,113 @@ http.route({
   }),
 });
 
+/**
+ * ==========================================
+ * ENTERPRISE API v1 ENDPOINTS
+ * ==========================================
+ *
+ * External API for integration with customer websites.
+ * Requires API key authentication via Authorization: Bearer <key>
+ */
+
+// Import API handlers
+import { getEvents } from "./api/v1/events";
+import { getProduct } from "./api/v1/products";
+import { getForm } from "./api/v1/forms";
+import { triggerWorkflow } from "./api/v1/workflows";
+import { getTransaction } from "./api/v1/transactions";
+import { getTicketPdf } from "./api/v1/tickets";
+import { getInvoice } from "./api/v1/invoices";
+import {
+  getCheckoutConfig,
+  createCheckoutSession,
+  confirmPayment,
+} from "./api/v1/checkout";
+
+/**
+ * Layer 1: READ APIs (Before Checkout)
+ */
+
+// GET /api/v1/events
+http.route({
+  path: "/api/v1/events",
+  method: "GET",
+  handler: getEvents,
+});
+
+// GET /api/v1/products/:productId
+http.route({
+  path: "/api/v1/products/:productId",
+  method: "GET",
+  handler: getProduct,
+});
+
+// GET /api/v1/forms/:formId
+http.route({
+  path: "/api/v1/forms/:formId",
+  method: "GET",
+  handler: getForm,
+});
+
+/**
+ * Layer 2: CHECKOUT APIs (Payment Processing)
+ */
+
+// GET /api/v1/checkout/config - Get payment provider configuration
+http.route({
+  path: "/api/v1/checkout/config",
+  method: "GET",
+  handler: getCheckoutConfig,
+});
+
+// POST /api/v1/checkout/sessions - Create checkout session
+http.route({
+  path: "/api/v1/checkout/sessions",
+  method: "POST",
+  handler: createCheckoutSession,
+});
+
+// POST /api/v1/checkout/confirm - Confirm payment and fulfill order
+http.route({
+  path: "/api/v1/checkout/confirm",
+  method: "POST",
+  handler: confirmPayment,
+});
+
+/**
+ * Layer 3: WORKFLOW API (During Checkout)
+ */
+
+// POST /api/v1/workflows/trigger
+http.route({
+  path: "/api/v1/workflows/trigger",
+  method: "POST",
+  handler: triggerWorkflow,
+});
+
+/**
+ * Layer 4: RESULT APIs (After Checkout)
+ */
+
+// GET /api/v1/transactions/:transactionId
+http.route({
+  path: "/api/v1/transactions/:transactionId",
+  method: "GET",
+  handler: getTransaction,
+});
+
+// GET /api/v1/tickets/:ticketId/pdf
+http.route({
+  path: "/api/v1/tickets/:ticketId/pdf",
+  method: "GET",
+  handler: getTicketPdf,
+});
+
+// GET /api/v1/invoices/:invoiceId
+http.route({
+  path: "/api/v1/invoices/:invoiceId",
+  method: "GET",
+  handler: getInvoice,
+});
+
 export default http;

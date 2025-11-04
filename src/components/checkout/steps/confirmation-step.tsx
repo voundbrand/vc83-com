@@ -17,6 +17,8 @@ import { api } from "../../../../convex/_generated/api";
 import { CheckoutStepData } from "../multi-step-checkout";
 import { CheckoutProduct } from "@/templates/checkout/types";
 import { Id } from "../../../../convex/_generated/dataModel";
+import { getAddonsFromResults } from "@/lib/behaviors/adapters/checkout-integration";
+import { useTranslation } from "@/contexts/translation-context";
 import styles from "../styles/multi-step.module.css";
 
 interface ConfirmationStepProps {
@@ -30,6 +32,7 @@ export function ConfirmationStep({
   linkedProducts,
   checkoutSessionId,
 }: ConfirmationStepProps) {
+  const { t } = useTranslation();
   const [isDownloadingReceipt, setIsDownloadingReceipt] = useState(false);
   const [isDownloadingTicket, setIsDownloadingTicket] = useState(false);
 
@@ -59,7 +62,7 @@ export function ConfirmationStep({
    */
   const handleDownloadReceipt = async () => {
     if (!sessionId) {
-      alert("Checkout session not found. Please refresh the page.");
+      alert(t("ui.checkout.confirmation.alerts.session_not_found"));
       return;
     }
 
@@ -75,7 +78,7 @@ export function ConfirmationStep({
       }
     } catch (error) {
       console.error("Failed to download receipt:", error);
-      alert("Failed to download receipt. Please try again.");
+      alert(t("ui.checkout.confirmation.alerts.receipt_download_failed"));
     } finally {
       setIsDownloadingReceipt(false);
     }
@@ -86,7 +89,7 @@ export function ConfirmationStep({
    */
   const handleDownloadTicket = async () => {
     if (!sessionId) {
-      alert("Checkout session not found. Please refresh the page.");
+      alert(t("ui.checkout.confirmation.alerts.session_not_found"));
       return;
     }
 
@@ -96,7 +99,7 @@ export function ConfirmationStep({
       const ticketIds = await getTicketIdsFromCheckout({ checkoutSessionId: sessionId });
 
       if (ticketIds.length === 0) {
-        alert("No tickets found. Please contact support.");
+        alert(t("ui.checkout.confirmation.alerts.no_tickets_found"));
         return;
       }
 
@@ -121,15 +124,27 @@ export function ConfirmationStep({
       }
     } catch (error) {
       console.error("Failed to download tickets:", error);
-      alert("Failed to download tickets. Please try again.");
+      alert(t("ui.checkout.confirmation.alerts.tickets_download_failed"));
     } finally {
       setIsDownloadingTicket(false);
     }
   };
 
-  const totalAmount =
-    (checkoutData.totalPrice || 0) +
-    (checkoutData.formResponses?.reduce((sum, fr) => sum + (fr.addedCosts || 0), 0) || 0);
+  // Extract add-ons from behavior results if available (only in behavior-driven checkout)
+  const behaviorResults = (checkoutData as { behaviorResults?: unknown }).behaviorResults;
+  const addonsInfo = behaviorResults && typeof behaviorResults === "object" && "results" in behaviorResults
+    ? getAddonsFromResults(behaviorResults as Parameters<typeof getAddonsFromResults>[0])
+    : null;
+  const behaviorAddonTotal = addonsInfo?.totalAddonCost || 0;
+
+  // Fallback to form responses if behavior results don't have add-ons
+  const formAddonTotal = checkoutData.formResponses?.reduce((sum, fr) => sum + (fr.addedCosts || 0), 0) || 0;
+  const addonTotal = behaviorAddonTotal > 0 ? behaviorAddonTotal : formAddonTotal;
+
+  // Calculate total with tax (if tax calculation exists, use it; otherwise calculate manually)
+  const subtotal = (checkoutData.totalPrice || 0) + addonTotal;
+  const taxAmount = checkoutData.taxCalculation?.taxAmount || 0;
+  const totalAmount = checkoutData.taxCalculation?.total || (subtotal + taxAmount);
 
   // Check if any products are tickets
   // Check multiple possible locations for ticket indicator
@@ -161,6 +176,8 @@ export function ConfirmationStep({
   console.log("- purchasedItemIds:", checkoutData.paymentResult?.purchasedItemIds);
   console.log("- sessionId:", sessionId);
   console.log("- isInvoiceCheckout:", isInvoiceCheckout);
+  console.log("- taxCalculation:", checkoutData.taxCalculation);
+  console.log("- taxCalculation FULL:", JSON.stringify(checkoutData.taxCalculation, null, 2));
 
   return (
     <div className={styles.stepContainer}>
@@ -170,67 +187,78 @@ export function ConfirmationStep({
           <CheckCircle size={48} />
         </div>
         <h2 className={styles.confirmationTitle}>
-          Payment Successful!
+          {t("ui.checkout.confirmation.headers.success_title")}
         </h2>
         <p className={styles.confirmationSubtitle}>
           {isInvoiceCheckout
-            ? "Your tickets have been sent to your email. An invoice will be sent to your employer for payment."
+            ? t("ui.checkout.confirmation.headers.subtitle_invoice")
             : hasTicketProducts
-            ? "Your tickets have been sent to your email with QR codes."
-            : "Your order has been confirmed."}
+            ? t("ui.checkout.confirmation.headers.subtitle_tickets")
+            : t("ui.checkout.confirmation.headers.subtitle_order")}
         </p>
       </div>
 
       {/* Order Details */}
       <div className={styles.orderSummary}>
-        <h3 className={styles.sectionTitle}>Order Details</h3>
+        <h3 className={styles.sectionTitle}>{t("ui.checkout.confirmation.order_details.section_title")}</h3>
 
         {/* Transaction ID */}
         <div className={styles.summarySection}>
           <p className={styles.summaryText}>
-            <strong>Transaction ID:</strong>{" "}
-            {checkoutData.paymentResult?.transactionId || "N/A"}
+            <strong>{t("ui.checkout.confirmation.transaction.id_label")}</strong>{" "}
+            {checkoutData.paymentResult?.transactionId || t("ui.checkout.confirmation.transaction.id_not_available")}
           </p>
           <p className={styles.summaryText}>
-            <strong>Email:</strong> {checkoutData.customerInfo?.email}
+            <strong>{t("ui.checkout.confirmation.transaction.email_label")}</strong> {checkoutData.customerInfo?.email}
           </p>
         </div>
 
         {/* Products */}
         <div className={styles.summarySection}>
-          <p className={styles.summaryLabel}>Items Purchased:</p>
+          <p className={styles.summaryLabel}>{t("ui.checkout.confirmation.order_details.items_label")}</p>
           {checkoutData.selectedProducts?.map((sp, idx) => {
             const product = linkedProducts.find((p) => p._id === sp.productId);
             return (
               <div key={idx} className={styles.summaryItem}>
                 <span>
-                  {product?.name || "Product"} × {sp.quantity}
+                  {product?.name || t("ui.checkout.confirmation.order_details.product_fallback")} × {sp.quantity}
                 </span>
                 <span>{formatPrice(sp.price * sp.quantity)}</span>
               </div>
             );
           })}
 
-          {/* Form Add-ons */}
-          {checkoutData.formResponses?.some(fr => fr.addedCosts > 0) && (
+          {/* Add-ons from behavior results (preferred) or form responses (fallback) */}
+          {addonsInfo && addonsInfo.lineItems.length > 0 ? (
+            <>
+              {addonsInfo.lineItems.map((lineItem) => (
+                <div key={lineItem.id} className={`${styles.summaryItem} italic`}>
+                  <span>
+                    + {lineItem.name} {lineItem.quantity > 1 && `× ${lineItem.quantity}`}
+                  </span>
+                  <span>{formatPrice(lineItem.totalPrice)}</span>
+                </div>
+              ))}
+            </>
+          ) : checkoutData.formResponses?.some(fr => fr.addedCosts > 0) ? (
             <>
               {checkoutData.formResponses
                 .filter((fr) => fr.addedCosts > 0)
                 .map((fr) => (
                   <div key={`confirmation-addon-${fr.productId}-${fr.ticketNumber}`} className={`${styles.summaryItem} italic`}>
-                    <span>+ Ticket {fr.ticketNumber} add-ons</span>
+                    <span>+ {t("ui.checkout.confirmation.order_details.ticket_addons", { ticketNumber: fr.ticketNumber })}</span>
                     <span>{formatPrice(fr.addedCosts)}</span>
                   </div>
                 ))}
             </>
-          )}
+          ) : null}
         </div>
 
         {/* Subtotal and Tax Breakdown */}
         <div className={styles.summarySection}>
           {/* Subtotal */}
           <div className={styles.summaryItem}>
-            <span className="text-gray-600">Subtotal:</span>
+            <span className="text-gray-600">{t("ui.checkout.confirmation.totals.subtotal_label")}</span>
             <span>
               {formatPrice(
                 checkoutData.taxCalculation?.subtotal ||
@@ -245,12 +273,20 @@ export function ConfirmationStep({
             const lineItems = checkoutData.taxCalculation.lineItems;
             if (!lineItems || lineItems.length === 0) {
               // Fallback: Show single tax line with taxRate from calculation
+              // If taxRate is 0 or undefined, calculate from taxAmount/subtotal
+              const effectiveTaxRate = checkoutData.taxCalculation.taxRate ||
+                (checkoutData.taxCalculation.subtotal > 0
+                  ? (checkoutData.taxCalculation.taxAmount / checkoutData.taxCalculation.subtotal) * 100
+                  : 0);
+
               return (
                 <div className={styles.summaryItem}>
                   <span className="text-gray-600">
-                    Tax ({checkoutData.taxCalculation.taxRate.toFixed(1)}%)
+                    {t("ui.checkout.confirmation.tax.label", { rate: effectiveTaxRate.toFixed(1) })}
                     <span className="text-xs ml-1 opacity-70">
-                      {checkoutData.taxCalculation.taxBehavior === "inclusive" ? "💶 included" : "💵 added"}
+                      {checkoutData.taxCalculation.taxBehavior === "inclusive"
+                        ? t("ui.checkout.confirmation.tax.included_label")
+                        : t("ui.checkout.confirmation.tax.added_label")}
                     </span>
                   </span>
                   <span>{formatPrice(checkoutData.taxCalculation.taxAmount)}</span>
@@ -285,9 +321,11 @@ export function ConfirmationStep({
               return (
                 <div className={styles.summaryItem}>
                   <span className="text-gray-600">
-                    Tax ({rateStr}%)
+                    {t("ui.checkout.confirmation.tax.label", { rate: rateStr })}
                     <span className="text-xs ml-1 opacity-70">
-                      {checkoutData.taxCalculation.taxBehavior === "inclusive" ? "💶 included" : "💵 added"}
+                      {checkoutData.taxCalculation.taxBehavior === "inclusive"
+                        ? t("ui.checkout.confirmation.tax.included_label")
+                        : t("ui.checkout.confirmation.tax.added_label")}
                     </span>
                   </span>
                   <span>{formatPrice(checkoutData.taxCalculation.taxAmount)}</span>
@@ -301,10 +339,10 @@ export function ConfirmationStep({
                 {taxEntries.map(([rateStr, { amount, count }]) => (
                   <div key={rateStr} className={styles.summaryItem}>
                     <span className="text-gray-600">
-                      Tax ({rateStr}%)
+                      {t("ui.checkout.confirmation.tax.label", { rate: rateStr })}
                       {count > 1 && (
                         <span className="text-xs ml-1 opacity-70">
-                          {count} items
+                          {t("ui.checkout.confirmation.tax.items_count", { count })}
                         </span>
                       )}
                     </span>
@@ -318,7 +356,7 @@ export function ConfirmationStep({
 
         {/* Total */}
         <div className={styles.summaryTotal}>
-          <span className={styles.totalLabel}>Total Paid:</span>
+          <span className={styles.totalLabel}>{t("ui.checkout.confirmation.totals.total_paid_label")}</span>
           <span className={styles.totalAmount}>
             {formatPrice(totalAmount)}
           </span>
@@ -330,26 +368,15 @@ export function ConfirmationStep({
         <Mail size={24} className={styles.infoIcon} />
         <div>
           <p className={styles.infoBoxTitle}>
-            Confirmation Email Sent
+            {t("ui.checkout.confirmation.email_notice.title")}
           </p>
           <p className={styles.infoBoxText}>
-            {isInvoiceCheckout ? (
-              <>
-                We&apos;ve sent your tickets (with QR codes) to{" "}
-                <strong>{checkoutData.customerInfo?.email}</strong>.
-                The invoice will be sent separately to your employer.
-              </>
-            ) : hasTicketProducts ? (
-              <>
-                We&apos;ve sent your tickets (with QR codes) and receipt to{" "}
-                <strong>{checkoutData.customerInfo?.email}</strong>
-              </>
-            ) : (
-              <>
-                We&apos;ve sent a confirmation email with your receipt to{" "}
-                <strong>{checkoutData.customerInfo?.email}</strong>
-              </>
-            )}
+            {isInvoiceCheckout
+              ? t("ui.checkout.confirmation.email_notice.message_invoice", { email: checkoutData.customerInfo?.email || "" })
+              : hasTicketProducts
+              ? t("ui.checkout.confirmation.email_notice.message_tickets", { email: checkoutData.customerInfo?.email || "" })
+              : t("ui.checkout.confirmation.email_notice.message_order", { email: checkoutData.customerInfo?.email || "" })
+            }
           </p>
         </div>
       </div>
@@ -369,7 +396,9 @@ export function ConfirmationStep({
             ) : (
               <Download size={20} />
             )}
-            {isDownloadingReceipt ? "Downloading..." : "Download Receipt"}
+            {isDownloadingReceipt
+              ? t("ui.checkout.confirmation.downloads.receipt_downloading")
+              : t("ui.checkout.confirmation.downloads.receipt_button")}
           </button>
         )}
 
@@ -386,8 +415,10 @@ export function ConfirmationStep({
               <Download size={20} />
             )}
             {isDownloadingTicket
-              ? "Downloading..."
-              : `Download Ticket${(checkoutData.paymentResult?.purchasedItemIds?.length || 0) > 1 ? 's' : ''}`
+              ? t("ui.checkout.confirmation.downloads.receipt_downloading")
+              : (checkoutData.paymentResult?.purchasedItemIds?.length || 0) > 1
+                ? t("ui.checkout.confirmation.downloads.tickets_button")
+                : t("ui.checkout.confirmation.downloads.ticket_button")
             }
           </button>
         )}
@@ -396,12 +427,12 @@ export function ConfirmationStep({
       {/* Support Info */}
       <div className={styles.supportInfo}>
         <p>
-          Questions? Contact us at{" "}
+          {t("ui.checkout.confirmation.support.contact_text")}{" "}
           <a
-            href="mailto:support@example.com"
+            href={`mailto:${t("ui.checkout.confirmation.support.email")}`}
             className={styles.link}
           >
-            support@example.com
+            {t("ui.checkout.confirmation.support.email")}
           </a>
         </p>
       </div>

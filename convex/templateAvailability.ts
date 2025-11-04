@@ -5,7 +5,7 @@ import { requireAuthenticatedUser, getUserContext, checkPermission } from "./rba
 /**
  * TEMPLATE AVAILABILITY ONTOLOGY
  *
- * Manages which page_template objects are available to each organization.
+ * Manages which page template objects are available to each organization.
  * Similar to appAvailabilities table pattern.
  *
  * Philosophy: Forward-deployed engineer approach
@@ -25,7 +25,7 @@ export const enableTemplateForOrg = mutation({
   args: {
     sessionId: v.string(),
     organizationId: v.id("organizations"),
-    pageTemplateCode: v.string(),
+    templateCode: v.string(),
     customSettings: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
@@ -64,14 +64,15 @@ export const enableTemplateForOrg = mutation({
       .withIndex("by_org_type", (q) =>
         q.eq("organizationId", systemOrg._id).eq("type", "template")
       )
+      .filter((q) => q.eq(q.field("subtype"), "page"))
       .collect();
 
     const template = allTemplates.find(
-      (t) => t.customProperties?.code === args.pageTemplateCode
+      (t) => t.customProperties?.code === args.templateCode
     );
 
     if (!template) {
-      throw new Error(`Template with code "${args.pageTemplateCode}" not found`);
+      throw new Error(`Template with code "${args.templateCode}" not found`);
     }
 
     // Check if availability already exists
@@ -83,7 +84,7 @@ export const enableTemplateForOrg = mutation({
       .collect();
 
     const existing = existingAvailabilities.find(
-      (a) => a.customProperties?.pageTemplateCode === args.pageTemplateCode
+      (a) => a.customProperties?.templateCode === args.templateCode
     );
 
     if (existing) {
@@ -91,7 +92,7 @@ export const enableTemplateForOrg = mutation({
       await ctx.db.patch(existing._id, {
         customProperties: {
           ...existing.customProperties,
-          isEnabled: true,
+          available: true,
           enabledBy: userId,
           enabledAt: Date.now(),
           customSettings: args.customSettings || existing.customProperties?.customSettings || {},
@@ -105,7 +106,7 @@ export const enableTemplateForOrg = mutation({
         objectId: existing._id,
         actionType: "template_enabled",
         actionData: {
-          pageTemplateCode: args.pageTemplateCode,
+          templateCode: args.templateCode,
           templateName: template.name,
         },
         performedBy: userId,
@@ -118,12 +119,12 @@ export const enableTemplateForOrg = mutation({
       const availabilityId = await ctx.db.insert("objects", {
         organizationId: args.organizationId,
         type: "template_availability",
-        subtype: "page_template",
+        subtype: "page",
         name: `${template.name} - Availability`,
         status: "published",
         customProperties: {
-          pageTemplateCode: args.pageTemplateCode,
-          isEnabled: true,
+          templateCode: args.templateCode,
+          available: true,
           enabledBy: userId,
           enabledAt: Date.now(),
           customSettings: args.customSettings || {},
@@ -139,7 +140,7 @@ export const enableTemplateForOrg = mutation({
         objectId: availabilityId,
         actionType: "template_enabled",
         actionData: {
-          pageTemplateCode: args.pageTemplateCode,
+          templateCode: args.templateCode,
           templateName: template.name,
         },
         performedBy: userId,
@@ -160,7 +161,7 @@ export const disableTemplateForOrg = mutation({
   args: {
     sessionId: v.string(),
     organizationId: v.id("organizations"),
-    pageTemplateCode: v.string(),
+    templateCode: v.string(),
   },
   handler: async (ctx, args) => {
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
@@ -190,7 +191,7 @@ export const disableTemplateForOrg = mutation({
       .collect();
 
     const existing = existingAvailabilities.find(
-      (a) => a.customProperties?.pageTemplateCode === args.pageTemplateCode
+      (a) => a.customProperties?.templateCode === args.templateCode
     );
 
     if (!existing) {
@@ -201,7 +202,7 @@ export const disableTemplateForOrg = mutation({
     await ctx.db.patch(existing._id, {
       customProperties: {
         ...existing.customProperties,
-        isEnabled: false,
+        available: false,
         disabledBy: userId,
         disabledAt: Date.now(),
       },
@@ -214,7 +215,7 @@ export const disableTemplateForOrg = mutation({
       objectId: existing._id,
       actionType: "template_disabled",
       actionData: {
-        pageTemplateCode: args.pageTemplateCode,
+        templateCode: args.templateCode,
       },
       performedBy: userId,
       performedAt: Date.now(),
@@ -262,11 +263,11 @@ export const getAvailableTemplatesForOrg = query({
       .withIndex("by_org_type", (q) =>
         q.eq("organizationId", args.organizationId).eq("type", "template_availability")
       )
-      .filter((q) => q.eq(q.field("customProperties.isEnabled"), true))
+      .filter((q) => q.eq(q.field("customProperties.available"), true))
       .collect();
 
     const enabledTemplateCodes = availabilities.map(
-      (a) => a.customProperties?.pageTemplateCode
+      (a) => a.customProperties?.templateCode
     );
 
     // Get system organization
@@ -285,6 +286,7 @@ export const getAvailableTemplatesForOrg = query({
       .withIndex("by_org_type", (q) =>
         q.eq("organizationId", systemOrg._id).eq("type", "template")
       )
+      .filter((q) => q.eq(q.field("subtype"), "page"))
       .filter((q) => q.eq(q.field("status"), "published"))
       .collect();
 
@@ -303,7 +305,7 @@ export const getAvailableTemplatesForOrg = query({
     // Enhance with availability info
     return availableTemplates.map((template) => {
       const availability = availabilities.find(
-        (a) => a.customProperties?.pageTemplateCode === template.customProperties?.code
+        (a) => a.customProperties?.templateCode === template.customProperties?.code
       );
 
       return {
@@ -410,6 +412,7 @@ export const getTemplateByCode = query({
       .withIndex("by_org_type", (q) =>
         q.eq("organizationId", systemOrg._id).eq("type", "template")
       )
+      .filter((q) => q.eq(q.field("subtype"), "page"))
       .collect();
 
     const template = allTemplates.find(
@@ -468,6 +471,7 @@ export const getAllSystemTemplates = query({
       .withIndex("by_org_type", (q) =>
         q.eq("organizationId", systemOrg._id).eq("type", "template")
       )
+      .filter((q) => q.eq(q.field("subtype"), "page"))
       .filter((q) => q.eq(q.field("status"), "published"))
       .collect();
 

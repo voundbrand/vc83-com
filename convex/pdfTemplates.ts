@@ -573,6 +573,51 @@ export function getRecommendedTemplate(
 }
 
 // ============================================================================
+// CONVEX QUERIES
+// ============================================================================
+
+import { query } from "./_generated/server";
+import { v } from "convex/values";
+
+/**
+ * Get all available PDF templates
+ *
+ * Optionally filter by category (B2B or B2C)
+ */
+export const getAvailableTemplates = query({
+  args: {
+    category: v.optional(v.union(v.literal("B2B"), v.literal("B2C"))),
+  },
+  handler: async (_ctx, args) => {
+    const templates = getAllTemplates();
+
+    if (args.category) {
+      return templates.filter(t => t.category === args.category);
+    }
+
+    return templates;
+  },
+});
+
+/**
+ * Get a specific template by ID (Convex query)
+ */
+export const getTemplate = query({
+  args: {
+    templateId: v.union(
+      v.literal("b2c_receipt"),
+      v.literal("b2b_single"),
+      v.literal("b2b_consolidated"),
+      v.literal("b2b_consolidated_detailed")
+    ),
+  },
+  handler: async (_ctx, args) => {
+    const template = PDF_TEMPLATE_REGISTRY[args.templateId];
+    return template || null;
+  },
+});
+
+// ============================================================================
 // SAMPLE DATA GENERATORS (for UI previews)
 // ============================================================================
 

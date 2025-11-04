@@ -273,6 +273,58 @@ export const createTicketInternal = internalMutation({
 });
 
 /**
+ * UPDATE TICKET (INTERNAL - No Auth Required)
+ * Internal mutation for updating ticket data by backend actions
+ */
+export const updateTicketInternal = internalMutation({
+  args: {
+    ticketId: v.id("objects"),
+    holderName: v.optional(v.string()),
+    holderEmail: v.optional(v.string()),
+    status: v.optional(v.string()),
+    customProperties: v.optional(v.record(v.string(), v.any())),
+  },
+  handler: async (ctx, args) => {
+    const ticket = await ctx.db.get(args.ticketId);
+
+    if (!ticket || ticket.type !== "ticket") {
+      throw new Error("Ticket not found");
+    }
+
+    // Build update object
+    const updates: Record<string, unknown> = {
+      updatedAt: Date.now(),
+    };
+
+    if (args.status !== undefined) {
+      const validStatuses = ["issued", "redeemed", "cancelled", "transferred"];
+      if (!validStatuses.includes(args.status)) {
+        throw new Error(
+          `Invalid status. Must be one of: ${validStatuses.join(", ")}`
+        );
+      }
+      updates.status = args.status;
+    }
+
+    // Update customProperties
+    if (args.holderName !== undefined || args.holderEmail !== undefined || args.customProperties) {
+      const currentProps = ticket.customProperties || {};
+
+      updates.customProperties = {
+        ...currentProps,
+        ...(args.holderName !== undefined && { holderName: args.holderName }),
+        ...(args.holderEmail !== undefined && { holderEmail: args.holderEmail }),
+        ...(args.customProperties || {}),
+      };
+    }
+
+    await ctx.db.patch(args.ticketId, updates);
+
+    return args.ticketId;
+  },
+});
+
+/**
  * CREATE TICKET (PUBLIC)
  * Issue a new ticket from a product
  * Requires authentication via sessionId

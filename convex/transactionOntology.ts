@@ -436,3 +436,567 @@ export const getTransactionInvoice = query({
     return null;
   },
 });
+
+// ============================================================================
+// PHASE 1: TRANSACTION CRUD OPERATIONS
+// ============================================================================
+// Added: 2025-10-31
+// Purpose: Universal transaction system for ANY product type (tickets, products, services, etc.)
+// replaces checkout-session-based approach with proper transaction records
+
+import { internalMutation, internalQuery } from "./_generated/server";
+
+/**
+ * CREATE TRANSACTION (INTERNAL)
+ *
+ * Internal mutation for creating transactions from payment providers.
+ * Stores complete context about the purchase for future invoicing.
+ *
+ * @param ctx - Mutation context
+ * @param args - Transaction details with full product/event/customer context
+ * @returns Transaction ID
+ */
+export const createTransactionInternal = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    subtype: v.string(), // Flexible: "ticket_purchase", "product_purchase", "service_purchase", etc.
+
+    // Product context
+    productId: v.id("objects"),
+    productName: v.string(),
+    productDescription: v.optional(v.string()),
+    productSubtype: v.optional(v.string()),
+
+    // Event context (for tickets)
+    eventId: v.optional(v.id("objects")),
+    eventName: v.optional(v.string()),
+    eventLocation: v.optional(v.string()),
+    eventStartDate: v.optional(v.number()),
+    eventEndDate: v.optional(v.number()),
+    eventSponsors: v.optional(v.array(v.object({
+      name: v.string(),
+      level: v.optional(v.string()),
+      logoUrl: v.optional(v.string()),
+    }))),
+
+    // Links
+    ticketId: v.optional(v.id("objects")),
+    checkoutSessionId: v.optional(v.id("objects")),
+
+    // Customer (who receives)
+    customerName: v.string(),
+    customerEmail: v.string(),
+    customerPhone: v.optional(v.string()),
+    customerId: v.optional(v.id("objects")),
+
+    // Payer (who pays - may differ in B2B)
+    payerType: v.union(v.literal("individual"), v.literal("organization")),
+    payerId: v.optional(v.id("objects")),
+    crmOrganizationId: v.optional(v.id("objects")),
+    employerId: v.optional(v.string()),
+    employerName: v.optional(v.string()),
+
+    // Financial
+    amountInCents: v.number(),
+    currency: v.string(),
+    quantity: v.number(),
+    taxRatePercent: v.optional(v.number()),
+
+    // Payment
+    paymentMethod: v.optional(v.string()),
+    paymentStatus: v.optional(v.string()),
+    paymentIntentId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Calculate financial details
+    const unitPriceInCents = Math.round(args.amountInCents / args.quantity);
+    const taxRatePercent = args.taxRatePercent || 0;
+    const taxAmountInCents = Math.round((args.amountInCents * taxRatePercent) / 100);
+    const totalPriceInCents = args.amountInCents + taxAmountInCents;
+
+    // Get system user for createdBy (transactions created by system, not a specific user)
+    const systemUser = await ctx.db
+      .query("users")
+      .filter(q => q.eq(q.field("email"), "system@l4yercak3.com"))
+      .first();
+
+    if (!systemUser) {
+      throw new Error("System user not found - run seed script first");
+    }
+
+    // Create transaction object
+    const transactionId = await ctx.db.insert("objects", {
+      organizationId: args.organizationId,
+      type: "transaction",
+      subtype: args.subtype,
+      name: `${args.productName} - ${args.customerName}`,
+      description: args.productDescription,
+      status: "active", // Transaction status (not payment status)
+      createdBy: systemUser._id, // Required field for objects table
+      customProperties: {
+        // Product context
+        productId: args.productId,
+        productName: args.productName,
+        productDescription: args.productDescription,
+        productSubtype: args.productSubtype,
+
+        // Event context (for tickets)
+        eventId: args.eventId,
+        eventName: args.eventName,
+        eventLocation: args.eventLocation,
+        eventStartDate: args.eventStartDate,
+        eventEndDate: args.eventEndDate,
+        eventSponsors: args.eventSponsors,
+
+        // Links
+        ticketId: args.ticketId,
+        checkoutSessionId: args.checkoutSessionId,
+
+        // Customer
+        customerName: args.customerName,
+        customerEmail: args.customerEmail,
+        customerPhone: args.customerPhone,
+        customerId: args.customerId,
+
+        // Payer
+        payerType: args.payerType,
+        payerId: args.payerId,
+        crmOrganizationId: args.crmOrganizationId,
+        employerId: args.employerId,
+        employerName: args.employerName,
+
+        // Financial
+        amountInCents: args.amountInCents,
+        currency: args.currency,
+        quantity: args.quantity,
+        unitPriceInCents,
+        totalPriceInCents,
+        taxRatePercent,
+        taxAmountInCents,
+
+        // Status tracking
+        invoicingStatus: "pending" as const, // pending | on_draft_invoice | invoiced
+        paymentStatus: args.paymentStatus || "pending",
+        paymentMethod: args.paymentMethod || "unknown",
+        paymentIntentId: args.paymentIntentId,
+
+        // Timestamps
+        transactionDate: Date.now(),
+      },
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    console.log(`✅ [createTransactionInternal] Created transaction ${transactionId} for ${args.productName}`);
+
+    return transactionId;
+  },
+});
+
+/**
+ * GET TRANSACTION (INTERNAL)
+ *
+ * Internal query for getting transaction by ID without auth check.
+ */
+export const getTransactionInternal = internalQuery({
+  args: {
+    transactionId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.transactionId);
+  },
+});
+
+/**
+ * LIST TRANSACTIONS
+ *
+ * Query transactions with comprehensive filtering.
+ * Used for reporting, invoicing, and transaction management.
+ */
+export const listTransactions = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+
+    // Filters
+    invoicingStatus: v.optional(v.union(
+      v.literal("pending"),
+      v.literal("on_draft_invoice"),
+      v.literal("invoiced")
+    )),
+    paymentStatus: v.optional(v.string()),
+    productId: v.optional(v.id("objects")),
+    eventId: v.optional(v.id("objects")),
+    crmOrganizationId: v.optional(v.id("objects")),
+    dateFrom: v.optional(v.number()),
+    dateTo: v.optional(v.number()),
+
+    // Pagination
+    limit: v.optional(v.number()),
+    offset: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    // Get all transactions for organization
+    let transactions = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "transaction")
+      )
+      .collect();
+
+    // Apply filters
+    if (args.invoicingStatus) {
+      transactions = transactions.filter(t =>
+        t.customProperties?.invoicingStatus === args.invoicingStatus
+      );
+    }
+
+    if (args.paymentStatus) {
+      transactions = transactions.filter(t =>
+        t.customProperties?.paymentStatus === args.paymentStatus
+      );
+    }
+
+    if (args.productId) {
+      transactions = transactions.filter(t =>
+        t.customProperties?.productId === args.productId
+      );
+    }
+
+    if (args.eventId) {
+      transactions = transactions.filter(t =>
+        t.customProperties?.eventId === args.eventId
+      );
+    }
+
+    if (args.crmOrganizationId) {
+      transactions = transactions.filter(t =>
+        t.customProperties?.crmOrganizationId === args.crmOrganizationId
+      );
+    }
+
+    if (args.dateFrom) {
+      transactions = transactions.filter(t =>
+        (t.customProperties?.transactionDate as number) >= args.dateFrom!
+      );
+    }
+
+    if (args.dateTo) {
+      transactions = transactions.filter(t =>
+        (t.customProperties?.transactionDate as number) <= args.dateTo!
+      );
+    }
+
+    // Sort by transaction date descending
+    transactions.sort((a, b) => {
+      const dateA = (a.customProperties?.transactionDate as number) || 0;
+      const dateB = (b.customProperties?.transactionDate as number) || 0;
+      return dateB - dateA;
+    });
+
+    // Apply pagination
+    const offset = args.offset || 0;
+    const limit = args.limit || 100;
+    const paginatedTransactions = transactions.slice(offset, offset + limit);
+
+    return {
+      transactions: paginatedTransactions,
+      total: transactions.length,
+      hasMore: offset + limit < transactions.length,
+    };
+  },
+});
+
+/**
+ * MARK TRANSACTIONS AS INVOICED
+ *
+ * Update invoicing status when transactions are added to an invoice.
+ * This mutation is called when sealing an invoice.
+ */
+export const markTransactionsAsInvoiced = internalMutation({
+  args: {
+    transactionIds: v.array(v.id("objects")),
+    invoiceId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    for (const transactionId of args.transactionIds) {
+      const transaction = await ctx.db.get(transactionId);
+
+      if (!transaction || transaction.type !== "transaction") {
+        console.error(`❌ [markTransactionsAsInvoiced] Transaction ${transactionId} not found`);
+        continue;
+      }
+
+      await ctx.db.patch(transactionId, {
+        customProperties: {
+          ...transaction.customProperties,
+          invoicingStatus: "invoiced",
+          invoiceId: args.invoiceId,
+          invoicedAt: Date.now(),
+        },
+        updatedAt: Date.now(),
+      });
+
+      console.log(`✅ [markTransactionsAsInvoiced] Marked transaction ${transactionId} as invoiced`);
+    }
+  },
+});
+
+/**
+ * MARK TRANSACTIONS ON DRAFT INVOICE
+ *
+ * Update invoicing status when transactions are added to a draft invoice.
+ * This is reversible (can be removed from draft).
+ */
+export const markTransactionsOnDraftInvoice = internalMutation({
+  args: {
+    transactionIds: v.array(v.id("objects")),
+    draftInvoiceId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    for (const transactionId of args.transactionIds) {
+      const transaction = await ctx.db.get(transactionId);
+
+      if (!transaction || transaction.type !== "transaction") {
+        console.error(`❌ [markTransactionsOnDraftInvoice] Transaction ${transactionId} not found`);
+        continue;
+      }
+
+      await ctx.db.patch(transactionId, {
+        customProperties: {
+          ...transaction.customProperties,
+          invoicingStatus: "on_draft_invoice",
+          draftInvoiceId: args.draftInvoiceId,
+        },
+        updatedAt: Date.now(),
+      });
+
+      console.log(`✅ [markTransactionsOnDraftInvoice] Marked transaction ${transactionId} as on draft invoice`);
+    }
+  },
+});
+
+/**
+ * REMOVE TRANSACTIONS FROM DRAFT INVOICE
+ *
+ * Remove transactions from a draft invoice (back to pending).
+ * Used when editing draft invoices.
+ */
+export const removeTransactionsFromDraftInvoice = internalMutation({
+  args: {
+    transactionIds: v.array(v.id("objects")),
+  },
+  handler: async (ctx, args) => {
+    for (const transactionId of args.transactionIds) {
+      const transaction = await ctx.db.get(transactionId);
+
+      if (!transaction || transaction.type !== "transaction") {
+        console.error(`❌ [removeTransactionsFromDraftInvoice] Transaction ${transactionId} not found`);
+        continue;
+      }
+
+      await ctx.db.patch(transactionId, {
+        customProperties: {
+          ...transaction.customProperties,
+          invoicingStatus: "pending",
+          draftInvoiceId: undefined,
+        },
+        updatedAt: Date.now(),
+      });
+
+      console.log(`✅ [removeTransactionsFromDraftInvoice] Removed transaction ${transactionId} from draft invoice`);
+    }
+  },
+});
+
+/**
+ * UPDATE TRANSACTION PAYMENT STATUS
+ *
+ * Update payment status when payment is received/processed.
+ */
+export const updateTransactionPaymentStatus = internalMutation({
+  args: {
+    transactionId: v.id("objects"),
+    paymentStatus: v.string(),
+    paymentDate: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const transaction = await ctx.db.get(args.transactionId);
+
+    if (!transaction || transaction.type !== "transaction") {
+      throw new Error("Transaction not found");
+    }
+
+    await ctx.db.patch(args.transactionId, {
+      customProperties: {
+        ...transaction.customProperties,
+        paymentStatus: args.paymentStatus,
+        ...(args.paymentDate && { paymentDate: args.paymentDate }),
+      },
+      updatedAt: Date.now(),
+    });
+
+    console.log(`✅ [updateTransactionPaymentStatus] Updated transaction ${args.transactionId} payment status to ${args.paymentStatus}`);
+
+    return args.transactionId;
+  },
+});
+
+// ============================================================================
+// PHASE 2: UI-FACING TRANSACTION QUERIES
+// ============================================================================
+// Added: 2025-10-31
+// Purpose: Public queries for transaction UI (payments window)
+
+/**
+ * GET TRANSACTION
+ *
+ * Public query to get a single transaction by ID.
+ * Returns full transaction details for transaction detail modal.
+ */
+export const getTransaction = query({
+  args: {
+    sessionId: v.string(),
+    transactionId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const transaction = await ctx.db.get(args.transactionId);
+
+    if (!transaction || transaction.type !== "transaction") {
+      throw new Error("Transaction not found");
+    }
+
+    return transaction;
+  },
+});
+
+/**
+ * GET TRANSACTION STATISTICS (NEW!)
+ *
+ * Calculate statistics from actual transaction objects (not checkout sessions).
+ * Shows revenue, counts, and breakdowns by payment/invoicing status.
+ */
+export const getTransactionStatsNew = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    dateFrom: v.optional(v.number()),
+    dateTo: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    // Get organization's currency setting
+    const localeSettings = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "organization_settings")
+      )
+      .filter((q) => q.eq(q.field("subtype"), "locale"))
+      .first();
+
+    const currency = (localeSettings?.customProperties?.currency as string) || "EUR";
+
+    // Get all transactions
+    let transactions = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "transaction")
+      )
+      .collect();
+
+    // Apply date filter
+    if (args.dateFrom) {
+      transactions = transactions.filter(t =>
+        (t.customProperties?.transactionDate as number) >= args.dateFrom!
+      );
+    }
+    if (args.dateTo) {
+      transactions = transactions.filter(t =>
+        (t.customProperties?.transactionDate as number) <= args.dateTo!
+      );
+    }
+
+    // Initialize stats
+    const stats = {
+      // Total
+      totalTransactions: transactions.length,
+      totalRevenue: 0,
+
+      // By payment status
+      completedTransactions: 0,
+      completedRevenue: 0,
+      pendingTransactions: 0,
+      pendingRevenue: 0,
+
+      // By invoicing status
+      pendingInvoicing: 0,
+      onDraftInvoice: 0,
+      invoiced: 0,
+
+      // B2B/B2C
+      b2bTransactions: 0,
+      b2bRevenue: 0,
+      b2cTransactions: 0,
+      b2cRevenue: 0,
+
+      // Average
+      averageTransactionValue: 0,
+
+      // Currency
+      currency,
+    };
+
+    // Calculate stats
+    for (const tx of transactions) {
+      const props = tx.customProperties || {};
+      const amount = (props.totalPriceInCents as number) || 0;
+      const paymentStatus = props.paymentStatus as string;
+      const invoicingStatus = props.invoicingStatus as string;
+      const payerType = props.payerType as string;
+
+      // Total revenue
+      stats.totalRevenue += amount;
+
+      // Payment status stats
+      if (paymentStatus === "paid") {
+        stats.completedTransactions++;
+        stats.completedRevenue += amount;
+      } else if (paymentStatus === "pending" || paymentStatus === "awaiting_employer_payment") {
+        stats.pendingTransactions++;
+        stats.pendingRevenue += amount;
+      }
+
+      // Invoicing status stats
+      if (invoicingStatus === "pending") {
+        stats.pendingInvoicing++;
+      } else if (invoicingStatus === "on_draft_invoice") {
+        stats.onDraftInvoice++;
+      } else if (invoicingStatus === "invoiced") {
+        stats.invoiced++;
+      }
+
+      // B2B/B2C stats
+      if (payerType === "organization") {
+        stats.b2bTransactions++;
+        stats.b2bRevenue += amount;
+      } else {
+        stats.b2cTransactions++;
+        stats.b2cRevenue += amount;
+      }
+    }
+
+    // Calculate average
+    if (stats.completedTransactions > 0) {
+      stats.averageTransactionValue = Math.round(
+        stats.completedRevenue / stats.completedTransactions
+      );
+    }
+
+    return stats;
+  },
+});

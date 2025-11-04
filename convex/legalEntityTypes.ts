@@ -553,6 +553,462 @@ export const LEGAL_ENTITY_TYPES: Record<string, CountryLegalEntities> = {
       },
     ],
   },
+
+  // AUSTRIA
+  AT: {
+    country: "AT",
+    countryName: "Austria",
+    defaultVATPrefix: "AT",
+    entities: [
+      {
+        code: "GmbH",
+        name: "Limited Liability Company",
+        localName: "Gesellschaft mit beschränkter Haftung",
+        description: "Common Austrian corporate form",
+        vatEligible: true,
+        minShareCapital: "€35,000",
+        liability: "limited",
+        commonUse: "General business operations",
+      },
+    ],
+  },
+
+  // BELGIUM
+  BE: {
+    country: "BE",
+    countryName: "Belgium",
+    defaultVATPrefix: "BE",
+    entities: [
+      {
+        code: "BV_SRL",
+        name: "Private Limited Company",
+        localName: "Besloten Vennootschap / Société à Responsabilité Limitée",
+        description: "Common Belgian corporate form",
+        vatEligible: true,
+        minShareCapital: "€1",
+        liability: "limited",
+        commonUse: "General business operations",
+      },
+    ],
+  },
+
+  // BULGARIA
+  BG: {
+    country: "BG",
+    countryName: "Bulgaria",
+    defaultVATPrefix: "BG",
+    entities: [
+      {
+        code: "OOD",
+        name: "Limited Liability Company",
+        localName: "Дружество с ограничена отговорност",
+        description: "Common Bulgarian corporate form",
+        vatEligible: true,
+        minShareCapital: "BGN 2",
+        liability: "limited",
+        commonUse: "General business operations",
+      },
+    ],
+  },
+
+  // CROATIA
+  HR: {
+    country: "HR",
+    countryName: "Croatia",
+    defaultVATPrefix: "HR",
+    entities: [
+      {
+        code: "doo",
+        name: "Limited Liability Company",
+        localName: "Društvo s ograničenom odgovornošću",
+        description: "Common Croatian corporate form",
+        vatEligible: true,
+        minShareCapital: "HRK 20,000",
+        liability: "limited",
+        commonUse: "General business operations",
+      },
+    ],
+  },
+
+  // CYPRUS
+  CY: {
+    country: "CY",
+    countryName: "Cyprus",
+    defaultVATPrefix: "CY",
+    entities: [
+      {
+        code: "Ltd",
+        name: "Private Limited Company",
+        localName: "Private Limited Company",
+        description: "Common Cypriot corporate form",
+        vatEligible: true,
+        minShareCapital: "€1",
+        liability: "limited",
+        commonUse: "General business operations",
+      },
+    ],
+  },
+
+  // CZECH REPUBLIC
+  CZ: {
+    country: "CZ",
+    countryName: "Czech Republic",
+    defaultVATPrefix: "CZ",
+    entities: [
+      {
+        code: "sro",
+        name: "Limited Liability Company",
+        localName: "Společnost s ručením omezeným",
+        description: "Common Czech corporate form",
+        vatEligible: true,
+        minShareCapital: "CZK 1",
+        liability: "limited",
+        commonUse: "General business operations",
+      },
+    ],
+  },
+
+  // DENMARK
+  DK: {
+    country: "DK",
+    countryName: "Denmark",
+    defaultVATPrefix: "DK",
+    entities: [
+      {
+        code: "ApS",
+        name: "Private Limited Company",
+        localName: "Anpartsselskab",
+        description: "Common Danish corporate form",
+        vatEligible: true,
+        minShareCapital: "DKK 1",
+        liability: "limited",
+        commonUse: "General business operations",
+      },
+    ],
+  },
+
+  // ESTONIA
+  EE: {
+    country: "EE",
+    countryName: "Estonia",
+    defaultVATPrefix: "EE",
+    entities: [
+      {
+        code: "OU",
+        name: "Private Limited Company",
+        localName: "Osaühing",
+        description: "Common Estonian corporate form",
+        vatEligible: true,
+        minShareCapital: "€2,500",
+        liability: "limited",
+        commonUse: "General business operations",
+      },
+    ],
+  },
+
+  // FINLAND
+  FI: {
+    country: "FI",
+    countryName: "Finland",
+    defaultVATPrefix: "FI",
+    entities: [
+      {
+        code: "Oy",
+        name: "Private Limited Company",
+        localName: "Osakeyhtiö",
+        description: "Common Finnish corporate form",
+        vatEligible: true,
+        minShareCapital: "€2,500",
+        liability: "limited",
+        commonUse: "General business operations",
+      },
+    ],
+  },
+
+  // GREECE
+  GR: {
+    country: "GR",
+    countryName: "Greece",
+    defaultVATPrefix: "EL",
+    entities: [
+      {
+        code: "EPE",
+        name: "Limited Liability Company",
+        localName: "Εταιρεία Περιορισμένης Ευθύνης",
+        description: "Common Greek corporate form",
+        vatEligible: true,
+        minShareCapital: "€1",
+        liability: "limited",
+        commonUse: "General business operations",
+      },
+    ],
+  },
+
+  // HUNGARY
+  HU: {
+    country: "HU",
+    countryName: "Hungary",
+    defaultVATPrefix: "HU",
+    entities: [
+      {
+        code: "Kft",
+        name: "Limited Liability Company",
+        localName: "Korlátolt Felelősségű Társaság",
+        description: "Common Hungarian corporate form",
+        vatEligible: true,
+        minShareCapital: "HUF 3,000,000",
+        liability: "limited",
+        commonUse: "General business operations",
+      },
+    ],
+  },
+
+  // IRELAND
+  IE: {
+    country: "IE",
+    countryName: "Ireland",
+    defaultVATPrefix: "IE",
+    entities: [
+      {
+        code: "Ltd",
+        name: "Private Limited Company",
+        localName: "Private Company Limited by Shares",
+        description: "Common Irish corporate form",
+        vatEligible: true,
+        minShareCapital: "€1",
+        liability: "limited",
+        commonUse: "General business operations",
+      },
+    ],
+  },
+
+  // LATVIA
+  LV: {
+    country: "LV",
+    countryName: "Latvia",
+    defaultVATPrefix: "LV",
+    entities: [
+      {
+        code: "SIA",
+        name: "Limited Liability Company",
+        localName: "Sabiedrība ar ierobežotu atbildību",
+        description: "Common Latvian corporate form",
+        vatEligible: true,
+        minShareCapital: "€2,800",
+        liability: "limited",
+        commonUse: "General business operations",
+      },
+    ],
+  },
+
+  // LITHUANIA
+  LT: {
+    country: "LT",
+    countryName: "Lithuania",
+    defaultVATPrefix: "LT",
+    entities: [
+      {
+        code: "UAB",
+        name: "Limited Liability Company",
+        localName: "Uždaroji akcinė bendrovė",
+        description: "Common Lithuanian corporate form",
+        vatEligible: true,
+        minShareCapital: "€2,500",
+        liability: "limited",
+        commonUse: "General business operations",
+      },
+    ],
+  },
+
+  // LUXEMBOURG
+  LU: {
+    country: "LU",
+    countryName: "Luxembourg",
+    defaultVATPrefix: "LU",
+    entities: [
+      {
+        code: "SARL",
+        name: "Private Limited Company",
+        localName: "Société à Responsabilité Limitée",
+        description: "Common Luxembourg corporate form",
+        vatEligible: true,
+        minShareCapital: "€12,000",
+        liability: "limited",
+        commonUse: "General business operations",
+      },
+    ],
+  },
+
+  // MALTA
+  MT: {
+    country: "MT",
+    countryName: "Malta",
+    defaultVATPrefix: "MT",
+    entities: [
+      {
+        code: "Ltd",
+        name: "Private Limited Company",
+        localName: "Private Limited Company",
+        description: "Common Maltese corporate form",
+        vatEligible: true,
+        minShareCapital: "€1,165",
+        liability: "limited",
+        commonUse: "General business operations",
+      },
+    ],
+  },
+
+  // PORTUGAL
+  PT: {
+    country: "PT",
+    countryName: "Portugal",
+    defaultVATPrefix: "PT",
+    entities: [
+      {
+        code: "Lda",
+        name: "Private Limited Company",
+        localName: "Sociedade por Quotas",
+        description: "Common Portuguese corporate form",
+        vatEligible: true,
+        minShareCapital: "€1",
+        liability: "limited",
+        commonUse: "General business operations",
+      },
+    ],
+  },
+
+  // ROMANIA
+  RO: {
+    country: "RO",
+    countryName: "Romania",
+    defaultVATPrefix: "RO",
+    entities: [
+      {
+        code: "SRL",
+        name: "Limited Liability Company",
+        localName: "Societate cu Răspundere Limitată",
+        description: "Common Romanian corporate form",
+        vatEligible: true,
+        minShareCapital: "RON 200",
+        liability: "limited",
+        commonUse: "General business operations",
+      },
+    ],
+  },
+
+  // SLOVAKIA
+  SK: {
+    country: "SK",
+    countryName: "Slovakia",
+    defaultVATPrefix: "SK",
+    entities: [
+      {
+        code: "sro",
+        name: "Limited Liability Company",
+        localName: "Spoločnosť s ručením obmedzeným",
+        description: "Common Slovak corporate form",
+        vatEligible: true,
+        minShareCapital: "€1",
+        liability: "limited",
+        commonUse: "General business operations",
+      },
+    ],
+  },
+
+  // SLOVENIA
+  SI: {
+    country: "SI",
+    countryName: "Slovenia",
+    defaultVATPrefix: "SI",
+    entities: [
+      {
+        code: "doo",
+        name: "Limited Liability Company",
+        localName: "Družba z omejeno odgovornostjo",
+        description: "Common Slovenian corporate form",
+        vatEligible: true,
+        minShareCapital: "€7,500",
+        liability: "limited",
+        commonUse: "General business operations",
+      },
+    ],
+  },
+
+  // SWEDEN
+  SE: {
+    country: "SE",
+    countryName: "Sweden",
+    defaultVATPrefix: "SE",
+    entities: [
+      {
+        code: "AB",
+        name: "Private Limited Company",
+        localName: "Aktiebolag",
+        description: "Common Swedish corporate form",
+        vatEligible: true,
+        minShareCapital: "SEK 25,000",
+        liability: "limited",
+        commonUse: "General business operations",
+      },
+    ],
+  },
+
+  // NORWAY (EEA, not EU)
+  NO: {
+    country: "NO",
+    countryName: "Norway",
+    defaultVATPrefix: "NO",
+    entities: [
+      {
+        code: "AS",
+        name: "Private Limited Company",
+        localName: "Aksjeselskap",
+        description: "Common Norwegian corporate form",
+        vatEligible: true,
+        minShareCapital: "NOK 30,000",
+        liability: "limited",
+        commonUse: "General business operations",
+      },
+    ],
+  },
+
+  // SWITZERLAND (not EU/EEA but commonly needed)
+  CH: {
+    country: "CH",
+    countryName: "Switzerland",
+    defaultVATPrefix: "CHE",
+    entities: [
+      {
+        code: "GmbH",
+        name: "Limited Liability Company",
+        localName: "Gesellschaft mit beschränkter Haftung / Sàrl / Sagl",
+        description: "Common Swiss corporate form",
+        vatEligible: true,
+        minShareCapital: "CHF 20,000",
+        liability: "limited",
+        commonUse: "General business operations",
+      },
+    ],
+  },
+
+  // ICELAND (EEA, not EU)
+  IS: {
+    country: "IS",
+    countryName: "Iceland",
+    defaultVATPrefix: "IS",
+    entities: [
+      {
+        code: "ehf",
+        name: "Private Limited Company",
+        localName: "Einkahlutafélag",
+        description: "Common Icelandic corporate form",
+        vatEligible: true,
+        minShareCapital: "ISK 500,000",
+        liability: "limited",
+        commonUse: "General business operations",
+      },
+    ],
+  },
 };
 
 /**

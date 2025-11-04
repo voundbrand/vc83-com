@@ -29,6 +29,7 @@ import { Id } from "../../../../convex/_generated/dataModel";
 import { CheckoutProduct } from "@/templates/checkout/types";
 import { ArrowLeft, FileText, Loader2, Copy } from "lucide-react";
 import { calculateAddonsFromResponses, calculateTotalAddonCost, type ProductAddon } from "@/types/product-addons";
+import { useTranslation } from "@/contexts/translation-context";
 import styles from "../styles/multi-step.module.css";
 
 interface FormResponse {
@@ -59,6 +60,8 @@ export function RegistrationFormStep({
   onComplete,
   onBack,
 }: RegistrationFormStepProps) {
+  const { t } = useTranslation();
+
   // Calculate total tickets needed across all products
   const totalTickets = selectedProducts.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -216,7 +219,7 @@ export function RegistrationFormStep({
     visibleSections.forEach((section) => {
       section.fields.forEach((field) => {
         if (field.required && !currentResponses[field.id]) {
-          newErrors[field.id] = `${field.label} is required`;
+          newErrors[field.id] = t("checkout.registration.validation.field_required", { fieldLabel: field.label });
         }
       });
     });
@@ -225,7 +228,7 @@ export function RegistrationFormStep({
     if (visibleSections.length === 0 && formSchemaObj?.fields) {
       formSchemaObj.fields.forEach((field) => {
         if (field.required && !currentResponses[field.id]) {
-          newErrors[field.id] = `${field.label} is required`;
+          newErrors[field.id] = t("checkout.registration.validation.field_required", { fieldLabel: field.label });
         }
       });
     }
@@ -299,12 +302,12 @@ export function RegistrationFormStep({
   if (!formId) {
     return (
       <div className={styles.errorState}>
-        <p className={styles.errorMessage}>No form ID found. Skipping registration form.</p>
+        <p className={styles.errorMessage}>{t("checkout.registration.error.no_form_id")}</p>
         <button
           onClick={() => onComplete([])}
           className={styles.primaryButton}
         >
-          Continue
+          {t("checkout.registration.button.continue")}
         </button>
       </div>
     );
@@ -314,16 +317,16 @@ export function RegistrationFormStep({
     return (
       <div className={styles.errorState}>
         <p className={styles.errorMessage}>
-          Invalid form configuration. The product has an invalid formId: &quot;{formId}&quot;
+          {t("checkout.registration.error.invalid_form_id", { formId })}
         </p>
         <p className={styles.errorMessage} style={{ fontSize: "0.75rem", marginTop: "0.5rem" }}>
-          Please edit the product and select a valid form from the dropdown, then save.
+          {t("checkout.registration.error.invalid_form_id_help")}
         </p>
         <button
           onClick={onBack}
           className={styles.secondaryButton}
         >
-          Go Back
+          {t("checkout.registration.button.go_back")}
         </button>
       </div>
     );
@@ -340,9 +343,9 @@ export function RegistrationFormStep({
   if (!formSchema) {
     return (
       <div className={styles.errorState}>
-        <p className={styles.errorMessage}>Form not found.</p>
+        <p className={styles.errorMessage}>{t("checkout.registration.error.form_not_found")}</p>
         <button onClick={onBack} className={styles.secondaryButton}>
-          Go Back
+          {t("checkout.registration.button.go_back")}
         </button>
       </div>
     );
@@ -463,7 +466,10 @@ export function RegistrationFormStep({
       <div className={styles.stepHeader}>
         <h2 className={styles.stepTitle}>
           <FileText size={24} />
-          Registration - Ticket {currentTicketInfo?.ticketNumber} of {totalTickets}
+          {t("checkout.registration.header.title", {
+            currentTicket: currentTicketInfo?.ticketNumber || 1,
+            totalTickets,
+          })}
         </h2>
         <p className={styles.stepSubtitle}>
           {currentTicketInfo?.productName}
@@ -482,7 +488,7 @@ export function RegistrationFormStep({
                     : styles.ticketProgressUpcoming
               }`}
             >
-              {i < currentTicketIndex ? "✓" : i + 1}
+              {i < currentTicketIndex ? t("checkout.registration.progress.completed_checkmark") : i + 1}
             </div>
           ))}
         </div>
@@ -496,7 +502,7 @@ export function RegistrationFormStep({
           className={styles.copyButton}
         >
           <Copy size={16} />
-          Copy from Previous Ticket
+          {t("checkout.registration.copy_button.label")}
         </button>
       )}
 
@@ -521,7 +527,7 @@ export function RegistrationFormStep({
                 <div key={field.id} className={styles.formField}>
                   <label className={styles.fieldLabel}>
                     {field.label}
-                    {field.required && <span className={styles.required}>*</span>}
+                    {field.required && <span className={styles.required}>{t("checkout.registration.field.required_asterisk")}</span>}
                   </label>
 
                   {/* Help Text */}
@@ -608,7 +614,7 @@ export function RegistrationFormStep({
                       }}
                       className={`${styles.select} ${errors[field.id] ? styles.inputError : ""}`}
                     >
-                      <option value="">Bitte wählen</option>
+                      <option value="">{t("checkout.registration.select.placeholder")}</option>
                       {field.options.map((option) => (
                         <option key={option.value} value={option.value}>
                           {option.label}
@@ -700,7 +706,7 @@ export function RegistrationFormStep({
             <div key={field.id} className={styles.formField}>
               <label className={styles.fieldLabel}>
                 {field.label}
-                {field.required && <span className={styles.required}>*</span>}
+                {field.required && <span className={styles.required}>{t("checkout.registration.field.required_asterisk")}</span>}
               </label>
 
               {/* Text Input */}
@@ -734,7 +740,9 @@ export function RegistrationFormStep({
             disabled={currentTicketIndex > 0}
           >
             <ArrowLeft size={16} />
-            {currentTicketIndex === 0 ? "Back" : "Previous Ticket"}
+            {currentTicketIndex === 0
+              ? t("checkout.registration.button.back")
+              : t("checkout.registration.button.previous_ticket")}
           </button>
 
           <button
@@ -742,8 +750,11 @@ export function RegistrationFormStep({
             className={styles.primaryButton}
           >
             {currentTicketIndex < totalTickets - 1
-              ? `Next Ticket (${currentTicketIndex + 2}/${totalTickets}) →`
-              : "Continue to Payment →"}
+              ? t("checkout.registration.button.next_ticket", {
+                  nextTicket: currentTicketIndex + 2,
+                  totalTickets,
+                })
+              : t("checkout.registration.button.continue_to_payment")}
           </button>
         </div>
       </form>

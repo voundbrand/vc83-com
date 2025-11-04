@@ -162,7 +162,13 @@ export const generateConsolidatedInvoice = action({
     totalInCents: number;
     pdfUrl: string | null;
   }> => {
+    console.log("📄 [generateConsolidatedInvoice] Starting...", {
+      ticketCount: args.ticketIds.length,
+      crmOrganizationId: args.crmOrganizationId,
+    });
+
     // 1. Create consolidated invoice
+    console.log("📄 [Step 1/7] Creating invoice record...");
     const invoiceResult = await ctx.runMutation(api.invoicingOntology.createConsolidatedInvoice, {
       sessionId: args.sessionId,
       organizationId: args.organizationId,
@@ -177,23 +183,31 @@ export const generateConsolidatedInvoice = action({
     };
 
     if (!invoiceResult.success) {
+      console.error("❌ [Step 1/7] Invoice creation failed");
       throw new Error("Failed to create consolidated invoice");
     }
+    console.log("✅ [Step 1/7] Invoice created:", invoiceResult.invoiceNumber);
 
     // 2. Get invoice details
+    console.log("📄 [Step 2/7] Fetching invoice details...");
     const invoice = await ctx.runQuery(
       internal.invoicingOntology.getInvoiceByIdInternal,
       { invoiceId: invoiceResult.invoiceId }
     ) as Doc<"objects"> | null;
 
     if (!invoice) {
+      console.error("❌ [Step 2/7] Invoice not found after creation");
       throw new Error("Invoice not found after creation");
     }
+    console.log("✅ [Step 2/7] Invoice fetched");
 
     // 3. Prepare template data
+    console.log("📄 [Step 3/7] Preparing template data...");
     const templateData = await prepareConsolidatedTemplateData(ctx, invoice);
+    console.log("✅ [Step 3/7] Template data prepared");
 
     // 4. Generate PDF using selected template
+    console.log("📄 [Step 4/7] Generating PDF...");
     const templateId: "b2b_consolidated" | "b2b_consolidated_detailed" | "b2c_receipt" =
       args.templateId || "b2b_consolidated";
     const pdfResult = await ctx.runAction(api.pdfGenerationTemplated.generatePdfFromTemplate, {
@@ -203,23 +217,36 @@ export const generateConsolidatedInvoice = action({
     });
 
     if (!pdfResult) {
+      console.error("❌ [Step 4/7] PDF generation failed");
       throw new Error("Failed to generate PDF");
     }
+    console.log("✅ [Step 4/7] PDF generated");
 
     // 5. Store PDF
-    const pdfBlob = Buffer.from(pdfResult.content, "base64");
+    console.log("📄 [Step 5/7] Storing PDF...");
+    // Convert base64 to Uint8Array (Buffer not available in Convex runtime)
+    const base64Data = pdfResult.content;
+    const binaryString = atob(base64Data);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
     const storageId = await ctx.storage.store(
-      new Blob([pdfBlob], { type: "application/pdf" })
+      new Blob([bytes], { type: "application/pdf" })
     );
+    console.log("✅ [Step 5/7] PDF stored");
 
     // 6. Update invoice with PDF URL
+    console.log("📄 [Step 6/7] Updating invoice with PDF URL...");
     const pdfUrl = await ctx.storage.getUrl(storageId);
     await ctx.runMutation(internal.invoicingOntology.updateInvoicePdfUrl, {
       invoiceId: invoiceResult.invoiceId,
       pdfUrl: pdfUrl || "",
     });
+    console.log("✅ [Step 6/7] Invoice updated with PDF");
 
     // 7. Send email if requested
+    console.log("📄 [Step 7/7] Email notification...");
     if (args.sendEmail) {
       const billTo = invoice.customProperties?.billTo as { billingEmail?: string };
       if (billTo?.billingEmail) {
@@ -229,8 +256,19 @@ export const generateConsolidatedInvoice = action({
           sentTo: [billTo.billingEmail],
           pdfUrl: pdfUrl || undefined,
         });
+        console.log("✅ [Step 7/7] Email sent");
+      } else {
+        console.log("⏭️ [Step 7/7] Email skipped (no billing email)");
       }
+    } else {
+      console.log("⏭️ [Step 7/7] Email skipped (sendEmail=false)");
     }
+
+    console.log("🎉 [generateConsolidatedInvoice] Complete!", {
+      invoiceNumber: invoiceResult.invoiceNumber,
+      ticketCount: invoiceResult.ticketCount,
+      totalInCents: invoiceResult.totalInCents,
+    });
 
     return {
       success: true,
@@ -250,7 +288,7 @@ export const generateConsolidatedInvoice = action({
 /**
  * Prepare template data for consolidated invoice
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+ 
 async function prepareConsolidatedTemplateData(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   _ctx: any,
@@ -259,7 +297,7 @@ async function prepareConsolidatedTemplateData(
 ): Promise<Record<string, any>> {
   const props = invoice.customProperties || {};
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const billTo = props.billTo as any;
+  const billToData = props.billTo as any;
 
   // Get line items with employee details
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -268,10 +306,10 @@ async function prepareConsolidatedTemplateData(
   const employeeLineItems = lineItems.map((item: any) => ({
     employeeName: item.contactName || "Unknown",
     employeeId: item.contactId,
-    description: item.description,
+    description: item.description || `${item.contactName || "Unknown"} - ${item.productName || "Ticket"}`,
     quantity: 1,
-    unitPrice: (item.unitPriceInCents || 0) / 100,
-    totalPrice: (item.totalPriceInCents || 0) / 100,
+    unitPrice: item.unitPriceInCents || 0, // Keep in cents for template
+    totalPrice: item.totalPriceInCents || 0, // Keep in cents for template
     subItems: item.subItems || [],
   }));
 
@@ -281,25 +319,26 @@ async function prepareConsolidatedTemplateData(
     invoiceDate: props.invoiceDate || invoice.createdAt,
     dueDate: props.dueDate || invoice.createdAt + 30 * 24 * 60 * 60 * 1000,
 
-    // Employer (Bill To)
-    companyName: billTo?.name || "Unknown Company",
-    companyVatNumber: billTo?.vatNumber,
-    companyAddress: {
-      line1: billTo?.billingAddress?.line1,
-      city: billTo?.billingAddress?.city,
-      postalCode: billTo?.billingAddress?.postalCode,
-      country: billTo?.billingAddress?.country,
+    // Event name (get from first line item or use "Event Registration")
+    eventName: lineItems[0]?.eventName || props.eventName || "Event Registration",
+
+    // Employer (Bill To) - nested object as template expects
+    billTo: {
+      name: billToData?.name || "Unknown Company",
+      vatNumber: billToData?.vatNumber,
+      billingAddress: billToData?.billingAddress || {},
+      billingEmail: billToData?.billingEmail,
+      billingContact: billToData?.billingContact,
     },
-    billingEmail: billTo?.billingEmail,
-    billingContact: billTo?.billingContact,
 
-    // Employee line items
-    employees: employeeLineItems,
+    // Employee line items - template expects "lineItems" not "employees"
+    lineItems: employeeLineItems,
+    employeeCount: employeeLineItems.length,
 
-    // Totals
-    subtotal: (props.subtotalInCents as number || 0) / 100,
-    taxAmount: (props.taxInCents as number || 0) / 100,
-    total: (props.totalInCents as number || 0) / 100,
+    // Totals (keep in cents for template - it does the conversion)
+    subtotal: props.subtotalInCents as number || 0,
+    taxAmount: props.taxInCents as number || 0,
+    total: props.totalInCents as number || 0,
     currency: (props.currency as string) || "EUR",
 
     // Payment info

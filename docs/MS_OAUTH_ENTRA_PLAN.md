@@ -91,7 +91,7 @@ Next.js App � Microsoft OAuth 2.0 � Authorization Code � Access Token � 
    - Register new application
    - Set redirect URIs: 
      - Development: `http://localhost:3000/api/auth/callback/microsoft`
-     - Production: `https://L4YERCAK3.com/api/auth/callback/microsoft`
+     - Production: `https://app.L4YERCAK3.com/api/auth/callback/microsoft`
    - Enable public client flows if needed
 
 2. **Configure API Permissions**

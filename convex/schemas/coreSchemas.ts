@@ -134,6 +134,39 @@ export const sessions = defineTable({
 })
   .index("by_user", ["userId"]);
 
+// API Keys - Enterprise API authentication
+export const apiKeys = defineTable({
+  // Key format: org_{organizationId}_{random32chars}
+  key: v.string(),                    // Full API key
+  name: v.string(),                   // Human-readable name ("Medical Network Integration")
+
+  // Ownership
+  organizationId: v.id("organizations"),
+  createdBy: v.id("users"),           // User who generated the key
+
+  // Status
+  status: v.union(
+    v.literal("active"),
+    v.literal("revoked")
+  ),
+
+  // Usage tracking
+  lastUsed: v.optional(v.number()),
+  requestCount: v.optional(v.number()), // Total requests made with this key
+
+  // Revocation
+  revokedAt: v.optional(v.number()),
+  revokedBy: v.optional(v.id("users")),
+  revokeReason: v.optional(v.string()),
+
+  // Metadata
+  createdAt: v.number(),
+})
+  .index("by_key", ["key"])                    // Fast lookup for API authentication
+  .index("by_organization", ["organizationId"]) // List organization's keys
+  .index("by_organization_status", ["organizationId", "status"]) // Active keys only
+  .index("by_status", ["status"]);             // All active keys
+
 // Role-Based Access Control (RBAC) Tables
 export const roles = defineTable({
   name: v.string(),

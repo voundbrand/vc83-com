@@ -49,8 +49,9 @@ export const getAvailableTemplates = query({
     const systemTemplates = await ctx.db
       .query("objects")
       .withIndex("by_org_type", (q) =>
-        q.eq("organizationId", systemOrg._id).eq("type", "page_template")
+        q.eq("organizationId", systemOrg._id).eq("type", "template")
       )
+      .filter((q) => q.eq(q.field("subtype"), "page"))
       .filter((q) => q.eq(q.field("status"), "published"))
       .collect();
 
@@ -58,8 +59,9 @@ export const getAvailableTemplates = query({
     const orgTemplates = await ctx.db
       .query("objects")
       .withIndex("by_org_type", (q) =>
-        q.eq("organizationId", args.organizationId).eq("type", "page_template")
+        q.eq("organizationId", args.organizationId).eq("type", "template")
       )
+      .filter((q) => q.eq(q.field("subtype"), "page"))
       .filter((q) => q.eq(q.field("status"), "published"))
       .collect();
 
@@ -294,8 +296,9 @@ export const createCustomTemplate = mutation({
     const allTemplates = await ctx.db
       .query("objects")
       .withIndex("by_org_type", (q) =>
-        q.eq("organizationId", args.organizationId).eq("type", "page_template")
+        q.eq("organizationId", args.organizationId).eq("type", "template")
       )
+      .filter((q) => q.eq(q.field("subtype"), "page"))
       .collect();
 
     const existingByCode = allTemplates.find(
@@ -309,8 +312,8 @@ export const createCustomTemplate = mutation({
     // Create template
     const templateId = await ctx.db.insert("objects", {
       organizationId: args.organizationId,
-      type: "page_template",
-      subtype: "full-page",
+      type: "template",
+      subtype: "page",
       name: args.name,
       status: "draft",
       customProperties: {

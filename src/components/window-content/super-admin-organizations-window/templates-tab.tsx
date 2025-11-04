@@ -423,14 +423,14 @@ function WebTemplateRow({
         await disableTemplate({
           sessionId,
           organizationId: organization._id,
-          pageTemplateCode: templateCode,
+          templateCode: templateCode,
         });
       } else {
         // Enable
         await enableTemplate({
           sessionId,
           organizationId: organization._id,
-          pageTemplateCode: templateCode,
+          templateCode: templateCode,
         });
       }
     } catch (error) {

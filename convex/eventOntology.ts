@@ -106,7 +106,7 @@ export const createEvent = mutation({
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
     // Validate subtype
-    const validSubtypes = ["conference", "workshop", "concert", "meetup"];
+    const validSubtypes = ["conference", "workshop", "concert", "meetup", "seminar"];
     if (!validSubtypes.includes(args.subtype)) {
       throw new Error(
         `Invalid event subtype. Must be one of: ${validSubtypes.join(", ")}`

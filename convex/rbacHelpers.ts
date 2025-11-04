@@ -599,3 +599,27 @@ export const requirePermissionMutation = internalMutation({
     });
   },
 });
+
+/**
+ * Internal mutation for logging object actions (for use in actions)
+ */
+export const logObjectActionMutation = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    objectId: v.id("objects"),
+    actionType: v.string(),
+    actionData: v.any(),
+    performedBy: v.id("users"),
+    performedAt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("objectActions", {
+      organizationId: args.organizationId,
+      objectId: args.objectId,
+      actionType: args.actionType,
+      actionData: args.actionData,
+      performedBy: args.performedBy,
+      performedAt: args.performedAt,
+    });
+  },
+});

@@ -332,6 +332,9 @@ export const updatePublicCheckoutSession = mutation({
       stepProgress: v.optional(v.array(v.string())),
       currentStep: v.optional(v.string()),
 
+      // ✅ Behavior context - CRITICAL for passing behavior results to backend
+      behaviorContext: v.optional(v.any()),
+
       // Event information (from product->event link)
       eventName: v.optional(v.string()),
       eventDescription: v.optional(v.string()),
@@ -460,6 +463,9 @@ export const updateCheckoutSession = mutation({
       stepProgress: v.optional(v.array(v.string())),
       currentStep: v.optional(v.string()),
 
+      // ✅ Behavior context - CRITICAL for passing behavior results to backend
+      behaviorContext: v.optional(v.any()),
+
       // Event information (from product->event link)
       eventName: v.optional(v.string()),
       eventDescription: v.optional(v.string()),
@@ -572,6 +578,12 @@ export const completeCheckoutSessionInternal = internalMutation({
       },
       performedBy: userId,
       performedAt: Date.now(),
+    });
+
+    // 🔥 PHASE 3A: Create transactions for invoicing
+    // This runs asynchronously - errors won't block checkout completion
+    ctx.scheduler.runAfter(0, internal.createTransactionsFromCheckout.createTransactionsFromCheckout, {
+      checkoutSessionId: args.checkoutSessionId,
     });
 
     return { success: true };

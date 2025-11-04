@@ -15,10 +15,13 @@
  * - Billing details (conditional based on employer)
  */
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useQuery } from "convex/react";
+import { api } from "../../../../convex/_generated/api";
 import { User, Mail, Phone, MessageSquare, ArrowLeft, Building2, FileText, MapPin, CheckCircle } from "lucide-react";
 import styles from "../styles/multi-step.module.css";
 import { Id } from "../../../../convex/_generated/dataModel";
+import { useTranslation } from "@/contexts/translation-context";
 
 interface CustomerInfo {
   email: string;
@@ -96,8 +99,11 @@ export function CustomerInfoStep({
   onComplete,
   onBack,
 }: CustomerInfoStepProps) {
-  // 🚨 NEW: Detect employer billing from form responses
-  const employerBilling = useMemo((): EmployerBillingInfo | null => {
+  // Translation hook
+  const { t } = useTranslation();
+
+  // 🚨 STEP 1: Extract CRM organization ID from form responses and product mapping
+  const crmOrganizationId = useMemo((): Id<"objects"> | null => {
     if (!formResponses || !linkedProducts) return null;
 
     // Get first form response (assuming single product checkout)
@@ -107,12 +113,12 @@ export function CustomerInfoStep({
     // Get product's invoice config
     const product = linkedProducts.find((p) => p._id === firstResponse.productId);
 
-    // Type-safe access to customProperties with proper type assertion
+    // Type-safe access to customProperties
     const customProps = product?.customProperties as
       | {
           invoiceConfig?: {
             employerSourceField: string;
-            employerMapping: Record<string, EmployerBillingInfo | { type: "self_pay" } | string>;
+            employerMapping: Record<string, string | null>; // Now stores org IDs
             defaultPaymentTerms?: "net30" | "net60" | "net90";
           };
         }
@@ -126,30 +132,52 @@ export function CustomerInfoStep({
     const employerValue = firstResponse.responses[employerFieldKey];
     if (!employerValue || typeof employerValue !== "string") return null;
 
-    // Get employer mapping
-    const mapping = invoiceConfig.employerMapping[employerValue];
+    // Get CRM organization ID from mapping
+    const orgId = invoiceConfig.employerMapping[employerValue];
 
-    // Support both old (string) and new (object) format
-    if (typeof mapping === "object" && mapping?.type === "employer_billing") {
-      return mapping as EmployerBillingInfo;
-    }
-
-    // Old format: just a string name, treat as minimal employer billing
-    if (typeof mapping === "string") {
-      return {
-        type: "employer_billing" as const,
-        organizationName: mapping,
-        billingAddress: {
-          line1: "",
-          city: "",
-          postalCode: "",
-          country: "DE",
-        },
-      };
-    }
-
-    return null;
+    // Return ID if valid, otherwise null
+    return orgId && orgId.length > 20 ? (orgId as Id<"objects">) : null;
   }, [formResponses, linkedProducts]);
+
+  // 🚨 STEP 2: Fetch CRM organization billing data using the public endpoint
+  const crmOrganization = useQuery(
+    api.crmOntology.getPublicCrmOrganizationBilling,
+    crmOrganizationId ? { crmOrganizationId } : "skip"
+  );
+
+  // 🚨 STEP 3: Transform CRM organization data into EmployerBillingInfo format
+  const employerBilling = useMemo((): EmployerBillingInfo | null => {
+    if (!crmOrganization) return null;
+
+    // Extract address from CRM organization
+    const address = (crmOrganization.customProperties as { address?: {
+      street?: string;
+      city?: string;
+      state?: string;
+      postalCode?: string;
+      country?: string;
+    } })?.address;
+
+    if (!address) return null;
+
+    return {
+      type: "employer_billing" as const,
+      organizationName: crmOrganization.name,
+      displayName: crmOrganization.name,
+      vatNumber: (crmOrganization.customProperties as { taxId?: string })?.taxId,
+      taxId: (crmOrganization.customProperties as { taxId?: string })?.taxId,
+      billingAddress: {
+        line1: address.street || "",
+        city: address.city || "",
+        state: address.state,
+        postalCode: address.postalCode || "",
+        country: address.country || "DE",
+      },
+      billingEmail: (crmOrganization.customProperties as { billingEmail?: string })?.billingEmail,
+      primaryPhone: (crmOrganization.customProperties as { phone?: string })?.phone,
+      website: (crmOrganization.customProperties as { website?: string })?.website,
+    };
+  }, [crmOrganization]);
 
   // Check if we're in employer billing mode
   const isEmployerBilling = !!employerBilling;
@@ -159,16 +187,47 @@ export function CustomerInfoStep({
   const [phone, setPhone] = useState(initialData?.phone || "");
   const [notes, setNotes] = useState(initialData?.notes || "");
 
-  // B2B fields - auto-set to B2B if forced or employer billing
+  // B2B fields - will be auto-filled from employer billing
   const [transactionType, setTransactionType] = useState<"B2C" | "B2B">(
-    (forceB2B || isEmployerBilling) ? "B2B" : (initialData?.transactionType || "B2C")
+    initialData?.transactionType || "B2C"
   );
-  const [companyName, setCompanyName] = useState(
-    initialData?.companyName || employerBilling?.organizationName || ""
-  );
-  const [vatNumber, setVatNumber] = useState(
-    initialData?.vatNumber || employerBilling?.vatNumber || ""
-  );
+  const [companyName, setCompanyName] = useState(initialData?.companyName || "");
+  const [vatNumber, setVatNumber] = useState(initialData?.vatNumber || "");
+
+  // Billing address fields
+  const [line1, setLine1] = useState(initialData?.billingAddress?.line1 || "");
+  const [line2, setLine2] = useState(initialData?.billingAddress?.line2 || "");
+  const [city, setCity] = useState(initialData?.billingAddress?.city || "");
+  const [state, setState] = useState(initialData?.billingAddress?.state || "");
+  const [postalCode, setPostalCode] = useState(initialData?.billingAddress?.postalCode || "");
+  const [country, setCountry] = useState(initialData?.billingAddress?.country || "DE");
+
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // 🚨 Auto-fill form when employer billing data loads
+  useEffect(() => {
+    if (employerBilling && !initialData) {
+      // Set to B2B mode
+      setTransactionType("B2B");
+
+      // Fill company info
+      setCompanyName(employerBilling.organizationName);
+      setVatNumber(employerBilling.vatNumber || "");
+
+      // Fill billing address
+      setLine1(employerBilling.billingAddress.line1);
+      setLine2(employerBilling.billingAddress.line2 || "");
+      setCity(employerBilling.billingAddress.city);
+      setState(employerBilling.billingAddress.state || "");
+      setPostalCode(employerBilling.billingAddress.postalCode);
+      setCountry(employerBilling.billingAddress.country);
+
+      console.log("✅ [CustomerInfoStep] Auto-filled employer billing data:", {
+        company: employerBilling.organizationName,
+        address: employerBilling.billingAddress,
+      });
+    }
+  }, [employerBilling, initialData]);
 
   // Debug logging
   console.log("🔍 [CustomerInfoStep] State:", {
@@ -176,31 +235,9 @@ export function CustomerInfoStep({
     isEmployerBilling,
     employerBilling,
     transactionType,
-    shouldShowB2BFields: transactionType === "B2B"
+    shouldShowB2BFields: transactionType === "B2B",
+    formValues: { companyName, line1, city, postalCode, country }
   });
-
-  // Billing address fields (using line1/line2 format)
-  // Pre-fill from employer billing if available
-  const [line1, setLine1] = useState(
-    initialData?.billingAddress?.line1 || employerBilling?.billingAddress.line1 || ""
-  );
-  const [line2, setLine2] = useState(
-    initialData?.billingAddress?.line2 || employerBilling?.billingAddress.line2 || ""
-  );
-  const [city, setCity] = useState(
-    initialData?.billingAddress?.city || employerBilling?.billingAddress.city || ""
-  );
-  const [state, setState] = useState(
-    initialData?.billingAddress?.state || employerBilling?.billingAddress.state || ""
-  );
-  const [postalCode, setPostalCode] = useState(
-    initialData?.billingAddress?.postalCode || employerBilling?.billingAddress.postalCode || ""
-  );
-  const [country, setCountry] = useState(
-    initialData?.billingAddress?.country || employerBilling?.billingAddress.country || "DE"
-  );
-
-  const [errors, setErrors] = useState<Record<string, string>>({});
 
   /**
    * Validate form fields
@@ -210,42 +247,42 @@ export function CustomerInfoStep({
 
     // Email validation
     if (!email.trim()) {
-      newErrors.email = "Email is required";
+      newErrors.email = t('ui.checkout.customer_info.errors.email_required');
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      newErrors.email = "Please enter a valid email address";
+      newErrors.email = t('ui.checkout.customer_info.errors.email_invalid');
     }
 
     // Name validation
     if (!name.trim()) {
-      newErrors.name = "Name is required";
+      newErrors.name = t('ui.checkout.customer_info.errors.name_required');
     }
 
     // B2B validations
     if (transactionType === "B2B") {
       if (!companyName.trim()) {
-        newErrors.companyName = "Company name is required for business transactions";
+        newErrors.companyName = t('ui.checkout.customer_info.errors.company_required');
       }
 
       // VAT number format validation (basic EU format check)
       if (vatNumber.trim()) {
         const vatRegex = /^[A-Z]{2}[0-9A-Z]{2,13}$/;
         if (!vatRegex.test(vatNumber.trim().replace(/[\s.-]/g, ""))) {
-          newErrors.vatNumber = "Please enter a valid VAT number (e.g., DE123456789, GB999999973)";
+          newErrors.vatNumber = t('ui.checkout.customer_info.errors.vat_invalid');
         }
       }
 
       // Billing address validation for B2B
       if (!line1.trim()) {
-        newErrors.line1 = "Street address is required for business transactions";
+        newErrors.line1 = t('ui.checkout.customer_info.errors.street_required');
       }
       if (!city.trim()) {
-        newErrors.city = "City is required for business transactions";
+        newErrors.city = t('ui.checkout.customer_info.errors.city_required');
       }
       if (!postalCode.trim()) {
-        newErrors.postalCode = "Postal code is required for business transactions";
+        newErrors.postalCode = t('ui.checkout.customer_info.errors.postal_code_required');
       }
       if (!country.trim()) {
-        newErrors.country = "Country is required for business transactions";
+        newErrors.country = t('ui.checkout.customer_info.errors.country_required');
       }
     }
 
@@ -308,12 +345,12 @@ export function CustomerInfoStep({
       <div className={styles.stepHeader}>
         <h2 className={styles.stepTitle}>
           <User size={24} />
-          Your Information
+          {t('ui.checkout.customer_info.headers.title')}
         </h2>
         <p className={styles.stepSubtitle}>
           {isEmployerBilling
-            ? "Personal information only - billing will be sent to your employer"
-            : "Please provide your contact details for order confirmation."}
+            ? t('ui.checkout.customer_info.headers.subtitle_employer')
+            : t('ui.checkout.customer_info.headers.subtitle_default')}
         </p>
       </div>
 
@@ -331,16 +368,16 @@ export function CustomerInfoStep({
           <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
             <CheckCircle size={20} style={{ color: "#3B82F6" }} />
             <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "600", color: "#1E40AF" }}>
-              Employer Billing Detected
+              {t('ui.checkout.customer_info.headers.employer_billing_detected')}
             </h3>
           </div>
           <div style={{ fontSize: "14px", color: "#1E40AF", lineHeight: "1.6" }}>
             <p style={{ margin: "4px 0" }}>
-              <strong>Company:</strong> {employerBilling.organizationName}
+              <strong>{t('ui.checkout.customer_info.employer_billing.company_label')}</strong> {employerBilling.organizationName}
             </p>
             {employerBilling.billingAddress.line1 && (
               <p style={{ margin: "4px 0" }}>
-                <strong>Billing Address:</strong>{" "}
+                <strong>{t('ui.checkout.customer_info.employer_billing.billing_address_label')}</strong>{" "}
                 {employerBilling.billingAddress.line1}
                 {employerBilling.billingAddress.line2 && `, ${employerBilling.billingAddress.line2}`}
                 , {employerBilling.billingAddress.city},{" "}
@@ -349,16 +386,16 @@ export function CustomerInfoStep({
             )}
             {employerBilling.vatNumber && (
               <p style={{ margin: "4px 0" }}>
-                <strong>VAT Number:</strong> {employerBilling.vatNumber}
+                <strong>{t('ui.checkout.customer_info.employer_billing.vat_number_label')}</strong> {employerBilling.vatNumber}
               </p>
             )}
             {employerBilling.billingEmail && (
               <p style={{ margin: "4px 0" }}>
-                <strong>Invoice will be sent to:</strong> {employerBilling.billingEmail}
+                <strong>{t('ui.checkout.customer_info.employer_billing.invoice_sent_to')}</strong> {employerBilling.billingEmail}
               </p>
             )}
             <p style={{ margin: "8px 0 0 0", fontSize: "12px", fontStyle: "italic" }}>
-              ✓ Billing information has been automatically configured based on your employer selection.
+              {t('ui.checkout.customer_info.employer_billing.auto_configured_message')}
             </p>
           </div>
         </div>
@@ -370,7 +407,7 @@ export function CustomerInfoStep({
         <div className={styles.formField}>
           <label className={styles.fieldLabel}>
             <Mail size={16} />
-            Email Address <span className={styles.required}>*</span>
+            {t('ui.checkout.customer_info.labels.email_address')} <span className={styles.required}>{t('ui.checkout.customer_info.required_optional.required_indicator')}</span>
           </label>
           <input
             type="email"
@@ -379,7 +416,7 @@ export function CustomerInfoStep({
               setEmail(e.target.value);
               if (errors.email) setErrors({ ...errors, email: "" });
             }}
-            placeholder="your.email@example.com"
+            placeholder={t('ui.checkout.customer_info.placeholders.email')}
             className={`${styles.input} ${errors.email ? styles.inputError : ""}`}
             required
           />
@@ -387,7 +424,7 @@ export function CustomerInfoStep({
             <p className={styles.errorMessage}>{errors.email}</p>
           )}
           <p className={styles.helperText}>
-            We&apos;ll send your order confirmation and ticket to this email.
+            {t('ui.checkout.customer_info.helpers.email_description')}
           </p>
         </div>
 
@@ -395,7 +432,7 @@ export function CustomerInfoStep({
         <div className={styles.formField}>
           <label className={styles.fieldLabel}>
             <User size={16} />
-            Full Name <span className={styles.required}>*</span>
+            {t('ui.checkout.customer_info.labels.full_name')} <span className={styles.required}>{t('ui.checkout.customer_info.required_optional.required_indicator')}</span>
           </label>
           <input
             type="text"
@@ -404,7 +441,7 @@ export function CustomerInfoStep({
               setName(e.target.value);
               if (errors.name) setErrors({ ...errors, name: "" });
             }}
-            placeholder="John Doe"
+            placeholder={t('ui.checkout.customer_info.placeholders.name')}
             className={`${styles.input} ${errors.name ? styles.inputError : ""}`}
             required
           />
@@ -417,13 +454,13 @@ export function CustomerInfoStep({
         <div className={styles.formField}>
           <label className={styles.fieldLabel}>
             <Phone size={16} />
-            Phone Number <span className={styles.optional}>(Optional)</span>
+            {t('ui.checkout.customer_info.labels.phone_number')} <span className={styles.optional}>{t('ui.checkout.customer_info.required_optional.optional_indicator')}</span>
           </label>
           <input
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            placeholder="+1 (555) 123-4567"
+            placeholder={t('ui.checkout.customer_info.placeholders.phone')}
             className={styles.input}
           />
         </div>
@@ -432,12 +469,12 @@ export function CustomerInfoStep({
         <div className={styles.formField}>
           <label className={styles.fieldLabel}>
             <MessageSquare size={16} />
-            Special Requests <span className={styles.optional}>(Optional)</span>
+            {t('ui.checkout.customer_info.labels.special_requests')} <span className={styles.optional}>{t('ui.checkout.customer_info.required_optional.optional_indicator')}</span>
           </label>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Any dietary restrictions, accessibility needs, or special requests..."
+            placeholder={t('ui.checkout.customer_info.placeholders.special_requests')}
             rows={4}
             className={styles.textarea}
           />
@@ -448,15 +485,15 @@ export function CustomerInfoStep({
           <div className={styles.formField}>
             <label className={styles.fieldLabel}>
               <Building2 size={16} />
-              Transaction Type <span className={styles.required}>*</span>
+              {t('ui.checkout.customer_info.labels.transaction_type')} <span className={styles.required}>{t('ui.checkout.customer_info.required_optional.required_indicator')}</span>
             </label>
             {forceB2B ? (
               <div className="mt-2 p-3 rounded" style={{ backgroundColor: "#EFF6FF", border: "1px solid #BFDBFE" }}>
                 <p className="text-sm font-bold" style={{ color: "#1E40AF" }}>
-                  🏢 Business/Organization Purchase Required
+                  {t('ui.checkout.customer_info.forced_b2b.title')}
                 </p>
                 <p className="text-xs mt-1" style={{ color: "#1E40AF" }}>
-                  This checkout requires organization information. Company details and billing address are mandatory.
+                  {t('ui.checkout.customer_info.forced_b2b.description')}
                 </p>
               </div>
             ) : (
@@ -471,7 +508,7 @@ export function CustomerInfoStep({
                       onChange={(e) => setTransactionType(e.target.value as "B2C")}
                       style={{ cursor: "pointer" }}
                     />
-                    <span>Individual/Consumer</span>
+                    <span>{t('ui.checkout.customer_info.transaction_types.individual_consumer')}</span>
                   </label>
                   <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
                     <input
@@ -482,11 +519,11 @@ export function CustomerInfoStep({
                       onChange={(e) => setTransactionType(e.target.value as "B2B")}
                       style={{ cursor: "pointer" }}
                     />
-                    <span>Business/Company</span>
+                    <span>{t('ui.checkout.customer_info.transaction_types.business_company')}</span>
                   </label>
                 </div>
                 <p className={styles.helperText}>
-                  Select if this purchase is for a business (requires company details)
+                  {t('ui.checkout.customer_info.helpers.transaction_type_description')}
                 </p>
               </>
             )}
@@ -496,100 +533,88 @@ export function CustomerInfoStep({
         {/* B2B Fields - Show only when B2B is selected */}
         {transactionType === "B2B" && (
           <>
-            {/* Company Name - Read-only if employer billing */}
+            {/* Company Name - Pre-filled from employer if available */}
             <div className={styles.formField}>
               <label className={styles.fieldLabel}>
                 <Building2 size={16} />
-                Company Name <span className={styles.required}>*</span>
-                {isEmployerBilling && <span className={styles.optional}> (From Employer)</span>}
+                {t('ui.checkout.customer_info.labels.company_name')} <span className={styles.required}>{t('ui.checkout.customer_info.required_optional.required_indicator')}</span>
+                {isEmployerBilling && <span className={styles.optional}> {t('ui.checkout.customer_info.required_optional.autofilled_indicator')}</span>}
               </label>
               <input
                 type="text"
                 value={companyName}
                 onChange={(e) => {
-                  if (!isEmployerBilling) {
-                    setCompanyName(e.target.value);
-                    if (errors.companyName) setErrors({ ...errors, companyName: "" });
-                  }
+                  setCompanyName(e.target.value);
+                  if (errors.companyName) setErrors({ ...errors, companyName: "" });
                 }}
-                placeholder="Acme Corporation"
+                placeholder={t('ui.checkout.customer_info.placeholders.company_name')}
                 className={`${styles.input} ${errors.companyName ? styles.inputError : ""}`}
                 required={transactionType === "B2B"}
-                readOnly={isEmployerBilling}
-                disabled={isEmployerBilling}
-                style={isEmployerBilling ? { backgroundColor: "#F3F4F6", cursor: "not-allowed" } : {}}
               />
               {errors.companyName && (
                 <p className={styles.errorMessage}>{errors.companyName}</p>
               )}
+              {isEmployerBilling && (
+                <p className={styles.helperText}>
+                  {t('ui.checkout.customer_info.helpers.company_autofilled')}
+                </p>
+              )}
             </div>
 
-            {/* VAT Number (Optional for B2B) - Read-only if employer billing */}
+            {/* VAT Number (Optional for B2B) - Pre-filled from employer if available */}
             <div className={styles.formField}>
               <label className={styles.fieldLabel}>
                 <FileText size={16} />
-                VAT Number <span className={styles.optional}>(Optional)</span>
-                {isEmployerBilling && <span className={styles.optional}> (From Employer)</span>}
+                {t('ui.checkout.customer_info.labels.vat_number')} <span className={styles.optional}>{t('ui.checkout.customer_info.required_optional.optional_indicator')}</span>
+                {isEmployerBilling && <span className={styles.optional}> {t('ui.checkout.customer_info.required_optional.autofilled_short')}</span>}
               </label>
               <input
                 type="text"
                 value={vatNumber}
                 onChange={(e) => {
-                  if (!isEmployerBilling) {
-                    setVatNumber(e.target.value);
-                    if (errors.vatNumber) setErrors({ ...errors, vatNumber: "" });
-                  }
+                  setVatNumber(e.target.value);
+                  if (errors.vatNumber) setErrors({ ...errors, vatNumber: "" });
                 }}
-                placeholder="DE123456789 or GB999999973"
+                placeholder={t('ui.checkout.customer_info.placeholders.vat_number')}
                 className={`${styles.input} ${errors.vatNumber ? styles.inputError : ""}`}
-                readOnly={isEmployerBilling}
-                disabled={isEmployerBilling}
-                style={isEmployerBilling ? { backgroundColor: "#F3F4F6", cursor: "not-allowed" } : {}}
               />
               {errors.vatNumber && (
                 <p className={styles.errorMessage}>{errors.vatNumber}</p>
               )}
-              {!isEmployerBilling && (
-                <p className={styles.helperText}>
-                  EU VAT number format: 2-letter country code + digits (e.g., DE123456789)
-                </p>
-              )}
+              <p className={styles.helperText}>
+                {t('ui.checkout.customer_info.helpers.vat_format')}
+              </p>
             </div>
 
             {/* Billing Address Section */}
             <div className={styles.formField} style={{ marginTop: "24px" }}>
               <label className={styles.fieldLabel} style={{ fontSize: "16px", fontWeight: "600" }}>
                 <MapPin size={16} />
-                Billing Address
-                {isEmployerBilling && <span className={styles.optional}> (From Employer)</span>}
+                {t('ui.checkout.customer_info.labels.billing_address')}
+                {isEmployerBilling && <span className={styles.optional}> {t('ui.checkout.customer_info.required_optional.autofilled_indicator')}</span>}
               </label>
               <p className={styles.helperText} style={{ marginTop: "4px" }}>
                 {isEmployerBilling
-                  ? "Pre-filled from employer information"
-                  : "Required for business invoices"}
+                  ? t('ui.checkout.customer_info.helpers.billing_address_employer')
+                  : t('ui.checkout.customer_info.helpers.billing_address_required')}
               </p>
             </div>
 
             {/* Street Address - Line 1 */}
             <div className={styles.formField}>
               <label className={styles.fieldLabel}>
-                Street Address <span className={styles.required}>*</span>
+                {t('ui.checkout.customer_info.labels.street_address')} <span className={styles.required}>{t('ui.checkout.customer_info.required_optional.required_indicator')}</span>
               </label>
               <input
                 type="text"
                 value={line1}
                 onChange={(e) => {
-                  if (!isEmployerBilling) {
-                    setLine1(e.target.value);
-                    if (errors.line1) setErrors({ ...errors, line1: "" });
-                  }
+                  setLine1(e.target.value);
+                  if (errors.line1) setErrors({ ...errors, line1: "" });
                 }}
-                placeholder="Hauptstraße 123"
+                placeholder={t('ui.checkout.customer_info.placeholders.street_address')}
                 className={`${styles.input} ${errors.line1 ? styles.inputError : ""}`}
                 required={transactionType === "B2B"}
-                readOnly={isEmployerBilling}
-                disabled={isEmployerBilling}
-                style={isEmployerBilling ? { backgroundColor: "#F3F4F6", cursor: "not-allowed" } : {}}
               />
               {errors.line1 && (
                 <p className={styles.errorMessage}>{errors.line1}</p>
@@ -599,48 +624,36 @@ export function CustomerInfoStep({
             {/* Street Address - Line 2 (Optional) */}
             <div className={styles.formField}>
               <label className={styles.fieldLabel}>
-                Address Line 2 <span className={styles.optional}>(Optional)</span>
+                {t('ui.checkout.customer_info.labels.address_line2')} <span className={styles.optional}>{t('ui.checkout.customer_info.required_optional.optional_indicator')}</span>
               </label>
               <input
                 type="text"
                 value={line2}
-                onChange={(e) => {
-                  if (!isEmployerBilling) setLine2(e.target.value);
-                }}
-                placeholder="Suite 100, Floor 2"
+                onChange={(e) => setLine2(e.target.value)}
+                placeholder={t('ui.checkout.customer_info.placeholders.address_line2')}
                 className={styles.input}
-                readOnly={isEmployerBilling}
-                disabled={isEmployerBilling}
-                style={isEmployerBilling ? { backgroundColor: "#F3F4F6", cursor: "not-allowed" } : {}}
               />
-              {!isEmployerBilling && (
-                <p className={styles.helperText}>
-                  Apartment, suite, unit, building, floor, etc.
-                </p>
-              )}
+              <p className={styles.helperText}>
+                {t('ui.checkout.customer_info.helpers.address_line2_description')}
+              </p>
             </div>
 
             {/* City and State/Province (side by side) */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
               <div className={styles.formField}>
                 <label className={styles.fieldLabel}>
-                  City <span className={styles.required}>*</span>
+                  {t('ui.checkout.customer_info.labels.city')} <span className={styles.required}>{t('ui.checkout.customer_info.required_optional.required_indicator')}</span>
                 </label>
                 <input
                   type="text"
                   value={city}
                   onChange={(e) => {
-                    if (!isEmployerBilling) {
-                      setCity(e.target.value);
-                      if (errors.city) setErrors({ ...errors, city: "" });
-                    }
+                    setCity(e.target.value);
+                    if (errors.city) setErrors({ ...errors, city: "" });
                   }}
-                  placeholder="San Francisco"
+                  placeholder={t('ui.checkout.customer_info.placeholders.city')}
                   className={`${styles.input} ${errors.city ? styles.inputError : ""}`}
                   required={transactionType === "B2B"}
-                  readOnly={isEmployerBilling}
-                  disabled={isEmployerBilling}
-                  style={isEmployerBilling ? { backgroundColor: "#F3F4F6", cursor: "not-allowed" } : {}}
                 />
                 {errors.city && (
                   <p className={styles.errorMessage}>{errors.city}</p>
@@ -649,19 +662,14 @@ export function CustomerInfoStep({
 
               <div className={styles.formField}>
                 <label className={styles.fieldLabel}>
-                  State/Province <span className={styles.optional}>(Optional)</span>
+                  {t('ui.checkout.customer_info.labels.state_province')} <span className={styles.optional}>{t('ui.checkout.customer_info.required_optional.optional_indicator')}</span>
                 </label>
                 <input
                   type="text"
                   value={state}
-                  onChange={(e) => {
-                    if (!isEmployerBilling) setState(e.target.value);
-                  }}
-                  placeholder="CA"
+                  onChange={(e) => setState(e.target.value)}
+                  placeholder={t('ui.checkout.customer_info.placeholders.state')}
                   className={styles.input}
-                  readOnly={isEmployerBilling}
-                  disabled={isEmployerBilling}
-                  style={isEmployerBilling ? { backgroundColor: "#F3F4F6", cursor: "not-allowed" } : {}}
                 />
               </div>
             </div>
@@ -670,23 +678,18 @@ export function CustomerInfoStep({
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
               <div className={styles.formField}>
                 <label className={styles.fieldLabel}>
-                  Postal Code <span className={styles.required}>*</span>
+                  {t('ui.checkout.customer_info.labels.postal_code')} <span className={styles.required}>{t('ui.checkout.customer_info.required_optional.required_indicator')}</span>
                 </label>
                 <input
                   type="text"
                   value={postalCode}
                   onChange={(e) => {
-                    if (!isEmployerBilling) {
-                      setPostalCode(e.target.value);
-                      if (errors.postalCode) setErrors({ ...errors, postalCode: "" });
-                    }
+                    setPostalCode(e.target.value);
+                    if (errors.postalCode) setErrors({ ...errors, postalCode: "" });
                   }}
-                  placeholder="94105"
+                  placeholder={t('ui.checkout.customer_info.placeholders.postal_code')}
                   className={`${styles.input} ${errors.postalCode ? styles.inputError : ""}`}
                   required={transactionType === "B2B"}
-                  readOnly={isEmployerBilling}
-                  disabled={isEmployerBilling}
-                  style={isEmployerBilling ? { backgroundColor: "#F3F4F6", cursor: "not-allowed" } : {}}
                 />
                 {errors.postalCode && (
                   <p className={styles.errorMessage}>{errors.postalCode}</p>
@@ -695,42 +698,36 @@ export function CustomerInfoStep({
 
               <div className={styles.formField}>
                 <label className={styles.fieldLabel}>
-                  Country <span className={styles.required}>*</span>
+                  {t('ui.checkout.customer_info.labels.country')} <span className={styles.required}>{t('ui.checkout.customer_info.required_optional.required_indicator')}</span>
                 </label>
                 <select
                   value={country}
                   onChange={(e) => {
-                    if (!isEmployerBilling) {
-                      setCountry(e.target.value);
-                      if (errors.country) setErrors({ ...errors, country: "" });
-                    }
+                    setCountry(e.target.value);
+                    if (errors.country) setErrors({ ...errors, country: "" });
                   }}
                   className={`${styles.input} ${errors.country ? styles.inputError : ""}`}
                   required={transactionType === "B2B"}
-                  disabled={isEmployerBilling}
-                  style={isEmployerBilling ? { backgroundColor: "#F3F4F6", cursor: "not-allowed" } : {}}
                 >
-                  <option value="DE">Deutschland</option>
-                  <option value="AT">Österreich</option>
-                  <option value="CH">Schweiz</option>
-                  <option value="PL">Polen</option>
-                  <option value="FR">Frankreich</option>
-                  <option value="NL">Niederlande</option>
-                  <option value="BE">Belgien</option>
-                  <option value="DK">Dänemark</option>
-                  <option value="SE">Schweden</option>
-                  <option value="NO">Norwegen</option>
-                  <option value="GB">Vereinigtes Königreich</option>
-                  <option value="US">USA</option>
+                  <option value="DE">{t('ui.checkout.customer_info.countries.de')}</option>
+                  <option value="AT">{t('ui.checkout.customer_info.countries.at')}</option>
+                  <option value="CH">{t('ui.checkout.customer_info.countries.ch')}</option>
+                  <option value="PL">{t('ui.checkout.customer_info.countries.pl')}</option>
+                  <option value="FR">{t('ui.checkout.customer_info.countries.fr')}</option>
+                  <option value="NL">{t('ui.checkout.customer_info.countries.nl')}</option>
+                  <option value="BE">{t('ui.checkout.customer_info.countries.be')}</option>
+                  <option value="DK">{t('ui.checkout.customer_info.countries.dk')}</option>
+                  <option value="SE">{t('ui.checkout.customer_info.countries.se')}</option>
+                  <option value="NO">{t('ui.checkout.customer_info.countries.no')}</option>
+                  <option value="GB">{t('ui.checkout.customer_info.countries.gb')}</option>
+                  <option value="US">{t('ui.checkout.customer_info.countries.us')}</option>
                 </select>
                 {errors.country && (
                   <p className={styles.errorMessage}>{errors.country}</p>
                 )}
-                {!isEmployerBilling && (
-                  <p className={styles.helperText}>
-                    ISO 3166-1 alpha-2 country code (e.g., DE for Germany)
-                  </p>
-                )}
+                <p className={styles.helperText}>
+                  {t('ui.checkout.customer_info.helpers.country_code_format')}
+                </p>
               </div>
             </div>
           </>
@@ -744,7 +741,7 @@ export function CustomerInfoStep({
             className={styles.secondaryButton}
           >
             <ArrowLeft size={16} />
-            Back
+            {t('ui.checkout.customer_info.buttons.back')}
           </button>
 
           <button
@@ -752,7 +749,7 @@ export function CustomerInfoStep({
             disabled={!isValid()}
             className={styles.primaryButton}
           >
-            Continue →
+            {t('ui.checkout.customer_info.buttons.continue')} →
           </button>
         </div>
       </form>

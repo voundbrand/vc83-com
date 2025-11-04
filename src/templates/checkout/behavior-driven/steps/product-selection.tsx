@@ -1,0 +1,264 @@
+"use client";
+
+/**
+ * STEP 1: PRODUCT SELECTION
+ *
+ * Select products and quantities for checkout.
+ * Calculates taxes inline using organization tax settings.
+ */
+
+import { useState, useMemo } from "react";
+import { useQuery } from "convex/react";
+import { api } from "../../../../../convex/_generated/api";
+import { StepProps } from "../types";
+import { ShoppingCart } from "lucide-react";
+import { Id } from "../../../../../convex/_generated/dataModel";
+import { calculateCheckoutTax, getTaxRateByCode, getDefaultTaxRate as getDefaultTaxRateByCountry } from "@/lib/tax-calculator";
+
+export function ProductSelectionStep({ organizationId, products, checkoutData, onComplete }: StepProps) {
+  // Fetch organization tax settings
+  const taxSettings = useQuery(api.organizationTaxSettings.getPublicTaxSettings, {
+    organizationId,
+  });
+  // Initialize quantities from checkoutData or default to 0
+  const [quantities, setQuantities] = useState<Record<string, number>>(() => {
+    const initial: Record<string, number> = {};
+    checkoutData.selectedProducts?.forEach((sp) => {
+      initial[sp.productId] = sp.quantity;
+    });
+    return initial;
+  });
+
+  // Calculate selected products
+  const selectedProducts = useMemo(() => {
+    return products
+      .filter((p) => quantities[p._id] > 0)
+      .map((p) => ({
+        productId: p._id,
+        quantity: quantities[p._id],
+        price: p.price,
+      }));
+  }, [products, quantities]);
+
+  // Calculate tax using organization settings
+  // Get default tax rate for products without a tax code
+  // This runs on every render, so it recalculates when taxSettings loads
+  const getDefaultTaxRate = () => {
+    if (!taxSettings?.taxEnabled) return 0;
+
+    // Try to find active custom rate for origin address
+    const activeRate = taxSettings.customRates?.find(
+      (rate) => rate.active &&
+        rate.jurisdiction === `${taxSettings.originAddress.country}-${taxSettings.originAddress.state || ""}`
+    );
+
+    if (activeRate) {
+      return activeRate.rate * 100; // Convert decimal to percentage
+    }
+
+    // Use organization's default tax code if set
+    if (taxSettings.defaultTaxCode) {
+      return getTaxRateByCode(taxSettings.defaultTaxCode, 0);
+    }
+
+    // Fallback to country-level standard rates from our comprehensive mapping
+    return getDefaultTaxRateByCountry(
+      taxSettings.originAddress.country,
+      taxSettings.originAddress.state
+    );
+  };
+
+  const defaultTaxRate = getDefaultTaxRate();
+  const defaultTaxBehavior = taxSettings?.defaultTaxBehavior || "exclusive";
+
+  // Calculate tax - the calculator will use each product's tax code if available
+  // NOTE: This runs on every render so tax updates when products change or settings load
+  const taxCalculation = selectedProducts.length === 0
+    ? {
+        subtotal: 0,
+        taxAmount: 0,
+        total: 0,
+        taxRate: defaultTaxRate,
+        taxBehavior: defaultTaxBehavior,
+        isTaxable: false,
+        lineItems: [],
+      }
+    : calculateCheckoutTax(
+        selectedProducts.map((sp) => {
+          const product = products.find((p) => p._id === sp.productId);
+          return { product: product!, quantity: sp.quantity };
+        }),
+        defaultTaxRate,
+        defaultTaxBehavior
+      );
+
+  const { subtotal, taxAmount, total } = taxCalculation;
+
+  const formatPrice = (amount: number, currency: string) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: currency.toUpperCase(),
+    }).format(amount / 100);
+  };
+
+  const handleContinue = () => {
+    if (selectedProducts.length === 0) {
+      alert("Please select at least one product");
+      return;
+    }
+
+    onComplete({
+      selectedProducts: selectedProducts.map(p => ({
+        ...p,
+        productId: p.productId as Id<"objects">,
+      })),
+      totalPrice: total,
+      taxCalculation: {
+        subtotal,
+        taxAmount,
+        total,
+        taxRate: defaultTaxRate,
+        isTaxable: taxCalculation.isTaxable,
+        taxBehavior: taxCalculation.taxBehavior,
+        lineItems: taxCalculation.lineItems.map(item => ({
+          subtotal: item.subtotal,
+          taxAmount: item.taxAmount,
+          taxRate: item.taxCode ? getTaxRateByCode(item.taxCode, defaultTaxRate) : defaultTaxRate,
+          taxable: item.taxable,
+          taxCode: item.taxCode,
+        })),
+      },
+    });
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto p-6">
+      {/* Header */}
+      <div className="mb-8">
+        <h2 className="text-3xl font-bold mb-2 flex items-center gap-3">
+          <ShoppingCart size={32} />
+          Select Products
+        </h2>
+        <p className="text-gray-600">Choose your tickets and quantities</p>
+      </div>
+
+      {/* Product Grid */}
+      <div className="grid gap-6 mb-8">
+        {products.map((product) => {
+          const quantity = quantities[product._id] || 0;
+          const maxQty = product.customProperties?.maxQuantity || 99;
+
+          return (
+            <div
+              key={product._id}
+              className="bg-white border-2 border-gray-300 rounded-lg p-6 hover:border-purple-400 transition-colors"
+            >
+              <div className="flex gap-6">
+                {/* Product Info */}
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold mb-2">{product.name}</h3>
+                  {product.description && (
+                    <p className="text-gray-600 mb-4">{product.description}</p>
+                  )}
+
+                  {/* Price and Quantity */}
+                  <div className="flex items-center gap-4">
+                    <div className="text-2xl font-bold text-purple-600">
+                      {formatPrice(product.price, product.currency)}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setQuantities({ ...quantities, [product._id]: Math.max(0, quantity - 1) })}
+                        disabled={quantity === 0}
+                        className="px-3 py-1 border-2 border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        −
+                      </button>
+                      <span className="w-12 text-center font-bold">{quantity}</span>
+                      <button
+                        onClick={() => setQuantities({ ...quantities, [product._id]: Math.min(maxQty, quantity + 1) })}
+                        disabled={quantity >= maxQty}
+                        className="px-3 py-1 border-2 border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        +
+                      </button>
+                    </div>
+
+                    {quantity > 0 && (
+                      <div className="ml-auto text-lg font-bold">
+                        = {formatPrice(product.price * quantity, product.currency)}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Cart Summary with Tax Breakdown */}
+      {selectedProducts.length > 0 && (
+        <div className="bg-purple-50 border-2 border-purple-300 rounded-lg p-6 mb-6">
+          <h3 className="text-lg font-bold mb-4">Cart Summary</h3>
+          <div className="space-y-2 mb-4">
+            {selectedProducts.map((sp) => {
+              const product = products.find((p) => p._id === sp.productId);
+              return (
+                <div key={sp.productId} className="flex justify-between text-sm">
+                  <span>
+                    {product?.name} × {sp.quantity}
+                  </span>
+                  <span className="font-medium">
+                    {formatPrice(sp.price * sp.quantity, product?.currency || "USD")}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          {/* Tax Breakdown */}
+          <div className="space-y-2 pt-4 border-t-2 border-purple-200">
+            <div className="flex justify-between text-sm">
+              <span>Subtotal:</span>
+              <span className="font-medium">{formatPrice(subtotal, products[0]?.currency || "USD")}</span>
+            </div>
+            {taxCalculation.isTaxable && taxAmount > 0 && (() => {
+              // Calculate effective tax rate: (taxAmount / subtotal) * 100
+              const effectiveTaxRate = subtotal > 0 ? (taxAmount / subtotal) * 100 : 0;
+
+              return (
+                <div className="flex justify-between text-sm">
+                  <span>
+                    Tax ({effectiveTaxRate.toFixed(1)}%)
+                    <span className="text-xs ml-1 opacity-70">
+                      {taxCalculation.taxBehavior === "inclusive" ? "💶 included" : "💵 added"}
+                    </span>
+                  </span>
+                  <span className="font-medium">{formatPrice(taxAmount, products[0]?.currency || "USD")}</span>
+                </div>
+              );
+            })()}
+          </div>
+          <div className="pt-4 border-t-2 border-purple-400 flex justify-between items-center">
+            <span className="text-xl font-bold">Total:</span>
+            <span className="text-2xl font-bold text-purple-600">
+              {formatPrice(total, products[0]?.currency || "USD")}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      <div className="flex gap-4">
+        <button
+          onClick={handleContinue}
+          disabled={selectedProducts.length === 0}
+          className="flex-1 px-6 py-3 text-lg font-bold border-2 border-purple-600 bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed rounded transition-colors"
+        >
+          Continue to Registration →
+        </button>
+      </div>
+    </div>
+  );
+}

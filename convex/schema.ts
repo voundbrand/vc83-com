@@ -20,6 +20,7 @@ import {
   organizationMembers,
   userPasswords,
   sessions,
+  apiKeys,
   roles,
   permissions,
   rolePermissions,
@@ -28,7 +29,7 @@ import {
 } from "./schemas/coreSchemas";
 import { apps, appInstallations, snapshots, snapshotLoads, purchases, appAvailabilities } from "./schemas/appStoreSchemas";
 // import { app_podcasting } from "./schemas/appDataSchemas"; // Not yet used
-import { auditLogs } from "./schemas/utilitySchemas";
+import { auditLogs, workflowExecutionLogs } from "./schemas/utilitySchemas";
 // ❌ OLD TRANSLATION SCHEMAS - Replaced by ontology
 // import {
 //   systemTranslations,
@@ -55,6 +56,7 @@ export default defineSchema({
   organizationMembers,
   userPasswords,
   sessions,
+  apiKeys,
   userPreferences,
   organizationMedia,
 
@@ -83,6 +85,7 @@ export default defineSchema({
 
   // 🛠️ UTILITIES: Supporting functionality
   auditLogs,
+  workflowExecutionLogs,
 
   // 🥷 ONTOLOGY: Universal object system
   objects,        // Universal storage for all entity types

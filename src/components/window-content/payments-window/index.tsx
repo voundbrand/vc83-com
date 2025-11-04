@@ -4,14 +4,13 @@ import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { StripeConnectSection } from "./stripe-connect-section";
-import { TransactionsSection } from "./transactions-section";
 import { InvoicingSection } from "./invoicing-section";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
-import { CreditCard, History, Loader2, AlertCircle, Building2, FileText } from "lucide-react";
+import { CreditCard, Loader2, AlertCircle, Building2, FileText } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 
-type TabType = "stripe" | "transactions" | "invoicing";
+type TabType = "stripe" | "invoicing";
 
 export function PaymentsWindow() {
   const [activeTab, setActiveTab] = useState<TabType>("stripe");
@@ -128,7 +127,7 @@ export function PaymentsWindow() {
           Stripe
         </button>
         <button
-          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
+          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2"
           style={{
             borderColor: "var(--win95-border)",
             background: activeTab === "invoicing" ? "var(--win95-bg-light)" : "var(--win95-bg)",
@@ -137,19 +136,7 @@ export function PaymentsWindow() {
           onClick={() => setActiveTab("invoicing")}
         >
           <FileText size={14} />
-          Invoicing
-        </button>
-        <button
-          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2"
-          style={{
-            borderColor: "var(--win95-border)",
-            background: activeTab === "transactions" ? "var(--win95-bg-light)" : "var(--win95-bg)",
-            color: activeTab === "transactions" ? "var(--win95-text)" : "var(--neutral-gray)",
-          }}
-          onClick={() => setActiveTab("transactions")}
-        >
-          <History size={14} />
-          Transactions
+          Invoicing Setup
         </button>
       </div>
 
@@ -162,12 +149,6 @@ export function PaymentsWindow() {
         )}
 
         {activeTab === "invoicing" && <InvoicingSection />}
-
-        {activeTab === "transactions" && (
-          <div className="p-4">
-            <TransactionsSection organizationId={organizationId as Id<"organizations">} />
-          </div>
-        )}
       </div>
 
       {/* Footer */}

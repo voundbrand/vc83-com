@@ -81,19 +81,27 @@ export const initiateInvoicePayment = action({
       }
 
       // 2. Extract product and form data from session
-      const items = session.customProperties?.items as Array<{ productId: Id<"objects">; quantity: number }> | undefined;
+      console.log("🔍 [initiateInvoicePayment] Session customProperties keys:", Object.keys(session.customProperties || {}));
+      console.log("🔍 [initiateInvoicePayment] Session.customProperties.selectedProducts:", session.customProperties?.selectedProducts);
+
+      const selectedProducts = session.customProperties?.selectedProducts as Array<{ productId: Id<"objects">; quantity: number }> | undefined;
       const formResponses = session.customProperties?.formResponses as Array<{
         productId: Id<"objects">;
         ticketNumber: number;
         responses: Record<string, string | number | boolean>;
       }> | undefined;
 
-      if (!items || items.length === 0) {
+      console.log("🔍 [initiateInvoicePayment] selectedProducts after extraction:", selectedProducts);
+      console.log("🔍 [initiateInvoicePayment] selectedProducts length:", selectedProducts?.length);
+
+      if (!selectedProducts || selectedProducts.length === 0) {
+        console.error("❌ [initiateInvoicePayment] No products found!");
+        console.error("❌ [initiateInvoicePayment] Full session.customProperties:", JSON.stringify(session.customProperties, null, 2));
         throw new Error("No products in checkout session");
       }
 
       // 3. Load first product's invoice config (assume single product for B2B invoicing)
-      const productId = items[0].productId;
+      const productId = selectedProducts[0].productId;
       const product = await ctx.runQuery(internal.productOntology.getProductInternal, { productId });
 
       if (!product) {
@@ -181,13 +189,13 @@ export const initiateInvoicePayment = action({
 
       // 7. Generate tickets AND purchase items immediately (customer gets tickets, employer gets invoice)
       // Calculate total quantity of tickets needed
-      const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
+      const totalQuantity = selectedProducts.reduce((sum: number, item: { quantity: number }) => sum + item.quantity, 0);
 
       const ticketIds: Id<"objects">[] = [];
       const purchaseItemIds: Id<"objects">[] = [];
 
       // Create tickets and purchase items for each quantity
-      for (const item of items) {
+      for (const item of selectedProducts) {
         const itemProduct = await ctx.runQuery(internal.productOntology.getProductInternal, {
           productId: item.productId
         });
@@ -225,6 +233,11 @@ export const initiateInvoicePayment = action({
                 formResponses: formResponse?.responses || {},
                 paymentStatus: "awaiting_employer_payment",
                 pricePaid: (itemProduct.customProperties?.priceInCents as number) || 0,
+                // 🔥 CRITICAL: Link ticket to CRM organization for consolidated invoicing
+                crmOrganizationId, // Employer organization from invoice config mapping
+                // 🔥 CRITICAL: Also store eventId and productId in customProperties for workflow filtering
+                eventId: itemProduct.customProperties?.eventId as Id<"objects"> | undefined,
+                productId: item.productId,
               },
             }
           );
@@ -301,68 +314,16 @@ export const initiateInvoicePayment = action({
         );
       }
 
-      // 8. Create consolidated invoice using EXISTING function with configured payment terms
-      const invoiceResult = await ctx.runMutation(
-        api.invoicingOntology.createConsolidatedInvoice,
-        {
-          sessionId: args.sessionId,
-          organizationId: args.organizationId,
-          crmOrganizationId,
-          ticketIds,
-          paymentTerms: invoiceConfig.defaultPaymentTerms || "net30",
-          notes: `Invoice generated from online checkout for ${organizationName}`,
-        }
-      ) as {
-        success: boolean;
-        invoiceId: Id<"objects">;
-        invoiceNumber: string;
-        ticketCount: number;
-        totalInCents: number;
-      };
+      // 🔥 IMPORTANT: Do NOT create invoice here!
+      // Tickets should remain uninvoiced so they can be consolidated later by the workflow.
+      // The consolidated invoice workflow will group multiple tickets and create a single invoice.
 
-      if (!invoiceResult.success) {
-        throw new Error("Failed to create consolidated invoice");
-      }
+      console.log(`✅ Created ${ticketIds.length} tickets for employer billing (no invoice yet)`);
+      console.log(`   Tickets will be consolidated later via workflow`);
+      console.log(`   CRM Organization: ${crmOrganizationId}`);
 
-      // 9. Get invoice details for PDF generation
-      const invoice = await ctx.runQuery(
-        internal.invoicingOntology.getInvoiceByIdInternal,
-        { invoiceId: invoiceResult.invoiceId }
-      ) as Doc<"objects"> | null;
-
-      if (!invoice) {
-        throw new Error("Invoice not found after creation");
-      }
-
-      // 10. Generate PDF using EXISTING template system
-      const templateData = prepareInvoiceTemplateData(invoice);
-      const pdfResult = await ctx.runAction(
-        api.pdfGenerationTemplated.generatePdfFromTemplate,
-        {
-          templateId: "b2b_consolidated" as "b2b_consolidated" | "b2b_consolidated_detailed" | "b2c_receipt",
-          data: templateData,
-          organizationId: args.organizationId,
-        }
-      );
-
-      // 11. Store PDF and update invoice
-      let pdfUrl: string | null = null;
-      if (pdfResult?.content) {
-        const pdfBlob = Buffer.from(pdfResult.content, "base64");
-        const storageId = await ctx.storage.store(
-          new Blob([pdfBlob], { type: "application/pdf" })
-        );
-        pdfUrl = await ctx.storage.getUrl(storageId);
-
-        // Update invoice with PDF URL
-        await ctx.runMutation(internal.invoicingOntology.updateInvoicePdfUrl, {
-          invoiceId: invoiceResult.invoiceId,
-          pdfUrl: pdfUrl || "",
-        });
-      }
-
-      // 12. Send order confirmation email to customer with tickets
-      // Customer gets tickets immediately, invoice goes to employer separately
+      // Send order confirmation email to customer with tickets
+      // Customer gets tickets immediately, invoice will be sent to employer later
       const customerEmail = session.customProperties?.customerEmail as string;
       const customerName = session.customProperties?.customerName as string;
 
@@ -372,7 +333,7 @@ export const initiateInvoicePayment = action({
             checkoutSessionId: args.checkoutSessionId,
             recipientEmail: customerEmail,
             recipientName: customerName || "Customer",
-            includeInvoicePDF: false, // Don't send invoice to employee (employer gets it)
+            includeInvoicePDF: false, // Don't send invoice to employee (employer gets it later)
           });
           console.log("✅ Order confirmation email sent to customer:", customerEmail);
         } catch (emailError) {
@@ -381,15 +342,14 @@ export const initiateInvoicePayment = action({
         }
       }
 
-      // 13. Mark invoice as draft for admin review
-      // Admin can review and send invoice to employer organization
+      console.log(`✅ Created ${ticketIds.length} tickets. Run consolidated invoice workflow to generate invoice.`);
 
       return {
         success: true,
         requiresUserAction: false,
-        invoiceId: invoiceResult.invoiceId,
-        invoiceNumber: invoiceResult.invoiceNumber,
-        pdfUrl,
+        invoiceId: undefined, // No invoice yet - will be created by consolidated invoice workflow
+        invoiceNumber: undefined,
+        pdfUrl: undefined,
         status: "awaiting_employer_payment",
       };
     } catch (error) {

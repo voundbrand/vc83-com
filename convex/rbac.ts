@@ -438,6 +438,29 @@ export const BASE_PERMISSIONS = [
     category: PERMISSION_CATEGORIES.OPERATIONS,
     description: 'View form submissions and responses'
   },
+
+  // Workflow Management Permissions
+  {
+    name: 'view_workflows',
+    resource: 'workflows',
+    action: 'read',
+    category: PERMISSION_CATEGORIES.OPERATIONS,
+    description: 'View workflows configured on products'
+  },
+  {
+    name: 'manage_workflows',
+    resource: 'workflows',
+    action: 'manage',
+    category: PERMISSION_CATEGORIES.OPERATIONS,
+    description: 'Create, edit, and delete workflows on products'
+  },
+  {
+    name: 'test_workflows',
+    resource: 'workflows',
+    action: 'execute',
+    category: PERMISSION_CATEGORIES.OPERATIONS,
+    description: 'Test workflow execution and configurations'
+  },
 ] as const;
 
 /**
@@ -480,7 +503,9 @@ export const ROLE_PERMISSION_MAPPINGS: Record<string, string[]> = {
     'manage_apps',
     'view_audit_logs',
     'manage_forms',
-    'view_*', // All view permissions (includes view_roles, view_permissions)
+    'manage_workflows',
+    'test_workflows',
+    'view_*', // All view permissions (includes view_roles, view_permissions, view_workflows)
   ],
 
   'business_manager': [
@@ -496,7 +521,9 @@ export const ROLE_PERMISSION_MAPPINGS: Record<string, string[]> = {
     'install_apps',
     'manage_apps',
     'manage_forms',
-    'view_*', // All view permissions (already includes view_roles, view_permissions)
+    'manage_workflows',
+    'test_workflows',
+    'view_*', // All view permissions (already includes view_roles, view_permissions, view_workflows)
   ],
 
   'employee': [
@@ -514,6 +541,7 @@ export const ROLE_PERMISSION_MAPPINGS: Record<string, string[]> = {
     'delete_forms',
     'view_forms',
     'view_form_responses',
+    'view_workflows',
   ],
 
   'viewer': [
@@ -527,6 +555,7 @@ export const ROLE_PERMISSION_MAPPINGS: Record<string, string[]> = {
     'view_apps',
     'view_forms',
     'view_form_responses',
+    'view_workflows',
   ],
 
   'translator': [

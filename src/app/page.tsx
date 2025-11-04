@@ -14,12 +14,14 @@ import { WebPublishingWindow } from "@/components/window-content/web-publishing-
 import MediaLibraryWindow from "@/components/window-content/media-library-window"
 import { ProductsWindow } from "@/components/window-content/products-window"
 import { TicketsWindow } from "@/components/window-content/tickets-window"
+import { CertificatesWindow } from "@/components/window-content/certificates-window"
 import { EventsWindow } from "@/components/window-content/events-window"
 import { CheckoutWindow } from "@/components/window-content/checkout-window"
 import { FormsWindow } from "@/components/window-content/forms-window"
 import { AllAppsWindow } from "@/components/window-content/all-apps-window"
 import { CRMWindow } from "@/components/window-content/crm-window"
 import { InvoicingWindow } from "@/components/window-content/invoicing-window"
+import { WorkflowsWindow } from "@/components/window-content/workflows-window"
 import { WindowsMenu } from "@/components/windows-menu"
 import { useIsMobile } from "@/hooks/use-media-query"
 import { useAuth, useOrganizations, useCurrentOrganization, useIsSuperAdmin, useAccountDeletionStatus } from "@/hooks/use-auth"
@@ -74,6 +76,10 @@ export default function HomePage() {
     openWindow("tickets", "Tickets", <TicketsWindow />, { x: 280, y: 200 }, { width: 950, height: 650 })
   }
 
+  const openCertificatesWindow = () => {
+    openWindow("certificates", "Certificates", <CertificatesWindow />, { x: 290, y: 210 }, { width: 1100, height: 700 })
+  }
+
   const openEventsWindow = () => {
     openWindow("events", "Events", <EventsWindow />, { x: 300, y: 220 }, { width: 950, height: 650 })
   }
@@ -96,6 +102,10 @@ export default function HomePage() {
 
   const openInvoicingWindow = () => {
     openWindow("invoicing", "Invoicing", <InvoicingWindow />, { x: 380, y: 300 }, { width: 950, height: 650 })
+  }
+
+  const openWorkflowsWindow = () => {
+    openWindow("workflows", "Workflows", <WorkflowsWindow />, { x: 400, y: 320 }, { width: 1200, height: 750 })
   }
 
   const handleLogout = () => {
@@ -173,6 +183,7 @@ export default function HomePage() {
       'web-publishing': isAppAvailable("web-publishing"),
       'crm': isAppAvailable("crm"),
       'app_invoicing': isAppAvailable("app_invoicing"),
+      'workflows': isAppAvailable("workflows"),
     }
   });
 
@@ -194,6 +205,9 @@ export default function HomePage() {
     ...(isAppAvailable("tickets") ? [
       { label: "Tickets", icon: "🎟️", onClick: requireAuth(openTicketsWindow) }
     ] : []),
+    ...(isAppAvailable("certificates") ? [
+      { label: "Certificates", icon: "📜", onClick: requireAuth(openCertificatesWindow) }
+    ] : []),
     ...(isAppAvailable("events") ? [
       { label: "Events", icon: "📅", onClick: requireAuth(openEventsWindow) }
     ] : []),
@@ -214,6 +228,10 @@ export default function HomePage() {
     // Invoicing app - B2B/B2C invoice management
     ...(isAppAvailable("app_invoicing") ? [
       { label: "Invoicing", icon: "💳", onClick: requireAuth(openInvoicingWindow) }
+    ] : []),
+    // Workflows app - Multi-object behavior orchestration
+    ...(isAppAvailable("workflows") ? [
+      { label: "Workflows", icon: "⚡", onClick: requireAuth(openWorkflowsWindow) }
     ] : []),
     //{ label: "L4YERCAK3 Podcast", icon: "🎙️", onClick: requireAuth(openEpisodesWindow) },
     //{ label: "Subscribe", icon: "🔊", onClick: requireAuth(openSubscribeWindow) },

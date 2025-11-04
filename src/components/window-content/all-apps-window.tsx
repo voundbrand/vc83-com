@@ -1,7 +1,7 @@
 "use client";
 
 import { useAvailableApps } from "@/hooks/use-app-availability";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
 import { useWindowManager } from "@/hooks/use-window-manager";
 import { PaymentsWindow } from "@/components/window-content/payments-window";
@@ -9,11 +9,13 @@ import { WebPublishingWindow } from "@/components/window-content/web-publishing-
 import MediaLibraryWindow from "@/components/window-content/media-library-window";
 import { ProductsWindow } from "@/components/window-content/products-window";
 import { TicketsWindow } from "@/components/window-content/tickets-window";
+import { CertificatesWindow } from "@/components/window-content/certificates-window";
 import { EventsWindow } from "@/components/window-content/events-window";
 import { CheckoutWindow } from "@/components/window-content/checkout-window";
 import { FormsWindow } from "@/components/window-content/forms-window";
 import { CRMWindow } from "@/components/window-content/crm-window";
 import { InvoicingWindow } from "@/components/window-content/invoicing-window";
+import { WorkflowsWindow } from "@/components/window-content/workflows-window";
 
 /**
  * All Apps Window
@@ -23,6 +25,7 @@ import { InvoicingWindow } from "@/components/window-content/invoicing-window";
  */
 export function AllAppsWindow() {
   const { isSignedIn } = useAuth();
+  const currentOrg = useCurrentOrganization();
   const { availableApps, isLoading, organizationName } = useAvailableApps();
   const { openWindow } = useWindowManager();
 
@@ -106,6 +109,11 @@ export function AllAppsWindow() {
         width: 950,
         height: 650
       },
+      'certificates': {
+        component: <CertificatesWindow />,
+        width: 1100,
+        height: 700
+      },
       'events': {
         component: <EventsWindow />,
         width: 950,
@@ -131,7 +139,14 @@ export function AllAppsWindow() {
         width: 950,
         height: 650
       },
+      'workflows': {
+        component: <WorkflowsWindow />,
+        width: 1200,
+        height: 750
+      },
     };
+
+    console.log('[AllAppsWindow] Attempting to open app:', appCode, 'Available in map:', appCode in appWindowMap);
 
     const appWindow = appWindowMap[appCode];
     if (appWindow) {

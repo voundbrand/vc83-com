@@ -18,14 +18,15 @@ import {
   Calendar,
   User,
   CreditCard,
+  Receipt,
 } from "lucide-react";
 
 interface TransactionsSectionProps {
   organizationId: Id<"organizations">;
 }
 
-type TransactionStatus = "all" | "completed" | "pending" | "failed" | "abandoned";
-type TransactionType = "all" | "B2C" | "B2B";
+type TransactionStatus = "all" | "paid" | "pending" | "failed" | "awaiting_employer_payment";
+type InvoicingStatus = "all" | "pending" | "on_draft_invoice" | "invoiced";
 type SortField = "date" | "amount" | "customer";
 type SortDirection = "asc" | "desc";
 
@@ -33,7 +34,7 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
   const { sessionId } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<TransactionStatus>("all");
-  const [transactionTypeFilter, setTransactionTypeFilter] = useState<TransactionType>("all");
+  const [invoicingStatusFilter, setInvoicingStatusFilter] = useState<InvoicingStatus>("all");
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [selectedTransaction, setSelectedTransaction] = useState<Id<"objects"> | null>(null);
@@ -67,23 +68,22 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
     }
   }, [dateRange, customDateFrom, customDateTo]);
 
-  // Get transactions from transactionOntology
+  // Get transactions from transactionOntology (NEW: using actual transaction objects)
   const transactionsData = useQuery(
-    api.transactionOntology.getOrganizationTransactions,
+    api.transactionOntology.listTransactions,
     organizationId && sessionId
       ? {
           sessionId,
           organizationId,
-          status: statusFilter,
-          transactionType: transactionTypeFilter,
+          paymentStatus: statusFilter === "all" ? undefined : statusFilter,
           ...dateRangeParams,
         }
       : "skip"
   );
 
-  // Get transaction stats (with same date range as transactions)
+  // Get transaction stats (NEW: using actual transaction objects)
   const stats = useQuery(
-    api.transactionOntology.getTransactionStats,
+    api.transactionOntology.getTransactionStatsNew,
     organizationId && sessionId
       ? {
           sessionId,
@@ -110,9 +110,10 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "completed":
+      case "paid":
         return <CheckCircle2 className="text-green-500" size={16} />;
       case "pending":
+      case "awaiting_employer_payment":
         return <Clock className="text-yellow-500" size={16} />;
       case "failed":
       case "cancelled":
@@ -124,13 +125,27 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
-      case "completed":
+      case "paid":
         return { bg: "var(--success-light)", text: "var(--success)" };
       case "pending":
+      case "awaiting_employer_payment":
         return { bg: "var(--warning-light)", text: "var(--warning)" };
       case "failed":
       case "cancelled":
         return { bg: "var(--error-light)", text: "var(--error)" };
+      default:
+        return { bg: "var(--neutral-light)", text: "var(--neutral-gray)" };
+    }
+  };
+
+  const getInvoicingStatusBadgeColor = (status: string) => {
+    switch (status) {
+      case "invoiced":
+        return { bg: "var(--success-light)", text: "var(--success)" };
+      case "on_draft_invoice":
+        return { bg: "var(--info-light)", text: "var(--primary)" };
+      case "pending":
+        return { bg: "var(--neutral-light)", text: "var(--neutral-gray)" };
       default:
         return { bg: "var(--neutral-light)", text: "var(--neutral-gray)" };
     }
@@ -156,15 +171,24 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
     }).format(new Date(timestamp));
   };
 
-  // Client-side search filter (backend handles status and type filters)
+  // Client-side search and invoicing status filter
   const filteredTransactions = transactions
     ?.filter((tx) => {
+      // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
-        const email = (tx.customerEmail || "").toLowerCase();
-        const name = (tx.customerName || "").toLowerCase();
-        const company = (tx.companyName || "").toLowerCase();
-        return email.includes(query) || name.includes(query) || company.includes(query);
+        const email = ((tx.customProperties?.customerEmail as string) || "").toLowerCase();
+        const name = ((tx.customProperties?.customerName as string) || "").toLowerCase();
+        const productName = ((tx.customProperties?.productName as string) || "").toLowerCase();
+        return email.includes(query) || name.includes(query) || productName.includes(query);
+      }
+      return true;
+    })
+    .filter((tx) => {
+      // Invoicing status filter
+      if (invoicingStatusFilter !== "all") {
+        const txInvoicingStatus = tx.customProperties?.invoicingStatus as string;
+        return txInvoicingStatus === invoicingStatusFilter;
       }
       return true;
     })
@@ -178,12 +202,12 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
           bValue = b._creationTime;
           break;
         case "amount":
-          aValue = a.totalAmount;
-          bValue = b.totalAmount;
+          aValue = (a.customProperties?.totalPriceInCents as number) || 0;
+          bValue = (b.customProperties?.totalPriceInCents as number) || 0;
           break;
         case "customer":
-          aValue = a.customerName;
-          bValue = b.customerName;
+          aValue = (a.customProperties?.customerName as string) || "";
+          bValue = (b.customProperties?.customerName as string) || "";
           break;
       }
 
@@ -219,7 +243,7 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
           </div>
         </div>
 
-        {/* Status Filter */}
+        {/* Payment Status Filter */}
         <div>
           <select
             value={statusFilter}
@@ -231,19 +255,19 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
               color: "var(--win95-text)",
             }}
           >
-            <option value="all">All Statuses</option>
-            <option value="completed">Completed</option>
+            <option value="all">All Payment Statuses</option>
+            <option value="paid">Paid</option>
             <option value="pending">Pending</option>
+            <option value="awaiting_employer_payment">Awaiting Employer</option>
             <option value="failed">Failed</option>
-            <option value="abandoned">Abandoned</option>
           </select>
         </div>
 
-        {/* Transaction Type Filter */}
+        {/* Invoicing Status Filter */}
         <div>
           <select
-            value={transactionTypeFilter}
-            onChange={(e) => setTransactionTypeFilter(e.target.value as TransactionType)}
+            value={invoicingStatusFilter}
+            onChange={(e) => setInvoicingStatusFilter(e.target.value as InvoicingStatus)}
             className="px-4 py-2 text-sm border-2 cursor-pointer"
             style={{
               borderColor: "var(--win95-border)",
@@ -251,9 +275,10 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
               color: "var(--win95-text)",
             }}
           >
-            <option value="all">All Types</option>
-            <option value="B2C">B2C Only</option>
-            <option value="B2B">B2B Only</option>
+            <option value="all">All Invoicing Statuses</option>
+            <option value="pending">Not Invoiced</option>
+            <option value="on_draft_invoice">On Draft Invoice</option>
+            <option value="invoiced">Invoiced</option>
           </select>
         </div>
 
@@ -397,7 +422,7 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
       >
         {/* Table Header */}
         <div
-          className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-4 px-4 py-2 border-b-2"
+          className="grid grid-cols-[auto_1fr_auto_auto_auto_auto] gap-4 px-4 py-2 border-b-2"
           style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
         >
           <button
@@ -430,7 +455,7 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
             style={{ color: "var(--win95-text)" }}
           >
             <User size={12} />
-            Customer
+            Customer / Product
             {sortField === "customer" && <ArrowUpDown size={12} />}
           </button>
 
@@ -453,7 +478,12 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
 
           <div className="flex items-center gap-1 text-xs font-bold" style={{ color: "var(--win95-text)" }}>
             <Filter size={12} />
-            Status
+            Payment
+          </div>
+
+          <div className="flex items-center gap-1 text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+            <Receipt size={12} />
+            Invoicing
           </div>
 
           <div className="flex items-center gap-1 text-xs font-bold" style={{ color: "var(--win95-text)" }}>
@@ -478,27 +508,35 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
         ) : (
           <div className="divide-y-2" style={{ borderColor: "var(--win95-border)" }}>
             {filteredTransactions.map((tx) => {
-              const statusColors = getStatusBadgeColor(tx.status);
+              const paymentStatus = (tx.customProperties?.paymentStatus as string) || "pending";
+              const invoicingStatus = (tx.customProperties?.invoicingStatus as string) || "pending";
+              const paymentColors = getStatusBadgeColor(paymentStatus);
+              const invoicingColors = getInvoicingStatusBadgeColor(invoicingStatus);
+              const customerName = (tx.customProperties?.customerName as string) || "Unknown";
+              const productName = (tx.customProperties?.productName as string) || "Unknown Product";
+              const totalPriceInCents = (tx.customProperties?.totalPriceInCents as number) || 0;
+              const currency = (tx.customProperties?.currency as string) || "EUR";
+              const paymentMethod = (tx.customProperties?.paymentMethod as string) || "card";
+              const payerType = tx.customProperties?.payerType as string;
+
               return (
                 <button
                   key={tx._id}
                   onClick={() => setSelectedTransaction(tx._id === selectedTransaction ? null : tx._id)}
-                  className="w-full grid grid-cols-[auto_1fr_auto_auto_auto] gap-4 px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                  className="w-full grid grid-cols-[auto_1fr_auto_auto_auto_auto] gap-4 px-4 py-3 text-left hover:bg-gray-50 transition-colors"
                 >
                   {/* Date */}
                   <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                     {formatDate(tx._creationTime)}
                   </div>
 
-                  {/* Customer */}
+                  {/* Customer & Product */}
                   <div>
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
-                        {tx.transactionType === "B2B" && tx.companyName
-                          ? tx.companyName
-                          : tx.customerName}
+                        {customerName}
                       </p>
-                      {tx.transactionType === "B2B" && (
+                      {payerType === "organization" && (
                         <span
                           className="px-1.5 py-0.5 text-[10px] font-bold rounded"
                           style={{
@@ -511,36 +549,47 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
                       )}
                     </div>
                     <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                      {tx.transactionType === "B2B" && tx.companyName
-                        ? `${tx.customerName} • ${tx.customerEmail}`
-                        : tx.customerEmail}
+                      {productName}
                     </p>
                   </div>
 
                   {/* Amount */}
                   <div className="text-right">
                     <p className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
-                      {formatCurrency(tx.totalAmount, tx.currency)}
+                      {formatCurrency(totalPriceInCents, currency)}
                     </p>
                   </div>
 
-                  {/* Status */}
+                  {/* Payment Status */}
                   <div>
                     <div
                       className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded"
                       style={{
-                        backgroundColor: statusColors.bg,
-                        color: statusColors.text,
+                        backgroundColor: paymentColors.bg,
+                        color: paymentColors.text,
                       }}
                     >
-                      {getStatusIcon(tx.status)}
-                      {tx.status}
+                      {getStatusIcon(paymentStatus)}
+                      {paymentStatus === "awaiting_employer_payment" ? "Awaiting" : paymentStatus}
+                    </div>
+                  </div>
+
+                  {/* Invoicing Status */}
+                  <div>
+                    <div
+                      className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded"
+                      style={{
+                        backgroundColor: invoicingColors.bg,
+                        color: invoicingColors.text,
+                      }}
+                    >
+                      {invoicingStatus === "on_draft_invoice" ? "Draft" : invoicingStatus === "invoiced" ? "Invoiced" : "Pending"}
                     </div>
                   </div>
 
                   {/* Payment Method */}
                   <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                    {tx.paymentMethod || "Card"}
+                    {paymentMethod}
                   </div>
                 </button>
               );
@@ -552,7 +601,7 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
       {/* Transaction Detail Modal */}
       {selectedTransaction && sessionId && (
         <TransactionDetailModal
-          checkoutSessionId={selectedTransaction}
+          transactionId={selectedTransaction}
           sessionId={sessionId}
           onClose={() => setSelectedTransaction(null)}
         />

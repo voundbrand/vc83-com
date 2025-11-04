@@ -32,3 +32,24 @@ export const auditLogs = defineTable({
   .index("by_org_and_action", ["organizationId", "action"])
   .index("by_org_and_resource", ["organizationId", "resource"])
   .index("by_timestamp", ["createdAt"]);
+
+export const workflowExecutionLogs = defineTable({
+  workflowId: v.id("objects"),
+  workflowName: v.string(),
+  status: v.union(v.literal("running"), v.literal("success"), v.literal("failed")),
+  logs: v.array(
+    v.object({
+      timestamp: v.number(),
+      level: v.union(v.literal("info"), v.literal("success"), v.literal("error"), v.literal("warning")),
+      message: v.string(),
+      data: v.optional(v.any()),
+    })
+  ),
+  startedAt: v.number(),
+  completedAt: v.optional(v.number()),
+  error: v.optional(v.string()),
+  result: v.optional(v.any()),
+})
+  .index("by_workflow", ["workflowId"])
+  .index("by_status", ["status"])
+  .index("by_started", ["startedAt"]);

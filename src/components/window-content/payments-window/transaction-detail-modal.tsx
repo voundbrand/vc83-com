@@ -18,40 +18,30 @@ import {
 } from "lucide-react";
 
 interface TransactionDetailModalProps {
-  checkoutSessionId: Id<"objects">;
+  transactionId: Id<"objects">;
   sessionId: string;
   onClose: () => void;
 }
 
 export function TransactionDetailModal({
-  checkoutSessionId,
+  transactionId,
   sessionId,
   onClose,
 }: TransactionDetailModalProps) {
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Get full transaction details
+  // Get full transaction details (NEW: using actual transaction object)
   const transaction = useQuery(
-    api.transactionOntology.getTransactionDetail,
-    {
-      sessionId,
-      checkoutSessionId,
-    }
+    api.transactionOntology.getTransaction,
+    sessionId && transactionId
+      ? {
+          sessionId,
+          transactionId,
+        }
+      : "skip"
   );
 
-  // Get invoice URL if available (check cache)
-  const invoiceCache = useQuery(
-    api.transactionInvoicing.getTransactionInvoiceUrl,
-    {
-      sessionId,
-      checkoutSessionId,
-    }
-  );
-
-  // Generate invoice action (creates PDF on-demand)
-  const generateInvoice = useAction(api.transactionInvoicing.generateTransactionInvoice);
-
-  const formatCurrency = (cents: number, currency: string = "usd") => {
+  const formatCurrency = (cents: number, currency: string = "eur") => {
     const amount = cents / 100;
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -88,36 +78,9 @@ export function TransactionDetailModal({
     );
   }
 
+  // TODO: Implement invoice generation for new transaction system
   const handleDownloadInvoice = async () => {
-    try {
-      setIsGenerating(true);
-
-      // Check if cached
-      if (invoiceCache?.invoiceUrl) {
-        // Cached - open instantly
-        window.open(invoiceCache.invoiceUrl, "_blank");
-        return;
-      }
-
-      // Generate PDF on-demand
-      const result = await generateInvoice({
-        sessionId,
-        checkoutSessionId,
-        forceRegenerate: false,
-      });
-
-      if (result?.invoiceUrl) {
-        // Open generated PDF
-        window.open(result.invoiceUrl, "_blank");
-      } else {
-        alert("Failed to generate invoice. Please try again.");
-      }
-    } catch (error) {
-      console.error("Invoice generation error:", error);
-      alert("Error generating invoice. Please contact support.");
-    } finally {
-      setIsGenerating(false);
-    }
+    alert("Invoice generation coming soon!");
   };
 
   return (
@@ -166,15 +129,15 @@ export function TransactionDetailModal({
             style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
           >
             <div className="flex items-center gap-2 mb-3">
-              {transaction.transactionType === "B2B" ? (
+              {transaction.customProperties?.payerType === "organization" ? (
                 <Building2 size={16} style={{ color: "var(--primary)" }} />
               ) : (
                 <User size={16} style={{ color: "var(--primary)" }} />
               )}
               <h3 className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
-                {transaction.transactionType === "B2B" ? "Business Customer" : "Customer Information"}
+                {transaction.customProperties?.payerType === "organization" ? "Business Customer" : "Customer Information"}
               </h3>
-              {transaction.transactionType === "B2B" && (
+              {transaction.customProperties?.payerType === "organization" && (
                 <span
                   className="px-2 py-0.5 text-[10px] font-bold rounded ml-auto"
                   style={{
@@ -188,72 +151,38 @@ export function TransactionDetailModal({
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-sm">
-              {transaction.transactionType === "B2B" && transaction.companyName && (
-                <>
-                  <div>
-                    <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
-                      Company Name
-                    </p>
-                    <p style={{ color: "var(--win95-text)" }}>{transaction.companyName}</p>
-                  </div>
-                  {transaction.vatNumber && (
-                    <div>
-                      <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
-                        VAT Number
-                      </p>
-                      <p style={{ color: "var(--win95-text)" }}>{transaction.vatNumber}</p>
-                    </div>
-                  )}
-                </>
-              )}
               <div>
                 <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
-                  Contact Name
+                  Customer Name
                 </p>
-                <p style={{ color: "var(--win95-text)" }}>{transaction.customerName}</p>
+                <p style={{ color: "var(--win95-text)" }}>{transaction.customProperties?.customerName as string}</p>
               </div>
               <div>
                 <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
                   Email
                 </p>
-                <p style={{ color: "var(--win95-text)" }}>{transaction.customerEmail}</p>
+                <p style={{ color: "var(--win95-text)" }}>{transaction.customProperties?.customerEmail as string}</p>
               </div>
-              {transaction.customerPhone && (
+              {transaction.customProperties?.customerPhone && (
                 <div>
                   <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
                     Phone
                   </p>
-                  <p style={{ color: "var(--win95-text)" }}>{transaction.customerPhone}</p>
+                  <p style={{ color: "var(--win95-text)" }}>{transaction.customProperties.customerPhone as string}</p>
+                </div>
+              )}
+              {transaction.customProperties?.employerName && (
+                <div>
+                  <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
+                    Employer
+                  </p>
+                  <p style={{ color: "var(--win95-text)" }}>{transaction.customProperties.employerName as string}</p>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Billing Address (B2B) */}
-          {transaction.transactionType === "B2B" && transaction.billingStreet && (
-            <div
-              className="border-2 p-4"
-              style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
-            >
-              <div className="flex items-center gap-2 mb-3">
-                <MapPin size={16} style={{ color: "var(--primary)" }} />
-                <h3 className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
-                  Billing Address
-                </h3>
-              </div>
-              <div className="text-sm space-y-1" style={{ color: "var(--win95-text)" }}>
-                <p>{transaction.billingStreet}</p>
-                <p>
-                  {transaction.billingCity}
-                  {transaction.billingState && `, ${transaction.billingState}`}{" "}
-                  {transaction.billingPostalCode}
-                </p>
-                {transaction.billingCountry && <p>{transaction.billingCountry}</p>}
-              </div>
-            </div>
-          )}
-
-          {/* Products Purchased */}
+          {/* Product Info */}
           <div
             className="border-2 p-4"
             style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
@@ -261,29 +190,56 @@ export function TransactionDetailModal({
             <div className="flex items-center gap-2 mb-3">
               <Package size={16} style={{ color: "var(--primary)" }} />
               <h3 className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
-                Products Purchased
+                Product Details
               </h3>
             </div>
             <div className="space-y-2">
-              {transaction.selectedProducts.map((product, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-start justify-between pb-2 border-b last:border-b-0"
-                  style={{ borderColor: "var(--win95-border)" }}
-                >
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
-                      {product.productName}
-                    </p>
+              <div>
+                <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
+                  Product
+                </p>
+                <p className="text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
+                  {transaction.customProperties?.productName as string}
+                </p>
+                {transaction.customProperties?.productDescription && (
+                  <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+                    {transaction.customProperties.productDescription as string}
+                  </p>
+                )}
+              </div>
+
+              {transaction.customProperties?.eventName && (
+                <div>
+                  <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
+                    Event
+                  </p>
+                  <p className="text-sm" style={{ color: "var(--win95-text)" }}>
+                    {transaction.customProperties.eventName as string}
+                  </p>
+                  {transaction.customProperties?.eventLocation && (
                     <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                      Quantity: {product.quantity} × {formatCurrency(product.pricePerUnit, transaction.currency)}
+                      {transaction.customProperties.eventLocation as string}
                     </p>
-                  </div>
-                  <p className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
-                    {formatCurrency(product.totalPrice, transaction.currency)}
+                  )}
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
+                    Quantity
+                  </p>
+                  <p style={{ color: "var(--win95-text)" }}>{transaction.customProperties?.quantity as number}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
+                    Unit Price
+                  </p>
+                  <p style={{ color: "var(--win95-text)" }}>
+                    {formatCurrency((transaction.customProperties?.unitPriceInCents as number) || 0, (transaction.customProperties?.currency as string) || "EUR")}
                   </p>
                 </div>
-              ))}
+              </div>
             </div>
           </div>
 
@@ -300,34 +256,20 @@ export function TransactionDetailModal({
             </div>
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span style={{ color: "var(--neutral-gray)" }}>Subtotal</span>
+                <span style={{ color: "var(--neutral-gray)" }}>Amount</span>
                 <span style={{ color: "var(--win95-text)" }}>
-                  {formatCurrency(transaction.subtotal, transaction.currency)}
+                  {formatCurrency((transaction.customProperties?.amountInCents as number) || 0, (transaction.customProperties?.currency as string) || "EUR")}
                 </span>
               </div>
 
-              {/* Tax Breakdown */}
-              {transaction.taxDetails && transaction.taxDetails.length > 0 ? (
-                <>
-                  {transaction.taxDetails.map((tax, idx) => (
-                    <div key={idx} className="flex justify-between text-sm">
-                      <span style={{ color: "var(--neutral-gray)" }}>
-                        {tax.taxName} ({(tax.taxRate * 100).toFixed(2)}%)
-                      </span>
-                      <span style={{ color: "var(--win95-text)" }}>
-                        {formatCurrency(tax.taxAmount, transaction.currency)}
-                      </span>
-                    </div>
-                  ))}
-                </>
-              ) : (
-                <div className="flex justify-between text-sm">
-                  <span style={{ color: "var(--neutral-gray)" }}>Tax</span>
-                  <span style={{ color: "var(--win95-text)" }}>
-                    {formatCurrency(transaction.taxAmount, transaction.currency)}
-                  </span>
-                </div>
-              )}
+              <div className="flex justify-between text-sm">
+                <span style={{ color: "var(--neutral-gray)" }}>
+                  Tax ({((transaction.customProperties?.taxRatePercent as number) || 0)}%)
+                </span>
+                <span style={{ color: "var(--win95-text)" }}>
+                  {formatCurrency((transaction.customProperties?.taxAmountInCents as number) || 0, (transaction.customProperties?.currency as string) || "EUR")}
+                </span>
+              </div>
 
               <div
                 className="flex justify-between text-base font-bold pt-2 border-t-2"
@@ -335,7 +277,7 @@ export function TransactionDetailModal({
               >
                 <span style={{ color: "var(--win95-text)" }}>Total</span>
                 <span style={{ color: "var(--primary)" }}>
-                  {formatCurrency(transaction.totalAmount, transaction.currency)}
+                  {formatCurrency((transaction.customProperties?.totalPriceInCents as number) || 0, (transaction.customProperties?.currency as string) || "EUR")}
                 </span>
               </div>
 
@@ -343,38 +285,48 @@ export function TransactionDetailModal({
               <div className="pt-2 mt-2 border-t" style={{ borderColor: "var(--win95-border)" }}>
                 <div className="flex justify-between text-sm">
                   <span style={{ color: "var(--neutral-gray)" }}>Payment Method</span>
-                  <span style={{ color: "var(--win95-text)" }}>{transaction.paymentMethod || "Card"}</span>
+                  <span style={{ color: "var(--win95-text)" }}>{(transaction.customProperties?.paymentMethod as string) || "Unknown"}</span>
                 </div>
                 <div className="flex justify-between text-sm mt-1">
-                  <span style={{ color: "var(--neutral-gray)" }}>Status</span>
+                  <span style={{ color: "var(--neutral-gray)" }}>Payment Status</span>
                   <span
                     className="px-2 py-0.5 text-xs font-bold rounded"
                     style={{
                       backgroundColor:
-                        transaction.status === "completed"
+                        transaction.customProperties?.paymentStatus === "paid"
                           ? "var(--success-light)"
-                          : transaction.status === "pending"
-                          ? "var(--warning-light)"
-                          : "var(--error-light)",
+                          : "var(--warning-light)",
                       color:
-                        transaction.status === "completed"
+                        transaction.customProperties?.paymentStatus === "paid"
                           ? "var(--success)"
-                          : transaction.status === "pending"
-                          ? "var(--warning)"
-                          : "var(--error)",
+                          : "var(--warning)",
                     }}
                   >
-                    {transaction.status}
+                    {transaction.customProperties?.paymentStatus as string}
                   </span>
                 </div>
-                {transaction.paymentIntentId && (
-                  <div className="flex justify-between text-sm mt-1">
-                    <span style={{ color: "var(--neutral-gray)" }}>Transaction ID</span>
-                    <span className="text-xs font-mono" style={{ color: "var(--win95-text)" }}>
-                      {transaction.paymentIntentId.substring(0, 20)}...
-                    </span>
-                  </div>
-                )}
+                <div className="flex justify-between text-sm mt-1">
+                  <span style={{ color: "var(--neutral-gray)" }}>Invoicing Status</span>
+                  <span
+                    className="px-2 py-0.5 text-xs font-bold rounded"
+                    style={{
+                      backgroundColor:
+                        transaction.customProperties?.invoicingStatus === "invoiced"
+                          ? "var(--success-light)"
+                          : transaction.customProperties?.invoicingStatus === "on_draft_invoice"
+                          ? "var(--info-light)"
+                          : "var(--neutral-light)",
+                      color:
+                        transaction.customProperties?.invoicingStatus === "invoiced"
+                          ? "var(--success)"
+                          : transaction.customProperties?.invoicingStatus === "on_draft_invoice"
+                          ? "var(--primary)"
+                          : "var(--neutral-gray)",
+                    }}
+                  >
+                    {transaction.customProperties?.invoicingStatus as string}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -386,41 +338,18 @@ export function TransactionDetailModal({
           style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
         >
           <div className="flex items-center gap-2">
-            {transaction.purchasedItemIds && transaction.purchasedItemIds.length > 0 && (
-              <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                {transaction.purchasedItemIds.length} item(s) created
+            {transaction.customProperties?.invoicingStatus === "invoiced" && (
+              <p className="text-xs" style={{ color: "var(--success)" }}>
+                ✓ Invoiced
+              </p>
+            )}
+            {transaction.customProperties?.invoicingStatus === "on_draft_invoice" && (
+              <p className="text-xs" style={{ color: "var(--primary)" }}>
+                On Draft Invoice
               </p>
             )}
           </div>
           <div className="flex gap-2">
-            {transaction.status === "completed" && (
-              <button
-                onClick={handleDownloadInvoice}
-                disabled={isGenerating}
-                className="px-4 py-2 text-sm font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{
-                  backgroundColor: "var(--primary)",
-                  color: "white",
-                  border: "2px solid",
-                  borderTopColor: "var(--win95-button-light)",
-                  borderLeftColor: "var(--win95-button-light)",
-                  borderBottomColor: "var(--win95-button-dark)",
-                  borderRightColor: "var(--win95-button-dark)",
-                }}
-              >
-                {isGenerating ? (
-                  <>
-                    <Loader2 size={14} className="animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    {invoiceCache?.cached ? <Download size={14} /> : <FileText size={14} />}
-                    {invoiceCache?.cached ? "Download Invoice" : "Generate Invoice"}
-                  </>
-                )}
-              </button>
-            )}
             <button
               onClick={onClose}
               className="px-4 py-2 text-sm font-semibold"

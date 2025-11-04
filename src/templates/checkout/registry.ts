@@ -11,6 +11,8 @@ import type { CheckoutTemplateProps, CheckoutTemplateSchema } from "./types";
 // Import templates
 import { MultiStepCheckout } from "@/components/checkout/multi-step-checkout";
 import { ticketCheckoutSchema } from "./ticket-checkout/schema";
+import { BehaviorDrivenCheckout } from "./behavior-driven";
+import { behaviorDrivenSchema } from "./behavior-driven/schema";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 /**
@@ -63,6 +65,56 @@ function TicketCheckoutAdapter({
 }
 
 /**
+ * Adapter: Use BehaviorDrivenCheckout template
+ * This new component uses the universal behavior system for business logic
+ */
+function BehaviorDrivenCheckoutAdapter({
+  linkedProducts,
+  organizationId,
+  configuration,
+  theme,
+}: CheckoutTemplateProps) {
+  // Extract configuration settings
+  const allowBackNavigation = (configuration?.allowBackNavigation as boolean) ?? true;
+  const showProgressBar = (configuration?.showProgressBar as boolean) ?? true;
+  const executeBehaviorsOnStepChange = (configuration?.executeBehaviorsOnStepChange as boolean) ?? true;
+  const behaviorExecutionTiming = (configuration?.behaviorExecutionTiming as "eager" | "lazy") || "eager";
+  const debugMode = (configuration?.debugMode as boolean) ?? false;
+
+  console.log("🧠 [BehaviorDrivenCheckoutAdapter] Configuration:", {
+    allowBackNavigation,
+    showProgressBar,
+    executeBehaviorsOnStepChange,
+    behaviorExecutionTiming,
+    debugMode,
+    fullConfig: configuration,
+  });
+
+  // BehaviorDrivenCheckout handles everything through the behavior system:
+  // - Employer detection (behaviors decide if invoice checkout)
+  // - Form flows (behaviors control registration requirements)
+  // - Payment routing (behaviors set payment provider)
+  // - Business logic (no hardcoded rules in checkout code)
+  return React.createElement(BehaviorDrivenCheckout, {
+    organizationId,
+    products: linkedProducts,
+    theme,
+    allowBackNavigation,
+    showProgressBar,
+    executeBehaviorsOnStepChange,
+    behaviorExecutionTiming,
+    debugMode,
+    onComplete: (data) => {
+      console.log("🎉 Checkout completed:", data);
+      // Template handles actual checkout completion
+    },
+    onError: (error) => {
+      console.error("❌ Checkout error:", error);
+    },
+  });
+}
+
+/**
  * Checkout Template Registry
  */
 const checkoutTemplateRegistry: Record<string, CheckoutTemplateRegistration> = {
@@ -71,6 +123,12 @@ const checkoutTemplateRegistry: Record<string, CheckoutTemplateRegistration> = {
     name: "Event Ticket Checkout",
     component: TicketCheckoutAdapter as ComponentType<CheckoutTemplateProps>,
     schema: ticketCheckoutSchema,
+  },
+  "behavior-driven": {
+    code: "behavior-driven",
+    name: "Behavior-Driven Checkout",
+    component: BehaviorDrivenCheckoutAdapter as ComponentType<CheckoutTemplateProps>,
+    schema: behaviorDrivenSchema,
   },
   // Future templates will be added here:
   // "product-checkout": { ... },

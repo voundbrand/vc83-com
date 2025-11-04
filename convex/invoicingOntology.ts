@@ -46,6 +46,31 @@ export type InvoiceStatus = "draft" | "sent" | "paid" | "overdue" | "cancelled" 
 export type PaymentTerms = "due_on_receipt" | "net7" | "net15" | "net30" | "net60" | "net90";
 export type ConsolidationTrigger = "manual" | "automatic_on_event_end" | "fixed_date";
 
+/**
+ * Invoice line item type
+ * Represents a single line item in an invoice
+ */
+export interface InvoiceLineItem {
+  transactionId: Id<"objects">;
+  ticketId?: Id<"objects">;
+  productId?: Id<"objects">;
+  description: string;
+  productName?: string;
+  eventName?: string;
+  eventLocation?: string;
+  customerName?: string;
+  customerEmail?: string;
+  customerId?: Id<"objects">;
+  quantity: number;
+  unitPriceInCents: number;
+  totalPriceInCents: number;
+  taxRatePercent: number;
+  taxAmountInCents: number;
+  canEdit?: boolean;
+  canRemove?: boolean;
+  notes?: string;
+}
+
 // ============================================================================
 // QUERIES
 // ============================================================================
@@ -75,6 +100,7 @@ export const listInvoices = query({
         v.literal("b2c_single")
       )),
       eventId: v.optional(v.id("objects")),
+      isDraft: v.optional(v.boolean()), // NEW: Filter by draft/sealed status
     })),
   },
   handler: async (ctx, args) => {
@@ -98,6 +124,13 @@ export const listInvoices = query({
 
     // Apply filters
     let filteredInvoices = invoices;
+
+    // NEW: Filter by draft/sealed status
+    if (args.filters?.isDraft !== undefined) {
+      filteredInvoices = filteredInvoices.filter(
+        inv => inv.customProperties?.isDraft === args.filters?.isDraft
+      );
+    }
 
     if (args.filters?.status) {
       filteredInvoices = filteredInvoices.filter(
@@ -157,14 +190,15 @@ export const getInvoiceStats = query({
       )
       .collect();
 
-    // Calculate stats based on status field
+    // Calculate stats based on status field AND isDraft field
     const totalCount = invoices.length;
     const paidCount = invoices.filter((inv) => inv.status === "paid").length;
     const pendingCount = invoices.filter(
       (inv) => inv.status === "sent" || inv.status === "awaiting_employer_payment"
     ).length;
     const overdueCount = invoices.filter((inv) => inv.status === "overdue").length;
-    const draftCount = invoices.filter((inv) => inv.status === "draft").length;
+    const draftCount = invoices.filter((inv) => inv.customProperties?.isDraft === true).length; // NEW: Count by isDraft field
+    const sealedCount = invoices.filter((inv) => inv.customProperties?.isDraft === false).length; // NEW: Sealed invoices
 
     // Calculate total amount
     const totalAmountInCents = invoices.reduce((sum, inv) => {
@@ -185,6 +219,7 @@ export const getInvoiceStats = query({
       pendingCount,
       overdueCount,
       draftCount,
+      sealedCount, // NEW: Return sealed count for UI
       totalAmountInCents,
       paidAmountInCents,
       pendingAmountInCents: totalAmountInCents - paidAmountInCents,
@@ -901,6 +936,386 @@ export const updateInvoicePdfUrl = internalMutation({
     });
 
     return { success: true };
+  },
+});
+
+/**
+ * CREATE DRAFT INVOICE FROM TRANSACTIONS
+ *
+ * Creates an editable draft invoice from a set of transactions.
+ * Used by workflows and manual invoice creation.
+ *
+ * Draft invoices:
+ * - Can be edited (add/remove line items, adjust prices)
+ * - Do not generate PDF
+ * - Must be explicitly sealed to become final
+ *
+ * @permission manage_financials - Required to create invoices
+ * @roles org_owner, business_manager, super_admin
+ */
+export const createDraftInvoiceFromTransactions = mutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    crmOrganizationId: v.id("objects"), // Who to bill
+    transactionIds: v.array(v.id("objects")),
+    paymentTerms: v.optional(v.union(
+      v.literal("net30"),
+      v.literal("net60"),
+      v.literal("net90"),
+      v.literal("due_on_receipt")
+    )),
+    notes: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    // Check permission
+    const hasPermission = await checkPermission(ctx, userId, "manage_financials", args.organizationId);
+    if (!hasPermission) {
+      throw new Error("Nicht autorisiert: Keine Berechtigung zum Erstellen von Rechnungen");
+    }
+
+    // 1. Fetch all transactions and validate
+    const transactions = await Promise.all(
+      args.transactionIds.map(id => ctx.db.get(id))
+    );
+
+    const validTransactions = transactions.filter((t): t is NonNullable<typeof t> => t !== null && t.type === "transaction");
+    if (validTransactions.length !== args.transactionIds.length) {
+      throw new Error("Einige Transaktions-IDs sind ungültig");
+    }
+
+    // Check if any are already invoiced
+    const alreadyInvoiced = validTransactions.filter(t =>
+      t.customProperties?.invoicingStatus === "invoiced"
+    );
+    if (alreadyInvoiced.length > 0) {
+      throw new Error(`${alreadyInvoiced.length} Transaktionen wurden bereits abgerechnet`);
+    }
+
+    // 2. Extract line items from transactions
+    const lineItems = validTransactions.map(tx => ({
+      transactionId: tx._id,
+      ticketId: tx.customProperties?.ticketId,
+      productId: tx.customProperties?.productId,
+
+      description: `${tx.customProperties?.customerName} - ${tx.customProperties?.productName}`,
+      productName: tx.customProperties?.productName || "Unknown Product",
+      eventName: tx.customProperties?.eventName,
+      eventLocation: tx.customProperties?.eventLocation,
+
+      customerName: tx.customProperties?.customerName || "Unknown",
+      customerEmail: tx.customProperties?.customerEmail || "",
+      customerId: tx.customProperties?.customerId,
+
+      quantity: tx.customProperties?.quantity || 1,
+      unitPriceInCents: tx.customProperties?.unitPriceInCents || 0,
+      totalPriceInCents: tx.customProperties?.totalPriceInCents || 0,
+      taxRatePercent: tx.customProperties?.taxRatePercent || 19, // German VAT
+      taxAmountInCents: tx.customProperties?.taxAmountInCents || Math.round((tx.customProperties?.totalPriceInCents || 0) * 0.19),
+
+      canEdit: true,
+      canRemove: true,
+    }));
+
+    // 3. Calculate totals
+    const subtotalInCents = lineItems.reduce((sum, item) => sum + item.totalPriceInCents, 0);
+    const taxInCents = lineItems.reduce((sum, item) => sum + item.taxAmountInCents, 0);
+    const totalInCents = subtotalInCents + taxInCents;
+
+    // 4. Fetch CRM organization for billTo
+    const crmOrg = await ctx.db.get(args.crmOrganizationId);
+    if (!crmOrg || crmOrg.type !== "crm_organization") {
+      throw new Error("CRM-Organisation nicht gefunden");
+    }
+
+    const billTo = {
+      type: "organization" as const,
+      organizationId: crmOrg._id,
+      name: crmOrg.name || "",
+      vatNumber: (crmOrg.customProperties?.vatNumber || "") as string,
+      billingEmail: (crmOrg.customProperties?.billingEmail || crmOrg.customProperties?.primaryEmail || "") as string,
+      billingAddress: crmOrg.customProperties?.billingAddress || {},
+      billingContact: (crmOrg.customProperties?.billingContact || "") as string,
+    };
+
+    // 5. Generate draft invoice number
+    const year = new Date().getFullYear();
+    const timestamp = Date.now().toString().slice(-6);
+    const draftInvoiceNumber = `DRAFT-${year}-${timestamp}`;
+
+    // 6. Calculate due date
+    const paymentTerms = args.paymentTerms || "net30";
+    const paymentTermsDays = paymentTerms === "due_on_receipt" ? 0 : parseInt(paymentTerms.replace("net", ""));
+    const invoiceDate = Date.now();
+    const dueDate = invoiceDate + (paymentTermsDays * 24 * 60 * 60 * 1000);
+
+    // 7. Create draft invoice
+    const invoiceId = await ctx.db.insert("objects", {
+      type: "invoice",
+      subtype: "b2b_consolidated",
+      name: `Draft Invoice ${draftInvoiceNumber}`,
+      status: "active",
+      organizationId: args.organizationId,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      createdBy: userId,
+
+      customProperties: {
+        // === DRAFT STATUS ===
+        isDraft: true,
+
+        // === INVOICE DETAILS ===
+        invoiceNumber: draftInvoiceNumber,
+        invoiceDate,
+        dueDate,
+
+        billTo,
+        lineItems,
+
+        // === TOTALS ===
+        subtotalInCents,
+        taxInCents,
+        totalInCents,
+        currency: "EUR",
+
+        // === PAYMENT ===
+        paymentStatus: "draft",
+        paymentTerms,
+
+        notes: args.notes,
+      },
+    });
+
+    // 8. Mark transactions as on draft invoice
+    for (const tx of validTransactions) {
+      await ctx.db.patch(tx._id, {
+        updatedAt: Date.now(),
+        customProperties: {
+          ...tx.customProperties,
+          invoicingStatus: "on_draft_invoice",
+          invoiceId,
+        },
+      });
+    }
+
+    console.log(`✅ [createDraftInvoiceFromTransactions] Created draft ${draftInvoiceNumber} with ${validTransactions.length} transactions`);
+
+    return {
+      success: true,
+      invoiceId,
+      invoiceNumber: draftInvoiceNumber,
+      transactionCount: validTransactions.length,
+      totalInCents,
+      isDraft: true,
+    };
+  },
+});
+
+/**
+ * SEAL INVOICE
+ *
+ * Convert draft invoice to final sealed invoice.
+ * - Generates final invoice number
+ * - Marks invoice as immutable
+ * - Marks transactions as fully invoiced
+ * - Triggers PDF generation (via separate action)
+ *
+ * @permission manage_financials - Required to seal invoices
+ * @roles org_owner, business_manager, super_admin
+ */
+export const sealInvoice = mutation({
+  args: {
+    sessionId: v.string(),
+    invoiceId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    // 1. Get invoice and validate
+    const invoice = await ctx.db.get(args.invoiceId);
+    if (!invoice || invoice.type !== "invoice") {
+      throw new Error("Rechnung nicht gefunden");
+    }
+
+    // Check permission
+    const hasPermission = await checkPermission(ctx, userId, "manage_financials", invoice.organizationId);
+    if (!hasPermission) {
+      throw new Error("Nicht autorisiert: Keine Berechtigung zum Versiegeln von Rechnungen");
+    }
+
+    if (!invoice.customProperties?.isDraft) {
+      throw new Error("Rechnung ist bereits versiegelt");
+    }
+
+    // 2. Generate final invoice number
+    const year = new Date().getFullYear();
+    const existingInvoices = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", invoice.organizationId).eq("type", "invoice")
+      )
+      .filter((q) => q.eq(q.field("customProperties.isDraft"), false))
+      .collect();
+
+    const invoiceCount = existingInvoices.length + 1;
+    const finalInvoiceNumber = `INV-${year}-${String(invoiceCount).padStart(4, "0")}`;
+
+    // 3. Update invoice to sealed status
+    await ctx.db.patch(args.invoiceId, {
+      name: `Invoice ${finalInvoiceNumber}`,
+      updatedAt: Date.now(),
+      customProperties: {
+        ...invoice.customProperties,
+        isDraft: false,
+        invoiceNumber: finalInvoiceNumber,
+        sealedAt: Date.now(),
+        sealedBy: userId,
+        paymentStatus: "sent", // Ready to be sent to customer
+      },
+    });
+
+    // 4. Mark transactions as invoiced (final)
+    const lineItems = (invoice.customProperties?.lineItems as InvoiceLineItem[]) || [];
+    const transactionIds = lineItems
+      .map(item => item.transactionId)
+      .filter((id): id is Id<"objects"> => id !== undefined);
+
+    for (const txId of transactionIds) {
+      const tx = await ctx.db.get(txId);
+      if (tx && "type" in tx && tx.type === "transaction") {
+        await ctx.db.patch(txId, {
+          updatedAt: Date.now(),
+          customProperties: {
+            ...tx.customProperties,
+            invoicingStatus: "invoiced",
+          },
+        });
+      }
+    }
+
+    console.log(`✅ [sealInvoice] Sealed draft to ${finalInvoiceNumber} with ${transactionIds.length} transactions`);
+
+    return {
+      success: true,
+      invoiceId: args.invoiceId,
+      invoiceNumber: finalInvoiceNumber,
+      transactionCount: transactionIds.length,
+      isSealed: true,
+    };
+  },
+});
+
+/**
+ * EDIT DRAFT INVOICE LINE ITEMS
+ *
+ * Add, remove, or modify line items on a draft invoice.
+ * Only works for draft invoices (isDraft: true).
+ *
+ * @permission manage_financials - Required to edit invoices
+ * @roles org_owner, business_manager, super_admin
+ */
+export const editDraftInvoiceLineItems = mutation({
+  args: {
+    sessionId: v.string(),
+    invoiceId: v.id("objects"),
+    lineItems: v.array(v.object({
+      transactionId: v.id("objects"),
+      // Allow editing specific fields
+      description: v.optional(v.string()),
+      unitPriceInCents: v.optional(v.number()),
+      quantity: v.optional(v.number()),
+      notes: v.optional(v.string()),
+    })),
+    removeTransactionIds: v.optional(v.array(v.id("objects"))), // Transactions to remove from invoice
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const invoice = await ctx.db.get(args.invoiceId);
+    if (!invoice || invoice.type !== "invoice") {
+      throw new Error("Rechnung nicht gefunden");
+    }
+
+    // Check permission
+    const hasPermission = await checkPermission(ctx, userId, "manage_financials", invoice.organizationId);
+    if (!hasPermission) {
+      throw new Error("Nicht autorisiert: Keine Berechtigung zum Bearbeiten von Rechnungen");
+    }
+
+    if (!invoice.customProperties?.isDraft) {
+      throw new Error("Versiegelte Rechnungen können nicht bearbeitet werden");
+    }
+
+    // Get current line items
+    const currentLineItems = (invoice.customProperties?.lineItems as InvoiceLineItem[]) || [];
+
+    // Remove specified transactions
+    let updatedLineItems = currentLineItems;
+    if (args.removeTransactionIds && args.removeTransactionIds.length > 0) {
+      updatedLineItems = updatedLineItems.filter(
+        item => !args.removeTransactionIds!.includes(item.transactionId)
+      );
+
+      // Mark removed transactions as pending again
+      for (const txId of args.removeTransactionIds) {
+        const tx = await ctx.db.get(txId);
+        if (tx && tx.type === "transaction") {
+          await ctx.db.patch(txId, {
+            updatedAt: Date.now(),
+            customProperties: {
+              ...tx.customProperties,
+              invoicingStatus: "pending",
+              invoiceId: undefined,
+            },
+          });
+        }
+      }
+    }
+
+    // Apply edits to existing line items
+    updatedLineItems = updatedLineItems.map(item => {
+      const edit = args.lineItems.find(e => e.transactionId === item.transactionId);
+      if (edit) {
+        return {
+          ...item,
+          description: edit.description || item.description,
+          unitPriceInCents: edit.unitPriceInCents !== undefined ? edit.unitPriceInCents : item.unitPriceInCents,
+          quantity: edit.quantity !== undefined ? edit.quantity : item.quantity,
+          totalPriceInCents: (edit.unitPriceInCents !== undefined ? edit.unitPriceInCents : item.unitPriceInCents) *
+                              (edit.quantity !== undefined ? edit.quantity : item.quantity),
+          notes: edit.notes,
+        };
+      }
+      return item;
+    });
+
+    // Recalculate totals
+    const subtotalInCents = updatedLineItems.reduce((sum, item) => sum + item.totalPriceInCents, 0);
+    const taxInCents = Math.round(subtotalInCents * 0.19); // 19% German VAT
+    const totalInCents = subtotalInCents + taxInCents;
+
+    // Update invoice
+    await ctx.db.patch(args.invoiceId, {
+      updatedAt: Date.now(),
+      customProperties: {
+        ...invoice.customProperties,
+        lineItems: updatedLineItems,
+        subtotalInCents,
+        taxInCents,
+        totalInCents,
+      },
+    });
+
+    console.log(`✅ [editDraftInvoiceLineItems] Updated invoice ${invoice.customProperties?.invoiceNumber} with ${updatedLineItems.length} line items`);
+
+    return {
+      success: true,
+      invoiceId: args.invoiceId,
+      lineItemCount: updatedLineItems.length,
+      totalInCents,
+    };
   },
 });
 

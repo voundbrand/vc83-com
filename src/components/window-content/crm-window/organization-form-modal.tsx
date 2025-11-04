@@ -6,6 +6,8 @@ import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { X, Save, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import type { Id } from "../../../../convex/_generated/dataModel";
+import { getSupportedCountries } from "../../../../convex/legalEntityTypes";
+import { useTranslation } from "@/contexts/translation-context";
 
 interface OrganizationFormModalProps {
   editId?: Id<"objects">;
@@ -16,6 +18,7 @@ interface OrganizationFormModalProps {
 type OrgType = "prospect" | "customer" | "partner" | "sponsor";
 
 export function OrganizationFormModal({ editId, onClose, onSuccess }: OrganizationFormModalProps) {
+  const { t } = useTranslation();
   const { sessionId } = useAuth();
   const currentOrganization = useCurrentOrganization();
   const currentOrganizationId = currentOrganization?.id;
@@ -39,7 +42,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
     city: "",
     state: "",
     postalCode: "",
-    country: "United States",
+    country: "",
     sponsorLevel: "" as "" | "platinum" | "gold" | "silver" | "bronze" | "community",
     logoUrl: "",
     sponsorBio: "",
@@ -50,6 +53,9 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
   const [tagInput, setTagInput] = useState("");
   const [websiteError, setWebsiteError] = useState("");
   const [emailError, setEmailError] = useState("");
+
+  // Get supported countries for dropdown
+  const supportedCountries = getSupportedCountries();
 
   // Query existing organization if editing
   const existingOrg = useQuery(
@@ -80,7 +86,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
         city: address.city || "",
         state: address.state || "",
         postalCode: address.postalCode || "",
-        country: address.country || "United States",
+        country: address.country || "",
         sponsorLevel: (props.sponsorLevel?.toString() || "") as typeof formData.sponsorLevel,
         logoUrl: props.logoUrl?.toString() || "",
         sponsorBio: props.sponsorBio?.toString() || "",
@@ -112,7 +118,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
     if (formData.billingEmail) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(formData.billingEmail)) {
-        setEmailError("Please enter a valid email address");
+        setEmailError(t("crm.organization_form.validation.email_invalid"));
         return;
       }
     }
@@ -152,6 +158,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
           crmOrganizationId: editId,
           updates: {
             name: formData.name,
+            subtype: formData.orgType,
             website: website || undefined,
             industry: formData.industry || undefined,
             size: formData.size || undefined,
@@ -188,7 +195,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
       onSuccess(orgId);
     } catch (error) {
       console.error(`Failed to ${editId ? "update" : "create"} organization:`, error);
-      alert(`Failed to ${editId ? "update" : "create"} organization. Please try again.`);
+      alert(editId ? t("crm.organization_form.errors.update_failed") : t("crm.organization_form.errors.create_failed"));
     } finally {
       setSaving(false);
     }
@@ -592,10 +599,12 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
                     color: "var(--win95-input-text)",
                   }}
                 >
-                  <option value="United States">United States</option>
-                  <option value="Canada">Canada</option>
-                  <option value="United Kingdom">United Kingdom</option>
-                  <option value="Australia">Australia</option>
+                  <option value="">-- Select Country --</option>
+                  {supportedCountries.map((country) => (
+                    <option key={country.code} value={country.name}>
+                      {country.name}
+                    </option>
+                  ))}
                 </select>
               </div>
             )}

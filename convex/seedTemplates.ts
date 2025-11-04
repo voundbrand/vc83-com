@@ -66,7 +66,7 @@ export const seedSystemTemplates = mutation({
       const landingPage = await ctx.db.insert("objects", {
         organizationId: systemOrg._id,
         type: "template",
-        subtype: "web",
+        subtype: "page",
         name: "Landing Page",
         status: "published",
         customProperties: {
@@ -104,7 +104,7 @@ export const seedSystemTemplates = mutation({
       const eventLanding = await ctx.db.insert("objects", {
         organizationId: systemOrg._id,
         type: "template",
-        subtype: "web",
+        subtype: "page",
         name: "Event Landing Page",
         status: "published",
         customProperties: {

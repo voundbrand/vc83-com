@@ -166,11 +166,40 @@ export const seedSystemApps = mutation({
       console.log("Created Invoicing app:", invoicingAppId);
     }
 
+    // Check if Workflows app already exists
+    const existingWorkflows = await ctx.db
+      .query("apps")
+      .withIndex("by_code", (q) => q.eq("code", "workflows"))
+      .first();
+
+    let workflowsAppId;
+    if (existingWorkflows) {
+      workflowsAppId = existingWorkflows._id;
+      console.log("Workflows app already exists:", workflowsAppId);
+    } else {
+      workflowsAppId = await ctx.db.insert("apps", {
+        code: "workflows",
+        name: "Workflows",
+        description: "Visual workflow builder for orchestrating multi-object behaviors and automation",
+        icon: "⚡",
+        category: "business",
+        plans: ["business", "enterprise"],
+        creatorOrgId: systemOrg._id,
+        dataScope: "installer-owned",
+        status: "active",
+        version: "1.0.0",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+      console.log("Created Workflows app:", workflowsAppId);
+    }
+
     return {
       paymentsAppId,
       publishingAppId,
       mediaLibraryAppId,
       invoicingAppId,
+      workflowsAppId,
       systemOrgId: systemOrg._id,
     };
   },
@@ -881,6 +910,148 @@ export const registerInvoicingApp = mutation({
     return {
       appId,
       message: "Invoicing app registered successfully",
+      app,
+    };
+  },
+});
+
+/**
+ * Register Workflows app only
+ *
+ * Simple mutation to register the Workflows app for multi-object behavior orchestration.
+ * No authentication required - this is a one-time setup mutation.
+ *
+ * @returns App ID if created, or existing app ID if already registered
+ */
+export const registerWorkflowsApp = mutation({
+  args: {},
+  handler: async (ctx) => {
+    // Check if Workflows app already exists
+    const existing = await ctx.db
+      .query("apps")
+      .withIndex("by_code", (q) => q.eq("code", "workflows"))
+      .first();
+
+    if (existing) {
+      console.log("Workflows app already registered:", existing._id);
+      return {
+        appId: existing._id,
+        message: "Workflows app already registered",
+        app: existing,
+      };
+    }
+
+    // Find or create a system organization to own the app
+    let systemOrg = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", "system"))
+      .first();
+
+    // If no system org exists, just use the first organization
+    if (!systemOrg) {
+      const firstOrg = await ctx.db.query("organizations").first();
+      if (!firstOrg) {
+        throw new Error(
+          "No organizations found. Create an organization first before registering apps."
+        );
+      }
+      systemOrg = firstOrg;
+    }
+
+    // Create the Workflows app record
+    const appId = await ctx.db.insert("apps", {
+      code: "workflows",
+      name: "Workflows",
+      description: "Visual workflow builder for orchestrating multi-object behaviors and automation",
+      icon: "⚡",
+      category: "business",
+      plans: ["business", "enterprise"],
+      creatorOrgId: systemOrg._id,
+      dataScope: "installer-owned",
+      status: "active",
+      version: "1.0.0",
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    const app = await ctx.db.get(appId);
+
+    console.log("Workflows app registered successfully:", appId);
+
+    return {
+      appId,
+      message: "Workflows app registered successfully",
+      app,
+    };
+  },
+});
+
+/**
+ * Register Certificates app only
+ *
+ * Simple mutation to register the Certificates app for professional credentials and CME tracking.
+ * No authentication required - this is a one-time setup mutation.
+ *
+ * @returns App ID if created, or existing app ID if already registered
+ */
+export const registerCertificatesApp = mutation({
+  args: {},
+  handler: async (ctx) => {
+    // Check if Certificates app already exists
+    const existing = await ctx.db
+      .query("apps")
+      .withIndex("by_code", (q) => q.eq("code", "certificates"))
+      .first();
+
+    if (existing) {
+      console.log("Certificates app already registered:", existing._id);
+      return {
+        appId: existing._id,
+        message: "Certificates app already registered",
+        app: existing,
+      };
+    }
+
+    // Find or create a system organization to own the app
+    let systemOrg = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", "system"))
+      .first();
+
+    // If no system org exists, just use the first organization
+    if (!systemOrg) {
+      const firstOrg = await ctx.db.query("organizations").first();
+      if (!firstOrg) {
+        throw new Error(
+          "No organizations found. Create an organization first before registering apps."
+        );
+      }
+      systemOrg = firstOrg;
+    }
+
+    // Create the Certificates app record
+    const appId = await ctx.db.insert("apps", {
+      code: "certificates",
+      name: "Certificates",
+      description: "Issue and manage professional certificates for CME, CLE, CPE, and other continuing education credits",
+      icon: "📜",
+      category: "business",
+      plans: ["pro", "business", "enterprise"],
+      creatorOrgId: systemOrg._id,
+      dataScope: "installer-owned",
+      status: "active",
+      version: "1.0.0",
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    const app = await ctx.db.get(appId);
+
+    console.log("Certificates app registered successfully:", appId);
+
+    return {
+      appId,
+      message: "Certificates app registered successfully",
       app,
     };
   },

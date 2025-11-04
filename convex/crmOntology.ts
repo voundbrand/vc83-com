@@ -345,6 +345,37 @@ export const getCrmOrganization = query({
 });
 
 /**
+ * GET PUBLIC CRM ORGANIZATION BILLING INFO
+ * Public query for checkout - returns limited billing information only
+ * Used during checkout to pre-fill employer billing addresses
+ */
+export const getPublicCrmOrganizationBilling = query({
+  args: {
+    crmOrganizationId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const org = await ctx.db.get(args.crmOrganizationId);
+
+    if (!org || org.type !== "crm_organization") {
+      return null;
+    }
+
+    // Return only public billing information (no sensitive data)
+    return {
+      _id: org._id,
+      name: org.name,
+      customProperties: {
+        address: (org.customProperties as { address?: unknown })?.address,
+        taxId: (org.customProperties as { taxId?: unknown })?.taxId,
+        billingEmail: (org.customProperties as { billingEmail?: unknown })?.billingEmail,
+        phone: (org.customProperties as { phone?: unknown })?.phone,
+        website: (org.customProperties as { website?: unknown })?.website,
+      },
+    };
+  },
+});
+
+/**
  * CREATE CRM ORGANIZATION
  * Create a new CRM organization
  */
@@ -421,7 +452,7 @@ export const createCrmOrganization = mutation({
 
 /**
  * UPDATE CRM ORGANIZATION
- * Update an existing CRM organization
+ * Update an existing CRM organization (including subtype/org type)
  */
 export const updateCrmOrganization = mutation({
   args: {
@@ -429,6 +460,7 @@ export const updateCrmOrganization = mutation({
     crmOrganizationId: v.id("objects"),
     updates: v.object({
       name: v.optional(v.string()),
+      subtype: v.optional(v.string()), // "customer" | "prospect" | "partner" | "sponsor"
       website: v.optional(v.string()),
       industry: v.optional(v.string()),
       size: v.optional(v.string()),
@@ -457,6 +489,7 @@ export const updateCrmOrganization = mutation({
 
     await ctx.db.patch(args.crmOrganizationId, {
       name: args.updates.name || org.name,
+      subtype: args.updates.subtype || org.subtype,
       status: args.updates.status || org.status,
       customProperties: {
         ...org.customProperties,

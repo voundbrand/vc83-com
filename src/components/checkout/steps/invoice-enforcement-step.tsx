@@ -17,6 +17,9 @@ import { CheckoutProduct } from "@/templates/checkout/types";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { type PaymentRulesResult } from "../../../../convex/paymentRulesEngine";
 import { ArrowLeft, FileText, CheckCircle } from "lucide-react";
+import { useQuery } from "convex/react";
+import { api } from "../../../../convex/_generated/api";
+import { useTranslation } from "@/contexts/translation-context";
 
 interface InvoiceEnforcementStepProps {
   rulesResult: PaymentRulesResult;
@@ -61,15 +64,34 @@ export function InvoiceEnforcementStep({
   onComplete,
   onBack,
 }: InvoiceEnforcementStepProps) {
+  const { t } = useTranslation();
+
+  // Extract employer details (even if we might return early)
+  const employerOrgId = rulesResult.enforcementDetails?.employerName;
+  const paymentTerms = rulesResult.enforcementDetails?.paymentTerms;
+
+  // Fetch organization name from CRM using the org ID (must call hook unconditionally)
+  const crmOrganization = useQuery(
+    api.crmOntology.getPublicCrmOrganizationBilling,
+    employerOrgId && employerOrgId.length > 20
+      ? { crmOrganizationId: employerOrgId as Id<"objects"> }
+      : "skip"
+  );
+
+  // Use organization name from CRM, fallback to ID if not loaded, or empty string for type safety
+  const employerName = crmOrganization?.name || employerOrgId || "";
+
+  // Check for enforcement after all hooks are called
   if (!rulesResult.enforceInvoice || !rulesResult.enforcementDetails) {
     return (
       <div className="max-w-2xl mx-auto p-6">
-        <p className="text-red-600">Error: Invoice enforcement details not available</p>
+        <p className="text-red-600">{t("ui.checkout.invoice_enforcement.errors.details_unavailable")}</p>
       </div>
     );
   }
 
-  const { employerName, paymentTerms } = rulesResult.enforcementDetails;
+  // Now TypeScript knows enforcementDetails exists - extract the required fields
+  const { employerName: confirmedEmployerOrgId, paymentTerms: confirmedPaymentTerms } = rulesResult.enforcementDetails;
 
   // Calculate totals
   const baseTotal = selectedProducts.reduce((sum, sp) => sum + sp.price * sp.quantity, 0);
@@ -88,10 +110,10 @@ export function InvoiceEnforcementStep({
   };
 
   const paymentTermsText = {
-    net30: "Net 30 (payment due within 30 days)",
-    net60: "Net 60 (payment due within 60 days)",
-    net90: "Net 90 (payment due within 90 days)",
-  }[paymentTerms];
+    net30: t("ui.checkout.invoice_enforcement.notice.payment_terms_net30"),
+    net60: t("ui.checkout.invoice_enforcement.notice.payment_terms_net60"),
+    net90: t("ui.checkout.invoice_enforcement.notice.payment_terms_net90"),
+  }[confirmedPaymentTerms];
 
   return (
     <div className="max-w-2xl mx-auto p-6">
@@ -99,10 +121,10 @@ export function InvoiceEnforcementStep({
       <div className="mb-8">
         <h2 className="text-2xl font-bold mb-2 flex items-center gap-2">
           <FileText size={24} />
-          Invoice Payment Confirmation
+          {t("ui.checkout.invoice_enforcement.headers.title")}
         </h2>
         <p className="text-gray-600">
-          Based on your employer selection, this registration will be invoiced.
+          {t("ui.checkout.invoice_enforcement.headers.description")}
         </p>
       </div>
 
@@ -110,32 +132,32 @@ export function InvoiceEnforcementStep({
       <div className="bg-purple-50 border-2 border-purple-300 rounded-lg p-6 mb-6">
         <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
           <CheckCircle size={20} className="text-purple-600" />
-          Invoice Will Be Sent To
+          {t("ui.checkout.invoice_enforcement.notice.title")}
         </h3>
         <div className="bg-white border border-purple-200 rounded p-4 mb-3">
           <p className="text-2xl font-bold text-purple-900">{employerName}</p>
         </div>
         <div className="text-sm space-y-1">
           <p>
-            <strong>Payment Terms:</strong> {paymentTermsText}
+            <strong>{t("ui.checkout.invoice_enforcement.notice.payment_terms_label")}</strong> {paymentTermsText}
           </p>
           <p>
-            <strong>Invoice Amount:</strong> {formatPrice(total)}
+            <strong>{t("ui.checkout.invoice_enforcement.notice.invoice_amount_label")}</strong> {formatPrice(total)}
           </p>
         </div>
       </div>
 
       {/* How It Works */}
       <div className="bg-gray-50 border-2 border-gray-300 rounded-lg p-6 mb-6">
-        <h3 className="text-lg font-semibold mb-4">How This Works</h3>
+        <h3 className="text-lg font-semibold mb-4">{t("ui.checkout.invoice_enforcement.workflow.section_title")}</h3>
         <ol className="space-y-3 text-sm">
           <li className="flex gap-3">
             <span className="flex-shrink-0 w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold">
               1
             </span>
             <div>
-              <p className="font-semibold">Complete Your Registration</p>
-              <p className="text-gray-600">You&apos;ll confirm your registration in the next step</p>
+              <p className="font-semibold">{t("ui.checkout.invoice_enforcement.workflow.step1_title")}</p>
+              <p className="text-gray-600">{t("ui.checkout.invoice_enforcement.workflow.step1_description")}</p>
             </div>
           </li>
           <li className="flex gap-3">
@@ -143,9 +165,9 @@ export function InvoiceEnforcementStep({
               2
             </span>
             <div>
-              <p className="font-semibold">Invoice Sent to {employerName}</p>
+              <p className="font-semibold">{t("ui.checkout.invoice_enforcement.workflow.step2_title", { employerName })}</p>
               <p className="text-gray-600">
-                An invoice for {formatPrice(total)} will be generated and sent to your employer
+                {t("ui.checkout.invoice_enforcement.workflow.step2_description", { amount: formatPrice(total) })}
               </p>
             </div>
           </li>
@@ -154,8 +176,8 @@ export function InvoiceEnforcementStep({
               3
             </span>
             <div>
-              <p className="font-semibold">Employer Pays Invoice</p>
-              <p className="text-gray-600">Payment due within {paymentTerms.replace("net", "")} days of invoice date</p>
+              <p className="font-semibold">{t("ui.checkout.invoice_enforcement.workflow.step3_title")}</p>
+              <p className="text-gray-600">{t("ui.checkout.invoice_enforcement.workflow.step3_description", { days: confirmedPaymentTerms.replace("net", "") })}</p>
             </div>
           </li>
           <li className="flex gap-3">
@@ -163,9 +185,9 @@ export function InvoiceEnforcementStep({
               4
             </span>
             <div>
-              <p className="font-semibold">Receive Your Tickets</p>
+              <p className="font-semibold">{t("ui.checkout.invoice_enforcement.workflow.step4_title")}</p>
               <p className="text-gray-600">
-                Tickets will be delivered to <strong>{customerInfo.email}</strong> after invoice acceptance
+                {t("ui.checkout.invoice_enforcement.workflow.step4_description", { email: customerInfo.email })}
               </p>
             </div>
           </li>
@@ -174,7 +196,7 @@ export function InvoiceEnforcementStep({
 
       {/* Order Summary */}
       <div className="bg-white border-2 border-gray-300 rounded-lg p-6 mb-6">
-        <h3 className="text-md font-semibold mb-4">Order Summary</h3>
+        <h3 className="text-md font-semibold mb-4">{t("ui.checkout.invoice_enforcement.order_summary.title")}</h3>
 
         {/* Products */}
         <div className="space-y-2 mb-4 pb-4 border-b border-gray-200">
@@ -184,7 +206,7 @@ export function InvoiceEnforcementStep({
               <div key={sp.productId} className="flex justify-between text-sm">
                 <div>
                   <p className="font-medium">{product?.name}</p>
-                  <p className="text-xs text-gray-600">Quantity: {sp.quantity}</p>
+                  <p className="text-xs text-gray-600">{t("ui.checkout.invoice_enforcement.order_summary.quantity_label", { quantity: sp.quantity })}</p>
                 </div>
                 <p className="font-medium">{formatPrice(sp.price * sp.quantity)}</p>
               </div>
@@ -195,12 +217,12 @@ export function InvoiceEnforcementStep({
         {/* Form Addons */}
         {formAddons > 0 && (
           <div className="mb-4 pb-4 border-b border-gray-200">
-            <p className="text-sm font-medium mb-2">Add-ons:</p>
+            <p className="text-sm font-medium mb-2">{t("ui.checkout.invoice_enforcement.order_summary.addons_label")}</p>
             {formResponses
               .filter((fr) => fr.addedCosts > 0)
               .map((fr) => (
                 <div key={`addon-${fr.productId}-${fr.ticketNumber}`} className="flex justify-between text-sm text-gray-700 mb-1">
-                  <p>Ticket {fr.ticketNumber} extras</p>
+                  <p>{t("ui.checkout.invoice_enforcement.order_summary.ticket_extras", { ticketNumber: fr.ticketNumber })}</p>
                   <p>{formatPrice(fr.addedCosts)}</p>
                 </div>
               ))}
@@ -210,22 +232,24 @@ export function InvoiceEnforcementStep({
         {/* Totals */}
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
-            <p className="text-gray-600">Subtotal:</p>
+            <p className="text-gray-600">{t("ui.checkout.invoice_enforcement.totals.subtotal_label")}</p>
             <p className="font-medium">{formatPrice(subtotal)}</p>
           </div>
           {taxCalculation && taxCalculation.isTaxable && taxCalculation.taxAmount > 0 && (
             <div className="flex justify-between text-sm">
               <p className="text-gray-600">
-                Tax ({taxCalculation.taxRate.toFixed(1)}%)
+                {t("ui.checkout.invoice_enforcement.tax.label", { rate: taxCalculation.taxRate.toFixed(1) })}
                 <span className="text-xs ml-1 opacity-70">
-                  {taxCalculation.taxBehavior === "inclusive" ? "💶 included" : "💵 added"}
+                  {taxCalculation.taxBehavior === "inclusive"
+                    ? t("ui.checkout.invoice_enforcement.tax.included_label")
+                    : t("ui.checkout.invoice_enforcement.tax.added_label")}
                 </span>
               </p>
               <p className="font-medium">{formatPrice(taxCalculation.taxAmount)}</p>
             </div>
           )}
           <div className="flex justify-between pt-2 mt-2 border-t-2 border-gray-400">
-            <p className="text-lg font-bold">Total Amount:</p>
+            <p className="text-lg font-bold">{t("ui.checkout.invoice_enforcement.totals.total_amount_label")}</p>
             <p className="text-lg font-bold text-purple-600">{formatPrice(total)}</p>
           </div>
         </div>
@@ -233,15 +257,15 @@ export function InvoiceEnforcementStep({
 
       {/* Acknowledgment */}
       <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-6 mb-6">
-        <h3 className="text-md font-semibold mb-3">Acknowledgment</h3>
-        <p className="text-sm mb-3">By continuing, you acknowledge that:</p>
+        <h3 className="text-md font-semibold mb-3">{t("ui.checkout.invoice_enforcement.acknowledgment.title")}</h3>
+        <p className="text-sm mb-3">{t("ui.checkout.invoice_enforcement.acknowledgment.intro")}</p>
         <ul className="text-sm space-y-2 list-disc pl-5">
-          <li>An invoice for <strong>{formatPrice(total)}</strong> will be generated</li>
-          <li>The invoice will be sent to <strong>{employerName}</strong></li>
-          <li>Payment is due within <strong>{paymentTerms.replace("net", "")} days</strong> of invoice date</li>
-          <li>Your registration will be confirmed upon invoice acceptance</li>
-          <li>Tickets will be delivered to: <strong>{customerInfo.email}</strong></li>
-          <li>You have authorization from your employer to make this purchase</li>
+          <li dangerouslySetInnerHTML={{ __html: t("ui.checkout.invoice_enforcement.acknowledgment.item1", { amount: `<strong>${formatPrice(total)}</strong>` }) }} />
+          <li dangerouslySetInnerHTML={{ __html: t("ui.checkout.invoice_enforcement.acknowledgment.item2", { employerName: `<strong>${employerName}</strong>` }) }} />
+          <li dangerouslySetInnerHTML={{ __html: t("ui.checkout.invoice_enforcement.acknowledgment.item3", { days: `<strong>${confirmedPaymentTerms.replace("net", "")} days</strong>` }) }} />
+          <li>{t("ui.checkout.invoice_enforcement.acknowledgment.item4")}</li>
+          <li dangerouslySetInnerHTML={{ __html: t("ui.checkout.invoice_enforcement.acknowledgment.item5", { email: `<strong>${customerInfo.email}</strong>` }) }} />
+          <li>{t("ui.checkout.invoice_enforcement.acknowledgment.item6")}</li>
         </ul>
       </div>
 
@@ -253,7 +277,7 @@ export function InvoiceEnforcementStep({
           className="px-6 py-3 text-base font-bold border-2 border-gray-400 bg-white text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
         >
           <ArrowLeft size={16} />
-          Back
+          {t("ui.checkout.invoice_enforcement.buttons.back")}
         </button>
 
         <button
@@ -261,14 +285,14 @@ export function InvoiceEnforcementStep({
           onClick={onComplete}
           className="flex-1 px-6 py-3 text-base font-bold border-2 border-purple-600 bg-purple-600 text-white hover:bg-purple-700 transition-colors flex items-center justify-center gap-2"
         >
-          Continue to Invoice Payment →
+          {t("ui.checkout.invoice_enforcement.buttons.continue")}
         </button>
       </div>
 
       {/* Info Badge */}
       <div className="mt-6 text-center">
         <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
-          📄 No immediate payment required - Invoice will be sent to {employerName}
+          {t("ui.checkout.invoice_enforcement.info_badge.message", { employerName })}
         </p>
       </div>
     </div>
