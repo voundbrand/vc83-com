@@ -44,7 +44,7 @@ export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
   const workflows = useQuery(
     api.workflows.workflowOntology.getWorkflowsByTriggerPublic,
     {
-      organizationId: config.organizationId as any,
+      organizationId: config.organizationId,
       triggerOn: "checkout_start",
     }
   );
@@ -74,20 +74,21 @@ export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
     const behaviors: Behavior[] = [];
     for (const workflow of workflows) {
       console.log("🔍 [Behavior Extraction] Processing workflow:", workflow.name);
-      const customProps = workflow.customProperties as any;
+      const customProps = workflow.customProperties as Record<string, unknown> | undefined;
       console.log("🔍 [Behavior Extraction] customProperties:", customProps);
-      console.log("🔍 [Behavior Extraction] behaviors array:", customProps?.behaviors);
+      console.log("🔍 [Behavior Extraction] behaviors array:", (customProps as { behaviors?: unknown[] })?.behaviors);
 
-      if (customProps?.behaviors) {
+      if (customProps && 'behaviors' in customProps && Array.isArray(customProps.behaviors)) {
         // Convert workflow behaviors to execution engine format
         for (const behaviorDef of customProps.behaviors) {
-          console.log("🔍 [Behavior Extraction] Found behavior:", behaviorDef.type, "enabled:", behaviorDef.enabled);
-          if (behaviorDef.enabled) {
+          const behavior = behaviorDef as { type: string; enabled: boolean; priority?: number; config?: Record<string, unknown>; triggers?: Record<string, unknown> };
+          console.log("🔍 [Behavior Extraction] Found behavior:", behavior.type, "enabled:", behavior.enabled);
+          if (behavior.enabled) {
             behaviors.push({
-              type: behaviorDef.type,
-              priority: behaviorDef.priority,
-              config: behaviorDef.config,
-              triggers: behaviorDef.triggers,
+              type: behavior.type,
+              priority: behavior.priority || 0,
+              config: behavior.config || {},
+              triggers: behavior.triggers || {},
             });
           }
         }
@@ -122,10 +123,10 @@ export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
         // Store in checkoutData for easy access throughout flow
         setCheckoutData(prev => ({
           ...prev,
-          paymentResult: {
+          paymentResult: prev.paymentResult ? {
             ...prev.paymentResult,
             checkoutSessionId: result.checkoutSessionId as string,
-          } as any,
+          } : undefined,
         }));
 
         console.log("✅ [BehaviorCheckout] Session created:", result.checkoutSessionId);
@@ -159,7 +160,23 @@ export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
     const data = { ...checkoutData, ...dataOverride };
 
     if (!data.selectedProducts || data.selectedProducts.length === 0) {
-      return { success: true, results: [], finalContext: {} as any, errors: [] };
+      return {
+        success: true,
+        results: [],
+        finalContext: {
+          organizationId: config.organizationId,
+          sessionId,
+          workflow: "checkout",
+          objects: [],
+          userContext: {},
+          inputSource: {
+            type: "form" as const,
+            data: {},
+          },
+          executionStack: [],
+        },
+        errors: []
+      };
     }
 
     console.log("🔍 [executeBehaviors] Using data:", {
@@ -275,17 +292,17 @@ export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
                   totalPrice: sp.price * sp.quantity,
                 })),
                 formResponses: updatedData.formResponses?.map(fr => ({
-                  productId: fr.productId as Id<"objects">,
+                  productId: fr.productId,
                   ticketNumber: fr.ticketNumber,
                   formId: fr.formId,
-                  responses: fr.responses as any,
+                  responses: fr.responses,
                   addedCosts: fr.addedCosts,
                   submittedAt: fr.submittedAt,
                 })),
                 totalAmount: updatedData.totalPrice || 0,
                 stepProgress: [currentStep],
                 // ✅ CRITICAL: Store behavior results so backend can access them!
-                behaviorContext: behaviorContext as any,
+                behaviorContext: behaviorContext,
               },
             });
             console.log("✅ [BehaviorCheckout] Session updated successfully after", currentStep);
