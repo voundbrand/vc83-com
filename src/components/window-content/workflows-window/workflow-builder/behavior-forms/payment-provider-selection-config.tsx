@@ -41,8 +41,8 @@ const PAYMENT_TERMS = [
 export function PaymentProviderSelectionConfigForm({
   config,
   onChange,
-  availableForms = [],
-  availableProducts = [],
+  availableForms: _availableForms = [],
+  availableProducts: _availableProducts = [],
   availableCrmOrganizations = [],
 }: PaymentProviderSelectionConfigFormProps) {
   const handleUpdate = (updates: Partial<PaymentProviderSelectionConfig>) => {

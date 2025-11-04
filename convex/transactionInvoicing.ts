@@ -8,7 +8,7 @@
  * - Automatic cleanup of expired PDFs
  */
 
-import { action, mutation, query, internalMutation } from "./_generated/server";
+import { action, query, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import type { Id, Doc } from "./_generated/dataModel";

@@ -32,7 +32,7 @@ export function EmployerDetectionConfigForm({
   sessionId,
   organizationId,
   availableForms = [],
-  availableCrmOrganizations = [],
+  availableCrmOrganizations: _availableCrmOrganizations = [],
 }: EmployerDetectionConfigFormProps) {
   // Fetch CRM organizations
   // Note: getCrmOrganizations expects Id<"organizations"> but we're passing Id<"objects">

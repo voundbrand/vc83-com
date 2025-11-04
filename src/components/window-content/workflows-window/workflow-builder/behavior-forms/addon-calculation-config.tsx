@@ -32,8 +32,8 @@ export function AddonCalculationConfigForm({
   config,
   onChange,
   availableFormFields = [],
-  availableForms = [],
-  availableProducts = [],
+  availableForms: _availableForms = [],
+  availableProducts: _availableProducts = [],
 }: AddonCalculationConfigFormProps) {
   const [expandedAddon, setExpandedAddon] = useState<string | null>(null);
 

@@ -18,16 +18,12 @@ import { api, internal } from "../_generated/api";
 import type { Id, Doc } from "../_generated/dataModel";
 import type {
   IPaymentProvider,
-  ConnectionParams,
   ConnectionResult,
   AccountStatus,
-  CheckoutSessionParams,
   CheckoutSessionResult,
   PaymentVerificationResult,
-  InvoiceParams,
   InvoiceResult,
   InvoiceSendResult,
-  ProviderWebhookEvent,
   WebhookHandlingResult,
 } from "./types";
 

@@ -20,7 +20,6 @@ import {
 } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
-import { Id } from "./_generated/dataModel";
 import Stripe from "stripe";
 import {
   getProviderByCode,

@@ -8,7 +8,6 @@
 import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser } from "../rbacHelpers";
-import { Id } from "../_generated/dataModel";
 
 // ============================================================================
 // TEMPLATE DEFINITIONS
