@@ -133,9 +133,13 @@ export function AddonCalculationConfigForm({
     const newMapping: Record<string, number> = {};
 
     // For fields with options (radio, select, checkbox), use the options
-    if ((field as any).options && Array.isArray((field as any).options)) {
-      for (const option of (field as any).options) {
-        const value = option.value || option.label;
+    interface FieldWithOptions {
+      options?: Array<{ value?: string; label?: string }>;
+    }
+    const fieldWithOptions = field as FieldWithOptions;
+    if (fieldWithOptions.options && Array.isArray(fieldWithOptions.options)) {
+      for (const option of fieldWithOptions.options) {
+        const value = option.value || option.label || "";
         // Try to parse as number, default to 1
         const numValue = parseInt(value, 10);
         newMapping[value] = isNaN(numValue) ? 1 : numValue;

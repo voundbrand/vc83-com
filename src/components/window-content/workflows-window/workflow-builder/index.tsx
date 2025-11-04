@@ -10,6 +10,7 @@
 import React, { useState, useCallback } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
+import { Id } from "../../../../../convex/_generated/dataModel";
 import { useNotification } from "../../../../hooks/use-notification";
 import {
   ArrowLeft,
@@ -21,6 +22,27 @@ import { WorkflowCanvas } from "./workflow-canvas";
 import { ObjectSelectorPanel } from "./object-selector-panel";
 import { BehaviorConfigPanel } from "./behavior-config-panel";
 import { WorkflowHelpModal } from "./workflow-help-modal";
+
+// Types
+interface WorkflowObject {
+  objectId: Id<"objects">;
+  objectType: string;
+  role: string;
+  config?: Record<string, unknown>;
+}
+
+interface WorkflowBehavior {
+  id: string;
+  type: string;
+  enabled: boolean;
+  priority: number;
+  config?: Record<string, unknown>;
+  triggers?: {
+    inputTypes?: string[];
+    objectTypes?: string[];
+    workflows?: string[];
+  };
+}
 
 interface WorkflowBuilderProps {
   organizationId: string;
@@ -39,8 +61,8 @@ export function WorkflowBuilder({
   const [workflowDescription, setWorkflowDescription] = useState("");
   const [workflowSubtype, setWorkflowSubtype] = useState("checkout-flow");
   const [triggerOn, setTriggerOn] = useState<string>("manual"); // Default to manual
-  const [selectedObjects, setSelectedObjects] = useState<any[]>([]);
-  const [selectedBehaviors, setSelectedBehaviors] = useState<any[]>([]);
+  const [selectedObjects, setSelectedObjects] = useState<WorkflowObject[]>([]);
+  const [selectedBehaviors, setSelectedBehaviors] = useState<WorkflowBehavior[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
 
@@ -50,7 +72,7 @@ export function WorkflowBuilder({
   const existingWorkflow = useQuery(
     api.workflows.workflowOntology.getWorkflow,
     workflowId
-      ? { sessionId, workflowId: workflowId as any }
+      ? { sessionId, workflowId: workflowId as Id<"objects"> }
       : "skip"
   );
 
@@ -63,7 +85,11 @@ export function WorkflowBuilder({
       setWorkflowName(existingWorkflow.name);
       setWorkflowDescription(existingWorkflow.description || "");
       setWorkflowSubtype(existingWorkflow.subtype || "checkout-flow");
-      const customProps = existingWorkflow.customProperties as any;
+      const customProps = existingWorkflow.customProperties as {
+        objects?: WorkflowObject[];
+        behaviors?: WorkflowBehavior[];
+        execution?: { triggerOn?: string };
+      };
       setSelectedObjects(customProps?.objects || []);
       setSelectedBehaviors(customProps?.behaviors || []);
       setTriggerOn(customProps?.execution?.triggerOn || "manual");
@@ -116,8 +142,8 @@ export function WorkflowBuilder({
         // Update existing
         await updateWorkflow({
           sessionId,
-          workflowId: workflowId as any,
-          updates: workflowData as any,
+          workflowId: workflowId as Id<"objects">,
+          updates: workflowData,
         });
         notification.success(
           "Workflow Updated",
@@ -127,8 +153,11 @@ export function WorkflowBuilder({
         // Create new
         await createWorkflow({
           sessionId,
-          organizationId: organizationId as any,
-          workflow: workflowData as any,
+          organizationId: organizationId as Id<"organizations">,
+          workflow: {
+            ...workflowData,
+            subtype: workflowSubtype,
+          },
         });
         notification.success(
           "Workflow Created",
@@ -147,7 +176,7 @@ export function WorkflowBuilder({
     }
   };
 
-  const handleAddObject = useCallback((object: any) => {
+  const handleAddObject = useCallback((object: WorkflowObject) => {
     setSelectedObjects((prev) => {
       // Prevent duplicates
       if (prev.some((o) => o.objectId === object.objectId)) {
@@ -161,7 +190,7 @@ export function WorkflowBuilder({
     setSelectedObjects((prev) => prev.filter((o) => o.objectId !== objectId));
   }, []);
 
-  const handleAddBehavior = useCallback((behavior: any) => {
+  const handleAddBehavior = useCallback((behavior: WorkflowBehavior) => {
     setSelectedBehaviors((prev) => [...prev, behavior]);
   }, []);
 
@@ -169,7 +198,7 @@ export function WorkflowBuilder({
     setSelectedBehaviors((prev) => prev.filter((b) => b.id !== behaviorId));
   }, []);
 
-  const handleUpdateBehavior = useCallback((behaviorId: string, updates: any) => {
+  const handleUpdateBehavior = useCallback((behaviorId: string, updates: Partial<WorkflowBehavior>) => {
     setSelectedBehaviors((prev) =>
       prev.map((b) => (b.id === behaviorId ? { ...b, ...updates } : b))
     );
