@@ -13,10 +13,11 @@ import {
   Behavior,
   BehaviorContext,
   BehaviorExecutionResult,
-  BehaviorHandler,
   BehaviorAction,
+  BehaviorResult,
   InputSource,
 } from "./types";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { behaviorRegistry } from "./index";
 
 /**
@@ -41,7 +42,7 @@ export async function executeBehaviors(
   console.log("🚀 [Engine] After sorting/filtering:", sortedBehaviors.length);
   console.log("🚀 [Engine] Sorted order:", sortedBehaviors.map(b => `${b.type} (${b.priority})`));
 
-  const results: Array<{ type: string; result: any }> = [];
+  const results: Array<{ type: string; result: BehaviorResult }> = [];
   const errors: string[] = [];
   const warnings: string[] = [];
   const actions: BehaviorAction[] = [];
@@ -223,7 +224,7 @@ export function createInputSourceFromForm(
   return {
     type: "form",
     inputId: formId,
-    sourceObjectId: productId as any,
+    sourceObjectId: productId as Id<"objects">,
     sourceObjectType: "product",
     data: {
       ...responses,

@@ -76,7 +76,11 @@ export const paymentProviderSelectionHandler: BehaviorHandler<PaymentProviderSel
     context: Readonly<BehaviorContext>
   ) => {
     // Get employer from behavior data
-    const employerBehaviorData = (context.behaviorData?.employer_detection || {}) as Record<string, any>;
+    interface EmployerDetectionData {
+      employerId?: string;
+      employerName?: string;
+    }
+    const employerBehaviorData = (context.behaviorData?.employer_detection || {}) as EmployerDetectionData;
     const hasEmployer = !!employerBehaviorData.employerId;
     const employerId = employerBehaviorData.employerId;
 
