@@ -8,6 +8,7 @@
 "use client";
 
 import React from "react";
+import type { Id } from "../../../../../../convex/_generated/dataModel";
 import type { FormLinkingConfig } from "@/lib/behaviors/handlers/form-linking";
 
 interface FormLinkingConfigFormProps {
@@ -45,7 +46,7 @@ export function FormLinkingConfigForm({
         </label>
         <select
           value={config.formId || ""}
-          onChange={(e) => handleUpdate({ formId: e.target.value as any })}
+          onChange={(e) => handleUpdate({ formId: e.target.value as Id<"objects"> })}
           className="retro-input w-full px-2 py-1 text-xs"
           required
         >

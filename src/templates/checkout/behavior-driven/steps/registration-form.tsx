@@ -60,14 +60,23 @@ export function RegistrationFormStep({
   // PRIORITY 1: Get form from workflow behaviors (new behavior-driven approach)
   // ============================================================================
 
+  interface FormLinkingConfig {
+    formId?: string;
+    timing?: "duringCheckout" | "afterPurchase" | "standalone";
+    triggerConditions?: {
+      productSubtype?: string[];
+      minQuantity?: number;
+    };
+  }
+
   const formBehaviors = workflowBehaviors?.filter(b =>
     b.type === "form_linking" &&
-    (b.config as any).timing === "duringCheckout"
+    (b.config as FormLinkingConfig).timing === "duringCheckout"
   ) || [];
 
   // Evaluate trigger conditions to find active form
   const activeFormBehavior = formBehaviors.find(behavior => {
-    const config = behavior.config as any; // FormLinkingConfig
+    const config = behavior.config as FormLinkingConfig;
 
     // Check product subtype condition
     if (config.triggerConditions?.productSubtype) {

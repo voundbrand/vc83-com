@@ -86,13 +86,13 @@ export function ObjectSelectorPanel({
       type: c.type || "checkout_instance", // Use actual type from database
       subtype: c.subtype,
     })) || []),
-    ...(crmOrganizations?.map((o: any) => ({
+    ...(crmOrganizations?.map((o) => ({
       id: o._id,
       name: o.name,
       type: "crm_organization",
       subtype: "organization",
     })) || []),
-    ...(crmContacts?.map((c: any) => ({
+    ...(crmContacts?.map((c) => ({
       id: c._id,
       name: c.name || `${c.customProperties?.firstName || ""} ${c.customProperties?.lastName || ""}`.trim() || c.customProperties?.email || "Unknown",
       type: "crm_contact",

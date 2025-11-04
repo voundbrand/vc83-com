@@ -11,10 +11,17 @@ import React from "react";
 import { Plus, Trash2 } from "lucide-react";
 import type { PaymentProviderSelectionConfig } from "@/lib/behaviors/handlers/payment-provider-selection";
 
+interface FormField {
+  id: string;
+  label: string;
+  type: string;
+  options?: Array<{ value: string; label: string }>;
+}
+
 interface PaymentProviderSelectionConfigFormProps {
   config: PaymentProviderSelectionConfig;
   onChange: (config: PaymentProviderSelectionConfig) => void;
-  availableForms?: Array<{ _id: string; name: string; fields?: any }>;
+  availableForms?: Array<{ _id: string; name: string; fields?: FormField[] }>;
   availableProducts?: Array<{ _id: string; name: string; subtype?: string }>;
   availableCrmOrganizations?: Array<{ _id: string; name: string }>;
 }
@@ -67,13 +74,13 @@ export function PaymentProviderSelectionConfigForm({
     handleUpdate({ rules: newRules });
   };
 
-  const updateRule = (index: number, updates: any) => {
+  const updateRule = (index: number, updates: Partial<NonNullable<PaymentProviderSelectionConfig["rules"]>[number]>) => {
     const newRules = [...(config.rules || [])];
     newRules[index] = { ...newRules[index], ...updates };
     handleUpdate({ rules: newRules });
   };
 
-  const updateRuleCondition = (index: number, conditionUpdates: any) => {
+  const updateRuleCondition = (index: number, conditionUpdates: Partial<NonNullable<PaymentProviderSelectionConfig["rules"]>[number]["conditions"]>) => {
     const newRules = [...(config.rules || [])];
     newRules[index] = {
       ...newRules[index],

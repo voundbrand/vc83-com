@@ -28,8 +28,24 @@ import {
   ExternalLink,
 } from "lucide-react";
 
+interface WorkflowObject {
+  _id: Id<"objects">;
+  type: string;
+  name: string;
+  status: string;
+  subtype?: string;
+  description?: string;
+  customProperties?: {
+    objects?: unknown[];
+    behaviors?: unknown[];
+    execution?: {
+      triggerOn?: string;
+    };
+  };
+}
+
 interface WorkflowCardProps {
-  workflow: any;
+  workflow: WorkflowObject;
   sessionId: string;
   onEdit: () => void;
 }
@@ -54,9 +70,9 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
   const updateWorkflow = useMutation(api.workflows.workflowOntology.updateWorkflow);
   const executeWorkflow = useAction(api.workflows.workflowOntology.executeWorkflow);
 
-  const customProps = workflow.customProperties as any;
-  const objectCount = customProps?.objects?.length || 0;
-  const behaviorCount = customProps?.behaviors?.length || 0;
+  const customProps = workflow.customProperties;
+  const objectCount = (customProps?.objects as unknown[] | undefined)?.length || 0;
+  const behaviorCount = (customProps?.behaviors as unknown[] | undefined)?.length || 0;
   const triggerOn = customProps?.execution?.triggerOn || "unknown";
 
   // Determine if workflow can be manually triggered
@@ -150,7 +166,7 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
       let invoiceId: string | null = null;
       let invoiceNumber: string | null = null;
 
-      behaviorResults.forEach((behaviorResult: any) => {
+      behaviorResults.forEach((behaviorResult: { invoiceId?: string; invoiceNumber?: string }) => {
         if (behaviorResult.invoiceId) {
           invoiceId = behaviorResult.invoiceId;
         }

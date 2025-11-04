@@ -44,7 +44,7 @@ export function InvoicePaymentConfigForm({
             <label className="text-[10px] block mb-1">Default Payment Terms</label>
             <select
               value={config.defaultPaymentTerms}
-              onChange={(e) => handleUpdate({ defaultPaymentTerms: e.target.value as any })}
+              onChange={(e) => handleUpdate({ defaultPaymentTerms: e.target.value as "net30" | "net60" | "net90" })}
               className="retro-input w-full px-2 py-1 text-xs"
             >
               {PAYMENT_TERMS.map((term) => (
@@ -70,7 +70,7 @@ export function InvoicePaymentConfigForm({
                       onChange={(e) => handleUpdate({
                         employerPaymentTerms: {
                           ...config.employerPaymentTerms,
-                          [org._id]: e.target.value as any || undefined,
+                          [org._id]: (e.target.value as "net30" | "net60" | "net90") || undefined,
                         },
                       })}
                       className="retro-input px-2 py-1 text-[10px] w-32"

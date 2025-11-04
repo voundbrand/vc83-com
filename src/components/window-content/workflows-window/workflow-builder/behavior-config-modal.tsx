@@ -21,11 +21,31 @@ import { StripePaymentConfigForm } from "./behavior-forms/stripe-payment-config"
 import { InvoicePaymentConfigForm } from "./behavior-forms/invoice-payment-config";
 import { ConsolidatedInvoiceGenerationConfigForm } from "./behavior-forms/consolidated-invoice-generation-config";
 
+interface WorkflowObject {
+  objectId: Id<"objects">;
+  objectType: string;
+  role?: string;
+  config?: Record<string, unknown>;
+}
+
+interface WorkflowBehavior {
+  id: string;
+  type: string;
+  enabled: boolean;
+  priority: number;
+  config?: Record<string, unknown>;
+  triggers?: {
+    inputTypes?: string[];
+    objectTypes?: string[];
+    workflows?: string[];
+  };
+}
+
 interface BehaviorConfigModalProps {
-  behavior: any;
-  selectedObjects: any[];
+  behavior: WorkflowBehavior;
+  selectedObjects: WorkflowObject[];
   onClose: () => void;
-  onSave: (updatedBehavior: any) => void;
+  onSave: (updatedBehavior: WorkflowBehavior) => void;
   sessionId: string;
   organizationId: string;
 }

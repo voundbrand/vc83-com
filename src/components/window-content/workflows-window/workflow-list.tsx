@@ -10,6 +10,7 @@
 import React, { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
+import type { Id } from "../../../../convex/_generated/dataModel";
 import { WorkflowCard } from "./workflow-card";
 import { Search, Filter, Zap, Loader2 } from "lucide-react";
 
@@ -35,7 +36,7 @@ export function WorkflowList({
     api.workflows.workflowOntology.listWorkflows,
     {
       sessionId,
-      organizationId: organizationId as any,
+      organizationId: organizationId as Id<"organizations">,
       status: statusFilter,
       subtype: subtypeFilter,
     }
