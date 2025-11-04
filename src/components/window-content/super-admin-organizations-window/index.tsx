@@ -7,7 +7,6 @@ import { OrganizationsListTab } from "./organizations-list-tab";
 import { AppAvailabilityTab } from "./app-availability-tab";
 import { TemplatesTab } from "./templates-tab";
 import { useTranslation } from "@/contexts/translation-context";
-import { useCurrentOrganization } from "@/hooks/use-auth";
 
 /**
  * Organizations Window - Tabbed Interface for Organization Management

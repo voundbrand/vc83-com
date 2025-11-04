@@ -14,8 +14,6 @@ import { useNotification } from "../../../../hooks/use-notification";
 import {
   ArrowLeft,
   Save,
-  Play,
-  Settings as SettingsIcon,
   Loader2,
   HelpCircle,
 } from "lucide-react";

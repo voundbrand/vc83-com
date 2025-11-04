@@ -12,7 +12,7 @@ import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { BehaviorDrivenCheckoutConfig, CheckoutData, CheckoutStep } from "./types";
 import { DEFAULT_CONFIG, getNextStep, getPreviousStep, getStepNumber, getProgressPercentage } from "./config";
-import { executeCheckoutBehaviors, getInvoiceMappingFromResults, shouldSkipPaymentStep } from "@/lib/behaviors/adapters/checkout-integration";
+import { executeCheckoutBehaviors, shouldSkipPaymentStep } from "@/lib/behaviors/adapters/checkout-integration";
 import { Behavior } from "@/lib/behaviors/types";
 import { Id } from "../../../../convex/_generated/dataModel";
 
