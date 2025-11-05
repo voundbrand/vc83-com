@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
-import { Shield, Check, X, Loader2, AlertCircle } from "lucide-react";
+import { Shield, Check, X, Loader2, AlertCircle, Key, ToggleLeft, ToggleRight } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 
 /**
@@ -77,71 +77,77 @@ export function AppAvailabilityTab() {
   }
 
   return (
-    <div className="p-4">
-      {/* Header */}
-      <div className="mb-4">
-        <h3 className="text-sm font-bold flex items-center gap-2">
-          <Shield size={16} />
-          App Availability Management
-        </h3>
-        <p className="text-xs text-gray-600 mt-1">
-          Control which apps are visible to each organization. Click checkboxes to enable/disable.
-        </p>
-      </div>
+    <div className="p-4 space-y-8">
+      {/* App Availability Section */}
+      <div>
+        {/* Header */}
+        <div className="mb-4">
+          <h3 className="text-sm font-bold flex items-center gap-2">
+            <Shield size={16} />
+            App Availability Management
+          </h3>
+          <p className="text-xs text-gray-600 mt-1">
+            Control which apps are visible to each organization. Click checkboxes to enable/disable.
+          </p>
+        </div>
 
-      {/* Matrix Table */}
-      <div className="border-2 border-gray-400 overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="bg-gray-200 border-b-2 border-gray-400">
-              <th className="px-3 py-2 text-left font-bold sticky left-0 bg-gray-200 z-10">
-                Organization
-              </th>
-              {apps.map((app) => (
-                <th key={app._id} className="px-3 py-2 text-center font-bold min-w-[100px]">
-                  <div className="flex flex-col items-center gap-1">
-                    <span>{app.icon || "📦"}</span>
-                    <span>{app.name}</span>
-                  </div>
+        {/* Matrix Table */}
+        <div className="border-2 border-gray-400 overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-gray-200 border-b-2 border-gray-400">
+                <th className="px-3 py-2 text-left font-bold sticky left-0 bg-gray-200 z-10">
+                  Organization
                 </th>
+                {apps.map((app) => (
+                  <th key={app._id} className="px-3 py-2 text-center font-bold min-w-[100px]">
+                    <div className="flex flex-col items-center gap-1">
+                      <span>{app.icon || "📦"}</span>
+                      <span>{app.name}</span>
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {organizations.map((org) => (
+                <OrganizationRow
+                  key={org._id}
+                  organization={org}
+                  apps={apps}
+                  availabilities={availabilities.filter((a) => a.organizationId === org._id)}
+                  sessionId={sessionId!}
+                />
               ))}
-            </tr>
-          </thead>
-          <tbody>
-            {organizations.map((org) => (
-              <OrganizationRow
-                key={org._id}
-                organization={org}
-                apps={apps}
-                availabilities={availabilities.filter((a) => a.organizationId === org._id)}
-                sessionId={sessionId!}
-              />
-            ))}
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Legend */}
+        <div className="mt-4 flex items-center gap-4 text-xs">
+          <div className="flex items-center gap-1">
+            <div className="w-4 h-4 bg-green-500 border-2 border-gray-400 flex items-center justify-center">
+              <Check size={10} className="text-white" />
+            </div>
+            <span>Available</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-4 h-4 bg-red-500 border-2 border-gray-400 flex items-center justify-center">
+              <X size={10} className="text-white" />
+            </div>
+            <span>Not Available</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-4 h-4 bg-gray-300 border-2 border-gray-400 flex items-center justify-center">
+              <Loader2 size={10} className="animate-spin" />
+            </div>
+            <span>Updating...</span>
+          </div>
+        </div>
       </div>
 
-      {/* Legend */}
-      <div className="mt-4 flex items-center gap-4 text-xs">
-        <div className="flex items-center gap-1">
-          <div className="w-4 h-4 bg-green-500 border-2 border-gray-400 flex items-center justify-center">
-            <Check size={10} className="text-white" />
-          </div>
-          <span>Available</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="w-4 h-4 bg-red-500 border-2 border-gray-400 flex items-center justify-center">
-            <X size={10} className="text-white" />
-          </div>
-          <span>Not Available</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="w-4 h-4 bg-gray-300 border-2 border-gray-400 flex items-center justify-center">
-            <Loader2 size={10} className="animate-spin" />
-          </div>
-          <span>Updating...</span>
-        </div>
-      </div>
+      {/* Security & API Section */}
+      <SecurityAndApiSection organizations={organizations} sessionId={sessionId!} />
     </div>
   );
 }
@@ -229,6 +235,174 @@ function OrganizationRow({
           </td>
         );
       })}
+    </tr>
+  );
+}
+
+/**
+ * Security & API Section
+ * Allows super admin to enable/disable API key generation for organizations
+ */
+function SecurityAndApiSection({
+  organizations,
+  sessionId,
+}: {
+  organizations: { _id: Id<"organizations">; name: string; slug?: string }[];
+  sessionId: string;
+}) {
+  // Fetch API settings for all organizations
+  const apiSettingsMap = useQuery(
+    api.organizationApiSettings.getAllApiSettings,
+    sessionId ? { sessionId } : "skip"
+  );
+
+  return (
+    <div>
+      {/* Header */}
+      <div className="mb-4">
+        <h3 className="text-sm font-bold flex items-center gap-2">
+          <Key size={16} />
+          Security & API Management
+        </h3>
+        <p className="text-xs text-gray-600 mt-1">
+          Control which organizations can generate API keys for external integrations.
+        </p>
+      </div>
+
+      {/* API Access Control Table */}
+      <div className="border-2 border-gray-400 overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="bg-gray-200 border-b-2 border-gray-400">
+              <th className="px-3 py-2 text-left font-bold sticky left-0 bg-gray-200 z-10">
+                Organization
+              </th>
+              <th className="px-3 py-2 text-center font-bold min-w-[150px]">
+                API Keys Access
+              </th>
+              <th className="px-3 py-2 text-left font-bold min-w-[200px]">
+                Description
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {organizations.map((org) => (
+              <ApiAccessRow
+                key={org._id}
+                organization={org}
+                isEnabled={apiSettingsMap?.[org._id] ?? false}
+                sessionId={sessionId}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Legend */}
+      <div className="mt-4 flex items-center gap-4 text-xs">
+        <div className="flex items-center gap-1">
+          <div className="w-4 h-4 bg-green-500 border-2 border-gray-400 flex items-center justify-center">
+            <Check size={10} className="text-white" />
+          </div>
+          <span>API Keys Enabled</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-4 h-4 bg-red-500 border-2 border-gray-400 flex items-center justify-center">
+            <X size={10} className="text-white" />
+          </div>
+          <span>API Keys Disabled</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * API Access Row Component
+ * Shows toggle for enabling/disabling API key access per organization
+ */
+function ApiAccessRow({
+  organization,
+  isEnabled,
+  sessionId,
+}: {
+  organization: { _id: Id<"organizations">; name: string; slug?: string };
+  isEnabled: boolean;
+  sessionId: string;
+}) {
+  const [isToggling, setIsToggling] = useState(false);
+  const toggleApiKeys = useMutation(api.organizationApiSettings.toggleApiKeys);
+
+  const handleToggle = async () => {
+    try {
+      setIsToggling(true);
+      await toggleApiKeys({
+        sessionId,
+        organizationId: organization._id,
+        enabled: !isEnabled,
+      });
+    } catch (error) {
+      console.error("Failed to toggle API keys:", error);
+      alert(`Failed to update: ${error instanceof Error ? error.message : "Unknown error"}`);
+    } finally {
+      setIsToggling(false);
+    }
+  };
+
+  return (
+    <tr className="border-b border-gray-300 hover:bg-gray-50">
+      <td className="px-3 py-2 font-semibold sticky left-0 bg-white z-10">
+        <div>
+          <div>{organization.name}</div>
+          <div className="text-gray-500 text-xs font-normal">
+            {organization.slug}
+          </div>
+        </div>
+      </td>
+      <td className="px-3 py-2 text-center">
+        <button
+          onClick={handleToggle}
+          disabled={isToggling}
+          className="inline-flex items-center gap-2 px-3 py-1.5 border-2 border-gray-400 transition-colors hover:opacity-80 disabled:opacity-50"
+          style={{
+            backgroundColor: isToggling
+              ? "#d1d5db"
+              : isEnabled
+              ? "#22c55e"
+              : "#ef4444",
+            color: "white",
+          }}
+          title={
+            isToggling
+              ? "Updating..."
+              : isEnabled
+              ? `Click to disable API keys for ${organization.name}`
+              : `Click to enable API keys for ${organization.name}`
+          }
+        >
+          {isToggling ? (
+            <>
+              <Loader2 size={14} className="animate-spin" />
+              <span className="text-xs font-bold">Updating...</span>
+            </>
+          ) : isEnabled ? (
+            <>
+              <ToggleRight size={16} />
+              <span className="text-xs font-bold">Enabled</span>
+            </>
+          ) : (
+            <>
+              <ToggleLeft size={16} />
+              <span className="text-xs font-bold">Disabled</span>
+            </>
+          )}
+        </button>
+      </td>
+      <td className="px-3 py-2 text-xs text-gray-600">
+        {isEnabled
+          ? "Organization can generate and manage API keys"
+          : "Organization cannot access API key features"}
+      </td>
     </tr>
   );
 }

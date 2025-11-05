@@ -18,6 +18,8 @@ import type * as addressValidation from "../addressValidation.js";
 import type * as api_auth from "../api/auth.js";
 import type * as api_v1_checkout from "../api/v1/checkout.js";
 import type * as api_v1_checkoutInternal from "../api/v1/checkoutInternal.js";
+import type * as api_v1_crm from "../api/v1/crm.js";
+import type * as api_v1_crmInternal from "../api/v1/crmInternal.js";
 import type * as api_v1_events from "../api/v1/events.js";
 import type * as api_v1_eventsInternal from "../api/v1/eventsInternal.js";
 import type * as api_v1_forms from "../api/v1/forms.js";
@@ -66,6 +68,7 @@ import type * as migrations_updateExistingHaffForms from "../migrations/updateEx
 import type * as ontologyAdmin from "../ontologyAdmin.js";
 import type * as ontologyHelpers from "../ontologyHelpers.js";
 import type * as ontologyTranslations from "../ontologyTranslations.js";
+import type * as organizationApiSettings from "../organizationApiSettings.js";
 import type * as organizationInvoiceSettings from "../organizationInvoiceSettings.js";
 import type * as organizationMedia from "../organizationMedia.js";
 import type * as organizationMutations from "../organizationMutations.js";
@@ -187,6 +190,8 @@ declare const fullApi: ApiFromModules<{
   "api/auth": typeof api_auth;
   "api/v1/checkout": typeof api_v1_checkout;
   "api/v1/checkoutInternal": typeof api_v1_checkoutInternal;
+  "api/v1/crm": typeof api_v1_crm;
+  "api/v1/crmInternal": typeof api_v1_crmInternal;
   "api/v1/events": typeof api_v1_events;
   "api/v1/eventsInternal": typeof api_v1_eventsInternal;
   "api/v1/forms": typeof api_v1_forms;
@@ -235,6 +240,7 @@ declare const fullApi: ApiFromModules<{
   ontologyAdmin: typeof ontologyAdmin;
   ontologyHelpers: typeof ontologyHelpers;
   ontologyTranslations: typeof ontologyTranslations;
+  organizationApiSettings: typeof organizationApiSettings;
   organizationInvoiceSettings: typeof organizationInvoiceSettings;
   organizationMedia: typeof organizationMedia;
   organizationMutations: typeof organizationMutations;

@@ -262,6 +262,12 @@ import {
   createCheckoutSession,
   confirmPayment,
 } from "./api/v1/checkout";
+import {
+  createContactFromEvent,
+  createContact,
+  listContacts,
+  getContact,
+} from "./api/v1/crm";
 
 /**
  * Layer 1: READ APIs (Before Checkout)
@@ -347,6 +353,38 @@ http.route({
   path: "/api/v1/invoices/:invoiceId",
   method: "GET",
   handler: getInvoice,
+});
+
+/**
+ * Layer 5: CRM APIs (Contact Management)
+ */
+
+// POST /api/v1/crm/contacts/from-event - Create contact from event registration
+http.route({
+  path: "/api/v1/crm/contacts/from-event",
+  method: "POST",
+  handler: createContactFromEvent,
+});
+
+// POST /api/v1/crm/contacts - Create generic contact
+http.route({
+  path: "/api/v1/crm/contacts",
+  method: "POST",
+  handler: createContact,
+});
+
+// GET /api/v1/crm/contacts - List contacts
+http.route({
+  path: "/api/v1/crm/contacts",
+  method: "GET",
+  handler: listContacts,
+});
+
+// GET /api/v1/crm/contacts/:contactId - Get contact details
+http.route({
+  path: "/api/v1/crm/contacts/:contactId",
+  method: "GET",
+  handler: getContact,
 });
 
 export default http;

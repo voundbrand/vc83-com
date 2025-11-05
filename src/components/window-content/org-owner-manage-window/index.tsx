@@ -4,11 +4,12 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { UserManagementTable } from "./user-management-table";
 import { RolesPermissionsTab } from "./roles-permissions-tab";
+import { SecurityTab } from "./security-tab";
 import { OrganizationSection } from "./components/organization-section";
 import { AddressCard } from "./components/address-card";
 import { AddressModal } from "./components/address-modal";
 import { OrganizationDetailsForm, OrganizationDetailsFormRef } from "./organization-details-form";
-import { Users, Building2, AlertCircle, Loader2, Shield, Save, Crown, Edit2, X, MapPin, Plus } from "lucide-react";
+import { Users, Building2, AlertCircle, Loader2, Shield, Save, Crown, Edit2, X, MapPin, Plus, Key } from "lucide-react";
 import { useState, useRef } from "react";
 import {
   useAuth,
@@ -19,7 +20,7 @@ import { PermissionGuard, PermissionButton } from "@/components/permission";
 import { Id, Doc } from "../../../../convex/_generated/dataModel";
 import { useTranslation } from "@/contexts/translation-context";
 
-type TabType = "organization" | "users" | "roles";
+type TabType = "organization" | "users" | "roles" | "security";
 
 export function ManageWindow() {
   const { t } = useTranslation();
@@ -275,6 +276,18 @@ export function ManageWindow() {
         >
           <Shield size={14} />
           {t("ui.manage.tab.roles_permissions")}
+        </button>
+        <button
+          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2"
+          style={{
+            borderColor: 'var(--win95-border)',
+            background: activeTab === "security" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+            color: activeTab === "security" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+          }}
+          onClick={() => setActiveTab("security")}
+        >
+          <Key size={14} />
+          Security
         </button>
       </div>
 
@@ -628,6 +641,13 @@ export function ManageWindow() {
 
         {activeTab === "roles" && (
           <RolesPermissionsTab />
+        )}
+
+        {activeTab === "security" && organizationId && sessionId && (
+          <SecurityTab
+            organizationId={organizationId as Id<"organizations">}
+            sessionId={sessionId}
+          />
         )}
       </div>
 
