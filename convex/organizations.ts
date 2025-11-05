@@ -595,6 +595,9 @@ export const createOrganization = action({
     contactEmail: v.optional(v.string()),
     contactPhone: v.optional(v.string()),
     addCreatorAsOwner: v.optional(v.boolean()), // Default: true
+    timezone: v.optional(v.string()), // IANA timezone (e.g., "America/New_York")
+    dateFormat: v.optional(v.string()), // Date format (e.g., "MM/DD/YYYY")
+    language: v.optional(v.string()), // Language code (e.g., "en", "de")
   },
   handler: async (ctx, args): Promise<{ success: boolean; organizationId: Id<"organizations">; slug: string; message: string }> => {
     // 1. Authenticate user
@@ -639,10 +642,13 @@ export const createOrganization = action({
       createdBy: userId,
     });
 
-    // 7. Create organization_settings ontology object
+    // 7. Create organization_settings ontology object with provided locale settings
     await ctx.runMutation(internal.organizations.createOrgSettings, {
       organizationId,
       createdBy: userId,
+      timezone: args.timezone,
+      dateFormat: args.dateFormat,
+      language: args.language,
     });
 
     // 8. Save contact information (if provided)
@@ -756,11 +762,15 @@ export const createOrgSettings = internalMutation({
   args: {
     organizationId: v.id("organizations"),
     createdBy: v.id("users"),
+    timezone: v.optional(v.string()),
+    dateFormat: v.optional(v.string()),
+    language: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
 
-    // Create organization_settings ontology object with defaults
+    // Create organization_settings ontology object with provided values or sensible defaults
+    // Default timezone based on common usage: America/New_York (US Eastern Time)
     await ctx.db.insert("objects", {
       organizationId: args.organizationId,
       type: "organization_settings",
@@ -768,9 +778,9 @@ export const createOrgSettings = internalMutation({
       name: "Organization Settings",
       status: "active",
       customProperties: {
-        timezone: "Europe/Berlin",
-        dateFormat: "DD.MM.YYYY",
-        language: "de",
+        timezone: args.timezone || "America/New_York", // Default to US Eastern Time
+        dateFormat: args.dateFormat || "MM/DD/YYYY", // Default to US date format
+        language: args.language || "en", // Default to English
       },
       createdBy: args.createdBy,
       createdAt: now,

@@ -9,6 +9,11 @@ import { OrganizationFormModal } from "../crm-window/organization-form-modal";
 import { EventDescriptionSection } from "./EventDescriptionSection";
 import { EventMediaSection } from "./EventMediaSection";
 import { EventAgendaSection, type AgendaItem } from "./EventAgendaSection";
+import {
+  timestampToLocalDate,
+  timestampToLocalTime,
+  localDateTimeToTimestamp
+} from "@/lib/timezone-utils";
 
 interface EventFormProps {
   sessionId: string;
@@ -99,6 +104,16 @@ export function EventForm({
     eventId ? { sessionId, eventId } : "skip"
   );
 
+  // Get organization settings to access timezone (specifically locale settings)
+  const localeSettings = useQuery(
+    api.organizationOntology.getOrganizationSettings,
+    { organizationId, subtype: "locale" }
+  );
+
+  // Extract timezone from organization settings, default to America/New_York if not set
+  // localeSettings is a single object when subtype is specified
+  const orgTimezone = (localeSettings && !Array.isArray(localeSettings) && localeSettings.customProperties?.timezone as string) || "America/New_York";
+
   const createEvent = useMutation(api.eventOntology.createEvent);
   const updateEvent = useMutation(api.eventOntology.updateEvent);
   const linkSponsor = useMutation(api.eventOntology.linkSponsorToEvent);
@@ -136,37 +151,19 @@ export function EventForm({
 
   // Load existing event data
   useEffect(() => {
-    if (existingEvent) {
-      const startDate = existingEvent.customProperties?.startDate
-        ? new Date(existingEvent.customProperties.startDate)
-        : null;
-      const endDate = existingEvent.customProperties?.endDate
-        ? new Date(existingEvent.customProperties.endDate)
-        : null;
+    if (existingEvent && orgTimezone) {
+      const startTimestamp = existingEvent.customProperties?.startDate as number | undefined;
+      const endTimestamp = existingEvent.customProperties?.endDate as number | undefined;
 
-      // Helper function to format date in local timezone (YYYY-MM-DD)
-      const formatLocalDate = (date: Date) => {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-      };
-
-      // Helper function to format time in local timezone (HH:MM)
-      const formatLocalTime = (date: Date) => {
-        const hours = String(date.getHours()).padStart(2, '0');
-        const minutes = String(date.getMinutes()).padStart(2, '0');
-        return `${hours}:${minutes}`;
-      };
-
+      // Convert timestamps to organization's timezone for editing
       setFormData({
         subtype: existingEvent.subtype || "conference",
         name: existingEvent.name || "",
         location: (existingEvent.customProperties?.location as string) || "",
-        startDate: startDate ? formatLocalDate(startDate) : "",
-        startTime: startDate ? formatLocalTime(startDate) : "",
-        endDate: endDate ? formatLocalDate(endDate) : "",
-        endTime: endDate ? formatLocalTime(endDate) : "",
+        startDate: startTimestamp ? timestampToLocalDate(startTimestamp, orgTimezone) : "",
+        startTime: startTimestamp ? timestampToLocalTime(startTimestamp, orgTimezone) : "",
+        endDate: endTimestamp ? timestampToLocalDate(endTimestamp, orgTimezone) : "",
+        endTime: endTimestamp ? timestampToLocalTime(endTimestamp, orgTimezone) : "",
         capacity: existingEvent.customProperties?.capacity?.toString() || "",
       });
 
@@ -203,7 +200,7 @@ export function EventForm({
         });
       }
     }
-  }, [existingEvent]);
+  }, [existingEvent, orgTimezone]);
 
   const handleAddSponsor = async () => {
     if (!eventId) {
@@ -386,13 +383,13 @@ export function EventForm({
     setSaving(true);
 
     try {
-      // Combine date and time into timestamps
+      // Convert date and time to timestamps using organization's timezone
       const startDateTime = formData.startDate && formData.startTime
-        ? new Date(`${formData.startDate}T${formData.startTime}`).getTime()
+        ? localDateTimeToTimestamp(formData.startDate, formData.startTime, orgTimezone)
         : undefined;
 
       const endDateTime = formData.endDate && formData.endTime
-        ? new Date(`${formData.endDate}T${formData.endTime}`).getTime()
+        ? localDateTimeToTimestamp(formData.endDate, formData.endTime, orgTimezone)
         : undefined;
 
       const capacity = formData.capacity ? parseInt(formData.capacity, 10) : undefined;
@@ -760,6 +757,11 @@ export function EventForm({
           />
         </div>
       </div>
+
+      {/* Timezone Info */}
+      <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+        🌍 Times are in your organization&apos;s timezone: <strong>{orgTimezone}</strong>
+      </p>
 
       {/* Capacity */}
       <div>

@@ -25,6 +25,7 @@ import { Doc } from "../../../../convex/_generated/dataModel";
 import { usePermissions } from "@/contexts/permission-context";
 import { getLegalEntitiesForCountry } from "../../../../convex/legalEntityTypes";
 import { getTaxCodesForCountry } from "@/lib/tax-calculator";
+import { TIMEZONE_OPTIONS } from "@/lib/timezone-utils";
 
 interface OrganizationDetailsFormProps {
   organization: Doc<"organizations"> & { members?: unknown[] };
@@ -1064,27 +1065,15 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                   className="w-full px-2 py-1 text-sm"
                   style={inputStyles}
                 >
-                  <optgroup label="Europe">
-                    <option value="Europe/Berlin">Berlin (CET/CEST)</option>
-                    <option value="Europe/Paris">Paris (CET/CEST)</option>
-                    <option value="Europe/London">London (GMT/BST)</option>
-                    <option value="Europe/Amsterdam">Amsterdam (CET/CEST)</option>
-                    <option value="Europe/Vienna">Vienna (CET/CEST)</option>
-                    <option value="Europe/Zurich">Zurich (CET/CEST)</option>
-                    <option value="Europe/Rome">Rome (CET/CEST)</option>
-                    <option value="Europe/Madrid">Madrid (CET/CEST)</option>
-                  </optgroup>
-                  <optgroup label="Americas">
-                    <option value="America/New_York">Eastern Time (ET)</option>
-                    <option value="America/Chicago">Central Time (CT)</option>
-                    <option value="America/Denver">Mountain Time (MT)</option>
-                    <option value="America/Los_Angeles">Pacific Time (PT)</option>
-                  </optgroup>
-                  <optgroup label="Asia & Pacific">
-                    <option value="Asia/Tokyo">Tokyo (JST)</option>
-                    <option value="Asia/Singapore">Singapore (SGT)</option>
-                    <option value="Australia/Sydney">Sydney (AEST)</option>
-                  </optgroup>
+                  {Object.entries(TIMEZONE_OPTIONS).map(([region, timezones]) => (
+                    <optgroup key={region} label={region}>
+                      {timezones.map((tz) => (
+                        <option key={tz.value} value={tz.value}>
+                          {tz.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
                 </select>
               </div>
             </div>

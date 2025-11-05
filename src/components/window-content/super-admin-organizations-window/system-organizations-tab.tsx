@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, Save, AlertCircle, CheckCircle } from "lucide-react";
+import { Building2, Save, AlertCircle, CheckCircle, Globe } from "lucide-react";
 import { useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { useTranslation } from "@/contexts/translation-context";
+import { TIMEZONE_OPTIONS } from "@/lib/timezone-utils";
 
 /**
  * System Organizations Tab - Create New Organizations
@@ -30,6 +31,9 @@ export function SystemOrganizationsTab() {
   const [description, setDescription] = useState("");
   const [industry, setIndustry] = useState("");
   const [addMeAsOwner, setAddMeAsOwner] = useState(true);
+  const [timezone, setTimezone] = useState("America/New_York"); // Default timezone
+  const [dateFormat, setDateFormat] = useState("MM/DD/YYYY"); // Default date format
+  const [language, setLanguage] = useState("en"); // Default language
 
   // UI state
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -61,6 +65,9 @@ export function SystemOrganizationsTab() {
         description: description.trim() || undefined,
         industry: industry.trim() || undefined,
         addCreatorAsOwner: addMeAsOwner,
+        timezone,
+        dateFormat,
+        language,
       });
 
       // Success!
@@ -206,6 +213,89 @@ export function SystemOrganizationsTab() {
           <p className="text-xs mt-1" style={{ color: "var(--win95-text-secondary)" }}>
             {t('ui.organizations.form.industry_hint')}
           </p>
+        </div>
+
+        {/* Timezone Selection */}
+        <div>
+          <label htmlFor="timezone" className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+            <Globe size={14} className="inline mr-1" />
+            Timezone
+          </label>
+          <select
+            id="timezone"
+            value={timezone}
+            onChange={(e) => setTimezone(e.target.value)}
+            className="w-full px-3 py-2 text-sm"
+            style={{
+              backgroundColor: "var(--win95-input-bg)",
+              color: "var(--win95-input-text)",
+              border: "2px inset",
+              borderColor: "var(--win95-input-border-dark)",
+            }}
+          >
+            {Object.entries(TIMEZONE_OPTIONS).map(([region, timezones]) => (
+              <optgroup key={region} label={region}>
+                {timezones.map((tz) => (
+                  <option key={tz.value} value={tz.value}>
+                    {tz.label}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          <p className="text-xs mt-1" style={{ color: "var(--win95-text-secondary)" }}>
+            Set the default timezone for this organization. This will be used for event scheduling and time display.
+          </p>
+        </div>
+
+        {/* Date Format Selection */}
+        <div>
+          <label htmlFor="dateFormat" className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+            Date Format
+          </label>
+          <select
+            id="dateFormat"
+            value={dateFormat}
+            onChange={(e) => setDateFormat(e.target.value)}
+            className="w-full px-3 py-2 text-sm"
+            style={{
+              backgroundColor: "var(--win95-input-bg)",
+              color: "var(--win95-input-text)",
+              border: "2px inset",
+              borderColor: "var(--win95-input-border-dark)",
+            }}
+          >
+            <option value="MM/DD/YYYY">MM/DD/YYYY (US)</option>
+            <option value="DD/MM/YYYY">DD/MM/YYYY (UK/Europe)</option>
+            <option value="DD.MM.YYYY">DD.MM.YYYY (German)</option>
+            <option value="YYYY-MM-DD">YYYY-MM-DD (ISO)</option>
+          </select>
+        </div>
+
+        {/* Language Selection */}
+        <div>
+          <label htmlFor="language" className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+            Language
+          </label>
+          <select
+            id="language"
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+            className="w-full px-3 py-2 text-sm"
+            style={{
+              backgroundColor: "var(--win95-input-bg)",
+              color: "var(--win95-input-text)",
+              border: "2px inset",
+              borderColor: "var(--win95-input-border-dark)",
+            }}
+          >
+            <option value="en">English</option>
+            <option value="de">Deutsch (German)</option>
+            <option value="es">Español (Spanish)</option>
+            <option value="fr">Français (French)</option>
+            <option value="it">Italiano (Italian)</option>
+            <option value="pt">Português (Portuguese)</option>
+          </select>
         </div>
 
         {/* Add Me as Owner Checkbox */}
