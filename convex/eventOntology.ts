@@ -156,6 +156,7 @@ export const updateEvent = mutation({
   args: {
     sessionId: v.string(),
     eventId: v.id("objects"),
+    subtype: v.optional(v.string()), // Allow updating event type
     name: v.optional(v.string()),
     description: v.optional(v.string()),
     startDate: v.optional(v.number()),
@@ -180,6 +181,15 @@ export const updateEvent = mutation({
 
     if (args.name !== undefined) updates.name = args.name;
     if (args.description !== undefined) updates.description = args.description;
+    if (args.subtype !== undefined) {
+      const validSubtypes = ["conference", "workshop", "concert", "meetup", "seminar"];
+      if (!validSubtypes.includes(args.subtype)) {
+        throw new Error(
+          `Invalid event subtype. Must be one of: ${validSubtypes.join(", ")}`
+        );
+      }
+      updates.subtype = args.subtype;
+    }
     if (args.status !== undefined) {
       const validStatuses = ["draft", "published", "in_progress", "completed", "cancelled"];
       if (!validStatuses.includes(args.status)) {

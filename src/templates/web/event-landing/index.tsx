@@ -251,7 +251,7 @@ export function EventLandingTemplate({
       subheadline: (data?.description as string) || content.hero?.subheadline || '',
       date: formatEventDate(eventData?.startDate as number | undefined) || content.hero?.date || '',
       location: (eventData?.venueName as string) || (eventData?.location as string) || content.hero?.location || '',
-      format: (eventData?.locationType === 'virtual' ? 'Virtual Event' : eventData?.locationType === 'physical' ? 'In-Person' : undefined) || content.hero?.format || 'In-Person',
+      format: (eventData?.format === 'online' ? 'Virtual Event' : eventData?.format === 'in-person' ? 'In-Person' : eventData?.format === 'hybrid' ? 'Hybrid Event' : undefined) || content.hero?.format || 'In-Person',
       videoUrl: (eventData?.media as { items?: Array<{ videoUrl?: string }> })?.items?.[0]?.videoUrl || content.hero?.videoUrl,
       imageUrl: content.hero?.imageUrl, // Keep template image as it's typically uploaded separately
       ctaButtons: content.hero?.ctaButtons || [],

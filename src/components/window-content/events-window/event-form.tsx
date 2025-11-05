@@ -32,6 +32,7 @@ export function EventForm({
 }: EventFormProps) {
   const [formData, setFormData] = useState({
     subtype: "conference",
+    format: "in-person", // online, in-person, or hybrid
     name: "",
     location: "",
     startDate: "",
@@ -158,6 +159,7 @@ export function EventForm({
       // Convert timestamps to organization's timezone for editing
       setFormData({
         subtype: existingEvent.subtype || "conference",
+        format: (existingEvent.customProperties?.format as string) || "in-person",
         name: existingEvent.name || "",
         location: (existingEvent.customProperties?.location as string) || "",
         startDate: startTimestamp ? timestampToLocalDate(startTimestamp, orgTimezone) : "",
@@ -398,15 +400,17 @@ export function EventForm({
 
       if (eventId) {
         // Update existing event
-        // Update custom properties to include detailed description and agenda
+        // Update custom properties to include detailed description, agenda, and format
         const customProps: Record<string, unknown> = {};
         if (capacity) customProps.capacity = capacity;
         if (detailedDescription) customProps.detailedDescription = detailedDescription;
         if (eventAgenda.length > 0) customProps.agenda = eventAgenda;
+        customProps.format = formData.format; // Add format
 
         await updateEvent({
           sessionId,
           eventId,
+          subtype: formData.subtype, // Allow subtype to be updated
           name: formData.name,
           description: undefined, // No longer using plain description
           location: formData.location || undefined,
@@ -421,11 +425,12 @@ export function EventForm({
           return;
         }
 
-        // Build custom properties with detailed description, agenda, and address validation
+        // Build custom properties with detailed description, agenda, format, and address validation
         const customProps: Record<string, unknown> = {};
         if (capacity) customProps.capacity = capacity;
         if (detailedDescription) customProps.detailedDescription = detailedDescription;
         if (eventAgenda.length > 0) customProps.agenda = eventAgenda;
+        customProps.format = formData.format; // Add format
 
         // Include validated address data if available
         if (addressValidation?.success) {
@@ -516,7 +521,6 @@ export function EventForm({
         <select
           value={formData.subtype}
           onChange={(e) => setFormData({ ...formData, subtype: e.target.value })}
-          disabled={!!eventId}
           className="w-full px-3 py-2 text-sm border-2"
           style={{
             borderColor: "var(--win95-border)",
@@ -530,11 +534,31 @@ export function EventForm({
           <option value="concert">Concert - Live music performance</option>
           <option value="meetup">Meetup - Casual networking event</option>
         </select>
-        {eventId && (
-          <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-            Event type cannot be changed after creation
-          </p>
-        )}
+      </div>
+
+      {/* Event Format */}
+      <div>
+        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+          Event Format <span style={{ color: "var(--error)" }}>*</span>
+        </label>
+        <select
+          value={formData.format}
+          onChange={(e) => setFormData({ ...formData, format: e.target.value })}
+          className="w-full px-3 py-2 text-sm border-2"
+          style={{
+            borderColor: "var(--win95-border)",
+            background: "var(--win95-input-bg)",
+            color: "var(--win95-input-text)",
+          }}
+          required
+        >
+          <option value="in-person">In-Person - Physical venue attendance</option>
+          <option value="online">Online - Virtual/remote attendance</option>
+          <option value="hybrid">Hybrid - Both in-person and virtual options</option>
+        </select>
+        <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+          How will attendees participate in this event?
+        </p>
       </div>
 
       {/* Event Name */}
