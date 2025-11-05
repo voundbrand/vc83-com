@@ -251,6 +251,16 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
+  transition: color 0.2s ease, transform 0.1s ease;
+}
+
+.heroInfoItem:hover {
+  color: var(--color-primary);
+  transform: translateY(-1px);
+}
+
+.heroInfoItem:active {
+  transform: translateY(0);
 }
 
 .heroIcon {

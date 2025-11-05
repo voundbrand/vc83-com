@@ -16,6 +16,7 @@ import { SafeHtmlRenderer } from "@/components/ui/safe-html-renderer";
 import { RadarMap, GoogleMapFallback } from "@/components/ui/radar-map";
 import { GalleryLightbox } from "@/components/ui/gallery-lightbox";
 import { useTranslation } from "@/contexts/translation-context";
+import { generateMapLink, addToCalendar } from "@/lib/event-utils";
 import styles from "./styles.module.css";
 import {
   Users,
@@ -393,15 +394,52 @@ export function EventLandingTemplate({
                 </p>
 
                 <div className={styles.heroInfo}>
-                  <div className={styles.heroInfoItem}>
+                  <a
+                    href={generateMapLink(
+                      mergedContent.hero.location,
+                      eventData?.latitude as number | undefined,
+                      eventData?.longitude as number | undefined
+                    )}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={styles.heroInfoItem}
+                    style={{ cursor: 'pointer', textDecoration: 'none', color: 'inherit' }}
+                    title="Open in maps"
+                  >
                     <MapPin className={styles.heroIcon} />
-                    <span>{mergedContent.hero.location}</span>
-                  </div>
+                    <span style={{ textDecoration: 'underline' }}>{mergedContent.hero.location}</span>
+                  </a>
                   <span className={styles.heroDivider}>•</span>
-                  <div className={styles.heroInfoItem}>
+                  <button
+                    onClick={() => {
+                      if (eventData?.startDate && eventData?.endDate) {
+                        addToCalendar({
+                          title: (data?.name as string) || 'Event',
+                          description: (data?.description as string),
+                          location: mergedContent.hero.location,
+                          startDate: eventData.startDate as number,
+                          endDate: eventData.endDate as number,
+                          url: typeof window !== 'undefined' ? window.location.href : undefined,
+                        });
+                      }
+                    }}
+                    className={styles.heroInfoItem}
+                    style={{
+                      cursor: 'pointer',
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      font: 'inherit',
+                      color: 'inherit',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem'
+                    }}
+                    title="Add to calendar"
+                  >
                     <Calendar className={styles.heroIcon} />
-                    <span>{mergedContent.hero.format}</span>
-                  </div>
+                    <span style={{ textDecoration: 'underline' }}>{mergedContent.hero.format}</span>
+                  </button>
                 </div>
 
                 {mergedContent.hero.ctaButtons &&
