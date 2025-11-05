@@ -10,6 +10,7 @@ interface GalleryItem {
   url: string;
   thumbnail?: string;
   alt?: string;
+  loop?: boolean; // For videos - whether to loop playback
 }
 
 interface GalleryLightboxProps {
@@ -258,6 +259,7 @@ export const GalleryLightbox: React.FC<GalleryLightboxProps> = ({ items, classNa
                     src={currentItem.url}
                     controls
                     autoPlay
+                    loop={currentItem.loop ?? false}
                     className="max-w-6xl max-h-[90vh] w-full h-full object-contain"
                   >
                     Your browser does not support the video tag.

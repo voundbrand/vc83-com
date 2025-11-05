@@ -146,6 +146,7 @@ export function EventLandingTemplate({
       url,
       thumbnail: item.thumbnailUrl || (isVideo ? undefined : url),
       alt: item.alt || item.filename,
+      loop: isVideo ? ((item as any).loop ?? false) : undefined, // Pass loop setting for videos
     };
   }).filter(item => item.url) || [];
 
