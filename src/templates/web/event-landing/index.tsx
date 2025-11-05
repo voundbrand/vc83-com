@@ -471,16 +471,30 @@ export function EventLandingTemplate({
                     )}
                   </div>
                 ) : null}
-                {eventData.directionsUrl ? (
-                  <a
-                    href={String(eventData.directionsUrl)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 mt-4 text-primary hover:text-accent transition-colors"
-                  >
-                    <MapPin size={16} />
-                    <span>{t('ui.event_landing.venue.get_directions', 'Get Directions')}</span>
-                  </a>
+                {eventData.latitude && eventData.longitude ? (
+                  <div className="flex flex-wrap gap-3 mt-4">
+                    {/* Google Maps Link */}
+                    <a
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${eventData.latitude},${eventData.longitude}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-gray-800 text-gray-800 hover:bg-gray-800 hover:text-white transition-colors shadow-sm"
+                    >
+                      <MapPin size={16} />
+                      <span>{t('ui.event_landing.venue.google_maps', 'Open in Google Maps')}</span>
+                    </a>
+
+                    {/* Apple Maps Link */}
+                    <a
+                      href={`https://maps.apple.com/?daddr=${eventData.latitude},${eventData.longitude}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-gray-800 text-gray-800 hover:bg-gray-800 hover:text-white transition-colors shadow-sm"
+                    >
+                      <MapPin size={16} />
+                      <span>{t('ui.event_landing.venue.apple_maps', 'Open in Apple Maps')}</span>
+                    </a>
+                  </div>
                 ) : null}
               </div>
             </section>
