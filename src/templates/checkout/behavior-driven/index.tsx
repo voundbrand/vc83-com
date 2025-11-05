@@ -15,6 +15,7 @@ import { DEFAULT_CONFIG, getNextStep, getPreviousStep, getStepNumber, getProgres
 import { executeCheckoutBehaviors, shouldSkipPaymentStep } from "@/lib/behaviors/adapters/checkout-integration";
 import { Behavior } from "@/lib/behaviors/types";
 import { Id } from "../../../../convex/_generated/dataModel";
+import { useTranslation } from "@/contexts/translation-context";
 
 // Step components
 import { ProductSelectionStep } from "./steps/product-selection";
@@ -26,6 +27,7 @@ import { ConfirmationStep } from "./steps/confirmation";
 
 export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
   const config = { ...DEFAULT_CONFIG, ...props };
+  const { t } = useTranslation();
 
   // State
   const [currentStep, setCurrentStep] = useState<CheckoutStep>("product-selection");
@@ -537,9 +539,9 @@ export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
         <div className="checkout-progress mb-8">
           <div className="flex justify-between items-center mb-2">
             <span className="text-sm font-medium text-gray-700">
-              Step {getStepNumber(currentStep)} of 6
+              {t('ui.checkout_template.behavior_driven.progress.step_of', { current: getStepNumber(currentStep), total: 6 })}
             </span>
-            <span className="text-sm text-gray-500">{getProgressPercentage(currentStep)}% Complete</span>
+            <span className="text-sm text-gray-500">{t('ui.checkout_template.behavior_driven.progress.percent_complete', { percent: getProgressPercentage(currentStep) })}</span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div

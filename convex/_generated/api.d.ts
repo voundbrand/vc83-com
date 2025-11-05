@@ -125,6 +125,7 @@ import type * as translations__translationHelpers from "../translations/_transla
 import type * as translations_seedAddressTranslations from "../translations/seedAddressTranslations.js";
 import type * as translations_seedCRM_01_OrganizationForm from "../translations/seedCRM_01_OrganizationForm.js";
 import type * as translations_seedCheckoutTemplate_00_Main from "../translations/seedCheckoutTemplate_00_Main.js";
+import type * as translations_seedCheckoutTemplate_00_Progress from "../translations/seedCheckoutTemplate_00_Progress.js";
 import type * as translations_seedCheckoutTemplate_01_ProductSelection from "../translations/seedCheckoutTemplate_01_ProductSelection.js";
 import type * as translations_seedCheckoutTemplate_02_RegistrationForm from "../translations/seedCheckoutTemplate_02_RegistrationForm.js";
 import type * as translations_seedCheckoutTemplate_03_CustomerInfo from "../translations/seedCheckoutTemplate_03_CustomerInfo.js";
@@ -150,6 +151,7 @@ import type * as translations_seedEventLanding_01_Navigation from "../translatio
 import type * as translations_seedEventLanding_02_HeroAndVenue from "../translations/seedEventLanding_02_HeroAndVenue.js";
 import type * as translations_seedEventLanding_03_Checkout from "../translations/seedEventLanding_03_Checkout.js";
 import type * as translations_seedEventLanding_04_AgendaAndDates from "../translations/seedEventLanding_04_AgendaAndDates.js";
+import type * as translations_seedEventLanding_05_Format from "../translations/seedEventLanding_05_Format.js";
 import type * as translations_seedLogin from "../translations/seedLogin.js";
 import type * as translations_seedLogin_01_BasicAuth from "../translations/seedLogin_01_BasicAuth.js";
 import type * as translations_seedLogin_02_Forms from "../translations/seedLogin_02_Forms.js";
@@ -297,6 +299,7 @@ declare const fullApi: ApiFromModules<{
   "translations/seedAddressTranslations": typeof translations_seedAddressTranslations;
   "translations/seedCRM_01_OrganizationForm": typeof translations_seedCRM_01_OrganizationForm;
   "translations/seedCheckoutTemplate_00_Main": typeof translations_seedCheckoutTemplate_00_Main;
+  "translations/seedCheckoutTemplate_00_Progress": typeof translations_seedCheckoutTemplate_00_Progress;
   "translations/seedCheckoutTemplate_01_ProductSelection": typeof translations_seedCheckoutTemplate_01_ProductSelection;
   "translations/seedCheckoutTemplate_02_RegistrationForm": typeof translations_seedCheckoutTemplate_02_RegistrationForm;
   "translations/seedCheckoutTemplate_03_CustomerInfo": typeof translations_seedCheckoutTemplate_03_CustomerInfo;
@@ -322,6 +325,7 @@ declare const fullApi: ApiFromModules<{
   "translations/seedEventLanding_02_HeroAndVenue": typeof translations_seedEventLanding_02_HeroAndVenue;
   "translations/seedEventLanding_03_Checkout": typeof translations_seedEventLanding_03_Checkout;
   "translations/seedEventLanding_04_AgendaAndDates": typeof translations_seedEventLanding_04_AgendaAndDates;
+  "translations/seedEventLanding_05_Format": typeof translations_seedEventLanding_05_Format;
   "translations/seedLogin": typeof translations_seedLogin;
   "translations/seedLogin_01_BasicAuth": typeof translations_seedLogin_01_BasicAuth;
   "translations/seedLogin_02_Forms": typeof translations_seedLogin_02_Forms;
