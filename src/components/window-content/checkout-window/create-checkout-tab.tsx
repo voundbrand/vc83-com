@@ -51,6 +51,7 @@ export function CreateCheckoutTab({
   const [themeAccordionOpen, setThemeAccordionOpen] = useState(true);
   const [selectedPaymentProviders, setSelectedPaymentProviders] = useState<string[]>([]);
   const [forceB2B, setForceB2B] = useState(false);
+  const [defaultLanguage, setDefaultLanguage] = useState<string>("en");
 
   // Fetch available templates
   const availableTemplates = useQuery(
@@ -126,6 +127,7 @@ export function CreateCheckoutTab({
       setSelectedProducts((config.linkedProducts as Id<"objects">[]) || []);
       setSelectedPaymentProviders((config.paymentProviders as string[]) || []);
       setForceB2B((config.forceB2B as boolean) || false);
+      setDefaultLanguage((config.defaultLanguage as string) || "en");
 
       // Load theme CODE from config, then find the database theme ID for UI display
       const savedThemeCode = (config.themeCode as string) || "";
@@ -216,6 +218,7 @@ export function CreateCheckoutTab({
             paymentProviders: selectedPaymentProviders,
             themeCode, // Save theme CODE, not ID
             forceB2B, // Save Force B2B setting
+            defaultLanguage, // Save default language
           },
         });
       } else {
@@ -233,6 +236,7 @@ export function CreateCheckoutTab({
             paymentProviders: selectedPaymentProviders,
             themeCode, // Save theme CODE, not ID
             forceB2B, // Save Force B2B setting
+            defaultLanguage, // Save default language
           },
         });
       }
@@ -582,6 +586,28 @@ export function CreateCheckoutTab({
                 )}
               </div>
             </label>
+          </div>
+
+          {/* Default Language Selection */}
+          <div className="mb-4 border-t-2 border-gray-400 pt-4">
+            <label className="block text-xs font-bold mb-2">
+              🌐 Default Language
+            </label>
+            <p className="text-xs text-gray-600 mb-3">
+              Set the default language for this checkout. Customers will see the checkout in this language initially.
+            </p>
+            <select
+              value={defaultLanguage}
+              onChange={(e) => setDefaultLanguage(e.target.value)}
+              className="w-full px-2 py-1.5 text-sm border-2 border-gray-400 focus:border-purple-600 focus:outline-none"
+            >
+              <option value="en">🇬🇧 English</option>
+              <option value="de">🇩🇪 German (Deutsch)</option>
+              <option value="pl">🇵🇱 Polish (Polski)</option>
+              <option value="es">🇪🇸 Spanish (Español)</option>
+              <option value="fr">🇫🇷 French (Français)</option>
+              <option value="ja">🇯🇵 Japanese (日本語)</option>
+            </select>
           </div>
 
           {/* Payment Provider Selection */}

@@ -22,6 +22,7 @@ import {
   SectionDefinition,
   TextFieldDefinition,
   TextareaFieldDefinition,
+  RichTextFieldDefinition,
   RepeaterFieldDefinition,
   BooleanFieldDefinition,
   TextArrayFieldDefinition,
@@ -30,6 +31,7 @@ import {
   EventLinkFieldDefinition,
   CheckoutLinkFieldDefinition,
 } from "@/templates/schema-types";
+import SimpleTiptapEditor from "@/components/ui/tiptap-editor-simple";
 
 interface DynamicFormGeneratorProps {
   schema: TemplateContentSchema;
@@ -194,6 +196,15 @@ function FieldRenderer({
         />
       );
 
+    case FieldType.RichText:
+      return (
+        <RichTextInput
+          field={field as RichTextFieldDefinition}
+          value={value as string}
+          onChange={handleChange}
+        />
+      );
+
     case FieldType.Boolean:
       return (
         <BooleanInput
@@ -338,6 +349,37 @@ function TextareaInput({
 }
 
 /**
+ * Rich Text Input Component (WYSIWYG Editor)
+ */
+function RichTextInput({
+  field,
+  value,
+  onChange,
+}: {
+  field: RichTextFieldDefinition;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-bold mb-1">
+        {field.label}
+        {field.required && <span className="text-red-600 ml-1">*</span>}
+      </label>
+      <SimpleTiptapEditor
+        value={value || ""}
+        onChange={onChange}
+        placeholder={field.placeholder || "Start typing..."}
+        minHeight="200px"
+      />
+      {field.helpText && (
+        <p className="text-xs text-gray-600 mt-1">{field.helpText}</p>
+      )}
+    </div>
+  );
+}
+
+/**
  * Boolean/Checkbox Input Component
  */
 function BooleanInput({
@@ -349,11 +391,14 @@ function BooleanInput({
   value: boolean;
   onChange: (value: boolean) => void;
 }) {
+  // Use field's defaultValue if value is undefined
+  const effectiveValue = value !== undefined ? value : (field.defaultValue ?? false);
+
   return (
     <div className="flex items-start gap-2">
       <input
         type="checkbox"
-        checked={value || false}
+        checked={effectiveValue}
         onChange={(e) => onChange(e.target.checked)}
         className="mt-0.5"
       />
@@ -755,28 +800,175 @@ function EventLinkInput({
       return;
     }
 
-    // Auto-populate fields based on configuration
-    if (field.autoPopulateFields.eventName) {
-      newContent = setNestedValue(newContent, field.autoPopulateFields.eventName, selectedEvent.name);
+    const props = selectedEvent.customProperties || {};
+    const autoFields = field.autoPopulateFields;
+
+    // Basic Info
+    if (autoFields.eventName) {
+      newContent = setNestedValue(newContent, autoFields.eventName, selectedEvent.name);
     }
 
-    if (field.autoPopulateFields.eventDate && selectedEvent.customProperties?.startDate) {
-      const startDate = new Date(selectedEvent.customProperties.startDate as number);
+    if (autoFields.eventDescription && selectedEvent.description) {
+      newContent = setNestedValue(newContent, autoFields.eventDescription, selectedEvent.description);
+    }
+
+    if (autoFields.eventDetailedDescription && props.detailedDescription) {
+      newContent = setNestedValue(newContent, autoFields.eventDetailedDescription, props.detailedDescription as string);
+    }
+
+    // Date & Time
+    if (autoFields.eventDate && props.startDate) {
+      const startDate = new Date(props.startDate as number);
       const formattedDate = startDate.toLocaleDateString("en-US", {
         weekday: "long",
         year: "numeric",
         month: "long",
         day: "numeric",
       });
-      newContent = setNestedValue(newContent, field.autoPopulateFields.eventDate, formattedDate);
+      newContent = setNestedValue(newContent, autoFields.eventDate, formattedDate);
     }
 
-    if (field.autoPopulateFields.eventLocation && selectedEvent.customProperties?.location) {
-      newContent = setNestedValue(newContent, field.autoPopulateFields.eventLocation, selectedEvent.customProperties.location);
+    if (autoFields.eventEndDate && props.endDate) {
+      const endDate = new Date(props.endDate as number);
+      const formattedEndDate = endDate.toLocaleDateString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+      newContent = setNestedValue(newContent, autoFields.eventEndDate, formattedEndDate);
     }
 
-    if (field.autoPopulateFields.eventDescription && selectedEvent.description) {
-      newContent = setNestedValue(newContent, field.autoPopulateFields.eventDescription, selectedEvent.description);
+    if (autoFields.eventStartTime && props.startTime) {
+      newContent = setNestedValue(newContent, autoFields.eventStartTime, props.startTime as string);
+    }
+
+    if (autoFields.eventEndTime && props.endTime) {
+      newContent = setNestedValue(newContent, autoFields.eventEndTime, props.endTime as string);
+    }
+
+    if (autoFields.eventShowEndTime && props.showEndTime !== undefined) {
+      newContent = setNestedValue(newContent, autoFields.eventShowEndTime, props.showEndTime as boolean);
+    }
+
+    // Location
+    if (autoFields.eventLocation && props.location) {
+      newContent = setNestedValue(newContent, autoFields.eventLocation, props.location as string);
+    }
+
+    if (autoFields.eventVenueName && props.venueName) {
+      newContent = setNestedValue(newContent, autoFields.eventVenueName, props.venueName as string);
+    }
+
+    if (autoFields.eventAddress && props.address) {
+      newContent = setNestedValue(newContent, autoFields.eventAddress, props.address as string);
+    }
+
+    if (autoFields.eventCity && props.city) {
+      newContent = setNestedValue(newContent, autoFields.eventCity, props.city as string);
+    }
+
+    if (autoFields.eventState && props.state) {
+      newContent = setNestedValue(newContent, autoFields.eventState, props.state as string);
+    }
+
+    if (autoFields.eventPostalCode && props.postalCode) {
+      newContent = setNestedValue(newContent, autoFields.eventPostalCode, props.postalCode as string);
+    }
+
+    if (autoFields.eventCountry && props.country) {
+      newContent = setNestedValue(newContent, autoFields.eventCountry, props.country as string);
+    }
+
+    if (autoFields.eventLocationType && props.locationType) {
+      const locationTypeMap: Record<string, string> = {
+        physical: "In-Person",
+        virtual: "Virtual Event",
+        hybrid: "Hybrid (In-Person & Virtual)",
+      };
+      const formattedType = locationTypeMap[props.locationType as string] || props.locationType as string;
+      newContent = setNestedValue(newContent, autoFields.eventLocationType, formattedType);
+    }
+
+    if (autoFields.eventShowMap && props.showMap !== undefined) {
+      newContent = setNestedValue(newContent, autoFields.eventShowMap, props.showMap as boolean);
+    }
+
+    // Media
+    if (autoFields.eventVideoUrl && props.media) {
+      const media = props.media as { items?: Array<{ videoUrl?: string }> };
+      const videoUrl = media.items?.[0]?.videoUrl;
+      if (videoUrl) {
+        newContent = setNestedValue(newContent, autoFields.eventVideoUrl, videoUrl);
+      }
+    }
+
+    if (autoFields.eventImageUrl && props.media) {
+      const media = props.media as { items?: Array<{ imageUrl?: string }> };
+      const imageUrl = media.items?.[0]?.imageUrl;
+      if (imageUrl) {
+        newContent = setNestedValue(newContent, autoFields.eventImageUrl, imageUrl);
+      }
+    }
+
+    // Agenda
+    if (autoFields.eventAgenda && props.agenda) {
+      const agenda = props.agenda as Array<{
+        id: string;
+        date: number;
+        startTime: string;
+        endTime?: string;
+        title: string;
+        description?: string;
+        location?: string;
+        speaker?: string;
+      }>;
+
+      // Convert agenda to the format expected by the template
+      const agendaDays = Object.values(
+        agenda.reduce((acc: Record<string, { id: string; date: string; sessions: Array<unknown> }>, item) => {
+          const dateKey = new Date(item.date).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          });
+          if (!acc[dateKey]) {
+            acc[dateKey] = {
+              id: `day-${item.date}`,
+              date: dateKey,
+              sessions: [],
+            };
+          }
+          acc[dateKey].sessions.push({
+            id: item.id,
+            time: props.showEndTime && item.endTime
+              ? `${item.startTime} - ${item.endTime}`
+              : item.startTime,
+            title: item.title,
+            speaker: item.speaker || "",
+            type: "session",
+            location: item.location,
+          });
+          return acc;
+        }, {})
+      );
+
+      if (agendaDays.length > 0) {
+        newContent = setNestedValue(newContent, autoFields.eventAgenda, agendaDays);
+      }
+    }
+
+    // Registration
+    if (autoFields.eventRegistrationUrl && props.registrationUrl) {
+      newContent = setNestedValue(newContent, autoFields.eventRegistrationUrl, props.registrationUrl as string);
+    }
+
+    if (autoFields.eventCapacity && props.capacity !== undefined) {
+      newContent = setNestedValue(newContent, autoFields.eventCapacity, props.capacity as number);
+    }
+
+    if (autoFields.eventShowAvailableSeats && props.showAvailableSeats !== undefined) {
+      newContent = setNestedValue(newContent, autoFields.eventShowAvailableSeats, props.showAvailableSeats as boolean);
     }
 
     // Apply all updates at once

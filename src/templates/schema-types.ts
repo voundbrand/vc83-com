@@ -180,11 +180,40 @@ export interface ObjectFieldDefinition extends BaseFieldDefinition {
 export interface EventLinkFieldDefinition extends BaseFieldDefinition {
   type: FieldType.EventLink;
   autoPopulateFields?: {
+    // Basic Info
     eventName?: string; // Field ID to populate with event name
-    eventDate?: string; // Field ID to populate with event start date
-    eventEndDate?: string; // Field ID to populate with event end date
-    eventLocation?: string; // Field ID to populate with event location
     eventDescription?: string; // Field ID to populate with event description
+    eventDetailedDescription?: string; // Field ID to populate with detailed HTML description
+
+    // Date & Time
+    eventDate?: string; // Field ID to populate with formatted event start date
+    eventEndDate?: string; // Field ID to populate with formatted event end date
+    eventStartTime?: string; // Field ID to populate with event start time
+    eventEndTime?: string; // Field ID to populate with event end time
+    eventShowEndTime?: string; // Field ID to populate with showEndTime boolean
+
+    // Location
+    eventLocation?: string; // Field ID to populate with event location
+    eventVenueName?: string; // Field ID to populate with venue name
+    eventAddress?: string; // Field ID to populate with street address
+    eventCity?: string; // Field ID to populate with city
+    eventState?: string; // Field ID to populate with state/province
+    eventPostalCode?: string; // Field ID to populate with postal code
+    eventCountry?: string; // Field ID to populate with country
+    eventLocationType?: string; // Field ID to populate with location type (physical/virtual/hybrid)
+    eventShowMap?: string; // Field ID to populate with showMap boolean
+
+    // Media
+    eventVideoUrl?: string; // Field ID to populate with primary video URL
+    eventImageUrl?: string; // Field ID to populate with primary image URL
+
+    // Agenda (will be array of sessions)
+    eventAgenda?: string; // Field ID to populate with agenda array
+
+    // Registration
+    eventRegistrationUrl?: string; // Field ID to populate with registration URL
+    eventCapacity?: string; // Field ID to populate with event capacity
+    eventShowAvailableSeats?: string; // Field ID to populate with showAvailableSeats boolean
   };
 }
 

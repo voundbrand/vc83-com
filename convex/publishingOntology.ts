@@ -204,7 +204,13 @@ export const getPublishedPages = query({
       );
 
     if (args.status) {
-      queryBuilder = queryBuilder.filter((q) => q.eq(q.field("status"), args.status));
+      if (args.status === "active") {
+        // "active" means all statuses EXCEPT archived
+        queryBuilder = queryBuilder.filter((q) => q.neq(q.field("status"), "archived"));
+      } else {
+        // Specific status filter
+        queryBuilder = queryBuilder.filter((q) => q.eq(q.field("status"), args.status));
+      }
     }
 
     const pages = await queryBuilder.collect();
@@ -253,7 +259,7 @@ export const getPublishedPageBySlug = query({
 
     if (!page) return null;
 
-    // Fetch source object
+    // Fetch source object (linkedObjectId - usually checkout or primary object)
     const sourceLink = await ctx.db
       .query("objectLinks")
       .withIndex("by_from_link_type", (q) =>
@@ -266,9 +272,37 @@ export const getPublishedPageBySlug = query({
       sourceObject = await ctx.db.get(sourceLink.toObjectId);
     }
 
+    // ALSO fetch linkedEventId if it exists in templateContent (for event landing pages with checkout)
+    let eventObject = null;
+    const linkedEventId = page.customProperties?.templateContent?.linkedEventId as string | undefined;
+    if (linkedEventId) {
+      try {
+        eventObject = await ctx.db.get(linkedEventId as any);
+
+        // Convert storage IDs to URLs for media items if event has media
+        if (eventObject && 'customProperties' in eventObject) {
+          const customProps = eventObject.customProperties as any;
+          if (customProps?.media?.items) {
+            const mediaItems = customProps.media.items as any[];
+            for (const item of mediaItems) {
+              if (item.storageId && !item.url) {
+                try {
+                  item.url = await ctx.storage.getUrl(item.storageId);
+                } catch (e) {
+                  console.error("Failed to get storage URL for:", item.storageId, e);
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch linkedEventId:", e);
+      }
+    }
+
     return {
       page,
-      data: sourceObject || page, // Use source object as data, or page itself if no source
+      data: eventObject || sourceObject || page, // Prefer event data, fallback to source object, then page itself
       organization: org,
     };
   },

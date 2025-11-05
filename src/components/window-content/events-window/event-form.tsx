@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
@@ -8,6 +8,7 @@ import { Loader2, Save, X, ChevronDown, ChevronUp, Building2, Trash2, Edit2, Map
 import { OrganizationFormModal } from "../crm-window/organization-form-modal";
 import { EventDescriptionSection } from "./EventDescriptionSection";
 import { EventMediaSection } from "./EventMediaSection";
+import { EventAgendaSection, type AgendaItem } from "./EventAgendaSection";
 
 interface EventFormProps {
   sessionId: string;
@@ -54,10 +55,16 @@ export function EventForm({
   const [addingSponsor, setAddingSponsor] = useState(false);
   const [editingSponsorId, setEditingSponsorId] = useState<Id<"objects"> | null>(null);
 
-  // New state for media and description sections
+  // New state for media, description, and agenda sections
   const [showMedia, setShowMedia] = useState(false);
   const [showDescription, setShowDescription] = useState(false);
+  const [showAgenda, setShowAgenda] = useState(false);
   const [detailedDescription, setDetailedDescription] = useState("");
+  const [eventAgenda, setEventAgenda] = useState<AgendaItem[]>([]);
+
+  // Track if user is actively editing description to prevent loops
+  const isEditingDescription = useRef(false);
+  const descriptionDebounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   // Video state
   const [eventVideos, setEventVideos] = useState<Array<{
@@ -148,8 +155,10 @@ export function EventForm({
         capacity: existingEvent.customProperties?.capacity?.toString() || "",
       });
 
-      // Load detailed description
-      setDetailedDescription((existingEvent.customProperties?.detailedDescription as string) || "");
+      // Load detailed description (only if not actively editing to prevent cursor jumps)
+      if (!isEditingDescription.current) {
+        setDetailedDescription((existingEvent.customProperties?.detailedDescription as string) || "");
+      }
 
       // Load videos if they exist
       if (existingEvent.customProperties?.media?.items) {
@@ -159,6 +168,11 @@ export function EventForm({
         setEventVideos(videos);
         // Load showVideoFirst setting
         setShowVideoFirst(existingEvent.customProperties.media.showVideoFirst || false);
+      }
+
+      // Load agenda if it exists
+      if (existingEvent.customProperties?.agenda) {
+        setEventAgenda(existingEvent.customProperties.agenda as AgendaItem[]);
       }
 
       // Load address validation data if available
@@ -261,7 +275,14 @@ export function EventForm({
 
   // Description handler
   const handleDescriptionChange = async (html: string) => {
+    // Mark that we're actively editing
+    isEditingDescription.current = true;
     setDetailedDescription(html);
+
+    // Clear any existing debounce timer
+    if (descriptionDebounceTimer.current) {
+      clearTimeout(descriptionDebounceTimer.current);
+    }
 
     // Auto-save if editing existing event (for new events, it will be saved on submit)
     if (eventId) {
@@ -271,9 +292,22 @@ export function EventForm({
           eventId,
           detailedDescription: html,
         });
+
+        // Debounce: only clear editing flag after user stops typing for 100ms
+        descriptionDebounceTimer.current = setTimeout(() => {
+          isEditingDescription.current = false;
+          descriptionDebounceTimer.current = null;
+        }, 100);
       } catch (error) {
         console.error("Failed to update description:", error);
+        isEditingDescription.current = false;
       }
+    } else {
+      // For new events, clear flag after short delay
+      descriptionDebounceTimer.current = setTimeout(() => {
+        isEditingDescription.current = false;
+        descriptionDebounceTimer.current = null;
+      }, 100);
     }
   };
 
@@ -352,10 +386,11 @@ export function EventForm({
 
       if (eventId) {
         // Update existing event
-        // Update custom properties to include detailed description
+        // Update custom properties to include detailed description and agenda
         const customProps: Record<string, unknown> = {};
         if (capacity) customProps.capacity = capacity;
         if (detailedDescription) customProps.detailedDescription = detailedDescription;
+        if (eventAgenda.length > 0) customProps.agenda = eventAgenda;
 
         await updateEvent({
           sessionId,
@@ -374,10 +409,11 @@ export function EventForm({
           return;
         }
 
-        // Build custom properties with detailed description and address validation
+        // Build custom properties with detailed description, agenda, and address validation
         const customProps: Record<string, unknown> = {};
         if (capacity) customProps.capacity = capacity;
         if (detailedDescription) customProps.detailedDescription = detailedDescription;
+        if (eventAgenda.length > 0) customProps.agenda = eventAgenda;
 
         // Include validated address data if available
         if (addressValidation?.success) {
@@ -405,31 +441,40 @@ export function EventForm({
         console.log("Event created with ID:", finalEventId);
       }
 
-      // Save videos if any exist and we have an event ID
-      if (finalEventId && eventVideos.length > 0) {
+      // Save media (images + videos) if we have an event ID
+      if (finalEventId) {
+        // Get current media from event (not from eventMedia query which may be stale)
+        const currentMedia = existingEvent?.customProperties?.media?.items || [];
+
+        // Filter to only include images (exclude old videos)
+        const existingImages = currentMedia.filter((item: any) => item.type === 'image');
+
         // Convert videos to media items
         const mediaItems = [
           // Include existing images as image type
-          ...(eventMedia?.map((img, index) => ({
-            id: img._id,
+          ...existingImages.map((img: any, index: number) => ({
+            id: img.id,
             type: 'image' as const,
             storageId: img.storageId,
             filename: img.filename,
             mimeType: img.mimeType,
             order: index,
-          })) || []),
-          // Add videos
+          })),
+          // Add current videos (this now correctly excludes deleted videos)
           ...eventVideos,
         ];
 
-        await updateEventMedia({
-          sessionId,
-          eventId: finalEventId,
-          media: {
-            items: mediaItems,
-            showVideoFirst: showVideoFirst,
-          },
-        });
+        // Only update if there are media items OR if we need to update showVideoFirst
+        if (mediaItems.length > 0 || showVideoFirst !== (existingEvent?.customProperties?.media?.showVideoFirst || false)) {
+          await updateEventMedia({
+            sessionId,
+            eventId: finalEventId,
+            media: {
+              items: mediaItems,
+              showVideoFirst: showVideoFirst,
+            },
+          });
+        }
       }
 
       onSuccess();
@@ -746,6 +791,14 @@ export function EventForm({
         onDescriptionChange={handleDescriptionChange}
         isOpen={showDescription}
         onToggle={() => setShowDescription(!showDescription)}
+      />
+
+      {/* Agenda Section */}
+      <EventAgendaSection
+        agenda={eventAgenda}
+        onAgendaChange={setEventAgenda}
+        isOpen={showAgenda}
+        onToggle={() => setShowAgenda(!showAgenda)}
       />
 
       {/* Sponsors Section */}

@@ -98,6 +98,7 @@ export const createCheckoutInstance = mutation({
       themeCode: v.optional(v.string()), // Theme code (e.g., "modern-gradient")
       templateId: v.optional(v.id("objects")), // Template reference
       forceB2B: v.optional(v.boolean()), // Force B2B mode (require organization info)
+      defaultLanguage: v.optional(v.string()), // Default language code (en, de, pl, es, fr, ja)
     })),
   },
   handler: async (ctx, args) => {
@@ -209,6 +210,7 @@ export const updateCheckoutInstance = mutation({
       templateCode: v.optional(v.string()), // Template code reference
       templateId: v.optional(v.id("objects")), // Template reference
       forceB2B: v.optional(v.boolean()), // Force B2B mode (require organization info)
+      defaultLanguage: v.optional(v.string()), // Default language code (en, de, pl, es, fr, ja)
     })),
   },
   handler: async (ctx, args) => {

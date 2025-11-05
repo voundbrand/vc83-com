@@ -85,7 +85,10 @@ export function WebPublishingWindow() {
             background: activeTab === "create" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
             color: activeTab === "create" ? 'var(--win95-text)' : 'var(--neutral-gray)'
           }}
-          onClick={() => setActiveTab("create")}
+          onClick={() => {
+            setEditMode(null); // Clear edit mode when creating new page
+            setActiveTab("create");
+          }}
         >
           <Plus size={14} />
           Create Page

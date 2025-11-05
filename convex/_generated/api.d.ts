@@ -142,6 +142,11 @@ import type * as translations_seedCheckout_04_InvoiceEnforcement from "../transl
 import type * as translations_seedCheckout_05_RegistrationForm from "../translations/seedCheckout_05_RegistrationForm.js";
 import type * as translations_seedControlPanel from "../translations/seedControlPanel.js";
 import type * as translations_seedDesktop from "../translations/seedDesktop.js";
+import type * as translations_seedEventLanding_00_Main from "../translations/seedEventLanding_00_Main.js";
+import type * as translations_seedEventLanding_01_Navigation from "../translations/seedEventLanding_01_Navigation.js";
+import type * as translations_seedEventLanding_02_HeroAndVenue from "../translations/seedEventLanding_02_HeroAndVenue.js";
+import type * as translations_seedEventLanding_03_Checkout from "../translations/seedEventLanding_03_Checkout.js";
+import type * as translations_seedEventLanding_04_AgendaAndDates from "../translations/seedEventLanding_04_AgendaAndDates.js";
 import type * as translations_seedLogin from "../translations/seedLogin.js";
 import type * as translations_seedLogin_01_BasicAuth from "../translations/seedLogin_01_BasicAuth.js";
 import type * as translations_seedLogin_02_Forms from "../translations/seedLogin_02_Forms.js";
@@ -306,6 +311,11 @@ declare const fullApi: ApiFromModules<{
   "translations/seedCheckout_05_RegistrationForm": typeof translations_seedCheckout_05_RegistrationForm;
   "translations/seedControlPanel": typeof translations_seedControlPanel;
   "translations/seedDesktop": typeof translations_seedDesktop;
+  "translations/seedEventLanding_00_Main": typeof translations_seedEventLanding_00_Main;
+  "translations/seedEventLanding_01_Navigation": typeof translations_seedEventLanding_01_Navigation;
+  "translations/seedEventLanding_02_HeroAndVenue": typeof translations_seedEventLanding_02_HeroAndVenue;
+  "translations/seedEventLanding_03_Checkout": typeof translations_seedEventLanding_03_Checkout;
+  "translations/seedEventLanding_04_AgendaAndDates": typeof translations_seedEventLanding_04_AgendaAndDates;
   "translations/seedLogin": typeof translations_seedLogin;
   "translations/seedLogin_01_BasicAuth": typeof translations_seedLogin_01_BasicAuth;
   "translations/seedLogin_02_Forms": typeof translations_seedLogin_02_Forms;

@@ -226,7 +226,7 @@ export function CheckoutEmbed({
     : {};
 
   return (
-    <div className={className} style={themeStyles}>
+    <div className={`w-full max-w-full overflow-hidden ${className}`} style={themeStyles}>
       <CheckoutComponent {...templateProps} />
     </div>
   );

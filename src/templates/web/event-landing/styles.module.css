@@ -17,6 +17,7 @@
   line-height: var(--line-height-normal);
   /* Ensure no overflow restrictions that break sticky */
   overflow: visible;
+  scroll-behavior: smooth;
 }
 
 /* ==========================================================================
@@ -95,6 +96,7 @@
 .layoutGrid {
   max-width: var(--layout-maxWidth-2xl);
   margin: 0 auto;
+  padding: 0 var(--spacing-lg); /* Add horizontal padding */
 }
 
 @media (min-width: 1024px) {
@@ -102,11 +104,19 @@
     display: grid;
     grid-template-columns: 1fr 400px;
     gap: var(--spacing-2xl);
+    padding: 0 var(--spacing-xl); /* Increase padding on desktop */
+  }
+}
+
+@media (min-width: 1280px) {
+  .layoutGrid {
+    padding: 0 var(--spacing-2xl); /* Even more padding on larger screens */
   }
 }
 
 .mainContent {
   min-width: 0; /* Prevents grid blowout */
+  max-width: 100%; /* Ensure content respects container */
 }
 
 /* ==========================================================================
@@ -115,11 +125,12 @@
 
 .hero {
   position: relative;
-  min-height: 90vh;
+  min-height: 60vh;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: clip; /* Use clip instead of hidden to preserve sticky */
+  padding-bottom: 2rem;
 }
 
 .heroBackground {
@@ -350,6 +361,19 @@
   font-size: clamp(1rem, 2vw, 1.25rem);
   color: var(--color-textLight);
   line-height: var(--line-height-relaxed);
+  text-align: left;
+}
+
+/* Ensure TipTap content inside sectionDescription is left-aligned */
+.sectionDescription .tiptap {
+  text-align: left;
+}
+
+.sectionDescription .tiptap p,
+.sectionDescription .tiptap h1,
+.sectionDescription .tiptap h2,
+.sectionDescription .tiptap h3 {
+  text-align: left;
 }
 
 /* ==========================================================================
@@ -1474,4 +1498,118 @@
   background: var(--color-surface);
   color: var(--color-textLight);
   border-color: var(--color-border);
+}
+
+/* ==========================================================================
+   Detailed Description Section - Event Object Data
+   ========================================================================== */
+
+.detailedDescription {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: var(--spacing-xl) var(--spacing-md);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text);
+}
+
+.detailedDescription h1,
+.detailedDescription h2,
+.detailedDescription h3 {
+  font-family: var(--font-heading);
+  font-weight: var(--font-weight-bold);
+  margin-top: var(--spacing-xl);
+  margin-bottom: var(--spacing-md);
+  color: var(--color-text);
+}
+
+.detailedDescription h1 {
+  font-size: var(--font-size-h1);
+  line-height: var(--line-height-tight);
+}
+
+.detailedDescription h2 {
+  font-size: var(--font-size-h2);
+  line-height: var(--line-height-tight);
+}
+
+.detailedDescription h3 {
+  font-size: var(--font-size-h3);
+  line-height: var(--line-height-normal);
+}
+
+.detailedDescription p {
+  margin-bottom: var(--spacing-md);
+  color: var(--color-text);
+}
+
+.detailedDescription a {
+  color: var(--color-primary);
+  text-decoration: underline;
+  transition: color 0.2s ease;
+}
+
+.detailedDescription a:hover {
+  color: var(--color-accent);
+}
+
+.detailedDescription strong {
+  font-weight: var(--font-weight-bold);
+  color: var(--color-textDark);
+}
+
+.detailedDescription ul,
+.detailedDescription ol {
+  margin: var(--spacing-md) 0;
+  padding-left: var(--spacing-xl);
+}
+
+.detailedDescription li {
+  margin-bottom: var(--spacing-sm);
+}
+
+.detailedDescription br {
+  content: "";
+  display: block;
+  margin-top: var(--spacing-sm);
+}
+
+/* ==========================================================================
+   Venue Details Section - Event Location Data
+   ========================================================================== */
+
+/* Reduce padding when venue appears right after hero */
+.hero + .section {
+  padding-top: 2rem;
+}
+
+.venueSection {
+  background: var(--color-surface);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-xl);
+  margin-top: var(--spacing-2xl);
+}
+
+.venueTitle {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-bold);
+  font-family: var(--font-heading);
+  margin-bottom: var(--spacing-md);
+  color: var(--color-text);
+}
+
+.venueAddress {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  color: var(--color-textLight);
+  margin-bottom: var(--spacing-md);
+}
+
+.venueMap {
+  width: 100%;
+  height: 300px;
+  border-radius: var(--border-radius-md);
+  overflow: hidden;
+  margin-top: var(--spacing-lg);
+  border: 1px solid var(--color-border);
 }

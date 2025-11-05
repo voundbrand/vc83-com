@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
@@ -21,7 +21,8 @@ import {
   Heading2,
   Heading3,
   Undo,
-  Redo
+  Redo,
+  Code2
 } from 'lucide-react';
 
 interface SimpleTiptapEditorProps {
@@ -37,6 +38,13 @@ const SimpleTiptapEditor: React.FC<SimpleTiptapEditorProps> = ({
   placeholder = 'Start writing...',
   minHeight = '200px'
 }) => {
+  // Track if we're updating internally to prevent loops
+  const isInternalUpdate = useRef(false);
+
+  // Track view mode (visual vs code)
+  const [isCodeView, setIsCodeView] = useState(false);
+  const [codeContent, setCodeContent] = useState(value);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -56,6 +64,7 @@ const SimpleTiptapEditor: React.FC<SimpleTiptapEditorProps> = ({
       Underline,
     ],
     content: value,
+    immediatelyRender: false,
     editorProps: {
       attributes: {
         class: 'prose prose-sm max-w-none focus:outline-none',
@@ -63,14 +72,26 @@ const SimpleTiptapEditor: React.FC<SimpleTiptapEditorProps> = ({
       },
     },
     onUpdate: ({ editor }) => {
+      isInternalUpdate.current = true;
       onChange(editor.getHTML());
     },
   });
 
-  // Update editor content when value changes externally
+  // Update editor content when value changes externally (not from typing)
   useEffect(() => {
-    if (editor && value !== editor.getHTML()) {
-      editor.commands.setContent(value);
+    if (!editor) return;
+
+    // Skip if this update came from the editor itself
+    if (isInternalUpdate.current) {
+      isInternalUpdate.current = false;
+      return;
+    }
+
+    // Only update if the content is actually different
+    const currentContent = editor.getHTML();
+    if (value !== currentContent) {
+      editor.commands.setContent(value, { emitUpdate: false });
+      setCodeContent(value); // Also update code content
     }
   }, [value, editor]);
 
@@ -259,12 +280,52 @@ const SimpleTiptapEditor: React.FC<SimpleTiptapEditorProps> = ({
         >
           <Redo size={14} />
         </ToolbarButton>
+
+        <Divider />
+
+        {/* Code View Toggle */}
+        <ToolbarButton
+          onClick={() => {
+            if (!isCodeView) {
+              // Switching to code view - update code content from editor
+              setCodeContent(editor.getHTML());
+            } else {
+              // Switching back to visual - update editor from code content
+              editor.commands.setContent(codeContent, { emitUpdate: false });
+              onChange(codeContent);
+            }
+            setIsCodeView(!isCodeView);
+          }}
+          isActive={isCodeView}
+          title={isCodeView ? "Visual Editor" : "Source Code"}
+        >
+          <Code2 size={14} />
+        </ToolbarButton>
       </div>
 
-      {/* Editor Content */}
-      <div style={{ background: "var(--win95-input-bg)", color: "var(--win95-input-text)" }}>
-        <EditorContent editor={editor} placeholder={placeholder} />
-      </div>
+      {/* Editor Content or Code View */}
+      {isCodeView ? (
+        <textarea
+          value={codeContent}
+          onChange={(e) => {
+            setCodeContent(e.target.value);
+            onChange(e.target.value);
+          }}
+          className="w-full p-3 font-mono text-sm border-0 focus:outline-none"
+          style={{
+            minHeight,
+            background: "var(--win95-input-bg)",
+            color: "var(--win95-input-text)",
+            fontFamily: 'monospace',
+            resize: 'vertical'
+          }}
+          placeholder="Enter HTML code here..."
+        />
+      ) : (
+        <div style={{ background: "var(--win95-input-bg)", color: "var(--win95-input-text)" }}>
+          <EditorContent editor={editor} placeholder={placeholder} />
+        </div>
+      )}
     </div>
   );
 };

@@ -8,6 +8,7 @@ import { Loader2, AlertCircle, FileText, ExternalLink, Check, ChevronDown, Chevr
 import { Id } from "../../../../convex/_generated/dataModel";
 import { getTemplateSchema, getTemplateComponent, getTheme } from "@/templates/registry";
 import { DynamicFormGenerator } from "./template-content-forms/dynamic-form-generator";
+import { TranslationProvider } from "@/contexts/translation-context";
 
 /**
  * Deep merge two objects
@@ -304,11 +305,29 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
         alert("Page updated successfully!");
       } else {
         // CREATE new page
+        // Determine what object to link to based on templateContent
+        let linkedObjectId: Id<"objects"> = selectedTemplateId as Id<"objects">; // Default to template
+        let linkedObjectType = "simple_page";
+
+        // Check if an event is linked
+        const linkedEventId = mergedContent.linkedEventId as string | undefined;
+        if (linkedEventId) {
+          linkedObjectId = linkedEventId as Id<"objects">;
+          linkedObjectType = "event";
+        }
+
+        // Check if a checkout is linked (takes priority over event)
+        const linkedCheckoutId = mergedContent.linkedCheckoutId as string | undefined;
+        if (linkedCheckoutId) {
+          linkedObjectId = linkedCheckoutId as Id<"objects">;
+          linkedObjectType = "checkout_instance";
+        }
+
         const result = await createPage({
           sessionId,
           organizationId: currentOrg.id as Id<"organizations">,
-          linkedObjectId: selectedTemplateId as Id<"objects">, // TEMPORARY: using template as linked object
-          linkedObjectType: "simple_page",
+          linkedObjectId,
+          linkedObjectType,
           slug,
           metaTitle,
           metaDescription,
@@ -838,12 +857,14 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
 
                   return (
                     <div className="transform scale-75 origin-top-left w-[133%]">
-                      <TemplateComponent
-                        page={mockPage}
-                        data={mockData}
-                        organization={mockOrg}
-                        theme={theme}
-                      />
+                      <TranslationProvider>
+                        <TemplateComponent
+                          page={mockPage}
+                          data={mockData}
+                          organization={mockOrg}
+                          theme={theme}
+                        />
+                      </TranslationProvider>
                     </div>
                   );
                 }

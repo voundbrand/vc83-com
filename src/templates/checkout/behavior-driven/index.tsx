@@ -531,7 +531,7 @@ export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
   };
 
   return (
-    <div className="behavior-driven-checkout">
+    <div className="behavior-driven-checkout w-full max-w-full overflow-hidden">
       {/* Progress Bar */}
       {config.showProgressBar && currentStep !== "confirmation" && (
         <div className="checkout-progress mb-8">

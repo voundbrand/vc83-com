@@ -31,9 +31,44 @@ const TranslationContext = createContext<TranslationContextValue | undefined>(un
 const AVAILABLE_LOCALES = ["en", "de", "pl", "es", "fr", "ja"];
 const DEFAULT_LOCALE = "en";
 
+/**
+ * Detect browser language and return best match from available locales
+ */
+function detectBrowserLanguage(): string {
+  if (typeof window === "undefined") return DEFAULT_LOCALE;
+
+  // Get browser languages in order of preference
+  const browserLanguages = navigator.languages || [navigator.language];
+
+  // Try to find exact match first (e.g., "de-DE" -> "de")
+  for (const browserLang of browserLanguages) {
+    const langCode = browserLang.split("-")[0].toLowerCase();
+    if (AVAILABLE_LOCALES.includes(langCode)) {
+      return langCode;
+    }
+  }
+
+  return DEFAULT_LOCALE;
+}
+
 export function TranslationProvider({ children }: { children: ReactNode }) {
   const { sessionId } = useAuth();
-  const [locale, setLocaleState] = useState<string>(DEFAULT_LOCALE);
+
+  // Initialize with browser language detection (only runs once on mount)
+  const [locale, setLocaleState] = useState<string>(() => {
+    // Server-side: use default
+    if (typeof window === "undefined") return DEFAULT_LOCALE;
+
+    // Check localStorage first (user explicitly chose)
+    const savedLocale = localStorage.getItem("locale");
+    if (savedLocale && AVAILABLE_LOCALES.includes(savedLocale)) {
+      return savedLocale;
+    }
+
+    // Otherwise detect browser language
+    return detectBrowserLanguage();
+  });
+
   const [isHydrated, setIsHydrated] = useState(false);
 
   // Load preferences from Convex (only if signed in)
@@ -44,26 +79,19 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
 
   const updatePrefs = useMutation(api.userPreferences.update);
 
-  // Load language from Convex when available (signed-in users)
+  // Load language from Convex when available (signed-in users only)
+  // This will override the initial browser/localStorage detection
   useEffect(() => {
-    if (userPrefs && !isHydrated) {
+    if (sessionId && userPrefs && !isHydrated) {
       if (userPrefs.language && AVAILABLE_LOCALES.includes(userPrefs.language)) {
         setLocaleState(userPrefs.language);
       }
       setIsHydrated(true);
-    }
-  }, [userPrefs, isHydrated]);
-
-  // Fallback to localStorage if not signed in
-  useEffect(() => {
-    if (!sessionId && typeof window !== "undefined" && !isHydrated) {
-      const savedLocale = localStorage.getItem("locale");
-      if (savedLocale && AVAILABLE_LOCALES.includes(savedLocale)) {
-        setLocaleState(savedLocale);
-      }
+    } else if (!sessionId && !isHydrated) {
+      // Mark as hydrated for non-signed-in users (already set in useState)
       setIsHydrated(true);
     }
-  }, [sessionId, isHydrated]);
+  }, [sessionId, userPrefs, isHydrated]);
 
   // Load all system translations for current locale using ontologyTranslations
   // Returns a key-value map: { "desktop.welcome-icon": "Welcome", ... }

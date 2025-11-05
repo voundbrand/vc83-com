@@ -31,7 +31,8 @@ interface PublishedPagesTabProps {
 export function PublishedPagesTab({ onEditPage }: PublishedPagesTabProps) {
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
-  const [selectedStatus, setSelectedStatus] = useState<string | undefined>(undefined);
+  // Default to showing only "active" (non-archived) pages
+  const [selectedStatus, setSelectedStatus] = useState<string | undefined>("active");
 
   // Fetch org's published pages
   const pages = useQuery(
@@ -100,12 +101,13 @@ export function PublishedPagesTab({ onEditPage }: PublishedPagesTabProps) {
             value={selectedStatus || "all"}
             onChange={(e) => setSelectedStatus(e.target.value === "all" ? undefined : e.target.value)}
           >
-            <option value="all">All</option>
+            <option value="active">Active (Non-Archived)</option>
+            <option value="all">All Pages</option>
             <option value="draft">Draft</option>
             <option value="review">Review</option>
             <option value="published">Published</option>
             <option value="unpublished">Unpublished</option>
-            <option value="archived">Archived</option>
+            <option value="archived">Archived Only</option>
           </select>
         </div>
       </div>

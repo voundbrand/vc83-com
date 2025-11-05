@@ -19,6 +19,7 @@ import { TemplateContentSchema, FieldType } from "../../schema-types";
 export interface EventLandingContent {
   linkedEventId?: string; // ID of linked event from Event Management app
   linkedCheckoutId?: string; // ID of linked checkout instance from Checkout app
+  showNavigation?: boolean; // Toggle navigation visibility
   hero: {
     headline: string;
     subheadline: string;
@@ -128,6 +129,7 @@ export const eventLandingSchema: TemplateContentSchema<EventLandingContent> = {
   defaultContent: {
     linkedEventId: "", // Default to no event linked
     linkedCheckoutId: "", // Default to no checkout linked
+    showNavigation: true, // Show navigation by default
     hero: {
       headline: "The Future of Innovation Starts Here",
       subheadline:
@@ -234,21 +236,46 @@ export const eventLandingSchema: TemplateContentSchema<EventLandingContent> = {
   // Field definitions for the form
   sections: [
     {
+      id: "layout-settings",
+      label: "Layout Settings",
+      description: "Configure page layout and visibility options",
+      fields: [
+        {
+          id: "showNavigation",
+          label: "Show Navigation Bar",
+          type: FieldType.Boolean,
+          required: false,
+          helpText: "Toggle the sticky navigation bar at the top of the page",
+          defaultValue: true,
+        },
+      ],
+    },
+    {
       id: "data-sources",
       label: "Data Sources",
-      description: "Link to event and checkout to auto-populate content",
+      description: "Link to event and checkout to auto-populate content from the Events and Checkout apps",
       fields: [
         {
           id: "linkedEventId",
           label: "Link to Event",
           type: FieldType.EventLink,
           required: false,
-          helpText: "Select an event from Event Management to auto-populate event details",
+          helpText: "🔗 Link an event to automatically populate the entire page with event data. EVENT DATA TAKES PRIORITY - the page auto-fills with: event name, description, date/time, venue/location, agenda, detailed description (HTML), media (videos/images), and map. Edit all event details in the Events window to update the page.",
           autoPopulateFields: {
+            // Hero Section
             eventName: "hero.headline",
+            eventDescription: "hero.subheadline",
             eventDate: "hero.date",
             eventLocation: "hero.location",
-            eventDescription: "about.description",
+            eventLocationType: "hero.format",
+            eventVideoUrl: "hero.videoUrl",
+            eventImageUrl: "hero.imageUrl",
+
+            // About Section
+            eventDetailedDescription: "about.description",
+
+            // Agenda Section
+            eventAgenda: "agenda.days",
           },
         },
         {
@@ -271,7 +298,7 @@ export const eventLandingSchema: TemplateContentSchema<EventLandingContent> = {
           type: FieldType.Text,
           required: true,
           placeholder: "The Future of Innovation Starts Here",
-          helpText: "Main headline - make it compelling and event-focused",
+          helpText: "Auto-populated from linked event name (fallback: enter custom text if no event linked)",
           maxLength: 150,
         },
         {
@@ -280,7 +307,7 @@ export const eventLandingSchema: TemplateContentSchema<EventLandingContent> = {
           type: FieldType.Textarea,
           required: true,
           placeholder: "Join industry leaders for two days of insights...",
-          helpText: "Supporting text that explains the event value",
+          helpText: "Auto-populated from linked event description (fallback: enter custom text if no event linked)",
           maxLength: 300,
           rows: 3,
         },
@@ -290,6 +317,7 @@ export const eventLandingSchema: TemplateContentSchema<EventLandingContent> = {
           type: FieldType.Text,
           required: true,
           placeholder: "JUNE 15-16, 2025",
+          helpText: "Auto-formatted from linked event startDate (fallback: enter custom text if no event linked)",
           maxLength: 50,
         },
         {
@@ -298,6 +326,7 @@ export const eventLandingSchema: TemplateContentSchema<EventLandingContent> = {
           type: FieldType.Text,
           required: true,
           placeholder: "San Francisco Convention Center",
+          helpText: "Auto-populated from linked event venueName/location (fallback: enter custom text if no event linked)",
           maxLength: 100,
         },
         {
@@ -378,11 +407,10 @@ export const eventLandingSchema: TemplateContentSchema<EventLandingContent> = {
         {
           id: "about.description",
           label: "Description",
-          type: FieldType.Textarea,
+          type: FieldType.RichText,
           required: true,
           placeholder: "Brief description of the event...",
-          maxLength: 500,
-          rows: 4,
+          helpText: "Use the WYSIWYG editor to format your text. HTML will be safely rendered on the page.",
         },
         {
           id: "about.stats",
@@ -466,7 +494,7 @@ export const eventLandingSchema: TemplateContentSchema<EventLandingContent> = {
     {
       id: "agenda",
       label: "Agenda/Schedule",
-      description: "Day-by-day event schedule",
+      description: "Day-by-day event schedule - AUTO-POPULATED from linked event agenda. Edit agenda in Events window to update this section. Custom schedule only used if no event linked.",
       fields: [
         {
           id: "agenda.title",
