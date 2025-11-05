@@ -166,7 +166,7 @@ export function EventLandingTemplate({
 
   // Convert agenda after formatEventDate is defined
   const agendaDays = eventAgenda && eventAgenda.length > 0 ?
-    // Group agenda items by date
+    // Group agenda items by date and sort by time
     Object.values(
       eventAgenda.reduce((acc, item) => {
         const dateKey = formatEventDate(item.date, 'short');
@@ -174,6 +174,7 @@ export function EventLandingTemplate({
           acc[dateKey] = {
             id: `day-${item.date}`,
             date: dateKey,
+            dateTimestamp: item.date, // Keep timestamp for sorting days
             sessions: [],
           };
         }
@@ -182,21 +183,37 @@ export function EventLandingTemplate({
           time: item.endTime
             ? `${item.startTime} - ${item.endTime}`
             : item.startTime,
+          startTime: item.startTime, // Keep for sorting
           title: item.title,
           speaker: item.speaker || '',
           type: 'session',
           location: item.location,
         });
         return acc;
-      }, {} as Record<string, { id: string; date: string; sessions: Array<{
+      }, {} as Record<string, { id: string; date: string; dateTimestamp: number; sessions: Array<{
         id: string;
         time: string;
+        startTime: string;
         title: string;
         speaker: string;
         type: string;
         location?: string;
       }> }>)
-    ) : undefined;
+    )
+    // Sort days by date
+    .sort((a, b) => a.dateTimestamp - b.dateTimestamp)
+    // Sort sessions within each day by start time
+    .map(day => ({
+      ...day,
+      sessions: day.sessions.sort((a, b) => {
+        // Convert time strings (HH:MM) to comparable numbers
+        const timeA = a.startTime.split(':').map(Number);
+        const timeB = b.startTime.split(':').map(Number);
+        const minutesA = timeA[0] * 60 + timeA[1];
+        const minutesB = timeB[0] * 60 + timeB[1];
+        return minutesA - minutesB;
+      })
+    })) : undefined;
 
   console.log('[Event Landing Template] Converted agenda days:', agendaDays);
 

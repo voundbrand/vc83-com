@@ -22,6 +22,7 @@ export const seed = internalMutation({
       { name: "Navigation", path: internal.translations.seedEventLanding_01_Navigation.seed },
       { name: "Hero & Venue", path: internal.translations.seedEventLanding_02_HeroAndVenue.seed },
       { name: "Checkout Section", path: internal.translations.seedEventLanding_03_Checkout.seed },
+      { name: "Agenda & Dates", path: internal.translations.seedEventLanding_04_AgendaAndDates.seed },
     ];
 
     for (const file of seedFiles) {
@@ -41,12 +42,13 @@ export const seed = internalMutation({
     console.log("   - Navigation (6 keys)");
     console.log("   - Hero & Venue (10 keys)");
     console.log("   - Checkout Section (9 keys)");
-    console.log("   Total: ~25 keys × 6 languages = ~150 translations");
+    console.log("   - Agenda & Dates (30+ keys)");
+    console.log("   Total: ~55 keys × 6 languages = ~330 translations");
 
     return {
       success: true,
       filesSeeded: seedFiles.length,
-      estimatedTranslations: 150,
+      estimatedTranslations: 330,
     };
   }
 });
