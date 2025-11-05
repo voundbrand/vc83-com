@@ -20,6 +20,7 @@ import { CreditCard, ArrowLeft, FileText, Loader2 } from "lucide-react";
 import { getInvoiceMappingFromResults } from "@/lib/behaviors/adapters/checkout-integration";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 import { loadStripe, Stripe, StripeElements, StripeCardElement } from "@stripe/stripe-js";
+import { useTranslation } from "@/contexts/translation-context";
 
 export interface PaymentStepProps extends StepProps {
   checkoutSessionId: string | null;
@@ -33,6 +34,8 @@ export function PaymentStep({
   onComplete,
   onBack
 }: PaymentStepProps) {
+  const { t } = useTranslation();
+
   // UI State
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -323,12 +326,14 @@ export function PaymentStep({
       <div className="mb-8">
         <h2 className="text-3xl font-bold mb-2 flex items-center gap-3">
           <CreditCard size={32} />
-          {selectedMethod === "stripe" ? "Payment Details" : "Payment Method"}
+          {selectedMethod === "stripe"
+            ? t('ui.checkout_template.behavior_driven.payment.headers.title_card', 'Payment Details')
+            : t('ui.checkout_template.behavior_driven.payment.headers.title', 'Payment Method')}
         </h2>
         <p className="text-gray-600">
           {selectedMethod === "stripe"
-            ? "Enter your card details to complete payment"
-            : "Choose how you want to pay"}
+            ? t('ui.checkout_template.behavior_driven.payment.headers.subtitle_card', 'Enter your card details to complete payment')
+            : t('ui.checkout_template.behavior_driven.payment.headers.subtitle', 'Choose how you want to pay')}
         </p>
       </div>
 
@@ -351,13 +356,17 @@ export function PaymentStep({
                 )}
                 <div className="flex-1">
                   <h3 className="text-lg font-bold text-blue-900">
-                    {isProcessing ? "Creating Invoice..." : "Invoice Payment (Pay Later)"}
+                    {isProcessing
+                      ? t('ui.checkout_template.behavior_driven.payment.invoice.creating', 'Creating Invoice...')
+                      : t('ui.checkout_template.behavior_driven.payment.invoice.title', 'Invoice Payment (Pay Later)')}
                   </h3>
                   <p className="text-sm text-blue-700 mt-1">
-                    An invoice will be sent to: <strong>{invoiceInfo.employerOrgId || "your employer"}</strong>
+                    {t('ui.checkout_template.behavior_driven.payment.invoice.sent_to', 'An invoice will be sent to:')} <strong>{invoiceInfo.employerOrgId || "your employer"}</strong>
                   </p>
                   <p className="text-xs text-blue-600 mt-2">
-                    Payment terms: {invoiceInfo.paymentTerms ? invoiceInfo.paymentTerms.replace("net", "Net ") + " days" : "Net 30 days"}
+                    {t('ui.checkout_template.behavior_driven.payment.invoice.payment_terms', 'Payment terms:')} {invoiceInfo.paymentTerms
+                      ? t('ui.checkout_template.behavior_driven.payment.invoice.net_days', { terms: invoiceInfo.paymentTerms.replace("net", "Net ") })
+                      : t('ui.checkout_template.behavior_driven.payment.invoice.net_days_default')}
                   </p>
                 </div>
               </div>
@@ -374,9 +383,9 @@ export function PaymentStep({
             <div className="flex items-center gap-4">
               <CreditCard size={32} className="text-purple-600" />
               <div className="flex-1">
-                <h3 className="text-lg font-bold text-gray-900">Credit Card</h3>
+                <h3 className="text-lg font-bold text-gray-900">{t('ui.checkout_template.behavior_driven.payment.credit_card.title', 'Credit Card')}</h3>
                 <p className="text-sm text-gray-600 mt-1">
-                  Pay securely with Visa, Mastercard, or American Express
+                  {t('ui.checkout_template.behavior_driven.payment.credit_card.subtitle', 'Pay securely with Visa, Mastercard, or American Express')}
                 </p>
               </div>
             </div>
@@ -389,9 +398,9 @@ export function PaymentStep({
         <div className="space-y-6 mb-6">
           {/* Order Summary */}
           <div className="bg-gray-50 border-2 border-gray-300 rounded-lg p-6">
-            <h3 className="text-lg font-bold mb-4">Order Summary</h3>
+            <h3 className="text-lg font-bold mb-4">{t('ui.checkout_template.behavior_driven.payment.order_summary.title', 'Order Summary')}</h3>
             <div className="flex justify-between items-center">
-              <span className="text-gray-600">Total Amount:</span>
+              <span className="text-gray-600">{t('ui.checkout_template.behavior_driven.payment.order_summary.total_amount', 'Total Amount:')}</span>
               <span className="text-2xl font-bold text-purple-600">
                 {formatCurrency(totalAmount)}
               </span>
@@ -400,7 +409,7 @@ export function PaymentStep({
 
           {/* Card Details Form */}
           <div className="border-2 border-gray-300 rounded-lg p-6">
-            <h3 className="text-lg font-bold mb-4">Card Details</h3>
+            <h3 className="text-lg font-bold mb-4">{t('ui.checkout_template.behavior_driven.payment.card_details.title', 'Card Details')}</h3>
             <div
               ref={setCardMountNode}
               className="border-2 border-gray-300 rounded p-3 bg-white min-h-[44px]"
@@ -408,11 +417,11 @@ export function PaymentStep({
             {!stripe && (
               <div className="flex items-center gap-2 mt-2 text-sm text-gray-500">
                 <Loader2 size={16} className="animate-spin" />
-                Loading payment form...
+                {t('ui.checkout_template.behavior_driven.payment.card_details.loading', 'Loading payment form...')}
               </div>
             )}
             <div className="text-xs text-gray-600 bg-gray-50 p-3 rounded mt-4">
-              🔒 Your payment information is encrypted and secure. We never store your card details.
+              {t('ui.checkout_template.behavior_driven.payment.security.notice', '🔒 Your payment information is encrypted and secure. We never store your card details.')}
             </div>
           </div>
         </div>
@@ -442,7 +451,7 @@ export function PaymentStep({
             className="px-6 py-3 text-lg font-bold border-2 border-gray-400 bg-white text-gray-700 hover:bg-gray-50 rounded transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ArrowLeft size={20} />
-            Back
+            {t('ui.checkout_template.behavior_driven.payment.buttons.back', 'Back')}
           </button>
         )}
 
@@ -457,11 +466,11 @@ export function PaymentStep({
             {isProcessing ? (
               <>
                 <Loader2 size={20} className="animate-spin" />
-                Processing Payment...
+                {t('ui.checkout_template.behavior_driven.payment.buttons.processing', 'Processing Payment...')}
               </>
             ) : (
               <>
-                Complete Payment {formatCurrency(totalAmount)}
+                {t('ui.checkout_template.behavior_driven.payment.buttons.complete_payment', 'Complete Payment')} {formatCurrency(totalAmount)}
               </>
             )}
           </button>
@@ -471,7 +480,7 @@ export function PaymentStep({
       {/* Security Notice */}
       <div className="mt-6 text-center">
         <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
-          🔒 Your payment information is encrypted and secure
+          {t('ui.checkout_template.behavior_driven.payment.security.notice_footer', '🔒 Your payment information is encrypted and secure')}
         </p>
       </div>
     </div>

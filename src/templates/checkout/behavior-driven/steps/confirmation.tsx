@@ -13,8 +13,10 @@ import { useQuery, useAction } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
 import { useState } from "react";
+import { useTranslation } from "@/contexts/translation-context";
 
 export function ConfirmationStep({ checkoutData, products }: StepProps) {
+  const { t } = useTranslation();
   const [isDownloadingTickets, setIsDownloadingTickets] = useState(false);
   const [isDownloadingReceipt, setIsDownloadingReceipt] = useState(false);
 
@@ -144,30 +146,32 @@ export function ConfirmationStep({ checkoutData, products }: StepProps) {
           <CheckCircle size={64} className="text-green-600" />
         </div>
         <h2 className="text-4xl font-bold mb-3">
-          {isInvoiceCheckout ? "Registration Complete!" : "Payment Successful!"}
+          {isInvoiceCheckout
+            ? t('ui.checkout_template.behavior_driven.confirmation.headers.title_invoice', 'Registration Complete!')
+            : t('ui.checkout_template.behavior_driven.confirmation.headers.title', 'Payment Successful!')}
         </h2>
         <p className="text-xl text-gray-600">
           {isInvoiceCheckout
-            ? "Your tickets will be sent via email. Invoice sent to employer."
-            : "Your order has been confirmed and tickets are on their way."}
+            ? t('ui.checkout_template.behavior_driven.confirmation.headers.subtitle_invoice', 'Your tickets will be sent via email. Invoice sent to employer.')
+            : t('ui.checkout_template.behavior_driven.confirmation.headers.subtitle', 'Your order has been confirmed and tickets are on their way.')}
         </p>
       </div>
 
       {/* Invoice Notice */}
       {isInvoiceCheckout && invoiceInfo && (
         <div className="bg-blue-50 border-2 border-blue-400 rounded-lg p-6 mb-6">
-          <h3 className="text-lg font-bold text-blue-900 mb-3">📄 Invoice Payment</h3>
+          <h3 className="text-lg font-bold text-blue-900 mb-3">{t('ui.checkout_template.behavior_driven.confirmation.invoice.title', '📄 Invoice Payment')}</h3>
           <div className="text-blue-900 space-y-2 text-sm">
             <p>
-              <strong>Employer:</strong> {employerName}
+              <strong>{t('ui.checkout_template.behavior_driven.confirmation.invoice.employer', 'Employer:')}</strong> {employerName}
             </p>
             <p>
-              <strong>Payment Terms:</strong> Net {invoiceInfo.paymentTerms?.replace("net", "")} days
+              <strong>{t('ui.checkout_template.behavior_driven.confirmation.invoice.payment_terms', 'Payment Terms:')}</strong> {t('ui.checkout_template.behavior_driven.confirmation.invoice.net_days', { days: invoiceInfo.paymentTerms?.replace("net", "") || "30" })}
             </p>
             <p className="mt-3 pt-3 border-t border-blue-300 italic">
-              An invoice has been sent to your employer for payment.
+              {t('ui.checkout_template.behavior_driven.confirmation.invoice.notice', 'An invoice has been sent to your employer for payment.')}
               <br />
-              Your tickets are confirmed and will be delivered to your email.
+              {t('ui.checkout_template.behavior_driven.confirmation.invoice.tickets_confirmed', 'Your tickets are confirmed and will be delivered to your email.')}
             </p>
           </div>
         </div>
@@ -175,15 +179,15 @@ export function ConfirmationStep({ checkoutData, products }: StepProps) {
 
       {/* Order Summary */}
       <div className="bg-white border-2 border-gray-300 rounded-lg p-6 mb-6">
-        <h3 className="text-lg font-bold mb-4">Order Summary</h3>
+        <h3 className="text-lg font-bold mb-4">{t('ui.checkout_template.behavior_driven.confirmation.sections.order_summary', 'Order Summary')}</h3>
 
         {/* Transaction ID */}
         <div className="mb-4 pb-4 border-b border-gray-300">
           <p className="text-sm">
-            <strong>Transaction ID:</strong> {checkoutData.paymentResult?.transactionId || "Pending"}
+            <strong>{t('ui.checkout_template.behavior_driven.confirmation.labels.transaction_id', 'Transaction ID:')}</strong> {checkoutData.paymentResult?.transactionId || t('ui.checkout_template.behavior_driven.confirmation.labels.pending', 'Pending')}
           </p>
           <p className="text-sm">
-            <strong>Email:</strong> {checkoutData.customerInfo?.email}
+            <strong>{t('ui.checkout_template.behavior_driven.confirmation.labels.email', 'Email:')}</strong> {checkoutData.customerInfo?.email}
           </p>
         </div>
 
@@ -213,7 +217,7 @@ export function ConfirmationStep({ checkoutData, products }: StepProps) {
         {/* Totals with Tax Breakdown */}
         <div className="space-y-2">
           <div className="flex justify-between text-sm text-gray-700">
-            <span>Subtotal:</span>
+            <span>{t('ui.checkout_template.behavior_driven.confirmation.labels.subtotal', 'Subtotal:')}</span>
             <span className="font-medium">{formatPrice(subtotal, currency)}</span>
           </div>
 
@@ -225,14 +229,14 @@ export function ConfirmationStep({ checkoutData, products }: StepProps) {
 
             return (
               <div className="flex justify-between text-sm text-gray-700">
-                <span>Tax ({effectiveTaxRate.toFixed(1)}%):</span>
+                <span>{t('ui.checkout_template.behavior_driven.confirmation.labels.tax', 'Tax')} ({effectiveTaxRate.toFixed(1)}%):</span>
                 <span className="font-medium">{formatPrice(taxCalculation.taxAmount, currency)}</span>
               </div>
             );
           })()}
 
           <div className="flex justify-between pt-3 mt-3 border-t-2 border-gray-400">
-            <span className="text-lg font-bold">Total:</span>
+            <span className="text-lg font-bold">{t('ui.checkout_template.behavior_driven.confirmation.labels.total', 'Total:')}</span>
             <span className="text-lg font-bold text-purple-600">{formatPrice(total, currency)}</span>
           </div>
         </div>
@@ -243,14 +247,15 @@ export function ConfirmationStep({ checkoutData, products }: StepProps) {
         <div className="flex items-start gap-4">
           <Mail size={32} className="text-purple-600 flex-shrink-0" />
           <div>
-            <h3 className="text-lg font-bold mb-2">Confirmation Email Sent</h3>
+            <h3 className="text-lg font-bold mb-2">{t('ui.checkout_template.behavior_driven.confirmation.email.title', 'Confirmation Email Sent')}</h3>
             <p className="text-sm text-gray-700">
-              We&apos;ve sent your {isInvoiceCheckout ? "tickets and confirmation" : "tickets, confirmation, and receipt"} to{" "}
-              <strong>{checkoutData.customerInfo?.email}</strong>
+              {isInvoiceCheckout
+                ? t('ui.checkout_template.behavior_driven.confirmation.email.sent_invoice', { email: checkoutData.customerInfo?.email || '' })
+                : t('ui.checkout_template.behavior_driven.confirmation.email.sent_payment', { email: checkoutData.customerInfo?.email || '' })}
             </p>
             {checkoutData.formResponses && checkoutData.formResponses.length > 1 && (
               <p className="text-sm text-gray-700 mt-2">
-                Each ticket holder will receive their individual ticket with QR code.
+                {t('ui.checkout_template.behavior_driven.confirmation.email.multiple_tickets', 'Each ticket holder will receive their individual ticket with QR code.')}
               </p>
             )}
           </div>
@@ -268,12 +273,12 @@ export function ConfirmationStep({ checkoutData, products }: StepProps) {
           {isDownloadingTickets ? (
             <>
               <Loader2 size={20} className="animate-spin" />
-              Downloading...
+              {t('ui.checkout_template.behavior_driven.confirmation.downloads.downloading', 'Downloading...')}
             </>
           ) : (
             <>
               <Download size={20} />
-              Download Tickets
+              {t('ui.checkout_template.behavior_driven.confirmation.downloads.download_tickets', 'Download Tickets')}
             </>
           )}
         </button>
@@ -288,12 +293,12 @@ export function ConfirmationStep({ checkoutData, products }: StepProps) {
             {isDownloadingReceipt ? (
               <>
                 <Loader2 size={20} className="animate-spin" />
-                Downloading...
+                {t('ui.checkout_template.behavior_driven.confirmation.downloads.downloading', 'Downloading...')}
               </>
             ) : (
               <>
                 <Download size={20} />
-                Download Receipt
+                {t('ui.checkout_template.behavior_driven.confirmation.downloads.download_receipt', 'Download Receipt')}
               </>
             )}
           </button>
@@ -305,7 +310,7 @@ export function ConfirmationStep({ checkoutData, products }: StepProps) {
       {/* Support Info */}
       <div className="text-center">
         <p className="text-sm text-gray-600">
-          Questions? Contact us at{" "}
+          {t('ui.checkout_template.behavior_driven.confirmation.support.text', 'Questions? Contact us at')}{" "}
           <a href="mailto:support@example.com" className="text-purple-600 hover:underline">
             support@example.com
           </a>
