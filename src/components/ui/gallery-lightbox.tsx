@@ -63,11 +63,17 @@ function getYouTubeThumbnail(url: string): string | null {
 /**
  * Convert YouTube URL to embed URL
  * Example: https://www.youtube.com/watch?v=VIDEO_ID -> https://www.youtube.com/embed/VIDEO_ID
+ *
+ * @param url - YouTube URL
+ * @param loop - Whether to loop the video (requires playlist parameter for single videos)
  */
-function getYouTubeEmbedUrl(url: string): string | null {
+function getYouTubeEmbedUrl(url: string, loop = false): string | null {
   const videoId = getYouTubeVideoId(url);
   if (videoId) {
-    return `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+    // For YouTube loop to work on a single video, we need to add it to a playlist of itself
+    // See: https://developers.google.com/youtube/player_parameters#loop
+    const loopParams = loop ? `&loop=1&playlist=${videoId}` : '';
+    return `https://www.youtube.com/embed/${videoId}?autoplay=1${loopParams}`;
   }
   return null;
 }
@@ -249,7 +255,7 @@ export const GalleryLightbox: React.FC<GalleryLightboxProps> = ({ items, classNa
               </div>
             ) : (() => {
               // Check if it's a YouTube video
-              const youtubeEmbedUrl = getYouTubeEmbedUrl(currentItem.url);
+              const youtubeEmbedUrl = getYouTubeEmbedUrl(currentItem.url, currentItem.loop);
 
               if (youtubeEmbedUrl) {
                 // YouTube video - use iframe
