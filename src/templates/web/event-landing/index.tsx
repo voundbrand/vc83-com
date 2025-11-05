@@ -139,6 +139,17 @@ export function EventLandingTemplate({
   const galleryItems = mediaData?.items?.map(item => {
     const isVideo = item.type === 'video' || !!item.videoUrl;
     const url = getMediaUrl(item);
+    const loopValue = (item as any).loop ?? false;
+
+    // Debug logging for video loop setting
+    if (isVideo) {
+      console.log('[Event Landing] Video item:', {
+        id: item.id,
+        videoUrl: item.videoUrl,
+        loop: loopValue,
+        rawItem: item
+      });
+    }
 
     return {
       id: item.id,
@@ -146,9 +157,12 @@ export function EventLandingTemplate({
       url,
       thumbnail: item.thumbnailUrl || (isVideo ? undefined : url),
       alt: item.alt || item.filename,
-      loop: isVideo ? ((item as any).loop ?? false) : undefined, // Pass loop setting for videos
+      loop: isVideo ? loopValue : undefined, // Pass loop setting for videos
     };
   }).filter(item => item.url) || [];
+
+  // Debug log final gallery items
+  console.log('[Event Landing] Gallery items:', galleryItems);
 
 
   // Convert event agenda to template format if available

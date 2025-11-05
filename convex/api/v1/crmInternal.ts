@@ -28,6 +28,7 @@ export const createContactFromEventInternal = internalMutation({
       email: v.string(),
       phone: v.optional(v.string()),
       company: v.optional(v.string()),
+      tags: v.optional(v.array(v.string())), // Custom tags from frontend
     }),
     performedBy: v.id("users"),
   },
@@ -102,7 +103,7 @@ export const createContactFromEventInternal = internalMutation({
           company: args.attendeeInfo.company,
           source: "api",
           sourceRef: eventObjectId,
-          tags: ["event-attendee", "api-created"],
+          tags: args.attendeeInfo.tags || [], // Use tags from request, default to empty array
           createdFromEvent: true,
         },
         createdBy: args.performedBy,

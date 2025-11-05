@@ -155,6 +155,16 @@ export const GalleryLightbox: React.FC<GalleryLightboxProps> = ({ items, classNa
 
   const currentItem = selectedIndex !== null ? items[selectedIndex] : null;
 
+  // Debug logging when lightbox opens
+  if (currentItem && currentItem.type === 'video') {
+    console.log('[Gallery Lightbox] Current video item:', {
+      id: currentItem.id,
+      url: currentItem.url,
+      loop: currentItem.loop,
+      fullItem: currentItem
+    });
+  }
+
   return (
     <>
       {/* Gallery Grid */}

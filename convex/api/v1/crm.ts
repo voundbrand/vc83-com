@@ -33,7 +33,8 @@ import { internal } from "../../_generated/api";
  *     lastName: string,
  *     email: string,
  *     phone?: string,
- *     company?: string
+ *     company?: string,
+ *     tags?: string[]          // Custom tags (will be merged with automatic tags)
  *   }
  * }
  *
@@ -101,6 +102,7 @@ export const createContactFromEvent = httpAction(async (ctx, request) => {
           email: attendeeInfo.email,
           phone: attendeeInfo.phone,
           company: attendeeInfo.company,
+          tags: attendeeInfo.tags, // Pass custom tags from request
         },
         performedBy: userId,
       }
