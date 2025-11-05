@@ -902,10 +902,8 @@
    Sidebar (Desktop Checkout)
    ========================================================================== */
 
-/* Sidebar sticky styles now use Tailwind classes directly in JSX:
-   - aside className="hidden lg:block"
-   - div className="sticky top-8 pt-8"
-   This matches the working prototype structure exactly.
+/* Sidebar scrolls naturally with the page content.
+   No sticky positioning - entire page scrolls together.
 */
 
 /* Checkout Placeholder (when no products linked) */

@@ -736,9 +736,9 @@ export function EventLandingTemplate({
             )}
         </main>
 
-        {/* Sticky Checkout Sidebar (Desktop only) */}
+        {/* Checkout Sidebar (Desktop only) */}
         <aside className="hidden lg:block w-full max-w-[400px]">
-          <div className="sticky top-8 pt-8">
+          <div className="pt-8">
             {content.linkedCheckoutId ? (
               <CheckoutEmbed
                 checkoutInstanceId={content.linkedCheckoutId as Id<"objects">}
