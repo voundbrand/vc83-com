@@ -26,6 +26,7 @@ import { ConfirmationStep } from "./steps/confirmation-step";
 import { InvoiceEnforcementStep } from "./steps/invoice-enforcement-step";
 import { evaluatePaymentRules, type PaymentRulesResult } from "../../../convex/paymentRulesEngine";
 import styles from "./styles/multi-step.module.css";
+import { usePostHog } from "posthog-js/react";
 
 /**
  * Step data flow through checkout process
@@ -128,6 +129,7 @@ export function MultiStepCheckout({
   onComplete,
   initialStepData,
 }: MultiStepCheckoutProps) {
+  const posthog = usePostHog();
   const [currentStep, setCurrentStep] = useState<CheckoutStep>("product-selection");
   const [stepData, setStepData] = useState<CheckoutStepData>(initialStepData || {});
   const [checkoutSessionId, setCheckoutSessionId] = useState<Id<"objects"> | null>(null);
@@ -191,15 +193,27 @@ export function MultiStepCheckout({
         });
         setCheckoutSessionId(result.checkoutSessionId);
         console.log("✅ Created public checkout_session:", result.checkoutSessionId);
+
+        // Track checkout started
+        posthog?.capture("checkout_started", {
+          checkout_session_id: result.checkoutSessionId,
+          organization_id: organizationId,
+          available_payment_providers: paymentProviders,
+          product_count: linkedProducts.length,
+        });
       } catch (error) {
         console.error("Failed to create checkout session:", error);
+        posthog?.capture("$exception", {
+          error_type: "checkout_session_creation_failed",
+          error_message: error instanceof Error ? error.message : "Unknown error",
+        });
       }
     };
 
     if (!checkoutSessionId) {
       initCheckoutSession();
     }
-  }, [organizationId, createPublicCheckoutSession, checkoutSessionId]);
+  }, [organizationId, createPublicCheckoutSession, checkoutSessionId, posthog, paymentProviders, linkedProducts.length]);
 
   /**
    * Determine next step based on current state
@@ -295,6 +309,40 @@ export function MultiStepCheckout({
   const handleStepComplete = async (data: Partial<CheckoutStepData>) => {
     const updatedData = { ...stepData, ...data };
     setStepData(updatedData);
+
+    // Identify user when customer info is provided
+    if (data.customerInfo?.email) {
+      posthog?.identify(data.customerInfo.email, {
+        email: data.customerInfo.email,
+        name: data.customerInfo.name,
+        phone: data.customerInfo.phone,
+        transaction_type: data.customerInfo.transactionType,
+        company_name: data.customerInfo.companyName,
+      });
+    }
+
+    // Track step completion with relevant properties
+    const stepProperties: Record<string, unknown> = {
+      step_name: currentStep,
+      checkout_session_id: checkoutSessionId,
+      organization_id: organizationId,
+    };
+
+    if (currentStep === "product-selection") {
+      stepProperties.products_selected = updatedData.selectedProducts?.length || 0;
+      stepProperties.total_price = updatedData.totalPrice;
+      stepProperties.product_ids = updatedData.selectedProducts?.map(p => p.productId);
+    } else if (currentStep === "customer-info") {
+      stepProperties.transaction_type = updatedData.customerInfo?.transactionType;
+      stepProperties.has_billing_address = !!updatedData.customerInfo?.billingAddress;
+    } else if (currentStep === "registration-form") {
+      stepProperties.form_responses_count = updatedData.formResponses?.length || 0;
+      stepProperties.total_addon_costs = updatedData.formResponses?.reduce((sum, fr) => sum + (fr.addedCosts || 0), 0) || 0;
+    } else if (currentStep === "payment-method") {
+      stepProperties.payment_provider = updatedData.selectedPaymentProvider;
+    }
+
+    posthog?.capture("checkout_step_completed", stepProperties);
 
     // ========================================================================
     // PAYMENT RULES EVALUATION (after form submission)

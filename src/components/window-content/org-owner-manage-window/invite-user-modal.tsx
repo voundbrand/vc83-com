@@ -8,6 +8,7 @@ import { Id } from "../../../../convex/_generated/dataModel";
 import { useAuth } from "@/hooks/use-auth";
 import { useTranslation } from "@/contexts/translation-context";
 import { formatRoleName } from "@/utils/roleFormatter";
+import { usePostHog } from "posthog-js/react";
 
 interface InviteUserModalProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ interface InviteUserModalProps {
 
 export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserModalProps) {
   const { t } = useTranslation();
+  const posthog = usePostHog();
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -58,6 +60,19 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
         sendEmail,
       });
 
+      // Find the role name for tracking
+      const roleName = roles?.find(r => r._id === selectedRole)?.name;
+
+      // Track user invitation
+      posthog?.capture("user_invited", {
+        organization_id: organizationId,
+        invitee_email: email,
+        role_id: selectedRole,
+        role_name: roleName,
+        has_name: !!(firstName && lastName),
+        email_sent: sendEmail,
+      });
+
       setSuccess(true);
       // Reset form
       setEmail("");
@@ -74,6 +89,13 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
       const errorMessage = err instanceof Error ? err.message : t("ui.manage.invite.error");
       setError(errorMessage);
       console.error("Invitation error:", err);
+
+      posthog?.capture("$exception", {
+        error_type: "user_invitation_failed",
+        error_message: errorMessage,
+        organization_id: organizationId,
+        role_id: selectedRole,
+      });
     } finally {
       setIsSubmitting(false);
     }

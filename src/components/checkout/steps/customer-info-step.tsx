@@ -22,6 +22,7 @@ import { User, Mail, Phone, MessageSquare, ArrowLeft, Building2, FileText, MapPi
 import styles from "../styles/multi-step.module.css";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { useTranslation } from "@/contexts/translation-context";
+import { usePostHog } from "posthog-js/react";
 
 interface CustomerInfo {
   email: string;
@@ -101,6 +102,7 @@ export function CustomerInfoStep({
 }: CustomerInfoStepProps) {
   // Translation hook
   const { t } = useTranslation();
+  const posthog = usePostHog();
 
   // 🚨 STEP 1: Extract CRM organization ID from form responses and product mapping
   const crmOrganizationId = useMemo((): Id<"objects"> | null => {
@@ -297,6 +299,17 @@ export function CustomerInfoStep({
     e.preventDefault();
 
     if (validate()) {
+      // Track registration form submission
+      posthog?.capture("registration_form_submitted", {
+        transaction_type: transactionType,
+        has_phone: !!phone.trim(),
+        has_notes: !!notes.trim(),
+        has_vat_number: transactionType === "B2B" && !!vatNumber.trim(),
+        is_employer_billing: isEmployerBilling,
+        has_form_responses: !!formResponses && formResponses.length > 0,
+        product_count: linkedProducts?.length || 0,
+      });
+
       onComplete({
         email: email.trim(),
         name: name.trim(),

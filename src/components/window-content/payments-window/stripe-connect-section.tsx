@@ -21,6 +21,7 @@ import {
   FileText,
 } from "lucide-react";
 import { StripeInvoiceSection } from "./stripe-invoice-section";
+import { usePostHog } from "posthog-js/react";
 
 interface StripeConnectSectionProps {
   organizationId: Id<"organizations">;
@@ -29,6 +30,7 @@ interface StripeConnectSectionProps {
 
 export function StripeConnectSection({ organizationId, organization }: StripeConnectSectionProps) {
   const { sessionId } = useAuth();
+  const posthog = usePostHog();
   const notification = useNotification();
   const [isOnboarding, setIsOnboarding] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
@@ -82,6 +84,13 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
       }).then(() => {
         console.log('OAuth callback processed successfully');
 
+        // Track Stripe connection
+        posthog?.capture("stripe_connected", {
+          organization_id: state,
+          is_test_mode: selectedMode === "test",
+          connection_method: "oauth",
+        });
+
         // Check if we should reopen the payments window
         const shouldReopenPayments = localStorage.getItem('stripe_oauth_reopen_payments');
 
@@ -106,6 +115,12 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
         console.error('Failed to process OAuth callback:', err);
         alert('Failed to connect Stripe account. Please try again.');
         localStorage.removeItem('stripe_oauth_reopen_payments');
+
+        posthog?.capture("$exception", {
+          error_type: "stripe_connection_failed",
+          error_message: err instanceof Error ? err.message : "Unknown error",
+          organization_id: state,
+        });
       });
 
       return;
@@ -218,11 +233,25 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
         sessionId,
         organizationId,
       });
+
+      // Track Stripe disconnection
+      posthog?.capture("stripe_disconnected", {
+        organization_id: organizationId,
+        account_status: accountStatus,
+        was_test_mode: testMode,
+      });
+
       // Show success message
       alert("Stripe account disconnected successfully");
     } catch (error) {
       console.error("Failed to disconnect:", error);
       alert("Failed to disconnect Stripe account. Please try again.");
+
+      posthog?.capture("$exception", {
+        error_type: "stripe_disconnection_failed",
+        error_message: error instanceof Error ? error.message : "Unknown error",
+        organization_id: organizationId,
+      });
     } finally {
       setIsDisconnecting(false);
     }

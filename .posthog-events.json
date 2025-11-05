@@ -1,0 +1,72 @@
+[
+  {
+    "eventName": "checkout_started",
+    "eventDescription": "User begins the checkout process by selecting a product",
+    "filePath": "src/components/checkout/multi-step-checkout.tsx"
+  },
+  {
+    "eventName": "checkout_step_completed",
+    "eventDescription": "User completes a step in the multi-step checkout flow (product selection, customer info, registration form, payment)",
+    "filePath": "src/components/checkout/multi-step-checkout.tsx"
+  },
+  {
+    "eventName": "purchase_completed",
+    "eventDescription": "User successfully completes a purchase and payment is confirmed",
+    "filePath": "src/components/checkout/steps/confirmation-step.tsx"
+  },
+  {
+    "eventName": "payment_failed",
+    "eventDescription": "Payment attempt fails during checkout",
+    "filePath": "src/components/checkout/checkout-form.tsx"
+  },
+  {
+    "eventName": "ticket_downloaded",
+    "eventDescription": "User downloads their ticket PDF after purchase",
+    "filePath": "src/components/checkout/steps/confirmation-step.tsx"
+  },
+  {
+    "eventName": "receipt_downloaded",
+    "eventDescription": "User downloads their receipt PDF after purchase",
+    "filePath": "src/components/checkout/steps/confirmation-step.tsx"
+  },
+  {
+    "eventName": "stripe_connected",
+    "eventDescription": "Organization successfully connects their Stripe account for payment processing",
+    "filePath": "src/components/window-content/payments-window/stripe-connect-section.tsx"
+  },
+  {
+    "eventName": "stripe_disconnected",
+    "eventDescription": "Organization disconnects their Stripe account",
+    "filePath": "src/components/window-content/payments-window/stripe-connect-section.tsx"
+  },
+  {
+    "eventName": "product_created",
+    "eventDescription": "Organization creates a new product (ticket, physical, or digital)",
+    "filePath": "src/components/window-content/products-window/product-form.tsx"
+  },
+  {
+    "eventName": "product_updated",
+    "eventDescription": "Organization updates an existing product configuration",
+    "filePath": "src/components/window-content/products-window/product-form.tsx"
+  },
+  {
+    "eventName": "contact_created",
+    "eventDescription": "New contact added to CRM",
+    "filePath": "src/components/window-content/crm-window/contact-form-modal.tsx"
+  },
+  {
+    "eventName": "contact_updated",
+    "eventDescription": "Existing CRM contact information updated",
+    "filePath": "src/components/window-content/crm-window/contact-form-modal.tsx"
+  },
+  {
+    "eventName": "user_invited",
+    "eventDescription": "Organization owner invites a new user to join the organization",
+    "filePath": "src/components/window-content/org-owner-manage-window/invite-user-modal.tsx"
+  },
+  {
+    "eventName": "registration_form_submitted",
+    "eventDescription": "Customer completes registration form during checkout with ticket details",
+    "filePath": "src/components/checkout/steps/customer-info-step.tsx"
+  }
+]

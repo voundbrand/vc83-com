@@ -7,23 +7,26 @@ import { AuthProvider } from "@/hooks/use-auth";
 import { PermissionProvider } from "@/contexts/permission-context";
 import { TranslationProvider } from "@/contexts/translation-context";
 import { MediaSelectionProvider } from "@/contexts/media-selection-context";
+import { PostHogProvider } from "@/components/providers/posthog-provider";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <ConvexClientProvider>
-      <WindowManagerProvider>
-        <AuthProvider>
-          <PermissionProvider>
-            <TranslationProvider>
-              <ThemeProvider>
-                <MediaSelectionProvider>
-                  {children}
-                </MediaSelectionProvider>
-              </ThemeProvider>
-            </TranslationProvider>
-          </PermissionProvider>
-        </AuthProvider>
-      </WindowManagerProvider>
-    </ConvexClientProvider>
+    <PostHogProvider>
+      <ConvexClientProvider>
+        <WindowManagerProvider>
+          <AuthProvider>
+            <PermissionProvider>
+              <TranslationProvider>
+                <ThemeProvider>
+                  <MediaSelectionProvider>
+                    {children}
+                  </MediaSelectionProvider>
+                </ThemeProvider>
+              </TranslationProvider>
+            </PermissionProvider>
+          </AuthProvider>
+        </WindowManagerProvider>
+      </ConvexClientProvider>
+    </PostHogProvider>
   );
 }

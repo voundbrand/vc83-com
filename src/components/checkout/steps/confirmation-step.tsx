@@ -10,7 +10,7 @@
  * - Email confirmation sent notice
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CheckCircle, Download, Mail, Loader2 } from "lucide-react";
 import { useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
@@ -20,6 +20,7 @@ import { Id } from "../../../../convex/_generated/dataModel";
 import { getAddonsFromResults } from "@/lib/behaviors/adapters/checkout-integration";
 import { useTranslation } from "@/contexts/translation-context";
 import styles from "../styles/multi-step.module.css";
+import { usePostHog } from "posthog-js/react";
 
 interface ConfirmationStepProps {
   checkoutData: CheckoutStepData;
@@ -33,6 +34,7 @@ export function ConfirmationStep({
   checkoutSessionId,
 }: ConfirmationStepProps) {
   const { t } = useTranslation();
+  const posthog = usePostHog();
   const [isDownloadingReceipt, setIsDownloadingReceipt] = useState(false);
   const [isDownloadingTicket, setIsDownloadingTicket] = useState(false);
 
@@ -44,6 +46,29 @@ export function ConfirmationStep({
   // Get checkoutSessionId from either prop OR paymentResult (fallback)
   const sessionId = checkoutSessionId ||
     (checkoutData.paymentResult?.checkoutSessionId as Id<"objects"> | undefined);
+
+  // Track purchase completion when component mounts
+  useEffect(() => {
+    const subtotal = (checkoutData.totalPrice || 0) + (checkoutData.formResponses?.reduce((sum, fr) => sum + (fr.addedCosts || 0), 0) || 0);
+    const taxAmount = checkoutData.taxCalculation?.taxAmount || 0;
+    const totalAmount = checkoutData.taxCalculation?.total || (subtotal + taxAmount);
+
+    posthog?.capture("purchase_completed", {
+      checkout_session_id: sessionId,
+      transaction_id: checkoutData.paymentResult?.transactionId,
+      revenue: totalAmount / 100, // Convert cents to dollars for revenue tracking
+      currency: linkedProducts[0]?.currency || "EUR",
+      products: checkoutData.selectedProducts?.map(p => ({
+        product_id: p.productId,
+        quantity: p.quantity,
+        price: p.price / 100,
+      })),
+      product_count: checkoutData.selectedProducts?.length || 0,
+      has_addons: (checkoutData.formResponses?.length || 0) > 0,
+      payment_provider: checkoutData.selectedPaymentProvider,
+      transaction_type: checkoutData.customerInfo?.transactionType,
+    });
+  }, [checkoutData, sessionId, linkedProducts, posthog]);
 
   /**
    * Format price for display
@@ -75,10 +100,22 @@ export function ConfirmationStep({
         link.href = `data:${pdf.contentType};base64,${pdf.content}`;
         link.download = pdf.filename;
         link.click();
+
+        // Track receipt download
+        posthog?.capture("receipt_downloaded", {
+          checkout_session_id: sessionId,
+          transaction_id: checkoutData.paymentResult?.transactionId,
+          filename: pdf.filename,
+        });
       }
     } catch (error) {
       console.error("Failed to download receipt:", error);
       alert(t("ui.checkout.confirmation.alerts.receipt_download_failed"));
+      posthog?.capture("$exception", {
+        error_type: "receipt_download_failed",
+        error_message: error instanceof Error ? error.message : "Unknown error",
+        checkout_session_id: sessionId,
+      });
     } finally {
       setIsDownloadingReceipt(false);
     }
@@ -122,9 +159,22 @@ export function ConfirmationStep({
           }
         }
       }
+
+      // Track ticket download
+      posthog?.capture("ticket_downloaded", {
+        checkout_session_id: sessionId,
+        transaction_id: checkoutData.paymentResult?.transactionId,
+        ticket_count: ticketIds.length,
+        ticket_ids: ticketIds,
+      });
     } catch (error) {
       console.error("Failed to download tickets:", error);
       alert(t("ui.checkout.confirmation.alerts.tickets_download_failed"));
+      posthog?.capture("$exception", {
+        error_type: "ticket_download_failed",
+        error_message: error instanceof Error ? error.message : "Unknown error",
+        checkout_session_id: sessionId,
+      });
     } finally {
       setIsDownloadingTicket(false);
     }

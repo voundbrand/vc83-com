@@ -11,6 +11,7 @@ import { getTaxCodesForCountry } from "@/lib/tax-calculator";
 import { AddonManager } from "./addon-manager";
 import { ProductAddon } from "@/types/product-addons";
 import { InvoicingConfigSection, InvoiceConfig } from "./invoicing-config-section";
+import { usePostHog } from "posthog-js/react";
 
 /**
  * Helper: Extract all field IDs, labels, types, and options from a form template
@@ -91,6 +92,7 @@ export function ProductForm({
   onSuccess,
   onCancel,
 }: ProductFormProps) {
+  const posthog = usePostHog();
   const [formData, setFormData] = useState({
     subtype: "ticket",
     name: "",
@@ -385,14 +387,30 @@ export function ProductForm({
           name: formData.name,
           description: formData.description,
           price: priceInCents,
+          currency: formData.currency, // ✅ Include currency in update
           inventory: inventory || undefined,
           eventId: formData.eventId ? (formData.eventId as Id<"objects">) : null,
           customProperties,
           invoiceConfig: formData.invoiceConfig || undefined,
         });
+
+        // Track product update
+        posthog?.capture("product_updated", {
+          product_id: productId,
+          product_type: formData.subtype,
+          product_name: formData.name,
+          price: priceInCents / 100,
+          currency: formData.currency,
+          has_inventory: !!inventory,
+          has_form: !!formData.formId,
+          has_addons: (formData.addons?.length || 0) > 0,
+          organization_id: organizationId,
+          ticket_type: formData.subtype === "ticket" ? formData.ticketType : undefined,
+          is_active: formData.subtype === "ticket" ? formData.isActive : undefined,
+        });
       } else {
         // Create new product
-        await createProduct({
+        const newProductId = await createProduct({
           sessionId,
           organizationId,
           subtype: formData.subtype,
@@ -404,12 +422,34 @@ export function ProductForm({
           eventId: formData.eventId ? (formData.eventId as Id<"objects">) : undefined,
           customProperties,
         });
+
+        // Track product creation
+        posthog?.capture("product_created", {
+          product_id: newProductId,
+          product_type: formData.subtype,
+          product_name: formData.name,
+          price: priceInCents / 100,
+          currency: formData.currency,
+          has_inventory: !!inventory,
+          has_form: !!formData.formId,
+          has_addons: (formData.addons?.length || 0) > 0,
+          organization_id: organizationId,
+          ticket_type: formData.subtype === "ticket" ? formData.ticketType : undefined,
+          is_active: formData.subtype === "ticket" ? formData.isActive : undefined,
+        });
       }
 
       onSuccess();
     } catch (error) {
       console.error("Failed to save product:", error);
       alert("Failed to save product. Please try again.");
+
+      posthog?.capture("$exception", {
+        error_type: productId ? "product_update_failed" : "product_creation_failed",
+        error_message: error instanceof Error ? error.message : "Unknown error",
+        product_type: formData.subtype,
+        organization_id: organizationId,
+      });
     } finally {
       setSaving(false);
     }

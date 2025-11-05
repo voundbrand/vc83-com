@@ -6,6 +6,7 @@ import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { X, Save, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import type { Id } from "../../../../convex/_generated/dataModel";
+import { usePostHog } from "posthog-js/react";
 
 interface ContactFormModalProps {
   editId?: Id<"objects">;
@@ -17,6 +18,7 @@ type CompanyAssociation = "none" | "existing" | "new";
 
 export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModalProps) {
   const { sessionId } = useAuth();
+  const posthog = usePostHog();
   const currentOrganization = useCurrentOrganization();
   const currentOrganizationId = currentOrganization?.id;
 
@@ -154,6 +156,18 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
           },
         });
         contactId = editId;
+
+        // Track contact update
+        posthog?.capture("contact_updated", {
+          contact_id: editId,
+          lifecycle_stage: formData.lifecycleStage,
+          has_phone: !!formData.phone,
+          has_job_title: !!formData.jobTitle,
+          has_address: !!address,
+          tags_count: formData.tags.length,
+          has_notes: !!formData.notes,
+          organization_id: currentOrganizationId,
+        });
       } else {
         // Create new contact
         contactId = await createContact({
@@ -169,6 +183,31 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
           source: formData.source,
           tags: formData.tags.length > 0 ? formData.tags : undefined,
           notes: formData.notes || undefined,
+        });
+
+        // Identify the contact in PostHog
+        posthog?.identify(formData.email, {
+          email: formData.email,
+          name: `${formData.firstName} ${formData.lastName}`,
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          phone: formData.phone,
+          job_title: formData.jobTitle,
+          lifecycle_stage: formData.lifecycleStage,
+        });
+
+        // Track contact creation
+        posthog?.capture("contact_created", {
+          contact_id: contactId,
+          lifecycle_stage: formData.lifecycleStage,
+          source: formData.source,
+          has_phone: !!formData.phone,
+          has_job_title: !!formData.jobTitle,
+          has_address: !!address,
+          tags_count: formData.tags.length,
+          has_notes: !!formData.notes,
+          organization_id: currentOrganizationId,
+          company_association: formData.companyAssociation,
         });
 
         // Handle organization association (only when creating)
@@ -204,6 +243,13 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
     } catch (error) {
       console.error(`Failed to ${editId ? "update" : "create"} contact:`, error);
       alert(`Failed to ${editId ? "update" : "create"} contact. Please try again.`);
+
+      posthog?.capture("$exception", {
+        error_type: editId ? "contact_update_failed" : "contact_creation_failed",
+        error_message: error instanceof Error ? error.message : "Unknown error",
+        lifecycle_stage: formData.lifecycleStage,
+        organization_id: currentOrganizationId,
+      });
     } finally {
       setSaving(false);
     }

@@ -12,10 +12,12 @@ import {
   useStripe,
   useElements,
 } from "@stripe/react-stripe-js";
+import { usePostHog } from "posthog-js/react";
 
 export function CheckoutForm() {
   const stripe = useStripe();
   const elements = useElements();
+  const posthog = usePostHog();
   const [isProcessing, setIsProcessing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -38,6 +40,20 @@ export function CheckoutForm() {
     if (error) {
       setMessage(error.message || "An error occurred");
       setIsProcessing(false);
+
+      // Track payment failure
+      posthog?.capture("payment_failed", {
+        error_code: error.code,
+        error_message: error.message,
+        error_type: error.type,
+        payment_method: error.payment_method?.type,
+      });
+
+      posthog?.capture("$exception", {
+        error_type: "stripe_payment_failed",
+        error_message: error.message || "Payment failed",
+        error_code: error.code,
+      });
     }
   };
 

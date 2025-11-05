@@ -42,6 +42,8 @@
     "lucide-react": "^0.544.0",
     "next": "15.5.4",
     "next-intl": "^4.3.11",
+    "posthog-js": "^1.285.1",
+    "posthog-node": "^5.11.0",
     "qrcode": "^1.5.4",
     "radar-sdk-js": "^4.5.8",
     "react": "19.1.0",
