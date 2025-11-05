@@ -1,10 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { useQuery } from "convex/react"
+import { useQuery, useMutation } from "convex/react"
 import { api } from "../../../../convex/_generated/api"
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth"
-import { Search, Filter, Plus, Edit } from "lucide-react"
+import { Search, Filter, Plus, Edit, Trash2 } from "lucide-react"
 import type { Id } from "../../../../convex/_generated/dataModel"
 import { ContactFormModal } from "./contact-form-modal"
 
@@ -27,6 +27,27 @@ export function ContactsList({ selectedId, onSelect }: ContactsListProps) {
   const [showFilters, setShowFilters] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingId, setEditingId] = useState<Id<"objects"> | null>(null)
+  const [deletingId, setDeletingId] = useState<Id<"objects"> | null>(null)
+
+  // Mutations
+  const deleteContactMutation = useMutation(api.crmOntology.deleteContact)
+
+  // Handle delete
+  const handleDelete = async (contactId: Id<"objects">) => {
+    if (!sessionId) return
+
+    try {
+      await deleteContactMutation({ sessionId, contactId })
+      // Clear selection if deleted contact was selected
+      if (selectedId === contactId) {
+        onSelect(null as any)
+      }
+      setDeletingId(null)
+    } catch (error) {
+      console.error("Failed to delete contact:", error)
+      alert("Failed to delete contact. Please try again.")
+    }
+  }
 
   // Query contacts
   const contacts = useQuery(
@@ -237,17 +258,29 @@ export function ContactsList({ selectedId, onSelect }: ContactsListProps) {
                     </div>
                   </div>
 
-                  {/* Edit button - appears on hover */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setEditingId(contact._id)
-                    }}
-                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 bg-white border-2 border-gray-400 hover:bg-gray-100"
-                    title="Edit contact"
-                  >
-                    <Edit size={14} className="text-gray-600" />
-                  </button>
+                  {/* Action buttons - appear on hover */}
+                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setEditingId(contact._id)
+                      }}
+                      className="p-1.5 bg-white border-2 border-gray-400 hover:bg-gray-100"
+                      title="Edit contact"
+                    >
+                      <Edit size={14} className="text-gray-600" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setDeletingId(contact._id)
+                      }}
+                      className="p-1.5 bg-white border-2 border-red-400 hover:bg-red-50"
+                      title="Delete contact"
+                    >
+                      <Trash2 size={14} className="text-red-600" />
+                    </button>
+                  </div>
                 </div>
               )
             })}
@@ -276,6 +309,32 @@ export function ContactsList({ selectedId, onSelect }: ContactsListProps) {
             onSelect(contactId);
           }}
         />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {deletingId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white border-4 border-gray-800 p-6 max-w-md mx-4 shadow-lg">
+            <h3 className="text-lg font-bold mb-4">Delete Contact?</h3>
+            <p className="text-sm text-gray-700 mb-6">
+              Are you sure you want to delete this contact? This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setDeletingId(null)}
+                className="px-4 py-2 border-2 border-gray-400 hover:bg-gray-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDelete(deletingId)}
+                className="px-4 py-2 bg-red-600 text-white border-2 border-red-700 hover:bg-red-700 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

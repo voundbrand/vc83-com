@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
-import { X, Save, Loader2, ChevronDown, ChevronUp } from "lucide-react";
+import { X, Save, Loader2, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { usePostHog } from "posthog-js/react";
 
@@ -26,6 +26,7 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
   const [showCompany, setShowCompany] = useState(false);
   const [showAddress, setShowAddress] = useState(false);
   const [showTagsNotes, setShowTagsNotes] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Form data
   const [formData, setFormData] = useState({
@@ -62,6 +63,7 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
   // Mutations
   const createContact = useMutation(api.crmOntology.createContact);
   const updateContact = useMutation(api.crmOntology.updateContact);
+  const deleteContact = useMutation(api.crmOntology.deleteContact);
   const createCrmOrganization = useMutation(api.crmOntology.createCrmOrganization);
   const createLink = useMutation(api.ontologyHelpers.createLink);
 
@@ -110,6 +112,23 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
       }
     }
   }, [existingContact]);
+
+  // Handle delete
+  const handleDelete = async () => {
+    if (!sessionId || !editId) return;
+
+    try {
+      setSaving(true);
+      await deleteContact({ sessionId, contactId: editId });
+      setShowDeleteConfirm(false);
+      onClose();
+    } catch (error) {
+      console.error("Failed to delete contact:", error);
+      alert("Failed to delete contact. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -764,45 +783,103 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
           </div>
 
           {/* Actions */}
-          <div className="flex gap-2 justify-end pt-4 border-t-2" style={{ borderColor: "var(--win95-border)" }}>
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={saving}
-              className="px-4 py-2 text-sm font-bold flex items-center gap-2 border-2"
-              style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-button-face)",
-                color: "var(--win95-text)",
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-4 py-2 text-sm font-bold flex items-center gap-2 border-2"
-              style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--primary)",
-                color: "white",
-              }}
-            >
-              {saving ? (
-                <>
-                  <Loader2 size={14} className="animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save size={14} />
-                  Save Contact
-                </>
-              )}
-            </button>
+          <div className="flex justify-between items-center gap-2 pt-4 border-t-2" style={{ borderColor: "var(--win95-border)" }}>
+            {/* Delete button - only show when editing */}
+            {editId ? (
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(true)}
+                disabled={saving}
+                className="px-4 py-2 text-sm font-bold flex items-center gap-2 border-2"
+                style={{
+                  borderColor: "var(--error)",
+                  background: "white",
+                  color: "var(--error)",
+                }}
+              >
+                <Trash2 size={14} />
+                Delete
+              </button>
+            ) : <div />}
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={saving}
+                className="px-4 py-2 text-sm font-bold flex items-center gap-2 border-2"
+                style={{
+                  borderColor: "var(--win95-border)",
+                  background: "var(--win95-button-face)",
+                  color: "var(--win95-text)",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="px-4 py-2 text-sm font-bold flex items-center gap-2 border-2"
+                style={{
+                  borderColor: "var(--win95-border)",
+                  background: "var(--primary)",
+                  color: "white",
+                }}
+              >
+                {saving ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save size={14} />
+                    Save Contact
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </form>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white border-4 border-gray-800 p-6 max-w-md mx-4 shadow-lg">
+            <h3 className="text-lg font-bold mb-4">Delete Contact?</h3>
+            <p className="text-sm text-gray-700 mb-6">
+              Are you sure you want to delete this contact? This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={saving}
+                className="px-4 py-2 border-2 border-gray-400 hover:bg-gray-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={saving}
+                className="px-4 py-2 bg-red-600 text-white border-2 border-red-700 hover:bg-red-700 transition-colors flex items-center gap-2"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={14} />
+                    Delete
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
