@@ -370,6 +370,7 @@ export const updateProduct = mutation({
     name: v.optional(v.string()),
     description: v.optional(v.string()),
     price: v.optional(v.number()),
+    currency: v.optional(v.string()), // Currency code (e.g., "USD", "EUR")
     inventory: v.optional(v.number()),
     status: v.optional(v.string()), // "draft" | "active" | "sold_out" | "archived"
     eventId: v.optional(v.union(v.id("objects"), v.null())), // Optional: Update event link (null to remove)
@@ -416,7 +417,7 @@ export const updateProduct = mutation({
     }
 
     // Update customProperties
-    if (args.price !== undefined || args.inventory !== undefined || args.eventId !== undefined || args.customProperties || args.invoiceConfig !== undefined) {
+    if (args.price !== undefined || args.currency !== undefined || args.inventory !== undefined || args.eventId !== undefined || args.customProperties || args.invoiceConfig !== undefined) {
       const currentProps = product.customProperties || {};
 
       // ⚠️ CRITICAL FIX: When args.customProperties is provided, it should COMPLETELY
@@ -426,6 +427,7 @@ export const updateProduct = mutation({
       const updatedCustomProperties: Record<string, any> = {
         ...currentProps,
         ...(args.price !== undefined && { price: args.price }),
+        ...(args.currency !== undefined && { currency: args.currency }),
         ...(args.inventory !== undefined && { inventory: args.inventory }),
         ...(args.eventId !== undefined && { eventId: args.eventId }),
       };
