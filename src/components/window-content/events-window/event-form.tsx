@@ -144,14 +144,29 @@ export function EventForm({
         ? new Date(existingEvent.customProperties.endDate)
         : null;
 
+      // Helper function to format date in local timezone (YYYY-MM-DD)
+      const formatLocalDate = (date: Date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+
+      // Helper function to format time in local timezone (HH:MM)
+      const formatLocalTime = (date: Date) => {
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${hours}:${minutes}`;
+      };
+
       setFormData({
         subtype: existingEvent.subtype || "conference",
         name: existingEvent.name || "",
         location: (existingEvent.customProperties?.location as string) || "",
-        startDate: startDate ? startDate.toISOString().split("T")[0] : "",
-        startTime: startDate ? startDate.toTimeString().slice(0, 5) : "",
-        endDate: endDate ? endDate.toISOString().split("T")[0] : "",
-        endTime: endDate ? endDate.toTimeString().slice(0, 5) : "",
+        startDate: startDate ? formatLocalDate(startDate) : "",
+        startTime: startDate ? formatLocalTime(startDate) : "",
+        endDate: endDate ? formatLocalDate(endDate) : "",
+        endTime: endDate ? formatLocalTime(endDate) : "",
         capacity: existingEvent.customProperties?.capacity?.toString() || "",
       });
 
