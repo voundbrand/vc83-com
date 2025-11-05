@@ -99,6 +99,12 @@ export const createCheckoutInstance = mutation({
       templateId: v.optional(v.id("objects")), // Template reference
       forceB2B: v.optional(v.boolean()), // Force B2B mode (require organization info)
       defaultLanguage: v.optional(v.string()), // Default language code (en, de, pl, es, fr, ja)
+      // Behavior execution settings
+      allowBackNavigation: v.optional(v.boolean()), // Allow users to go back to previous steps
+      behaviorExecutionTiming: v.optional(v.string()), // "eager" or "lazy" execution
+      debugMode: v.optional(v.boolean()), // Enable debug logging
+      executeBehaviorsOnStepChange: v.optional(v.boolean()), // Execute behaviors when changing steps
+      showProgressBar: v.optional(v.boolean()), // Show progress indicator
     })),
   },
   handler: async (ctx, args) => {
@@ -211,6 +217,12 @@ export const updateCheckoutInstance = mutation({
       templateId: v.optional(v.id("objects")), // Template reference
       forceB2B: v.optional(v.boolean()), // Force B2B mode (require organization info)
       defaultLanguage: v.optional(v.string()), // Default language code (en, de, pl, es, fr, ja)
+      // Behavior execution settings
+      allowBackNavigation: v.optional(v.boolean()), // Allow users to go back to previous steps
+      behaviorExecutionTiming: v.optional(v.string()), // "eager" or "lazy" execution
+      debugMode: v.optional(v.boolean()), // Enable debug logging
+      executeBehaviorsOnStepChange: v.optional(v.boolean()), // Execute behaviors when changing steps
+      showProgressBar: v.optional(v.boolean()), // Show progress indicator
     })),
   },
   handler: async (ctx, args) => {
