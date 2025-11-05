@@ -12,6 +12,11 @@ export interface AgendaItem {
   description?: string;
   location?: string;
   speaker?: string;
+  badge?: {
+    text: string;
+    color: string; // hex color or preset name
+    enabled: boolean;
+  };
 }
 
 interface EventAgendaSectionProps {
@@ -243,7 +248,7 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
                             className="px-2 py-1 text-xs border-2 flex-shrink-0"
                             style={{
                               borderColor: "var(--win95-border)",
-                              background: "var(--danger)",
+                              background: "#DC2626",
                               color: "white",
                             }}
                             title="Delete session"
@@ -327,6 +332,131 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
                               color: "var(--win95-input-text)",
                             }}
                           />
+                        </div>
+
+                        {/* Badge Configuration */}
+                        <div
+                          className="p-2 border-2 space-y-2"
+                          style={{
+                            borderColor: "var(--win95-border)",
+                            background: "var(--win95-bg-light)",
+                          }}
+                        >
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                              Session Badge (Optional)
+                            </label>
+                            <label className="flex items-center gap-1 text-xs">
+                              <input
+                                type="checkbox"
+                                checked={item.badge?.enabled ?? false}
+                                onChange={(e) => {
+                                  const currentBadge = item.badge || { text: "Session", color: "#6B46C1", enabled: false };
+                                  handleUpdateItem(item.id, {
+                                    badge: {
+                                      ...currentBadge,
+                                      enabled: e.target.checked,
+                                    }
+                                  });
+                                }}
+                                className="w-3 h-3"
+                              />
+                              <span style={{ color: "var(--win95-text)" }}>Show Badge</span>
+                            </label>
+                          </div>
+
+                          {(item.badge?.enabled ?? false) && (
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                                  Badge Text
+                                </label>
+                                <input
+                                  type="text"
+                                  value={item.badge?.text || "Session"}
+                                  onChange={(e) => {
+                                    const currentBadge = item.badge || { text: "Session", color: "#6B46C1", enabled: true };
+                                    handleUpdateItem(item.id, {
+                                      badge: {
+                                        ...currentBadge,
+                                        text: e.target.value,
+                                      }
+                                    });
+                                  }}
+                                  placeholder="e.g., Keynote, Workshop, Break"
+                                  className="w-full px-2 py-1 text-xs border-2"
+                                  style={{
+                                    borderColor: "var(--win95-border)",
+                                    background: "var(--win95-input-bg)",
+                                    color: "var(--win95-input-text)",
+                                  }}
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                                  Badge Color
+                                </label>
+                                <div className="flex gap-1">
+                                  <input
+                                    type="color"
+                                    value={item.badge?.color || "#6B46C1"}
+                                    onChange={(e) => {
+                                      const currentBadge = item.badge || { text: "Session", color: "#6B46C1", enabled: true };
+                                      handleUpdateItem(item.id, {
+                                        badge: {
+                                          ...currentBadge,
+                                          color: e.target.value,
+                                        }
+                                      });
+                                    }}
+                                    className="w-10 h-6 border-2 cursor-pointer"
+                                    style={{
+                                      borderColor: "var(--win95-border)",
+                                    }}
+                                  />
+                                  <input
+                                    type="text"
+                                    value={item.badge?.color || "#6B46C1"}
+                                    onChange={(e) => {
+                                      const currentBadge = item.badge || { text: "Session", color: "#6B46C1", enabled: true };
+                                      handleUpdateItem(item.id, {
+                                        badge: {
+                                          ...currentBadge,
+                                          color: e.target.value,
+                                        }
+                                      });
+                                    }}
+                                    placeholder="#6B46C1"
+                                    className="flex-1 px-2 py-1 text-xs border-2"
+                                    style={{
+                                      borderColor: "var(--win95-border)",
+                                      background: "var(--win95-input-bg)",
+                                      color: "var(--win95-input-text)",
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Badge Preview */}
+                          {(item.badge?.enabled ?? false) && (
+                            <div className="flex items-center gap-2 pt-1">
+                              <span className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                                Preview:
+                              </span>
+                              <span
+                                className="px-2 py-1 text-xs font-bold rounded"
+                                style={{
+                                  backgroundColor: item.badge?.color || "#6B46C1",
+                                  color: "white",
+                                }}
+                              >
+                                {item.badge?.text || "Session"}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}

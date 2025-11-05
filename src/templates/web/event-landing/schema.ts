@@ -65,6 +65,11 @@ export interface EventLandingContent {
         speaker?: string;
         location?: string;
         type: "keynote" | "workshop" | "panel" | "break" | "session" | "general";
+        badge?: {
+          text: string;
+          color: string;
+          enabled: boolean;
+        };
       }>;
     }>;
   };

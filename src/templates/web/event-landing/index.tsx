@@ -160,6 +160,11 @@ export function EventLandingTemplate({
     description?: string;
     location?: string;
     speaker?: string;
+    badge?: {
+      text: string;
+      color: string;
+      enabled: boolean;
+    };
   }> | undefined;
 
   console.log('[Event Landing Template] Event agenda data:', eventAgenda);
@@ -186,8 +191,9 @@ export function EventLandingTemplate({
           startTime: item.startTime, // Keep for sorting
           title: item.title,
           speaker: item.speaker || '',
-          type: 'session',
+          type: item.badge?.enabled && item.badge?.text ? item.badge.text.toLowerCase() : 'session',
           location: item.location,
+          badge: item.badge, // Pass through badge config
         });
         return acc;
       }, {} as Record<string, { id: string; date: string; dateTimestamp: number; sessions: Array<{
@@ -198,6 +204,11 @@ export function EventLandingTemplate({
         speaker: string;
         type: string;
         location?: string;
+        badge?: {
+          text: string;
+          color: string;
+          enabled: boolean;
+        };
       }> }>)
     )
     // Sort days by date
@@ -551,11 +562,23 @@ export function EventLandingTemplate({
                                 <h4 className={styles.sessionTitle}>
                                   {session.title}
                                 </h4>
-                                <span
-                                  className={`${styles.sessionType} ${styles[`sessionType-${session.type}`]}`}
-                                >
-                                  {t(`ui.event_landing.session_type.${session.type}`, session.type)}
-                                </span>
+                                {session.badge?.enabled ? (
+                                  <span
+                                    className={styles.sessionType}
+                                    style={{
+                                      backgroundColor: session.badge.color,
+                                      color: 'white',
+                                    }}
+                                  >
+                                    {session.badge.text}
+                                  </span>
+                                ) : (
+                                  <span
+                                    className={`${styles.sessionType} ${styles[`sessionType-${session.type}`]}`}
+                                  >
+                                    {t(`ui.event_landing.session_type.${session.type}`, session.type)}
+                                  </span>
+                                )}
                               </div>
 
                               {session.speaker && (
