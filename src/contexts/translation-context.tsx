@@ -128,6 +128,7 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
     const fallback = typeof params === 'string' ? params : undefined;
     const interpolationParams = typeof params === 'object' ? params : undefined;
 
+    // Check if translations are loading
     if (!translationsMap) {
       return fallback || key;
     }
@@ -137,6 +138,11 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
     let value = translationsMap[key];
 
     if (!value) {
+      // Debug logging in development only
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(`[Translation] Missing key: ${key} for locale: ${locale}`);
+      }
+
       // Fallback: return the fallback or key
       return fallback || key;
     }

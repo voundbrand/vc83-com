@@ -6,7 +6,7 @@
  */
 
 import { internalMutation } from "../_generated/server";
-import { getExistingTranslationKeys, insertTranslationIfNew } from "./_translationHelpers";
+import { upsertTranslation } from "./_translationHelpers";
 
 export const seed = internalMutation({
   handler: async (ctx) => {
@@ -91,36 +91,38 @@ export const seed = internalMutation({
       {
         key: "ui.welcome.footer",
         values: {
-          en: "Made for startups • Inspired by the 90s • Powered by L4YERCAK3",
-          de: "Gemacht für Startups • Inspiriert von den 90ern • Betrieben von L4YERCAK3",
-          pl: "Stworzone dla startupów • Inspirowane latami 90. • Napędzane przez L4YERCAK3",
-          es: "Hecho para startups • Inspirado en los 90 • Impulsado por L4YERCAK3",
-          fr: "Fait pour les startups • Inspiré par les années 90 • Propulsé par L4YERCAK3",
-          ja: "スタートアップのために作られた • 90年代に触発された • L4YERCAK3によって動作",
+          en: "Made for startups • Inspired by the 90s",
+          de: "Gemacht für Startups • Inspiriert von den 90ern",
+          pl: "Stworzone dla startupów • Inspirowane latami 90.",
+          es: "Hecho para startups • Inspirado en los 90",
+          fr: "Fait pour les startups • Inspiré par les années 90",
+          ja: "スタートアップのために作られた • 90年代に触発された",
+        }
+      },
+      {
+        key: "ui.welcome.footer_startup",
+        values: {
+          en: "L4YERCAK3 is a vc83-W26 startup",
+          de: "L4YERCAK3 ist ein vc83-W26 Startup",
+          pl: "L4YERCAK3 to startup vc83-W26",
+          es: "L4YERCAK3 es una startup de vc83-W26",
+          fr: "L4YERCAK3 est une startup vc83-W26",
+          ja: "L4YERCAK3はvc83-W26のスタートアップです",
         }
       },
     ];
 
-    // Get all unique translation keys
-    const allKeys = translations.map(t => t.key);
+    // Upsert translations (insert new, update existing)
+    let insertedCount = 0;
+    let updatedCount = 0;
 
-    // Efficiently check which translations already exist
-    const existingKeys = await getExistingTranslationKeys(
-      ctx.db,
-      systemOrg._id,
-      allKeys
-    );
-
-    // Seed translations for each locale
-    let count = 0;
     for (const trans of translations) {
       for (const locale of supportedLocales) {
         const value = trans.values[locale.code as keyof typeof trans.values];
 
         if (value) {
-          const inserted = await insertTranslationIfNew(
+          const result = await upsertTranslation(
             ctx.db,
-            existingKeys,
             systemOrg._id,
             systemUser._id,
             trans.key,
@@ -129,14 +131,13 @@ export const seed = internalMutation({
             "welcome"
           );
 
-          if (inserted) {
-            count++;
-          }
+          if (result.inserted) insertedCount++;
+          if (result.updated) updatedCount++;
         }
       }
     }
 
-    console.log(`✅ Seeded ${count} Welcome Window translations`);
-    return { success: true, count };
+    console.log(`✅ Seeded Welcome Window translations: ${insertedCount} inserted, ${updatedCount} updated`);
+    return { success: true, inserted: insertedCount, updated: updatedCount };
   }
 });

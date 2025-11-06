@@ -76,3 +76,62 @@ export async function insertTranslationIfNew(
 
   return true; // Inserted
 }
+
+/**
+ * Upsert translation - UPDATE if exists, INSERT if new
+ * Use this when you want to update existing translations (e.g., fixing typos or changing wording)
+ * Returns: { inserted: boolean, updated: boolean }
+ */
+export async function upsertTranslation(
+  db: DatabaseWriter,
+  systemOrgId: Id<"organizations">,
+  systemUserId: Id<"users">,
+  key: string,
+  value: string,
+  locale: string,
+  category: string,
+  component?: string
+): Promise<{ inserted: boolean; updated: boolean }> {
+  // Check if this specific translation exists
+  const existing = await db
+    .query("objects")
+    .withIndex("by_org_type_locale_name", (q) =>
+      q
+        .eq("organizationId", systemOrgId)
+        .eq("type", "translation")
+        .eq("locale", locale)
+        .eq("name", key)
+    )
+    .first();
+
+  if (existing) {
+    // Update existing translation
+    await db.patch(existing._id, {
+      value: value,
+      updatedAt: Date.now(),
+    });
+    return { inserted: false, updated: true };
+  }
+
+  // Insert new translation
+  const customProperties: Record<string, string> = { category };
+  if (component) {
+    customProperties.component = component;
+  }
+
+  await db.insert("objects", {
+    organizationId: systemOrgId,
+    type: "translation",
+    subtype: "ui",
+    name: key,
+    value: value,
+    locale: locale,
+    status: "approved",
+    customProperties,
+    createdBy: systemUserId,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+
+  return { inserted: true, updated: false };
+}

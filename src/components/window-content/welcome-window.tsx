@@ -44,11 +44,12 @@ export function WelcomeWindow() {
       </div>
 
       {/* Footer Tease */}
-      <div className="text-xs text-center border-t-2 pt-3 mt-4" style={{
+      <div className="text-xs text-center border-t-2 pt-3 mt-4 space-y-1" style={{
         color: 'var(--neutral-gray)',
         borderColor: 'var(--win95-border)'
       }}>
-        {t("ui.welcome.footer")}
+        <div>{t("ui.welcome.footer")}</div>
+        <div>{t("ui.welcome.footer_startup")}</div>
       </div>
     </div>
   );
