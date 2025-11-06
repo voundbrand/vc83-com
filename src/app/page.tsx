@@ -59,39 +59,39 @@ export default function HomePage() {
   // }
 
   const openPaymentsWindow = () => {
-    openWindow("payments", t('ui.app.payment_management', 'Payment Management'), <PaymentsWindow />, { x: 200, y: 120 }, { width: 900, height: 600 })
+    openWindow("payments", t('ui.app.payment_management', 'Payment Management'), <PaymentsWindow />, { x: 100, y: 50 }, { width: 900, height: 600 })
   }
 
   const openWebPublishingWindow = () => {
-    openWindow("web-publishing", t('ui.app.web_publishing', 'Web Publishing'), <WebPublishingWindow />, { x: 220, y: 140 }, { width: 900, height: 600 })
+    openWindow("web-publishing", t('ui.app.web_publishing', 'Web Publishing'), <WebPublishingWindow />, { x: 110, y: 55 }, { width: 900, height: 600 })
   }
 
   const openMediaLibraryWindow = () => {
-    openWindow("media-library", t('ui.app.media_library', 'Media Library'), <MediaLibraryWindow />, { x: 240, y: 160 }, { width: 1000, height: 700 })
+    openWindow("media-library", t('ui.app.media_library', 'Media Library'), <MediaLibraryWindow />, { x: 120, y: 60 }, { width: 1000, height: 700 })
   }
 
   const openProductsWindow = () => {
-    openWindow("products", t('ui.app.products', 'Products'), <ProductsWindow />, { x: 260, y: 180 }, { width: 950, height: 650 })
+    openWindow("products", t('ui.app.products', 'Products'), <ProductsWindow />, { x: 130, y: 50 }, { width: 950, height: 650 })
   }
 
   const openTicketsWindow = () => {
-    openWindow("tickets", t('ui.app.tickets', 'Tickets'), <TicketsWindow />, { x: 280, y: 200 }, { width: 950, height: 650 })
+    openWindow("tickets", t('ui.app.tickets', 'Tickets'), <TicketsWindow />, { x: 140, y: 55 }, { width: 950, height: 650 })
   }
 
   const openCertificatesWindow = () => {
-    openWindow("certificates", t('ui.app.certificates', 'Certificates'), <CertificatesWindow />, { x: 290, y: 210 }, { width: 1100, height: 700 })
+    openWindow("certificates", t('ui.app.certificates', 'Certificates'), <CertificatesWindow />, { x: 150, y: 60 }, { width: 1100, height: 700 })
   }
 
   const openEventsWindow = () => {
-    openWindow("events", t('ui.app.events', 'Events'), <EventsWindow />, { x: 300, y: 220 }, { width: 950, height: 650 })
+    openWindow("events", t('ui.app.events', 'Events'), <EventsWindow />, { x: 160, y: 50 }, { width: 950, height: 650 })
   }
 
   const openCheckoutWindow = () => {
-    openWindow("checkout", t('ui.app.checkout', 'Checkout'), <CheckoutWindow />, { x: 320, y: 240 }, { width: 950, height: 650 })
+    openWindow("checkout", t('ui.app.checkout', 'Checkout'), <CheckoutWindow />, { x: 170, y: 55 }, { width: 950, height: 650 })
   }
 
   const openFormsWindow = () => {
-    openWindow("forms", t('ui.app.forms', 'Forms'), <FormsWindow />, { x: 340, y: 260 }, { width: 950, height: 650 })
+    openWindow("forms", t('ui.app.forms', 'Forms'), <FormsWindow />, { x: 180, y: 60 }, { width: 950, height: 650 })
   }
 
   const openAllAppsWindow = () => {
@@ -99,15 +99,15 @@ export default function HomePage() {
   }
 
   const openCRMWindow = () => {
-    openWindow("crm", t('ui.app.crm', 'CRM'), <CRMWindow />, { x: 360, y: 280 }, { width: 1100, height: 700 })
+    openWindow("crm", t('ui.app.crm', 'CRM'), <CRMWindow />, { x: 190, y: 50 }, { width: 1100, height: 700 })
   }
 
   const openInvoicingWindow = () => {
-    openWindow("invoicing", t('ui.app.invoicing', 'Invoicing'), <InvoicingWindow />, { x: 380, y: 300 }, { width: 950, height: 650 })
+    openWindow("invoicing", t('ui.app.invoicing', 'Invoicing'), <InvoicingWindow />, { x: 200, y: 55 }, { width: 950, height: 650 })
   }
 
   const openWorkflowsWindow = () => {
-    openWindow("workflows", t('ui.app.workflows', 'Workflows'), <WorkflowsWindow />, { x: 400, y: 320 }, { width: 1200, height: 750 })
+    openWindow("workflows", t('ui.app.workflows', 'Workflows'), <WorkflowsWindow />, { x: 210, y: 60 }, { width: 1200, height: 750 })
   }
 
   const handleLogout = () => {

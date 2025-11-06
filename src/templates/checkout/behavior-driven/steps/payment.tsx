@@ -208,7 +208,6 @@ export function PaymentStep({
 
       if (!result.success) {
         setError(result.error || "Failed to create invoice");
-        setIsProcessing(false);
         return;
       }
 
@@ -226,6 +225,8 @@ export function PaymentStep({
     } catch (err) {
       console.error("Failed to create invoice:", err);
       setError(err instanceof Error ? err.message : "Failed to create invoice");
+    } finally {
+      // Always reset processing state, even on success
       setIsProcessing(false);
     }
   };

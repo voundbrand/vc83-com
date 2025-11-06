@@ -7,6 +7,7 @@
  * with the appropriate template and theme - uses the template registry!
  */
 
+import { useState, useEffect } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
@@ -22,6 +23,13 @@ type CheckoutPageClientProps = {
 };
 
 export function CheckoutPageClient({ orgSlug, slug }: CheckoutPageClientProps) {
+  // Track if component has mounted (client-side only)
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
   // Fetch checkout instance by org slug and publicSlug
   const checkoutInstance = useQuery(
     api.checkoutOntology.getPublicCheckoutInstance,
@@ -34,10 +42,23 @@ export function CheckoutPageClient({ orgSlug, slug }: CheckoutPageClientProps) {
     checkoutInstance?._id ? { checkoutInstanceId: checkoutInstance._id } : "skip"
   );
 
-  // Debug logging
-  console.log("🔍 [CheckoutPageClient] Params:", { orgSlug, slug });
-  console.log("🔍 [CheckoutPageClient] Checkout:", checkoutInstance);
-  console.log("🔍 [CheckoutPageClient] Products:", linkedProductsData);
+  // Debug logging (only on client)
+  useEffect(() => {
+    if (hasMounted) {
+      console.log("🔍 [CheckoutPageClient] Params:", { orgSlug, slug });
+      console.log("🔍 [CheckoutPageClient] Checkout:", checkoutInstance);
+      console.log("🔍 [CheckoutPageClient] Products:", linkedProductsData);
+
+      // Log query status
+      console.log("🔍 [CheckoutPageClient] Query status:", {
+        checkoutIsUndefined: checkoutInstance === undefined,
+        checkoutIsNull: checkoutInstance === null,
+        productsIsUndefined: linkedProductsData === undefined,
+        productsIsNull: linkedProductsData === null,
+        hasCheckoutId: !!checkoutInstance?._id,
+      });
+    }
+  }, [hasMounted, orgSlug, slug, checkoutInstance, linkedProductsData]);
 
   // Loading state
   if (checkoutInstance === undefined || linkedProductsData === undefined) {

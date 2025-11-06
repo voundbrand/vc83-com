@@ -385,6 +385,8 @@ function StripePaymentForm({
     } catch (err) {
       console.error("Payment error:", err);
       setError(err instanceof Error ? err.message : t('ui.checkout.payment_form.errors.payment_failed'));
+    } finally {
+      // Always reset processing state, even on success
       setIsProcessing(false);
     }
   };
@@ -716,7 +718,6 @@ function InvoicePaymentForm({
 
       if (!result.success) {
         setError(result.error || t('ui.checkout.payment_form.errors.invoice_creation_failed'));
-        setIsProcessing(false);
         return;
       }
 
@@ -729,6 +730,8 @@ function InvoicePaymentForm({
     } catch (err) {
       console.error("Failed to create invoice:", err);
       setError(err instanceof Error ? err.message : t('ui.checkout.payment_form.errors.invoice_creation_failed'));
+    } finally {
+      // Always reset processing state, even on success
       setIsProcessing(false);
     }
   };

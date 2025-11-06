@@ -671,6 +671,15 @@ body {
     flex-shrink: 0;
   }
 
+  /* Ensure all button icons are centered */
+  .retro-control-button .window-btn-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+  }
+
   /* Mac OS X Style - Colored Circles */
   [data-window-style="mac"] .retro-control-button {
     width: 13px;
@@ -716,13 +725,13 @@ body {
 
   /* Windows 95 Style - Square Buttons with Icons */
   [data-window-style="windows"] .retro-control-button {
-    width: 16px;
-    height: 14px;
+    width: 24px;
+    height: 22px;
     border: 1px solid;
     border-color: var(--win95-button-light) var(--win95-button-darkest) var(--win95-button-darkest) var(--win95-button-light);
     background: var(--win95-button-face);
     border-radius: 0;
-    font-size: 10px;
+    font-size: 14px;
     color: var(--win95-text);
     box-shadow: inset 1px 1px 0 var(--win95-bg-light), inset -1px -1px 0 var(--win95-button-dark);
   }
@@ -740,6 +749,37 @@ body {
 
   .retro-control-button:active {
     transform: scale(0.9);
+  }
+
+  /* Better icon positioning and styling */
+  .window-btn-icon {
+    display: inline-block;
+    line-height: 1;
+    font-weight: bold;
+  }
+
+  /* Minimize button - underscore visible and better positioned */
+  [data-window-style="windows"] .retro-minimize-btn .window-btn-icon {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -4px;
+    padding-bottom: 9px;
+    padding-right: 4px;
+  }
+
+  /* Maximize button - larger bolder square */
+  [data-window-style="windows"] .retro-maximize-btn .window-btn-icon {
+    font-size: 23px;
+    font-weight: 900;
+    -webkit-text-stroke: 0.5px currentColor;
+    padding-bottom: 6px;
+  }
+
+  /* Close button - smaller X */
+  [data-window-style="windows"] .retro-close-btn .window-btn-icon {
+    font-size: 14px;
+    font-weight: 900;
+    padding-top: 2px;
   }
 
   /* Panel/Group Box */

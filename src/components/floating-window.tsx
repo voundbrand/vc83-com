@@ -152,18 +152,18 @@ export function FloatingWindow({
         <div className="flex gap-[2px]">
           {/* Minimize Button */}
           <button
-            className="retro-control-button"
+            className="retro-control-button retro-minimize-btn"
             onClick={(e) => {
               e.stopPropagation()
               minimizeWindow(id)
             }}
             title="Minimize"
           >
-            <span className="select-none">−</span>
+            <span className="select-none window-btn-icon">_</span>
           </button>
           {/* Maximize/Restore Button */}
           <button
-            className="retro-control-button"
+            className="retro-control-button retro-maximize-btn"
             onClick={(e) => {
               e.stopPropagation()
               if (windowState?.isMaximized) {
@@ -174,18 +174,18 @@ export function FloatingWindow({
             }}
             title={windowState?.isMaximized ? "Restore" : "Maximize"}
           >
-            <span className="select-none">{windowState?.isMaximized ? "⧉" : "□"}</span>
+            <span className="select-none window-btn-icon">{windowState?.isMaximized ? "❐" : "□"}</span>
           </button>
           {/* Close Button */}
           <button
-            className="retro-control-button"
+            className="retro-control-button retro-close-btn"
             onClick={(e) => {
               e.stopPropagation()
               closeWindow(id)
             }}
             title="Close"
           >
-            <span className="select-none">×</span>
+            <span className="select-none window-btn-icon">✕</span>
           </button>
         </div>
       </div>
