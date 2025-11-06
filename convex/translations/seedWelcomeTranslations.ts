@@ -47,45 +47,45 @@ export const seed = internalMutation({
       {
         key: "ui.welcome.tagline",
         values: {
-          en: "Stack your startup tools like a pro",
-          de: "Stapel deine Startup-Tools wie ein Profi",
-          pl: "Ułóż narzędzia startupowe jak profesjonalista",
-          es: "Apila tus herramientas de startup como un profesional",
-          fr: "Empilez vos outils de startup comme un pro",
-          ja: "スタートアップツールをプロのように積み重ねる",
+          en: "Where creativity meets technology to redefine what's possible",
+          de: "Wo Kreativität auf Technologie trifft, um das Mögliche neu zu definieren",
+          pl: "Gdzie kreatywność spotyka technologię, aby na nowo zdefiniować możliwości",
+          es: "Donde la creatividad se encuentra con la tecnología para redefinir lo posible",
+          fr: "Où la créativité rencontre la technologie pour redéfinir le possible",
+          ja: "創造性とテクノロジーが出会い、可能性を再定義する場所",
         }
       },
       {
         key: "ui.welcome.description_para1",
         values: {
-          en: "Imagine a retro desktop where you stack marketing superpowers: invoicing that syncs with your CRM, analytics that visualize your funnels, scheduling that automates your workflows—all in one cozy workspace.",
-          de: "Stell dir einen Retro-Desktop vor, auf dem du Marketing-Superkräfte stapelst: Rechnungen, die sich mit deinem CRM synchronisieren, Analysen, die deine Funnels visualisieren, Terminplanung, die deine Workflows automatisiert – alles in einem gemütlichen Arbeitsbereich.",
-          pl: "Wyobraź sobie retro pulpit, na którym układasz marketingowe supermoce: fakturowanie zsynchronizowane z CRM, analizy wizualizujące lejki sprzedażowe, planowanie automatyzujące przepływy pracy—wszystko w jednym przytulnym obszarze roboczym.",
-          es: "Imagina un escritorio retro donde apilas superpoderes de marketing: facturación sincronizada con tu CRM, análisis que visualizan tus embudos, programación que automatiza tus flujos de trabajo, todo en un espacio acogedor.",
-          fr: "Imaginez un bureau rétro où vous empilez des superpouvoirs marketing : facturation synchronisée avec votre CRM, analyses visualisant vos entonnoirs, planification automatisant vos flux de travail—le tout dans un espace confortable.",
-          ja: "レトロなデスクトップを想像してください。そこではマーケティングのスーパーパワーを積み重ねます：CRMと同期する請求書、ファネルを可視化する分析、ワークフローを自動化するスケジューリング—すべてが快適なワークスペースに。",
+          en: "Step into a workspace that bridges the nostalgic charm of 1983 with cutting-edge business tools. Your entire workflow—CRM, analytics, invoicing, scheduling—lives in one beautifully retro desktop environment.",
+          de: "Tritt ein in einen Arbeitsbereich, der den nostalgischen Charme von 1983 mit modernsten Business-Tools verbindet. Dein gesamter Workflow – CRM, Analytics, Rechnungsstellung, Terminplanung – lebt in einer wunderschön retro Desktop-Umgebung.",
+          pl: "Wejdź do przestrzeni roboczej, która łączy nostalgiczny urok 1983 roku z najnowocześniejszymi narzędziami biznesowymi. Cały twój przepływ pracy – CRM, analityka, fakturowanie, planowanie – w jednym pięknie retro środowisku pulpitu.",
+          es: "Entra en un espacio de trabajo que une el encanto nostálgico de 1983 con herramientas empresariales de vanguardia. Todo tu flujo de trabajo—CRM, analíticas, facturación, programación—vive en un entorno de escritorio bellamente retro.",
+          fr: "Entrez dans un espace de travail qui allie le charme nostalgique de 1983 aux outils professionnels de pointe. L'ensemble de votre flux de travail—CRM, analytique, facturation, planification—vit dans un environnement de bureau magnifiquement rétro.",
+          ja: "1983年の懐かしい魅力と最先端のビジネスツールを融合したワークスペースへようこそ。CRM、分析、請求、スケジューリングなど、すべてのワークフローが美しいレトロなデスクトップ環境で完結します。",
         }
       },
       {
         key: "ui.welcome.description_para2",
         values: {
-          en: "No more tab chaos. Just you, your tools, and the satisfying click of a floppy disk saving your next big idea.",
-          de: "Kein Tab-Chaos mehr. Nur du, deine Tools und das befriedigende Klicken einer Diskette, die deine nächste große Idee speichert.",
-          pl: "Koniec z chaosem kart. Tylko ty, twoje narzędzia i satysfakcjonujące kliknięcie dyskietki zapisującej twój kolejny wielki pomysł.",
-          es: "No más caos de pestañas. Solo tú, tus herramientas y el satisfactorio clic de un disquete guardando tu próxima gran idea.",
-          fr: "Fini le chaos des onglets. Juste vous, vos outils, et le clic satisfaisant d'une disquette sauvegardant votre prochaine grande idée.",
-          ja: "タブの混乱はもうありません。あなたとツール、そして次の大きなアイデアを保存するフロッピーディスクの心地よいクリック音だけです。",
+          en: "We stand at the forefront of a new era, transforming how startups manage their operations. No more scattered tabs and forgotten passwords—just the focused power of an integrated desktop OS.",
+          de: "Wir stehen an der Spitze einer neuen Ära und transformieren, wie Startups ihre Abläufe managen. Keine verstreuten Tabs und vergessenen Passwörter mehr – nur die fokussierte Power eines integrierten Desktop-OS.",
+          pl: "Stoimy na czele nowej ery, transformując sposób, w jaki startupy zarządzają swoimi operacjami. Koniec z rozproszonymi kartami i zapomnianymi hasłami – tylko skoncentrowana moc zintegrowanego systemu operacyjnego.",
+          es: "Estamos a la vanguardia de una nueva era, transformando cómo las startups gestionan sus operaciones. No más pestañas dispersas y contraseñas olvidadas—solo el poder enfocado de un sistema operativo de escritorio integrado.",
+          fr: "Nous sommes à l'avant-garde d'une nouvelle ère, transformant la façon dont les startups gèrent leurs opérations. Fini les onglets dispersés et les mots de passe oubliés—juste la puissance concentrée d'un OS de bureau intégré.",
+          ja: "私たちは新時代の最前線に立ち、スタートアップの運営方法を変革しています。散らばったタブや忘れたパスワードはもう必要ありません—統合デスクトップOSの集中的なパワーだけです。",
         }
       },
       {
         key: "ui.welcome.greeting",
         values: {
-          en: "Welcome to the retro desktop experience!",
-          de: "Willkommen beim Retro-Desktop-Erlebnis!",
-          pl: "Witamy w retro doświadczeniu pulpitu!",
-          es: "¡Bienvenido a la experiencia de escritorio retro!",
-          fr: "Bienvenue dans l'expérience de bureau rétro !",
-          ja: "レトロなデスクトップ体験へようこそ！",
+          en: "Welcome to the future of startup operations",
+          de: "Willkommen in der Zukunft des Startup-Betriebs",
+          pl: "Witamy w przyszłości operacji startupowych",
+          es: "Bienvenido al futuro de las operaciones de startup",
+          fr: "Bienvenue dans l'avenir des opérations de startup",
+          ja: "スタートアップ運営の未来へようこそ",
         }
       },
       {

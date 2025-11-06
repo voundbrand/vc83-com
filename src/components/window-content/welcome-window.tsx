@@ -16,8 +16,8 @@ export function WelcomeWindow() {
   return (
     <div className="p-6 space-y-4 h-full overflow-y-auto" style={{ background: 'var(--win95-bg)' }}>
       <div className="text-center mb-2">
-        <h1 className="text-3xl font-bold mb-2 font-['Press_Start_2P']" style={{ color: 'var(--win95-text)' }}>
-          🍰 L4YERCAK3
+        <h1 className="text-4xl md:text-5xl font-serif italic font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
+          🍰 l4yercak3
         </h1>
         <p className="text-base italic leading-relaxed" style={{ color: 'var(--win95-text)' }}>
           {t("ui.welcome.tagline")}
