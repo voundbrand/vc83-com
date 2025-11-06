@@ -27,6 +27,7 @@ interface VideoItem {
   videoUrl: string;
   videoProvider: VideoProvider;
   loop: boolean;
+  autostart: boolean;
   order: number;
 }
 
@@ -63,6 +64,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
   // Video input state
   const [videoUrl, setVideoUrl] = useState('');
   const [videoLoop, setVideoLoop] = useState(false);
+  const [videoAutostart, setVideoAutostart] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
 
   // Mini slider state
@@ -117,6 +119,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
       videoUrl: videoUrl.trim(),
       videoProvider: validation.provider,
       loop: videoLoop,
+      autostart: videoAutostart,
       order: linkedMediaIds.length + videos.length,
     };
 
@@ -128,6 +131,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
     // Reset form
     setVideoUrl('');
     setVideoLoop(false);
+    setVideoAutostart(false);
     setVideoError(null);
   };
 
@@ -342,16 +346,27 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                       {video.videoProvider.toUpperCase()}
                     </span>
                   </div>
-                  {/* Loop indicator */}
-                  {video.loop && (
-                    <div className="absolute top-1 right-1 px-1 py-0.5 text-xs font-bold" style={{
-                      background: "var(--win95-button-face)",
-                      color: "var(--win95-text)",
-                      fontSize: "10px"
-                    }}>
-                      🔁
-                    </div>
-                  )}
+                  {/* Loop and autostart indicators */}
+                  <div className="absolute top-1 right-1 flex gap-1">
+                    {video.loop && (
+                      <div className="px-1 py-0.5 text-xs font-bold" style={{
+                        background: "var(--win95-button-face)",
+                        color: "var(--win95-text)",
+                        fontSize: "10px"
+                      }}>
+                        🔁
+                      </div>
+                    )}
+                    {video.autostart && (
+                      <div className="px-1 py-0.5 text-xs font-bold" style={{
+                        background: "var(--win95-button-face)",
+                        color: "var(--win95-text)",
+                        fontSize: "10px"
+                      }}>
+                        ▶️
+                      </div>
+                    )}
+                  </div>
                   {index === 0 && linkedMedia.length === 0 && showVideoFirst && (
                     <div className="absolute top-1 left-1 px-2 py-0.5 text-xs font-bold border-2" style={{
                       background: "var(--primary)",
@@ -380,7 +395,26 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                       color: "var(--win95-text)"
                     }}
                   >
-                    {video.loop ? '🔁 Loop: ON' : '▶️ Loop: OFF'}
+                    {video.loop ? '🔁 Loop: ON' : '🔁 Loop: OFF'}
+                  </button>
+                  {/* Toggle Autostart Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onVideosChange) {
+                        onVideosChange(videos.map(v =>
+                          v.id === video.id ? { ...v, autostart: !v.autostart } : v
+                        ));
+                      }
+                    }}
+                    className="px-2 py-1 text-xs font-bold border-2"
+                    style={{
+                      background: "var(--win95-button-face)",
+                      borderColor: "var(--win95-border)",
+                      color: "var(--win95-text)"
+                    }}
+                  >
+                    {video.autostart ? '▶️ Auto: ON' : '▶️ Auto: OFF'}
                   </button>
                   {/* Remove Button */}
                   <button
@@ -488,7 +522,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
             </p>
 
             {/* Video Options */}
-            <div className="flex items-center gap-4 text-xs">
+            <div className="flex items-center gap-4 text-xs flex-wrap">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
@@ -497,6 +531,16 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                   className="w-4 h-4"
                 />
                 <span style={{ color: "var(--win95-text)" }}>Loop video</span>
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={videoAutostart}
+                  onChange={(e) => setVideoAutostart(e.target.checked)}
+                  className="w-4 h-4"
+                />
+                <span style={{ color: "var(--win95-text)" }}>Autostart video</span>
               </label>
 
               <label className="flex items-center gap-2 cursor-pointer">

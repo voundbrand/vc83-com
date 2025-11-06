@@ -1005,6 +1005,7 @@ export const updateEventMedia = mutation({
           v.literal('other')
         )),
         loop: v.optional(v.boolean()),
+        autostart: v.optional(v.boolean()),
         thumbnailStorageId: v.optional(v.string()),
         // Common fields
         caption: v.optional(v.string()),

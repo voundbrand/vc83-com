@@ -54,21 +54,25 @@ export const extractVideoId = (url: string, provider: VideoProvider): string | n
  * @param videoId - Video ID
  * @param provider - Video provider
  * @param loop - Whether to loop the video
+ * @param autostart - Whether to autostart the video
  * @returns Embed URL ready for iframe src
  */
 export const getVideoEmbedUrl = (
   videoId: string,
   provider: VideoProvider,
-  loop: boolean = false
+  loop: boolean = false,
+  autostart: boolean = false
 ): string => {
   if (provider === 'youtube') {
     const loopParam = loop ? `&loop=1&playlist=${videoId}` : '';
-    return `https://www.youtube.com/embed/${videoId}?autoplay=0${loopParam}`;
+    const autostartParam = autostart ? '1' : '0';
+    return `https://www.youtube.com/embed/${videoId}?autoplay=${autostartParam}${loopParam}`;
   }
 
   if (provider === 'vimeo') {
     const loopParam = loop ? '&loop=1' : '';
-    return `https://player.vimeo.com/video/${videoId}?autoplay=0${loopParam}`;
+    const autostartParam = autostart ? '1' : '0';
+    return `https://player.vimeo.com/video/${videoId}?autoplay=${autostartParam}${loopParam}`;
   }
 
   return '';

@@ -26,8 +26,10 @@ import { WindowsMenu } from "@/components/windows-menu"
 import { useIsMobile } from "@/hooks/use-media-query"
 import { useAuth, useOrganizations, useCurrentOrganization, useIsSuperAdmin, useAccountDeletionStatus } from "@/hooks/use-auth"
 import { useAvailableApps } from "@/hooks/use-app-availability"
+import { useTranslation } from "@/contexts/translation-context"
 
 export default function HomePage() {
+  const { t } = useTranslation()
   const [showStartMenu, setShowStartMenu] = useState(false)
   const { windows, openWindow, restoreWindow, focusWindow } = useWindowManager()
   const isMobile = useIsMobile()
@@ -41,15 +43,15 @@ export default function HomePage() {
   const { isAppAvailable } = useAvailableApps()
 
   const openWelcomeWindow = () => {
-    openWindow("welcome", "L4YERCAK3.exe", <WelcomeWindow />, { x: 100, y: 100 }, { width: 650, height: 500 })
+    openWindow("welcome", t('ui.app.l4yercak3_exe', 'L4YERCAK3.exe'), <WelcomeWindow />, { x: 100, y: 100 }, { width: 650, height: 500 })
   }
 
   const openSettingsWindow = () => {
-    openWindow("settings", "Settings", <ControlPanelWindow />, { x: 200, y: 100 }, { width: 700, height: 550 })
+    openWindow("settings", t('ui.start_menu.settings', 'Settings'), <ControlPanelWindow />, { x: 200, y: 100 }, { width: 700, height: 550 })
   }
 
   const openLoginWindow = () => {
-    openWindow("login", "User Account", <LoginWindow />, { x: 250, y: 100 }, { width: 450, height: 620 })
+    openWindow("login", t('ui.app.user_account', 'User Account'), <LoginWindow />, { x: 250, y: 100 }, { width: 450, height: 620 })
   }
 
   // const openLayerDocsWindow = () => {
@@ -57,55 +59,55 @@ export default function HomePage() {
   // }
 
   const openPaymentsWindow = () => {
-    openWindow("payments", "Payment Management", <PaymentsWindow />, { x: 200, y: 120 }, { width: 900, height: 600 })
+    openWindow("payments", t('ui.app.payment_management', 'Payment Management'), <PaymentsWindow />, { x: 200, y: 120 }, { width: 900, height: 600 })
   }
 
   const openWebPublishingWindow = () => {
-    openWindow("web-publishing", "Web Publishing", <WebPublishingWindow />, { x: 220, y: 140 }, { width: 900, height: 600 })
+    openWindow("web-publishing", t('ui.app.web_publishing', 'Web Publishing'), <WebPublishingWindow />, { x: 220, y: 140 }, { width: 900, height: 600 })
   }
 
   const openMediaLibraryWindow = () => {
-    openWindow("media-library", "Media Library", <MediaLibraryWindow />, { x: 240, y: 160 }, { width: 1000, height: 700 })
+    openWindow("media-library", t('ui.app.media_library', 'Media Library'), <MediaLibraryWindow />, { x: 240, y: 160 }, { width: 1000, height: 700 })
   }
 
   const openProductsWindow = () => {
-    openWindow("products", "Products", <ProductsWindow />, { x: 260, y: 180 }, { width: 950, height: 650 })
+    openWindow("products", t('ui.app.products', 'Products'), <ProductsWindow />, { x: 260, y: 180 }, { width: 950, height: 650 })
   }
 
   const openTicketsWindow = () => {
-    openWindow("tickets", "Tickets", <TicketsWindow />, { x: 280, y: 200 }, { width: 950, height: 650 })
+    openWindow("tickets", t('ui.app.tickets', 'Tickets'), <TicketsWindow />, { x: 280, y: 200 }, { width: 950, height: 650 })
   }
 
   const openCertificatesWindow = () => {
-    openWindow("certificates", "Certificates", <CertificatesWindow />, { x: 290, y: 210 }, { width: 1100, height: 700 })
+    openWindow("certificates", t('ui.app.certificates', 'Certificates'), <CertificatesWindow />, { x: 290, y: 210 }, { width: 1100, height: 700 })
   }
 
   const openEventsWindow = () => {
-    openWindow("events", "Events", <EventsWindow />, { x: 300, y: 220 }, { width: 950, height: 650 })
+    openWindow("events", t('ui.app.events', 'Events'), <EventsWindow />, { x: 300, y: 220 }, { width: 950, height: 650 })
   }
 
   const openCheckoutWindow = () => {
-    openWindow("checkout", "Checkout", <CheckoutWindow />, { x: 320, y: 240 }, { width: 950, height: 650 })
+    openWindow("checkout", t('ui.app.checkout', 'Checkout'), <CheckoutWindow />, { x: 320, y: 240 }, { width: 950, height: 650 })
   }
 
   const openFormsWindow = () => {
-    openWindow("forms", "Forms", <FormsWindow />, { x: 340, y: 260 }, { width: 950, height: 650 })
+    openWindow("forms", t('ui.app.forms', 'Forms'), <FormsWindow />, { x: 340, y: 260 }, { width: 950, height: 650 })
   }
 
   const openAllAppsWindow = () => {
-    openWindow("all-apps", "All Applications", <AllAppsWindow />, { x: 150, y: 100 }, { width: 800, height: 600 })
+    openWindow("all-apps", t('ui.app.all_applications', 'All Applications'), <AllAppsWindow />, { x: 150, y: 100 }, { width: 800, height: 600 })
   }
 
   const openCRMWindow = () => {
-    openWindow("crm", "CRM", <CRMWindow />, { x: 360, y: 280 }, { width: 1100, height: 700 })
+    openWindow("crm", t('ui.app.crm', 'CRM'), <CRMWindow />, { x: 360, y: 280 }, { width: 1100, height: 700 })
   }
 
   const openInvoicingWindow = () => {
-    openWindow("invoicing", "Invoicing", <InvoicingWindow />, { x: 380, y: 300 }, { width: 950, height: 650 })
+    openWindow("invoicing", t('ui.app.invoicing', 'Invoicing'), <InvoicingWindow />, { x: 380, y: 300 }, { width: 950, height: 650 })
   }
 
   const openWorkflowsWindow = () => {
-    openWindow("workflows", "Workflows", <WorkflowsWindow />, { x: 400, y: 320 }, { width: 1200, height: 750 })
+    openWindow("workflows", t('ui.app.workflows', 'Workflows'), <WorkflowsWindow />, { x: 400, y: 320 }, { width: 1200, height: 750 })
   }
 
   const handleLogout = () => {
@@ -190,48 +192,48 @@ export default function HomePage() {
   // Build Programs submenu dynamically based on app availability
   const programsSubmenu = [
     // All Apps - always show for authenticated users
-    { label: "All Applications", icon: "📱", onClick: requireAuth(openAllAppsWindow) },
+    { label: t('ui.app.all_applications', 'All Applications'), icon: "📱", onClick: requireAuth(openAllAppsWindow) },
     { divider: true }, // Visual separator
     // { label: "L4YER.docs", icon: "📝", onClick: requireAuth(openLayerDocsWindow) }, // Hidden for now
     ...(isAppAvailable("media-library") ? [
-      { label: "Media Library", icon: "📁", onClick: requireAuth(openMediaLibraryWindow) }
+      { label: t('ui.app.media_library', 'Media Library'), icon: "📁", onClick: requireAuth(openMediaLibraryWindow) }
     ] : []),
     ...(isAppAvailable("payments") ? [
-      { label: "Payments", icon: "💳", onClick: requireAuth(openPaymentsWindow) }
+      { label: t('ui.app.payments', 'Payments'), icon: "💳", onClick: requireAuth(openPaymentsWindow) }
     ] : []),
     ...(isAppAvailable("products") ? [
-      { label: "Products", icon: "📦", onClick: requireAuth(openProductsWindow) }
+      { label: t('ui.app.products', 'Products'), icon: "📦", onClick: requireAuth(openProductsWindow) }
     ] : []),
     ...(isAppAvailable("tickets") ? [
-      { label: "Tickets", icon: "🎟️", onClick: requireAuth(openTicketsWindow) }
+      { label: t('ui.app.tickets', 'Tickets'), icon: "🎟️", onClick: requireAuth(openTicketsWindow) }
     ] : []),
     ...(isAppAvailable("certificates") ? [
-      { label: "Certificates", icon: "📜", onClick: requireAuth(openCertificatesWindow) }
+      { label: t('ui.app.certificates', 'Certificates'), icon: "📜", onClick: requireAuth(openCertificatesWindow) }
     ] : []),
     ...(isAppAvailable("events") ? [
-      { label: "Events", icon: "📅", onClick: requireAuth(openEventsWindow) }
+      { label: t('ui.app.events', 'Events'), icon: "📅", onClick: requireAuth(openEventsWindow) }
     ] : []),
     ...(isAppAvailable("checkout") ? [
-      { label: "Checkout", icon: "🛒", onClick: requireAuth(openCheckoutWindow) }
+      { label: t('ui.app.checkout', 'Checkout'), icon: "🛒", onClick: requireAuth(openCheckoutWindow) }
     ] : []),
     ...(isAppAvailable("forms") ? [
-      { label: "Forms", icon: "📋", onClick: requireAuth(openFormsWindow) }
+      { label: t('ui.app.forms', 'Forms'), icon: "📋", onClick: requireAuth(openFormsWindow) }
     ] : []),
     // Web Publishing app - enabled via app availability
     ...(isAppAvailable("web-publishing") ? [
-      { label: "Web Publishing", icon: "🌐", onClick: requireAuth(openWebPublishingWindow) }
+      { label: t('ui.app.web_publishing', 'Web Publishing'), icon: "🌐", onClick: requireAuth(openWebPublishingWindow) }
     ] : []),
     // CRM app - customer relationship management
     ...(isAppAvailable("crm") ? [
-      { label: "CRM", icon: "👥", onClick: requireAuth(openCRMWindow) }
+      { label: t('ui.app.crm', 'CRM'), icon: "👥", onClick: requireAuth(openCRMWindow) }
     ] : []),
     // Invoicing app - B2B/B2C invoice management
     ...(isAppAvailable("app_invoicing") ? [
-      { label: "Invoicing", icon: "💳", onClick: requireAuth(openInvoicingWindow) }
+      { label: t('ui.app.invoicing', 'Invoicing'), icon: "💳", onClick: requireAuth(openInvoicingWindow) }
     ] : []),
     // Workflows app - Multi-object behavior orchestration
     ...(isAppAvailable("workflows") ? [
-      { label: "Workflows", icon: "⚡", onClick: requireAuth(openWorkflowsWindow) }
+      { label: t('ui.app.workflows', 'Workflows'), icon: "⚡", onClick: requireAuth(openWorkflowsWindow) }
     ] : []),
     //{ label: "L4YERCAK3 Podcast", icon: "🎙️", onClick: requireAuth(openEpisodesWindow) },
     //{ label: "Subscribe", icon: "🔊", onClick: requireAuth(openSubscribeWindow) },
@@ -239,7 +241,7 @@ export default function HomePage() {
 
   const startMenuItems = [
     {
-      label: "Programs",
+      label: t('ui.start_menu.programs', 'Programs'),
       icon: "📂",
       submenu: programsSubmenu
     },
@@ -247,15 +249,15 @@ export default function HomePage() {
 
     // Organizations menu BEFORE Settings - only show if user has active organizations
     ...(isSignedIn && activeOrganizations.length > 0 ? [{
-      label: "Organizations",
+      label: t('ui.start_menu.organizations', 'Organizations'),
       icon: "🏢",
       submenu: orgMenuItems
     }] : []),
 
-    { label: "Settings", icon: "⚙️", onClick: requireAuth(openSettingsWindow) },
+    { label: t('ui.start_menu.settings', 'Settings'), icon: "⚙️", onClick: requireAuth(openSettingsWindow) },
 
     {
-      label: isSignedIn ? "Log Out" : "Log In",
+      label: isSignedIn ? t('ui.start_menu.log_out', 'Log Out') : t('ui.start_menu.log_in', 'Log In'),
       icon: isSignedIn ? "🔒" : "🔓",
       onClick: isSignedIn ? handleLogout : openLoginWindow
     },

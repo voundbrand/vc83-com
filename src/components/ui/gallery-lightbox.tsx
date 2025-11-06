@@ -11,6 +11,7 @@ interface GalleryItem {
   thumbnail?: string;
   alt?: string;
   loop?: boolean; // For videos - whether to loop playback
+  autostart?: boolean; // For videos - whether to autostart playback
 }
 
 interface GalleryLightboxProps {
@@ -66,14 +67,16 @@ function getYouTubeThumbnail(url: string): string | null {
  *
  * @param url - YouTube URL
  * @param loop - Whether to loop the video (requires playlist parameter for single videos)
+ * @param autostart - Whether to autostart the video
  */
-function getYouTubeEmbedUrl(url: string, loop = false): string | null {
+function getYouTubeEmbedUrl(url: string, loop = false, autostart = false): string | null {
   const videoId = getYouTubeVideoId(url);
   if (videoId) {
     // For YouTube loop to work on a single video, we need to add it to a playlist of itself
     // See: https://developers.google.com/youtube/player_parameters#loop
     const loopParams = loop ? `&loop=1&playlist=${videoId}` : '';
-    return `https://www.youtube.com/embed/${videoId}?autoplay=1${loopParams}`;
+    const autostartParam = autostart ? '1' : '0';
+    return `https://www.youtube.com/embed/${videoId}?autoplay=${autostartParam}${loopParams}`;
   }
   return null;
 }
@@ -255,7 +258,7 @@ export const GalleryLightbox: React.FC<GalleryLightboxProps> = ({ items, classNa
               </div>
             ) : (() => {
               // Check if it's a YouTube video
-              const youtubeEmbedUrl = getYouTubeEmbedUrl(currentItem.url, currentItem.loop);
+              const youtubeEmbedUrl = getYouTubeEmbedUrl(currentItem.url, currentItem.loop, currentItem.autostart);
 
               if (youtubeEmbedUrl) {
                 // YouTube video - use iframe
@@ -274,7 +277,7 @@ export const GalleryLightbox: React.FC<GalleryLightboxProps> = ({ items, classNa
                   <video
                     src={currentItem.url}
                     controls
-                    autoPlay
+                    autoPlay={currentItem.autostart ?? false}
                     loop={currentItem.loop ?? false}
                     className="max-w-6xl max-h-[90vh] w-full h-full object-contain"
                   >

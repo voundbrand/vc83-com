@@ -16,6 +16,7 @@ interface MediaItem {
   videoUrl?: string;
   videoProvider?: VideoProvider;
   loop?: boolean;
+  autostart?: boolean;
 }
 
 interface MediaGalleryProps {
@@ -83,7 +84,8 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({ media, className = '
                 src={getVideoEmbedUrl(
                   extractVideoId(currentMedia.videoUrl, currentMedia.videoProvider) || '',
                   currentMedia.videoProvider,
-                  currentMedia.loop
+                  currentMedia.loop,
+                  currentMedia.autostart
                 )}
                 className="w-full h-full"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -268,7 +270,7 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({ media, className = '
                 <div className="w-full h-full flex items-center justify-center">
                   <div className="w-full max-w-5xl aspect-video border-2" style={{ borderColor: "var(--win95-border)" }}>
                     <iframe
-                      src={getVideoEmbedUrl(videoId, currentMedia.videoProvider, currentMedia.loop)}
+                      src={getVideoEmbedUrl(videoId, currentMedia.videoProvider, currentMedia.loop, currentMedia.autostart)}
                       className="w-full h-full"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                       allowFullScreen

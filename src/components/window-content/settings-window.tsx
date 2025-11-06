@@ -62,7 +62,7 @@ export function SettingsWindow() {
           }}
           onClick={() => setActiveTab("appearance")}
         >
-          {t('ui.settings.tab_appearance')}
+          {t('ui.settings.tab.appearance')}
         </button>
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors"
@@ -73,7 +73,7 @@ export function SettingsWindow() {
           }}
           onClick={() => setActiveTab("wallpaper")}
         >
-          {t('ui.settings.tab_wallpaper')}
+          {t('ui.settings.tab.wallpaper')}
         </button>
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors"
@@ -84,7 +84,7 @@ export function SettingsWindow() {
           }}
           onClick={() => setActiveTab("region")}
         >
-          🌍 {t('ui.settings.tab_region')}
+          🌍 {t('ui.settings.tab.region')}
         </button>
         {isSuperAdmin && (
           <button
@@ -96,7 +96,7 @@ export function SettingsWindow() {
             }}
             onClick={() => setActiveTab("admin")}
           >
-            🥷 {t('ui.settings.tab_admin')}
+            🥷 {t('ui.settings.tab.admin')}
           </button>
         )}
       </div>
@@ -108,7 +108,7 @@ export function SettingsWindow() {
             {/* Window Style Section */}
             <div>
               <h3 className="text-xs font-bold mb-3 uppercase tracking-wide" style={{ color: 'var(--win95-text)' }}>
-                {t('ui.settings.section_window_style')}
+                {t('ui.settings.appearance.window_style')}
               </h3>
               <div className="space-y-2">
                 <button
@@ -121,8 +121,8 @@ export function SettingsWindow() {
                 >
                   <div className="text-2xl">🪟</div>
                   <div className="flex-1 text-left">
-                    <div className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>{t('ui.settings.window_style_windows_title')}</div>
-                    <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>{t('ui.settings.window_style_windows_desc')}</div>
+                    <div className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>{t('ui.settings.appearance.windows95_title')}</div>
+                    <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>{t('ui.settings.appearance.windows95_description')}</div>
                   </div>
                   {windowStyle === "windows" && <Check size={16} style={{ color: 'var(--win95-text)' }} />}
                 </button>
@@ -136,8 +136,8 @@ export function SettingsWindow() {
                 >
                   <div className="text-2xl">🍎</div>
                   <div className="flex-1 text-left">
-                    <div className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>{t('ui.settings.window_style_mac_title')}</div>
-                    <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>{t('ui.settings.window_style_mac_desc')}</div>
+                    <div className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>{t('ui.settings.appearance.macos_title')}</div>
+                    <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>{t('ui.settings.appearance.macos_description')}</div>
                   </div>
                   {windowStyle === "mac" && <Check size={16} style={{ color: 'var(--win95-text)' }} />}
                 </button>
@@ -147,7 +147,7 @@ export function SettingsWindow() {
             {/* Color Theme Section */}
             <div>
           <h3 className="text-xs font-bold mb-3 uppercase tracking-wide" style={{ color: 'var(--win95-text)' }}>
-            {t('ui.settings.section_color_theme')}
+            {t('ui.settings.appearance.color_scheme')}
           </h3>
           <div className="space-y-2">
             {themes.map((theme) => (
@@ -206,7 +206,7 @@ export function SettingsWindow() {
                 <span className="flex-1 text-left text-sm font-medium" style={{ color: theme.comingSoon ? 'var(--neutral-gray)' : 'var(--win95-text)' }}>
                   {theme.name}
                   {theme.comingSoon && (
-                    <span className="ml-2 text-xs italic" style={{ color: 'var(--neutral-gray)' }}>({t('ui.settings.coming_soon')})</span>
+                    <span className="ml-2 text-xs italic" style={{ color: 'var(--neutral-gray)' }}>({t('ui.settings.appearance.coming_soon')})</span>
                   )}
                 </span>
 
@@ -222,7 +222,7 @@ export function SettingsWindow() {
         {/* Preview Section */}
         <div>
           <h3 className="text-xs font-bold mb-3 uppercase tracking-wide" style={{ color: 'var(--win95-text)' }}>
-            {t('ui.settings.section_preview')}
+            {t('ui.settings.appearance.preview')}
           </h3>
           <div
             className="border-2 rounded p-4"
@@ -245,7 +245,7 @@ export function SettingsWindow() {
                   color: "#ffffff",
                 }}
               >
-                {t('ui.settings.preview_window_title')}
+                {t('ui.settings.appearance.preview_window')}
               </div>
               <p
                 className="text-xs"
@@ -253,7 +253,7 @@ export function SettingsWindow() {
                   color: themes.find((t) => t.id === selectedThemeId)?.colors.win95Text,
                 }}
               >
-                {t('ui.settings.preview_window_desc')}
+                {t('ui.settings.appearance.preview_text')}
               </p>
             </div>
           </div>
@@ -264,7 +264,7 @@ export function SettingsWindow() {
         {activeTab === "wallpaper" && (
           <div>
             <h3 className="text-xs font-bold mb-3 uppercase tracking-wide" style={{ color: 'var(--win95-text)' }}>
-              {t('ui.settings.section_wallpaper')}
+              {t('ui.settings.wallpaper.desktop_background')}
             </h3>
             <div className="grid grid-cols-3 gap-3">
               {Array.from({ length: 9 }).map((_, i) => (
@@ -276,7 +276,7 @@ export function SettingsWindow() {
                     background: 'var(--win95-bg-light)'
                   }}
                 >
-                  <span className="text-xs italic" style={{ color: 'var(--neutral-gray)' }}>{t('ui.settings.coming_soon')}</span>
+                  <span className="text-xs italic" style={{ color: 'var(--neutral-gray)' }}>{t('ui.settings.appearance.coming_soon')}</span>
                 </div>
               ))}
             </div>
@@ -288,7 +288,7 @@ export function SettingsWindow() {
             {/* Language Section */}
             <div>
               <h3 className="text-xs font-bold mb-3 uppercase tracking-wide" style={{ color: 'var(--win95-text)' }}>
-                {t('ui.settings.section_language')}
+                {t('ui.settings.region.language')}
               </h3>
               <div className="space-y-2">
                 {availableLocales.map((lang) => (
@@ -319,7 +319,7 @@ export function SettingsWindow() {
             {/* Timezone Section (Coming Soon) */}
             <div>
               <h3 className="text-xs font-bold mb-3 uppercase tracking-wide" style={{ color: 'var(--win95-text)' }}>
-                {t('ui.settings.section_timezone')}
+                {t('ui.settings.region.timezone')}
               </h3>
               <div
                 className="p-4 border-2 rounded flex items-center justify-center opacity-50"
@@ -328,14 +328,14 @@ export function SettingsWindow() {
                   background: 'var(--win95-bg-light)'
                 }}
               >
-                <span className="text-xs italic" style={{ color: 'var(--neutral-gray)' }}>{t('ui.settings.coming_soon')}</span>
+                <span className="text-xs italic" style={{ color: 'var(--neutral-gray)' }}>{t('ui.settings.appearance.coming_soon')}</span>
               </div>
             </div>
 
             {/* Date & Time Format Section (Coming Soon) */}
             <div>
               <h3 className="text-xs font-bold mb-3 uppercase tracking-wide" style={{ color: 'var(--win95-text)' }}>
-                {t('ui.settings.section_datetime_format')}
+                {t('ui.settings.region.datetime_format')}
               </h3>
               <div
                 className="p-4 border-2 rounded flex items-center justify-center opacity-50"
@@ -344,7 +344,7 @@ export function SettingsWindow() {
                   background: 'var(--win95-bg-light)'
                 }}
               >
-                <span className="text-xs italic" style={{ color: 'var(--neutral-gray)' }}>{t('ui.settings.coming_soon')}</span>
+                <span className="text-xs italic" style={{ color: 'var(--neutral-gray)' }}>{t('ui.settings.appearance.coming_soon')}</span>
               </div>
             </div>
           </>
@@ -380,10 +380,10 @@ export function SettingsWindow() {
                 <div className="text-3xl">🥷</div>
                 <div className="flex-1 text-left">
                   <div className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
-                    {t('ui.settings.admin_ontology_title')}
+                    {t('ui.settings.admin.ontology_title')}
                   </div>
                   <div className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-                    {t('ui.settings.admin_ontology_desc')}
+                    {t('ui.settings.admin.ontology_description')}
                   </div>
                 </div>
               </button>
@@ -399,10 +399,10 @@ export function SettingsWindow() {
                 <div className="text-3xl">👥</div>
                 <div className="flex-1 text-left">
                   <div className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
-                    {t('ui.settings.admin_user_management_title')}
+                    {t('ui.settings.admin.user_management_title')}
                   </div>
                   <div className="text-xs mt-1 italic" style={{ color: 'var(--neutral-gray)' }}>
-                    {t('ui.settings.coming_soon')}
+                    {t('ui.settings.appearance.coming_soon')}
                   </div>
                 </div>
               </div>
@@ -417,10 +417,10 @@ export function SettingsWindow() {
                 <div className="text-3xl">📊</div>
                 <div className="flex-1 text-left">
                   <div className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
-                    {t('ui.settings.admin_system_analysis_title')}
+                    {t('ui.settings.admin.system_analytics_title')}
                   </div>
                   <div className="text-xs mt-1 italic" style={{ color: 'var(--neutral-gray)' }}>
-                    {t('ui.settings.coming_soon')}
+                    {t('ui.settings.appearance.coming_soon')}
                   </div>
                 </div>
               </div>
@@ -432,10 +432,10 @@ export function SettingsWindow() {
       {/* Action Buttons - Fixed at bottom on mobile with sticky positioning */}
       <div className="flex gap-2 justify-end px-4 py-3 border-t-2 shrink-0 sticky bottom-0 z-10" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
         <RetroButton variant="secondary" onClick={handleReset}>
-          {t('ui.settings.button_reset')}
+          {t('ui.settings.button.reset')}
         </RetroButton>
         <RetroButton onClick={handleApply}>
-          {t('ui.settings.button_apply')}
+          {t('ui.settings.button.apply')}
         </RetroButton>
       </div>
     </div>

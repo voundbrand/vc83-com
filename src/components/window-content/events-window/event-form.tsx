@@ -79,6 +79,7 @@ export function EventForm({
     videoUrl: string;
     videoProvider: 'youtube' | 'vimeo' | 'other';
     loop: boolean;
+    autostart: boolean;
     order: number;
   }>>([]);
   const [showVideoFirst, setShowVideoFirst] = useState(false);

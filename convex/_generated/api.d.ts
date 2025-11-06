@@ -167,6 +167,7 @@ import type * as translations_seedNotifications from "../translations/seedNotifi
 import type * as translations_seedOrganizations from "../translations/seedOrganizations.js";
 import type * as translations_seedProfileTranslations from "../translations/seedProfileTranslations.js";
 import type * as translations_seedSettings from "../translations/seedSettings.js";
+import type * as translations_seedStartMenu from "../translations/seedStartMenu.js";
 import type * as translations_seedWelcomeTranslations from "../translations/seedWelcomeTranslations.js";
 import type * as userPreferences from "../userPreferences.js";
 import type * as vatValidation from "../vatValidation.js";
@@ -341,6 +342,7 @@ declare const fullApi: ApiFromModules<{
   "translations/seedOrganizations": typeof translations_seedOrganizations;
   "translations/seedProfileTranslations": typeof translations_seedProfileTranslations;
   "translations/seedSettings": typeof translations_seedSettings;
+  "translations/seedStartMenu": typeof translations_seedStartMenu;
   "translations/seedWelcomeTranslations": typeof translations_seedWelcomeTranslations;
   userPreferences: typeof userPreferences;
   vatValidation: typeof vatValidation;
