@@ -49,7 +49,15 @@ export function WelcomeWindow() {
         borderColor: 'var(--win95-border)'
       }}>
         <div>{t("ui.welcome.footer")}</div>
-        <div>{t("ui.welcome.footer_startup")}</div>
+        <div>
+          {t("ui.welcome.footer_startup").split(/(L4YERCAK3|l4yercak3)/i).map((part, index) =>
+            /L4YERCAK3/i.test(part) ? (
+              <span key={index} className="font-serif italic">{part}</span>
+            ) : (
+              <span key={index}>{part}</span>
+            )
+          )}
+        </div>
       </div>
     </div>
   );
