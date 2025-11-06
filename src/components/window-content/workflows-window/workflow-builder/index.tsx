@@ -12,6 +12,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
 import { useNotification } from "../../../../hooks/use-notification";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import {
   ArrowLeft,
   Save,
@@ -57,6 +58,7 @@ export function WorkflowBuilder({
   workflowId,
   onBack,
 }: WorkflowBuilderProps) {
+  const { t } = useNamespaceTranslations("ui.workflows");
   const [workflowName, setWorkflowName] = useState("New Workflow");
   const [workflowDescription, setWorkflowDescription] = useState("");
   const [workflowSubtype, setWorkflowSubtype] = useState("checkout-flow");
@@ -99,8 +101,8 @@ export function WorkflowBuilder({
   const handleSave = async () => {
     if (!workflowName.trim()) {
       notification.error(
-        "Invalid Input",
-        "Please enter a workflow name"
+        t("ui.workflows.builder.validation.nameRequired.title"),
+        t("ui.workflows.builder.validation.nameRequired.message")
       );
       return;
     }
@@ -110,8 +112,8 @@ export function WorkflowBuilder({
 
     if (validObjects.length === 0 && selectedBehaviors.length === 0) {
       notification.error(
-        "Invalid Workflow",
-        "Please add at least one object or behavior to the workflow"
+        t("ui.workflows.builder.validation.emptyWorkflow.title"),
+        t("ui.workflows.builder.validation.emptyWorkflow.message")
       );
       return;
     }
@@ -146,8 +148,8 @@ export function WorkflowBuilder({
           updates: workflowData,
         });
         notification.success(
-          "Workflow Updated",
-          `Successfully updated workflow "${workflowName}"`
+          t("ui.workflows.builder.success.updated.title"),
+          t("ui.workflows.builder.success.updated.message", { name: workflowName })
         );
       } else {
         // Create new
@@ -160,16 +162,16 @@ export function WorkflowBuilder({
           },
         });
         notification.success(
-          "Workflow Created",
-          `Successfully created workflow "${workflowName}"`
+          t("ui.workflows.builder.success.created.title"),
+          t("ui.workflows.builder.success.created.message", { name: workflowName })
         );
       }
 
       onBack();
     } catch (error) {
       notification.error(
-        "Save Failed",
-        `Error saving workflow: ${error instanceof Error ? error.message : 'Unknown error'}`
+        t("ui.workflows.builder.error.title"),
+        t("ui.workflows.builder.error.message", { error: error instanceof Error ? error.message : 'Unknown error' })
       );
     } finally {
       setIsSaving(false);
@@ -223,7 +225,7 @@ export function WorkflowBuilder({
               className="retro-button flex items-center gap-1 px-2 py-1 text-xs"
             >
               <ArrowLeft className="h-3 w-3" />
-              Back
+              {t("ui.workflows.builder.header.back")}
             </button>
             <div className="h-4 w-px" style={{ background: 'var(--win95-border)' }} />
             <div>
@@ -232,14 +234,14 @@ export function WorkflowBuilder({
                 value={workflowName}
                 onChange={(e) => setWorkflowName(e.target.value)}
                 className="retro-input text-xs font-bold px-2 py-1"
-                placeholder="Workflow Name"
+                placeholder={t("ui.workflows.builder.header.namePlaceholder")}
               />
               <input
                 type="text"
                 value={workflowDescription}
                 onChange={(e) => setWorkflowDescription(e.target.value)}
                 className="retro-input mt-1 block text-xs px-2 py-1"
-                placeholder="Add description..."
+                placeholder={t("ui.workflows.builder.header.descriptionPlaceholder")}
               />
             </div>
           </div>
@@ -248,38 +250,38 @@ export function WorkflowBuilder({
             <button
               onClick={() => setShowHelp(true)}
               className="retro-button flex items-center gap-1 px-2 py-1 text-xs"
-              title="Show help guide"
+              title={t("ui.workflows.builder.header.helpTooltip")}
             >
               <HelpCircle className="h-3 w-3" />
-              Help
+              {t("ui.workflows.builder.header.help")}
             </button>
 
             <input
               type="text"
               value={workflowSubtype}
               onChange={(e) => setWorkflowSubtype(e.target.value)}
-              placeholder="checkout-flow, form-processing, event-registration..."
+              placeholder={t("ui.workflows.builder.header.subtypePlaceholder")}
               className="retro-input px-2 py-1 text-xs w-64"
-              title="Workflow subtype - enter any custom value"
+              title={t("ui.workflows.builder.header.subtypeTooltip")}
             />
 
             <div className="flex items-center gap-2">
               <label className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
-                Trigger:
+                {t("ui.workflows.builder.header.triggerLabel")}:
               </label>
               <select
                 value={triggerOn}
                 onChange={(e) => setTriggerOn(e.target.value)}
                 className="retro-input px-2 py-1 text-xs"
-                title="When should this workflow run?"
+                title={t("ui.workflows.builder.header.triggerTooltip")}
               >
-                <option value="manual">Manual (Run Now button)</option>
-                <option value="scheduled">Scheduled (Time-based)</option>
-                <option value="event_completion">Event Completion</option>
-                <option value="api_call">API Call</option>
-                <option value="checkout_start">Checkout Start</option>
-                <option value="form_submit">Form Submit</option>
-                <option value="payment_complete">Payment Complete</option>
+                <option value="manual">{t("ui.workflows.builder.header.triggers.manual")}</option>
+                <option value="scheduled">{t("ui.workflows.builder.header.triggers.scheduled")}</option>
+                <option value="event_completion">{t("ui.workflows.builder.header.triggers.eventCompletion")}</option>
+                <option value="api_call">{t("ui.workflows.builder.header.triggers.apiCall")}</option>
+                <option value="checkout_start">{t("ui.workflows.builder.header.triggers.checkoutStart")}</option>
+                <option value="form_submit">{t("ui.workflows.builder.header.triggers.formSubmit")}</option>
+                <option value="payment_complete">{t("ui.workflows.builder.header.triggers.paymentComplete")}</option>
               </select>
             </div>
 
@@ -291,12 +293,12 @@ export function WorkflowBuilder({
               {isSaving ? (
                 <>
                   <Loader2 className="h-3 w-3 animate-spin" />
-                  Saving...
+                  {t("ui.workflows.builder.header.saving")}
                 </>
               ) : (
                 <>
                   <Save className="h-3 w-3" />
-                  Save
+                  {t("ui.workflows.builder.header.save")}
                 </>
               )}
             </button>

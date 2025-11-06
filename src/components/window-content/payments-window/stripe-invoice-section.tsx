@@ -23,6 +23,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { useState } from "react";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 interface StripeInvoiceSectionProps {
   organizationId: Id<"organizations">;
@@ -31,6 +32,7 @@ interface StripeInvoiceSectionProps {
 
 export function StripeInvoiceSection({ organizationId, organization }: StripeInvoiceSectionProps) {
   const { sessionId } = useAuth();
+  const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.payments.invoicing");
   const [isRequesting, setIsRequesting] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
   const [requestSuccess, setRequestSuccess] = useState(false);
@@ -85,6 +87,11 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
   // Check if invoicing is enabled
   const invoicingEnabled = invoiceSettings?.invoicingEnabled ?? false;
 
+  // Show loading state while translations load
+  if (translationsLoading) {
+    return <div className="p-4" style={{ color: "var(--win95-text)" }}>Loading...</div>;
+  }
+
   // Not connected to Stripe
   if (!orgStripeAccountId) {
     return (
@@ -99,11 +106,10 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
           <Info size={16} className="mt-0.5 flex-shrink-0" style={{ color: "var(--info)" }} />
           <div>
             <p className="font-semibold text-sm" style={{ color: "var(--win95-text)" }}>
-              Stripe Connection Required
+              {t("ui.payments.invoicing.connection_required.title")}
             </p>
             <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-              Connect your Stripe account first to enable Stripe Invoicing.
-              Go to the &quot;Stripe Connect&quot; tab to get started.
+              {t("ui.payments.invoicing.connection_required.description")}
             </p>
           </div>
         </div>
@@ -125,25 +131,25 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
           <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" style={{ color: "var(--warning)" }} />
           <div className="flex-1">
             <p className="font-semibold text-sm" style={{ color: "var(--win95-text)" }}>
-              Stripe Invoicing Not Set Up
+              {t("ui.payments.invoicing.not_setup.title")}
             </p>
             <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-              Stripe Invoicing is available for all accounts. Click below to set it up in your system.
+              {t("ui.payments.invoicing.not_setup.description")}
             </p>
 
             {/* What's needed */}
             <div className="mt-3 p-3 border-2" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}>
               <p className="text-xs font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-                Requirements:
+                {t("ui.payments.invoicing.requirements.title")}
               </p>
               <ul className="text-xs space-y-1" style={{ color: "var(--neutral-gray)" }}>
                 <li className="flex items-center gap-2">
                   <span className="text-green-500">✓</span>
-                  Stripe account connected
+                  {t("ui.payments.invoicing.requirements.stripe_connected")}
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="text-green-500">✓</span>
-                  Business profile is set up
+                  {t("ui.payments.invoicing.requirements.business_profile")}
                 </li>
               </ul>
             </div>
@@ -154,11 +160,11 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
                 <div className="flex items-center gap-2">
                   <CheckCircle2 size={16} className="text-green-500" />
                   <p className="text-xs font-semibold" style={{ color: "var(--win95-text)" }}>
-                    Invoicing enabled successfully!
+                    {t("ui.payments.invoicing.success.title")}
                   </p>
                 </div>
                 <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                  Stripe Invoicing is now active for your account. Click Refresh to update the UI.
+                  {t("ui.payments.invoicing.success.description")}
                 </p>
               </div>
             )}
@@ -169,7 +175,7 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
                 <div className="flex items-center gap-2">
                   <AlertTriangle size={16} className="text-red-500" />
                   <p className="text-xs font-semibold" style={{ color: "var(--win95-text)" }}>
-                    Failed to enable invoicing
+                    {t("ui.payments.invoicing.error.title")}
                   </p>
                 </div>
                 <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
@@ -197,12 +203,12 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
                 {isRequesting ? (
                   <>
                     <Loader2 size={14} className="animate-spin" />
-                    Enabling...
+                    {t("ui.payments.invoicing.buttons.enabling")}
                   </>
                 ) : (
                   <>
                     <Send size={14} />
-                    Enable Invoicing
+                    {t("ui.payments.invoicing.buttons.enable")}
                   </>
                 )}
               </button>
@@ -224,12 +230,12 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
                 }}
               >
                 <ExternalLink size={14} />
-                Open Stripe Dashboard
+                {t("ui.payments.invoicing.buttons.dashboard")}
               </a>
             </div>
 
             <p className="text-xs mt-3" style={{ color: "var(--neutral-gray)" }}>
-              Click &quot;Enable Invoicing&quot; to set up invoicing in your account (requires business profile), or visit your Stripe Dashboard to create invoices. After enabling, click the Refresh button in the Stripe Connect section to update your status.
+              {t("ui.payments.invoicing.how_to.note")}
             </p>
           </div>
         </div>
@@ -241,14 +247,14 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
         >
           <h3 className="font-bold text-sm mb-3 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
             <Info size={14} />
-            How to Enable Stripe Invoicing
+            {t("ui.payments.invoicing.how_to.title")}
           </h3>
           <ol className="list-decimal list-inside space-y-2 text-xs" style={{ color: "var(--neutral-gray)" }}>
-            <li>Go to your Stripe Dashboard (link above)</li>
-            <li>Navigate to Settings → Business Settings → Capabilities</li>
-            <li>Look for &quot;Invoicing&quot; capability and enable it</li>
-            <li>Complete any required information (may require Stripe support approval)</li>
-            <li>Return here and click Refresh to sync the new capability</li>
+            <li>{t("ui.payments.invoicing.how_to.step1")}</li>
+            <li>{t("ui.payments.invoicing.how_to.step2")}</li>
+            <li>{t("ui.payments.invoicing.how_to.step3")}</li>
+            <li>{t("ui.payments.invoicing.how_to.step4")}</li>
+            <li>{t("ui.payments.invoicing.how_to.step5")}</li>
           </ol>
         </div>
       </div>
@@ -270,10 +276,10 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
           <CheckCircle2 className="text-green-500 flex-shrink-0" size={20} />
           <div className="flex-1">
             <h3 className="font-bold text-sm mb-1" style={{ color: "var(--win95-text)" }}>
-              Stripe Invoicing: Enabled
+              {t("ui.payments.invoicing.status.enabled.title")}
             </h3>
             <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-              Your account is configured to create and manage invoices through Stripe
+              {t("ui.payments.invoicing.status.enabled.description")}
             </p>
           </div>
         </div>
@@ -285,45 +291,45 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
         style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
       >
         <h3 className="font-bold text-sm mb-3" style={{ color: "var(--win95-text)" }}>
-          Invoice Configuration
+          {t("ui.payments.invoicing.config.title")}
         </h3>
         <div className="space-y-2">
           <div className="flex justify-between text-xs">
-            <span style={{ color: "var(--neutral-gray)" }}>Invoicing:</span>
+            <span style={{ color: "var(--neutral-gray)" }}>{t("ui.payments.invoicing.config.invoicing")}</span>
             <span className="font-semibold" style={{ color: "var(--success)" }}>
-              Enabled
+              {t("ui.payments.invoicing.config.enabled")}
             </span>
           </div>
           <div className="flex justify-between text-xs">
-            <span style={{ color: "var(--neutral-gray)" }}>Collection Method:</span>
+            <span style={{ color: "var(--neutral-gray)" }}>{t("ui.payments.invoicing.config.collection_method")}</span>
             <span className="font-mono" style={{ color: "var(--win95-text)" }}>
               {invoiceSettings?.collectionMethod || "send_invoice"}
             </span>
           </div>
           <div className="flex justify-between text-xs">
-            <span style={{ color: "var(--neutral-gray)" }}>Payment Terms:</span>
+            <span style={{ color: "var(--neutral-gray)" }}>{t("ui.payments.invoicing.config.payment_terms")}</span>
             <span className="font-mono" style={{ color: "var(--win95-text)" }}>
               {invoiceSettings?.paymentTerms || "net_30"}
             </span>
           </div>
           <div className="flex justify-between text-xs">
-            <span style={{ color: "var(--neutral-gray)" }}>Days Until Due:</span>
+            <span style={{ color: "var(--neutral-gray)" }}>{t("ui.payments.invoicing.config.days_until_due")}</span>
             <span className="font-mono" style={{ color: "var(--win95-text)" }}>
               {invoiceSettings?.daysUntilDue || 30}
             </span>
           </div>
           <div className="flex justify-between text-xs">
-            <span style={{ color: "var(--neutral-gray)" }}>Auto Advance:</span>
+            <span style={{ color: "var(--neutral-gray)" }}>{t("ui.payments.invoicing.config.auto_advance")}</span>
             <span className="font-semibold" style={{
               color: invoiceSettings?.autoAdvance ? "var(--success)" : "var(--neutral-gray)"
             }}>
-              {invoiceSettings?.autoAdvance ? "Yes" : "No"}
+              {invoiceSettings?.autoAdvance ? t("ui.payments.invoicing.config.yes") : t("ui.payments.invoicing.config.no")}
             </span>
           </div>
           <div className="flex justify-between text-xs">
-            <span style={{ color: "var(--neutral-gray)" }}>Stripe Account Mode:</span>
+            <span style={{ color: "var(--neutral-gray)" }}>{t("ui.payments.invoicing.config.stripe_mode")}</span>
             <span className="font-semibold" style={{ color: isTestMode ? "var(--warning)" : "var(--success)" }}>
-              {isTestMode ? "Test Mode" : "Live Mode"}
+              {isTestMode ? t("ui.payments.invoicing.config.test_mode") : t("ui.payments.invoicing.config.live_mode")}
             </span>
           </div>
         </div>
@@ -335,28 +341,28 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
         style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
       >
         <h3 className="font-bold text-sm mb-3" style={{ color: "var(--win95-text)" }}>
-          What Stripe Invoicing Does
+          {t("ui.payments.invoicing.features.title")}
         </h3>
         <ul className="space-y-2 text-xs" style={{ color: "var(--neutral-gray)" }}>
           <li className="flex items-start gap-2">
             <FileText size={14} className="mt-0.5 flex-shrink-0" style={{ color: "var(--success)" }} />
-            <span>Create professional invoices with your branding</span>
+            <span>{t("ui.payments.invoicing.features.branding")}</span>
           </li>
           <li className="flex items-start gap-2">
             <Send size={14} className="mt-0.5 flex-shrink-0" style={{ color: "var(--success)" }} />
-            <span>Automatically send invoices to customers via email</span>
+            <span>{t("ui.payments.invoicing.features.auto_send")}</span>
           </li>
           <li className="flex items-start gap-2">
             <CreditCard size={14} className="mt-0.5 flex-shrink-0" style={{ color: "var(--success)" }} />
-            <span>Accept payments online with hosted invoice pages</span>
+            <span>{t("ui.payments.invoicing.features.online_payment")}</span>
           </li>
           <li className="flex items-start gap-2">
             <Receipt size={14} className="mt-0.5 flex-shrink-0" style={{ color: "var(--success)" }} />
-            <span>Track payment status and send automatic reminders</span>
+            <span>{t("ui.payments.invoicing.features.tracking")}</span>
           </li>
           <li className="flex items-start gap-2">
             <CheckCircle2 size={14} className="mt-0.5 flex-shrink-0" style={{ color: "var(--success)" }} />
-            <span>Integrate with Stripe Tax for automatic tax calculation</span>
+            <span>{t("ui.payments.invoicing.features.tax_integration")}</span>
           </li>
         </ul>
       </div>
@@ -367,10 +373,10 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
         style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
       >
         <h3 className="font-bold text-sm mb-3" style={{ color: "var(--win95-text)" }}>
-          Manage Invoices
+          {t("ui.payments.invoicing.manage.title")}
         </h3>
         <p className="text-xs mb-4" style={{ color: "var(--neutral-gray)" }}>
-          Create, send, and manage invoices directly from your Stripe Dashboard.
+          {t("ui.payments.invoicing.manage.description")}
         </p>
 
         <div className="flex gap-2">
@@ -391,7 +397,7 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
             }}
           >
             <FileText size={14} />
-            View Invoices
+            {t("ui.payments.invoicing.buttons.view_invoices")}
           </a>
 
           <a
@@ -411,7 +417,7 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
             }}
           >
             <ExternalLink size={14} />
-            Create Invoice
+            {t("ui.payments.invoicing.buttons.create_invoice")}
           </a>
         </div>
       </div>
@@ -427,14 +433,14 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
       >
         <p className="font-semibold mb-2 flex items-center gap-2">
           <Info size={14} />
-          Important Notes
+          {t("ui.payments.invoicing.notes.title")}
         </p>
         <ul className="list-disc list-inside space-y-1">
-          <li>Invoices can be sent automatically or manually to customers</li>
-          <li>Customers can pay invoices online via hosted payment pages</li>
-          <li>Combine with Stripe Tax for automatic tax calculation on invoices</li>
-          <li>Payment terms and due dates can be customized per invoice</li>
-          <li>Stripe handles payment reminders and collection automatically</li>
+          <li>{t("ui.payments.invoicing.notes.send_auto_manual")}</li>
+          <li>{t("ui.payments.invoicing.notes.online_payment")}</li>
+          <li>{t("ui.payments.invoicing.notes.tax_integration")}</li>
+          <li>{t("ui.payments.invoicing.notes.custom_terms")}</li>
+          <li>{t("ui.payments.invoicing.notes.auto_collection")}</li>
         </ul>
       </div>
     </div>

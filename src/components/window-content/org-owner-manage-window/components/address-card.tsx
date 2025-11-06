@@ -2,7 +2,7 @@
 
 import { MapPin, Star, Edit2, Trash2 } from "lucide-react";
 import { Doc } from "../../../../../convex/_generated/dataModel";
-import { useTranslation } from "@/contexts/translation-context";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 // Address is now stored as an object with type="address"
 interface AddressCardProps {
@@ -28,7 +28,7 @@ export function AddressCard({
   onSetPrimary,
   canEdit = false,
 }: AddressCardProps) {
-  const { t } = useTranslation();
+  const { t } = useNamespaceTranslations("ui.manage");
 
   // Address data is now in customProperties
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

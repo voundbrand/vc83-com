@@ -14,9 +14,11 @@ import { useQuery } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
 import { useTranslation } from "@/contexts/translation-context";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 export function ReviewOrderStep({ checkoutData, products, onComplete, onBack }: StepProps) {
-  const { t } = useTranslation();
+  const { locale } = useTranslation(); // For locale management only
+  const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.checkout_template.behavior_driven");
   const selectedProducts = checkoutData.selectedProducts || [];
   const behaviorResults = checkoutData.behaviorResults;
 
@@ -63,8 +65,8 @@ export function ReviewOrderStep({ checkoutData, products, onComplete, onBack }: 
     <div className="max-w-3xl mx-auto p-6">
       {/* Header */}
       <div className="mb-8">
-        <h2 className="text-3xl font-bold mb-2">{t('ui.checkout_template.behavior_driven.review_order.headers.title', 'Review Your Order')}</h2>
-        <p className="text-gray-600">{t('ui.checkout_template.behavior_driven.review_order.headers.subtitle', 'Please review your information before continuing')}</p>
+        <h2 className="text-3xl font-bold mb-2">{t('ui.checkout_template.behavior_driven.review_order.headers.title')}</h2>
+        <p className="text-gray-600">{t('ui.checkout_template.behavior_driven.review_order.headers.subtitle')}</p>
       </div>
 
       {/* Employer Billing Notice */}
@@ -72,17 +74,17 @@ export function ReviewOrderStep({ checkoutData, products, onComplete, onBack }: 
         <div className="bg-blue-50 border-2 border-blue-400 rounded-lg p-6 mb-6">
           <div className="flex items-center gap-3 mb-3">
             <CheckCircle size={24} className="text-blue-600" />
-            <h3 className="text-lg font-bold text-blue-900">{t('ui.checkout_template.behavior_driven.review_order.employer_billing.title', 'Employer Billing Detected')}</h3>
+            <h3 className="text-lg font-bold text-blue-900">{t('ui.checkout_template.behavior_driven.review_order.employer_billing.title')}</h3>
           </div>
           <div className="text-blue-900">
             <p className="mb-2">
-              <strong>{t('ui.checkout_template.behavior_driven.review_order.employer_billing.employer', 'Employer:')}</strong> {employerName}
+              <strong>{t('ui.checkout_template.behavior_driven.review_order.employer_billing.employer')}</strong> {employerName}
             </p>
             <p className="mb-2">
-              <strong>{t('ui.checkout_template.behavior_driven.review_order.employer_billing.payment_terms', 'Payment Terms:')}</strong> {t('ui.checkout_template.behavior_driven.review_order.employer_billing.net_days', { days: invoiceInfo.paymentTerms?.replace("net", "") || "30" })}
+              <strong>{t('ui.checkout_template.behavior_driven.review_order.employer_billing.payment_terms')}</strong> {t('ui.checkout_template.behavior_driven.review_order.employer_billing.net_days', { days: invoiceInfo.paymentTerms?.replace("net", "") || "30" })}
             </p>
             <p className="text-sm mt-3 italic">
-              {t('ui.checkout_template.behavior_driven.review_order.employer_billing.notice', 'ℹ️ An invoice will be sent to your employer. No immediate payment required.')}
+              {t('ui.checkout_template.behavior_driven.review_order.employer_billing.notice')}
             </p>
           </div>
         </div>
@@ -90,7 +92,7 @@ export function ReviewOrderStep({ checkoutData, products, onComplete, onBack }: 
 
       {/* Order Summary */}
       <div className="bg-white border-2 border-gray-300 rounded-lg p-6 mb-6">
-        <h3 className="text-lg font-bold mb-4">{t('ui.checkout_template.behavior_driven.review_order.sections.order_summary', 'Order Summary')}</h3>
+        <h3 className="text-lg font-bold mb-4">{t('ui.checkout_template.behavior_driven.review_order.sections.order_summary')}</h3>
 
         {/* Products */}
         <div className="space-y-3 mb-4 pb-4 border-b border-gray-300">
@@ -125,7 +127,7 @@ export function ReviewOrderStep({ checkoutData, products, onComplete, onBack }: 
         {/* Totals */}
         <div className="space-y-2">
           <div className="flex justify-between text-gray-700">
-            <span>{t('ui.checkout_template.behavior_driven.review_order.labels.subtotal', 'Subtotal:')}</span>
+            <span>{t('ui.checkout_template.behavior_driven.review_order.labels.subtotal')}</span>
             <span className="font-medium">{formatPrice(subtotal, currency)}</span>
           </div>
 
@@ -137,14 +139,14 @@ export function ReviewOrderStep({ checkoutData, products, onComplete, onBack }: 
 
             return (
               <div className="flex justify-between text-gray-700">
-                <span>{t('ui.checkout_template.behavior_driven.review_order.labels.tax', 'Tax')} ({effectiveTaxRate.toFixed(1)}%):</span>
+                <span>{t('ui.checkout_template.behavior_driven.review_order.labels.tax')} ({effectiveTaxRate.toFixed(1)}%):</span>
                 <span className="font-medium">{formatPrice(taxCalculation.taxAmount, currency)}</span>
               </div>
             );
           })()}
 
           <div className="flex justify-between pt-3 mt-3 border-t-2 border-gray-400">
-            <span className="text-xl font-bold">{t('ui.checkout_template.behavior_driven.review_order.labels.total', 'Total:')}</span>
+            <span className="text-xl font-bold">{t('ui.checkout_template.behavior_driven.review_order.labels.total')}</span>
             <span className="text-xl font-bold text-purple-600">{formatPrice(total, currency)}</span>
           </div>
         </div>
@@ -152,17 +154,17 @@ export function ReviewOrderStep({ checkoutData, products, onComplete, onBack }: 
 
       {/* Customer Info */}
       <div className="bg-white border-2 border-gray-300 rounded-lg p-6 mb-6">
-        <h3 className="text-lg font-bold mb-4">{t('ui.checkout_template.behavior_driven.review_order.sections.your_information', 'Your Information')}</h3>
+        <h3 className="text-lg font-bold mb-4">{t('ui.checkout_template.behavior_driven.review_order.sections.your_information')}</h3>
         <div className="space-y-2 text-sm">
           <p>
-            <strong>{t('ui.checkout_template.behavior_driven.review_order.labels.email', 'Email:')}</strong> {checkoutData.customerInfo?.email}
+            <strong>{t('ui.checkout_template.behavior_driven.review_order.labels.email')}</strong> {checkoutData.customerInfo?.email}
           </p>
           <p>
-            <strong>{t('ui.checkout_template.behavior_driven.review_order.labels.name', 'Name:')}</strong> {checkoutData.customerInfo?.name}
+            <strong>{t('ui.checkout_template.behavior_driven.review_order.labels.name')}</strong> {checkoutData.customerInfo?.name}
           </p>
           {checkoutData.customerInfo?.phone && (
             <p>
-              <strong>{t('ui.checkout_template.behavior_driven.review_order.labels.phone', 'Phone:')}</strong> {checkoutData.customerInfo.phone}
+              <strong>{t('ui.checkout_template.behavior_driven.review_order.labels.phone')}</strong> {checkoutData.customerInfo.phone}
             </p>
           )}
         </div>
@@ -171,9 +173,9 @@ export function ReviewOrderStep({ checkoutData, products, onComplete, onBack }: 
       {/* Registration Summary */}
       {checkoutData.formResponses && checkoutData.formResponses.length > 0 && (
         <div className="bg-white border-2 border-gray-300 rounded-lg p-6 mb-6">
-          <h3 className="text-lg font-bold mb-4">{t('ui.checkout_template.behavior_driven.review_order.sections.registration_info', 'Registration Information')}</h3>
+          <h3 className="text-lg font-bold mb-4">{t('ui.checkout_template.behavior_driven.review_order.sections.registration_info')}</h3>
           <p className="text-sm text-gray-600">
-            ✓ {checkoutData.formResponses.length} {checkoutData.formResponses.length > 1 ? t('ui.checkout_template.behavior_driven.review_order.labels.tickets_registered', 'tickets registered') : t('ui.checkout_template.behavior_driven.review_order.labels.ticket_registered', 'ticket registered')}
+            ✓ {checkoutData.formResponses.length} {checkoutData.formResponses.length > 1 ? t('ui.checkout_template.behavior_driven.review_order.labels.tickets_registered') : t('ui.checkout_template.behavior_driven.review_order.labels.ticket_registered')}
           </p>
         </div>
       )}
@@ -189,7 +191,7 @@ export function ReviewOrderStep({ checkoutData, products, onComplete, onBack }: 
             className="px-6 py-3 text-lg font-bold border-2 border-gray-400 bg-white text-gray-700 hover:bg-gray-50 rounded transition-colors flex items-center gap-2"
           >
             <ArrowLeft size={20} />
-            {t('ui.checkout_template.behavior_driven.review_order.buttons.back', 'Back')}
+            {t('ui.checkout_template.behavior_driven.review_order.buttons.back')}
           </button>
         )}
 
@@ -201,10 +203,10 @@ export function ReviewOrderStep({ checkoutData, products, onComplete, onBack }: 
           {isInvoiceCheckout ? (
             <>
               <FileText size={20} />
-              {t('ui.checkout_template.behavior_driven.review_order.buttons.continue_invoice', 'Complete Registration (Invoice)')}
+              {t('ui.checkout_template.behavior_driven.review_order.buttons.continue_invoice')}
             </>
           ) : (
-            <>{t('ui.checkout_template.behavior_driven.review_order.buttons.continue_payment', 'Continue to Payment →')}</>
+            <>{t('ui.checkout_template.behavior_driven.review_order.buttons.continue_payment')}</>
           )}
         </button>
       </div>

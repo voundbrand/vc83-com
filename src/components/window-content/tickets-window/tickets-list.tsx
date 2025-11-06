@@ -5,6 +5,7 @@ import { api } from "../../../../convex/_generated/api";
 import { Id, Doc } from "../../../../convex/_generated/dataModel";
 import { Edit2, Trash2, CheckCircle, Loader2, User } from "lucide-react";
 import { useState, useMemo } from "react";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { TicketDetailModal } from "./ticket-detail-modal";
 
 interface TicketsListProps {
@@ -17,6 +18,7 @@ type SortField = "createdAt" | "name" | "status" | "subtype";
 type SortDirection = "asc" | "desc";
 
 export function TicketsList({ sessionId, organizationId, onEdit }: TicketsListProps) {
+  const { t } = useNamespaceTranslations("ui.tickets");
   const [filter, setFilter] = useState<{ subtype?: string; status?: string }>({});
   const [sortField, setSortField] = useState<SortField>("createdAt");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc"); // Default: newest first
@@ -33,33 +35,33 @@ export function TicketsList({ sessionId, organizationId, onEdit }: TicketsListPr
   const redeemTicket = useMutation(api.ticketOntology.redeemTicket);
 
   const handleCancel = async (ticketId: Id<"objects">) => {
-    if (confirm("Are you sure you want to cancel this ticket?")) {
+    if (confirm(t("ui.tickets.list.confirm_cancel"))) {
       try {
         await cancelTicket({ sessionId, ticketId });
       } catch (error) {
         console.error("Failed to cancel ticket:", error);
-        alert("Failed to cancel ticket");
+        alert(t("ui.tickets.list.error.cancel_failed"));
       }
     }
   };
 
   const handleRedeem = async (ticketId: Id<"objects">) => {
-    if (confirm("Mark this ticket as redeemed (checked in)?")) {
+    if (confirm(t("ui.tickets.list.confirm_redeem"))) {
       try {
         await redeemTicket({ sessionId, ticketId });
       } catch (error) {
         console.error("Failed to redeem ticket:", error);
-        alert("Failed to redeem ticket");
+        alert(t("ui.tickets.list.error.redeem_failed"));
       }
     }
   };
 
   const getStatusBadge = (status: string) => {
     const badges = {
-      issued: { label: "Issued", color: "var(--success)" },
-      redeemed: { label: "Redeemed", color: "var(--primary)" },
-      cancelled: { label: "Cancelled", color: "var(--error)" },
-      transferred: { label: "Transferred", color: "var(--warning)" },
+      issued: { label: t("ui.tickets.status.issued"), color: "var(--success)" },
+      redeemed: { label: t("ui.tickets.status.redeemed"), color: "var(--win95-highlight)" },
+      cancelled: { label: t("ui.tickets.status.cancelled"), color: "var(--error)" },
+      transferred: { label: t("ui.tickets.status.transferred"), color: "var(--win95-highlight)" },
     };
     const badge = badges[status as keyof typeof badges] || badges.issued;
     return (
@@ -74,10 +76,10 @@ export function TicketsList({ sessionId, organizationId, onEdit }: TicketsListPr
 
   const getSubtypeLabel = (subtype: string) => {
     const labels: Record<string, string> = {
-      standard: "🎫 Standard",
-      vip: "⭐ VIP",
-      "early-bird": "🐦 Early Bird",
-      student: "🎓 Student",
+      standard: t("ui.tickets.type.standard"),
+      vip: t("ui.tickets.type.vip"),
+      "early-bird": t("ui.tickets.type.early_bird"),
+      student: t("ui.tickets.type.student"),
     };
     return labels[subtype] || subtype;
   };
@@ -141,7 +143,7 @@ export function TicketsList({ sessionId, organizationId, onEdit }: TicketsListPr
   if (tickets === undefined) {
     return (
       <div className="flex items-center justify-center p-8">
-        <Loader2 size={32} className="animate-spin" style={{ color: "var(--primary)" }} />
+        <Loader2 size={32} className="animate-spin" style={{ color: "var(--win95-highlight)" }} />
       </div>
     );
   }
@@ -151,7 +153,7 @@ export function TicketsList({ sessionId, organizationId, onEdit }: TicketsListPr
       <div className="flex items-center justify-center p-8">
         <div className="text-center">
           <p style={{ color: "var(--neutral-gray)" }} className="text-sm">
-            No tickets yet. Click &ldquo;Issue Ticket&rdquo; to create one.
+            {t("ui.tickets.list.no_tickets_yet")}
           </p>
         </div>
       </div>
@@ -172,11 +174,11 @@ export function TicketsList({ sessionId, organizationId, onEdit }: TicketsListPr
             color: "var(--win95-text)",
           }}
         >
-          <option value="">All Types</option>
-          <option value="standard">Standard</option>
-          <option value="vip">VIP</option>
-          <option value="early-bird">Early Bird</option>
-          <option value="student">Student</option>
+          <option value="">{t("ui.tickets.list.filter.all_types")}</option>
+          <option value="standard">{t("ui.tickets.type.standard")}</option>
+          <option value="vip">{t("ui.tickets.type.vip")}</option>
+          <option value="early-bird">{t("ui.tickets.type.early_bird")}</option>
+          <option value="student">{t("ui.tickets.type.student")}</option>
         </select>
 
         <select
@@ -189,53 +191,53 @@ export function TicketsList({ sessionId, organizationId, onEdit }: TicketsListPr
             color: "var(--win95-text)",
           }}
         >
-          <option value="">All Statuses</option>
-          <option value="issued">Issued</option>
-          <option value="redeemed">Redeemed</option>
-          <option value="cancelled">Cancelled</option>
-          <option value="transferred">Transferred</option>
+          <option value="">{t("ui.tickets.list.filter.all_statuses")}</option>
+          <option value="issued">{t("ui.tickets.status.issued")}</option>
+          <option value="redeemed">{t("ui.tickets.status.redeemed")}</option>
+          <option value="cancelled">{t("ui.tickets.status.cancelled")}</option>
+          <option value="transferred">{t("ui.tickets.status.transferred")}</option>
         </select>
 
         <div className="flex-1" />
 
         {/* Sort Controls */}
         <div className="flex gap-1 items-center">
-          <span className="text-xs" style={{ color: "var(--win95-text)" }}>Sort:</span>
+          <span className="text-xs" style={{ color: "var(--win95-text)" }}>{t("ui.tickets.list.sort.label")}</span>
           <button
             onClick={() => handleSort("createdAt")}
             className="px-2 py-1 text-xs border-2 flex items-center gap-1"
             style={{
-              borderColor: sortField === "createdAt" ? "var(--primary)" : "var(--win95-border)",
-              background: sortField === "createdAt" ? "var(--primary-light)" : "var(--win95-bg-light)",
+              borderColor: sortField === "createdAt" ? "var(--win95-highlight)" : "var(--win95-border)",
+              background: sortField === "createdAt" ? "var(--win95-hover-light)" : "var(--win95-bg-light)",
               color: "var(--win95-text)",
             }}
             title="Sort by date created"
           >
-            Date {sortField === "createdAt" && (sortDirection === "asc" ? "↑" : "↓")}
+            {t("ui.tickets.list.sort.date")} {sortField === "createdAt" && (sortDirection === "asc" ? "↑" : "↓")}
           </button>
           <button
             onClick={() => handleSort("name")}
             className="px-2 py-1 text-xs border-2 flex items-center gap-1"
             style={{
-              borderColor: sortField === "name" ? "var(--primary)" : "var(--win95-border)",
-              background: sortField === "name" ? "var(--primary-light)" : "var(--win95-bg-light)",
+              borderColor: sortField === "name" ? "var(--win95-highlight)" : "var(--win95-border)",
+              background: sortField === "name" ? "var(--win95-hover-light)" : "var(--win95-bg-light)",
               color: "var(--win95-text)",
             }}
             title="Sort by name"
           >
-            Name {sortField === "name" && (sortDirection === "asc" ? "↑" : "↓")}
+            {t("ui.tickets.list.sort.name")} {sortField === "name" && (sortDirection === "asc" ? "↑" : "↓")}
           </button>
           <button
             onClick={() => handleSort("status")}
             className="px-2 py-1 text-xs border-2 flex items-center gap-1"
             style={{
-              borderColor: sortField === "status" ? "var(--primary)" : "var(--win95-border)",
-              background: sortField === "status" ? "var(--primary-light)" : "var(--win95-bg-light)",
+              borderColor: sortField === "status" ? "var(--win95-highlight)" : "var(--win95-border)",
+              background: sortField === "status" ? "var(--win95-hover-light)" : "var(--win95-bg-light)",
               color: "var(--win95-text)",
             }}
             title="Sort by status"
           >
-            Status {sortField === "status" && (sortDirection === "asc" ? "↑" : "↓")}
+            {t("ui.tickets.list.sort.status")} {sortField === "status" && (sortDirection === "asc" ? "↑" : "↓")}
           </button>
         </div>
       </div>
@@ -287,12 +289,12 @@ export function TicketsList({ sessionId, organizationId, onEdit }: TicketsListPr
               )}
               {ticket.customProperties?.purchaseDate && (
                 <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                  Purchased: {formatDate(ticket.customProperties.purchaseDate)}
+                  {t("ui.tickets.list.purchased")} {formatDate(ticket.customProperties.purchaseDate)}
                 </div>
               )}
               {ticket.customProperties?.redeemedAt && (
                 <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                  Redeemed: {formatDate(ticket.customProperties.redeemedAt)}
+                  {t("ui.tickets.list.redeemed")} {formatDate(ticket.customProperties.redeemedAt)}
                 </div>
               )}
             </div>
@@ -310,10 +312,10 @@ export function TicketsList({ sessionId, organizationId, onEdit }: TicketsListPr
                   background: "var(--win95-button-face)",
                   color: "var(--win95-text)",
                 }}
-                title="Edit"
+                title={t("ui.tickets.list.button.edit")}
               >
                 <Edit2 size={12} />
-                Edit
+                {t("ui.tickets.list.button.edit")}
               </button>
 
               {ticket.status === "issued" && (
@@ -328,10 +330,10 @@ export function TicketsList({ sessionId, organizationId, onEdit }: TicketsListPr
                     background: "var(--win95-button-face)",
                     color: "var(--win95-text)",
                   }}
-                  title="Redeem"
+                  title={t("ui.tickets.list.button.redeem")}
                 >
                   <CheckCircle size={12} />
-                  Redeem
+                  {t("ui.tickets.list.button.redeem")}
                 </button>
               )}
 
@@ -347,7 +349,7 @@ export function TicketsList({ sessionId, organizationId, onEdit }: TicketsListPr
                     background: "var(--win95-button-face)",
                     color: "var(--error)",
                   }}
-                  title="Cancel"
+                  title={t("ui.tickets.list.button.edit")}
                 >
                   <Trash2 size={12} />
                 </button>

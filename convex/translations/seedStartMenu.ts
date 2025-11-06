@@ -291,6 +291,107 @@ export const seed = internalMutation({
           ja: "L4YERCAK3.exe",
         }
       },
+
+      // === ALL APPS WINDOW TRANSLATIONS ===
+      {
+        key: "ui.start_menu.sign_in_required",
+        values: {
+          en: "Sign In Required",
+          de: "Anmeldung erforderlich",
+          pl: "Wymagane logowanie",
+          es: "Inicio de sesión requerido",
+          fr: "Connexion requise",
+          ja: "サインインが必要です",
+        }
+      },
+      {
+        key: "ui.start_menu.sign_in_to_view_apps",
+        values: {
+          en: "Please sign in to view your installed applications.",
+          de: "Bitte melden Sie sich an, um Ihre installierten Anwendungen anzuzeigen.",
+          pl: "Zaloguj się, aby zobaczyć zainstalowane aplikacje.",
+          es: "Por favor, inicie sesión para ver sus aplicaciones instaladas.",
+          fr: "Veuillez vous connecter pour voir vos applications installées.",
+          ja: "インストールされているアプリケーションを表示するにはサインインしてください。",
+        }
+      },
+      {
+        key: "ui.start_menu.loading_applications",
+        values: {
+          en: "Loading applications...",
+          de: "Anwendungen werden geladen...",
+          pl: "Ładowanie aplikacji...",
+          es: "Cargando aplicaciones...",
+          fr: "Chargement des applications...",
+          ja: "アプリケーションを読み込んでいます...",
+        }
+      },
+      {
+        key: "ui.start_menu.no_apps_installed",
+        values: {
+          en: "No Apps Installed",
+          de: "Keine Apps installiert",
+          pl: "Brak zainstalowanych aplikacji",
+          es: "No hay aplicaciones instaladas",
+          fr: "Aucune application installée",
+          ja: "アプリがインストールされていません",
+        }
+      },
+      {
+        key: "ui.start_menu.org_no_apps",
+        values: {
+          en: "{orgName} has no applications installed yet.",
+          de: "{orgName} hat noch keine Anwendungen installiert.",
+          pl: "{orgName} nie ma jeszcze zainstalowanych aplikacji.",
+          es: "{orgName} aún no tiene aplicaciones instaladas.",
+          fr: "{orgName} n'a pas encore d'applications installées.",
+          ja: "{orgName}にはまだアプリケーションがインストールされていません。",
+        }
+      },
+      {
+        key: "ui.start_menu.contact_admin",
+        values: {
+          en: "Contact your administrator to install apps for your organization.",
+          de: "Wenden Sie sich an Ihren Administrator, um Apps für Ihre Organisation zu installieren.",
+          pl: "Skontaktuj się z administratorem, aby zainstalować aplikacje dla swojej organizacji.",
+          es: "Contacte a su administrador para instalar aplicaciones para su organización.",
+          fr: "Contactez votre administrateur pour installer des applications pour votre organisation.",
+          ja: "組織のアプリをインストールするには管理者にお問い合わせください。",
+        }
+      },
+      {
+        key: "ui.start_menu.apps_installed_for",
+        values: {
+          en: "{count} app(s) installed for {orgName}",
+          de: "{count} App(s) installiert für {orgName}",
+          pl: "{count} aplikacja/aplikacje zainstalowane dla {orgName}",
+          es: "{count} aplicación/aplicaciones instaladas para {orgName}",
+          fr: "{count} application(s) installée(s) pour {orgName}",
+          ja: "{orgName}に{count}個のアプリがインストールされています",
+        }
+      },
+      {
+        key: "ui.start_menu.click_app_to_open",
+        values: {
+          en: "Click an app to open it",
+          de: "Klicken Sie auf eine App, um sie zu öffnen",
+          pl: "Kliknij aplikację, aby ją otworzyć",
+          es: "Haga clic en una aplicación para abrirla",
+          fr: "Cliquez sur une application pour l'ouvrir",
+          ja: "アプリをクリックして開く",
+        }
+      },
+      {
+        key: "ui.start_menu.app_coming_soon",
+        values: {
+          en: "This application is coming soon!",
+          de: "Diese Anwendung kommt bald!",
+          pl: "Ta aplikacja pojawi się wkrótce!",
+          es: "¡Esta aplicación estará disponible pronto!",
+          fr: "Cette application arrive bientôt!",
+          ja: "このアプリケーションは近日公開予定です！",
+        }
+      },
     ];
 
     const allKeys = translations.map(t => t.key);

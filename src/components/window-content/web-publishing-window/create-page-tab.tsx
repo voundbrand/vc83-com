@@ -9,6 +9,7 @@ import { Id } from "../../../../convex/_generated/dataModel";
 import { getTemplateSchema, getTemplateComponent, getTheme } from "@/templates/registry";
 import { DynamicFormGenerator } from "./template-content-forms/dynamic-form-generator";
 import { TranslationProvider } from "@/contexts/translation-context";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 /**
  * Deep merge two objects
@@ -76,6 +77,7 @@ interface EditMode {
  * 2. Edit existing pages (same UI, pre-populated)
  */
 export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
+  const { t } = useNamespaceTranslations("ui.web_publishing");
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
@@ -168,13 +170,13 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
   if (!sessionId || !currentOrg) {
     return (
       <div className="p-4">
-        <div className="border-2 border-red-600 bg-red-50 p-4">
+        <div className="border-2 p-4" style={{ borderColor: 'var(--error)', background: 'var(--win95-bg-light)' }}>
           <div className="flex items-start gap-2">
-            <AlertCircle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
+            <AlertCircle size={20} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--error)' }} />
             <div>
-              <h4 className="font-bold text-sm text-red-900">Authentication Required</h4>
-              <p className="text-xs text-red-800 mt-1">
-                Please log in to create pages.
+              <h4 className="font-bold text-sm" style={{ color: 'var(--win95-text)' }}>{t("ui.web_publishing.create.auth_required")}</h4>
+              <p className="text-xs mt-1" style={{ color: 'var(--win95-text)' }}>
+                {t("ui.web_publishing.create.auth_required_desc")}
               </p>
             </div>
           </div>
@@ -186,7 +188,7 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
   if (availableTemplates === undefined || availableThemes === undefined) {
     return (
       <div className="flex items-center justify-center p-8">
-        <Loader2 size={32} className="animate-spin text-purple-600" />
+        <Loader2 size={32} className="animate-spin" style={{ color: 'var(--win95-highlight)' }} />
       </div>
     );
   }
@@ -194,19 +196,19 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
   if (availableTemplates.length === 0 || availableThemes.length === 0) {
     return (
       <div className="p-4">
-        <div className="border-2 border-yellow-600 bg-yellow-50 p-4">
+        <div className="border-2 p-4" style={{ borderColor: 'var(--warning)', background: 'var(--win95-bg-light)' }}>
           <div className="flex items-start gap-2">
-            <AlertCircle size={20} className="text-yellow-600 flex-shrink-0 mt-0.5" />
+            <AlertCircle size={20} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--warning)' }} />
             <div>
-              <h4 className="font-bold text-sm text-yellow-900">Templates or Themes Not Available</h4>
-              <p className="text-xs text-yellow-800 mt-1">
-                {availableTemplates.length === 0 && "Your organization does not have any templates enabled yet. "}
-                {availableThemes.length === 0 && "No themes found in system. "}
-                Contact your system administrator to enable templates.
+              <h4 className="font-bold text-sm" style={{ color: 'var(--win95-text)' }}>{t("ui.web_publishing.create.no_templates_title")}</h4>
+              <p className="text-xs mt-1" style={{ color: 'var(--win95-text)' }}>
+                {availableTemplates.length === 0 && t("ui.web_publishing.create.no_templates_desc")}
+                {availableThemes.length === 0 && t("ui.web_publishing.create.no_themes_desc")}
+                {t("ui.web_publishing.create.contact_admin")}
               </p>
               <details className="mt-2 text-xs">
-                <summary className="cursor-pointer font-bold">Debug Info</summary>
-                <pre className="mt-2 bg-white p-2 text-xs overflow-auto">
+                <summary className="cursor-pointer font-bold" style={{ color: 'var(--win95-text)' }}>{t("ui.web_publishing.create.debug_info")}</summary>
+                <pre className="mt-2 p-2 text-xs overflow-auto" style={{ background: 'var(--win95-bg-light)', color: 'var(--win95-text)' }}>
                   Templates: {JSON.stringify(availableTemplates, null, 2)}
                   Themes: {JSON.stringify(availableThemes, null, 2)}
                 </pre>
@@ -395,22 +397,23 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
   return (
     <div className="flex h-full">
       {/* LEFT: Form (40%) */}
-      <div className="w-[40%] p-4 overflow-y-auto border-r-2 border-gray-400">
+      <div className="w-[40%] p-4 overflow-y-auto border-r-2" style={{ borderColor: 'var(--win95-border)' }}>
         {/* Success message */}
         {createdPageUrl && (
-          <div className="border-2 border-green-600 bg-green-50 p-4 mb-4">
+          <div className="border-2 p-4 mb-4" style={{ borderColor: 'var(--success)', background: 'var(--win95-bg-light)' }}>
             <div className="flex items-start gap-2">
-              <Check size={20} className="text-green-600 flex-shrink-0 mt-0.5" />
+              <Check size={20} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
               <div>
-                <h4 className="font-bold text-sm text-green-900">Page Created Successfully!</h4>
-                <p className="text-xs text-green-800 mt-1">
-                  Your page has been created as a draft. You can publish it from the Published Pages tab.
+                <h4 className="font-bold text-sm" style={{ color: 'var(--win95-text)' }}>{t("ui.web_publishing.create.success_title")}</h4>
+                <p className="text-xs mt-1" style={{ color: 'var(--win95-text)' }}>
+                  {t("ui.web_publishing.create.success_desc")}
                 </p>
                 <a
                   href={createdPageUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs text-green-600 hover:underline mt-2 flex items-center gap-1"
+                  className="text-xs hover:underline mt-2 flex items-center gap-1"
+                  style={{ color: 'var(--success)' }}
                 >
                   {createdPageUrl}
                   <ExternalLink size={10} />
@@ -420,19 +423,19 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
           </div>
         )}
 
-        <h3 className="text-sm font-bold mb-4 flex items-center gap-2">
+        <h3 className="text-sm font-bold mb-4 flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
           <FileText size={16} />
-          {editMode ? "Edit Page" : "Create New Page"}
+          {editMode ? t("ui.web_publishing.create.title_edit") : t("ui.web_publishing.create.title_new")}
         </h3>
 
         {editMode && (
-          <div className="border-2 border-blue-600 bg-blue-50 p-3 mb-4">
+          <div className="border-2 p-3 mb-4" style={{ borderColor: 'var(--win95-highlight)', background: 'var(--win95-bg-light)' }}>
             <div className="flex items-start gap-2">
-              <AlertCircle size={16} className="text-blue-600 flex-shrink-0 mt-0.5" />
+              <AlertCircle size={16} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--win95-highlight)' }} />
               <div>
-                <h4 className="font-bold text-xs text-blue-900">Editing Mode</h4>
-                <p className="text-xs text-blue-800 mt-1">
-                  You are editing an existing page. Changes will update the page immediately.
+                <h4 className="font-bold text-xs" style={{ color: 'var(--win95-text)' }}>{t("ui.web_publishing.create.editing_mode_title")}</h4>
+                <p className="text-xs mt-1" style={{ color: 'var(--win95-text)' }}>
+                  {t("ui.web_publishing.create.editing_mode_desc")}
                 </p>
               </div>
             </div>
@@ -441,20 +444,23 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Template selection */}
-        <div className="border-2 border-gray-400">
+        <div className="border-2" style={{ borderColor: 'var(--win95-border)' }}>
           {/* Accordion Header */}
           <button
             type="button"
             onClick={() => setTemplateAccordionOpen(!templateAccordionOpen)}
-            className="w-full px-4 py-3 flex items-center justify-between bg-gray-100 hover:bg-gray-200 transition-colors"
+            className="w-full px-4 py-3 flex items-center justify-between transition-colors"
+            style={{ background: 'var(--win95-bg-light)' }}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--win95-hover-light)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'var(--win95-bg-light)'}
           >
             <div className="flex items-center gap-2">
               <FileText size={16} />
-              <span className="text-sm font-bold">
-                Select Template <span className="text-red-600">*</span>
+              <span className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
+                {t("ui.web_publishing.template.select_title")} <span style={{ color: 'var(--error)' }}>{t("ui.web_publishing.template.required")}</span>
               </span>
               {selectedTemplateId && (
-                <span className="text-xs bg-purple-600 text-white px-2 py-0.5 rounded">
+                <span className="text-xs px-2 py-0.5 rounded" style={{ background: 'var(--win95-highlight)', color: 'var(--win95-bg-light)' }}>
                   {availableTemplates.find(t => t._id === selectedTemplateId)?.name}
                 </span>
               )}
@@ -464,7 +470,7 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
 
           {/* Accordion Content */}
           {templateAccordionOpen && (
-            <div className="p-3 bg-white space-y-2">
+            <div className="p-3 space-y-2" style={{ background: 'var(--win95-bg-light)' }}>
               {availableTemplates.map((template) => (
                 <button
                   key={template._id}
@@ -472,23 +478,23 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
                   onClick={() => setSelectedTemplateId(template._id)}
                   className="w-full border-2 p-3 text-left transition-all hover:shadow-md"
                   style={{
-                    borderColor: selectedTemplateId === template._id ? "#6B46C1" : "#D1D5DB",
-                    backgroundColor: selectedTemplateId === template._id ? "#F3E8FF" : "white",
+                    borderColor: selectedTemplateId === template._id ? 'var(--win95-highlight)' : 'var(--win95-border)',
+                    backgroundColor: selectedTemplateId === template._id ? 'var(--win95-hover-light)' : 'var(--win95-bg-light)',
                     borderWidth: selectedTemplateId === template._id ? "3px" : "2px",
                   }}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <div className="font-bold text-sm mb-1">{template.name}</div>
-                      <p className="text-xs text-gray-600 mb-1">
+                      <div className="font-bold text-sm mb-1" style={{ color: 'var(--win95-text)' }}>{template.name}</div>
+                      <p className="text-xs mb-1" style={{ color: 'var(--neutral-gray)' }}>
                         {template.customProperties?.description}
                       </p>
-                      <code className="text-xs bg-gray-100 px-1">
+                      <code className="text-xs px-1" style={{ background: 'var(--win95-bg)', color: 'var(--win95-text)' }}>
                         {template.customProperties?.code}
                       </code>
                     </div>
                     {selectedTemplateId === template._id && (
-                      <Check size={20} className="text-purple-600 flex-shrink-0" />
+                      <Check size={20} className="flex-shrink-0" style={{ color: 'var(--win95-highlight)' }} />
                     )}
                   </div>
                 </button>
@@ -498,20 +504,23 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
         </div>
 
         {/* Theme selection */}
-        <div className="border-2 border-gray-400">
+        <div className="border-2" style={{ borderColor: 'var(--win95-border)' }}>
           {/* Accordion Header */}
           <button
             type="button"
             onClick={() => setThemeAccordionOpen(!themeAccordionOpen)}
-            className="w-full px-4 py-3 flex items-center justify-between bg-gray-100 hover:bg-gray-200 transition-colors"
+            className="w-full px-4 py-3 flex items-center justify-between transition-colors"
+            style={{ background: 'var(--win95-bg-light)' }}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--win95-hover-light)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'var(--win95-bg-light)'}
           >
             <div className="flex items-center gap-2">
               <Palette size={16} />
-              <span className="text-sm font-bold">
-                Select Theme <span className="text-red-600">*</span>
+              <span className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
+                {t("ui.web_publishing.theme.select_title")} <span style={{ color: 'var(--error)' }}>{t("ui.web_publishing.theme.required")}</span>
               </span>
               {selectedThemeId && (
-                <span className="text-xs bg-purple-600 text-white px-2 py-0.5 rounded">
+                <span className="text-xs px-2 py-0.5 rounded" style={{ background: 'var(--win95-highlight)', color: 'var(--win95-bg-light)' }}>
                   {availableThemes.find(t => t._id === selectedThemeId)?.name}
                 </span>
               )}
@@ -521,7 +530,7 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
 
           {/* Accordion Content */}
           {themeAccordionOpen && (
-            <div className="p-3 bg-white space-y-2">
+            <div className="p-3 space-y-2" style={{ background: 'var(--win95-bg-light)' }}>
               {availableThemes.map((theme: TemplateOrTheme) => (
                 <button
                   key={theme._id}
@@ -529,31 +538,31 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
                   onClick={() => setSelectedThemeId(theme._id)}
                   className="w-full border-2 p-3 text-left transition-all hover:shadow-md"
                   style={{
-                    borderColor: selectedThemeId === theme._id ? "#6B46C1" : "#D1D5DB",
-                    backgroundColor: selectedThemeId === theme._id ? "#F3E8FF" : "white",
+                    borderColor: selectedThemeId === theme._id ? 'var(--win95-highlight)' : 'var(--win95-border)',
+                    backgroundColor: selectedThemeId === theme._id ? 'var(--win95-hover-light)' : 'var(--win95-bg-light)',
                     borderWidth: selectedThemeId === theme._id ? "3px" : "2px",
                   }}
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1">
-                      <div className="font-bold text-sm mb-1">{theme.name}</div>
-                      <p className="text-xs text-gray-600 mb-1">
+                      <div className="font-bold text-sm mb-1" style={{ color: 'var(--win95-text)' }}>{theme.name}</div>
+                      <p className="text-xs mb-1" style={{ color: 'var(--neutral-gray)' }}>
                         {theme.customProperties?.description}
                       </p>
-                      <code className="text-xs bg-gray-100 px-1">
+                      <code className="text-xs px-1" style={{ background: 'var(--win95-bg)', color: 'var(--win95-text)' }}>
                         {theme.customProperties?.code}
                       </code>
                     </div>
                     {selectedThemeId === theme._id && (
-                      <Check size={20} className="text-purple-600 flex-shrink-0" />
+                      <Check size={20} className="flex-shrink-0" style={{ color: 'var(--win95-highlight)' }} />
                     )}
                   </div>
                   {/* Color palette preview in the button */}
                   <div className="flex gap-1 mt-2">
-                    <div className="w-8 h-8 rounded border border-gray-300" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }} title="Primary Gradient" />
-                    <div className="w-8 h-8 rounded border border-gray-300 bg-white" title="Background" />
-                    <div className="w-8 h-8 rounded border border-gray-300 bg-gray-900" title="Text" />
-                    <div className="w-8 h-8 rounded border border-gray-300 bg-gray-100" title="Secondary" />
+                    <div className="w-8 h-8 rounded border" style={{ borderColor: 'var(--win95-border)', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }} title={t("ui.web_publishing.theme.primary_gradient")} />
+                    <div className="w-8 h-8 rounded border" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }} title={t("ui.web_publishing.theme.background")} />
+                    <div className="w-8 h-8 rounded border" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-text)' }} title={t("ui.web_publishing.theme.text")} />
+                    <div className="w-8 h-8 rounded border" style={{ borderColor: 'var(--win95-border)', background: 'var(--neutral-gray)' }} title={t("ui.web_publishing.theme.secondary")} />
                   </div>
                 </button>
               ))}
@@ -563,77 +572,80 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
 
         {/* Page metadata */}
         <div>
-          <label className="block text-xs font-bold mb-1">
-            Page Title <span className="text-red-600">*</span>
+          <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+            {t("ui.web_publishing.meta.page_title")} <span style={{ color: 'var(--error)' }}>*</span>
           </label>
           <input
             type="text"
             value={metaTitle}
             onChange={(e) => handleTitleChange(e.target.value)}
-            className="w-full border-2 border-gray-400 px-2 py-1 text-sm"
+            className="w-full border-2 px-2 py-1 text-sm"
+            style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)', color: 'var(--win95-text)' }}
             placeholder="e.g., Our Amazing Product"
             required
           />
         </div>
 
         <div>
-          <label className="block text-xs font-bold mb-1">
-            Page Slug <span className="text-red-600">*</span>
+          <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+            {t("ui.web_publishing.meta.page_slug")} <span style={{ color: 'var(--error)' }}>*</span>
           </label>
           <input
             type="text"
             value={slug}
             onChange={(e) => handleSlugChange(e.target.value)}
-            className="w-full border-2 border-gray-400 px-2 py-1 text-sm"
+            className="w-full border-2 px-2 py-1 text-sm"
+            style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)', color: 'var(--win95-text)' }}
             placeholder="e.g., amazing-product"
             required
             pattern="[a-z0-9-]+"
             title="Type any text - spaces and special chars will be auto-converted"
           />
-          <p className="text-xs text-gray-500 mt-1">
-            URL: {process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/p/{currentOrg?.slug || "your-org"}/{slug || "page-slug"}
+          <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
+            {t("ui.web_publishing.meta.url_preview")} {process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/p/{currentOrg?.slug || "your-org"}/{slug || "page-slug"}
           </p>
         </div>
 
         <div>
-          <label className="block text-xs font-bold mb-1">
-            Meta Description (Optional)
+          <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+            {t("ui.web_publishing.meta.meta_description")}
           </label>
           <textarea
             value={metaDescription}
             onChange={(e) => setMetaDescription(e.target.value)}
-            className="w-full border-2 border-gray-400 px-2 py-1 text-sm"
-            placeholder="Brief description for SEO and social sharing"
+            className="w-full border-2 px-2 py-1 text-sm"
+            style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)', color: 'var(--win95-text)' }}
+            placeholder={t("ui.web_publishing.meta.meta_description_placeholder")}
             rows={3}
             maxLength={160}
           />
-          <p className="text-xs text-gray-500 mt-1">
-            {metaDescription.length}/160 characters
+          <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
+            {t("ui.web_publishing.meta.character_count").replace("{count}", String(metaDescription.length))}
           </p>
         </div>
 
         {/* LINK PRODUCTS */}
-        <div className="border-t-2 border-gray-400 pt-4">
-          <h4 className="text-xs font-bold mb-2 flex items-center gap-2">
+        <div className="border-t-2 pt-4" style={{ borderColor: 'var(--win95-border)' }}>
+          <h4 className="text-xs font-bold mb-2 flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
             <ShoppingCart size={14} />
-            Link Products (Optional)
+            {t("ui.web_publishing.products.title")}
           </h4>
-          <p className="text-xs text-gray-600 mb-3">
-            Connect products to this page. They&apos;ll appear in your template&apos;s checkout UI.
+          <p className="text-xs mb-3" style={{ color: 'var(--neutral-gray)' }}>
+            {t("ui.web_publishing.products.description")}
           </p>
 
           {/* Checkout app not available */}
           {availableApps !== undefined && !checkoutAppAvailable ? (
-            <div className="border-2 border-yellow-600 bg-yellow-50 p-3">
+            <div className="border-2 p-3" style={{ borderColor: 'var(--warning)', background: 'var(--win95-bg-light)' }}>
               <div className="flex items-start gap-2">
-                <AlertCircle size={16} className="text-yellow-600 flex-shrink-0 mt-0.5" />
+                <AlertCircle size={16} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--warning)' }} />
                 <div>
-                  <h4 className="font-bold text-xs text-yellow-900 mb-1">Checkout App Required</h4>
-                  <p className="text-xs text-yellow-800 mb-2">
-                    To link products to your pages, you need the Checkout app enabled for your organization.
+                  <h4 className="font-bold text-xs mb-1" style={{ color: 'var(--win95-text)' }}>{t("ui.web_publishing.products.checkout_required_title")}</h4>
+                  <p className="text-xs mb-2" style={{ color: 'var(--win95-text)' }}>
+                    {t("ui.web_publishing.products.checkout_required_desc")}
                   </p>
-                  <p className="text-xs text-yellow-700">
-                    <span className="font-bold">Contact your administrator</span> to enable the Checkout app, or visit the Control Panel if you&apos;re an admin.
+                  <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
+                    {t("ui.web_publishing.products.contact_admin")}
                   </p>
                 </div>
               </div>
@@ -651,13 +663,13 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
                     key={productId}
                     className="border-2 p-2 flex items-start justify-between"
                     style={{
-                      borderColor: isLinked ? "#6B46C1" : "#D1D5DB",
-                      backgroundColor: isLinked ? "#F3E8FF" : "white"
+                      borderColor: isLinked ? 'var(--win95-highlight)' : 'var(--win95-border)',
+                      backgroundColor: isLinked ? 'var(--win95-hover-light)' : 'var(--win95-bg-light)'
                     }}
                   >
                     <div className="flex-1">
-                      <div className="font-bold text-xs">{product.name}</div>
-                      <div className="text-xs text-gray-600">
+                      <div className="font-bold text-xs" style={{ color: 'var(--win95-text)' }}>{product.name}</div>
+                      <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
                         {new Intl.NumberFormat('en-US', {
                           style: 'currency',
                           currency: currency.toUpperCase(),
@@ -675,26 +687,29 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
                       }}
                       className="px-2 py-1 text-xs font-bold border-2 transition-colors"
                       style={{
-                        borderColor: isLinked ? "#6B46C1" : "#D1D5DB",
-                        backgroundColor: isLinked ? "#6B46C1" : "white",
-                        color: isLinked ? "white" : "#6B7280"
+                        borderColor: isLinked ? 'var(--win95-highlight)' : 'var(--win95-border)',
+                        backgroundColor: isLinked ? 'var(--win95-highlight)' : 'var(--win95-bg-light)',
+                        color: isLinked ? 'white' : 'var(--win95-text)'
                       }}
                     >
-                      {isLinked ? "✓ Linked" : "Link"}
+                      {isLinked ? t("ui.web_publishing.products.linked") : t("ui.web_publishing.products.link")}
                     </button>
                   </div>
                 );
               })}
             </div>
           ) : checkoutAppAvailable ? (
-            <div className="text-xs text-gray-500 bg-gray-50 p-3 border-2 border-gray-300">
-              No products yet. Create products in the Products app first.
+            <div className="text-xs p-3 border-2" style={{ color: 'var(--neutral-gray)', background: 'var(--win95-bg-light)', borderColor: 'var(--win95-border)' }}>
+              {t("ui.web_publishing.products.no_products")}
             </div>
           ) : null}
 
           {linkedProducts.length > 0 && (
-            <p className="text-xs text-green-600 font-bold mt-2">
-              ✓ {linkedProducts.length} product{linkedProducts.length !== 1 ? 's' : ''} linked
+            <p className="text-xs font-bold mt-2" style={{ color: 'var(--success)' }}>
+              {linkedProducts.length === 1
+                ? t("ui.web_publishing.products.count_linked").replace("{count}", String(linkedProducts.length))
+                : t("ui.web_publishing.products.count_linked_plural").replace("{count}", String(linkedProducts.length))
+              }
             </p>
           )}
         </div>
@@ -708,10 +723,10 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
             const schema = getTemplateSchema(templateCode);
 
             return (
-              <div className="border-t-2 border-gray-400 pt-4">
-                <h4 className="text-xs font-bold mb-3 flex items-center gap-2">
+              <div className="border-t-2 pt-4" style={{ borderColor: 'var(--win95-border)' }}>
+                <h4 className="text-xs font-bold mb-3 flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
                   <FileText size={14} />
-                  Page Content
+                  {t("ui.web_publishing.content.title")}
                 </h4>
                 <DynamicFormGenerator
                   schema={schema}
@@ -725,28 +740,29 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
         })()}
 
         {/* Submit */}
-        <div className="flex items-center justify-between pt-4 border-t-2 border-gray-400">
-          <p className="text-xs text-gray-600">
-            Page will be created as a <span className="font-bold">draft</span>.
+        <div className="flex items-center justify-between pt-4 border-t-2" style={{ borderColor: 'var(--win95-border)' }}>
+          <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
+            {t("ui.web_publishing.submit.draft_notice")} <span className="font-bold">{t("ui.web_publishing.submit.draft")}</span>.
           </p>
           <button
             type="submit"
             disabled={!selectedTemplateId || !selectedThemeId || !metaTitle || !slug || isCreating}
-            className="px-4 py-2 text-sm font-bold border-2 border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 text-sm font-bold border-2 disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
-              backgroundColor: selectedTemplateId && selectedThemeId && metaTitle && slug && !isCreating ? "#6B46C1" : "#E5E7EB",
-              color: selectedTemplateId && selectedThemeId && metaTitle && slug && !isCreating ? "white" : "#6B7280",
+              borderColor: 'var(--win95-border)',
+              backgroundColor: selectedTemplateId && selectedThemeId && metaTitle && slug && !isCreating ? 'var(--win95-highlight)' : 'var(--win95-bg)',
+              color: selectedTemplateId && selectedThemeId && metaTitle && slug && !isCreating ? 'white' : 'var(--neutral-gray)',
             }}
           >
             {isCreating ? (
               <span className="flex items-center gap-2">
                 <Loader2 size={14} className="animate-spin" />
-                Creating...
+                {t("ui.web_publishing.submit.creating")}
               </span>
             ) : editMode ? (
-              "Update Page"
+              t("ui.web_publishing.submit.update_page")
             ) : (
-              "Create Page"
+              t("ui.web_publishing.submit.create_page")
             )}
           </button>
         </div>
@@ -754,17 +770,17 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
       </div>
 
       {/* RIGHT: Preview (60%) */}
-      <div className="w-[60%] p-4 overflow-y-auto bg-gray-50">
-        <h3 className="text-sm font-bold mb-4 flex items-center gap-2">
+      <div className="w-[60%] p-4 overflow-y-auto" style={{ background: 'var(--win95-bg)' }}>
+        <h3 className="text-sm font-bold mb-4 flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
           <Eye size={16} />
-          Live Preview
+          {t("ui.web_publishing.preview.title")}
         </h3>
 
         {/* Preview content */}
         {selectedTemplateId && selectedThemeId ? (
           <div className="space-y-4">
             {/* LIVE TEMPLATE PREVIEW with actual content */}
-            <div className="border-2 border-gray-400 bg-white overflow-hidden">
+            <div className="border-2 overflow-hidden" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
               {(() => {
                 const selectedTemplate = availableTemplates.find(t => t._id === selectedTemplateId);
                 const selectedTheme = availableThemes.find(t => t._id === selectedThemeId);
@@ -870,65 +886,65 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
                 }
 
                 return (
-                  <div className="p-8 text-center text-gray-500">
-                    <p className="text-xs">Template preview loading...</p>
+                  <div className="p-8 text-center" style={{ color: 'var(--neutral-gray)' }}>
+                    <p className="text-xs">{t("ui.web_publishing.preview.loading")}</p>
                   </div>
                 );
               })()}
             </div>
 
             {/* Template Info */}
-            <div className="border-2 border-gray-400 bg-white p-4">
-              <h4 className="text-xs font-bold mb-2 flex items-center gap-2">
+            <div className="border-2 p-4" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+              <h4 className="text-xs font-bold mb-2 flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
                 <FileText size={14} />
-                Template: {availableTemplates.find(t => t._id === selectedTemplateId)?.name}
+                {t("ui.web_publishing.preview.template_label")} {availableTemplates.find(t => t._id === selectedTemplateId)?.name}
               </h4>
-              <p className="text-xs text-gray-600 mb-3">
+              <p className="text-xs mb-3" style={{ color: 'var(--neutral-gray)' }}>
                 {availableTemplates.find(t => t._id === selectedTemplateId)?.customProperties?.description}
               </p>
-              <code className="text-xs bg-gray-100 px-2 py-1">
+              <code className="text-xs px-2 py-1" style={{ background: 'var(--win95-bg)', color: 'var(--win95-text)' }}>
                 {availableTemplates.find(t => t._id === selectedTemplateId)?.customProperties?.code}
               </code>
             </div>
 
             {/* Theme Info */}
-            <div className="border-2 border-gray-400 bg-white p-4">
-              <h4 className="text-xs font-bold mb-2 flex items-center gap-2">
+            <div className="border-2 p-4" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+              <h4 className="text-xs font-bold mb-2 flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
                 <Palette size={14} />
-                Theme: {availableThemes.find(t => t._id === selectedThemeId)?.name}
+                {t("ui.web_publishing.preview.theme_label")} {availableThemes.find(t => t._id === selectedThemeId)?.name}
               </h4>
-              <p className="text-xs text-gray-600 mb-3">
+              <p className="text-xs mb-3" style={{ color: 'var(--neutral-gray)' }}>
                 {availableThemes.find(t => t._id === selectedThemeId)?.customProperties?.description}
               </p>
 
               {/* Color swatches */}
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-xs font-bold">Colors:</span>
+                <span className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>{t("ui.web_publishing.theme.colors")}</span>
                 <div className="flex gap-1">
                   <div
-                    className="w-8 h-8 rounded border border-gray-300"
-                    style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
-                    title="Primary Gradient"
+                    className="w-8 h-8 rounded border"
+                    style={{ borderColor: 'var(--win95-border)', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
+                    title={t("ui.web_publishing.theme.primary_gradient")}
                   />
-                  <div className="w-8 h-8 rounded border border-gray-300 bg-white" title="Background" />
-                  <div className="w-8 h-8 rounded border border-gray-300 bg-gray-900" title="Text" />
-                  <div className="w-8 h-8 rounded border border-gray-300 bg-gray-100" title="Secondary" />
+                  <div className="w-8 h-8 rounded border" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }} title={t("ui.web_publishing.theme.background")} />
+                  <div className="w-8 h-8 rounded border" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-text)' }} title={t("ui.web_publishing.theme.text")} />
+                  <div className="w-8 h-8 rounded border" style={{ borderColor: 'var(--win95-border)', background: 'var(--neutral-gray)' }} title={t("ui.web_publishing.theme.secondary")} />
                 </div>
               </div>
 
-              <code className="text-xs bg-gray-100 px-2 py-1">
+              <code className="text-xs px-2 py-1" style={{ background: 'var(--win95-bg)', color: 'var(--win95-text)' }}>
                 {availableThemes.find(t => t._id === selectedThemeId)?.customProperties?.code}
               </code>
             </div>
           </div>
         ) : (
-          <div className="border-2 border-gray-400 bg-white p-8 text-center">
-            <FileText size={64} className="mx-auto text-gray-300 mb-4" />
-            <h4 className="font-bold text-sm text-gray-700 mb-2">
-              Select Template & Theme
+          <div className="border-2 p-8 text-center" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+            <FileText size={64} className="mx-auto mb-4" style={{ color: 'var(--neutral-gray)' }} />
+            <h4 className="font-bold text-sm mb-2" style={{ color: 'var(--win95-text)' }}>
+              {t("ui.web_publishing.preview.select_template_title")}
             </h4>
-            <p className="text-xs text-gray-600">
-              Choose a template and theme from the left panel to see a live preview here.
+            <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
+              {t("ui.web_publishing.preview.select_template_desc")}
             </p>
           </div>
         )}

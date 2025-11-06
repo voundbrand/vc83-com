@@ -1,6 +1,6 @@
 "use client";
 
-import { useTranslation } from "@/contexts/translation-context";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 /**
  * Welcome Window - First impression for visitors
@@ -8,10 +8,10 @@ import { useTranslation } from "@/contexts/translation-context";
  * This is an engaging landing experience that appears
  * as a moveable window. Explains the Layer Cake concept.
  *
- * ✅ Now fully internationalized with translation support
+ * ✅ Now fully internationalized with namespace-based translation support
  */
 export function WelcomeWindow() {
-  const { t } = useTranslation();
+  const { t } = useNamespaceTranslations("ui.welcome");
 
   return (
     <div className="p-6 space-y-4 h-full overflow-y-auto" style={{ background: 'var(--win95-bg)' }}>

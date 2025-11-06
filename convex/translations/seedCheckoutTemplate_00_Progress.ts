@@ -6,7 +6,7 @@
  */
 
 import { internalMutation } from "../_generated/server";
-import { getExistingTranslationKeys, insertTranslationIfNew } from "./_translationHelpers";
+import { upsertTranslation } from "./_translationHelpers";
 
 export const seed = internalMutation({
   handler: async (ctx) => {
@@ -65,22 +65,16 @@ export const seed = internalMutation({
       },
     ];
 
-    const allKeys = translations.map(t => t.key);
-    const existingKeys = await getExistingTranslationKeys(
-      ctx.db,
-      systemOrg._id,
-      allKeys
-    );
+    let insertedCount = 0;
+    let updatedCount = 0;
 
-    let count = 0;
     for (const trans of translations) {
       for (const locale of supportedLocales) {
         const value = trans.values[locale.code as keyof typeof trans.values];
 
         if (value) {
-          const inserted = await insertTranslationIfNew(
+          const result = await upsertTranslation(
             ctx.db,
-            existingKeys,
             systemOrg._id,
             systemUser._id,
             trans.key,
@@ -90,14 +84,13 @@ export const seed = internalMutation({
             "progress-indicators"
           );
 
-          if (inserted) {
-            count++;
-          }
+          if (result.inserted) insertedCount++;
+          if (result.updated) updatedCount++;
         }
       }
     }
 
-    console.log(`✅ Seeded ${count} progress indicator translations`);
-    return { success: true, count };
+    console.log(`✅ Progress indicators: ${insertedCount} inserted, ${updatedCount} updated`);
+    return { success: true, inserted: insertedCount, updated: updatedCount };
   }
 });

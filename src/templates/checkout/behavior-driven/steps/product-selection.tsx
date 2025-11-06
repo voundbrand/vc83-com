@@ -14,10 +14,10 @@ import { StepProps } from "../types";
 import { ShoppingCart } from "lucide-react";
 import { Id } from "../../../../../convex/_generated/dataModel";
 import { calculateCheckoutTax, getTaxRateByCode, getDefaultTaxRate as getDefaultTaxRateByCountry } from "@/lib/tax-calculator";
-import { useTranslation } from "@/contexts/translation-context";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 export function ProductSelectionStep({ organizationId, products, checkoutData, onComplete }: StepProps) {
-  const { t } = useTranslation();
+  const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.checkout_template.behavior_driven");
 
   // Fetch organization tax settings
   const taxSettings = useQuery(api.organizationTaxSettings.getPublicTaxSettings, {
@@ -106,7 +106,7 @@ export function ProductSelectionStep({ organizationId, products, checkoutData, o
 
   const handleContinue = () => {
     if (selectedProducts.length === 0) {
-      alert(t("ui.checkout_template.behavior_driven.product_selection.errors.select_at_least_one"));
+      alert(t("ui.checkout_template.behavior_driven.product_selection.messages.select_at_least_one"));
       return;
     }
 

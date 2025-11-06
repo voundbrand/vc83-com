@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Eye, EyeOff } from "lucide-react";
-import { useTranslation } from "@/contexts/translation-context";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 export function LoginWindow() {
   const [mode, setMode] = useState<"check" | "signin" | "setup">("check");
@@ -20,7 +20,7 @@ export function LoginWindow() {
   const [passwordMatch, setPasswordMatch] = useState<boolean | null>(null);
 
   const { user, isSignedIn, signIn, setupPassword, checkNeedsPasswordSetup, signOut } = useAuth();
-  const { t } = useTranslation();
+  const { t } = useNamespaceTranslations("ui.login");
 
   const handleCheckEmail = async () => {
     if (!email) {

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Globe, Save, X, Download, Upload, Settings } from "lucide-react";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useTranslation } from "@/contexts/translation-context";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
@@ -23,7 +24,8 @@ type TabType = "browse" | "edit" | "import-export" | "settings";
 
 export function TranslationsWindow() {
   const { sessionId } = useAuth();
-  const { isLoading } = useTranslation();
+  const { t, isLoading } = useNamespaceTranslations("ui.translations");
+  const { availableLocales } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabType>("browse");
 
   return (

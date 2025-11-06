@@ -11,10 +11,10 @@
 import { useState } from "react";
 import { StepProps } from "../types";
 import { User, Mail, Phone, ArrowLeft, Building2, FileText, MapPin } from "lucide-react";
-import { useTranslation } from "@/contexts/translation-context";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 export function CustomerInfoStep({ checkoutData, onComplete, onBack }: StepProps) {
-  const { t } = useTranslation();
+  const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.checkout_template.behavior_driven");
 
   const [email, setEmail] = useState(checkoutData.customerInfo?.email || "");
   const [name, setName] = useState(checkoutData.customerInfo?.name || "");

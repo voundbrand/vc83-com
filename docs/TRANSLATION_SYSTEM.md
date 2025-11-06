@@ -5,31 +5,97 @@
 L4YERCAK3.com uses a complete i18n (internationalization) system that supports:
 - **Frontend UI translations** via `TranslationContext`
 - **Backend ontology translations** via `translationResolver`
+- **Namespace-based lazy loading** to avoid Convex 1024 field limit
 - **Missing translation detection** by showing keys instead of fallback values
+
+## 🚨 IMPORTANT: Namespace-Based Loading (NEW!)
+
+As of the latest update, we've moved from loading all translations at once to **namespace-based lazy loading**. This solves the Convex 1024 field limit issue and improves performance.
+
+### Why Namespace-Based Loading?
+
+**Problem:** The old `getAllTranslations` query tried to return all 1000+ translations as a single object, which exceeded Convex's 1024 field limit.
+
+**Solution:** Load only the translations you need for the current component/window using namespaces.
+
+### Migration Guide
+
+**❌ OLD WAY (Deprecated):**
+```tsx
+const { t } = useTranslation(); // Loads ALL translations upfront
+<h1>{t("ui.media_library.tab.library")}</h1>
+```
+
+**✅ NEW WAY (Recommended):**
+```tsx
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+
+const { t, isLoading } = useNamespaceTranslations("ui.media_library");
+<h1>{t("ui.media_library.tab.library")}</h1>
+```
 
 ## How It Works
 
-### 1. Frontend Translation (UI)
+### 1. Frontend Translation (UI) - Namespace-Based
 
-Located in: `src/contexts/translation-context.tsx`
+Located in: `src/hooks/use-namespace-translations.ts`
 
 ```tsx
-// Usage in components
-const { t, locale, setLocale } = useTranslation();
+// Usage in components - SINGLE NAMESPACE
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
-// Translate UI text
-<h1>{t("settings.region.title")}</h1>
+function MediaLibraryWindow() {
+  const { t, isLoading } = useNamespaceTranslations("ui.media_library");
+  const { locale, setLocale } = useTranslation(); // For locale management
 
-// Change language
-setLocale("de"); // German
-setLocale("en"); // English
+  if (isLoading) return <div>Loading translations...</div>;
+
+  return (
+    <div>
+      <h1>{t("ui.media_library.tab.library")}</h1>
+      <p>{t("ui.media_library.tab.upload")}</p>
+    </div>
+  );
+}
+```
+
+```tsx
+// Usage in components - MULTIPLE NAMESPACES
+import { useMultipleNamespaces } from "@/hooks/use-namespace-translations";
+
+function CheckoutFlow() {
+  const { t, isLoading } = useMultipleNamespaces([
+    "ui.products",
+    "ui.checkout"
+  ]);
+
+  return (
+    <div>
+      <h1>{t("ui.checkout.title")}</h1>
+      <p>{t("ui.products.checkout.subtitle")}</p>
+    </div>
+  );
+}
 ```
 
 **Key Features:**
 - `t(key)` function looks up translation in real-time
 - Returns the **key itself** if translation is missing (no fallback!)
-- Persists locale to user preferences or localStorage
-- Uses `api.ontologyTranslations.getAllTranslations` backend query
+- Loads only the translations for requested namespace(s)
+- Automatically uses current user's locale from `TranslationContext`
+- Supports parameter interpolation: `t("key", { name: "John" })`
+
+**Legacy Context (Still Available):**
+Located in: `src/contexts/translation-context.tsx`
+
+```tsx
+// For locale management ONLY (no longer loads all translations)
+const { locale, setLocale } = useTranslation();
+
+// Change language
+setLocale("de"); // German
+setLocale("en"); // English
+```
 
 ### 2. Backend Translation (Ontology Objects)
 
@@ -169,6 +235,23 @@ Examples:
 - `ui.settings.region.title` - UI text in settings
 - `email.verification.subject` - Email subject line
 
+### UI Translation Namespaces
+
+All UI translations follow this pattern: `ui.{namespace}.{key}`
+
+Current namespaces:
+- `ui.media_library.*` - Media Library window
+- `ui.payments.*` - Payments window
+- `ui.products.*` - Products window
+- `ui.tickets.*` - Tickets window
+- `ui.start_menu.*` - Start menu and desktop
+- `ui.welcome.*` - Welcome window
+
+**When to create a new namespace:**
+- Each major window/feature should have its own namespace
+- Group related translations together
+- Keep namespaces focused (< 200 translations per namespace recommended)
+
 ## How to Add New Translations
 
 ### Step 1: Create translation keys in seed data
@@ -283,10 +366,60 @@ function TranslatedText({ text }: { text: string }) {
 5. **Debuggable**: Missing translations are immediately obvious
 6. **Consistent**: Same pattern for UI and ontology translations
 
+## Available Queries
+
+### Frontend (Client-Side)
+
+1. **`getTranslationsByNamespace`** - Load single namespace
+   ```tsx
+   const translations = useQuery(
+     api.ontologyTranslations.getTranslationsByNamespace,
+     { locale: "en", namespace: "ui.media_library" }
+   );
+   ```
+
+2. **`getMultipleNamespaces`** - Load multiple namespaces
+   ```tsx
+   const translations = useQuery(
+     api.ontologyTranslations.getMultipleNamespaces,
+     { locale: "en", namespaces: ["ui.products", "ui.checkout"] }
+   );
+   ```
+
+3. **`getAllTranslations`** (DEPRECATED) - Don't use! Returns empty object.
+
+### Backend (Server-Side)
+
+- `translateObject()` - Translate single ontology object
+- `translateObjects()` - Batch translate ontology objects
+
+## Performance Best Practices
+
+1. **Use the right hook for your needs:**
+   - Single window/component? → `useNamespaceTranslations("ui.media_library")`
+   - Multiple related namespaces? → `useMultipleNamespaces(["ui.a", "ui.b"])`
+   - Just need locale? → `useTranslation()` (for `locale`, `setLocale` only)
+
+2. **Keep namespaces focused:**
+   - Aim for < 200 translations per namespace
+   - Split large features into sub-namespaces if needed
+   - Example: `ui.products.form`, `ui.products.list`, `ui.products.checkout`
+
+3. **Load translations at the component level:**
+   - Don't lift namespace loading to parent components unnecessarily
+   - Let each window/feature load its own translations
+   - Convex will cache and dedupe queries automatically
+
+4. **Monitor translation size:**
+   - If a namespace exceeds 100-150 translations, consider splitting it
+   - Use descriptive keys to make debugging easier
+
 ## Files Reference
 
-- `src/contexts/translation-context.tsx` - Frontend translation context
+- `src/hooks/use-namespace-translations.ts` - **NEW** Namespace-based hooks
+- `src/contexts/translation-context.tsx` - Locale management context
+- `convex/ontologyTranslations.ts` - Translation queries (namespace-based)
 - `convex/translationResolver.ts` - Backend translation helpers
-- `convex/ontologyTranslations.ts` - Translation data queries
 - `convex/organizationOntology.ts` - Example usage in queries
 - `convex/seedOntologyData.ts` - Seed data with translation keys
+- `convex/translations/` - Translation seed files by feature

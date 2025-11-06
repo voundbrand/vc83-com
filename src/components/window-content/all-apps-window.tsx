@@ -5,6 +5,7 @@ import { useAvailableApps } from "@/hooks/use-app-availability";
 import { useAuth } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
 import { useWindowManager } from "@/hooks/use-window-manager";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { PaymentsWindow } from "@/components/window-content/payments-window";
 import { WebPublishingWindow } from "@/components/window-content/web-publishing-window";
 import MediaLibraryWindow from "@/components/window-content/media-library-window";
@@ -28,6 +29,7 @@ export function AllAppsWindow() {
   const { isSignedIn } = useAuth();
   const { availableApps, isLoading, organizationName } = useAvailableApps();
   const { openWindow } = useWindowManager();
+  const { t } = useNamespaceTranslations("ui.start_menu");
 
   // App click handler - opens the app window (must be defined before any returns)
   const handleAppClick = React.useCallback((appCode: string, appName: string) => {
@@ -117,7 +119,7 @@ export function AllAppsWindow() {
             <div className="text-5xl">{availableApps?.find(a => a.code === appCode)?.icon || "📦"}</div>
             <h3 className="font-bold" style={{ color: 'var(--win95-text)' }}>{appName}</h3>
             <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
-              This application is coming soon!
+              {t("ui.start_menu.app_coming_soon")}
             </p>
           </div>
         </div>,
@@ -125,7 +127,7 @@ export function AllAppsWindow() {
         { width: 600, height: 400 }
       );
     }
-  }, [openWindow, availableApps]);
+  }, [openWindow, availableApps, t]);
 
   // Not signed in
   if (!isSignedIn) {
@@ -134,10 +136,10 @@ export function AllAppsWindow() {
         <div className="text-center space-y-4">
           <div className="text-4xl">🔒</div>
           <h3 className="font-bold text-lg" style={{ color: 'var(--win95-text)' }}>
-            Sign In Required
+            {t("ui.start_menu.sign_in_required")}
           </h3>
           <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
-            Please sign in to view your installed applications.
+            {t("ui.start_menu.sign_in_to_view_apps")}
           </p>
         </div>
       </div>
@@ -151,7 +153,7 @@ export function AllAppsWindow() {
         <div className="flex flex-col items-center gap-3">
           <Loader2 size={32} className="animate-spin" style={{ color: 'var(--win95-highlight)' }} />
           <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
-            Loading applications...
+            {t("ui.start_menu.loading_applications")}
           </p>
         </div>
       </div>
@@ -165,13 +167,13 @@ export function AllAppsWindow() {
         <div className="text-center space-y-4">
           <div className="text-4xl">📦</div>
           <h3 className="font-bold text-lg" style={{ color: 'var(--win95-text)' }}>
-            No Apps Installed
+            {t("ui.start_menu.no_apps_installed")}
           </h3>
           <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
-            {organizationName} has no applications installed yet.
+            {t("ui.start_menu.org_no_apps", { orgName: organizationName })}
           </p>
           <p className="text-xs mt-2" style={{ color: 'var(--neutral-gray)' }}>
-            Contact your administrator to install apps for your organization.
+            {t("ui.start_menu.contact_admin")}
           </p>
         </div>
       </div>
@@ -183,10 +185,10 @@ export function AllAppsWindow() {
       {/* Header */}
       <div className="px-4 py-3 border-b-2" style={{ borderColor: 'var(--win95-border)' }}>
         <h2 className="font-bold text-lg" style={{ color: 'var(--win95-text)' }}>
-          All Applications
+          {t("ui.app.all_applications")}
         </h2>
         <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-          {availableApps.length} app{availableApps.length !== 1 ? 's' : ''} installed for {organizationName}
+          {t("ui.start_menu.apps_installed_for", { count: availableApps.length, orgName: organizationName })}
         </p>
       </div>
 
@@ -197,10 +199,16 @@ export function AllAppsWindow() {
             <button
               key={app._id}
               onClick={() => handleAppClick(app.code, app.name)}
-              className="flex flex-col items-center gap-2 p-4 rounded border-2 hover:border-purple-600 transition-colors group"
+              className="flex flex-col items-center gap-2 p-4 rounded border-2 transition-colors group"
               style={{
                 background: 'var(--win95-bg-light)',
-                borderColor: 'var(--win95-border)',
+                borderColor: 'var(--win95-border)'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--win95-highlight)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--win95-border)';
               }}
               title={app.description}
             >
@@ -232,11 +240,14 @@ export function AllAppsWindow() {
       </div>
 
       {/* Footer */}
-      <div className="px-4 py-2 border-t-2 text-xs" style={{
-        borderColor: 'var(--win95-border)',
-        color: 'var(--neutral-gray)'
-      }}>
-        Click an app to open it
+      <div
+        className="px-4 py-2 border-t-2 text-xs"
+        style={{
+          borderColor: 'var(--win95-border)',
+          color: 'var(--neutral-gray)'
+        }}
+      >
+        {t("ui.start_menu.click_app_to_open")}
       </div>
     </div>
   );

@@ -7,6 +7,7 @@ import { StripeConnectSection } from "./stripe-connect-section";
 import { InvoicingSection } from "./invoicing-section";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { CreditCard, Loader2, AlertCircle, Building2, FileText } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 
@@ -17,6 +18,7 @@ export function PaymentsWindow() {
   const { user, isLoading, sessionId } = useAuth();
   const currentOrganization = useCurrentOrganization();
   const organizationId = currentOrganization?.id || user?.defaultOrgId;
+  const { t } = useNamespaceTranslations("ui.payments");
 
   // Get organization data to check Stripe status (MUST be before any conditional returns)
   const organization = useQuery(
@@ -42,7 +44,7 @@ export function PaymentsWindow() {
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
             <Loader2 size={48} className="animate-spin mx-auto mb-4" style={{ color: "var(--primary)" }} />
-            <p style={{ color: "var(--win95-text)" }}>Loading payment settings...</p>
+            <p style={{ color: "var(--win95-text)" }}>{t("ui.payments.loading")}</p>
           </div>
         </div>
       </div>
@@ -55,7 +57,7 @@ export function PaymentsWindow() {
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
             <AlertCircle size={48} style={{ color: "var(--error)" }} className="mx-auto mb-4" />
-            <p style={{ color: "var(--win95-text)" }}>Please log in to access payment settings</p>
+            <p style={{ color: "var(--win95-text)" }}>{t("ui.payments.please_login")}</p>
           </div>
         </div>
       </div>
@@ -69,10 +71,10 @@ export function PaymentsWindow() {
           <div className="text-center">
             <Building2 size={48} style={{ color: "var(--warning)" }} className="mx-auto mb-4" />
             <p style={{ color: "var(--win95-text)" }} className="font-semibold">
-              No Organization Selected
+              {t("ui.payments.no_org_selected")}
             </p>
             <p style={{ color: "var(--win95-text-secondary)" }} className="text-sm mt-2">
-              Please select an organization to manage payment settings
+              {t("ui.payments.select_org_prompt")}
             </p>
           </div>
         </div>
@@ -88,10 +90,10 @@ export function PaymentsWindow() {
           <div>
             <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
               <CreditCard size={16} />
-              Payment Management
+              {t("ui.payments.title")}
             </h2>
             <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-              Manage Stripe payments, tax settings, and transactions
+              {t("ui.payments.subtitle")}
             </p>
           </div>
 
@@ -102,7 +104,7 @@ export function PaymentsWindow() {
             </p>
             {organization?.paymentProviders?.find((p) => p.providerCode === "stripe-connect") && (
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                Status: {organization.paymentProviders.find((p) => p.providerCode === "stripe-connect")?.status}
+                {t("ui.payments.status")}: {organization.paymentProviders.find((p) => p.providerCode === "stripe-connect")?.status}
               </p>
             )}
           </div>
@@ -124,7 +126,7 @@ export function PaymentsWindow() {
           onClick={() => setActiveTab("stripe")}
         >
           <CreditCard size={14} />
-          Stripe
+          {t("ui.payments.tab_stripe")}
         </button>
         <button
           className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2"
@@ -136,7 +138,7 @@ export function PaymentsWindow() {
           onClick={() => setActiveTab("invoicing")}
         >
           <FileText size={14} />
-          Invoicing Setup
+          {t("ui.payments.tab_invoicing")}
         </button>
       </div>
 
@@ -158,14 +160,14 @@ export function PaymentsWindow() {
       >
         <div className="flex justify-between items-center">
           <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-            Powered by Stripe
+            {t("ui.payments.powered_by_stripe")}
           </p>
           <p className="text-xs font-semibold" style={{
             color: organization?.paymentProviders?.find((p) => p.providerCode === "stripe-connect")?.isTestMode
               ? "var(--warning)"
               : "var(--success)"
           }}>
-            Mode: {organization?.paymentProviders?.find((p) => p.providerCode === "stripe-connect")?.isTestMode ? "Test" : "Live"}
+            {t("ui.payments.mode")}: {organization?.paymentProviders?.find((p) => p.providerCode === "stripe-connect")?.isTestMode ? t("ui.payments.mode_test") : t("ui.payments.mode_live")}
           </p>
         </div>
       </div>

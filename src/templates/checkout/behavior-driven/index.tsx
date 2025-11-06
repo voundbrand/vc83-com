@@ -16,6 +16,7 @@ import { executeCheckoutBehaviors, shouldSkipPaymentStep } from "@/lib/behaviors
 import { Behavior } from "@/lib/behaviors/types";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { useTranslation } from "@/contexts/translation-context";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 // Step components
 import { ProductSelectionStep } from "./steps/product-selection";
@@ -27,7 +28,8 @@ import { ConfirmationStep } from "./steps/confirmation";
 
 export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
   const config = { ...DEFAULT_CONFIG, ...props };
-  const { t } = useTranslation();
+  const { locale } = useTranslation(); // For locale management only
+  const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.checkout_template.behavior_driven");
 
   // State
   const [currentStep, setCurrentStep] = useState<CheckoutStep>("product-selection");

@@ -9,10 +9,29 @@ import { v } from "convex/values";
 import { requireAuthenticatedUser, checkPermission } from "./rbacHelpers";
 
 /**
- * GET ALL TRANSLATIONS FOR LOCALE (as key-value map)
+ * GET TRANSLATIONS BY NAMESPACE (as key-value map)
+ *
+ * This replaces getAllTranslations to avoid the 1024 field limit.
+ * Load only the translations you need for a specific window/component.
+ *
+ * @param locale - Language code (e.g., "en", "de", "pl")
+ * @param namespace - Dot-separated namespace prefix (e.g., "ui.media_library")
+ * @returns Object with translation keys and values for the requested namespace
+ *
+ * @example
+ * // Load only media library translations
+ * const translations = useQuery(api.ontologyTranslations.getTranslationsByNamespace, {
+ *   locale: "en",
+ *   namespace: "ui.media_library"
+ * });
+ *
+ * // Access like: translations["ui.media_library.tab.library"]
  */
-export const getAllTranslations = query({
-  args: { locale: v.string() },
+export const getTranslationsByNamespace = query({
+  args: {
+    locale: v.string(),
+    namespace: v.string(),
+  },
   handler: async (ctx, args) => {
     const systemOrg = await ctx.db
       .query("organizations")
@@ -30,12 +49,86 @@ export const getAllTranslations = query({
       )
       .collect();
 
+    // Filter to only translations in this namespace
+    const namespaceTranslations = translations.filter(t =>
+      t.name.startsWith(args.namespace + ".")
+    );
+
     const translationMap: Record<string, string> = {};
-    translations.forEach(t => {
+    namespaceTranslations.forEach(t => {
       if (t.value) translationMap[t.name] = t.value;
     });
 
     return translationMap;
+  },
+});
+
+/**
+ * GET MULTIPLE NAMESPACES AT ONCE
+ *
+ * Load translations for multiple namespaces in a single query.
+ * Useful when a component needs translations from multiple areas.
+ *
+ * @param locale - Language code (e.g., "en", "de", "pl")
+ * @param namespaces - Array of namespace prefixes
+ * @returns Object with all translations for the requested namespaces
+ *
+ * @example
+ * // Load both products and checkout translations
+ * const translations = useQuery(api.ontologyTranslations.getMultipleNamespaces, {
+ *   locale: "en",
+ *   namespaces: ["ui.products", "ui.checkout"]
+ * });
+ */
+export const getMultipleNamespaces = query({
+  args: {
+    locale: v.string(),
+    namespaces: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const systemOrg = await ctx.db
+      .query("organizations")
+      .filter(q => q.eq(q.field("slug"), "system"))
+      .first();
+
+    if (!systemOrg) return {};
+
+    const translations = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type_locale", q =>
+        q.eq("organizationId", systemOrg._id)
+         .eq("type", "translation")
+         .eq("locale", args.locale)
+      )
+      .collect();
+
+    // Filter to only translations in requested namespaces
+    const filteredTranslations = translations.filter(t =>
+      args.namespaces.some(ns => t.name.startsWith(ns + "."))
+    );
+
+    const translationMap: Record<string, string> = {};
+    filteredTranslations.forEach(t => {
+      if (t.value) translationMap[t.name] = t.value;
+    });
+
+    return translationMap;
+  },
+});
+
+/**
+ * @deprecated Use getTranslationsByNamespace or getMultipleNamespaces instead.
+ * This query will fail with >1024 translations.
+ *
+ * GET ALL TRANSLATIONS FOR LOCALE (as key-value map)
+ */
+export const getAllTranslations = query({
+  args: { locale: v.string() },
+  handler: async (_ctx, _args) => {
+    // Return empty for now to prevent errors
+    // Components should migrate to namespace-based loading
+    console.warn("getAllTranslations is deprecated. Use getTranslationsByNamespace instead.");
+    return {};
   },
 });
 

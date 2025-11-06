@@ -55,11 +55,26 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
         isMobile ? "w-[180px] max-w-[90vw]" : "min-w-[200px]",
         className
       )}
-      style={{ zIndex: 10001, position: 'fixed', bottom: 'calc(var(--taskbar-height) - 14px)', left: '4px' }}
+      style={{
+        zIndex: 10001,
+        position: 'fixed',
+        bottom: 'calc(var(--taskbar-height) - 14px)',
+        left: '4px',
+        background: 'var(--win95-bg)'
+      }}
     >
       {/* Windows 95-style vertical stripe */}
-      <div className="w-10 flex items-center justify-center retro-border py-6" style={{ background: 'var(--win95-border)', minHeight: '180px' }}>
-        <div className="transform -rotate-90 whitespace-nowrap font-['Press_Start_2P'] text-sm tracking-wider" style={{ color: 'var(--win95-text)' }}>
+      <div
+        className="w-10 flex items-center justify-center retro-border py-6"
+        style={{
+          background: 'var(--win95-border)',
+          minHeight: '180px'
+        }}
+      >
+        <div
+          className="transform -rotate-90 whitespace-nowrap font-['Press_Start_2P'] text-sm tracking-wider"
+          style={{ color: 'var(--win95-text)' }}
+        >
           L4YERCAK3
         </div>
       </div>
@@ -68,7 +83,10 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
         {items.map((item, index) => (
           <div key={index} className="relative">
             {item.divider ? (
-              <div className="h-[1px] mx-1 my-1 retro-border" style={{ background: 'var(--win95-border)' }} />
+              <div
+                className="h-[1px] mx-1 my-1 retro-border"
+                style={{ background: 'var(--win95-border)' }}
+              />
             ) : (
               <>
                 <button
@@ -87,6 +105,7 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
                     }
                   }}
                   className="w-full px-3 py-2 text-left flex items-center justify-between gap-2 transition-colors font-pixel hover-menu-item retro-text"
+                  style={{ color: 'var(--win95-text)' }}
                 >
                   <div className="flex items-center gap-2">
                     {item.icon && <span className="text-base">{item.icon}</span>}
@@ -99,7 +118,10 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
                 {item.submenu && openSubmenu === index && (
                   <div
                     className="absolute left-full bottom-0 ml-1 min-w-[200px] retro-window window-corners dark:retro-window-dark shadow-lg"
-                    style={{ zIndex: 10002 }}
+                    style={{
+                      zIndex: 10002,
+                      background: 'var(--win95-bg)'
+                    }}
                   >
                     <div className="py-1">
                       {item.submenu.map((subitem, subindex) => (
@@ -111,6 +133,7 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
                             setOpenSubmenu(null);
                           }}
                           className="w-full px-3 py-2 text-left flex items-center gap-2 transition-colors font-pixel hover-menu-item retro-text"
+                          style={{ color: 'var(--win95-text)' }}
                           title={subitem.fullLabel || subitem.label} // Show full name on hover
                         >
                           {subitem.icon && (

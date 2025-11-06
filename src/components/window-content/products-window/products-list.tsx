@@ -5,6 +5,7 @@ import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { Edit2, Trash2, CheckCircle, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 interface ProductsListProps {
   sessionId: string;
@@ -13,6 +14,7 @@ interface ProductsListProps {
 }
 
 export function ProductsList({ sessionId, organizationId, onEdit }: ProductsListProps) {
+  const { t } = useNamespaceTranslations("ui.products");
   const [filter, setFilter] = useState<{ subtype?: string; status?: string }>({});
 
   // Get products from Convex
@@ -26,12 +28,12 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
   const publishProduct = useMutation(api.productOntology.publishProduct);
 
   const handleDelete = async (productId: Id<"objects">) => {
-    if (confirm("Are you sure you want to archive this product?")) {
+    if (confirm(t("ui.products.list.confirm.delete"))) {
       try {
         await deleteProduct({ sessionId, productId });
       } catch (error) {
         console.error("Failed to delete product:", error);
-        alert("Failed to delete product");
+        alert(t("ui.products.list.error.deleteFailed"));
       }
     }
   };
@@ -41,7 +43,7 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
       await publishProduct({ sessionId, productId });
     } catch (error) {
       console.error("Failed to publish product:", error);
-      alert("Failed to publish product");
+      alert(t("ui.products.list.error.publishFailed"));
     }
   };
 
@@ -54,10 +56,10 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
 
   const getStatusBadge = (status: string) => {
     const badges = {
-      draft: { label: "Draft", color: "var(--neutral-gray)" },
-      active: { label: "Active", color: "var(--success)" },
-      sold_out: { label: "Sold Out", color: "var(--error)" },
-      archived: { label: "Archived", color: "var(--warning)" },
+      draft: { label: t("ui.products.list.status.draft"), color: "var(--neutral-gray)" },
+      active: { label: t("ui.products.list.status.active"), color: "var(--success)" },
+      sold_out: { label: t("ui.products.list.status.soldOut"), color: "var(--error)" },
+      archived: { label: t("ui.products.list.status.archived"), color: "var(--warning)" },
     };
     const badge = badges[status as keyof typeof badges] || badges.draft;
     return (
@@ -92,7 +94,7 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
       <div className="flex items-center justify-center p-8">
         <div className="text-center">
           <p style={{ color: "var(--neutral-gray)" }} className="text-sm">
-            No products yet. Click &ldquo;Create Product&rdquo; to get started.
+            {t("ui.products.list.empty")}
           </p>
         </div>
       </div>
@@ -113,10 +115,10 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
             color: "var(--win95-text)",
           }}
         >
-          <option value="">All Types</option>
-          <option value="ticket">Tickets</option>
-          <option value="physical">Physical</option>
-          <option value="digital">Digital</option>
+          <option value="">{t("ui.products.list.filter.allTypes")}</option>
+          <option value="ticket">{t("ui.products.list.filter.tickets")}</option>
+          <option value="physical">{t("ui.products.list.filter.physical")}</option>
+          <option value="digital">{t("ui.products.list.filter.digital")}</option>
         </select>
 
         <select
@@ -129,11 +131,11 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
             color: "var(--win95-text)",
           }}
         >
-          <option value="">All Statuses</option>
-          <option value="draft">Draft</option>
-          <option value="active">Active</option>
-          <option value="sold_out">Sold Out</option>
-          <option value="archived">Archived</option>
+          <option value="">{t("ui.products.list.filter.allStatuses")}</option>
+          <option value="draft">{t("ui.products.list.status.draft")}</option>
+          <option value="active">{t("ui.products.list.status.active")}</option>
+          <option value="sold_out">{t("ui.products.list.status.soldOut")}</option>
+          <option value="archived">{t("ui.products.list.status.archived")}</option>
         </select>
       </div>
 
@@ -171,7 +173,7 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
             {/* Price & Inventory */}
             <div className="mb-3 space-y-1">
               <div className="flex items-center justify-between text-xs">
-                <span style={{ color: "var(--neutral-gray)" }}>Price:</span>
+                <span style={{ color: "var(--neutral-gray)" }}>{t("ui.products.list.label.price")}</span>
                 <span className="font-bold" style={{ color: "var(--win95-text)" }}>
                   {formatPrice(
                     product.customProperties?.price || 0,
@@ -181,15 +183,15 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
               </div>
               {product.customProperties?.inventory !== null && product.customProperties?.inventory !== undefined && (
                 <div className="flex items-center justify-between text-xs">
-                  <span style={{ color: "var(--neutral-gray)" }}>Inventory:</span>
+                  <span style={{ color: "var(--neutral-gray)" }}>{t("ui.products.list.label.inventory")}</span>
                   <span className="font-bold" style={{ color: "var(--win95-text)" }}>
-                    {product.customProperties.inventory} available
+                    {product.customProperties.inventory} {t("ui.products.list.label.available")}
                   </span>
                 </div>
               )}
               {product.customProperties?.sold !== undefined && (
                 <div className="flex items-center justify-between text-xs">
-                  <span style={{ color: "var(--neutral-gray)" }}>Sold:</span>
+                  <span style={{ color: "var(--neutral-gray)" }}>{t("ui.products.list.label.sold")}</span>
                   <span className="font-bold" style={{ color: "var(--win95-text)" }}>
                     {product.customProperties.sold}
                   </span>
@@ -207,10 +209,10 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
                   background: "var(--win95-button-face)",
                   color: "var(--win95-text)",
                 }}
-                title="Edit"
+                title={t("ui.products.list.button.edit")}
               >
                 <Edit2 size={12} />
-                Edit
+                {t("ui.products.list.button.edit")}
               </button>
 
               {product.status === "draft" && (
@@ -222,10 +224,10 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
                     background: "var(--win95-button-face)",
                     color: "var(--win95-text)",
                   }}
-                  title="Publish"
+                  title={t("ui.products.list.button.publish")}
                 >
                   <CheckCircle size={12} />
-                  Publish
+                  {t("ui.products.list.button.publish")}
                 </button>
               )}
 

@@ -18,12 +18,12 @@ import {
 import { usePermissions } from "@/contexts/permission-context";
 import { PermissionGuard, PermissionButton } from "@/components/permission";
 import { Id, Doc } from "../../../../convex/_generated/dataModel";
-import { useTranslation } from "@/contexts/translation-context";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 type TabType = "organization" | "users" | "roles" | "security";
 
 export function ManageWindow() {
-  const { t } = useTranslation();
+  const { t } = useNamespaceTranslations("ui.manage");
   const [activeTab, setActiveTab] = useState<TabType>("organization");
   const [isEditingOrg, setIsEditingOrg] = useState(true); // Default to edit mode
   const [isSavingOrg, setIsSavingOrg] = useState(false);
@@ -287,7 +287,7 @@ export function ManageWindow() {
           onClick={() => setActiveTab("security")}
         >
           <Key size={14} />
-          Security
+          {t("ui.manage.tab.security")}
         </button>
       </div>
 
@@ -321,7 +321,7 @@ export function ManageWindow() {
             <PermissionGuard permission="manage_organization">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
-                  Organization Details
+                  {t("ui.manage.org.details_title")}
                 </h3>
                 <div className="flex gap-2">
                   {isEditingOrg ? (
@@ -341,7 +341,7 @@ export function ManageWindow() {
                         }}
                       >
                         <X size={12} />
-                        Cancel
+                        {t("ui.manage.org.cancel")}
                       </button>
                       <button
                         onClick={async () => {
@@ -449,7 +449,7 @@ export function ManageWindow() {
                         }}
                       >
                         <Save size={12} />
-                        {isSavingOrg ? "Saving..." : "Save All Changes"}
+                        {isSavingOrg ? t("ui.manage.org.saving") : t("ui.manage.org.save_all_changes")}
                       </button>
                     </>
                   ) : (
@@ -660,9 +660,6 @@ export function ManageWindow() {
                 Super Admin Mode
               </span>
             )}
-          </p>
-          <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-            Changes are saved automatically
           </p>
         </div>
       </div>

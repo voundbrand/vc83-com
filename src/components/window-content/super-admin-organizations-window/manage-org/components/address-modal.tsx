@@ -3,7 +3,7 @@
 import { X } from "lucide-react";
 import { Doc } from "../../../../../../convex/_generated/dataModel";
 import { AddressForm } from "./address-form";
-import { useTranslation } from "@/contexts/translation-context";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 interface AddressModalProps {
   isOpen: boolean;
@@ -33,7 +33,7 @@ export function AddressModal({
   onSubmit,
   isSubmitting = false,
 }: AddressModalProps) {
-  const { t } = useTranslation();
+  const { t } = useNamespaceTranslations("ui.organizations");
 
   if (!isOpen) return null;
 

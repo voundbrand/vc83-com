@@ -6,7 +6,7 @@ import { useAction, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { useAuth } from "@/hooks/use-auth";
-import { useTranslation } from "@/contexts/translation-context";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { formatRoleName } from "@/utils/roleFormatter";
 import { usePostHog } from "posthog-js/react";
 
@@ -17,7 +17,7 @@ interface InviteUserModalProps {
 }
 
 export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserModalProps) {
-  const { t } = useTranslation();
+  const { t } = useNamespaceTranslations("ui.manage");
   const posthog = usePostHog();
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");

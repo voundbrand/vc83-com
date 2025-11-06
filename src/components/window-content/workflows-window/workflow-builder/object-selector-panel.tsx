@@ -12,6 +12,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import { Package, FileText, CreditCard, Plus, Check, Search, Building2, User } from "lucide-react";
 import type { Id } from "../../../../../convex/_generated/dataModel";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 // Workflow object reference type
 interface WorkflowObject {
@@ -36,6 +37,7 @@ export function ObjectSelectorPanel({
   onAddObject,
   onRemoveObject,
 }: ObjectSelectorPanelProps) {
+  const { t } = useNamespaceTranslations("ui.workflows");
   const [searchQuery, setSearchQuery] = useState("");
   const [objectTypeFilter, setObjectTypeFilter] = useState<string>("all");
 
@@ -127,9 +129,9 @@ export function ObjectSelectorPanel({
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="border-b-2 p-3" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
-        <h3 className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>OBJECTS</h3>
+        <h3 className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>{t("ui.workflows.objectSelector.title")}</h3>
         <p className="mt-1 text-[10px]" style={{ color: 'var(--neutral-gray)' }}>
-          Add objects to your workflow
+          {t("ui.workflows.objectSelector.description")}
         </p>
       </div>
 
@@ -139,7 +141,7 @@ export function ObjectSelectorPanel({
           <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2" style={{ color: 'var(--neutral-gray)' }} />
           <input
             type="text"
-            placeholder="Search objects..."
+            placeholder={t("ui.workflows.objectSelector.searchPlaceholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="retro-input w-full py-1 pl-7 pr-2 text-xs"
@@ -154,7 +156,7 @@ export function ObjectSelectorPanel({
               objectTypeFilter === "all" ? "shadow-inner" : ""
             }`}
           >
-            All
+            {t("ui.workflows.objectSelector.filters.all")}
           </button>
           <button
             onClick={() => setObjectTypeFilter("product")}
@@ -162,7 +164,7 @@ export function ObjectSelectorPanel({
               objectTypeFilter === "product" ? "shadow-inner" : ""
             }`}
           >
-            Products
+            {t("ui.workflows.objectSelector.filters.products")}
           </button>
           <button
             onClick={() => setObjectTypeFilter("form")}
@@ -170,7 +172,7 @@ export function ObjectSelectorPanel({
               objectTypeFilter === "form" ? "shadow-inner" : ""
             }`}
           >
-            Forms
+            {t("ui.workflows.objectSelector.filters.forms")}
           </button>
           <button
             onClick={() => setObjectTypeFilter("checkout_instance")}
@@ -178,7 +180,7 @@ export function ObjectSelectorPanel({
               objectTypeFilter === "checkout_instance" ? "shadow-inner" : ""
             }`}
           >
-            Checkouts
+            {t("ui.workflows.objectSelector.filters.checkouts")}
           </button>
           <button
             onClick={() => setObjectTypeFilter("crm_organization")}
@@ -186,7 +188,7 @@ export function ObjectSelectorPanel({
               objectTypeFilter === "crm_organization" ? "shadow-inner" : ""
             }`}
           >
-            CRM Orgs
+            {t("ui.workflows.objectSelector.filters.crmOrgs")}
           </button>
           <button
             onClick={() => setObjectTypeFilter("crm_contact")}
@@ -194,7 +196,7 @@ export function ObjectSelectorPanel({
               objectTypeFilter === "crm_contact" ? "shadow-inner" : ""
             }`}
           >
-            CRM Contacts
+            {t("ui.workflows.objectSelector.filters.crmContacts")}
           </button>
         </div>
       </div>
@@ -203,7 +205,7 @@ export function ObjectSelectorPanel({
       <div className="flex-1 overflow-auto p-3" style={{ background: 'var(--win95-bg)' }}>
         {filteredObjects.length === 0 ? (
           <div className="py-8 text-center">
-            <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>No objects found</p>
+            <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>{t("ui.workflows.objectSelector.noObjectsFound")}</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -248,8 +250,7 @@ export function ObjectSelectorPanel({
       {/* Selected Count */}
       <div className="border-t-2 p-3" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
         <div className="text-xs" style={{ color: 'var(--win95-text)' }}>
-          <strong>{selectedObjects.length}</strong> object
-          {selectedObjects.length !== 1 ? "s" : ""} selected
+          {t("ui.workflows.objectSelector.selectedCount", { count: selectedObjects.length })}
         </div>
       </div>
     </div>

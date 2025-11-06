@@ -27,9 +27,12 @@ import { useIsMobile } from "@/hooks/use-media-query"
 import { useAuth, useOrganizations, useCurrentOrganization, useIsSuperAdmin, useAccountDeletionStatus } from "@/hooks/use-auth"
 import { useAvailableApps } from "@/hooks/use-app-availability"
 import { useTranslation } from "@/contexts/translation-context"
+import { useMultipleNamespaces } from "@/hooks/use-namespace-translations"
 
 export default function HomePage() {
-  const { t } = useTranslation()
+  // Load translations for start menu and app names
+  const { t } = useMultipleNamespaces(["ui.start_menu", "ui.app"])
+  // Note: locale management is now handled via TranslationContext if needed
   const [showStartMenu, setShowStartMenu] = useState(false)
   const { windows, openWindow, restoreWindow, focusWindow } = useWindowManager()
   const isMobile = useIsMobile()
@@ -43,15 +46,15 @@ export default function HomePage() {
   const { isAppAvailable } = useAvailableApps()
 
   const openWelcomeWindow = () => {
-    openWindow("welcome", t('ui.app.l4yercak3_exe', 'L4YERCAK3.exe'), <WelcomeWindow />, { x: 100, y: 100 }, { width: 650, height: 500 })
+    openWindow("welcome", "L4YERCAK3.exe", <WelcomeWindow />, { x: 100, y: 100 }, { width: 650, height: 500 }, 'ui.app.l4yercak3_exe')
   }
 
   const openSettingsWindow = () => {
-    openWindow("settings", t('ui.start_menu.settings', 'Settings'), <ControlPanelWindow />, { x: 200, y: 100 }, { width: 700, height: 550 })
+    openWindow("settings", "Settings", <ControlPanelWindow />, { x: 200, y: 100 }, { width: 700, height: 550 }, 'ui.start_menu.settings')
   }
 
   const openLoginWindow = () => {
-    openWindow("login", t('ui.app.user_account', 'User Account'), <LoginWindow />, { x: 250, y: 100 }, { width: 450, height: 620 })
+    openWindow("login", "User Account", <LoginWindow />, { x: 250, y: 100 }, { width: 450, height: 620 }, 'ui.app.user_account')
   }
 
   // const openLayerDocsWindow = () => {
@@ -59,55 +62,55 @@ export default function HomePage() {
   // }
 
   const openPaymentsWindow = () => {
-    openWindow("payments", t('ui.app.payment_management', 'Payment Management'), <PaymentsWindow />, { x: 100, y: 50 }, { width: 900, height: 600 })
+    openWindow("payments", "Payment Management", <PaymentsWindow />, { x: 100, y: 50 }, { width: 900, height: 600 }, 'ui.app.payment_management')
   }
 
   const openWebPublishingWindow = () => {
-    openWindow("web-publishing", t('ui.app.web_publishing', 'Web Publishing'), <WebPublishingWindow />, { x: 110, y: 55 }, { width: 900, height: 600 })
+    openWindow("web-publishing", "Web Publishing", <WebPublishingWindow />, { x: 110, y: 55 }, { width: 900, height: 600 }, 'ui.app.web_publishing')
   }
 
   const openMediaLibraryWindow = () => {
-    openWindow("media-library", t('ui.app.media_library', 'Media Library'), <MediaLibraryWindow />, { x: 120, y: 60 }, { width: 1000, height: 700 })
+    openWindow("media-library", "Media Library", <MediaLibraryWindow />, { x: 120, y: 60 }, { width: 1000, height: 700 }, 'ui.app.media_library')
   }
 
   const openProductsWindow = () => {
-    openWindow("products", t('ui.app.products', 'Products'), <ProductsWindow />, { x: 130, y: 50 }, { width: 950, height: 650 })
+    openWindow("products", "Products", <ProductsWindow />, { x: 130, y: 50 }, { width: 950, height: 650 }, 'ui.app.products')
   }
 
   const openTicketsWindow = () => {
-    openWindow("tickets", t('ui.app.tickets', 'Tickets'), <TicketsWindow />, { x: 140, y: 55 }, { width: 950, height: 650 })
+    openWindow("tickets", "Tickets", <TicketsWindow />, { x: 140, y: 55 }, { width: 950, height: 650 }, 'ui.app.tickets')
   }
 
   const openCertificatesWindow = () => {
-    openWindow("certificates", t('ui.app.certificates', 'Certificates'), <CertificatesWindow />, { x: 150, y: 60 }, { width: 1100, height: 700 })
+    openWindow("certificates", "Certificates", <CertificatesWindow />, { x: 150, y: 60 }, { width: 1100, height: 700 }, 'ui.app.certificates')
   }
 
   const openEventsWindow = () => {
-    openWindow("events", t('ui.app.events', 'Events'), <EventsWindow />, { x: 160, y: 50 }, { width: 950, height: 650 })
+    openWindow("events", "Events", <EventsWindow />, { x: 160, y: 50 }, { width: 950, height: 650 }, 'ui.app.events')
   }
 
   const openCheckoutWindow = () => {
-    openWindow("checkout", t('ui.app.checkout', 'Checkout'), <CheckoutWindow />, { x: 170, y: 55 }, { width: 950, height: 650 })
+    openWindow("checkout", "Checkout", <CheckoutWindow />, { x: 170, y: 55 }, { width: 950, height: 650 }, 'ui.app.checkout')
   }
 
   const openFormsWindow = () => {
-    openWindow("forms", t('ui.app.forms', 'Forms'), <FormsWindow />, { x: 180, y: 60 }, { width: 950, height: 650 })
+    openWindow("forms", "Forms", <FormsWindow />, { x: 180, y: 60 }, { width: 950, height: 650 }, 'ui.app.forms')
   }
 
   const openAllAppsWindow = () => {
-    openWindow("all-apps", t('ui.app.all_applications', 'All Applications'), <AllAppsWindow />, { x: 150, y: 100 }, { width: 800, height: 600 })
+    openWindow("all-apps", "All Applications", <AllAppsWindow />, { x: 150, y: 100 }, { width: 800, height: 600 }, 'ui.app.all_applications')
   }
 
   const openCRMWindow = () => {
-    openWindow("crm", t('ui.app.crm', 'CRM'), <CRMWindow />, { x: 190, y: 50 }, { width: 1100, height: 700 })
+    openWindow("crm", "CRM", <CRMWindow />, { x: 190, y: 50 }, { width: 1100, height: 700 }, 'ui.app.crm')
   }
 
   const openInvoicingWindow = () => {
-    openWindow("invoicing", t('ui.app.invoicing', 'Invoicing'), <InvoicingWindow />, { x: 200, y: 55 }, { width: 950, height: 650 })
+    openWindow("invoicing", "Invoicing", <InvoicingWindow />, { x: 200, y: 55 }, { width: 950, height: 650 }, 'ui.app.invoicing')
   }
 
   const openWorkflowsWindow = () => {
-    openWindow("workflows", t('ui.app.workflows', 'Workflows'), <WorkflowsWindow />, { x: 210, y: 60 }, { width: 1200, height: 750 })
+    openWindow("workflows", "Workflows", <WorkflowsWindow />, { x: 210, y: 60 }, { width: 1200, height: 750 }, 'ui.app.workflows')
   }
 
   const handleLogout = () => {
@@ -192,48 +195,48 @@ export default function HomePage() {
   // Build Programs submenu dynamically based on app availability
   const programsSubmenu = [
     // All Apps - always show for authenticated users
-    { label: t('ui.app.all_applications', 'All Applications'), icon: "📱", onClick: requireAuth(openAllAppsWindow) },
+    { label: t('ui.app.all_applications'), icon: "📱", onClick: requireAuth(openAllAppsWindow) },
     { divider: true }, // Visual separator
     // { label: "L4YER.docs", icon: "📝", onClick: requireAuth(openLayerDocsWindow) }, // Hidden for now
     ...(isAppAvailable("media-library") ? [
-      { label: t('ui.app.media_library', 'Media Library'), icon: "📁", onClick: requireAuth(openMediaLibraryWindow) }
+      { label: t('ui.app.media_library'), icon: "📁", onClick: requireAuth(openMediaLibraryWindow) }
     ] : []),
     ...(isAppAvailable("payments") ? [
-      { label: t('ui.app.payments', 'Payments'), icon: "💳", onClick: requireAuth(openPaymentsWindow) }
+      { label: t('ui.app.payments'), icon: "💳", onClick: requireAuth(openPaymentsWindow) }
     ] : []),
     ...(isAppAvailable("products") ? [
-      { label: t('ui.app.products', 'Products'), icon: "📦", onClick: requireAuth(openProductsWindow) }
+      { label: t('ui.app.products'), icon: "📦", onClick: requireAuth(openProductsWindow) }
     ] : []),
     ...(isAppAvailable("tickets") ? [
-      { label: t('ui.app.tickets', 'Tickets'), icon: "🎟️", onClick: requireAuth(openTicketsWindow) }
+      { label: t('ui.app.tickets'), icon: "🎟️", onClick: requireAuth(openTicketsWindow) }
     ] : []),
     ...(isAppAvailable("certificates") ? [
-      { label: t('ui.app.certificates', 'Certificates'), icon: "📜", onClick: requireAuth(openCertificatesWindow) }
+      { label: t('ui.app.certificates'), icon: "📜", onClick: requireAuth(openCertificatesWindow) }
     ] : []),
     ...(isAppAvailable("events") ? [
-      { label: t('ui.app.events', 'Events'), icon: "📅", onClick: requireAuth(openEventsWindow) }
+      { label: t('ui.app.events'), icon: "📅", onClick: requireAuth(openEventsWindow) }
     ] : []),
     ...(isAppAvailable("checkout") ? [
-      { label: t('ui.app.checkout', 'Checkout'), icon: "🛒", onClick: requireAuth(openCheckoutWindow) }
+      { label: t('ui.app.checkout'), icon: "🛒", onClick: requireAuth(openCheckoutWindow) }
     ] : []),
     ...(isAppAvailable("forms") ? [
-      { label: t('ui.app.forms', 'Forms'), icon: "📋", onClick: requireAuth(openFormsWindow) }
+      { label: t('ui.app.forms'), icon: "📋", onClick: requireAuth(openFormsWindow) }
     ] : []),
     // Web Publishing app - enabled via app availability
     ...(isAppAvailable("web-publishing") ? [
-      { label: t('ui.app.web_publishing', 'Web Publishing'), icon: "🌐", onClick: requireAuth(openWebPublishingWindow) }
+      { label: t('ui.app.web_publishing'), icon: "🌐", onClick: requireAuth(openWebPublishingWindow) }
     ] : []),
     // CRM app - customer relationship management
     ...(isAppAvailable("crm") ? [
-      { label: t('ui.app.crm', 'CRM'), icon: "👥", onClick: requireAuth(openCRMWindow) }
+      { label: t('ui.app.crm'), icon: "👥", onClick: requireAuth(openCRMWindow) }
     ] : []),
     // Invoicing app - B2B/B2C invoice management
     ...(isAppAvailable("app_invoicing") ? [
-      { label: t('ui.app.invoicing', 'Invoicing'), icon: "💳", onClick: requireAuth(openInvoicingWindow) }
+      { label: t('ui.app.invoicing'), icon: "💳", onClick: requireAuth(openInvoicingWindow) }
     ] : []),
     // Workflows app - Multi-object behavior orchestration
     ...(isAppAvailable("workflows") ? [
-      { label: t('ui.app.workflows', 'Workflows'), icon: "⚡", onClick: requireAuth(openWorkflowsWindow) }
+      { label: t('ui.app.workflows'), icon: "⚡", onClick: requireAuth(openWorkflowsWindow) }
     ] : []),
     //{ label: "L4YERCAK3 Podcast", icon: "🎙️", onClick: requireAuth(openEpisodesWindow) },
     //{ label: "Subscribe", icon: "🔊", onClick: requireAuth(openSubscribeWindow) },
@@ -241,7 +244,7 @@ export default function HomePage() {
 
   const startMenuItems = [
     {
-      label: t('ui.start_menu.programs', 'Programs'),
+      label: t('ui.start_menu.programs'),
       icon: "📂",
       submenu: programsSubmenu
     },
@@ -249,15 +252,15 @@ export default function HomePage() {
 
     // Organizations menu BEFORE Settings - only show if user has active organizations
     ...(isSignedIn && activeOrganizations.length > 0 ? [{
-      label: t('ui.start_menu.organizations', 'Organizations'),
+      label: t('ui.start_menu.organizations'),
       icon: "🏢",
       submenu: orgMenuItems
     }] : []),
 
-    { label: t('ui.start_menu.settings', 'Settings'), icon: "⚙️", onClick: requireAuth(openSettingsWindow) },
+    { label: t('ui.start_menu.settings'), icon: "⚙️", onClick: requireAuth(openSettingsWindow) },
 
     {
-      label: isSignedIn ? t('ui.start_menu.log_out', 'Log Out') : t('ui.start_menu.log_in', 'Log In'),
+      label: isSignedIn ? t('ui.start_menu.log_out') : t('ui.start_menu.log_in'),
       icon: isSignedIn ? "🔒" : "🔓",
       onClick: isSignedIn ? handleLogout : openLoginWindow
     },
@@ -319,28 +322,31 @@ export default function HomePage() {
             {/* Desktop: Taskbar Buttons for Open/Minimized Windows */}
             {!isMobile && (
               <div className="flex gap-1 flex-1 overflow-x-auto">
-                {windows.filter(w => w.isOpen).map((window) => (
-                  <button
-                    key={window.id}
-                    className={`retro-button px-3 py-0.5 text-xs font-pixel truncate max-w-[150px] transition-all ${
-                      !window.isMinimized ? 'shadow-inner' : ''
-                    }`}
-                    style={{
-                      backgroundColor: !window.isMinimized ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-                      color: 'var(--win95-text)'
-                    }}
-                    onClick={() => {
-                      if (window.isMinimized) {
-                        restoreWindow(window.id)
-                      } else {
-                        focusWindow(window.id)
-                      }
-                    }}
-                    title={window.title}
-                  >
-                    📄 {window.title}
-                  </button>
-                ))}
+                {windows.filter(w => w.isOpen).map((window) => {
+                  const displayTitle = window.titleKey ? t(window.titleKey) : window.title;
+                  return (
+                    <button
+                      key={window.id}
+                      className={`retro-button px-3 py-0.5 text-xs font-pixel truncate max-w-[150px] transition-all ${
+                        !window.isMinimized ? 'shadow-inner' : ''
+                      }`}
+                      style={{
+                        backgroundColor: !window.isMinimized ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+                        color: 'var(--win95-text)'
+                      }}
+                      onClick={() => {
+                        if (window.isMinimized) {
+                          restoreWindow(window.id)
+                        } else {
+                          focusWindow(window.id)
+                        }
+                      }}
+                      title={displayTitle}
+                    >
+                      📄 {displayTitle}
+                    </button>
+                  );
+                })}
               </div>
             )}
 

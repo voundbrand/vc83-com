@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Doc } from "../../../../../../convex/_generated/dataModel";
-import { useTranslation } from "@/contexts/translation-context";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { getSupportedCountries } from "../../../../../../convex/legalEntityTypes";
 
 interface AddressFormData {
@@ -33,7 +33,7 @@ export function AddressForm({
   onCancel,
   isSubmitting = false,
 }: AddressFormProps) {
-  const { t } = useTranslation();
+  const { t } = useNamespaceTranslations("ui.organizations");
 
   // Get supported countries for dropdown
   const supportedCountries = getSupportedCountries();

@@ -7,10 +7,12 @@ import { Package, Plus, List, Loader2, AlertCircle, Building2 } from "lucide-rea
 import { Id } from "../../../../convex/_generated/dataModel";
 import { ProductsList } from "./products-list";
 import { ProductForm } from "./product-form";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 type ViewMode = "list" | "create" | "edit";
 
 export function ProductsWindow() {
+  const { t } = useNamespaceTranslations("ui.products");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [selectedProductId, setSelectedProductId] = useState<Id<"objects"> | null>(null);
   const { user, isLoading, sessionId } = useAuth();
@@ -33,7 +35,7 @@ export function ProductsWindow() {
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
             <Loader2 size={48} className="animate-spin mx-auto mb-4" style={{ color: "var(--primary)" }} />
-            <p style={{ color: "var(--win95-text)" }}>Loading products...</p>
+            <p style={{ color: "var(--win95-text)" }}>{t("ui.products.loading")}</p>
           </div>
         </div>
       </div>
@@ -46,7 +48,7 @@ export function ProductsWindow() {
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
             <AlertCircle size={48} style={{ color: "var(--error)" }} className="mx-auto mb-4" />
-            <p style={{ color: "var(--win95-text)" }}>Please log in to access products</p>
+            <p style={{ color: "var(--win95-text)" }}>{t("ui.products.error.login")}</p>
           </div>
         </div>
       </div>
@@ -60,10 +62,10 @@ export function ProductsWindow() {
           <div className="text-center">
             <Building2 size={48} style={{ color: "var(--warning)" }} className="mx-auto mb-4" />
             <p style={{ color: "var(--win95-text)" }} className="font-semibold">
-              No Organization Selected
+              {t("ui.products.error.noOrg")}
             </p>
-            <p style={{ color: "var(--win95-text-secondary)" }} className="text-sm mt-2">
-              Please select an organization to manage products
+            <p style={{ color: "var(--neutral-gray)" }} className="text-sm mt-2">
+              {t("ui.products.error.noOrgDescription")}
             </p>
           </div>
         </div>
@@ -94,10 +96,10 @@ export function ProductsWindow() {
           <div>
             <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
               <Package size={16} />
-              Products
+              {t("ui.products.header.title")}
             </h2>
             <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-              Manage your product catalog - tickets, merchandise, and digital goods
+              {t("ui.products.header.description")}
             </p>
           </div>
 
@@ -126,7 +128,7 @@ export function ProductsWindow() {
             }}
           >
             <Plus size={14} />
-            Create Product
+            {t("ui.products.button.createProduct")}
           </button>
         ) : (
           <button
@@ -139,7 +141,7 @@ export function ProductsWindow() {
             }}
           >
             <List size={14} />
-            Back to List
+            {t("ui.products.button.backToList")}
           </button>
         )}
       </div>

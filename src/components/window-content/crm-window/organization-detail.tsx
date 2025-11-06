@@ -5,12 +5,14 @@ import { api } from "../../../../convex/_generated/api"
 import { useAuth } from "@/hooks/use-auth"
 import { Globe, Building2, Users, Tag, Calendar } from "lucide-react"
 import type { Id } from "../../../../convex/_generated/dataModel"
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
 
 interface OrganizationDetailProps {
   organizationId: Id<"objects">
 }
 
 export function OrganizationDetail({ organizationId }: OrganizationDetailProps) {
+  const { t } = useNamespaceTranslations("ui.crm")
   const { sessionId } = useAuth()
 
   // Get organization
@@ -26,11 +28,11 @@ export function OrganizationDetail({ organizationId }: OrganizationDetailProps) 
   )
 
   if (!sessionId) {
-    return <div className="p-4 text-gray-500">Please log in</div>
+    return <div className="p-4" style={{ color: 'var(--neutral-gray)' }}>{t("ui.crm.organizations.login_required")}</div>
   }
 
   if (!organization) {
-    return <div className="p-4 text-gray-500">Loading...</div>
+    return <div className="p-4" style={{ color: 'var(--neutral-gray)' }}>{t("ui.crm.organizations.loading")}</div>
   }
 
   const props = organization.customProperties || {}
@@ -47,33 +49,34 @@ export function OrganizationDetail({ organizationId }: OrganizationDetailProps) 
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="pb-4 border-b-2 border-gray-300">
+      <div className="pb-4 border-b-2" style={{ borderColor: 'var(--win95-border)' }}>
         <div className="flex items-center gap-2 mb-2">
-          <Building2 size={24} className="text-purple-600" />
-          <h2 className="text-lg font-bold">{organization.name}</h2>
+          <Building2 size={24} style={{ color: 'var(--win95-highlight)' }} />
+          <h2 className="text-lg font-bold" style={{ color: 'var(--win95-text)' }}>{organization.name}</h2>
         </div>
         <div className="space-y-1">
           {website && (
-            <div className="flex items-center gap-2 text-sm text-gray-600">
+            <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--neutral-gray)' }}>
               <Globe size={14} />
               <a
                 href={website.startsWith("http") ? website : `https://${website}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hover:text-blue-600 hover:underline"
+                className="hover:underline"
+                style={{ color: 'var(--win95-highlight)' }}
               >
                 {website}
               </a>
             </div>
           )}
           {billingEmail && (
-            <div className="text-sm text-gray-600">
-              Email: <a href={`mailto:${billingEmail}`} className="hover:text-blue-600 hover:underline">{billingEmail}</a>
+            <div className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
+              {t("ui.crm.organizations.email")}: <a href={`mailto:${billingEmail}`} className="hover:underline" style={{ color: 'var(--win95-highlight)' }}>{billingEmail}</a>
             </div>
           )}
           {phone && (
-            <div className="text-sm text-gray-600">
-              Phone: <a href={`tel:${phone}`} className="hover:text-blue-600 hover:underline">{phone}</a>
+            <div className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
+              {t("ui.crm.organizations.phone")}: <a href={`tel:${phone}`} className="hover:underline" style={{ color: 'var(--win95-highlight)' }}>{phone}</a>
             </div>
           )}
         </div>
@@ -81,19 +84,19 @@ export function OrganizationDetail({ organizationId }: OrganizationDetailProps) 
 
       {/* Company Info */}
       {(industry || size) && (
-        <div className="bg-gray-50 border-2 border-gray-300 p-3">
-          <div className="text-xs font-pixel mb-2">COMPANY INFO</div>
+        <div className="border-2 p-3" style={{ background: 'var(--win95-bg-light)', borderColor: 'var(--win95-border)' }}>
+          <div className="text-xs font-pixel mb-2" style={{ color: 'var(--win95-text)' }}>{t("ui.crm.organizations.company_info")}</div>
           <div className="space-y-1 text-sm">
             {industry && (
               <div className="flex justify-between">
-                <span className="text-gray-600">Industry:</span>
-                <span className="font-semibold">{industry}</span>
+                <span style={{ color: 'var(--neutral-gray)' }}>{t("ui.crm.organizations.industry")}:</span>
+                <span className="font-semibold" style={{ color: 'var(--win95-text)' }}>{industry}</span>
               </div>
             )}
             {size && (
               <div className="flex justify-between">
-                <span className="text-gray-600">Company Size:</span>
-                <span className="font-semibold">{size}</span>
+                <span style={{ color: 'var(--neutral-gray)' }}>{t("ui.crm.organizations.company_size")}:</span>
+                <span className="font-semibold" style={{ color: 'var(--win95-text)' }}>{size}</span>
               </div>
             )}
           </div>
@@ -103,8 +106,8 @@ export function OrganizationDetail({ organizationId }: OrganizationDetailProps) 
       {/* Address */}
       {address && (address.street || address.city || address.state || address.postalCode || address.country) && (
         <div>
-          <div className="text-xs font-pixel mb-2">ADDRESS</div>
-          <div className="bg-gray-50 border-2 border-gray-300 p-3 text-sm">
+          <div className="text-xs font-pixel mb-2" style={{ color: 'var(--win95-text)' }}>{t("ui.crm.organizations.address")}</div>
+          <div className="border-2 p-3 text-sm" style={{ background: 'var(--win95-bg-light)', borderColor: 'var(--win95-border)', color: 'var(--win95-text)' }}>
             {address.street && <div>{address.street}</div>}
             <div>
               {[address.city, address.state, address.postalCode].filter(Boolean).join(", ")}
@@ -117,33 +120,33 @@ export function OrganizationDetail({ organizationId }: OrganizationDetailProps) 
       {/* Contacts in this Organization */}
       <div>
         <div className="flex items-center gap-2 mb-3">
-          <Users size={16} />
-          <span className="text-xs font-pixel">CONTACTS ({contacts?.length || 0})</span>
+          <Users size={16} style={{ color: 'var(--win95-text)' }} />
+          <span className="text-xs font-pixel" style={{ color: 'var(--win95-text)' }}>{t("ui.crm.organizations.contacts")} ({contacts?.length || 0})</span>
         </div>
         {contacts && contacts.length > 0 ? (
           <div className="space-y-2">
             {contacts.map((contact) => {
               const contactProps = contact.customProperties || {}
               const relationship = contact.relationship || {}
-              const fullName = contactProps.fullName || `${contactProps.firstName || ""} ${contactProps.lastName || ""}`.trim() || "Unnamed Contact"
+              const fullName = contactProps.fullName || `${contactProps.firstName || ""} ${contactProps.lastName || ""}`.trim() || t("ui.crm.organizations.unnamed_contact")
               const email = contactProps.email?.toString() || ""
 
               return (
-                <div key={contact._id} className="p-3 bg-white border-2 border-gray-300">
+                <div key={contact._id} className="p-3 border-2" style={{ background: 'var(--win95-bg)', borderColor: 'var(--win95-border)' }}>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <div className="font-semibold text-sm">{fullName}</div>
-                      <div className="text-xs text-gray-600">{email}</div>
+                      <div className="font-semibold text-sm" style={{ color: 'var(--win95-text)' }}>{fullName}</div>
+                      <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>{email}</div>
                       {relationship.jobTitle && (
-                        <div className="text-xs text-gray-500 mt-1">{relationship.jobTitle}</div>
+                        <div className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>{relationship.jobTitle}</div>
                       )}
                       {relationship.department && (
-                        <div className="text-xs text-gray-500">{relationship.department}</div>
+                        <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>{relationship.department}</div>
                       )}
                     </div>
                     {relationship.isPrimaryContact && (
-                      <span className="px-2 py-0.5 text-[10px] font-pixel bg-purple-100 border border-purple-400 text-purple-700">
-                        PRIMARY
+                      <span className="px-2 py-0.5 text-[10px] font-pixel border-2" style={{ background: 'var(--win95-bg-light)', borderColor: 'var(--win95-highlight)', color: 'var(--win95-highlight)' }}>
+                        {t("ui.crm.organizations.primary")}
                       </span>
                     )}
                   </div>
@@ -152,8 +155,8 @@ export function OrganizationDetail({ organizationId }: OrganizationDetailProps) 
             })}
           </div>
         ) : (
-          <div className="p-4 text-center text-gray-500 border-2 border-gray-300 bg-gray-50">
-            <p className="text-sm">No contacts linked to this organization</p>
+          <div className="p-4 text-center border-2" style={{ color: 'var(--neutral-gray)', borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+            <p className="text-sm">{t("ui.crm.organizations.no_contacts")}</p>
           </div>
         )}
       </div>
@@ -161,18 +164,15 @@ export function OrganizationDetail({ organizationId }: OrganizationDetailProps) 
       {/* Stage */}
       {organization.subtype && (
         <div>
-          <div className="text-xs font-pixel mb-2">STATUS</div>
+          <div className="text-xs font-pixel mb-2" style={{ color: 'var(--win95-text)' }}>{t("ui.crm.organizations.status")}</div>
           <div>
             <span
-              className={`px-2 py-1 text-xs font-pixel border-2 ${
-                organization.subtype === "customer"
-                  ? "bg-green-100 border-green-400 text-green-700"
-                  : organization.subtype === "prospect"
-                  ? "bg-blue-100 border-blue-400 text-blue-700"
-                  : organization.subtype === "partner"
-                  ? "bg-purple-100 border-purple-400 text-purple-700"
-                  : "bg-gray-100 border-gray-400 text-gray-700"
-              }`}
+              className="px-2 py-1 text-xs font-pixel border-2"
+              style={{
+                background: 'var(--win95-bg-light)',
+                borderColor: organization.subtype === "customer" ? 'var(--success)' : organization.subtype === "prospect" ? 'var(--win95-highlight)' : organization.subtype === "partner" ? 'var(--win95-highlight)' : 'var(--win95-border)',
+                color: organization.subtype === "customer" ? 'var(--success)' : organization.subtype === "prospect" ? 'var(--win95-highlight)' : organization.subtype === "partner" ? 'var(--win95-highlight)' : 'var(--win95-text)'
+              }}
             >
               {organization.subtype.toUpperCase()}
             </span>
@@ -184,14 +184,19 @@ export function OrganizationDetail({ organizationId }: OrganizationDetailProps) 
       {tags.length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <Tag size={14} />
-            <span className="text-xs font-pixel">TAGS</span>
+            <Tag size={14} style={{ color: 'var(--win95-text)' }} />
+            <span className="text-xs font-pixel" style={{ color: 'var(--win95-text)' }}>{t("ui.crm.organizations.tags")}</span>
           </div>
           <div className="flex flex-wrap gap-2">
             {tags.map((tag: unknown, index: number) => (
               <span
                 key={index}
-                className="px-2 py-1 text-xs bg-blue-50 border border-blue-300 text-blue-700"
+                className="px-2 py-1 text-xs border-2"
+                style={{
+                  background: 'var(--win95-bg-light)',
+                  borderColor: 'var(--win95-highlight)',
+                  color: 'var(--win95-highlight)'
+                }}
               >
                 {String(tag)}
               </span>
@@ -203,22 +208,22 @@ export function OrganizationDetail({ organizationId }: OrganizationDetailProps) 
       {/* Notes */}
       {notes && (
         <div>
-          <div className="text-xs font-pixel mb-2">NOTES</div>
-          <div className="bg-yellow-50 border-2 border-yellow-300 p-3 text-sm whitespace-pre-wrap">
+          <div className="text-xs font-pixel mb-2" style={{ color: 'var(--win95-text)' }}>{t("ui.crm.organizations.notes")}</div>
+          <div className="border-2 p-3 text-sm whitespace-pre-wrap" style={{ background: 'var(--win95-bg-light)', borderColor: 'var(--win95-border)', color: 'var(--win95-text)' }}>
             {notes}
           </div>
         </div>
       )}
 
       {/* Activity Timeline */}
-      <div className="pt-4 border-t-2 border-gray-300">
+      <div className="pt-4 border-t-2" style={{ borderColor: 'var(--win95-border)' }}>
         <div className="flex items-center gap-2 mb-3">
-          <Calendar size={14} />
-          <span className="text-xs font-pixel">ACTIVITY</span>
+          <Calendar size={14} style={{ color: 'var(--win95-text)' }} />
+          <span className="text-xs font-pixel" style={{ color: 'var(--win95-text)' }}>{t("ui.crm.organizations.activity")}</span>
         </div>
-        <div className="space-y-2 text-xs text-gray-600">
+        <div className="space-y-2 text-xs" style={{ color: 'var(--neutral-gray)' }}>
           <div className="flex justify-between">
-            <span>Created:</span>
+            <span>{t("ui.crm.organizations.created")}:</span>
             <span>{new Date(createdAt).toLocaleDateString()}</span>
           </div>
         </div>

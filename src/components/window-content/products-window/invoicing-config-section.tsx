@@ -5,6 +5,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { Trash2, Plus, CreditCard } from "lucide-react";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 export interface InvoiceConfig {
   employerSourceField: string;
@@ -32,6 +33,8 @@ export function InvoicingConfigSection({
   sessionId,
   organizationId,
 }: InvoicingConfigSectionProps) {
+  const { t } = useNamespaceTranslations("ui.products");
+
   // Fetch CRM organizations
   const crmOrganizations = useQuery(
     api.crmOntology.getCrmOrganizations,
@@ -117,7 +120,7 @@ export function InvoicingConfigSection({
         <div>
           <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
             <CreditCard size={16} />
-            B2B Invoicing - Employer Mapping (Optional)
+            {t("ui.products.invoicing.title")}
           </h3>
           <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
             Map form values to employer organizations for invoice payment (enable invoice payment at checkout level)
@@ -128,7 +131,7 @@ export function InvoicingConfigSection({
       {/* Employer Source Field */}
       <div>
         <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-          Form Field Containing Employer Info
+          {t("ui.products.invoicing.sourceField.label")}
         </label>
         <select
           value={config?.employerSourceField || ""}
@@ -164,7 +167,7 @@ export function InvoicingConfigSection({
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
-                Form Value → Organization Mapping
+                {t("ui.products.invoicing.mapping.label")}
               </label>
             </div>
 
@@ -279,7 +282,7 @@ export function InvoicingConfigSection({
                 }}
               >
                 <Plus size={14} />
-                Add Mapping
+                {t("ui.products.invoicing.button.addMapping")}
               </button>
             </div>
 
@@ -296,7 +299,7 @@ export function InvoicingConfigSection({
           {/* Payment Terms */}
           <div>
             <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-              Default Payment Terms
+              {t("ui.products.invoicing.paymentTerms.label")}
             </label>
             <select
               value={config.defaultPaymentTerms || "net30"}
@@ -313,9 +316,9 @@ export function InvoicingConfigSection({
                 color: "var(--win95-input-text)",
               }}
             >
-              <option value="net30">NET 30 (Due in 30 days)</option>
-              <option value="net60">NET 60 (Due in 60 days)</option>
-              <option value="net90">NET 90 (Due in 90 days)</option>
+              <option value="net30">{t("ui.products.invoicing.paymentTerms.net30")}</option>
+              <option value="net60">{t("ui.products.invoicing.paymentTerms.net60")}</option>
+              <option value="net90">{t("ui.products.invoicing.paymentTerms.net90")}</option>
             </select>
             <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
               Default payment terms for invoices (can be customized per organization in CRM)

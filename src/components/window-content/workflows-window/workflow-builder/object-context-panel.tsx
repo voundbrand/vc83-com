@@ -23,6 +23,7 @@ import {
   AlertCircle,
   CheckCircle2,
 } from "lucide-react";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 interface WorkflowObject {
   objectId: string;
@@ -53,6 +54,7 @@ export function ObjectContextPanel({
   onClose,
   onUpdate,
 }: ObjectContextPanelProps) {
+  const { t } = useNamespaceTranslations("ui.workflows");
   if (!selectedNode) return null;
 
   const isObject = selectedNode.id.startsWith("object-");
@@ -162,20 +164,20 @@ export function ObjectContextPanel({
               <div className="flex items-center gap-1 mb-2">
                 <Settings className="h-3 w-3" style={{ color: 'var(--neutral-gray)' }} />
                 <h4 className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
-                  Properties
+                  {t("objectContext.properties.title")}
                 </h4>
               </div>
               <div className="space-y-1.5">
                 {isObject && (
                   <>
-                    <PropertyRow label="Type" value={String(nodeData.objectType || '')} />
-                    <PropertyRow label="Role" value={String(nodeData.role || "N/A")} />
+                    <PropertyRow label={t("objectContext.properties.type")} value={String(nodeData.objectType || '')} />
+                    <PropertyRow label={t("objectContext.properties.role")} value={String(nodeData.role || "N/A")} />
                     <PropertyRow
-                      label="Status"
+                      label={t("objectContext.properties.status")}
                       value={
                         <span className="flex items-center gap-1">
                           <CheckCircle2 className="h-3 w-3 text-green-600" />
-                          Active
+                          {t("objectContext.properties.active")}
                         </span>
                       }
                     />
@@ -183,21 +185,21 @@ export function ObjectContextPanel({
                 )}
                 {isBehavior && (
                   <>
-                    <PropertyRow label="Type" value={String(nodeData.behaviorType || '')} />
-                    <PropertyRow label="Priority" value={String(nodeData.priority || 100)} />
+                    <PropertyRow label={t("objectContext.properties.type")} value={String(nodeData.behaviorType || '')} />
+                    <PropertyRow label={t("objectContext.properties.priority")} value={String(nodeData.priority || 100)} />
                     <PropertyRow
-                      label="Status"
+                      label={t("objectContext.properties.status")}
                       value={
                         <span className="flex items-center gap-1">
                           {nodeData.enabled ? (
                             <>
                               <CheckCircle2 className="h-3 w-3 text-green-600" />
-                              Enabled
+                              {t("objectContext.properties.enabled")}
                             </>
                           ) : (
                             <>
                               <AlertCircle className="h-3 w-3 text-gray-400" />
-                              Disabled
+                              {t("objectContext.properties.disabled")}
                             </>
                           )}
                         </span>
@@ -215,7 +217,7 @@ export function ObjectContextPanel({
               <div className="flex items-center gap-1 mb-2">
                 <Link2 className="h-3 w-3" style={{ color: 'var(--neutral-gray)' }} />
                 <h4 className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
-                  Connections
+                  {t("objectContext.connections.title")}
                 </h4>
               </div>
 
@@ -224,7 +226,7 @@ export function ObjectContextPanel({
                   {connectedBehaviors.length > 0 ? (
                     <>
                       <p className="text-[10px] mb-1" style={{ color: 'var(--neutral-gray)' }}>
-                        Used by {connectedBehaviors.length} behavior(s):
+                        {t("objectContext.connections.usedBy", { count: connectedBehaviors.length })}:
                       </p>
                       {connectedBehaviors.map((b) => (
                         <div
@@ -239,7 +241,7 @@ export function ObjectContextPanel({
                     </>
                   ) : (
                     <p className="text-[10px]" style={{ color: 'var(--neutral-gray)', opacity: 0.7 }}>
-                      No behaviors connected yet
+                      {t("objectContext.connections.noBehaviors")}
                     </p>
                   )}
                 </div>
@@ -250,7 +252,7 @@ export function ObjectContextPanel({
                   {connectedObjects.length > 0 ? (
                     <>
                       <p className="text-[10px] mb-1" style={{ color: 'var(--neutral-gray)' }}>
-                        Uses {connectedObjects.length} object(s):
+                        {t("objectContext.connections.uses", { count: connectedObjects.length })}:
                       </p>
                       {connectedObjects.map((o) => {
                         const objColor = getColor(o.objectType);
@@ -268,7 +270,7 @@ export function ObjectContextPanel({
                     </>
                   ) : (
                     <p className="text-[10px]" style={{ color: 'var(--neutral-gray)', opacity: 0.7 }}>
-                      No objects connected yet
+                      {t("objectContext.connections.noObjects")}
                     </p>
                   )}
                 </div>
@@ -282,19 +284,19 @@ export function ObjectContextPanel({
               <div className="flex items-center gap-1 mb-2">
                 <Eye className="h-3 w-3" style={{ color: 'var(--neutral-gray)' }} />
                 <h4 className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
-                  Configuration
+                  {t("objectContext.configuration.title")}
                 </h4>
               </div>
 
               {isObject && (
                 <div className="text-[10px] space-y-1">
                   <p style={{ color: 'var(--neutral-gray)' }}>
-                    This object is available for use in workflow behaviors.
+                    {t("objectContext.configuration.objectAvailable")}
                   </p>
                   {connectedBehaviors.length === 0 && (
                     <div className="mt-2 p-2 rounded" style={{ background: '#fef3c7', color: '#f59e0b' }}>
                       <AlertCircle className="h-3 w-3 inline mr-1" />
-                      Not used by any behaviors yet
+                      {t("objectContext.configuration.notUsed")}
                     </div>
                   )}
                 </div>
@@ -305,7 +307,7 @@ export function ObjectContextPanel({
                   {nodeData.config && typeof nodeData.config === 'object' && Object.keys(nodeData.config as object).length > 0 ? (
                     <>
                       <p className="text-[10px] mb-1" style={{ color: 'var(--neutral-gray)' }}>
-                        Configured settings:
+                        {t("objectContext.configuration.configuredSettings")}:
                       </p>
                       <div className="space-y-1">
                         {Object.entries(nodeData.config as object).slice(0, 3).map(([key, value]) => (
@@ -320,7 +322,7 @@ export function ObjectContextPanel({
                   ) : (
                     <div className="p-2 rounded" style={{ background: '#fee2e2', color: '#dc2626' }}>
                       <AlertCircle className="h-3 w-3 inline mr-1" />
-                      <span className="text-[10px]">No configuration set</span>
+                      <span className="text-[10px]">{t("objectContext.configuration.noConfig")}</span>
                     </div>
                   )}
                 </div>
@@ -333,8 +335,8 @@ export function ObjectContextPanel({
         <div className="mt-4 pt-3 border-t-2 flex items-center justify-between" style={{ borderColor: 'var(--win95-border)' }}>
           <div className="text-[10px]" style={{ color: 'var(--neutral-gray)' }}>
             {isObject
-              ? `${connectedBehaviors.length} behaviors using this object`
-              : `${connectedObjects.length} objects connected`
+              ? t("objectContext.quickActions.behaviorsUsingObject", { count: connectedBehaviors.length })
+              : t("objectContext.quickActions.objectsConnected", { count: connectedObjects.length })
             }
           </div>
 
@@ -347,12 +349,12 @@ export function ObjectContextPanel({
                 {nodeData.enabled ? (
                   <>
                     <EyeOff className="h-3 w-3" />
-                    Disable
+                    {t("objectContext.quickActions.disable")}
                   </>
                 ) : (
                   <>
                     <Eye className="h-3 w-3" />
-                    Enable
+                    {t("objectContext.quickActions.enable")}
                   </>
                 )}
               </button>
@@ -362,7 +364,7 @@ export function ObjectContextPanel({
               onClick={onClose}
               className="retro-button px-3 py-1 text-[10px]"
             >
-              Close
+              {t("objectContext.quickActions.close")}
             </button>
           </div>
         </div>

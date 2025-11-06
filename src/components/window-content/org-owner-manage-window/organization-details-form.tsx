@@ -4,7 +4,7 @@ import { useState, useEffect, useImperativeHandle, forwardRef, useMemo } from "r
 import { useQuery, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { OrganizationSection } from "./components/organization-section";
-import { useTranslation } from "@/contexts/translation-context";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import {
   Building2,
   Mail,
@@ -87,7 +87,7 @@ export interface FormData {
 
 export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, OrganizationDetailsFormProps>(
   function OrganizationDetailsForm({ organization, isEditing }, ref) {
-    const { t } = useTranslation();
+    const { t } = useNamespaceTranslations("ui.manage");
     // Check permissions inline using centralized context
     const { hasPermission } = usePermissions();
     const canEdit = hasPermission("manage_organization");

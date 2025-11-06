@@ -5,13 +5,13 @@ import { Shield, ChevronDown, ChevronRight, Lock, Eye, Edit, Check, X } from "lu
 import { useQuery } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import { PermissionGuard } from "@/components/permission";
-import { useTranslation } from "@/contexts/translation-context";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { formatRoleName } from "@/utils/roleFormatter";
 
 type ViewMode = "roles" | "permissions" | "matrix";
 
 export function RolesPermissionsTab() {
-  const { t } = useTranslation();
+  const { t } = useNamespaceTranslations("ui.organizations");
   const [viewMode, setViewMode] = useState<ViewMode>("roles");
   const [expandedRoles, setExpandedRoles] = useState<Set<string>>(new Set());
   const [expandedResources, setExpandedResources] = useState<Set<string>>(new Set());

@@ -12,6 +12,7 @@ import { AddonManager } from "./addon-manager";
 import { ProductAddon } from "@/types/product-addons";
 import { InvoicingConfigSection, InvoiceConfig } from "./invoicing-config-section";
 import { usePostHog } from "posthog-js/react";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 /**
  * Helper: Extract all field IDs, labels, types, and options from a form template
@@ -92,6 +93,7 @@ export function ProductForm({
   onSuccess,
   onCancel,
 }: ProductFormProps) {
+  const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.products");
   const posthog = usePostHog();
   const [formData, setFormData] = useState({
     subtype: "ticket",
@@ -455,7 +457,7 @@ export function ProductForm({
     }
   };
 
-  if (productId && !existingProduct) {
+  if (translationsLoading || (productId && !existingProduct)) {
     return (
       <div className="flex items-center justify-center p-8">
         <Loader2 size={32} className="animate-spin" style={{ color: "var(--primary)" }} />
@@ -478,7 +480,7 @@ export function ProductForm({
       {/* Product Type */}
       <div>
         <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-          Product Type <span style={{ color: "var(--error)" }}>*</span>
+          {t("ui.products.form.type.label")} <span style={{ color: "var(--error)" }}>*</span>
         </label>
         <select
           value={formData.subtype}
@@ -492,13 +494,13 @@ export function ProductForm({
           }}
           required
         >
-          <option value="ticket">Ticket - Event tickets (VIP, standard, early-bird)</option>
-          <option value="physical">Physical - Merchandise, swag, physical goods</option>
-          <option value="digital">Digital - Downloads, access codes, digital content</option>
+          <option value="ticket">{t("ui.products.form.type.ticket")}</option>
+          <option value="physical">{t("ui.products.form.type.physical")}</option>
+          <option value="digital">{t("ui.products.form.type.digital")}</option>
         </select>
         {productId && (
           <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-            Product type cannot be changed after creation
+            {t("ui.products.form.type.locked")}
           </p>
         )}
       </div>
@@ -506,13 +508,13 @@ export function ProductForm({
       {/* Product Name */}
       <div>
         <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-          Product Name <span style={{ color: "var(--error)" }}>*</span>
+          {t("ui.products.form.name.label")} <span style={{ color: "var(--error)" }}>*</span>
         </label>
         <input
           type="text"
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          placeholder="VIP Ticket, T-Shirt, Digital Album, etc."
+          placeholder={t("ui.products.form.name.placeholder")}
           className="w-full px-3 py-2 text-sm border-2"
           style={{
             borderColor: "var(--win95-border)",
@@ -526,12 +528,12 @@ export function ProductForm({
       {/* Description */}
       <div>
         <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-          Description
+          {t("ui.products.form.description.label")}
         </label>
         <textarea
           value={formData.description}
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-          placeholder="Describe the product features, benefits, and details..."
+          placeholder={t("ui.products.form.description.placeholder")}
           rows={4}
           className="w-full px-3 py-2 text-sm border-2"
           style={{
@@ -545,7 +547,7 @@ export function ProductForm({
       {/* Price */}
       <div>
         <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-          Price {formData.subtype === "ticket" && formData.ticketType === "paid" && <span style={{ color: "var(--error)" }}>*</span>}
+          {t("ui.products.form.price.label")} {formData.subtype === "ticket" && formData.ticketType === "paid" && <span style={{ color: "var(--error)" }}>*</span>}
           {formData.subtype !== "ticket" && <span style={{ color: "var(--error)" }}>*</span>}
         </label>
         <div className="flex gap-2">
@@ -591,23 +593,23 @@ export function ProductForm({
           </select>
         </div>
         <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-          {formData.subtype === "ticket" && formData.ticketType === "free" && "Free tickets have no cost"}
-          {formData.subtype === "ticket" && formData.ticketType === "donation" && "Suggested amount - buyers can pay any amount"}
-          {(formData.subtype !== "ticket" || formData.ticketType === "paid") && "Enter price in dollars/euros (e.g., 49.99 for $49.99)"}
+          {formData.subtype === "ticket" && formData.ticketType === "free" && t("ui.products.form.price.help")}
+          {formData.subtype === "ticket" && formData.ticketType === "donation" && t("ui.products.form.price.help")}
+          {(formData.subtype !== "ticket" || formData.ticketType === "paid") && t("ui.products.form.price.help")}
         </p>
       </div>
 
       {/* Inventory */}
       <div>
         <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-          Inventory (Optional)
+          {t("ui.products.form.inventory.label")}
         </label>
         <input
           type="number"
           min="0"
           value={formData.inventory}
           onChange={(e) => setFormData({ ...formData, inventory: e.target.value })}
-          placeholder="Leave empty for unlimited"
+          placeholder={t("ui.products.form.inventory.placeholder")}
           className="w-full px-3 py-2 text-sm border-2"
           style={{
             borderColor: "var(--win95-border)",
@@ -616,27 +618,27 @@ export function ProductForm({
           }}
         />
         <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-          Available quantity. Leave empty for unlimited inventory.
+          {t("ui.products.form.inventory.help")}
         </p>
       </div>
 
       {/* TAX SETTINGS - Applies to all product types */}
       <div className="space-y-4 p-4 border-2 rounded" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}>
         <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
-          💰 Tax Settings
+          💰 {t("ui.products.form.tax.title")}
         </h3>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-          Configure how taxes are calculated and displayed for this product
+          {t("ui.products.form.tax.description")}
         </p>
 
         {/* Taxable Toggle */}
         <div className="flex items-center justify-between p-3 border-2 rounded" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
           <div className="flex-1">
             <label className="block text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
-              Product is Taxable
+              {t("ui.products.form.tax.taxable")}
             </label>
             <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-              {formData.taxable ? "✅ Tax will be calculated for this product" : "⚠️ Product is tax-exempt"}
+              {formData.taxable ? `✅ ${t("ui.products.form.tax.taxableYes")}` : `⚠️ ${t("ui.products.form.tax.taxableNo")}`}
             </p>
           </div>
           <label className="flex items-center gap-2 cursor-pointer">
@@ -647,7 +649,7 @@ export function ProductForm({
               className="w-5 h-5"
             />
             <span className="text-sm font-bold" style={{ color: formData.taxable ? "var(--success)" : "var(--neutral-gray)" }}>
-              {formData.taxable ? "Taxable" : "Tax-Exempt"}
+              {formData.taxable ? t("ui.products.form.tax.taxableYes") : t("ui.products.form.tax.taxableNo")}
             </span>
           </label>
         </div>
@@ -657,7 +659,7 @@ export function ProductForm({
           <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--win95-border)" }}>
             <div>
               <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-                Tax Code (Optional)
+                {t("ui.products.form.tax.taxCode.label")}
               </label>
               <select
                 value={formData.taxCode}
@@ -702,7 +704,7 @@ export function ProductForm({
             {/* Tax Behavior */}
             <div>
               <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-                Tax Behavior
+                {t("ui.products.form.tax.behavior.label")}
               </label>
               <select
                 value={formData.taxBehavior}
@@ -714,9 +716,9 @@ export function ProductForm({
                   color: "var(--win95-input-text)",
                 }}
               >
-                <option value="exclusive">💵 Exclusive (US-style) - Tax added on top of price</option>
-                <option value="inclusive">💶 Inclusive (EU-style) - Tax included in price</option>
-                <option value="automatic">🔄 Automatic - Let Stripe decide based on currency/region</option>
+                <option value="exclusive">💵 {t("ui.products.form.tax.behavior.exclusive")}</option>
+                <option value="inclusive">💶 {t("ui.products.form.tax.behavior.inclusive")}</option>
+                <option value="automatic">🔄 {t("ui.products.form.tax.behavior.automatic")}</option>
               </select>
               <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
                 {formData.taxBehavior === "exclusive" && "Price: $100 → Total: $100 + $8.50 tax = $108.50"}
@@ -731,16 +733,16 @@ export function ProductForm({
       {/* FORM LINKING - Generalized for all product types */}
       <div className="space-y-4 p-4 border-2 rounded" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}>
         <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
-          📋 Registration Form (Optional)
+          📋 {t("ui.products.form.formLink.title")}
         </h3>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-          Link a form to collect additional information during or after checkout
+          {t("ui.products.form.formLink.description")}
         </p>
 
         {/* Form Selection */}
         <div>
           <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-            Select Form
+            {t("ui.products.form.formLink.select")}
           </label>
           <select
             value={formData.formId}
@@ -752,7 +754,7 @@ export function ProductForm({
               color: "var(--win95-input-text)",
             }}
           >
-            <option value="">-- No Form --</option>
+            <option value="">{t("ui.products.form.formLink.none")}</option>
             {forms?.map((form) => (
               <option key={form._id} value={form._id}>
                 {form.name} ({form.subtype})
@@ -770,7 +772,7 @@ export function ProductForm({
             {/* Form Timing */}
             <div>
               <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-                When to Collect Form
+                {t("ui.products.form.formLink.timing.label")}
               </label>
               <select
                 value={formData.formTiming}
@@ -782,9 +784,9 @@ export function ProductForm({
                   color: "var(--win95-input-text)",
                 }}
               >
-                <option value="duringCheckout">🛒 During Checkout (before payment)</option>
-                <option value="afterPurchase">✉️ After Purchase (via email link)</option>
-                <option value="standalone">🔗 Standalone (separate link only)</option>
+                <option value="duringCheckout">🛒 {t("ui.products.form.formLink.timing.duringCheckout")}</option>
+                <option value="afterPurchase">✉️ {t("ui.products.form.formLink.timing.afterPurchase")}</option>
+                <option value="standalone">🔗 {t("ui.products.form.formLink.timing.standalone")}</option>
               </select>
               <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
                 {formData.formTiming === "duringCheckout" && "Form appears in checkout flow before payment"}
@@ -797,10 +799,10 @@ export function ProductForm({
             <div className="flex items-center justify-between p-3 border-2 rounded" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
               <div className="flex-1">
                 <label className="block text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
-                  Form Completion Required
+                  {t("ui.products.form.formLink.required.label")}
                 </label>
                 <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                  {formData.formRequired ? "✅ Customer must complete form to proceed" : "⚠️ Form is optional"}
+                  {formData.formRequired ? `✅ ${t("ui.products.form.formLink.required.yes")}` : `⚠️ ${t("ui.products.form.formLink.required.no")}`}
                 </p>
               </div>
               <label className="flex items-center gap-2 cursor-pointer">
@@ -811,7 +813,7 @@ export function ProductForm({
                   className="w-5 h-5"
                 />
                 <span className="text-sm font-bold" style={{ color: formData.formRequired ? "var(--success)" : "var(--neutral-gray)" }}>
-                  {formData.formRequired ? "Required" : "Optional"}
+                  {formData.formRequired ? t("ui.products.form.formLink.required.yes") : t("ui.products.form.formLink.required.no")}
                 </span>
               </label>
             </div>
@@ -1539,7 +1541,7 @@ export function ProductForm({
           }}
         >
           <X size={14} />
-          Cancel
+          {t("ui.products.button.cancel")}
         </button>
         <button
           type="submit"
@@ -1554,12 +1556,12 @@ export function ProductForm({
           {saving ? (
             <>
               <Loader2 size={14} className="animate-spin" />
-              Saving...
+              {t("ui.products.saving")}
             </>
           ) : (
             <>
               <Save size={14} />
-              {productId ? "Update" : "Create"} Product
+              {productId ? t("ui.products.button.update") : t("ui.products.button.create")} Product
             </>
           )}
         </button>

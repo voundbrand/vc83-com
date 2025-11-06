@@ -13,6 +13,7 @@ import { ProductAddon } from "@/types/product-addons";
 import { getTaxCodesForCountry } from "@/lib/tax-calculator";
 import { useNotification } from "@/hooks/use-notification";
 import { ConfirmationModal } from "@/components/confirmation-modal";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 interface AddonManagerProps {
   addons: ProductAddon[];
@@ -32,6 +33,7 @@ export function AddonManager({
   onChange,
   availableFormFields = [],
 }: AddonManagerProps) {
+  const { t } = useNamespaceTranslations("ui.products");
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [currentAddon, setCurrentAddon] = useState<Partial<ProductAddon>>({
@@ -224,10 +226,10 @@ export function AddonManager({
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
-            🧩 Product Add-ons
+            🧩 {t("ui.products.addons.title")}
           </h3>
           <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-            Optional extras that can be added via form selections (e.g., boat trip, workshop upgrade, meal options)
+            {t("ui.products.addons.description")}
           </p>
         </div>
         {!isAdding && editingIndex === null && (
@@ -242,7 +244,7 @@ export function AddonManager({
             }}
           >
             <Plus size={14} />
-            Add Addon
+            {t("ui.products.addons.button.add")}
           </button>
         )}
       </div>
@@ -297,7 +299,7 @@ export function AddonManager({
                   onClick={() => handleEdit(index)}
                   className="p-1 border-2"
                   style={{ borderColor: "var(--win95-border)", background: "var(--win95-button-bg)" }}
-                  title="Edit"
+                  title={t("ui.products.addons.button.edit")}
                 >
                   <Edit2 size={14} />
                 </button>
@@ -306,7 +308,7 @@ export function AddonManager({
                   onClick={() => handleDelete(index)}
                   className="p-1 border-2"
                   style={{ borderColor: "var(--error)", background: "var(--win95-button-bg)", color: "var(--error)" }}
-                  title="Delete"
+                  title={t("ui.products.addons.button.delete")}
                 >
                   <Trash2 size={14} />
                 </button>
@@ -326,13 +328,13 @@ export function AddonManager({
           {/* Addon Name */}
           <div>
             <label className="block text-xs font-semibold mb-1" style={{ color: "var(--win95-text)" }}>
-              Name <span style={{ color: "var(--error)" }}>*</span>
+              {t("ui.products.addons.name.label")} <span style={{ color: "var(--error)" }}>*</span>
             </label>
             <input
               type="text"
               value={currentAddon.name || ""}
               onChange={(e) => setCurrentAddon({ ...currentAddon, name: e.target.value })}
-              placeholder="UCRA Evening Event, Workshop Upgrade, etc."
+              placeholder={t("ui.products.addons.name.placeholder")}
               className="w-full px-2 py-1 text-sm border-2"
               style={{ borderColor: "var(--win95-border)", background: "white" }}
             />
@@ -372,7 +374,7 @@ export function AddonManager({
           {/* Price */}
           <div>
             <label className="block text-xs font-semibold mb-1" style={{ color: "var(--win95-text)" }}>
-              Price Per Unit <span style={{ color: "var(--error)" }}>*</span>
+              {t("ui.products.addons.price.label")} <span style={{ color: "var(--error)" }}>*</span>
             </label>
             <div className="flex gap-2">
               <input
@@ -415,7 +417,7 @@ export function AddonManager({
                 onChange={(e) => setCurrentAddon({ ...currentAddon, taxable: e.target.checked })}
               />
               <span className="text-xs font-semibold" style={{ color: "var(--win95-text)" }}>
-                Addon is Taxable
+                {t("ui.products.addons.taxable.label")}
               </span>
             </label>
 
@@ -602,7 +604,7 @@ export function AddonManager({
               style={{ borderColor: "var(--win95-border)", background: "var(--success)", color: "white" }}
             >
               <Save size={14} />
-              Save Addon
+              {t("ui.products.addons.button.save")}
             </button>
             <button
               type="button"
@@ -610,7 +612,7 @@ export function AddonManager({
               className="px-3 py-1 text-sm font-bold border-2"
               style={{ borderColor: "var(--win95-border)", background: "var(--win95-button-bg)" }}
             >
-              Cancel
+              {t("ui.products.addons.button.cancel")}
             </button>
           </div>
         </div>

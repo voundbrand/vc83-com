@@ -11,6 +11,7 @@ import React, { useState } from "react";
 import { Zap, Plus, Settings, Trash2, Package, FileText, CreditCard, Building2, User, ArrowRight } from "lucide-react";
 import { BehaviorConfigModal } from "./behavior-config-modal";
 import type { Id } from "../../../../../convex/_generated/dataModel";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 interface WorkflowObject {
   objectId: Id<"objects">;
@@ -37,11 +38,12 @@ interface BehaviorConfigPanelProps {
   organizationId: string;
 }
 
+// Behavior type definitions with default configs
+// Note: Names and descriptions are translated via translation keys
 const BEHAVIOR_TYPES = [
   {
     type: "employer-detection",
-    name: "Employer Detection",
-    description: "Detect employer from form data and match to CRM",
+    translationKey: "employerDetection",
     defaultConfig: {
       employerSourceField: "attendee_category",
       employerMapping: {},
@@ -51,8 +53,7 @@ const BEHAVIOR_TYPES = [
   },
   {
     type: "invoice-mapping",
-    name: "Invoice Mapping",
-    description: "Map form values to CRM organizations for invoicing",
+    translationKey: "invoiceMapping",
     defaultConfig: {
       organizationSourceField: "company",
       organizationMapping: {},
@@ -62,8 +63,7 @@ const BEHAVIOR_TYPES = [
   },
   {
     type: "form-linking",
-    name: "Form Linking",
-    description: "Link forms to checkout flow",
+    translationKey: "formLinking",
     defaultConfig: {
       formId: "",
       timing: "duringCheckout",
@@ -72,8 +72,7 @@ const BEHAVIOR_TYPES = [
   },
   {
     type: "addon-calculation",
-    name: "Add-on Calculation",
-    description: "Calculate add-ons based on form responses",
+    translationKey: "addonCalculation",
     defaultConfig: {
       addons: [],
       calculationStrategy: "sum",
@@ -82,8 +81,7 @@ const BEHAVIOR_TYPES = [
   },
   {
     type: "payment-provider-selection",
-    name: "Payment Provider Selection",
-    description: "Control which payment providers are available based on conditions",
+    translationKey: "paymentProviderSelection",
     defaultConfig: {
       defaultProviders: ["stripe"],
       rules: [],
@@ -93,8 +91,7 @@ const BEHAVIOR_TYPES = [
   },
   {
     type: "stripe-payment",
-    name: "Stripe Payment",
-    description: "Configure Stripe payment processing and styling",
+    translationKey: "stripePayment",
     defaultConfig: {
       elementsStyle: {
         base: {
@@ -114,8 +111,7 @@ const BEHAVIOR_TYPES = [
   },
   {
     type: "invoice-payment",
-    name: "Invoice Payment",
-    description: "Configure B2B invoice generation and payment terms",
+    translationKey: "invoicePayment",
     defaultConfig: {
       defaultPaymentTerms: "net30",
       requireCrmOrganization: true,
@@ -127,8 +123,7 @@ const BEHAVIOR_TYPES = [
   },
   {
     type: "tax-calculation",
-    name: "Tax Calculation",
-    description: "Calculate taxes based on jurisdiction and customer type",
+    translationKey: "taxCalculation",
     defaultConfig: {
       taxEnabled: true,
       defaultTaxRate: 19,
@@ -143,8 +138,7 @@ const BEHAVIOR_TYPES = [
   },
   {
     type: "consolidated-invoice-generation",
-    name: "Consolidated Invoice Generation",
-    description: "Generate a single invoice consolidating multiple tickets (e.g., hospital pays for all doctors)",
+    translationKey: "consolidatedInvoiceGeneration",
     defaultConfig: {
       paymentStatus: "awaiting_employer_payment",
       excludeInvoiced: true,
@@ -169,6 +163,7 @@ export function BehaviorConfigPanel({
   sessionId,
   organizationId,
 }: BehaviorConfigPanelProps) {
+  const { t } = useNamespaceTranslations("ui.workflows");
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [editingBehavior, setEditingBehavior] = useState<WorkflowBehavior | null>(null);
 
@@ -280,7 +275,10 @@ export function BehaviorConfigPanel({
 
   const getBehaviorName = (type: string) => {
     const behaviorType = BEHAVIOR_TYPES.find((b) => b.type === type);
-    return behaviorType?.name || type;
+    if (behaviorType) {
+      return t(`ui.workflows.behaviorTypes.${behaviorType.translationKey}.name`);
+    }
+    return type;
   };
 
   // Get objects that this behavior is targeting
@@ -377,7 +375,7 @@ export function BehaviorConfigPanel({
             {/* Modal Header */}
             <div className="border-b-2 p-3" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg)' }}>
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>ADD BEHAVIOR</h3>
+                <h3 className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>{t("ui.workflows.behaviorConfig.addModal.title")}</h3>
                 <button
                   onClick={() => setShowAddMenu(false)}
                   className="retro-button p-1 text-xs"
@@ -386,7 +384,7 @@ export function BehaviorConfigPanel({
                 </button>
               </div>
               <p className="mt-1 text-[10px]" style={{ color: 'var(--neutral-gray)' }}>
-                Select a behavior type to add to your workflow
+                {t("ui.workflows.behaviorConfig.addModal.description")}
               </p>
             </div>
 
@@ -405,10 +403,10 @@ export function BehaviorConfigPanel({
                     </div>
                     <div className="flex-1">
                       <div className="text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
-                        {behaviorType.name}
+                        {t(`ui.workflows.behaviorTypes.${behaviorType.translationKey}.name`)}
                       </div>
                       <div className="text-[10px] leading-relaxed" style={{ color: 'var(--neutral-gray)' }}>
-                        {behaviorType.description}
+                        {t(`ui.workflows.behaviorTypes.${behaviorType.translationKey}.description`)}
                       </div>
                     </div>
                   </div>
@@ -424,9 +422,9 @@ export function BehaviorConfigPanel({
         <div className="border-b-2 p-3" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>BEHAVIORS</h3>
+              <h3 className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>{t("ui.workflows.behaviorConfig.title")}</h3>
               <p className="mt-1 text-[10px]" style={{ color: 'var(--neutral-gray)' }}>
-                Configure workflow behaviors
+                {t("ui.workflows.behaviorConfig.description")}
               </p>
             </div>
             <button
@@ -443,9 +441,9 @@ export function BehaviorConfigPanel({
         {selectedBehaviors.length === 0 ? (
           <div className="py-8 text-center">
             <Zap className="mx-auto h-12 w-12" style={{ color: 'var(--neutral-gray)', opacity: 0.3 }} />
-            <p className="mt-2 text-xs" style={{ color: 'var(--neutral-gray)' }}>No behaviors added</p>
+            <p className="mt-2 text-xs" style={{ color: 'var(--neutral-gray)' }}>{t("ui.workflows.behaviorConfig.noBehaviors")}</p>
             <p className="mt-1 text-[10px]" style={{ color: 'var(--neutral-gray)' }}>
-              Click + to add behaviors
+              {t("ui.workflows.behaviorConfig.clickToAdd")}
             </p>
           </div>
         ) : (
@@ -473,7 +471,7 @@ export function BehaviorConfigPanel({
                               {getBehaviorName(behavior.type)}
                             </div>
                             <div className="text-[10px]" style={{ color: 'var(--neutral-gray)' }}>
-                              Priority: {behavior.priority} • {behavior.enabled ? "Enabled" : "Disabled"}
+                              {t("ui.workflows.behaviorConfig.priority")}: {behavior.priority} • {behavior.enabled ? t("ui.workflows.behaviorConfig.enabled") : t("ui.workflows.behaviorConfig.disabled")}
                             </div>
                           </div>
                         </div>
@@ -501,7 +499,7 @@ export function BehaviorConfigPanel({
                           <div className="flex items-center gap-1 mb-1">
                             <ArrowRight className="h-3 w-3" style={{ color: 'var(--neutral-gray)' }} />
                             <span className="text-[10px] font-bold" style={{ color: 'var(--neutral-gray)' }}>
-                              Applied to:
+                              {t("ui.workflows.behaviorConfig.appliedTo")}:
                             </span>
                           </div>
                           <div className="flex flex-wrap gap-1">
@@ -528,7 +526,7 @@ export function BehaviorConfigPanel({
 
                       {!valid && (
                         <div className="mt-2 pt-2 border-t text-[10px] font-bold" style={{ borderColor: '#dc2626', color: '#dc2626' }}>
-                          ⚠️ Missing objects: {missing.join(", ")}
+                          {t("ui.workflows.behaviorConfig.missingObjects", { objects: missing.join(", ") })}
                         </div>
                       )}
                     </div>
@@ -542,8 +540,7 @@ export function BehaviorConfigPanel({
         {/* Behavior Count */}
         <div className="border-t-2 p-3" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
           <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-            <strong style={{ color: 'var(--win95-text)' }}>{selectedBehaviors.length}</strong> behavior
-            {selectedBehaviors.length !== 1 ? "s" : ""} configured
+            {t("ui.workflows.behaviorConfig.behaviorCount", { count: selectedBehaviors.length })}
           </div>
         </div>
 

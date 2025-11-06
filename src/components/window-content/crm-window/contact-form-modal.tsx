@@ -7,6 +7,7 @@ import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { X, Save, Loader2, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { usePostHog } from "posthog-js/react";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 interface ContactFormModalProps {
   editId?: Id<"objects">;
@@ -17,6 +18,7 @@ interface ContactFormModalProps {
 type CompanyAssociation = "none" | "existing" | "new";
 
 export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModalProps) {
+  const { t } = useNamespaceTranslations("ui.crm");
   const { sessionId } = useAuth();
   const posthog = usePostHog();
   const currentOrganization = useCurrentOrganization();
@@ -124,7 +126,7 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
       onClose();
     } catch (error) {
       console.error("Failed to delete contact:", error);
-      alert("Failed to delete contact. Please try again.");
+      alert(t("ui.crm.contact_form.errors.delete_failed"));
     } finally {
       setSaving(false);
     }
@@ -140,7 +142,7 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
     // Validate email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
-      setEmailError("Please enter a valid email address");
+      setEmailError(t("ui.crm.contact_form.validation.email_invalid"));
       return;
     }
 
@@ -261,7 +263,7 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
       onSuccess(contactId);
     } catch (error) {
       console.error(`Failed to ${editId ? "update" : "create"} contact:`, error);
-      alert(`Failed to ${editId ? "update" : "create"} contact. Please try again.`);
+      alert(editId ? t("ui.crm.contact_form.errors.update_failed") : t("ui.crm.contact_form.errors.create_failed"));
 
       posthog?.capture("$exception", {
         error_type: editId ? "contact_update_failed" : "contact_creation_failed",
@@ -306,7 +308,7 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
           style={{ background: "var(--modal-header-bg)" }}
         >
           <span className="font-bold text-sm" style={{ color: "var(--modal-header-text)" }}>
-            {editId ? "Edit Contact" : "Add New Contact"}
+            {editId ? t("ui.crm.contact_form.title.edit") : t("ui.crm.contact_form.title.add_new")}
           </span>
           <button
             onClick={onClose}
@@ -322,13 +324,13 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
           {/* Basic Information */}
           <div className="space-y-3">
             <h3 className="text-sm font-bold border-b pb-2" style={{ color: "var(--win95-text)", borderColor: "var(--win95-border)" }}>
-              👤 Basic Information
+              {t("ui.crm.contact_form.sections.basic_information")}
             </h3>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                  First Name <span style={{ color: "var(--error)" }}>*</span>
+                  {t("ui.crm.contact_form.labels.first_name")} <span style={{ color: "var(--error)" }}>*</span>
                 </label>
                 <input
                   type="text"
@@ -345,7 +347,7 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
               </div>
               <div>
                 <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                  Last Name <span style={{ color: "var(--error)" }}>*</span>
+                  {t("ui.crm.contact_form.labels.last_name")} <span style={{ color: "var(--error)" }}>*</span>
                 </label>
                 <input
                   type="text"
@@ -364,7 +366,7 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
 
             <div>
               <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                Email <span style={{ color: "var(--error)" }}>*</span>
+                {t("ui.crm.contact_form.labels.email")} <span style={{ color: "var(--error)" }}>*</span>
               </label>
               <input
                 type="email"
@@ -390,7 +392,7 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
 
             <div>
               <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                Phone
+                {t("ui.crm.contact_form.labels.phone")}
               </label>
               <input
                 type="tel"
@@ -407,7 +409,7 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
 
             <div>
               <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                Job Title
+                {t("ui.crm.contact_form.labels.job_title")}
               </label>
               <input
                 type="text"
@@ -426,13 +428,13 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
           {/* Contact Type */}
           <div className="space-y-3">
             <h3 className="text-sm font-bold border-b pb-2" style={{ color: "var(--win95-text)", borderColor: "var(--win95-border)" }}>
-              🎯 Contact Type
+              {t("ui.crm.contact_form.sections.contact_type")}
             </h3>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                  Contact Stage <span style={{ color: "var(--error)" }}>*</span>
+                  {t("ui.crm.contact_form.labels.contact_stage")} <span style={{ color: "var(--error)" }}>*</span>
                 </label>
                 <select
                   value={formData.lifecycleStage}
@@ -444,16 +446,16 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
                     color: "var(--win95-input-text)",
                   }}
                 >
-                  <option value="lead">Lead</option>
-                  <option value="prospect">Prospect</option>
-                  <option value="customer">Customer</option>
-                  <option value="partner">Partner</option>
+                  <option value="lead">{t("ui.crm.contact_form.stages.lead")}</option>
+                  <option value="prospect">{t("ui.crm.contact_form.stages.prospect")}</option>
+                  <option value="customer">{t("ui.crm.contact_form.stages.customer")}</option>
+                  <option value="partner">{t("ui.crm.contact_form.stages.partner")}</option>
                 </select>
               </div>
 
               <div>
                 <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                  Source
+                  {t("ui.crm.contact_form.labels.source")}
                 </label>
                 <select
                   value={formData.source}
@@ -465,10 +467,10 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
                     color: "var(--win95-input-text)",
                   }}
                 >
-                  <option value="manual">Manual</option>
-                  <option value="import">Import</option>
-                  <option value="event">Event</option>
-                  <option value="form">Form</option>
+                  <option value="manual">{t("ui.crm.contact_form.sources.manual")}</option>
+                  <option value="import">{t("ui.crm.contact_form.sources.import")}</option>
+                  <option value="event">{t("ui.crm.contact_form.sources.event")}</option>
+                  <option value="form">{t("ui.crm.contact_form.sources.form")}</option>
                 </select>
               </div>
             </div>
@@ -486,7 +488,7 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
                 color: "var(--win95-text)",
               }}
             >
-              <span className="text-sm font-bold">🏢 Company (Optional)</span>
+              <span className="text-sm font-bold">{t("ui.crm.contact_form.sections.company")}</span>
               {showCompany ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </button>
 
@@ -501,7 +503,7 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
                       onChange={() => setFormData({ ...formData, companyAssociation: "none" })}
                     />
                     <span className="text-sm" style={{ color: "var(--win95-text)" }}>
-                      No company affiliation
+                      {t("ui.crm.contact_form.company.no_affiliation")}
                     </span>
                   </label>
 
@@ -513,7 +515,7 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
                       onChange={() => setFormData({ ...formData, companyAssociation: "existing" })}
                     />
                     <span className="text-sm" style={{ color: "var(--win95-text)" }}>
-                      Link to existing organization
+                      {t("ui.crm.contact_form.company.link_existing")}
                     </span>
                   </label>
 
@@ -529,10 +531,10 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
                           color: "var(--win95-input-text)",
                         }}
                       >
-                        <option value="">-- Select Organization --</option>
+                        <option value="">{t("ui.crm.contact_form.company.select_organization")}</option>
                         {organizations?.map((org) => (
                           <option key={org._id} value={org._id}>
-                            {org.name} ({org.customProperties?.industry || "No industry"})
+                            {org.name} ({org.customProperties?.industry || t("ui.crm.contact_form.company.no_industry")})
                           </option>
                         ))}
                       </select>
@@ -547,7 +549,7 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
                       onChange={() => setFormData({ ...formData, companyAssociation: "new" })}
                     />
                     <span className="text-sm" style={{ color: "var(--win95-text)" }}>
-                      Create new organization (Quick add)
+                      {t("ui.crm.contact_form.company.create_new")}
                     </span>
                   </label>
 
@@ -555,7 +557,7 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
                     <div className="pl-6 space-y-2">
                       <input
                         type="text"
-                        placeholder="Company Name"
+                        placeholder={t("ui.crm.contact_form.placeholders.company_name")}
                         value={formData.newOrgName}
                         onChange={(e) => setFormData({ ...formData, newOrgName: e.target.value })}
                         className="w-full px-2 py-1.5 text-sm border-2"
@@ -567,7 +569,7 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
                       />
                       <input
                         type="text"
-                        placeholder="Industry"
+                        placeholder={t("ui.crm.contact_form.placeholders.industry")}
                         value={formData.newOrgIndustry}
                         onChange={(e) => setFormData({ ...formData, newOrgIndustry: e.target.value })}
                         className="w-full px-2 py-1.5 text-sm border-2"
@@ -579,7 +581,7 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
                       />
                       <input
                         type="url"
-                        placeholder="Website"
+                        placeholder={t("ui.crm.contact_form.placeholders.website")}
                         value={formData.newOrgWebsite}
                         onChange={(e) => setFormData({ ...formData, newOrgWebsite: e.target.value })}
                         className="w-full px-2 py-1.5 text-sm border-2"
@@ -608,7 +610,7 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
                 color: "var(--win95-text)",
               }}
             >
-              <span className="text-sm font-bold">📍 Address (Optional)</span>
+              <span className="text-sm font-bold">{t("ui.crm.contact_form.sections.address")}</span>
               {showAddress ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </button>
 
@@ -616,7 +618,7 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
               <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--win95-border)" }}>
                 <input
                   type="text"
-                  placeholder="Street"
+                  placeholder={t("ui.crm.contact_form.placeholders.street")}
                   value={formData.street}
                   onChange={(e) => setFormData({ ...formData, street: e.target.value })}
                   className="w-full px-2 py-1.5 text-sm border-2"
@@ -628,7 +630,7 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
                 />
                 <input
                   type="text"
-                  placeholder="City"
+                  placeholder={t("ui.crm.contact_form.placeholders.city")}
                   value={formData.city}
                   onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                   className="w-full px-2 py-1.5 text-sm border-2"
@@ -641,7 +643,7 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
                 <div className="grid grid-cols-2 gap-3">
                   <input
                     type="text"
-                    placeholder="State/Province"
+                    placeholder={t("ui.crm.contact_form.placeholders.state_province")}
                     value={formData.state}
                     onChange={(e) => setFormData({ ...formData, state: e.target.value })}
                     className="w-full px-2 py-1.5 text-sm border-2"
@@ -653,7 +655,7 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
                   />
                   <input
                     type="text"
-                    placeholder="Postal Code"
+                    placeholder={t("ui.crm.contact_form.placeholders.postal_code")}
                     value={formData.postalCode}
                     onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
                     className="w-full px-2 py-1.5 text-sm border-2"
@@ -674,10 +676,10 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
                     color: "var(--win95-input-text)",
                   }}
                 >
-                  <option value="United States">United States</option>
-                  <option value="Canada">Canada</option>
-                  <option value="United Kingdom">United Kingdom</option>
-                  <option value="Australia">Australia</option>
+                  <option value="United States">{t("ui.crm.contact_form.countries.united_states")}</option>
+                  <option value="Canada">{t("ui.crm.contact_form.countries.canada")}</option>
+                  <option value="United Kingdom">{t("ui.crm.contact_form.countries.united_kingdom")}</option>
+                  <option value="Australia">{t("ui.crm.contact_form.countries.australia")}</option>
                 </select>
               </div>
             )}
@@ -695,7 +697,7 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
                 color: "var(--win95-text)",
               }}
             >
-              <span className="text-sm font-bold">🏷️ Tags & Notes (Optional)</span>
+              <span className="text-sm font-bold">{t("ui.crm.contact_form.sections.tags_notes")}</span>
               {showTagsNotes ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </button>
 
@@ -703,7 +705,7 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
               <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--win95-border)" }}>
                 <div>
                   <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                    Tags
+                    {t("ui.crm.contact_form.labels.tags")}
                   </label>
                   <div className="flex gap-2 mb-2">
                     <input
@@ -716,7 +718,7 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
                           handleAddTag();
                         }
                       }}
-                      placeholder="Enter tag and press Enter"
+                      placeholder={t("ui.crm.contact_form.placeholders.tag_input")}
                       className="flex-1 px-2 py-1.5 text-sm border-2"
                       style={{
                         borderColor: "var(--win95-border)",
@@ -734,7 +736,7 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
                         color: "var(--win95-text)",
                       }}
                     >
-                      Add
+                      {t("ui.crm.contact_form.buttons.add_tag")}
                     </button>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -763,13 +765,13 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
 
                 <div>
                   <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                    Notes
+                    {t("ui.crm.contact_form.labels.notes")}
                   </label>
                   <textarea
                     value={formData.notes}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                     rows={4}
-                    placeholder="Add any additional information about this contact..."
+                    placeholder={t("ui.crm.contact_form.placeholders.notes")}
                     className="w-full px-2 py-1.5 text-sm border-2"
                     style={{
                       borderColor: "var(--win95-border)",
@@ -798,7 +800,7 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
                 }}
               >
                 <Trash2 size={14} />
-                Delete
+                {t("ui.crm.contact_form.buttons.delete")}
               </button>
             ) : <div />}
 
@@ -814,7 +816,7 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
                   color: "var(--win95-text)",
                 }}
               >
-                Cancel
+                {t("ui.crm.contact_form.buttons.cancel")}
               </button>
               <button
                 type="submit"
@@ -829,12 +831,12 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
                 {saving ? (
                   <>
                     <Loader2 size={14} className="animate-spin" />
-                    Saving...
+                    {t("ui.crm.contact_form.buttons.saving")}
                   </>
                 ) : (
                   <>
                     <Save size={14} />
-                    Save Contact
+                    {t("ui.crm.contact_form.buttons.save_contact")}
                   </>
                 )}
               </button>
@@ -845,34 +847,55 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
 
       {/* Delete Confirmation Dialog */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white border-4 border-gray-800 p-6 max-w-md mx-4 shadow-lg">
-            <h3 className="text-lg font-bold mb-4">Delete Contact?</h3>
-            <p className="text-sm text-gray-700 mb-6">
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50"
+          style={{ background: 'rgba(0, 0, 0, 0.5)' }}
+        >
+          <div
+            className="border-4 p-6 max-w-md mx-4 shadow-lg"
+            style={{
+              background: 'var(--win95-bg)',
+              borderColor: 'var(--win95-border)'
+            }}
+          >
+            <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--win95-text)' }}>
+              Delete Contact?
+            </h3>
+            <p className="text-sm mb-6" style={{ color: 'var(--win95-text)' }}>
               Are you sure you want to delete this contact? This action cannot be undone.
             </p>
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
                 disabled={saving}
-                className="px-4 py-2 border-2 border-gray-400 hover:bg-gray-100 transition-colors"
+                className="px-4 py-2 border-2 hover:opacity-80 transition-colors"
+                style={{
+                  borderColor: 'var(--win95-border)',
+                  background: 'var(--win95-button-face)',
+                  color: 'var(--win95-text)'
+                }}
               >
                 Cancel
               </button>
               <button
                 onClick={handleDelete}
                 disabled={saving}
-                className="px-4 py-2 bg-red-600 text-white border-2 border-red-700 hover:bg-red-700 transition-colors flex items-center gap-2"
+                className="px-4 py-2 border-2 hover:opacity-80 transition-colors flex items-center gap-2"
+                style={{
+                  background: 'var(--error)',
+                  color: 'white',
+                  borderColor: 'var(--error)'
+                }}
               >
                 {saving ? (
                   <>
                     <Loader2 size={14} className="animate-spin" />
-                    Deleting...
+                    {t("ui.crm.contact_form.buttons.deleting")}
                   </>
                 ) : (
                   <>
                     <Trash2 size={14} />
-                    Delete
+                    {t("ui.crm.contact_form.buttons.delete")}
                   </>
                 )}
               </button>

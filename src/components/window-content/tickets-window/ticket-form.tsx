@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { Loader2, Save, X } from "lucide-react";
 
 interface TicketFormProps {
@@ -21,6 +22,7 @@ export function TicketForm({
   onSuccess,
   onCancel,
 }: TicketFormProps) {
+  const { t } = useNamespaceTranslations("ui.tickets");
   const [formData, setFormData] = useState({
     productId: "",
     eventId: "",
@@ -90,7 +92,7 @@ export function TicketForm({
       onSuccess();
     } catch (error) {
       console.error("Failed to save ticket:", error);
-      alert("Failed to save ticket. Please try again.");
+      alert(t("ui.tickets.form.error.save_failed"));
     } finally {
       setSaving(false);
     }
@@ -99,7 +101,7 @@ export function TicketForm({
   if (ticketId && !existingTicket) {
     return (
       <div className="flex items-center justify-center p-8">
-        <Loader2 size={32} className="animate-spin" style={{ color: "var(--primary)" }} />
+        <Loader2 size={32} className="animate-spin" style={{ color: "var(--win95-highlight)" }} />
       </div>
     );
   }
@@ -107,7 +109,7 @@ export function TicketForm({
   if (!ticketId && (products === undefined || events === undefined)) {
     return (
       <div className="flex items-center justify-center p-8">
-        <Loader2 size={32} className="animate-spin" style={{ color: "var(--primary)" }} />
+        <Loader2 size={32} className="animate-spin" style={{ color: "var(--win95-highlight)" }} />
       </div>
     );
   }
@@ -118,7 +120,7 @@ export function TicketForm({
       {!ticketId && (
         <div>
           <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-            Product (Ticket Type) <span style={{ color: "var(--error)" }}>*</span>
+            {t("ui.tickets.form.product_label")} <span style={{ color: "var(--error)" }}>*</span>
           </label>
           <select
             value={formData.productId}
@@ -131,7 +133,7 @@ export function TicketForm({
             }}
             required
           >
-            <option value="">Select a product...</option>
+            <option value="">{t("ui.tickets.form.product_select")}</option>
             {products?.map((product) => (
               <option key={product._id} value={product._id}>
                 {product.name} - {new Intl.NumberFormat("en-US", {
@@ -142,7 +144,7 @@ export function TicketForm({
             ))}
           </select>
           <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-            Choose which product/ticket type to issue (e.g., VIP Ticket, Early Bird, etc.)
+            {t("ui.tickets.form.product_help")}
           </p>
         </div>
       )}
@@ -151,7 +153,7 @@ export function TicketForm({
       {!ticketId && (
         <div>
           <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-            Event (Optional)
+            {t("ui.tickets.form.event_label")}
           </label>
           <select
             value={formData.eventId}
@@ -163,7 +165,7 @@ export function TicketForm({
               color: "var(--win95-input-text)",
             }}
           >
-            <option value="">No event (standalone ticket)</option>
+            <option value="">{t("ui.tickets.form.event_none")}</option>
             {events?.map((event) => (
               <option key={event._id} value={event._id}>
                 {event.name} - {new Date(event.customProperties?.startDate || Date.now()).toLocaleDateString()}
@@ -171,7 +173,7 @@ export function TicketForm({
             ))}
           </select>
           <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-            Associate this ticket with an event for check-in tracking
+            {t("ui.tickets.form.event_help")}
           </p>
         </div>
       )}
@@ -179,7 +181,7 @@ export function TicketForm({
       {/* Holder Name */}
       <div>
         <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-          Holder Name <span style={{ color: "var(--error)" }}>*</span>
+          {t("ui.tickets.form.holder_name_label")} <span style={{ color: "var(--error)" }}>*</span>
         </label>
         <input
           type="text"
@@ -199,7 +201,7 @@ export function TicketForm({
       {/* Holder Email */}
       <div>
         <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-          Holder Email <span style={{ color: "var(--error)" }}>*</span>
+          {t("ui.tickets.form.holder_email_label")} <span style={{ color: "var(--error)" }}>*</span>
         </label>
         <input
           type="email"
@@ -215,7 +217,7 @@ export function TicketForm({
           required
         />
         <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-          Ticket confirmation will be sent to this email
+          {t("ui.tickets.form.holder_email_help")}
         </p>
       </div>
 
@@ -228,7 +230,7 @@ export function TicketForm({
         }}
       >
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-          💡 {ticketId ? "Update ticket holder information." : "Tickets are issued with &ldquo;issued&rdquo; status. Use the Redeem button to check in attendees."}
+          {ticketId ? t("ui.tickets.form.info_edit") : t("ui.tickets.form.info_create")}
         </p>
       </div>
 
@@ -246,7 +248,7 @@ export function TicketForm({
           }}
         >
           <X size={14} />
-          Cancel
+          {t("ui.tickets.form.button.cancel")}
         </button>
         <button
           type="submit"
@@ -261,12 +263,12 @@ export function TicketForm({
           {saving ? (
             <>
               <Loader2 size={14} className="animate-spin" />
-              Saving...
+              {t("ui.tickets.form.button.saving")}
             </>
           ) : (
             <>
               <Save size={14} />
-              {ticketId ? "Update" : "Issue"} Ticket
+              {ticketId ? t("ui.tickets.form.button.update") : t("ui.tickets.form.button.issue")}
             </>
           )}
         </button>

@@ -9,6 +9,7 @@
 
 import React from "react";
 import type { InvoicePaymentConfig } from "@/lib/behaviors/handlers/invoice-payment";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 interface InvoicePaymentConfigFormProps {
   config: InvoicePaymentConfig;
@@ -16,50 +17,48 @@ interface InvoicePaymentConfigFormProps {
   availableCrmOrganizations?: Array<{ _id: string; name: string }>;
 }
 
-const PAYMENT_TERMS = [
-  { value: "net30", label: "NET 30 (30 days)" },
-  { value: "net60", label: "NET 60 (60 days)" },
-  { value: "net90", label: "NET 90 (90 days)" },
-];
-
 export function InvoicePaymentConfigForm({
   config,
   onChange,
   availableCrmOrganizations = [],
 }: InvoicePaymentConfigFormProps) {
+  const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.workflows.invoice_payment");
+
   const handleUpdate = (updates: Partial<InvoicePaymentConfig>) => {
     onChange({ ...config, ...updates });
   };
+
+  if (translationsLoading) {
+    return <div className="p-4" style={{ color: "var(--win95-text)" }}>Loading...</div>;
+  }
 
   return (
     <div className="space-y-4">
       {/* Payment Terms */}
       <div className="p-3 rounded border-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
         <label className="text-xs font-bold block mb-2" style={{ color: "var(--win95-text)" }}>
-          📅 Payment Terms <span className="text-red-500">*</span>
+          {t("ui.workflows.invoice_payment.payment_terms.title")} <span className="text-red-500">{t("ui.workflows.invoice_payment.payment_terms.required")}</span>
         </label>
 
         <div className="space-y-2">
           <div>
-            <label className="text-[10px] block mb-1">Default Payment Terms</label>
+            <label className="text-[10px] block mb-1">{t("ui.workflows.invoice_payment.payment_terms.default.label")}</label>
             <select
               value={config.defaultPaymentTerms}
               onChange={(e) => handleUpdate({ defaultPaymentTerms: e.target.value as "net30" | "net60" | "net90" })}
               className="retro-input w-full px-2 py-1 text-xs"
             >
-              {PAYMENT_TERMS.map((term) => (
-                <option key={term.value} value={term.value}>
-                  {term.label}
-                </option>
-              ))}
+              <option value="net30">{t("ui.workflows.invoice_payment.payment_terms.net30")}</option>
+              <option value="net60">{t("ui.workflows.invoice_payment.payment_terms.net60")}</option>
+              <option value="net90">{t("ui.workflows.invoice_payment.payment_terms.net90")}</option>
             </select>
           </div>
 
           {availableCrmOrganizations.length > 0 && (
             <div>
-              <label className="text-[10px] block mb-1">Employer-Specific Payment Terms</label>
+              <label className="text-[10px] block mb-1">{t("ui.workflows.invoice_payment.payment_terms.employer_specific.label")}</label>
               <p className="text-[9px] mb-2" style={{ color: "var(--neutral-gray)" }}>
-                Override default terms for specific employers
+                {t("ui.workflows.invoice_payment.payment_terms.employer_specific.description")}
               </p>
               <div className="space-y-2 max-h-32 overflow-y-auto">
                 {availableCrmOrganizations.map((org) => (
@@ -75,12 +74,10 @@ export function InvoicePaymentConfigForm({
                       })}
                       className="retro-input px-2 py-1 text-[10px] w-32"
                     >
-                      <option value="">Default</option>
-                      {PAYMENT_TERMS.map((term) => (
-                        <option key={term.value} value={term.value}>
-                          {term.value.toUpperCase()}
-                        </option>
-                      ))}
+                      <option value="">{t("ui.workflows.invoice_payment.payment_terms.default_option")}</option>
+                      <option value="net30">NET30</option>
+                      <option value="net60">NET60</option>
+                      <option value="net90">NET90</option>
                     </select>
                   </div>
                 ))}
@@ -96,12 +93,12 @@ export function InvoicePaymentConfigForm({
                 onChange={(e) => handleUpdate({ dueDateBusinessDaysOnly: e.target.checked })}
                 className="h-3 w-3"
               />
-              <span className="text-xs">Calculate due date using business days only (exclude weekends)</span>
+              <span className="text-xs">{t("ui.workflows.invoice_payment.payment_terms.business_days.label")}</span>
             </label>
           </div>
 
           <div>
-            <label className="text-[10px] block mb-1">Grace Period (days)</label>
+            <label className="text-[10px] block mb-1">{t("ui.workflows.invoice_payment.payment_terms.grace_period.label")}</label>
             <input
               type="number"
               min="0"
@@ -109,10 +106,10 @@ export function InvoicePaymentConfigForm({
               value={config.gracePeriodDays ?? 0}
               onChange={(e) => handleUpdate({ gracePeriodDays: parseInt(e.target.value) || 0 })}
               className="retro-input w-full px-2 py-1 text-xs"
-              placeholder="0"
+              placeholder={t("ui.workflows.invoice_payment.payment_terms.grace_period.placeholder")}
             />
             <p className="text-[9px] mt-1" style={{ color: "var(--neutral-gray)" }}>
-              Extra days before invoice is considered late
+              {t("ui.workflows.invoice_payment.payment_terms.grace_period.hint")}
             </p>
           </div>
         </div>
@@ -121,7 +118,7 @@ export function InvoicePaymentConfigForm({
       {/* CRM Integration */}
       <div className="p-3 rounded border-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
         <label className="text-xs font-bold block mb-2" style={{ color: "var(--win95-text)" }}>
-          🏢 CRM Integration
+          {t("ui.workflows.invoice_payment.crm.title")}
         </label>
 
         <div className="space-y-2">
@@ -132,7 +129,7 @@ export function InvoicePaymentConfigForm({
               onChange={(e) => handleUpdate({ requireCrmOrganization: e.target.checked })}
               className="h-3 w-3"
             />
-            <span className="text-xs">Require CRM organization for invoices</span>
+            <span className="text-xs">{t("ui.workflows.invoice_payment.crm.require_org.label")}</span>
           </label>
 
           <label className="flex items-center gap-2">
@@ -142,7 +139,7 @@ export function InvoicePaymentConfigForm({
               onChange={(e) => handleUpdate({ autoCreateCrmOrganization: e.target.checked })}
               className="h-3 w-3"
             />
-            <span className="text-xs">Auto-create CRM organization if missing</span>
+            <span className="text-xs">{t("ui.workflows.invoice_payment.crm.auto_create.label")}</span>
           </label>
 
           <label className="flex items-center gap-2">
@@ -152,7 +149,7 @@ export function InvoicePaymentConfigForm({
               onChange={(e) => handleUpdate({ autoFillFromCrm: e.target.checked })}
               className="h-3 w-3"
             />
-            <span className="text-xs">Auto-fill billing address from CRM organization</span>
+            <span className="text-xs">{t("ui.workflows.invoice_payment.crm.auto_fill.label")}</span>
           </label>
 
           <label className="flex items-center gap-2">
@@ -162,7 +159,7 @@ export function InvoicePaymentConfigForm({
               onChange={(e) => handleUpdate({ requireBillingAddress: e.target.checked })}
               className="h-3 w-3"
             />
-            <span className="text-xs">Require billing address for invoices</span>
+            <span className="text-xs">{t("ui.workflows.invoice_payment.crm.require_address.label")}</span>
           </label>
         </div>
       </div>
@@ -170,7 +167,7 @@ export function InvoicePaymentConfigForm({
       {/* Invoice Details */}
       <div className="p-3 rounded border-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
         <label className="text-xs font-bold block mb-2" style={{ color: "var(--win95-text)" }}>
-          📄 Invoice Details
+          {t("ui.workflows.invoice_payment.details.title")}
         </label>
 
         <div className="space-y-2">
@@ -181,7 +178,7 @@ export function InvoicePaymentConfigForm({
               onChange={(e) => handleUpdate({ includeDetailedLineItems: e.target.checked })}
               className="h-3 w-3"
             />
-            <span className="text-xs">Show each product as separate line item</span>
+            <span className="text-xs">{t("ui.workflows.invoice_payment.details.line_items.label")}</span>
           </label>
 
           <label className="flex items-center gap-2">
@@ -191,7 +188,7 @@ export function InvoicePaymentConfigForm({
               onChange={(e) => handleUpdate({ includeTaxBreakdown: e.target.checked })}
               className="h-3 w-3"
             />
-            <span className="text-xs">Show detailed tax breakdown</span>
+            <span className="text-xs">{t("ui.workflows.invoice_payment.details.tax_breakdown.label")}</span>
           </label>
 
           <label className="flex items-center gap-2">
@@ -201,7 +198,7 @@ export function InvoicePaymentConfigForm({
               onChange={(e) => handleUpdate({ includeAddons: e.target.checked })}
               className="h-3 w-3"
             />
-            <span className="text-xs">Show add-ons as separate line items</span>
+            <span className="text-xs">{t("ui.workflows.invoice_payment.details.addons.label")}</span>
           </label>
         </div>
       </div>
@@ -209,7 +206,7 @@ export function InvoicePaymentConfigForm({
       {/* Email Notifications */}
       <div className="p-3 rounded border-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
         <label className="text-xs font-bold block mb-2" style={{ color: "var(--win95-text)" }}>
-          ✉️ Email Notifications
+          {t("ui.workflows.invoice_payment.email.title")}
         </label>
 
         <div className="space-y-2">
@@ -220,13 +217,13 @@ export function InvoicePaymentConfigForm({
               onChange={(e) => handleUpdate({ sendInvoiceEmail: e.target.checked })}
               className="h-3 w-3"
             />
-            <span className="text-xs">Send invoice via email</span>
+            <span className="text-xs">{t("ui.workflows.invoice_payment.email.send.label")}</span>
           </label>
 
           {config.sendInvoiceEmail !== false && (
             <>
               <div>
-                <label className="text-[10px] block mb-1">CC Emails (comma-separated)</label>
+                <label className="text-[10px] block mb-1">{t("ui.workflows.invoice_payment.email.cc.label")}</label>
                 <input
                   type="text"
                   value={config.ccEmails?.join(", ") || ""}
@@ -234,18 +231,18 @@ export function InvoicePaymentConfigForm({
                     ccEmails: e.target.value.split(",").map(s => s.trim()).filter(Boolean),
                   })}
                   className="retro-input w-full px-2 py-1 text-xs"
-                  placeholder="accounting@company.com, billing@company.com"
+                  placeholder={t("ui.workflows.invoice_payment.email.cc.placeholder")}
                 />
               </div>
 
               <div>
-                <label className="text-[10px] block mb-1">Email Template ID (optional)</label>
+                <label className="text-[10px] block mb-1">{t("ui.workflows.invoice_payment.email.template.label")}</label>
                 <input
                   type="text"
                   value={config.invoiceEmailTemplate || ""}
                   onChange={(e) => handleUpdate({ invoiceEmailTemplate: e.target.value || undefined })}
                   className="retro-input w-full px-2 py-1 text-xs"
-                  placeholder="Leave blank for default template"
+                  placeholder={t("ui.workflows.invoice_payment.email.template.placeholder")}
                 />
               </div>
             </>
@@ -256,23 +253,23 @@ export function InvoicePaymentConfigForm({
       {/* Payment Instructions */}
       <div className="p-3 rounded border-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
         <label className="text-xs font-bold block mb-2" style={{ color: "var(--win95-text)" }}>
-          💳 Payment Instructions
+          {t("ui.workflows.invoice_payment.payment_instructions.title")}
         </label>
 
         <div className="space-y-2">
           <div>
-            <label className="text-[10px] block mb-1">Custom Payment Instructions</label>
+            <label className="text-[10px] block mb-1">{t("ui.workflows.invoice_payment.payment_instructions.custom.label")}</label>
             <textarea
               value={config.customPaymentInstructions || ""}
               onChange={(e) => handleUpdate({ customPaymentInstructions: e.target.value || undefined })}
               className="retro-input w-full px-2 py-1 text-xs"
               rows={3}
-              placeholder="Payment due within terms. Bank transfer preferred."
+              placeholder={t("ui.workflows.invoice_payment.payment_instructions.custom.placeholder")}
             />
           </div>
 
           <div>
-            <label className="text-[10px] block mb-1">Bank Account Details (JSON)</label>
+            <label className="text-[10px] block mb-1">{t("ui.workflows.invoice_payment.payment_instructions.bank_details.label")}</label>
             <textarea
               value={JSON.stringify(config.bankDetails || {}, null, 2)}
               onChange={(e) => {
@@ -285,7 +282,7 @@ export function InvoicePaymentConfigForm({
               }}
               className="retro-input w-full px-2 py-1 text-xs font-mono"
               rows={8}
-              placeholder={'{\n  "accountName": "Company Name",\n  "iban": "DE89...",\n  "swift": "COBADEFFXXX",\n  "bankName": "Bank Name",\n  "bankAddress": "City, Country"\n}'}
+              placeholder={t("ui.workflows.invoice_payment.payment_instructions.bank_details.placeholder")}
             />
           </div>
         </div>

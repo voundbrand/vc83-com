@@ -5,6 +5,7 @@ import type React from "react"
 import { useState, useRef, useEffect } from "react"
 import { useWindowManager } from "@/hooks/use-window-manager"
 import { useIsMobile } from "@/hooks/use-media-query"
+import { useMultipleNamespaces } from "@/hooks/use-namespace-translations"
 import { MobilePanel } from "./mobile-panel"
 
 interface FloatingWindowProps {
@@ -26,12 +27,16 @@ export function FloatingWindow({
 }: FloatingWindowProps) {
   const { windows, closeWindow, focusWindow, resizeWindow, moveWindow, maximizeWindow, minimizeWindow, restoreWindow } = useWindowManager()
   const windowState = windows.find(w => w.id === id)
+  const { t } = useMultipleNamespaces(["ui.start_menu", "ui.app"])
   const [isDragging, setIsDragging] = useState(false)
   const [isResizing, setIsResizing] = useState(false)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 })
   const windowRef = useRef<HTMLDivElement>(null)
   const isMobile = useIsMobile()
+
+  // Get the translated title if a titleKey is provided in windowState
+  const displayTitle = windowState?.titleKey ? t(windowState.titleKey) : title
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (windowState?.isMaximized) return
@@ -115,9 +120,9 @@ export function FloatingWindow({
   // Use MobilePanel on mobile devices
   if (isMobile) {
     return (
-      <MobilePanel 
-        windowType={id} 
-        title={title}
+      <MobilePanel
+        windowType={id}
+        title={displayTitle}
         className={className}
       >
         {children}
@@ -148,7 +153,7 @@ export function FloatingWindow({
         className={`retro-titlebar window-titlebar-corners flex items-center justify-between ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} select-none`}
         onMouseDown={handleMouseDown}
       >
-        <span className="text-white font-semibold text-sm select-none">{title}</span>
+        <span className="text-white font-semibold text-sm select-none">{displayTitle}</span>
         <div className="flex gap-[2px]">
           {/* Minimize Button */}
           <button

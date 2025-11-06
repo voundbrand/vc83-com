@@ -15,7 +15,7 @@ import { CheckoutEmbed } from "@/components/checkout/checkout-embed";
 import { SafeHtmlRenderer } from "@/components/ui/safe-html-renderer";
 import { RadarMap, GoogleMapFallback } from "@/components/ui/radar-map";
 import { GalleryLightbox } from "@/components/ui/gallery-lightbox";
-import { useTranslation } from "@/contexts/translation-context";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { generateMapLink, addToCalendar } from "@/lib/event-utils";
 import styles from "./styles.module.css";
 import {
@@ -56,7 +56,7 @@ export function EventLandingTemplate({
   sessionId,
 }: TemplateProps) {
   // Translation hook
-  const { t } = useTranslation();
+  const { t } = useNamespaceTranslations("ui.events");
 
   // Helper to format date from timestamp with translations
   const formatEventDate = (timestamp: number | undefined, format: 'short' | 'long' = 'long'): string => {
@@ -79,17 +79,17 @@ export function EventLandingTemplate({
     const dayIndex = date.getDay();
 
     if (format === 'short') {
-      const month = t(`ui.event_landing.date.month.${monthShort[monthIndex]}`, monthShort[monthIndex]);
-      const pattern = t('ui.event_landing.date.format.short', '{month} {day}, {year}');
+      const month = t(`ui.event_landing.date.month.${monthShort[monthIndex]}`);
+      const pattern = t('ui.event_landing.date.format.short');
       return pattern
         .replace('{month}', month)
         .replace('{day}', String(day))
         .replace('{year}', String(year));
     }
 
-    const month = t(`ui.event_landing.date.month_full.${monthNames[monthIndex]}`, monthNames[monthIndex]);
-    const weekday = t(`ui.event_landing.date.day_full.${dayNames[dayIndex]}`, dayNames[dayIndex]);
-    const pattern = t('ui.event_landing.date.format.long', '{weekday}, {month} {day}, {year}');
+    const month = t(`ui.event_landing.date.month_full.${monthNames[monthIndex]}`);
+    const weekday = t(`ui.event_landing.date.day_full.${dayNames[dayIndex]}`);
+    const pattern = t('ui.event_landing.date.format.long');
     return pattern
       .replace('{weekday}', weekday)
       .replace('{month}', month)
@@ -141,13 +141,15 @@ export function EventLandingTemplate({
     const isVideo = item.type === 'video' || !!item.videoUrl;
     const url = getMediaUrl(item);
     const loopValue = (item as any).loop ?? false;
+    const autostartValue = (item as any).autostart ?? false;
 
-    // Debug logging for video loop setting
+    // Debug logging for video settings
     if (isVideo) {
       console.log('[Event Landing] Video item:', {
         id: item.id,
         videoUrl: item.videoUrl,
         loop: loopValue,
+        autostart: autostartValue,
         rawItem: item
       });
     }
@@ -159,6 +161,7 @@ export function EventLandingTemplate({
       thumbnail: item.thumbnailUrl || (isVideo ? undefined : url),
       alt: item.alt || item.filename,
       loop: isVideo ? loopValue : undefined, // Pass loop setting for videos
+      autostart: isVideo ? autostartValue : undefined, // Pass autostart setting for videos
     };
   }).filter(item => item.url) || [];
 
@@ -252,22 +255,22 @@ export function EventLandingTemplate({
       subheadline: (data?.description as string) || content.hero?.subheadline || '',
       date: formatEventDate(eventData?.startDate as number | undefined) || content.hero?.date || '',
       location: (eventData?.venueName as string) || (eventData?.location as string) || content.hero?.location || '',
-      format: (eventData?.format === 'online' ? t('ui.event_landing.format.virtual', 'Virtual Event') : eventData?.format === 'in-person' ? t('ui.event_landing.format.in_person', 'In-Person') : eventData?.format === 'hybrid' ? t('ui.event_landing.format.hybrid', 'Hybrid Event') : undefined) || content.hero?.format || t('ui.event_landing.format.in_person', 'In-Person'),
+      format: (eventData?.format === 'online' ? t('ui.event_landing.format.virtual') : eventData?.format === 'in-person' ? t('ui.event_landing.format.in_person') : eventData?.format === 'hybrid' ? t('ui.event_landing.format.hybrid') : undefined) || content.hero?.format || t('ui.event_landing.format.in_person'),
       videoUrl: (eventData?.media as { items?: Array<{ videoUrl?: string }> })?.items?.[0]?.videoUrl || content.hero?.videoUrl,
       imageUrl: content.hero?.imageUrl, // Keep template image as it's typically uploaded separately
       ctaButtons: content.hero?.ctaButtons || [],
     },
     agenda: agendaDays && agendaDays.length > 0
       ? {
-          title: content.agenda?.title || t('ui.event_landing.agenda.title', 'Event Schedule'),
-          subtitle: content.agenda?.subtitle || t('ui.event_landing.agenda.subtitle', 'Here\'s what to expect at the event'),
+          title: content.agenda?.title || t('ui.event_landing.agenda.title'),
+          subtitle: content.agenda?.subtitle || t('ui.event_landing.agenda.subtitle'),
           days: agendaDays,
         }
       : content.agenda?.days && content.agenda.days.length > 0
         ? {
             ...content.agenda,
-            title: content.agenda.title || t('ui.event_landing.agenda.title', 'Event Schedule'),
-            subtitle: content.agenda.subtitle || t('ui.event_landing.agenda.subtitle', 'Here\'s what to expect at the event'),
+            title: content.agenda.title || t('ui.event_landing.agenda.title'),
+            subtitle: content.agenda.subtitle || t('ui.event_landing.agenda.subtitle'),
           }
         : undefined,
   } as EventLandingContent;
@@ -341,21 +344,21 @@ export function EventLandingTemplate({
             <div className={styles.navLogo}>{organization.name}</div>
             <div className={styles.navLinks}>
               <a href="#about" className={styles.navLink}>
-                {t('ui.event_landing.nav.about', 'ABOUT')}
+                {t('ui.event_landing.nav.about')}
               </a>
               <a href="#agenda" className={styles.navLink}>
-                {t('ui.event_landing.nav.schedule', 'SCHEDULE')}
+                {t('ui.event_landing.nav.schedule')}
               </a>
               <a href="#speakers" className={styles.navLink}>
-                {t('ui.event_landing.nav.speakers', 'SPEAKERS')}
+                {t('ui.event_landing.nav.speakers')}
               </a>
               <a href="#faq" className={styles.navLink}>
-                {t('ui.event_landing.nav.faq', 'FAQ')}
+                {t('ui.event_landing.nav.faq')}
               </a>
             </div>
             <div className={styles.navActions}>
-              <button className={styles.navButton}>{t('ui.event_landing.nav.login', 'LOG IN')}</button>
-              <button className={styles.navButtonPrimary}>{t('ui.event_landing.nav.signup', 'SIGN UP')}</button>
+              <button className={styles.navButton}>{t('ui.event_landing.nav.login')}</button>
+              <button className={styles.navButtonPrimary}>{t('ui.event_landing.nav.signup')}</button>
             </div>
           </div>
         </nav>
@@ -468,7 +471,7 @@ export function EventLandingTemplate({
           {galleryItems.length > 0 && (
             <section className={styles.section} id="gallery">
               <div className="max-w-6xl mx-auto">
-                <h2 className={styles.sectionTitle}>{t('ui.event_landing.gallery.title', 'Event Gallery')}</h2>
+                <h2 className={styles.sectionTitle}>{t('ui.event_landing.gallery.title')}</h2>
                 <GalleryLightbox items={galleryItems} />
               </div>
             </section>
@@ -479,7 +482,7 @@ export function EventLandingTemplate({
             <section className={styles.section} id="venue">
               <div className={styles.venueSection}>
                 <h2 className={styles.venueTitle}>
-                  {t('ui.event_landing.venue.title', 'Venue Location')}
+                  {t('ui.event_landing.venue.title')}
                 </h2>
                 {(eventData.formattedAddress || eventData.location) ? (
                   <div className={styles.venueAddress}>
@@ -519,7 +522,7 @@ export function EventLandingTemplate({
                       className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-gray-800 text-gray-800 hover:bg-gray-800 hover:text-white transition-colors shadow-sm"
                     >
                       <MapPin size={16} />
-                      <span>{t('ui.event_landing.venue.google_maps', 'Open in Google Maps')}</span>
+                      <span>{t('ui.event_landing.venue.google_maps')}</span>
                     </a>
 
                     {/* Apple Maps Link */}
@@ -530,7 +533,7 @@ export function EventLandingTemplate({
                       className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-gray-800 text-gray-800 hover:bg-gray-800 hover:text-white transition-colors shadow-sm"
                     >
                       <MapPin size={16} />
-                      <span>{t('ui.event_landing.venue.apple_maps', 'Open in Apple Maps')}</span>
+                      <span>{t('ui.event_landing.venue.apple_maps')}</span>
                     </a>
                   </div>
                 ) : null}
@@ -643,7 +646,7 @@ export function EventLandingTemplate({
                                   <span
                                     className={`${styles.sessionType} ${styles[`sessionType-${session.type}`]}`}
                                   >
-                                    {t(`ui.event_landing.session_type.${session.type}`, session.type)}
+                                    {t(`ui.event_landing.session_type.${session.type}`)}
                                   </span>
                                 )}
                               </div>
@@ -830,9 +833,9 @@ export function EventLandingTemplate({
 
                 {mergedContent.faq.contactEmail && (
                   <div className={styles.faqContact}>
-                    <h3 className={styles.faqContactTitle}>{t('ui.event_landing.faq.still_have_questions', 'Still have questions?')}</h3>
+                    <h3 className={styles.faqContactTitle}>{t('ui.event_landing.faq.still_have_questions')}</h3>
                     <p className={styles.faqContactText}>
-                      {t('ui.event_landing.faq.contact_text', 'Our team is here to help you with any inquiries.')}
+                      {t('ui.event_landing.faq.contact_text')}
                     </p>
                     <a href={`mailto:${mergedContent.faq.contactEmail}`} className={styles.faqContactLink}>
                       {mergedContent.faq.contactEmail}
@@ -855,9 +858,9 @@ export function EventLandingTemplate({
                 emptyState={
                   <div className={styles.checkoutPlaceholder}>
                     <div className={styles.placeholderIcon}>🛒</div>
-                    <h3 className={styles.placeholderTitle}>{t('ui.event_landing.checkout.no_products_linked_title', 'No Products Linked')}</h3>
+                    <h3 className={styles.placeholderTitle}>{t('ui.event_landing.checkout.no_products_linked_title')}</h3>
                     <p className={styles.placeholderText}>
-                      {t('ui.event_landing.checkout.no_products_linked_text', 'Link products to this checkout to enable purchase.')}
+                      {t('ui.event_landing.checkout.no_products_linked_text')}
                     </p>
                   </div>
                 }
@@ -865,9 +868,9 @@ export function EventLandingTemplate({
             ) : (
               <div className={styles.checkoutPlaceholder}>
                 <div className={styles.placeholderIcon}>🛒</div>
-                <h3 className={styles.placeholderTitle}>{t('ui.event_landing.checkout.no_checkout_linked_title', 'No Checkout Linked')}</h3>
+                <h3 className={styles.placeholderTitle}>{t('ui.event_landing.checkout.no_checkout_linked_title')}</h3>
                 <p className={styles.placeholderText}>
-                  {t('ui.event_landing.checkout.no_checkout_linked_text', 'Link a checkout to this page to enable ticket purchases.')}
+                  {t('ui.event_landing.checkout.no_checkout_linked_text')}
                 </p>
               </div>
             )}
@@ -895,9 +898,9 @@ export function EventLandingTemplate({
               emptyState={
                 <div className={styles.checkoutPlaceholder}>
                   <div className={styles.placeholderIcon}>🛒</div>
-                  <h3 className={styles.placeholderTitle}>{t('ui.event_landing.checkout.no_products_linked_title', 'No Products Linked')}</h3>
+                  <h3 className={styles.placeholderTitle}>{t('ui.event_landing.checkout.no_products_linked_title')}</h3>
                   <p className={styles.placeholderText}>
-                    {t('ui.event_landing.checkout.no_products_linked_text', 'Link products to this checkout to enable purchase.')}
+                    {t('ui.event_landing.checkout.no_products_linked_text')}
                   </p>
                 </div>
               }
@@ -912,10 +915,10 @@ export function EventLandingTemplate({
           <div className={styles.mobileCheckoutContent}>
             <div>
               <div className={styles.mobileCheckoutTitle}>
-                {t('ui.event_landing.checkout.get_ticket', 'Get Your Ticket')}
+                {t('ui.event_landing.checkout.get_ticket')}
               </div>
               <div className={styles.mobileCheckoutPrice}>
-                {t('ui.event_landing.checkout.view_available_tickets', 'View available tickets')}
+                {t('ui.event_landing.checkout.view_available_tickets')}
               </div>
             </div>
             <a
@@ -929,7 +932,7 @@ export function EventLandingTemplate({
                 }
               }}
             >
-              {t('ui.event_landing.checkout.view_tickets', 'View Tickets')}
+              {t('ui.event_landing.checkout.view_tickets')}
             </a>
           </div>
         </div>

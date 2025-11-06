@@ -7,6 +7,7 @@ import { useAuth, useCurrentOrganization } from "@/hooks/use-auth"
 import { Search, Filter, Plus, Edit, Trash2 } from "lucide-react"
 import type { Id } from "../../../../convex/_generated/dataModel"
 import { ContactFormModal } from "./contact-form-modal"
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
 
 interface ContactsListProps {
   selectedId: Id<"objects"> | null
@@ -17,6 +18,7 @@ type LifecycleStage = "lead" | "prospect" | "customer" | "partner" | ""
 type SourceType = "checkout" | "form" | "manual" | "import" | ""
 
 export function ContactsList({ selectedId, onSelect }: ContactsListProps) {
+  const { t } = useNamespaceTranslations("ui.crm")
   const { sessionId } = useAuth()
   const currentOrganization = useCurrentOrganization()
   const currentOrganizationId = currentOrganization?.id
@@ -63,9 +65,9 @@ export function ContactsList({ selectedId, onSelect }: ContactsListProps) {
 
   if (!sessionId || !currentOrganizationId) {
     return (
-      <div className="p-4 text-center text-gray-500">
-        <p className="font-pixel text-sm">PLEASE LOG IN</p>
-        <p className="text-xs mt-2">You need to be logged in to view contacts</p>
+      <div className="p-4 text-center" style={{ color: 'var(--neutral-gray)' }}>
+        <p className="font-pixel text-sm">{t("ui.crm.contacts.please_login")}</p>
+        <p className="text-xs mt-2">{t("ui.crm.contacts.login_required")}</p>
       </div>
     )
   }
@@ -108,15 +110,20 @@ export function ContactsList({ selectedId, onSelect }: ContactsListProps) {
   return (
     <div className="flex flex-col h-full">
       {/* Header with search and filters */}
-      <div className="p-3 bg-gray-100 border-b-2 border-gray-300 space-y-2">
+      <div className="p-3 border-b-2 space-y-2" style={{ background: 'var(--win95-bg)', borderColor: 'var(--win95-border)' }}>
         {/* Search bar */}
         <div className="flex gap-2">
           <div className="flex-1 relative">
-            <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500" />
+            <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2" style={{ color: 'var(--neutral-gray)' }} />
             <input
               type="text"
-              placeholder="Search contacts..."
-              className="w-full pl-8 pr-2 py-1.5 border-2 border-gray-400 focus:outline-none focus:border-blue-500 text-sm"
+              placeholder={t("ui.crm.contacts.search_placeholder")}
+              className="w-full pl-8 pr-2 py-1.5 border-2 focus:outline-none text-sm retro-input"
+              style={{
+                borderColor: 'var(--win95-border)',
+                background: 'var(--win95-input-bg)',
+                color: 'var(--win95-input-text)'
+              }}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -124,8 +131,12 @@ export function ContactsList({ selectedId, onSelect }: ContactsListProps) {
           <button
             onClick={() => setShowFilters(!showFilters)}
             className={`retro-button px-3 py-1.5 flex items-center gap-1 ${
-              showFilters ? "shadow-inner bg-gray-300" : ""
+              showFilters ? "shadow-inner" : ""
             }`}
+            style={{
+              background: showFilters ? 'var(--win95-selected-bg)' : 'var(--win95-button-face)',
+              color: showFilters ? 'var(--win95-selected-text)' : 'var(--win95-text)'
+            }}
             title="Toggle filters"
           >
             <Filter size={14} />
@@ -141,40 +152,54 @@ export function ContactsList({ selectedId, onSelect }: ContactsListProps) {
 
         {/* Filters */}
         {showFilters && (
-          <div className="space-y-2 pt-2 border-t border-gray-300">
+          <div className="space-y-2 pt-2 border-t" style={{ borderColor: 'var(--win95-border)' }}>
             <div>
-              <label className="text-xs font-pixel mb-1 block">SOURCE:</label>
+              <label className="text-xs font-pixel mb-1 block" style={{ color: 'var(--win95-text)' }}>
+                {t("ui.crm.contacts.filter_label_source")}
+              </label>
               <select
-                className="w-full px-2 py-1 border-2 border-gray-400 text-sm"
+                className="w-full px-2 py-1 border-2 text-sm"
+                style={{
+                  borderColor: 'var(--win95-border)',
+                  background: 'var(--win95-input-bg)',
+                  color: 'var(--win95-input-text)'
+                }}
                 value={sourceFilter}
                 onChange={(e) => setSourceFilter(e.target.value as SourceType)}
               >
-                <option value="">All Sources</option>
-                <option value="checkout">Checkout</option>
-                <option value="form">Form</option>
-                <option value="manual">Manual</option>
-                <option value="import">Import</option>
+                <option value="">{t("ui.crm.contacts.filter_all_sources")}</option>
+                <option value="checkout">{t("ui.crm.contacts.filter_source_checkout")}</option>
+                <option value="form">{t("ui.crm.contacts.filter_source_form")}</option>
+                <option value="manual">{t("ui.crm.contacts.filter_source_manual")}</option>
+                <option value="import">{t("ui.crm.contacts.filter_source_import")}</option>
               </select>
             </div>
             <div>
-              <label className="text-xs font-pixel mb-1 block">STAGE:</label>
+              <label className="text-xs font-pixel mb-1 block" style={{ color: 'var(--win95-text)' }}>
+                {t("ui.crm.contacts.filter_label_stage")}
+              </label>
               <select
-                className="w-full px-2 py-1 border-2 border-gray-400 text-sm"
+                className="w-full px-2 py-1 border-2 text-sm"
+                style={{
+                  borderColor: 'var(--win95-border)',
+                  background: 'var(--win95-input-bg)',
+                  color: 'var(--win95-input-text)'
+                }}
                 value={stageFilter}
                 onChange={(e) => setStageFilter(e.target.value as LifecycleStage)}
               >
-                <option value="">All Stages</option>
-                <option value="lead">Lead</option>
-                <option value="prospect">Prospect</option>
-                <option value="customer">Customer</option>
-                <option value="partner">Partner</option>
+                <option value="">{t("ui.crm.contacts.filter_all_stages")}</option>
+                <option value="lead">{t("ui.crm.contacts.stage_lead")}</option>
+                <option value="prospect">{t("ui.crm.contacts.stage_prospect")}</option>
+                <option value="customer">{t("ui.crm.contacts.stage_customer")}</option>
+                <option value="partner">{t("ui.crm.contacts.stage_partner")}</option>
               </select>
             </div>
           </div>
         )}
 
         {/* Results count */}
-        <div className="text-xs text-gray-600">
+        <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
           {filteredContacts?.length || 0} contact{filteredContacts?.length !== 1 ? "s" : ""} found
         </div>
       </div>
@@ -182,12 +207,12 @@ export function ContactsList({ selectedId, onSelect }: ContactsListProps) {
       {/* Contact list */}
       <div className="flex-1 overflow-y-auto">
         {!contacts ? (
-          <div className="p-4 text-center text-gray-500">
-            <p className="text-sm">Loading contacts...</p>
+          <div className="p-4 text-center" style={{ color: 'var(--neutral-gray)' }}>
+            <p className="text-sm">{t("ui.crm.contacts.loading")}</p>
           </div>
         ) : filteredContacts && filteredContacts.length === 0 ? (
-          <div className="p-4 text-center text-gray-500">
-            <p className="text-sm">No contacts found</p>
+          <div className="p-4 text-center" style={{ color: 'var(--neutral-gray)' }}>
+            <p className="text-sm">{t("ui.crm.contacts.no_contacts")}</p>
             {(searchQuery || sourceFilter || stageFilter) && (
               <button
                 onClick={() => {
@@ -195,14 +220,15 @@ export function ContactsList({ selectedId, onSelect }: ContactsListProps) {
                   setSourceFilter("")
                   setStageFilter("")
                 }}
-                className="mt-2 text-xs text-blue-600 hover:underline"
+                className="mt-2 text-xs hover:underline"
+                style={{ color: 'var(--win95-highlight)' }}
               >
-                Clear filters
+                {t("ui.crm.contacts.clear_filters")}
               </button>
             )}
           </div>
         ) : (
-          <div className="divide-y divide-gray-200">
+          <div className="divide-y" style={{ borderColor: 'var(--win95-border)' }}>
             {filteredContacts?.map((contact) => {
               const props = contact.customProperties || {}
               const fullName = props.fullName || `${props.firstName || ""} ${props.lastName || ""}`.trim() || "Unnamed Contact"
@@ -215,9 +241,22 @@ export function ContactsList({ selectedId, onSelect }: ContactsListProps) {
               return (
                 <div
                   key={contact._id}
-                  className={`w-full text-left p-3 hover:bg-blue-50 transition-colors group relative ${
-                    selectedId === contact._id ? "bg-blue-100 border-l-4 border-blue-500" : ""
-                  }`}
+                  className="w-full text-left p-3 transition-colors group relative"
+                  style={{
+                    background: selectedId === contact._id ? 'var(--win95-selected-bg)' : 'transparent',
+                    color: selectedId === contact._id ? 'var(--win95-selected-text)' : 'var(--win95-text)',
+                    borderLeft: selectedId === contact._id ? '4px solid var(--win95-highlight)' : 'none'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (selectedId !== contact._id) {
+                      e.currentTarget.style.background = 'var(--win95-hover-light)'
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (selectedId !== contact._id) {
+                      e.currentTarget.style.background = 'transparent'
+                    }
+                  }}
                 >
                   <div
                     onClick={() => onSelect(contact._id)}
@@ -226,11 +265,11 @@ export function ContactsList({ selectedId, onSelect }: ContactsListProps) {
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0">
                         <div className="font-semibold text-sm truncate">{fullName}</div>
-                        <div className="text-xs text-gray-600 truncate">{email}</div>
+                        <div className="text-xs truncate" style={{ color: 'var(--neutral-gray)' }}>{email}</div>
 
                         {/* Stats row */}
                         {totalSpent > 0 && (
-                          <div className="text-xs text-gray-500 mt-1">
+                          <div className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
                             ${(totalSpent / 100).toFixed(2)} • {purchaseCount} purchase{purchaseCount !== 1 ? "s" : ""}
                           </div>
                         )}
@@ -240,19 +279,23 @@ export function ContactsList({ selectedId, onSelect }: ContactsListProps) {
                     {/* Tags row */}
                     <div className="flex gap-1 mt-2 flex-wrap">
                       <span
-                        className={`px-1.5 py-0.5 text-[10px] font-pixel border ${
-                          stage === "customer"
-                            ? "bg-green-100 border-green-400 text-green-700"
-                            : stage === "prospect"
-                            ? "bg-blue-100 border-blue-400 text-blue-700"
-                            : stage === "lead"
-                            ? "bg-yellow-100 border-yellow-400 text-yellow-700"
-                            : "bg-gray-100 border-gray-400 text-gray-700"
-                        }`}
+                        className="px-1.5 py-0.5 text-[10px] font-pixel border"
+                        style={{
+                          background: stage === "customer" ? '#dcfce7' : stage === "prospect" ? '#dbeafe' : stage === "lead" ? '#fef3c7' : 'var(--win95-bg-light)',
+                          borderColor: stage === "customer" ? '#86efac' : stage === "prospect" ? '#93c5fd' : stage === "lead" ? '#fde047' : 'var(--win95-border)',
+                          color: stage === "customer" ? '#15803d' : stage === "prospect" ? '#1e40af' : stage === "lead" ? '#a16207' : 'var(--win95-text)'
+                        }}
                       >
                         {stage.toUpperCase()}
                       </span>
-                      <span className="px-1.5 py-0.5 text-[10px] bg-gray-100 border border-gray-400 text-gray-600">
+                      <span
+                        className="px-1.5 py-0.5 text-[10px] border"
+                        style={{
+                          background: 'var(--win95-bg-light)',
+                          borderColor: 'var(--win95-border)',
+                          color: 'var(--neutral-gray)'
+                        }}
+                      >
                         {source.toUpperCase()}
                       </span>
                     </div>
@@ -265,20 +308,28 @@ export function ContactsList({ selectedId, onSelect }: ContactsListProps) {
                         e.stopPropagation()
                         setEditingId(contact._id)
                       }}
-                      className="p-1.5 bg-white border-2 border-gray-400 hover:bg-gray-100"
+                      className="p-1.5 border-2 hover:opacity-80"
+                      style={{
+                        background: 'var(--win95-bg-light)',
+                        borderColor: 'var(--win95-border)'
+                      }}
                       title="Edit contact"
                     >
-                      <Edit size={14} className="text-gray-600" />
+                      <Edit size={14} style={{ color: 'var(--win95-text)' }} />
                     </button>
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
                         setDeletingId(contact._id)
                       }}
-                      className="p-1.5 bg-white border-2 border-red-400 hover:bg-red-50"
+                      className="p-1.5 border-2 hover:opacity-80"
+                      style={{
+                        background: 'var(--win95-bg-light)',
+                        borderColor: 'var(--error)'
+                      }}
                       title="Delete contact"
                     >
-                      <Trash2 size={14} className="text-red-600" />
+                      <Trash2 size={14} style={{ color: 'var(--error)' }} />
                     </button>
                   </div>
                 </div>
@@ -313,24 +364,45 @@ export function ContactsList({ selectedId, onSelect }: ContactsListProps) {
 
       {/* Delete Confirmation Dialog */}
       {deletingId && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white border-4 border-gray-800 p-6 max-w-md mx-4 shadow-lg">
-            <h3 className="text-lg font-bold mb-4">Delete Contact?</h3>
-            <p className="text-sm text-gray-700 mb-6">
-              Are you sure you want to delete this contact? This action cannot be undone.
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50"
+          style={{ background: 'rgba(0, 0, 0, 0.5)' }}
+        >
+          <div
+            className="border-4 p-6 max-w-md mx-4 shadow-lg"
+            style={{
+              background: 'var(--win95-bg)',
+              borderColor: 'var(--win95-border)'
+            }}
+          >
+            <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--win95-text)' }}>
+              {t("ui.crm.contacts.delete_confirm_title")}
+            </h3>
+            <p className="text-sm mb-6" style={{ color: 'var(--win95-text)' }}>
+              {t("ui.crm.contacts.delete_confirm_message")}
             </p>
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setDeletingId(null)}
-                className="px-4 py-2 border-2 border-gray-400 hover:bg-gray-100 transition-colors"
+                className="px-4 py-2 border-2 hover:opacity-80 transition-colors"
+                style={{
+                  borderColor: 'var(--win95-border)',
+                  background: 'var(--win95-button-face)',
+                  color: 'var(--win95-text)'
+                }}
               >
-                Cancel
+                {t("ui.crm.buttons.cancel")}
               </button>
               <button
                 onClick={() => handleDelete(deletingId)}
-                className="px-4 py-2 bg-red-600 text-white border-2 border-red-700 hover:bg-red-700 transition-colors"
+                className="px-4 py-2 border-2 hover:opacity-80 transition-colors"
+                style={{
+                  background: 'var(--error)',
+                  color: 'white',
+                  borderColor: 'var(--error)'
+                }}
               >
-                Delete
+                {t("ui.crm.buttons.delete")}
               </button>
             </div>
           </div>

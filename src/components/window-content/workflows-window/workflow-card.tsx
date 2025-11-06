@@ -11,6 +11,7 @@ import { useMutation, useAction, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useNotification } from "../../../hooks/use-notification";
 import { Id } from "../../../../convex/_generated/dataModel";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import {
   Zap,
   MoreVertical,
@@ -51,6 +52,7 @@ interface WorkflowCardProps {
 }
 
 export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps) {
+  const { t } = useNamespaceTranslations("ui.workflows");
   const [menuOpen, setMenuOpen] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [showProgressModal, setShowProgressModal] = useState(false);
@@ -94,7 +96,7 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
     !triggerOn; // Default to allowing if undefined
 
   const handleDelete = async () => {
-    if (confirm("Are you sure you want to archive this workflow?")) {
+    if (confirm(t("ui.workflows.card.menu.confirmDelete"))) {
       await deleteWorkflow({
         sessionId,
         workflowId: workflow._id,
@@ -107,7 +109,7 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
     await duplicateWorkflow({
       sessionId,
       workflowId: workflow._id,
-      newName: `${workflow.name} (Copy)`,
+      newName: `${workflow.name} ${t("ui.workflows.card.menu.copySuffix")}`,
     });
     setMenuOpen(false);
   };
@@ -147,8 +149,8 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
     URL.revokeObjectURL(url);
 
     notification.success(
-      "Logs Exported",
-      "Workflow execution logs have been downloaded"
+      t("ui.workflows.card.export.title"),
+      t("ui.workflows.card.export.success")
     );
   };
 
@@ -201,21 +203,21 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
 
       if (result.success) {
         notification.success(
-          "Workflow Executed",
-          result.message || 'Workflow completed successfully.'
+          t("ui.workflows.card.execution.success.title"),
+          result.message || t("ui.workflows.card.execution.success.message")
         );
       } else {
         notification.error(
-          "Workflow Failed",
-          result.error || 'Unknown error occurred during workflow execution.'
+          t("ui.workflows.card.execution.failed.title"),
+          result.error || t("ui.workflows.card.execution.failed.message")
         );
         setIsRunning(false);
       }
     } catch (error) {
       console.error("Failed to execute workflow:", error);
       notification.error(
-        "Execution Error",
-        error instanceof Error ? error.message : 'Unknown error occurred.'
+        t("ui.workflows.card.execution.error.title"),
+        error instanceof Error ? error.message : t("ui.workflows.card.execution.error.message")
       );
       setIsRunning(false);
     }
@@ -224,21 +226,21 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
   const statusConfig = {
     active: {
       icon: <CheckCircle2 className="h-3 w-3" />,
-      label: "Active",
+      label: t("ui.workflows.card.status.active"),
       bg: 'var(--success)',
-      text: '#ffffff',
+      text: 'var(--win95-bg-light)',
     },
     draft: {
       icon: <Clock className="h-3 w-3" />,
-      label: "Draft",
+      label: t("ui.workflows.card.status.draft"),
       bg: 'var(--warning)',
-      text: '#000000',
+      text: 'var(--win95-text)',
     },
     archived: {
       icon: <ArchiveX className="h-3 w-3" />,
-      label: "Archived",
+      label: t("ui.workflows.card.status.archived"),
       bg: 'var(--neutral-gray)',
-      text: '#ffffff',
+      text: 'var(--win95-bg-light)',
     },
   };
 
@@ -280,7 +282,7 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
                   style={{ color: 'var(--win95-text)' }}
                 >
                   <Edit2 className="h-3 w-3" />
-                  Edit Workflow
+                  {t("ui.workflows.card.menu.edit")}
                 </button>
                 <button
                   onClick={handleToggleStatus}
@@ -288,7 +290,7 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
                   style={{ color: 'var(--win95-text)' }}
                 >
                   <Play className="h-3 w-3" />
-                  {workflow.status === "active" ? "Set to Draft" : "Activate"}
+                  {workflow.status === "active" ? t("ui.workflows.card.menu.setDraft") : t("ui.workflows.card.menu.activate")}
                 </button>
                 <button
                   onClick={handleDuplicate}
@@ -296,7 +298,7 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
                   style={{ color: 'var(--win95-text)' }}
                 >
                   <Copy className="h-3 w-3" />
-                  Duplicate
+                  {t("ui.workflows.card.menu.duplicate")}
                 </button>
                 <div className="my-1 border-t" style={{ borderColor: 'var(--win95-border)' }} />
                 <button
@@ -305,7 +307,7 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
                   style={{ color: 'var(--error)' }}
                 >
                   <Trash2 className="h-3 w-3" />
-                  Archive
+                  {t("ui.workflows.card.menu.archive")}
                 </button>
               </div>
             </>
@@ -324,18 +326,18 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
       <div className="mb-3 flex items-center gap-3 text-xs" style={{ color: 'var(--neutral-gray)' }}>
         <div className="flex items-center gap-1">
           <Package className="h-3 w-3" />
-          <span>{objectCount} Objects</span>
+          <span>{objectCount} {t("ui.workflows.card.stats.objects")}</span>
         </div>
         <div className="flex items-center gap-1">
           <Zap className="h-3 w-3" />
-          <span>{behaviorCount} Behaviors</span>
+          <span>{behaviorCount} {t("ui.workflows.card.stats.behaviors")}</span>
         </div>
       </div>
 
       {/* Trigger */}
       <div className="mb-3">
         <div className="inline-flex items-center gap-1 border px-2 py-0.5 text-[10px] font-bold" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg)', color: 'var(--win95-text)' }}>
-          Trigger: {triggerOn.replace(/_/g, " ")}
+          {t("ui.workflows.card.trigger.label")}: {triggerOn.replace(/_/g, " ")}
         </div>
       </div>
 
@@ -352,28 +354,28 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
               onClick={handleRunNow}
               disabled={isRunning}
               className="retro-button inline-flex items-center gap-1 px-2 py-1 text-[10px] font-bold disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Run workflow now"
+              title={t("ui.workflows.card.actions.runNow.tooltip")}
             >
               {isRunning ? (
                 <>
                   <Loader2 className="h-3 w-3 animate-spin" />
-                  Running...
+                  {t("ui.workflows.card.actions.running")}
                 </>
               ) : (
                 <>
                   <PlayCircle className="h-3 w-3" />
-                  Run Now
+                  {t("ui.workflows.card.actions.runNow.label")}
                 </>
               )}
             </button>
           ) : (
             <div
               className="inline-flex items-center gap-1 px-2 py-1 text-[10px] opacity-50"
-              title="This workflow can only be triggered by its configured event (e.g., checkout, form submission)"
+              title={t("ui.workflows.card.actions.autoTrigger.tooltip")}
               style={{ color: 'var(--neutral-gray)' }}
             >
               <PlayCircle className="h-3 w-3" />
-              Auto-trigger only
+              {t("ui.workflows.card.actions.autoTrigger.label")}
             </div>
           )}
 
@@ -382,7 +384,7 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
             className="text-xs font-bold hover:underline"
             style={{ color: 'var(--win95-highlight)' }}
           >
-            Edit →
+            {t("ui.workflows.card.actions.edit")} →
           </button>
         </div>
       </div>
@@ -393,7 +395,7 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
           <div className="w-full max-w-2xl border-4 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.8)]" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
             {/* Title Bar */}
             <div className="flex items-center justify-between border-b-4 px-4 py-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-highlight)' }}>
-              <h3 className="text-sm font-bold text-white">Workflow Execution Progress</h3>
+              <h3 className="text-sm font-bold text-white">{t("ui.workflows.card.modal.title")}</h3>
               <button
                 onClick={() => setShowProgressModal(false)}
                 className="border-2 px-2 py-0.5 text-xs font-bold text-white hover:bg-white hover:text-black transition-colors"
@@ -408,7 +410,7 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
               {!executionLogs || executionLogs.logs.length === 0 ? (
                 <div className="flex items-center justify-center py-8 text-sm" style={{ color: 'var(--neutral-gray)' }}>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Executing workflow...
+                  {t("ui.workflows.card.modal.executing")}
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -426,14 +428,14 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
                           <>
                             <CheckCircle2 className="h-5 w-5" style={{ color: 'var(--success)' }} />
                             <span className="font-bold text-sm" style={{ color: 'var(--success)' }}>
-                              Workflow completed successfully!
+                              {t("ui.workflows.card.modal.completed")}
                             </span>
                           </>
                         ) : (
                           <>
                             <div className="h-5 w-5 rounded-full border-2 flex items-center justify-center text-sm font-bold" style={{ borderColor: 'var(--error)', color: 'var(--error)' }}>✕</div>
                             <span className="font-bold text-sm" style={{ color: 'var(--error)' }}>
-                              Workflow execution failed
+                              {t("ui.workflows.card.modal.failed")}
                             </span>
                           </>
                         )}
@@ -486,15 +488,15 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
                     onClick={() => {
                       // TODO: Open invoices window and navigate to this invoice
                       notification.info(
-                        "View Invoice",
-                        `Open the Invoices window to view invoice ${createdInvoiceNumber}`
+                        t("ui.workflows.card.modal.viewInvoice.title"),
+                        t("ui.workflows.card.modal.viewInvoice.message", { invoiceNumber: createdInvoiceNumber || '' })
                       );
                     }}
                     className="retro-button inline-flex items-center gap-1 px-3 py-1 text-xs font-bold"
                     style={{ background: 'var(--success)', color: 'white' }}
                   >
                     <ExternalLink className="h-3 w-3" />
-                    View Invoice {createdInvoiceNumber}
+                    {t("ui.workflows.card.modal.viewInvoice.button")} {createdInvoiceNumber}
                   </button>
                 )}
                 {executionLogs && executionLogs.logs.length > 0 && (
@@ -503,7 +505,7 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
                     className="retro-button inline-flex items-center gap-1 px-3 py-1 text-xs font-bold"
                   >
                     <Download className="h-3 w-3" />
-                    Export Logs
+                    {t("ui.workflows.card.modal.exportLogs")}
                   </button>
                 )}
               </div>
@@ -511,7 +513,7 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
                 onClick={() => setShowProgressModal(false)}
                 className="retro-button px-4 py-1 text-xs font-bold"
               >
-                Close
+                {t("ui.workflows.card.modal.close")}
               </button>
             </div>
           </div>

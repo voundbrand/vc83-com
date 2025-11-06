@@ -4,7 +4,8 @@ import { createContext, useContext, useState, type ReactNode } from "react"
 
 interface Window {
   id: string
-  title: string
+  title: string // Can be either a static string or a translation key
+  titleKey?: string // Optional: if provided, will be used for translation
   component: ReactNode
   isOpen: boolean
   position: { x: number; y: number }
@@ -18,7 +19,7 @@ interface Window {
 
 interface WindowManagerContextType {
   windows: Window[]
-  openWindow: (id: string, title: string, component: ReactNode, position?: { x: number; y: number }, size?: { width: number; height: number }) => void
+  openWindow: (id: string, title: string, component: ReactNode, position?: { x: number; y: number }, size?: { width: number; height: number }, titleKey?: string) => void
   closeWindow: (id: string) => void
   closeAllWindows: () => void
   focusWindow: (id: string) => void
@@ -37,21 +38,21 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
   const [nextZIndex, setNextZIndex] = useState(100)
   const [cascadeOffset, setCascadeOffset] = useState({ x: 100, y: 100 })
 
-  const openWindow = (id: string, title: string, component: ReactNode, position?: { x: number; y: number }, size?: { width: number; height: number }) => {
+  const openWindow = (id: string, title: string, component: ReactNode, position?: { x: number; y: number }, size?: { width: number; height: number }, titleKey?: string) => {
     setWindows((prev) => {
       const existing = prev.find((w) => w.id === id)
       if (existing) {
         // Focus existing window
         return prev.map((w) => (w.id === id ? { ...w, isOpen: true, zIndex: nextZIndex } : w))
       }
-      
+
       // Calculate position with cascade effect
       let windowPosition = position || { ...cascadeOffset }
-      
+
       // Viewport constraints
       const maxX = window.innerWidth - 400 // Approximate window width
       const maxY = window.innerHeight - 300 // Approximate window height
-      
+
       // Reset cascade if it goes too far
       if (windowPosition.x > maxX || windowPosition.y > maxY) {
         windowPosition = { x: 100, y: 100 }
@@ -63,13 +64,14 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
           y: cascadeOffset.y + 30
         })
       }
-      
+
       // Create new window
       return [
         ...prev,
         {
           id,
           title,
+          titleKey, // Store the translation key if provided
           component,
           isOpen: true,
           position: windowPosition,

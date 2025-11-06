@@ -7,6 +7,7 @@ import { Id } from "../../../../convex/_generated/dataModel";
 import { useCurrentOrganization, useAuth } from "@/hooks/use-auth";
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
 import { useWindowManager } from "@/hooks/use-window-manager";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { Upload, Image as ImageIcon, Settings, Trash2, X, Check } from "lucide-react";
 
 interface MediaLibraryWindowProps {
@@ -30,6 +31,7 @@ export default function MediaLibraryWindow({
   const activeOrgId = currentOrg?.id || null;
   const { sessionId } = useAuth();
   const { closeWindow } = useWindowManager();
+  const { t } = useNamespaceTranslations("ui.media_library");
 
   // Check app availability - returns guard component if unavailable/loading, null if available
   const guard = useAppAvailabilityGuard({
@@ -42,28 +44,44 @@ export default function MediaLibraryWindow({
 
   return (
     <div className="h-full flex flex-col" style={{ background: 'var(--win95-bg)' }}>
-      {/* Tab Navigation */}
-      <div className="border-b" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
-        <div className="flex">
-          <TabButton
-            active={activeTab === "library"}
-            onClick={() => setActiveTab("library")}
-            icon={<ImageIcon className="w-4 h-4" />}
-            label="Library"
-          />
-          <TabButton
-            active={activeTab === "upload"}
-            onClick={() => setActiveTab("upload")}
-            icon={<Upload className="w-4 h-4" />}
-            label="Upload"
-          />
-          <TabButton
-            active={activeTab === "settings"}
-            onClick={() => setActiveTab("settings")}
-            icon={<Settings className="w-4 h-4" />}
-            label="Settings"
-          />
-        </div>
+      {/* Tabs - Windows 95 Style */}
+      <div className="flex border-b-2 shrink-0" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+        <button
+          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
+          style={{
+            borderColor: 'var(--win95-border)',
+            background: activeTab === "library" ? 'var(--win95-bg)' : 'var(--win95-bg-light)',
+            color: activeTab === "library" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+          }}
+          onClick={() => setActiveTab("library")}
+        >
+          <ImageIcon className="w-4 h-4" />
+          {t("ui.media_library.tab.library")}
+        </button>
+        <button
+          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
+          style={{
+            borderColor: 'var(--win95-border)',
+            background: activeTab === "upload" ? 'var(--win95-bg)' : 'var(--win95-bg-light)',
+            color: activeTab === "upload" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+          }}
+          onClick={() => setActiveTab("upload")}
+        >
+          <Upload className="w-4 h-4" />
+          {t("ui.media_library.tab.upload")}
+        </button>
+        <button
+          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
+          style={{
+            borderColor: 'var(--win95-border)',
+            background: activeTab === "settings" ? 'var(--win95-bg)' : 'var(--win95-bg-light)',
+            color: activeTab === "settings" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+          }}
+          onClick={() => setActiveTab("settings")}
+        >
+          <Settings className="w-4 h-4" />
+          {t("ui.media_library.tab.settings")}
+        </button>
       </div>
 
       {/* Tab Content */}
@@ -75,56 +93,17 @@ export default function MediaLibraryWindow({
             onSelect={onSelect}
             selectionMode={selectionMode}
             closeWindow={closeWindow}
+            t={t}
           />
         )}
         {activeTab === "upload" && (
-          <UploadTab organizationId={activeOrgId} sessionId={sessionId} />
+          <UploadTab organizationId={activeOrgId} sessionId={sessionId} t={t} />
         )}
         {activeTab === "settings" && (
-          <SettingsTab organizationId={activeOrgId} sessionId={sessionId} />
+          <SettingsTab organizationId={activeOrgId} sessionId={sessionId} t={t} />
         )}
       </div>
     </div>
-  );
-}
-
-// Tab Button Component
-function TabButton({
-  active,
-  onClick,
-  icon,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: React.ReactNode;
-  label: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className="flex items-center gap-2 px-6 py-3 font-medium text-sm border-b-2 transition-colors"
-      style={{
-        borderColor: active ? 'var(--win95-highlight)' : 'transparent',
-        color: active ? 'var(--win95-highlight)' : 'var(--neutral-gray)',
-        background: active ? 'var(--win95-bg)' : 'transparent',
-      }}
-      onMouseEnter={(e) => {
-        if (!active) {
-          e.currentTarget.style.color = 'var(--win95-text)';
-          e.currentTarget.style.background = 'var(--win95-hover-light)';
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (!active) {
-          e.currentTarget.style.color = 'var(--neutral-gray)';
-          e.currentTarget.style.background = 'transparent';
-        }
-      }}
-    >
-      {icon}
-      {label}
-    </button>
   );
 }
 
@@ -135,6 +114,7 @@ function LibraryTab({
   onSelect,
   selectionMode,
   closeWindow,
+  t,
 }: {
   organizationId: string | null;
   sessionId: string | null;
@@ -146,6 +126,7 @@ function LibraryTab({
   }) => void;
   selectionMode: boolean;
   closeWindow: (id: string) => void;
+  t: (key: string) => string;
 }) {
   const [selectedMedia, setSelectedMedia] = useState<Id<"organizationMedia"> | null>(null);
   const media = useQuery(
@@ -159,16 +140,16 @@ function LibraryTab({
 
   const handleDelete = async (mediaId: Id<"organizationMedia">) => {
     if (!sessionId) {
-      alert("Not authenticated");
+      alert(t("ui.media_library.error.not_authenticated"));
       return;
     }
 
-    if (confirm("Are you sure you want to delete this media file?")) {
+    if (confirm(t("ui.media_library.library.delete_confirm"))) {
       try {
         await deleteMedia({ sessionId, mediaId });
       } catch (error) {
         console.error("Delete failed:", error);
-        alert("Failed to delete media");
+        alert(t("ui.media_library.error.delete_failed"));
       }
     }
   };
@@ -193,7 +174,7 @@ function LibraryTab({
   if (!media) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div style={{ color: 'var(--neutral-gray)' }}>Loading media...</div>
+        <div style={{ color: 'var(--neutral-gray)' }}>{t("ui.media_library.library.loading")}</div>
       </div>
     );
   }
@@ -202,8 +183,8 @@ function LibraryTab({
     return (
       <div className="flex flex-col items-center justify-center h-full text-center p-8">
         <ImageIcon className="w-16 h-16 mb-4" style={{ color: 'var(--win95-border)' }} />
-        <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--win95-text)' }}>No media files yet</h3>
-        <p className="mb-4" style={{ color: 'var(--neutral-gray)' }}>Upload your first image to get started</p>
+        <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--win95-text)' }}>{t("ui.media_library.library.empty_title")}</h3>
+        <p className="mb-4" style={{ color: 'var(--neutral-gray)' }}>{t("ui.media_library.library.empty_description")}</p>
       </div>
     );
   }
@@ -298,7 +279,7 @@ function LibraryTab({
 }
 
 // Upload Tab - Drag and drop upload
-function UploadTab({ organizationId, sessionId }: { organizationId: string | null; sessionId: string | null }) {
+function UploadTab({ organizationId, sessionId, t }: { organizationId: string | null; sessionId: string | null; t: (key: string) => string }) {
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -307,12 +288,12 @@ function UploadTab({ organizationId, sessionId }: { organizationId: string | nul
 
   const handleFileSelect = async (file: File) => {
     if (!organizationId) {
-      alert("No organization selected");
+      alert(t("ui.media_library.error.no_organization"));
       return;
     }
 
     if (!sessionId) {
-      alert("Not authenticated");
+      alert(t("ui.media_library.error.not_authenticated"));
       return;
     }
 
@@ -347,13 +328,13 @@ function UploadTab({ organizationId, sessionId }: { organizationId: string | nul
       });
 
       setUploadProgress(100);
-      alert("Upload successful!");
+      alert(t("ui.media_library.success.upload"));
     } catch (error) {
       console.error("Upload failed:", error);
       alert(
         error instanceof Error
           ? error.message
-          : "Upload failed. Please try again."
+          : t("ui.media_library.error.upload_failed")
       );
     } finally {
       setUploading(false);
@@ -369,7 +350,7 @@ function UploadTab({ organizationId, sessionId }: { organizationId: string | nul
     if (file && file.type.startsWith("image/")) {
       handleFileSelect(file);
     } else {
-      alert("Please upload an image file");
+      alert(t("ui.media_library.error.image_only"));
     }
   };
 
@@ -393,7 +374,7 @@ function UploadTab({ organizationId, sessionId }: { organizationId: string | nul
             <Upload className="w-16 h-16 mx-auto animate-bounce" style={{ color: 'var(--win95-highlight)' }} />
             <div>
               <p className="text-lg font-semibold" style={{ color: 'var(--win95-text)' }}>
-                Uploading...
+                {t("ui.media_library.upload.uploading")}
               </p>
               <div className="mt-4 w-full rounded-full h-3" style={{ background: 'var(--win95-border-light)' }}>
                 <div
@@ -410,10 +391,10 @@ function UploadTab({ organizationId, sessionId }: { organizationId: string | nul
           <>
             <Upload className="w-16 h-16 mx-auto mb-4" style={{ color: 'var(--neutral-gray)' }} />
             <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
-              Drop your image here
+              {t("ui.media_library.upload.drop_title")}
             </h3>
             <p className="mb-6" style={{ color: 'var(--neutral-gray)' }}>
-              or click to browse your files
+              {t("ui.media_library.upload.drop_subtitle")}
             </p>
             <label className="inline-block">
               <input
@@ -438,11 +419,11 @@ function UploadTab({ organizationId, sessionId }: { organizationId: string | nul
                   e.currentTarget.style.opacity = '1';
                 }}
               >
-                Choose File
+                {t("ui.media_library.upload.choose_file")}
               </span>
             </label>
             <p className="text-sm mt-4" style={{ color: 'var(--neutral-gray)' }}>
-              Maximum file size varies by plan
+              {t("ui.media_library.upload.max_file_size")}
             </p>
           </>
         )}
@@ -452,7 +433,7 @@ function UploadTab({ organizationId, sessionId }: { organizationId: string | nul
 }
 
 // Settings Tab - Quota management
-function SettingsTab({ organizationId, sessionId }: { organizationId: string | null; sessionId: string | null }) {
+function SettingsTab({ organizationId, sessionId, t }: { organizationId: string | null; sessionId: string | null; t: (key: string) => string }) {
   const usage = useQuery(
     api.organizationMedia.getStorageUsage,
     organizationId && sessionId ? {
@@ -464,7 +445,7 @@ function SettingsTab({ organizationId, sessionId }: { organizationId: string | n
   if (!usage) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div style={{ color: 'var(--neutral-gray)' }}>Loading...</div>
+        <div style={{ color: 'var(--neutral-gray)' }}>{t("ui.media_library.settings.loading")}</div>
       </div>
     );
   }
@@ -477,17 +458,17 @@ function SettingsTab({ organizationId, sessionId }: { organizationId: string | n
         {/* Storage Quota */}
         <div className="rounded-lg border p-6" style={{ background: 'var(--win95-bg-light)', borderColor: 'var(--win95-border)' }}>
           <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--win95-text)' }}>
-            Storage Usage
+            {t("ui.media_library.settings.storage_usage")}
           </h3>
 
           <div className="space-y-4">
             <div>
               <div className="flex justify-between text-sm mb-2">
                 <span style={{ color: 'var(--neutral-gray)' }}>
-                  {formatBytes(usage.totalBytes)} used
+                  {formatBytes(usage.totalBytes)} {t("ui.media_library.settings.used")}
                 </span>
                 <span style={{ color: 'var(--neutral-gray)' }}>
-                  {formatBytes(usage.quotaBytes)} total
+                  {formatBytes(usage.quotaBytes)} {t("ui.media_library.settings.total")}
                 </span>
               </div>
               <div className="w-full rounded-full h-4 overflow-hidden" style={{ background: 'var(--win95-border-light)' }}>
@@ -510,13 +491,13 @@ function SettingsTab({ organizationId, sessionId }: { organizationId: string | n
                 <p className="text-2xl font-bold" style={{ color: 'var(--win95-text)' }}>
                   {usage.fileCount}
                 </p>
-                <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>Files</p>
+                <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>{t("ui.media_library.settings.files")}</p>
               </div>
               <div className="p-4 rounded-lg" style={{ background: 'var(--win95-bg)' }}>
                 <p className="text-2xl font-bold" style={{ color: 'var(--win95-text)' }}>
                   {Math.round(usagePercent)}%
                 </p>
-                <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>Used</p>
+                <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>{t("ui.media_library.settings.used_percentage")}</p>
               </div>
             </div>
           </div>
@@ -525,11 +506,11 @@ function SettingsTab({ organizationId, sessionId }: { organizationId: string | n
         {/* Plan Info */}
         <div className="rounded-lg border p-6" style={{ background: 'var(--win95-bg-light)', borderColor: 'var(--win95-border)' }}>
           <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--win95-text)' }}>
-            Your Plan
+            {t("ui.media_library.settings.your_plan")}
           </h3>
           <div className="space-y-2">
             <div className="flex justify-between">
-              <span style={{ color: 'var(--neutral-gray)' }}>Storage Quota</span>
+              <span style={{ color: 'var(--neutral-gray)' }}>{t("ui.media_library.settings.storage_quota")}</span>
               <span className="font-semibold" style={{ color: 'var(--win95-text)' }}>
                 {formatBytes(usage.quotaBytes)}
               </span>

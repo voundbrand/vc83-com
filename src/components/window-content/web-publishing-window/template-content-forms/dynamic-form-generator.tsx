@@ -32,6 +32,7 @@ import {
   CheckoutLinkFieldDefinition,
 } from "@/templates/schema-types";
 import SimpleTiptapEditor from "@/components/ui/tiptap-editor-simple";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 interface DynamicFormGeneratorProps {
   schema: TemplateContentSchema;
@@ -47,6 +48,8 @@ export function DynamicFormGenerator({
   content,
   onChange,
 }: DynamicFormGeneratorProps) {
+  const { t } = useNamespaceTranslations("ui.web_publishing");
+
   return (
     <div className="space-y-6">
       {schema.sections.map((section) => (
@@ -55,6 +58,7 @@ export function DynamicFormGenerator({
           section={section}
           content={content}
           onChange={onChange}
+          t={t}
         />
       ))}
     </div>
@@ -71,10 +75,12 @@ function SectionRenderer({
   section,
   content,
   onChange,
+  t,
 }: {
   section: SectionDefinition;
   content: Record<string, unknown>;
   onChange: (content: Record<string, unknown>) => void;
+  t: (key: string, params?: Record<string, string | number>) => string;
 }) {
   const [isOpen, setIsOpen] = useState(true);
 
@@ -93,28 +99,32 @@ function SectionRenderer({
     };
 
     return (
-      <div className="border-2 border-gray-400 bg-white">
+      <div className="border-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
         {/* Section Header */}
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="w-full flex items-center justify-between p-3 hover:bg-gray-50"
+          className="w-full flex items-center justify-between p-3 transition-colors"
+          style={{ background: 'var(--win95-bg-light)' }}
+          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--win95-hover-light)'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'var(--win95-bg-light)'}
         >
           <div className="text-left">
-            <h4 className="text-xs font-bold">{section.label}</h4>
+            <h4 className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>{section.label}</h4>
             {section.description && (
-              <p className="text-xs text-gray-600 mt-1">{section.description}</p>
+              <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>{section.description}</p>
             )}
           </div>
-          <span className="text-xs">{isOpen ? "▼" : "▶"}</span>
+          <span className="text-xs" style={{ color: 'var(--win95-text)' }}>{isOpen ? "▼" : "▶"}</span>
         </button>
 
         {/* Repeater Content */}
         {isOpen && (
-          <div className="p-3 border-t-2 border-gray-300">
+          <div className="p-3 border-t-2" style={{ borderColor: 'var(--win95-border)' }}>
             <FieldRenderer
               field={repeaterField}
               content={content}
               onChange={onChange}
+              t={t}
             />
           </div>
         )}
@@ -124,30 +134,34 @@ function SectionRenderer({
 
   // Regular section - render fields normally
   return (
-    <div className="border-2 border-gray-400 bg-white">
+    <div className="border-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
       {/* Section Header */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-3 hover:bg-gray-50"
+        className="w-full flex items-center justify-between p-3 transition-colors"
+        style={{ background: 'var(--win95-bg-light)' }}
+        onMouseEnter={(e) => e.currentTarget.style.background = 'var(--win95-hover-light)'}
+        onMouseLeave={(e) => e.currentTarget.style.background = 'var(--win95-bg-light)'}
       >
         <div className="text-left">
-          <h4 className="text-xs font-bold">{section.label}</h4>
+          <h4 className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>{section.label}</h4>
           {section.description && (
-            <p className="text-xs text-gray-600 mt-1">{section.description}</p>
+            <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>{section.description}</p>
           )}
         </div>
-        <span className="text-xs">{isOpen ? "▼" : "▶"}</span>
+        <span className="text-xs" style={{ color: 'var(--win95-text)' }}>{isOpen ? "▼" : "▶"}</span>
       </button>
 
       {/* Section Content */}
       {isOpen && (
-        <div className="p-3 border-t-2 border-gray-300 space-y-4">
+        <div className="p-3 border-t-2 space-y-4" style={{ borderColor: 'var(--win95-border)' }}>
           {section.fields.map((field) => (
             <FieldRenderer
               key={field.id}
               field={field}
               content={content}
               onChange={onChange}
+              t={t}
             />
           ))}
         </div>
@@ -163,10 +177,12 @@ function FieldRenderer({
   field,
   content,
   onChange,
+  t,
 }: {
   field: FieldDefinition;
   content: Record<string, unknown>;
   onChange: (content: Record<string, unknown>) => void;
+  t: (key: string, params?: Record<string, string | number>) => string;
 }) {
   const value = getNestedValue(content, field.id);
 
@@ -220,6 +236,7 @@ function FieldRenderer({
           field={field as TextArrayFieldDefinition}
           value={value as string[]}
           onChange={handleChange}
+          t={t}
         />
       );
 
@@ -229,6 +246,7 @@ function FieldRenderer({
           field={field as RepeaterFieldDefinition}
           value={value as Array<Record<string, unknown>>}
           onChange={handleChange}
+          t={t}
         />
       );
 
@@ -239,6 +257,7 @@ function FieldRenderer({
           field={field as ImageFieldDefinition}
           value={value as string}
           onChange={handleChange}
+          t={t}
         />
       );
 
@@ -248,6 +267,7 @@ function FieldRenderer({
           field={field as IconFieldDefinition}
           value={value as string}
           onChange={handleChange}
+          t={t}
         />
       );
 
@@ -259,6 +279,7 @@ function FieldRenderer({
           onChange={handleChange}
           content={content}
           onContentChange={onChange}
+          t={t}
         />
       );
 
@@ -268,6 +289,7 @@ function FieldRenderer({
           field={field as CheckoutLinkFieldDefinition}
           value={value as string}
           onChange={handleChange}
+          t={t}
         />
       );
 
@@ -294,9 +316,9 @@ function TextInput({
 }) {
   return (
     <div>
-      <label className="block text-xs font-bold mb-1">
+      <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
         {field.label}
-        {field.required && <span className="text-red-600 ml-1">*</span>}
+        {field.required && <span className="ml-1" style={{ color: 'var(--error)' }}>*</span>}
       </label>
       <input
         type={field.type}
@@ -305,10 +327,15 @@ function TextInput({
         placeholder={field.placeholder}
         required={field.required}
         maxLength={field.maxLength}
-        className="w-full px-2 py-1 text-xs border-2 border-gray-400 bg-white focus:border-purple-500 focus:outline-none"
+        className="w-full px-2 py-1 text-xs border-2 focus:outline-none"
+        style={{
+          borderColor: 'var(--win95-border)',
+          background: 'var(--win95-bg-light)',
+          color: 'var(--win95-text)'
+        }}
       />
       {field.helpText && (
-        <p className="text-xs text-gray-600 mt-1">{field.helpText}</p>
+        <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>{field.helpText}</p>
       )}
     </div>
   );
@@ -328,9 +355,9 @@ function TextareaInput({
 }) {
   return (
     <div>
-      <label className="block text-xs font-bold mb-1">
+      <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
         {field.label}
-        {field.required && <span className="text-red-600 ml-1">*</span>}
+        {field.required && <span className="ml-1" style={{ color: 'var(--error)' }}>*</span>}
       </label>
       <textarea
         value={value || ""}
@@ -339,10 +366,15 @@ function TextareaInput({
         required={field.required}
         maxLength={field.maxLength}
         rows={field.rows || 3}
-        className="w-full px-2 py-1 text-xs border-2 border-gray-400 bg-white focus:border-purple-500 focus:outline-none resize-y"
+        className="w-full px-2 py-1 text-xs border-2 focus:outline-none resize-y"
+        style={{
+          borderColor: 'var(--win95-border)',
+          background: 'var(--win95-bg-light)',
+          color: 'var(--win95-text)'
+        }}
       />
       {field.helpText && (
-        <p className="text-xs text-gray-600 mt-1">{field.helpText}</p>
+        <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>{field.helpText}</p>
       )}
     </div>
   );
@@ -362,9 +394,9 @@ function RichTextInput({
 }) {
   return (
     <div>
-      <label className="block text-xs font-bold mb-1">
+      <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
         {field.label}
-        {field.required && <span className="text-red-600 ml-1">*</span>}
+        {field.required && <span className="ml-1" style={{ color: 'var(--error)' }}>*</span>}
       </label>
       <SimpleTiptapEditor
         value={value || ""}
@@ -373,7 +405,7 @@ function RichTextInput({
         minHeight="200px"
       />
       {field.helpText && (
-        <p className="text-xs text-gray-600 mt-1">{field.helpText}</p>
+        <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>{field.helpText}</p>
       )}
     </div>
   );
@@ -403,9 +435,9 @@ function BooleanInput({
         className="mt-0.5"
       />
       <div>
-        <label className="text-xs font-bold">{field.label}</label>
+        <label className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>{field.label}</label>
         {field.helpText && (
-          <p className="text-xs text-gray-600 mt-1">{field.helpText}</p>
+          <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>{field.helpText}</p>
         )}
       </div>
     </div>
@@ -419,10 +451,12 @@ function TextArrayInput({
   field,
   value,
   onChange,
+  t,
 }: {
   field: TextArrayFieldDefinition;
   value: string[];
   onChange: (value: string[]) => void;
+  t: (key: string, params?: Record<string, string | number>) => string;
 }) {
   const items = value || [];
 
@@ -442,12 +476,12 @@ function TextArrayInput({
 
   return (
     <div>
-      <label className="block text-xs font-bold mb-1">
+      <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
         {field.label}
-        {field.required && <span className="text-red-600 ml-1">*</span>}
+        {field.required && <span className="ml-1" style={{ color: 'var(--error)' }}>*</span>}
       </label>
       {field.helpText && (
-        <p className="text-xs text-gray-600 mb-2">{field.helpText}</p>
+        <p className="text-xs mb-2" style={{ color: 'var(--neutral-gray)' }}>{field.helpText}</p>
       )}
 
       <div className="space-y-2">
@@ -458,13 +492,17 @@ function TextArrayInput({
               value={item}
               onChange={(e) => updateItem(index, e.target.value)}
               placeholder={field.placeholder}
-              className="flex-1 px-2 py-1 text-xs border-2 border-gray-400 bg-white"
+              className="flex-1 px-2 py-1 text-xs border-2"
+              style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)', color: 'var(--win95-text)' }}
             />
             <button
               onClick={() => removeItem(index)}
-              className="px-2 py-1 text-xs bg-red-100 hover:bg-red-200 border-2 border-gray-400"
+              className="px-2 py-1 text-xs border-2 transition-colors"
+              style={{ background: 'var(--win95-bg-light)', borderColor: 'var(--win95-border)', color: 'var(--error)' }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--win95-hover-light)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'var(--win95-bg-light)'}
             >
-              Remove
+              {t("ui.web_publishing.form.text_array.remove")}
             </button>
           </div>
         ))}
@@ -473,9 +511,12 @@ function TextArrayInput({
       {(!field.maxItems || items.length < field.maxItems) && (
         <button
           onClick={addItem}
-          className="mt-2 px-3 py-1 text-xs bg-purple-100 hover:bg-purple-200 border-2 border-gray-400"
+          className="mt-2 px-3 py-1 text-xs border-2 transition-colors"
+          style={{ background: 'var(--win95-bg-light)', borderColor: 'var(--win95-border)', color: 'var(--win95-text)' }}
+          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--win95-hover-light)'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'var(--win95-bg-light)'}
         >
-          + Add {field.label}
+          {t("ui.web_publishing.form.text_array.add").replace("{label}", field.label)}
         </button>
       )}
     </div>
@@ -489,10 +530,12 @@ function RepeaterInput({
   field,
   value,
   onChange,
+  t,
 }: {
   field: RepeaterFieldDefinition;
   value: Array<Record<string, unknown>>;
   onChange: (value: Array<Record<string, unknown>>) => void;
+  t: (key: string, params?: Record<string, string | number>) => string;
 }) {
   const items = value || [];
 
@@ -517,39 +560,46 @@ function RepeaterInput({
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <label className="text-xs font-bold">
+        <label className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
           {field.label}
-          {field.required && <span className="text-red-600 ml-1">*</span>}
+          {field.required && <span className="ml-1" style={{ color: 'var(--error)' }}>*</span>}
         </label>
         {(!field.maxItems || items.length < field.maxItems) && (
           <button
             onClick={addItem}
-            className="px-2 py-1 text-xs bg-purple-100 hover:bg-purple-200 border-2 border-gray-400"
+            className="px-2 py-1 text-xs border-2 transition-colors"
+            style={{ background: 'var(--win95-bg-light)', borderColor: 'var(--win95-border)', color: 'var(--win95-text)' }}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--win95-hover-light)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'var(--win95-bg-light)'}
           >
-            + Add
+            {t("ui.web_publishing.form.repeater.add")}
           </button>
         )}
       </div>
 
       {field.helpText && (
-        <p className="text-xs text-gray-600 mb-2">{field.helpText}</p>
+        <p className="text-xs mb-2" style={{ color: 'var(--neutral-gray)' }}>{field.helpText}</p>
       )}
 
       <div className="space-y-3">
         {items.map((item, index) => (
           <div
             key={item.id as string}
-            className="border-2 border-gray-300 p-3 bg-gray-50"
+            className="border-2 p-3"
+            style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}
           >
             <div className="flex justify-between items-center mb-2">
-              <span className="text-xs font-bold">
-                {field.label} #{index + 1}
+              <span className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+                {t("ui.web_publishing.form.repeater.item_number").replace("{label}", field.label).replace("{number}", String(index + 1))}
               </span>
               <button
                 onClick={() => removeItem(index)}
-                className="px-2 py-1 text-xs bg-red-100 hover:bg-red-200 border-2 border-gray-400"
+                className="px-2 py-1 text-xs border-2 transition-colors"
+                style={{ background: 'var(--win95-bg-light)', borderColor: 'var(--win95-border)', color: 'var(--error)' }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--win95-hover-light)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'var(--win95-bg-light)'}
               >
-                Remove
+                {t("ui.web_publishing.form.repeater.remove")}
               </button>
             </div>
 
@@ -560,6 +610,7 @@ function RepeaterInput({
                   field={subField}
                   content={item}
                   onChange={(newContent) => updateItem(index, newContent)}
+                  t={t}
                 />
               ))}
             </div>
@@ -580,10 +631,12 @@ function ImageInput({
   field,
   value,
   onChange,
+  t,
 }: {
   field: ImageFieldDefinition;
   value: string;
   onChange: (value: string) => void;
+  t: (key: string, params?: Record<string, string | number>) => string;
 }) {
   const { openWindow } = useWindowManager();
 
@@ -609,9 +662,9 @@ function ImageInput({
 
   return (
     <div>
-      <label className="block text-xs font-bold mb-1">
+      <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
         {field.label}
-        {field.required && <span className="text-red-600 ml-1">*</span>}
+        {field.required && <span className="ml-1" style={{ color: 'var(--error)' }}>*</span>}
       </label>
 
       {/* Media Library Selection Only */}
@@ -619,9 +672,12 @@ function ImageInput({
         <button
           type="button"
           onClick={handleBrowseLibrary}
-          className="w-full px-4 py-3 text-sm border-2 border-gray-400 bg-white hover:bg-purple-50 focus:border-purple-500 focus:outline-none flex items-center justify-center gap-2"
+          className="w-full px-4 py-3 text-sm border-2 flex items-center justify-center gap-2 transition-colors"
+          style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)', color: 'var(--win95-text)' }}
+          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--win95-hover-light)'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'var(--win95-bg-light)'}
         >
-          📁 Select from Media Library
+          {t("ui.web_publishing.form.media_library.select")}
         </button>
       ) : (
         <AppUnavailableInline
@@ -631,41 +687,45 @@ function ImageInput({
       )}
 
       {field.helpText && (
-        <p className="text-xs text-gray-600 mt-1">{field.helpText}</p>
+        <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>{field.helpText}</p>
       )}
 
       {/* Info message */}
       {isMediaLibraryAvailable && !value && (
-        <p className="text-xs text-gray-500 mt-2 italic">
-          Images must be uploaded to Media Library first, then selected here.
+        <p className="text-xs mt-2 italic" style={{ color: 'var(--neutral-gray)' }}>
+          {t("ui.web_publishing.form.media_library.required_notice")}
         </p>
       )}
 
       {/* Selected Image Preview with Remove Button */}
       {value && (
-        <div className="mt-2 border-2 border-purple-400 p-3 bg-purple-50 relative rounded">
+        <div className="mt-2 border-2 p-3 relative rounded" style={{ borderColor: 'var(--win95-highlight)', background: 'var(--win95-hover-light)' }}>
           <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-bold text-purple-900">Selected Image:</p>
+            <p className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>{t("ui.web_publishing.form.media_library.selected_image")}</p>
             <button
               type="button"
               onClick={() => onChange("")}
-              className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded flex items-center gap-1 transition-colors"
-              title="Remove this image"
+              className="px-3 py-1.5 text-xs font-bold rounded flex items-center gap-1 transition-colors"
+              style={{ background: 'var(--error)', color: 'white' }}
+              title={t("ui.web_publishing.form.media_library.remove_title")}
+              onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
+              onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
             >
               <X className="w-3 h-3" />
-              Remove
+              {t("ui.web_publishing.form.media_library.remove")}
             </button>
           </div>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={value}
             alt="Selected"
-            className="w-full h-auto max-h-48 object-contain border border-purple-200 bg-white p-2 rounded"
+            className="w-full h-auto max-h-48 object-contain border p-2 rounded"
+            style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = "none";
             }}
           />
-          <p className="text-xs text-purple-700 mt-2 break-all">
+          <p className="text-xs mt-2 break-all" style={{ color: 'var(--neutral-gray)' }}>
             {value.substring(0, 60)}{value.length > 60 ? '...' : ''}
           </p>
         </div>
@@ -682,10 +742,12 @@ function IconInput({
   field,
   value,
   onChange,
+  t,
 }: {
   field: IconFieldDefinition;
   value: string;
   onChange: (value: string) => void;
+  t: (key: string, params?: Record<string, string | number>) => string;
 }) {
   // Common icon options (emojis for simplicity)
   const iconOptions = [
@@ -696,12 +758,12 @@ function IconInput({
 
   return (
     <div>
-      <label className="block text-xs font-bold mb-1">
+      <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
         {field.label}
-        {field.required && <span className="text-red-600 ml-1">*</span>}
+        {field.required && <span className="ml-1" style={{ color: 'var(--error)' }}>*</span>}
       </label>
       {field.helpText && (
-        <p className="text-xs text-gray-600 mb-2">{field.helpText}</p>
+        <p className="text-xs mb-2" style={{ color: 'var(--neutral-gray)' }}>{field.helpText}</p>
       )}
 
       <div className="grid grid-cols-10 gap-1 mb-2">
@@ -710,11 +772,17 @@ function IconInput({
             key={icon}
             type="button"
             onClick={() => onChange(icon)}
-            className={`p-2 text-lg border-2 hover:bg-purple-50 ${
-              value === icon
-                ? 'border-purple-500 bg-purple-100'
-                : 'border-gray-300 bg-white'
-            }`}
+            className="p-2 text-lg border-2 transition-colors"
+            style={{
+              borderColor: value === icon ? 'var(--win95-highlight)' : 'var(--win95-border)',
+              background: value === icon ? 'var(--win95-hover-light)' : 'var(--win95-bg-light)'
+            }}
+            onMouseEnter={(e) => {
+              if (value !== icon) e.currentTarget.style.background = 'var(--win95-hover-light)';
+            }}
+            onMouseLeave={(e) => {
+              if (value !== icon) e.currentTarget.style.background = 'var(--win95-bg-light)';
+            }}
           >
             {icon}
           </button>
@@ -725,12 +793,13 @@ function IconInput({
         type="text"
         value={value || ""}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={field.placeholder || "Or enter custom icon/emoji"}
-        className="w-full px-2 py-1 text-xs border-2 border-gray-400 bg-white focus:border-purple-500 focus:outline-none"
+        placeholder={t("ui.web_publishing.form.icon.custom_placeholder")}
+        className="w-full px-2 py-1 text-xs border-2 focus:outline-none"
+        style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)', color: 'var(--win95-text)' }}
       />
 
       {value && (
-        <div className="mt-2 text-2xl border-2 border-gray-300 p-2 bg-gray-50 text-center">
+        <div className="mt-2 text-2xl border-2 p-2 text-center" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
           {value}
         </div>
       )}
@@ -749,12 +818,14 @@ function EventLinkInput({
   value,
   content,
   onContentChange,
+  t,
 }: {
   field: EventLinkFieldDefinition;
   value: string;
   onChange: (value: string) => void;
   content: Record<string, unknown>;
   onContentChange: (content: Record<string, unknown>) => void;
+  t: (key: string, params?: Record<string, string | number>) => string;
 }) {
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
@@ -980,9 +1051,9 @@ function EventLinkInput({
 
   return (
     <div>
-      <label className="block text-xs font-bold mb-1">
+      <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
         {field.label}
-        {field.required && <span className="text-red-600 ml-1">*</span>}
+        {field.required && <span className="ml-1" style={{ color: 'var(--error)' }}>*</span>}
       </label>
 
       {isEventAppAvailable ? (
@@ -990,9 +1061,10 @@ function EventLinkInput({
           <select
             value={value || ""}
             onChange={(e) => handleEventSelect(e.target.value)}
-            className="w-full px-2 py-1 text-xs border-2 border-gray-400 bg-white focus:border-purple-500 focus:outline-none"
+            className="w-full px-2 py-1 text-xs border-2 focus:outline-none"
+            style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)', color: 'var(--win95-text)' }}
           >
-            <option value="">-- Select an event --</option>
+            <option value="">{t("ui.web_publishing.form.event_link.select_event")}</option>
             {availableEvents?.map((event) => (
               <option key={event._id} value={event._id}>
                 {event.name} ({event.subtype})
@@ -1001,36 +1073,36 @@ function EventLinkInput({
           </select>
 
           {field.helpText && (
-            <p className="text-xs text-gray-600 mt-1">{field.helpText}</p>
+            <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>{field.helpText}</p>
           )}
 
           {/* Selected Event Preview */}
           {selectedEvent && (
-            <div className="mt-2 border-2 border-purple-400 p-3 bg-purple-50 rounded">
-              <p className="text-xs font-bold text-purple-900 mb-2">Linked Event:</p>
+            <div className="mt-2 border-2 p-3 rounded" style={{ borderColor: 'var(--win95-highlight)', background: 'var(--win95-hover-light)' }}>
+              <p className="text-xs font-bold mb-2" style={{ color: 'var(--win95-text)' }}>{t("ui.web_publishing.form.event_link.linked_event")}</p>
               <div className="space-y-1 text-xs">
-                <p>
-                  <span className="font-bold">Name:</span> {selectedEvent.name}
+                <p style={{ color: 'var(--win95-text)' }}>
+                  <span className="font-bold">{t("ui.web_publishing.form.event_link.name")}</span> {selectedEvent.name}
                 </p>
-                <p>
-                  <span className="font-bold">Type:</span> {selectedEvent.subtype}
+                <p style={{ color: 'var(--win95-text)' }}>
+                  <span className="font-bold">{t("ui.web_publishing.form.event_link.type")}</span> {selectedEvent.subtype}
                 </p>
                 {selectedEvent.customProperties?.startDate && (
-                  <p>
-                    <span className="font-bold">Date:</span>{" "}
+                  <p style={{ color: 'var(--win95-text)' }}>
+                    <span className="font-bold">{t("ui.web_publishing.form.event_link.date")}</span>{" "}
                     {new Date(selectedEvent.customProperties.startDate as number).toLocaleDateString()}
                   </p>
                 )}
                 {selectedEvent.customProperties?.location && (
-                  <p>
-                    <span className="font-bold">Location:</span>{" "}
+                  <p style={{ color: 'var(--win95-text)' }}>
+                    <span className="font-bold">{t("ui.web_publishing.form.event_link.location")}</span>{" "}
                     {selectedEvent.customProperties.location as string}
                   </p>
                 )}
               </div>
               {field.autoPopulateFields && (
-                <p className="text-xs text-purple-700 mt-2 italic">
-                  ✓ Fields auto-populated from this event
+                <p className="text-xs mt-2 italic" style={{ color: 'var(--neutral-gray)' }}>
+                  {t("ui.web_publishing.form.event_link.auto_populated")}
                 </p>
               )}
             </div>
@@ -1056,10 +1128,12 @@ function CheckoutLinkInput({
   field,
   value,
   onChange,
+  t,
 }: {
   field: CheckoutLinkFieldDefinition;
   value: string;
   onChange: (value: string) => void;
+  t: (key: string, params?: Record<string, string | number>) => string;
 }) {
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
@@ -1089,9 +1163,9 @@ function CheckoutLinkInput({
 
   return (
     <div>
-      <label className="block text-xs font-bold mb-1">
+      <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
         {field.label}
-        {field.required && <span className="text-red-600 ml-1">*</span>}
+        {field.required && <span className="ml-1" style={{ color: 'var(--error)' }}>*</span>}
       </label>
 
       {isCheckoutAppAvailable ? (
@@ -1099,9 +1173,10 @@ function CheckoutLinkInput({
           <select
             value={value || ""}
             onChange={(e) => onChange(e.target.value)}
-            className="w-full px-2 py-1 text-xs border-2 border-gray-400 bg-white focus:border-purple-500 focus:outline-none"
+            className="w-full px-2 py-1 text-xs border-2 focus:outline-none"
+            style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)', color: 'var(--win95-text)' }}
           >
-            <option value="">-- Select a checkout --</option>
+            <option value="">{t("ui.web_publishing.form.checkout_link.select_checkout")}</option>
             {availableCheckouts?.map((checkout) => (
               <option key={checkout._id} value={checkout._id}>
                 {checkout.name} ({checkout.subtype})
@@ -1110,32 +1185,32 @@ function CheckoutLinkInput({
           </select>
 
           {field.helpText && (
-            <p className="text-xs text-gray-600 mt-1">{field.helpText}</p>
+            <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>{field.helpText}</p>
           )}
 
           {/* Selected Checkout Preview */}
           {selectedCheckout && (
-            <div className="mt-2 border-2 border-purple-400 p-3 bg-purple-50 rounded">
-              <p className="text-xs font-bold text-purple-900 mb-2">Linked Checkout:</p>
+            <div className="mt-2 border-2 p-3 rounded" style={{ borderColor: 'var(--win95-highlight)', background: 'var(--win95-hover-light)' }}>
+              <p className="text-xs font-bold mb-2" style={{ color: 'var(--win95-text)' }}>{t("ui.web_publishing.form.checkout_link.linked_checkout")}</p>
               <div className="space-y-1 text-xs">
-                <p>
+                <p style={{ color: 'var(--win95-text)' }}>
                   <span className="font-bold">Name:</span> {selectedCheckout.name}
                 </p>
-                <p>
+                <p style={{ color: 'var(--win95-text)' }}>
                   <span className="font-bold">Type:</span> {selectedCheckout.subtype}
                 </p>
-                <p>
-                  <span className="font-bold">Products:</span> {productCount} linked
+                <p style={{ color: 'var(--win95-text)' }}>
+                  <span className="font-bold">{t("ui.web_publishing.form.checkout_link.products")}</span> {t("ui.web_publishing.form.checkout_link.products_linked").replace("{count}", String(productCount))}
                 </p>
                 {selectedCheckout.customProperties?.paymentProvider && (
-                  <p>
-                    <span className="font-bold">Payment:</span>{" "}
+                  <p style={{ color: 'var(--win95-text)' }}>
+                    <span className="font-bold">{t("ui.web_publishing.form.checkout_link.payment")}</span>{" "}
                     {selectedCheckout.customProperties.paymentProvider as string}
                   </p>
                 )}
               </div>
-              <p className="text-xs text-purple-700 mt-2 italic">
-                ✓ Products will be displayed from this checkout
+              <p className="text-xs mt-2 italic" style={{ color: 'var(--neutral-gray)' }}>
+                {t("ui.web_publishing.form.checkout_link.products_displayed")}
               </p>
             </div>
           )}

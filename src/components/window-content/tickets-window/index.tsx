@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { Ticket, Plus, List, Loader2, AlertCircle, Building2 } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { TicketsList } from "./tickets-list";
@@ -16,6 +17,7 @@ export function TicketsWindow() {
   const { user, isLoading, sessionId } = useAuth();
   const currentOrganization = useCurrentOrganization();
   const organizationId = currentOrganization?.id || user?.defaultOrgId;
+  const { t } = useNamespaceTranslations("ui.tickets");
 
   // Check app availability - returns guard component if unavailable/loading, null if available
   const guard = useAppAvailabilityGuard({
@@ -32,8 +34,8 @@ export function TicketsWindow() {
       <div className="flex flex-col h-full" style={{ background: "var(--win95-bg)" }}>
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
-            <Loader2 size={48} className="animate-spin mx-auto mb-4" style={{ color: "var(--primary)" }} />
-            <p style={{ color: "var(--win95-text)" }}>Loading tickets...</p>
+            <Loader2 size={48} className="animate-spin mx-auto mb-4" style={{ color: "var(--win95-highlight)" }} />
+            <p style={{ color: "var(--win95-text)" }}>{t("ui.tickets.loading")}</p>
           </div>
         </div>
       </div>
@@ -46,7 +48,7 @@ export function TicketsWindow() {
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
             <AlertCircle size={48} style={{ color: "var(--error)" }} className="mx-auto mb-4" />
-            <p style={{ color: "var(--win95-text)" }}>Please log in to access tickets</p>
+            <p style={{ color: "var(--win95-text)" }}>{t("ui.tickets.login_required")}</p>
           </div>
         </div>
       </div>
@@ -58,12 +60,12 @@ export function TicketsWindow() {
       <div className="flex flex-col h-full" style={{ background: "var(--win95-bg)" }}>
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
-            <Building2 size={48} style={{ color: "var(--warning)" }} className="mx-auto mb-4" />
+            <Building2 size={48} style={{ color: "var(--win95-highlight)" }} className="mx-auto mb-4" />
             <p style={{ color: "var(--win95-text)" }} className="font-semibold">
-              No Organization Selected
+              {t("ui.tickets.no_organization_title")}
             </p>
-            <p style={{ color: "var(--win95-text-secondary)" }} className="text-sm mt-2">
-              Please select an organization to manage tickets
+            <p style={{ color: "var(--neutral-gray)" }} className="text-sm mt-2">
+              {t("ui.tickets.no_organization_description")}
             </p>
           </div>
         </div>
@@ -94,10 +96,10 @@ export function TicketsWindow() {
           <div>
             <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
               <Ticket size={16} />
-              Tickets
+              {t("ui.tickets.title")}
             </h2>
             <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-              Issue and manage tickets for events - track redemptions and transfers
+              {t("ui.tickets.description")}
             </p>
           </div>
 
@@ -126,7 +128,7 @@ export function TicketsWindow() {
             }}
           >
             <Plus size={14} />
-            Issue Ticket
+            {t("ui.tickets.button.issue_ticket")}
           </button>
         ) : (
           <button
@@ -139,7 +141,7 @@ export function TicketsWindow() {
             }}
           >
             <List size={14} />
-            Back to List
+            {t("ui.tickets.button.back_to_list")}
           </button>
         )}
       </div>

@@ -16,6 +16,7 @@ import { api } from "../../../../../../convex/_generated/api";
 import { Id } from "../../../../../../convex/_generated/dataModel";
 import { MappingList, type FormField } from "./mapping-helpers";
 import type { InvoiceMappingConfig } from "@/lib/behaviors/handlers/invoice-mapping";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 interface InvoiceMappingConfigFormProps {
   config: InvoiceMappingConfig;
@@ -34,6 +35,8 @@ export function InvoiceMappingConfigForm({
   availableForms = [],
   availableCrmOrganizations: _availableCrmOrganizations = [],
 }: InvoiceMappingConfigFormProps) {
+  const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.workflows.invoice_mapping");
+
   // Fetch CRM organizations
   // Note: getCrmOrganizations expects Id<"organizations"> but we're passing Id<"objects">
   // This works because both are in the objects table with different type fields
@@ -121,6 +124,10 @@ export function InvoiceMappingConfigForm({
     onChange({ ...config, organizationMapping: newMapping });
   };
 
+  if (translationsLoading) {
+    return <div className="p-4" style={{ color: "var(--win95-text)" }}>Loading...</div>;
+  }
+
   return (
     <div
       className="space-y-4 p-4 border-2 rounded"
@@ -134,10 +141,10 @@ export function InvoiceMappingConfigForm({
         <div>
           <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
             <FileText size={16} />
-            Invoice Mapping
+            {t("ui.workflows.invoice_mapping.header.title")}
           </h3>
           <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-            Map form values to organizations and automatically create invoices with billing information
+            {t("ui.workflows.invoice_mapping.header.description")}
           </p>
         </div>
       </div>
@@ -145,7 +152,7 @@ export function InvoiceMappingConfigForm({
       {/* Template Selection */}
       <div>
         <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-          Invoice Template
+          {t("ui.workflows.invoice_mapping.template.label")}
         </label>
         <select
           value={config.templateId || "b2b_consolidated"}
@@ -237,14 +244,14 @@ export function InvoiceMappingConfigForm({
         )}
 
         <p className="text-xs mt-2" style={{ color: "var(--neutral-gray)" }}>
-          💡 The template determines how the invoice PDF will be formatted and what information will be displayed
+          {t("ui.workflows.invoice_mapping.template.hint")}
         </p>
       </div>
 
       {/* Organization Source Field */}
       <div>
         <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-          Form Field Containing Organization Info
+          {t("ui.workflows.invoice_mapping.source_field.label")}
         </label>
         <select
           value={config.organizationSourceField || ""}
@@ -261,7 +268,7 @@ export function InvoiceMappingConfigForm({
             color: "var(--win95-input-text)",
           }}
         >
-          <option value="">-- Select Field --</option>
+          <option value="">{t("ui.workflows.invoice_mapping.source_field.placeholder")}</option>
           {availableFormFields.map((field) => (
             <option key={field.id} value={field.id}>
               {field.label} ({field.id}) {field.type ? `- ${field.type}` : ""}
@@ -269,7 +276,7 @@ export function InvoiceMappingConfigForm({
           ))}
         </select>
         <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-          The form field that contains organization/company information (e.g., company, employer, organization_name)
+          {t("ui.workflows.invoice_mapping.source_field.hint")}
         </p>
       </div>
 
@@ -279,7 +286,7 @@ export function InvoiceMappingConfigForm({
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
-                Form Value → Organization Mapping
+                {t("ui.workflows.invoice_mapping.mapping.label")}
               </label>
             </div>
 
@@ -300,12 +307,12 @@ export function InvoiceMappingConfigForm({
                 }) || []
               }
               onMappingsChange={handleMappingsChange}
-              emptyMessage="No invoice mappings yet. Add mappings to automatically create invoices for organizations."
-              nullOptionLabel="-- No Invoice (Skip) --"
+              emptyMessage={t("ui.workflows.invoice_mapping.mapping.empty")}
+              nullOptionLabel={t("ui.workflows.invoice_mapping.mapping.null_option")}
             />
 
             <p className="text-xs mt-2" style={{ color: "var(--neutral-gray)" }}>
-              💡 Map form values to CRM organizations. When matched, an invoice is automatically created with organization billing details.
+              {t("ui.workflows.invoice_mapping.mapping.hint")}
             </p>
             {crmOrganizations && crmOrganizations.length === 0 && (
               <p
@@ -316,7 +323,7 @@ export function InvoiceMappingConfigForm({
                   background: "var(--win95-bg-light)",
                 }}
               >
-                ⚠️ No CRM organizations found. Create organizations in the CRM app first to enable mapping.
+                {t("ui.workflows.invoice_mapping.mapping.no_orgs")}
               </p>
             )}
           </div>
@@ -324,7 +331,7 @@ export function InvoiceMappingConfigForm({
           {/* Options */}
           <div>
             <label className="text-sm font-semibold mb-2 block" style={{ color: "var(--win95-text)" }}>
-              Behavior Options
+              {t("ui.workflows.invoice_mapping.options.title")}
             </label>
 
             <label
@@ -333,10 +340,10 @@ export function InvoiceMappingConfigForm({
             >
               <div>
                 <div className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
-                  Require Mapping
+                  {t("ui.workflows.invoice_mapping.options.require_mapping.label")}
                 </div>
                 <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                  Fail checkout if organization not found in mapping
+                  {t("ui.workflows.invoice_mapping.options.require_mapping.description")}
                 </div>
               </div>
               <input
@@ -356,7 +363,7 @@ export function InvoiceMappingConfigForm({
           {/* Payment Terms */}
           <div>
             <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-              Default Payment Terms
+              {t("ui.workflows.invoice_mapping.payment_terms.label")}
             </label>
             <select
               value={config.defaultPaymentTerms || "net30"}
@@ -373,19 +380,19 @@ export function InvoiceMappingConfigForm({
                 color: "var(--win95-input-text)",
               }}
             >
-              <option value="net30">NET 30 (Due in 30 days)</option>
-              <option value="net60">NET 60 (Due in 60 days)</option>
-              <option value="net90">NET 90 (Due in 90 days)</option>
+              <option value="net30">{t("ui.workflows.invoice_mapping.payment_terms.net30")}</option>
+              <option value="net60">{t("ui.workflows.invoice_mapping.payment_terms.net60")}</option>
+              <option value="net90">{t("ui.workflows.invoice_mapping.payment_terms.net90")}</option>
             </select>
             <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-              Default payment terms for invoices
+              {t("ui.workflows.invoice_mapping.payment_terms.hint")}
             </p>
           </div>
 
           {/* Invoice Field Mapping (Optional) */}
           <div>
             <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-              Invoice Field Mapping <span style={{ color: "var(--neutral-gray)", fontWeight: "normal" }}>(Optional)</span>
+              {t("ui.workflows.invoice_mapping.field_mapping.label")} <span style={{ color: "var(--neutral-gray)", fontWeight: "normal" }}>{t("ui.workflows.invoice_mapping.field_mapping.optional")}</span>
             </label>
             <textarea
               value={JSON.stringify(config.invoiceFieldMapping || {}, null, 2)}
@@ -408,7 +415,7 @@ export function InvoiceMappingConfigForm({
               placeholder='{"custom_field": "invoice_field"}'
             />
             <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-              Advanced: Map custom form fields to invoice fields. Leave empty to use defaults.
+              {t("ui.workflows.invoice_mapping.field_mapping.hint")}
             </p>
           </div>
         </div>
@@ -422,11 +429,7 @@ export function InvoiceMappingConfigForm({
           borderColor: "var(--win95-border)",
         }}
       >
-        <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-          💡 <strong>How it works:</strong> When a form is submitted, the organization field value is extracted and
-          matched against your mapping. If found, an invoice is automatically created for the CRM organization with
-          billing address and payment terms.
-        </p>
+        <p className="text-xs" style={{ color: "var(--neutral-gray)" }} dangerouslySetInnerHTML={{ __html: t("ui.workflows.invoice_mapping.info.how_it_works") }} />
       </div>
     </div>
   );

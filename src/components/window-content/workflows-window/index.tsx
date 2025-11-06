@@ -12,10 +12,12 @@ import { Zap, List, FileText, Settings } from "lucide-react";
 import { WorkflowList } from "./workflow-list";
 import { WorkflowBuilder } from "./workflow-builder";
 import { useCurrentOrganization, useAuth } from "@/hooks/use-auth";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 type TabType = "list" | "builder" | "templates" | "settings";
 
 export function WorkflowsWindow() {
+  const { t, isLoading } = useNamespaceTranslations("ui.workflows");
   const currentOrg = useCurrentOrganization();
   const { sessionId } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>("list");
@@ -24,6 +26,17 @@ export function WorkflowsWindow() {
   // Use current org and authenticated session ID
   const organizationId = currentOrg?.id || "";
 
+  // Show loading state while translations load
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center p-8" style={{ background: 'var(--win95-bg)' }}>
+        <div className="text-center" style={{ color: 'var(--neutral-gray)' }}>
+          Loading...
+        </div>
+      </div>
+    );
+  }
+
   // Show message if not authenticated
   if (!sessionId) {
     return (
@@ -31,10 +44,10 @@ export function WorkflowsWindow() {
         <div className="text-center">
           <Zap className="mx-auto h-16 w-16" style={{ color: 'var(--neutral-gray)' }} />
           <h3 className="mt-4 text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
-            Authentication Required
+            {t("ui.workflows.auth_required.title")}
           </h3>
           <p className="mt-2 text-xs" style={{ color: 'var(--neutral-gray)' }}>
-            Please sign in to access the Workflows app
+            {t("ui.workflows.auth_required.message")}
           </p>
         </div>
       </div>
@@ -63,9 +76,9 @@ export function WorkflowsWindow() {
       <div className="border-b-2 px-4 py-3" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>WORKFLOWS</h2>
+            <h2 className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>{t("ui.workflows.title")}</h2>
             <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-              Orchestrate multi-object behaviors and automation
+              {t("ui.workflows.subtitle")}
             </p>
           </div>
           <button
@@ -73,7 +86,7 @@ export function WorkflowsWindow() {
             className="retro-button flex items-center gap-2 px-3 py-2 text-xs font-bold"
           >
             <Zap className="h-3 w-3" />
-            CREATE
+            {t("ui.workflows.button.create")}
           </button>
         </div>
       </div>
@@ -83,25 +96,25 @@ export function WorkflowsWindow() {
         <nav className="flex gap-1">
           <TabButton
             icon={<List className="h-4 w-4" />}
-            label="All Workflows"
+            label={t("ui.workflows.tab.all")}
             active={activeTab === "list"}
             onClick={() => setActiveTab("list")}
           />
           <TabButton
             icon={<Zap className="h-4 w-4" />}
-            label="Builder"
+            label={t("ui.workflows.tab.builder")}
             active={activeTab === "builder"}
             onClick={() => setActiveTab("builder")}
           />
           <TabButton
             icon={<FileText className="h-4 w-4" />}
-            label="Templates"
+            label={t("ui.workflows.tab.templates")}
             active={activeTab === "templates"}
             onClick={() => setActiveTab("templates")}
           />
           <TabButton
             icon={<Settings className="h-4 w-4" />}
-            label="Settings"
+            label={t("ui.workflows.tab.settings")}
             active={activeTab === "settings"}
             onClick={() => setActiveTab("settings")}
           />
@@ -133,10 +146,10 @@ export function WorkflowsWindow() {
             <div className="text-center">
               <FileText className="mx-auto h-16 w-16" style={{ color: 'var(--neutral-gray)', opacity: 0.3 }} />
               <h3 className="mt-4 text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
-                WORKFLOW TEMPLATES
+                {t("ui.workflows.templates.title")}
               </h3>
               <p className="mt-2 text-xs" style={{ color: 'var(--neutral-gray)' }}>
-                Pre-built workflow templates coming soon
+                {t("ui.workflows.templates.message")}
               </p>
             </div>
           </div>
@@ -147,10 +160,10 @@ export function WorkflowsWindow() {
             <div className="text-center">
               <Settings className="mx-auto h-16 w-16" style={{ color: 'var(--neutral-gray)', opacity: 0.3 }} />
               <h3 className="mt-4 text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
-                WORKFLOW SETTINGS
+                {t("ui.workflows.settings.title")}
               </h3>
               <p className="mt-2 text-xs" style={{ color: 'var(--neutral-gray)' }}>
-                Workflow system settings coming soon
+                {t("ui.workflows.settings.message")}
               </p>
             </div>
           </div>

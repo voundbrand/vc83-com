@@ -15,6 +15,7 @@ import { calculateCheckoutTax, getTaxRateByCode, getDefaultTaxRate as getDefault
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import styles from "../styles/multi-step.module.css";
+import { useTranslation } from "@/contexts/translation-context";
 
 interface ProductSelectionStepProps {
   organizationId: Id<"organizations">;
@@ -55,6 +56,8 @@ export function ProductSelectionStep({
   initialSelection,
   onComplete,
 }: ProductSelectionStepProps) {
+  const { t } = useTranslation();
+
   // Fetch organization tax settings
   const taxSettings = useQuery(api.organizationTaxSettings.getPublicTaxSettings, {
     organizationId,
@@ -210,9 +213,9 @@ export function ProductSelectionStep({
     <div className={styles.stepContainer}>
       {/* Header */}
       <div className={styles.stepHeader}>
-        <h2 className={styles.stepTitle}>Get Your Ticket</h2>
+        <h2 className={styles.stepTitle}>{t("ui.products.checkout.title")}</h2>
         <p className={styles.stepSubtitle}>
-          {totalSavings > 0 ? "Early bird pricing ends soon!" : "Select your ticket type"}
+          {totalSavings > 0 ? t("ui.products.checkout.subtitle.earlyBird") : t("ui.products.checkout.subtitle.default")}
         </p>
       </div>
 
@@ -221,11 +224,11 @@ export function ProductSelectionStep({
         style={{
           fontSize: "0.875rem",
           fontWeight: "600",
-          color: "var(--color-text, #fff)",
+          color: "var(--win95-text)",
           marginBottom: "var(--spacing-md, 1rem)",
         }}
       >
-        Select Ticket Type
+        {t("ui.products.checkout.selectType")}
       </h3>
 
       {/* Product Cards with Individual Quantity Controls */}
@@ -264,7 +267,7 @@ export function ProductSelectionStep({
 
                 {/* Quantity Controls - Always Visible */}
                 <div className={styles.quantitySection} style={{ marginTop: "var(--spacing-md, 1rem)" }}>
-                  <span className={styles.quantityLabel}>Quantity</span>
+                  <span className={styles.quantityLabel}>{t("ui.products.checkout.quantity")}</span>
                   <div className={styles.quantityControls}>
                     <button
                       type="button"
@@ -297,12 +300,12 @@ export function ProductSelectionStep({
             style={{
               fontSize: "0.875rem",
               fontWeight: "600",
-              color: "var(--color-text, #fff)",
+              color: "var(--win95-text)",
               marginTop: "var(--spacing-xl, 2rem)",
               marginBottom: "var(--spacing-md, 1rem)",
             }}
           >
-            Order Summary
+            {t("ui.products.checkout.orderSummary")}
           </h3>
 
           {/* Line Items Display */}
@@ -330,12 +333,12 @@ export function ProductSelectionStep({
             style={{
               fontSize: "0.875rem",
               fontWeight: "600",
-              color: "var(--color-text, #fff)",
+              color: "var(--win95-text)",
               marginTop: "var(--spacing-xl, 2rem)",
               marginBottom: "var(--spacing-md, 1rem)",
             }}
           >
-            What&apos;s Included
+            {t("ui.products.checkout.whatsIncluded")}
           </h3>
           <ul className={styles.featuresList}>
             {getFeatures().map((feature, idx) => (
@@ -349,12 +352,14 @@ export function ProductSelectionStep({
           {/* Pricing Summary with Tax Breakdown */}
           <div className={styles.pricingSummary}>
             <div className={styles.priceRow}>
-              <span className={styles.priceLabel}>Subtotal ({totalQuantity} {totalQuantity === 1 ? "ticket" : "tickets"})</span>
+              <span className={styles.priceLabel}>
+                {t("ui.products.checkout.subtotal")} ({totalQuantity} {totalQuantity === 1 ? t("ui.products.checkout.ticket") : t("ui.products.checkout.tickets")})
+              </span>
               <span className={styles.priceValue}>{formatPrice(subtotal)}</span>
             </div>
             {totalSavings > 0 && (
               <div className={styles.priceRow}>
-                <span className={styles.priceLabel}>Early Bird Savings</span>
+                <span className={styles.priceLabel}>{t("ui.products.checkout.savings")}</span>
                 <span className={styles.savingsValue}>-{formatPrice(totalSavings)}</span>
               </div>
             )}
@@ -387,9 +392,9 @@ export function ProductSelectionStep({
                 return (
                   <div className={styles.priceRow}>
                     <span className={styles.priceLabel}>
-                      Tax ({rateStr}%)
+                      {t("ui.products.checkout.tax")} ({rateStr}%)
                       <span style={{ fontSize: "0.7rem", marginLeft: "0.25rem", opacity: 0.7 }}>
-                        {taxCalculation.taxBehavior === "inclusive" ? "💶 included" : "💵 added"}
+                        {taxCalculation.taxBehavior === "inclusive" ? `💶 ${t("ui.products.checkout.tax.included")}` : `💵 ${t("ui.products.checkout.tax.added")}`}
                       </span>
                     </span>
                     <span className={styles.priceValue}>{formatPrice(taxAmount)}</span>
@@ -403,7 +408,7 @@ export function ProductSelectionStep({
                   {taxEntries.map(([rateStr, { amount, count }]) => (
                     <div key={rateStr} className={styles.priceRow}>
                       <span className={styles.priceLabel}>
-                        Tax ({rateStr}%)
+                        {t("ui.products.checkout.tax")} ({rateStr}%)
                         {count > 1 && (
                           <span style={{ fontSize: "0.7rem", marginLeft: "0.25rem", opacity: 0.7 }}>
                             {count} items
@@ -417,7 +422,7 @@ export function ProductSelectionStep({
               );
             })()}
             <div className={`${styles.priceRow} ${styles.totalRow}`}>
-              <span className={styles.totalLabel}>Total</span>
+              <span className={styles.totalLabel}>{t("ui.products.checkout.total")}</span>
               <span className={styles.totalValue}>{formatPrice(total)}</span>
             </div>
           </div>
@@ -433,7 +438,7 @@ export function ProductSelectionStep({
         style={{ marginTop: "var(--spacing-xl, 2rem)" }}
       >
         <ShoppingCart size={20} />
-        Proceed to Checkout
+        {t("ui.products.checkout.button.proceed")}
       </button>
 
       {/* Footer Text */}
@@ -441,11 +446,11 @@ export function ProductSelectionStep({
         style={{
           textAlign: "center",
           fontSize: "0.75rem",
-          color: "#666",
+          color: "var(--neutral-gray)",
           marginTop: "var(--spacing-md, 1rem)",
         }}
       >
-        Secure checkout powered by Stripe
+        {t("ui.products.checkout.footer.secure")}
       </p>
     </div>
   );

@@ -28,6 +28,7 @@ import type { PaymentProviderSelectionConfig } from "@/lib/behaviors/handlers/pa
 import type { StripePaymentConfig } from "@/lib/behaviors/handlers/stripe-payment";
 import type { InvoicePaymentConfig } from "@/lib/behaviors/handlers/invoice-payment";
 import type { ConsolidatedInvoiceGenerationConfig } from "@/lib/behaviors/handlers/consolidated-invoice-generation";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 interface WorkflowObject {
   objectId: Id<"objects">;
@@ -66,6 +67,7 @@ export function BehaviorConfigModal({
   sessionId,
   organizationId,
 }: BehaviorConfigModalProps) {
+  const { t } = useNamespaceTranslations("ui.workflows");
   const [config, setConfig] = React.useState(behavior.config);
 
   // Fetch full form data for selected forms
@@ -87,32 +89,28 @@ export function BehaviorConfigModal({
   });
 
   const getBehaviorName = () => {
-    switch (behavior.type) {
-      case "form-linking":
-      case "form_linking":
-        return "Form Linking";
-      case "addon-calculation":
-      case "addon_calculation":
-        return "Add-on Calculation";
-      case "employer-detection":
-      case "employer_detection":
-        return "Employer Detection";
-      case "invoice-mapping":
-      case "invoice_mapping":
-        return "Invoice Mapping";
-      case "payment-provider-selection":
-        return "Payment Provider Selection";
-      case "stripe-payment":
-        return "Stripe Payment";
-      case "invoice-payment":
-        return "Invoice Payment";
-      case "tax-calculation":
-        return "Tax Calculation";
-      case "consolidated-invoice-generation":
-        return "Consolidated Invoice Generation";
-      default:
-        return behavior.type;
+    // Map behavior type to translation key
+    const typeToKeyMap: Record<string, string> = {
+      "form-linking": "formLinking",
+      "form_linking": "formLinking",
+      "addon-calculation": "addonCalculation",
+      "addon_calculation": "addonCalculation",
+      "employer-detection": "employerDetection",
+      "employer_detection": "employerDetection",
+      "invoice-mapping": "invoiceMapping",
+      "invoice_mapping": "invoiceMapping",
+      "payment-provider-selection": "paymentProviderSelection",
+      "stripe-payment": "stripePayment",
+      "invoice-payment": "invoicePayment",
+      "tax-calculation": "taxCalculation",
+      "consolidated-invoice-generation": "consolidatedInvoiceGeneration",
+    };
+
+    const translationKey = typeToKeyMap[behavior.type];
+    if (translationKey) {
+      return t(`ui.workflows.behaviorTypes.${translationKey}.name`);
     }
+    return behavior.type;
   };
 
   const getAvailableObjects = (type: string) => {
@@ -330,10 +328,10 @@ export function BehaviorConfigModal({
         >
           <div>
             <h2 className="text-sm font-bold" style={{ color: 'white' }}>
-              Configure: {getBehaviorName()}
+              {t("behaviorConfigModal.header.configure")}: {getBehaviorName()}
             </h2>
             <p className="text-[10px]" style={{ color: 'white', opacity: 0.9 }}>
-              Priority: {behavior.priority} • {behavior.enabled ? "Enabled" : "Disabled"}
+              {t("behaviorConfigModal.header.priority")}: {behavior.priority} • {behavior.enabled ? t("behaviorConfigModal.header.enabled") : t("behaviorConfigModal.header.disabled")}
             </p>
           </div>
           <button
@@ -348,12 +346,12 @@ export function BehaviorConfigModal({
         {/* Available Objects Context */}
         <div className="p-3 border-b-2" style={{ background: 'var(--win95-bg-light)', borderColor: 'var(--win95-border)' }}>
           <div className="text-xs font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
-            📦 Available Objects in Workflow:
+            {t("behaviorConfigModal.availableObjects.title")}
           </div>
           <div className="flex flex-wrap gap-2">
             {selectedObjects.length === 0 ? (
               <span className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-                No objects added yet. Add objects from the left panel.
+                {t("behaviorConfigModal.availableObjects.noObjects")}
               </span>
             ) : (
               selectedObjects
@@ -393,21 +391,21 @@ export function BehaviorConfigModal({
           style={{ background: 'var(--win95-bg-light)', borderColor: 'var(--win95-border)' }}
         >
           <div className="text-[10px]" style={{ color: 'var(--neutral-gray)' }}>
-            Behavior ID: {behavior.id}
+            {t("behaviorConfigModal.footer.behaviorId")}: {behavior.id}
           </div>
           <div className="flex gap-2">
             <button
               onClick={onClose}
               className="retro-button px-4 py-2 text-xs"
             >
-              Cancel
+              {t("behaviorConfigModal.footer.cancel")}
             </button>
             <button
               onClick={handleSave}
               className="retro-button px-4 py-2 text-xs"
               style={{ background: 'var(--win95-highlight)', color: 'white' }}
             >
-              Save Changes
+              {t("behaviorConfigModal.footer.save")}
             </button>
           </div>
         </div>

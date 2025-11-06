@@ -6,6 +6,7 @@ import { api } from "../../../../convex/_generated/api";
 import { Key, Plus, Trash2, Copy, Loader2, AlertCircle, Shield } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { PermissionGuard } from "@/components/permission";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 interface SecurityTabProps {
   organizationId: Id<"organizations">;
@@ -13,6 +14,7 @@ interface SecurityTabProps {
 }
 
 export function SecurityTab({ organizationId, sessionId }: SecurityTabProps) {
+  const { t } = useNamespaceTranslations("ui.manage");
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Check if API keys are enabled for this organization
@@ -43,9 +45,9 @@ export function SecurityTab({ organizationId, sessionId }: SecurityTabProps) {
         >
           <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
           <div className="text-sm">
-            <p className="font-semibold">API Keys Not Available</p>
+            <p className="font-semibold">{t("ui.manage.security.warning.api_disabled.title")}</p>
             <p className="text-xs mt-1">
-              API key generation has not been enabled for your organization. Please contact your system administrator to enable this feature.
+              {t("ui.manage.security.warning.api_disabled.message")}
             </p>
           </div>
         </div>
@@ -63,9 +65,9 @@ export function SecurityTab({ organizationId, sessionId }: SecurityTabProps) {
         >
           <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
           <div className="text-sm">
-            <p className="font-semibold">View Only</p>
+            <p className="font-semibold">{t("ui.manage.security.warning.view_only.title")}</p>
             <p className="text-xs mt-1">
-              You don&apos;t have permission to manage API keys. Only organization owners and managers can generate and revoke API keys.
+              {t("ui.manage.security.warning.view_only.message")}
             </p>
           </div>
         </div>
@@ -77,10 +79,10 @@ export function SecurityTab({ organizationId, sessionId }: SecurityTabProps) {
       <div>
         <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
           <Key size={16} />
-          API Keys & Security
+          {t("ui.manage.security.header.title")}
         </h3>
         <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-          Manage API keys for external integrations and services. Keep your keys secure and revoke any compromised keys immediately.
+          {t("ui.manage.security.header.description")}
         </p>
       </div>
 
@@ -93,14 +95,16 @@ export function SecurityTab({ organizationId, sessionId }: SecurityTabProps) {
         }}
       >
         <div className="flex items-start gap-2">
-          <Shield size={16} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--primary)' }} />
+          <Shield size={16} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--win95-highlight)' }} />
           <div>
-            <p className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>Security Best Practices</p>
+            <p className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+              {t("ui.manage.security.best_practices.title")}
+            </p>
             <ul className="text-xs mt-2 space-y-1" style={{ color: 'var(--neutral-gray)' }}>
-              <li>• Store API keys securely - never commit them to version control</li>
-              <li>• Rotate keys regularly, especially after team member departures</li>
-              <li>• Revoke unused or compromised keys immediately</li>
-              <li>• Use descriptive names to track where each key is used</li>
+              <li>• {t("ui.manage.security.best_practices.item_1")}</li>
+              <li>• {t("ui.manage.security.best_practices.item_2")}</li>
+              <li>• {t("ui.manage.security.best_practices.item_3")}</li>
+              <li>• {t("ui.manage.security.best_practices.item_4")}</li>
             </ul>
           </div>
         </div>
@@ -117,7 +121,7 @@ export function SecurityTab({ organizationId, sessionId }: SecurityTabProps) {
           }}
         >
           <span className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
-            Active API Keys
+            {t("ui.manage.security.list.title")}
           </span>
           <PermissionGuard permission="manage_organization">
             <button
@@ -133,10 +137,10 @@ export function SecurityTab({ organizationId, sessionId }: SecurityTabProps) {
                 borderBottomColor: 'var(--win95-button-dark)',
                 borderRightColor: 'var(--win95-button-dark)',
               }}
-              title={!isApiKeysEnabled ? "API keys are not enabled for your organization" : "Generate a new API key"}
+              title={!isApiKeysEnabled ? t("ui.manage.security.list.tooltip.disabled") : t("ui.manage.security.list.tooltip.generate")}
             >
               <Plus size={12} />
-              Generate Key
+              {t("ui.manage.security.list.button.generate")}
             </button>
           </PermissionGuard>
         </div>
@@ -151,11 +155,11 @@ export function SecurityTab({ organizationId, sessionId }: SecurityTabProps) {
             <div className="text-center py-8">
               <Key size={32} className="mx-auto mb-2 opacity-50" style={{ color: 'var(--neutral-gray)' }} />
               <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-                No API keys generated yet.
+                {t("ui.manage.security.list.empty.title")}
               </p>
               <PermissionGuard permission="manage_organization">
                 <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-                  Click &quot;Generate Key&quot; to create your first API key.
+                  {t("ui.manage.security.list.empty.description")}
                 </p>
               </PermissionGuard>
             </div>
@@ -163,12 +167,24 @@ export function SecurityTab({ organizationId, sessionId }: SecurityTabProps) {
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b" style={{ borderColor: 'var(--win95-border)' }}>
-                  <th className="text-left pb-2 font-bold" style={{ color: 'var(--win95-text)' }}>Name</th>
-                  <th className="text-left pb-2 font-bold" style={{ color: 'var(--win95-text)' }}>Key Preview</th>
-                  <th className="text-center pb-2 font-bold" style={{ color: 'var(--win95-text)' }}>Status</th>
-                  <th className="text-center pb-2 font-bold" style={{ color: 'var(--win95-text)' }}>Requests</th>
-                  <th className="text-left pb-2 font-bold" style={{ color: 'var(--win95-text)' }}>Created</th>
-                  <th className="text-center pb-2 font-bold" style={{ color: 'var(--win95-text)' }}>Actions</th>
+                  <th className="text-left pb-2 font-bold" style={{ color: 'var(--win95-text)' }}>
+                    {t("ui.manage.security.table.header.name")}
+                  </th>
+                  <th className="text-left pb-2 font-bold" style={{ color: 'var(--win95-text)' }}>
+                    {t("ui.manage.security.table.header.key_preview")}
+                  </th>
+                  <th className="text-center pb-2 font-bold" style={{ color: 'var(--win95-text)' }}>
+                    {t("ui.manage.security.table.header.status")}
+                  </th>
+                  <th className="text-center pb-2 font-bold" style={{ color: 'var(--win95-text)' }}>
+                    {t("ui.manage.security.table.header.requests")}
+                  </th>
+                  <th className="text-left pb-2 font-bold" style={{ color: 'var(--win95-text)' }}>
+                    {t("ui.manage.security.table.header.created")}
+                  </th>
+                  <th className="text-center pb-2 font-bold" style={{ color: 'var(--win95-text)' }}>
+                    {t("ui.manage.security.table.header.actions")}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -211,11 +227,13 @@ function ApiKeyRow({
   organizationId: Id<"organizations">;
   sessionId: string;
 }) {
+  const { t } = useNamespaceTranslations("ui.manage");
   const [isRevoking, setIsRevoking] = useState(false);
   const revokeApiKey = useMutation(api.api.auth.revokeApiKey);
 
   const handleRevoke = async () => {
-    if (!confirm(`Are you sure you want to revoke the API key "${apiKey.name}"?\n\nThis action cannot be undone and will immediately stop all requests using this key.`)) {
+    const confirmMessage = `${t("ui.manage.security.revoke.confirm.title")} "${apiKey.name}"?\n\n${t("ui.manage.security.revoke.confirm.message")}`;
+    if (!confirm(confirmMessage)) {
       return;
     }
 
@@ -229,7 +247,7 @@ function ApiKeyRow({
       });
     } catch (error) {
       console.error("Failed to revoke API key:", error);
-      alert(`Failed to revoke: ${error instanceof Error ? error.message : "Unknown error"}`);
+      alert(`${t("ui.manage.security.revoke.error")}: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setIsRevoking(false);
     }
@@ -237,7 +255,7 @@ function ApiKeyRow({
 
   const handleCopy = () => {
     navigator.clipboard.writeText(apiKey.keyPreview);
-    alert("API key preview copied to clipboard");
+    alert(t("ui.manage.security.table.action.copy_success"));
   };
 
   return (
@@ -248,7 +266,7 @@ function ApiKeyRow({
           onClick={handleCopy}
           className="flex items-center gap-1"
           style={{ color: 'var(--win95-text)' }}
-          title="Copy to clipboard"
+          title={t("ui.manage.security.table.action.copy")}
         >
           {apiKey.keyPreview}
           <Copy size={10} />
@@ -256,13 +274,13 @@ function ApiKeyRow({
       </td>
       <td className="py-2 text-center">
         <span
-          className={`px-2 py-0.5 rounded text-xs font-bold ${
-            apiKey.status === "active"
-              ? "bg-green-100 text-green-800"
-              : "bg-red-100 text-red-800"
-          }`}
+          className="px-2 py-0.5 rounded text-xs font-bold"
+          style={{
+            backgroundColor: apiKey.status === "active" ? 'var(--success)' : 'var(--error)',
+            color: 'white'
+          }}
         >
-          {apiKey.status}
+          {apiKey.status === "active" ? t("ui.manage.security.table.status.active") : t("ui.manage.security.table.status.revoked")}
         </span>
       </td>
       <td className="py-2 text-center" style={{ color: 'var(--win95-text)' }}>
@@ -292,7 +310,7 @@ function ApiKeyRow({
               ) : (
                 <Trash2 size={10} />
               )}
-              Revoke
+              {t("ui.manage.security.table.action.revoke")}
             </button>
           </PermissionGuard>
         )}
@@ -313,6 +331,7 @@ function CreateApiKeyModal({
   sessionId: string;
   onClose: () => void;
 }) {
+  const { t } = useNamespaceTranslations("ui.manage");
   const [keyName, setKeyName] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedKey, setGeneratedKey] = useState<string | null>(null);
@@ -320,7 +339,7 @@ function CreateApiKeyModal({
 
   const handleGenerate = async () => {
     if (!keyName.trim()) {
-      alert("Please enter a name for the API key");
+      alert(t("ui.manage.security.create.error.name_required"));
       return;
     }
 
@@ -334,7 +353,7 @@ function CreateApiKeyModal({
       setGeneratedKey(result.key);
     } catch (error) {
       console.error("Failed to generate API key:", error);
-      alert(`Failed to generate: ${error instanceof Error ? error.message : "Unknown error"}`);
+      alert(`${t("ui.manage.security.create.error.failed")}: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setIsGenerating(false);
     }
@@ -343,23 +362,26 @@ function CreateApiKeyModal({
   const handleCopyAndClose = () => {
     if (generatedKey) {
       navigator.clipboard.writeText(generatedKey);
-      alert("API key copied to clipboard!\n\nStore it securely - you won't be able to see the full key again.");
+      alert(t("ui.manage.security.generated.copy_success"));
       onClose();
     }
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white border-4 shadow-lg max-w-md w-full mx-4" style={{ borderColor: 'var(--win95-border)' }}>
+      <div className="border-4 shadow-lg max-w-md w-full mx-4" style={{
+        borderColor: 'var(--win95-border)',
+        background: 'var(--win95-bg)'
+      }}>
         {/* Modal Header */}
         <div
           className="px-3 py-2 flex items-center justify-between"
           style={{
-            backgroundColor: 'var(--primary)',
+            backgroundColor: 'var(--win95-highlight)',
             color: 'white',
           }}
         >
-          <span className="text-sm font-bold">Generate API Key</span>
+          <span className="text-sm font-bold">{t("ui.manage.security.create.title")}</span>
           <button
             onClick={onClose}
             className="hover:bg-opacity-80 px-2"
@@ -374,22 +396,22 @@ function CreateApiKeyModal({
           {!generatedKey ? (
             <>
               <p className="text-xs mb-4" style={{ color: 'var(--win95-text)' }}>
-                Generate a new API key for external integrations. Give it a descriptive name to help you remember where it&apos;s used.
+                {t("ui.manage.security.create.description")}
               </p>
 
               <div className="mb-4">
                 <label className="block text-xs font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
-                  API Key Name:
+                  {t("ui.manage.security.create.label.name")}
                 </label>
                 <input
                   type="text"
                   value={keyName}
                   onChange={(e) => setKeyName(e.target.value)}
-                  placeholder="e.g., Production Integration"
+                  placeholder={t("ui.manage.security.create.placeholder.name")}
                   className="w-full px-3 py-2 text-sm border-2"
                   style={{
                     borderColor: 'var(--win95-border)',
-                    background: 'var(--win95-bg)',
+                    background: 'var(--win95-input-bg)',
                     color: 'var(--win95-text)',
                   }}
                   disabled={isGenerating}
@@ -411,7 +433,7 @@ function CreateApiKeyModal({
                   }}
                   disabled={isGenerating}
                 >
-                  Cancel
+                  {t("ui.manage.security.create.button.cancel")}
                 </button>
                 <button
                   onClick={handleGenerate}
@@ -427,7 +449,7 @@ function CreateApiKeyModal({
                   }}
                 >
                   {isGenerating && <Loader2 size={12} className="animate-spin" />}
-                  Generate
+                  {t("ui.manage.security.create.button.generate")}
                 </button>
               </div>
             </>
@@ -435,16 +457,16 @@ function CreateApiKeyModal({
             <>
               <div className="mb-4 p-3 border-2" style={{ backgroundColor: 'var(--warning)', borderColor: 'var(--win95-border)' }}>
                 <p className="text-xs font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
-                  ⚠️ Important: Copy this key now!
+                  {t("ui.manage.security.generated.warning.title")}
                 </p>
                 <p className="text-xs" style={{ color: 'var(--win95-text)' }}>
-                  This is the only time you&apos;ll be able to see the full API key. Store it securely in your application or environment variables.
+                  {t("ui.manage.security.generated.warning.message")}
                 </p>
               </div>
 
               <div className="mb-4">
                 <label className="block text-xs font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
-                  Your API Key:
+                  {t("ui.manage.security.generated.label.key")}
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -480,7 +502,7 @@ function CreateApiKeyModal({
                 onClick={handleCopyAndClose}
                 className="w-full px-3 py-2 text-xs font-bold text-white"
                 style={{
-                  backgroundColor: 'var(--primary)',
+                  backgroundColor: 'var(--win95-highlight)',
                   border: '2px solid',
                   borderTopColor: 'var(--win95-button-light)',
                   borderLeftColor: 'var(--win95-button-light)',
@@ -488,7 +510,7 @@ function CreateApiKeyModal({
                   borderRightColor: 'var(--win95-button-dark)',
                 }}
               >
-                Copy & Close
+                {t("ui.manage.security.generated.button.copy_close")}
               </button>
             </>
           )}

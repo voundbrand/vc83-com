@@ -6,7 +6,7 @@ import { SystemOrganizationsTab } from "./system-organizations-tab";
 import { OrganizationsListTab } from "./organizations-list-tab";
 import { AppAvailabilityTab } from "./app-availability-tab";
 import { TemplatesTab } from "./templates-tab";
-import { useTranslation } from "@/contexts/translation-context";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 /**
  * Organizations Window - Tabbed Interface for Organization Management
@@ -21,7 +21,7 @@ import { useTranslation } from "@/contexts/translation-context";
 type TabType = "list" | "create" | "app-availability" | "templates";
 
 export function OrganizationsWindow() {
-  const { t } = useTranslation();
+  const { t } = useNamespaceTranslations("ui.organizations");
   const [activeTab, setActiveTab] = useState<TabType>("list");
 
   return (

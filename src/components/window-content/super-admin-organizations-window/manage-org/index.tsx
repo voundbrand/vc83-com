@@ -13,7 +13,7 @@ import { Users, Building2, AlertCircle, Loader2, Shield, Save, Crown, Edit2, X, 
 import { useState, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Id, Doc } from "../../../../../convex/_generated/dataModel";
-import { useTranslation } from "@/contexts/translation-context";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 type TabType = "organization" | "users" | "roles" | "security";
 
 interface AdminManageWindowProps {
@@ -21,7 +21,7 @@ interface AdminManageWindowProps {
 }
 
 export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
-  const { t } = useTranslation();
+  const { t } = useNamespaceTranslations("ui.organizations");
   const [activeTab, setActiveTab] = useState<TabType>("organization");
   const [isEditingOrg, setIsEditingOrg] = useState(false);
   const [isSavingOrg, setIsSavingOrg] = useState(false);

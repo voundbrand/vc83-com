@@ -5,7 +5,7 @@ import { X, User, Shield, Save, AlertCircle, Mail, Trash2 } from "lucide-react";
 import { useMutation, useQuery, useAction } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
-import { useTranslation } from "@/contexts/translation-context";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { formatRoleName } from "@/utils/roleFormatter";
 import { DeleteAccountModal } from "./delete-account-modal";
 import { useAuth } from "@/hooks/use-auth";
@@ -40,7 +40,7 @@ export function UserEditModal({
   invitationPending = false,
   isEditingSelf = false,
 }: UserEditModalProps) {
-  const { t } = useTranslation();
+  const { t } = useNamespaceTranslations("ui.organizations");
   const [firstName, setFirstName] = useState(user.firstName || "");
   const [lastName, setLastName] = useState(user.lastName || "");
   const [selectedRoleId, setSelectedRoleId] = useState<Id<"roles">>(currentRoleId);

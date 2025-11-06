@@ -88,12 +88,6 @@ export function TicketCheckoutCard({
 
   return (
     <div className={styles.checkoutCard}>
-      {/* Header */}
-      <div className={styles.cardHeader}>
-        <h2 className={styles.cardTitle}>Get Your Ticket</h2>
-        <p className={styles.cardSubtitle}>Early bird pricing ends soon!</p>
-      </div>
-
       {/* Ticket Selection with Quantities */}
       <div className={styles.ticketSelection}>
         <label className={styles.sectionLabel}>Select Tickets</label>

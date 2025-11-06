@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { X, AlertTriangle, Trash2 } from "lucide-react";
-import { useTranslation } from "@/contexts/translation-context";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 interface DeleteAccountModalProps {
   isOpen: boolean;
@@ -17,7 +17,7 @@ export function DeleteAccountModal({
   onConfirm,
   userEmail,
 }: DeleteAccountModalProps) {
-  const { t } = useTranslation();
+  const { t } = useNamespaceTranslations("ui.manage");
   const [confirmText, setConfirmText] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState("");

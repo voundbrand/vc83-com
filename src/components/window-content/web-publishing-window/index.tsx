@@ -5,6 +5,7 @@ import { Globe, FileText, Plus, Settings, BarChart3 } from "lucide-react";
 import { PublishedPagesTab } from "./published-pages-tab";
 import { CreatePageTab } from "./create-page-tab";
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
 /**
@@ -41,6 +42,7 @@ interface EditMode {
 export function WebPublishingWindow() {
   const [activeTab, setActiveTab] = useState<TabType>("pages");
   const [editMode, setEditMode] = useState<EditMode | null>(null);
+  const { t } = useNamespaceTranslations("ui.web_publishing");
 
   // Check app availability - returns guard component if unavailable/loading, null if available
   const guard = useAppAvailabilityGuard({
@@ -57,10 +59,10 @@ export function WebPublishingWindow() {
       <div className="px-4 py-3 border-b-2" style={{ borderColor: 'var(--win95-border)' }}>
         <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
           <Globe size={16} />
-          Web Publishing
+          {t("ui.web_publishing.header.title")}
         </h2>
         <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-          Create and manage public pages with templates
+          {t("ui.web_publishing.header.description")}
         </p>
       </div>
 
@@ -76,7 +78,7 @@ export function WebPublishingWindow() {
           onClick={() => setActiveTab("pages")}
         >
           <FileText size={14} />
-          Published Pages
+          {t("ui.web_publishing.tab.published_pages")}
         </button>
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
@@ -91,7 +93,7 @@ export function WebPublishingWindow() {
           }}
         >
           <Plus size={14} />
-          Create Page
+          {t("ui.web_publishing.tab.create_page")}
         </button>
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2 opacity-50 cursor-not-allowed"
@@ -101,10 +103,10 @@ export function WebPublishingWindow() {
             color: 'var(--neutral-gray)'
           }}
           disabled
-          title="Coming soon"
+          title={t("ui.web_publishing.tab.coming_soon")}
         >
           <Settings size={14} />
-          Settings
+          {t("ui.web_publishing.tab.settings")}
         </button>
         <button
           className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2 opacity-50 cursor-not-allowed"
@@ -114,10 +116,10 @@ export function WebPublishingWindow() {
             color: 'var(--neutral-gray)'
           }}
           disabled
-          title="Coming soon"
+          title={t("ui.web_publishing.tab.coming_soon")}
         >
           <BarChart3 size={14} />
-          Analytics
+          {t("ui.web_publishing.tab.analytics")}
         </button>
       </div>
 
@@ -139,8 +141,16 @@ export function WebPublishingWindow() {
             editMode={editMode}
           />
         )}
-        {activeTab === "settings" && <div className="p-4 text-xs text-gray-500">Settings coming soon...</div>}
-        {activeTab === "analytics" && <div className="p-4 text-xs text-gray-500">Analytics coming soon...</div>}
+        {activeTab === "settings" && (
+          <div className="p-4 text-xs" style={{ color: 'var(--neutral-gray)' }}>
+            {t("ui.web_publishing.tab.coming_soon")}...
+          </div>
+        )}
+        {activeTab === "analytics" && (
+          <div className="p-4 text-xs" style={{ color: 'var(--neutral-gray)' }}>
+            {t("ui.web_publishing.tab.coming_soon")}...
+          </div>
+        )}
       </div>
     </div>
   );

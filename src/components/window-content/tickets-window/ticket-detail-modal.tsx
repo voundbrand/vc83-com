@@ -3,6 +3,7 @@
 import { Doc, Id } from "../../../../convex/_generated/dataModel";
 import { X, Download, Printer, User, Mail, Phone, Calendar, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import Image from "next/image";
 import QRCode from "qrcode";
 import { useAction } from "convex/react";
@@ -14,6 +15,7 @@ interface TicketDetailModalProps {
 }
 
 export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
+  const { t } = useNamespaceTranslations("ui.tickets");
   const [qrCode, setQrCode] = useState<string>("");
   const [isDownloading, setIsDownloading] = useState(false);
 
@@ -67,10 +69,10 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
 
   const getStatusBadge = (status: string) => {
     const badges = {
-      issued: { label: "Issued", color: "var(--success)" },
-      redeemed: { label: "Redeemed", color: "var(--primary)" },
-      cancelled: { label: "Cancelled", color: "var(--error)" },
-      transferred: { label: "Transferred", color: "var(--warning)" },
+      issued: { label: t("ui.tickets.status.issued"), color: "var(--success)" },
+      redeemed: { label: t("ui.tickets.status.redeemed"), color: "var(--win95-highlight)" },
+      cancelled: { label: t("ui.tickets.status.cancelled"), color: "var(--error)" },
+      transferred: { label: t("ui.tickets.status.transferred"), color: "var(--win95-highlight)" },
     };
     const badge = badges[status as keyof typeof badges] || badges.issued;
     return (
@@ -88,10 +90,11 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
   };
 
   const handleDownload = async () => {
+    const customProps = ticket.customProperties || {};
     const checkoutSessionId = customProps.checkoutSessionId as Id<"objects"> | undefined;
 
     if (!checkoutSessionId) {
-      alert("Checkout session not found. Cannot download ticket.");
+      alert(t("ui.tickets.detail.error.no_checkout_session"));
       return;
     }
 
@@ -111,7 +114,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
       }
     } catch (error) {
       console.error("Failed to download ticket:", error);
-      alert("Failed to download ticket PDF. Please try again.");
+      alert(t("ui.tickets.detail.error.download_failed"));
     } finally {
       setIsDownloading(false);
     }
@@ -138,26 +141,28 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
           <div className="flex-1">
-            <h2 className="text-2xl font-bold mb-2" style={{ color: "var(--primary)" }}>
+            <h2 className="text-2xl font-bold mb-2" style={{ color: "var(--win95-highlight)" }}>
               {ticket.name}
             </h2>
             <div className="flex items-center gap-3">
               {getStatusBadge(ticket.status || "issued")}
               <span className="text-sm" style={{ color: "var(--neutral-gray)" }}>
-                Ticket #{customProps.ticketNumber || "N/A"}
+                {customProps.ticketNumber
+                  ? `${t("ui.tickets.detail.field.ticket_id")} #${customProps.ticketNumber}`
+                  : t("ui.tickets.detail.field.ticket_number_na")}
               </span>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-2 border-2 hover:bg-gray-100"
+            className="p-2 border-2 hover:bg-opacity-50 transition-colors"
             style={{
               borderColor: "var(--win95-border)",
-              background: "var(--win95-bg-light)",
+              background: "var(--win95-button-face)",
             }}
           >
-            <X size={20} />
+            <X size={20} style={{ color: "var(--win95-text)" }} />
           </button>
         </div>
 
@@ -181,7 +186,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                   className="w-48 h-48 mb-2"
                 />
                 <p className="text-xs text-center" style={{ color: "var(--neutral-gray)" }}>
-                  Scan to verify ticket
+                  {t("ui.tickets.detail.qr_scan")}
                 </p>
               </div>
             )}
@@ -191,34 +196,36 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
               <button
                 onClick={handleDownload}
                 disabled={isDownloading}
-                className="w-full px-4 py-2 border-2 flex items-center justify-center gap-2 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full px-4 py-2 border-2 flex items-center justify-center gap-2 hover:bg-opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 style={{
                   borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
+                  background: "var(--win95-button-face)",
+                  color: "var(--win95-text)",
                 }}
               >
                 {isDownloading ? (
                   <>
                     <Loader2 size={16} className="animate-spin" />
-                    <span className="text-sm">Downloading...</span>
+                    <span className="text-sm">{t("ui.tickets.detail.button.downloading")}</span>
                   </>
                 ) : (
                   <>
                     <Download size={16} />
-                    <span className="text-sm">Download Ticket</span>
+                    <span className="text-sm">{t("ui.tickets.detail.button.download")}</span>
                   </>
                 )}
               </button>
               <button
                 onClick={handlePrint}
-                className="w-full px-4 py-2 border-2 flex items-center justify-center gap-2 hover:bg-gray-100"
+                className="w-full px-4 py-2 border-2 flex items-center justify-center gap-2 hover:bg-opacity-90 transition-colors"
                 style={{
                   borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
+                  background: "var(--win95-button-face)",
+                  color: "var(--win95-text)",
                 }}
               >
                 <Printer size={16} />
-                <span className="text-sm">Print Ticket</span>
+                <span className="text-sm">{t("ui.tickets.detail.button.print")}</span>
               </button>
             </div>
           </div>
@@ -232,8 +239,8 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                 background: "white",
               }}
             >
-              <h3 className="font-bold text-sm mb-3" style={{ color: "var(--primary)" }}>
-                Ticket Holder
+              <h3 className="font-bold text-sm mb-3" style={{ color: "var(--win95-highlight)" }}>
+                {t("ui.tickets.detail.section.holder")}
               </h3>
 
               <div className="space-y-3">
@@ -242,10 +249,10 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                   <User size={16} className="mt-0.5" style={{ color: "var(--neutral-gray)" }} />
                   <div>
                     <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                      Name
+                      {t("ui.tickets.detail.field.name")}
                     </p>
                     <p className="text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
-                      {customProps.holderName || "Not provided"}
+                      {customProps.holderName || t("ui.tickets.detail.field.not_provided")}
                     </p>
                   </div>
                 </div>
@@ -256,7 +263,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                     <Mail size={16} className="mt-0.5" style={{ color: "var(--neutral-gray)" }} />
                     <div>
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                        Email
+                        {t("ui.tickets.detail.field.email")}
                       </p>
                       <p className="text-sm" style={{ color: "var(--win95-text)" }}>
                         {customProps.holderEmail}
@@ -271,7 +278,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                     <Phone size={16} className="mt-0.5" style={{ color: "var(--neutral-gray)" }} />
                     <div>
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                        Phone
+                        {t("ui.tickets.detail.field.phone")}
                       </p>
                       <p className="text-sm" style={{ color: "var(--win95-text)" }}>
                         {formResponses.phone}
@@ -290,7 +297,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                     />
                     <div>
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                        Purchased
+                        {t("ui.tickets.detail.field.purchased")}
                       </p>
                       <p className="text-sm" style={{ color: "var(--win95-text)" }}>
                         {formatDate(customProps.purchaseDate)}
@@ -309,15 +316,15 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                 background: "white",
               }}
             >
-              <h3 className="font-bold text-sm mb-3" style={{ color: "var(--primary)" }}>
-                Pricing
+              <h3 className="font-bold text-sm mb-3" style={{ color: "var(--win95-highlight)" }}>
+                {t("ui.tickets.detail.section.pricing")}
               </h3>
 
               <div className="space-y-2">
                 {customProps.pricePaid !== undefined && (
                   <div className="flex justify-between items-center">
                     <span className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                      Base Price
+                      {t("ui.tickets.detail.field.base_price")}
                     </span>
                     <span className="text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
                       {formatCurrency(customProps.pricePaid)}
@@ -328,19 +335,19 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                 {customProps.paymentStatus && (
                   <div className="flex justify-between items-center pt-2 border-t">
                     <span className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                      Payment Status
+                      {t("ui.tickets.detail.field.payment_status")}
                     </span>
                     <span
                       className="text-xs font-semibold"
                       style={{
                         color:
                           customProps.paymentStatus === "awaiting_employer_payment"
-                            ? "var(--warning)"
+                            ? "var(--win95-highlight)"
                             : "var(--success)",
                       }}
                     >
                       {customProps.paymentStatus === "awaiting_employer_payment"
-                        ? "Pending Employer Payment"
+                        ? t("ui.tickets.detail.payment.pending_employer")
                         : customProps.paymentStatus}
                     </span>
                   </div>
@@ -360,8 +367,8 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                   background: "white",
                 }}
               >
-                <h3 className="font-bold text-sm mb-3" style={{ color: "var(--primary)" }}>
-                  Registration Details
+                <h3 className="font-bold text-sm mb-3" style={{ color: "var(--win95-highlight)" }}>
+                  {t("ui.tickets.detail.section.registration")}
                 </h3>
 
                 <div className="space-y-2">
@@ -400,14 +407,14 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                   background: "white",
                 }}
               >
-                <h3 className="font-bold text-sm mb-3" style={{ color: "var(--primary)" }}>
-                  Transaction Details
+                <h3 className="font-bold text-sm mb-3" style={{ color: "var(--win95-highlight)" }}>
+                  {t("ui.tickets.detail.section.transaction")}
                 </h3>
 
                 <div className="space-y-2">
                   <div>
                     <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                      Checkout Session
+                      {t("ui.tickets.detail.field.checkout_session")}
                     </p>
                     <p
                       className="text-xs font-mono break-all"
@@ -417,10 +424,12 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                     </p>
                   </div>
 
-                  {customProps.totalTickets && (
+                  {customProps.totalTickets && customProps.ticketNumber && (
                     <div>
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                        Ticket {customProps.ticketNumber} of {customProps.totalTickets}
+                        {t("ui.tickets.detail.field.ticket_number_of")
+                          .replace("{number}", String(customProps.ticketNumber))
+                          .replace("{total}", String(customProps.totalTickets))}
                       </p>
                     </div>
                   )}
@@ -428,7 +437,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                   {customProps.purchaseItemId && (
                     <div>
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                        Purchase Item ID
+                        {t("ui.tickets.detail.field.purchase_item_id")}
                       </p>
                       <p
                         className="text-xs font-mono break-all"
@@ -450,14 +459,14 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                 background: "white",
               }}
             >
-              <h3 className="font-bold text-sm mb-3" style={{ color: "var(--primary)" }}>
-                System Information
+              <h3 className="font-bold text-sm mb-3" style={{ color: "var(--win95-highlight)" }}>
+                {t("ui.tickets.detail.section.system")}
               </h3>
 
               <div className="space-y-2">
                 <div>
                   <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                    Ticket ID
+                    {t("ui.tickets.detail.field.ticket_id")}
                   </p>
                   <p className="text-xs font-mono break-all" style={{ color: "var(--win95-text)" }}>
                     {ticket._id}
@@ -466,7 +475,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
 
                 <div>
                   <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                    Created At
+                    {t("ui.tickets.detail.field.created_at")}
                   </p>
                   <p className="text-xs" style={{ color: "var(--win95-text)" }}>
                     {formatDate(ticket.createdAt)}
@@ -476,7 +485,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                 {ticket.updatedAt && ticket.updatedAt !== ticket.createdAt && (
                   <div>
                     <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                      Last Updated
+                      {t("ui.tickets.detail.field.last_updated")}
                     </p>
                     <p className="text-xs" style={{ color: "var(--win95-text)" }}>
                       {formatDate(ticket.updatedAt)}

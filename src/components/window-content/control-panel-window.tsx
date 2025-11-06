@@ -8,7 +8,7 @@ import { TranslationsWindow } from "./translations-window";
 import { OrganizationsWindow } from "./super-admin-organizations-window";
 import { usePermissions } from "@/contexts/permission-context";
 import { useAuth } from "@/hooks/use-auth";
-import { useTranslation } from "@/contexts/translation-context";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 interface ControlPanelItem {
   id: string;
@@ -21,7 +21,7 @@ export function ControlPanelWindow() {
   const { openWindow } = useWindowManager();
   const { isSuperAdmin } = usePermissions();
   const { canPerform } = useAuth();
-  const { t } = useTranslation();
+  const { t } = useNamespaceTranslations("ui.controlpanel");
 
   const openDesktopSettings = () => {
     openWindow(

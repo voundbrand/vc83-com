@@ -98,7 +98,7 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
   const translationsMap = useQuery(
     api.ontologyTranslations.getAllTranslations,
     { locale }
-  );
+  ) as Record<string, string> | undefined;
 
   // Set locale and persist to backend or localStorage
   const setLocale = async (newLocale: string) => {
@@ -135,7 +135,7 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
 
     // Look up translation in the key-value map
     // Map structure: { "desktop.welcome-icon": "Welcome", ... }
-    let value = translationsMap[key];
+    let value = (translationsMap as Record<string, string>)[key];
 
     if (!value) {
       // Debug logging in development only

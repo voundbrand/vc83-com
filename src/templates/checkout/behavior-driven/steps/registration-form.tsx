@@ -14,7 +14,7 @@ import type { Id } from "../../../../../convex/_generated/dataModel";
 import { StepProps } from "../types";
 import { FileText, ArrowLeft } from "lucide-react";
 import { executeCheckoutBehaviors, getAddonsFromResults } from "@/lib/behaviors/adapters/checkout-integration";
-import { useTranslation } from "@/contexts/translation-context";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 type FormField = {
   id: string;
@@ -55,7 +55,7 @@ export function RegistrationFormStep({
   onComplete,
   onBack
 }: StepProps) {
-  const { t } = useTranslation();
+  const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.checkout_template.behavior_driven");
   const selectedProducts = checkoutData.selectedProducts || [];
 
   // ============================================================================

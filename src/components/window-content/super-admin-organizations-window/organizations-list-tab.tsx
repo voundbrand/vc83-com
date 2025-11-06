@@ -9,7 +9,7 @@ import { ConfirmationModal } from "@/components/confirmation-modal";
 import { useState } from "react";
 import { useWindowManager } from "@/hooks/use-window-manager";
 import { AdminManageWindow } from "./manage-org";
-import { useTranslation } from "@/contexts/translation-context";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 /**
  * Organizations List Tab
@@ -20,7 +20,7 @@ export function OrganizationsListTab() {
   const { sessionId, switchOrganization, isSuperAdmin } = useAuth();
   const currentOrg = useCurrentOrganization();
   const { openWindow } = useWindowManager();
-  const { t } = useTranslation();
+  const { t } = useNamespaceTranslations("ui.organizations");
 
   // Archive modal (soft delete - for active orgs)
   const [archiveModalOpen, setArchiveModalOpen] = useState(false);

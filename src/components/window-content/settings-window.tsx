@@ -6,6 +6,7 @@ import { RetroButton } from "@/components/retro-button";
 import { useWindowManager } from "@/hooks/use-window-manager";
 import { useTheme, themes } from "@/contexts/theme-context";
 import { useTranslation } from "@/contexts/translation-context";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useIsSuperAdmin } from "@/hooks/use-auth";
 import { OntologyAdminWindow } from "./ontology-admin";
 
@@ -14,7 +15,8 @@ type TabType = "appearance" | "wallpaper" | "region" | "admin";
 export function SettingsWindow() {
   const { closeWindow, openWindow } = useWindowManager();
   const { currentTheme, setTheme, windowStyle, setWindowStyle } = useTheme();
-  const { locale, availableLocales, setLocale, t } = useTranslation();
+  const { locale, availableLocales, setLocale } = useTranslation(); // For locale management only
+  const { t } = useNamespaceTranslations("ui.settings"); // For translations
   const isSuperAdmin = useIsSuperAdmin();
   const [activeTab, setActiveTab] = useState<TabType>("appearance");
   const [selectedThemeId, setSelectedThemeId] = useState<string>(currentTheme.id);

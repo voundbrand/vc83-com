@@ -5,7 +5,7 @@ import { Building2, Save, AlertCircle, CheckCircle, Globe } from "lucide-react";
 import { useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
-import { useTranslation } from "@/contexts/translation-context";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { TIMEZONE_OPTIONS } from "@/lib/timezone-utils";
 
 /**
@@ -23,7 +23,7 @@ import { TIMEZONE_OPTIONS } from "@/lib/timezone-utils";
 
 export function SystemOrganizationsTab() {
   const { sessionId } = useAuth();
-  const { t } = useTranslation();
+  const { t } = useNamespaceTranslations("ui.organizations");
   const createOrganization = useAction(api.organizations.createOrganization);
 
   // Form state
