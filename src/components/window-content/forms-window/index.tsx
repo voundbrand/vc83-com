@@ -6,6 +6,7 @@ import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { Loader2, Plus, FileText } from "lucide-react";
 import { FormsList } from "./forms-list";
 import { FormBuilder } from "./form-builder";
@@ -15,6 +16,7 @@ export type ViewMode = "list" | "builder" | "responses";
 export function FormsWindow() {
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
+  const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.forms");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [selectedFormId, setSelectedFormId] = useState<string | null>(null);
 
@@ -39,17 +41,17 @@ export function FormsWindow() {
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
           <p className="text-sm" style={{ color: "var(--neutral-gray)" }}>
-            Please sign in to access Forms
+            {translationsLoading ? "Loading..." : t("ui.forms.sign_in_prompt")}
           </p>
         </div>
       </div>
     );
   }
 
-  if (forms === undefined) {
+  if (forms === undefined || translationsLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Loader2 size={32} className="animate-spin" style={{ color: "var(--primary)" }} />
+        <Loader2 size={32} className="animate-spin" style={{ color: "var(--win95-highlight)" }} />
       </div>
     );
   }
@@ -75,13 +77,13 @@ export function FormsWindow() {
       <div className="p-4 border-b-2" style={{ borderColor: "var(--win95-border)" }}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <FileText size={24} style={{ color: "var(--primary)" }} />
+            <FileText size={24} style={{ color: "var(--win95-highlight)" }} />
             <div>
               <h1 className="text-lg font-bold" style={{ color: "var(--win95-text)" }}>
-                Forms
+                {t("ui.forms.title")}
               </h1>
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                Create forms for registrations, surveys, and applications
+                {t("ui.forms.subtitle")}
               </p>
             </div>
           </div>
@@ -97,7 +99,7 @@ export function FormsWindow() {
               }}
             >
               <Plus size={16} />
-              New Form
+              {t("ui.forms.button_new_form")}
             </button>
           )}
         </div>
@@ -116,7 +118,7 @@ export function FormsWindow() {
             }}
           >
             <FileText size={12} className="inline mr-1" />
-            All Forms
+            {t("ui.forms.tab_all_forms")}
           </button>
           {/* Future tabs */}
           {/* <button
@@ -131,7 +133,7 @@ export function FormsWindow() {
             }}
           >
             <ClipboardList size={12} className="inline mr-1" />
-            All Responses
+            {t("ui.forms.tab_all_responses")}
           </button> */}
         </div>
       </div>

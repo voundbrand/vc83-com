@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { FileText, Plus, Edit, Trash2, Eye, Send, FileX, Loader2 } from "lucide-react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { ConfirmationModal } from "@/components/confirmation-modal";
@@ -33,6 +34,7 @@ interface FormsListProps {
 
 export function FormsList({ forms, onCreateForm, onEditForm }: FormsListProps) {
   const { sessionId } = useAuth();
+  const { t } = useNamespaceTranslations("ui.forms");
   const [deletingFormId, setDeletingFormId] = useState<string | null>(null);
   const [publishingFormId, setPublishingFormId] = useState<string | null>(null);
   const [deleteConfirmModal, setDeleteConfirmModal] = useState<{
@@ -70,7 +72,7 @@ export function FormsList({ forms, onCreateForm, onEditForm }: FormsListProps) {
             className="px-2 py-0.5 text-xs rounded"
             style={{ background: "var(--warning)", color: "white" }}
           >
-            Draft
+            {t("ui.forms.status_draft")}
           </span>
         );
       case "published":
@@ -79,7 +81,7 @@ export function FormsList({ forms, onCreateForm, onEditForm }: FormsListProps) {
             className="px-2 py-0.5 text-xs rounded"
             style={{ background: "var(--success)", color: "white" }}
           >
-            Published
+            {t("ui.forms.status_published")}
           </span>
         );
       case "archived":
@@ -88,7 +90,7 @@ export function FormsList({ forms, onCreateForm, onEditForm }: FormsListProps) {
             className="px-2 py-0.5 text-xs rounded"
             style={{ background: "var(--neutral-gray)", color: "white" }}
           >
-            Archived
+            {t("ui.forms.status_archived")}
           </span>
         );
       default:
@@ -164,10 +166,10 @@ export function FormsList({ forms, onCreateForm, onEditForm }: FormsListProps) {
       <div className="flex flex-col items-center justify-center h-full p-8">
         <FileText size={64} style={{ color: "var(--neutral-gray)", opacity: 0.3 }} />
         <h2 className="mt-4 text-lg font-bold" style={{ color: "var(--win95-text)" }}>
-          No Forms Yet
+          {t("ui.forms.empty_title")}
         </h2>
         <p className="mt-2 text-sm text-center max-w-md" style={{ color: "var(--neutral-gray)" }}>
-          Create your first form to collect registrations, surveys, or applications.
+          {t("ui.forms.empty_description")}
         </p>
         <button
           onClick={onCreateForm}
@@ -179,7 +181,7 @@ export function FormsList({ forms, onCreateForm, onEditForm }: FormsListProps) {
           }}
         >
           <Plus size={16} />
-          Create Your First Form
+          {t("ui.forms.button_create_first")}
         </button>
       </div>
     );
@@ -214,7 +216,7 @@ export function FormsList({ forms, onCreateForm, onEditForm }: FormsListProps) {
                         {form.name}
                       </h3>
                       <p className="text-xs capitalize" style={{ color: "var(--neutral-gray)" }}>
-                        {form.subtype || "form"}
+                        {form.subtype ? t(`ui.forms.type_${form.subtype}` as any) : t("ui.forms.type_form")}
                       </p>
                     </div>
                   </div>
@@ -234,10 +236,10 @@ export function FormsList({ forms, onCreateForm, onEditForm }: FormsListProps) {
                 {/* Stats */}
                 <div className="flex gap-4 mb-3 text-xs" style={{ color: "var(--neutral-gray)" }}>
                   <div>
-                    <span className="font-bold">{fieldCount}</span> fields
+                    <span className="font-bold">{fieldCount}</span> {t("ui.forms.stats_fields")}
                   </div>
                   <div>
-                    <span className="font-bold">{submissions}</span> responses
+                    <span className="font-bold">{submissions}</span> {t("ui.forms.stats_responses")}
                   </div>
                 </div>
 
@@ -253,10 +255,10 @@ export function FormsList({ forms, onCreateForm, onEditForm }: FormsListProps) {
                       background: "var(--win95-button-face)",
                       color: "var(--win95-text)",
                     }}
-                    title="Edit form"
+                    title={t("ui.forms.tooltip_edit")}
                   >
                     <Edit size={12} />
-                    Edit
+                    {t("ui.forms.button_edit")}
                   </button>
 
                   {/* Publish/Unpublish */}
@@ -269,7 +271,7 @@ export function FormsList({ forms, onCreateForm, onEditForm }: FormsListProps) {
                       background: isPublished ? "var(--warning)" : "var(--success)",
                       color: "white",
                     }}
-                    title={isPublished ? "Unpublish form (change to draft)" : "Publish form (make it live)"}
+                    title={isPublished ? t("ui.forms.tooltip_unpublish") : t("ui.forms.tooltip_publish")}
                   >
                     {isPublishing ? (
                       <Loader2 size={12} className="animate-spin" />
@@ -289,7 +291,7 @@ export function FormsList({ forms, onCreateForm, onEditForm }: FormsListProps) {
                       background: "var(--win95-button-face)",
                       color: "var(--win95-text)",
                     }}
-                    title="Preview coming soon"
+                    title={t("ui.forms.tooltip_preview_soon")}
                   >
                     <Eye size={12} />
                   </button>
@@ -304,7 +306,7 @@ export function FormsList({ forms, onCreateForm, onEditForm }: FormsListProps) {
                       background: "var(--error)",
                       color: "white",
                     }}
-                    title="Delete form"
+                    title={t("ui.forms.tooltip_delete")}
                   >
                     {isDeleting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
                   </button>
@@ -320,10 +322,10 @@ export function FormsList({ forms, onCreateForm, onEditForm }: FormsListProps) {
         isOpen={deleteConfirmModal?.isOpen || false}
         onClose={() => setDeleteConfirmModal(null)}
         onConfirm={confirmDelete}
-        title="Delete Form"
-        message={`Are you sure you want to delete "${deleteConfirmModal?.formName}"?\n\nThis action cannot be undone. All responses will be preserved but the form template will be deleted.`}
-        confirmText="Delete"
-        cancelText="Cancel"
+        title={t("ui.forms.delete_modal_title")}
+        message={`${t("ui.forms.delete_confirm_message")} "${deleteConfirmModal?.formName}"?\n\n${t("ui.forms.delete_warning")}`}
+        confirmText={t("ui.forms.button_confirm_delete")}
+        cancelText={t("ui.forms.button_cancel")}
         variant="danger"
         isLoading={deletingFormId === deleteConfirmModal?.formId}
       />
@@ -333,7 +335,7 @@ export function FormsList({ forms, onCreateForm, onEditForm }: FormsListProps) {
         isOpen={errorAlert?.isOpen || false}
         onClose={() => setErrorAlert(null)}
         onConfirm={() => setErrorAlert(null)}
-        title="Error"
+        title={t("ui.forms.error_title")}
         message={errorAlert?.message || ""}
         confirmText="OK"
         cancelText=""

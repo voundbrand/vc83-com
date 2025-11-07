@@ -6,6 +6,7 @@ import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { Loader2, Search, Filter, Award, Calendar, User, AlertCircle, FileText } from "lucide-react";
 import { CertificateDetailModal } from "./certificate-detail-modal";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 // Simple date formatter
 function formatDate(timestamp: number, short = true): string {
@@ -30,6 +31,7 @@ interface CertificatesListProps {
 }
 
 export function CertificatesList({ onEdit, sessionId, organizationId }: CertificatesListProps) {
+  const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.certificates");
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("");
   const [filterPointType, setFilterPointType] = useState<string>("");
@@ -46,12 +48,14 @@ export function CertificatesList({ onEdit, sessionId, organizationId }: Certific
     }
   );
 
-  if (!certificates) {
+  if (translationsLoading || !certificates) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
-          <Loader2 size={32} className="animate-spin mx-auto mb-4" style={{ color: "var(--primary)" }} />
-          <p style={{ color: "var(--win95-text)" }}>Loading certificates...</p>
+          <Loader2 size={32} className="animate-spin mx-auto mb-4" style={{ color: "var(--win95-highlight)" }} />
+          <p style={{ color: "var(--win95-text)" }}>
+            {translationsLoading ? "Loading..." : t("ui.certificates.loading")}
+          </p>
         </div>
       </div>
     );
@@ -72,18 +76,18 @@ export function CertificatesList({ onEdit, sessionId, organizationId }: Certific
   });
 
   const getPointTypeBadge = (subtype: string) => {
-    const badges: Record<string, { color: string; label: string }> = {
-      cme: { color: "#3B82F6", label: "CME" },
-      cle: { color: "#8B5CF6", label: "CLE" },
-      cpe: { color: "#10B981", label: "CPE" },
-      ce: { color: "#F59E0B", label: "CE" },
-      pdu: { color: "#EF4444", label: "PDU" },
+    const badges: Record<string, { colorVar: string; label: string }> = {
+      cme: { colorVar: "--win95-highlight", label: t("ui.certificates.type.cme") },
+      cle: { colorVar: "--win95-highlight", label: t("ui.certificates.type.cle") },
+      cpe: { colorVar: "--success", label: t("ui.certificates.type.cpe") },
+      ce: { colorVar: "--win95-highlight", label: t("ui.certificates.type.ce") },
+      pdu: { colorVar: "--error", label: t("ui.certificates.type.pdu") },
     };
-    const badge = badges[subtype] || { color: "#6B7280", label: subtype.toUpperCase() };
+    const badge = badges[subtype] || { colorVar: "--neutral-gray", label: subtype.toUpperCase() };
     return (
       <span
         className="px-2 py-1 text-xs font-bold rounded"
-        style={{ background: badge.color, color: "white" }}
+        style={{ background: `var(${badge.colorVar})`, color: "var(--win95-bg-light)" }}
       >
         {badge.label}
       </span>
@@ -91,18 +95,18 @@ export function CertificatesList({ onEdit, sessionId, organizationId }: Certific
   };
 
   const getStatusBadge = (status: string) => {
-    const badges: Record<string, { color: string; bg: string }> = {
-      issued: { color: "#10B981", bg: "#D1FAE5" },
-      revoked: { color: "#EF4444", bg: "#FEE2E2" },
-      expired: { color: "#F59E0B", bg: "#FEF3C7" },
+    const badges: Record<string, { colorVar: string; bgVar: string; label: string }> = {
+      issued: { colorVar: "--success", bgVar: "--win95-bg-light", label: t("ui.certificates.status.issued") },
+      revoked: { colorVar: "--error", bgVar: "--win95-bg-light", label: t("ui.certificates.status.revoked") },
+      expired: { colorVar: "--win95-highlight", bgVar: "--win95-bg-light", label: t("ui.certificates.status.expired") },
     };
-    const badge = badges[status] || { color: "#6B7280", bg: "#F3F4F6" };
+    const badge = badges[status] || { colorVar: "--neutral-gray", bgVar: "--win95-bg", label: status.toUpperCase() };
     return (
       <span
         className="px-2 py-1 text-xs font-bold rounded"
-        style={{ color: badge.color, background: badge.bg }}
+        style={{ color: `var(${badge.colorVar})`, background: `var(${badge.bgVar})`, border: `1px solid var(${badge.colorVar})` }}
       >
-        {status.toUpperCase()}
+        {badge.label}
       </span>
     );
   };
@@ -121,15 +125,10 @@ export function CertificatesList({ onEdit, sessionId, organizationId }: Certific
               />
               <input
                 type="text"
-                placeholder="Search by name, email, or certificate number..."
+                placeholder={t("ui.certificates.list.search_placeholder")}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-8 pr-3 py-2 text-xs"
-                style={{
-                  background: "white",
-                  border: "2px solid var(--win95-border)",
-                  color: "var(--win95-text)",
-                }}
+                className="w-full pl-8 pr-3 py-2 text-xs retro-input"
               />
             </div>
           </div>
@@ -139,35 +138,25 @@ export function CertificatesList({ onEdit, sessionId, organizationId }: Certific
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-3 py-2 text-xs"
-              style={{
-                background: "white",
-                border: "2px solid var(--win95-border)",
-                color: "var(--win95-text)",
-              }}
+              className="px-3 py-2 text-xs retro-input"
             >
-              <option value="">All Statuses</option>
-              <option value="issued">Issued</option>
-              <option value="revoked">Revoked</option>
-              <option value="expired">Expired</option>
+              <option value="">{t("ui.certificates.list.filter.all_statuses")}</option>
+              <option value="issued">{t("ui.certificates.status.issued")}</option>
+              <option value="revoked">{t("ui.certificates.status.revoked")}</option>
+              <option value="expired">{t("ui.certificates.status.expired")}</option>
             </select>
 
             <select
               value={filterPointType}
               onChange={(e) => setFilterPointType(e.target.value)}
-              className="px-3 py-2 text-xs"
-              style={{
-                background: "white",
-                border: "2px solid var(--win95-border)",
-                color: "var(--win95-text)",
-              }}
+              className="px-3 py-2 text-xs retro-input"
             >
-              <option value="">All Types</option>
-              <option value="cme">CME</option>
-              <option value="cle">CLE</option>
-              <option value="cpe">CPE</option>
-              <option value="ce">CE</option>
-              <option value="pdu">PDU</option>
+              <option value="">{t("ui.certificates.list.filter.all_types")}</option>
+              <option value="cme">{t("ui.certificates.type.cme")}</option>
+              <option value="cle">{t("ui.certificates.type.cle")}</option>
+              <option value="cpe">{t("ui.certificates.type.cpe")}</option>
+              <option value="ce">{t("ui.certificates.type.ce")}</option>
+              <option value="pdu">{t("ui.certificates.type.pdu")}</option>
             </select>
           </div>
         </div>
@@ -177,51 +166,51 @@ export function CertificatesList({ onEdit, sessionId, organizationId }: Certific
           <div className="text-center py-12">
             <AlertCircle size={48} style={{ color: "var(--neutral-gray)" }} className="mx-auto mb-4" />
             <p style={{ color: "var(--win95-text)" }} className="font-semibold">
-              No certificates found
+              {t("ui.certificates.list.no_certificates_found")}
             </p>
             <p style={{ color: "var(--neutral-gray)" }} className="text-xs mt-2">
               {searchTerm || filterStatus || filterPointType
-                ? "Try adjusting your search or filters"
-                : "Issue your first certificate to get started"}
+                ? t("ui.certificates.list.adjust_filters")
+                : t("ui.certificates.list.issue_first")}
             </p>
           </div>
         ) : (
           <div className="border-2" style={{ borderColor: "var(--win95-border)" }}>
             <table className="w-full">
-              <thead style={{ background: "var(--win95-bg-secondary)" }}>
+              <thead style={{ background: "var(--win95-bg-light)" }}>
                 <tr className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
                   <th className="text-left p-2 border-b-2" style={{ borderColor: "var(--win95-border)" }}>
                     <div className="flex items-center gap-1">
                       <FileText size={12} />
-                      Certificate #
+                      {t("ui.certificates.list.table.certificate_number")}
                     </div>
                   </th>
                   <th className="text-left p-2 border-b-2" style={{ borderColor: "var(--win95-border)" }}>
                     <div className="flex items-center gap-1">
                       <User size={12} />
-                      Recipient
+                      {t("ui.certificates.list.table.recipient")}
                     </div>
                   </th>
                   <th className="text-left p-2 border-b-2" style={{ borderColor: "var(--win95-border)" }}>
                     <div className="flex items-center gap-1">
                       <Award size={12} />
-                      Type
+                      {t("ui.certificates.list.table.type")}
                     </div>
                   </th>
                   <th className="text-left p-2 border-b-2" style={{ borderColor: "var(--win95-border)" }}>
-                    Points
+                    {t("ui.certificates.list.table.points")}
                   </th>
                   <th className="text-left p-2 border-b-2" style={{ borderColor: "var(--win95-border)" }}>
                     <div className="flex items-center gap-1">
                       <Calendar size={12} />
-                      Issued
+                      {t("ui.certificates.list.table.issued")}
                     </div>
                   </th>
                   <th className="text-left p-2 border-b-2" style={{ borderColor: "var(--win95-border)" }}>
-                    Status
+                    {t("ui.certificates.list.table.status")}
                   </th>
                   <th className="text-left p-2 border-b-2" style={{ borderColor: "var(--win95-border)" }}>
-                    Actions
+                    {t("ui.certificates.list.table.actions")}
                   </th>
                 </tr>
               </thead>
@@ -231,30 +220,32 @@ export function CertificatesList({ onEdit, sessionId, organizationId }: Certific
                     key={cert._id}
                     className="text-xs hover:bg-opacity-50 cursor-pointer"
                     style={{
-                      background: "white",
+                      background: "var(--win95-bg-light)",
                       borderBottom: "1px solid var(--win95-border)",
                     }}
                     onClick={() => setSelectedCertificateId(cert._id)}
                   >
                     <td className="p-2 font-mono text-xs">
-                      {cert.customProperties?.certificateNumber || "N/A"}
+                      {cert.customProperties?.certificateNumber || t("ui.certificates.list.na")}
                     </td>
                     <td className="p-2">
                       <div>
-                        <div className="font-semibold">{cert.customProperties?.recipientName}</div>
+                        <div className="font-semibold" style={{ color: "var(--win95-text)" }}>
+                          {cert.customProperties?.recipientName}
+                        </div>
                         <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                           {cert.customProperties?.recipientEmail}
                         </div>
                       </div>
                     </td>
                     <td className="p-2">{getPointTypeBadge(cert.subtype || "")}</td>
-                    <td className="p-2 font-semibold">
-                      {cert.customProperties?.pointsAwarded || 0} {cert.customProperties?.pointUnit || "credits"}
+                    <td className="p-2 font-semibold" style={{ color: "var(--win95-text)" }}>
+                      {cert.customProperties?.pointsAwarded || 0} {cert.customProperties?.pointUnit || t("ui.certificates.common.credits")}
                     </td>
                     <td className="p-2" style={{ color: "var(--neutral-gray)" }}>
                       {cert.customProperties?.issueDate
                         ? formatDate(cert.customProperties.issueDate, true)
-                        : "N/A"}
+                        : t("ui.certificates.list.na")}
                     </td>
                     <td className="p-2">{getStatusBadge(cert.status || "issued")}</td>
                     <td className="p-2">
@@ -263,14 +254,9 @@ export function CertificatesList({ onEdit, sessionId, organizationId }: Certific
                           e.stopPropagation();
                           setSelectedCertificateId(cert._id);
                         }}
-                        className="px-2 py-1 text-xs"
-                        style={{
-                          background: "var(--primary)",
-                          color: "white",
-                          border: "1px solid var(--win95-button-border)",
-                        }}
+                        className="px-2 py-1 text-xs retro-button"
                       >
-                        View
+                        {t("ui.certificates.list.button.view")}
                       </button>
                     </td>
                   </tr>

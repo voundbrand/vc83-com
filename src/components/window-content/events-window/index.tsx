@@ -7,10 +7,12 @@ import { Calendar, Plus, List, Loader2, AlertCircle, Building2 } from "lucide-re
 import { Id } from "../../../../convex/_generated/dataModel";
 import { EventsList } from "./events-list";
 import { EventForm } from "./event-form";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 type ViewMode = "list" | "create" | "edit";
 
 export function EventsWindow() {
+  const { t } = useNamespaceTranslations("ui.events");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [selectedEventId, setSelectedEventId] = useState<Id<"objects"> | null>(null);
   const { user, isLoading, sessionId } = useAuth();
@@ -32,8 +34,8 @@ export function EventsWindow() {
       <div className="flex flex-col h-full" style={{ background: "var(--win95-bg)" }}>
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
-            <Loader2 size={48} className="animate-spin mx-auto mb-4" style={{ color: "var(--primary)" }} />
-            <p style={{ color: "var(--win95-text)" }}>Loading events...</p>
+            <Loader2 size={48} className="animate-spin mx-auto mb-4" style={{ color: "var(--win95-highlight)" }} />
+            <p style={{ color: "var(--win95-text)" }}>{t("ui.events.header.loading")}</p>
           </div>
         </div>
       </div>
@@ -46,7 +48,7 @@ export function EventsWindow() {
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
             <AlertCircle size={48} style={{ color: "var(--error)" }} className="mx-auto mb-4" />
-            <p style={{ color: "var(--win95-text)" }}>Please log in to access events</p>
+            <p style={{ color: "var(--win95-text)" }}>{t("ui.events.header.login_required")}</p>
           </div>
         </div>
       </div>
@@ -60,10 +62,10 @@ export function EventsWindow() {
           <div className="text-center">
             <Building2 size={48} style={{ color: "var(--warning)" }} className="mx-auto mb-4" />
             <p style={{ color: "var(--win95-text)" }} className="font-semibold">
-              No Organization Selected
+              {t("ui.events.header.no_org_title")}
             </p>
-            <p style={{ color: "var(--win95-text-secondary)" }} className="text-sm mt-2">
-              Please select an organization to manage events
+            <p style={{ color: "var(--neutral-gray)" }} className="text-sm mt-2">
+              {t("ui.events.header.no_org_desc")}
             </p>
           </div>
         </div>
@@ -94,10 +96,10 @@ export function EventsWindow() {
           <div>
             <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
               <Calendar size={16} />
-              Events
+              {t("ui.events.header.title")}
             </h2>
             <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-              Manage conferences, workshops, concerts, and meetups
+              {t("ui.events.header.description")}
             </p>
           </div>
 
@@ -126,7 +128,7 @@ export function EventsWindow() {
             }}
           >
             <Plus size={14} />
-            Create Event
+            {t("ui.events.action.create")}
           </button>
         ) : (
           <button
@@ -139,7 +141,7 @@ export function EventsWindow() {
             }}
           >
             <List size={14} />
-            Back to List
+            {t("ui.events.action.back_to_list")}
           </button>
         )}
       </div>

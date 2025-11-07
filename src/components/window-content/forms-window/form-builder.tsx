@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import {
   ArrowLeft,
@@ -39,6 +40,7 @@ interface TemplateOrTheme {
 export function FormBuilder({ formId, onBack }: FormBuilderProps) {
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
+  const { t } = useNamespaceTranslations("ui.forms");
 
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [selectedThemeId, setSelectedThemeId] = useState<string>("");
@@ -121,13 +123,13 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
   if (!sessionId || !currentOrg) {
     return (
       <div className="p-4">
-        <div className="border-2 border-red-600 bg-red-50 p-4">
+        <div className="border-2 p-4" style={{ borderColor: "var(--error)", background: "rgba(239, 68, 68, 0.1)" }}>
           <div className="flex items-start gap-2">
-            <AlertCircle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
+            <AlertCircle size={20} style={{ color: "var(--error)" }} className="flex-shrink-0 mt-0.5" />
             <div>
-              <h4 className="font-bold text-sm text-red-900">Authentication Required</h4>
-              <p className="text-xs text-red-800 mt-1">
-                Please log in to create forms.
+              <h4 className="font-bold text-sm" style={{ color: "var(--error)" }}>{t("ui.forms.auth_required_title")}</h4>
+              <p className="text-xs mt-1" style={{ color: "var(--error)" }}>
+                {t("ui.forms.auth_required_message")}
               </p>
             </div>
           </div>
@@ -139,7 +141,7 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
   if (availableTemplates === undefined || availableThemes === undefined) {
     return (
       <div className="flex items-center justify-center p-8">
-        <Loader2 size={32} className="animate-spin text-purple-600" />
+        <Loader2 size={32} className="animate-spin" style={{ color: "var(--win95-highlight)" }} />
       </div>
     );
   }
@@ -147,18 +149,17 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
   if (availableTemplates.length === 0 || availableThemes.length === 0) {
     return (
       <div className="p-4">
-        <div className="border-2 border-yellow-600 bg-yellow-50 p-4">
+        <div className="border-2 p-4" style={{ borderColor: "var(--warning)", background: "rgba(251, 191, 36, 0.1)" }}>
           <div className="flex items-start gap-2">
-            <AlertCircle size={20} className="text-yellow-600 flex-shrink-0 mt-0.5" />
+            <AlertCircle size={20} style={{ color: "var(--warning)" }} className="flex-shrink-0 mt-0.5" />
             <div>
-              <h4 className="font-bold text-sm text-yellow-900">
-                Templates or Themes Not Available
+              <h4 className="font-bold text-sm" style={{ color: "var(--warning)" }}>
+                {t("ui.forms.templates_unavailable_title")}
               </h4>
-              <p className="text-xs text-yellow-800 mt-1">
-                {availableTemplates.length === 0 &&
-                  "Your organization does not have any form templates enabled yet. "}
-                {availableThemes.length === 0 && "No themes found in system. "}
-                Contact your system administrator to enable templates.
+              <p className="text-xs mt-1" style={{ color: "var(--warning)" }}>
+                {availableTemplates.length === 0 && t("ui.forms.no_templates_message") + " "}
+                {availableThemes.length === 0 && t("ui.forms.no_themes_message") + " "}
+                {t("ui.forms.contact_admin")}
               </p>
             </div>
           </div>
@@ -219,7 +220,7 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
           eventId: selectedEventId ? (selectedEventId as Id<"objects">) : null,
         });
 
-        setSuccessMessage("Form updated successfully!");
+        setSuccessMessage(t("ui.forms.form_updated"));
         setTimeout(() => setSuccessMessage(null), 5000);
       } else {
         // CREATE new form - Load schema from DATABASE template (primary source)
@@ -268,7 +269,7 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
           eventId: selectedEventId ? (selectedEventId as Id<"objects">) : undefined,
         });
 
-        setSuccessMessage("Form created successfully!");
+        setSuccessMessage(t("ui.forms.form_created"));
 
         // Reset form
         setSelectedTemplateId("");
@@ -295,7 +296,7 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
   return (
     <div className="flex h-full">
       {/* LEFT: Form Editor (40%) */}
-      <div className="w-[40%] p-4 overflow-y-auto border-r-2 border-gray-400">
+      <div className="w-[40%] p-4 overflow-y-auto border-r-2" style={{ borderColor: "var(--win95-border)" }}>
         {/* Back Button */}
         <button
           onClick={onBack}
@@ -307,35 +308,35 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
           }}
         >
           <ArrowLeft size={12} />
-          Back to Forms
+          {t("ui.forms.button_back_to_forms")}
         </button>
 
         {/* Success message */}
         {successMessage && (
-          <div className="border-2 border-green-600 bg-green-50 p-4 mb-4">
+          <div className="border-2 p-4 mb-4" style={{ borderColor: "var(--success)", background: "rgba(16, 185, 129, 0.1)" }}>
             <div className="flex items-start gap-2">
-              <Check size={20} className="text-green-600 flex-shrink-0 mt-0.5" />
+              <Check size={20} style={{ color: "var(--success)" }} className="flex-shrink-0 mt-0.5" />
               <div>
-                <h4 className="font-bold text-sm text-green-900">Success!</h4>
-                <p className="text-xs text-green-800 mt-1">{successMessage}</p>
+                <h4 className="font-bold text-sm" style={{ color: "var(--success)" }}>{t("ui.forms.success_title")}</h4>
+                <p className="text-xs mt-1" style={{ color: "var(--success)" }}>{successMessage}</p>
               </div>
             </div>
           </div>
         )}
 
-        <h3 className="text-sm font-bold mb-4 flex items-center gap-2">
+        <h3 className="text-sm font-bold mb-4 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
           <FileText size={16} />
-          {formId ? "Edit Form" : "Create New Form"}
+          {formId ? t("ui.forms.builder_title_edit") : t("ui.forms.builder_title_create")}
         </h3>
 
         {formId && (
-          <div className="border-2 border-blue-600 bg-blue-50 p-3 mb-4">
+          <div className="border-2 p-3 mb-4" style={{ borderColor: "var(--win95-highlight)", background: "rgba(0, 0, 128, 0.05)" }}>
             <div className="flex items-start gap-2">
-              <AlertCircle size={16} className="text-blue-600 flex-shrink-0 mt-0.5" />
+              <AlertCircle size={16} style={{ color: "var(--win95-highlight)" }} className="flex-shrink-0 mt-0.5" />
               <div>
-                <h4 className="font-bold text-xs text-blue-900">Editing Mode</h4>
-                <p className="text-xs text-blue-800 mt-1">
-                  You are editing an existing form. Changes will update the form immediately.
+                <h4 className="font-bold text-xs" style={{ color: "var(--win95-highlight)" }}>{t("ui.forms.editing_mode_title")}</h4>
+                <p className="text-xs mt-1" style={{ color: "var(--win95-text)" }}>
+                  {t("ui.forms.editing_mode_message")}
                 </p>
               </div>
             </div>
@@ -344,17 +345,18 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Template selection */}
-          <div className="border-2 border-gray-400">
+          <div className="border-2" style={{ borderColor: "var(--win95-border)" }}>
             {/* Accordion Header */}
             <button
               type="button"
               onClick={() => setTemplateAccordionOpen(!templateAccordionOpen)}
-              className="w-full px-4 py-3 flex items-center justify-between bg-gray-100 hover:bg-gray-200 transition-colors"
+              className="w-full px-4 py-3 flex items-center justify-between transition-colors hover:brightness-95"
+              style={{ background: "var(--win95-bg-light)", color: "var(--win95-text)" }}
             >
               <div className="flex items-center gap-2">
                 <FileText size={16} />
                 <span className="text-sm font-bold">
-                  Select Form Template <span className="text-red-600">*</span>
+                  {t("ui.forms.section_select_template")} <span style={{ color: "var(--error)" }}>{t("ui.forms.required_indicator")}</span>
                 </span>
                 {selectedTemplateId && (
                   <span className="text-xs bg-purple-600 text-white px-2 py-0.5 rounded">
@@ -403,17 +405,18 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
           </div>
 
           {/* Theme selection */}
-          <div className="border-2 border-gray-400">
+          <div className="border-2" style={{ borderColor: "var(--win95-border)" }}>
             {/* Accordion Header */}
             <button
               type="button"
               onClick={() => setThemeAccordionOpen(!themeAccordionOpen)}
-              className="w-full px-4 py-3 flex items-center justify-between bg-gray-100 hover:bg-gray-200 transition-colors"
+              className="w-full px-4 py-3 flex items-center justify-between transition-colors hover:brightness-95"
+              style={{ background: "var(--win95-bg-light)", color: "var(--win95-text)" }}
             >
               <div className="flex items-center gap-2">
                 <Palette size={16} />
                 <span className="text-sm font-bold">
-                  Select Theme <span className="text-red-600">*</span>
+                  {t("ui.forms.section_select_theme")} <span style={{ color: "var(--error)" }}>{t("ui.forms.required_indicator")}</span>
                 </span>
                 {selectedThemeId && (
                   <span className="text-xs bg-purple-600 text-white px-2 py-0.5 rounded">
@@ -482,16 +485,17 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
           </div>
 
           {/* Data Sources (Optional) */}
-          <div className="border-2 border-gray-400">
+          <div className="border-2" style={{ borderColor: "var(--win95-border)" }}>
             {/* Accordion Header */}
             <button
               type="button"
               onClick={() => setDataSourcesAccordionOpen(!dataSourcesAccordionOpen)}
-              className="w-full px-4 py-3 flex items-center justify-between bg-gray-100 hover:bg-gray-200 transition-colors"
+              className="w-full px-4 py-3 flex items-center justify-between transition-colors hover:brightness-95"
+              style={{ background: "var(--win95-bg-light)", color: "var(--win95-text)" }}
             >
               <div className="flex items-center gap-2">
                 <Database size={16} />
-                <span className="text-sm font-bold">Link to Event (Optional)</span>
+                <span className="text-sm font-bold">{t("ui.forms.section_link_event")}</span>
                 {selectedEventId && (
                   <span className="text-xs bg-purple-600 text-white px-2 py-0.5 rounded">
                     {availableEvents?.find((e) => e._id === selectedEventId)?.name}
@@ -503,9 +507,9 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
 
             {/* Accordion Content */}
             {dataSourcesAccordionOpen && (
-              <div className="p-3 bg-white">
-                <p className="text-xs text-gray-600 mb-3">
-                  Link this form to an event to automatically connect form responses with event tickets.
+              <div className="p-3" style={{ background: "var(--win95-input-bg)" }}>
+                <p className="text-xs mb-3" style={{ color: "var(--neutral-gray)" }}>
+                  {t("ui.forms.link_event_description")}
                 </p>
 
                 {availableEvents === undefined && (
@@ -582,82 +586,98 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
           {/* Form Type (only for new forms) */}
           {!formId && (
             <div>
-              <label className="block text-xs font-bold mb-1">
-                Form Type <span className="text-red-600">*</span>
+              <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                {t("ui.forms.label_form_type")} <span style={{ color: "var(--error)" }}>{t("ui.forms.required_indicator")}</span>
               </label>
               <select
                 value={formSubtype}
                 onChange={(e) => setFormSubtype(e.target.value)}
-                className="w-full border-2 border-gray-400 px-2 py-1 text-sm"
+                className="w-full border-2 px-2 py-1 text-sm"
+                style={{
+                  borderColor: "var(--win95-border)",
+                  background: "var(--win95-input-bg)",
+                  color: "var(--win95-text)"
+                }}
                 required
               >
-                <option value="registration">Registration - Event sign-ups</option>
-                <option value="survey">Survey - Feedback collection</option>
-                <option value="application">Application - Speaker proposals</option>
+                <option value="registration">{t("ui.forms.type_option_registration")}</option>
+                <option value="survey">{t("ui.forms.type_option_survey")}</option>
+                <option value="application">{t("ui.forms.type_option_application")}</option>
               </select>
             </div>
           )}
 
           {/* Form Name */}
           <div>
-            <label className="block text-xs font-bold mb-1">
-              Form Name <span className="text-red-600">*</span>
+            <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+              {t("ui.forms.label_form_name")} <span style={{ color: "var(--error)" }}>{t("ui.forms.required_indicator")}</span>
             </label>
             <input
               type="text"
               value={formName}
               onChange={(e) => setFormName(e.target.value)}
-              className="w-full border-2 border-gray-400 px-2 py-1 text-sm"
-              placeholder="e.g., HaffSymposium 2024 Registration"
+              className="w-full border-2 px-2 py-1 text-sm"
+              style={{
+                borderColor: "var(--win95-border)",
+                background: "var(--win95-input-bg)",
+                color: "var(--win95-text)"
+              }}
+              placeholder={t("ui.forms.placeholder_form_name")}
               required
             />
           </div>
 
           {/* Form Description */}
           <div>
-            <label className="block text-xs font-bold mb-1">Description (Optional)</label>
+            <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>{t("ui.forms.label_description")}</label>
             <textarea
               value={formDescription}
               onChange={(e) => setFormDescription(e.target.value)}
-              className="w-full border-2 border-gray-400 px-2 py-1 text-sm"
-              placeholder="Describe what this form is for..."
+              className="w-full border-2 px-2 py-1 text-sm"
+              style={{
+                borderColor: "var(--win95-border)",
+                background: "var(--win95-input-bg)",
+                color: "var(--win95-text)"
+              }}
+              placeholder={t("ui.forms.placeholder_description")}
               rows={3}
               maxLength={500}
             />
-            <p className="text-xs text-gray-500 mt-1">
-              {formDescription.length}/500 characters
+            <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+              {formDescription.length}/500 {t("ui.forms.characters")}
             </p>
           </div>
 
           {/* Submit */}
-          <div className="flex items-center justify-between pt-4 border-t-2 border-gray-400">
-            <p className="text-xs text-gray-600">
-              Form will be created as a <span className="font-bold">draft</span>.
+          <div className="flex items-center justify-between pt-4 border-t-2" style={{ borderColor: "var(--win95-border)" }}>
+            <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+              {t("ui.forms.submit_note")} <span className="font-bold">{t("ui.forms.status_draft").toLowerCase()}</span>.
             </p>
             <button
               type="submit"
               disabled={!selectedTemplateId || !selectedThemeId || !formName || isSaving}
-              className="px-4 py-2 text-sm font-bold border-2 border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 text-sm font-bold border-2 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
+                borderColor: "var(--win95-border)",
                 backgroundColor:
                   selectedTemplateId && selectedThemeId && formName && !isSaving
-                    ? "#6B46C1"
-                    : "#E5E7EB",
+                    ? "var(--win95-highlight)"
+                    : "var(--win95-button-face)",
                 color:
                   selectedTemplateId && selectedThemeId && formName && !isSaving
                     ? "white"
-                    : "#6B7280",
+                    : "var(--neutral-gray)",
               }}
             >
               {isSaving ? (
                 <span className="flex items-center gap-2">
                   <Loader2 size={14} className="animate-spin" />
-                  {formId ? "Updating..." : "Creating..."}
+                  {formId ? t("ui.forms.button_updating") : t("ui.forms.button_creating")}
                 </span>
               ) : formId ? (
-                "Update Form"
+                t("ui.forms.button_update_form")
               ) : (
-                "Create Form"
+                t("ui.forms.button_create_form")
               )}
             </button>
           </div>
@@ -665,10 +685,10 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
       </div>
 
       {/* RIGHT: Live Preview (60%) */}
-      <div className="w-[60%] p-4 overflow-y-auto bg-gray-50">
-        <h3 className="text-sm font-bold mb-4 flex items-center gap-2">
+      <div className="w-[60%] p-4 overflow-y-auto" style={{ background: "var(--win95-bg)" }}>
+        <h3 className="text-sm font-bold mb-4 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
           <Eye size={16} />
-          Live Preview
+          {t("ui.forms.live_preview")}
         </h3>
 
         {/* Preview content */}
@@ -811,14 +831,13 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
             </div>
           </div>
         ) : (
-          <div className="border-2 border-gray-400 bg-white p-8 text-center">
-            <FileText size={64} className="mx-auto text-gray-300 mb-4" />
-            <h4 className="font-bold text-sm text-gray-700 mb-2">
-              Select Template & Theme
+          <div className="border-2 p-8 text-center" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
+            <FileText size={64} className="mx-auto mb-4" style={{ color: "var(--neutral-gray)", opacity: 0.3 }} />
+            <h4 className="font-bold text-sm mb-2" style={{ color: "var(--win95-text)" }}>
+              {t("ui.forms.preview_select_prompt")}
             </h4>
-            <p className="text-xs text-gray-600">
-              Choose a form template and theme from the left panel to see a live preview
-              here.
+            <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+              {t("ui.forms.preview_select_description")}
             </p>
           </div>
         )}

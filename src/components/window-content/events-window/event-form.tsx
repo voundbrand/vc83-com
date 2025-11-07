@@ -14,6 +14,7 @@ import {
   timestampToLocalTime,
   localDateTimeToTimestamp
 } from "@/lib/timezone-utils";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 interface EventFormProps {
   sessionId: string;
@@ -30,6 +31,7 @@ export function EventForm({
   onSuccess,
   onCancel,
 }: EventFormProps) {
+  const { t } = useNamespaceTranslations("ui.events");
   const [formData, setFormData] = useState({
     subtype: "conference",
     format: "in-person", // online, in-person, or hybrid

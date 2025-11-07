@@ -5,6 +5,7 @@ import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { Edit2, Trash2, CheckCircle, Loader2, MapPin, Clock } from "lucide-react";
 import { useState } from "react";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 interface EventsListProps {
   sessionId: string;
@@ -13,6 +14,7 @@ interface EventsListProps {
 }
 
 export function EventsList({ sessionId, organizationId, onEdit }: EventsListProps) {
+  const { t } = useNamespaceTranslations("ui.events");
   const [filter, setFilter] = useState<{ subtype?: string; status?: string }>({});
 
   // Get events from Convex
@@ -26,12 +28,12 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
   const publishEvent = useMutation(api.eventOntology.publishEvent);
 
   const handleDelete = async (eventId: Id<"objects">) => {
-    if (confirm("Are you sure you want to cancel this event?")) {
+    if (confirm(t("ui.events.list.delete_confirm"))) {
       try {
         await deleteEvent({ sessionId, eventId });
       } catch (error) {
         console.error("Failed to delete event:", error);
-        alert("Failed to delete event");
+        alert(t("ui.events.list.delete_error"));
       }
     }
   };
@@ -41,17 +43,17 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
       await publishEvent({ sessionId, eventId });
     } catch (error) {
       console.error("Failed to publish event:", error);
-      alert("Failed to publish event");
+      alert(t("ui.events.list.publish_error"));
     }
   };
 
   const getStatusBadge = (status: string) => {
     const badges = {
-      draft: { label: "Draft", color: "var(--neutral-gray)" },
-      published: { label: "Published", color: "var(--success)" },
-      in_progress: { label: "In Progress", color: "var(--primary)" },
-      completed: { label: "Completed", color: "var(--info)" },
-      cancelled: { label: "Cancelled", color: "var(--error)" },
+      draft: { label: t("ui.events.status.draft"), color: "var(--neutral-gray)" },
+      published: { label: t("ui.events.status.published"), color: "var(--success)" },
+      in_progress: { label: t("ui.events.status.in_progress"), color: "var(--win95-highlight)" },
+      completed: { label: t("ui.events.status.completed"), color: "var(--info)" },
+      cancelled: { label: t("ui.events.status.cancelled"), color: "var(--error)" },
     };
     const badge = badges[status as keyof typeof badges] || badges.draft;
     return (
@@ -66,10 +68,10 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
 
   const getSubtypeLabel = (subtype: string) => {
     const labels: Record<string, string> = {
-      conference: "📊 Conference",
-      workshop: "🛠️ Workshop",
-      concert: "🎵 Concert",
-      meetup: "👥 Meetup",
+      conference: t("ui.events.type.conference"),
+      workshop: t("ui.events.type.workshop"),
+      concert: t("ui.events.type.concert"),
+      meetup: t("ui.events.type.meetup"),
     };
     return labels[subtype] || subtype;
   };
@@ -87,7 +89,7 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
   if (events === undefined) {
     return (
       <div className="flex items-center justify-center p-8">
-        <Loader2 size={32} className="animate-spin" style={{ color: "var(--primary)" }} />
+        <Loader2 size={32} className="animate-spin" style={{ color: "var(--win95-highlight)" }} />
       </div>
     );
   }
@@ -97,7 +99,7 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
       <div className="flex items-center justify-center p-8">
         <div className="text-center">
           <p style={{ color: "var(--neutral-gray)" }} className="text-sm">
-            No events yet. Click &ldquo;Create Event&rdquo; to get started.
+            {t("ui.events.list.no_events")}
           </p>
         </div>
       </div>
@@ -118,11 +120,11 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
             color: "var(--win95-text)",
           }}
         >
-          <option value="">All Types</option>
-          <option value="conference">Conference</option>
-          <option value="workshop">Workshop</option>
-          <option value="concert">Concert</option>
-          <option value="meetup">Meetup</option>
+          <option value="">{t("ui.events.list.filter.all_types")}</option>
+          <option value="conference">{t("ui.events.type.conference")}</option>
+          <option value="workshop">{t("ui.events.type.workshop")}</option>
+          <option value="concert">{t("ui.events.type.concert")}</option>
+          <option value="meetup">{t("ui.events.type.meetup")}</option>
         </select>
 
         <select
@@ -135,12 +137,12 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
             color: "var(--win95-text)",
           }}
         >
-          <option value="">All Statuses</option>
-          <option value="draft">Draft</option>
-          <option value="published">Published</option>
-          <option value="in_progress">In Progress</option>
-          <option value="completed">Completed</option>
-          <option value="cancelled">Cancelled</option>
+          <option value="">{t("ui.events.list.filter.all_statuses")}</option>
+          <option value="draft">{t("ui.events.status.draft")}</option>
+          <option value="published">{t("ui.events.status.published")}</option>
+          <option value="in_progress">{t("ui.events.status.in_progress")}</option>
+          <option value="completed">{t("ui.events.status.completed")}</option>
+          <option value="cancelled">{t("ui.events.status.cancelled")}</option>
         </select>
       </div>
 
@@ -202,7 +204,7 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
               )}
               {event.customProperties?.capacity && (
                 <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                  Capacity: {event.customProperties.capacity} attendees
+                  {t("ui.events.list.capacity", { count: event.customProperties.capacity as number })}
                 </div>
               )}
             </div>
@@ -217,10 +219,10 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
                   background: "var(--win95-button-face)",
                   color: "var(--win95-text)",
                 }}
-                title="Edit"
+                title={t("ui.events.action.edit")}
               >
                 <Edit2 size={12} />
-                Edit
+                {t("ui.events.action.edit")}
               </button>
 
               {event.status === "draft" && (
@@ -232,10 +234,10 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
                     background: "var(--win95-button-face)",
                     color: "var(--win95-text)",
                   }}
-                  title="Publish"
+                  title={t("ui.events.action.publish")}
                 >
                   <CheckCircle size={12} />
-                  Publish
+                  {t("ui.events.action.publish")}
                 </button>
               )}
 
@@ -247,7 +249,7 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
                   background: "var(--win95-button-face)",
                   color: "var(--error)",
                 }}
-                title="Cancel"
+                title={t("ui.events.action.cancel_event")}
               >
                 <Trash2 size={12} />
               </button>

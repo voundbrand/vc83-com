@@ -7,10 +7,12 @@ import { Award, Plus, List, Loader2, AlertCircle, Building2 } from "lucide-react
 import { Id } from "../../../../convex/_generated/dataModel";
 import { CertificatesList } from "./certificates-list";
 import { CertificateForm } from "./certificate-form";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 type ViewMode = "list" | "create" | "edit";
 
 export function CertificatesWindow() {
+  const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.certificates");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [selectedCertificateId, setSelectedCertificateId] = useState<Id<"objects"> | null>(null);
   const { user, isLoading, sessionId } = useAuth();
@@ -27,13 +29,15 @@ export function CertificatesWindow() {
   if (guard) return guard;
 
   // Loading state
-  if (isLoading) {
+  if (isLoading || translationsLoading) {
     return (
       <div className="flex flex-col h-full" style={{ background: "var(--win95-bg)" }}>
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
-            <Loader2 size={48} className="animate-spin mx-auto mb-4" style={{ color: "var(--primary)" }} />
-            <p style={{ color: "var(--win95-text)" }}>Loading certificates...</p>
+            <Loader2 size={48} className="animate-spin mx-auto mb-4" style={{ color: "var(--win95-highlight)" }} />
+            <p style={{ color: "var(--win95-text)" }}>
+              {translationsLoading ? "Loading..." : t("ui.certificates.loading")}
+            </p>
           </div>
         </div>
       </div>
@@ -46,7 +50,7 @@ export function CertificatesWindow() {
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
             <AlertCircle size={48} style={{ color: "var(--error)" }} className="mx-auto mb-4" />
-            <p style={{ color: "var(--win95-text)" }}>Please log in to access certificates</p>
+            <p style={{ color: "var(--win95-text)" }}>{t("ui.certificates.login_required")}</p>
           </div>
         </div>
       </div>
@@ -58,12 +62,12 @@ export function CertificatesWindow() {
       <div className="flex flex-col h-full" style={{ background: "var(--win95-bg)" }}>
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
-            <Building2 size={48} style={{ color: "var(--warning)" }} className="mx-auto mb-4" />
+            <Building2 size={48} style={{ color: "var(--win95-highlight)" }} className="mx-auto mb-4" />
             <p style={{ color: "var(--win95-text)" }} className="font-semibold">
-              No Organization Selected
+              {t("ui.certificates.no_organization_title")}
             </p>
-            <p style={{ color: "var(--win95-text-secondary)" }} className="text-sm mt-2">
-              Please select an organization to manage certificates
+            <p style={{ color: "var(--neutral-gray)" }} className="text-sm mt-2">
+              {t("ui.certificates.no_organization_description")}
             </p>
           </div>
         </div>
@@ -94,10 +98,10 @@ export function CertificatesWindow() {
           <div>
             <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
               <Award size={16} />
-              Professional Certificates
+              {t("ui.certificates.title")}
             </h2>
             <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-              Issue and manage CME, CLE, CPE, and other continuing education certificates
+              {t("ui.certificates.description")}
             </p>
           </div>
           {viewMode === "list" && (
@@ -105,15 +109,13 @@ export function CertificatesWindow() {
               onClick={handleCreateNew}
               className="px-4 py-2 text-xs font-bold flex items-center gap-2"
               style={{
-                background: "var(--primary)",
-                color: "white",
-                border: "2px solid",
-                borderColor: "var(--win95-button-border)",
-                boxShadow: "var(--win95-button-shadow)"
+                background: "var(--win95-highlight)",
+                color: "var(--win95-bg-light)",
+                border: "2px solid var(--win95-border)",
               }}
             >
               <Plus size={14} />
-              Issue Certificate
+              {t("ui.certificates.button.issue_certificate")}
             </button>
           )}
         </div>
@@ -141,8 +143,8 @@ export function CertificatesWindow() {
       {/* Footer */}
       <div className="px-4 py-2 border-t-2 text-xs" style={{
         borderColor: "var(--win95-border)",
-        background: "var(--win95-bg-secondary)",
-        color: "var(--win95-text-secondary)"
+        background: "var(--win95-bg-light)",
+        color: "var(--neutral-gray)"
       }}>
         {viewMode === "list" ? (
           <div className="flex items-center gap-2">

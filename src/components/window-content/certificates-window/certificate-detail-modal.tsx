@@ -4,6 +4,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { X, Award, Calendar, User, FileText, AlertCircle, Download } from "lucide-react";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 // Simple date formatter
 function formatDate(timestamp: number): string {
@@ -26,24 +27,28 @@ export function CertificateDetailModal({
   sessionId,
   onClose,
 }: CertificateDetailModalProps) {
+  const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.certificates");
   const certificate = useQuery(api.certificateOntology.getCertificate, {
     sessionId,
     certificateId,
   });
 
-  if (!certificate) {
+  if (translationsLoading || !certificate) {
     return (
       <div
-        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+        className="fixed inset-0 flex items-center justify-center z-50"
+        style={{ background: "rgba(0, 0, 0, 0.5)" }}
         onClick={onClose}
       >
         <div
-          className="bg-white p-6 border-2 max-w-2xl w-full mx-4"
-          style={{ borderColor: "var(--win95-border)" }}
+          className="p-6 border-2 max-w-2xl w-full mx-4"
+          style={{ background: "var(--win95-bg-light)", borderColor: "var(--win95-border)" }}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="text-center py-8">
-            <p>Loading certificate details...</p>
+            <p style={{ color: "var(--win95-text)" }}>
+              {translationsLoading ? "Loading..." : t("ui.certificates.detail.loading")}
+            </p>
           </div>
         </div>
       </div>
@@ -54,26 +59,36 @@ export function CertificateDetailModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      className="fixed inset-0 flex items-center justify-center z-50"
+      style={{ background: "rgba(0, 0, 0, 0.5)" }}
       onClick={onClose}
     >
       <div
-        className="bg-white border-2 max-w-3xl w-full mx-4 max-h-[90vh] overflow-auto"
-        style={{ borderColor: "var(--win95-border)" }}
+        className="border-2 max-w-3xl w-full mx-4 max-h-[90vh] overflow-auto"
+        style={{ background: "var(--win95-bg-light)", borderColor: "var(--win95-border)" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div
           className="px-4 py-3 border-b-2 flex items-center justify-between"
-          style={{ borderColor: "var(--win95-border)", background: "var(--primary)", color: "white" }}
+          style={{
+            borderColor: "var(--win95-border)",
+            background: "var(--win95-highlight)",
+            color: "var(--win95-bg-light)"
+          }}
         >
           <div className="flex items-center gap-2">
             <Award size={16} />
-            <span className="font-bold text-sm">Certificate Details</span>
+            <span className="font-bold text-sm">{t("ui.certificates.detail.title")}</span>
           </div>
           <button
             onClick={onClose}
-            className="hover:bg-white hover:bg-opacity-20 p-1 rounded"
+            className="p-1 rounded"
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "var(--win95-bg-light)"
+            }}
           >
             <X size={16} />
           </button>
@@ -84,9 +99,9 @@ export function CertificateDetailModal({
           {/* Certificate Number */}
           <div className="text-center pb-4 border-b-2" style={{ borderColor: "var(--win95-border)" }}>
             <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-              CERTIFICATE NUMBER
+              {t("ui.certificates.detail.certificate_number_label")}
             </div>
-            <div className="text-lg font-bold font-mono mt-1" style={{ color: "var(--primary)" }}>
+            <div className="text-lg font-bold font-mono mt-1" style={{ color: "var(--win95-highlight)" }}>
               {props.certificateNumber}
             </div>
           </div>
@@ -95,27 +110,43 @@ export function CertificateDetailModal({
           <div>
             <h3 className="text-sm font-bold mb-3 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
               <User size={14} />
-              Recipient Information
+              {t("ui.certificates.detail.section.recipient")}
             </h3>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>Name</div>
-                <div className="font-semibold">{props.recipientName}</div>
+                <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                  {t("ui.certificates.detail.field.name")}
+                </div>
+                <div className="font-semibold" style={{ color: "var(--win95-text)" }}>
+                  {props.recipientName}
+                </div>
               </div>
               <div>
-                <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>Email</div>
-                <div className="font-semibold">{props.recipientEmail}</div>
+                <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                  {t("ui.certificates.detail.field.email")}
+                </div>
+                <div className="font-semibold" style={{ color: "var(--win95-text)" }}>
+                  {props.recipientEmail}
+                </div>
               </div>
               {props.licenseNumber && (
                 <div>
-                  <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>License Number</div>
-                  <div className="font-semibold">{props.licenseNumber}</div>
+                  <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                    {t("ui.certificates.detail.field.license_number")}
+                  </div>
+                  <div className="font-semibold" style={{ color: "var(--win95-text)" }}>
+                    {props.licenseNumber}
+                  </div>
                 </div>
               )}
               {props.profession && (
                 <div>
-                  <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>Profession</div>
-                  <div className="font-semibold">{props.profession}</div>
+                  <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                    {t("ui.certificates.detail.field.profession")}
+                  </div>
+                  <div className="font-semibold" style={{ color: "var(--win95-text)" }}>
+                    {props.profession}
+                  </div>
                 </div>
               )}
             </div>
@@ -125,23 +156,33 @@ export function CertificateDetailModal({
           <div>
             <h3 className="text-sm font-bold mb-3 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
               <Award size={14} />
-              Credits Information
+              {t("ui.certificates.detail.section.credits")}
             </h3>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>Points Awarded</div>
-                <div className="font-bold text-lg" style={{ color: "var(--primary)" }}>
+                <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                  {t("ui.certificates.detail.field.points_awarded")}
+                </div>
+                <div className="font-bold text-lg" style={{ color: "var(--win95-highlight)" }}>
                   {props.pointsAwarded} {props.pointUnit}
                 </div>
               </div>
               <div>
-                <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>Category</div>
-                <div className="font-semibold">{props.pointCategory}</div>
+                <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                  {t("ui.certificates.detail.field.category")}
+                </div>
+                <div className="font-semibold" style={{ color: "var(--win95-text)" }}>
+                  {props.pointCategory}
+                </div>
               </div>
               {props.accreditingBody && (
                 <div className="col-span-2">
-                  <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>Accrediting Body</div>
-                  <div className="font-semibold">{props.accreditingBody}</div>
+                  <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                    {t("ui.certificates.detail.field.accrediting_body")}
+                  </div>
+                  <div className="font-semibold" style={{ color: "var(--win95-text)" }}>
+                    {props.accreditingBody}
+                  </div>
                 </div>
               )}
             </div>
@@ -151,17 +192,23 @@ export function CertificateDetailModal({
           <div>
             <h3 className="text-sm font-bold mb-3 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
               <Calendar size={14} />
-              Event Information
+              {t("ui.certificates.detail.section.event")}
             </h3>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>Event Name</div>
-                <div className="font-semibold">{props.eventName}</div>
+                <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                  {t("ui.certificates.detail.field.event_name")}
+                </div>
+                <div className="font-semibold" style={{ color: "var(--win95-text)" }}>
+                  {props.eventName}
+                </div>
               </div>
               <div>
-                <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>Event Date</div>
-                <div className="font-semibold">
-                  {props.eventDate ? formatDate(props.eventDate) : "N/A"}
+                <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                  {t("ui.certificates.detail.field.event_date")}
+                </div>
+                <div className="font-semibold" style={{ color: "var(--win95-text)" }}>
+                  {props.eventDate ? formatDate(props.eventDate) : t("ui.certificates.list.na")}
                 </div>
               </div>
             </div>
@@ -171,19 +218,23 @@ export function CertificateDetailModal({
           <div>
             <h3 className="text-sm font-bold mb-3 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
               <FileText size={14} />
-              Certificate Dates
+              {t("ui.certificates.detail.section.dates")}
             </h3>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>Issued</div>
-                <div className="font-semibold">
-                  {props.issueDate ? formatDate(props.issueDate) : "N/A"}
+                <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                  {t("ui.certificates.detail.field.issued")}
+                </div>
+                <div className="font-semibold" style={{ color: "var(--win95-text)" }}>
+                  {props.issueDate ? formatDate(props.issueDate) : t("ui.certificates.list.na")}
                 </div>
               </div>
               {props.expirationDate && (
                 <div>
-                  <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>Expires</div>
-                  <div className="font-semibold">
+                  <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                    {t("ui.certificates.detail.field.expires")}
+                  </div>
+                  <div className="font-semibold" style={{ color: "var(--win95-text)" }}>
                     {formatDate(props.expirationDate)}
                   </div>
                 </div>
@@ -193,19 +244,25 @@ export function CertificateDetailModal({
 
           {/* Status */}
           {certificate.status === "revoked" && props.revokedReason && (
-            <div className="p-4 border-2 rounded" style={{ borderColor: "var(--error)", background: "#FEE2E2" }}>
+            <div
+              className="p-4 border-2 rounded"
+              style={{
+                borderColor: "var(--error)",
+                background: "var(--win95-bg-light)"
+              }}
+            >
               <div className="flex items-start gap-2">
                 <AlertCircle size={16} style={{ color: "var(--error)" }} className="mt-0.5" />
                 <div>
                   <div className="font-bold text-sm" style={{ color: "var(--error)" }}>
-                    Certificate Revoked
+                    {t("ui.certificates.detail.revoked_title")}
                   </div>
                   <div className="text-xs mt-1" style={{ color: "var(--error)" }}>
-                    Reason: {props.revokedReason}
+                    {t("ui.certificates.detail.revoked_reason")} {props.revokedReason}
                   </div>
                   {props.revokedAt && (
                     <div className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                      Revoked on: {formatDate(props.revokedAt)}
+                      {t("ui.certificates.detail.revoked_on")} {formatDate(props.revokedAt)}
                     </div>
                   )}
                 </div>
@@ -217,32 +274,30 @@ export function CertificateDetailModal({
         {/* Footer */}
         <div
           className="px-4 py-3 border-t-2 flex items-center justify-end gap-2"
-          style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-secondary)" }}
+          style={{
+            borderColor: "var(--win95-border)",
+            background: "var(--win95-bg)"
+          }}
         >
           {props.certificatePdfUrl && (
             <button
               onClick={() => window.open(props.certificatePdfUrl, "_blank")}
               className="px-4 py-2 text-xs font-bold flex items-center gap-2"
               style={{
-                background: "var(--primary)",
-                color: "white",
-                border: "2px solid var(--win95-button-border)",
+                background: "var(--win95-highlight)",
+                color: "var(--win95-bg-light)",
+                border: "2px solid var(--win95-border)",
               }}
             >
               <Download size={14} />
-              Download PDF
+              {t("ui.certificates.detail.button.download_pdf")}
             </button>
           )}
           <button
             onClick={onClose}
-            className="px-4 py-2 text-xs font-bold"
-            style={{
-              background: "var(--win95-bg)",
-              color: "var(--win95-text)",
-              border: "2px solid var(--win95-button-border)",
-            }}
+            className="px-4 py-2 text-xs font-bold retro-button"
           >
-            Close
+            {t("ui.certificates.detail.button.close")}
           </button>
         </div>
       </div>
