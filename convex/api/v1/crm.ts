@@ -113,6 +113,7 @@ export const createContactFromEvent = httpAction(async (ctx, request) => {
       JSON.stringify({
         success: true,
         contactId: result.contactId,
+        organizationId: result.organizationId,
         eventId: result.eventId,
         message: result.isNewContact
           ? "Contact created successfully"

@@ -170,6 +170,7 @@ export const createContactFromEventInternal = internalMutation({
     return {
       contactId,
       eventId: eventObjectId,
+      organizationId: args.organizationId,
       isNewContact,
     };
   },
@@ -316,6 +317,7 @@ export const listContactsInternal = internalQuery({
     // 5. Format response
     const contacts = paginatedContacts.map((contact) => ({
       id: contact._id,
+      organizationId: contact.organizationId,
       name: contact.name,
       firstName: contact.customProperties?.firstName,
       lastName: contact.customProperties?.lastName,
@@ -371,6 +373,7 @@ export const getContactInternal = internalQuery({
     // 4. Format response
     return {
       id: contact._id,
+      organizationId: contact.organizationId,
       name: contact.name,
       firstName: contact.customProperties?.firstName,
       lastName: contact.customProperties?.lastName,

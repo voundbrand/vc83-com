@@ -126,6 +126,7 @@ import type * as translations_seedAddressTranslations from "../translations/seed
 import type * as translations_seedCRM_01_OrganizationForm from "../translations/seedCRM_01_OrganizationForm.js";
 import type * as translations_seedCRM_02_MainWindow from "../translations/seedCRM_02_MainWindow.js";
 import type * as translations_seedCRM_03_ContactForm from "../translations/seedCRM_03_ContactForm.js";
+import type * as translations_seedCertificatesTranslations from "../translations/seedCertificatesTranslations.js";
 import type * as translations_seedCheckoutTemplate_00_Main from "../translations/seedCheckoutTemplate_00_Main.js";
 import type * as translations_seedCheckoutTemplate_00_Progress from "../translations/seedCheckoutTemplate_00_Progress.js";
 import type * as translations_seedCheckoutTemplate_01_ProductSelection from "../translations/seedCheckoutTemplate_01_ProductSelection.js";
@@ -138,6 +139,7 @@ import type * as translations_seedCheckoutTemplate_05b_PaymentForm from "../tran
 import type * as translations_seedCheckoutTemplate_06_Confirmation from "../translations/seedCheckoutTemplate_06_Confirmation.js";
 import type * as translations_seedCheckoutTemplate_06a_ConfirmationSuccess from "../translations/seedCheckoutTemplate_06a_ConfirmationSuccess.js";
 import type * as translations_seedCheckoutTemplate_06b_ConfirmationInvoice from "../translations/seedCheckoutTemplate_06b_ConfirmationInvoice.js";
+import type * as translations_seedCheckoutWindow from "../translations/seedCheckoutWindow.js";
 import type * as translations_seedCheckout_01_CustomerInfo from "../translations/seedCheckout_01_CustomerInfo.js";
 import type * as translations_seedCheckout_01a_BasicInfo from "../translations/seedCheckout_01a_BasicInfo.js";
 import type * as translations_seedCheckout_01b_Errors from "../translations/seedCheckout_01b_Errors.js";
@@ -154,6 +156,8 @@ import type * as translations_seedEventLanding_02_HeroAndVenue from "../translat
 import type * as translations_seedEventLanding_03_Checkout from "../translations/seedEventLanding_03_Checkout.js";
 import type * as translations_seedEventLanding_04_AgendaAndDates from "../translations/seedEventLanding_04_AgendaAndDates.js";
 import type * as translations_seedEventLanding_05_Format from "../translations/seedEventLanding_05_Format.js";
+import type * as translations_seedEventsTranslations from "../translations/seedEventsTranslations.js";
+import type * as translations_seedFormsWindowTranslations from "../translations/seedFormsWindowTranslations.js";
 import type * as translations_seedInvoicingTranslations from "../translations/seedInvoicingTranslations.js";
 import type * as translations_seedLogin from "../translations/seedLogin.js";
 import type * as translations_seedLogin_01_BasicAuth from "../translations/seedLogin_01_BasicAuth.js";
@@ -315,6 +319,7 @@ declare const fullApi: ApiFromModules<{
   "translations/seedCRM_01_OrganizationForm": typeof translations_seedCRM_01_OrganizationForm;
   "translations/seedCRM_02_MainWindow": typeof translations_seedCRM_02_MainWindow;
   "translations/seedCRM_03_ContactForm": typeof translations_seedCRM_03_ContactForm;
+  "translations/seedCertificatesTranslations": typeof translations_seedCertificatesTranslations;
   "translations/seedCheckoutTemplate_00_Main": typeof translations_seedCheckoutTemplate_00_Main;
   "translations/seedCheckoutTemplate_00_Progress": typeof translations_seedCheckoutTemplate_00_Progress;
   "translations/seedCheckoutTemplate_01_ProductSelection": typeof translations_seedCheckoutTemplate_01_ProductSelection;
@@ -327,6 +332,7 @@ declare const fullApi: ApiFromModules<{
   "translations/seedCheckoutTemplate_06_Confirmation": typeof translations_seedCheckoutTemplate_06_Confirmation;
   "translations/seedCheckoutTemplate_06a_ConfirmationSuccess": typeof translations_seedCheckoutTemplate_06a_ConfirmationSuccess;
   "translations/seedCheckoutTemplate_06b_ConfirmationInvoice": typeof translations_seedCheckoutTemplate_06b_ConfirmationInvoice;
+  "translations/seedCheckoutWindow": typeof translations_seedCheckoutWindow;
   "translations/seedCheckout_01_CustomerInfo": typeof translations_seedCheckout_01_CustomerInfo;
   "translations/seedCheckout_01a_BasicInfo": typeof translations_seedCheckout_01a_BasicInfo;
   "translations/seedCheckout_01b_Errors": typeof translations_seedCheckout_01b_Errors;
@@ -343,6 +349,8 @@ declare const fullApi: ApiFromModules<{
   "translations/seedEventLanding_03_Checkout": typeof translations_seedEventLanding_03_Checkout;
   "translations/seedEventLanding_04_AgendaAndDates": typeof translations_seedEventLanding_04_AgendaAndDates;
   "translations/seedEventLanding_05_Format": typeof translations_seedEventLanding_05_Format;
+  "translations/seedEventsTranslations": typeof translations_seedEventsTranslations;
+  "translations/seedFormsWindowTranslations": typeof translations_seedFormsWindowTranslations;
   "translations/seedInvoicingTranslations": typeof translations_seedInvoicingTranslations;
   "translations/seedLogin": typeof translations_seedLogin;
   "translations/seedLogin_01_BasicAuth": typeof translations_seedLogin_01_BasicAuth;
