@@ -37,12 +37,32 @@ export const createContactFromEventInternal = internalMutation({
     let eventObjectId: Id<"objects">;
 
     if (args.eventId) {
-      // Event ID provided - verify it exists
-      const existingEvent = await ctx.db.get(args.eventId as Id<"objects">);
-      if (!existingEvent || existingEvent.organizationId !== args.organizationId) {
-        throw new Error("Event not found or access denied");
+      // Event ID provided - try to verify it exists
+      try {
+        const existingEvent = await ctx.db.get(args.eventId as Id<"objects">);
+        if (!existingEvent || existingEvent.organizationId !== args.organizationId) {
+          throw new Error("Event not found or access denied");
+        }
+        eventObjectId = args.eventId as Id<"objects">;
+      } catch (error) {
+        // Invalid ID format or event not found - create new event instead
+        console.warn("Invalid eventId format or event not found, creating new event:", error);
+        eventObjectId = await ctx.db.insert("objects", {
+          organizationId: args.organizationId,
+          type: "event",
+          subtype: "external",
+          name: args.eventName,
+          description: "Event registration from external API",
+          status: "published",
+          customProperties: {
+            startDate: args.eventDate || Date.now(),
+            externalSource: true,
+          },
+          createdBy: args.performedBy,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
       }
-      eventObjectId = args.eventId as Id<"objects">;
     } else {
       // Create new event object
       eventObjectId = await ctx.db.insert("objects", {
