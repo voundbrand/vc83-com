@@ -72,10 +72,10 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
         }}
       >
         <div
-          className="transform -rotate-90 whitespace-nowrap font-['Press_Start_2P'] text-sm tracking-wider"
+          className="transform -rotate-90 whitespace-nowrap font-serif italic text-sm tracking-wider"
           style={{ color: 'var(--win95-text)' }}
         >
-          L4YERCAK3
+          🍰 l4yercak3
         </div>
       </div>
 
