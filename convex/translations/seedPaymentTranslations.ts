@@ -746,6 +746,28 @@ export const seedPaymentTranslations = internalMutation({
         }
       },
       {
+        key: "ui.payments.stripe.mode_live",
+        values: {
+          en: "Live",
+          de: "Live",
+          pl: "Na żywo",
+          es: "En vivo",
+          fr: "Direct",
+          ja: "ライブ",
+        }
+      },
+      {
+        key: "ui.payments.stripe.mode_test",
+        values: {
+          en: "Test",
+          de: "Test",
+          pl: "Test",
+          es: "Prueba",
+          fr: "Test",
+          ja: "テスト",
+        }
+      },
+      {
         key: "ui.payments.stripe.connecting",
         values: {
           en: "Connecting...",

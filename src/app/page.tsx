@@ -98,7 +98,7 @@ export default function HomePage() {
   }
 
   const openAllAppsWindow = () => {
-    openWindow("all-apps", "All Applications", <AllAppsWindow />, { x: 150, y: 100 }, { width: 820, height: 600 }, 'ui.app.all_applications')
+    openWindow("all-apps", "All Applications", <AllAppsWindow />, { x: 150, y: 100 }, { width: 870, height: 600 }, 'ui.app.all_applications')
   }
 
   const openCRMWindow = () => {
