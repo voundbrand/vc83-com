@@ -8,22 +8,21 @@ import { useAuth } from "@/hooks/use-auth";
 /**
  * TRANSLATION CONTEXT
  *
- * Provides translation functionality throughout the app using the ontology framework.
- * Translations are stored in the `objects` table with type="translation".
+ * Manages the current locale and provides locale utilities (date/number formatting).
+ * Components should use useNamespaceTranslations() hook to load their specific translations.
  *
  * Usage:
- *   const { t, locale, setLocale } = useTranslation();
- *   <div>{t('desktop.welcome-icon')}</div>
+ *   const { locale, setLocale } = useTranslation();
+ *   const { t } = useNamespaceTranslations("ui.my_component");
+ *   <div>{t('ui.my_component.title')}</div>
  */
 
 interface TranslationContextValue {
   locale: string;
   setLocale: (locale: string) => void;
   availableLocales: string[];
-  t: (key: string, params?: Record<string, string | number> | string) => string;
   formatDate: (date: Date) => string;
   formatNumber: (num: number) => string;
-  isLoading: boolean;
 }
 
 const TranslationContext = createContext<TranslationContextValue | undefined>(undefined);
@@ -93,34 +92,9 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
     }
   }, [sessionId, userPrefs, isHydrated]);
 
-  // Load all system translations for current locale using ontologyTranslations
-  // Returns a key-value map: { "desktop.welcome-icon": "Welcome", ... }
-  // Load multiple namespaces at once for better performance
-  const translationsMap = useQuery(
-    api.ontologyTranslations.getMultipleNamespaces,
-    {
-      locale,
-      namespaces: [
-        "ui.app",
-        "ui.start_menu",
-        "ui.payments",
-        "ui.products",
-        "ui.tickets",
-        "ui.certificates",
-        "ui.events",
-        "ui.checkout",
-        "ui.forms",
-        "ui.crm",
-        "ui.invoicing",
-        "ui.workflows",
-        "ui.media_library",
-        "ui.web_publishing",
-        "desktop",
-        "windows",
-        "common",
-      ]
-    }
-  ) as Record<string, string> | undefined;
+  // NOTE: We no longer load translations upfront to avoid Convex's 1024 field limit.
+  // Each component should use useNamespaceTranslations() hook to load its own namespace.
+  // This context only manages the current locale and provides locale utilities.
 
   // Set locale and persist to backend or localStorage
   const setLocale = async (newLocale: string) => {
@@ -143,41 +117,7 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Translation function: t('desktop.welcome-icon') => 'Welcome'
-  // Supports interpolation: t('welcome', { name: 'John' }) => 'Welcome, John!'
-  const t = (key: string, params?: Record<string, string | number> | string): string => {
-    // Handle legacy string fallback parameter
-    const fallback = typeof params === 'string' ? params : undefined;
-    const interpolationParams = typeof params === 'object' ? params : undefined;
-
-    // Check if translations are loading
-    if (!translationsMap) {
-      return fallback || key;
-    }
-
-    // Look up translation in the key-value map
-    // Map structure: { "desktop.welcome-icon": "Welcome", ... }
-    let value = (translationsMap as Record<string, string>)[key];
-
-    if (!value) {
-      // Debug logging in development only
-      if (process.env.NODE_ENV === 'development') {
-        console.warn(`[Translation] Missing key: ${key} for locale: ${locale}`);
-      }
-
-      // Fallback: return the fallback or key
-      return fallback || key;
-    }
-
-    // Interpolate parameters if provided
-    if (interpolationParams) {
-      Object.entries(interpolationParams).forEach(([paramKey, paramValue]) => {
-        value = value.replace(new RegExp(`\\{${paramKey}\\}`, 'g'), String(paramValue));
-      });
-    }
-
-    return value;
-  };
+  // Translation function removed - components should use useNamespaceTranslations() instead
 
   // Format date according to locale
   const formatDate = (date: Date): string => {
@@ -197,10 +137,8 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
     locale,
     setLocale,
     availableLocales: AVAILABLE_LOCALES,
-    t,
     formatDate,
     formatNumber,
-    isLoading: translationsMap === undefined,
   };
 
   return (

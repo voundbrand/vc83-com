@@ -23,7 +23,7 @@ import { loadStripe, Stripe } from "@stripe/stripe-js";
 import type { StripeElements, StripeCardElement } from "@stripe/stripe-js";
 import { calculateAddonsFromResponses, type ProductAddon } from "@/types/product-addons";
 import { type PaymentRulesResult } from "../../../../convex/paymentRulesEngine";
-import { useTranslation } from "@/contexts/translation-context";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 interface PaymentFormStepProps {
   paymentProvider: string;
@@ -62,7 +62,7 @@ interface PaymentFormStepProps {
 }
 
 export function PaymentFormStep(props: PaymentFormStepProps) {
-  const { t } = useTranslation();
+  const { t } = useNamespaceTranslations("checkout");
 
   // Route to provider-specific component based on paymentProvider
   switch (props.paymentProvider) {
@@ -105,7 +105,7 @@ function StripePaymentForm({
   onComplete,
   onBack,
 }: PaymentFormStepProps) {
-  const { t } = useTranslation();
+  const { t } = useNamespaceTranslations("checkout");
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stripe, setStripe] = useState<Stripe | null>(null);
@@ -683,7 +683,7 @@ function InvoicePaymentForm({
   onComplete,
   onBack,
 }: PaymentFormStepProps) {
-  const { t } = useTranslation();
+  const { t } = useNamespaceTranslations("checkout");
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

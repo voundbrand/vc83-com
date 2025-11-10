@@ -29,7 +29,7 @@ import { Id } from "../../../../convex/_generated/dataModel";
 import { CheckoutProduct } from "@/templates/checkout/types";
 import { ArrowLeft, FileText, Loader2, Copy } from "lucide-react";
 import { calculateAddonsFromResponses, calculateTotalAddonCost, type ProductAddon } from "@/types/product-addons";
-import { useTranslation } from "@/contexts/translation-context";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import styles from "../styles/multi-step.module.css";
 
 interface FormResponse {
@@ -60,7 +60,7 @@ export function RegistrationFormStep({
   onComplete,
   onBack,
 }: RegistrationFormStepProps) {
-  const { t } = useTranslation();
+  const { t } = useNamespaceTranslations("checkout");
 
   // Calculate total tickets needed across all products
   const totalTickets = selectedProducts.reduce((sum, item) => sum + item.quantity, 0);

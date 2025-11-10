@@ -18,7 +18,7 @@ import { CheckoutStepData } from "../multi-step-checkout";
 import { CheckoutProduct } from "@/templates/checkout/types";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { getAddonsFromResults } from "@/lib/behaviors/adapters/checkout-integration";
-import { useTranslation } from "@/contexts/translation-context";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import styles from "../styles/multi-step.module.css";
 import { usePostHog } from "posthog-js/react";
 
@@ -33,7 +33,7 @@ export function ConfirmationStep({
   linkedProducts,
   checkoutSessionId,
 }: ConfirmationStepProps) {
-  const { t } = useTranslation();
+  const { t } = useNamespaceTranslations("checkout");
   const posthog = usePostHog();
   const [isDownloadingReceipt, setIsDownloadingReceipt] = useState(false);
   const [isDownloadingTicket, setIsDownloadingTicket] = useState(false);

@@ -21,7 +21,7 @@ import { api } from "../../../../convex/_generated/api";
 import { User, Mail, Phone, MessageSquare, ArrowLeft, Building2, FileText, MapPin, CheckCircle } from "lucide-react";
 import styles from "../styles/multi-step.module.css";
 import { Id } from "../../../../convex/_generated/dataModel";
-import { useTranslation } from "@/contexts/translation-context";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { usePostHog } from "posthog-js/react";
 
 interface CustomerInfo {
@@ -101,7 +101,7 @@ export function CustomerInfoStep({
   onBack,
 }: CustomerInfoStepProps) {
   // Translation hook
-  const { t } = useTranslation();
+  const { t } = useNamespaceTranslations("checkout");
   const posthog = usePostHog();
 
   // 🚨 STEP 1: Extract CRM organization ID from form responses and product mapping

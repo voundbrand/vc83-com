@@ -245,7 +245,7 @@ export const updateContact = mutation({
 
 /**
  * DELETE CONTACT
- * Delete a contact (soft delete - sets status to archived)
+ * Permanently delete a contact and all associated links
  */
 export const deleteContact = mutation({
   args: {
@@ -265,21 +265,38 @@ export const deleteContact = mutation({
       throw new Error("Contact not found");
     }
 
-    // Soft delete - set status to archived
-    await ctx.db.patch(args.contactId, {
-      status: "archived",
-      updatedAt: Date.now(),
-    });
-
-    // Log deletion action
+    // Log deletion action BEFORE deleting (so we have the data)
     await ctx.db.insert("objectActions", {
       organizationId: contact.organizationId,
       objectId: args.contactId,
       actionType: "deleted",
-      actionData: {},
+      actionData: {
+        contactName: contact.name,
+        email: contact.customProperties?.email,
+        deletedBy: session.userId,
+      },
       performedBy: session.userId,
       performedAt: Date.now(),
     });
+
+    // Delete all links involving this contact
+    const linksFrom = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_from_object", (q) => q.eq("fromObjectId", args.contactId))
+      .collect();
+
+    const linksTo = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_to_object", (q) => q.eq("toObjectId", args.contactId))
+      .collect();
+
+    // Delete all links
+    for (const link of [...linksFrom, ...linksTo]) {
+      await ctx.db.delete(link._id);
+    }
+
+    // Permanently delete the contact
+    await ctx.db.delete(args.contactId);
   },
 });
 
@@ -513,6 +530,62 @@ export const updateCrmOrganization = mutation({
       performedBy: session.userId,
       performedAt: Date.now(),
     });
+  },
+});
+
+/**
+ * DELETE CRM ORGANIZATION
+ * Permanently delete a CRM organization and all associated links
+ */
+export const deleteCrmOrganization = mutation({
+  args: {
+    sessionId: v.string(),
+    crmOrganizationId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db
+      .query("sessions")
+      .filter((q) => q.eq(q.field("_id"), args.sessionId))
+      .first();
+
+    if (!session) throw new Error("Invalid session");
+
+    const org = await ctx.db.get(args.crmOrganizationId);
+    if (!org || org.type !== "crm_organization") {
+      throw new Error("CRM organization not found");
+    }
+
+    // Log deletion action BEFORE deleting (so we have the data)
+    await ctx.db.insert("objectActions", {
+      organizationId: org.organizationId,
+      objectId: args.crmOrganizationId,
+      actionType: "deleted",
+      actionData: {
+        organizationName: org.name,
+        deletedBy: session.userId,
+      },
+      performedBy: session.userId,
+      performedAt: Date.now(),
+    });
+
+    // Delete all links involving this organization
+    const linksFrom = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_from_object", (q) => q.eq("fromObjectId", args.crmOrganizationId))
+      .collect();
+
+    const linksTo = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_to_object", (q) => q.eq("toObjectId", args.crmOrganizationId))
+      .collect();
+
+    // Delete all links
+    for (const link of [...linksFrom, ...linksTo]) {
+      await ctx.db.delete(link._id);
+    }
+
+    // Permanently delete the organization
+    await ctx.db.delete(args.crmOrganizationId);
   },
 });
 

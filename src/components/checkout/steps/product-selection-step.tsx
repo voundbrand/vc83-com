@@ -15,7 +15,7 @@ import { calculateCheckoutTax, getTaxRateByCode, getDefaultTaxRate as getDefault
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import styles from "../styles/multi-step.module.css";
-import { useTranslation } from "@/contexts/translation-context";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 interface ProductSelectionStepProps {
   organizationId: Id<"organizations">;
@@ -56,7 +56,7 @@ export function ProductSelectionStep({
   initialSelection,
   onComplete,
 }: ProductSelectionStepProps) {
-  const { t } = useTranslation();
+  const { t } = useNamespaceTranslations("checkout");
 
   // Fetch organization tax settings
   const taxSettings = useQuery(api.organizationTaxSettings.getPublicTaxSettings, {
