@@ -72,10 +72,10 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
         }}
       >
         <div
-          className="transform -rotate-90 whitespace-nowrap font-serif italic text-sm tracking-wider"
+          className="transform -rotate-90 whitespace-nowrap font-serif italic text-lg tracking-wider"
           style={{ color: 'var(--win95-text)' }}
         >
-          🍰 l4yercak3
+          l4yercak3
         </div>
       </div>
 
