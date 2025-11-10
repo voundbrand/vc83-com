@@ -49,7 +49,7 @@ export const sendInvitationEmail = internalAction({
     try {
       const { data, error } = await resend.emails.send({
         from: fromEmail, // Use the value directly, don't wrap it again
-        replyTo: "team@mail.l4yercak3.com", // Allow users to reply (better deliverability)
+        replyTo: process.env.REPLY_TO_EMAIL || "team@mail.l4yercak3.com", // Allow users to reply (better deliverability)
         to: args.to,
         subject,
         html,
@@ -101,7 +101,7 @@ export const sendPasswordResetEmail = internalAction({
     try {
       const { data, error } = await resend.emails.send({
         from: fromEmail, // Use the value directly, don't wrap it again
-        replyTo: "team@mail.l4yercak3.com", // Allow users to reply (better deliverability)
+        replyTo: process.env.REPLY_TO_EMAIL || "team@mail.l4yercak3.com", // Allow users to reply (better deliverability)
         to: args.to,
         subject: "Reset your L4YERCAK3 password",
         html,
