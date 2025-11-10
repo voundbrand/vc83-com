@@ -83,11 +83,12 @@ export function CertificateDetailModal({
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded"
+            className="p-1 rounded hover:opacity-80 transition-opacity"
             style={{
               background: "transparent",
               border: "none",
-              color: "var(--win95-bg-light)"
+              color: "var(--win95-bg-light)",
+              cursor: "pointer"
             }}
           >
             <X size={16} />
@@ -282,11 +283,12 @@ export function CertificateDetailModal({
           {props.certificatePdfUrl && (
             <button
               onClick={() => window.open(props.certificatePdfUrl, "_blank")}
-              className="px-4 py-2 text-xs font-bold flex items-center gap-2"
+              className="px-4 py-2 text-xs font-bold flex items-center gap-2 border-2"
               style={{
                 background: "var(--win95-highlight)",
                 color: "var(--win95-bg-light)",
-                border: "2px solid var(--win95-border)",
+                borderColor: "var(--win95-border)",
+                cursor: "pointer"
               }}
             >
               <Download size={14} />

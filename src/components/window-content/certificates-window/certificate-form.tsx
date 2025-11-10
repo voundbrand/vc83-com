@@ -289,11 +289,11 @@ export function CertificateForm({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2 text-xs font-bold flex items-center gap-2"
+              className="px-4 py-2 text-xs font-bold flex items-center gap-2 border-2"
               style={{
                 background: isSubmitting ? "var(--neutral-gray)" : "var(--win95-highlight)",
                 color: "var(--win95-bg-light)",
-                border: "2px solid var(--win95-border)",
+                borderColor: "var(--win95-border)",
                 cursor: isSubmitting ? "not-allowed" : "pointer",
               }}
             >

@@ -76,18 +76,18 @@ export function CertificatesList({ onEdit, sessionId, organizationId }: Certific
   });
 
   const getPointTypeBadge = (subtype: string) => {
-    const badges: Record<string, { colorVar: string; label: string }> = {
-      cme: { colorVar: "--win95-highlight", label: t("ui.certificates.type.cme") },
-      cle: { colorVar: "--win95-highlight", label: t("ui.certificates.type.cle") },
-      cpe: { colorVar: "--success", label: t("ui.certificates.type.cpe") },
-      ce: { colorVar: "--win95-highlight", label: t("ui.certificates.type.ce") },
-      pdu: { colorVar: "--error", label: t("ui.certificates.type.pdu") },
+    const badges: Record<string, { bgVar: string; textVar: string; label: string }> = {
+      cme: { bgVar: "--win95-highlight", textVar: "--win95-bg-light", label: t("ui.certificates.type.cme") },
+      cle: { bgVar: "--win95-highlight", textVar: "--win95-bg-light", label: t("ui.certificates.type.cle") },
+      cpe: { bgVar: "--success", textVar: "--win95-bg-light", label: t("ui.certificates.type.cpe") },
+      ce: { bgVar: "--win95-highlight", textVar: "--win95-bg-light", label: t("ui.certificates.type.ce") },
+      pdu: { bgVar: "--error", textVar: "--win95-bg-light", label: t("ui.certificates.type.pdu") },
     };
-    const badge = badges[subtype] || { colorVar: "--neutral-gray", label: subtype.toUpperCase() };
+    const badge = badges[subtype] || { bgVar: "--neutral-gray", textVar: "--win95-bg-light", label: subtype.toUpperCase() };
     return (
       <span
         className="px-2 py-1 text-xs font-bold rounded"
-        style={{ background: `var(${badge.colorVar})`, color: "var(--win95-bg-light)" }}
+        style={{ background: `var(${badge.bgVar})`, color: `var(${badge.textVar})` }}
       >
         {badge.label}
       </span>
@@ -95,16 +95,16 @@ export function CertificatesList({ onEdit, sessionId, organizationId }: Certific
   };
 
   const getStatusBadge = (status: string) => {
-    const badges: Record<string, { colorVar: string; bgVar: string; label: string }> = {
-      issued: { colorVar: "--success", bgVar: "--win95-bg-light", label: t("ui.certificates.status.issued") },
-      revoked: { colorVar: "--error", bgVar: "--win95-bg-light", label: t("ui.certificates.status.revoked") },
-      expired: { colorVar: "--win95-highlight", bgVar: "--win95-bg-light", label: t("ui.certificates.status.expired") },
+    const badges: Record<string, { colorVar: string; bgVar: string; borderVar: string; label: string }> = {
+      issued: { colorVar: "--success", bgVar: "--win95-bg-light", borderVar: "--success", label: t("ui.certificates.status.issued") },
+      revoked: { colorVar: "--error", bgVar: "--win95-bg-light", borderVar: "--error", label: t("ui.certificates.status.revoked") },
+      expired: { colorVar: "--win95-highlight", bgVar: "--win95-bg-light", borderVar: "--win95-highlight", label: t("ui.certificates.status.expired") },
     };
-    const badge = badges[status] || { colorVar: "--neutral-gray", bgVar: "--win95-bg", label: status.toUpperCase() };
+    const badge = badges[status] || { colorVar: "--neutral-gray", bgVar: "--win95-bg", borderVar: "--neutral-gray", label: status.toUpperCase() };
     return (
       <span
-        className="px-2 py-1 text-xs font-bold rounded"
-        style={{ color: `var(${badge.colorVar})`, background: `var(${badge.bgVar})`, border: `1px solid var(${badge.colorVar})` }}
+        className="px-2 py-1 text-xs font-bold rounded border"
+        style={{ color: `var(${badge.colorVar})`, background: `var(${badge.bgVar})`, borderColor: `var(${badge.borderVar})` }}
       >
         {badge.label}
       </span>

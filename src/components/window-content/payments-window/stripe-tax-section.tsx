@@ -162,9 +162,9 @@ export function StripeTaxSection({ organizationId, organization }: StripeTaxSect
       >
         <div className="flex items-start gap-3">
           {stripeTaxEnabled ? (
-            <CheckCircle2 className="text-green-500 flex-shrink-0" size={20} />
+            <CheckCircle2 style={{ color: "var(--success)" }} className="flex-shrink-0" size={20} />
           ) : (
-            <AlertTriangle className="text-yellow-500 flex-shrink-0" size={20} />
+            <AlertTriangle style={{ color: "var(--warning)" }} className="flex-shrink-0" size={20} />
           )}
           <div className="flex-1">
             <h3 className="font-bold text-sm mb-1" style={{ color: "var(--win95-text)" }}>

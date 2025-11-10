@@ -5,6 +5,7 @@ import { useMutation, useAction, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { useNotification } from "@/hooks/use-notification";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { Id, Doc } from "../../../../convex/_generated/dataModel";
 import {
   ExternalLink,
@@ -32,6 +33,7 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
   const { sessionId } = useAuth();
   const posthog = usePostHog();
   const notification = useNotification();
+  const { t } = useNamespaceTranslations("ui.payments");
   const [isOnboarding, setIsOnboarding] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -260,29 +262,29 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
   const getStatusIcon = () => {
     switch (accountStatus) {
       case "active":
-        return <CheckCircle2 className="text-green-500" size={20} />;
+        return <CheckCircle2 style={{ color: "var(--success)" }} size={20} />;
       case "pending":
-        return <AlertTriangle className="text-yellow-500" size={20} />;
+        return <AlertTriangle style={{ color: "var(--warning)" }} size={20} />;
       case "restricted":
       case "disabled":
-        return <XCircle className="text-red-500" size={20} />;
+        return <XCircle style={{ color: "var(--error)" }} size={20} />;
       default:
-        return <CreditCard className="text-gray-400" size={20} />;
+        return <CreditCard style={{ color: "var(--neutral-gray)" }} size={20} />;
     }
   };
 
   const getStatusText = () => {
     switch (accountStatus) {
       case "active":
-        return "Your Stripe account is active and ready to accept payments";
+        return t("ui.payments.stripe_connect.status_text.active");
       case "pending":
-        return "Your Stripe account is pending verification";
+        return t("ui.payments.stripe_connect.status_text.pending");
       case "restricted":
-        return "Your Stripe account has restrictions. Please check your Stripe dashboard";
+        return t("ui.payments.stripe_connect.status_text.restricted");
       case "disabled":
-        return "Your Stripe account is disabled. Please contact Stripe support";
+        return t("ui.payments.stripe_connect.status_text.disabled");
       default:
-        return "No Stripe account connected";
+        return t("ui.payments.stripe_connect.status_text.not_connected");
     }
   };
 
@@ -299,10 +301,10 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
             <CreditCard size={32} style={{ color: "var(--primary)" }} />
           </div>
           <h3 className="text-lg font-bold mb-2" style={{ color: "var(--win95-text)" }}>
-            Connect Your Stripe Account
+            {t("ui.payments.stripe.connect_title")}
           </h3>
           <p className="text-sm max-w-md mx-auto" style={{ color: "var(--neutral-gray)" }}>
-            Accept payments from your customers using Stripe Connect. Start accepting credit cards, ACH, and more.
+            {t("ui.payments.stripe.connect_subtitle")}
           </p>
         </div>
 
@@ -314,10 +316,10 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
           >
             <DollarSign size={24} style={{ color: "var(--success)" }} className="mb-2" />
             <h4 className="font-bold text-sm mb-1" style={{ color: "var(--win95-text)" }}>
-              Accept Payments
+              {t("ui.payments.stripe.benefit_payments_title")}
             </h4>
             <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-              Process credit cards, debit cards, and ACH transfers
+              {t("ui.payments.stripe.benefit_payments_desc")}
             </p>
           </div>
 
@@ -327,10 +329,10 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
           >
             <Zap size={24} style={{ color: "var(--warning)" }} className="mb-2" />
             <h4 className="font-bold text-sm mb-1" style={{ color: "var(--win95-text)" }}>
-              Instant Payouts
+              {t("ui.payments.stripe.benefit_payouts_title")}
             </h4>
             <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-              Get paid instantly with Stripe&apos;s fast payout system
+              {t("ui.payments.stripe.benefit_payouts_desc")}
             </p>
           </div>
 
@@ -340,10 +342,10 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
           >
             <CheckCircle2 size={24} style={{ color: "var(--primary)" }} className="mb-2" />
             <h4 className="font-bold text-sm mb-1" style={{ color: "var(--win95-text)" }}>
-              Secure & Compliant
+              {t("ui.payments.stripe_connect.benefit_secure_title")}
             </h4>
             <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-              PCI-compliant payments with advanced fraud protection
+              {t("ui.payments.stripe_connect.benefit_secure_desc")}
             </p>
           </div>
         </div>
@@ -354,7 +356,7 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
           style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
         >
           <h4 className="font-bold text-sm mb-3" style={{ color: "var(--win95-text)" }}>
-            Choose Connection Mode
+            {t("ui.payments.stripe.mode_selection_title")}
           </h4>
           <div className="flex gap-3">
             <button
@@ -377,10 +379,10 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
                 />
                 <div className="flex-1">
                   <p className="font-bold text-xs mb-1" style={{ color: "var(--win95-text)" }}>
-                    Live Mode (Recommended)
+                    {t("ui.payments.stripe.mode_live_title")}
                   </p>
                   <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                    Process real payments and accept money from customers
+                    {t("ui.payments.stripe.mode_live_desc")}
                   </p>
                 </div>
               </div>
@@ -406,10 +408,10 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
                 />
                 <div className="flex-1">
                   <p className="font-bold text-xs mb-1" style={{ color: "var(--win95-text)" }}>
-                    Test Mode
+                    {t("ui.payments.stripe.mode_test_title")}
                   </p>
                   <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                    Test your checkout flow with Stripe test cards
+                    {t("ui.payments.stripe.mode_test_desc")}
                   </p>
                 </div>
               </div>
@@ -436,12 +438,14 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
             {isOnboarding ? (
               <>
                 <Loader2 size={16} className="animate-spin" />
-                Connecting...
+                {t("ui.payments.stripe.connecting")}
               </>
             ) : (
               <>
                 <ExternalLink size={16} />
-                Connect Stripe Account ({selectedMode === "test" ? "Test" : "Live"} Mode)
+                {t("ui.payments.stripe.connect_button", {
+                  mode: selectedMode === "test" ? t("ui.payments.stripe.mode_test") : t("ui.payments.stripe.mode_live")
+                })}
               </>
             )}
           </button>
@@ -456,16 +460,16 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
             color: "var(--win95-text)",
           }}
         >
-          <p className="font-semibold mb-1">Connect Your Stripe Account:</p>
+          <p className="font-semibold mb-1">{t("ui.payments.stripe_connect.note_title")}</p>
           <ul className="list-disc list-inside space-y-1 mt-2">
             <li>
-              <strong>Already have Stripe?</strong> You&apos;ll be able to sign in with your existing account
+              <strong>{t("ui.payments.stripe_connect.note_existing_title")}</strong> {t("ui.payments.stripe_connect.note_existing_desc")}
             </li>
             <li>
-              <strong>New to Stripe?</strong> You can create an account during the connection process
+              <strong>{t("ui.payments.stripe_connect.note_new_title")}</strong> {t("ui.payments.stripe_connect.note_new_desc")}
             </li>
             <li>
-              Have ready: business information, bank details, and tax ID
+              {t("ui.payments.stripe_connect.note_requirements")}
             </li>
           </ul>
         </div>
@@ -488,7 +492,7 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
           {getStatusIcon()}
           <div className="flex-1">
             <h3 className="font-bold text-sm mb-1" style={{ color: "var(--win95-text)" }}>
-              Account Status: {accountStatus || "Unknown"}
+              {t("ui.payments.stripe_connect.account_status_label")}: {accountStatus || t("ui.payments.stripe.status_unknown")}
             </h3>
             <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
               {getStatusText()}
@@ -511,12 +515,12 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
             {isRefreshing ? (
               <>
                 <Loader2 className="w-3 h-3 animate-spin" />
-                Syncing...
+                {t("ui.payments.stripe.syncing")}
               </>
             ) : (
               <>
                 <RotateCw className="w-3 h-3" />
-                Refresh
+                {t("ui.payments.stripe.refresh")}
               </>
             )}
           </button>
@@ -529,25 +533,25 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
         style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
       >
         <h3 className="font-bold text-sm mb-3" style={{ color: "var(--win95-text)" }}>
-          Account Details
+          {t("ui.payments.stripe_connect.account_details_title")}
         </h3>
         <div className="space-y-2">
           <div className="flex justify-between text-xs">
-            <span style={{ color: "var(--neutral-gray)" }}>Stripe Account ID:</span>
+            <span style={{ color: "var(--neutral-gray)" }}>{t("ui.payments.stripe.account_id")}:</span>
             <span className="font-mono" style={{ color: "var(--win95-text)" }}>
               {stripeConnectId}
             </span>
           </div>
           <div className="flex justify-between text-xs">
-            <span style={{ color: "var(--neutral-gray)" }}>Onboarding Status:</span>
+            <span style={{ color: "var(--neutral-gray)" }}>{t("ui.payments.stripe_connect.onboarding_status")}:</span>
             <span className="font-semibold" style={{ color: onboardingCompleted ? "var(--success)" : "var(--warning)" }}>
-              {onboardingCompleted ? "Complete" : "Incomplete"}
+              {onboardingCompleted ? t("ui.payments.stripe_connect.onboarding_complete") : t("ui.payments.stripe_connect.onboarding_incomplete")}
             </span>
           </div>
           <div className="flex justify-between text-xs">
-            <span style={{ color: "var(--neutral-gray)" }}>Mode:</span>
+            <span style={{ color: "var(--neutral-gray)" }}>{t("ui.payments.stripe.mode_label")}:</span>
             <span className="font-semibold" style={{ color: testMode ? "var(--warning)" : "var(--success)" }}>
-              {testMode ? "Test Mode" : "Live Mode"}
+              {testMode ? t("ui.payments.stripe.mode_test") : t("ui.payments.stripe.mode_live")}
             </span>
           </div>
         </div>
@@ -565,9 +569,9 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
         >
           <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
           <div className="flex-1">
-            <p className="font-semibold text-sm">Onboarding Incomplete</p>
+            <p className="font-semibold text-sm">{t("ui.payments.stripe_connect.onboarding_incomplete_title")}</p>
             <p className="text-xs mt-1">
-              You need to complete your Stripe Connect onboarding to start accepting payments.
+              {t("ui.payments.stripe_connect.onboarding_incomplete_desc")}
             </p>
             <button
               onClick={handleStartOnboarding}
@@ -586,12 +590,12 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
               {isOnboarding ? (
                 <>
                   <Loader2 size={14} className="animate-spin" />
-                  Loading...
+                  {t("ui.payments.stripe_connect.loading")}
                 </>
               ) : (
                 <>
                   <ExternalLink size={14} />
-                  Complete Onboarding
+                  {t("ui.payments.stripe_connect.complete_onboarding")}
                 </>
               )}
             </button>
@@ -605,7 +609,7 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
         style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
       >
         <h3 className="font-bold text-sm mb-3" style={{ color: "var(--win95-text)" }}>
-          Quick Actions
+          {t("ui.payments.stripe.quick_actions")}
         </h3>
         <div className="flex flex-col gap-2">
           <a
@@ -624,7 +628,7 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
             }}
           >
             <ExternalLink size={14} />
-            Open Stripe Dashboard
+            {t("ui.payments.stripe.open_dashboard")}
           </a>
 
           <button
@@ -646,12 +650,12 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
             {isDisconnecting ? (
               <>
                 <Loader2 size={14} className="animate-spin" />
-                Disconnecting...
+                {t("ui.payments.stripe.disconnecting")}
               </>
             ) : (
               <>
                 <XCircle size={14} />
-                Disconnect Stripe Account
+                {t("ui.payments.stripe.disconnect_button")}
               </>
             )}
           </button>
@@ -667,7 +671,7 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
           <div className="flex items-center gap-2 mb-3">
             <Receipt size={20} style={{ color: "var(--primary)" }} />
             <h3 className="font-bold text-sm" style={{ color: "var(--win95-text)" }}>
-              Tax Settings (Stripe Tax)
+              {t("ui.payments.stripe_connect.tax_settings_title")}
             </h3>
           </div>
 
@@ -675,21 +679,21 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
             <>
               <div className="space-y-2 mb-3">
                 <div className="flex justify-between text-xs">
-                  <span style={{ color: "var(--neutral-gray)" }}>Tax Behavior:</span>
+                  <span style={{ color: "var(--neutral-gray)" }}>{t("ui.payments.stripe.tax_behavior")}:</span>
                   <span className="font-mono" style={{ color: "var(--win95-text)" }}>
                     {taxSettings?.customProperties?.defaultTaxBehavior || "exclusive"}
                   </span>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span style={{ color: "var(--neutral-gray)" }}>Default Tax Code:</span>
+                  <span style={{ color: "var(--neutral-gray)" }}>{t("ui.payments.stripe_connect.tax_code")}:</span>
                   <span className="font-mono" style={{ color: "var(--win95-text)" }}>
                     {taxSettings?.customProperties?.defaultTaxCode || "txcd_10000000"}
                   </span>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span style={{ color: "var(--neutral-gray)" }}>Origin Country:</span>
+                  <span style={{ color: "var(--neutral-gray)" }}>{t("ui.payments.stripe.tax_origin_country")}:</span>
                   <span className="font-mono" style={{ color: "var(--win95-text)" }}>
-                    {taxSettings?.customProperties?.originAddress?.country || "Not set"}
+                    {taxSettings?.customProperties?.originAddress?.country || t("ui.payments.stripe.not_set")}
                   </span>
                 </div>
               </div>
@@ -703,25 +707,25 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
               >
                 <p className="font-semibold mb-2 flex items-center gap-2">
                   <Info size={14} />
-                  Stripe Tax Features
+                  {t("ui.payments.stripe.tax_features_title")}
                 </p>
                 <ul className="list-disc list-inside space-y-1" style={{ color: "var(--neutral-gray)" }}>
-                  <li>Automatic calculation for 135+ countries</li>
-                  <li>B2B reverse charge for EU VAT</li>
-                  <li>Real-time tax rate updates</li>
-                  <li>Tax reporting and filing support</li>
+                  <li>{t("ui.payments.stripe.tax_feature_1")}</li>
+                  <li>{t("ui.payments.stripe.tax_feature_2")}</li>
+                  <li>{t("ui.payments.stripe.tax_feature_3")}</li>
+                  <li>{t("ui.payments.stripe.tax_feature_4")}</li>
                 </ul>
               </div>
             </>
           ) : (
             <div className="space-y-3">
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                Tax settings are not configured for this organization. Configure tax settings to enable automatic tax calculation with Stripe Tax.
+                {t("ui.payments.stripe_connect.tax_not_configured")}
               </p>
               <button
                 onClick={() => {
                   // TODO: Open organization tax settings modal or navigate to settings
-                  alert("Tax settings configuration coming soon! For now, please configure via organization settings.");
+                  alert(t("ui.payments.stripe_connect.tax_config_coming_soon"));
                 }}
                 className="w-full px-4 py-2 text-xs font-semibold flex items-center justify-center gap-2"
                 style={{
@@ -735,7 +739,7 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
                 }}
               >
                 <Receipt size={14} />
-                Setup Tax Settings
+                {t("ui.payments.stripe_connect.setup_tax")}
               </button>
             </div>
           )}
@@ -751,7 +755,7 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
           <div className="flex items-center gap-2 mb-3">
             <FileText size={20} style={{ color: "var(--primary)" }} />
             <h3 className="font-bold text-sm" style={{ color: "var(--win95-text)" }}>
-              Invoice Settings (Stripe Invoicing)
+              {t("ui.payments.stripe_connect.invoice_settings_title")}
             </h3>
           </div>
 

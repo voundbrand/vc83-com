@@ -11,7 +11,7 @@
 import { internalMutation } from "../_generated/server";
 import { upsertTranslation } from "./_translationHelpers";
 
-export const seedInvoicingTranslations = internalMutation({
+export const seed = internalMutation({
   handler: async (ctx) => {
     console.log("🌱 Seeding Invoicing translations...");
 
@@ -1359,12 +1359,322 @@ export const seedInvoicingTranslations = internalMutation({
       },
     };
 
+    // ========================================
+    // INVOICING WINDOW
+    // Namespace: ui.invoicing_window.*
+    // ========================================
+
+    const invoicingWindow = {
+      // Window header
+      "ui.invoicing_window.header.title": {
+        en: "B2B/B2C Invoicing",
+        de: "B2B/B2C Rechnungsstellung",
+        es: "Facturación B2B/B2C",
+        fr: "Facturation B2B/B2C",
+        pl: "Fakturowanie B2B/B2C",
+        ja: "B2B/B2C請求",
+      },
+      "ui.invoicing_window.header.description": {
+        en: "Comprehensive invoice management with B2B consolidation",
+        de: "Umfassende Rechnungsverwaltung mit B2B-Konsolidierung",
+        es: "Gestión integral de facturas con consolidación B2B",
+        fr: "Gestion complète des factures avec consolidation B2B",
+        pl: "Kompleksowe zarządzanie fakturami z konsolidacją B2B",
+        ja: "B2B統合による包括的な請求書管理",
+      },
+
+      // Tabs
+      "ui.invoicing_window.tabs.invoices": {
+        en: "All Invoices",
+        de: "Alle Rechnungen",
+        es: "Todas las facturas",
+        fr: "Toutes les factures",
+        pl: "Wszystkie faktury",
+        ja: "すべての請求書",
+      },
+      "ui.invoicing_window.tabs.transactions": {
+        en: "Transactions",
+        de: "Transaktionen",
+        es: "Transacciones",
+        fr: "Transactions",
+        pl: "Transakcje",
+        ja: "取引",
+      },
+      "ui.invoicing_window.tabs.templates": {
+        en: "Templates",
+        de: "Vorlagen",
+        es: "Plantillas",
+        fr: "Modèles",
+        pl: "Szablony",
+        ja: "テンプレート",
+      },
+
+      // Sub-tabs
+      "ui.invoicing_window.subtabs.draft": {
+        en: "Draft",
+        de: "Entwurf",
+        es: "Borrador",
+        fr: "Brouillon",
+        pl: "Szkic",
+        ja: "下書き",
+      },
+      "ui.invoicing_window.subtabs.sealed": {
+        en: "Sealed",
+        de: "Festgeschrieben",
+        es: "Sellada",
+        fr: "Scellée",
+        pl: "Zamknięte",
+        ja: "封印済み",
+      },
+
+      // Empty states
+      "ui.invoicing_window.empty.draft.title": {
+        en: "No Draft Invoices",
+        de: "Keine Entwurfsrechnungen",
+        es: "Sin facturas en borrador",
+        fr: "Aucune facture en brouillon",
+        pl: "Brak szkiców faktur",
+        ja: "下書き請求書なし",
+      },
+      "ui.invoicing_window.empty.draft.description": {
+        en: "Draft invoices will appear here when created from transactions.",
+        de: "Entwurfsrechnungen werden hier angezeigt, wenn sie aus Transaktionen erstellt werden.",
+        es: "Las facturas en borrador aparecerán aquí cuando se creen a partir de transacciones.",
+        fr: "Les factures en brouillon apparaîtront ici lorsqu'elles seront créées à partir de transactions.",
+        pl: "Szkice faktur pojawią się tutaj po utworzeniu z transakcji.",
+        ja: "取引から作成された下書き請求書がここに表示されます。",
+      },
+      "ui.invoicing_window.empty.sealed.title": {
+        en: "No Sealed Invoices",
+        de: "Keine festgeschriebenen Rechnungen",
+        es: "Sin facturas selladas",
+        fr: "Aucune facture scellée",
+        pl: "Brak zamkniętych faktur",
+        ja: "封印済み請求書なし",
+      },
+      "ui.invoicing_window.empty.sealed.description": {
+        en: "Sealed invoices will appear here after you finalize draft invoices.",
+        de: "Festgeschriebene Rechnungen werden hier angezeigt, nachdem Sie Entwurfsrechnungen finalisiert haben.",
+        es: "Las facturas selladas aparecerán aquí después de finalizar las facturas en borrador.",
+        fr: "Les factures scellées apparaîtront ici après avoir finalisé les factures en brouillon.",
+        pl: "Zamknięte faktury pojawią się tutaj po sfinalizowaniu szkiców faktur.",
+        ja: "下書き請求書を確定すると、封印済み請求書がここに表示されます。",
+      },
+
+      // Status labels
+      "ui.invoicing_window.status.draft": {
+        en: "DRAFT",
+        de: "ENTWURF",
+        es: "BORRADOR",
+        fr: "BROUILLON",
+        pl: "SZKIC",
+        ja: "下書き",
+      },
+
+      // Invoice list labels
+      "ui.invoicing_window.list.item_count": {
+        en: "{count} item{plural}",
+        de: "{count} Element{plural}",
+        es: "{count} artículo{plural}",
+        fr: "{count} article{plural}",
+        pl: "{count} element{plural}",
+        ja: "{count}項目",
+      },
+
+      // Modal labels
+      "ui.invoicing_window.modal.invoice_number": {
+        en: "Invoice Number",
+        de: "Rechnungsnummer",
+        es: "Número de factura",
+        fr: "Numéro de facture",
+        pl: "Numer faktury",
+        ja: "請求書番号",
+      },
+      "ui.invoicing_window.modal.status": {
+        en: "Status",
+        de: "Status",
+        es: "Estado",
+        fr: "Statut",
+        pl: "Status",
+        ja: "ステータス",
+      },
+      "ui.invoicing_window.modal.invoice_date": {
+        en: "Invoice Date",
+        de: "Rechnungsdatum",
+        es: "Fecha de factura",
+        fr: "Date de facture",
+        pl: "Data faktury",
+        ja: "請求日",
+      },
+      "ui.invoicing_window.modal.due_date": {
+        en: "Due Date",
+        de: "Fälligkeitsdatum",
+        es: "Fecha de vencimiento",
+        fr: "Date d'échéance",
+        pl: "Termin płatności",
+        ja: "支払期限",
+      },
+      "ui.invoicing_window.modal.bill_to": {
+        en: "Bill To",
+        de: "Rechnung an",
+        es: "Facturar a",
+        fr: "Facturer à",
+        pl: "Faktura dla",
+        ja: "請求先",
+      },
+      "ui.invoicing_window.modal.items": {
+        en: "Items",
+        de: "Artikel",
+        es: "Artículos",
+        fr: "Articles",
+        pl: "Pozycje",
+        ja: "項目",
+      },
+      "ui.invoicing_window.modal.subtotal": {
+        en: "Subtotal:",
+        de: "Zwischensumme:",
+        es: "Subtotal:",
+        fr: "Sous-total:",
+        pl: "Suma częściowa:",
+        ja: "小計：",
+      },
+      "ui.invoicing_window.modal.tax": {
+        en: "Tax:",
+        de: "Steuer:",
+        es: "Impuesto:",
+        fr: "Taxe:",
+        pl: "Podatek:",
+        ja: "税金：",
+      },
+      "ui.invoicing_window.modal.total": {
+        en: "Total:",
+        de: "Gesamt:",
+        es: "Total:",
+        fr: "Total:",
+        pl: "Suma:",
+        ja: "合計：",
+      },
+
+      // Buttons
+      "ui.invoicing_window.buttons.seal": {
+        en: "Seal Invoice",
+        de: "Rechnung festschreiben",
+        es: "Sellar factura",
+        fr: "Sceller la facture",
+        pl: "Zamknij fakturę",
+        ja: "請求書を封印",
+      },
+      "ui.invoicing_window.buttons.sealing": {
+        en: "Sealing...",
+        de: "Wird festgeschrieben...",
+        es: "Sellando...",
+        fr: "Scellement en cours...",
+        pl: "Zamykanie...",
+        ja: "封印中...",
+      },
+      "ui.invoicing_window.buttons.download_pdf": {
+        en: "Download PDF",
+        de: "PDF herunterladen",
+        es: "Descargar PDF",
+        fr: "Télécharger le PDF",
+        pl: "Pobierz PDF",
+        ja: "PDFをダウンロード",
+      },
+      "ui.invoicing_window.buttons.send_email": {
+        en: "Send Email",
+        de: "E-Mail senden",
+        es: "Enviar correo",
+        fr: "Envoyer un e-mail",
+        pl: "Wyślij e-mail",
+        ja: "メールを送信",
+      },
+      "ui.invoicing_window.buttons.close": {
+        en: "Close",
+        de: "Schließen",
+        es: "Cerrar",
+        fr: "Fermer",
+        pl: "Zamknij",
+        ja: "閉じる",
+      },
+
+      // Footer status
+      "ui.invoicing_window.footer.invoice_count": {
+        en: "{count} invoice{plural}",
+        de: "{count} Rechnung{plural}",
+        es: "{count} factura{plural}",
+        fr: "{count} facture{plural}",
+        pl: "{count} faktur{plural}",
+        ja: "{count}請求書",
+      },
+      "ui.invoicing_window.footer.loading": {
+        en: "Loading...",
+        de: "Laden...",
+        es: "Cargando...",
+        fr: "Chargement...",
+        pl: "Ładowanie...",
+        ja: "読み込み中...",
+      },
+
+      // Alerts and tooltips
+      "ui.invoicing_window.alerts.no_pdf": {
+        en: "PDF not yet generated for this invoice",
+        de: "PDF wurde für diese Rechnung noch nicht erstellt",
+        es: "PDF aún no generado para esta factura",
+        fr: "PDF pas encore généré pour cette facture",
+        pl: "PDF jeszcze nie wygenerowany dla tej faktury",
+        ja: "この請求書のPDFはまだ生成されていません",
+      },
+      "ui.invoicing_window.alerts.seal_first": {
+        en: "Seal invoice first to generate PDF",
+        de: "Rechnung zuerst festschreiben, um PDF zu generieren",
+        es: "Selle la factura primero para generar el PDF",
+        fr: "Sceller d'abord la facture pour générer le PDF",
+        pl: "Najpierw zamknij fakturę, aby wygenerować PDF",
+        ja: "PDFを生成するには、まず請求書を封印してください",
+      },
+      "ui.invoicing_window.alerts.coming_soon": {
+        en: "Coming soon",
+        de: "Demnächst verfügbar",
+        es: "Próximamente",
+        fr: "Bientôt disponible",
+        pl: "Wkrótce dostępne",
+        ja: "近日公開",
+      },
+
+      // Seal confirmation
+      "ui.invoicing_window.confirm.seal_title": {
+        en: "Are you sure you want to seal this draft invoice?",
+        de: "Möchten Sie diese Entwurfsrechnung wirklich festschreiben?",
+        es: "¿Está seguro de que desea sellar esta factura en borrador?",
+        fr: "Êtes-vous sûr de vouloir sceller cette facture en brouillon?",
+        pl: "Czy na pewno chcesz zamknąć ten szkic faktury?",
+        ja: "この下書き請求書を封印してもよろしいですか？",
+      },
+      "ui.invoicing_window.confirm.seal_message": {
+        en: "Sealing will:\n• Generate a final invoice number\n• Mark the invoice as immutable\n• Mark all transactions as fully invoiced\n\nThis action cannot be undone.",
+        de: "Festschreiben wird:\n• Eine endgültige Rechnungsnummer generieren\n• Die Rechnung als unveränderlich markieren\n• Alle Transaktionen als vollständig in Rechnung gestellt markieren\n\nDiese Aktion kann nicht rückgängig gemacht werden.",
+        es: "Sellar hará:\n• Generar un número de factura final\n• Marcar la factura como inmutable\n• Marcar todas las transacciones como facturadas completamente\n\nEsta acción no se puede deshacer.",
+        fr: "Le scellement va:\n• Générer un numéro de facture final\n• Marquer la facture comme immuable\n• Marquer toutes les transactions comme entièrement facturées\n\nCette action ne peut pas être annulée.",
+        pl: "Zamknięcie spowoduje:\n• Wygenerowanie ostatecznego numeru faktury\n• Oznaczenie faktury jako niezmiennej\n• Oznaczenie wszystkich transakcji jako w pełni zafakturowanych\n\nTej akcji nie można cofnąć.",
+        ja: "封印すると:\n• 最終請求書番号が生成されます\n• 請求書が不変としてマークされます\n• すべての取引が完全に請求済みとしてマークされます\n\nこのアクションは元に戻せません。",
+      },
+      "ui.invoicing_window.success.sealed": {
+        en: "Invoice sealed successfully!\nNew invoice number: {invoiceNumber}",
+        de: "Rechnung erfolgreich festgeschrieben!\nNeue Rechnungsnummer: {invoiceNumber}",
+        es: "¡Factura sellada exitosamente!\nNúmero de factura nuevo: {invoiceNumber}",
+        fr: "Facture scellée avec succès!\nNouveau numéro de facture: {invoiceNumber}",
+        pl: "Faktura pomyślnie zamknięta!\nNowy numer faktury: {invoiceNumber}",
+        ja: "請求書の封印に成功しました！\n新しい請求書番号: {invoiceNumber}",
+      },
+    };
+
     // Seed all translations
     const allTranslations = {
       ...paymentsInvoicing,
       ...invoiceMapping,
       ...consolidatedInvoice,
       ...invoicePayment,
+      ...invoicingWindow,
     };
 
     // Insert translations for each locale
@@ -1382,6 +1692,8 @@ export const seedInvoicingTranslations = internalMutation({
         category = "workflows-consolidated-invoice";
       } else if (key.startsWith("ui.workflows.invoice_payment")) {
         category = "workflows-invoice-payment";
+      } else if (key.startsWith("ui.invoicing_window")) {
+        category = "invoicing-window";
       }
 
       for (const [locale, value] of Object.entries(translations)) {

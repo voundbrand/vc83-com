@@ -144,11 +144,11 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
               </p>
               <ul className="text-xs space-y-1" style={{ color: "var(--neutral-gray)" }}>
                 <li className="flex items-center gap-2">
-                  <span className="text-green-500">✓</span>
+                  <span style={{ color: "var(--success)" }}>✓</span>
                   {t("ui.payments.invoicing.requirements.stripe_connected")}
                 </li>
                 <li className="flex items-center gap-2">
-                  <span className="text-green-500">✓</span>
+                  <span style={{ color: "var(--success)" }}>✓</span>
                   {t("ui.payments.invoicing.requirements.business_profile")}
                 </li>
               </ul>
@@ -158,7 +158,7 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
             {requestSuccess && (
               <div className="mt-3 p-3 border-2" style={{ borderColor: "var(--success)", background: "var(--success-light)" }}>
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 size={16} className="text-green-500" />
+                  <CheckCircle2 size={16} style={{ color: "var(--success)" }} />
                   <p className="text-xs font-semibold" style={{ color: "var(--win95-text)" }}>
                     {t("ui.payments.invoicing.success.title")}
                   </p>
@@ -173,7 +173,7 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
             {requestError && (
               <div className="mt-3 p-3 border-2" style={{ borderColor: "var(--danger)", background: "var(--danger-light)" }}>
                 <div className="flex items-center gap-2">
-                  <AlertTriangle size={16} className="text-red-500" />
+                  <AlertTriangle size={16} style={{ color: "var(--error)" }} />
                   <p className="text-xs font-semibold" style={{ color: "var(--win95-text)" }}>
                     {t("ui.payments.invoicing.error.title")}
                   </p>
@@ -273,7 +273,7 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
         }}
       >
         <div className="flex items-start gap-3">
-          <CheckCircle2 className="text-green-500 flex-shrink-0" size={20} />
+          <CheckCircle2 style={{ color: "var(--success)" }} className="flex-shrink-0" size={20} />
           <div className="flex-1">
             <h3 className="font-bold text-sm mb-1" style={{ color: "var(--win95-text)" }}>
               {t("ui.payments.invoicing.status.enabled.title")}

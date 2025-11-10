@@ -98,7 +98,7 @@ export default function HomePage() {
   }
 
   const openAllAppsWindow = () => {
-    openWindow("all-apps", "All Applications", <AllAppsWindow />, { x: 150, y: 100 }, { width: 800, height: 600 }, 'ui.app.all_applications')
+    openWindow("all-apps", "All Applications", <AllAppsWindow />, { x: 150, y: 100 }, { width: 820, height: 600 }, 'ui.app.all_applications')
   }
 
   const openCRMWindow = () => {
@@ -202,13 +202,13 @@ export default function HomePage() {
       { label: t('ui.app.media_library'), icon: "📁", onClick: requireAuth(openMediaLibraryWindow) }
     ] : []),
     ...(isAppAvailable("payments") ? [
-      { label: t('ui.app.payments'), icon: "💳", onClick: requireAuth(openPaymentsWindow) }
+      { label: t('ui.app.payments'), icon: "💰", onClick: requireAuth(openPaymentsWindow) }
     ] : []),
     ...(isAppAvailable("products") ? [
-      { label: t('ui.app.products'), icon: "📦", onClick: requireAuth(openProductsWindow) }
+      { label: t('ui.app.products'), icon: "🎟️", onClick: requireAuth(openProductsWindow) }
     ] : []),
     ...(isAppAvailable("tickets") ? [
-      { label: t('ui.app.tickets'), icon: "🎟️", onClick: requireAuth(openTicketsWindow) }
+      { label: t('ui.app.tickets'), icon: "🎫", onClick: requireAuth(openTicketsWindow) }
     ] : []),
     ...(isAppAvailable("certificates") ? [
       { label: t('ui.app.certificates'), icon: "📜", onClick: requireAuth(openCertificatesWindow) }
@@ -232,7 +232,7 @@ export default function HomePage() {
     ] : []),
     // Invoicing app - B2B/B2C invoice management
     ...(isAppAvailable("app_invoicing") ? [
-      { label: t('ui.app.invoicing'), icon: "💳", onClick: requireAuth(openInvoicingWindow) }
+      { label: t('ui.app.invoicing'), icon: "🧾", onClick: requireAuth(openInvoicingWindow) }
     ] : []),
     // Workflows app - Multi-object behavior orchestration
     ...(isAppAvailable("workflows") ? [

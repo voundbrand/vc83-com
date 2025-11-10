@@ -10,6 +10,96 @@ import { internalQuery, internalMutation } from "../../_generated/server";
 import { Id } from "../../_generated/dataModel";
 
 /**
+ * HELPER: Find or create CRM organization
+ * Handles organization deduplication by name
+ */
+async function findOrCreateOrganization(
+  ctx: any,
+  args: {
+    organizationId: Id<"organizations">;
+    name: string;
+    website?: string;
+    industry?: string;
+    address?: any;
+    taxId?: string;
+    billingEmail?: string;
+    phone?: string;
+    performedBy: Id<"users">;
+  }
+): Promise<Id<"objects">> {
+  // 1. Try to find existing organization by name (case-insensitive match)
+  const existingOrgs = await ctx.db
+    .query("objects")
+    .withIndex("by_org_type", (q: any) =>
+      q.eq("organizationId", args.organizationId).eq("type", "crm_organization")
+    )
+    .collect();
+
+  const existingOrg = existingOrgs.find(
+    (org: any) => org.name.toLowerCase() === args.name.toLowerCase()
+  );
+
+  if (existingOrg) {
+    // Update existing organization with new information (merge data)
+    const updatedProperties = {
+      ...existingOrg.customProperties,
+      // Only update fields that are provided and not empty
+      ...(args.website && { website: args.website }),
+      ...(args.industry && { industry: args.industry }),
+      ...(args.address && { address: args.address }),
+      ...(args.taxId && { taxId: args.taxId }),
+      ...(args.billingEmail && { billingEmail: args.billingEmail }),
+      ...(args.phone && { phone: args.phone }),
+    };
+
+    await ctx.db.patch(existingOrg._id, {
+      customProperties: updatedProperties,
+      updatedAt: Date.now(),
+    });
+
+    return existingOrg._id;
+  }
+
+  // 2. Create new organization
+  const orgId = await ctx.db.insert("objects", {
+    organizationId: args.organizationId,
+    type: "crm_organization",
+    subtype: "prospect", // Default to prospect, can be upgraded to customer later
+    name: args.name,
+    description: `${args.industry || "Company"} organization`,
+    status: "active",
+    customProperties: {
+      website: args.website,
+      industry: args.industry,
+      address: args.address,
+      taxId: args.taxId,
+      billingEmail: args.billingEmail,
+      phone: args.phone,
+      tags: ["api-created"],
+      source: "api",
+    },
+    createdBy: args.performedBy,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+
+  // Log creation
+  await ctx.db.insert("objectActions", {
+    organizationId: args.organizationId,
+    objectId: orgId,
+    actionType: "created",
+    actionData: {
+      source: "api",
+      subtype: "prospect",
+    },
+    performedBy: args.performedBy,
+    performedAt: Date.now(),
+  });
+
+  return orgId;
+}
+
+/**
  * CREATE CONTACT FROM EVENT (INTERNAL)
  *
  * Creates a CRM contact from an event registration.
@@ -30,6 +120,16 @@ export const createContactFromEventInternal = internalMutation({
       company: v.optional(v.string()),
       tags: v.optional(v.array(v.string())), // Custom tags from frontend
     }),
+    // Optional organization data
+    organizationInfo: v.optional(v.object({
+      name: v.string(),
+      website: v.optional(v.string()),
+      industry: v.optional(v.string()),
+      address: v.optional(v.any()),
+      taxId: v.optional(v.string()),
+      billingEmail: v.optional(v.string()),
+      phone: v.optional(v.string()),
+    })),
     performedBy: v.id("users"),
   },
   handler: async (ctx, args) => {
@@ -98,13 +198,47 @@ export const createContactFromEventInternal = internalMutation({
     let isNewContact = true;
 
     if (existingContact) {
-      // Contact exists - just link to event
+      // Contact exists - update with new information (merge data)
       contactId = existingContact._id;
       isNewContact = false;
 
-      // Update contact's last activity
+      // Merge existing tags with new tags (deduplicate)
+      const existingTags = (existingContact.customProperties?.tags as string[]) || [];
+      const newTags = args.attendeeInfo.tags || [];
+      const mergedTags = Array.from(new Set([...existingTags, ...newTags]));
+
+      // Update contact with merged data
+      const updatedProperties = {
+        ...existingContact.customProperties,
+        // Update phone if provided and not already set
+        phone: args.attendeeInfo.phone || existingContact.customProperties?.phone,
+        // Update company if provided and not already set
+        company: args.attendeeInfo.company || existingContact.customProperties?.company,
+        // Merge tags
+        tags: mergedTags,
+        // Track that this contact was updated via event
+        lastEventSource: eventObjectId,
+        lastEventUpdate: Date.now(),
+      };
+
       await ctx.db.patch(existingContact._id, {
+        customProperties: updatedProperties,
         updatedAt: Date.now(),
+      });
+
+      // Log update action
+      await ctx.db.insert("objectActions", {
+        organizationId: args.organizationId,
+        objectId: contactId,
+        actionType: "updated_from_event",
+        actionData: {
+          eventId: eventObjectId,
+          eventName: args.eventName,
+          source: "api",
+          fieldsUpdated: ["tags", "lastActivity"],
+        },
+        performedBy: args.performedBy,
+        performedAt: Date.now(),
       });
     } else {
       // Create new contact as "lead"
@@ -146,7 +280,67 @@ export const createContactFromEventInternal = internalMutation({
       });
     }
 
-    // 3. Link contact to event (create or update link)
+    // 3. Handle CRM organization (if organizationInfo provided OR company name exists)
+    let crmOrganizationId: Id<"objects"> | undefined;
+
+    // Determine organization name from organizationInfo or company field
+    const orgName = args.organizationInfo?.name || args.attendeeInfo.company;
+
+    if (orgName) {
+      // Create or find organization
+      crmOrganizationId = await findOrCreateOrganization(ctx, {
+        organizationId: args.organizationId,
+        name: orgName,
+        website: args.organizationInfo?.website,
+        industry: args.organizationInfo?.industry,
+        address: args.organizationInfo?.address,
+        taxId: args.organizationInfo?.taxId,
+        billingEmail: args.organizationInfo?.billingEmail,
+        phone: args.organizationInfo?.phone,
+        performedBy: args.performedBy,
+      });
+
+      // Link contact to CRM organization (if not already linked)
+      const orgLinks = await ctx.db
+        .query("objectLinks")
+        .withIndex("by_from_object", (q) => q.eq("fromObjectId", contactId))
+        .collect();
+
+      const existingOrgLink = orgLinks.find(
+        (link) => link.toObjectId === crmOrganizationId && link.linkType === "works_at"
+      );
+
+      if (!existingOrgLink) {
+        await ctx.db.insert("objectLinks", {
+          organizationId: args.organizationId,
+          fromObjectId: contactId,
+          toObjectId: crmOrganizationId,
+          linkType: "works_at",
+          properties: {
+            source: "api",
+            linkedAt: Date.now(),
+          },
+          createdBy: args.performedBy,
+          createdAt: Date.now(),
+        });
+
+        // Log organization linking
+        await ctx.db.insert("objectActions", {
+          organizationId: args.organizationId,
+          objectId: contactId,
+          actionType: "linked_to_organization",
+          actionData: {
+            crmOrganizationId,
+            organizationName: orgName,
+            source: "api",
+          },
+          performedBy: args.performedBy,
+          performedAt: Date.now(),
+        });
+      }
+    }
+
+    // 4. Link contact to event (create or update link)
     const existingLinks = await ctx.db
       .query("objectLinks")
       .withIndex("by_from_object", (q) =>
@@ -190,6 +384,7 @@ export const createContactFromEventInternal = internalMutation({
     return {
       contactId,
       eventId: eventObjectId,
+      crmOrganizationId,
       organizationId: args.organizationId,
       isNewContact,
     };
@@ -217,6 +412,16 @@ export const createContactInternal = internalMutation({
     tags: v.optional(v.array(v.string())),
     notes: v.optional(v.string()),
     customFields: v.optional(v.any()),
+    // Optional organization data
+    organizationInfo: v.optional(v.object({
+      name: v.string(),
+      website: v.optional(v.string()),
+      industry: v.optional(v.string()),
+      address: v.optional(v.any()),
+      taxId: v.optional(v.string()),
+      billingEmail: v.optional(v.string()),
+      phone: v.optional(v.string()),
+    })),
     performedBy: v.id("users"),
   },
   handler: async (ctx, args) => {
@@ -232,50 +437,155 @@ export const createContactInternal = internalMutation({
       (c) => c.customProperties?.email === args.email
     );
 
+    let contactId: Id<"objects">;
+    let isNewContact = true;
+
     if (existingContact) {
-      throw new Error("Contact with this email already exists");
+      // Contact exists - update with merged data instead of throwing error
+      contactId = existingContact._id;
+      isNewContact = false;
+
+      // Merge existing tags with new tags (deduplicate)
+      const existingTags = (existingContact.customProperties?.tags as string[]) || [];
+      const newTags = args.tags || [];
+      const mergedTags = Array.from(new Set([...existingTags, ...newTags]));
+
+      // Update contact with merged data
+      const updatedProperties = {
+        ...existingContact.customProperties,
+        // Update fields if provided and not already set
+        phone: args.phone || existingContact.customProperties?.phone,
+        company: args.company || existingContact.customProperties?.company,
+        jobTitle: args.jobTitle || existingContact.customProperties?.jobTitle,
+        notes: args.notes || existingContact.customProperties?.notes,
+        // Merge tags
+        tags: mergedTags,
+        // Merge custom fields
+        ...args.customFields,
+      };
+
+      await ctx.db.patch(existingContact._id, {
+        customProperties: updatedProperties,
+        updatedAt: Date.now(),
+      });
+
+      // Log update action
+      await ctx.db.insert("objectActions", {
+        organizationId: args.organizationId,
+        objectId: contactId,
+        actionType: "updated_via_api",
+        actionData: {
+          source: args.source || "api",
+          fieldsUpdated: ["tags", "phone", "company", "jobTitle"],
+        },
+        performedBy: args.performedBy,
+        performedAt: Date.now(),
+      });
+    } else {
+      // 2. Create new contact
+      contactId = await ctx.db.insert("objects", {
+        organizationId: args.organizationId,
+        type: "crm_contact",
+        subtype: args.subtype,
+        name: `${args.firstName} ${args.lastName}`,
+        description: args.jobTitle || "Contact",
+        status: "active",
+        customProperties: {
+          firstName: args.firstName,
+          lastName: args.lastName,
+          email: args.email,
+          phone: args.phone,
+          company: args.company,
+          jobTitle: args.jobTitle,
+          source: args.source || "api",
+          sourceRef: args.sourceRef,
+          tags: args.tags || ["api-created"],
+          notes: args.notes,
+          ...args.customFields,
+        },
+        createdBy: args.performedBy,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+
+      // 3. Log creation action
+      await ctx.db.insert("objectActions", {
+        organizationId: args.organizationId,
+        objectId: contactId,
+        actionType: "created",
+        actionData: {
+          source: args.source || "api",
+          subtype: args.subtype,
+        },
+        performedBy: args.performedBy,
+        performedAt: Date.now(),
+      });
     }
 
-    // 2. Create new contact
-    const contactId = await ctx.db.insert("objects", {
-      organizationId: args.organizationId,
-      type: "crm_contact",
-      subtype: args.subtype,
-      name: `${args.firstName} ${args.lastName}`,
-      description: args.jobTitle || "Contact",
-      status: "active",
-      customProperties: {
-        firstName: args.firstName,
-        lastName: args.lastName,
-        email: args.email,
-        phone: args.phone,
-        company: args.company,
-        jobTitle: args.jobTitle,
-        source: args.source || "api",
-        sourceRef: args.sourceRef,
-        tags: args.tags || ["api-created"],
-        notes: args.notes,
-        ...args.customFields,
-      },
-      createdBy: args.performedBy,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    });
+    // 4. Handle CRM organization (if organizationInfo provided OR company name exists)
+    let crmOrganizationId: Id<"objects"> | undefined;
+    const orgName = args.organizationInfo?.name || args.company;
 
-    // 3. Log creation action
-    await ctx.db.insert("objectActions", {
-      organizationId: args.organizationId,
-      objectId: contactId,
-      actionType: "created",
-      actionData: {
-        source: args.source || "api",
-        subtype: args.subtype,
-      },
-      performedBy: args.performedBy,
-      performedAt: Date.now(),
-    });
+    if (orgName) {
+      // Create or find organization
+      crmOrganizationId = await findOrCreateOrganization(ctx, {
+        organizationId: args.organizationId,
+        name: orgName,
+        website: args.organizationInfo?.website,
+        industry: args.organizationInfo?.industry,
+        address: args.organizationInfo?.address,
+        taxId: args.organizationInfo?.taxId,
+        billingEmail: args.organizationInfo?.billingEmail,
+        phone: args.organizationInfo?.phone,
+        performedBy: args.performedBy,
+      });
 
-    return contactId;
+      // Link contact to CRM organization (if not already linked)
+      const orgLinks = await ctx.db
+        .query("objectLinks")
+        .withIndex("by_from_object", (q) => q.eq("fromObjectId", contactId))
+        .collect();
+
+      const existingOrgLink = orgLinks.find(
+        (link) => link.toObjectId === crmOrganizationId && link.linkType === "works_at"
+      );
+
+      if (!existingOrgLink) {
+        await ctx.db.insert("objectLinks", {
+          organizationId: args.organizationId,
+          fromObjectId: contactId,
+          toObjectId: crmOrganizationId,
+          linkType: "works_at",
+          properties: {
+            source: "api",
+            linkedAt: Date.now(),
+            jobTitle: args.jobTitle,
+          },
+          createdBy: args.performedBy,
+          createdAt: Date.now(),
+        });
+
+        // Log organization linking
+        await ctx.db.insert("objectActions", {
+          organizationId: args.organizationId,
+          objectId: contactId,
+          actionType: "linked_to_organization",
+          actionData: {
+            crmOrganizationId,
+            organizationName: orgName,
+            source: "api",
+          },
+          performedBy: args.performedBy,
+          performedAt: Date.now(),
+        });
+      }
+    }
+
+    return {
+      contactId,
+      crmOrganizationId,
+      isNewContact,
+    };
   },
 });
 

@@ -52,6 +52,142 @@ export const seed = internalMutation({
 
     const translations = [
       // ============================================================
+      // MAIN WINDOW - Headers & Tabs
+      // ============================================================
+      {
+        key: "ui.checkout_window.main.title",
+        values: {
+          en: "Checkout Manager",
+          de: "Checkout-Manager",
+          pl: "Menedżer płatności",
+          es: "Gestor de pagos",
+          fr: "Gestionnaire de paiement",
+          ja: "チェックアウトマネージャー",
+        }
+      },
+      {
+        key: "ui.checkout_window.main.description",
+        values: {
+          en: "Create and manage checkout pages for your products and events",
+          de: "Erstellen und verwalten Sie Checkout-Seiten für Ihre Produkte und Veranstaltungen",
+          pl: "Twórz i zarządzaj stronami płatności dla swoich produktów i wydarzeń",
+          es: "Crea y administra páginas de pago para tus productos y eventos",
+          fr: "Créez et gérez des pages de paiement pour vos produits et événements",
+          ja: "製品やイベントのチェックアウトページを作成・管理",
+        }
+      },
+      {
+        key: "ui.checkout_window.main.tabs.checkouts",
+        values: {
+          en: "Checkouts",
+          de: "Checkouts",
+          pl: "Płatności",
+          es: "Pagos",
+          fr: "Paiements",
+          ja: "チェックアウト",
+        }
+      },
+      {
+        key: "ui.checkout_window.main.tabs.create",
+        values: {
+          en: "Create",
+          de: "Erstellen",
+          pl: "Utwórz",
+          es: "Crear",
+          fr: "Créer",
+          ja: "作成",
+        }
+      },
+      {
+        key: "ui.checkout_window.main.tabs.templates",
+        values: {
+          en: "Templates",
+          de: "Vorlagen",
+          pl: "Szablony",
+          es: "Plantillas",
+          fr: "Modèles",
+          ja: "テンプレート",
+        }
+      },
+      {
+        key: "ui.checkout_window.main.tabs.settings",
+        values: {
+          en: "Settings",
+          de: "Einstellungen",
+          pl: "Ustawienia",
+          es: "Configuración",
+          fr: "Paramètres",
+          ja: "設定",
+        }
+      },
+      {
+        key: "ui.checkout_window.main.tabs.analytics",
+        values: {
+          en: "Analytics",
+          de: "Analysen",
+          pl: "Analityka",
+          es: "Analíticas",
+          fr: "Analytique",
+          ja: "分析",
+        }
+      },
+      {
+        key: "ui.checkout_window.main.coming_soon",
+        values: {
+          en: "Coming soon",
+          de: "Demnächst",
+          pl: "Wkrótce",
+          es: "Próximamente",
+          fr: "Bientôt disponible",
+          ja: "近日公開",
+        }
+      },
+      {
+        key: "ui.checkout_window.main.settings_coming_soon",
+        values: {
+          en: "Settings Coming Soon",
+          de: "Einstellungen demnächst verfügbar",
+          pl: "Ustawienia wkrótce",
+          es: "Configuración próximamente",
+          fr: "Paramètres bientôt disponibles",
+          ja: "設定は近日公開",
+        }
+      },
+      {
+        key: "ui.checkout_window.main.settings_description",
+        values: {
+          en: "Configure Stripe integration and checkout options",
+          de: "Stripe-Integration und Checkout-Optionen konfigurieren",
+          pl: "Skonfiguruj integrację Stripe i opcje płatności",
+          es: "Configura la integración de Stripe y opciones de pago",
+          fr: "Configurez l'intégration Stripe et les options de paiement",
+          ja: "Stripe統合とチェックアウトオプションを設定",
+        }
+      },
+      {
+        key: "ui.checkout_window.main.analytics_coming_soon",
+        values: {
+          en: "Analytics Coming Soon",
+          de: "Analysen demnächst verfügbar",
+          pl: "Analityka wkrótce",
+          es: "Analíticas próximamente",
+          fr: "Analytique bientôt disponible",
+          ja: "分析は近日公開",
+        }
+      },
+      {
+        key: "ui.checkout_window.main.analytics_description",
+        values: {
+          en: "Track sales, conversions, and revenue metrics",
+          de: "Verfolgen Sie Verkäufe, Konversionen und Umsatzkennzahlen",
+          pl: "Śledź sprzedaż, konwersje i metryki przychodów",
+          es: "Rastrea ventas, conversiones y métricas de ingresos",
+          fr: "Suivez les ventes, les conversions et les métriques de revenus",
+          ja: "売上、コンバージョン、収益メトリクスを追跡",
+        }
+      },
+
+      // ============================================================
       // TEMPLATES TAB - Headers & Titles
       // ============================================================
       {
@@ -144,6 +280,28 @@ export const seed = internalMutation({
           es: "Próximamente",
           fr: "Bientôt disponible",
           ja: "近日公開",
+        }
+      },
+      {
+        key: "ui.checkout_window.templates.tooltip.form_supports",
+        values: {
+          en: "This template supports form integration during checkout",
+          de: "Diese Vorlage unterstützt Formularintegration während des Checkouts",
+          pl: "Ten szablon obsługuje integrację formularzy podczas płatności",
+          es: "Esta plantilla admite integración de formularios durante el pago",
+          fr: "Ce modèle prend en charge l'intégration de formulaires lors du paiement",
+          ja: "このテンプレートはチェックアウト時のフォーム統合をサポートします",
+        }
+      },
+      {
+        key: "ui.checkout_window.templates.tooltip.form_not_supports",
+        values: {
+          en: "This template does not support form integration",
+          de: "Diese Vorlage unterstützt keine Formularintegration",
+          pl: "Ten szablon nie obsługuje integracji formularzy",
+          es: "Esta plantilla no admite integración de formularios",
+          fr: "Ce modèle ne prend pas en charge l'intégration de formulaires",
+          ja: "このテンプレートはフォーム統合をサポートしていません",
         }
       },
 
@@ -705,6 +863,703 @@ export const seed = internalMutation({
           es: "Por favor, inicia sesión para ver tus pagos.",
           fr: "Veuillez vous connecter pour voir vos paiements.",
           ja: "チェックアウトを表示するにはログインしてください。",
+        }
+      },
+
+      // ============================================================
+      // CREATE/EDIT TAB - Headers & Titles
+      // ============================================================
+      {
+        key: "ui.checkout_window.create.error.auth_required",
+        values: {
+          en: "Please log in to create checkouts.",
+          de: "Bitte melden Sie sich an, um Checkouts zu erstellen.",
+          pl: "Zaloguj się, aby tworzyć płatności.",
+          es: "Por favor, inicia sesión para crear pagos.",
+          fr: "Veuillez vous connecter pour créer des paiements.",
+          ja: "チェックアウトを作成するにはログインしてください。",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.select_template_title",
+        values: {
+          en: "Select Checkout Template",
+          de: "Checkout-Vorlage auswählen",
+          pl: "Wybierz szablon płatności",
+          es: "Seleccionar plantilla de pago",
+          fr: "Sélectionner un modèle de paiement",
+          ja: "チェックアウトテンプレートを選択",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.select_template_description",
+        values: {
+          en: "Choose a template to get started",
+          de: "Wählen Sie eine Vorlage, um zu beginnen",
+          pl: "Wybierz szablon, aby rozpocząć",
+          es: "Elige una plantilla para comenzar",
+          fr: "Choisissez un modèle pour commencer",
+          ja: "テンプレートを選択して開始",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.edit_title",
+        values: {
+          en: "Edit Checkout",
+          de: "Checkout bearbeiten",
+          pl: "Edytuj płatność",
+          es: "Editar pago",
+          fr: "Modifier le paiement",
+          ja: "チェックアウトを編集",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.configure_title",
+        values: {
+          en: "Configure Checkout",
+          de: "Checkout konfigurieren",
+          pl: "Konfiguruj płatność",
+          es: "Configurar pago",
+          fr: "Configurer le paiement",
+          ja: "チェックアウトを設定",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.template_label",
+        values: {
+          en: "Template: {template}",
+          de: "Vorlage: {template}",
+          pl: "Szablon: {template}",
+          es: "Plantilla: {template}",
+          fr: "Modèle: {template}",
+          ja: "テンプレート: {template}",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.cancel_button",
+        values: {
+          en: "Cancel",
+          de: "Abbrechen",
+          pl: "Anuluj",
+          es: "Cancelar",
+          fr: "Annuler",
+          ja: "キャンセル",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.save_button",
+        values: {
+          en: "Save Changes",
+          de: "Änderungen speichern",
+          pl: "Zapisz zmiany",
+          es: "Guardar cambios",
+          fr: "Enregistrer les modifications",
+          ja: "変更を保存",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.create_button",
+        values: {
+          en: "Create Checkout",
+          de: "Checkout erstellen",
+          pl: "Utwórz płatność",
+          es: "Crear pago",
+          fr: "Créer un paiement",
+          ja: "チェックアウトを作成",
+        }
+      },
+
+      // ============================================================
+      // CREATE/EDIT TAB - Configuration Form
+      // ============================================================
+      {
+        key: "ui.checkout_window.create.configuration_title",
+        values: {
+          en: "Configuration",
+          de: "Konfiguration",
+          pl: "Konfiguracja",
+          es: "Configuración",
+          fr: "Configuration",
+          ja: "設定",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.name_label",
+        values: {
+          en: "Checkout Name",
+          de: "Checkout-Name",
+          pl: "Nazwa płatności",
+          es: "Nombre del pago",
+          fr: "Nom du paiement",
+          ja: "チェックアウト名",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.description_label",
+        values: {
+          en: "Description (Optional)",
+          de: "Beschreibung (Optional)",
+          pl: "Opis (opcjonalny)",
+          es: "Descripción (Opcional)",
+          fr: "Description (Facultatif)",
+          ja: "説明（任意）",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.description_placeholder",
+        values: {
+          en: "Internal description for your team...",
+          de: "Interne Beschreibung für Ihr Team...",
+          pl: "Wewnętrzny opis dla Twojego zespołu...",
+          es: "Descripción interna para tu equipo...",
+          fr: "Description interne pour votre équipe...",
+          ja: "チーム用の内部説明...",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.slug_label",
+        values: {
+          en: "Public URL Slug",
+          de: "Öffentlicher URL-Slug",
+          pl: "Publiczny slug URL",
+          es: "Slug de URL pública",
+          fr: "Slug d'URL publique",
+          ja: "公開URLスラッグ",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.language_label",
+        values: {
+          en: "🌐 Default Language",
+          de: "🌐 Standardsprache",
+          pl: "🌐 Domyślny język",
+          es: "🌐 Idioma predeterminado",
+          fr: "🌐 Langue par défaut",
+          ja: "🌐 デフォルト言語",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.language_description",
+        values: {
+          en: "Set the default language for this checkout. Customers will see the checkout in this language initially.",
+          de: "Legen Sie die Standardsprache für diesen Checkout fest. Kunden sehen den Checkout zunächst in dieser Sprache.",
+          pl: "Ustaw domyślny język dla tej płatności. Klienci zobaczą płatność początkowo w tym języku.",
+          es: "Establece el idioma predeterminado para este pago. Los clientes verán el pago inicialmente en este idioma.",
+          fr: "Définissez la langue par défaut pour ce paiement. Les clients verront le paiement dans cette langue initialement.",
+          ja: "このチェックアウトのデフォルト言語を設定します。顧客は最初にこの言語でチェックアウトを表示します。",
+        }
+      },
+
+      // ============================================================
+      // CREATE/EDIT TAB - Payment Providers
+      // ============================================================
+      {
+        key: "ui.checkout_window.create.payment_providers_label",
+        values: {
+          en: "Payment Providers",
+          de: "Zahlungsanbieter",
+          pl: "Dostawcy płatności",
+          es: "Proveedores de pago",
+          fr: "Fournisseurs de paiement",
+          ja: "支払いプロバイダー",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.payment_providers_description",
+        values: {
+          en: "Select payment providers to offer during checkout. Customers will choose their preferred method.",
+          de: "Wählen Sie Zahlungsanbieter aus, die beim Checkout angeboten werden. Kunden wählen ihre bevorzugte Methode.",
+          pl: "Wybierz dostawców płatności oferowanych podczas płatności. Klienci wybiorą preferowaną metodę.",
+          es: "Selecciona proveedores de pago para ofrecer durante el pago. Los clientes elegirán su método preferido.",
+          fr: "Sélectionnez les fournisseurs de paiement à proposer lors du paiement. Les clients choisiront leur méthode préférée.",
+          ja: "チェックアウト時に提供する支払いプロバイダーを選択します。顧客は希望する方法を選択します。",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.no_payment_providers_title",
+        values: {
+          en: "No Payment Providers Connected",
+          de: "Keine Zahlungsanbieter verbunden",
+          pl: "Brak podłączonych dostawców płatności",
+          es: "No hay proveedores de pago conectados",
+          fr: "Aucun fournisseur de paiement connecté",
+          ja: "支払いプロバイダーが接続されていません",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.no_payment_providers_description",
+        values: {
+          en: "You need to connect a payment provider before creating checkouts.",
+          de: "Sie müssen einen Zahlungsanbieter verbinden, bevor Sie Checkouts erstellen.",
+          pl: "Musisz połączyć dostawcę płatności przed utworzeniem płatności.",
+          es: "Necesitas conectar un proveedor de pago antes de crear pagos.",
+          fr: "Vous devez connecter un fournisseur de paiement avant de créer des paiements.",
+          ja: "チェックアウトを作成する前に支払いプロバイダーを接続する必要があります。",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.no_payment_providers_help",
+        values: {
+          en: "Go to Payments → Stripe Connect to connect a payment provider.",
+          de: "Gehen Sie zu Zahlungen → Stripe Connect, um einen Zahlungsanbieter zu verbinden.",
+          pl: "Przejdź do Płatności → Stripe Connect, aby połączyć dostawcę płatności.",
+          es: "Ve a Pagos → Stripe Connect para conectar un proveedor de pago.",
+          fr: "Allez dans Paiements → Stripe Connect pour connecter un fournisseur de paiement.",
+          ja: "支払い → Stripe Connectに移動して支払いプロバイダーを接続してください。",
+        }
+      },
+
+      // ============================================================
+      // CREATE/EDIT TAB - Theme & Products
+      // ============================================================
+      {
+        key: "ui.checkout_window.create.select_theme_label",
+        values: {
+          en: "Select Theme",
+          de: "Thema auswählen",
+          pl: "Wybierz motyw",
+          es: "Seleccionar tema",
+          fr: "Sélectionner un thème",
+          ja: "テーマを選択",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.linked_products_label",
+        values: {
+          en: "Linked Products",
+          de: "Verknüpfte Produkte",
+          pl: "Połączone produkty",
+          es: "Productos vinculados",
+          fr: "Produits liés",
+          ja: "リンクされた製品",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.linked_products_description",
+        values: {
+          en: "Select products to include in this checkout.",
+          de: "Wählen Sie Produkte aus, die in diesen Checkout aufgenommen werden sollen.",
+          pl: "Wybierz produkty do uwzględnienia w tej płatności.",
+          es: "Selecciona productos para incluir en este pago.",
+          fr: "Sélectionnez les produits à inclure dans ce paiement.",
+          ja: "このチェックアウトに含める製品を選択します。",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.template_settings_title",
+        values: {
+          en: "Template Settings",
+          de: "Vorlageneinstellungen",
+          pl: "Ustawienia szablonu",
+          es: "Configuración de plantilla",
+          fr: "Paramètres du modèle",
+          ja: "テンプレート設定",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.template_settings_description",
+        values: {
+          en: "Advanced settings for {template}",
+          de: "Erweiterte Einstellungen für {template}",
+          pl: "Zaawansowane ustawienia dla {template}",
+          es: "Configuración avanzada para {template}",
+          fr: "Paramètres avancés pour {template}",
+          ja: "{template}の詳細設定",
+        }
+      },
+
+      // ============================================================
+      // CREATE/EDIT TAB - Preview
+      // ============================================================
+      {
+        key: "ui.checkout_window.create.preview_title",
+        values: {
+          en: "Live Preview",
+          de: "Live-Vorschau",
+          pl: "Podgląd na żywo",
+          es: "Vista previa en vivo",
+          fr: "Aperçu en direct",
+          ja: "ライブプレビュー",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.preview_no_template",
+        values: {
+          en: "No Template Selected",
+          de: "Keine Vorlage ausgewählt",
+          pl: "Nie wybrano szablonu",
+          es: "No se seleccionó plantilla",
+          fr: "Aucun modèle sélectionné",
+          ja: "テンプレートが選択されていません",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.preview_no_theme",
+        values: {
+          en: "No Theme Selected",
+          de: "Kein Thema ausgewählt",
+          pl: "Nie wybrano motywu",
+          es: "No se seleccionó tema",
+          fr: "Aucun thème sélectionné",
+          ja: "テーマが選択されていません",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.preview_loading",
+        values: {
+          en: "Preview Loading",
+          de: "Vorschau lädt",
+          pl: "Ładowanie podglądu",
+          es: "Cargando vista previa",
+          fr: "Chargement de l'aperçu",
+          ja: "プレビューを読み込み中",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.preview_no_template_description",
+        values: {
+          en: "Select a template to see a live preview of your checkout.",
+          de: "Wählen Sie eine Vorlage aus, um eine Live-Vorschau Ihres Checkouts zu sehen.",
+          pl: "Wybierz szablon, aby zobaczyć podgląd na żywo swojej płatności.",
+          es: "Selecciona una plantilla para ver una vista previa en vivo de tu pago.",
+          fr: "Sélectionnez un modèle pour voir un aperçu en direct de votre paiement.",
+          ja: "テンプレートを選択してチェックアウトのライブプレビューを表示します。",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.preview_no_theme_description",
+        values: {
+          en: "Select a theme to see a live preview with styling.",
+          de: "Wählen Sie ein Thema aus, um eine Live-Vorschau mit Styling zu sehen.",
+          pl: "Wybierz motyw, aby zobaczyć podgląd na żywo ze stylizacją.",
+          es: "Selecciona un tema para ver una vista previa en vivo con estilo.",
+          fr: "Sélectionnez un thème pour voir un aperçu en direct avec le style.",
+          ja: "テーマを選択してスタイル付きのライブプレビューを表示します。",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.preview_loading_description",
+        values: {
+          en: "Select products to preview the checkout.",
+          de: "Wählen Sie Produkte aus, um den Checkout in der Vorschau anzuzeigen.",
+          pl: "Wybierz produkty, aby wyświetlić podgląd płatności.",
+          es: "Selecciona productos para previsualizar el pago.",
+          fr: "Sélectionnez des produits pour prévisualiser le paiement.",
+          ja: "製品を選択してチェックアウトをプレビューします。",
+        }
+      },
+
+      // ============================================================
+      // CREATE/EDIT TAB - Notifications
+      // ============================================================
+      {
+        key: "ui.checkout_window.create.notifications.created_title",
+        values: {
+          en: "Checkout Created",
+          de: "Checkout erstellt",
+          pl: "Płatność utworzona",
+          es: "Pago creado",
+          fr: "Paiement créé",
+          ja: "チェックアウトが作成されました",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.notifications.created_message",
+        values: {
+          en: "Your new checkout has been created successfully.",
+          de: "Ihr neuer Checkout wurde erfolgreich erstellt.",
+          pl: "Twoja nowa płatność została pomyślnie utworzona.",
+          es: "Tu nuevo pago se ha creado correctamente.",
+          fr: "Votre nouveau paiement a été créé avec succès.",
+          ja: "新しいチェックアウトが正常に作成されました。",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.notifications.updated_title",
+        values: {
+          en: "Checkout Updated",
+          de: "Checkout aktualisiert",
+          pl: "Płatność zaktualizowana",
+          es: "Pago actualizado",
+          fr: "Paiement mis à jour",
+          ja: "チェックアウトが更新されました",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.notifications.updated_message",
+        values: {
+          en: "Your changes have been saved successfully.",
+          de: "Ihre Änderungen wurden erfolgreich gespeichert.",
+          pl: "Twoje zmiany zostały pomyślnie zapisane.",
+          es: "Tus cambios se han guardado correctamente.",
+          fr: "Vos modifications ont été enregistrées avec succès.",
+          ja: "変更が正常に保存されました。",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.notifications.save_failed_title",
+        values: {
+          en: "Save Failed",
+          de: "Speichern fehlgeschlagen",
+          pl: "Zapisywanie nie powiodło się",
+          es: "Error al guardar",
+          fr: "Échec de l'enregistrement",
+          ja: "保存に失敗しました",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.notifications.save_failed_message",
+        values: {
+          en: "Could not save checkout. Please check your configuration and try again.",
+          de: "Checkout konnte nicht gespeichert werden. Bitte überprüfen Sie Ihre Konfiguration und versuchen Sie es erneut.",
+          pl: "Nie można zapisać płatności. Sprawdź konfigurację i spróbuj ponownie.",
+          es: "No se pudo guardar el pago. Verifica tu configuración e inténtalo de nuevo.",
+          fr: "Impossible d'enregistrer le paiement. Veuillez vérifier votre configuration et réessayer.",
+          ja: "チェックアウトを保存できませんでした。設定を確認してもう一度お試しください。",
+        }
+      },
+
+      // ============================================================
+      // CREATE/EDIT TAB - Payment Provider Badges
+      // ============================================================
+      {
+        key: "ui.checkout_window.create.payment_mode.test",
+        values: {
+          en: "Test Mode",
+          de: "Testmodus",
+          pl: "Tryb testowy",
+          es: "Modo de prueba",
+          fr: "Mode test",
+          ja: "テストモード",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.payment_mode.live",
+        values: {
+          en: "Live Mode",
+          de: "Live-Modus",
+          pl: "Tryb na żywo",
+          es: "Modo en vivo",
+          fr: "Mode en direct",
+          ja: "ライブモード",
+        }
+      },
+
+      // ============================================================
+      // CREATE/EDIT TAB - Form Timing Tooltips & Badges
+      // ============================================================
+      {
+        key: "ui.checkout_window.create.form_timing.in_checkout_tooltip",
+        values: {
+          en: "Form will be collected during checkout",
+          de: "Formular wird während des Checkouts erfasst",
+          pl: "Formularz zostanie zebrany podczas płatności",
+          es: "El formulario se recopilará durante el pago",
+          fr: "Le formulaire sera collecté lors du paiement",
+          ja: "チェックアウト時にフォームが収集されます",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.form_timing.in_checkout_badge",
+        values: {
+          en: "🛒 In Checkout",
+          de: "🛒 Im Checkout",
+          pl: "🛒 W płatności",
+          es: "🛒 En el pago",
+          fr: "🛒 Lors du paiement",
+          ja: "🛒 チェックアウト時",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.form_timing.after_purchase_tooltip",
+        values: {
+          en: "Form link sent via email after purchase",
+          de: "Formularlink wird nach dem Kauf per E-Mail gesendet",
+          pl: "Link do formularza wysyłany e-mailem po zakupie",
+          es: "Enlace del formulario enviado por correo después de la compra",
+          fr: "Lien du formulaire envoyé par e-mail après l'achat",
+          ja: "購入後にフォームリンクがメールで送信されます",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.form_timing.after_purchase_badge",
+        values: {
+          en: "✉️ After Purchase",
+          de: "✉️ Nach dem Kauf",
+          pl: "✉️ Po zakupie",
+          es: "✉️ Después de la compra",
+          fr: "✉️ Après l'achat",
+          ja: "✉️ 購入後",
+        }
+      },
+
+      // ============================================================
+      // CREATE/EDIT TAB - Theme Preview Titles
+      // ============================================================
+      {
+        key: "ui.checkout_window.create.theme_preview.primary_gradient",
+        values: {
+          en: "Primary Gradient",
+          de: "Primärer Farbverlauf",
+          pl: "Gradient podstawowy",
+          es: "Gradiente primario",
+          fr: "Dégradé principal",
+          ja: "プライマリグラデーション",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.theme_preview.background",
+        values: {
+          en: "Background",
+          de: "Hintergrund",
+          pl: "Tło",
+          es: "Fondo",
+          fr: "Arrière-plan",
+          ja: "背景",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.theme_preview.text",
+        values: {
+          en: "Text",
+          de: "Text",
+          pl: "Tekst",
+          es: "Texto",
+          fr: "Texte",
+          ja: "テキスト",
+        }
+      },
+      {
+        key: "ui.checkout_window.create.theme_preview.secondary",
+        values: {
+          en: "Secondary",
+          de: "Sekundär",
+          pl: "Drugi",
+          es: "Secundario",
+          fr: "Secondaire",
+          ja: "セカンダリ",
+        }
+      },
+
+      // ============================================================
+      // CHECKOUTS LIST TAB - Confirmation Modals
+      // ============================================================
+      {
+        key: "ui.checkout_window.list.confirm.delete_title",
+        values: {
+          en: "Delete Checkout",
+          de: "Checkout löschen",
+          pl: "Usuń płatność",
+          es: "Eliminar pago",
+          fr: "Supprimer le paiement",
+          ja: "チェックアウトを削除",
+        }
+      },
+      {
+        key: "ui.checkout_window.list.confirm.delete_message",
+        values: {
+          en: 'Are you sure you want to delete "{name}"?\n\nThis action cannot be undone.',
+          de: 'Möchten Sie "{name}" wirklich löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden.',
+          pl: 'Czy na pewno chcesz usunąć "{name}"?\n\nTej czynności nie można cofnąć.',
+          es: '¿Estás seguro de que quieres eliminar "{name}"?\n\nEsta acción no se puede deshacer.',
+          fr: 'Êtes-vous sûr de vouloir supprimer "{name}"?\n\nCette action ne peut pas être annulée.',
+          ja: '"{name}"を削除してもよろしいですか？\n\nこの操作は元に戻せません。',
+        }
+      },
+      {
+        key: "ui.checkout_window.list.confirm.delete_button",
+        values: {
+          en: "Delete",
+          de: "Löschen",
+          pl: "Usuń",
+          es: "Eliminar",
+          fr: "Supprimer",
+          ja: "削除",
+        }
+      },
+      {
+        key: "ui.checkout_window.list.confirm.cancel_button",
+        values: {
+          en: "Cancel",
+          de: "Abbrechen",
+          pl: "Anuluj",
+          es: "Cancelar",
+          fr: "Annuler",
+          ja: "キャンセル",
+        }
+      },
+
+      // ============================================================
+      // CHECKOUTS LIST TAB - Error Notifications
+      // ============================================================
+      {
+        key: "ui.checkout_window.list.notifications.update_failed",
+        values: {
+          en: "Failed to Update",
+          de: "Aktualisierung fehlgeschlagen",
+          pl: "Aktualizacja nie powiodła się",
+          es: "Error al actualizar",
+          fr: "Échec de la mise à jour",
+          ja: "更新に失敗しました",
+        }
+      },
+      {
+        key: "ui.checkout_window.list.notifications.update_error",
+        values: {
+          en: "Could not {action} checkout. Please try again.",
+          de: "Checkout konnte nicht {action} werden. Bitte versuchen Sie es erneut.",
+          pl: "Nie można {action} płatności. Spróbuj ponownie.",
+          es: "No se pudo {action} el pago. Por favor, inténtalo de nuevo.",
+          fr: "Impossible de {action} le paiement. Veuillez réessayer.",
+          ja: "チェックアウトを{action}できませんでした。もう一度お試しください。",
+        }
+      },
+      {
+        key: "ui.checkout_window.list.notifications.delete_failed",
+        values: {
+          en: "Delete Failed",
+          de: "Löschen fehlgeschlagen",
+          pl: "Usuwanie nie powiodło się",
+          es: "Error al eliminar",
+          fr: "Échec de la suppression",
+          ja: "削除に失敗しました",
+        }
+      },
+      {
+        key: "ui.checkout_window.list.notifications.delete_error",
+        values: {
+          en: "Could not delete checkout. Please try again.",
+          de: "Checkout konnte nicht gelöscht werden. Bitte versuchen Sie es erneut.",
+          pl: "Nie można usunąć płatności. Spróbuj ponownie.",
+          es: "No se pudo eliminar el pago. Por favor, inténtalo de nuevo.",
+          fr: "Impossible de supprimer le paiement. Veuillez réessayer.",
+          ja: "チェックアウトを削除できませんでした。もう一度お試しください。",
+        }
+      },
+
+      // ============================================================
+      // TEMPLATES TAB - Alert Messages
+      // ============================================================
+      {
+        key: "ui.checkout_window.templates.alerts.use_template_instructions",
+        values: {
+          en: "To use this checkout template:\n\n1. Go to Web Publishing app\n2. Create a new page (Event Landing, Product Page, etc.)\n3. Link your products to the page\n4. The checkout template will be automatically applied!",
+          de: "Um diese Checkout-Vorlage zu verwenden:\n\n1. Gehen Sie zur Web Publishing-App\n2. Erstellen Sie eine neue Seite (Event-Landingpage, Produktseite usw.)\n3. Verknüpfen Sie Ihre Produkte mit der Seite\n4. Die Checkout-Vorlage wird automatisch angewendet!",
+          pl: "Aby użyć tego szablonu płatności:\n\n1. Przejdź do aplikacji Web Publishing\n2. Utwórz nową stronę (Landing eventu, Strona produktu itp.)\n3. Połącz swoje produkty ze stroną\n4. Szablon płatności zostanie automatycznie zastosowany!",
+          es: "Para usar esta plantilla de pago:\n\n1. Ve a la aplicación Web Publishing\n2. Crea una nueva página (Página de evento, Página de producto, etc.)\n3. Vincula tus productos a la página\n4. ¡La plantilla de pago se aplicará automáticamente!",
+          fr: "Pour utiliser ce modèle de paiement:\n\n1. Accédez à l'application Web Publishing\n2. Créez une nouvelle page (Page d'événement, Page de produit, etc.)\n3. Liez vos produits à la page\n4. Le modèle de paiement sera automatiquement appliqué!",
+          ja: "このチェックアウトテンプレートを使用するには:\n\n1. Web Publishingアプリに移動\n2. 新しいページを作成（イベントランディング、製品ページなど）\n3. 製品をページにリンク\n4. チェックアウトテンプレートが自動的に適用されます！",
+        }
+      },
+      {
+        key: "ui.checkout_window.templates.alerts.docs_coming_soon",
+        values: {
+          en: "Template documentation coming soon!",
+          de: "Vorlagendokumentation kommt bald!",
+          pl: "Dokumentacja szablonu wkrótce!",
+          es: "¡Documentación de plantilla próximamente!",
+          fr: "Documentation du modèle bientôt disponible!",
+          ja: "テンプレートドキュメントは近日公開！",
         }
       },
 

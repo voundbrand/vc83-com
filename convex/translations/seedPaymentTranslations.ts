@@ -1088,6 +1088,318 @@ export const seedPaymentTranslations = internalMutation({
       },
 
       // ====================
+      // STRIPE CONNECT SECTION (ui.payments.stripe_connect)
+      // ====================
+      {
+        key: "ui.payments.stripe_connect.status_text.active",
+        values: {
+          en: "Your Stripe account is active and ready to accept payments",
+          de: "Ihr Stripe-Konto ist aktiv und bereit, Zahlungen zu akzeptieren",
+          pl: "Twoje konto Stripe jest aktywne i gotowe do przyjmowania płatności",
+          es: "Tu cuenta de Stripe está activa y lista para aceptar pagos",
+          fr: "Votre compte Stripe est actif et prêt à accepter les paiements",
+          ja: "Stripeアカウントは有効で、支払いを受け付ける準備ができています",
+        }
+      },
+      {
+        key: "ui.payments.stripe_connect.status_text.pending",
+        values: {
+          en: "Your Stripe account is pending verification",
+          de: "Ihr Stripe-Konto wartet auf Verifizierung",
+          pl: "Twoje konto Stripe oczekuje na weryfikację",
+          es: "Tu cuenta de Stripe está pendiente de verificación",
+          fr: "Votre compte Stripe est en attente de vérification",
+          ja: "Stripeアカウントは確認待ちです",
+        }
+      },
+      {
+        key: "ui.payments.stripe_connect.status_text.restricted",
+        values: {
+          en: "Your Stripe account has restrictions. Please check your Stripe dashboard",
+          de: "Ihr Stripe-Konto hat Einschränkungen. Bitte überprüfen Sie Ihr Stripe-Dashboard",
+          pl: "Twoje konto Stripe ma ograniczenia. Sprawdź swój panel Stripe",
+          es: "Tu cuenta de Stripe tiene restricciones. Consulta tu panel de Stripe",
+          fr: "Votre compte Stripe a des restrictions. Veuillez vérifier votre tableau de bord Stripe",
+          ja: "Stripeアカウントに制限があります。Stripeダッシュボードを確認してください",
+        }
+      },
+      {
+        key: "ui.payments.stripe_connect.status_text.disabled",
+        values: {
+          en: "Your Stripe account is disabled. Please contact Stripe support",
+          de: "Ihr Stripe-Konto ist deaktiviert. Bitte kontaktieren Sie den Stripe-Support",
+          pl: "Twoje konto Stripe jest wyłączone. Skontaktuj się z pomocą techniczną Stripe",
+          es: "Tu cuenta de Stripe está deshabilitada. Contacta con el soporte de Stripe",
+          fr: "Votre compte Stripe est désactivé. Veuillez contacter le support Stripe",
+          ja: "Stripeアカウントは無効です。Stripeサポートにお問い合わせください",
+        }
+      },
+      {
+        key: "ui.payments.stripe_connect.status_text.not_connected",
+        values: {
+          en: "No Stripe account connected",
+          de: "Kein Stripe-Konto verbunden",
+          pl: "Nie połączono konta Stripe",
+          es: "No hay cuenta de Stripe conectada",
+          fr: "Aucun compte Stripe connecté",
+          ja: "Stripeアカウントが接続されていません",
+        }
+      },
+      {
+        key: "ui.payments.stripe_connect.benefit_secure_title",
+        values: {
+          en: "Secure & Compliant",
+          de: "Sicher & Konform",
+          pl: "Bezpieczne i zgodne",
+          es: "Seguro y conforme",
+          fr: "Sécurisé et conforme",
+          ja: "安全でコンプライアンス準拠",
+        }
+      },
+      {
+        key: "ui.payments.stripe_connect.benefit_secure_desc",
+        values: {
+          en: "PCI-compliant payments with advanced fraud protection",
+          de: "PCI-konforme Zahlungen mit erweitertem Betrugsschutz",
+          pl: "Płatności zgodne z PCI z zaawansowaną ochroną przed oszustwami",
+          es: "Pagos conformes a PCI con protección avanzada contra fraude",
+          fr: "Paiements conformes PCI avec protection avancée contre la fraude",
+          ja: "高度な不正対策を備えたPCI準拠の支払い",
+        }
+      },
+      {
+        key: "ui.payments.stripe_connect.note_title",
+        values: {
+          en: "Connect Your Stripe Account:",
+          de: "Verbinden Sie Ihr Stripe-Konto:",
+          pl: "Połącz swoje konto Stripe:",
+          es: "Conecta tu cuenta de Stripe:",
+          fr: "Connectez votre compte Stripe:",
+          ja: "Stripeアカウントを接続：",
+        }
+      },
+      {
+        key: "ui.payments.stripe_connect.note_existing_title",
+        values: {
+          en: "Already have Stripe?",
+          de: "Haben Sie bereits Stripe?",
+          pl: "Masz już Stripe?",
+          es: "¿Ya tienes Stripe?",
+          fr: "Vous avez déjà Stripe?",
+          ja: "既にStripeアカウントをお持ちですか？",
+        }
+      },
+      {
+        key: "ui.payments.stripe_connect.note_existing_desc",
+        values: {
+          en: "You'll be able to sign in with your existing account",
+          de: "Sie können sich mit Ihrem bestehenden Konto anmelden",
+          pl: "Będziesz mógł zalogować się na swoje istniejące konto",
+          es: "Podrás iniciar sesión con tu cuenta existente",
+          fr: "Vous pourrez vous connecter avec votre compte existant",
+          ja: "既存のアカウントでサインインできます",
+        }
+      },
+      {
+        key: "ui.payments.stripe_connect.note_new_title",
+        values: {
+          en: "New to Stripe?",
+          de: "Neu bei Stripe?",
+          pl: "Nowy w Stripe?",
+          es: "¿Nuevo en Stripe?",
+          fr: "Nouveau sur Stripe?",
+          ja: "Stripeは初めてですか？",
+        }
+      },
+      {
+        key: "ui.payments.stripe_connect.note_new_desc",
+        values: {
+          en: "You can create an account during the connection process",
+          de: "Sie können während des Verbindungsprozesses ein Konto erstellen",
+          pl: "Możesz utworzyć konto podczas procesu łączenia",
+          es: "Puedes crear una cuenta durante el proceso de conexión",
+          fr: "Vous pouvez créer un compte pendant le processus de connexion",
+          ja: "接続プロセス中にアカウントを作成できます",
+        }
+      },
+      {
+        key: "ui.payments.stripe_connect.note_requirements",
+        values: {
+          en: "Have ready: business information, bank details, and tax ID",
+          de: "Bereiten Sie vor: Geschäftsinformationen, Bankdaten und Steuernummer",
+          pl: "Przygotuj: informacje o firmie, dane bankowe i numer podatkowy",
+          es: "Ten listo: información comercial, detalles bancarios y número de identificación fiscal",
+          fr: "Préparez: informations commerciales, coordonnées bancaires et numéro fiscal",
+          ja: "準備するもの：事業情報、銀行詳細、税務ID",
+        }
+      },
+      {
+        key: "ui.payments.stripe_connect.account_status_label",
+        values: {
+          en: "Account Status",
+          de: "Kontostatus",
+          pl: "Status konta",
+          es: "Estado de la cuenta",
+          fr: "Statut du compte",
+          ja: "アカウントステータス",
+        }
+      },
+      {
+        key: "ui.payments.stripe_connect.account_details_title",
+        values: {
+          en: "Account Details",
+          de: "Kontodetails",
+          pl: "Szczegóły konta",
+          es: "Detalles de la cuenta",
+          fr: "Détails du compte",
+          ja: "アカウント詳細",
+        }
+      },
+      {
+        key: "ui.payments.stripe_connect.onboarding_status",
+        values: {
+          en: "Onboarding Status",
+          de: "Onboarding-Status",
+          pl: "Status wdrożenia",
+          es: "Estado de incorporación",
+          fr: "Statut d'intégration",
+          ja: "オンボーディングステータス",
+        }
+      },
+      {
+        key: "ui.payments.stripe_connect.onboarding_complete",
+        values: {
+          en: "Complete",
+          de: "Vollständig",
+          pl: "Ukończono",
+          es: "Completo",
+          fr: "Complet",
+          ja: "完了",
+        }
+      },
+      {
+        key: "ui.payments.stripe_connect.onboarding_incomplete",
+        values: {
+          en: "Incomplete",
+          de: "Unvollständig",
+          pl: "Nieukończone",
+          es: "Incompleto",
+          fr: "Incomplet",
+          ja: "未完了",
+        }
+      },
+      {
+        key: "ui.payments.stripe_connect.onboarding_incomplete_title",
+        values: {
+          en: "Onboarding Incomplete",
+          de: "Onboarding unvollständig",
+          pl: "Wdrożenie nieukończone",
+          es: "Incorporación incompleta",
+          fr: "Intégration incomplète",
+          ja: "オンボーディング未完了",
+        }
+      },
+      {
+        key: "ui.payments.stripe_connect.onboarding_incomplete_desc",
+        values: {
+          en: "You need to complete your Stripe Connect onboarding to start accepting payments.",
+          de: "Sie müssen Ihr Stripe Connect-Onboarding abschließen, um Zahlungen zu akzeptieren.",
+          pl: "Musisz ukończyć wdrożenie Stripe Connect, aby rozpocząć przyjmowanie płatności.",
+          es: "Debes completar la incorporación de Stripe Connect para comenzar a aceptar pagos.",
+          fr: "Vous devez terminer votre intégration Stripe Connect pour commencer à accepter les paiements.",
+          ja: "支払いを受け付け始めるには、Stripe Connectのオンボーディングを完了する必要があります。",
+        }
+      },
+      {
+        key: "ui.payments.stripe_connect.loading",
+        values: {
+          en: "Loading...",
+          de: "Laden...",
+          pl: "Ładowanie...",
+          es: "Cargando...",
+          fr: "Chargement...",
+          ja: "読み込み中...",
+        }
+      },
+      {
+        key: "ui.payments.stripe_connect.complete_onboarding",
+        values: {
+          en: "Complete Onboarding",
+          de: "Onboarding abschließen",
+          pl: "Ukończ wdrożenie",
+          es: "Completar incorporación",
+          fr: "Terminer l'intégration",
+          ja: "オンボーディングを完了",
+        }
+      },
+      {
+        key: "ui.payments.stripe_connect.tax_settings_title",
+        values: {
+          en: "Tax Settings (Stripe Tax)",
+          de: "Steuereinstellungen (Stripe Tax)",
+          pl: "Ustawienia podatkowe (Stripe Tax)",
+          es: "Configuración de impuestos (Stripe Tax)",
+          fr: "Paramètres fiscaux (Stripe Tax)",
+          ja: "税金設定（Stripe Tax）",
+        }
+      },
+      {
+        key: "ui.payments.stripe_connect.tax_code",
+        values: {
+          en: "Default Tax Code",
+          de: "Standard-Steuercode",
+          pl: "Domyślny kod podatkowy",
+          es: "Código de impuesto predeterminado",
+          fr: "Code fiscal par défaut",
+          ja: "デフォルト税コード",
+        }
+      },
+      {
+        key: "ui.payments.stripe_connect.tax_not_configured",
+        values: {
+          en: "Tax settings are not configured for this organization. Configure tax settings to enable automatic tax calculation with Stripe Tax.",
+          de: "Steuereinstellungen sind für diese Organisation nicht konfiguriert. Konfigurieren Sie Steuereinstellungen, um automatische Steuerberechnung mit Stripe Tax zu aktivieren.",
+          pl: "Ustawienia podatkowe nie są skonfigurowane dla tej organizacji. Skonfiguruj ustawienia podatkowe, aby włączyć automatyczne obliczanie podatków za pomocą Stripe Tax.",
+          es: "La configuración de impuestos no está configurada para esta organización. Configure los ajustes fiscales para habilitar el cálculo automático de impuestos con Stripe Tax.",
+          fr: "Les paramètres fiscaux ne sont pas configurés pour cette organisation. Configurez les paramètres fiscaux pour activer le calcul automatique des taxes avec Stripe Tax.",
+          ja: "この組織の税金設定が構成されていません。Stripe Taxによる自動税金計算を有効にするには、税金設定を構成してください。",
+        }
+      },
+      {
+        key: "ui.payments.stripe_connect.tax_config_coming_soon",
+        values: {
+          en: "Tax settings configuration coming soon! For now, please configure via organization settings.",
+          de: "Steuereinstellungskonfiguration kommt bald! Konfigurieren Sie es derzeit über die Organisationseinstellungen.",
+          pl: "Konfiguracja ustawień podatkowych wkrótce! Na razie skonfiguruj przez ustawienia organizacji.",
+          es: "¡Próximamente configuración de impuestos! Por ahora, configura a través de la configuración de la organización.",
+          fr: "Configuration des paramètres fiscaux à venir! Pour l'instant, veuillez configurer via les paramètres de l'organisation.",
+          ja: "税金設定の構成は近日公開！現在は組織設定から構成してください。",
+        }
+      },
+      {
+        key: "ui.payments.stripe_connect.setup_tax",
+        values: {
+          en: "Setup Tax Settings",
+          de: "Steuereinstellungen einrichten",
+          pl: "Skonfiguruj ustawienia podatkowe",
+          es: "Configurar ajustes fiscales",
+          fr: "Configurer les paramètres fiscaux",
+          ja: "税金設定を構成",
+        }
+      },
+      {
+        key: "ui.payments.stripe_connect.invoice_settings_title",
+        values: {
+          en: "Invoice Settings (Stripe Invoicing)",
+          de: "Rechnungseinstellungen (Stripe-Rechnungsstellung)",
+          pl: "Ustawienia faktur (Fakturowanie Stripe)",
+          es: "Configuración de facturas (Facturación de Stripe)",
+          fr: "Paramètres de facture (Facturation Stripe)",
+          ja: "請求書設定（Stripe請求）",
+        }
+      },
+
+      // ====================
       // STRIPE INVOICE SECTION (ui.payments.invoicing)
       // ====================
       {

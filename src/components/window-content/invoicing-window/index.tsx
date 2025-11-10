@@ -7,6 +7,7 @@ import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { type Id, type Doc } from "../../../../convex/_generated/dataModel";
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { TemplatesTab } from "./templates-tab";
 import { TransactionsSection } from "../payments-window/transactions-section";
 
@@ -37,6 +38,7 @@ export function InvoicingWindow() {
   const [activeTab, setActiveTab] = useState<TabType>("invoices");
   const [invoiceSubTab, setInvoiceSubTab] = useState<InvoiceSubTab>("draft");
   const [selectedInvoice, setSelectedInvoice] = useState<Doc<"objects"> | null>(null);
+  const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.invoicing_window");
 
   // Check app availability - returns guard component if unavailable/loading, null if available
   const guard = useAppAvailabilityGuard({
@@ -78,16 +80,24 @@ export function InvoicingWindow() {
 
   if (guard) return guard;
 
+  if (translationsLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p style={{ color: "var(--win95-text)" }}>{t("ui.invoicing_window.footer.loading")}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full" style={{ background: 'var(--win95-bg)' }}>
       {/* Header */}
       <div className="px-4 py-3 border-b-2" style={{ borderColor: 'var(--win95-border)' }}>
         <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
           <CreditCard size={16} />
-          B2B/B2C Invoicing
+          {t("ui.invoicing_window.header.title")}
         </h2>
         <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-          Comprehensive invoice management with B2B consolidation
+          {t("ui.invoicing_window.header.description")}
         </p>
       </div>
 
@@ -103,7 +113,7 @@ export function InvoicingWindow() {
           onClick={() => setActiveTab("invoices")}
         >
           <FileText size={14} />
-          All Invoices
+          {t("ui.invoicing_window.tabs.invoices")}
         </button>
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
@@ -115,7 +125,7 @@ export function InvoicingWindow() {
           onClick={() => setActiveTab("transactions")}
         >
           <History size={14} />
-          Transactions
+          {t("ui.invoicing_window.tabs.transactions")}
         </button>
         <button
           className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2"
@@ -127,7 +137,7 @@ export function InvoicingWindow() {
           onClick={() => setActiveTab("templates")}
         >
           <Palette size={14} />
-          Templates
+          {t("ui.invoicing_window.tabs.templates")}
         </button>
       </div>
 
@@ -144,12 +154,12 @@ export function InvoicingWindow() {
                 }`}
                 style={{
                   backgroundColor: invoiceSubTab === "draft" ? "var(--win95-bg-light)" : "var(--win95-bg)",
-                  color: invoiceSubTab === "draft" ? "var(--primary)" : "var(--neutral-gray)",
+                  color: invoiceSubTab === "draft" ? "var(--win95-highlight)" : "var(--neutral-gray)",
                   borderColor: invoiceSubTab === "draft" ? "var(--win95-border)" : "transparent",
                 }}
               >
                 <Edit size={12} />
-                Draft ({draftInvoices.length})
+                {t("ui.invoicing_window.subtabs.draft")} ({draftInvoices.length})
               </button>
               <button
                 onClick={() => setInvoiceSubTab("sealed")}
@@ -158,12 +168,12 @@ export function InvoicingWindow() {
                 }`}
                 style={{
                   backgroundColor: invoiceSubTab === "sealed" ? "var(--win95-bg-light)" : "var(--win95-bg)",
-                  color: invoiceSubTab === "sealed" ? "var(--success)" : "var(--neutral-gray)",
+                  color: invoiceSubTab === "sealed" ? "var(--win95-highlight)" : "var(--neutral-gray)",
                   borderColor: invoiceSubTab === "sealed" ? "var(--win95-border)" : "transparent",
                 }}
               >
                 <Lock size={12} />
-                Sealed ({sealedInvoices.length})
+                {t("ui.invoicing_window.subtabs.sealed")} ({sealedInvoices.length})
               </button>
             </div>
 
@@ -174,9 +184,9 @@ export function InvoicingWindow() {
                   {draftInvoices.length === 0 ? (
                     <div className="text-center py-12" style={{ color: "var(--neutral-gray)" }}>
                       <div className="text-4xl mb-4">📝</div>
-                      <h3 className="text-sm font-semibold mb-2">No Draft Invoices</h3>
+                      <h3 className="text-sm font-semibold mb-2">{t("ui.invoicing_window.empty.draft.title")}</h3>
                       <p className="text-xs">
-                        Draft invoices will appear here when created from transactions.
+                        {t("ui.invoicing_window.empty.draft.description")}
                       </p>
                     </div>
                   ) : (
@@ -211,7 +221,7 @@ export function InvoicingWindow() {
                                       color: "var(--warning)",
                                     }}
                                   >
-                                    DRAFT
+                                    {t("ui.invoicing_window.status.draft")}
                                   </span>
                                 </div>
                                 <p className="text-xs mb-2 truncate" style={{ color: "var(--neutral-gray)" }}>
@@ -245,9 +255,9 @@ export function InvoicingWindow() {
                   {sealedInvoices.length === 0 ? (
                     <div className="text-center py-12" style={{ color: "var(--neutral-gray)" }}>
                       <div className="text-4xl mb-4">🔒</div>
-                      <h3 className="text-sm font-semibold mb-2">No Sealed Invoices</h3>
+                      <h3 className="text-sm font-semibold mb-2">{t("ui.invoicing_window.empty.sealed.title")}</h3>
                       <p className="text-xs">
-                        Sealed invoices will appear here after you finalize draft invoices.
+                        {t("ui.invoicing_window.empty.sealed.description")}
                       </p>
                     </div>
                   ) : (
@@ -262,7 +272,7 @@ export function InvoicingWindow() {
 
                         const statusColors = {
                           paid: { bg: "var(--success-light)", text: "var(--success)" },
-                          sent: { bg: "var(--info-light)", text: "var(--primary)" },
+                          sent: { bg: "var(--info-light)", text: "var(--win95-highlight)" },
                           overdue: { bg: "var(--error-light)", text: "var(--error)" },
                           awaiting_employer_payment: { bg: "var(--warning-light)", text: "var(--warning)" },
                         }[paymentStatus] || { bg: "var(--neutral-light)", text: "var(--neutral-gray)" };
@@ -342,8 +352,11 @@ export function InvoicingWindow() {
       >
         <span>
           {invoices !== undefined
-            ? `${invoices.length} invoice${invoices.length !== 1 ? "s" : ""}`
-            : "Loading..."}
+            ? t("ui.invoicing_window.footer.invoice_count", {
+                count: invoices.length,
+                plural: invoices.length !== 1 ? "s" : ""
+              })
+            : t("ui.invoicing_window.footer.loading")}
         </span>
         <span>{currentOrg?.name || ""}</span>
       </div>
@@ -353,6 +366,8 @@ export function InvoicingWindow() {
         <InvoiceDetailModal
           invoice={selectedInvoice}
           onClose={() => setSelectedInvoice(null)}
+          t={t}
+          formatCurrency={formatCurrency}
         />
       )}
     </div>
@@ -366,9 +381,11 @@ export function InvoicingWindow() {
 interface InvoiceDetailModalProps {
   invoice: Doc<"objects">;
   onClose: () => void;
+  t: (key: string, params?: Record<string, string | number>) => string;
+  formatCurrency: (cents: number, currency?: string) => string;
 }
 
-function InvoiceDetailModal({ invoice, onClose }: InvoiceDetailModalProps) {
+function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDetailModalProps) {
   const { sessionId } = useAuth();
   const sealInvoiceMutation = useMutation(api.invoicingOntology.sealInvoice);
   const generatePDFAction = useAction(api.pdfGeneration.generateInvoicePDF);
@@ -393,7 +410,7 @@ function InvoiceDetailModal({ invoice, onClose }: InvoiceDetailModalProps) {
     if (pdfUrl) {
       window.open(pdfUrl, "_blank");
     } else {
-      alert("PDF not yet generated for this invoice");
+      alert(t("ui.invoicing_window.alerts.no_pdf"));
     }
   };
 
@@ -435,12 +452,7 @@ function InvoiceDetailModal({ invoice, onClose }: InvoiceDetailModalProps) {
     if (!sessionId) return;
 
     const confirmed = window.confirm(
-      "Are you sure you want to seal this draft invoice?\n\n" +
-      "Sealing will:\n" +
-      "• Generate a final invoice number\n" +
-      "• Mark the invoice as immutable\n" +
-      "• Mark all transactions as fully invoiced\n\n" +
-      "This action cannot be undone."
+      `${t("ui.invoicing_window.confirm.seal_title")}\n\n${t("ui.invoicing_window.confirm.seal_message")}`
     );
 
     if (!confirmed) return;
@@ -452,7 +464,7 @@ function InvoiceDetailModal({ invoice, onClose }: InvoiceDetailModalProps) {
         invoiceId: invoice._id,
       });
 
-      alert(`Invoice sealed successfully!\nNew invoice number: ${result.invoiceNumber}`);
+      alert(t("ui.invoicing_window.success.sealed", { invoiceNumber: result.invoiceNumber }));
       onClose(); // Close modal to refresh the list
     } catch (error) {
       console.error("Failed to seal invoice:", error);
@@ -486,7 +498,12 @@ function InvoiceDetailModal({ invoice, onClose }: InvoiceDetailModalProps) {
           </h3>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-gray-200 rounded transition-colors"
+            className="p-1 rounded transition-colors"
+            style={{
+              background: 'transparent'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--win95-border)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
           >
             <X size={16} />
           </button>
@@ -497,21 +514,21 @@ function InvoiceDetailModal({ invoice, onClose }: InvoiceDetailModalProps) {
           {/* Invoice Header Info */}
           <div className="grid grid-cols-2 gap-4 text-xs">
             <div>
-              <p className="font-bold mb-1" style={{ color: "var(--win95-text)" }}>Invoice Number</p>
+              <p className="font-bold mb-1" style={{ color: "var(--win95-text)" }}>{t("ui.invoicing_window.modal.invoice_number")}</p>
               <p style={{ color: "var(--neutral-gray)" }}>{invoiceNumber}</p>
             </div>
             <div>
-              <p className="font-bold mb-1" style={{ color: "var(--win95-text)" }}>Status</p>
+              <p className="font-bold mb-1" style={{ color: "var(--win95-text)" }}>{t("ui.invoicing_window.modal.status")}</p>
               <p style={{ color: "var(--neutral-gray)" }}>{invoice.status || "draft"}</p>
             </div>
             <div>
-              <p className="font-bold mb-1" style={{ color: "var(--win95-text)" }}>Invoice Date</p>
+              <p className="font-bold mb-1" style={{ color: "var(--win95-text)" }}>{t("ui.invoicing_window.modal.invoice_date")}</p>
               <p style={{ color: "var(--neutral-gray)" }}>
                 {invoiceDate ? new Date(invoiceDate).toLocaleDateString() : "N/A"}
               </p>
             </div>
             <div>
-              <p className="font-bold mb-1" style={{ color: "var(--win95-text)" }}>Due Date</p>
+              <p className="font-bold mb-1" style={{ color: "var(--win95-text)" }}>{t("ui.invoicing_window.modal.due_date")}</p>
               <p style={{ color: "var(--neutral-gray)" }}>
                 {dueDate ? new Date(dueDate).toLocaleDateString() : "N/A"}
               </p>
@@ -523,7 +540,7 @@ function InvoiceDetailModal({ invoice, onClose }: InvoiceDetailModalProps) {
             className="p-3 border-2 rounded"
             style={{ background: "var(--win95-bg-light)", borderColor: "var(--win95-border)" }}
           >
-            <p className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>Bill To</p>
+            <p className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>{t("ui.invoicing_window.modal.bill_to")}</p>
             <div className="text-xs space-y-1" style={{ color: "var(--neutral-gray)" }}>
               <p className="font-semibold">{billTo?.name || "Unknown"}</p>
               {billTo?.vatNumber && <p>VAT: {billTo.vatNumber}</p>}
@@ -538,7 +555,7 @@ function InvoiceDetailModal({ invoice, onClose }: InvoiceDetailModalProps) {
 
           {/* Line Items */}
           <div>
-            <p className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>Items</p>
+            <p className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>{t("ui.invoicing_window.modal.items")}</p>
             <div className="space-y-2">
               {lineItems.map((item, idx) => (
                 <div
@@ -558,21 +575,21 @@ function InvoiceDetailModal({ invoice, onClose }: InvoiceDetailModalProps) {
           {/* Totals */}
           <div className="space-y-1 text-xs pt-2 border-t-2" style={{ borderColor: "var(--win95-border)" }}>
             <div className="flex justify-between">
-              <span style={{ color: "var(--neutral-gray)" }}>Subtotal:</span>
+              <span style={{ color: "var(--neutral-gray)" }}>{t("ui.invoicing_window.modal.subtotal")}</span>
               <span style={{ color: "var(--win95-text)" }}>
                 {currency} {(subtotal / 100).toFixed(2)}
               </span>
             </div>
             {tax > 0 && (
               <div className="flex justify-between">
-                <span style={{ color: "var(--neutral-gray)" }}>Tax:</span>
+                <span style={{ color: "var(--neutral-gray)" }}>{t("ui.invoicing_window.modal.tax")}</span>
                 <span style={{ color: "var(--win95-text)" }}>
                   {currency} {(tax / 100).toFixed(2)}
                 </span>
               </div>
             )}
             <div className="flex justify-between font-bold text-sm pt-1 border-t" style={{ borderColor: "var(--win95-border)" }}>
-              <span style={{ color: "var(--win95-text)" }}>Total:</span>
+              <span style={{ color: "var(--win95-text)" }}>{t("ui.invoicing_window.modal.total")}</span>
               <span style={{ color: "var(--win95-text)" }}>
                 {currency} {(total / 100).toFixed(2)}
               </span>
@@ -591,15 +608,15 @@ function InvoiceDetailModal({ invoice, onClose }: InvoiceDetailModalProps) {
               <button
                 className="px-4 py-2 text-xs font-bold rounded hover:opacity-90 transition-opacity flex items-center gap-2"
                 style={{
-                  background: "var(--primary)",
-                  color: "white",
+                  background: "var(--win95-highlight)",
+                  color: "var(--win95-titlebar-text)",
                   border: "2px solid var(--win95-border)",
                 }}
                 onClick={handleSealInvoice}
                 disabled={isSealing}
               >
                 <Lock size={14} />
-                {isSealing ? "Sealing..." : "Seal Invoice"}
+                {isSealing ? t("ui.invoicing_window.buttons.sealing") : t("ui.invoicing_window.buttons.seal")}
               </button>
             )}
           </div>
@@ -615,10 +632,10 @@ function InvoiceDetailModal({ invoice, onClose }: InvoiceDetailModalProps) {
               }}
               onClick={handleDownloadPDF}
               disabled={!pdfUrl || isDraft}
-              title={isDraft ? "Seal invoice first to generate PDF" : pdfUrl ? "Download PDF" : "PDF not yet generated"}
+              title={isDraft ? t("ui.invoicing_window.alerts.seal_first") : pdfUrl ? t("ui.invoicing_window.buttons.download_pdf") : t("ui.invoicing_window.alerts.no_pdf")}
             >
               <Download size={14} />
-              Download PDF
+              {t("ui.invoicing_window.buttons.download_pdf")}
             </button>
             <button
               className="px-4 py-2 text-xs rounded hover:opacity-90 transition-opacity flex items-center gap-2 opacity-50 cursor-not-allowed"
@@ -628,10 +645,10 @@ function InvoiceDetailModal({ invoice, onClose }: InvoiceDetailModalProps) {
                 border: "2px solid var(--win95-border)",
               }}
               disabled
-              title="Coming soon"
+              title={t("ui.invoicing_window.alerts.coming_soon")}
             >
               <Mail size={14} />
-              Send Email
+              {t("ui.invoicing_window.buttons.send_email")}
             </button>
             <button
               className="px-4 py-2 text-xs rounded hover:opacity-90 transition-opacity"
@@ -642,7 +659,7 @@ function InvoiceDetailModal({ invoice, onClose }: InvoiceDetailModalProps) {
               }}
               onClick={onClose}
             >
-              Close
+              {t("ui.invoicing_window.buttons.close")}
             </button>
           </div>
         </div>

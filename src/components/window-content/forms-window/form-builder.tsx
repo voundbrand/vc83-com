@@ -359,7 +359,7 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
                   {t("ui.forms.section_select_template")} <span style={{ color: "var(--error)" }}>{t("ui.forms.required_indicator")}</span>
                 </span>
                 {selectedTemplateId && (
-                  <span className="text-xs bg-purple-600 text-white px-2 py-0.5 rounded">
+                  <span className="text-xs px-2 py-0.5 rounded" style={{ background: "var(--win95-highlight)", color: "white" }}>
                     {availableTemplates.find((t) => t._id === selectedTemplateId)?.name}
                   </span>
                 )}
@@ -369,7 +369,7 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
 
             {/* Accordion Content */}
             {templateAccordionOpen && (
-              <div className="p-3 bg-white space-y-2">
+              <div className="p-3 space-y-2" style={{ background: "var(--win95-input-bg)" }}>
                 {availableTemplates.map((template) => (
                   <button
                     key={template._id}
@@ -378,24 +378,24 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
                     className="w-full border-2 p-3 text-left transition-all hover:shadow-md"
                     style={{
                       borderColor:
-                        selectedTemplateId === template._id ? "#6B46C1" : "#D1D5DB",
+                        selectedTemplateId === template._id ? "var(--win95-highlight)" : "var(--win95-border)",
                       backgroundColor:
-                        selectedTemplateId === template._id ? "#F3E8FF" : "white",
+                        selectedTemplateId === template._id ? "var(--win95-bg-light)" : "var(--win95-input-bg)",
                       borderWidth: selectedTemplateId === template._id ? "3px" : "2px",
                     }}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <div className="font-bold text-sm mb-1">{template.name}</div>
-                        <p className="text-xs text-gray-600 mb-1">
+                        <div className="font-bold text-sm mb-1" style={{ color: "var(--win95-text)" }}>{template.name}</div>
+                        <p className="text-xs mb-1" style={{ color: "var(--neutral-gray)" }}>
                           {template.customProperties?.description}
                         </p>
-                        <code className="text-xs bg-gray-100 px-1">
+                        <code className="text-xs px-1" style={{ background: "var(--win95-bg)", color: "var(--win95-text)" }}>
                           {template.customProperties?.code}
                         </code>
                       </div>
                       {selectedTemplateId === template._id && (
-                        <Check size={20} className="text-purple-600 flex-shrink-0" />
+                        <Check size={20} style={{ color: "var(--win95-highlight)" }} className="flex-shrink-0" />
                       )}
                     </div>
                   </button>
@@ -419,7 +419,7 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
                   {t("ui.forms.section_select_theme")} <span style={{ color: "var(--error)" }}>{t("ui.forms.required_indicator")}</span>
                 </span>
                 {selectedThemeId && (
-                  <span className="text-xs bg-purple-600 text-white px-2 py-0.5 rounded">
+                  <span className="text-xs px-2 py-0.5 rounded" style={{ background: "var(--win95-highlight)", color: "white" }}>
                     {availableThemes.find((t) => t._id === selectedThemeId)?.name}
                   </span>
                 )}
@@ -429,7 +429,7 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
 
             {/* Accordion Content */}
             {themeAccordionOpen && (
-              <div className="p-3 bg-white space-y-2">
+              <div className="p-3 space-y-2" style={{ background: "var(--win95-input-bg)" }}>
                 {availableThemes.map((theme: TemplateOrTheme) => (
                   <button
                     key={theme._id}
@@ -437,45 +437,58 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
                     onClick={() => setSelectedThemeId(theme._id)}
                     className="w-full border-2 p-3 text-left transition-all hover:shadow-md"
                     style={{
-                      borderColor: selectedThemeId === theme._id ? "#6B46C1" : "#D1D5DB",
-                      backgroundColor: selectedThemeId === theme._id ? "#F3E8FF" : "white",
+                      borderColor: selectedThemeId === theme._id ? "var(--win95-highlight)" : "var(--win95-border)",
+                      backgroundColor: selectedThemeId === theme._id ? "var(--win95-bg-light)" : "var(--win95-input-bg)",
                       borderWidth: selectedThemeId === theme._id ? "3px" : "2px",
                     }}
                   >
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex-1">
-                        <div className="font-bold text-sm mb-1">{theme.name}</div>
-                        <p className="text-xs text-gray-600 mb-1">
+                        <div className="font-bold text-sm mb-1" style={{ color: "var(--win95-text)" }}>{theme.name}</div>
+                        <p className="text-xs mb-1" style={{ color: "var(--neutral-gray)" }}>
                           {theme.customProperties?.description}
                         </p>
-                        <code className="text-xs bg-gray-100 px-1">
+                        <code className="text-xs px-1" style={{ background: "var(--win95-bg)", color: "var(--win95-text)" }}>
                           {theme.customProperties?.code}
                         </code>
                       </div>
                       {selectedThemeId === theme._id && (
-                        <Check size={20} className="text-purple-600 flex-shrink-0" />
+                        <Check size={20} style={{ color: "var(--win95-highlight)" }} className="flex-shrink-0" />
                       )}
                     </div>
                     {/* Color palette preview */}
                     <div className="flex gap-1 mt-2">
                       <div
-                        className="w-8 h-8 rounded border border-gray-300"
+                        className="w-8 h-8 rounded border"
                         style={{
                           background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                          borderColor: "var(--win95-border)"
                         }}
-                        title="Primary Gradient"
+                        title={t("ui.forms.color_primary_gradient")}
                       />
                       <div
-                        className="w-8 h-8 rounded border border-gray-300 bg-white"
-                        title="Background"
+                        className="w-8 h-8 rounded border"
+                        style={{
+                          background: "var(--win95-input-bg)",
+                          borderColor: "var(--win95-border)"
+                        }}
+                        title={t("ui.forms.color_background")}
                       />
                       <div
-                        className="w-8 h-8 rounded border border-gray-300 bg-gray-900"
-                        title="Text"
+                        className="w-8 h-8 rounded border"
+                        style={{
+                          background: "var(--win95-text)",
+                          borderColor: "var(--win95-border)"
+                        }}
+                        title={t("ui.forms.color_text")}
                       />
                       <div
-                        className="w-8 h-8 rounded border border-gray-300 bg-gray-100"
-                        title="Secondary"
+                        className="w-8 h-8 rounded border"
+                        style={{
+                          background: "var(--win95-bg)",
+                          borderColor: "var(--win95-border)"
+                        }}
+                        title={t("ui.forms.color_secondary")}
                       />
                     </div>
                   </button>
@@ -497,7 +510,7 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
                 <Database size={16} />
                 <span className="text-sm font-bold">{t("ui.forms.section_link_event")}</span>
                 {selectedEventId && (
-                  <span className="text-xs bg-purple-600 text-white px-2 py-0.5 rounded">
+                  <span className="text-xs px-2 py-0.5 rounded" style={{ background: "var(--win95-highlight)", color: "white" }}>
                     {availableEvents?.find((e) => e._id === selectedEventId)?.name}
                   </span>
                 )}
@@ -514,14 +527,14 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
 
                 {availableEvents === undefined && (
                   <div className="flex items-center justify-center p-4">
-                    <Loader2 size={20} className="animate-spin text-purple-600" />
+                    <Loader2 size={20} className="animate-spin" style={{ color: "var(--win95-highlight)" }} />
                   </div>
                 )}
 
                 {availableEvents && availableEvents.length === 0 && (
-                  <div className="border-2 border-yellow-600 bg-yellow-50 p-3">
-                    <p className="text-xs text-yellow-800">
-                      No events found. Create an event first to link it to this form.
+                  <div className="border-2 p-3" style={{ borderColor: "var(--warning)", background: "rgba(251, 191, 36, 0.1)" }}>
+                    <p className="text-xs" style={{ color: "var(--warning)" }}>
+                      {t("ui.forms.no_events_message")}
                     </p>
                   </div>
                 )}
@@ -534,18 +547,18 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
                       onClick={() => setSelectedEventId("")}
                       className="w-full border-2 p-3 text-left transition-all hover:shadow-md"
                       style={{
-                        borderColor: selectedEventId === "" ? "#6B46C1" : "#D1D5DB",
-                        backgroundColor: selectedEventId === "" ? "#F3E8FF" : "white",
+                        borderColor: selectedEventId === "" ? "var(--win95-highlight)" : "var(--win95-border)",
+                        backgroundColor: selectedEventId === "" ? "var(--win95-bg-light)" : "var(--win95-input-bg)",
                         borderWidth: selectedEventId === "" ? "3px" : "2px",
                       }}
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <div className="font-bold text-sm mb-1">No Event</div>
-                          <p className="text-xs text-gray-600">Form is not linked to any event</p>
+                          <div className="font-bold text-sm mb-1" style={{ color: "var(--win95-text)" }}>{t("ui.forms.no_event")}</div>
+                          <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>{t("ui.forms.no_event_description")}</p>
                         </div>
                         {selectedEventId === "" && (
-                          <Check size={20} className="text-purple-600 flex-shrink-0" />
+                          <Check size={20} style={{ color: "var(--win95-highlight)" }} className="flex-shrink-0" />
                         )}
                       </div>
                     </button>
@@ -558,21 +571,21 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
                         onClick={() => setSelectedEventId(event._id)}
                         className="w-full border-2 p-3 text-left transition-all hover:shadow-md"
                         style={{
-                          borderColor: selectedEventId === event._id ? "#6B46C1" : "#D1D5DB",
-                          backgroundColor: selectedEventId === event._id ? "#F3E8FF" : "white",
+                          borderColor: selectedEventId === event._id ? "var(--win95-highlight)" : "var(--win95-border)",
+                          backgroundColor: selectedEventId === event._id ? "var(--win95-bg-light)" : "var(--win95-input-bg)",
                           borderWidth: selectedEventId === event._id ? "3px" : "2px",
                         }}
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <div className="font-bold text-sm mb-1">{event.name}</div>
+                            <div className="font-bold text-sm mb-1" style={{ color: "var(--win95-text)" }}>{event.name}</div>
                             {event.description && (
-                              <p className="text-xs text-gray-600 mb-1">{event.description}</p>
+                              <p className="text-xs mb-1" style={{ color: "var(--neutral-gray)" }}>{event.description}</p>
                             )}
-                            <code className="text-xs bg-gray-100 px-1">ID: {event._id}</code>
+                            <code className="text-xs px-1" style={{ background: "var(--win95-bg)", color: "var(--win95-text)" }}>ID: {event._id}</code>
                           </div>
                           {selectedEventId === event._id && (
-                            <Check size={20} className="text-purple-600 flex-shrink-0" />
+                            <Check size={20} style={{ color: "var(--win95-highlight)" }} className="flex-shrink-0" />
                           )}
                         </div>
                       </button>
@@ -694,88 +707,137 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
         {/* Preview content */}
         {selectedTemplateId && selectedThemeId ? (
           <div className="space-y-4">
-            {/* LIVE FORM PREVIEW */}
-            <div className="border-2 border-gray-400 bg-white overflow-hidden">
-              {(() => {
-                const selectedTemplate = availableTemplates.find(
-                  (t) => t._id === selectedTemplateId
-                );
-                const selectedTheme = availableThemes.find(
-                  (t) => t._id === selectedThemeId
-                );
-                const templateCode = selectedTemplate?.customProperties?.code as string;
-                const themeCode = selectedTheme?.customProperties?.code as string;
+            {/* LIVE FORM PREVIEW - Isolated from Win95 theme */}
+            <div className="border-2" style={{ borderColor: "var(--win95-border)" }}>
+              {/* Label above preview */}
+              <div className="px-3 py-2 border-b-2" style={{
+                background: "var(--win95-bg-light)",
+                borderColor: "var(--win95-border)"
+              }}>
+                <p className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                  {t("ui.forms.live_preview")}
+                </p>
+              </div>
 
-                if (templateCode && themeCode) {
-                  const FormComponent = getFormTemplate(templateCode);
-                  const theme = webPublishingThemes.find((t) => t.code === themeCode);
+              {/* Isolated preview container - resets all CSS variables */}
+              <div
+                className="overflow-hidden relative"
+                style={{
+                  // Reset all Win95 theme variables to neutral values
+                  // This ensures the template's own theme is not affected
+                  all: 'initial',
+                  display: 'block',
+                  overflow: 'hidden',
+                  position: 'relative',
+                  // Set a neutral background for the preview area
+                  background: '#ffffff',
+                }}
+              >
+                {(() => {
+                  const selectedTemplate = availableTemplates.find(
+                    (t) => t._id === selectedTemplateId
+                  );
+                  const selectedTheme = availableThemes.find(
+                    (t) => t._id === selectedThemeId
+                  );
+                  const templateCode = selectedTemplate?.customProperties?.code as string;
+                  const themeCode = selectedTheme?.customProperties?.code as string;
 
-                  if (!FormComponent) {
+                  if (templateCode && themeCode) {
+                    const FormComponent = getFormTemplate(templateCode);
+                    const theme = webPublishingThemes.find((t) => t.code === themeCode);
+
+                    if (!FormComponent) {
+                      return (
+                        <div style={{
+                          padding: '2rem',
+                          textAlign: 'center',
+                          color: '#6b7280',
+                          fontFamily: 'system-ui, -apple-system, sans-serif',
+                          fontSize: '0.75rem'
+                        }}>
+                          <p>Form template not found: {templateCode}</p>
+                        </div>
+                      );
+                    }
+
+                    if (!theme) {
+                      return (
+                        <div style={{
+                          padding: '2rem',
+                          textAlign: 'center',
+                          color: '#6b7280',
+                          fontFamily: 'system-ui, -apple-system, sans-serif',
+                          fontSize: '0.75rem'
+                        }}>
+                          <p>Theme not found: {themeCode}</p>
+                        </div>
+                      );
+                    }
+
+                    // 🚨 CRITICAL: Load schema from TypeScript template, NOT database!
+                    // The FormComponent.schema contains the actual sections (which contain fields)
+                    const templateSchema = FormComponent.schema;
+
+                    console.log("🎨 [FormBuilder] Live preview loading schema:", {
+                      templateCode,
+                      themeCode,
+                      hasSchema: !!templateSchema,
+                      sectionsCount: templateSchema?.sections?.length || 0,
+                    });
+
                     return (
-                      <div className="p-8 text-center text-gray-500">
-                        <p className="text-xs">Form template not found: {templateCode}</p>
+                      <div style={{
+                        transform: 'scale(0.75)',
+                        transformOrigin: 'top left',
+                        width: '133.33%',
+                        // Ensure template styles take precedence
+                        isolation: 'isolate',
+                      }}>
+                        <FormComponent
+                          formId={"preview" as Id<"objects">}
+                          organizationId={currentOrg.id as Id<"organizations">}
+                          theme={theme}
+                          onSubmit={async (data) => {
+                            console.log("Preview submission:", data);
+                            alert("This is a preview - form not actually submitted");
+                          }}
+                          initialData={{}}
+                          mode="standalone"
+                        />
                       </div>
                     );
                   }
-
-                  if (!theme) {
-                    return (
-                      <div className="p-8 text-center text-gray-500">
-                        <p className="text-xs">Theme not found: {themeCode}</p>
-                      </div>
-                    );
-                  }
-
-                  // 🚨 CRITICAL: Load schema from TypeScript template, NOT database!
-                  // The FormComponent.schema contains the actual sections (which contain fields)
-                  const templateSchema = FormComponent.schema;
-
-                  console.log("🎨 [FormBuilder] Live preview loading schema:", {
-                    templateCode,
-                    themeCode,
-                    hasSchema: !!templateSchema,
-                    sectionsCount: templateSchema?.sections?.length || 0,
-                  });
 
                   return (
-                    <div className="transform scale-75 origin-top-left w-[133%]">
-                      <FormComponent
-                        formId={"preview" as Id<"objects">}
-                        organizationId={currentOrg.id as Id<"organizations">}
-                        theme={theme}
-                        onSubmit={async (data) => {
-                          console.log("Preview submission:", data);
-                          alert("This is a preview - form not actually submitted");
-                        }}
-                        initialData={{}}
-                        mode="standalone"
-                      />
+                    <div style={{
+                      padding: '2rem',
+                      textAlign: 'center',
+                      color: '#6b7280',
+                      fontFamily: 'system-ui, -apple-system, sans-serif',
+                      fontSize: '0.75rem'
+                    }}>
+                      <p>Form preview loading...</p>
                     </div>
                   );
-                }
-
-                return (
-                  <div className="p-8 text-center text-gray-500">
-                    <p className="text-xs">Form preview loading...</p>
-                  </div>
-                );
-              })()}
+                })()}
+              </div>
             </div>
 
             {/* Template Info */}
-            <div className="border-2 border-gray-400 bg-white p-4">
-              <h4 className="text-xs font-bold mb-2 flex items-center gap-2">
+            <div className="border-2 p-4" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
+              <h4 className="text-xs font-bold mb-2 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
                 <FileText size={14} />
-                Template:{" "}
+                {t("ui.forms.label_template")}{" "}
                 {availableTemplates.find((t) => t._id === selectedTemplateId)?.name}
               </h4>
-              <p className="text-xs text-gray-600 mb-3">
+              <p className="text-xs mb-3" style={{ color: "var(--neutral-gray)" }}>
                 {
                   availableTemplates.find((t) => t._id === selectedTemplateId)
                     ?.customProperties?.description
                 }
               </p>
-              <code className="text-xs bg-gray-100 px-2 py-1">
+              <code className="text-xs px-2 py-1" style={{ background: "var(--win95-bg)", color: "var(--win95-text)" }}>
                 {
                   availableTemplates.find((t) => t._id === selectedTemplateId)
                     ?.customProperties?.code
@@ -784,12 +846,12 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
             </div>
 
             {/* Theme Info */}
-            <div className="border-2 border-gray-400 bg-white p-4">
-              <h4 className="text-xs font-bold mb-2 flex items-center gap-2">
+            <div className="border-2 p-4" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
+              <h4 className="text-xs font-bold mb-2 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
                 <Palette size={14} />
-                Theme: {availableThemes.find((t) => t._id === selectedThemeId)?.name}
+                {t("ui.forms.label_theme")} {availableThemes.find((t) => t._id === selectedThemeId)?.name}
               </h4>
-              <p className="text-xs text-gray-600 mb-3">
+              <p className="text-xs mb-3" style={{ color: "var(--neutral-gray)" }}>
                 {
                   availableThemes.find((t) => t._id === selectedThemeId)?.customProperties
                     ?.description
@@ -798,31 +860,44 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
 
               {/* Color swatches */}
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-xs font-bold">Colors:</span>
+                <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>{t("ui.forms.label_colors")}</span>
                 <div className="flex gap-1">
                   <div
-                    className="w-8 h-8 rounded border border-gray-300"
+                    className="w-8 h-8 rounded border"
                     style={{
                       background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                      borderColor: "var(--win95-border)"
                     }}
-                    title="Primary Gradient"
+                    title={t("ui.forms.color_primary_gradient")}
                   />
                   <div
-                    className="w-8 h-8 rounded border border-gray-300 bg-white"
-                    title="Background"
+                    className="w-8 h-8 rounded border"
+                    style={{
+                      background: "var(--win95-input-bg)",
+                      borderColor: "var(--win95-border)"
+                    }}
+                    title={t("ui.forms.color_background")}
                   />
                   <div
-                    className="w-8 h-8 rounded border border-gray-300 bg-gray-900"
-                    title="Text"
+                    className="w-8 h-8 rounded border"
+                    style={{
+                      background: "var(--win95-text)",
+                      borderColor: "var(--win95-border)"
+                    }}
+                    title={t("ui.forms.color_text")}
                   />
                   <div
-                    className="w-8 h-8 rounded border border-gray-300 bg-gray-100"
-                    title="Secondary"
+                    className="w-8 h-8 rounded border"
+                    style={{
+                      background: "var(--win95-bg)",
+                      borderColor: "var(--win95-border)"
+                    }}
+                    title={t("ui.forms.color_secondary")}
                   />
                 </div>
               </div>
 
-              <code className="text-xs bg-gray-100 px-2 py-1">
+              <code className="text-xs px-2 py-1" style={{ background: "var(--win95-bg)", color: "var(--win95-text)" }}>
                 {
                   availableThemes.find((t) => t._id === selectedThemeId)?.customProperties
                     ?.code

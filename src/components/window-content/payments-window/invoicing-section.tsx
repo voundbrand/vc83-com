@@ -6,6 +6,7 @@ import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { useWindowManager } from "@/hooks/use-window-manager";
 import { InvoicingWindow } from "@/components/window-content/invoicing-window";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import {
   FileText,
   CheckCircle2,
@@ -31,6 +32,7 @@ export function InvoicingSection() {
   const currentOrg = useCurrentOrganization();
   const [isEnabling, setIsEnabling] = useState(false);
   const { openWindow } = useWindowManager();
+  const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.payments.invoicing");
 
   // Check if invoice payment is available
   const invoiceAvailability = useQuery(
@@ -86,26 +88,34 @@ export function InvoicingSection() {
   const hasStripeInvoiceEnabled = Boolean(stripeProvider?.metadata?.stripeInvoiceEnabled);
 
   // Setup checklist
-  const setupItems = [
+  const setupItems = translationsLoading ? [] : [
     {
-      label: "Invoicing App Enabled",
+      label: t("ui.payments.invoicing.requirements.title"),
       status: invoiceAvailability?.available ? "complete" : "incomplete",
-      action: invoiceAvailability?.available ? null : "Enable invoicing app",
+      action: invoiceAvailability?.available ? null : t("ui.payments.invoicing.buttons.enable"),
       onClick: invoiceAvailability?.available ? null : handleEnableInvoicing,
     },
     {
-      label: "CRM Organizations",
+      label: t("ui.payments.invoicing.requirements.business_profile"),
       status: invoiceAvailability?.crmOrganizationsCount ?? 0 > 0 ? "complete" : "optional",
       description: `${invoiceAvailability?.crmOrganizationsCount ?? 0} employer organizations in CRM (will be created during checkout)`,
     },
     {
-      label: "Stripe Invoice Integration",
+      label: t("ui.payments.invoicing.config.stripe_mode"),
       status: hasStripeInvoiceEnabled ? "complete" : "optional",
       description: hasStripeInvoiceEnabled
-        ? "Stripe invoicing enabled - invoices can be sent via Stripe"
-        : "Enable in Stripe settings to send invoices via Stripe",
+        ? t("ui.payments.invoicing.status.enabled.description")
+        : t("ui.payments.invoicing.not_setup.description"),
     },
   ];
+
+  if (translationsLoading) {
+    return (
+      <div className="p-4">
+        <p style={{ color: "var(--win95-text)" }}>Loading translations...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 space-y-6">
@@ -113,10 +123,10 @@ export function InvoicingSection() {
       <div>
         <h3 className="text-sm font-bold mb-2 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
           <FileText size={16} />
-          Invoice Payment Management
+          {t("ui.payments.invoicing.manage.title")}
         </h3>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-          Enable B2B invoice payments with &quot;Pay Later&quot; option for business customers
+          {t("ui.payments.invoicing.manage.description")}
         </p>
       </div>
 
@@ -134,14 +144,14 @@ export function InvoicingSection() {
               <>
                 <CheckCircle2 size={20} style={{ color: "var(--success)" }} />
                 <span className="text-sm font-bold" style={{ color: "var(--success)" }}>
-                  Invoice Payment Enabled
+                  {t("ui.payments.invoicing.status.enabled.title")}
                 </span>
               </>
             ) : (
               <>
                 <AlertCircle size={20} style={{ color: "var(--warning)" }} />
                 <span className="text-sm font-bold" style={{ color: "var(--warning)" }}>
-                  Invoice Payment Disabled
+                  {t("ui.payments.invoicing.not_setup.title")}
                 </span>
               </>
             )}
@@ -151,7 +161,7 @@ export function InvoicingSection() {
         {/* Setup Checklist */}
         <div className="space-y-2 mb-4">
           <p className="text-xs font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-            Setup Checklist:
+            {t("ui.payments.invoicing.requirements.title")}
           </p>
           {setupItems.map((item, index) => (
             <div key={index} className="flex items-start gap-2">
@@ -176,9 +186,9 @@ export function InvoicingSection() {
                     onClick={item.onClick || undefined}
                     disabled={isEnabling}
                     className="text-xs font-semibold mt-1 hover:underline"
-                    style={{ color: "var(--primary)" }}
+                    style={{ color: "var(--win95-highlight)" }}
                   >
-                    {isEnabling ? "Enabling..." : item.action}
+                    {isEnabling ? t("ui.payments.invoicing.buttons.enabling") : item.action}
                   </button>
                 )}
               </div>
@@ -233,23 +243,24 @@ export function InvoicingSection() {
         }}
       >
         <div className="flex items-start gap-3 mb-3">
-          <CreditCard size={20} style={{ color: "var(--primary)" }} className="mt-0.5 flex-shrink-0" />
+          <CreditCard size={20} style={{ color: "var(--win95-highlight)" }} className="mt-0.5 flex-shrink-0" />
           <div className="flex-1 min-w-0">
             <h4 className="text-sm font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-              Stripe Invoice Integration
+              {t("ui.payments.invoicing.status.enabled.title")}
             </h4>
             <p className="text-xs mb-2" style={{ color: "var(--neutral-gray)" }}>
-              Send invoices directly through Stripe with automated payment tracking
+              {t("ui.payments.invoicing.status.enabled.description")}
             </p>
             <div className="flex items-center gap-2">
               <div
-                className={`px-2 py-1 rounded text-xs font-semibold ${
-                  hasStripeInvoiceEnabled
-                    ? "bg-green-100 text-green-800"
-                    : "bg-gray-100 text-gray-600"
-                }`}
+                className="px-2 py-1 rounded text-xs font-semibold border-2"
+                style={{
+                  background: hasStripeInvoiceEnabled ? "var(--success)" : "var(--win95-bg)",
+                  borderColor: hasStripeInvoiceEnabled ? "var(--success)" : "var(--win95-border)",
+                  color: hasStripeInvoiceEnabled ? "white" : "var(--neutral-gray)"
+                }}
               >
-                {hasStripeInvoiceEnabled ? "✓ Enabled" : "○ Not Enabled"}
+                {hasStripeInvoiceEnabled ? `✓ ${t("ui.payments.invoicing.config.enabled")}` : `○ ${t("ui.payments.invoicing.not_setup.title")}`}
               </div>
               <a
                 href="#"
@@ -259,7 +270,7 @@ export function InvoicingSection() {
                   alert("Navigate to Stripe settings to enable Stripe Invoice integration");
                 }}
                 className="text-xs font-semibold hover:underline flex items-center gap-1"
-                style={{ color: "var(--primary)" }}
+                style={{ color: "var(--win95-highlight)" }}
               >
                 <Settings size={12} />
                 Configure in Stripe Settings
@@ -283,26 +294,26 @@ export function InvoicingSection() {
           }}
           className="flex-1 px-4 py-2 text-sm font-bold rounded hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
           style={{
-            background: "var(--primary)",
-            color: "white",
+            background: "var(--win95-highlight)",
+            color: "var(--win95-titlebar-text)",
             border: "2px solid var(--win95-border)",
           }}
         >
           <Building2 size={16} />
-          Open Full Invoicing Window
+          {t("ui.payments.invoicing.manage.title")}
         </button>
       </div>
 
       {/* Help Text */}
       <div className="text-xs space-y-1" style={{ color: "var(--neutral-gray)" }}>
         <p>
-          <strong>How it works:</strong>
+          <strong>{t("ui.payments.invoicing.how_to.title")}</strong>
         </p>
         <ul className="list-disc list-inside space-y-0.5 ml-2">
-          <li>Customers select &quot;Invoice (Pay Later)&quot; at checkout</li>
-          <li>Employer organizations are created automatically from form data</li>
-          <li>Invoices are generated and can be sent via email or Stripe</li>
-          <li>Track payment status in the Invoicing Window</li>
+          <li>{t("ui.payments.invoicing.features.branding")}</li>
+          <li>{t("ui.payments.invoicing.features.auto_send")}</li>
+          <li>{t("ui.payments.invoicing.features.online_payment")}</li>
+          <li>{t("ui.payments.invoicing.features.tracking")}</li>
         </ul>
       </div>
     </div>

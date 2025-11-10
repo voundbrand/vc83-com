@@ -209,12 +209,12 @@ export function EventForm({
 
   const handleAddSponsor = async () => {
     if (!eventId) {
-      alert("Please save the event first before adding sponsors");
+      alert(t("ui.events.form.alert_save_first"));
       return;
     }
 
     if (!selectedSponsorOrgId) {
-      alert("Please select a sponsor organization");
+      alert(t("ui.events.form.alert_select_sponsor"));
       return;
     }
 
@@ -231,7 +231,7 @@ export function EventForm({
       setSponsorLevel("gold");
     } catch (error) {
       console.error("Failed to add sponsor:", error);
-      alert("Failed to add sponsor. Please try again.");
+      alert(t("ui.events.form.sponsor_add_failed"));
     } finally {
       setAddingSponsor(false);
     }
@@ -240,7 +240,7 @@ export function EventForm({
   const handleRemoveSponsor = async (sponsorId: Id<"objects">) => {
     if (!eventId) return;
 
-    if (!confirm("Remove this sponsor from the event?")) return;
+    if (!confirm(t("ui.events.form.sponsor_remove_confirm"))) return;
 
     try {
       await unlinkSponsor({
@@ -250,14 +250,14 @@ export function EventForm({
       });
     } catch (error) {
       console.error("Failed to remove sponsor:", error);
-      alert("Failed to remove sponsor. Please try again.");
+      alert(t("ui.events.form.sponsor_remove_failed"));
     }
   };
 
   // Media handlers
   const handleMediaLink = async (mediaId: Id<"organizationMedia">) => {
     if (!eventId) {
-      alert("Please save the event first before adding media");
+      alert(t("ui.events.form.alert_save_first"));
       return;
     }
 
@@ -271,7 +271,7 @@ export function EventForm({
       });
     } catch (error) {
       console.error("Failed to link media:", error);
-      alert("Failed to add media. Please try again.");
+      alert(t("ui.events.form.sponsor_add_failed")); // Generic failed message
     }
   };
 
@@ -286,7 +286,7 @@ export function EventForm({
       });
     } catch (error) {
       console.error("Failed to unlink media:", error);
-      alert("Failed to remove media. Please try again.");
+      alert(t("ui.events.form.sponsor_remove_failed")); // Generic failed message
     }
   };
 
@@ -424,7 +424,7 @@ export function EventForm({
       } else {
         // Create new event - startDate, endDate, location are required
         if (!startDateTime || !endDateTime) {
-          alert("Please provide both start and end date/time");
+          alert(t("ui.events.form.alert_date_time_required"));
           return;
         }
 
@@ -500,7 +500,7 @@ export function EventForm({
       onSuccess();
     } catch (error) {
       console.error("Failed to save event:", error);
-      alert("Failed to save event. Please try again.");
+      alert(t("ui.events.form.alert_save_failed"));
     } finally {
       setSaving(false);
     }
@@ -519,7 +519,7 @@ export function EventForm({
       {/* Event Type */}
       <div>
         <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-          Event Type <span style={{ color: "var(--error)" }}>*</span>
+          {t("ui.events.form.event_type")} <span style={{ color: "var(--error)" }}>{t("ui.events.form.required")}</span>
         </label>
         <select
           value={formData.subtype}
@@ -532,17 +532,17 @@ export function EventForm({
           }}
           required
         >
-          <option value="conference">Conference - Multi-track professional event</option>
-          <option value="workshop">Workshop - Hands-on training session</option>
-          <option value="concert">Concert - Live music performance</option>
-          <option value="meetup">Meetup - Casual networking event</option>
+          <option value="conference">{t("ui.events.form.event_type_conference")}</option>
+          <option value="workshop">{t("ui.events.form.event_type_workshop")}</option>
+          <option value="concert">{t("ui.events.form.event_type_concert")}</option>
+          <option value="meetup">{t("ui.events.form.event_type_meetup")}</option>
         </select>
       </div>
 
       {/* Event Format */}
       <div>
         <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-          Event Format <span style={{ color: "var(--error)" }}>*</span>
+          {t("ui.events.form.event_format")} <span style={{ color: "var(--error)" }}>{t("ui.events.form.required")}</span>
         </label>
         <select
           value={formData.format}
@@ -555,25 +555,25 @@ export function EventForm({
           }}
           required
         >
-          <option value="in-person">In-Person - Physical venue attendance</option>
-          <option value="online">Online - Virtual/remote attendance</option>
-          <option value="hybrid">Hybrid - Both in-person and virtual options</option>
+          <option value="in-person">{t("ui.events.form.event_format_in_person")}</option>
+          <option value="online">{t("ui.events.form.event_format_online")}</option>
+          <option value="hybrid">{t("ui.events.form.event_format_hybrid")}</option>
         </select>
         <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-          How will attendees participate in this event?
+          {t("ui.events.form.event_format_help")}
         </p>
       </div>
 
       {/* Event Name */}
       <div>
         <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-          Event Name <span style={{ color: "var(--error)" }}>*</span>
+          {t("ui.events.form.event_name")} <span style={{ color: "var(--error)" }}>{t("ui.events.form.required")}</span>
         </label>
         <input
           type="text"
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          placeholder="Tech Summit 2025, Design Workshop, Jazz Night, etc."
+          placeholder={t("ui.events.form.event_name_placeholder")}
           className="w-full px-3 py-2 text-sm border-2"
           style={{
             borderColor: "var(--win95-border)",
@@ -589,7 +589,7 @@ export function EventForm({
       {/* Location with Address Validation */}
       <div className="space-y-2">
         <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-          Location
+          {t("ui.events.form.location")}
         </label>
         <div className="flex gap-2">
           <input
@@ -599,7 +599,7 @@ export function EventForm({
               setFormData({ ...formData, location: e.target.value });
               setAddressValidation(null); // Clear validation when location changes
             }}
-            placeholder="San Francisco Convention Center, 747 Howard St, SF"
+            placeholder={t("ui.events.form.location_placeholder")}
             className="flex-1 px-3 py-2 text-sm border-2"
             style={{
               borderColor: "var(--win95-border)",
@@ -617,14 +617,14 @@ export function EventForm({
               background: validatingAddress ? "var(--win95-button-face)" : "var(--primary)",
               color: validatingAddress ? "var(--win95-text)" : "white",
             }}
-            title="Validate address and get directions"
+            title={t("ui.events.form.validation_help")}
           >
             {validatingAddress ? (
               <Loader2 size={14} className="animate-spin" />
             ) : (
               <MapPin size={14} />
             )}
-            {validatingAddress ? "Validating..." : "Verify"}
+            {validatingAddress ? t("ui.events.form.validating") : t("ui.events.form.validate_address")}
           </button>
         </div>
 
@@ -643,14 +643,14 @@ export function EventForm({
                   <CheckCircle size={16} className="flex-shrink-0 mt-0.5" style={{ color: "var(--success)" }} />
                   <div className="flex-1">
                     <p className="font-bold" style={{ color: "var(--success)" }}>
-                      Address Verified!
+                      {t("ui.events.form.address_verified")}
                     </p>
                     <p style={{ color: "var(--win95-text)" }}>
                       {addressValidation.formattedAddress}
                     </p>
                     {addressValidation.confidence && (
                       <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                        Confidence: {addressValidation.confidence}
+                        {t("ui.events.form.confidence")} {addressValidation.confidence}
                       </p>
                     )}
                   </div>
@@ -669,7 +669,7 @@ export function EventForm({
                         color: "var(--primary)",
                       }}
                     >
-                      📍 Open in Google Maps
+                      📍 {t("ui.events.form.open_google_maps")}
                     </a>
                     {addressValidation.directionsUrl && (
                       <a
@@ -682,7 +682,7 @@ export function EventForm({
                           color: "var(--primary)",
                         }}
                       >
-                        🗺️ Open in Radar Maps
+                        🗺️ {t("ui.events.form.open_radar_maps")}
                       </a>
                     )}
                   </div>
@@ -693,14 +693,14 @@ export function EventForm({
                 <AlertCircle size={16} className="flex-shrink-0 mt-0.5" style={{ color: "var(--error)" }} />
                 <div className="flex-1">
                   <p className="font-bold mb-1" style={{ color: "var(--error)" }}>
-                    Could not verify address
+                    {t("ui.events.form.address_not_verified")}
                   </p>
                   <p className="text-xs" style={{ color: "var(--win95-text)" }}>
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                    {(addressValidation as any).error || addressValidation.formattedAddress || "Please check the location and try again"}
+                    {(addressValidation as any).error || addressValidation.formattedAddress || t("ui.events.form.validation_failed")}
                   </p>
                   <p className="text-xs mt-2 italic" style={{ color: "var(--neutral-gray)" }}>
-                    💡 Tip: Include street number, postal code, and country for best results
+                    {t("ui.events.form.validation_tip")}
                   </p>
                 </div>
               </div>
@@ -709,7 +709,7 @@ export function EventForm({
         )}
 
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-          💡 Click &quot;Verify&quot; to validate the address and get automatic directions for attendees
+          {t("ui.events.form.validation_help")}
         </p>
       </div>
 
@@ -717,7 +717,7 @@ export function EventForm({
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-            Start Date
+            {t("ui.events.form.start_date")}
           </label>
           <input
             type="date"
@@ -733,7 +733,7 @@ export function EventForm({
         </div>
         <div>
           <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-            Start Time
+            {t("ui.events.form.start_time")}
           </label>
           <input
             type="time"
@@ -753,7 +753,7 @@ export function EventForm({
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-            End Date
+            {t("ui.events.form.end_date")}
           </label>
           <input
             type="date"
@@ -769,7 +769,7 @@ export function EventForm({
         </div>
         <div>
           <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-            End Time
+            {t("ui.events.form.end_time")}
           </label>
           <input
             type="time"
@@ -787,20 +787,20 @@ export function EventForm({
 
       {/* Timezone Info */}
       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-        🌍 Times are in your organization&apos;s timezone: <strong>{orgTimezone}</strong>
+        🌍 {t("ui.events.form.timezone_note", { timezone: orgTimezone })}
       </p>
 
       {/* Capacity */}
       <div>
         <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-          Capacity (Optional)
+          {t("ui.events.form.capacity")}
         </label>
         <input
           type="number"
           min="0"
           value={formData.capacity}
           onChange={(e) => setFormData({ ...formData, capacity: e.target.value })}
-          placeholder="Maximum number of attendees"
+          placeholder={t("ui.events.form.capacity_placeholder")}
           className="w-full px-3 py-2 text-sm border-2"
           style={{
             borderColor: "var(--win95-border)",
@@ -809,7 +809,7 @@ export function EventForm({
           }}
         />
         <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-          Leave empty for unlimited capacity
+          {t("ui.events.form.capacity_help")}
         </p>
       </div>
 
@@ -857,7 +857,7 @@ export function EventForm({
             color: "var(--win95-text)",
           }}
         >
-          <span className="text-sm font-bold">🌟 Event Sponsors (Optional)</span>
+          <span className="text-sm font-bold">🌟 {t("ui.events.form.sponsors")}</span>
           {showSponsors ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </button>
 
@@ -866,7 +866,7 @@ export function EventForm({
               {/* Add Sponsor */}
               <div className="space-y-2">
                 <label className="block text-xs font-bold" style={{ color: "var(--win95-text)" }}>
-                  Add Sponsor
+                  {t("ui.events.form.add_sponsor")}
                 </label>
                 <div className="flex gap-2 items-center">
                   <select
@@ -879,7 +879,7 @@ export function EventForm({
                       color: "var(--win95-input-text)",
                     }}
                   >
-                    <option value="">-- Select CRM Organization --</option>
+                    <option value="">{t("ui.events.form.sponsor_org")}</option>
                     {sponsorOrganizations
                       ?.filter((org) => org.subtype === "sponsor")
                       .map((org) => (
@@ -913,12 +913,12 @@ export function EventForm({
                     {addingSponsor ? (
                       <Loader2 size={14} className="animate-spin" />
                     ) : (
-                      "Add"
+                      t("ui.events.form.add_sponsor_button")
                     )}
                   </button>
                 </div>
                 <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                  Select a sponsor organization. The sponsor level is set in CRM and will be used automatically.
+                  {t("ui.events.form.sponsor_help")}
                 </p>
               </div>
 
@@ -926,7 +926,7 @@ export function EventForm({
               {currentSponsors && currentSponsors.length > 0 && (
                 <div className="space-y-2">
                   <label className="block text-xs font-bold" style={{ color: "var(--win95-text)" }}>
-                    Current Sponsors ({currentSponsors.length})
+                    {t("ui.events.form.current_sponsors", { count: currentSponsors.length })}
                   </label>
                   <div className="space-y-1">
                     {currentSponsors.map((sponsor) => {
@@ -963,7 +963,7 @@ export function EventForm({
                                 borderColor: "var(--win95-border)",
                                 color: "var(--primary)",
                               }}
-                              title="Edit sponsor in CRM"
+                              title={t("ui.events.form.edit_sponsor")}
                             >
                               <Edit2 size={14} />
                             </button>
@@ -975,7 +975,7 @@ export function EventForm({
                                 borderColor: "var(--win95-border)",
                                 color: "var(--error)",
                               }}
-                              title="Remove sponsor"
+                              title={t("ui.events.form.remove_sponsor_title")}
                             >
                               <Trash2 size={14} />
                             </button>
@@ -996,7 +996,7 @@ export function EventForm({
                   }}
                 >
                   <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                    No sponsors added yet
+                    {t("ui.events.form.no_sponsors")}
                   </p>
                 </div>
               )}
@@ -1013,8 +1013,8 @@ export function EventForm({
         }}
       >
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-          💡 Events start in &ldquo;Draft&rdquo; status. Click &ldquo;Publish&rdquo; to make them visible to attendees.
-          {!eventId && " Note: Media and Sponsors can only be added after saving the event. Description is available now."}
+          💡 {t("ui.events.form.info_draft")}
+          {!eventId && " " + t("ui.events.form.info_new_event")}
         </p>
       </div>
 
@@ -1032,7 +1032,7 @@ export function EventForm({
           }}
         >
           <X size={14} />
-          Cancel
+          {t("ui.events.action.cancel_form")}
         </button>
         <button
           type="button"
@@ -1048,12 +1048,12 @@ export function EventForm({
           {saving ? (
             <>
               <Loader2 size={14} className="animate-spin" />
-              Saving...
+              {t("ui.events.action.saving")}
             </>
           ) : (
             <>
               <Save size={14} />
-              {eventId ? "Update" : "Create"} Event
+              {t("ui.events.action.save")}
             </>
           )}
         </button>

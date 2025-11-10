@@ -9,6 +9,7 @@ import Image from 'next/image';
 import { useWindowManager } from '@/hooks/use-window-manager';
 import MediaLibraryWindow from '@/components/window-content/media-library-window';
 import { validateVideoUrl, type VideoProvider } from '@/lib/video-utils';
+import { useNamespaceTranslations } from '@/hooks/use-namespace-translations';
 
 interface MediaItem {
   _id: Id<"organizationMedia">;
@@ -59,6 +60,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
   isOpen,
   onToggle,
 }) => {
+  const { t } = useNamespaceTranslations("ui.events");
   const { openWindow } = useWindowManager();
 
   // Video input state
@@ -100,7 +102,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
     setVideoError(null);
 
     if (!videoUrl.trim()) {
-      setVideoError('Please enter a video URL');
+      setVideoError(t('ui.events.form.video_error_required'));
       return;
     }
 
@@ -108,7 +110,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
     const validation = validateVideoUrl(videoUrl.trim());
 
     if (!validation.valid || !validation.provider || !validation.videoId) {
-      setVideoError('Invalid video URL. Please use a YouTube or Vimeo URL.');
+      setVideoError(t('ui.events.form.video_error_invalid'));
       return;
     }
 
@@ -141,6 +143,10 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
     }
   };
 
+  const totalMediaCount = linkedMedia.length + videos.length;
+  const imagePlural = linkedMedia.length === 1 ? t('ui.events.form.image') : t('ui.events.form.images');
+  const videoPlural = videos.length === 1 ? t('ui.events.form.video') : t('ui.events.form.videos');
+
   if (!isOpen) {
     return (
       <div>
@@ -155,11 +161,11 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
           }}
         >
           <div className="flex-1">
-            <span className="text-sm font-bold">🖼️ Images & Video</span>
+            <span className="text-sm font-bold">🖼️ {t('ui.events.form.images_video')}</span>
             <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-              {linkedMedia.length + videos.length > 0
-                ? `${linkedMedia.length + videos.length} media item${linkedMedia.length + videos.length !== 1 ? 's' : ''} selected (${linkedMedia.length} ${linkedMedia.length === 1 ? 'image' : 'images'}, ${videos.length} ${videos.length === 1 ? 'video' : 'videos'})`
-                : 'No media selected'}
+              {totalMediaCount > 0
+                ? `${totalMediaCount} ${totalMediaCount === 1 ? 'media item' : 'media items'} (${linkedMedia.length} ${imagePlural}, ${videos.length} ${videoPlural})`
+                : t('ui.events.form.no_media_selected')}
             </p>
           </div>
           <ChevronDown size={16} />
@@ -181,7 +187,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
         }}
       >
         <span className="text-sm font-bold">
-          🖼️ Images & Video{' '}
+          🖼️ {t('ui.events.form.images_video')}{' '}
           <span style={{ color: "var(--primary)" }}>({linkedMedia.length})</span>
         </span>
         <ChevronUp size={16} />
@@ -189,7 +195,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
 
       <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--win95-border)" }}>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-          Select from your Media Library or upload new files
+          {t('ui.events.form.select_media_library')}
         </p>
 
         {/* Mini Media Slider Preview */}
@@ -279,7 +285,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                   borderColor: "var(--win95-border)",
                   color: "white"
                 }}>
-                  Primary
+                  {t('ui.events.form.primary')}
                 </div>
               )}
             </div>
@@ -308,7 +314,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                       borderColor: "var(--win95-border)",
                       color: "white"
                     }}>
-                      Primary
+                      {t('ui.events.form.primary')}
                     </div>
                   )}
                 </div>
@@ -322,7 +328,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                       borderColor: "var(--win95-border)",
                       color: "white"
                     }}
-                    aria-label="Remove media"
+                    aria-label={t('ui.events.form.remove_video')}
                   >
                     <X size={14} />
                   </button>
@@ -373,7 +379,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                       borderColor: "var(--win95-border)",
                       color: "white"
                     }}>
-                      Primary
+                      {t('ui.events.form.primary')}
                     </div>
                   )}
                 </div>
@@ -395,7 +401,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                       color: "var(--win95-text)"
                     }}
                   >
-                    {video.loop ? '🔁 Loop: ON' : '🔁 Loop: OFF'}
+                    {video.loop ? t('ui.events.form.loop_on') : t('ui.events.form.loop_off')}
                   </button>
                   {/* Toggle Autostart Button */}
                   <button
@@ -414,7 +420,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                       color: "var(--win95-text)"
                     }}
                   >
-                    {video.autostart ? '▶️ Auto: ON' : '▶️ Auto: OFF'}
+                    {video.autostart ? t('ui.events.form.auto_on') : t('ui.events.form.auto_off')}
                   </button>
                   {/* Remove Button */}
                   <button
@@ -426,7 +432,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                       borderColor: "var(--win95-border)",
                       color: "white"
                     }}
-                    aria-label="Remove video"
+                    aria-label={t('ui.events.form.remove_video')}
                   >
                     <X size={14} />
                   </button>
@@ -454,9 +460,9 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
             }}>
               <Plus size={20} style={{ color: "var(--primary)" }} />
             </div>
-            <span className="text-xs font-bold" style={{ color: "var(--primary)" }}>📁 Select from Media Library</span>
+            <span className="text-xs font-bold" style={{ color: "var(--primary)" }}>{t('ui.events.form.browse_library')}</span>
             <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-              Opens Media Library window to browse and upload images
+              {t('ui.events.form.browse_library_help')}
             </p>
           </div>
         </button>
@@ -464,7 +470,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
         {/* Video Input Section */}
         <div className="pt-2 border-t-2" style={{ borderColor: "var(--win95-border)" }}>
           <h4 className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
-            📹 Add Video
+            {t('ui.events.form.add_video_section')}
           </h4>
 
           <div className="space-y-2">
@@ -478,7 +484,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                     setVideoUrl(e.target.value);
                     setVideoError(null);
                   }}
-                  placeholder="Paste YouTube or Vimeo URL"
+                  placeholder={t('ui.events.form.video_url_placeholder')}
                   className="w-full px-2 py-1.5 text-xs border-2"
                   style={{
                     borderColor: videoError ? "var(--error)" : "var(--win95-border)",
@@ -505,7 +511,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                 }}
                 onClick={handleAddVideo}
               >
-                Add Video
+                {t('ui.events.form.add_video')}
               </button>
             </div>
 
@@ -518,7 +524,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
 
             {/* Help Text */}
             <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-              Supported: YouTube (youtube.com, youtu.be) and Vimeo (vimeo.com)
+              {t('ui.events.form.video_supported')}
             </p>
 
             {/* Video Options */}
@@ -530,7 +536,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                   onChange={(e) => setVideoLoop(e.target.checked)}
                   className="w-4 h-4"
                 />
-                <span style={{ color: "var(--win95-text)" }}>Loop video</span>
+                <span style={{ color: "var(--win95-text)" }}>{t('ui.events.form.video_loop')}</span>
               </label>
 
               <label className="flex items-center gap-2 cursor-pointer">
@@ -540,7 +546,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                   onChange={(e) => setVideoAutostart(e.target.checked)}
                   className="w-4 h-4"
                 />
-                <span style={{ color: "var(--win95-text)" }}>Autostart video</span>
+                <span style={{ color: "var(--win95-text)" }}>{t('ui.events.form.video_autostart')}</span>
               </label>
 
               <label className="flex items-center gap-2 cursor-pointer">
@@ -554,7 +560,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                   }}
                   className="w-4 h-4"
                 />
-                <span style={{ color: "var(--win95-text)" }}>Show video first</span>
+                <span style={{ color: "var(--win95-text)" }}>{t('ui.events.form.show_video_first')}</span>
               </label>
             </div>
           </div>

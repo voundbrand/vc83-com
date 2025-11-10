@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, Plus, Trash2, Calendar } from 'lucide-react';
+import { useNamespaceTranslations } from '@/hooks/use-namespace-translations';
 
 export interface AgendaItem {
   id: string;
@@ -32,6 +33,7 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
   isOpen,
   onToggle,
 }) => {
+  const { t } = useNamespaceTranslations("ui.events");
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
   const handleAddItem = () => {
@@ -73,6 +75,8 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
     return acc;
   }, {} as Record<string, AgendaItem[]>);
 
+  const sessionPlural = agenda.length === 1 ? '' : 's';
+
   if (!isOpen) {
     return (
       <div>
@@ -87,10 +91,10 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
           }}
         >
           <div className="flex-1">
-            <span className="text-sm font-bold">📅 Event Agenda & Schedule</span>
+            <span className="text-sm font-bold">📅 {t('ui.events.form.agenda')}</span>
             {agenda.length > 0 && (
               <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                {agenda.length} session{agenda.length !== 1 ? 's' : ''} scheduled
+                {agenda.length} session{sessionPlural} scheduled
               </p>
             )}
           </div>
@@ -112,13 +116,13 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
           color: "var(--win95-text)",
         }}
       >
-        <span className="text-sm font-bold">📅 Event Agenda & Schedule</span>
+        <span className="text-sm font-bold">📅 {t('ui.events.form.agenda')}</span>
         <ChevronUp size={16} />
       </button>
 
       <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--win95-border)" }}>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-          Build your event schedule with sessions, speakers, and timing
+          {t('ui.events.form.agenda_description')}
         </p>
 
         {/* Add Session Button */}
@@ -133,7 +137,7 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
           }}
         >
           <Plus size={16} />
-          Add Session
+          {t('ui.events.form.add_session')}
         </button>
 
         {/* Agenda Items */}
@@ -147,7 +151,7 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
             }}
           >
             <Calendar size={32} className="mx-auto mb-2 opacity-50" />
-            <p className="text-xs">No sessions yet. Click "Add Session" to get started.</p>
+            <p className="text-xs">{t('ui.events.form.no_sessions')}</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -190,7 +194,7 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
                             {/* Date */}
                             <div>
                               <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                                Date
+                                {t('ui.events.form.agenda_date')}
                               </label>
                               <input
                                 type="date"
@@ -211,7 +215,7 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
                             {/* Time Range */}
                             <div>
                               <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                                Time
+                                {t('ui.events.form.agenda_time')}
                               </label>
                               <div className="flex items-center gap-1">
                                 <input
@@ -251,7 +255,7 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
                               background: "#DC2626",
                               color: "white",
                             }}
-                            title="Delete session"
+                            title={t('ui.events.form.delete_session')}
                           >
                             <Trash2 size={12} />
                           </button>
@@ -260,13 +264,13 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
                         {/* Title */}
                         <div>
                           <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                            Session Title
+                            {t('ui.events.form.session_title')}
                           </label>
                           <input
                             type="text"
                             value={item.title}
                             onChange={(e) => handleUpdateItem(item.id, { title: e.target.value })}
-                            placeholder="e.g., Opening Keynote, Workshop, Panel Discussion"
+                            placeholder={t('ui.events.form.session_title_placeholder')}
                             className="w-full px-2 py-1 text-xs border-2"
                             style={{
                               borderColor: "var(--win95-border)",
@@ -280,13 +284,13 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
                         <div className="grid grid-cols-2 gap-2">
                           <div>
                             <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                              Speaker (Optional)
+                              {t('ui.events.form.speaker_optional')}
                             </label>
                             <input
                               type="text"
                               value={item.speaker || ""}
                               onChange={(e) => handleUpdateItem(item.id, { speaker: e.target.value })}
-                              placeholder="Speaker name"
+                              placeholder={t('ui.events.form.speaker_placeholder')}
                               className="w-full px-2 py-1 text-xs border-2"
                               style={{
                                 borderColor: "var(--win95-border)",
@@ -298,13 +302,13 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
 
                           <div>
                             <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                              Location (Optional)
+                              {t('ui.events.form.location_optional')}
                             </label>
                             <input
                               type="text"
                               value={item.location || ""}
                               onChange={(e) => handleUpdateItem(item.id, { location: e.target.value })}
-                              placeholder="Room/venue"
+                              placeholder={t('ui.events.form.location_placeholder')}
                               className="w-full px-2 py-1 text-xs border-2"
                               style={{
                                 borderColor: "var(--win95-border)",
@@ -318,12 +322,12 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
                         {/* Description */}
                         <div>
                           <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                            Description (Optional)
+                            {t('ui.events.form.description_optional')}
                           </label>
                           <textarea
                             value={item.description || ""}
                             onChange={(e) => handleUpdateItem(item.id, { description: e.target.value })}
-                            placeholder="Brief description of this session..."
+                            placeholder={t('ui.events.form.description_placeholder')}
                             rows={2}
                             className="w-full px-2 py-1 text-xs border-2"
                             style={{
@@ -344,7 +348,7 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
                         >
                           <div className="flex items-center justify-between">
                             <label className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
-                              Session Badge (Optional)
+                              {t('ui.events.form.session_badge')}
                             </label>
                             <label className="flex items-center gap-1 text-xs">
                               <input
@@ -361,7 +365,7 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
                                 }}
                                 className="w-3 h-3"
                               />
-                              <span style={{ color: "var(--win95-text)" }}>Show Badge</span>
+                              <span style={{ color: "var(--win95-text)" }}>{t('ui.events.form.show_badge')}</span>
                             </label>
                           </div>
 
@@ -369,7 +373,7 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
                             <div className="grid grid-cols-2 gap-2">
                               <div>
                                 <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                                  Badge Text
+                                  {t('ui.events.form.badge_text')}
                                 </label>
                                 <input
                                   type="text"
@@ -383,7 +387,7 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
                                       }
                                     });
                                   }}
-                                  placeholder="e.g., Keynote, Workshop, Break"
+                                  placeholder={t('ui.events.form.badge_text_placeholder')}
                                   className="w-full px-2 py-1 text-xs border-2"
                                   style={{
                                     borderColor: "var(--win95-border)",
@@ -395,7 +399,7 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
 
                               <div>
                                 <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                                  Badge Color
+                                  {t('ui.events.form.badge_color')}
                                 </label>
                                 <div className="flex gap-1">
                                   <input
@@ -444,7 +448,7 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
                           {(item.badge?.enabled ?? false) && (
                             <div className="flex items-center gap-2 pt-1">
                               <span className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                                Preview:
+                                {t('ui.events.form.badge_preview')}
                               </span>
                               <span
                                 className="px-2 py-1 text-xs font-bold rounded"

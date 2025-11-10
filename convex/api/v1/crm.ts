@@ -33,8 +33,17 @@ import { internal } from "../../_generated/api";
  *     lastName: string,
  *     email: string,
  *     phone?: string,
- *     company?: string,
+ *     company?: string,        // Simple company name (backward compatible)
  *     tags?: string[]          // Custom tags (will be merged with automatic tags)
+ *   },
+ *   organizationInfo?: {       // Optional detailed organization data
+ *     name: string,            // Organization name (overrides attendeeInfo.company)
+ *     website?: string,
+ *     industry?: string,
+ *     address?: object,
+ *     taxId?: string,
+ *     billingEmail?: string,
+ *     phone?: string
  *   }
  * }
  *
@@ -43,6 +52,9 @@ import { internal } from "../../_generated/api";
  *   success: true,
  *   contactId: string,
  *   eventId: string,
+ *   crmOrganizationId?: string,  // ID of linked CRM organization (if created/found)
+ *   organizationId: string,      // Your organization ID
+ *   isNewContact: boolean,       // True if new contact, false if updated existing
  *   message: string
  * }
  */
@@ -76,7 +88,7 @@ export const createContactFromEvent = httpAction(async (ctx, request) => {
 
     // 3. Parse request body
     const body = await request.json();
-    const { eventId, eventName, eventDate, attendeeInfo } = body;
+    const { eventId, eventName, eventDate, attendeeInfo, organizationInfo } = body;
 
     // Validate required fields
     if (!eventName || !attendeeInfo?.firstName || !attendeeInfo?.lastName || !attendeeInfo?.email) {
@@ -104,6 +116,15 @@ export const createContactFromEvent = httpAction(async (ctx, request) => {
           company: attendeeInfo.company,
           tags: attendeeInfo.tags, // Pass custom tags from request
         },
+        organizationInfo: organizationInfo ? {
+          name: organizationInfo.name,
+          website: organizationInfo.website,
+          industry: organizationInfo.industry,
+          address: organizationInfo.address,
+          taxId: organizationInfo.taxId,
+          billingEmail: organizationInfo.billingEmail,
+          phone: organizationInfo.phone,
+        } : undefined,
         performedBy: userId,
       }
     );
@@ -113,17 +134,20 @@ export const createContactFromEvent = httpAction(async (ctx, request) => {
       JSON.stringify({
         success: true,
         contactId: result.contactId,
-        organizationId: result.organizationId,
         eventId: result.eventId,
+        crmOrganizationId: result.crmOrganizationId,
+        organizationId: result.organizationId,
+        isNewContact: result.isNewContact,
         message: result.isNewContact
           ? "Contact created successfully"
-          : "Existing contact linked to event",
+          : "Existing contact updated and linked to event",
       }),
       {
         status: 200,
         headers: {
           "Content-Type": "application/json",
           "X-Organization-Id": organizationId,
+          "X-CRM-Organization-Id": result.crmOrganizationId || "",
         },
       }
     );
@@ -152,19 +176,30 @@ export const createContactFromEvent = httpAction(async (ctx, request) => {
  *   lastName: string,
  *   email: string,
  *   phone?: string,
- *   company?: string,
+ *   company?: string,           // Simple company name (backward compatible)
  *   jobTitle?: string,
  *   source?: string,
  *   sourceRef?: string,
  *   tags?: string[],
  *   notes?: string,
- *   customFields?: object
+ *   customFields?: object,
+ *   organizationInfo?: {        // Optional detailed organization data
+ *     name: string,             // Organization name (overrides company field)
+ *     website?: string,
+ *     industry?: string,
+ *     address?: object,
+ *     taxId?: string,
+ *     billingEmail?: string,
+ *     phone?: string
+ *   }
  * }
  *
  * Response:
  * {
  *   success: true,
  *   contactId: string,
+ *   crmOrganizationId?: string, // ID of linked CRM organization (if created/found)
+ *   isNewContact: boolean,      // True if new contact, false if updated existing
  *   message: string
  * }
  */
@@ -210,7 +245,8 @@ export const createContact = httpAction(async (ctx, request) => {
       sourceRef,
       tags,
       notes,
-      customFields
+      customFields,
+      organizationInfo
     } = body;
 
     // Validate required fields
@@ -224,7 +260,7 @@ export const createContact = httpAction(async (ctx, request) => {
     }
 
     // 4. Create contact
-    const contactId = await ctx.runMutation(
+    const result = await ctx.runMutation(
       internal.api.v1.crmInternal.createContactInternal,
       {
         organizationId,
@@ -240,6 +276,15 @@ export const createContact = httpAction(async (ctx, request) => {
         tags,
         notes,
         customFields,
+        organizationInfo: organizationInfo ? {
+          name: organizationInfo.name,
+          website: organizationInfo.website,
+          industry: organizationInfo.industry,
+          address: organizationInfo.address,
+          taxId: organizationInfo.taxId,
+          billingEmail: organizationInfo.billingEmail,
+          phone: organizationInfo.phone,
+        } : undefined,
         performedBy: userId,
       }
     );
@@ -248,14 +293,19 @@ export const createContact = httpAction(async (ctx, request) => {
     return new Response(
       JSON.stringify({
         success: true,
-        contactId,
-        message: "Contact created successfully",
+        contactId: result.contactId,
+        crmOrganizationId: result.crmOrganizationId,
+        isNewContact: result.isNewContact,
+        message: result.isNewContact
+          ? "Contact created successfully"
+          : "Existing contact updated successfully",
       }),
       {
         status: 200,
         headers: {
           "Content-Type": "application/json",
           "X-Organization-Id": organizationId,
+          "X-CRM-Organization-Id": result.crmOrganizationId || "",
         },
       }
     );

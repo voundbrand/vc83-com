@@ -6,6 +6,7 @@ import { CheckoutTemplatesTab } from "./checkout-templates-tab";
 import { CheckoutsListTab } from "./checkouts-list-tab";
 import { CreateCheckoutTab } from "./create-checkout-tab";
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { Id } from "../../../../convex/_generated/dataModel";
 
 /**
@@ -31,6 +32,7 @@ type TabType = "checkouts" | "create" | "templates" | "settings" | "analytics";
 export function CheckoutWindow() {
   const [activeTab, setActiveTab] = useState<TabType>("checkouts");
   const [editingInstanceId, setEditingInstanceId] = useState<Id<"objects"> | null>(null);
+  const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.checkout_window");
 
   // Check app availability
   const guard = useAppAvailabilityGuard({
@@ -68,10 +70,10 @@ export function CheckoutWindow() {
       <div className="px-4 py-3 border-b-2" style={{ borderColor: 'var(--win95-border)' }}>
         <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
           <ShoppingCart size={16} />
-          Checkout Manager
+          {translationsLoading ? "Checkout Manager" : t("ui.checkout_window.main.title")}
         </h2>
         <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-          Create and manage checkout pages for your products and events
+          {translationsLoading ? "Create and manage checkout pages for your products and events" : t("ui.checkout_window.main.description")}
         </p>
       </div>
 
@@ -87,7 +89,7 @@ export function CheckoutWindow() {
           onClick={() => setActiveTab("checkouts")}
         >
           <ShoppingCart size={14} />
-          Checkouts
+          {translationsLoading ? "Checkouts" : t("ui.checkout_window.main.tabs.checkouts")}
         </button>
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
@@ -99,7 +101,7 @@ export function CheckoutWindow() {
           onClick={handleCreateNew}
         >
           <FileText size={14} />
-          Create
+          {translationsLoading ? "Create" : t("ui.checkout_window.main.tabs.create")}
         </button>
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
@@ -111,7 +113,7 @@ export function CheckoutWindow() {
           onClick={() => setActiveTab("templates")}
         >
           <FileText size={14} />
-          Templates
+          {translationsLoading ? "Templates" : t("ui.checkout_window.main.tabs.templates")}
         </button>
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2 opacity-50 cursor-not-allowed"
@@ -121,10 +123,10 @@ export function CheckoutWindow() {
             color: 'var(--neutral-gray)'
           }}
           disabled
-          title="Coming soon"
+          title={translationsLoading ? "Coming soon" : t("ui.checkout_window.main.coming_soon")}
         >
           <Settings size={14} />
-          Settings
+          {translationsLoading ? "Settings" : t("ui.checkout_window.main.tabs.settings")}
         </button>
         <button
           className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2 opacity-50 cursor-not-allowed"
@@ -134,10 +136,10 @@ export function CheckoutWindow() {
             color: 'var(--neutral-gray)'
           }}
           disabled
-          title="Coming soon"
+          title={translationsLoading ? "Coming soon" : t("ui.checkout_window.main.coming_soon")}
         >
           <BarChart3 size={14} />
-          Analytics
+          {translationsLoading ? "Analytics" : t("ui.checkout_window.main.tabs.analytics")}
         </button>
       </div>
 
@@ -159,16 +161,24 @@ export function CheckoutWindow() {
         {activeTab === "templates" && <CheckoutTemplatesTab onCreateNew={handleCreateNew} />}
         {activeTab === "settings" && (
           <div className="p-8 text-center">
-            <Settings size={48} className="mx-auto text-gray-400 mb-4" />
-            <h3 className="font-bold text-sm mb-2">Settings Coming Soon</h3>
-            <p className="text-xs text-gray-500">Configure Stripe integration and checkout options</p>
+            <Settings size={48} className="mx-auto mb-4" style={{ color: 'var(--neutral-gray)' }} />
+            <h3 className="font-bold text-sm mb-2" style={{ color: 'var(--win95-text)' }}>
+              {translationsLoading ? "Settings Coming Soon" : t("ui.checkout_window.main.settings_coming_soon")}
+            </h3>
+            <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
+              {translationsLoading ? "Configure Stripe integration and checkout options" : t("ui.checkout_window.main.settings_description")}
+            </p>
           </div>
         )}
         {activeTab === "analytics" && (
           <div className="p-8 text-center">
-            <BarChart3 size={48} className="mx-auto text-gray-400 mb-4" />
-            <h3 className="font-bold text-sm mb-2">Analytics Coming Soon</h3>
-            <p className="text-xs text-gray-500">Track sales, conversions, and revenue metrics</p>
+            <BarChart3 size={48} className="mx-auto mb-4" style={{ color: 'var(--neutral-gray)' }} />
+            <h3 className="font-bold text-sm mb-2" style={{ color: 'var(--win95-text)' }}>
+              {translationsLoading ? "Analytics Coming Soon" : t("ui.checkout_window.main.analytics_coming_soon")}
+            </h3>
+            <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
+              {translationsLoading ? "Track sales, conversions, and revenue metrics" : t("ui.checkout_window.main.analytics_description")}
+            </p>
           </div>
         )}
       </div>

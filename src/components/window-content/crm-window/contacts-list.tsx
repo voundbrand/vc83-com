@@ -118,7 +118,7 @@ export function ContactsList({ selectedId, onSelect }: ContactsListProps) {
             <input
               type="text"
               placeholder={t("ui.crm.contacts.search_placeholder")}
-              className="w-full pl-8 pr-2 py-1.5 border-2 focus:outline-none text-sm retro-input"
+              className="w-full pl-8 pr-2 py-1.5 border-2 focus:outline-none text-sm"
               style={{
                 borderColor: 'var(--win95-border)',
                 background: 'var(--win95-input-bg)',
@@ -237,6 +237,7 @@ export function ContactsList({ selectedId, onSelect }: ContactsListProps) {
               const source = props.source?.toString() || "manual"
               const totalSpent = typeof props.totalSpent === "number" ? props.totalSpent : 0
               const purchaseCount = typeof props.purchaseCount === "number" ? props.purchaseCount : 0
+              const tags = Array.isArray(props.tags) ? props.tags : []
 
               return (
                 <div
@@ -298,6 +299,20 @@ export function ContactsList({ selectedId, onSelect }: ContactsListProps) {
                       >
                         {source.toUpperCase()}
                       </span>
+                      {/* Custom tags */}
+                      {tags.map((tag, idx) => (
+                        <span
+                          key={idx}
+                          className="px-1.5 py-0.5 text-[10px] border"
+                          style={{
+                            background: '#e0e7ff',
+                            borderColor: '#c7d2fe',
+                            color: '#4338ca'
+                          }}
+                        >
+                          {tag.toUpperCase()}
+                        </span>
+                      ))}
                     </div>
                   </div>
 

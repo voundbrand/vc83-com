@@ -11,6 +11,7 @@ import { getCheckoutSchema } from "@/templates/checkout/registry";
 import { getTheme } from "@/templates/registry";
 import type { CheckoutProduct } from "@/templates/checkout/types";
 import { useNotification } from "@/hooks/use-notification";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 /**
  * Create Checkout Tab
@@ -34,6 +35,7 @@ export function CreateCheckoutTab({
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
   const notification = useNotification();
+  const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.checkout_window");
 
   // Step management
   const [step, setStep] = useState<"template" | "editor">(
@@ -241,19 +243,19 @@ export function CreateCheckoutTab({
         });
       }
 
-      notification.success(
-        editingInstanceId ? "Checkout Updated" : "Checkout Created",
-        editingInstanceId
-          ? "Your changes have been saved successfully."
-          : "Your new checkout has been created successfully."
-      );
+      const successTitle = translationsLoading
+        ? (editingInstanceId ? "Checkout Updated" : "Checkout Created")
+        : t(editingInstanceId ? "ui.checkout_window.create.notifications.updated_title" : "ui.checkout_window.create.notifications.created_title");
+      const successMessage = translationsLoading
+        ? (editingInstanceId ? "Your changes have been saved successfully." : "Your new checkout has been created successfully.")
+        : t(editingInstanceId ? "ui.checkout_window.create.notifications.updated_message" : "ui.checkout_window.create.notifications.created_message");
+      notification.success(successTitle, successMessage);
       onSaveComplete();
     } catch (error) {
       console.error("Failed to save checkout:", error);
-      notification.error(
-        "Save Failed",
-        "Could not save checkout. Please check your configuration and try again."
-      );
+      const errorTitle = translationsLoading ? "Save Failed" : t("ui.checkout_window.create.notifications.save_failed_title");
+      const errorMessage = translationsLoading ? "Could not save checkout. Please check your configuration and try again." : t("ui.checkout_window.create.notifications.save_failed_message");
+      notification.error(errorTitle, errorMessage);
     }
   };
 
@@ -306,13 +308,15 @@ export function CreateCheckoutTab({
   if (!sessionId || !currentOrg) {
     return (
       <div className="p-4">
-        <div className="border-2 border-red-600 bg-red-50 p-4">
+        <div className="border-2 p-4" style={{ borderColor: 'var(--error)', background: 'rgba(239, 68, 68, 0.1)' }}>
           <div className="flex items-start gap-2">
-            <AlertCircle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
+            <AlertCircle size={20} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--error)' }} />
             <div>
-              <h4 className="font-bold text-sm text-red-900">Authentication Required</h4>
-              <p className="text-xs text-red-800 mt-1">
-                Please log in to create checkouts.
+              <h4 className="font-bold text-sm" style={{ color: 'var(--error)' }}>
+                {translationsLoading ? "Authentication Required" : t("ui.checkout_window.error.auth_required_title")}
+              </h4>
+              <p className="text-xs mt-1" style={{ color: 'var(--error)' }}>
+                {translationsLoading ? "Please log in to create checkouts." : t("ui.checkout_window.create.error.auth_required")}
               </p>
             </div>
           </div>
@@ -326,7 +330,7 @@ export function CreateCheckoutTab({
     if (availableTemplates === undefined) {
       return (
         <div className="flex items-center justify-center p-8">
-          <Loader2 size={32} className="animate-spin text-purple-600" />
+          <Loader2 size={32} className="animate-spin" style={{ color: 'var(--win95-highlight)' }} />
         </div>
       );
     }
@@ -335,20 +339,20 @@ export function CreateCheckoutTab({
       <div className="p-4">
         {/* Header */}
         <div className="mb-4">
-          <h3 className="text-sm font-bold flex items-center gap-2">
+          <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
             <ShoppingCart size={16} />
-            Select Checkout Template
+            {translationsLoading ? "Select Checkout Template" : t("ui.checkout_window.create.select_template_title")}
           </h3>
-          <p className="text-xs text-gray-600 mt-1">
-            Choose a template to get started
+          <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
+            {translationsLoading ? "Choose a template to get started" : t("ui.checkout_window.create.select_template_description")}
           </p>
         </div>
 
         {/* Templates Grid */}
         {availableTemplates.length === 0 ? (
-          <div className="border-2 border-gray-400 bg-gray-50 p-8 text-center">
-            <h4 className="font-bold text-sm text-gray-700 mb-2">No Templates Available</h4>
-            <p className="text-xs text-gray-600">
+          <div className="border-2 p-8 text-center" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg)' }}>
+            <h4 className="font-bold text-sm mb-2" style={{ color: 'var(--win95-text)' }}>No Templates Available</h4>
+            <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
               Contact your administrator to enable checkout templates.
             </p>
           </div>
@@ -366,10 +370,10 @@ export function CreateCheckoutTab({
 
               const getComplexityColor = (c: string) => {
                 switch (c) {
-                  case "beginner": return { bg: "#10B981", text: "white" };
-                  case "intermediate": return { bg: "#F59E0B", text: "white" };
-                  case "advanced": return { bg: "#EF4444", text: "white" };
-                  default: return { bg: "#6B7280", text: "white" };
+                  case "beginner": return { bg: "var(--success)", text: "var(--win95-titlebar-text)" };
+                  case "intermediate": return { bg: "#F59E0B", text: "var(--win95-titlebar-text)" };
+                  case "advanced": return { bg: "var(--error)", text: "var(--win95-titlebar-text)" };
+                  default: return { bg: "var(--neutral-gray)", text: "var(--win95-titlebar-text)" };
                 }
               };
 
@@ -378,15 +382,19 @@ export function CreateCheckoutTab({
               return (
                 <div
                   key={template._id}
-                  className="border-2 border-gray-400 bg-white p-4 hover:shadow-lg transition-all"
-                  style={{ opacity: comingSoon ? 0.7 : 1 }}
+                  className="border-2 p-4 hover:shadow-lg transition-all"
+                  style={{
+                    borderColor: 'var(--win95-border)',
+                    background: 'var(--win95-bg-light)',
+                    opacity: comingSoon ? 0.7 : 1
+                  }}
                 >
                   {/* Header */}
                   <div className="flex items-start gap-3 mb-3">
                     <div className="text-3xl">{icon}</div>
                     <div className="flex-1">
                       <div className="flex items-start justify-between gap-2">
-                        <h4 className="font-bold text-sm leading-tight">{template.name}</h4>
+                        <h4 className="font-bold text-sm leading-tight" style={{ color: 'var(--win95-text)' }}>{template.name}</h4>
                         <span
                           className="text-xs px-2 py-0.5 rounded whitespace-nowrap"
                           style={{
@@ -394,7 +402,7 @@ export function CreateCheckoutTab({
                             color: complexityColor.text,
                           }}
                         >
-                          {complexity}
+                          {translationsLoading ? complexity : t(`ui.checkout_window.templates.complexity.${complexity}`)}
                         </span>
                       </div>
 
@@ -404,19 +412,23 @@ export function CreateCheckoutTab({
                         <span
                           className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded whitespace-nowrap"
                           style={{
-                            backgroundColor: supportsFormIntegration ? "#D1FAE5" : "#FEE2E2",
-                            color: supportsFormIntegration ? "#047857" : "#991B1B",
-                            border: `1px solid ${supportsFormIntegration ? "#A7F3D0" : "#FECACA"}`,
+                            backgroundColor: supportsFormIntegration ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)",
+                            color: supportsFormIntegration ? "var(--success)" : "var(--error)",
+                            border: `1px solid ${supportsFormIntegration ? "var(--success)" : "var(--error)"}`,
                           }}
-                          title={supportsFormIntegration ? "This template supports form integration during checkout" : "This template does not support form integration"}
+                          title={translationsLoading ? (supportsFormIntegration ? "This template supports form integration during checkout" : "This template does not support form integration") : t(supportsFormIntegration ? "ui.checkout_window.templates.tooltip.form_supports" : "ui.checkout_window.templates.tooltip.form_not_supports")}
                         >
-                          {supportsFormIntegration ? "✓" : "✕"} Form {supportsFormIntegration ? "Compatible" : "Incompatible"}
+                          {supportsFormIntegration ? "✓" : "✕"} {translationsLoading ? (supportsFormIntegration ? "Form Compatible" : "Form Incompatible") : t(supportsFormIntegration ? "ui.checkout_window.templates.badge.form_compatible" : "ui.checkout_window.templates.badge.form_incompatible")}
                         </span>
 
                         {/* Coming Soon Badge */}
                         {comingSoon && (
-                          <span className="inline-block text-xs px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded border border-yellow-300">
-                            Coming Soon
+                          <span className="inline-block text-xs px-2 py-0.5 rounded border" style={{
+                            background: 'rgba(245, 158, 11, 0.1)',
+                            color: '#F59E0B',
+                            borderColor: '#F59E0B'
+                          }}>
+                            {translationsLoading ? "Coming Soon" : t("ui.checkout_window.templates.badge.coming_soon")}
                           </span>
                         )}
                       </div>
@@ -424,19 +436,19 @@ export function CreateCheckoutTab({
                   </div>
 
                   {/* Description */}
-                  <p className="text-xs text-gray-600 mb-3">{template.description}</p>
+                  <p className="text-xs mb-3" style={{ color: 'var(--neutral-gray)' }}>{template.description}</p>
 
                   {/* Features Preview */}
                   {features.length > 0 && (
-                    <ul className="text-xs text-gray-600 space-y-1 mb-3">
+                    <ul className="text-xs space-y-1 mb-3" style={{ color: 'var(--neutral-gray)' }}>
                       {features.slice(0, 3).map((feature, idx) => (
                         <li key={idx} className="flex items-start gap-1">
-                          <span className="text-purple-600">•</span>
+                          <span style={{ color: 'var(--win95-highlight)' }}>•</span>
                           <span>{feature}</span>
                         </li>
                       ))}
                       {features.length > 3 && (
-                        <li className="text-gray-400 italic">+{features.length - 3} more...</li>
+                        <li className="italic" style={{ color: 'var(--win95-border)' }}>+{features.length - 3} more...</li>
                       )}
                     </ul>
                   )}
@@ -445,13 +457,18 @@ export function CreateCheckoutTab({
                   <button
                     onClick={() => !comingSoon && handleSelectTemplate(props.code as string)}
                     disabled={comingSoon}
-                    className={`w-full px-3 py-2 text-xs font-bold border-2 transition-colors ${
-                      comingSoon
-                        ? "border-gray-400 bg-gray-200 text-gray-500 cursor-not-allowed"
-                        : "border-purple-600 bg-purple-600 text-white hover:bg-purple-700"
-                    }`}
+                    className="w-full px-3 py-2 text-xs font-bold border-2 transition-colors"
+                    style={{
+                      borderColor: comingSoon ? 'var(--win95-border)' : 'var(--win95-highlight)',
+                      background: comingSoon ? 'var(--win95-bg)' : 'var(--win95-highlight)',
+                      color: comingSoon ? 'var(--neutral-gray)' : 'var(--win95-titlebar-text)',
+                      cursor: comingSoon ? 'not-allowed' : 'pointer'
+                    }}
                   >
-                    {comingSoon ? "Coming Soon" : "Use This Template"}
+                    {translationsLoading
+                      ? (comingSoon ? "Coming Soon" : "Use This Template")
+                      : (comingSoon ? t("ui.checkout_window.templates.badge.coming_soon") : t("ui.checkout_window.templates.actions.use_template"))
+                    }
                   </button>
                 </div>
               );
@@ -466,39 +483,56 @@ export function CreateCheckoutTab({
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="p-4 border-b-2 border-gray-400 bg-gray-50 flex items-center justify-between">
+      <div className="p-4 border-b-2 flex items-center justify-between" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
         <div className="flex items-center gap-3">
           {!editingInstanceId && (
             <button
               onClick={() => setStep("template")}
-              className="p-1.5 hover:bg-gray-200 transition-colors"
+              className="p-1.5 transition-colors"
+              style={{ background: 'transparent' }}
               title="Back to templates"
             >
-              <ArrowLeft size={16} />
+              <ArrowLeft size={16} style={{ color: 'var(--win95-text)' }} />
             </button>
           )}
           <div>
-            <h3 className="text-sm font-bold">
-              {editingInstanceId ? "Edit Checkout" : "Configure Checkout"}
+            <h3 className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
+              {translationsLoading
+                ? (editingInstanceId ? "Edit Checkout" : "Configure Checkout")
+                : (editingInstanceId ? t("ui.checkout_window.create.edit_title") : t("ui.checkout_window.create.configure_title"))
+              }
             </h3>
-            <p className="text-xs text-gray-600">
-              Template: {selectedTemplateCode || "None"}
+            <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
+              {translationsLoading ? `Template: ${selectedTemplateCode || "None"}` : t("ui.checkout_window.create.template_label", { template: selectedTemplateCode || "None" })}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={onCancel}
-            className="px-3 py-2 text-xs font-bold border-2 border-gray-400 bg-white text-gray-700 hover:bg-gray-50"
+            className="px-3 py-2 text-xs font-bold border-2 transition-colors"
+            style={{
+              borderColor: 'var(--win95-border)',
+              background: 'var(--win95-bg-light)',
+              color: 'var(--win95-text)'
+            }}
           >
-            Cancel
+            {translationsLoading ? "Cancel" : t("ui.checkout_window.create.cancel_button")}
           </button>
           <button
             onClick={handleSave}
             disabled={!checkoutName.trim() || !selectedTemplateCode || selectedPaymentProviders.length === 0}
-            className="px-3 py-2 text-xs font-bold border-2 border-purple-600 bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 py-2 text-xs font-bold border-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              borderColor: 'var(--win95-highlight)',
+              background: 'var(--win95-highlight)',
+              color: 'var(--win95-titlebar-text)'
+            }}
           >
-            {editingInstanceId ? "Save Changes" : "Create Checkout"}
+            {translationsLoading
+              ? (editingInstanceId ? "Save Changes" : "Create Checkout")
+              : (editingInstanceId ? t("ui.checkout_window.create.save_button") : t("ui.checkout_window.create.create_button"))
+            }
           </button>
         </div>
       </div>
@@ -506,60 +540,62 @@ export function CreateCheckoutTab({
       {/* Editor Content: 40% Form / 60% Preview */}
       <div className="flex-1 overflow-hidden flex">
         {/* LEFT: Configuration Form (40%) */}
-        <div className="w-[40%] p-4 overflow-y-auto border-r-2 border-gray-400">
-          <h3 className="text-sm font-bold mb-4 flex items-center gap-2">
+        <div className="w-[40%] p-4 overflow-y-auto border-r-2" style={{ borderColor: 'var(--win95-border)' }}>
+          <h3 className="text-sm font-bold mb-4 flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
             <FileText size={16} />
-            Configuration
+            {translationsLoading ? "Configuration" : t("ui.checkout_window.create.configuration_title")}
           </h3>
 
           {/* Basic Info */}
           <div className="mb-4">
-            <label className="block text-xs font-bold mb-1">
-              Checkout Name <span className="text-red-600">*</span>
+            <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+              {translationsLoading ? "Checkout Name" : t("ui.checkout_window.create.name_label")} <span style={{ color: 'var(--error)' }}>*</span>
             </label>
             <input
               type="text"
               value={checkoutName}
               onChange={(e) => handleNameChange(e.target.value)}
               placeholder="e.g., Event Ticket Sales"
-              className="w-full px-2 py-1.5 text-sm border-2 border-gray-400 focus:border-purple-600 focus:outline-none"
+              className="retro-input w-full px-2 py-1.5 text-sm"
               required
             />
           </div>
 
           <div className="mb-4">
-            <label className="block text-xs font-bold mb-1">Description (Optional)</label>
+            <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+              {translationsLoading ? "Description (Optional)" : t("ui.checkout_window.create.description_label")}
+            </label>
             <textarea
               value={checkoutDescription}
               onChange={(e) => setCheckoutDescription(e.target.value)}
-              placeholder="Internal description for your team..."
+              placeholder={translationsLoading ? "Internal description for your team..." : t("ui.checkout_window.create.description_placeholder")}
               rows={3}
-              className="w-full px-2 py-1.5 text-sm border-2 border-gray-400 focus:border-purple-600 focus:outline-none resize-none"
+              className="retro-input w-full px-2 py-1.5 text-sm resize-none"
             />
           </div>
 
           <div className="mb-4">
-            <label className="block text-xs font-bold mb-1">
-              Public URL Slug <span className="text-red-600">*</span>
+            <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+              {translationsLoading ? "Public URL Slug" : t("ui.checkout_window.create.slug_label")} <span style={{ color: 'var(--error)' }}>*</span>
             </label>
             <input
               type="text"
               value={publicSlug}
               onChange={(e) => handleSlugChange(e.target.value)}
               placeholder="e.g., vip-tickets-2024"
-              className="w-full px-2 py-1.5 text-sm border-2 border-gray-400 focus:border-purple-600 focus:outline-none"
+              className="retro-input w-full px-2 py-1.5 text-sm"
               required
               pattern="[a-z0-9-]+"
               title="Type any text - spaces and special chars will be auto-converted"
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
               URL: {process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/checkout/
               {currentOrg?.slug || "your-org"}/{publicSlug || "checkout-slug"}
             </p>
           </div>
 
           {/* Force B2B Setting */}
-          <div className="mb-4 border-t-2 border-gray-400 pt-4">
+          <div className="mb-4 border-t-2 pt-4" style={{ borderColor: 'var(--win95-border)' }}>
             <label className="flex items-start gap-3 cursor-pointer group">
               <input
                 type="checkbox"
@@ -570,16 +606,16 @@ export function CreateCheckoutTab({
               />
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <Building2 size={14} />
-                  <span className="text-xs font-bold">Require Organization Info (Force B2B)</span>
+                  <Building2 size={14} style={{ color: 'var(--win95-text)' }} />
+                  <span className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>Require Organization Info (Force B2B)</span>
                 </div>
-                <p className="text-xs text-gray-600">
+                <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
                   When enabled, customers must provide company/organization details (company name, VAT number, billing address).
                   Use this for employer-invoiced events or B2B-only products.
                 </p>
                 {forceB2B && (
-                  <div className="mt-2 p-2 rounded" style={{ backgroundColor: "#EFF6FF", border: "1px solid #BFDBFE" }}>
-                    <p className="text-xs font-bold" style={{ color: "#1E40AF" }}>
+                  <div className="mt-2 p-2 rounded" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
+                    <p className="text-xs font-bold" style={{ color: 'var(--win95-highlight)' }}>
                       ✓ Organization info will be required for all purchases
                     </p>
                   </div>
@@ -589,17 +625,17 @@ export function CreateCheckoutTab({
           </div>
 
           {/* Default Language Selection */}
-          <div className="mb-4 border-t-2 border-gray-400 pt-4">
-            <label className="block text-xs font-bold mb-2">
-              🌐 Default Language
+          <div className="mb-4 border-t-2 pt-4" style={{ borderColor: 'var(--win95-border)' }}>
+            <label className="block text-xs font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
+              {translationsLoading ? "🌐 Default Language" : t("ui.checkout_window.create.language_label")}
             </label>
-            <p className="text-xs text-gray-600 mb-3">
-              Set the default language for this checkout. Customers will see the checkout in this language initially.
+            <p className="text-xs mb-3" style={{ color: 'var(--neutral-gray)' }}>
+              {translationsLoading ? "Set the default language for this checkout. Customers will see the checkout in this language initially." : t("ui.checkout_window.create.language_description")}
             </p>
             <select
               value={defaultLanguage}
               onChange={(e) => setDefaultLanguage(e.target.value)}
-              className="w-full px-2 py-1.5 text-sm border-2 border-gray-400 focus:border-purple-600 focus:outline-none"
+              className="retro-input w-full px-2 py-1.5 text-sm"
             >
               <option value="en">🇬🇧 English</option>
               <option value="de">🇩🇪 German (Deutsch)</option>
@@ -611,26 +647,28 @@ export function CreateCheckoutTab({
           </div>
 
           {/* Payment Provider Selection */}
-          <div className="mb-4 border-t-2 border-gray-400 pt-4">
-            <label className="block text-xs font-bold mb-2 flex items-center gap-2">
+          <div className="mb-4 border-t-2 pt-4" style={{ borderColor: 'var(--win95-border)' }}>
+            <label className="block text-xs font-bold mb-2 flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
               <CreditCard size={14} />
-              Payment Providers <span className="text-red-600">*</span>
+              {translationsLoading ? "Payment Providers" : t("ui.checkout_window.create.payment_providers_label")} <span style={{ color: 'var(--error)' }}>*</span>
             </label>
-            <p className="text-xs text-gray-600 mb-3">
-              Select payment providers to offer during checkout. Customers will choose their preferred method.
+            <p className="text-xs mb-3" style={{ color: 'var(--neutral-gray)' }}>
+              {translationsLoading ? "Select payment providers to offer during checkout. Customers will choose their preferred method." : t("ui.checkout_window.create.payment_providers_description")}
             </p>
 
             {!availablePaymentProviders || availablePaymentProviders.length === 0 ? (
-              <div className="border-2 border-red-600 bg-red-50 p-4">
+              <div className="border-2 p-4" style={{ borderColor: 'var(--error)', background: 'rgba(239, 68, 68, 0.1)' }}>
                 <div className="flex items-start gap-2">
-                  <AlertCircle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
+                  <AlertCircle size={20} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--error)' }} />
                   <div>
-                    <h4 className="font-bold text-sm text-red-900 mb-1">No Payment Providers Connected</h4>
-                    <p className="text-xs text-red-800 mb-2">
-                      You need to connect a payment provider before creating checkouts.
+                    <h4 className="font-bold text-sm mb-1" style={{ color: 'var(--error)' }}>
+                      {translationsLoading ? "No Payment Providers Connected" : t("ui.checkout_window.create.no_payment_providers_title")}
+                    </h4>
+                    <p className="text-xs mb-2" style={{ color: 'var(--error)' }}>
+                      {translationsLoading ? "You need to connect a payment provider before creating checkouts." : t("ui.checkout_window.create.no_payment_providers_description")}
                     </p>
-                    <p className="text-xs text-red-800">
-                      Go to <strong>Payments → Stripe Connect</strong> to connect a payment provider.
+                    <p className="text-xs" style={{ color: 'var(--error)' }}>
+                      {translationsLoading ? "Go to Payments → Stripe Connect to connect a payment provider." : t("ui.checkout_window.create.no_payment_providers_help")}
                     </p>
                   </div>
                 </div>
@@ -665,15 +703,15 @@ export function CreateCheckoutTab({
                         disabled={!isActive}
                         className="w-full border-2 p-3 text-left transition-all hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                         style={{
-                          borderColor: isSelected ? "#6B46C1" : "#D1D5DB",
-                          backgroundColor: isSelected ? "#F3E8FF" : "white",
-                          borderWidth: isSelected ? "3px" : "2px",
+                          borderColor: isSelected ? 'var(--win95-highlight)' : 'var(--win95-border)',
+                          backgroundColor: isSelected ? 'rgba(107, 70, 193, 0.1)' : 'var(--win95-bg-light)',
+                          borderWidth: isSelected ? '3px' : '2px',
                         }}
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
-                              <div className="font-bold text-sm">
+                              <div className="font-bold text-sm" style={{ color: 'var(--win95-text)' }}>
                                 {provider.providerCode === "stripe-connect"
                                   ? "Stripe"
                                   : provider.providerCode === "invoice"
@@ -684,43 +722,43 @@ export function CreateCheckoutTab({
                                 <span
                                   className="text-xs px-2 py-0.5 rounded"
                                   style={{
-                                    backgroundColor: provider.isTestMode ? "#FEF3C7" : "#D1FAE5",
-                                    color: provider.isTestMode ? "#92400E" : "#065F46",
+                                    backgroundColor: provider.isTestMode ? 'rgba(245, 158, 11, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                                    color: provider.isTestMode ? '#F59E0B' : 'var(--success)',
                                   }}
                                 >
-                                  {provider.isTestMode ? "Test Mode" : "Live Mode"}
+                                  {translationsLoading ? (provider.isTestMode ? "Test Mode" : "Live Mode") : t(provider.isTestMode ? "ui.checkout_window.create.payment_mode.test" : "ui.checkout_window.create.payment_mode.live")}
                                 </span>
                               )}
                               {provider.isDefault && (
                                 <span
                                   className="text-xs px-2 py-0.5 rounded"
                                   style={{
-                                    backgroundColor: "#DBEAFE",
-                                    color: "#1E40AF",
+                                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                    color: 'var(--win95-highlight)',
                                   }}
                                 >
                                   Default
                                 </span>
                               )}
                             </div>
-                            <p className="text-xs text-gray-600">
-                              Status: <span className={`font-semibold ${isActive ? "text-green-600" : "text-red-600"}`}>
+                            <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
+                              Status: <span className="font-semibold" style={{ color: isActive ? 'var(--success)' : 'var(--error)' }}>
                                 {provider.status}
                               </span>
                             </p>
                             {provider.providerCode !== "invoice" && (
-                              <p className="text-xs text-gray-500 mt-1">
+                              <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
                                 Account: {provider.accountId.substring(0, 20)}...
                               </p>
                             )}
                             {provider.providerCode === "invoice" && (
-                              <p className="text-xs text-gray-500 mt-1">
+                              <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
                                 Customers can choose to receive an invoice and pay later
                               </p>
                             )}
                           </div>
                           {isSelected && (
-                            <Check size={20} className="text-purple-600 flex-shrink-0" />
+                            <Check size={20} className="flex-shrink-0" style={{ color: 'var(--win95-highlight)' }} />
                           )}
                         </div>
                       </button>
@@ -736,7 +774,7 @@ export function CreateCheckoutTab({
                 )}
 
                 {selectedPaymentProviders.length > 1 && (
-                  <p className="text-xs mt-1 p-2 rounded" style={{ backgroundColor: "#EFF6FF", color: "#1E40AF" }}>
+                  <p className="text-xs mt-1 p-2 rounded" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', color: 'var(--win95-highlight)' }}>
                     💡 Customers will choose their preferred payment method during checkout
                   </p>
                 )}
@@ -745,21 +783,28 @@ export function CreateCheckoutTab({
           </div>
 
           {/* Theme Selection */}
-          <div className="mb-4 border-t-2 border-gray-400 pt-4">
-            <div className="border-2 border-gray-400">
+          <div className="mb-4 border-t-2 pt-4" style={{ borderColor: 'var(--win95-border)' }}>
+            <div className="border-2" style={{ borderColor: 'var(--win95-border)' }}>
               {/* Accordion Header */}
               <button
                 type="button"
                 onClick={() => setThemeAccordionOpen(!themeAccordionOpen)}
-                className="w-full px-4 py-3 flex items-center justify-between bg-gray-100 hover:bg-gray-200 transition-colors"
+                className="w-full px-4 py-3 flex items-center justify-between transition-colors"
+                style={{
+                  background: 'var(--win95-bg)',
+                  color: 'var(--win95-text)'
+                }}
               >
                 <div className="flex items-center gap-2">
                   <Palette size={16} />
                   <span className="text-sm font-bold">
-                    Select Theme <span className="text-red-600">*</span>
+                    {translationsLoading ? "Select Theme" : t("ui.checkout_window.create.select_theme_label")} <span style={{ color: 'var(--error)' }}>*</span>
                   </span>
                   {selectedThemeId && availableThemes && (
-                    <span className="text-xs bg-purple-600 text-white px-2 py-0.5 rounded">
+                    <span className="text-xs px-2 py-0.5 rounded" style={{
+                      background: 'var(--win95-highlight)',
+                      color: 'var(--win95-titlebar-text)'
+                    }}>
                       {availableThemes.find(t => t._id === selectedThemeId)?.name}
                     </span>
                   )}
@@ -769,7 +814,7 @@ export function CreateCheckoutTab({
 
               {/* Accordion Content */}
               {themeAccordionOpen && availableThemes && (
-                <div className="p-3 bg-white space-y-2">
+                <div className="p-3 space-y-2" style={{ background: 'var(--win95-bg-light)' }}>
                   {availableThemes.map((theme) => (
                     <button
                       key={theme._id}
@@ -777,35 +822,35 @@ export function CreateCheckoutTab({
                       onClick={() => setSelectedThemeId(theme._id)}
                       className="w-full border-2 p-3 text-left transition-all hover:shadow-md"
                       style={{
-                        borderColor: selectedThemeId === theme._id ? "#6B46C1" : "#D1D5DB",
-                        backgroundColor: selectedThemeId === theme._id ? "#F3E8FF" : "white",
-                        borderWidth: selectedThemeId === theme._id ? "3px" : "2px",
+                        borderColor: selectedThemeId === theme._id ? 'var(--win95-highlight)' : 'var(--win95-border)',
+                        backgroundColor: selectedThemeId === theme._id ? 'rgba(107, 70, 193, 0.1)' : 'var(--win95-bg-light)',
+                        borderWidth: selectedThemeId === theme._id ? '3px' : '2px',
                       }}
                     >
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex-1">
-                          <div className="font-bold text-sm mb-1">{theme.name}</div>
-                          <p className="text-xs text-gray-600 mb-1">
+                          <div className="font-bold text-sm mb-1" style={{ color: 'var(--win95-text)' }}>{theme.name}</div>
+                          <p className="text-xs mb-1" style={{ color: 'var(--neutral-gray)' }}>
                             {theme.customProperties?.description as string}
                           </p>
-                          <code className="text-xs bg-gray-100 px-1">
+                          <code className="text-xs px-1" style={{ background: 'var(--win95-bg)', color: 'var(--win95-text)' }}>
                             {theme.customProperties?.code as string}
                           </code>
                         </div>
                         {selectedThemeId === theme._id && (
-                          <Check size={20} className="text-purple-600 flex-shrink-0" />
+                          <Check size={20} className="flex-shrink-0" style={{ color: 'var(--win95-highlight)' }} />
                         )}
                       </div>
                       {/* Color palette preview */}
                       <div className="flex gap-1 mt-2">
                         <div
-                          className="w-8 h-8 rounded border border-gray-300"
-                          style={{ background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" }}
-                          title="Primary Gradient"
+                          className="w-8 h-8 rounded border"
+                          style={{ background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", borderColor: 'var(--win95-border)' }}
+                          title={translationsLoading ? "Primary Gradient" : t("ui.checkout_window.create.theme_preview.primary_gradient")}
                         />
-                        <div className="w-8 h-8 rounded border border-gray-300 bg-white" title="Background" />
-                        <div className="w-8 h-8 rounded border border-gray-300 bg-gray-900" title="Text" />
-                        <div className="w-8 h-8 rounded border border-gray-300 bg-gray-100" title="Secondary" />
+                        <div className="w-8 h-8 rounded border" style={{ background: 'var(--win95-bg-light)', borderColor: 'var(--win95-border)' }} title={translationsLoading ? "Background" : t("ui.checkout_window.create.theme_preview.background")} />
+                        <div className="w-8 h-8 rounded border" style={{ background: 'var(--win95-text)', borderColor: 'var(--win95-border)' }} title={translationsLoading ? "Text" : t("ui.checkout_window.create.theme_preview.text")} />
+                        <div className="w-8 h-8 rounded border" style={{ background: 'var(--win95-bg)', borderColor: 'var(--win95-border)' }} title={translationsLoading ? "Secondary" : t("ui.checkout_window.create.theme_preview.secondary")} />
                       </div>
                     </button>
                   ))}
@@ -815,30 +860,30 @@ export function CreateCheckoutTab({
           </div>
 
           {/* Linked Products */}
-          <div className="mb-4 border-t-2 border-gray-400 pt-4">
-            <label className="block text-xs font-bold mb-2 flex items-center gap-2">
+          <div className="mb-4 border-t-2 pt-4" style={{ borderColor: 'var(--win95-border)' }}>
+            <label className="block text-xs font-bold mb-2 flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
               <ShoppingCart size={14} />
-              Linked Products
+              {translationsLoading ? "Linked Products" : t("ui.checkout_window.create.linked_products_label")}
             </label>
-            <p className="text-xs text-gray-600 mb-3">
-              Select products to include in this checkout.
+            <p className="text-xs mb-3" style={{ color: 'var(--neutral-gray)' }}>
+              {translationsLoading ? "Select products to include in this checkout." : t("ui.checkout_window.create.linked_products_description")}
             </p>
 
             {products === undefined ? (
-              <div className="text-xs text-gray-500 flex items-center justify-center py-4">
+              <div className="text-xs flex items-center justify-center py-4" style={{ color: 'var(--neutral-gray)' }}>
                 <Loader2 size={14} className="animate-spin mr-2" />
                 Loading products...
               </div>
             ) : products.length === 0 ? (
-              <div className="border-2 border-yellow-600 bg-yellow-50 p-3">
+              <div className="border-2 p-3" style={{ borderColor: '#F59E0B', background: 'rgba(245, 158, 11, 0.1)' }}>
                 <div className="flex items-start gap-2">
-                  <AlertCircle size={16} className="text-yellow-600 flex-shrink-0 mt-0.5" />
+                  <AlertCircle size={16} className="flex-shrink-0 mt-0.5" style={{ color: '#F59E0B' }} />
                   <div>
-                    <h4 className="font-bold text-xs text-yellow-900 mb-1">No Active Products</h4>
-                    <p className="text-xs text-yellow-800 mb-2">
+                    <h4 className="font-bold text-xs mb-1" style={{ color: '#F59E0B' }}>No Active Products</h4>
+                    <p className="text-xs mb-2" style={{ color: '#F59E0B' }}>
                       Only <strong>active</strong> (published) products can be linked to checkouts.
                     </p>
-                    <p className="text-xs text-yellow-800">
+                    <p className="text-xs" style={{ color: '#F59E0B' }}>
                       Create products in the Products window and publish them to make them available here.
                     </p>
                   </div>
@@ -873,19 +918,19 @@ export function CreateCheckoutTab({
                       key={product._id}
                       className="border-2 p-2 flex items-start justify-between"
                       style={{
-                        borderColor: isSelected ? "#6B46C1" : isIncompatible ? "#EF4444" : "#D1D5DB",
-                        backgroundColor: isSelected ? "#F3E8FF" : isIncompatible ? "#FEE2E2" : "white",
+                        borderColor: isSelected ? 'var(--win95-highlight)' : isIncompatible ? 'var(--error)' : 'var(--win95-border)',
+                        backgroundColor: isSelected ? 'rgba(107, 70, 193, 0.1)' : isIncompatible ? 'rgba(239, 68, 68, 0.1)' : 'var(--win95-bg-light)',
                         opacity: isIncompatible ? 0.7 : 1,
                       }}
                     >
                       <div className="flex-1">
                         <div className="flex items-start gap-2">
                           <div className="flex-1">
-                            <div className="font-bold text-xs">{product.name}</div>
+                            <div className="font-bold text-xs" style={{ color: 'var(--win95-text)' }}>{product.name}</div>
                             {product.description && (
-                              <div className="text-xs text-gray-600">{product.description}</div>
+                              <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>{product.description}</div>
                             )}
-                            <div className="text-xs text-gray-600 mt-1">
+                            <div className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
                               {new Intl.NumberFormat("en-US", {
                                 style: "currency",
                                 currency: currency.toUpperCase(),
@@ -951,9 +996,9 @@ export function CreateCheckoutTab({
                                         color: "#15803D",
                                         border: "1px solid #BBF7D0",
                                       }}
-                                      title="Form will be collected during checkout"
+                                      title={translationsLoading ? "Form will be collected during checkout" : t("ui.checkout_window.create.form_timing.in_checkout_tooltip")}
                                     >
-                                      🛒 In Checkout
+                                      {translationsLoading ? "🛒 In Checkout" : t("ui.checkout_window.create.form_timing.in_checkout_badge")}
                                     </span>
                                   )}
                                   {formTiming === "afterPurchase" && (
@@ -964,9 +1009,9 @@ export function CreateCheckoutTab({
                                         color: "#92400E",
                                         border: "1px solid #FDE68A",
                                       }}
-                                      title="Form link sent via email after purchase"
+                                      title={translationsLoading ? "Form link sent via email after purchase" : t("ui.checkout_window.create.form_timing.after_purchase_tooltip")}
                                     >
-                                      ✉️ After Purchase
+                                      {translationsLoading ? "✉️ After Purchase" : t("ui.checkout_window.create.form_timing.after_purchase_badge")}
                                     </span>
                                   )}
                                 </>
@@ -975,18 +1020,18 @@ export function CreateCheckoutTab({
 
                             {/* Warning if product is incompatible */}
                             {isIncompatible && (
-                              <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded">
-                                <div className="text-xs text-red-700 font-bold flex items-start gap-1 mb-1">
+                              <div className="mt-2 p-2 border rounded" style={{ background: 'rgba(239, 68, 68, 0.1)', borderColor: 'var(--error)' }}>
+                                <div className="text-xs font-bold flex items-start gap-1 mb-1" style={{ color: 'var(--error)' }}>
                                   <AlertCircle size={12} className="flex-shrink-0 mt-0.5" />
                                   <span>Cannot link to this template</span>
                                 </div>
-                                <div className="text-xs text-red-600">
+                                <div className="text-xs" style={{ color: 'var(--error)' }}>
                                   This product requires a form during checkout, but the selected template doesn&apos;t support form integration.
                                 </div>
-                                <div className="text-xs text-red-600 mt-1 font-semibold">
+                                <div className="text-xs mt-1 font-semibold" style={{ color: 'var(--error)' }}>
                                   Solutions:
                                 </div>
-                                <ul className="text-xs text-red-600 ml-4 mt-1 space-y-0.5">
+                                <ul className="text-xs ml-4 mt-1 space-y-0.5" style={{ color: 'var(--error)' }}>
                                   <li>• Choose a template with form support</li>
                                   <li>• Change form timing to &quot;After Purchase&quot;</li>
                                   <li>• Remove form requirement</li>
@@ -1015,10 +1060,10 @@ export function CreateCheckoutTab({
                         disabled={isIncompatible && !isSelected}
                         className="px-2 py-1 text-xs font-bold border-2 transition-colors"
                         style={{
-                          borderColor: isIncompatible && !isSelected ? "#EF4444" : isSelected ? "#6B46C1" : "#D1D5DB",
-                          backgroundColor: isIncompatible && !isSelected ? "#FEE2E2" : isSelected ? "#6B46C1" : "white",
-                          color: isIncompatible && !isSelected ? "#991B1B" : isSelected ? "white" : "#374151",
-                          cursor: isIncompatible && !isSelected ? "not-allowed" : "pointer",
+                          borderColor: isIncompatible && !isSelected ? 'var(--error)' : isSelected ? 'var(--win95-highlight)' : 'var(--win95-border)',
+                          backgroundColor: isIncompatible && !isSelected ? 'rgba(239, 68, 68, 0.1)' : isSelected ? 'var(--win95-highlight)' : 'var(--win95-bg-light)',
+                          color: isIncompatible && !isSelected ? 'var(--error)' : isSelected ? 'var(--win95-titlebar-text)' : 'var(--win95-text)',
+                          cursor: isIncompatible && !isSelected ? 'not-allowed' : 'pointer',
                           opacity: isIncompatible && !isSelected ? 0.6 : 1,
                         }}
                         title={isIncompatible && !isSelected ? "Cannot link: Product requires form support" : ""}
@@ -1038,7 +1083,7 @@ export function CreateCheckoutTab({
             )}
 
             {selectedProducts.length > 0 && (
-              <p className="text-xs text-green-600 font-bold mt-2">
+              <p className="text-xs font-bold mt-2" style={{ color: 'var(--success)' }}>
                 ✓ {selectedProducts.length} product{selectedProducts.length !== 1 ? "s" : ""}{" "}
                 linked
               </p>
@@ -1050,13 +1095,15 @@ export function CreateCheckoutTab({
             const schema = getCheckoutSchema(selectedTemplateCode);
             if (schema) {
               return (
-                <div className="mb-4 border-t-2 border-gray-400 pt-4">
-                  <h4 className="text-xs font-bold mb-3">Template Settings</h4>
-                  <div className="text-xs text-gray-600 mb-2">
-                    Advanced settings for {schema.name}
+                <div className="mb-4 border-t-2 pt-4" style={{ borderColor: 'var(--win95-border)' }}>
+                  <h4 className="text-xs font-bold mb-3" style={{ color: 'var(--win95-text)' }}>
+                    {translationsLoading ? "Template Settings" : t("ui.checkout_window.create.template_settings_title")}
+                  </h4>
+                  <div className="text-xs mb-2" style={{ color: 'var(--neutral-gray)' }}>
+                    {translationsLoading ? `Advanced settings for ${schema.name}` : t("ui.checkout_window.create.template_settings_description", { template: schema.name })}
                   </div>
                   {/* TODO: Add DynamicFormGenerator for checkout schema */}
-                  <div className="border-2 border-gray-300 bg-gray-50 p-3 text-xs text-gray-500">
+                  <div className="border-2 p-3 text-xs" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg)', color: 'var(--neutral-gray)' }}>
                     Dynamic form fields will be added here based on template schema
                   </div>
                 </div>
@@ -1067,14 +1114,14 @@ export function CreateCheckoutTab({
         </div>
 
         {/* RIGHT: Live Preview (60%) */}
-        <div className="w-[60%] p-4 overflow-y-auto bg-gray-50">
-          <h3 className="text-sm font-bold mb-4 flex items-center gap-2">
+        <div className="w-[60%] p-4 overflow-y-auto" style={{ background: 'var(--win95-bg)' }}>
+          <h3 className="text-sm font-bold mb-4 flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
             <Eye size={16} />
-            Live Preview
+            {translationsLoading ? "Live Preview" : t("ui.checkout_window.create.preview_title")}
           </h3>
 
           {selectedTemplateCode && selectedThemeId && currentOrg ? (
-            <div className="border-2 border-gray-400 bg-white overflow-hidden">
+            <div className="border-2 overflow-hidden" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
               <CheckoutPreview
                 templateCode={selectedTemplateCode}
                 configuration={configuration}
@@ -1086,21 +1133,19 @@ export function CreateCheckoutTab({
               />
             </div>
           ) : (
-            <div className="border-2 border-gray-400 bg-white p-8 text-center">
-              <ShoppingCart size={64} className="mx-auto text-gray-300 mb-4" />
-              <h4 className="font-bold text-sm text-gray-700 mb-2">
-                {!selectedTemplateCode
-                  ? "No Template Selected"
-                  : !selectedThemeId
-                  ? "No Theme Selected"
-                  : "Preview Loading"}
+            <div className="border-2 p-8 text-center" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+              <ShoppingCart size={64} className="mx-auto mb-4" style={{ color: 'var(--win95-border)' }} />
+              <h4 className="font-bold text-sm mb-2" style={{ color: 'var(--win95-text)' }}>
+                {translationsLoading
+                  ? (!selectedTemplateCode ? "No Template Selected" : !selectedThemeId ? "No Theme Selected" : "Preview Loading")
+                  : (!selectedTemplateCode ? t("ui.checkout_window.create.preview_no_template") : !selectedThemeId ? t("ui.checkout_window.create.preview_no_theme") : t("ui.checkout_window.create.preview_loading"))
+                }
               </h4>
-              <p className="text-xs text-gray-600">
-                {!selectedTemplateCode
-                  ? "Select a template to see a live preview of your checkout."
-                  : !selectedThemeId
-                  ? "Select a theme to see a live preview with styling."
-                  : "Select products to preview the checkout."}
+              <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
+                {translationsLoading
+                  ? (!selectedTemplateCode ? "Select a template to see a live preview of your checkout." : !selectedThemeId ? "Select a theme to see a live preview with styling." : "Select products to preview the checkout.")
+                  : (!selectedTemplateCode ? t("ui.checkout_window.create.preview_no_template_description") : !selectedThemeId ? t("ui.checkout_window.create.preview_no_theme_description") : t("ui.checkout_window.create.preview_loading_description"))
+                }
               </p>
             </div>
           )}

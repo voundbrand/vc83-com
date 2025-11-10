@@ -8,6 +8,7 @@ import { ShoppingCart, Plus, Edit, Eye, Trash2, Loader2, AlertCircle, CheckCircl
 import { Id } from "../../../../convex/_generated/dataModel";
 import { ConfirmationModal } from "@/components/confirmation-modal";
 import { useNotification } from "@/hooks/use-notification";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 /**
  * Checkouts List Tab
@@ -25,6 +26,7 @@ export function CheckoutsListTab({ onCreateNew, onEdit }: CheckoutsListTabProps)
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
   const notification = useNotification();
+  const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.checkout_window");
   const [deletingId, setDeletingId] = useState<Id<"objects"> | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ id: Id<"objects">; name: string } | null>(null);
 
@@ -58,10 +60,11 @@ export function CheckoutsListTab({ onCreateNew, onEdit }: CheckoutsListTabProps)
       }
     } catch (error) {
       console.error("Failed to toggle publish status:", error);
-      notification.error(
-        "Failed to Update",
-        `Could not ${currentStatus === "published" ? "unpublish" : "publish"} checkout. Please try again.`
-      );
+      const errorTitle = translationsLoading ? "Failed to Update" : t("ui.checkout_window.list.notifications.update_failed");
+      const errorMessage = translationsLoading
+        ? `Could not ${currentStatus === "published" ? "unpublish" : "publish"} checkout. Please try again.`
+        : t("ui.checkout_window.list.notifications.update_error", { action: currentStatus === "published" ? "unpublish" : "publish" });
+      notification.error(errorTitle, errorMessage);
     }
   };
 
@@ -77,11 +80,17 @@ export function CheckoutsListTab({ onCreateNew, onEdit }: CheckoutsListTabProps)
     setDeletingId(confirmDelete.id);
     try {
       await deleteCheckout({ sessionId, instanceId: confirmDelete.id });
-      notification.success("Deleted", `"${confirmDelete.name}" has been deleted successfully.`);
+      const title = translationsLoading ? "Deleted" : t("ui.checkout_window.list.actions.delete");
+      const message = translationsLoading
+        ? `"${confirmDelete.name}" has been deleted successfully.`
+        : t("ui.checkout_window.list.notifications.deleted", { name: confirmDelete.name });
+      notification.success(title, message);
       setConfirmDelete(null);
     } catch (error) {
       console.error("Failed to delete checkout:", error);
-      notification.error("Delete Failed", "Could not delete checkout. Please try again.");
+      const errorTitle = translationsLoading ? "Delete Failed" : t("ui.checkout_window.list.notifications.delete_failed");
+      const errorMessage = translationsLoading ? "Could not delete checkout. Please try again." : t("ui.checkout_window.list.notifications.delete_error");
+      notification.error(errorTitle, errorMessage);
     } finally {
       setDeletingId(null);
     }
@@ -96,13 +105,15 @@ export function CheckoutsListTab({ onCreateNew, onEdit }: CheckoutsListTabProps)
   if (!sessionId || !currentOrg) {
     return (
       <div className="p-4">
-        <div className="border-2 border-red-600 bg-red-50 p-4">
+        <div className="border-2 p-4" style={{ borderColor: 'var(--error)', background: 'rgba(239, 68, 68, 0.1)' }}>
           <div className="flex items-start gap-2">
-            <AlertCircle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
+            <AlertCircle size={20} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--error)' }} />
             <div>
-              <h4 className="font-bold text-sm text-red-900">Authentication Required</h4>
-              <p className="text-xs text-red-800 mt-1">
-                Please log in to view your checkouts.
+              <h4 className="font-bold text-sm" style={{ color: 'var(--error)' }}>
+                {translationsLoading ? "Authentication Required" : t("ui.checkout_window.error.auth_required_title")}
+              </h4>
+              <p className="text-xs mt-1" style={{ color: 'var(--error)' }}>
+                {translationsLoading ? "Please log in to view your checkouts." : t("ui.checkout_window.error.auth_required_list")}
               </p>
             </div>
           </div>
@@ -114,7 +125,7 @@ export function CheckoutsListTab({ onCreateNew, onEdit }: CheckoutsListTabProps)
   if (checkoutInstances === undefined) {
     return (
       <div className="flex items-center justify-center p-8">
-        <Loader2 size={32} className="animate-spin text-purple-600" />
+        <Loader2 size={32} className="animate-spin" style={{ color: 'var(--win95-highlight)' }} />
       </div>
     );
   }
@@ -124,53 +135,80 @@ export function CheckoutsListTab({ onCreateNew, onEdit }: CheckoutsListTabProps)
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-sm font-bold flex items-center gap-2">
+          <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
             <ShoppingCart size={16} />
-            Your Checkouts
+            {translationsLoading ? "Your Checkouts" : t("ui.checkout_window.list.title")}
           </h3>
-          <p className="text-xs text-gray-600 mt-1">
-            {checkoutInstances.length} checkout{checkoutInstances.length !== 1 ? 's' : ''} created
+          <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
+            {translationsLoading
+              ? `${checkoutInstances.length} checkout${checkoutInstances.length !== 1 ? 's' : ''} created`
+              : t("ui.checkout_window.list.count", { count: checkoutInstances.length, plural: checkoutInstances.length !== 1 ? 's' : '' })
+            }
           </p>
         </div>
         <button
           onClick={onCreateNew}
-          className="px-3 py-2 text-xs font-bold border-2 border-purple-600 bg-purple-600 text-white hover:bg-purple-700 transition-colors flex items-center gap-1"
+          className="px-3 py-2 text-xs font-bold border-2 transition-colors flex items-center gap-1"
+          style={{
+            borderColor: 'var(--win95-highlight)',
+            background: 'var(--win95-highlight)',
+            color: 'var(--win95-titlebar-text)'
+          }}
         >
           <Plus size={14} />
-          Create Checkout
+          {translationsLoading ? "Create Checkout" : t("ui.checkout_window.list.create_checkout")}
         </button>
       </div>
 
       {/* Empty State */}
       {checkoutInstances.length === 0 ? (
-        <div className="border-2 border-gray-400 bg-gray-50 p-8 text-center">
-          <div className="text-gray-400 mb-4">
+        <div className="border-2 p-8 text-center" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg)' }}>
+          <div className="mb-4" style={{ color: 'var(--neutral-gray)' }}>
             <ShoppingCart size={64} className="mx-auto" />
           </div>
-          <h4 className="font-bold text-sm text-gray-700 mb-2">No Checkouts Yet</h4>
-          <p className="text-xs text-gray-600 mb-4">
-            Create your first checkout page to start accepting payments.
+          <h4 className="font-bold text-sm mb-2" style={{ color: 'var(--win95-text)' }}>
+            {translationsLoading ? "No Checkouts Yet" : t("ui.checkout_window.list.empty.title")}
+          </h4>
+          <p className="text-xs mb-4" style={{ color: 'var(--neutral-gray)' }}>
+            {translationsLoading ? "Create your first checkout page to start accepting payments." : t("ui.checkout_window.list.empty.description")}
           </p>
           <button
             onClick={onCreateNew}
-            className="px-4 py-2 text-xs font-bold border-2 border-purple-600 bg-purple-600 text-white hover:bg-purple-700 transition-colors inline-flex items-center gap-2"
+            className="px-4 py-2 text-xs font-bold border-2 transition-colors inline-flex items-center gap-2"
+            style={{
+              borderColor: 'var(--win95-highlight)',
+              background: 'var(--win95-highlight)',
+              color: 'var(--win95-titlebar-text)'
+            }}
           >
             <Plus size={14} />
-            Create Your First Checkout
+            {translationsLoading ? "Create Your First Checkout" : t("ui.checkout_window.list.empty.action")}
           </button>
         </div>
       ) : (
         /* Checkouts Table */
-        <div className="border-2 border-gray-400 bg-white">
+        <div className="border-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
           <table className="w-full">
             <thead>
-              <tr className="border-b-2 border-gray-400 bg-gray-100">
-                <th className="text-left p-3 text-xs font-bold">Name</th>
-                <th className="text-left p-3 text-xs font-bold">Template</th>
-                <th className="text-left p-3 text-xs font-bold">Status</th>
-                <th className="text-left p-3 text-xs font-bold">Products</th>
-                <th className="text-left p-3 text-xs font-bold">Updated</th>
-                <th className="text-right p-3 text-xs font-bold">Actions</th>
+              <tr className="border-b-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg)' }}>
+                <th className="text-left p-3 text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+                  {translationsLoading ? "Name" : t("ui.checkout_window.list.table.name")}
+                </th>
+                <th className="text-left p-3 text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+                  {translationsLoading ? "Template" : t("ui.checkout_window.list.table.template")}
+                </th>
+                <th className="text-left p-3 text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+                  {translationsLoading ? "Status" : t("ui.checkout_window.list.table.status")}
+                </th>
+                <th className="text-left p-3 text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+                  {translationsLoading ? "Products" : t("ui.checkout_window.list.table.products")}
+                </th>
+                <th className="text-left p-3 text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+                  {translationsLoading ? "Updated" : t("ui.checkout_window.list.table.updated")}
+                </th>
+                <th className="text-right p-3 text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+                  {translationsLoading ? "Actions" : t("ui.checkout_window.list.table.actions")}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -182,14 +220,15 @@ export function CheckoutsListTab({ onCreateNew, onEdit }: CheckoutsListTabProps)
                 return (
                   <tr
                     key={instance._id}
-                    className="border-b border-gray-200 hover:bg-gray-50 transition-colors"
+                    className="border-b transition-colors"
+                    style={{ borderColor: 'var(--win95-border)' }}
                   >
                     {/* Name */}
                     <td className="p-3">
                       <div>
-                        <div className="text-sm font-bold">{instance.name}</div>
+                        <div className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>{instance.name}</div>
                         {instance.description && (
-                          <div className="text-xs text-gray-600 mt-0.5 line-clamp-1">
+                          <div className="text-xs mt-0.5 line-clamp-1" style={{ color: 'var(--neutral-gray)' }}>
                             {instance.description}
                           </div>
                         )}
@@ -198,7 +237,7 @@ export function CheckoutsListTab({ onCreateNew, onEdit }: CheckoutsListTabProps)
 
                     {/* Template */}
                     <td className="p-3">
-                      <div className="text-xs text-gray-600">
+                      <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
                         {(config.templateCode as string) || 'Unknown'}
                       </div>
                     </td>
@@ -210,27 +249,37 @@ export function CheckoutsListTab({ onCreateNew, onEdit }: CheckoutsListTabProps)
                         style={{
                           backgroundColor:
                             status === "published"
-                              ? "#10B981"
+                              ? "var(--success)"
                               : status === "draft"
-                              ? "#F59E0B"
-                              : "#6B7280",
-                          color: "white",
+                              ? "var(--warning)"
+                              : "var(--neutral-gray)",
+                          color: "var(--win95-titlebar-text)",
                         }}
                       >
-                        {status}
+                        {translationsLoading
+                          ? status
+                          : status === "published"
+                            ? t("ui.checkout_window.list.status.published")
+                            : status === "draft"
+                              ? t("ui.checkout_window.list.status.draft")
+                              : status
+                        }
                       </span>
                     </td>
 
                     {/* Products */}
                     <td className="p-3">
-                      <div className="text-xs text-gray-600">
-                        {linkedProducts.length} product{linkedProducts.length !== 1 ? 's' : ''}
+                      <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
+                        {translationsLoading
+                          ? `${linkedProducts.length} product${linkedProducts.length !== 1 ? 's' : ''}`
+                          : t("ui.checkout_window.common.product_count", { count: linkedProducts.length, plural: linkedProducts.length !== 1 ? 's' : '' })
+                        }
                       </div>
                     </td>
 
                     {/* Updated */}
                     <td className="p-3">
-                      <div className="text-xs text-gray-600">
+                      <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
                         {new Date(instance.updatedAt).toLocaleDateString()}
                       </div>
                     </td>
@@ -241,12 +290,16 @@ export function CheckoutsListTab({ onCreateNew, onEdit }: CheckoutsListTabProps)
                         {/* Publish/Unpublish Button */}
                         <button
                           onClick={() => handleTogglePublish(instance._id, status)}
-                          className="p-1.5 hover:bg-gray-200 transition-colors rounded"
-                          title={status === "published" ? "Unpublish" : "Publish"}
+                          className="p-1.5 transition-colors rounded"
+                          style={{ background: 'var(--win95-button-face)' }}
+                          title={translationsLoading
+                            ? (status === "published" ? "Unpublish" : "Publish")
+                            : (status === "published" ? t("ui.checkout_window.list.actions.unpublish") : t("ui.checkout_window.list.actions.publish"))
+                          }
                         >
                           <CheckCircle
                             size={14}
-                            className={status === "published" ? "text-green-600" : "text-gray-400"}
+                            style={{ color: status === "published" ? "var(--success)" : "var(--neutral-gray)" }}
                           />
                         </button>
 
@@ -254,10 +307,11 @@ export function CheckoutsListTab({ onCreateNew, onEdit }: CheckoutsListTabProps)
                         {status === "published" && config.publicSlug && (
                           <button
                             onClick={() => window.open(getPreviewUrl(config.publicSlug as string), "_blank")}
-                            className="p-1.5 hover:bg-gray-200 transition-colors rounded"
-                            title="View live checkout"
+                            className="p-1.5 transition-colors rounded"
+                            style={{ background: 'var(--win95-button-face)' }}
+                            title={translationsLoading ? "View live checkout" : t("ui.checkout_window.list.actions.preview")}
                           >
-                            <ExternalLink size={14} className="text-blue-600" />
+                            <ExternalLink size={14} style={{ color: 'var(--info)' }} />
                           </button>
                         )}
 
@@ -265,33 +319,36 @@ export function CheckoutsListTab({ onCreateNew, onEdit }: CheckoutsListTabProps)
                         {status === "draft" && (
                           <button
                             onClick={() => onEdit(instance._id)}
-                            className="p-1.5 hover:bg-gray-200 transition-colors rounded"
-                            title="Preview in editor"
+                            className="p-1.5 transition-colors rounded"
+                            style={{ background: 'var(--win95-button-face)' }}
+                            title={translationsLoading ? "Preview in editor" : t("ui.checkout_window.list.actions.preview_editor")}
                           >
-                            <Eye size={14} className="text-gray-600" />
+                            <Eye size={14} style={{ color: 'var(--neutral-gray)' }} />
                           </button>
                         )}
 
                         {/* Edit Button */}
                         <button
                           onClick={() => onEdit(instance._id)}
-                          className="p-1.5 hover:bg-gray-200 transition-colors rounded"
-                          title="Edit configuration"
+                          className="p-1.5 transition-colors rounded"
+                          style={{ background: 'var(--win95-button-face)' }}
+                          title={translationsLoading ? "Edit configuration" : t("ui.checkout_window.list.actions.edit")}
                         >
-                          <Edit size={14} className="text-gray-600" />
+                          <Edit size={14} style={{ color: 'var(--neutral-gray)' }} />
                         </button>
 
                         {/* Delete Button */}
                         <button
                           onClick={() => handleDeleteClick(instance._id, instance.name)}
                           disabled={deletingId === instance._id}
-                          className="p-1.5 hover:bg-red-100 transition-colors rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Delete"
+                          className="p-1.5 transition-colors rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                          style={{ background: 'rgba(239, 68, 68, 0.1)' }}
+                          title={translationsLoading ? "Delete" : t("ui.checkout_window.list.actions.delete")}
                         >
                           {deletingId === instance._id ? (
-                            <Loader2 size={14} className="text-red-600 animate-spin" />
+                            <Loader2 size={14} className="animate-spin" style={{ color: 'var(--error)' }} />
                           ) : (
-                            <Trash2 size={14} className="text-red-600" />
+                            <Trash2 size={14} style={{ color: 'var(--error)' }} />
                           )}
                         </button>
                       </div>
@@ -306,16 +363,16 @@ export function CheckoutsListTab({ onCreateNew, onEdit }: CheckoutsListTabProps)
 
       {/* Help Section */}
       {checkoutInstances.length > 0 && (
-        <div className="mt-4 p-4 border-2 border-purple-300 bg-purple-50">
-          <h4 className="font-bold text-sm text-purple-900 mb-2 flex items-center gap-2">
+        <div className="mt-4 p-4 border-2" style={{ borderColor: 'var(--info-border)', background: 'rgba(147, 51, 234, 0.1)' }}>
+          <h4 className="font-bold text-sm mb-2 flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
             <AlertCircle size={16} />
-            Quick Actions
+            {translationsLoading ? "Quick Actions" : t("ui.checkout_window.list.help.title")}
           </h4>
-          <ul className="text-xs text-purple-800 space-y-1">
-            <li>• <CheckCircle size={12} className="inline text-green-600" /> <strong>Publish/Unpublish</strong> - Toggle checkout availability</li>
-            <li>• <ExternalLink size={12} className="inline text-blue-600" /> <strong>Preview</strong> - View published checkout in new tab</li>
-            <li>• <Edit size={12} className="inline text-gray-600" /> <strong>Edit</strong> - Modify checkout configuration</li>
-            <li>• <Trash2 size={12} className="inline text-red-600" /> <strong>Delete</strong> - Remove checkout (with confirmation)</li>
+          <ul className="text-xs space-y-1" style={{ color: 'var(--win95-text)' }}>
+            <li>• <CheckCircle size={12} className="inline" style={{ color: 'var(--success)' }} /> <strong>{translationsLoading ? "Publish/Unpublish - Toggle checkout availability" : t("ui.checkout_window.list.help.publish")}</strong></li>
+            <li>• <ExternalLink size={12} className="inline" style={{ color: 'var(--info)' }} /> <strong>{translationsLoading ? "Preview - View published checkout in new tab" : t("ui.checkout_window.list.help.preview")}</strong></li>
+            <li>• <Edit size={12} className="inline" style={{ color: 'var(--neutral-gray)' }} /> <strong>{translationsLoading ? "Edit - Modify checkout configuration" : t("ui.checkout_window.list.help.edit")}</strong></li>
+            <li>• <Trash2 size={12} className="inline" style={{ color: 'var(--error)' }} /> <strong>{translationsLoading ? "Delete - Remove checkout (with confirmation)" : t("ui.checkout_window.list.help.delete")}</strong></li>
           </ul>
         </div>
       )}
@@ -325,10 +382,13 @@ export function CheckoutsListTab({ onCreateNew, onEdit }: CheckoutsListTabProps)
         isOpen={!!confirmDelete}
         onClose={() => setConfirmDelete(null)}
         onConfirm={handleDeleteConfirm}
-        title="Delete Checkout"
-        message={`Are you sure you want to delete "${confirmDelete?.name}"?\n\nThis action cannot be undone.`}
-        confirmText="Delete"
-        cancelText="Cancel"
+        title={translationsLoading ? "Delete Checkout" : t("ui.checkout_window.list.confirm.delete_title")}
+        message={translationsLoading
+          ? `Are you sure you want to delete "${confirmDelete?.name}"?\n\nThis action cannot be undone.`
+          : t("ui.checkout_window.list.confirm.delete_message", { name: confirmDelete?.name || "" })
+        }
+        confirmText={translationsLoading ? "Delete" : t("ui.checkout_window.list.confirm.delete_button")}
+        cancelText={translationsLoading ? "Cancel" : t("ui.checkout_window.list.confirm.cancel_button")}
         variant="danger"
         isLoading={!!deletingId}
       />
