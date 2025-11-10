@@ -95,9 +95,31 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
 
   // Load all system translations for current locale using ontologyTranslations
   // Returns a key-value map: { "desktop.welcome-icon": "Welcome", ... }
+  // Load multiple namespaces at once for better performance
   const translationsMap = useQuery(
-    api.ontologyTranslations.getAllTranslations,
-    { locale }
+    api.ontologyTranslations.getMultipleNamespaces,
+    {
+      locale,
+      namespaces: [
+        "ui.app",
+        "ui.start_menu",
+        "ui.payments",
+        "ui.products",
+        "ui.tickets",
+        "ui.certificates",
+        "ui.events",
+        "ui.checkout",
+        "ui.forms",
+        "ui.crm",
+        "ui.invoicing",
+        "ui.workflows",
+        "ui.media_library",
+        "ui.web_publishing",
+        "desktop",
+        "windows",
+        "common",
+      ]
+    }
   ) as Record<string, string> | undefined;
 
   // Set locale and persist to backend or localStorage
