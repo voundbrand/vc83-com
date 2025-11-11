@@ -56,7 +56,7 @@ export function EventLandingTemplate({
   sessionId,
 }: TemplateProps) {
   // Translation hook
-  const { t } = useNamespaceTranslations("ui.events");
+  const { t } = useNamespaceTranslations("ui.event_landing");
 
   // Helper to format date from timestamp with translations
   const formatEventDate = (timestamp: number | undefined, format: 'short' | 'long' = 'long'): string => {
