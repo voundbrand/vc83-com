@@ -268,6 +268,7 @@ import {
   listContacts,
   getContact,
 } from "./api/v1/crm";
+import { createBooking } from "./api/v1/bookings";
 
 /**
  * Layer 1: READ APIs (Before Checkout)
@@ -385,6 +386,17 @@ http.route({
   path: "/api/v1/crm/contacts/:contactId",
   method: "GET",
   handler: getContact,
+});
+
+/**
+ * Layer 6: BOOKINGS API (Event Registration)
+ */
+
+// POST /api/v1/bookings/create - Create event booking with tickets
+http.route({
+  path: "/api/v1/bookings/create",
+  method: "POST",
+  handler: createBooking,
 });
 
 export default http;

@@ -16,6 +16,8 @@ import type {
 import type * as accountManagement from "../accountManagement.js";
 import type * as addressValidation from "../addressValidation.js";
 import type * as api_auth from "../api/auth.js";
+import type * as api_v1_bookings from "../api/v1/bookings.js";
+import type * as api_v1_bookingsInternal from "../api/v1/bookingsInternal.js";
 import type * as api_v1_checkout from "../api/v1/checkout.js";
 import type * as api_v1_checkoutInternal from "../api/v1/checkoutInternal.js";
 import type * as api_v1_crm from "../api/v1/crm.js";
@@ -167,6 +169,7 @@ import type * as translations_seedEvents_04_FormSponsors from "../translations/s
 import type * as translations_seedEvents_05_FormDescription from "../translations/seedEvents_05_FormDescription.js";
 import type * as translations_seedFormsWindowTranslations from "../translations/seedFormsWindowTranslations.js";
 import type * as translations_seedInvoicingTranslations from "../translations/seedInvoicingTranslations.js";
+import type * as translations_seedInvoicingWindow_Templates from "../translations/seedInvoicingWindow_Templates.js";
 import type * as translations_seedLogin from "../translations/seedLogin.js";
 import type * as translations_seedLogin_01_BasicAuth from "../translations/seedLogin_01_BasicAuth.js";
 import type * as translations_seedLogin_02_Forms from "../translations/seedLogin_02_Forms.js";
@@ -217,6 +220,8 @@ declare const fullApi: ApiFromModules<{
   accountManagement: typeof accountManagement;
   addressValidation: typeof addressValidation;
   "api/auth": typeof api_auth;
+  "api/v1/bookings": typeof api_v1_bookings;
+  "api/v1/bookingsInternal": typeof api_v1_bookingsInternal;
   "api/v1/checkout": typeof api_v1_checkout;
   "api/v1/checkoutInternal": typeof api_v1_checkoutInternal;
   "api/v1/crm": typeof api_v1_crm;
@@ -368,6 +373,7 @@ declare const fullApi: ApiFromModules<{
   "translations/seedEvents_05_FormDescription": typeof translations_seedEvents_05_FormDescription;
   "translations/seedFormsWindowTranslations": typeof translations_seedFormsWindowTranslations;
   "translations/seedInvoicingTranslations": typeof translations_seedInvoicingTranslations;
+  "translations/seedInvoicingWindow_Templates": typeof translations_seedInvoicingWindow_Templates;
   "translations/seedLogin": typeof translations_seedLogin;
   "translations/seedLogin_01_BasicAuth": typeof translations_seedLogin_01_BasicAuth;
   "translations/seedLogin_02_Forms": typeof translations_seedLogin_02_Forms;
