@@ -1,6 +1,7 @@
 "use client";
 
 import { Eye, FileText, Building2, Users, FileStack } from "lucide-react";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 /**
  * Templates Tab - PDF Invoice Templates
@@ -13,98 +14,110 @@ type TemplateId = "b2c_receipt" | "b2b_single" | "b2b_consolidated" | "b2b_conso
 
 interface Template {
   id: TemplateId;
-  name: string;
-  description: string;
-  useCase: string;
-  color: string;
+  nameKey: string;
+  descriptionKey: string;
+  useCaseKey: string;
+  colorVar: string;
   icon: React.ReactNode;
-  features: string[];
+  featureKeys: string[];
 }
 
-const TEMPLATES: Template[] = [
+const getTemplates = (): Template[] => [
   {
     id: "b2c_receipt",
-    name: "B2C Receipt",
-    description: "Simple customer receipt for individual purchases",
-    useCase: "Single customer checkout",
-    color: "#9F7AEA", // Purple
+    nameKey: "ui.invoicing_window.templates.b2c_receipt.name",
+    descriptionKey: "ui.invoicing_window.templates.b2c_receipt.description",
+    useCaseKey: "ui.invoicing_window.templates.b2c_receipt.use_case",
+    colorVar: "var(--win95-highlight)",
     icon: <FileText size={24} />,
-    features: [
-      "Clean, simple layout",
-      "Customer details",
-      "Line items with prices",
-      "Tax breakdown",
-      "Payment method",
+    featureKeys: [
+      "ui.invoicing_window.templates.b2c_receipt.features.layout",
+      "ui.invoicing_window.templates.b2c_receipt.features.customer",
+      "ui.invoicing_window.templates.b2c_receipt.features.items",
+      "ui.invoicing_window.templates.b2c_receipt.features.tax",
+      "ui.invoicing_window.templates.b2c_receipt.features.payment",
     ],
   },
   {
     id: "b2b_single",
-    name: "B2B Single Invoice",
-    description: "Professional invoice for individual business transactions",
-    useCase: "Single business customer",
-    color: "#4299E1", // Blue
+    nameKey: "ui.invoicing_window.templates.b2b_single.name",
+    descriptionKey: "ui.invoicing_window.templates.b2b_single.description",
+    useCaseKey: "ui.invoicing_window.templates.b2b_single.use_case",
+    colorVar: "var(--win95-highlight)",
     icon: <Building2 size={24} />,
-    features: [
-      "Professional layout",
-      "Company details & VAT",
-      "Billing address",
-      "Payment terms (NET30)",
-      "Invoice number",
+    featureKeys: [
+      "ui.invoicing_window.templates.b2b_single.features.layout",
+      "ui.invoicing_window.templates.b2b_single.features.company",
+      "ui.invoicing_window.templates.b2b_single.features.address",
+      "ui.invoicing_window.templates.b2b_single.features.terms",
+      "ui.invoicing_window.templates.b2b_single.features.number",
     ],
   },
   {
     id: "b2b_consolidated",
-    name: "B2B Consolidated",
-    description: "Multi-employee invoice for employer billing (AMEOS use case)",
-    useCase: "Multiple employees → Single employer",
-    color: "#48BB78", // Green
+    nameKey: "ui.invoicing_window.templates.b2b_consolidated.name",
+    descriptionKey: "ui.invoicing_window.templates.b2b_consolidated.description",
+    useCaseKey: "ui.invoicing_window.templates.b2b_consolidated.use_case",
+    colorVar: "var(--success)",
     icon: <Users size={24} />,
-    features: [
-      "Employee list view",
-      "Grouped by employee",
-      "Total per employee",
-      "Consolidated total",
-      "Employer billing",
+    featureKeys: [
+      "ui.invoicing_window.templates.b2b_consolidated.features.list",
+      "ui.invoicing_window.templates.b2b_consolidated.features.grouped",
+      "ui.invoicing_window.templates.b2b_consolidated.features.per_employee",
+      "ui.invoicing_window.templates.b2b_consolidated.features.total",
+      "ui.invoicing_window.templates.b2b_consolidated.features.billing",
     ],
   },
   {
     id: "b2b_consolidated_detailed",
-    name: "B2B Consolidated (Detailed)",
-    description: "Itemized breakdown per employee with full ticket details",
-    useCase: "Detailed employer invoice",
-    color: "#9F7AEA", // Purple
+    nameKey: "ui.invoicing_window.templates.b2b_consolidated_detailed.name",
+    descriptionKey: "ui.invoicing_window.templates.b2b_consolidated_detailed.description",
+    useCaseKey: "ui.invoicing_window.templates.b2b_consolidated_detailed.use_case",
+    colorVar: "var(--win95-highlight)",
     icon: <FileStack size={24} />,
-    features: [
-      "Full itemization",
-      "Product breakdown per employee",
-      "Ticket-level details",
-      "Subtotals & totals",
-      "Comprehensive view",
+    featureKeys: [
+      "ui.invoicing_window.templates.b2b_consolidated_detailed.features.itemization",
+      "ui.invoicing_window.templates.b2b_consolidated_detailed.features.breakdown",
+      "ui.invoicing_window.templates.b2b_consolidated_detailed.features.details",
+      "ui.invoicing_window.templates.b2b_consolidated_detailed.features.subtotals",
+      "ui.invoicing_window.templates.b2b_consolidated_detailed.features.comprehensive",
     ],
   },
 ];
 
 export function TemplatesTab() {
+  const { t, isLoading } = useNamespaceTranslations("ui.invoicing_window");
+
   const handlePreview = (templateId: TemplateId) => {
     // TODO: Open preview modal with sample PDF
-    alert(`Preview for ${templateId} coming soon!`);
+    alert(t("ui.invoicing_window.templates.preview_coming_soon", { templateId }));
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full p-4">
+        <p style={{ color: "var(--win95-text)" }}>{t("ui.invoicing_window.footer.loading")}</p>
+      </div>
+    );
+  }
+
+  const templates = getTemplates();
 
   return (
     <div className="p-4 space-y-4">
       {/* Header */}
       <div className="mb-6">
         <h3 className="text-sm font-bold mb-2" style={{ color: "var(--win95-text)" }}>
-          Invoice Templates
+          {t("ui.invoicing_window.templates.title")}
         </h3>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-          Choose a template for your invoice PDFs. Each template is optimized for specific use cases.
+          {t("ui.invoicing_window.templates.description")}
         </p>
       </div>
 
       {/* Template Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {TEMPLATES.map((template) => (
+        {templates.map((template) => (
           <div
             key={template.id}
             className="border-2 rounded-lg p-4 hover:shadow-md transition-shadow"
@@ -116,41 +129,43 @@ export function TemplatesTab() {
             {/* Template Header */}
             <div className="flex items-start gap-3 mb-3">
               <div
-                className="p-2 rounded"
+                className="p-2 rounded border-2"
                 style={{
-                  backgroundColor: `${template.color}20`,
-                  color: template.color,
+                  backgroundColor: "var(--win95-bg)",
+                  color: template.colorVar,
+                  borderColor: template.colorVar,
                 }}
               >
                 {template.icon}
               </div>
               <div className="flex-1 min-w-0">
                 <h4 className="text-sm font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                  {template.name}
+                  {t(template.nameKey)}
                 </h4>
                 <p className="text-xs mb-2" style={{ color: "var(--neutral-gray)" }}>
-                  {template.description}
+                  {t(template.descriptionKey)}
                 </p>
               </div>
             </div>
 
             {/* Use Case Badge */}
             <div
-              className="inline-block px-2 py-1 text-[10px] font-bold rounded mb-3"
+              className="inline-block px-2 py-1 text-[10px] font-bold rounded border mb-3"
               style={{
-                backgroundColor: `${template.color}20`,
-                color: template.color,
+                backgroundColor: "var(--win95-bg)",
+                color: template.colorVar,
+                borderColor: template.colorVar,
               }}
             >
-              {template.useCase}
+              {t(template.useCaseKey)}
             </div>
 
             {/* Features */}
             <div className="space-y-1 mb-4">
-              {template.features.map((feature, idx) => (
+              {template.featureKeys.map((featureKey, idx) => (
                 <div key={idx} className="flex items-start gap-2 text-xs" style={{ color: "var(--neutral-gray)" }}>
                   <span className="text-[10px] mt-0.5">✓</span>
-                  <span>{feature}</span>
+                  <span>{t(featureKey)}</span>
                 </div>
               ))}
             </div>
@@ -159,14 +174,15 @@ export function TemplatesTab() {
             <div className="flex gap-2">
               <button
                 onClick={() => handlePreview(template.id)}
-                className="flex-1 px-3 py-2 text-xs font-semibold rounded flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+                className="flex-1 px-3 py-2 text-xs font-semibold rounded flex items-center justify-center gap-2 hover:opacity-90 transition-opacity border-2"
                 style={{
-                  backgroundColor: template.color,
-                  color: "white",
+                  backgroundColor: template.colorVar,
+                  color: "var(--win95-titlebar-text)",
+                  borderColor: template.colorVar,
                 }}
               >
                 <Eye size={14} />
-                Preview
+                {t("ui.invoicing_window.templates.buttons.preview")}
               </button>
               <button
                 className="px-3 py-2 text-xs font-semibold rounded opacity-50 cursor-not-allowed"
@@ -176,9 +192,9 @@ export function TemplatesTab() {
                   border: "2px solid var(--win95-border)",
                 }}
                 disabled
-                title="Use in Rules tab"
+                title={t("ui.invoicing_window.templates.buttons.use_hint")}
               >
-                Use
+                {t("ui.invoicing_window.templates.buttons.use")}
               </button>
             </div>
           </div>
@@ -194,13 +210,13 @@ export function TemplatesTab() {
         }}
       >
         <h4 className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
-          💡 Template Usage
+          💡 {t("ui.invoicing_window.templates.usage.title")}
         </h4>
         <div className="text-xs space-y-1" style={{ color: "var(--neutral-gray)" }}>
-          <p>• <strong>B2C Receipt:</strong> Used automatically for individual customer transactions</p>
-          <p>• <strong>B2B Single:</strong> Used for single business transactions</p>
-          <p>• <strong>B2B Consolidated:</strong> AMEOS use case - 10 doctors → 1 invoice to employer</p>
-          <p>• <strong>B2B Consolidated (Detailed):</strong> Same as above but with full itemization</p>
+          <p>• {t("ui.invoicing_window.templates.usage.b2c_receipt")}</p>
+          <p>• {t("ui.invoicing_window.templates.usage.b2b_single")}</p>
+          <p>• {t("ui.invoicing_window.templates.usage.b2b_consolidated")}</p>
+          <p>• {t("ui.invoicing_window.templates.usage.b2b_consolidated_detailed")}</p>
         </div>
       </div>
     </div>

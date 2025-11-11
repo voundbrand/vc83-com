@@ -258,14 +258,20 @@ export function InvoicingConfigSection({
                   <button
                     type="button"
                     onClick={() => removeMapping(index)}
-                    className="p-1 border-2 hover:bg-red-100 transition-colors"
+                    className="p-1 border-2 transition-colors"
                     style={{
                       borderColor: "var(--win95-border)",
                       background: "var(--win95-button-face)",
                     }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = "var(--win95-button-hover)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "var(--win95-button-face)";
+                    }}
                     title="Remove mapping"
                   >
-                    <Trash2 size={14} style={{ color: "var(--danger)" }} />
+                    <Trash2 size={14} style={{ color: "var(--error)" }} />
                   </button>
                 </div>
               ))}
@@ -290,7 +296,7 @@ export function InvoicingConfigSection({
               💡 Map form values to CRM organizations. Select an organization from your CRM to enable invoice payment, or leave empty to disable invoicing for that value.
             </p>
             {crmOrganizations && crmOrganizations.length === 0 && (
-              <p className="text-xs mt-1 p-2 border-2 rounded" style={{ color: "var(--warning)", borderColor: "var(--warning)", background: "var(--win95-bg-light)" }}>
+              <p className="text-xs mt-1 p-2 border-2 rounded" style={{ color: "#f59e0b", borderColor: "#f59e0b", background: "var(--win95-bg-light)" }}>
                 ⚠️ No CRM organizations found. Create organizations in the CRM app first to enable invoice mapping.
               </p>
             )}

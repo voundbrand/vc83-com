@@ -215,10 +215,11 @@ export function InvoicingWindow() {
                                     {invoice.name}
                                   </h3>
                                   <span
-                                    className="px-2 py-0.5 text-[10px] font-bold rounded"
+                                    className="px-2 py-0.5 text-[10px] font-bold rounded border"
                                     style={{
-                                      backgroundColor: "var(--warning-light)",
-                                      color: "var(--warning)",
+                                      backgroundColor: "var(--win95-bg)",
+                                      color: "#f59e0b",
+                                      borderColor: "#f59e0b",
                                     }}
                                   >
                                     {t("ui.invoicing_window.status.draft")}
@@ -271,11 +272,11 @@ export function InvoicingWindow() {
                         const paymentStatus = invoice.status as string;
 
                         const statusColors = {
-                          paid: { bg: "var(--success-light)", text: "var(--success)" },
-                          sent: { bg: "var(--info-light)", text: "var(--win95-highlight)" },
-                          overdue: { bg: "var(--error-light)", text: "var(--error)" },
-                          awaiting_employer_payment: { bg: "var(--warning-light)", text: "var(--warning)" },
-                        }[paymentStatus] || { bg: "var(--neutral-light)", text: "var(--neutral-gray)" };
+                          paid: { bg: "var(--win95-bg)", text: "var(--success)", border: "var(--success)" },
+                          sent: { bg: "var(--win95-bg)", text: "var(--win95-highlight)", border: "var(--win95-highlight)" },
+                          overdue: { bg: "var(--win95-bg)", text: "var(--error)", border: "var(--error)" },
+                          awaiting_employer_payment: { bg: "var(--win95-bg)", text: "#f59e0b", border: "#f59e0b" },
+                        }[paymentStatus] || { bg: "var(--win95-bg)", text: "var(--neutral-gray)", border: "var(--win95-border)" };
 
                         return (
                           <div
@@ -294,10 +295,11 @@ export function InvoicingWindow() {
                                     {invoice.name}
                                   </h3>
                                   <span
-                                    className="px-2 py-0.5 text-[10px] font-bold rounded"
+                                    className="px-2 py-0.5 text-[10px] font-bold rounded border"
                                     style={{
                                       backgroundColor: statusColors.bg,
                                       color: statusColors.text,
+                                      borderColor: statusColors.border,
                                     }}
                                   >
                                     {paymentStatus}
