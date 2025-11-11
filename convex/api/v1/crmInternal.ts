@@ -453,6 +453,9 @@ export const createContactInternal = internalMutation({
       // Update contact with merged data
       const updatedProperties = {
         ...existingContact.customProperties,
+        // Update name fields if provided
+        firstName: args.firstName || existingContact.customProperties?.firstName,
+        lastName: args.lastName || existingContact.customProperties?.lastName,
         // Update fields if provided and not already set
         phone: args.phone || existingContact.customProperties?.phone,
         company: args.company || existingContact.customProperties?.company,
@@ -464,7 +467,13 @@ export const createContactInternal = internalMutation({
         ...args.customFields,
       };
 
+      // Construct full name from updated properties
+      const firstName = updatedProperties.firstName as string;
+      const lastName = updatedProperties.lastName as string;
+      const fullName = `${firstName} ${lastName}`;
+
       await ctx.db.patch(existingContact._id, {
+        name: fullName,
         customProperties: updatedProperties,
         updatedAt: Date.now(),
       });
@@ -476,7 +485,7 @@ export const createContactInternal = internalMutation({
         actionType: "updated_via_api",
         actionData: {
           source: args.source || "api",
-          fieldsUpdated: ["tags", "phone", "company", "jobTitle"],
+          fieldsUpdated: ["firstName", "lastName", "tags", "phone", "company", "jobTitle"],
         },
         performedBy: args.performedBy,
         performedAt: Date.now(),

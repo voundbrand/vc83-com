@@ -15,7 +15,6 @@ import { getUserContext, hasPermission, hasPermissions, logAudit } from "./rbac"
 
 // ✅ NEW: Import from ontology-based translations
 import {
-  getAllTranslations,
   getAllTranslationObjects,
   createTranslation,
   updateTranslation,
@@ -28,7 +27,6 @@ export { getUserContext, hasPermission, hasPermissions, logAudit };
 
 // Re-export internal translation functions (ontology-based)
 export {
-  getAllTranslations,
   getAllTranslationObjects,
   createTranslation,
   updateTranslation,

@@ -117,20 +117,13 @@ export const getMultipleNamespaces = query({
 });
 
 /**
- * @deprecated Use getTranslationsByNamespace or getMultipleNamespaces instead.
- * This query will fail with >1024 translations.
+ * getAllTranslations has been REMOVED (was deprecated).
+ * Use getTranslationsByNamespace or getMultipleNamespaces instead.
  *
- * GET ALL TRANSLATIONS FOR LOCALE (as key-value map)
+ * Migration guide:
+ * - For single namespace: getTranslationsByNamespace({ locale, namespace })
+ * - For multiple namespaces: getMultipleNamespaces({ locale, namespaces: [...] })
  */
-export const getAllTranslations = query({
-  args: { locale: v.string() },
-  handler: async (_ctx, _args) => {
-    // Return empty for now to prevent errors
-    // Components should migrate to namespace-based loading
-    console.warn("getAllTranslations is deprecated. Use getTranslationsByNamespace instead.");
-    return {};
-  },
-});
 
 /**
  * GET ALL TRANSLATION OBJECTS (for management UI)

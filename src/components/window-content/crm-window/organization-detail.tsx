@@ -71,12 +71,12 @@ export function OrganizationDetail({ organizationId }: OrganizationDetailProps) 
           )}
           {billingEmail && (
             <div className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
-              {t("ui.crm.organizations.email")}: <a href={`mailto:${billingEmail}`} className="hover:underline" style={{ color: 'var(--win95-highlight)' }}>{billingEmail}</a>
+              Email: <a href={`mailto:${billingEmail}`} className="hover:underline" style={{ color: 'var(--win95-highlight)' }}>{billingEmail}</a>
             </div>
           )}
           {phone && (
             <div className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
-              {t("ui.crm.organizations.phone")}: <a href={`tel:${phone}`} className="hover:underline" style={{ color: 'var(--win95-highlight)' }}>{phone}</a>
+              Phone: <a href={`tel:${phone}`} className="hover:underline" style={{ color: 'var(--win95-highlight)' }}>{phone}</a>
             </div>
           )}
         </div>
@@ -85,17 +85,17 @@ export function OrganizationDetail({ organizationId }: OrganizationDetailProps) 
       {/* Company Info */}
       {(industry || size) && (
         <div className="border-2 p-3" style={{ background: 'var(--win95-bg-light)', borderColor: 'var(--win95-border)' }}>
-          <div className="text-xs font-pixel mb-2" style={{ color: 'var(--win95-text)' }}>{t("ui.crm.organizations.company_info")}</div>
+          <div className="text-xs font-pixel mb-2" style={{ color: 'var(--win95-text)' }}>{t("organization_detail.company_info")}</div>
           <div className="space-y-1 text-sm">
             {industry && (
               <div className="flex justify-between">
-                <span style={{ color: 'var(--neutral-gray)' }}>{t("ui.crm.organizations.industry")}:</span>
+                <span style={{ color: 'var(--neutral-gray)' }}>{t("organization_detail.industry")}</span>
                 <span className="font-semibold" style={{ color: 'var(--win95-text)' }}>{industry}</span>
               </div>
             )}
             {size && (
               <div className="flex justify-between">
-                <span style={{ color: 'var(--neutral-gray)' }}>{t("ui.crm.organizations.company_size")}:</span>
+                <span style={{ color: 'var(--neutral-gray)' }}>{t("organization_detail.company_size")}</span>
                 <span className="font-semibold" style={{ color: 'var(--win95-text)' }}>{size}</span>
               </div>
             )}
@@ -106,7 +106,7 @@ export function OrganizationDetail({ organizationId }: OrganizationDetailProps) 
       {/* Address */}
       {address && (address.street || address.city || address.state || address.postalCode || address.country) && (
         <div>
-          <div className="text-xs font-pixel mb-2" style={{ color: 'var(--win95-text)' }}>{t("ui.crm.organizations.address")}</div>
+          <div className="text-xs font-pixel mb-2" style={{ color: 'var(--win95-text)' }}>{t("organization_detail.address_label")}</div>
           <div className="border-2 p-3 text-sm" style={{ background: 'var(--win95-bg-light)', borderColor: 'var(--win95-border)', color: 'var(--win95-text)' }}>
             {address.street && <div>{address.street}</div>}
             <div>
@@ -121,14 +121,14 @@ export function OrganizationDetail({ organizationId }: OrganizationDetailProps) 
       <div>
         <div className="flex items-center gap-2 mb-3">
           <Users size={16} style={{ color: 'var(--win95-text)' }} />
-          <span className="text-xs font-pixel" style={{ color: 'var(--win95-text)' }}>{t("ui.crm.organizations.contacts")} ({contacts?.length || 0})</span>
+          <span className="text-xs font-pixel" style={{ color: 'var(--win95-text)' }}>{t("organization_detail.contacts_label", { count: contacts?.length || 0 })}</span>
         </div>
         {contacts && contacts.length > 0 ? (
           <div className="space-y-2">
             {contacts.map((contact) => {
               const contactProps = contact.customProperties || {}
               const relationship = contact.relationship || {}
-              const fullName = contactProps.fullName || `${contactProps.firstName || ""} ${contactProps.lastName || ""}`.trim() || t("ui.crm.organizations.unnamed_contact")
+              const fullName = contactProps.fullName || `${contactProps.firstName || ""} ${contactProps.lastName || ""}`.trim() || "Unnamed Contact"
               const email = contactProps.email?.toString() || ""
 
               return (
@@ -146,7 +146,7 @@ export function OrganizationDetail({ organizationId }: OrganizationDetailProps) 
                     </div>
                     {relationship.isPrimaryContact && (
                       <span className="px-2 py-0.5 text-[10px] font-pixel border-2" style={{ background: 'var(--win95-bg-light)', borderColor: 'var(--win95-highlight)', color: 'var(--win95-highlight)' }}>
-                        {t("ui.crm.organizations.primary")}
+                        {t("organization_detail.primary_tag")}
                       </span>
                     )}
                   </div>
@@ -156,7 +156,7 @@ export function OrganizationDetail({ organizationId }: OrganizationDetailProps) 
           </div>
         ) : (
           <div className="p-4 text-center border-2" style={{ color: 'var(--neutral-gray)', borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
-            <p className="text-sm">{t("ui.crm.organizations.no_contacts")}</p>
+            <p className="text-sm">{t("organization_detail.no_contacts")}</p>
           </div>
         )}
       </div>
@@ -164,7 +164,7 @@ export function OrganizationDetail({ organizationId }: OrganizationDetailProps) 
       {/* Stage */}
       {organization.subtype && (
         <div>
-          <div className="text-xs font-pixel mb-2" style={{ color: 'var(--win95-text)' }}>{t("ui.crm.organizations.status")}</div>
+          <div className="text-xs font-pixel mb-2" style={{ color: 'var(--win95-text)' }}>STATUS</div>
           <div>
             <span
               className="px-2 py-1 text-xs font-pixel border-2"
@@ -185,7 +185,7 @@ export function OrganizationDetail({ organizationId }: OrganizationDetailProps) 
         <div>
           <div className="flex items-center gap-2 mb-2">
             <Tag size={14} style={{ color: 'var(--win95-text)' }} />
-            <span className="text-xs font-pixel" style={{ color: 'var(--win95-text)' }}>{t("ui.crm.organizations.tags")}</span>
+            <span className="text-xs font-pixel" style={{ color: 'var(--win95-text)' }}>TAGS</span>
           </div>
           <div className="flex flex-wrap gap-2">
             {tags.map((tag: unknown, index: number) => (
@@ -208,7 +208,7 @@ export function OrganizationDetail({ organizationId }: OrganizationDetailProps) 
       {/* Notes */}
       {notes && (
         <div>
-          <div className="text-xs font-pixel mb-2" style={{ color: 'var(--win95-text)' }}>{t("ui.crm.organizations.notes")}</div>
+          <div className="text-xs font-pixel mb-2" style={{ color: 'var(--win95-text)' }}>NOTES</div>
           <div className="border-2 p-3 text-sm whitespace-pre-wrap" style={{ background: 'var(--win95-bg-light)', borderColor: 'var(--win95-border)', color: 'var(--win95-text)' }}>
             {notes}
           </div>
@@ -219,11 +219,11 @@ export function OrganizationDetail({ organizationId }: OrganizationDetailProps) 
       <div className="pt-4 border-t-2" style={{ borderColor: 'var(--win95-border)' }}>
         <div className="flex items-center gap-2 mb-3">
           <Calendar size={14} style={{ color: 'var(--win95-text)' }} />
-          <span className="text-xs font-pixel" style={{ color: 'var(--win95-text)' }}>{t("ui.crm.organizations.activity")}</span>
+          <span className="text-xs font-pixel" style={{ color: 'var(--win95-text)' }}>ACTIVITY</span>
         </div>
         <div className="space-y-2 text-xs" style={{ color: 'var(--neutral-gray)' }}>
           <div className="flex justify-between">
-            <span>{t("ui.crm.organizations.created")}:</span>
+            <span>Created:</span>
             <span>{new Date(createdAt).toLocaleDateString()}</span>
           </div>
         </div>
