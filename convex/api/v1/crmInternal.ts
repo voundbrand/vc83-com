@@ -166,6 +166,7 @@ export const createContactFromEventInternal = internalMutation({
 
     if (existingContact) {
       // Contact exists - update with new information (merge data)
+      console.log(`♻️ UPSERT: Updating existing contact for ${args.attendeeInfo.email}`);
       contactId = existingContact._id;
       isNewContact = false;
 
@@ -174,9 +175,12 @@ export const createContactFromEventInternal = internalMutation({
       const newTags = args.attendeeInfo.tags || [];
       const mergedTags = Array.from(new Set([...existingTags, ...newTags]));
 
-      // Update contact with merged data
+      // Update contact with merged data (UPSERT: update name if different)
       const updatedProperties = {
         ...existingContact.customProperties,
+        // Update name fields (allow name changes)
+        firstName: args.attendeeInfo.firstName,
+        lastName: args.attendeeInfo.lastName,
         // Update phone if provided and not already set
         phone: args.attendeeInfo.phone || existingContact.customProperties?.phone,
         // Update company if provided and not already set
@@ -188,7 +192,11 @@ export const createContactFromEventInternal = internalMutation({
         lastEventUpdate: Date.now(),
       };
 
+      // Construct updated full name
+      const updatedFullName = `${args.attendeeInfo.firstName} ${args.attendeeInfo.lastName}`;
+
       await ctx.db.patch(existingContact._id, {
+        name: updatedFullName, // Update the display name too!
         customProperties: updatedProperties,
         updatedAt: Date.now(),
       });
@@ -202,13 +210,16 @@ export const createContactFromEventInternal = internalMutation({
           eventId: eventObjectId,
           eventName: args.eventName,
           source: "api",
-          fieldsUpdated: ["tags", "lastActivity"],
+          fieldsUpdated: ["firstName", "lastName", "name", "tags", "lastActivity"],
         },
         performedBy: args.performedBy,
         performedAt: Date.now(),
       });
+
+      console.log(`✅ Updated contact ${contactId}: "${updatedFullName}" (${args.attendeeInfo.email})`);
     } else {
       // Create new contact as "lead"
+      console.log(`➕ Creating NEW contact for ${args.attendeeInfo.email}`);
       contactId = await ctx.db.insert("objects", {
         organizationId: args.organizationId,
         type: "crm_contact",
@@ -245,6 +256,8 @@ export const createContactFromEventInternal = internalMutation({
         performedBy: args.performedBy,
         performedAt: Date.now(),
       });
+
+      console.log(`✅ Created NEW contact ${contactId}: "${args.attendeeInfo.firstName} ${args.attendeeInfo.lastName}" (${args.attendeeInfo.email})`);
     }
 
     // 3. Handle CRM organization (if organizationInfo provided OR company name exists)
