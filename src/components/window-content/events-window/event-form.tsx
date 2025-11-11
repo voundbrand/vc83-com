@@ -515,7 +515,21 @@ export function EventForm({
   }
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-6 space-y-4 relative">
+      {/* Event ID Display (top right) */}
+      {eventId && (
+        <div className="absolute top-2 right-2 px-2 py-1 text-xs font-mono border"
+          style={{
+            background: "var(--win95-bg-light)",
+            borderColor: "var(--win95-border)",
+            color: "var(--neutral-gray)",
+          }}
+          title="Event ID"
+        >
+          <code>{eventId}</code>
+        </div>
+      )}
+
       {/* Event Type */}
       <div>
         <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
