@@ -19,15 +19,15 @@ import { internal } from "../../_generated/api";
 
 /**
  * CREATE CONTACT FROM EVENT
- * Creates a CRM contact from an event registration
+ * Creates a CRM contact and optionally links it to an event
  *
  * POST /api/v1/crm/contacts/from-event
  *
  * Request Body:
  * {
- *   eventId: string,          // Optional - can be created if not exists
- *   eventName: string,         // Required
- *   eventDate?: number,        // Unix timestamp
+ *   eventId?: string,          // Optional - if provided, contact will be linked to existing event
+ *   eventName?: string,         // Optional - used for metadata only
+ *   eventDate?: number,        // Unix timestamp - optional metadata
  *   attendeeInfo: {
  *     firstName: string,
  *     lastName: string,
@@ -46,6 +46,9 @@ import { internal } from "../../_generated/api";
  *     phone?: string
  *   }
  * }
+ *
+ * Note: Contact creation is decoupled from events. The eventId is optional, and
+ * if provided, the event must exist or the contact will be created without an event link.
  *
  * Response:
  * {
@@ -90,11 +93,11 @@ export const createContactFromEvent = httpAction(async (ctx, request) => {
     const body = await request.json();
     const { eventId, eventName, eventDate, attendeeInfo, organizationInfo } = body;
 
-    // Validate required fields
-    if (!eventName || !attendeeInfo?.firstName || !attendeeInfo?.lastName || !attendeeInfo?.email) {
+    // Validate required fields (eventName is optional now)
+    if (!attendeeInfo?.firstName || !attendeeInfo?.lastName || !attendeeInfo?.email) {
       return new Response(
         JSON.stringify({
-          error: "Missing required fields: eventName, firstName, lastName, email"
+          error: "Missing required fields: firstName, lastName, email"
         }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );

@@ -102,16 +102,16 @@ async function findOrCreateOrganization(
 /**
  * CREATE CONTACT FROM EVENT (INTERNAL)
  *
- * Creates a CRM contact from an event registration.
- * If eventId is not provided, creates a new event object first.
+ * Creates a CRM contact and optionally links it to an event.
+ * Events are OPTIONAL - contact can be created standalone.
  * Handles deduplication by email.
  */
 export const createContactFromEventInternal = internalMutation({
   args: {
     organizationId: v.id("organizations"),
-    eventId: v.optional(v.string()),
-    eventName: v.string(),
-    eventDate: v.optional(v.number()),
+    eventId: v.optional(v.id("objects")), // Optional event to link to
+    eventName: v.optional(v.string()), // Optional, only used for metadata
+    eventDate: v.optional(v.number()), // Optional, only used for metadata
     attendeeInfo: v.object({
       firstName: v.string(),
       lastName: v.string(),
@@ -133,53 +133,20 @@ export const createContactFromEventInternal = internalMutation({
     performedBy: v.id("users"),
   },
   handler: async (ctx, args) => {
-    // 1. Get or create event
-    let eventObjectId: Id<"objects">;
+    // 1. Verify event exists (if eventId provided)
+    let eventObjectId: Id<"objects"> | undefined;
 
     if (args.eventId) {
-      // Event ID provided - try to verify it exists
-      try {
-        const existingEvent = await ctx.db.get(args.eventId as Id<"objects">);
-        if (!existingEvent || existingEvent.organizationId !== args.organizationId) {
-          throw new Error("Event not found or access denied");
-        }
-        eventObjectId = args.eventId as Id<"objects">;
-      } catch (error) {
-        // Invalid ID format or event not found - create new event instead
-        console.warn("Invalid eventId format or event not found, creating new event:", error);
-        eventObjectId = await ctx.db.insert("objects", {
-          organizationId: args.organizationId,
-          type: "event",
-          subtype: "external",
-          name: args.eventName,
-          description: "Event registration from external API",
-          status: "published",
-          customProperties: {
-            startDate: args.eventDate || Date.now(),
-            externalSource: true,
-          },
-          createdBy: args.performedBy,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        });
+      const existingEvent = await ctx.db.get(args.eventId);
+      if (!existingEvent || existingEvent.type !== "event") {
+        console.warn(`Event ${args.eventId} not found - creating contact without event link`);
+        eventObjectId = undefined; // Don't link to non-existent event
+      } else if (existingEvent.organizationId !== args.organizationId) {
+        console.warn(`Event ${args.eventId} belongs to different organization - creating contact without event link`);
+        eventObjectId = undefined; // Don't link to event from different org
+      } else {
+        eventObjectId = args.eventId;
       }
-    } else {
-      // Create new event object
-      eventObjectId = await ctx.db.insert("objects", {
-        organizationId: args.organizationId,
-        type: "event",
-        subtype: "external", // External event from API
-        name: args.eventName,
-        description: "Event registration from external API",
-        status: "published",
-        customProperties: {
-          startDate: args.eventDate || Date.now(),
-          externalSource: true,
-        },
-        createdBy: args.performedBy,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      });
     }
 
     // 2. Check if contact already exists by email (deduplication)
@@ -230,7 +197,7 @@ export const createContactFromEventInternal = internalMutation({
       await ctx.db.insert("objectActions", {
         organizationId: args.organizationId,
         objectId: contactId,
-        actionType: "updated_from_event",
+        actionType: eventObjectId ? "updated_from_event" : "updated_via_api",
         actionData: {
           eventId: eventObjectId,
           eventName: args.eventName,
@@ -247,7 +214,7 @@ export const createContactFromEventInternal = internalMutation({
         type: "crm_contact",
         subtype: "lead",
         name: `${args.attendeeInfo.firstName} ${args.attendeeInfo.lastName}`,
-        description: "Contact from event registration (API)",
+        description: eventObjectId ? "Contact from event registration (API)" : "Contact created via API",
         status: "active",
         customProperties: {
           firstName: args.attendeeInfo.firstName,
@@ -258,7 +225,7 @@ export const createContactFromEventInternal = internalMutation({
           source: "api",
           sourceRef: eventObjectId,
           tags: args.attendeeInfo.tags || [], // Use tags from request, default to empty array
-          createdFromEvent: true,
+          createdFromEvent: !!eventObjectId, // Only true if linked to an event
         },
         createdBy: args.performedBy,
         createdAt: Date.now(),
@@ -269,7 +236,7 @@ export const createContactFromEventInternal = internalMutation({
       await ctx.db.insert("objectActions", {
         organizationId: args.organizationId,
         objectId: contactId,
-        actionType: "created_from_event",
+        actionType: eventObjectId ? "created_from_event" : "created",
         actionData: {
           eventId: eventObjectId,
           eventName: args.eventName,
@@ -340,45 +307,47 @@ export const createContactFromEventInternal = internalMutation({
       }
     }
 
-    // 4. Link contact to event (create or update link)
-    const existingLinks = await ctx.db
-      .query("objectLinks")
-      .withIndex("by_from_object", (q) =>
-        q.eq("fromObjectId", contactId)
-      )
-      .collect();
+    // 4. Link contact to event (ONLY if eventObjectId exists)
+    if (eventObjectId) {
+      const existingLinks = await ctx.db
+        .query("objectLinks")
+        .withIndex("by_from_object", (q) =>
+          q.eq("fromObjectId", contactId)
+        )
+        .collect();
 
-    const existingLink = existingLinks.find(
-      (link) => link.toObjectId === eventObjectId
-    );
+      const existingLink = existingLinks.find(
+        (link) => link.toObjectId === eventObjectId
+      );
 
-    if (!existingLink) {
-      await ctx.db.insert("objectLinks", {
-        organizationId: args.organizationId,
-        fromObjectId: contactId,
-        toObjectId: eventObjectId,
-        linkType: "registered_for",
-        properties: {
-          registeredAt: Date.now(),
-          source: "api",
-        },
-        createdBy: args.performedBy,
-        createdAt: Date.now(),
-      });
+      if (!existingLink) {
+        await ctx.db.insert("objectLinks", {
+          organizationId: args.organizationId,
+          fromObjectId: contactId,
+          toObjectId: eventObjectId,
+          linkType: "registered_for",
+          properties: {
+            registeredAt: Date.now(),
+            source: "api",
+          },
+          createdBy: args.performedBy,
+          createdAt: Date.now(),
+        });
 
-      // Log link creation
-      await ctx.db.insert("objectActions", {
-        organizationId: args.organizationId,
-        objectId: contactId,
-        actionType: "linked_to_event",
-        actionData: {
-          eventId: eventObjectId,
-          eventName: args.eventName,
-          source: "api",
-        },
-        performedBy: args.performedBy,
-        performedAt: Date.now(),
-      });
+        // Log link creation
+        await ctx.db.insert("objectActions", {
+          organizationId: args.organizationId,
+          objectId: contactId,
+          actionType: "linked_to_event",
+          actionData: {
+            eventId: eventObjectId,
+            eventName: args.eventName,
+            source: "api",
+          },
+          performedBy: args.performedBy,
+          performedAt: Date.now(),
+        });
+      }
     }
 
     return {
