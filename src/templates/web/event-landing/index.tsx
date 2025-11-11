@@ -522,7 +522,7 @@ export function EventLandingTemplate({
                       className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-gray-800 text-gray-800 hover:bg-gray-800 hover:text-white transition-colors shadow-sm"
                     >
                       <MapPin size={16} />
-                      <span>{t('ui.event_landing.venue.google_maps')}</span>
+                      <span>{t('venue.google_maps')}</span>
                     </a>
 
                     {/* Apple Maps Link */}
@@ -533,7 +533,7 @@ export function EventLandingTemplate({
                       className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-gray-800 text-gray-800 hover:bg-gray-800 hover:text-white transition-colors shadow-sm"
                     >
                       <MapPin size={16} />
-                      <span>{t('ui.event_landing.venue.apple_maps')}</span>
+                      <span>{t('venue.apple_maps')}</span>
                     </a>
                   </div>
                 ) : null}

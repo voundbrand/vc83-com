@@ -64,6 +64,28 @@ export const seed = internalMutation({
           ja: "道順を取得",
         }
       },
+      {
+        key: "ui.event_landing.venue.google_maps",
+        values: {
+          en: "Google Maps",
+          de: "Google Maps",
+          pl: "Google Maps",
+          es: "Google Maps",
+          fr: "Google Maps",
+          ja: "Google Maps",
+        }
+      },
+      {
+        key: "ui.event_landing.venue.apple_maps",
+        values: {
+          en: "Apple Maps",
+          de: "Apple Maps",
+          pl: "Apple Maps",
+          es: "Apple Maps",
+          fr: "Apple Maps",
+          ja: "Apple Maps",
+        }
+      },
       // ============================================================
       // GALLERY SECTION
       // ============================================================
