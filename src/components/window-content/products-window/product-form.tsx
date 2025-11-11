@@ -476,7 +476,21 @@ export function ProductForm({
     : "Not set";
 
   return (
-    <form onSubmit={handleSubmit} className="p-6 space-y-4">
+    <form onSubmit={handleSubmit} className="p-6 space-y-4 relative">
+      {/* Product ID Display (top right) */}
+      {productId && (
+        <div className="absolute top-2 right-2 px-2 py-1 text-xs font-mono border"
+          style={{
+            background: "var(--win95-bg-light)",
+            borderColor: "var(--win95-border)",
+            color: "var(--neutral-gray)",
+          }}
+          title="Product ID"
+        >
+          <code>{productId}</code>
+        </div>
+      )}
+
       {/* Product Type */}
       <div>
         <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
