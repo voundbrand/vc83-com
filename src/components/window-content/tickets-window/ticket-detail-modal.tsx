@@ -35,12 +35,17 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
           ticketNumber: ticket.customProperties?.ticketNumber,
         });
 
+        // Get theme colors for QR code
+        const isDarkTheme = getComputedStyle(document.documentElement)
+          .getPropertyValue('--win95-text')
+          .trim() === '#ffffff';
+
         const qrDataUrl = await QRCode.toDataURL(ticketData, {
           width: 200,
           margin: 2,
           color: {
-            dark: "#000000",
-            light: "#FFFFFF",
+            dark: isDarkTheme ? "#ffffff" : "#000000", // Use theme-aware colors
+            light: isDarkTheme ? "#2d2d2d" : "#ffffff",
           },
         });
 
@@ -78,7 +83,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
     return (
       <span
         className="px-3 py-1 text-sm font-bold rounded"
-        style={{ background: badge.color, color: "white" }}
+        style={{ background: badge.color, color: "var(--win95-titlebar-text)" }}
       >
         {badge.label}
       </span>
@@ -175,7 +180,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                 className="border-2 p-4 flex flex-col items-center"
                 style={{
                   borderColor: "var(--win95-border)",
-                  background: "white",
+                  background: "var(--win95-input-bg)",
                 }}
               >
                 <Image
@@ -236,7 +241,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
               className="border-2 p-4"
               style={{
                 borderColor: "var(--win95-border)",
-                background: "white",
+                background: "var(--win95-input-bg)",
               }}
             >
               <h3 className="font-bold text-sm mb-3" style={{ color: "var(--win95-highlight)" }}>
@@ -313,7 +318,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
               className="border-2 p-4"
               style={{
                 borderColor: "var(--win95-border)",
-                background: "white",
+                background: "var(--win95-input-bg)",
               }}
             >
               <h3 className="font-bold text-sm mb-3" style={{ color: "var(--win95-highlight)" }}>
@@ -364,7 +369,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                 className="border-2 p-4"
                 style={{
                   borderColor: "var(--win95-border)",
-                  background: "white",
+                  background: "var(--win95-input-bg)",
                 }}
               >
                 <h3 className="font-bold text-sm mb-3" style={{ color: "var(--win95-highlight)" }}>
@@ -404,7 +409,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                 className="border-2 p-4"
                 style={{
                   borderColor: "var(--win95-border)",
-                  background: "white",
+                  background: "var(--win95-input-bg)",
                 }}
               >
                 <h3 className="font-bold text-sm mb-3" style={{ color: "var(--win95-highlight)" }}>
@@ -456,7 +461,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
               className="border-2 p-4"
               style={{
                 borderColor: "var(--win95-border)",
-                background: "white",
+                background: "var(--win95-input-bg)",
               }}
             >
               <h3 className="font-bold text-sm mb-3" style={{ color: "var(--win95-highlight)" }}>
