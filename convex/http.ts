@@ -18,6 +18,36 @@ import { getProviderByCode } from "./paymentProviders";
 const http = httpRouter();
 
 /**
+ * CORS Helper - Add CORS headers to API responses
+ * Allows requests from pluseins.gg and all subdomains
+ */
+function getCorsHeaders(origin: string | null): Record<string, string> {
+  const allowedOrigins = [
+    "https://pluseins.gg",
+    "https://www.pluseins.gg",
+    "http://localhost:3000",
+    "http://localhost:5173",
+  ];
+
+  // Allow all subdomains of pluseins.gg
+  const isAllowedOrigin = origin && (
+    allowedOrigins.includes(origin) ||
+    origin.match(/^https:\/\/[\w-]+\.pluseins\.gg$/)
+  );
+
+  if (isAllowedOrigin) {
+    return {
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Max-Age": "86400", // 24 hours
+    };
+  }
+
+  return {};
+}
+
+/**
  * STRIPE WEBHOOK ENDPOINT (REFACTORED)
  *
  * Receives events from Stripe (Connect account updates, payments, etc.)
@@ -392,7 +422,21 @@ http.route({
  * Layer 6: BOOKINGS API (Event Registration)
  */
 
-// POST /api/v1/bookings/create - Create event booking with tickets
+// OPTIONS /api/v1/bookings/create - CORS preflight
+http.route({
+  path: "/api/v1/bookings/create",
+  method: "OPTIONS",
+  handler: httpAction(async (ctx, request) => {
+    const origin = request.headers.get("origin");
+    const corsHeaders = getCorsHeaders(origin);
+    return new Response(null, {
+      status: 204,
+      headers: corsHeaders,
+    });
+  }),
+});
+
+// POST /api/v1/bookings/create - Create event booking with tickets (with CORS)
 http.route({
   path: "/api/v1/bookings/create",
   method: "POST",

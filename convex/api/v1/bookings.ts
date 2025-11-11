@@ -13,6 +13,36 @@ import { internal } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
 
 /**
+ * CORS Helper - Add CORS headers to API responses
+ * Allows requests from pluseins.gg and all subdomains
+ */
+function getCorsHeaders(origin: string | null): Record<string, string> {
+  const allowedOrigins = [
+    "https://pluseins.gg",
+    "https://www.pluseins.gg",
+    "http://localhost:3000",
+    "http://localhost:5173",
+  ];
+
+  // Allow all subdomains of pluseins.gg
+  const isAllowedOrigin = origin && (
+    allowedOrigins.includes(origin) ||
+    origin.match(/^https:\/\/[\w-]+\.pluseins\.gg$/)
+  );
+
+  if (isAllowedOrigin) {
+    return {
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Max-Age": "86400", // 24 hours
+    };
+  }
+
+  return {};
+}
+
+/**
  * POST /api/v1/bookings/create
  *
  * Create a complete event booking with tickets and CRM records.
@@ -61,6 +91,9 @@ import type { Id } from "../../_generated/dataModel";
  * }
  */
 export const createBooking = httpAction(async (ctx, request) => {
+  const origin = request.headers.get("origin");
+  const corsHeaders = getCorsHeaders(origin);
+
   try {
     // 1. Verify API key (REQUIRED - matches existing /api/v1/events pattern)
     const authHeader = request.headers.get("Authorization");
@@ -70,7 +103,13 @@ export const createBooking = httpAction(async (ctx, request) => {
           success: false,
           error: "Missing or invalid Authorization header",
         }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        {
+          status: 401,
+          headers: {
+            "Content-Type": "application/json",
+            ...corsHeaders,
+          }
+        }
       );
     }
 
@@ -85,7 +124,13 @@ export const createBooking = httpAction(async (ctx, request) => {
           success: false,
           error: "Invalid API key",
         }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        {
+          status: 401,
+          headers: {
+            "Content-Type": "application/json",
+            ...corsHeaders,
+          }
+        }
       );
     }
 
@@ -112,7 +157,10 @@ export const createBooking = httpAction(async (ctx, request) => {
           }),
           {
             status: 400,
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              ...corsHeaders,
+            },
           }
         );
       }
@@ -130,7 +178,10 @@ export const createBooking = httpAction(async (ctx, request) => {
         }),
         {
           status: 400,
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...corsHeaders,
+          },
         }
       );
     }
@@ -157,6 +208,7 @@ export const createBooking = httpAction(async (ctx, request) => {
         headers: {
           "Content-Type": "application/json",
           "X-Organization-Id": organizationId,
+          ...corsHeaders,
         },
       }
     );
@@ -174,7 +226,10 @@ export const createBooking = httpAction(async (ctx, request) => {
       }),
       {
         status: 500,
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...corsHeaders,
+        },
       }
     );
   }
