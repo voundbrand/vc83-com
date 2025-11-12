@@ -389,7 +389,7 @@ export function TicketsList({ sessionId, organizationId, onEdit, initialEventId 
                   e.stopPropagation();
                   onEdit(ticket._id);
                 }}
-                className="flex-1 px-2 py-1.5 text-xs font-bold flex items-center justify-center gap-1 border-2 transition-colors"
+                className="px-2 py-1.5 text-xs font-bold flex items-center justify-center border-2 transition-colors"
                 style={{
                   borderColor: "var(--win95-border)",
                   background: "var(--win95-button-face)",
@@ -398,7 +398,6 @@ export function TicketsList({ sessionId, organizationId, onEdit, initialEventId 
                 title={t("ui.tickets.list.button.edit")}
               >
                 <Edit2 size={12} />
-                {t("ui.tickets.list.button.edit")}
               </button>
 
               {ticket.status === "issued" && (
