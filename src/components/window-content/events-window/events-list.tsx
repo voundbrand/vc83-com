@@ -2,10 +2,11 @@
 
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
-import { Id } from "../../../../convex/_generated/dataModel";
+import { Id, Doc } from "../../../../convex/_generated/dataModel";
 import { Edit2, Trash2, CheckCircle, Loader2, MapPin, Clock } from "lucide-react";
 import { useState } from "react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+import { EventDetailModal } from "./event-detail-modal";
 
 interface EventsListProps {
   sessionId: string;
@@ -16,6 +17,7 @@ interface EventsListProps {
 export function EventsList({ sessionId, organizationId, onEdit }: EventsListProps) {
   const { t } = useNamespaceTranslations("ui.events");
   const [filter, setFilter] = useState<{ subtype?: string; status?: string }>({});
+  const [selectedEvent, setSelectedEvent] = useState<Doc<"objects"> | null>(null);
 
   // Get events from Convex
   const events = useQuery(api.eventOntology.getEvents, {
@@ -107,8 +109,17 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
   }
 
   return (
-    <div className="p-4">
-      {/* Filters */}
+    <>
+      {/* Event Detail Modal */}
+      {selectedEvent && (
+        <EventDetailModal
+          event={selectedEvent}
+          onClose={() => setSelectedEvent(null)}
+        />
+      )}
+
+      <div className="p-4">
+        {/* Filters */}
       <div className="flex gap-2 mb-4">
         <select
           value={filter.subtype || ""}
@@ -151,7 +162,8 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
         {events.map((event) => (
           <div
             key={event._id}
-            className="border-2 p-4"
+            onClick={() => setSelectedEvent(event)}
+            className="border-2 p-4 cursor-pointer hover:shadow-lg transition-shadow"
             style={{
               borderColor: "var(--win95-border)",
               background: "var(--win95-bg-light)",
@@ -212,7 +224,10 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
             {/* Actions */}
             <div className="flex gap-2 pt-3 border-t-2" style={{ borderColor: "var(--win95-border)" }}>
               <button
-                onClick={() => onEdit(event._id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(event._id);
+                }}
                 className="flex-1 px-2 py-1.5 text-xs font-bold flex items-center justify-center gap-1 border-2 transition-colors"
                 style={{
                   borderColor: "var(--win95-border)",
@@ -227,7 +242,10 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
 
               {event.status === "draft" && (
                 <button
-                  onClick={() => handlePublish(event._id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handlePublish(event._id);
+                  }}
                   className="flex-1 px-2 py-1.5 text-xs font-bold flex items-center justify-center gap-1 border-2 transition-colors"
                   style={{
                     borderColor: "var(--win95-border)",
@@ -242,7 +260,10 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
               )}
 
               <button
-                onClick={() => handleDelete(event._id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete(event._id);
+                }}
                 className="px-2 py-1.5 text-xs font-bold flex items-center justify-center border-2 transition-colors"
                 style={{
                   borderColor: "var(--win95-border)",
@@ -258,5 +279,6 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
         ))}
       </div>
     </div>
+    </>
   );
 }

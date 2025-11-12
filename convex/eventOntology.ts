@@ -1037,3 +1037,74 @@ export const updateEventMedia = mutation({
     return { success: true };
   },
 });
+
+/**
+ * GET EVENT ATTENDEES
+ * Fetch all attendees (ticket holders) for an event
+ * Returns tickets that are linked to this event via productId
+ */
+export const getEventAttendees = query({
+  args: {
+    eventId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    // Get the event to verify it exists and get organizationId
+    const event = await ctx.db.get(args.eventId);
+
+    if (!event || !("type" in event) || event.type !== "event") {
+      throw new Error("Event not found");
+    }
+
+    // Find products linked to this event via objectLinks
+    const productLinks = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_from_object", (q) => q.eq("fromObjectId", args.eventId))
+      .filter((q) => q.eq(q.field("linkType"), "offers"))
+      .collect();
+
+    const productIds = productLinks.map(link => link.toObjectId);
+
+    if (productIds.length === 0) {
+      return [];
+    }
+
+    // Find all tickets for these products
+    // Tickets are products with type="product" and subtype in ticket subtypes
+    const allTickets = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", event.organizationId).eq("type", "product")
+      )
+      .collect();
+
+    // Filter for tickets that match the product IDs and are issued
+    const tickets = allTickets.filter(ticket => {
+      const props = ticket.customProperties || {};
+      const ticketProductId = props.productId as string | undefined;
+      const ticketStatus = ticket.status;
+
+      // Check if this ticket is for one of the event's products
+      // and is issued (not cancelled)
+      return ticketProductId &&
+             productIds.some(id => id === ticketProductId) &&
+             ticketStatus !== "cancelled";
+    });
+
+    // Map to attendee format
+    return tickets.map(ticket => {
+      const props = ticket.customProperties || {};
+      return {
+        _id: ticket._id,
+        holderName: props.holderName as string || "Unknown",
+        holderEmail: props.holderEmail as string || "",
+        holderPhone: props.holderPhone as string || "",
+        ticketNumber: props.ticketNumber as string || "",
+        ticketType: ticket.subtype || "standard",
+        status: ticket.status || "issued",
+        purchaseDate: props.purchaseDate as number || ticket.createdAt,
+        pricePaid: props.pricePaid as number || 0,
+        formResponses: props.formResponses as Record<string, unknown> || {},
+      };
+    });
+  },
+});

@@ -50,3 +50,6 @@ next-env.d.ts
 /.clerk/
 
 .env.local
+
+# documentation folders
+/docs/geschlossene-gesellschaft/

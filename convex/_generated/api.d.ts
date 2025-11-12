@@ -167,6 +167,7 @@ import type * as translations_seedEvents_02_FormMedia from "../translations/seed
 import type * as translations_seedEvents_03_FormAgenda from "../translations/seedEvents_03_FormAgenda.js";
 import type * as translations_seedEvents_04_FormSponsors from "../translations/seedEvents_04_FormSponsors.js";
 import type * as translations_seedEvents_05_FormDescription from "../translations/seedEvents_05_FormDescription.js";
+import type * as translations_seedEvents_06_DetailModal from "../translations/seedEvents_06_DetailModal.js";
 import type * as translations_seedFormsWindowTranslations from "../translations/seedFormsWindowTranslations.js";
 import type * as translations_seedInvoicingTranslations from "../translations/seedInvoicingTranslations.js";
 import type * as translations_seedInvoicingWindow_Templates from "../translations/seedInvoicingWindow_Templates.js";
@@ -371,6 +372,7 @@ declare const fullApi: ApiFromModules<{
   "translations/seedEvents_03_FormAgenda": typeof translations_seedEvents_03_FormAgenda;
   "translations/seedEvents_04_FormSponsors": typeof translations_seedEvents_04_FormSponsors;
   "translations/seedEvents_05_FormDescription": typeof translations_seedEvents_05_FormDescription;
+  "translations/seedEvents_06_DetailModal": typeof translations_seedEvents_06_DetailModal;
   "translations/seedFormsWindowTranslations": typeof translations_seedFormsWindowTranslations;
   "translations/seedInvoicingTranslations": typeof translations_seedInvoicingTranslations;
   "translations/seedInvoicingWindow_Templates": typeof translations_seedInvoicingWindow_Templates;

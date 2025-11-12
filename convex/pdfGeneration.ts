@@ -936,3 +936,180 @@ export const getTicketIdsFromCheckout = action({
     }
   },
 });
+
+/**
+ * GENERATE EVENT ATTENDEE LIST PDF
+ *
+ * Creates a professional attendee list PDF for an event with all ticket holders.
+ */
+export const generateEventAttendeeListPDF = action({
+  args: {
+    eventId: v.id("objects"),
+  },
+  handler: async (ctx, args): Promise<PDFAttachment | null> => {
+    try {
+      const { jsPDF } = await import("jspdf");
+
+      // 1. Get event data
+      const event = await ctx.runQuery(internal.eventOntology.getEventInternal, {
+        eventId: args.eventId,
+      }) as Doc<"objects"> | null;
+
+      if (!event || event.type !== "event") {
+        throw new Error("Event not found");
+      }
+
+      // 2. Get attendees
+      const attendees = await ctx.runQuery(api.eventOntology.getEventAttendees, {
+        eventId: args.eventId,
+      });
+
+      // 3. Create PDF (A4 size, landscape for table layout)
+      const doc = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+        format: "a4",
+      });
+
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+
+      // Header
+      doc.setFontSize(18);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont("helvetica", "bold");
+      doc.text("Event Attendee List", 20, 20);
+
+      // Event details
+      doc.setFontSize(12);
+      doc.setTextColor(80, 80, 80);
+      doc.setFont("helvetica", "normal");
+      doc.text(event.name, 20, 30);
+
+      const customProps = event.customProperties || {};
+      let yPos = 38;
+
+      if (customProps.startDate) {
+        const formattedDate = new Date(customProps.startDate as number).toLocaleDateString("en-US", {
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+        doc.text(`Date: ${formattedDate}`, 20, yPos);
+        yPos += 6;
+      }
+
+      if (customProps.location) {
+        doc.text(`Location: ${customProps.location}`, 20, yPos);
+        yPos += 6;
+      }
+
+      doc.text(`Total Attendees: ${attendees.length}`, 20, yPos);
+      yPos += 10;
+
+      // Table header
+      doc.setFontSize(9);
+      doc.setTextColor(100, 100, 100);
+      doc.setFont("helvetica", "bold");
+
+      const colX = {
+        num: 20,
+        name: 35,
+        email: 100,
+        phone: 165,
+        ticket: 215,
+        status: 255,
+      };
+
+      doc.text("#", colX.num, yPos);
+      doc.text("Name", colX.name, yPos);
+      doc.text("Email", colX.email, yPos);
+      doc.text("Phone", colX.phone, yPos);
+      doc.text("Ticket Type", colX.ticket, yPos);
+      doc.text("Status", colX.status, yPos);
+
+      // Draw line
+      yPos += 3;
+      doc.setDrawColor(200, 200, 200);
+      doc.line(20, yPos, pageWidth - 20, yPos);
+      yPos += 7;
+
+      // Table rows
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(8);
+
+      attendees.forEach((attendee, index) => {
+        // Check if we need a new page
+        if (yPos > pageHeight - 20) {
+          doc.addPage();
+          yPos = 20;
+
+          // Repeat header on new page
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(100, 100, 100);
+          doc.text("#", colX.num, yPos);
+          doc.text("Name", colX.name, yPos);
+          doc.text("Email", colX.email, yPos);
+          doc.text("Phone", colX.phone, yPos);
+          doc.text("Ticket Type", colX.ticket, yPos);
+          doc.text("Status", colX.status, yPos);
+
+          yPos += 3;
+          doc.setDrawColor(200, 200, 200);
+          doc.line(20, yPos, pageWidth - 20, yPos);
+          yPos += 7;
+
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(0, 0, 0);
+        }
+
+        // Row number
+        doc.text((index + 1).toString(), colX.num, yPos);
+
+        // Name
+        const name = attendee.holderName || "Unknown";
+        doc.text(name, colX.name, yPos, { maxWidth: 60 });
+
+        // Email
+        doc.text(attendee.holderEmail || "N/A", colX.email, yPos, { maxWidth: 60 });
+
+        // Phone
+        doc.text(attendee.holderPhone || "N/A", colX.phone, yPos, { maxWidth: 45 });
+
+        // Ticket type
+        doc.text(attendee.ticketType || "Standard", colX.ticket, yPos, { maxWidth: 35 });
+
+        // Status
+        const statusText = attendee.status || "issued";
+        doc.text(statusText, colX.status, yPos);
+
+        yPos += 6;
+      });
+
+      // Footer
+      doc.setFontSize(8);
+      doc.setTextColor(150, 150, 150);
+      doc.text(
+        `Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}`,
+        20,
+        pageHeight - 10
+      );
+
+      // Convert to base64
+      const pdfBase64 = doc.output("datauristring").split(",")[1];
+
+      return {
+        filename: `attendee-list-${event._id.substring(0, 12)}.pdf`,
+        content: pdfBase64,
+        contentType: "application/pdf",
+      };
+    } catch (error) {
+      console.error("Failed to generate attendee list PDF:", error);
+      return null;
+    }
+  },
+});
