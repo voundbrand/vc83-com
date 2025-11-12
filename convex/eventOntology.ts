@@ -1068,23 +1068,23 @@ export const getEventAttendees = query({
       return [];
     }
 
-    // Find all tickets for these products
-    // Tickets are products with type="product" and subtype in ticket subtypes
+    // Find all ticket instances for this event
+    // Ticket instances have type="ticket" (NOT type="product")
     const allTickets = await ctx.db
       .query("objects")
       .withIndex("by_org_type", (q) =>
-        q.eq("organizationId", event.organizationId).eq("type", "product")
+        q.eq("organizationId", event.organizationId).eq("type", "ticket")
       )
       .collect();
 
-    // Filter for tickets that match the product IDs and are issued
+    // Filter for tickets that match the product IDs and are not cancelled
     const tickets = allTickets.filter(ticket => {
       const props = ticket.customProperties || {};
       const ticketProductId = props.productId as string | undefined;
       const ticketStatus = ticket.status;
 
       // Check if this ticket is for one of the event's products
-      // and is issued (not cancelled)
+      // and is not cancelled
       return ticketProductId &&
              productIds.some(id => id === ticketProductId) &&
              ticketStatus !== "cancelled";

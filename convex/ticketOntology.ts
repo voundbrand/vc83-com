@@ -1,19 +1,31 @@
 /**
  * TICKET ONTOLOGY
  *
- * Manages tickets for event management (instances of products).
+ * Manages individual ticket instances issued to attendees.
  * Uses the universal ontology system (objects table).
  *
  * IMPORTANT ONTOLOGY STRUCTURE:
- * - type: "product" (tickets are ALWAYS products)
- * - subtype: "ticket" (indicates this product is a ticket)
- * - customProperties.fulfillmentType: "ticket" (for filtering/identification)
- * - customProperties.ticketType: "standard" | "vip" | "early-bird" | "student" (ticket classification)
+ * =================================
+ * TICKET PRODUCTS (what you SELL):
+ * - type: "product"
+ * - subtype: "ticket"
+ * - These are the templates/SKUs (e.g., "VIP Access Pass", "Standard Entry")
+ * - Created in Products window
+ * - Price, description, availability
  *
- * This ensures:
- * ✅ Tickets are queryable as products
+ * TICKET INSTANCES (what people GET):
+ * - type: "ticket" ✅ (NOT "product"!)
+ * - subtype: "standard" | "vip" | "early-bird" | "student" (ticket classification)
+ * - These are individual tickets issued to specific people
+ * - Created automatically during checkout fulfillment
+ * - customProperties: { productId (link to ticket product), holderName, holderEmail, eventId, ... }
+ * - Links: [issued_from] → product, [admits_to] → event
+ *
+ * This separation ensures:
+ * ✅ Clear distinction between products and instances
+ * ✅ Easier queries (type="ticket" for attendees, type="product" subtype="ticket" for catalog)
  * ✅ Consistent ontology hierarchy
- * ✅ Event attendee queries work correctly
+ * ✅ Scalable for future features (transfers, check-ins, etc.)
  *
  * Status Workflow:
  * - "issued" - Ticket has been created/issued
@@ -36,36 +48,33 @@ import { internal } from "./_generated/api";
 
 /**
  * GET TICKETS
- * Returns all tickets for an organization
+ * Returns all ticket instances (NOT ticket products) for an organization
  */
 export const getTickets = query({
   args: {
     sessionId: v.string(),
     organizationId: v.id("organizations"),
-    ticketType: v.optional(v.string()), // Filter by ticket type (standard, vip, early-bird, student)
+    ticketType: v.optional(v.string()), // Filter by ticket type (subtype: standard, vip, early-bird, student)
     status: v.optional(v.string()),  // Filter by status
-    productId: v.optional(v.id("objects")), // Filter by product
+    productId: v.optional(v.id("objects")), // Filter by product (the ticket product this was issued from)
     eventId: v.optional(v.id("objects")), // Filter by event (tickets that admit to this event)
   },
   handler: async (ctx, args) => {
     await requireAuthenticatedUser(ctx, args.sessionId);
 
+    // Query ticket instances (type: "ticket"), NOT ticket products
     const q = ctx.db
       .query("objects")
       .withIndex("by_org_type", (q) =>
-        q.eq("organizationId", args.organizationId).eq("type", "product")
+        q.eq("organizationId", args.organizationId).eq("type", "ticket")
       );
 
-    let allProducts = await q.collect();
-
-    // Filter to only tickets (products with subtype: "ticket")
-    let tickets = allProducts.filter(
-      (p) => p.subtype === "ticket"
-    );
+    let tickets = await q.collect();
 
     // Apply filters
     if (args.ticketType) {
-      tickets = tickets.filter((t) => t.customProperties?.ticketType === args.ticketType);
+      // ticketType is now the subtype (standard, vip, etc.)
+      tickets = tickets.filter((t) => t.subtype === args.ticketType);
     }
 
     if (args.status) {
@@ -73,6 +82,7 @@ export const getTickets = query({
     }
 
     if (args.productId) {
+      // Filter by the product this ticket was issued from
       tickets = tickets.filter(
         (t) => t.customProperties?.productId === args.productId
       );
@@ -80,7 +90,6 @@ export const getTickets = query({
 
     if (args.eventId) {
       // Filter by eventId stored in customProperties
-      // Note: eventId is stored when ticket is created for an event
       tickets = tickets.filter(
         (t) => t.customProperties?.eventId === args.eventId
       );
@@ -92,7 +101,7 @@ export const getTickets = query({
 
 /**
  * GET TICKET
- * Get a single ticket by ID
+ * Get a single ticket instance by ID
  */
 export const getTicket = query({
   args: {
@@ -104,7 +113,7 @@ export const getTicket = query({
 
     const ticket = await ctx.db.get(args.ticketId);
 
-    if (!ticket || ticket.type !== "product" || ticket.subtype !== "ticket") {
+    if (!ticket || ticket.type !== "ticket") {
       throw new Error("Ticket not found");
     }
 
@@ -122,7 +131,7 @@ export const getTicketInternal = internalQuery({
   },
   handler: async (ctx, args) => {
     const ticket = await ctx.db.get(args.ticketId);
-    if (!ticket || ticket.type !== "product" || ticket.subtype !== "ticket") {
+    if (!ticket || ticket.type !== "ticket") {
       return null;
     }
     return ticket;
@@ -131,8 +140,7 @@ export const getTicketInternal = internalQuery({
 
 /**
  * GET TICKETS BY PRODUCT
- * Get all tickets issued from a specific product
- * Uses objectLinks to find tickets linked to a product
+ * Get all ticket instances issued from a specific ticket product
  */
 export const getTicketsByProduct = query({
   args: {
@@ -142,15 +150,14 @@ export const getTicketsByProduct = query({
   handler: async (ctx, args) => {
     await requireAuthenticatedUser(ctx, args.sessionId);
 
-    // Get all tickets that have this product in customProperties.productId
-    const tickets = await ctx.db
+    // Get all ticket instances (type: "ticket") that were issued from this product
+    const allTickets = await ctx.db
       .query("objects")
+      .withIndex("by_type", (q) => q.eq("type", "ticket"))
       .collect();
 
-    const matchingTickets = tickets.filter(
-      (t) => t.type === "product" &&
-             t.subtype === "ticket" &&
-             t.customProperties?.productId === args.productId
+    const matchingTickets = allTickets.filter(
+      (t) => t.customProperties?.productId === args.productId
     );
 
     return matchingTickets;
@@ -159,7 +166,7 @@ export const getTicketsByProduct = query({
 
 /**
  * GET PRODUCT BY TICKET
- * Get the product that a ticket was issued from
+ * Get the ticket product that a ticket instance was issued from
  */
 export const getProductByTicket = query({
   args: {
@@ -171,7 +178,7 @@ export const getProductByTicket = query({
 
     const ticket = await ctx.db.get(args.ticketId);
 
-    if (!ticket || ticket.type !== "product" || ticket.subtype !== "ticket") {
+    if (!ticket || ticket.type !== "ticket") {
       throw new Error("Ticket not found");
     }
 
@@ -186,9 +193,9 @@ export const getProductByTicket = query({
       throw new Error("Product not found");
     }
 
-    // Type guard: check it's actually an object (not org/user/etc)
+    // Type guard: check it's actually a product
     if (!("type" in product) || product.type !== "product") {
-      throw new Error("Invalid product - not an object type");
+      throw new Error("Invalid product - not a product type");
     }
 
     return product;
@@ -251,19 +258,15 @@ export const createTicketInternal = internalMutation({
     // Determine ticket type from customProperties or default to "standard"
     const ticketType = (args.customProperties?.ticketType as string) || "standard";
 
-    // Create ticket object (tickets are products with subtype: "ticket")
+    // Create ticket instance (type: "ticket", NOT type: "product")
     const ticketId = await ctx.db.insert("objects", {
       organizationId: args.organizationId,
-      type: "product", // ✅ Tickets are ALWAYS type: "product"
-      subtype: "ticket", // ✅ Indicates this product is a ticket
+      type: "ticket", // ✅ Ticket instances have type: "ticket"
+      subtype: ticketType, // ✅ Classification: "standard" | "vip" | "early-bird" | "student"
       name: `${product.name} - ${args.holderName}`,
       description: `Ticket for ${args.holderName}`,
       status: "issued",
-      customProperties: {
-        ...customProperties,
-        fulfillmentType: "ticket", // For backward compatibility with existing queries
-        ticketType, // Classification: "standard" | "vip" | "early-bird" | "student"
-      },
+      customProperties,
       createdBy: userId,
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -315,7 +318,7 @@ export const updateTicketInternal = internalMutation({
   handler: async (ctx, args) => {
     const ticket = await ctx.db.get(args.ticketId);
 
-    if (!ticket || ticket.type !== "product" || ticket.subtype !== "ticket") {
+    if (!ticket || ticket.type !== "ticket") {
       throw new Error("Ticket not found");
     }
 
@@ -401,7 +404,7 @@ export const updateTicket = mutation({
 
     const ticket = await ctx.db.get(args.ticketId);
 
-    if (!ticket || ticket.type !== "product" || ticket.subtype !== "ticket") {
+    if (!ticket || ticket.type !== "ticket") {
       throw new Error("Ticket not found");
     }
 
@@ -457,7 +460,7 @@ export const cancelTicket = mutation({
 
     const ticket = await ctx.db.get(args.ticketId);
 
-    if (!ticket || ticket.type !== "product" || ticket.subtype !== "ticket") {
+    if (!ticket || ticket.type !== "ticket") {
       throw new Error("Ticket not found");
     }
 
@@ -485,7 +488,7 @@ export const redeemTicket = mutation({
 
     const ticket = await ctx.db.get(args.ticketId);
 
-    if (!ticket || ticket.type !== "product" || ticket.subtype !== "ticket") {
+    if (!ticket || ticket.type !== "ticket") {
       throw new Error("Ticket not found");
     }
 
@@ -529,7 +532,7 @@ export const linkTicketToEvent = mutation({
 
     // Validate ticket exists
     const ticket = await ctx.db.get(args.ticketId);
-    if (!ticket || ticket.type !== "product" || ticket.subtype !== "ticket") {
+    if (!ticket || ticket.type !== "ticket") {
       throw new Error("Ticket not found");
     }
 
@@ -590,11 +593,11 @@ export const getTicketsByEvent = query({
       )
       .collect();
 
-    // Get all tickets from these links
+    // Get all ticket instances from these links
     const tickets = [];
     for (const link of links) {
       const ticket = await ctx.db.get(link.fromObjectId);
-      if (ticket && ticket.type === "product" && ticket.subtype === "ticket") {
+      if (ticket && ticket.type === "ticket") {
         tickets.push(ticket);
       }
     }
@@ -613,15 +616,15 @@ export const getTicketsByCheckoutInternal = internalQuery({
     checkoutSessionId: v.id("objects"),
   },
   handler: async (ctx, args) => {
-    const products = await ctx.db
+    // Query ticket instances (type: "ticket")
+    const tickets = await ctx.db
       .query("objects")
-      .withIndex("by_type", (q) => q.eq("type", "product"))
+      .withIndex("by_type", (q) => q.eq("type", "ticket"))
       .collect();
 
     // Filter to tickets that belong to this checkout session
-    return products.filter(
-      (p) => p.subtype === "ticket" &&
-             p.customProperties?.checkoutSessionId === args.checkoutSessionId
+    return tickets.filter(
+      (t) => t.customProperties?.checkoutSessionId === args.checkoutSessionId
     );
   },
 });
