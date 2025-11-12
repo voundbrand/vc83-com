@@ -383,19 +383,30 @@ export function EventLandingTemplate({
       <div className={styles.layoutGrid}>
         {/* Main Content */}
         <main className={`${styles.mainContent} lg:pr-8`}>
-          {/* Hero Section */}
-          {mergedContent.hero && (
-            <section className={styles.hero} id="hero">
-              {/* Hero Slideshow Background - use gallery items if available, otherwise fallback to static image */}
-              {galleryItems.length > 0 ? (
-                <div className={styles.heroBackground}>
-                  <HeroSlideshow
-                    items={galleryItems}
-                    autoPlayInterval={6000}
-                    className="w-full h-full"
-                  />
-                </div>
-              ) : (content.hero.videoUrl || content.hero.imageUrl) && (
+          {/* Hero Section with Slideshow */}
+          {mergedContent.hero && galleryItems.length > 0 && (
+            <section className={`${styles.hero} ${styles.heroWithSlideshow}`} id="hero">
+              <div className={styles.heroBackground}>
+                <HeroSlideshow
+                  items={galleryItems}
+                  autoPlayInterval={6000}
+                  className="w-full h-full"
+                />
+              </div>
+
+              <div className={styles.heroGradientOverlay} />
+
+              {/* Minimal overlay text - just the title */}
+              <div className={styles.heroContent}>
+                <h1 className={styles.heroTitle}>{mergedContent.hero.headline}</h1>
+              </div>
+            </section>
+          )}
+
+          {/* Hero Section without Slideshow (fallback) */}
+          {mergedContent.hero && galleryItems.length === 0 && (
+            <section className={`${styles.hero} ${styles.heroWithoutSlideshow}`} id="hero">
+              {(content.hero.videoUrl || content.hero.imageUrl) && (
                 <div className={styles.heroBackground}>
                   {mergedContent.hero.imageUrl && (
                     <Image
@@ -413,81 +424,94 @@ export function EventLandingTemplate({
 
               <div className={styles.heroContent}>
                 <div className={styles.heroDateBadge}>{mergedContent.hero.date}</div>
-
                 <h1 className={styles.heroTitle}>{mergedContent.hero.headline}</h1>
-
                 <p className={styles.heroSubtitle}>
                   {mergedContent.hero.subheadline}
                 </p>
-
-                <div className={styles.heroInfo}>
-                  <a
-                    href={generateMapLink(
-                      mergedContent.hero.location,
-                      eventData?.latitude as number | undefined,
-                      eventData?.longitude as number | undefined
-                    )}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={styles.heroInfoItem}
-                    style={{ cursor: 'pointer', textDecoration: 'none', color: 'inherit' }}
-                    title="Open in maps"
-                  >
-                    <MapPin className={styles.heroIcon} />
-                    <span style={{ textDecoration: 'underline' }}>{mergedContent.hero.location}</span>
-                  </a>
-                  <span className={styles.heroDivider}>•</span>
-                  <button
-                    onClick={() => {
-                      if (eventData?.startDate && eventData?.endDate) {
-                        addToCalendar({
-                          title: (data?.name as string) || 'Event',
-                          description: (data?.description as string),
-                          location: mergedContent.hero.location,
-                          startDate: eventData.startDate as number,
-                          endDate: eventData.endDate as number,
-                          url: typeof window !== 'undefined' ? window.location.href : undefined,
-                        });
-                      }
-                    }}
-                    className={styles.heroInfoItem}
-                    style={{
-                      cursor: 'pointer',
-                      background: 'none',
-                      border: 'none',
-                      padding: 0,
-                      font: 'inherit',
-                      color: 'inherit',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem'
-                    }}
-                    title="Add to calendar"
-                  >
-                    <Calendar className={styles.heroIcon} />
-                    <span style={{ textDecoration: 'underline' }}>{mergedContent.hero.format}</span>
-                  </button>
-                </div>
-
-                {mergedContent.hero.ctaButtons &&
-                  content.hero.ctaButtons.length > 0 && (
-                    <div className={styles.heroButtons}>
-                      {mergedContent.hero.ctaButtons.map((btn) => (
-                        <a
-                          key={btn.id}
-                          href={btn.url}
-                          className={
-                            btn.variant === "primary"
-                              ? styles.ctaButtonPrimary
-                              : styles.ctaButtonOutline
-                          }
-                        >
-                          {btn.text}
-                        </a>
-                      ))}
-                    </div>
-                  )}
               </div>
+            </section>
+          )}
+
+          {/* Event Details Section - Below Hero */}
+          {mergedContent.hero && (
+            <section className={styles.heroContentBelow}>
+              <div className={styles.heroDateBadge}>{mergedContent.hero.date}</div>
+
+              <h2 className={styles.heroTitleBelow} style={{ display: galleryItems.length > 0 ? 'none' : 'block' }}>
+                {mergedContent.hero.headline}
+              </h2>
+
+              <p className={styles.heroSubtitle}>
+                {mergedContent.hero.subheadline}
+              </p>
+
+              <div className={styles.heroInfo}>
+                <a
+                  href={generateMapLink(
+                    mergedContent.hero.location,
+                    eventData?.latitude as number | undefined,
+                    eventData?.longitude as number | undefined
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={styles.heroInfoItem}
+                  style={{ cursor: 'pointer', textDecoration: 'none', color: 'inherit' }}
+                  title="Open in maps"
+                >
+                  <MapPin className={styles.heroIcon} />
+                  <span style={{ textDecoration: 'underline' }}>{mergedContent.hero.location}</span>
+                </a>
+                <span className={styles.heroDivider}>•</span>
+                <button
+                  onClick={() => {
+                    if (eventData?.startDate && eventData?.endDate) {
+                      addToCalendar({
+                        title: (data?.name as string) || 'Event',
+                        description: (data?.description as string),
+                        location: mergedContent.hero.location,
+                        startDate: eventData.startDate as number,
+                        endDate: eventData.endDate as number,
+                        url: typeof window !== 'undefined' ? window.location.href : undefined,
+                      });
+                    }
+                  }}
+                  className={styles.heroInfoItem}
+                  style={{
+                    cursor: 'pointer',
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    font: 'inherit',
+                    color: 'inherit',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem'
+                  }}
+                  title="Add to calendar"
+                >
+                  <Calendar className={styles.heroIcon} />
+                  <span style={{ textDecoration: 'underline' }}>{mergedContent.hero.format}</span>
+                </button>
+              </div>
+
+              {mergedContent.hero.ctaButtons &&
+                content.hero.ctaButtons.length > 0 && (
+                  <div className={styles.heroButtons}>
+                    {mergedContent.hero.ctaButtons.map((btn) => (
+                      <a
+                        key={btn.id}
+                        href={btn.url}
+                        className={
+                          btn.variant === "primary"
+                            ? styles.ctaButtonPrimary
+                            : styles.ctaButtonOutline
+                        }
+                      >
+                        {btn.text}
+                      </a>
+                    ))}
+                  </div>
+                )}
             </section>
           )}
 
