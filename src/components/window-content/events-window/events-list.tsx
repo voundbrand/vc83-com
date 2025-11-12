@@ -52,16 +52,16 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
   ) => {
     const configs = {
       cancel: {
-        title: t("ui.events.list.confirm_cancel_title"),
-        message: t("ui.events.list.confirm_cancel_message").replace("{name}", eventName),
+        title: t("list.confirm_cancel_title"),
+        message: t("list.confirm_cancel_message").replace("{name}", eventName),
       },
       delete: {
-        title: t("ui.events.list.confirm_delete_title"),
-        message: t("ui.events.list.confirm_delete_message").replace("{name}", eventName),
+        title: t("list.confirm_delete_title"),
+        message: t("list.confirm_delete_message").replace("{name}", eventName),
       },
       publish: {
-        title: t("ui.events.list.confirm_publish_title"),
-        message: t("ui.events.list.confirm_publish_message").replace("{name}", eventName),
+        title: t("list.confirm_publish_title"),
+        message: t("list.confirm_publish_message").replace("{name}", eventName),
       },
     };
 
@@ -358,10 +358,10 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
         variant={confirmModal.action === "delete" ? "danger" : confirmModal.action === "publish" ? "info" : "warning"}
         confirmText={
           confirmModal.action === "delete"
-            ? t("ui.events.action.delete")
+            ? t("action.delete")
             : confirmModal.action === "publish"
-            ? t("ui.events.action.publish")
-            : t("ui.events.action.cancel")
+            ? t("action.publish")
+            : t("action.cancel")
         }
         isLoading={isProcessing}
       />

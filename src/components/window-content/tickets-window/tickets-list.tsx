@@ -66,16 +66,16 @@ export function TicketsList({ sessionId, organizationId, onEdit, initialEventId 
   ) => {
     const configs = {
       cancel: {
-        title: t("ui.tickets.list.confirm_cancel_title"),
-        message: t("ui.tickets.list.confirm_cancel_message").replace("{name}", ticketName),
+        title: t("list.confirm_cancel_title"),
+        message: t("list.confirm_cancel_message").replace("{name}", ticketName),
       },
       delete: {
-        title: t("ui.tickets.list.confirm_delete_title"),
-        message: t("ui.tickets.list.confirm_delete_message").replace("{name}", ticketName),
+        title: t("list.confirm_delete_title"),
+        message: t("list.confirm_delete_message").replace("{name}", ticketName),
       },
       redeem: {
-        title: t("ui.tickets.list.confirm_redeem_title"),
-        message: t("ui.tickets.list.confirm_redeem_message").replace("{name}", ticketName),
+        title: t("list.confirm_redeem_title"),
+        message: t("list.confirm_redeem_message").replace("{name}", ticketName),
       },
     };
 
@@ -461,7 +461,7 @@ export function TicketsList({ sessionId, organizationId, onEdit, initialEventId 
         title={confirmModal.title}
         message={confirmModal.message}
         variant={confirmModal.action === "delete" ? "danger" : "warning"}
-        confirmText={confirmModal.action === "delete" ? t("ui.tickets.list.button.delete") : "OK"}
+        confirmText={confirmModal.action === "delete" ? t("list.button.delete") : "OK"}
         isLoading={isProcessing}
       />
     </div>
