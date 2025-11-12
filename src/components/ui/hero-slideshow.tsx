@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import { ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
+import { extractVideoId, getVideoEmbedUrl, detectVideoProvider, type VideoProvider } from '@/lib/video-utils';
 
 interface SlideItem {
   id: string;
@@ -12,6 +13,7 @@ interface SlideItem {
   alt?: string;
   loop?: boolean;
   autostart?: boolean;
+  videoProvider?: VideoProvider;
 }
 
 interface HeroSlideshowProps {
@@ -98,40 +100,6 @@ export function HeroSlideshow({
     return null;
   }
 
-  const getYouTubeVideoId = (url: string): string | null => {
-    try {
-      const urlObj = new URL(url);
-      if (urlObj.hostname.includes('youtube.com') || urlObj.hostname.includes('youtu.be')) {
-        let videoId: string | null = null;
-
-        if (urlObj.hostname.includes('youtube.com')) {
-          videoId = urlObj.searchParams.get('v') || urlObj.pathname.split('/embed/')[1];
-        } else if (urlObj.hostname.includes('youtu.be')) {
-          videoId = urlObj.pathname.substring(1);
-        }
-
-        if (videoId) {
-          videoId = videoId.split('?')[0].split('&')[0];
-        }
-
-        return videoId;
-      }
-    } catch (e) {
-      console.error('Error parsing YouTube URL:', e);
-    }
-    return null;
-  };
-
-  const getYouTubeEmbedUrl = (url: string, loop = false, autostart = false): string | null => {
-    const videoId = getYouTubeVideoId(url);
-    if (videoId) {
-      // For YouTube loop to work on a single video, we need to add it to a playlist of itself
-      const loopParams = loop ? `&loop=1&playlist=${videoId}` : '';
-      const autostartParam = autostart ? '1' : '0';
-      return `https://www.youtube.com/embed/${videoId}?autoplay=${autostartParam}${loopParams}`;
-    }
-    return null;
-  };
 
   return (
     <div className={`relative w-full h-full ${className}`}>
@@ -146,15 +114,25 @@ export function HeroSlideshow({
           >
             {item.type === 'video' ? (
               (() => {
-                // Check if it's a YouTube video
-                const youtubeEmbedUrl = getYouTubeEmbedUrl(item.url, item.loop, item.autostart);
+                // Detect provider if not already set
+                const provider = item.videoProvider || detectVideoProvider(item.url);
 
-                if (youtubeEmbedUrl) {
-                  // YouTube video - use iframe
+                // Extract video ID
+                const videoId = extractVideoId(item.url, provider);
+
+                if (videoId && (provider === 'youtube' || provider === 'vimeo')) {
+                  // YouTube/Vimeo video - use iframe with video-utils
+                  const embedUrl = getVideoEmbedUrl(
+                    videoId,
+                    provider,
+                    item.loop ?? false,
+                    item.autostart ?? false
+                  );
+
                   return index === currentIndex ? (
                     <iframe
-                      key={`youtube-${item.id}-${currentIndex}`}
-                      src={youtubeEmbedUrl}
+                      key={`${provider}-${item.id}-${currentIndex}`}
+                      src={embedUrl}
                       className="w-full h-full"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                       allowFullScreen
@@ -162,7 +140,7 @@ export function HeroSlideshow({
                     />
                   ) : null;
                 } else {
-                  // Regular video file - use video tag
+                  // Direct video file - use video tag
                   return (
                     <video
                       key={`video-${item.id}-${currentIndex}`}
