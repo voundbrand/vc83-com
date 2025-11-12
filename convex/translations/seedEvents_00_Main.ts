@@ -36,10 +36,19 @@ const translations: Translation[] = [
   { locale: "en", key: "ui.events.action.back_to_list", value: "Back to List" },
   { locale: "en", key: "ui.events.action.edit", value: "Edit" },
   { locale: "en", key: "ui.events.action.publish", value: "Publish" },
-  { locale: "en", key: "ui.events.action.cancel_event", value: "Cancel" },
+  { locale: "en", key: "ui.events.action.cancel", value: "Cancel" },
+  { locale: "en", key: "ui.events.action.delete", value: "Delete" },
   { locale: "en", key: "ui.events.action.save", value: "Save Event" },
   { locale: "en", key: "ui.events.action.cancel_form", value: "Cancel" },
   { locale: "en", key: "ui.events.action.saving", value: "Saving..." },
+
+  // Confirmation Modals
+  { locale: "en", key: "ui.events.list.confirm_cancel_title", value: "Cancel Event" },
+  { locale: "en", key: "ui.events.list.confirm_cancel_message", value: "Are you sure you want to cancel \"{name}\"?\n\nThis will mark the event as cancelled but it will remain in the system." },
+  { locale: "en", key: "ui.events.list.confirm_delete_title", value: "Delete Event" },
+  { locale: "en", key: "ui.events.list.confirm_delete_message", value: "Are you sure you want to permanently delete \"{name}\"?\n\nThis action cannot be undone!" },
+  { locale: "en", key: "ui.events.list.confirm_publish_title", value: "Publish Event" },
+  { locale: "en", key: "ui.events.list.confirm_publish_message", value: "Publish \"{name}\" and make it visible to attendees?" },
 
   // Events List
   { locale: "en", key: "ui.events.list.no_events", value: "No events yet. Click \"Create Event\" to get started." },
@@ -82,10 +91,19 @@ const translations: Translation[] = [
   { locale: "de", key: "ui.events.action.back_to_list", value: "Zurück zur Liste" },
   { locale: "de", key: "ui.events.action.edit", value: "Bearbeiten" },
   { locale: "de", key: "ui.events.action.publish", value: "Veröffentlichen" },
-  { locale: "de", key: "ui.events.action.cancel_event", value: "Abbrechen" },
+  { locale: "de", key: "ui.events.action.cancel", value: "Stornieren" },
+  { locale: "de", key: "ui.events.action.delete", value: "Löschen" },
   { locale: "de", key: "ui.events.action.save", value: "Veranstaltung speichern" },
   { locale: "de", key: "ui.events.action.cancel_form", value: "Abbrechen" },
   { locale: "de", key: "ui.events.action.saving", value: "Speichern..." },
+
+  // Confirmation Modals
+  { locale: "de", key: "ui.events.list.confirm_cancel_title", value: "Veranstaltung stornieren" },
+  { locale: "de", key: "ui.events.list.confirm_cancel_message", value: "Möchten Sie \"{name}\" wirklich stornieren?\n\nDies markiert die Veranstaltung als storniert, aber sie bleibt im System." },
+  { locale: "de", key: "ui.events.list.confirm_delete_title", value: "Veranstaltung löschen" },
+  { locale: "de", key: "ui.events.list.confirm_delete_message", value: "Möchten Sie \"{name}\" wirklich dauerhaft löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden!" },
+  { locale: "de", key: "ui.events.list.confirm_publish_title", value: "Veranstaltung veröffentlichen" },
+  { locale: "de", key: "ui.events.list.confirm_publish_message", value: "\"{name}\" veröffentlichen und für Teilnehmer sichtbar machen?" },
 
   // Events List
   { locale: "de", key: "ui.events.list.no_events", value: "Noch keine Veranstaltungen. Klicken Sie auf \"Veranstaltung erstellen\", um zu beginnen." },

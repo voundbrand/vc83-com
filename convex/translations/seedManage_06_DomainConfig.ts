@@ -735,9 +735,6 @@ export const seed = internalMutation({
       },
     ];
 
-    // Get existing translation keys
-    const existingKeys = await getExistingTranslationKeys(ctx);
-
     // Insert translations
     let insertCount = 0;
     for (const translation of translations) {
@@ -745,13 +742,14 @@ export const seed = internalMutation({
         const value = translation.values[locale.code as keyof typeof translation.values];
         if (value) {
           const inserted = await insertTranslationIfNew(
-            ctx,
+            ctx.db,
+            new Set(), // existingKeys (ignored by helper)
             systemOrg._id,
             systemUser._id,
             translation.key,
             value,
             locale.code,
-            existingKeys
+            "ui.manage.domains" // category
           );
           if (inserted) insertCount++;
         }

@@ -3,10 +3,11 @@
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id, Doc } from "../../../../convex/_generated/dataModel";
-import { Edit2, Trash2, CheckCircle, Loader2, MapPin, Clock } from "lucide-react";
+import { Edit2, Trash2, CheckCircle, Loader2, MapPin, Clock, Ban } from "lucide-react";
 import { useState } from "react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { EventDetailModal } from "./event-detail-modal";
+import { ConfirmationModal } from "@/components/confirmation-modal";
 
 interface EventsListProps {
   sessionId: string;
@@ -18,6 +19,20 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
   const { t } = useNamespaceTranslations("ui.events");
   const [filter, setFilter] = useState<{ subtype?: string; status?: string }>({});
   const [selectedEvent, setSelectedEvent] = useState<Doc<"objects"> | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    action: "cancel" | "delete" | "publish" | null;
+    eventId: Id<"objects"> | null;
+    title: string;
+    message: string;
+  }>({
+    isOpen: false,
+    action: null,
+    eventId: null,
+    title: "",
+    message: "",
+  });
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Get events from Convex
   const events = useQuery(api.eventOntology.getEvents, {
@@ -26,26 +41,57 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
     ...filter,
   });
 
+  const cancelEvent = useMutation(api.eventOntology.cancelEvent);
   const deleteEvent = useMutation(api.eventOntology.deleteEvent);
   const publishEvent = useMutation(api.eventOntology.publishEvent);
 
-  const handleDelete = async (eventId: Id<"objects">) => {
-    if (confirm(t("ui.events.list.delete_confirm"))) {
-      try {
-        await deleteEvent({ sessionId, eventId });
-      } catch (error) {
-        console.error("Failed to delete event:", error);
-        alert(t("ui.events.list.delete_error"));
-      }
-    }
+  const openConfirmModal = (
+    action: "cancel" | "delete" | "publish",
+    eventId: Id<"objects">,
+    eventName: string
+  ) => {
+    const configs = {
+      cancel: {
+        title: t("ui.events.list.confirm_cancel_title"),
+        message: t("ui.events.list.confirm_cancel_message").replace("{name}", eventName),
+      },
+      delete: {
+        title: t("ui.events.list.confirm_delete_title"),
+        message: t("ui.events.list.confirm_delete_message").replace("{name}", eventName),
+      },
+      publish: {
+        title: t("ui.events.list.confirm_publish_title"),
+        message: t("ui.events.list.confirm_publish_message").replace("{name}", eventName),
+      },
+    };
+
+    setConfirmModal({
+      isOpen: true,
+      action,
+      eventId,
+      ...configs[action],
+    });
   };
 
-  const handlePublish = async (eventId: Id<"objects">) => {
+  const handleConfirm = async () => {
+    if (!confirmModal.eventId || !confirmModal.action) return;
+
+    setIsProcessing(true);
     try {
-      await publishEvent({ sessionId, eventId });
+      if (confirmModal.action === "cancel") {
+        await cancelEvent({ sessionId, eventId: confirmModal.eventId });
+      } else if (confirmModal.action === "delete") {
+        await deleteEvent({ sessionId, eventId: confirmModal.eventId });
+      } else if (confirmModal.action === "publish") {
+        await publishEvent({ sessionId, eventId: confirmModal.eventId });
+      }
+
+      setConfirmModal({ isOpen: false, action: null, eventId: null, title: "", message: "" });
     } catch (error) {
-      console.error("Failed to publish event:", error);
-      alert(t("ui.events.list.publish_error"));
+      console.error(`Failed to ${confirmModal.action} event:`, error);
+      // Error is shown via modal, no browser alert
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -244,7 +290,7 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    handlePublish(event._id);
+                    openConfirmModal("publish", event._id, event.name);
                   }}
                   className="flex-1 px-2 py-1.5 text-xs font-bold flex items-center justify-center gap-1 border-2 transition-colors"
                   style={{
@@ -259,10 +305,28 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
                 </button>
               )}
 
+              {event.status !== "cancelled" && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openConfirmModal("cancel", event._id, event.name);
+                  }}
+                  className="px-2 py-1.5 text-xs font-bold flex items-center justify-center border-2 transition-colors"
+                  style={{
+                    borderColor: "var(--win95-border)",
+                    background: "var(--win95-button-face)",
+                    color: "var(--warning)",
+                  }}
+                  title={t("ui.events.action.cancel")}
+                >
+                  <Ban size={12} />
+                </button>
+              )}
+
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleDelete(event._id);
+                  openConfirmModal("delete", event._id, event.name);
                 }}
                 className="px-2 py-1.5 text-xs font-bold flex items-center justify-center border-2 transition-colors"
                 style={{
@@ -270,7 +334,7 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
                   background: "var(--win95-button-face)",
                   color: "var(--error)",
                 }}
-                title={t("ui.events.action.cancel_event")}
+                title={t("ui.events.action.delete")}
               >
                 <Trash2 size={12} />
               </button>
@@ -278,6 +342,29 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
           </div>
         ))}
       </div>
+
+      {/* Event Detail Modal */}
+      {selectedEvent && (
+        <EventDetailModal event={selectedEvent} onClose={() => setSelectedEvent(null)} sessionId={sessionId} />
+      )}
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ isOpen: false, action: null, eventId: null, title: "", message: "" })}
+        onConfirm={handleConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        variant={confirmModal.action === "delete" ? "danger" : confirmModal.action === "publish" ? "info" : "warning"}
+        confirmText={
+          confirmModal.action === "delete"
+            ? t("ui.events.action.delete")
+            : confirmModal.action === "publish"
+            ? t("ui.events.action.publish")
+            : t("ui.events.action.cancel")
+        }
+        isLoading={isProcessing}
+      />
     </div>
     </>
   );

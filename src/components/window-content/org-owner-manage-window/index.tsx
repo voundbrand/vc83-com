@@ -288,7 +288,7 @@ export function ManageWindow() {
           onClick={() => setActiveTab("domains")}
         >
           <Globe size={14} />
-          Domains
+          {t("ui.manage.tab.domains")}
         </button>
         <button
           className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2"
