@@ -56,10 +56,16 @@ export const regenerateInvoicePDF = action({
     console.log(`✅ [regenerateInvoicePDF] PDF generated, now storing...`);
 
     // Store the PDF in Convex storage
-    const pdfBlob = Buffer.from(pdfAttachment.content, "base64");
-    const storageId = await ctx.storage.store(
-      new Blob([pdfBlob], { type: pdfAttachment.contentType })
-    );
+    // Convert base64 to Blob (no Buffer in Convex runtime)
+    const byteCharacters = atob(pdfAttachment.content);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const pdfBlob = new Blob([byteArray], { type: pdfAttachment.contentType });
+
+    const storageId = await ctx.storage.store(pdfBlob);
 
     // Get the storage URL
     const pdfUrl = await ctx.storage.getUrl(storageId);
