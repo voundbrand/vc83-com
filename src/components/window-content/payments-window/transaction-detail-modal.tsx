@@ -1,6 +1,7 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useState } from "react";
+import { useQuery, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import {
@@ -11,6 +12,8 @@ import {
   Receipt,
   CreditCard,
   Loader2,
+  RefreshCw,
+  AlertCircle,
 } from "lucide-react";
 
 interface TransactionDetailModalProps {
@@ -24,6 +27,11 @@ export function TransactionDetailModal({
   sessionId,
   onClose,
 }: TransactionDetailModalProps) {
+  // State for refund process
+  const [isRefunding, setIsRefunding] = useState(false);
+  const [refundError, setRefundError] = useState<string | null>(null);
+  const [refundSuccess, setRefundSuccess] = useState(false);
+
   // Get full transaction details (NEW: using actual transaction object)
   const transaction = useQuery(
     api.transactionOntology.getTransaction,
@@ -34,6 +42,9 @@ export function TransactionDetailModal({
         }
       : "skip"
   );
+
+  // Refund action
+  const processRefund = useAction(api.stripeRefunds.processStripeRefund);
 
   const formatCurrency = (cents: number, currency: string = "eur") => {
     const amount = cents / 100;
@@ -51,6 +62,56 @@ export function TransactionDetailModal({
       hour: "2-digit",
       minute: "2-digit",
     }).format(new Date(timestamp));
+  };
+
+  // Handle refund button click
+  const handleRefund = async () => {
+    if (!transaction || !sessionId) return;
+
+    // Confirm refund
+    const confirmed = window.confirm(
+      `Are you sure you want to refund ${formatCurrency((transaction.customProperties?.totalPriceInCents as number) || 0, (transaction.customProperties?.currency as string) || "EUR")}?\n\nThis action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    setIsRefunding(true);
+    setRefundError(null);
+
+    try {
+      const result = await processRefund({
+        sessionId,
+        transactionId,
+        reason: "requested_by_customer",
+      });
+
+      if (result.success) {
+        setRefundSuccess(true);
+        // Optionally close modal after success
+        setTimeout(() => {
+          onClose();
+        }, 2000);
+      }
+    } catch (error) {
+      console.error("Refund error:", error);
+      setRefundError(error instanceof Error ? error.message : "Failed to process refund");
+    } finally {
+      setIsRefunding(false);
+    }
+  };
+
+  // Check if transaction can be refunded
+  const canRefund = () => {
+    if (!transaction) return false;
+
+    const paymentStatus = transaction.customProperties?.paymentStatus as string;
+    const stripePaymentIntentId = transaction.customProperties?.stripePaymentIntentId as string | undefined;
+
+    // Can only refund paid transactions with Stripe payment intent
+    return (
+      stripePaymentIntentId &&
+      (paymentStatus === "paid" || paymentStatus === "partially_refunded")
+    );
   };
 
   if (!transaction) {
@@ -289,10 +350,18 @@ export function TransactionDetailModal({
                       backgroundColor:
                         transaction.customProperties?.paymentStatus === "paid"
                           ? "var(--success-light)"
+                          : transaction.customProperties?.paymentStatus === "refunded"
+                          ? "var(--neutral-light)"
+                          : transaction.customProperties?.paymentStatus === "partially_refunded"
+                          ? "var(--warning-light)"
                           : "var(--warning-light)",
                       color:
                         transaction.customProperties?.paymentStatus === "paid"
                           ? "var(--success)"
+                          : transaction.customProperties?.paymentStatus === "refunded"
+                          ? "var(--neutral-gray)"
+                          : transaction.customProperties?.paymentStatus === "partially_refunded"
+                          ? "var(--warning)"
                           : "var(--warning)",
                     }}
                   >
@@ -321,10 +390,57 @@ export function TransactionDetailModal({
                     {transaction.customProperties?.invoicingStatus as string}
                   </span>
                 </div>
+
+                {/* Refund Information */}
+                {(transaction.customProperties?.paymentStatus === "refunded" ||
+                  transaction.customProperties?.paymentStatus === "partially_refunded") && (
+                  <div className="pt-2 mt-2 border-t" style={{ borderColor: "var(--win95-border)" }}>
+                    <div className="flex justify-between text-sm">
+                      <span style={{ color: "var(--neutral-gray)" }}>Refund Amount</span>
+                      <span style={{ color: "var(--error)" }}>
+                        {formatCurrency((transaction.customProperties?.refundAmount as number) || 0, (transaction.customProperties?.currency as string) || "EUR")}
+                      </span>
+                    </div>
+                    {transaction.customProperties?.refundDate && (
+                      <div className="flex justify-between text-sm mt-1">
+                        <span style={{ color: "var(--neutral-gray)" }}>Refund Date</span>
+                        <span style={{ color: "var(--win95-text)" }}>
+                          {formatDate(transaction.customProperties.refundDate as number)}
+                        </span>
+                      </div>
+                    )}
+                    {transaction.customProperties?.refundId && (
+                      <div className="flex justify-between text-sm mt-1">
+                        <span style={{ color: "var(--neutral-gray)" }}>Refund ID</span>
+                        <span style={{ color: "var(--win95-text)", fontFamily: "monospace", fontSize: "0.75rem" }}>
+                          {(transaction.customProperties.refundId as string).substring(0, 20)}...
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
         </div>
+
+        {/* Refund Status Alert */}
+        {refundError && (
+          <div className="mx-4 mb-4 border-2 border-red-500 bg-red-50 p-3 flex items-start gap-2">
+            <AlertCircle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-xs font-bold text-red-700">Refund Failed</p>
+              <p className="text-xs text-red-600 mt-1">{refundError}</p>
+            </div>
+          </div>
+        )}
+        {refundSuccess && (
+          <div className="mx-4 mb-4 border-2 border-green-500 bg-green-50 p-3">
+            <p className="text-xs font-bold text-green-700">
+              ✓ Refund processed successfully!
+            </p>
+          </div>
+        )}
 
         {/* Footer Actions */}
         <div
@@ -342,8 +458,46 @@ export function TransactionDetailModal({
                 On Draft Invoice
               </p>
             )}
+            {transaction.customProperties?.paymentStatus === "refunded" && (
+              <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                ✓ Refunded
+              </p>
+            )}
+            {transaction.customProperties?.paymentStatus === "partially_refunded" && (
+              <p className="text-xs" style={{ color: "var(--warning)" }}>
+                ⚠ Partially Refunded
+              </p>
+            )}
           </div>
           <div className="flex gap-2">
+            {canRefund() && !refundSuccess && (
+              <button
+                onClick={handleRefund}
+                disabled={isRefunding}
+                className="px-4 py-2 text-sm font-semibold flex items-center gap-2 hover:opacity-80 disabled:opacity-50"
+                style={{
+                  backgroundColor: "var(--error)",
+                  color: "white",
+                  border: "2px solid",
+                  borderTopColor: "rgba(255, 255, 255, 0.4)",
+                  borderLeftColor: "rgba(255, 255, 255, 0.4)",
+                  borderBottomColor: "rgba(0, 0, 0, 0.4)",
+                  borderRightColor: "rgba(0, 0, 0, 0.4)",
+                }}
+              >
+                {isRefunding ? (
+                  <>
+                    <Loader2 className="animate-spin" size={14} />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw size={14} />
+                    Issue Refund
+                  </>
+                )}
+              </button>
+            )}
             <button
               onClick={onClose}
               className="px-4 py-2 text-sm font-semibold"

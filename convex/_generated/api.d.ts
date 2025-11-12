@@ -118,6 +118,7 @@ import type * as seedPdfTemplates from "../seedPdfTemplates.js";
 import type * as seedTemplates from "../seedTemplates.js";
 import type * as stripeCheckout from "../stripeCheckout.js";
 import type * as stripeConnect from "../stripeConnect.js";
+import type * as stripeRefunds from "../stripeRefunds.js";
 import type * as stripeWebhooks from "../stripeWebhooks.js";
 import type * as templateAvailability from "../templateAvailability.js";
 import type * as templateOntology from "../templateOntology.js";
@@ -327,6 +328,7 @@ declare const fullApi: ApiFromModules<{
   seedTemplates: typeof seedTemplates;
   stripeCheckout: typeof stripeCheckout;
   stripeConnect: typeof stripeConnect;
+  stripeRefunds: typeof stripeRefunds;
   stripeWebhooks: typeof stripeWebhooks;
   templateAvailability: typeof templateAvailability;
   templateOntology: typeof templateOntology;
