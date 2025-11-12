@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
-import { FileText, CreditCard, Palette, X, Download, Mail, Edit, Lock, Calendar, User, History } from "lucide-react";
+import { FileText, CreditCard, Palette, X, Download, Mail, Edit, Lock, Calendar, User, History, Plus } from "lucide-react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { type Id, type Doc } from "../../../../convex/_generated/dataModel";
@@ -10,6 +10,7 @@ import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { TemplatesTab } from "./templates-tab";
 import { TransactionsSection } from "../payments-window/transactions-section";
+import { CreateInvoiceTab } from "./create-invoice-tab";
 
 /**
  * Invoicing Window
@@ -22,20 +23,19 @@ import { TransactionsSection } from "../payments-window/transactions-section";
  * - Template management for invoice PDFs
  *
  * Tabs:
+ * - Create: Create new B2B invoices from CRM organizations
  * - All Invoices: List of all invoices (B2B consolidated, B2B single, B2C single)
- * - Consolidation: Wizard to create consolidated B2B invoices from tickets
- * - Rules: Manage automated consolidation rules
+ * - Transactions: Payment transaction history
  * - Templates: View and preview invoice PDF templates
- * - Settings: Invoice numbering, email templates, defaults
  */
 
-type TabType = "invoices" | "transactions" | "templates";
+type TabType = "create" | "invoices" | "transactions" | "templates";
 type InvoiceSubTab = "draft" | "sealed";
 
 export function InvoicingWindow() {
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
-  const [activeTab, setActiveTab] = useState<TabType>("invoices");
+  const [activeTab, setActiveTab] = useState<TabType>("create");
   const [invoiceSubTab, setInvoiceSubTab] = useState<InvoiceSubTab>("draft");
   const [selectedInvoice, setSelectedInvoice] = useState<Doc<"objects"> | null>(null);
   const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.invoicing_window");
@@ -107,6 +107,18 @@ export function InvoicingWindow() {
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
           style={{
             borderColor: 'var(--win95-border)',
+            background: activeTab === "create" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+            color: activeTab === "create" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+          }}
+          onClick={() => setActiveTab("create")}
+        >
+          <Plus size={14} />
+          {t("ui.invoicing_window.tabs.create")}
+        </button>
+        <button
+          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
+          style={{
+            borderColor: 'var(--win95-border)',
             background: activeTab === "invoices" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
             color: activeTab === "invoices" ? 'var(--win95-text)' : 'var(--neutral-gray)'
           }}
@@ -143,6 +155,8 @@ export function InvoicingWindow() {
 
       {/* Tab Content */}
       <div className="flex-1 overflow-y-auto">
+        {activeTab === "create" && <CreateInvoiceTab />}
+
         {activeTab === "invoices" && (
           <div className="flex flex-col h-full">
             {/* Sub-tabs for Draft/Sealed */}

@@ -4,11 +4,10 @@ import { Doc, Id } from "../../../../convex/_generated/dataModel";
 import { X, Download, Loader2, Calendar, MapPin, Users, Clock, ExternalLink } from "lucide-react";
 import { useState } from "react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
-import { useAction, useQuery, useMutation } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useWindowManager } from "@/hooks/use-window-manager";
 import { TicketsWindow } from "../tickets-window";
-import { useAuth } from "@/hooks/use-auth";
 
 interface EventDetailModalProps {
   event: Doc<"objects">;
@@ -16,21 +15,29 @@ interface EventDetailModalProps {
 }
 
 export function EventDetailModal({ event, onClose }: EventDetailModalProps) {
-  const { t } = useNamespaceTranslations("ui.events");
+  const { t, isLoading } = useNamespaceTranslations("ui.events");
   const [isDownloadingAttendees, setIsDownloadingAttendees] = useState(false);
   const { openWindow } = useWindowManager();
-  const { sessionId } = useAuth();
 
   // PDF generation action
   const generateAttendeeListPDF = useAction(api.pdfGeneration.generateEventAttendeeListPDF);
+
+  // Show loading state while translations load
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}>
+        <div className="p-8 rounded" style={{ background: "var(--win95-bg)", border: "2px solid var(--win95-border)" }}>
+          <Loader2 className="animate-spin mx-auto mb-2" size={32} style={{ color: "var(--win95-highlight)" }} />
+          <p style={{ color: "var(--win95-text)" }}>Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Query to get attendee count (public query, no auth needed)
   const attendees = useQuery(api.eventOntology.getEventAttendees, {
     eventId: event._id,
   });
-
-  // Cancel ticket mutation
-  const cancelTicket = useMutation(api.ticketOntology.cancelTicket);
 
   // Handle loading state
   const isLoadingAttendees = attendees === undefined;
@@ -107,16 +114,15 @@ export function EventDetailModal({ event, onClose }: EventDetailModalProps) {
     );
   };
 
-  const handleCancelAttendee = async (ticketId: Id<"objects">) => {
-    if (!sessionId) return;
-    if (confirm(t("ui.events.detail.confirm_cancel_attendee"))) {
-      try {
-        await cancelTicket({ sessionId, ticketId });
-      } catch (error) {
-        console.error("Failed to cancel ticket:", error);
-        alert(t("ui.events.detail.error.cancel_failed"));
-      }
-    }
+  const handleViewTicketDetail = (ticketId: Id<"objects">) => {
+    // Open the tickets window focused on this specific ticket
+    openWindow(
+      `ticket-detail-${ticketId}`,
+      t("ui.events.detail.button.ticket_details"),
+      <TicketsWindow initialEventId={event._id} />,
+      undefined,
+      { width: 1000, height: 700 }
+    );
   };
 
   const customProps = event.customProperties || {};
@@ -357,68 +363,6 @@ export function EventDetailModal({ event, onClose }: EventDetailModalProps) {
               </div>
             </div>
 
-            {/* Recent Attendees */}
-            {hasAttendees && recentAttendees.length > 0 && (
-              <div
-                className="border-2 p-4"
-                style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-input-bg)",
-                }}
-              >
-                <h3 className="font-bold text-sm mb-3" style={{ color: "var(--win95-highlight)" }}>
-                  {t("ui.events.detail.section.recent_attendees")} ({recentAttendees.length})
-                </h3>
-
-                <div className="space-y-2">
-                  {recentAttendees.map((attendee) => {
-                    return (
-                      <div
-                        key={attendee._id}
-                        className="border-l-2 pl-3 pb-2 border-b"
-                        style={{
-                          borderLeftColor: "var(--win95-highlight)",
-                          borderBottomColor: "var(--win95-border)",
-                        }}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1">
-                            <p className="text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
-                              {attendee.holderName}
-                            </p>
-                            <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                              {attendee.holderEmail}
-                            </p>
-                            <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                              {attendee.ticketType} • {new Date(attendee.purchaseDate).toLocaleDateString()}
-                            </p>
-                          </div>
-                          {sessionId && (
-                            <button
-                              onClick={() => handleCancelAttendee(attendee._id)}
-                              className="px-2 py-1 text-xs border-2 hover:bg-opacity-90 transition-colors"
-                              style={{
-                                borderColor: "var(--win95-border)",
-                                background: "var(--error)",
-                                color: "white",
-                              }}
-                            >
-                              {t("ui.events.detail.button.cancel")}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                  {attendeeCount > 5 && (
-                    <p className="text-xs text-center pt-2" style={{ color: "var(--neutral-gray)" }}>
-                      {t("ui.events.detail.label.more_attendees", { count: attendeeCount - 5 })}
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Middle Column - Description */}
@@ -555,6 +499,64 @@ export function EventDetailModal({ event, onClose }: EventDetailModalProps) {
                 )}
               </div>
             </div>
+
+            {/* Recent Attendees */}
+            {hasAttendees && recentAttendees.length > 0 && (
+              <div
+                className="border-2 p-4"
+                style={{
+                  borderColor: "var(--win95-border)",
+                  background: "var(--win95-input-bg)",
+                }}
+              >
+                <h3 className="font-bold text-sm mb-3" style={{ color: "var(--win95-highlight)" }}>
+                  {t("ui.events.detail.section.recent_attendees")} ({recentAttendees.length})
+                </h3>
+
+                <div className="space-y-2">
+                  {recentAttendees.map((attendee) => {
+                    return (
+                      <div
+                        key={attendee._id}
+                        className="border-l-2 pl-3 pb-2 border-b"
+                        style={{
+                          borderLeftColor: "var(--win95-highlight)",
+                          borderBottomColor: "var(--win95-border)",
+                        }}
+                      >
+                        <button
+                          onClick={() => handleViewTicketDetail(attendee._id)}
+                          className="flex items-start justify-between gap-2 w-full hover:opacity-80 transition-opacity text-left"
+                        >
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
+                              {attendee.holderName}
+                            </p>
+                            <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                              {attendee.holderEmail}
+                            </p>
+                            <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+                              {attendee.ticketType} • {new Date(attendee.purchaseDate).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <ExternalLink size={14} style={{ color: "var(--win95-highlight)" }} className="mt-1 flex-shrink-0" />
+                        </button>
+                      </div>
+                    );
+                  })}
+
+                  {attendeeCount > 5 && (
+                    <button
+                      onClick={handleViewAllAttendees}
+                      className="w-full text-xs text-center pt-2 hover:underline cursor-pointer"
+                      style={{ color: "var(--win95-highlight)" }}
+                    >
+                      {t("ui.events.detail.label.more_attendees", { count: attendeeCount - 5 })}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

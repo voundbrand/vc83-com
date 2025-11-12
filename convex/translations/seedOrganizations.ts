@@ -566,6 +566,50 @@ export const seed = internalMutation({
           ja: "組織のオーナーとして追加（推奨）",
         }
       },
+      {
+        key: "ui.organizations.form.timezone",
+        values: {
+          en: "Timezone",
+          de: "Zeitzone",
+          pl: "Strefa czasowa",
+          es: "Zona horaria",
+          fr: "Fuseau horaire",
+          ja: "タイムゾーン",
+        }
+      },
+      {
+        key: "ui.organizations.form.timezone_hint",
+        values: {
+          en: "Set the default timezone for this organization. This will be used for event scheduling and time display.",
+          de: "Legen Sie die Standardzeitzone für diese Organisation fest. Diese wird für die Ereignisplanung und Zeitanzeige verwendet.",
+          pl: "Ustaw domyślną strefę czasową dla tej organizacji. Będzie używana do planowania wydarzeń i wyświetlania czasu.",
+          es: "Establezca la zona horaria predeterminada para esta organización. Se utilizará para la programación de eventos y la visualización de tiempo.",
+          fr: "Définissez le fuseau horaire par défaut pour cette organisation. Cela sera utilisé pour la planification des événements et l'affichage de l'heure.",
+          ja: "この組織のデフォルトのタイムゾーンを設定します。これはイベントのスケジュールと時刻表示に使用されます。",
+        }
+      },
+      {
+        key: "ui.organizations.form.date_format",
+        values: {
+          en: "Date Format",
+          de: "Datumsformat",
+          pl: "Format daty",
+          es: "Formato de fecha",
+          fr: "Format de date",
+          ja: "日付形式",
+        }
+      },
+      {
+        key: "ui.organizations.form.language",
+        values: {
+          en: "Language",
+          de: "Sprache",
+          pl: "Język",
+          es: "Idioma",
+          fr: "Langue",
+          ja: "言語",
+        }
+      },
 
       // === FORM PLACEHOLDERS ===
       {

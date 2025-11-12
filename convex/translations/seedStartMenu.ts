@@ -268,6 +268,17 @@ export const seed = internalMutation({
         }
       },
       {
+        key: "ui.app.templates",
+        values: {
+          en: "Templates",
+          de: "Vorlagen",
+          pl: "Szablony",
+          es: "Plantillas",
+          fr: "Modèles",
+          ja: "テンプレート",
+        }
+      },
+      {
         key: "ui.app.user_account",
         values: {
           en: "User Account",

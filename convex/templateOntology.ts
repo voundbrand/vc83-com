@@ -486,3 +486,274 @@ export const removeTemplateFromPage = mutation({
     return { success: true };
   },
 });
+
+/**
+ * Get Email Template by ID
+ *
+ * Used by email template renderer to resolve template codes.
+ */
+export const getEmailTemplateById = query({
+  args: {
+    templateId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const template = await ctx.db.get(args.templateId);
+
+    if (!template) return null;
+
+    if (template.type !== "template" || template.subtype !== "email") {
+      return null;
+    }
+
+    return template;
+  },
+});
+
+/**
+ * Get PDF Template by ID
+ *
+ * Used by PDF template renderer to resolve template codes.
+ */
+export const getPdfTemplateById = query({
+  args: {
+    templateId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const template = await ctx.db.get(args.templateId);
+
+    if (!template) return null;
+
+    if (template.type !== "template" || template.subtype !== "pdf_ticket") {
+      return null;
+    }
+
+    return template;
+  },
+});
+
+/**
+ * List PDF Ticket Templates
+ *
+ * Returns both system templates and organization-specific PDF ticket templates.
+ */
+export const listPdfTicketTemplates = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    await getUserContext(ctx, userId, args.organizationId);
+
+    // Check permission
+    const hasPermission = await checkPermission(
+      ctx,
+      userId,
+      "view_templates",
+      args.organizationId
+    );
+    if (!hasPermission) {
+      throw new Error("Permission denied: view_templates required");
+    }
+
+    // Get system organization
+    const systemOrg = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", "system"))
+      .first();
+
+    if (!systemOrg) {
+      throw new Error("System organization not found");
+    }
+
+    // Get system templates
+    const systemTemplates = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", systemOrg._id).eq("type", "template")
+      )
+      .filter((q) => q.eq(q.field("subtype"), "pdf_ticket"))
+      .filter((q) => q.eq(q.field("status"), "published"))
+      .collect();
+
+    // Get org-specific templates
+    const orgTemplates = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "template")
+      )
+      .filter((q) => q.eq(q.field("subtype"), "pdf_ticket"))
+      .filter((q) => q.eq(q.field("status"), "published"))
+      .collect();
+
+    return [...systemTemplates, ...orgTemplates];
+  },
+});
+
+/**
+ * Create PDF Ticket Template
+ *
+ * Creates a custom PDF ticket template for an organization.
+ * The template stores the template code which references a registered template.
+ */
+export const createPdfTicketTemplate = mutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    name: v.string(),
+    code: v.string(), // References registered template code (e.g., "elegant-gold")
+    description: v.string(),
+    category: v.union(
+      v.literal("elegant"),
+      v.literal("modern"),
+      v.literal("vip"),
+      v.literal("festival"),
+      v.literal("minimal")
+    ),
+    features: v.optional(v.any()), // Template-specific features
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    const userContext = await getUserContext(ctx, userId, args.organizationId);
+
+    // Check permission
+    const hasPermission = await checkPermission(
+      ctx,
+      userId,
+      "create_templates",
+      args.organizationId
+    );
+    if (!hasPermission) {
+      throw new Error("Permission denied: create_templates required");
+    }
+
+    // Validate organization membership
+    if (!userContext.isGlobal && userContext.organizationId !== args.organizationId) {
+      throw new Error("Cannot create template for another organization");
+    }
+
+    // Check code uniqueness within org
+    const existingTemplates = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "template")
+      )
+      .filter((q) => q.eq(q.field("subtype"), "pdf_ticket"))
+      .collect();
+
+    const existingByCode = existingTemplates.find(
+      (template) => template.customProperties?.code === args.code
+    );
+
+    if (existingByCode) {
+      throw new Error(`PDF template code "${args.code}" is already in use`);
+    }
+
+    // Create template
+    const templateId = await ctx.db.insert("objects", {
+      organizationId: args.organizationId,
+      type: "template",
+      subtype: "pdf_ticket",
+      name: args.name,
+      status: "published", // Auto-publish org templates
+      customProperties: {
+        code: args.code,
+        description: args.description,
+        category: args.category,
+        features: args.features || {},
+        author: "Organization Custom",
+        version: "1.0.0",
+      },
+      createdBy: userId,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    // Audit log
+    await ctx.db.insert("objectActions", {
+      organizationId: args.organizationId,
+      objectId: templateId,
+      actionType: "created",
+      actionData: {
+        code: args.code,
+        category: args.category,
+      },
+      performedBy: userId,
+      performedAt: Date.now(),
+    });
+
+    return { templateId };
+  },
+});
+
+/**
+ * Update PDF Ticket Template
+ *
+ * Updates an existing PDF ticket template.
+ */
+export const updatePdfTicketTemplate = mutation({
+  args: {
+    sessionId: v.string(),
+    templateId: v.id("objects"),
+    updates: v.object({
+      name: v.optional(v.string()),
+      description: v.optional(v.string()),
+      features: v.optional(v.any()),
+    }),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const template = await ctx.db.get(args.templateId);
+    if (!template) throw new Error("Template not found");
+
+    if (template.type !== "template" || template.subtype !== "pdf_ticket") {
+      throw new Error("Not a PDF ticket template");
+    }
+
+    const userContext = await getUserContext(ctx, userId, template.organizationId);
+
+    // Check permission
+    const hasPermission = await checkPermission(
+      ctx,
+      userId,
+      "edit_templates",
+      template.organizationId
+    );
+    if (!hasPermission) {
+      throw new Error("Permission denied: edit_templates required");
+    }
+
+    // Validate organization membership
+    if (!userContext.isGlobal && userContext.organizationId !== template.organizationId) {
+      throw new Error("Cannot edit template for another organization");
+    }
+
+    // Update template
+    const updatedProperties = {
+      ...template.customProperties,
+      ...args.updates,
+    };
+
+    await ctx.db.patch(args.templateId, {
+      name: args.updates.name || template.name,
+      customProperties: updatedProperties,
+      updatedAt: Date.now(),
+    });
+
+    // Audit log
+    await ctx.db.insert("objectActions", {
+      organizationId: template.organizationId,
+      objectId: args.templateId,
+      actionType: "updated",
+      actionData: {
+        before: template.customProperties,
+        after: updatedProperties,
+      },
+      performedBy: userId,
+      performedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});

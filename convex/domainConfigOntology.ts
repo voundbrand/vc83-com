@@ -12,6 +12,7 @@
 
 import { mutation, query, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
+import { requireAuthenticatedUser } from "./rbacHelpers";
 
 /**
  * CREATE domain configuration
@@ -34,11 +35,11 @@ export const createDomainConfig = mutation({
 
     // Optional: Email configuration
     email: v.optional(v.object({
-      resendDomainId: v.string(),
-      senderEmail: v.string(),
-      systemEmail: v.string(),
-      salesEmail: v.string(),
-      replyToEmail: v.string(),
+      emailDomain: v.string(),        // Domain verified in Resend (e.g., "mail.pluseins.gg")
+      senderEmail: v.string(),        // Default sender (e.g., "noreply@mail.pluseins.gg")
+      systemEmail: v.string(),        // System notifications (e.g., "system@mail.pluseins.gg")
+      salesEmail: v.string(),         // Sales inquiries (e.g., "sales@pluseins.gg")
+      replyToEmail: v.string(),       // Reply-to address (e.g., "reply@pluseins.gg")
     })),
 
     // Optional: Web publishing configuration
@@ -53,21 +54,8 @@ export const createDomainConfig = mutation({
     })),
   },
   handler: async (ctx, args) => {
-    // Get current user from session
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Must be authenticated to create domain configuration");
-    }
-
-    // Get user from identity
-    const user = await ctx.db
-      .query("users")
-      .withIndex("email", (q) => q.eq("email", identity.email!))
-      .first();
-
-    if (!user) {
-      throw new Error("User not found");
-    }
+    // Verify session and get authenticated user
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
     const configId = await ctx.db.insert("objects", {
       organizationId: args.organizationId,
@@ -93,7 +81,7 @@ export const createDomainConfig = mutation({
           webPublishing: args.webPublishing
         }),
       },
-      createdBy: user._id,
+      createdBy: userId,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     });
@@ -190,11 +178,11 @@ export const updateDomainConfig = mutation({
       fontFamily: v.optional(v.string()),
     })),
     email: v.optional(v.object({
-      resendDomainId: v.string(),
-      senderEmail: v.string(),
-      systemEmail: v.string(),
-      salesEmail: v.string(),
-      replyToEmail: v.string(),
+      emailDomain: v.string(),        // Domain configured in Resend (e.g., "mail.pluseins.gg")
+      senderEmail: v.string(),        // Default sender (e.g., "noreply@mail.pluseins.gg")
+      systemEmail: v.string(),        // System notifications (e.g., "system@mail.pluseins.gg")
+      salesEmail: v.string(),         // Sales inquiries (e.g., "sales@pluseins.gg")
+      replyToEmail: v.string(),       // Reply-to address (e.g., "reply@pluseins.gg")
     })),
     webPublishing: v.optional(v.object({
       templateId: v.optional(v.string()),

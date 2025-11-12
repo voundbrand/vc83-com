@@ -1,54 +1,24 @@
 /**
  * PDF GENERATION FOR TICKETS AND INVOICES
  *
- * Generates professional PDFs for tickets and receipts using jsPDF.
- * Style inspired by Eventbrite's clean, professional design.
+ * ✅ MIGRATED TO API TEMPLATE.IO (January 2025)
+ * ===========================================
+ * Replaced jsPDF with API Template.io HTML/CSS templates for professional PDFs.
  *
- * TODO: CUSTOM PDF TEMPLATE SUPPORT
- * ==================================
- * Modify PDF generation to support custom organization templates.
+ * Benefits:
+ * - Professional HTML/CSS templates instead of programmatic positioning
+ * - Easy customization through HTML/CSS editing
+ * - Consistent branding across all PDFs
+ * - API-based rendering offloads processing
  *
- * IMPLEMENTATION STEPS:
+ * Templates:
+ * - Tickets: elegant-gold, modern-ticket, vip-premium
+ * - Invoices: b2b-professional, detailed-breakdown, b2c-receipt
  *
- * 1. UPDATE generateTicketPDF function:
- *    - Add optional templateId parameter: templateId?: Id<"objects">
- *    - Load custom template if provided, otherwise use org default or built-in
- *    - Apply custom branding: logo, colors, fonts
- *    - Apply custom layout: show/hide QR code, barcode, sponsors
- *    - Merge custom fields into PDF content
- *
- * 2. UPDATE generateInvoicePDF function:
- *    - Same template loading logic as tickets
- *    - Support different templates for B2C receipts vs B2B invoices
- *    - Apply company branding (logo, letterhead)
- *    - Custom payment terms and bank details
- *
- * 3. ADD template rendering helper:
- *    function applyCustomTemplate(doc: jsPDF, data: any, template: PdfTemplate) {
- *      // Apply branding
- *      if (template.branding.logoUrl) addLogo(doc, template.branding.logoUrl);
- *      doc.setTextColor(template.branding.primaryColor);
- *
- *      // Apply layout
- *      if (template.layout.showQrCode) addQRCode(doc, data.qrCode);
- *      if (template.layout.headerText) addHeader(doc, template.layout.headerText);
- *
- *      // Add custom fields
- *      template.customFields.forEach(field => {
- *        addCustomField(doc, field.position, field.label, field.value);
- *      });
- *    }
- *
- * 4. FALLBACK LOGIC:
- *    - Always try custom template first
- *    - If template fails to load/render: fallback to built-in default
- *    - Log errors but don't break PDF generation
- *    - Ensure PDFs always generate even if customization fails
- *
- * RELATED FILES:
- * - convex/ticketGeneration.ts (comprehensive TODO documentation)
- * - convex/pdfTemplates.ts (NEW - template CRUD)
- * - src/components/window-content/settings-window/pdf-templates-tab.tsx (NEW - UI)
+ * Related Files:
+ * - convex/lib/generateTicketPdf.ts - API Template.io ticket generator
+ * - convex/lib/generateInvoicePdf.ts - API Template.io invoice generator
+ * - convex/lib/pdf_templates/ - HTML/CSS template files
  */
 
 import { action } from "./_generated/server";
@@ -63,19 +33,27 @@ type PDFAttachment = {
 };
 
 /**
- * GENERATE TICKET PDF
+ * GENERATE TICKET PDF (API Template.io)
  *
- * Creates a professional ticket PDF with QR code, event details, and order info.
- * Based on Eventbrite's ticket design.
+ * Creates a professional ticket PDF using HTML/CSS templates via API Template.io.
+ * Supports multiple template styles: elegant-gold, modern-ticket, vip-premium.
+ *
+ * Migration Note: Replaced ~300 lines of jsPDF positioning code with clean HTML/CSS templates.
  */
 export const generateTicketPDF = action({
   args: {
     ticketId: v.id("objects"),
     checkoutSessionId: v.id("objects"),
+    templateCode: v.optional(v.string()), // "elegant-gold", "modern-ticket", "vip-premium"
   },
   handler: async (ctx, args): Promise<PDFAttachment | null> => {
     try {
-      const { jsPDF } = await import("jspdf");
+      // 1. Check for API key
+      const apiKey = process.env.API_TEMPLATE_IO_KEY;
+      if (!apiKey) {
+        console.error("❌ API_TEMPLATE_IO_KEY not configured - falling back to error");
+        return null;
+      }
 
       // 1. Get ticket data
       const ticket = await ctx.runQuery(internal.ticketOntology.getTicketInternal, {
@@ -131,116 +109,7 @@ export const generateTicketPDF = action({
       const eventLocation = (session.customProperties?.eventLocation as string) ||
         (product.customProperties?.location as string | undefined);
 
-      // 6. Generate QR code using external API
-      const qrResult = await ctx.runAction(api.ticketGeneration.generateTicketQR, {
-        ticketId: args.ticketId,
-        holderEmail: ticket.customProperties?.holderEmail as string,
-        holderName: ticket.customProperties?.holderName as string,
-        eventName,
-        eventDate,
-      });
-
-      // 7. Create PDF (A4 size)
-      const doc = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: "a4",
-      });
-
-      // 6. Add content in Eventbrite style
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-
-      // Header with order number
-      doc.setFontSize(10);
-      doc.setTextColor(100, 100, 100);
-      doc.text(`Order #${session._id.substring(0, 12)}`, pageWidth - 15, 15, { align: "right" });
-
-      // Event name (large, bold)
-      doc.setFontSize(24);
-      doc.setTextColor(0, 0, 0);
-      doc.setFont("helvetica", "bold");
-      doc.text(eventName, 20, 40, { maxWidth: pageWidth - 100 });
-
-      // Event sponsors (if available) - display all sponsors
-      let currentY = 55;
-      if (eventSponsors && eventSponsors.length > 0) {
-        doc.setFontSize(12);
-        doc.setTextColor(107, 70, 193); // Purple color for sponsors
-        doc.setFont("helvetica", "normal");
-
-        // If only one sponsor, simple format
-        if (eventSponsors.length === 1) {
-          doc.text(`Presented by ${eventSponsors[0].name}`, 20, currentY);
-          currentY += 10;
-        } else {
-          // Multiple sponsors - list them all
-          doc.text("Presented by:", 20, currentY);
-          currentY += 7;
-          doc.setFontSize(10);
-          eventSponsors.forEach((sponsor) => {
-            const sponsorText = sponsor.level
-              ? `${sponsor.name} (${sponsor.level})`
-              : sponsor.name;
-            doc.text(`• ${sponsorText}`, 25, currentY);
-            currentY += 5;
-          });
-          currentY += 3; // Extra spacing after sponsor list
-        }
-      }
-
-      // Ticket type
-      doc.setFontSize(16);
-      doc.setTextColor(0, 0, 0);
-      doc.setFont("helvetica", "normal");
-      doc.text(ticket.subtype || "Standard", 20, currentY);
-      currentY += 15;
-
-      // Location
-      doc.setFontSize(12);
-      doc.setTextColor(80, 80, 80);
-      if (eventLocation) {
-        doc.text(eventLocation, 20, currentY, { maxWidth: pageWidth - 100 });
-        currentY += 10;
-      }
-
-      // Date/Time
-      if (eventDate) {
-        const formattedDate = new Date(eventDate).toLocaleDateString("en-US", {
-          weekday: "long",
-          month: "long",
-          day: "numeric",
-          year: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-        });
-        doc.text(formattedDate, 20, currentY);
-        currentY += 10;
-      }
-
-      // QR Code (right side, large)
-      const qrSize = 60;
-      const qrX = pageWidth - qrSize - 20;
-      const qrY = 30;
-      doc.addImage(qrResult.qrCodeDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
-
-      // Order Information section
-      currentY += 10;
-      doc.setFontSize(10);
-      doc.setTextColor(150, 150, 150);
-      doc.text("Order Information", 20, currentY);
-
-      currentY += 8;
-      doc.setFontSize(11);
-      doc.setTextColor(0, 0, 0);
-      doc.text(
-        `Order #${session._id.substring(0, 12)}. Ordered by ${ticket.customProperties?.holderName} on ${new Date(session.createdAt).toLocaleDateString()}`,
-        20,
-        currentY,
-        { maxWidth: pageWidth - 40 }
-      );
-
-      // Price Breakdown - Get pricing from the linked transaction
+      // 6. Get pricing from transaction
       const transactionId = ticket.customProperties?.transactionId as Id<"objects"> | undefined;
       const currency = (session.customProperties?.currency as string) || "EUR";
 
@@ -250,41 +119,23 @@ export const generateTicketPDF = action({
       let taxRate = 0;
 
       if (transactionId) {
-        // Fetch the transaction to get accurate pricing
         const transaction = await ctx.runQuery(internal.transactionOntology.getTransactionInternal, {
           transactionId,
         });
 
-        console.log(`📝 [generateTicketPDF] Transaction found: ${transactionId}`);
-        console.log(`   Transaction type: ${transaction?.type}`);
-        console.log(`   Transaction data:`, JSON.stringify(transaction?.customProperties, null, 2));
-
         if (transaction && transaction.type === "transaction") {
-          // Transaction has the correct pricing in cents
           const unitPriceInCents = (transaction.customProperties?.unitPriceInCents as number) || 0;
           const totalPriceInCents = (transaction.customProperties?.totalPriceInCents as number) || 0;
           const taxAmountInCents = (transaction.customProperties?.taxAmountInCents as number) || 0;
 
-          console.log(`   unitPriceInCents: ${unitPriceInCents}`);
-          console.log(`   taxAmountInCents: ${taxAmountInCents}`);
-          console.log(`   totalPriceInCents: ${totalPriceInCents}`);
-
-          // Convert from cents to currency units
           netPrice = unitPriceInCents / 100;
           totalPrice = totalPriceInCents / 100;
           taxAmount = taxAmountInCents / 100;
           taxRate = netPrice > 0 ? ((taxAmount / netPrice) * 100) : 0;
-
-          console.log(`   Calculated netPrice: ${netPrice}`);
-          console.log(`   Calculated taxAmount: ${taxAmount}`);
-          console.log(`   Calculated taxRate: ${taxRate}%`);
-          console.log(`   Calculated totalPrice: ${totalPrice}`);
         }
-      } else {
-        console.log(`⚠️  [generateTicketPDF] No transaction ID found on ticket ${args.ticketId}`);
       }
 
-      // Fallback: use session totals if transaction not found
+      // Fallback to session totals
       if (totalPrice === 0) {
         const totalAmount = (session.customProperties?.totalAmount as number) || 0;
         const sessionTaxAmount = (session.customProperties?.taxAmount as number) || 0;
@@ -296,70 +147,94 @@ export const generateTicketPDF = action({
         taxRate = netPrice > 0 ? ((taxAmount / netPrice) * 100) : 0;
       }
 
-      currentY += 10;
-      doc.setFontSize(10);
-      doc.setTextColor(100, 100, 100);
-      doc.text("Price Breakdown", 20, currentY);
+      // 7. Format dates for template
+      const formatDate = (timestamp: number) => {
+        return new Date(timestamp).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        });
+      };
 
-      currentY += 7;
-      doc.setFontSize(11);
-      doc.setTextColor(0, 0, 0);
-      doc.text(`Subtotal:`, 20, currentY);
-      doc.text(`${currency.toUpperCase()} ${netPrice.toFixed(2)}`, 80, currentY);
+      const formatDateTime = (timestamp: number) => {
+        return new Date(timestamp).toLocaleDateString("en-US", {
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        });
+      };
 
-      console.log(`📊 [generateTicketPDF] Final display values:`);
-      console.log(`   taxAmount > 0? ${taxAmount > 0} (taxAmount = ${taxAmount})`);
-      console.log(`   taxRate: ${taxRate}%`);
-      console.log(`   Will display tax line: ${taxAmount > 0}`);
+      // 8. Get additional event details
+      const eventAddress = (session.customProperties?.eventAddress as string) || "";
 
-      if (taxAmount > 0) {
-        currentY += 7;
-        doc.setTextColor(100, 100, 100);
-        doc.text(`Tax (${taxRate.toFixed(1)}%):`, 20, currentY);
-        doc.text(`${currency.toUpperCase()} ${taxAmount.toFixed(2)}`, 80, currentY);
-        console.log(`✅ [generateTicketPDF] Tax line added to PDF`);
-      } else {
-        console.log(`❌ [generateTicketPDF] Tax line NOT added (taxAmount = ${taxAmount})`);
+      // 9. Prepare ticket data for API Template.io
+      const ticketData = {
+        // Ticket info
+        ticket_number: ticket._id,
+        ticket_type: ticket.subtype || "Standard",
+        attendee_name: ticket.customProperties?.holderName as string,
+        attendee_email: ticket.customProperties?.holderEmail as string,
+        guest_count: 1,
+
+        // Event info
+        event_name: eventName,
+        event_date: eventDate ? formatDate(eventDate) : "TBD",
+        event_time: eventDate ? formatDateTime(eventDate) : "TBD",
+        event_location: eventLocation || "Location TBD",
+        event_address: eventAddress,
+        event_sponsors: eventSponsors,
+
+        // QR code URL (API Template.io will fetch it)
+        qr_code_data: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`${process.env.NEXT_PUBLIC_APP_URL || "https://app.yourcompany.com"}/verify-ticket/${args.ticketId}`)}`,
+
+        // Organization/branding
+        organization_name: sellerOrg?.name || "Event Organizer",
+        organization_email: (sellerContact?.customProperties?.primaryEmail as string) || "support@yourcompany.com",
+        organization_phone: (sellerContact?.customProperties?.primaryPhone as string) || "",
+        organization_website: (sellerContact?.customProperties?.website as string) || "",
+        logo_url: undefined, // TODO: Add organization logo support
+        highlight_color: "#6B46C1", // Brand purple
+
+        // Order info
+        order_id: session._id.substring(0, 12),
+        order_date: formatDate(session.createdAt),
+        currency: currency.toUpperCase(),
+        net_price: netPrice.toFixed(2),
+        tax_amount: taxAmount.toFixed(2),
+        tax_rate: taxRate.toFixed(1),
+        total_price: totalPrice.toFixed(2),
+      };
+
+      // 10. Call API Template.io generator
+      const { generateTicketPdfFromTemplate } = await import("./lib/generateTicketPdf");
+
+      const result = await generateTicketPdfFromTemplate({
+        apiKey,
+        templateCode: args.templateCode || "modern-ticket",
+        ticketData,
+      });
+
+      if (result.status === "error") {
+        console.error("❌ API Template.io error:", result.error, result.message);
+        return null;
       }
 
-      currentY += 7;
-      doc.setFontSize(14);
-      doc.setTextColor(0, 0, 0);
-      doc.setFont("helvetica", "bold");
-      doc.text(`Total:`, 20, currentY);
-      doc.text(
-        totalPrice === 0 ? "Free" : `${currency.toUpperCase()} ${totalPrice.toFixed(2)}`,
-        80,
-        currentY
+      // 11. Download PDF from API Template.io and convert to base64
+      const pdfResponse = await fetch(result.download_url!);
+      if (!pdfResponse.ok) {
+        throw new Error("Failed to download PDF from API Template.io");
+      }
+
+      const pdfBlob = await pdfResponse.blob();
+      const pdfBuffer = await pdfBlob.arrayBuffer();
+      const pdfBase64 = btoa(
+        String.fromCharCode(...new Uint8Array(pdfBuffer))
       );
 
-      // Barcode number below QR
-      doc.setFontSize(8);
-      doc.setTextColor(100, 100, 100);
-      doc.text(session._id, qrX, qrY + qrSize + 5, { align: "center", maxWidth: qrSize });
-
-      // Footer with seller organization info
-      doc.setFontSize(10);
-      doc.setTextColor(150, 150, 150);
-      doc.text("Present this ticket at the event entrance", 20, pageHeight - 30);
-
-      // Seller info footer
-      doc.setFontSize(8);
-      doc.setTextColor(180, 180, 180);
-      const footerY = pageHeight - 22;
-
-      const footerParts: string[] = [];
-      if (sellerOrg?.name) footerParts.push(sellerOrg.name);
-      if (sellerContact?.customProperties?.primaryEmail) footerParts.push(sellerContact.customProperties.primaryEmail as string);
-      if (sellerContact?.customProperties?.primaryPhone) footerParts.push(sellerContact.customProperties.primaryPhone as string);
-      if (sellerContact?.customProperties?.website) footerParts.push(sellerContact.customProperties.website as string);
-
-      if (footerParts.length > 0) {
-        doc.text(footerParts.join(" • "), 20, footerY, { maxWidth: pageWidth - 40 });
-      }
-
-      // Convert to base64
-      const pdfBase64 = doc.output("datauristring").split(",")[1];
+      console.log("✅ Ticket PDF generated via API Template.io:", result.transaction_ref);
 
       return {
         filename: `ticket-${ticket._id.substring(0, 12)}.pdf`,
@@ -376,7 +251,7 @@ export const generateTicketPDF = action({
 /**
  * GENERATE RECEIPT PDF (Public - for B2C customers)
  *
- * Creates a receipt PDF for paid orders (Stripe, PayPal, etc.)
+ * Creates a receipt PDF for paid orders (Stripe, PayPal, etc.) using the B2C-friendly template.
  * This is a public action that can be called from the frontend.
  */
 export const generateReceiptPDF = action({
@@ -384,26 +259,35 @@ export const generateReceiptPDF = action({
     checkoutSessionId: v.id("objects"),
   },
   handler: async (ctx, args): Promise<PDFAttachment | null> => {
-    // Reuse the invoice PDF generator but change the title to "RECEIPT"
+    // Use the B2C receipt template for customer-friendly formatting
     return await ctx.runAction(api.pdfGeneration.generateInvoicePDF, {
       checkoutSessionId: args.checkoutSessionId,
+      templateCode: "b2c-receipt", // B2C-friendly receipt template
     });
   },
 });
 
 /**
- * GENERATE INVOICE/RECEIPT PDF
+ * GENERATE INVOICE/RECEIPT PDF (API Template.io)
  *
- * Creates a professional receipt/invoice PDF with order summary and payment details.
+ * Creates a professional receipt/invoice PDF using HTML/CSS templates via API Template.io.
+ * Supports both B2B (with company billing) and B2C (individual customer) invoices.
+ * Template options: b2b-professional, detailed-breakdown, b2c-receipt
  */
 export const generateInvoicePDF = action({
   args: {
     checkoutSessionId: v.id("objects"),
     crmOrganizationId: v.optional(v.id("objects")), // Optional: B2B employer organization
+    templateCode: v.optional(v.string()), // "b2b-professional", "detailed-breakdown", "b2c-receipt"
   },
   handler: async (ctx, args): Promise<PDFAttachment | null> => {
     try {
-      const { jsPDF } = await import("jspdf");
+      // 1. Check for API key
+      const apiKey = process.env.API_TEMPLATE_IO_KEY;
+      if (!apiKey) {
+        console.error("❌ API_TEMPLATE_IO_KEY not configured - falling back to error");
+        return null;
+      }
 
       // 1. Get checkout session
       const session = await ctx.runQuery(
@@ -550,140 +434,49 @@ export const generateInvoicePDF = action({
       const buyerCompanyName = session.customProperties?.companyName as string | undefined;
       const buyerVatNumber = session.customProperties?.vatNumber as string | undefined;
 
-      // Extract billing address
+      // Extract billing address from session
       const billingStreet = session.customProperties?.billingStreet as string | undefined;
       const billingCity = session.customProperties?.billingCity as string | undefined;
       const billingState = session.customProperties?.billingState as string | undefined;
       const billingPostalCode = session.customProperties?.billingPostalCode as string | undefined;
       const billingCountry = session.customProperties?.billingCountry as string | undefined;
 
-      // 6. Create PDF
-      const doc = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: "a4",
-      });
-
-      const pageWidth = doc.internal.pageSize.getWidth();
-
-      // Header
-      doc.setFontSize(20);
-      doc.setTextColor(0, 0, 0);
-      doc.setFont("helvetica", "bold");
-      doc.text("INVOICE", 20, 25);
-
-      // Invoice number and date
-      doc.setFontSize(10);
-      doc.setTextColor(100, 100, 100);
-      doc.setFont("helvetica", "normal");
-      doc.text(`Invoice #${session._id.substring(0, 12)}`, pageWidth - 15, 25, { align: "right" });
-      doc.text(
-        `Date: ${new Date(session.createdAt).toLocaleDateString()}`,
-        pageWidth - 15,
-        32,
-        { align: "right" }
-      );
-
-      // FROM (Seller Organization)
-      doc.setFontSize(12);
-      doc.setTextColor(0, 0, 0);
-      doc.setFont("helvetica", "bold");
-      doc.text("FROM:", 20, 45);
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      let fromYPos = 52;
-
-      // Show business name with priority: legal entity > org businessName > org name > profile
+      // 6. Prepare invoice data for API Template.io
       const businessName = sellerLegal?.customProperties?.legalEntityName as string | undefined ||
                           organization?.businessName ||
                           organization?.name ||
                           sellerOrg?.name ||
                           "L4YERCAK3.com";
-      doc.text(businessName, 20, fromYPos);
-      fromYPos += 6;
 
-      // Use tax origin address if available, otherwise fall back to legal address
+      // 7. Build organization address from tax settings or legal info
+      let organizationAddress = "";
       if (taxSettings?.originAddress) {
         const origin = taxSettings.originAddress;
-
-        // Street address (addressLine1)
-        if (origin.addressLine1) {
-          doc.text(origin.addressLine1, 20, fromYPos);
-          fromYPos += 6;
-        }
-
-        // Street address line 2 (optional)
-        if (origin.addressLine2) {
-          doc.text(origin.addressLine2, 20, fromYPos);
-          fromYPos += 6;
-        }
-
-        // City, State, Postal Code
-        const cityLine = [
-          origin.city,
-          origin.state,
-          origin.postalCode
-        ].filter(Boolean).join(", ");
-        doc.text(cityLine, 20, fromYPos);
-        fromYPos += 6;
-
-        // Country
-        doc.text(origin.country, 20, fromYPos);
-        fromYPos += 6;
+        const addressParts = [
+          origin.addressLine1,
+          origin.addressLine2,
+          [origin.city, origin.state, origin.postalCode].filter(Boolean).join(", "),
+          origin.country
+        ].filter(Boolean);
+        organizationAddress = addressParts.join("\n");
       } else if (sellerLegal?.customProperties?.address) {
-        // Fallback to legal address
-        doc.text(sellerLegal.customProperties.address as string, 20, fromYPos);
-        fromYPos += 6;
+        organizationAddress = sellerLegal.customProperties.address as string;
       }
 
-      if (sellerLegal?.customProperties?.taxId) {
-        doc.text(`Tax ID: ${sellerLegal.customProperties.taxId}`, 20, fromYPos);
-        fromYPos += 6;
-      }
-
-      if (sellerLegal?.customProperties?.vatNumber) {
-        doc.text(`VAT: ${sellerLegal.customProperties.vatNumber}`, 20, fromYPos);
-        fromYPos += 6;
-      }
-
-      if (sellerContact?.customProperties?.primaryEmail) {
-        doc.text(sellerContact.customProperties.primaryEmail as string, 20, fromYPos);
-        fromYPos += 6;
-      }
-
-      if (sellerContact?.customProperties?.primaryPhone) {
-        doc.text(sellerContact.customProperties.primaryPhone as string, 20, fromYPos);
-        fromYPos += 6;
-      }
-
-      // BILL TO (Buyer - use CRM org if available, otherwise fallback to session data)
-      let billToYPos = 45;
-      doc.setFontSize(12);
-      doc.setTextColor(0, 0, 0);
-      doc.setFont("helvetica", "bold");
+      // 8. Build bill_to information
       const isCRMBilling = !!buyerCrmOrg;
-      doc.text(isCRMBilling || transactionType === "B2B" ? "BILL TO:" : "CUSTOMER:", pageWidth / 2 + 10, billToYPos);
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      billToYPos += 7;
+      let billTo: {
+        company_name: string;
+        vat_number?: string;
+        address?: string;
+        city?: string;
+        state?: string;
+        zip_code?: string;
+        country?: string;
+      };
 
       if (isCRMBilling && buyerCrmOrg) {
-        // B2B with CRM Organization: Use CRM org billing info
-        doc.setFont("helvetica", "bold");
-        doc.text(buyerCrmOrg.name, pageWidth / 2 + 10, billToYPos);
-        billToYPos += 6;
-        doc.setFont("helvetica", "normal");
-
-        // VAT number from CRM org
-        const crmVatNumber = buyerCrmOrg.customProperties?.vatNumber as string | undefined;
-        if (crmVatNumber) {
-          doc.text(`VAT: ${crmVatNumber}`, pageWidth / 2 + 10, billToYPos);
-          billToYPos += 6;
-        }
-
-        // Billing address from CRM org
+        // Use CRM organization billing data
         const crmBillingAddress = buyerCrmOrg.customProperties?.billingAddress as {
           line1?: string;
           line2?: string;
@@ -693,188 +486,131 @@ export const generateInvoicePDF = action({
           country?: string;
         } | undefined;
 
-        if (crmBillingAddress?.line1) {
-          doc.text(crmBillingAddress.line1, pageWidth / 2 + 10, billToYPos);
-          billToYPos += 6;
-        }
-
-        if (crmBillingAddress?.line2) {
-          doc.text(crmBillingAddress.line2, pageWidth / 2 + 10, billToYPos);
-          billToYPos += 6;
-        }
-
-        if (crmBillingAddress?.city || crmBillingAddress?.state || crmBillingAddress?.postalCode) {
-          const cityLine = [
-            crmBillingAddress.city,
-            crmBillingAddress.state,
-            crmBillingAddress.postalCode
-          ].filter(Boolean).join(", ");
-          doc.text(cityLine, pageWidth / 2 + 10, billToYPos);
-          billToYPos += 6;
-        }
-
-        if (crmBillingAddress?.country) {
-          doc.text(crmBillingAddress.country, pageWidth / 2 + 10, billToYPos);
-          billToYPos += 6;
-        }
-
-        // Billing contact from CRM org
-        const crmBillingEmail = buyerCrmOrg.customProperties?.billingEmail as string | undefined;
-        const crmBillingContact = buyerCrmOrg.customProperties?.billingContact as string | undefined;
-
-        if (crmBillingContact) {
-          doc.text(`Contact: ${crmBillingContact}`, pageWidth / 2 + 10, billToYPos);
-          billToYPos += 6;
-        }
-
-        if (crmBillingEmail) {
-          doc.text(crmBillingEmail, pageWidth / 2 + 10, billToYPos);
-          billToYPos += 6;
-        }
-
-        // Customer as "Attn:" if different from billing contact
-        const customerName = session.customProperties?.customerName as string;
-        if (customerName && customerName !== crmBillingContact) {
-          doc.text(`Attn: ${customerName}`, pageWidth / 2 + 10, billToYPos);
-          billToYPos += 6;
-        }
+        billTo = {
+          company_name: buyerCrmOrg.name,
+          vat_number: buyerCrmOrg.customProperties?.vatNumber as string | undefined,
+          address: [crmBillingAddress?.line1, crmBillingAddress?.line2].filter(Boolean).join(", "),
+          city: crmBillingAddress?.city,
+          state: crmBillingAddress?.state,
+          zip_code: crmBillingAddress?.postalCode,
+          country: crmBillingAddress?.country,
+        };
       } else if (transactionType === "B2B" && buyerCompanyName) {
-        // B2B without CRM org: Fallback to session data
-        doc.setFont("helvetica", "bold");
-        doc.text(buyerCompanyName, pageWidth / 2 + 10, billToYPos);
-        billToYPos += 6;
-        doc.setFont("helvetica", "normal");
-
-        if (buyerVatNumber) {
-          doc.text(`VAT: ${buyerVatNumber}`, pageWidth / 2 + 10, billToYPos);
-          billToYPos += 6;
-        }
-
-        doc.text(`Attn: ${session.customProperties?.customerName as string}`, pageWidth / 2 + 10, billToYPos);
-        billToYPos += 6;
-
-        // Billing address
-        if (billingStreet) {
-          doc.text(billingStreet, pageWidth / 2 + 10, billToYPos);
-          billToYPos += 6;
-        }
-
-        if (billingCity || billingState || billingPostalCode) {
-          const cityLine = [
-            billingCity,
-            billingState,
-            billingPostalCode
-          ].filter(Boolean).join(", ");
-          doc.text(cityLine, pageWidth / 2 + 10, billToYPos);
-          billToYPos += 6;
-        }
-
-        if (billingCountry) {
-          doc.text(billingCountry, pageWidth / 2 + 10, billToYPos);
-          billToYPos += 6;
-        }
+        // B2B from session data
+        billTo = {
+          company_name: buyerCompanyName,
+          vat_number: buyerVatNumber,
+          address: billingStreet,
+          city: billingCity,
+          state: billingState,
+          zip_code: billingPostalCode,
+          country: billingCountry,
+        };
       } else {
-        // B2C: Show customer name
-        doc.text(session.customProperties?.customerName as string, pageWidth / 2 + 10, billToYPos);
-        billToYPos += 6;
+        // B2C customer
+        const customerName = session.customProperties?.customerName as string | undefined || "Customer";
+
+        billTo = {
+          company_name: customerName,
+          vat_number: undefined,
+          address: billingStreet,
+          city: billingCity,
+          state: billingState,
+          zip_code: billingPostalCode,
+          country: billingCountry,
+        };
       }
 
-      // Customer email (always show if not already shown in CRM billing email)
-      const customerEmail = session.customProperties?.customerEmail as string;
-      const crmBillingEmail = buyerCrmOrg?.customProperties?.billingEmail as string | undefined;
-      if (customerEmail && customerEmail !== crmBillingEmail) {
-        doc.text(customerEmail, pageWidth / 2 + 10, billToYPos);
-        billToYPos += 6;
+      // 9. Prepare line items for invoice
+      const items = validItems.map(item => ({
+        description: item.productName,
+        quantity: item.quantity,
+        rate: item.pricePerUnit / 100,
+        amount: item.totalPrice / 100,
+      }));
+
+      // 10. Prepare invoice template data
+      const invoiceData = {
+        // Organization info
+        organization_name: businessName,
+        organization_address: organizationAddress,
+        organization_phone: sellerContact?.customProperties?.primaryPhone as string | undefined,
+        organization_email: sellerContact?.customProperties?.primaryEmail as string | undefined,
+        tax_id: sellerLegal?.customProperties?.taxId as string | undefined,
+        vat_number: sellerLegal?.customProperties?.vatNumber as string | undefined,
+
+        // Invoice details
+        invoice_number: `INV-${session._id.substring(0, 12)}`,
+        invoice_date: new Date(session.createdAt).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        }),
+        due_date: new Date(session.createdAt + 30 * 24 * 60 * 60 * 1000).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        }),
+
+        // Bill to
+        bill_to: billTo,
+
+        // Line items
+        items,
+
+        // Totals
+        subtotal: subtotal / 100,
+        tax_rate: taxRatePercent,
+        tax: taxAmount / 100,
+        total: total / 100,
+        currency: currency.toUpperCase(),
+
+        // Additional info
+        payment_terms: "Payment due within 30 days",
+        notes: transactionType === "B2B" ? "Thank you for your business!" : "Thank you for your purchase!",
+        highlight_color: "#6B46C1",
+      };
+
+      // 11. Call API Template.io generator
+      const { generateInvoicePdfFromTemplate } = await import("./lib/generateInvoicePdf");
+
+      // Choose template based on transaction type
+      let templateCode = args.templateCode;
+      if (!templateCode) {
+        templateCode = transactionType === "B2B" ? "b2b-professional" : "b2c-receipt";
       }
 
-      if (session.customProperties?.customerPhone) {
-        doc.text(session.customProperties.customerPhone as string, pageWidth / 2 + 10, billToYPos);
-        billToYPos += 6;
-      }
-
-      // Items table (adjusted Y position for seller/buyer info)
-      let yPos = Math.max(fromYPos, billToYPos) + 15;
-      doc.setFontSize(10);
-      doc.setTextColor(100, 100, 100);
-      doc.text("Item", 20, yPos);
-      doc.text("Qty", pageWidth - 90, yPos);
-      doc.text("Price", pageWidth - 60, yPos);
-      doc.text("Total", pageWidth - 30, yPos, { align: "right" });
-
-      // Draw line
-      yPos += 3;
-      doc.setDrawColor(200, 200, 200);
-      doc.line(20, yPos, pageWidth - 20, yPos);
-
-      // Items
-      yPos += 8;
-      doc.setTextColor(0, 0, 0);
-      validItems.forEach((item) => {
-        doc.text(item.productName, 20, yPos, { maxWidth: pageWidth - 120 });
-        doc.text(item.quantity.toString(), pageWidth - 90, yPos);
-        doc.text(`${(item.pricePerUnit / 100).toFixed(2)}`, pageWidth - 60, yPos);
-        doc.text(
-          `${(item.totalPrice / 100).toFixed(2)}`,
-          pageWidth - 20,
-          yPos,
-          { align: "right" }
-        );
-        yPos += 10;
+      const result = await generateInvoicePdfFromTemplate({
+        apiKey,
+        templateCode,
+        invoiceData,
       });
 
-      // Totals
-      yPos += 5;
-      doc.line(20, yPos, pageWidth - 20, yPos);
-      yPos += 10;
-
-      doc.setTextColor(100, 100, 100);
-      doc.text("Subtotal:", pageWidth - 80, yPos);
-      doc.text(
-        `${currency.toUpperCase()} ${(subtotal / 100).toFixed(2)}`,
-        pageWidth - 20,
-        yPos,
-        { align: "right" }
-      );
-
-      // Tax breakdown - USE TRANSACTION DATA (accurate tax rate)
-      if (taxAmount > 0) {
-        yPos += 7;
-        doc.text(`Tax (${taxRatePercent.toFixed(1)}%):`, pageWidth - 80, yPos);
-        doc.text(
-          `${currency.toUpperCase()} ${(taxAmount / 100).toFixed(2)}`,
-          pageWidth - 20,
-          yPos,
-          { align: "right" }
-        );
+      if (result.status === "error") {
+        console.error("❌ API Template.io error:", result.error, result.message);
+        return null;
       }
 
-      yPos += 10;
-      doc.setFontSize(12);
-      doc.setTextColor(0, 0, 0);
-      doc.setFont("helvetica", "bold");
-      doc.text("Total:", pageWidth - 80, yPos);
-      doc.text(
-        `${currency.toUpperCase()} ${(total / 100).toFixed(2)}`,
-        pageWidth - 20,
-        yPos,
-        { align: "right" }
+      // 12. Download PDF from API Template.io and convert to base64
+      const pdfResponse = await fetch(result.download_url!);
+      if (!pdfResponse.ok) {
+        throw new Error("Failed to download PDF from API Template.io");
+      }
+
+      const pdfBlob = await pdfResponse.blob();
+      const pdfBuffer = await pdfBlob.arrayBuffer();
+      const pdfBase64 = btoa(
+        String.fromCharCode(...new Uint8Array(pdfBuffer))
       );
 
-      // Payment method
-      yPos += 15;
-      doc.setFontSize(10);
-      doc.setTextColor(100, 100, 100);
-      doc.setFont("helvetica", "normal");
-      doc.text("Payment Method: Card", 20, yPos);
-
-      // Convert to base64
-      const pdfBase64 = doc.output("datauristring").split(",")[1];
+      console.log("✅ Invoice PDF generated via API Template.io:", result.transaction_ref);
 
       return {
         filename: `invoice-${session._id.substring(0, 12)}.pdf`,
         content: pdfBase64,
         contentType: "application/pdf",
       };
+
     } catch (error) {
       console.error("Failed to generate invoice PDF:", error);
       return null;

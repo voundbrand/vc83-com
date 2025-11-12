@@ -111,9 +111,9 @@ export function SystemOrganizationsTab() {
         <div
           className="mb-6 p-4 rounded flex items-start gap-3"
           style={{
-            backgroundColor: "#16a34a",
+            backgroundColor: "var(--success)",
             color: "white",
-            border: "2px solid #15803d",
+            border: "2px solid var(--success)",
           }}
         >
           <CheckCircle size={20} className="flex-shrink-0 mt-0.5" />
@@ -129,9 +129,9 @@ export function SystemOrganizationsTab() {
         <div
           className="mb-6 p-4 rounded flex items-start gap-3"
           style={{
-            backgroundColor: "#dc2626",
+            backgroundColor: "var(--error)",
             color: "white",
-            border: "2px solid #991b1b",
+            border: "2px solid var(--error)",
           }}
         >
           <AlertCircle size={20} className="flex-shrink-0 mt-0.5" />
@@ -219,7 +219,7 @@ export function SystemOrganizationsTab() {
         <div>
           <label htmlFor="timezone" className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
             <Globe size={14} className="inline mr-1" />
-            Timezone
+            {t('ui.organizations.form.timezone')}
           </label>
           <select
             id="timezone"
@@ -244,14 +244,14 @@ export function SystemOrganizationsTab() {
             ))}
           </select>
           <p className="text-xs mt-1" style={{ color: "var(--win95-text-secondary)" }}>
-            Set the default timezone for this organization. This will be used for event scheduling and time display.
+            {t('ui.organizations.form.timezone_hint')}
           </p>
         </div>
 
         {/* Date Format Selection */}
         <div>
           <label htmlFor="dateFormat" className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-            Date Format
+            {t('ui.organizations.form.date_format')}
           </label>
           <select
             id="dateFormat"
@@ -275,7 +275,7 @@ export function SystemOrganizationsTab() {
         {/* Language Selection */}
         <div>
           <label htmlFor="language" className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-            Language
+            {t('ui.organizations.form.language')}
           </label>
           <select
             id="language"

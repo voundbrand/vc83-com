@@ -2,8 +2,9 @@
 
 import { Doc, Id } from "../../../../convex/_generated/dataModel";
 import { X, Download, Printer, User, Mail, Phone, Calendar, Loader2, Send, Eye } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+import { useNotification } from "@/hooks/use-notification";
 import Image from "next/image";
 import QRCode from "qrcode";
 import { useAction, useQuery } from "convex/react";
@@ -17,6 +18,7 @@ interface TicketDetailModalProps {
 
 export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
   const { t } = useNamespaceTranslations("ui.tickets");
+  const notification = useNotification();
   const [qrCode, setQrCode] = useState<string>("");
   const [isDownloading, setIsDownloading] = useState(false);
 
@@ -26,11 +28,16 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [emailPreviewHtml, setEmailPreviewHtml] = useState<string>("");
   const [testEmail, setTestEmail] = useState("");
-  const [emailResult, setEmailResult] = useState<{success: boolean; message: string} | null>(null);
+  const [emailResult, setEmailResult] = useState<{success: boolean; message: string; attachments?: {pdf: boolean; ics: boolean}} | null>(null);
+  const [selectedDomainId, setSelectedDomainId] = useState<Id<"objects"> | null>(null);
+  const [selectedLanguage, setSelectedLanguage] = useState<"de" | "en" | "es" | "fr">("de");
 
   // Get current user and organization
-  const { user } = useAuth();
+  const { user, sessionId: userSessionId } = useAuth();
   const currentOrgId = user?.defaultOrgId;
+
+  // Create a stable session ID for domain configs query (doesn't need auth)
+  const domainConfigSessionId = useMemo(() => `ticket_modal_${Date.now()}`, []);
 
   // PDF generation action
   const generateTicketPDF = useAction(api.pdfGeneration.generateTicketPDF);
@@ -42,7 +49,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
   // Get domain configs for organization
   const domainConfigs = useQuery(
     api.domainConfigOntology.listDomainConfigs,
-    currentOrgId ? { sessionId: `ticket_modal_${Date.now()}`, organizationId: currentOrgId as Id<"organizations"> } : "skip"
+    currentOrgId ? { sessionId: domainConfigSessionId, organizationId: currentOrgId as Id<"organizations"> } : "skip"
   );
 
   useEffect(() => {
@@ -122,7 +129,10 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
     const checkoutSessionId = customProps.checkoutSessionId as Id<"objects"> | undefined;
 
     if (!checkoutSessionId) {
-      alert(t("ui.tickets.detail.error.no_checkout_session"));
+      notification.error(
+        t("ui.tickets.detail.error.no_checkout_session"),
+        ""
+      );
       return;
     }
 
@@ -142,7 +152,10 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
       }
     } catch (error) {
       console.error("Failed to download ticket:", error);
-      alert(t("ui.tickets.detail.error.download_failed"));
+      notification.error(
+        t("ui.tickets.detail.error.download_failed"),
+        error instanceof Error ? error.message : ""
+      );
     } finally {
       setIsDownloading(false);
     }
@@ -151,7 +164,10 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
   const handleSendEmail = () => {
     // Check if domain config exists
     if (!domainConfigs || domainConfigs.length === 0) {
-      alert("Please create a domain configuration first in Settings → Domains");
+      notification.error(
+        t("ui.tickets.email.error.no_domain"),
+        t("ui.tickets.email.error.no_domain_message")
+      );
       return;
     }
 
@@ -160,73 +176,123 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
   };
 
   const handleEmailPreview = async () => {
-    if (!domainConfigs || domainConfigs.length === 0) return;
+    if (!selectedDomainId) {
+      notification.error(
+        t("ui.tickets.email.error.no_domain"),
+        t("ui.tickets.email.error.no_domain_message")
+      );
+      return;
+    }
 
     setEmailAction("preview");
     setIsSendingEmail(true);
     try {
+      if (!userSessionId) {
+        throw new Error("No valid session");
+      }
+
       const result = await previewTicketEmail({
+        sessionId: userSessionId,
         ticketId: ticket._id,
-        domainConfigId: domainConfigs[0]._id,
+        domainConfigId: selectedDomainId,
+        language: selectedLanguage,
       });
 
       setEmailPreviewHtml(result.html);
     } catch (error) {
       console.error("Failed to preview email:", error);
-      alert("Failed to generate email preview");
+      notification.error(
+        t("ui.tickets.email.error.preview_failed"),
+        error instanceof Error ? error.message : ""
+      );
     } finally {
       setIsSendingEmail(false);
     }
   };
 
   const handleSendTestEmail = async () => {
-    if (!domainConfigs || domainConfigs.length === 0 || !testEmail) return;
+    if (!selectedDomainId || !testEmail || !userSessionId) return;
 
     setEmailAction("test");
     setIsSendingEmail(true);
     setEmailResult(null);
     try {
       const result = await sendTicketEmail({
+        sessionId: userSessionId,
         ticketId: ticket._id,
-        domainConfigId: domainConfigs[0]._id,
+        domainConfigId: selectedDomainId,
         isTest: true,
         testRecipient: testEmail,
+        language: selectedLanguage,
       });
 
       if (result.success) {
+        const attachmentInfo = result.attachments
+          ? `\nAttachments: ${result.attachments.pdf ? '✅ PDF' : '❌ PDF'}, ${result.attachments.ics ? '✅ ICS' : '❌ ICS'}`
+          : '';
+        const message = t("ui.tickets.email.success.test_sent", { email: testEmail }) + attachmentInfo;
         setEmailResult({
           success: true,
-          message: `Test email sent to ${testEmail}! Check your inbox.`
+          message,
+          attachments: result.attachments
         });
+        notification.success(
+          t("ui.tickets.email.button.test"),
+          message
+        );
       } else {
+        const message = t("ui.tickets.email.error.send_failed");
         setEmailResult({
           success: false,
-          message: "Failed to send test email. Check console for details."
+          message
         });
+        notification.error(
+          t("ui.tickets.email.button.test"),
+          message
+        );
       }
     } catch (error) {
       console.error("Failed to send test email:", error);
+      const message = error instanceof Error ? error.message : t("ui.tickets.email.error.send_failed");
       setEmailResult({
         success: false,
-        message: error instanceof Error ? error.message : "Unknown error"
+        message
       });
+      notification.error(
+        t("ui.tickets.email.button.test"),
+        message
+      );
     } finally {
       setIsSendingEmail(false);
     }
   };
 
   const handleSendRealEmail = async () => {
-    if (!domainConfigs || domainConfigs.length === 0) return;
+    if (!selectedDomainId) {
+      notification.error(
+        t("ui.tickets.email.error.no_domain"),
+        t("ui.tickets.email.error.no_domain_message")
+      );
+      return;
+    }
 
     const customProps = ticket.customProperties || {};
     const recipientEmail = customProps.holderEmail || customProps.attendeeEmail;
 
     if (!recipientEmail) {
-      alert("This ticket has no email address associated with it.");
+      notification.error(
+        t("ui.tickets.email.error.no_email"),
+        t("ui.tickets.email.error.no_email_message")
+      );
       return;
     }
 
-    if (!confirm(`Send confirmation email to ${recipientEmail}?`)) {
+    if (!confirm(t("ui.tickets.email.confirm.send", { email: recipientEmail }))) {
+      return;
+    }
+
+    if (!userSessionId) {
+      notification.error("Error", "No valid session");
       return;
     }
 
@@ -235,28 +301,49 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
     setEmailResult(null);
     try {
       const result = await sendTicketEmail({
+        sessionId: userSessionId,
         ticketId: ticket._id,
-        domainConfigId: domainConfigs[0]._id,
+        domainConfigId: selectedDomainId,
         isTest: false,
+        language: selectedLanguage,
       });
 
       if (result.success) {
+        const attachmentInfo = result.attachments
+          ? `\n📎 Attachments: ${result.attachments.pdf ? '✅ PDF' : '❌ PDF'}, ${result.attachments.ics ? '✅ ICS' : '❌ ICS'}`
+          : '';
+        const message = t("ui.tickets.email.success.sent", { email: recipientEmail }) + attachmentInfo;
         setEmailResult({
           success: true,
-          message: `✅ Confirmation email sent to ${recipientEmail}!`
+          message,
+          attachments: result.attachments
         });
+        notification.success(
+          t("ui.tickets.email.button.send"),
+          message
+        );
       } else {
+        const message = t("ui.tickets.email.error.send_failed");
         setEmailResult({
           success: false,
-          message: "Failed to send email. Check console for details."
+          message
         });
+        notification.error(
+          t("ui.tickets.email.button.send"),
+          message
+        );
       }
     } catch (error) {
       console.error("Failed to send email:", error);
+      const message = error instanceof Error ? error.message : t("ui.tickets.email.error.send_failed");
       setEmailResult({
         success: false,
-        message: error instanceof Error ? error.message : "Unknown error"
+        message
       });
+      notification.error(
+        t("ui.tickets.email.button.send"),
+        message
+      );
     } finally {
       setIsSendingEmail(false);
     }
@@ -379,7 +466,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                 }}
               >
                 <Send size={16} />
-                <span className="text-sm font-bold">Send Email</span>
+                <span className="text-sm font-bold">{t("ui.tickets.email.button.send")}</span>
               </button>
             </div>
           </div>
@@ -671,7 +758,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold" style={{ color: "var(--win95-highlight)" }}>
                   <Send size={20} className="inline mr-2" />
-                  Send Confirmation Email
+                  {t("ui.tickets.email.modal.title")}
                 </h3>
                 <button
                   onClick={() => setShowEmailModal(false)}
@@ -685,22 +772,74 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                 </button>
               </div>
 
-              {/* Domain Config Info */}
+              {/* Domain Config Selector */}
               {domainConfigs && domainConfigs.length > 0 && (
                 <div className="mb-4 p-3 border-2" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
-                  <p className="text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                    Using Domain: {(domainConfigs[0].customProperties as any)?.domainName}
-                  </p>
-                  <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                    From: {(domainConfigs[0].customProperties as any)?.email?.senderEmail}
-                  </p>
+                  <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                    {t("ui.tickets.email.domain.label")}
+                  </label>
+                  <select
+                    value={selectedDomainId || ""}
+                    onChange={(e) => setSelectedDomainId(e.target.value as Id<"objects">)}
+                    className="w-full px-3 py-2 border-2"
+                    style={{
+                      borderColor: "var(--win95-border)",
+                      background: "var(--win95-input-bg)",
+                      color: "var(--win95-text)",
+                    }}
+                  >
+                    <option value="">{t("ui.tickets.email.domain.select")}</option>
+                    {domainConfigs.map((config) => {
+                      const props = config.customProperties as any;
+                      return (
+                        <option key={config._id} value={config._id}>
+                          {props?.domainName} ({props?.email?.senderEmail})
+                        </option>
+                      );
+                    })}
+                  </select>
                 </div>
               )}
 
-              {/* Email Preview */}
+              {/* Language Selector */}
+              <div className="mb-4 p-3 border-2" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
+                <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                  🌐 Email Language
+                </label>
+                <select
+                  value={selectedLanguage}
+                  onChange={(e) => setSelectedLanguage(e.target.value as "de" | "en" | "es" | "fr")}
+                  className="w-full px-3 py-2 border-2"
+                  style={{
+                    borderColor: "var(--win95-border)",
+                    background: "var(--win95-input-bg)",
+                    color: "var(--win95-text)",
+                  }}
+                >
+                  <option value="de">🇩🇪 Deutsch (German)</option>
+                  <option value="en">🇬🇧 English</option>
+                  <option value="es">🇪🇸 Español (Spanish)</option>
+                  <option value="fr">🇫🇷 Français (French)</option>
+                </select>
+                <p className="text-xs mt-2" style={{ color: "var(--neutral-gray)" }}>
+                  Select the language for the email template. The email will include PDF ticket and ICS calendar attachments.
+                </p>
+              </div>
+
+              {/* Email Preview - Isolated in iframe to prevent CSS bleed */}
               {emailAction === "preview" && emailPreviewHtml && (
-                <div className="mb-4 border-2 p-4" style={{ borderColor: "var(--win95-border)", background: "white", maxHeight: "400px", overflow: "auto" }}>
-                  <div dangerouslySetInnerHTML={{ __html: emailPreviewHtml }} />
+                <div className="mb-4 border-2" style={{ borderColor: "var(--win95-border)", background: "white", maxHeight: "400px", overflow: "auto" }}>
+                  <iframe
+                    srcDoc={emailPreviewHtml}
+                    style={{
+                      width: "100%",
+                      height: "400px",
+                      border: "none",
+                      background: "white"
+                    }}
+                    title="Email Preview"
+                    sandbox="allow-same-origin"
+                  />
                 </div>
               )}
 
@@ -708,13 +847,13 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
               {emailAction === "test" && (
                 <div className="mb-4">
                   <label className="block text-sm font-bold mb-2" style={{ color: "var(--win95-text)" }}>
-                    Test Email Address:
+                    {t("ui.tickets.email.test.label")}
                   </label>
                   <input
                     type="email"
                     value={testEmail}
                     onChange={(e) => setTestEmail(e.target.value)}
-                    placeholder="your.email@example.com"
+                    placeholder={t("ui.tickets.email.test.placeholder")}
                     className="w-full px-3 py-2 border-2"
                     style={{
                       borderColor: "var(--win95-border)",
@@ -736,6 +875,13 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                   }}
                 >
                   <p className="text-sm font-bold">{emailResult.message}</p>
+                  {emailResult.attachments && (
+                    <p className="text-xs mt-2">
+                      📎 Attachments:
+                      {emailResult.attachments.pdf ? " ✅ PDF" : " ❌ PDF"}
+                      {emailResult.attachments.ics ? " ✅ ICS" : " ❌ ICS"}
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -756,7 +902,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                   ) : (
                     <Eye size={16} />
                   )}
-                  <span className="text-sm">Preview</span>
+                  <span className="text-sm">{t("ui.tickets.email.button.preview")}</span>
                 </button>
 
                 <button
@@ -779,7 +925,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                   ) : (
                     <Send size={16} />
                   )}
-                  <span className="text-sm">Test</span>
+                  <span className="text-sm">{t("ui.tickets.email.button.test")}</span>
                 </button>
 
                 <button
@@ -797,12 +943,12 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                   ) : (
                     <Send size={16} />
                   )}
-                  <span className="text-sm font-bold">Send Real</span>
+                  <span className="text-sm font-bold">{t("ui.tickets.email.button.send_real")}</span>
                 </button>
               </div>
 
               <p className="text-xs mt-3 text-center" style={{ color: "var(--neutral-gray)" }}>
-                Preview the email, send a test to yourself, then send the real confirmation.
+                {t("ui.tickets.email.footer")}
               </p>
             </div>
           </div>

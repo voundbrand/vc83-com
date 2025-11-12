@@ -47,7 +47,7 @@ const translations: Translation[] = [
   { locale: "en", key: "ui.events.detail.button.downloading", value: "Downloading..." },
   { locale: "en", key: "ui.events.detail.button.view_all_attendees", value: "View All Attendees" },
   { locale: "en", key: "ui.events.detail.button.all_attendees", value: "All Attendees" },
-  { locale: "en", key: "ui.events.detail.button.cancel", value: "Cancel" },
+  { locale: "en", key: "ui.events.detail.button.ticket_details", value: "Ticket Details" },
 
   // Recent Attendees
   { locale: "en", key: "ui.events.detail.section.recent_attendees", value: "Recent Attendees" },
@@ -100,7 +100,7 @@ const translations: Translation[] = [
   { locale: "de", key: "ui.events.detail.button.downloading", value: "Wird heruntergeladen..." },
   { locale: "de", key: "ui.events.detail.button.view_all_attendees", value: "Alle Teilnehmer anzeigen" },
   { locale: "de", key: "ui.events.detail.button.all_attendees", value: "Alle Teilnehmer" },
-  { locale: "de", key: "ui.events.detail.button.cancel", value: "Stornieren" },
+  { locale: "de", key: "ui.events.detail.button.ticket_details", value: "Ticketdetails" },
 
   // Recent Attendees
   { locale: "de", key: "ui.events.detail.section.recent_attendees", value: "Aktuelle Teilnehmer" },
@@ -153,7 +153,7 @@ const translations: Translation[] = [
   { locale: "es", key: "ui.events.detail.button.downloading", value: "Descargando..." },
   { locale: "es", key: "ui.events.detail.button.view_all_attendees", value: "Ver Todos los Asistentes" },
   { locale: "es", key: "ui.events.detail.button.all_attendees", value: "Todos los Asistentes" },
-  { locale: "es", key: "ui.events.detail.button.cancel", value: "Cancelar" },
+  { locale: "es", key: "ui.events.detail.button.ticket_details", value: "Detalles del Ticket" },
 
   // Recent Attendees
   { locale: "es", key: "ui.events.detail.section.recent_attendees", value: "Asistentes Recientes" },
@@ -206,7 +206,7 @@ const translations: Translation[] = [
   { locale: "fr", key: "ui.events.detail.button.downloading", value: "Téléchargement..." },
   { locale: "fr", key: "ui.events.detail.button.view_all_attendees", value: "Voir Tous les Participants" },
   { locale: "fr", key: "ui.events.detail.button.all_attendees", value: "Tous les Participants" },
-  { locale: "fr", key: "ui.events.detail.button.cancel", value: "Annuler" },
+  { locale: "fr", key: "ui.events.detail.button.ticket_details", value: "Détails du Billet" },
 
   // Recent Attendees
   { locale: "fr", key: "ui.events.detail.section.recent_attendees", value: "Participants Récents" },
@@ -259,7 +259,7 @@ const translations: Translation[] = [
   { locale: "ja", key: "ui.events.detail.button.downloading", value: "ダウンロード中..." },
   { locale: "ja", key: "ui.events.detail.button.view_all_attendees", value: "すべての参加者を表示" },
   { locale: "ja", key: "ui.events.detail.button.all_attendees", value: "すべての参加者" },
-  { locale: "ja", key: "ui.events.detail.button.cancel", value: "キャンセル" },
+  { locale: "ja", key: "ui.events.detail.button.ticket_details", value: "チケット詳細" },
 
   // Recent Attendees
   { locale: "ja", key: "ui.events.detail.section.recent_attendees", value: "最近の参加者" },
@@ -312,7 +312,7 @@ const translations: Translation[] = [
   { locale: "pl", key: "ui.events.detail.button.downloading", value: "Pobieranie..." },
   { locale: "pl", key: "ui.events.detail.button.view_all_attendees", value: "Zobacz Wszystkich Uczestników" },
   { locale: "pl", key: "ui.events.detail.button.all_attendees", value: "Wszyscy Uczestnicy" },
-  { locale: "pl", key: "ui.events.detail.button.cancel", value: "Anuluj" },
+  { locale: "pl", key: "ui.events.detail.button.ticket_details", value: "Szczegóły Biletu" },
 
   // Recent Attendees
   { locale: "pl", key: "ui.events.detail.section.recent_attendees", value: "Ostatni Uczestnicy" },

@@ -5,15 +5,17 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { useAuth } from "@/hooks/use-auth";
-import { FileText, Check, X, Loader2, AlertCircle, FileInput, ShoppingCart } from "lucide-react";
+import { FileText, Check, X, Loader2, AlertCircle, FileInput, ShoppingCart, FileType } from "lucide-react";
 
 /**
  * Templates Tab
  *
- * Super admin UI to manage which templates (web page + form) are available to which organizations.
- * Displays two matrices:
+ * Super admin UI to manage which templates are available to which organizations.
+ * Displays matrices for:
  * 1. Web Page Templates
  * 2. Form Templates
+ * 3. Checkout Templates
+ * 4. PDF Templates (Tickets, Invoices, Certificates)
  */
 export function TemplatesTab() {
   const { sessionId } = useAuth();
@@ -54,6 +56,18 @@ export function TemplatesTab() {
     sessionId ? { sessionId } : "skip"
   );
 
+  // Fetch all system PDF templates
+  const allPdfTemplates = useQuery(
+    api.pdfTemplateAvailability.getAllSystemPdfTemplates,
+    sessionId ? { sessionId } : "skip"
+  );
+
+  // Fetch all PDF template availabilities (for all orgs)
+  const allPdfAvailabilities = useQuery(
+    api.pdfTemplateAvailability.getAllPdfTemplateAvailabilities,
+    sessionId ? { sessionId } : "skip"
+  );
+
   // Fetch all organizations
   const organizations = useQuery(
     api.organizations.listAll,
@@ -85,6 +99,8 @@ export function TemplatesTab() {
     !allFormAvailabilities ||
     !allCheckoutTemplates ||
     !allCheckoutAvailabilities ||
+    !allPdfTemplates ||
+    !allPdfAvailabilities ||
     !organizations
   ) {
     return (
@@ -390,6 +406,99 @@ export function TemplatesTab() {
           </>
         )}
       </div>
+
+      {/* PDF TEMPLATES SECTION */}
+      <div>
+        {/* Header */}
+        <div className="mb-4">
+          <h3 className="text-sm font-bold flex items-center gap-2">
+            <FileType size={16} />
+            PDF Templates Availability
+          </h3>
+          <p className="text-xs text-gray-600 mt-1">
+            Control which PDF templates are visible to each organization for generating tickets, invoices, and certificates.
+          </p>
+        </div>
+
+        {allPdfTemplates.length === 0 ? (
+          <div className="border-2 border-yellow-600 bg-yellow-50 p-4">
+            <div className="flex items-start gap-2">
+              <AlertCircle size={20} className="text-yellow-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-bold text-sm text-yellow-900">No PDF Templates Found</h4>
+                <p className="text-xs text-yellow-800 mt-1">
+                  No PDF templates have been seeded yet. Run the seed script to create PDF templates.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Matrix Table */}
+            <div className="border-2 border-gray-400 overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-gray-200 border-b-2 border-gray-400">
+                    <th className="px-3 py-2 text-left font-bold sticky left-0 bg-gray-200 z-10">
+                      Organization
+                    </th>
+                    {allPdfTemplates.map((template) => (
+                      <th key={template._id} className="px-3 py-2 text-center font-bold min-w-[120px]">
+                        <div className="flex flex-col items-center gap-1">
+                          <span>
+                            {template.customProperties?.category === "ticket" && "🎫"}
+                            {template.customProperties?.category === "invoice" && "💰"}
+                            {template.customProperties?.category === "receipt" && "🧾"}
+                            {template.customProperties?.category === "certificate" && "🏆"}
+                            {!template.customProperties?.category && "📄"}
+                          </span>
+                          <span className="text-center">{template.name}</span>
+                          <code className="text-xs text-gray-500 bg-gray-100 px-1">
+                            {template.customProperties?.code}
+                          </code>
+                        </div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {organizations.map((org) => (
+                    <PdfTemplateRow
+                      key={org._id}
+                      organization={org}
+                      templates={allPdfTemplates}
+                      availabilities={allPdfAvailabilities.filter((a) => a.organizationId === org._id)}
+                      sessionId={sessionId}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Legend */}
+            <div className="mt-4 flex items-center gap-4 text-xs">
+              <div className="flex items-center gap-1">
+                <div className="w-4 h-4 bg-green-500 border-2 border-gray-400 flex items-center justify-center">
+                  <Check size={10} className="text-white" />
+                </div>
+                <span>Available</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-4 h-4 bg-red-500 border-2 border-gray-400 flex items-center justify-center">
+                  <X size={10} className="text-white" />
+                </div>
+                <span>Not Available</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-4 h-4 bg-gray-300 border-2 border-gray-400 flex items-center justify-center">
+                  <Loader2 size={10} className="animate-spin" />
+                </div>
+                <span>Updating...</span>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -637,6 +746,106 @@ function CheckoutTemplateRow({
       }
     } catch (error) {
       console.error("Failed to toggle checkout template availability:", error);
+      alert(`Failed to update: ${error instanceof Error ? error.message : "Unknown error"}`);
+    } finally {
+      setLoadingTemplateCode(null);
+    }
+  };
+
+  return (
+    <tr className="border-b border-gray-300 hover:bg-gray-50">
+      <td className="px-3 py-2 font-semibold sticky left-0 bg-white z-10">
+        <div>
+          <div>{organization.name}</div>
+          <div className="text-gray-500 text-xs font-normal">
+            {organization.slug}
+          </div>
+        </div>
+      </td>
+      {templates.map((template) => {
+        const templateCode = template.customProperties?.code as string;
+        const availability = availabilities.find(
+          (a) => a.customProperties?.templateCode === templateCode
+        );
+        const isAvailable = availability?.customProperties?.available ?? false;
+        const isLoading = loadingTemplateCode === templateCode;
+
+        return (
+          <td key={template._id} className="px-3 py-2 text-center">
+            <button
+              onClick={() => handleToggle(templateCode, isAvailable)}
+              disabled={isLoading}
+              className="w-8 h-8 border-2 border-gray-400 flex items-center justify-center transition-colors hover:opacity-80 disabled:opacity-50 mx-auto"
+              style={{
+                backgroundColor: isLoading
+                  ? "#d1d5db"
+                  : isAvailable
+                  ? "#22c55e"
+                  : "#ef4444",
+              }}
+              title={
+                isLoading
+                  ? "Updating..."
+                  : isAvailable
+                  ? `Click to disable ${template.name} for ${organization.name}`
+                  : `Click to enable ${template.name} for ${organization.name}`
+              }
+            >
+              {isLoading ? (
+                <Loader2 size={14} className="animate-spin text-gray-600" />
+              ) : isAvailable ? (
+                <Check size={16} className="text-white" />
+              ) : (
+                <X size={16} className="text-white" />
+              )}
+            </button>
+          </td>
+        );
+      })}
+    </tr>
+  );
+}
+/**
+ * PDF Template Row - for PDF templates (tickets, invoices, certificates)
+ */
+function PdfTemplateRow({
+  organization,
+  templates,
+  availabilities,
+  sessionId,
+}: {
+  organization: { _id: Id<"organizations">; name: string; slug?: string };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  templates: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  availabilities: any[];
+  sessionId: string;
+}) {
+  const [loadingTemplateCode, setLoadingTemplateCode] = useState<string | null>(null);
+  const enableTemplate = useMutation(api.pdfTemplateAvailability.enablePdfTemplate);
+  const disableTemplate = useMutation(api.pdfTemplateAvailability.disablePdfTemplate);
+
+  const handleToggle = async (templateCode: string, currentState: boolean) => {
+    try {
+      setLoadingTemplateCode(templateCode);
+
+      if (currentState) {
+        // Disable
+        await disableTemplate({
+          sessionId,
+          organizationId: organization._id,
+          templateCode,
+        });
+      } else {
+        // Enable
+        await enableTemplate({
+          sessionId,
+          organizationId: organization._id,
+          templateCode,
+        });
+      }
+    } catch (error) {
+      console.error("Failed to toggle PDF template availability:", error);
       alert(`Failed to update: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setLoadingTemplateCode(null);

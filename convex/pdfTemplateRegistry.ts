@@ -16,6 +16,18 @@ import {
   TICKET_TEMPLATE_HTML,
   TICKET_TEMPLATE_CSS,
 } from "./lib/pdf_templates/ticket_template";
+import {
+  ELEGANT_GOLD_TICKET_TEMPLATE_HTML,
+  ELEGANT_GOLD_TICKET_TEMPLATE_CSS,
+} from "./lib/pdf_templates/elegant_gold_ticket_template";
+import {
+  MODERN_TICKET_TEMPLATE_HTML,
+  MODERN_TICKET_TEMPLATE_CSS,
+} from "./lib/pdf_templates/modern_ticket_template";
+import {
+  VIP_PREMIUM_TICKET_TEMPLATE_HTML,
+  VIP_PREMIUM_TICKET_TEMPLATE_CSS,
+} from "./lib/pdf_templates/vip_premium_ticket_template";
 
 export interface PdfTemplateField {
   name: string;
@@ -179,6 +191,84 @@ export const TICKET_RETRO_V1: PdfTemplateDefinition = {
     fontFamily: "Courier",
   },
   previewImageUrl: "https://cdn.vc83.com/templates/ticket-retro-preview.png",
+  version: "1.0.0",
+};
+
+export const TICKET_ELEGANT_GOLD_V1: PdfTemplateDefinition = {
+  code: "ticket_elegant_gold_v1",
+  name: "Elegant Gold Ticket",
+  description: "Luxurious black & gold design for upscale events with elegant typography and premium styling",
+  category: "ticket",
+  template: {
+    html: ELEGANT_GOLD_TICKET_TEMPLATE_HTML,
+    css: ELEGANT_GOLD_TICKET_TEMPLATE_CSS,
+  },
+  apiTemplate: {
+    provider: "apitemplate.io",
+    endpoint: "https://rest.apitemplate.io/v2/create-pdf-from-html",
+  },
+  requiredFields: [
+    ...TICKET_PROFESSIONAL_V1.requiredFields,
+  ],
+  defaultStyling: {
+    primaryColor: "#d4af37",
+    secondaryColor: "#8b7355",
+    fontSize: "11pt",
+    fontFamily: "Garamond, Georgia, serif",
+  },
+  previewImageUrl: "https://cdn.vc83.com/templates/ticket-elegant-gold-preview.png",
+  version: "1.0.0",
+};
+
+export const TICKET_MODERN_V1: PdfTemplateDefinition = {
+  code: "ticket_modern_v1",
+  name: "Modern Ticket",
+  description: "Clean contemporary design with bold typography and ample whitespace for tech events and modern brands",
+  category: "ticket",
+  template: {
+    html: MODERN_TICKET_TEMPLATE_HTML,
+    css: MODERN_TICKET_TEMPLATE_CSS,
+  },
+  apiTemplate: {
+    provider: "apitemplate.io",
+    endpoint: "https://rest.apitemplate.io/v2/create-pdf-from-html",
+  },
+  requiredFields: [
+    ...TICKET_PROFESSIONAL_V1.requiredFields,
+  ],
+  defaultStyling: {
+    primaryColor: "#6B46C1",
+    secondaryColor: "#9F7AEA",
+    fontSize: "11pt",
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+  },
+  previewImageUrl: "https://cdn.vc83.com/templates/ticket-modern-preview.png",
+  version: "1.0.0",
+};
+
+export const TICKET_VIP_PREMIUM_V1: PdfTemplateDefinition = {
+  code: "ticket_vip_premium_v1",
+  name: "VIP Premium Ticket",
+  description: "Exclusive VIP design with premium styling and VIP badge for elevated ticket holder experience",
+  category: "ticket",
+  template: {
+    html: VIP_PREMIUM_TICKET_TEMPLATE_HTML,
+    css: VIP_PREMIUM_TICKET_TEMPLATE_CSS,
+  },
+  apiTemplate: {
+    provider: "apitemplate.io",
+    endpoint: "https://rest.apitemplate.io/v2/create-pdf-from-html",
+  },
+  requiredFields: [
+    ...TICKET_PROFESSIONAL_V1.requiredFields,
+  ],
+  defaultStyling: {
+    primaryColor: "#FFD700",
+    secondaryColor: "#C0C0C0",
+    fontSize: "11pt",
+    fontFamily: "'Helvetica Neue', 'Arial', sans-serif",
+  },
+  previewImageUrl: "https://cdn.vc83.com/templates/ticket-vip-premium-preview.png",
   version: "1.0.0",
 };
 
@@ -580,6 +670,9 @@ export const PDF_TEMPLATE_REGISTRY: Record<string, PdfTemplateDefinition> = {
   // Tickets
   ticket_professional_v1: TICKET_PROFESSIONAL_V1,
   ticket_retro_v1: TICKET_RETRO_V1,
+  ticket_elegant_gold_v1: TICKET_ELEGANT_GOLD_V1,
+  ticket_modern_v1: TICKET_MODERN_V1,
+  ticket_vip_premium_v1: TICKET_VIP_PREMIUM_V1,
 
   // Receipts & Invoices
   invoice_b2c_receipt_v1: INVOICE_B2C_RECEIPT_V1,

@@ -25,7 +25,8 @@ export function RetroNotification({
       const timer = setTimeout(onClose, autoCloseDelay);
       return () => clearTimeout(timer);
     }
-  }, [autoClose, autoCloseDelay, onClose]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoClose, autoCloseDelay]);
 
   const notificationClass = {
     success: "notification-success",

@@ -22,11 +22,11 @@ import { AllAppsWindow } from "@/components/window-content/all-apps-window"
 import { CRMWindow } from "@/components/window-content/crm-window"
 import { InvoicingWindow } from "@/components/window-content/invoicing-window"
 import { WorkflowsWindow } from "@/components/window-content/workflows-window"
+import { TemplatesWindow } from "@/components/window-content/templates-window"
 import { WindowsMenu } from "@/components/windows-menu"
 import { useIsMobile } from "@/hooks/use-media-query"
 import { useAuth, useOrganizations, useCurrentOrganization, useIsSuperAdmin, useAccountDeletionStatus } from "@/hooks/use-auth"
 import { useAvailableApps } from "@/hooks/use-app-availability"
-import { useTranslation } from "@/contexts/translation-context"
 import { useMultipleNamespaces } from "@/hooks/use-namespace-translations"
 
 export default function HomePage() {
@@ -111,6 +111,10 @@ export default function HomePage() {
 
   const openWorkflowsWindow = () => {
     openWindow("workflows", "Workflows", <WorkflowsWindow />, { x: 210, y: 60 }, { width: 1200, height: 750 }, 'ui.app.workflows')
+  }
+
+  const openTemplatesWindow = () => {
+    openWindow("templates", "Templates", <TemplatesWindow />, { x: 220, y: 65 }, { width: 1100, height: 700 }, 'ui.app.templates')
   }
 
   const handleLogout = () => {
@@ -238,6 +242,8 @@ export default function HomePage() {
     ...(isAppAvailable("workflows") ? [
       { label: t('ui.app.workflows'), icon: "⚡", onClick: requireAuth(openWorkflowsWindow) }
     ] : []),
+    // Templates app - Browse and preview all templates
+    { label: t('ui.app.templates'), icon: "📄", onClick: requireAuth(openTemplatesWindow) },
     //{ label: "L4YERCAK3 Podcast", icon: "🎙️", onClick: requireAuth(openEpisodesWindow) },
     //{ label: "Subscribe", icon: "🔊", onClick: requireAuth(openSubscribeWindow) },
   ]

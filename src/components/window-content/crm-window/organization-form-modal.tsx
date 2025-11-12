@@ -8,6 +8,7 @@ import { X, Save, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { getSupportedCountries } from "../../../../convex/legalEntityTypes";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+import { validateVATNumber } from "../../../../convex/lib/vatValidation";
 
 interface OrganizationFormModalProps {
   editId?: Id<"objects">;
@@ -26,6 +27,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
   const [saving, setSaving] = useState(false);
   const [showContactDetails, setShowContactDetails] = useState(false);
   const [showAddress, setShowAddress] = useState(false);
+  const [showBillingSettings, setShowBillingSettings] = useState(false);
   const [showTagsNotes, setShowTagsNotes] = useState(false);
 
   // Form data
@@ -43,6 +45,26 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
     state: "",
     postalCode: "",
     country: "",
+    // B2B Billing fields
+    billingStreet: "",
+    billingCity: "",
+    billingState: "",
+    billingPostalCode: "",
+    billingCountry: "",
+    legalEntityType: "" as "" | "corporation" | "llc" | "partnership" | "sole_proprietorship" | "nonprofit",
+    registrationNumber: "",
+    vatNumber: "",
+    taxExempt: false,
+    paymentTerms: "net30" as "" | "due_on_receipt" | "net15" | "net30" | "net60" | "net90",
+    creditLimit: "",
+    preferredPaymentMethod: "" as "" | "invoice" | "bank_transfer" | "credit_card" | "check",
+    accountingReference: "",
+    costCenter: "",
+    purchaseOrderRequired: false,
+    billingContact: "",
+    billingContactEmail: "",
+    billingContactPhone: "",
+    // Sponsor fields
     sponsorLevel: "" as "" | "platinum" | "gold" | "silver" | "bronze" | "community",
     logoUrl: "",
     sponsorBio: "",
@@ -53,6 +75,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
   const [tagInput, setTagInput] = useState("");
   const [websiteError, setWebsiteError] = useState("");
   const [emailError, setEmailError] = useState("");
+  const [vatError, setVatError] = useState("");
 
   // Get supported countries for dropdown
   const supportedCountries = getSupportedCountries();
@@ -72,6 +95,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
     if (existingOrg) {
       const props = existingOrg.customProperties || {};
       const address = props.address || {};
+      const billingAddr = props.billingAddress || {};
 
       setFormData({
         name: existingOrg.name || "",
@@ -87,7 +111,27 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
         state: address.state || "",
         postalCode: address.postalCode || "",
         country: address.country || "",
-        sponsorLevel: (props.sponsorLevel?.toString() || "") as "" | "platinum" | "gold" | "silver" | "bronze",
+        // B2B Billing fields
+        billingStreet: billingAddr.street || "",
+        billingCity: billingAddr.city || "",
+        billingState: billingAddr.state || "",
+        billingPostalCode: billingAddr.postalCode || "",
+        billingCountry: billingAddr.country || "",
+        legalEntityType: (props.legalEntityType?.toString() || "") as "" | "corporation" | "llc" | "partnership" | "sole_proprietorship" | "nonprofit",
+        registrationNumber: props.registrationNumber?.toString() || "",
+        vatNumber: props.vatNumber?.toString() || "",
+        taxExempt: props.taxExempt === true,
+        paymentTerms: (props.paymentTerms?.toString() || "net30") as "" | "due_on_receipt" | "net15" | "net30" | "net60" | "net90",
+        creditLimit: props.creditLimit?.toString() || "",
+        preferredPaymentMethod: (props.preferredPaymentMethod?.toString() || "") as "" | "invoice" | "bank_transfer" | "credit_card" | "check",
+        accountingReference: props.accountingReference?.toString() || "",
+        costCenter: props.costCenter?.toString() || "",
+        purchaseOrderRequired: props.purchaseOrderRequired === true,
+        billingContact: props.billingContact?.toString() || "",
+        billingContactEmail: props.billingContactEmail?.toString() || "",
+        billingContactPhone: props.billingContactPhone?.toString() || "",
+        // Sponsor fields
+        sponsorLevel: (props.sponsorLevel?.toString() || "") as "" | "platinum" | "gold" | "silver" | "bronze" | "community",
         logoUrl: props.logoUrl?.toString() || "",
         sponsorBio: props.sponsorBio?.toString() || "",
         tags: Array.isArray(props.tags) ? props.tags : [],
@@ -100,6 +144,9 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
       }
       if (address.street || address.city) {
         setShowAddress(true);
+      }
+      if (props.legalEntityType || props.registrationNumber || props.vatNumber || props.paymentTerms || billingAddr.street) {
+        setShowBillingSettings(true);
       }
       if (props.tags?.length > 0 || props.notes) {
         setShowTagsNotes(true);
@@ -123,9 +170,19 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
       }
     }
 
+    // Validate VAT number if provided
+    if (formData.vatNumber && formData.vatNumber.trim()) {
+      const vatValidation = validateVATNumber(formData.vatNumber);
+      if (!vatValidation.valid) {
+        setVatError(vatValidation.message || "Invalid VAT format");
+        return;
+      }
+    }
+
     setSaving(true);
     setWebsiteError("");
     setEmailError("");
+    setVatError("");
 
     try {
       // Auto-prefix website with https:// if not already prefixed
@@ -140,6 +197,15 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
         state: formData.state || undefined,
         postalCode: formData.postalCode || undefined,
         country: formData.country || undefined,
+      } : undefined;
+
+      // Prepare billing address
+      const billingAddress = showBillingSettings && (formData.billingStreet || formData.billingCity) ? {
+        street: formData.billingStreet || undefined,
+        city: formData.billingCity || undefined,
+        state: formData.billingState || undefined,
+        postalCode: formData.billingPostalCode || undefined,
+        country: formData.billingCountry || undefined,
       } : undefined;
 
       // Prepare custom fields for sponsor info
@@ -166,6 +232,21 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
             billingEmail: formData.billingEmail || undefined,
             taxId: formData.taxId || undefined,
             address,
+            // B2B Billing fields
+            billingAddress,
+            legalEntityType: formData.legalEntityType || undefined,
+            registrationNumber: formData.registrationNumber || undefined,
+            vatNumber: formData.vatNumber || undefined,
+            taxExempt: formData.taxExempt,
+            paymentTerms: formData.paymentTerms || "net30",
+            creditLimit: formData.creditLimit ? parseFloat(formData.creditLimit) : undefined,
+            preferredPaymentMethod: formData.preferredPaymentMethod || undefined,
+            accountingReference: formData.accountingReference || undefined,
+            costCenter: formData.costCenter || undefined,
+            purchaseOrderRequired: formData.purchaseOrderRequired,
+            billingContact: formData.billingContact || undefined,
+            billingContactEmail: formData.billingContactEmail || undefined,
+            billingContactPhone: formData.billingContactPhone || undefined,
             tags: formData.tags.length > 0 ? formData.tags : undefined,
             notes: formData.notes || undefined,
             customFields,
@@ -186,6 +267,21 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
           billingEmail: formData.billingEmail || undefined,
           taxId: formData.taxId || undefined,
           address,
+          // B2B Billing fields
+          billingAddress,
+          legalEntityType: formData.legalEntityType || undefined,
+          registrationNumber: formData.registrationNumber || undefined,
+          vatNumber: formData.vatNumber || undefined,
+          taxExempt: formData.taxExempt,
+          paymentTerms: formData.paymentTerms || "net30",
+          creditLimit: formData.creditLimit ? parseFloat(formData.creditLimit) : undefined,
+          preferredPaymentMethod: formData.preferredPaymentMethod || undefined,
+          accountingReference: formData.accountingReference || undefined,
+          costCenter: formData.costCenter || undefined,
+          purchaseOrderRequired: formData.purchaseOrderRequired,
+          billingContact: formData.billingContact || undefined,
+          billingContactEmail: formData.billingContactEmail || undefined,
+          billingContactPhone: formData.billingContactPhone || undefined,
           tags: formData.tags.length > 0 ? formData.tags : undefined,
           notes: formData.notes || undefined,
           customFields,
@@ -212,6 +308,22 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
     setFormData({ ...formData, tags: formData.tags.filter((t) => t !== tag) });
   };
 
+  const handleVATChange = (vat: string) => {
+    setFormData({ ...formData, vatNumber: vat });
+
+    // Validate VAT format if provided
+    if (vat.trim()) {
+      const validation = validateVATNumber(vat);
+      if (!validation.valid) {
+        setVatError(validation.message || "Invalid VAT format");
+      } else {
+        setVatError("");
+      }
+    } else {
+      setVatError("");
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 flex items-center justify-center z-[9000]"
@@ -233,7 +345,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
           style={{ background: "var(--modal-header-bg)" }}
         >
           <span className="font-bold text-sm" style={{ color: "var(--modal-header-text)" }}>
-            {editId ? t("ui.crm.organization_form.title.edit") : t("ui.crm.organization_form.title.add_new")}
+            {editId ? t("ui.crm.organization_form.modal.title_edit") : t("ui.crm.organization_form.modal.title_add")}
           </span>
           <button
             onClick={onClose}
@@ -249,7 +361,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
           {/* Basic Information */}
           <div className="space-y-3">
             <h3 className="text-sm font-bold border-b pb-2" style={{ color: "var(--win95-text)", borderColor: "var(--win95-border)" }}>
-              🏢 {t("ui.crm.organization_form.sections.organization_details")}
+              {t("ui.crm.organization_form.sections.organization_details")}
             </h3>
 
             <div>
@@ -314,16 +426,16 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
                     color: "var(--win95-input-text)",
                   }}
                 >
-                  <option value="">{t("ui.crm.organization_form.placeholders.select_industry")}</option>
-                  <option value="Technology">{t("ui.crm.organization_form.industries.technology")}</option>
-                  <option value="Healthcare">{t("ui.crm.organization_form.industries.healthcare")}</option>
-                  <option value="Finance">{t("ui.crm.organization_form.industries.finance")}</option>
-                  <option value="Manufacturing">{t("ui.crm.organization_form.industries.manufacturing")}</option>
-                  <option value="Retail">{t("ui.crm.organization_form.industries.retail")}</option>
-                  <option value="Education">{t("ui.crm.organization_form.industries.education")}</option>
-                  <option value="Media">{t("ui.crm.organization_form.industries.media")}</option>
-                  <option value="Real Estate">{t("ui.crm.organization_form.industries.real_estate")}</option>
-                  <option value="Other">{t("ui.crm.organization_form.industries.other")}</option>
+                  <option value="">{t("ui.crm.organization_form.industry.select_placeholder")}</option>
+                  <option value="Technology">{t("ui.crm.organization_form.industry.technology")}</option>
+                  <option value="Healthcare">{t("ui.crm.organization_form.industry.healthcare")}</option>
+                  <option value="Finance">{t("ui.crm.organization_form.industry.finance")}</option>
+                  <option value="Manufacturing">{t("ui.crm.organization_form.industry.manufacturing")}</option>
+                  <option value="Retail">{t("ui.crm.organization_form.industry.retail")}</option>
+                  <option value="Education">{t("ui.crm.organization_form.industry.education")}</option>
+                  <option value="Media">{t("ui.crm.organization_form.industry.media")}</option>
+                  <option value="Real Estate">{t("ui.crm.organization_form.industry.real_estate")}</option>
+                  <option value="Other">{t("ui.crm.organization_form.industry.other")}</option>
                 </select>
               </div>
 
@@ -341,12 +453,12 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
                     color: "var(--win95-input-text)",
                   }}
                 >
-                  <option value="">{t("ui.crm.organization_form.placeholders.select_size")}</option>
-                  <option value="1-10">{t("ui.crm.organization_form.sizes.1_10")}</option>
-                  <option value="11-50">{t("ui.crm.organization_form.sizes.11_50")}</option>
-                  <option value="51-200">{t("ui.crm.organization_form.sizes.51_200")}</option>
-                  <option value="201-500">{t("ui.crm.organization_form.sizes.201_500")}</option>
-                  <option value="501+">{t("ui.crm.organization_form.sizes.501_plus")}</option>
+                  <option value="">{t("ui.crm.organization_form.size.select_placeholder")}</option>
+                  <option value="1-10">1-10</option>
+                  <option value="11-50">11-50</option>
+                  <option value="51-200">51-200</option>
+                  <option value="201-500">201-500</option>
+                  <option value="501+">501+</option>
                 </select>
               </div>
             </div>
@@ -355,7 +467,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
           {/* Organization Type */}
           <div className="space-y-3">
             <h3 className="text-sm font-bold border-b pb-2" style={{ color: "var(--win95-text)", borderColor: "var(--win95-border)" }}>
-              🎯 {t("ui.crm.organization_form.sections.organization_type")} <span style={{ color: "var(--error)" }}>*</span>
+              {t("ui.crm.organization_form.sections.organization_type")} <span style={{ color: "var(--error)" }}>*</span>
             </h3>
 
             <div className="grid grid-cols-4 gap-2">
@@ -374,7 +486,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
                       : "bg-gray-100 border-gray-400 text-gray-700 hover:bg-gray-200"
                   }`}
                 >
-                  {t("ui.crm.organization_form.org_types.prospect")}
+                  {t("ui.crm.organization_form.types.prospect")}
                 </div>
               </label>
 
@@ -393,7 +505,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
                       : "bg-gray-100 border-gray-400 text-gray-700 hover:bg-gray-200"
                   }`}
                 >
-                  {t("ui.crm.organization_form.org_types.customer")}
+                  {t("ui.crm.organization_form.types.customer")}
                 </div>
               </label>
 
@@ -412,7 +524,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
                       : "bg-gray-100 border-gray-400 text-gray-700 hover:bg-gray-200"
                   }`}
                 >
-                  {t("ui.crm.organization_form.org_types.partner")}
+                  {t("ui.crm.organization_form.types.partner")}
                 </div>
               </label>
 
@@ -431,7 +543,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
                       : "bg-gray-100 border-gray-400 text-gray-700 hover:bg-gray-200"
                   }`}
                 >
-                  {t("ui.crm.organization_form.org_types.sponsor")}
+                  {t("ui.crm.organization_form.types.sponsor")}
                 </div>
               </label>
             </div>
@@ -453,7 +565,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
                 color: "var(--win95-text)",
               }}
             >
-              <span className="text-sm font-bold">📞 {t("ui.crm.organization_form.sections.contact_details")}</span>
+              <span className="text-sm font-bold">{t("ui.crm.organization_form.sections.contact_details")}</span>
               {showContactDetails ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </button>
 
@@ -533,7 +645,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
                 color: "var(--win95-text)",
               }}
             >
-              <span className="text-sm font-bold">📍 {t("ui.crm.organization_form.sections.address")}</span>
+              <span className="text-sm font-bold">{t("ui.crm.organization_form.sections.address")}</span>
               {showAddress ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </button>
 
@@ -566,7 +678,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
                 <div className="grid grid-cols-2 gap-3">
                   <input
                     type="text"
-                    placeholder={t("ui.crm.organization_form.placeholders.state_province")}
+                    placeholder={t("ui.crm.organization_form.placeholders.state")}
                     value={formData.state}
                     onChange={(e) => setFormData({ ...formData, state: e.target.value })}
                     className="w-full px-2 py-1.5 text-sm border-2"
@@ -599,7 +711,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
                     color: "var(--win95-input-text)",
                   }}
                 >
-                  <option value="">{t("ui.crm.organization_form.placeholders.select_country")}</option>
+                  <option value="">{t("ui.crm.organization_form.country.select_placeholder")}</option>
                   {supportedCountries.map((country) => (
                     <option key={country.code} value={country.name}>
                       {country.name}
@@ -610,11 +722,381 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
             )}
           </div>
 
+          {/* B2B Billing Settings (Collapsible) */}
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => setShowBillingSettings(!showBillingSettings)}
+              className="flex items-center justify-between w-full text-left py-2 px-3 border-2"
+              style={{
+                borderColor: "var(--win95-border)",
+                background: "var(--win95-bg-light)",
+                color: "var(--win95-text)",
+              }}
+            >
+              <span className="text-sm font-bold">{t("ui.crm.organization_form.sections.b2b_billing")}</span>
+              {showBillingSettings ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </button>
+
+            {showBillingSettings && (
+              <div className="pl-4 space-y-4 border-l-2" style={{ borderColor: "var(--win95-border)" }}>
+                {/* Legal Entity Information */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>{t("ui.crm.organization_form.b2b.legal_entity_info")}</h4>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                        {t("ui.crm.organization_form.b2b.legal_entity_type")}
+                      </label>
+                      <select
+                        value={formData.legalEntityType}
+                        onChange={(e) => setFormData({ ...formData, legalEntityType: e.target.value as typeof formData.legalEntityType })}
+                        className="w-full px-2 py-1.5 text-sm border-2"
+                        style={{
+                          borderColor: "var(--win95-border)",
+                          background: "var(--win95-input-bg)",
+                          color: "var(--win95-input-text)",
+                        }}
+                      >
+                        <option value="">{t("ui.crm.organization_form.b2b.legal_type.select")}</option>
+                        <option value="corporation">{t("ui.crm.organization_form.b2b.legal_type.corporation")}</option>
+                        <option value="llc">{t("ui.crm.organization_form.b2b.legal_type.llc")}</option>
+                        <option value="partnership">{t("ui.crm.organization_form.b2b.legal_type.partnership")}</option>
+                        <option value="sole_proprietorship">{t("ui.crm.organization_form.b2b.legal_type.sole_proprietorship")}</option>
+                        <option value="nonprofit">{t("ui.crm.organization_form.b2b.legal_type.nonprofit")}</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                        {t("ui.crm.organization_form.b2b.registration_number")}
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.registrationNumber}
+                        onChange={(e) => setFormData({ ...formData, registrationNumber: e.target.value })}
+                        placeholder={t("ui.crm.organization_form.b2b.registration_placeholder")}
+                        className="w-full px-2 py-1.5 text-sm border-2"
+                        style={{
+                          borderColor: "var(--win95-border)",
+                          background: "var(--win95-input-bg)",
+                          color: "var(--win95-input-text)",
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                        {t("ui.crm.organization_form.b2b.vat_number")}
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.vatNumber}
+                        onChange={(e) => handleVATChange(e.target.value)}
+                        placeholder={t("ui.crm.organization_form.b2b.vat_placeholder")}
+                        className={`w-full px-2 py-1.5 text-sm border-2 ${vatError ? "border-red-500" : ""}`}
+                        style={{
+                          borderColor: vatError ? "#ef4444" : "var(--win95-border)",
+                          background: "var(--win95-input-bg)",
+                          color: "var(--win95-input-text)",
+                        }}
+                      />
+                      {vatError && (
+                        <p className="text-xs mt-1 text-red-500">{vatError}</p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center pt-6">
+                      <label className="flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.taxExempt}
+                          onChange={(e) => setFormData({ ...formData, taxExempt: e.target.checked })}
+                          className="mr-2"
+                        />
+                        <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                          {t("ui.crm.organization_form.b2b.tax_exempt")}
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Billing Address */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>{t("ui.crm.organization_form.b2b.billing_address")}</h4>
+
+                  <input
+                    type="text"
+                    placeholder="Street"
+                    value={formData.billingStreet}
+                    onChange={(e) => setFormData({ ...formData, billingStreet: e.target.value })}
+                    className="w-full px-2 py-1.5 text-sm border-2"
+                    style={{
+                      borderColor: "var(--win95-border)",
+                      background: "var(--win95-input-bg)",
+                      color: "var(--win95-input-text)",
+                    }}
+                  />
+
+                  <input
+                    type="text"
+                    placeholder="City"
+                    value={formData.billingCity}
+                    onChange={(e) => setFormData({ ...formData, billingCity: e.target.value })}
+                    className="w-full px-2 py-1.5 text-sm border-2"
+                    style={{
+                      borderColor: "var(--win95-border)",
+                      background: "var(--win95-input-bg)",
+                      color: "var(--win95-input-text)",
+                    }}
+                  />
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      placeholder="State/Province"
+                      value={formData.billingState}
+                      onChange={(e) => setFormData({ ...formData, billingState: e.target.value })}
+                      className="w-full px-2 py-1.5 text-sm border-2"
+                      style={{
+                        borderColor: "var(--win95-border)",
+                        background: "var(--win95-input-bg)",
+                        color: "var(--win95-input-text)",
+                      }}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Postal Code"
+                      value={formData.billingPostalCode}
+                      onChange={(e) => setFormData({ ...formData, billingPostalCode: e.target.value })}
+                      className="w-full px-2 py-1.5 text-sm border-2"
+                      style={{
+                        borderColor: "var(--win95-border)",
+                        background: "var(--win95-input-bg)",
+                        color: "var(--win95-input-text)",
+                      }}
+                    />
+                  </div>
+
+                  <select
+                    value={formData.billingCountry}
+                    onChange={(e) => setFormData({ ...formData, billingCountry: e.target.value })}
+                    className="w-full px-2 py-1.5 text-sm border-2"
+                    style={{
+                      borderColor: "var(--win95-border)",
+                      background: "var(--win95-input-bg)",
+                      color: "var(--win95-input-text)",
+                    }}
+                  >
+                    <option value="">-- Select Country --</option>
+                    {supportedCountries.map((country) => (
+                      <option key={country.code} value={country.name}>
+                        {country.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Payment Terms */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>{t("ui.crm.organization_form.b2b.payment_settings")}</h4>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                        {t("ui.crm.organization_form.b2b.payment_terms")}
+                      </label>
+                      <select
+                        value={formData.paymentTerms}
+                        onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value as typeof formData.paymentTerms })}
+                        className="w-full px-2 py-1.5 text-sm border-2"
+                        style={{
+                          borderColor: "var(--win95-border)",
+                          background: "var(--win95-input-bg)",
+                          color: "var(--win95-input-text)",
+                        }}
+                      >
+                        <option value="due_on_receipt">{t("ui.crm.organization_form.b2b.payment_terms.due_on_receipt")}</option>
+                        <option value="net15">{t("ui.crm.organization_form.b2b.payment_terms.net15")}</option>
+                        <option value="net30">{t("ui.crm.organization_form.b2b.payment_terms.net30")}</option>
+                        <option value="net60">{t("ui.crm.organization_form.b2b.payment_terms.net60")}</option>
+                        <option value="net90">{t("ui.crm.organization_form.b2b.payment_terms.net90")}</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                        {t("ui.crm.organization_form.b2b.credit_limit")}
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.creditLimit}
+                        onChange={(e) => setFormData({ ...formData, creditLimit: e.target.value })}
+                        placeholder="0.00"
+                        step="0.01"
+                        className="w-full px-2 py-1.5 text-sm border-2"
+                        style={{
+                          borderColor: "var(--win95-border)",
+                          background: "var(--win95-input-bg)",
+                          color: "var(--win95-input-text)",
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                      {t("ui.crm.organization_form.b2b.preferred_payment_method")}
+                    </label>
+                    <select
+                      value={formData.preferredPaymentMethod}
+                      onChange={(e) => setFormData({ ...formData, preferredPaymentMethod: e.target.value as typeof formData.preferredPaymentMethod })}
+                      className="w-full px-2 py-1.5 text-sm border-2"
+                      style={{
+                        borderColor: "var(--win95-border)",
+                        background: "var(--win95-input-bg)",
+                        color: "var(--win95-input-text)",
+                      }}
+                    >
+                      <option value="">{t("ui.crm.organization_form.b2b.payment_method.select")}</option>
+                      <option value="invoice">{t("ui.crm.organization_form.b2b.payment_method.invoice")}</option>
+                      <option value="bank_transfer">{t("ui.crm.organization_form.b2b.payment_method.bank_transfer")}</option>
+                      <option value="credit_card">{t("ui.crm.organization_form.b2b.payment_method.credit_card")}</option>
+                      <option value="check">{t("ui.crm.organization_form.b2b.payment_method.check")}</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Accounting Integration */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>{t("ui.crm.organization_form.b2b.accounting_integration")}</h4>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                        {t("ui.crm.organization_form.b2b.accounting_reference")}
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.accountingReference}
+                        onChange={(e) => setFormData({ ...formData, accountingReference: e.target.value })}
+                        placeholder={t("ui.crm.organization_form.b2b.accounting_reference_placeholder")}
+                        className="w-full px-2 py-1.5 text-sm border-2"
+                        style={{
+                          borderColor: "var(--win95-border)",
+                          background: "var(--win95-input-bg)",
+                          color: "var(--win95-input-text)",
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                        {t("ui.crm.organization_form.b2b.cost_center")}
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.costCenter}
+                        onChange={(e) => setFormData({ ...formData, costCenter: e.target.value })}
+                        placeholder={t("ui.crm.organization_form.b2b.cost_center_placeholder")}
+                        className="w-full px-2 py-1.5 text-sm border-2"
+                        style={{
+                          borderColor: "var(--win95-border)",
+                          background: "var(--win95-input-bg)",
+                          color: "var(--win95-input-text)",
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center">
+                    <label className="flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.purchaseOrderRequired}
+                        onChange={(e) => setFormData({ ...formData, purchaseOrderRequired: e.target.checked })}
+                        className="mr-2"
+                      />
+                      <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                        {t("ui.crm.organization_form.b2b.purchase_order_required")}
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Billing Contact */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>{t("ui.crm.organization_form.b2b.billing_contact")}</h4>
+
+                  <div>
+                    <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                      {t("ui.crm.organization_form.b2b.billing_contact_name")}
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.billingContact}
+                      onChange={(e) => setFormData({ ...formData, billingContact: e.target.value })}
+                      placeholder={t("ui.crm.organization_form.b2b.billing_contact_name_placeholder")}
+                      className="w-full px-2 py-1.5 text-sm border-2"
+                      style={{
+                        borderColor: "var(--win95-border)",
+                        background: "var(--win95-input-bg)",
+                        color: "var(--win95-input-text)",
+                      }}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                        {t("ui.crm.organization_form.b2b.billing_contact_email")}
+                      </label>
+                      <input
+                        type="email"
+                        value={formData.billingContactEmail}
+                        onChange={(e) => setFormData({ ...formData, billingContactEmail: e.target.value })}
+                        placeholder={t("ui.crm.organization_form.b2b.billing_contact_email_placeholder")}
+                        className="w-full px-2 py-1.5 text-sm border-2"
+                        style={{
+                          borderColor: "var(--win95-border)",
+                          background: "var(--win95-input-bg)",
+                          color: "var(--win95-input-text)",
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                        {t("ui.crm.organization_form.b2b.billing_contact_phone")}
+                      </label>
+                      <input
+                        type="tel"
+                        value={formData.billingContactPhone}
+                        onChange={(e) => setFormData({ ...formData, billingContactPhone: e.target.value })}
+                        placeholder={t("ui.crm.organization_form.b2b.billing_contact_phone_placeholder")}
+                        className="w-full px-2 py-1.5 text-sm border-2"
+                        style={{
+                          borderColor: "var(--win95-border)",
+                          background: "var(--win95-input-bg)",
+                          color: "var(--win95-input-text)",
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Sponsorship Details (Conditional - only if Type = Sponsor) */}
           {formData.orgType === "sponsor" && (
             <div className="space-y-3">
               <h3 className="text-sm font-bold border-b pb-2" style={{ color: "var(--win95-text)", borderColor: "var(--win95-border)" }}>
-                🌟 {t("ui.crm.organization_form.sections.sponsorship_details")}
+                {t("ui.crm.organization_form.sections.sponsorship_details")}
               </h3>
 
               <div>
@@ -631,12 +1113,12 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
                     color: "var(--win95-input-text)",
                   }}
                 >
-                  <option value="">{t("ui.crm.organization_form.placeholders.select_level")}</option>
-                  <option value="platinum">{t("ui.crm.organization_form.sponsor_levels.platinum")}</option>
-                  <option value="gold">{t("ui.crm.organization_form.sponsor_levels.gold")}</option>
-                  <option value="silver">{t("ui.crm.organization_form.sponsor_levels.silver")}</option>
-                  <option value="bronze">{t("ui.crm.organization_form.sponsor_levels.bronze")}</option>
-                  <option value="community">{t("ui.crm.organization_form.sponsor_levels.community")}</option>
+                  <option value="">{t("ui.crm.organization_form.sponsor_level.select_placeholder")}</option>
+                  <option value="platinum">{t("ui.crm.organization_form.sponsor_level.platinum")}</option>
+                  <option value="gold">{t("ui.crm.organization_form.sponsor_level.gold")}</option>
+                  <option value="silver">{t("ui.crm.organization_form.sponsor_level.silver")}</option>
+                  <option value="bronze">{t("ui.crm.organization_form.sponsor_level.bronze")}</option>
+                  <option value="community">{t("ui.crm.organization_form.sponsor_level.community")}</option>
                 </select>
               </div>
 
@@ -693,7 +1175,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
                 color: "var(--win95-text)",
               }}
             >
-              <span className="text-sm font-bold">🏷️ {t("ui.crm.organization_form.sections.tags_notes")}</span>
+              <span className="text-sm font-bold">{t("ui.crm.organization_form.sections.tags_notes")}</span>
               {showTagsNotes ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </button>
 

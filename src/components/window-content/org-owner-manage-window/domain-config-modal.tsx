@@ -3,9 +3,11 @@
 import { useState, useEffect } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
-import { X, Globe, Palette, Mail, Layout, Save, Loader2 } from "lucide-react";
+import { X, Globe, Palette, Mail, Layout, Save, Loader2, Eye } from "lucide-react";
 import { Id, Doc } from "../../../../convex/_generated/dataModel";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+import { getAllEmailTemplateMetadata } from "@/templates/emails/registry";
+import { TemplatePreviewModal } from "@/components/template-preview-modal";
 
 interface DomainConfigModalProps {
   isOpen: boolean;
@@ -28,6 +30,8 @@ export function DomainConfigModal({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeSection, setActiveSection] = useState<"core" | "email" | "web">("core");
+  const [showTemplatePreview, setShowTemplatePreview] = useState(false);
+  const [previewTemplateCode, setPreviewTemplateCode] = useState<string>("");
 
   // Form state
   const [formData, setFormData] = useState({
@@ -40,11 +44,12 @@ export function DomainConfigModal({
     fontFamily: "system-ui, sans-serif",
     // Email
     enableEmail: false,
-    resendDomainId: "",
+    emailDomain: "",
     senderEmail: "",
     systemEmail: "",
     salesEmail: "",
     replyToEmail: "",
+    emailTemplateCode: "luxury-confirmation", // Default template
     // Web
     enableWeb: false,
     templateId: "",
@@ -66,11 +71,12 @@ export function DomainConfigModal({
         accentColor: props.branding?.accentColor || "#ffffff",
         fontFamily: props.branding?.fontFamily || "system-ui, sans-serif",
         enableEmail: !!props.email,
-        resendDomainId: props.email?.resendDomainId || "",
+        emailDomain: props.email?.emailDomain || "",
         senderEmail: props.email?.senderEmail || "",
         systemEmail: props.email?.systemEmail || "",
         salesEmail: props.email?.salesEmail || "",
         replyToEmail: props.email?.replyToEmail || "",
+        emailTemplateCode: props.email?.defaultTemplateCode || "luxury-confirmation",
         enableWeb: !!props.webPublishing,
         templateId: props.webPublishing?.templateId || "",
         isExternal: props.webPublishing?.isExternal ?? true,
@@ -88,11 +94,12 @@ export function DomainConfigModal({
         accentColor: "#ffffff",
         fontFamily: "system-ui, sans-serif",
         enableEmail: false,
-        resendDomainId: "",
+        emailDomain: "",
         senderEmail: "",
         systemEmail: "",
         salesEmail: "",
         replyToEmail: "",
+        emailTemplateCode: "luxury-confirmation",
         enableWeb: false,
         templateId: "",
         isExternal: true,
@@ -117,11 +124,12 @@ export function DomainConfigModal({
       };
 
       const email = formData.enableEmail ? {
-        resendDomainId: formData.resendDomainId,
+        emailDomain: formData.emailDomain,
         senderEmail: formData.senderEmail,
         systemEmail: formData.systemEmail,
         salesEmail: formData.salesEmail,
         replyToEmail: formData.replyToEmail,
+        defaultTemplateCode: formData.emailTemplateCode,
       } : undefined;
 
       const webPublishing = formData.enableWeb ? {
@@ -378,22 +386,23 @@ export function DomainConfigModal({
                 <>
                   <div>
                     <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
-                      {t("ui.manage.domains.modal.field.resend_domain_id")}
+                      Email Domain *
                     </label>
                     <input
                       type="text"
-                      value={formData.resendDomainId}
-                      onChange={(e) => setFormData({ ...formData, resendDomainId: e.target.value })}
-                      placeholder={t("ui.manage.domains.modal.field.resend_domain_id.placeholder")}
+                      value={formData.emailDomain}
+                      onChange={(e) => setFormData({ ...formData, emailDomain: e.target.value })}
+                      placeholder="mail.pluseins.gg"
                       className="w-full px-2 py-1 text-xs border-2"
                       style={{
                         borderColor: 'var(--win95-border)',
                         backgroundColor: 'var(--win95-input-bg)',
                         color: 'var(--win95-text)'
                       }}
+                      required
                     />
                     <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-                      {t("ui.manage.domains.modal.field.resend_domain_id.help")}
+                      Domain configured in Resend (e.g., mail.pluseins.gg for transactional emails)
                     </p>
                   </div>
 
@@ -469,6 +478,50 @@ export function DomainConfigModal({
                         color: 'var(--win95-text)'
                       }}
                     />
+                  </div>
+
+                  {/* Email Template Selector */}
+                  <div>
+                    <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                      Default Email Template
+                    </label>
+                    <div className="flex gap-2">
+                      <select
+                        value={formData.emailTemplateCode}
+                        onChange={(e) => setFormData({ ...formData, emailTemplateCode: e.target.value })}
+                        className="flex-1 px-2 py-1 text-xs border-2"
+                        style={{
+                          borderColor: 'var(--win95-border)',
+                          backgroundColor: 'var(--win95-input-bg)',
+                          color: 'var(--win95-text)'
+                        }}
+                      >
+                        {getAllEmailTemplateMetadata().map((template) => (
+                          <option key={template.code} value={template.code}>
+                            {template.name}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPreviewTemplateCode(formData.emailTemplateCode);
+                          setShowTemplatePreview(true);
+                        }}
+                        className="px-3 py-1 text-xs font-semibold border-2 flex items-center gap-1 hover:bg-opacity-90 transition-colors"
+                        style={{
+                          borderColor: 'var(--win95-border)',
+                          backgroundColor: 'var(--win95-highlight)',
+                          color: 'white'
+                        }}
+                      >
+                        <Eye size={12} />
+                        Preview
+                      </button>
+                    </div>
+                    <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
+                      This template will be used for all ticket confirmation emails from this domain.
+                    </p>
                   </div>
                 </>
               )}
@@ -610,6 +663,20 @@ export function DomainConfigModal({
           </div>
         </form>
       </div>
+
+      {/* Template Preview Modal */}
+      {showTemplatePreview && (
+        <TemplatePreviewModal
+          isOpen={showTemplatePreview}
+          onClose={() => setShowTemplatePreview(false)}
+          templateType="email"
+          templateCode={previewTemplateCode}
+          onSelect={(code) => {
+            setFormData({ ...formData, emailTemplateCode: code });
+            setShowTemplatePreview(false);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -944,6 +944,228 @@ export const seed = internalMutation({
           ja: "チケット #N/A",
         },
       },
+
+      // === EMAIL SENDING ===
+      {
+        key: "ui.tickets.email.button.send",
+        values: {
+          en: "Send Email",
+          de: "E-Mail senden",
+          pl: "Wyślij e-mail",
+          es: "Enviar correo",
+          fr: "Envoyer un e-mail",
+          ja: "メールを送信",
+        },
+      },
+      {
+        key: "ui.tickets.email.modal.title",
+        values: {
+          en: "Send Confirmation Email",
+          de: "Bestätigungs-E-Mail senden",
+          pl: "Wyślij e-mail potwierdzający",
+          es: "Enviar correo de confirmación",
+          fr: "Envoyer un e-mail de confirmation",
+          ja: "確認メールを送信",
+        },
+      },
+      {
+        key: "ui.tickets.email.domain.label",
+        values: {
+          en: "Using Domain:",
+          de: "Domain verwenden:",
+          pl: "Używana domena:",
+          es: "Usar dominio:",
+          fr: "Utiliser le domaine:",
+          ja: "ドメインを使用:",
+        },
+      },
+      {
+        key: "ui.tickets.email.domain.from",
+        values: {
+          en: "From:",
+          de: "Von:",
+          pl: "Od:",
+          es: "De:",
+          fr: "De:",
+          ja: "送信元:",
+        },
+      },
+      {
+        key: "ui.tickets.email.domain.select",
+        values: {
+          en: "Select domain configuration...",
+          de: "Domain-Konfiguration auswählen...",
+          pl: "Wybierz konfigurację domeny...",
+          es: "Seleccionar configuración de dominio...",
+          fr: "Sélectionner la configuration du domaine...",
+          ja: "ドメイン設定を選択...",
+        },
+      },
+      {
+        key: "ui.tickets.email.button.preview",
+        values: {
+          en: "Preview",
+          de: "Vorschau",
+          pl: "Podgląd",
+          es: "Vista previa",
+          fr: "Aperçu",
+          ja: "プレビュー",
+        },
+      },
+      {
+        key: "ui.tickets.email.button.test",
+        values: {
+          en: "Test",
+          de: "Test",
+          pl: "Test",
+          es: "Prueba",
+          fr: "Test",
+          ja: "テスト",
+        },
+      },
+      {
+        key: "ui.tickets.email.button.send_real",
+        values: {
+          en: "Send Real",
+          de: "Echt senden",
+          pl: "Wyślij rzeczywisty",
+          es: "Enviar real",
+          fr: "Envoyer réel",
+          ja: "本番送信",
+        },
+      },
+      {
+        key: "ui.tickets.email.test.label",
+        values: {
+          en: "Test Email Address:",
+          de: "Test-E-Mail-Adresse:",
+          pl: "Testowy adres e-mail:",
+          es: "Dirección de correo de prueba:",
+          fr: "Adresse e-mail de test:",
+          ja: "テストメールアドレス:",
+        },
+      },
+      {
+        key: "ui.tickets.email.test.placeholder",
+        values: {
+          en: "your.email@example.com",
+          de: "ihre.email@beispiel.de",
+          pl: "twoj.email@przyklad.pl",
+          es: "tu.correo@ejemplo.es",
+          fr: "votre.email@exemple.fr",
+          ja: "your.email@example.com",
+        },
+      },
+      {
+        key: "ui.tickets.email.footer",
+        values: {
+          en: "Preview the email, send a test to yourself, then send the real confirmation.",
+          de: "Vorschau der E-Mail, senden Sie einen Test an sich selbst und dann die echte Bestätigung.",
+          pl: "Podejrzyj e-mail, wyślij test do siebie, a następnie wyślij prawdziwą potwierdzenie.",
+          es: "Vista previa del correo, envía una prueba a ti mismo y luego envía la confirmación real.",
+          fr: "Prévisualisez l'e-mail, envoyez un test à vous-même, puis envoyez la confirmation réelle.",
+          ja: "メールをプレビューし、自分にテストを送信してから、実際の確認を送信してください。",
+        },
+      },
+      {
+        key: "ui.tickets.email.error.no_domain",
+        values: {
+          en: "No Domain Configuration",
+          de: "Keine Domain-Konfiguration",
+          pl: "Brak konfiguracji domeny",
+          es: "Sin configuración de dominio",
+          fr: "Aucune configuration de domaine",
+          ja: "ドメイン設定なし",
+        },
+      },
+      {
+        key: "ui.tickets.email.error.no_domain_message",
+        values: {
+          en: "Please create a domain configuration first in Settings → Domains",
+          de: "Bitte erstellen Sie zuerst eine Domain-Konfiguration unter Einstellungen → Domains",
+          pl: "Najpierw utwórz konfigurację domeny w Ustawienia → Domeny",
+          es: "Por favor, crea primero una configuración de dominio en Configuración → Dominios",
+          fr: "Veuillez d'abord créer une configuration de domaine dans Paramètres → Domaines",
+          ja: "まず設定 → ドメインでドメイン設定を作成してください",
+        },
+      },
+      {
+        key: "ui.tickets.email.error.no_email",
+        values: {
+          en: "No Email Address",
+          de: "Keine E-Mail-Adresse",
+          pl: "Brak adresu e-mail",
+          es: "Sin dirección de correo",
+          fr: "Aucune adresse e-mail",
+          ja: "メールアドレスなし",
+        },
+      },
+      {
+        key: "ui.tickets.email.error.no_email_message",
+        values: {
+          en: "This ticket has no email address associated with it.",
+          de: "Diesem Ticket ist keine E-Mail-Adresse zugeordnet.",
+          pl: "Ten bilet nie ma powiązanego adresu e-mail.",
+          es: "Esta entrada no tiene una dirección de correo asociada.",
+          fr: "Ce billet n'a pas d'adresse e-mail associée.",
+          ja: "このチケットにはメールアドレスが関連付けられていません。",
+        },
+      },
+      {
+        key: "ui.tickets.email.error.preview_failed",
+        values: {
+          en: "Failed to generate email preview",
+          de: "E-Mail-Vorschau konnte nicht generiert werden",
+          pl: "Nie udało się wygenerować podglądu e-maila",
+          es: "Error al generar vista previa del correo",
+          fr: "Échec de la génération de l'aperçu de l'e-mail",
+          ja: "メールプレビューの生成に失敗しました",
+        },
+      },
+      {
+        key: "ui.tickets.email.success.test_sent",
+        values: {
+          en: "Test email sent to {email}! Check your inbox.",
+          de: "Test-E-Mail an {email} gesendet! Überprüfen Sie Ihren Posteingang.",
+          pl: "Testowy e-mail wysłany do {email}! Sprawdź swoją skrzynkę.",
+          es: "Correo de prueba enviado a {email}! Revisa tu bandeja de entrada.",
+          fr: "E-mail de test envoyé à {email}! Vérifiez votre boîte de réception.",
+          ja: "{email}にテストメールを送信しました！受信トレイを確認してください。",
+        },
+      },
+      {
+        key: "ui.tickets.email.success.sent",
+        values: {
+          en: "Confirmation email sent to {email}!",
+          de: "Bestätigungs-E-Mail an {email} gesendet!",
+          pl: "E-mail potwierdzający wysłany do {email}!",
+          es: "Correo de confirmación enviado a {email}!",
+          fr: "E-mail de confirmation envoyé à {email}!",
+          ja: "{email}に確認メールを送信しました！",
+        },
+      },
+      {
+        key: "ui.tickets.email.error.send_failed",
+        values: {
+          en: "Failed to send email. Check console for details.",
+          de: "E-Mail konnte nicht gesendet werden. Details in der Konsole prüfen.",
+          pl: "Nie udało się wysłać e-maila. Sprawdź konsolę, aby uzyskać szczegóły.",
+          es: "Error al enviar el correo. Revisa la consola para más detalles.",
+          fr: "Échec de l'envoi de l'e-mail. Vérifiez la console pour plus de détails.",
+          ja: "メール送信に失敗しました。詳細はコンソールを確認してください。",
+        },
+      },
+      {
+        key: "ui.tickets.email.confirm.send",
+        values: {
+          en: "Send confirmation email to {email}?",
+          de: "Bestätigungs-E-Mail an {email} senden?",
+          pl: "Wysłać e-mail potwierdzający do {email}?",
+          es: "¿Enviar correo de confirmación a {email}?",
+          fr: "Envoyer un e-mail de confirmation à {email}?",
+          ja: "{email}に確認メールを送信しますか？",
+        },
+      },
     ];
 
     console.log(`📝 Upserting ${translations.length} translation keys...`);

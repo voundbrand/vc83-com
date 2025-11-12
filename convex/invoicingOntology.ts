@@ -1127,6 +1127,116 @@ export const createDraftInvoiceFromTransactions = mutation({
 });
 
 /**
+ * CREATE DRAFT INVOICE (Manual)
+ *
+ * Create a draft invoice manually from line items (not from transactions).
+ * Used for B2B invoicing from CRM organizations.
+ *
+ * @permission manage_financials - Required to create invoices
+ * @roles org_owner, business_manager, super_admin
+ */
+export const createDraftInvoice = mutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    crmOrganizationId: v.id("objects"),
+    billToName: v.string(),
+    billToEmail: v.string(),
+    billToVatNumber: v.optional(v.string()),
+    billToAddress: v.object({
+      street: v.optional(v.string()),
+      city: v.optional(v.string()),
+      state: v.optional(v.string()),
+      postalCode: v.optional(v.string()),
+      country: v.optional(v.string()),
+    }),
+    lineItems: v.array(v.object({
+      description: v.string(),
+      quantity: v.number(),
+      unitPriceInCents: v.number(),
+      totalPriceInCents: v.number(),
+    })),
+    subtotalInCents: v.number(),
+    taxInCents: v.number(),
+    totalInCents: v.number(),
+    currency: v.string(),
+    invoiceDate: v.number(),
+    dueDate: v.number(),
+    paymentTerms: v.optional(v.string()),
+    notes: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    // Check permission
+    const hasPermission = await checkPermission(ctx, userId, "manage_financials", args.organizationId);
+    if (!hasPermission) {
+      throw new Error("Not authorized: No permission to create invoices");
+    }
+
+    // Generate draft invoice number
+    const year = new Date().getFullYear();
+    const timestamp = Date.now().toString().slice(-6);
+    const draftInvoiceNumber = `DRAFT-${year}-${timestamp}`;
+
+    // Create billTo object
+    const billTo = {
+      type: "organization" as const,
+      organizationId: args.crmOrganizationId,
+      name: args.billToName,
+      vatNumber: args.billToVatNumber || "",
+      billingEmail: args.billToEmail,
+      billingAddress: args.billToAddress,
+    };
+
+    // Create draft invoice
+    const now = Date.now();
+    const invoiceId = await ctx.db.insert("objects", {
+      type: "invoice",
+      subtype: "b2b_single",
+      name: `Invoice ${draftInvoiceNumber}`,
+      status: "draft",
+      organizationId: args.organizationId,
+      createdBy: userId,
+      createdAt: now,
+      updatedAt: now,
+      customProperties: {
+        isDraft: true,
+        invoiceNumber: draftInvoiceNumber,
+        invoiceDate: args.invoiceDate,
+        dueDate: args.dueDate,
+        paymentTerms: args.paymentTerms || "net30",
+
+        // Bill To
+        billTo,
+        crmOrganizationId: args.crmOrganizationId,
+
+        // Line Items
+        lineItems: args.lineItems,
+
+        // Totals
+        subtotalInCents: args.subtotalInCents,
+        taxInCents: args.taxInCents,
+        totalInCents: args.totalInCents,
+        currency: args.currency,
+
+        // Notes
+        notes: args.notes,
+
+        // Metadata
+        createdFromTransactions: false,
+        source: "manual",
+      },
+    });
+
+    return {
+      invoiceId,
+      invoiceNumber: draftInvoiceNumber,
+    };
+  },
+});
+
+/**
  * SEAL INVOICE
  *
  * Convert draft invoice to final sealed invoice.

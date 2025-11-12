@@ -85,17 +85,17 @@ export function OrganizationDetail({ organizationId }: OrganizationDetailProps) 
       {/* Company Info */}
       {(industry || size) && (
         <div className="border-2 p-3" style={{ background: 'var(--win95-bg-light)', borderColor: 'var(--win95-border)' }}>
-          <div className="text-xs font-pixel mb-2" style={{ color: 'var(--win95-text)' }}>{t("organization_detail.company_info")}</div>
+          <div className="text-xs font-pixel mb-2" style={{ color: 'var(--win95-text)' }}>{t("ui.crm.organization_detail.company_info")}</div>
           <div className="space-y-1 text-sm">
             {industry && (
               <div className="flex justify-between">
-                <span style={{ color: 'var(--neutral-gray)' }}>{t("organization_detail.industry")}</span>
+                <span style={{ color: 'var(--neutral-gray)' }}>{t("ui.crm.organization_detail.industry")}</span>
                 <span className="font-semibold" style={{ color: 'var(--win95-text)' }}>{industry}</span>
               </div>
             )}
             {size && (
               <div className="flex justify-between">
-                <span style={{ color: 'var(--neutral-gray)' }}>{t("organization_detail.company_size")}</span>
+                <span style={{ color: 'var(--neutral-gray)' }}>{t("ui.crm.organization_detail.company_size")}</span>
                 <span className="font-semibold" style={{ color: 'var(--win95-text)' }}>{size}</span>
               </div>
             )}
@@ -106,7 +106,7 @@ export function OrganizationDetail({ organizationId }: OrganizationDetailProps) 
       {/* Address */}
       {address && (address.street || address.city || address.state || address.postalCode || address.country) && (
         <div>
-          <div className="text-xs font-pixel mb-2" style={{ color: 'var(--win95-text)' }}>{t("organization_detail.address_label")}</div>
+          <div className="text-xs font-pixel mb-2" style={{ color: 'var(--win95-text)' }}>{t("ui.crm.organization_detail.address_label")}</div>
           <div className="border-2 p-3 text-sm" style={{ background: 'var(--win95-bg-light)', borderColor: 'var(--win95-border)', color: 'var(--win95-text)' }}>
             {address.street && <div>{address.street}</div>}
             <div>
@@ -121,7 +121,7 @@ export function OrganizationDetail({ organizationId }: OrganizationDetailProps) 
       <div>
         <div className="flex items-center gap-2 mb-3">
           <Users size={16} style={{ color: 'var(--win95-text)' }} />
-          <span className="text-xs font-pixel" style={{ color: 'var(--win95-text)' }}>{t("organization_detail.contacts_label", { count: contacts?.length || 0 })}</span>
+          <span className="text-xs font-pixel" style={{ color: 'var(--win95-text)' }}>{t("ui.crm.organization_detail.contacts_label", { count: contacts?.length || 0 })}</span>
         </div>
         {contacts && contacts.length > 0 ? (
           <div className="space-y-2">
@@ -146,7 +146,7 @@ export function OrganizationDetail({ organizationId }: OrganizationDetailProps) 
                     </div>
                     {relationship.isPrimaryContact && (
                       <span className="px-2 py-0.5 text-[10px] font-pixel border-2" style={{ background: 'var(--win95-bg-light)', borderColor: 'var(--win95-highlight)', color: 'var(--win95-highlight)' }}>
-                        {t("organization_detail.primary_tag")}
+                        {t("ui.crm.organization_detail.primary_tag")}
                       </span>
                     )}
                   </div>
@@ -156,7 +156,7 @@ export function OrganizationDetail({ organizationId }: OrganizationDetailProps) 
           </div>
         ) : (
           <div className="p-4 text-center border-2" style={{ color: 'var(--neutral-gray)', borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
-            <p className="text-sm">{t("organization_detail.no_contacts")}</p>
+            <p className="text-sm">{t("ui.crm.organization_detail.no_contacts")}</p>
           </div>
         )}
       </div>

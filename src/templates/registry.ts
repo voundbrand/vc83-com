@@ -107,6 +107,19 @@ export function getAllThemes() {
 }
 
 /**
+ * EMAIL TEMPLATES
+ *
+ * Import email template functions for backend use
+ */
+export {
+  getEmailTemplate,
+  getAllEmailTemplateCodes,
+  emailTemplateExists,
+  getEmailTemplateMetadata,
+  getAllEmailTemplateMetadata
+} from "./emails/registry";
+
+/**
  * Check if Template Exists
  */
 export function templateExists(templateCode: string): boolean {

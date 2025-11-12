@@ -403,7 +403,7 @@ export const createCrmOrganization = mutation({
   args: {
     sessionId: v.string(),
     organizationId: v.id("organizations"),
-    subtype: v.string(), // "customer" | "prospect" | "partner"
+    subtype: v.string(), // "customer" | "prospect" | "partner" | "sponsor"
     name: v.string(),
     website: v.optional(v.string()),
     industry: v.optional(v.string()),
@@ -415,11 +415,33 @@ export const createCrmOrganization = mutation({
       postalCode: v.optional(v.string()),
       country: v.optional(v.string()),
     })),
+    // Basic contact info
     taxId: v.optional(v.string()),
     billingEmail: v.optional(v.string()),
     phone: v.optional(v.string()),
     tags: v.optional(v.array(v.string())),
     notes: v.optional(v.string()),
+    // B2B Billing fields
+    billingAddress: v.optional(v.object({
+      street: v.optional(v.string()),
+      city: v.optional(v.string()),
+      state: v.optional(v.string()),
+      postalCode: v.optional(v.string()),
+      country: v.optional(v.string()),
+    })),
+    legalEntityType: v.optional(v.string()), // "corporation", "llc", "partnership", "sole_proprietorship", "nonprofit"
+    registrationNumber: v.optional(v.string()), // Company registration number
+    vatNumber: v.optional(v.string()), // VAT/GST number
+    taxExempt: v.optional(v.boolean()),
+    paymentTerms: v.optional(v.string()), // "due_on_receipt", "net15", "net30", "net60", "net90"
+    creditLimit: v.optional(v.number()),
+    preferredPaymentMethod: v.optional(v.string()), // "invoice", "bank_transfer", "credit_card", "check"
+    accountingReference: v.optional(v.string()), // External accounting system reference
+    costCenter: v.optional(v.string()),
+    purchaseOrderRequired: v.optional(v.boolean()),
+    billingContact: v.optional(v.string()), // Name of billing contact
+    billingContactEmail: v.optional(v.string()),
+    billingContactPhone: v.optional(v.string()),
     customFields: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
@@ -438,15 +460,32 @@ export const createCrmOrganization = mutation({
       description: `${args.industry || "Company"} organization`,
       status: "active",
       customProperties: {
+        // Basic info
         website: args.website,
         industry: args.industry,
         size: args.size,
         address: args.address,
-        taxId: args.taxId,
-        billingEmail: args.billingEmail,
         phone: args.phone,
         tags: args.tags || [],
         notes: args.notes,
+        // Basic billing
+        taxId: args.taxId,
+        billingEmail: args.billingEmail,
+        // B2B Billing
+        billingAddress: args.billingAddress,
+        legalEntityType: args.legalEntityType,
+        registrationNumber: args.registrationNumber,
+        vatNumber: args.vatNumber,
+        taxExempt: args.taxExempt || false,
+        paymentTerms: args.paymentTerms || "net30",
+        creditLimit: args.creditLimit,
+        preferredPaymentMethod: args.preferredPaymentMethod,
+        accountingReference: args.accountingReference,
+        costCenter: args.costCenter,
+        purchaseOrderRequired: args.purchaseOrderRequired || false,
+        billingContact: args.billingContact,
+        billingContactEmail: args.billingContactEmail,
+        billingContactPhone: args.billingContactPhone,
         ...args.customFields,
       },
       createdBy: session.userId,
@@ -485,12 +524,28 @@ export const updateCrmOrganization = mutation({
       industry: v.optional(v.string()),
       size: v.optional(v.string()),
       address: v.optional(v.any()),
-      taxId: v.optional(v.string()),
-      billingEmail: v.optional(v.string()),
       phone: v.optional(v.string()),
       status: v.optional(v.string()),
       tags: v.optional(v.array(v.string())),
       notes: v.optional(v.string()),
+      // Basic billing
+      taxId: v.optional(v.string()),
+      billingEmail: v.optional(v.string()),
+      // B2B Billing fields
+      billingAddress: v.optional(v.any()),
+      legalEntityType: v.optional(v.string()),
+      registrationNumber: v.optional(v.string()),
+      vatNumber: v.optional(v.string()),
+      taxExempt: v.optional(v.boolean()),
+      paymentTerms: v.optional(v.string()),
+      creditLimit: v.optional(v.number()),
+      preferredPaymentMethod: v.optional(v.string()),
+      accountingReference: v.optional(v.string()),
+      costCenter: v.optional(v.string()),
+      purchaseOrderRequired: v.optional(v.boolean()),
+      billingContact: v.optional(v.string()),
+      billingContactEmail: v.optional(v.string()),
+      billingContactPhone: v.optional(v.string()),
       customFields: v.optional(v.any()),
     }),
   },

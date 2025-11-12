@@ -86,28 +86,8 @@ export const generateConsolidatedInvoiceFromRule = action({
       throw new Error("Invoice not found after creation");
     }
 
-    // 4. Prepare template data
-    const templateData = await prepareConsolidatedTemplateData(ctx, invoice);
-
-    // 5. Generate PDF using b2b_consolidated template
-    const pdfResult = await ctx.runAction(api.pdfGenerationTemplated.generatePdfFromTemplate, {
-      templateId: "b2b_consolidated",
-      data: templateData,
-      organizationId: invoice.organizationId,
-    });
-
-    if (!pdfResult) {
-      throw new Error("Failed to generate PDF");
-    }
-
-    // 6. Store PDF in Convex storage
-    const pdfBlob = Buffer.from(pdfResult.content, "base64");
-    const storageId = await ctx.storage.store(
-      new Blob([pdfBlob], { type: "application/pdf" })
-    );
-
-    // 7. Update invoice with PDF URL
-    const pdfUrl = await ctx.storage.getUrl(storageId);
+    // 4. Prepare template data and generate PDF using API Template.io
+    const pdfUrl = await generateConsolidatedPdfWithApiTemplate(ctx, invoice);
     await ctx.runMutation(internal.invoicingOntology.updateInvoicePdfUrl, {
       invoiceId: invoiceResult.invoiceId,
       pdfUrl: pdfUrl || "",
@@ -201,52 +181,22 @@ export const generateConsolidatedInvoice = action({
     }
     console.log("✅ [Step 2/7] Invoice fetched");
 
-    // 3. Prepare template data
-    console.log("📄 [Step 3/7] Preparing template data...");
-    const templateData = await prepareConsolidatedTemplateData(ctx, invoice);
-    console.log("✅ [Step 3/7] Template data prepared");
+    // 3-5. Generate PDF using API Template.io
+    console.log("📄 [Step 3/5] Generating PDF with API Template.io...");
+    const templateCode = args.templateId === "b2b_consolidated_detailed" ? "detailed-breakdown" : "b2b-professional";
+    const pdfUrl = await generateConsolidatedPdfWithApiTemplate(ctx, invoice, templateCode);
+    console.log("✅ [Step 3/5] PDF generated and stored");
 
-    // 4. Generate PDF using selected template
-    console.log("📄 [Step 4/7] Generating PDF...");
-    const templateId: "b2b_consolidated" | "b2b_consolidated_detailed" | "b2c_receipt" =
-      args.templateId || "b2b_consolidated";
-    const pdfResult = await ctx.runAction(api.pdfGenerationTemplated.generatePdfFromTemplate, {
-      templateId,
-      data: templateData,
-      organizationId: invoice.organizationId,
-    });
-
-    if (!pdfResult) {
-      console.error("❌ [Step 4/7] PDF generation failed");
-      throw new Error("Failed to generate PDF");
-    }
-    console.log("✅ [Step 4/7] PDF generated");
-
-    // 5. Store PDF
-    console.log("📄 [Step 5/7] Storing PDF...");
-    // Convert base64 to Uint8Array (Buffer not available in Convex runtime)
-    const base64Data = pdfResult.content;
-    const binaryString = atob(base64Data);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    const storageId = await ctx.storage.store(
-      new Blob([bytes], { type: "application/pdf" })
-    );
-    console.log("✅ [Step 5/7] PDF stored");
-
-    // 6. Update invoice with PDF URL
-    console.log("📄 [Step 6/7] Updating invoice with PDF URL...");
-    const pdfUrl = await ctx.storage.getUrl(storageId);
+    // 4. Update invoice with PDF URL
+    console.log("📄 [Step 4/5] Updating invoice with PDF URL...");
     await ctx.runMutation(internal.invoicingOntology.updateInvoicePdfUrl, {
       invoiceId: invoiceResult.invoiceId,
       pdfUrl: pdfUrl || "",
     });
-    console.log("✅ [Step 6/7] Invoice updated with PDF");
+    console.log("✅ [Step 4/5] Invoice updated with PDF");
 
-    // 7. Send email if requested
-    console.log("📄 [Step 7/7] Email notification...");
+    // 5. Send email if requested
+    console.log("📄 [Step 5/5] Email notification...");
     if (args.sendEmail) {
       const billTo = invoice.customProperties?.billTo as { billingEmail?: string };
       if (billTo?.billingEmail) {
@@ -256,12 +206,12 @@ export const generateConsolidatedInvoice = action({
           sentTo: [billTo.billingEmail],
           pdfUrl: pdfUrl || undefined,
         });
-        console.log("✅ [Step 7/7] Email sent");
+        console.log("✅ [Step 5/5] Email sent");
       } else {
-        console.log("⏭️ [Step 7/7] Email skipped (no billing email)");
+        console.log("⏭️ [Step 5/5] Email skipped (no billing email)");
       }
     } else {
-      console.log("⏭️ [Step 7/7] Email skipped (sendEmail=false)");
+      console.log("⏭️ [Step 5/5] Email skipped (sendEmail=false)");
     }
 
     console.log("🎉 [generateConsolidatedInvoice] Complete!", {
@@ -288,7 +238,7 @@ export const generateConsolidatedInvoice = action({
 /**
  * Prepare template data for consolidated invoice
  */
- 
+
 async function prepareConsolidatedTemplateData(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   _ctx: any,
@@ -345,4 +295,120 @@ async function prepareConsolidatedTemplateData(
     paymentTerms: props.paymentTerms || "NET30",
     notes: props.notes,
   };
+}
+
+/**
+ * Generate consolidated invoice PDF using API Template.io
+ *
+ * Replaces jsPDF-based PDF generation with API Template.io HTML/CSS templates.
+ */
+async function generateConsolidatedPdfWithApiTemplate(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any,
+  invoice: Doc<"objects">,
+  templateCode: string = "b2b-professional"
+): Promise<string | null> {
+  try {
+    // 1. Check for API key
+    const apiKey = process.env.API_TEMPLATE_IO_KEY;
+    if (!apiKey) {
+      console.error("❌ API_TEMPLATE_IO_KEY not configured");
+      throw new Error("API_TEMPLATE_IO_KEY not configured in environment");
+    }
+
+    // 2. Get existing template data
+    const templateData = await prepareConsolidatedTemplateData(ctx, invoice);
+
+    // 3. Get seller organization info
+    const organization = await ctx.runQuery(
+      internal.checkoutSessions.getOrganizationInternal,
+      { organizationId: invoice.organizationId }
+    );
+
+    // 4. Format dates for API Template.io
+    const formatDate = (timestamp: number) => {
+      return new Date(timestamp).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+    };
+
+    // 5. Transform data for API Template.io format
+    const invoiceData = {
+      // Seller organization
+      organization_name: organization?.businessName || organization?.name || "Your Company",
+      organization_address: "Your Business Address", // TODO: Get from org settings
+      organization_phone: "Your Phone", // TODO: Get from org settings
+      organization_email: "billing@yourcompany.com", // TODO: Get from org settings
+      logo_url: undefined, // TODO: Get from org settings
+      highlight_color: "#6B46C1",
+
+      // Invoice metadata
+      invoice_number: templateData.invoiceNumber,
+      invoice_date: formatDate(templateData.invoiceDate),
+      due_date: formatDate(templateData.dueDate),
+
+      // Bill to (customer)
+      bill_to: {
+        company_name: templateData.billTo.name,
+        contact_name: templateData.billTo.billingContact,
+        address: templateData.billTo.billingAddress?.street || templateData.billTo.billingAddress?.line1,
+        city: templateData.billTo.billingAddress?.city,
+        state: templateData.billTo.billingAddress?.state,
+        zip_code: templateData.billTo.billingAddress?.postalCode,
+        country: templateData.billTo.billingAddress?.country,
+        vat_number: templateData.billTo.vatNumber,
+      },
+
+      // Line items (convert from cents to dollars)
+      items: templateData.lineItems.map((item: { description: string; quantity: number; unitPrice: number; totalPrice: number }) => ({
+        description: item.description,
+        quantity: item.quantity,
+        rate: item.unitPrice / 100,
+        amount: item.totalPrice / 100,
+      })),
+
+      // Totals (convert to dollars)
+      subtotal: templateData.subtotal / 100,
+      tax_rate: 0, // TODO: Calculate from templateData
+      tax: templateData.taxAmount / 100,
+      total: templateData.total / 100,
+
+      // Payment info
+      payment_terms: templateData.paymentTerms,
+      notes: templateData.notes,
+    };
+
+    // 6. Import and call API Template.io generator
+    const { generateInvoicePdfFromTemplate } = await import("./lib/generateInvoicePdf");
+
+    const result = await generateInvoicePdfFromTemplate({
+      apiKey,
+      templateCode,
+      invoiceData,
+    });
+
+    if (result.status === "error") {
+      console.error("❌ API Template.io error:", result.error, result.message);
+      throw new Error(result.message || result.error);
+    }
+
+    // 7. Download PDF from API Template.io and store in Convex
+    const pdfResponse = await fetch(result.download_url!);
+    if (!pdfResponse.ok) {
+      throw new Error("Failed to download PDF from API Template.io");
+    }
+
+    const pdfBlob = await pdfResponse.blob();
+    const storageId = await ctx.storage.store(pdfBlob);
+    const pdfUrl = await ctx.storage.getUrl(storageId);
+
+    console.log("✅ PDF generated via API Template.io:", result.transaction_ref);
+
+    return pdfUrl;
+  } catch (error) {
+    console.error("❌ Failed to generate consolidated PDF with API Template.io:", error);
+    throw error;
+  }
 }

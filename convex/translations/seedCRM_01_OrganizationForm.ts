@@ -785,6 +785,482 @@ export const seed = internalMutation({
           ja: "組織の更新に失敗しました。もう一度お試しください。",
         }
       },
+
+      // ============================================================
+      // B2B BILLING & LEGAL SETTINGS
+      // ============================================================
+      {
+        key: "ui.crm.organization_form.sections.b2b_billing",
+        values: {
+          en: "💳 B2B Billing & Legal Settings (Optional)",
+          de: "💳 B2B-Abrechnung & rechtliche Einstellungen (Optional)",
+          pl: "💳 Rozliczenia B2B i ustawienia prawne (Opcjonalne)",
+          es: "💳 Facturación B2B y configuración legal (Opcional)",
+          fr: "💳 Facturation B2B et paramètres juridiques (Optionnel)",
+          ja: "💳 B2B請求と法的設定（オプション）",
+        }
+      },
+
+      // Legal Entity
+      {
+        key: "ui.crm.organization_form.b2b.legal_entity_info",
+        values: {
+          en: "Legal Entity Information",
+          de: "Informationen zur juristischen Person",
+          pl: "Informacje o podmiocie prawnym",
+          es: "Información de entidad legal",
+          fr: "Informations sur l'entité juridique",
+          ja: "法人情報",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.legal_entity_type",
+        values: {
+          en: "Legal Entity Type",
+          de: "Art der juristischen Person",
+          pl: "Typ podmiotu prawnego",
+          es: "Tipo de entidad legal",
+          fr: "Type d'entité juridique",
+          ja: "法人種別",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.legal_type.select",
+        values: {
+          en: "-- Select Type --",
+          de: "-- Typ auswählen --",
+          pl: "-- Wybierz typ --",
+          es: "-- Seleccionar tipo --",
+          fr: "-- Sélectionner le type --",
+          ja: "-- タイプを選択 --",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.legal_type.corporation",
+        values: {
+          en: "Corporation",
+          de: "Kapitalgesellschaft",
+          pl: "Spółka akcyjna",
+          es: "Corporación",
+          fr: "Société anonyme",
+          ja: "株式会社",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.legal_type.llc",
+        values: {
+          en: "LLC",
+          de: "GmbH",
+          pl: "Sp. z o.o.",
+          es: "SRL",
+          fr: "SARL",
+          ja: "合同会社",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.legal_type.partnership",
+        values: {
+          en: "Partnership",
+          de: "Personengesellschaft",
+          pl: "Spółka osobowa",
+          es: "Sociedad",
+          fr: "Société de personnes",
+          ja: "パートナーシップ",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.legal_type.sole_proprietorship",
+        values: {
+          en: "Sole Proprietorship",
+          de: "Einzelunternehmen",
+          pl: "Jednoosobowa działalność gospodarcza",
+          es: "Empresa individual",
+          fr: "Entreprise individuelle",
+          ja: "個人事業主",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.legal_type.nonprofit",
+        values: {
+          en: "Nonprofit",
+          de: "Gemeinnützig",
+          pl: "Organizacja non-profit",
+          es: "Sin fines de lucro",
+          fr: "Organisation à but non lucratif",
+          ja: "非営利団体",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.registration_number",
+        values: {
+          en: "Registration Number",
+          de: "Registrierungsnummer",
+          pl: "Numer rejestracyjny",
+          es: "Número de registro",
+          fr: "Numéro d'enregistrement",
+          ja: "登録番号",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.registration_placeholder",
+        values: {
+          en: "Company registration #",
+          de: "Handelsregisternummer",
+          pl: "Nr wpisu do rejestru",
+          es: "# de registro de empresa",
+          fr: "Numéro d'immatriculation",
+          ja: "会社登録番号",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.vat_number",
+        values: {
+          en: "VAT Number",
+          de: "USt-IdNr.",
+          pl: "Numer VAT",
+          es: "Número de IVA",
+          fr: "Numéro de TVA",
+          ja: "VAT番号",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.vat_placeholder",
+        values: {
+          en: "VAT/GST number",
+          de: "USt-IdNr./MwSt-Nr.",
+          pl: "Numer VAT/GST",
+          es: "Número de IVA/GST",
+          fr: "Numéro TVA/TPS",
+          ja: "VAT/GST番号",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.tax_exempt",
+        values: {
+          en: "Tax Exempt",
+          de: "Steuerbefreit",
+          pl: "Zwolniony z podatku",
+          es: "Exento de impuestos",
+          fr: "Exonéré de taxe",
+          ja: "免税",
+        }
+      },
+
+      // Billing Address
+      {
+        key: "ui.crm.organization_form.b2b.billing_address",
+        values: {
+          en: "Billing Address (if different from main address)",
+          de: "Rechnungsadresse (falls abweichend)",
+          pl: "Adres rozliczeniowy (jeśli inny)",
+          es: "Dirección de facturación (si es diferente)",
+          fr: "Adresse de facturation (si différente)",
+          ja: "請求先住所（メイン住所と異なる場合）",
+        }
+      },
+
+      // Payment Settings
+      {
+        key: "ui.crm.organization_form.b2b.payment_settings",
+        values: {
+          en: "Payment Settings",
+          de: "Zahlungseinstellungen",
+          pl: "Ustawienia płatności",
+          es: "Configuración de pago",
+          fr: "Paramètres de paiement",
+          ja: "支払い設定",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.payment_terms",
+        values: {
+          en: "Payment Terms",
+          de: "Zahlungsbedingungen",
+          pl: "Warunki płatności",
+          es: "Condiciones de pago",
+          fr: "Conditions de paiement",
+          ja: "支払い条件",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.payment_terms.due_on_receipt",
+        values: {
+          en: "Due on Receipt",
+          de: "Sofort fällig",
+          pl: "Płatne przy otrzymaniu",
+          es: "Vencimiento al recibo",
+          fr: "À réception",
+          ja: "受領時",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.payment_terms.net15",
+        values: {
+          en: "Net 15",
+          de: "Netto 15",
+          pl: "Net 15",
+          es: "Neto 15",
+          fr: "Net 15",
+          ja: "ネット15",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.payment_terms.net30",
+        values: {
+          en: "Net 30",
+          de: "Netto 30",
+          pl: "Net 30",
+          es: "Neto 30",
+          fr: "Net 30",
+          ja: "ネット30",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.payment_terms.net60",
+        values: {
+          en: "Net 60",
+          de: "Netto 60",
+          pl: "Net 60",
+          es: "Neto 60",
+          fr: "Net 60",
+          ja: "ネット60",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.payment_terms.net90",
+        values: {
+          en: "Net 90",
+          de: "Netto 90",
+          pl: "Net 90",
+          es: "Neto 90",
+          fr: "Net 90",
+          ja: "ネット90",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.credit_limit",
+        values: {
+          en: "Credit Limit",
+          de: "Kreditlimit",
+          pl: "Limit kredytowy",
+          es: "Límite de crédito",
+          fr: "Limite de crédit",
+          ja: "与信限度額",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.preferred_payment_method",
+        values: {
+          en: "Preferred Payment Method",
+          de: "Bevorzugte Zahlungsmethode",
+          pl: "Preferowana metoda płatności",
+          es: "Método de pago preferido",
+          fr: "Mode de paiement préféré",
+          ja: "希望する支払い方法",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.payment_method.select",
+        values: {
+          en: "-- Select Method --",
+          de: "-- Methode auswählen --",
+          pl: "-- Wybierz metodę --",
+          es: "-- Seleccionar método --",
+          fr: "-- Sélectionner la méthode --",
+          ja: "-- 方法を選択 --",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.payment_method.invoice",
+        values: {
+          en: "Invoice",
+          de: "Rechnung",
+          pl: "Faktura",
+          es: "Factura",
+          fr: "Facture",
+          ja: "請求書",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.payment_method.bank_transfer",
+        values: {
+          en: "Bank Transfer",
+          de: "Banküberweisung",
+          pl: "Przelew bankowy",
+          es: "Transferencia bancaria",
+          fr: "Virement bancaire",
+          ja: "銀行振込",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.payment_method.credit_card",
+        values: {
+          en: "Credit Card",
+          de: "Kreditkarte",
+          pl: "Karta kredytowa",
+          es: "Tarjeta de crédito",
+          fr: "Carte de crédit",
+          ja: "クレジットカード",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.payment_method.check",
+        values: {
+          en: "Check",
+          de: "Scheck",
+          pl: "Czek",
+          es: "Cheque",
+          fr: "Chèque",
+          ja: "小切手",
+        }
+      },
+
+      // Accounting Integration
+      {
+        key: "ui.crm.organization_form.b2b.accounting_integration",
+        values: {
+          en: "Accounting Integration",
+          de: "Buchhaltungsintegration",
+          pl: "Integracja księgowa",
+          es: "Integración contable",
+          fr: "Intégration comptable",
+          ja: "会計統合",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.accounting_reference",
+        values: {
+          en: "Accounting Reference",
+          de: "Buchhaltungsreferenz",
+          pl: "Referencja księgowa",
+          es: "Referencia contable",
+          fr: "Référence comptable",
+          ja: "会計参照",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.accounting_reference_placeholder",
+        values: {
+          en: "External system ID",
+          de: "Externes System-ID",
+          pl: "ID systemu zewnętrznego",
+          es: "ID de sistema externo",
+          fr: "ID du système externe",
+          ja: "外部システムID",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.cost_center",
+        values: {
+          en: "Cost Center",
+          de: "Kostenstelle",
+          pl: "Centrum kosztów",
+          es: "Centro de costos",
+          fr: "Centre de coûts",
+          ja: "コストセンター",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.cost_center_placeholder",
+        values: {
+          en: "Cost center code",
+          de: "Kostenstellennummer",
+          pl: "Kod centrum kosztów",
+          es: "Código de centro de costos",
+          fr: "Code du centre de coûts",
+          ja: "コストセンターコード",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.purchase_order_required",
+        values: {
+          en: "Purchase Order Required",
+          de: "Bestellung erforderlich",
+          pl: "Wymagane zamówienie zakupu",
+          es: "Orden de compra requerida",
+          fr: "Bon de commande requis",
+          ja: "発注書が必要",
+        }
+      },
+
+      // Billing Contact
+      {
+        key: "ui.crm.organization_form.b2b.billing_contact",
+        values: {
+          en: "Billing Contact Person",
+          de: "Abrechnungskontakt",
+          pl: "Osoba kontaktowa ds. rozliczeń",
+          es: "Persona de contacto de facturación",
+          fr: "Personne de contact facturation",
+          ja: "請求担当者",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.billing_contact_name",
+        values: {
+          en: "Contact Name",
+          de: "Kontaktname",
+          pl: "Nazwa kontaktu",
+          es: "Nombre de contacto",
+          fr: "Nom du contact",
+          ja: "連絡先名",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.billing_contact_name_placeholder",
+        values: {
+          en: "Full name",
+          de: "Vollständiger Name",
+          pl: "Pełna nazwa",
+          es: "Nombre completo",
+          fr: "Nom complet",
+          ja: "フルネーム",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.billing_contact_email",
+        values: {
+          en: "Contact Email",
+          de: "Kontakt-E-Mail",
+          pl: "E-mail kontaktowy",
+          es: "Correo de contacto",
+          fr: "E-mail de contact",
+          ja: "連絡先メール",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.billing_contact_email_placeholder",
+        values: {
+          en: "billing@company.com",
+          de: "abrechnung@firma.de",
+          pl: "rozliczenia@firma.pl",
+          es: "facturacion@empresa.com",
+          fr: "facturation@entreprise.fr",
+          ja: "billing@company.jp",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.billing_contact_phone",
+        values: {
+          en: "Contact Phone",
+          de: "Kontakttelefon",
+          pl: "Telefon kontaktowy",
+          es: "Teléfono de contacto",
+          fr: "Téléphone de contact",
+          ja: "連絡先電話",
+        }
+      },
+      {
+        key: "ui.crm.organization_form.b2b.billing_contact_phone_placeholder",
+        values: {
+          en: "+1 234 567 8900",
+          de: "+49 123 456 7890",
+          pl: "+48 123 456 789",
+          es: "+34 123 456 789",
+          fr: "+33 1 23 45 67 89",
+          ja: "+81 12 3456 7890",
+        }
+      },
     ];
 
     const allKeys = translations.map(t => t.key);
