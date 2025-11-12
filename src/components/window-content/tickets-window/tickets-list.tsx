@@ -360,9 +360,14 @@ export function TicketsList({ sessionId, organizationId, onEdit, initialEventId 
                   {ticket.customProperties.holderEmail}
                 </div>
               )}
-              {ticket.customProperties?.eventId && events && (
+              {/* Event Association */}
+              {ticket.customProperties?.eventId && events ? (
                 <div className="text-xs font-semibold" style={{ color: "var(--win95-highlight)" }}>
                   🎟️ {events.find(e => e._id === ticket.customProperties?.eventId)?.name || "Event"}
+                </div>
+              ) : (
+                <div className="text-xs italic" style={{ color: "var(--neutral-gray)" }}>
+                  {t("list.no_event")}
                 </div>
               )}
               {ticket.customProperties?.purchaseDate && (

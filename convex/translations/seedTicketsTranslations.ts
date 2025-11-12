@@ -266,6 +266,17 @@ export const seed = internalMutation({
         },
       },
       {
+        key: "ui.tickets.list.no_event",
+        values: {
+          en: "No event assigned",
+          de: "Kein Event zugewiesen",
+          pl: "Brak przypisanego wydarzenia",
+          es: "Sin evento asignado",
+          fr: "Aucun événement assigné",
+          ja: "イベント未割り当て",
+        },
+      },
+      {
         key: "ui.tickets.list.purchased",
         values: {
           en: "Purchased:",
