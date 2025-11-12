@@ -19,7 +19,7 @@ type SortDirection = "asc" | "desc";
 
 export function TicketsList({ sessionId, organizationId, onEdit }: TicketsListProps) {
   const { t } = useNamespaceTranslations("ui.tickets");
-  const [filter, setFilter] = useState<{ subtype?: string; status?: string }>({});
+  const [filter, setFilter] = useState<{ ticketType?: string; status?: string }>({});
   const [sortField, setSortField] = useState<SortField>("createdAt");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc"); // Default: newest first
   const [selectedTicket, setSelectedTicket] = useState<Doc<"objects"> | null>(null);
@@ -74,14 +74,14 @@ export function TicketsList({ sessionId, organizationId, onEdit }: TicketsListPr
     );
   };
 
-  const getSubtypeLabel = (subtype: string) => {
+  const getTicketTypeLabel = (ticketType: string) => {
     const labels: Record<string, string> = {
       standard: t("ui.tickets.type.standard"),
       vip: t("ui.tickets.type.vip"),
       "early-bird": t("ui.tickets.type.early_bird"),
       student: t("ui.tickets.type.student"),
     };
-    return labels[subtype] || subtype;
+    return labels[ticketType] || ticketType;
   };
 
   const formatDate = (timestamp: number) => {
@@ -165,8 +165,8 @@ export function TicketsList({ sessionId, organizationId, onEdit }: TicketsListPr
       {/* Filters and Sort */}
       <div className="flex flex-wrap gap-2 mb-4">
         <select
-          value={filter.subtype || ""}
-          onChange={(e) => setFilter({ ...filter, subtype: e.target.value || undefined })}
+          value={filter.ticketType || ""}
+          onChange={(e) => setFilter({ ...filter, ticketType: e.target.value || undefined })}
           className="px-3 py-1.5 text-xs border-2"
           style={{
             borderColor: "var(--win95-border)",
@@ -258,7 +258,7 @@ export function TicketsList({ sessionId, organizationId, onEdit }: TicketsListPr
             <div className="flex items-start justify-between mb-3">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs">{getSubtypeLabel(ticket.subtype || "")}</span>
+                  <span className="text-xs">{getTicketTypeLabel((ticket.customProperties?.ticketType as string) || "standard")}</span>
                   {getStatusBadge(ticket.status || "issued")}
                 </div>
                 <h3 className="font-bold text-sm" style={{ color: "var(--win95-text)" }}>
