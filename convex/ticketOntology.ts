@@ -397,6 +397,7 @@ export const updateTicket = mutation({
     holderName: v.optional(v.string()),
     holderEmail: v.optional(v.string()),
     status: v.optional(v.string()), // "issued" | "redeemed" | "cancelled" | "transferred"
+    eventId: v.optional(v.id("objects")), // Change event association
     customProperties: v.optional(v.record(v.string(), v.any())),
   },
   handler: async (ctx, args) => {
@@ -424,13 +425,14 @@ export const updateTicket = mutation({
     }
 
     // Update customProperties
-    if (args.holderName !== undefined || args.holderEmail !== undefined || args.customProperties) {
+    if (args.holderName !== undefined || args.holderEmail !== undefined || args.eventId !== undefined || args.customProperties) {
       const currentProps = ticket.customProperties || {};
 
       updates.customProperties = {
         ...currentProps,
         ...(args.holderName !== undefined && { holderName: args.holderName }),
         ...(args.holderEmail !== undefined && { holderEmail: args.holderEmail }),
+        ...(args.eventId !== undefined && { eventId: args.eventId }),
         ...(args.customProperties || {}),
       };
     }
@@ -441,6 +443,36 @@ export const updateTicket = mutation({
     }
 
     await ctx.db.patch(args.ticketId, updates);
+
+    // Update objectLink if eventId changed
+    if (args.eventId !== undefined) {
+      // Delete existing "admits_to" links
+      const existingLinks = await ctx.db
+        .query("objectLinks")
+        .withIndex("by_from_link_type", (q) =>
+          q.eq("fromObjectId", args.ticketId).eq("linkType", "admits_to")
+        )
+        .collect();
+
+      for (const link of existingLinks) {
+        await ctx.db.delete(link._id);
+      }
+
+      // Create new link if eventId is provided (not null/undefined)
+      if (args.eventId) {
+        await ctx.db.insert("objectLinks", {
+          organizationId: ticket.organizationId,
+          fromObjectId: args.ticketId,
+          toObjectId: args.eventId,
+          linkType: "admits_to",
+          properties: {
+            checkInStatus: null,
+            checkInDate: null,
+          },
+          createdAt: Date.now(),
+        });
+      }
+    }
 
     return args.ticketId;
   },

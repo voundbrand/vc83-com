@@ -57,7 +57,7 @@ export function TicketForm({
     if (existingTicket) {
       setFormData({
         productId: (existingTicket.customProperties?.productId as string) || "",
-        eventId: "", // Event link is stored in objectLinks, not editable after creation
+        eventId: (existingTicket.customProperties?.eventId as string) || "",
         holderName: (existingTicket.customProperties?.holderName as string) || "",
         holderEmail: (existingTicket.customProperties?.holderEmail as string) || "",
       });
@@ -76,6 +76,7 @@ export function TicketForm({
           ticketId,
           holderName: formData.holderName,
           holderEmail: formData.holderEmail,
+          eventId: formData.eventId ? (formData.eventId as Id<"objects">) : undefined,
         });
       } else {
         // Create new ticket

@@ -360,14 +360,19 @@ export function TicketsList({ sessionId, organizationId, onEdit, initialEventId 
                   {ticket.customProperties.holderEmail}
                 </div>
               )}
+              {ticket.customProperties?.eventId && events && (
+                <div className="text-xs font-semibold" style={{ color: "var(--win95-highlight)" }}>
+                  🎟️ {events.find(e => e._id === ticket.customProperties?.eventId)?.name || "Event"}
+                </div>
+              )}
               {ticket.customProperties?.purchaseDate && (
                 <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                  {t("ui.tickets.list.purchased")} {formatDate(ticket.customProperties.purchaseDate)}
+                  {t("list.purchased")} {formatDate(ticket.customProperties.purchaseDate)}
                 </div>
               )}
               {ticket.customProperties?.redeemedAt && (
                 <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                  {t("ui.tickets.list.redeemed")} {formatDate(ticket.customProperties.redeemedAt)}
+                  {t("list.redeemed")} {formatDate(ticket.customProperties.redeemedAt)}
                 </div>
               )}
             </div>
