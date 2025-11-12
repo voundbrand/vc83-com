@@ -157,18 +157,6 @@ export function TicketsList({ sessionId, organizationId, onEdit, initialEventId 
     );
   }
 
-  if (tickets.length === 0) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <div className="text-center">
-          <p style={{ color: "var(--neutral-gray)" }} className="text-sm">
-            {t("ui.tickets.list.no_tickets_yet")}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="p-4">
       {/* Filters and Sort */}
@@ -272,9 +260,20 @@ export function TicketsList({ sessionId, organizationId, onEdit, initialEventId 
         </div>
       </div>
 
-      {/* Tickets Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {sortedTickets.map((ticket) => (
+      {/* Tickets Grid or Empty State */}
+      {sortedTickets.length === 0 ? (
+        <div className="flex items-center justify-center p-8">
+          <div className="text-center">
+            <p style={{ color: "var(--neutral-gray)" }} className="text-sm">
+              {tickets.length === 0
+                ? t("ui.tickets.list.no_tickets_yet")
+                : t("ui.tickets.list.no_matches")}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {sortedTickets.map((ticket) => (
           <div
             key={ticket._id}
             className="border-2 p-4 cursor-pointer hover:shadow-lg transition-shadow"
@@ -386,8 +385,9 @@ export function TicketsList({ sessionId, organizationId, onEdit, initialEventId 
               )}
             </div>
           </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Ticket Detail Modal */}
       {selectedTicket && (

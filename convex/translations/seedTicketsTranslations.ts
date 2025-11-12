@@ -134,6 +134,17 @@ export const seed = internalMutation({
         },
       },
       {
+        key: "ui.tickets.list.no_matches",
+        values: {
+          en: "No tickets match your filters. Try adjusting your search.",
+          de: "Keine Tickets entsprechen Ihren Filtern. Versuchen Sie, Ihre Suche anzupassen.",
+          pl: "Żadne bilety nie pasują do filtrów. Spróbuj dostosować wyszukiwanie.",
+          es: "No hay entradas que coincidan con tus filtros. Intenta ajustar tu búsqueda.",
+          fr: "Aucun billet ne correspond à vos filtres. Essayez d'ajuster votre recherche.",
+          ja: "フィルターに一致するチケットがありません。検索条件を調整してください。",
+        },
+      },
+      {
         key: "ui.tickets.list.filter.all_types",
         values: {
           en: "All Types",
