@@ -474,6 +474,31 @@ export const cancelTicket = mutation({
 });
 
 /**
+ * DELETE TICKET
+ * Permanently delete a ticket (hard delete)
+ */
+export const deleteTicket = mutation({
+  args: {
+    sessionId: v.string(),
+    ticketId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const ticket = await ctx.db.get(args.ticketId);
+
+    if (!ticket || ticket.type !== "ticket") {
+      throw new Error("Ticket not found");
+    }
+
+    // Delete the ticket permanently
+    await ctx.db.delete(args.ticketId);
+
+    return { success: true };
+  },
+});
+
+/**
  * REDEEM TICKET
  * Mark a ticket as redeemed (checked in)
  * GRAVEL ROAD: Simple status change only - no check-in system yet

@@ -3,10 +3,11 @@
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id, Doc } from "../../../../convex/_generated/dataModel";
-import { Edit2, Trash2, CheckCircle, Loader2, User } from "lucide-react";
+import { Edit2, Trash2, CheckCircle, Loader2, User, Ban } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { TicketDetailModal } from "./ticket-detail-modal";
+import { ConfirmationModal } from "@/components/confirmation-modal";
 
 interface TicketsListProps {
   sessionId: string;
@@ -26,6 +27,20 @@ export function TicketsList({ sessionId, organizationId, onEdit, initialEventId 
   const [sortField, setSortField] = useState<SortField>("createdAt");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc"); // Default: newest first
   const [selectedTicket, setSelectedTicket] = useState<Doc<"objects"> | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    action: "cancel" | "delete" | "redeem" | null;
+    ticketId: Id<"objects"> | null;
+    title: string;
+    message: string;
+  }>({
+    isOpen: false,
+    action: null,
+    ticketId: null,
+    title: "",
+    message: "",
+  });
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Get tickets from Convex
   const tickets = useQuery(api.ticketOntology.getTickets, {
@@ -41,27 +56,56 @@ export function TicketsList({ sessionId, organizationId, onEdit, initialEventId 
   });
 
   const cancelTicket = useMutation(api.ticketOntology.cancelTicket);
+  const deleteTicket = useMutation(api.ticketOntology.deleteTicket);
   const redeemTicket = useMutation(api.ticketOntology.redeemTicket);
 
-  const handleCancel = async (ticketId: Id<"objects">) => {
-    if (confirm(t("ui.tickets.list.confirm_cancel"))) {
-      try {
-        await cancelTicket({ sessionId, ticketId });
-      } catch (error) {
-        console.error("Failed to cancel ticket:", error);
-        alert(t("ui.tickets.list.error.cancel_failed"));
-      }
-    }
+  const openConfirmModal = (
+    action: "cancel" | "delete" | "redeem",
+    ticketId: Id<"objects">,
+    ticketName: string
+  ) => {
+    const configs = {
+      cancel: {
+        title: t("ui.tickets.list.confirm_cancel_title"),
+        message: t("ui.tickets.list.confirm_cancel_message").replace("{name}", ticketName),
+      },
+      delete: {
+        title: t("ui.tickets.list.confirm_delete_title"),
+        message: t("ui.tickets.list.confirm_delete_message").replace("{name}", ticketName),
+      },
+      redeem: {
+        title: t("ui.tickets.list.confirm_redeem_title"),
+        message: t("ui.tickets.list.confirm_redeem_message").replace("{name}", ticketName),
+      },
+    };
+
+    setConfirmModal({
+      isOpen: true,
+      action,
+      ticketId,
+      ...configs[action],
+    });
   };
 
-  const handleRedeem = async (ticketId: Id<"objects">) => {
-    if (confirm(t("ui.tickets.list.confirm_redeem"))) {
-      try {
-        await redeemTicket({ sessionId, ticketId });
-      } catch (error) {
-        console.error("Failed to redeem ticket:", error);
-        alert(t("ui.tickets.list.error.redeem_failed"));
+  const handleConfirm = async () => {
+    if (!confirmModal.ticketId || !confirmModal.action) return;
+
+    setIsProcessing(true);
+    try {
+      if (confirmModal.action === "cancel") {
+        await cancelTicket({ sessionId, ticketId: confirmModal.ticketId });
+      } else if (confirmModal.action === "delete") {
+        await deleteTicket({ sessionId, ticketId: confirmModal.ticketId });
+      } else if (confirmModal.action === "redeem") {
+        await redeemTicket({ sessionId, ticketId: confirmModal.ticketId });
       }
+
+      setConfirmModal({ isOpen: false, action: null, ticketId: null, title: "", message: "" });
+    } catch (error) {
+      console.error(`Failed to ${confirmModal.action} ticket:`, error);
+      // Error is shown via modal, no browser alert
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -348,41 +392,56 @@ export function TicketsList({ sessionId, organizationId, onEdit, initialEventId 
               </button>
 
               {ticket.status === "issued" && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleRedeem(ticket._id);
-                  }}
-                  className="flex-1 px-2 py-1.5 text-xs font-bold flex items-center justify-center gap-1 border-2 transition-colors"
-                  style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-button-face)",
-                    color: "var(--win95-text)",
-                  }}
-                  title={t("ui.tickets.list.button.redeem")}
-                >
-                  <CheckCircle size={12} />
-                  {t("ui.tickets.list.button.redeem")}
-                </button>
+                <>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openConfirmModal("redeem", ticket._id, ticket.name);
+                    }}
+                    className="flex-1 px-2 py-1.5 text-xs font-bold flex items-center justify-center gap-1 border-2 transition-colors"
+                    style={{
+                      borderColor: "var(--win95-border)",
+                      background: "var(--win95-button-face)",
+                      color: "var(--win95-text)",
+                    }}
+                    title={t("ui.tickets.list.button.redeem")}
+                  >
+                    <CheckCircle size={12} />
+                    {t("ui.tickets.list.button.redeem")}
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openConfirmModal("cancel", ticket._id, ticket.name);
+                    }}
+                    className="px-2 py-1.5 text-xs font-bold flex items-center justify-center border-2 transition-colors"
+                    style={{
+                      borderColor: "var(--win95-border)",
+                      background: "var(--win95-button-face)",
+                      color: "var(--warning)",
+                    }}
+                    title={t("ui.tickets.list.button.cancel")}
+                  >
+                    <Ban size={12} />
+                  </button>
+                </>
               )}
 
-              {ticket.status !== "cancelled" && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleCancel(ticket._id);
-                  }}
-                  className="px-2 py-1.5 text-xs font-bold flex items-center justify-center border-2 transition-colors"
-                  style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-button-face)",
-                    color: "var(--error)",
-                  }}
-                  title={t("ui.tickets.list.button.edit")}
-                >
-                  <Trash2 size={12} />
-                </button>
-              )}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openConfirmModal("delete", ticket._id, ticket.name);
+                }}
+                className="px-2 py-1.5 text-xs font-bold flex items-center justify-center border-2 transition-colors"
+                style={{
+                  borderColor: "var(--win95-border)",
+                  background: "var(--win95-button-face)",
+                  color: "var(--error)",
+                }}
+                title={t("ui.tickets.list.button.delete")}
+              >
+                <Trash2 size={12} />
+              </button>
             </div>
           </div>
           ))}
@@ -393,6 +452,18 @@ export function TicketsList({ sessionId, organizationId, onEdit, initialEventId 
       {selectedTicket && (
         <TicketDetailModal ticket={selectedTicket} onClose={() => setSelectedTicket(null)} />
       )}
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ isOpen: false, action: null, ticketId: null, title: "", message: "" })}
+        onConfirm={handleConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        variant={confirmModal.action === "delete" ? "danger" : "warning"}
+        confirmText={confirmModal.action === "delete" ? t("ui.tickets.list.button.delete") : "OK"}
+        isLoading={isProcessing}
+      />
     </div>
   );
 }

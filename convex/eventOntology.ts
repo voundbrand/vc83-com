@@ -227,10 +227,11 @@ export const updateEvent = mutation({
 });
 
 /**
- * DELETE EVENT
+ * CANCEL EVENT
  * Soft delete an event (set status to cancelled)
+ * Renamed from deleteEvent for clarity
  */
-export const deleteEvent = mutation({
+export const cancelEvent = mutation({
   args: {
     sessionId: v.string(),
     eventId: v.id("objects"),
@@ -248,6 +249,31 @@ export const deleteEvent = mutation({
       status: "cancelled",
       updatedAt: Date.now(),
     });
+
+    return { success: true };
+  },
+});
+
+/**
+ * DELETE EVENT
+ * Permanently delete an event (hard delete)
+ */
+export const deleteEvent = mutation({
+  args: {
+    sessionId: v.string(),
+    eventId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const event = await ctx.db.get(args.eventId);
+
+    if (!event || !("type" in event) || event.type !== "event") {
+      throw new Error("Event not found");
+    }
+
+    // Delete the event permanently
+    await ctx.db.delete(args.eventId);
 
     return { success: true };
   },

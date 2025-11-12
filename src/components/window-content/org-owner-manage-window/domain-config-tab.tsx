@@ -7,6 +7,7 @@ import { Globe, Plus, Edit2, Trash2, Loader2, AlertCircle, Mail, Layout, CheckCi
 import { Id, Doc } from "../../../../convex/_generated/dataModel";
 import { PermissionGuard } from "@/components/permission";
 import { DomainConfigModal } from "./domain-config-modal";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 interface DomainConfigTabProps {
   organizationId: Id<"organizations">;
@@ -14,6 +15,7 @@ interface DomainConfigTabProps {
 }
 
 export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabProps) {
+  const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.manage.domains");
   const [showModal, setShowModal] = useState(false);
   const [editingConfig, setEditingConfig] = useState<Doc<"objects"> | undefined>();
 
@@ -28,7 +30,8 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
 
   const handleDelete = async (config: Doc<"objects">) => {
     const props = config.customProperties as any;
-    if (!confirm(`Are you sure you want to delete the domain configuration for "${props?.domainName || 'this domain'}"?`)) {
+    const domainName = props?.domainName || 'this domain';
+    if (!confirm(t("ui.manage.domains.alert.delete_confirm", { domain: domainName }))) {
       return;
     }
 
@@ -36,9 +39,17 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
       await deleteDomainConfig({ sessionId, configId: config._id });
     } catch (error) {
       console.error("Failed to delete domain config:", error);
-      alert("Failed to delete domain configuration. Please try again.");
+      alert(t("ui.manage.domains.alert.delete_error"));
     }
   };
+
+  if (translationsLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 size={24} className="animate-spin" style={{ color: 'var(--win95-highlight)' }} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -47,16 +58,16 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
         <div
           className="mb-4 p-3 border-2 flex items-start gap-2"
           style={{
-            backgroundColor: 'var(--warning)',
+            backgroundColor: 'var(--error)',
             borderColor: 'var(--win95-border)',
-            color: 'var(--win95-text)'
+            color: 'white'
           }}
         >
           <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
           <div className="text-sm">
-            <p className="font-semibold">View Only</p>
+            <p className="font-semibold">{t("ui.manage.domains.warning.view_only.title")}</p>
             <p className="text-xs mt-1">
-              You don&apos;t have permission to modify domain configurations.
+              {t("ui.manage.domains.warning.view_only.message")}
             </p>
           </div>
         </div>
@@ -69,10 +80,10 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
         <div>
           <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
             <Globe size={16} />
-            Domain Configurations
+            {t("ui.manage.domains.header.title")}
           </h3>
           <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-            Manage domain-specific settings for email, branding, and web publishing
+            {t("ui.manage.domains.header.description")}
           </p>
         </div>
 
@@ -94,7 +105,7 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
             }}
           >
             <Plus size={12} />
-            Add Domain
+            {t("ui.manage.domains.actions.add_domain")}
           </button>
         </PermissionGuard>
       </div>
@@ -111,13 +122,13 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
           <Globe size={16} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--win95-highlight)' }} />
           <div>
             <p className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
-              What are Domain Configurations?
+              {t("ui.manage.domains.info.title")}
             </p>
             <ul className="text-xs mt-2 space-y-1" style={{ color: 'var(--neutral-gray)' }}>
-              <li>• Configure domain-specific branding (logo, colors, fonts)</li>
-              <li>• Set up email settings for customer and sales notifications</li>
-              <li>• Manage web publishing metadata for different frontends</li>
-              <li>• Support multiple domains per organization</li>
+              <li>• {t("ui.manage.domains.info.point_1")}</li>
+              <li>• {t("ui.manage.domains.info.point_2")}</li>
+              <li>• {t("ui.manage.domains.info.point_3")}</li>
+              <li>• {t("ui.manage.domains.info.point_4")}</li>
             </ul>
           </div>
         </div>
@@ -126,7 +137,7 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
       {/* Domain Configs List */}
       {!domainConfigs ? (
         <div className="flex items-center justify-center py-8">
-          <Loader2 size={24} className="animate-spin" style={{ color: 'var(--primary)' }} />
+          <Loader2 size={24} className="animate-spin" style={{ color: 'var(--win95-highlight)' }} />
         </div>
       ) : domainConfigs.length === 0 ? (
         <div
@@ -138,10 +149,10 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
         >
           <Globe size={48} className="mx-auto mb-4 opacity-50" style={{ color: 'var(--neutral-gray)' }} />
           <p className="text-sm font-semibold" style={{ color: 'var(--win95-text)' }}>
-            No Domain Configurations
+            {t("ui.manage.domains.empty.title")}
           </p>
           <p className="text-xs mt-2" style={{ color: 'var(--neutral-gray)' }}>
-            Create your first domain configuration to enable email notifications and branding.
+            {t("ui.manage.domains.empty.description")}
           </p>
           <PermissionGuard permission="manage_organization">
             <button
@@ -151,7 +162,7 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
               }}
               className="mt-4 px-4 py-2 text-sm font-semibold"
               style={{
-                backgroundColor: "var(--primary)",
+                backgroundColor: "var(--win95-highlight)",
                 color: "white",
                 border: "2px solid",
                 borderTopColor: "var(--win95-button-light)",
@@ -160,7 +171,7 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
                 borderRightColor: "var(--win95-button-dark)",
               }}
             >
-              Create Domain Configuration
+              {t("ui.manage.domains.empty.action")}
             </button>
           </PermissionGuard>
         </div>
@@ -184,7 +195,7 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
                   <div className="flex-1">
                     {/* Domain Name */}
                     <div className="flex items-center gap-2 mb-2">
-                      <Globe size={16} style={{ color: 'var(--primary)' }} />
+                      <Globe size={16} style={{ color: 'var(--win95-highlight)' }} />
                       <h4 className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
                         {props.domainName}
                       </h4>
@@ -197,7 +208,7 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
                           }}
                         >
                           <CheckCircle size={10} />
-                          Active
+                          {t("ui.manage.domains.status.active")}
                         </span>
                       ) : (
                         <span
@@ -208,7 +219,7 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
                           }}
                         >
                           <XCircle size={10} />
-                          Inactive
+                          {t("ui.manage.domains.status.inactive")}
                         </span>
                       )}
                     </div>
@@ -216,7 +227,9 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
                     {/* Branding Info */}
                     <div className="space-y-2 text-xs">
                       <div>
-                        <span className="font-semibold" style={{ color: 'var(--win95-text)' }}>Branding:</span>
+                        <span className="font-semibold" style={{ color: 'var(--win95-text)' }}>
+                          {t("ui.manage.domains.field.branding")}
+                        </span>
                         <span style={{ color: 'var(--neutral-gray)' }}> {props.branding?.primaryColor || 'Not set'}</span>
                       </div>
 
@@ -225,7 +238,7 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
                         <div className="flex items-center gap-2">
                           <Mail size={12} style={{ color: 'var(--success)' }} />
                           <span style={{ color: 'var(--win95-text)' }}>
-                            Email: {props.email.senderEmail}
+                            {t("ui.manage.domains.field.email")} {props.email.senderEmail}
                           </span>
                         </div>
                       )}
@@ -235,7 +248,7 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
                         <div className="flex items-center gap-2">
                           <Layout size={12} style={{ color: 'var(--win95-highlight)' }} />
                           <span style={{ color: 'var(--win95-text)' }}>
-                            Web: {props.webPublishing.siteUrl || 'Configured'}
+                            {t("ui.manage.domains.field.web")} {props.webPublishing.siteUrl || t("ui.manage.domains.field.configured")}
                           </span>
                         </div>
                       )}
@@ -261,7 +274,7 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
                         }}
                         title="Edit"
                       >
-                        <Edit2 size={12} />
+                        <Edit2 size={12} style={{ color: 'var(--win95-text)' }} />
                       </button>
                       <button
                         onClick={() => handleDelete(config)}
