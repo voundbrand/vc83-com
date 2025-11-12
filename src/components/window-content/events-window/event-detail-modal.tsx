@@ -1,11 +1,14 @@
 "use client";
 
-import { Doc } from "../../../../convex/_generated/dataModel";
-import { X, Download, Loader2, Calendar, MapPin, Users, Clock } from "lucide-react";
+import { Doc, Id } from "../../../../convex/_generated/dataModel";
+import { X, Download, Loader2, Calendar, MapPin, Users, Clock, ExternalLink } from "lucide-react";
 import { useState } from "react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
-import { useAction, useQuery } from "convex/react";
+import { useAction, useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
+import { useWindowManager } from "@/hooks/use-window-manager";
+import { TicketsWindow } from "../tickets-window";
+import { useAuth } from "@/hooks/use-auth";
 
 interface EventDetailModalProps {
   event: Doc<"objects">;
@@ -15,6 +18,8 @@ interface EventDetailModalProps {
 export function EventDetailModal({ event, onClose }: EventDetailModalProps) {
   const { t } = useNamespaceTranslations("ui.events");
   const [isDownloadingAttendees, setIsDownloadingAttendees] = useState(false);
+  const { openWindow } = useWindowManager();
+  const { sessionId } = useAuth();
 
   // PDF generation action
   const generateAttendeeListPDF = useAction(api.pdfGeneration.generateEventAttendeeListPDF);
@@ -23,6 +28,9 @@ export function EventDetailModal({ event, onClose }: EventDetailModalProps) {
   const attendees = useQuery(api.eventOntology.getEventAttendees, {
     eventId: event._id,
   });
+
+  // Cancel ticket mutation
+  const cancelTicket = useMutation(api.ticketOntology.cancelTicket);
 
   // Handle loading state
   const isLoadingAttendees = attendees === undefined;
@@ -89,10 +97,33 @@ export function EventDetailModal({ event, onClose }: EventDetailModalProps) {
     }
   };
 
+  const handleViewAllAttendees = () => {
+    openWindow(
+      `tickets-${event._id}`,
+      t("ui.events.detail.button.all_attendees"),
+      <TicketsWindow initialEventId={event._id} />,
+      undefined,
+      { width: 1000, height: 700 }
+    );
+  };
+
+  const handleCancelAttendee = async (ticketId: Id<"objects">) => {
+    if (!sessionId) return;
+    if (confirm(t("ui.events.detail.confirm_cancel_attendee"))) {
+      try {
+        await cancelTicket({ sessionId, ticketId });
+      } catch (error) {
+        console.error("Failed to cancel ticket:", error);
+        alert(t("ui.events.detail.error.cancel_failed"));
+      }
+    }
+  };
+
   const customProps = event.customProperties || {};
   const attendeeCount = attendees?.length ?? 0;
   const maxCapacity = customProps.maxCapacity as number | undefined;
   const hasAttendees = attendeeCount > 0;
+  const recentAttendees = attendees?.slice(0, 5) || []; // Show 5 most recent
 
   return (
     <div
@@ -266,42 +297,128 @@ export function EventDetailModal({ event, onClose }: EventDetailModalProps) {
                 </div>
               </div>
 
-              {/* Download Attendee List Button */}
-              <button
-                onClick={handleDownloadAttendeeList}
-                disabled={isDownloadingAttendees || isLoadingAttendees || !hasAttendees}
-                className="w-full mt-4 px-4 py-2 border-2 flex items-center justify-center gap-2 hover:bg-opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              {/* Action Buttons */}
+              <div className="mt-4 space-y-2">
+                <button
+                  onClick={handleDownloadAttendeeList}
+                  disabled={isDownloadingAttendees || isLoadingAttendees || !hasAttendees}
+                  className="w-full px-4 py-2 border-2 flex items-center justify-center gap-2 hover:bg-opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  style={{
+                    borderColor: "var(--win95-border)",
+                    background: "var(--win95-button-face)",
+                    color: "var(--win95-text)",
+                  }}
+                  title={
+                    isLoadingAttendees
+                      ? t("ui.events.detail.tooltip.loading")
+                      : !hasAttendees
+                      ? t("ui.events.detail.tooltip.no_attendees")
+                      : t("ui.events.detail.tooltip.download_pdf")
+                  }
+                >
+                  {isDownloadingAttendees ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span className="text-sm">{t("ui.events.detail.button.downloading")}</span>
+                    </>
+                  ) : isLoadingAttendees ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span className="text-sm">{t("ui.events.detail.loading.button")}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download size={16} />
+                      <span className="text-sm">{t("ui.events.detail.button.download_attendees")}</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  onClick={handleViewAllAttendees}
+                  disabled={isLoadingAttendees || !hasAttendees}
+                  className="w-full px-4 py-2 border-2 flex items-center justify-center gap-2 hover:bg-opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  style={{
+                    borderColor: "var(--win95-border)",
+                    background: "var(--win95-button-face)",
+                    color: "var(--win95-text)",
+                  }}
+                  title={
+                    isLoadingAttendees
+                      ? t("ui.events.detail.tooltip.loading")
+                      : !hasAttendees
+                      ? t("ui.events.detail.tooltip.no_attendees")
+                      : t("ui.events.detail.tooltip.view_all")
+                  }
+                >
+                  <ExternalLink size={16} />
+                  <span className="text-sm">{t("ui.events.detail.button.view_all_attendees")}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Recent Attendees */}
+            {hasAttendees && recentAttendees.length > 0 && (
+              <div
+                className="border-2 p-4"
                 style={{
                   borderColor: "var(--win95-border)",
-                  background: "var(--win95-button-face)",
-                  color: "var(--win95-text)",
+                  background: "var(--win95-input-bg)",
                 }}
-                title={
-                  isLoadingAttendees
-                    ? t("ui.events.detail.tooltip.loading")
-                    : !hasAttendees
-                    ? t("ui.events.detail.tooltip.no_attendees")
-                    : t("ui.events.detail.tooltip.download_pdf")
-                }
               >
-                {isDownloadingAttendees ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" />
-                    <span className="text-sm">{t("ui.events.detail.button.downloading")}</span>
-                  </>
-                ) : isLoadingAttendees ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" />
-                    <span className="text-sm">{t("ui.events.detail.loading.button")}</span>
-                  </>
-                ) : (
-                  <>
-                    <Download size={16} />
-                    <span className="text-sm">{t("ui.events.detail.button.download_attendees")}</span>
-                  </>
-                )}
-              </button>
-            </div>
+                <h3 className="font-bold text-sm mb-3" style={{ color: "var(--win95-highlight)" }}>
+                  {t("ui.events.detail.section.recent_attendees")} ({recentAttendees.length})
+                </h3>
+
+                <div className="space-y-2">
+                  {recentAttendees.map((attendee) => {
+                    return (
+                      <div
+                        key={attendee._id}
+                        className="border-l-2 pl-3 pb-2 border-b"
+                        style={{
+                          borderLeftColor: "var(--win95-highlight)",
+                          borderBottomColor: "var(--win95-border)",
+                        }}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
+                              {attendee.holderName}
+                            </p>
+                            <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                              {attendee.holderEmail}
+                            </p>
+                            <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+                              {attendee.ticketType} • {new Date(attendee.purchaseDate).toLocaleDateString()}
+                            </p>
+                          </div>
+                          {sessionId && (
+                            <button
+                              onClick={() => handleCancelAttendee(attendee._id)}
+                              className="px-2 py-1 text-xs border-2 hover:bg-opacity-90 transition-colors"
+                              style={{
+                                borderColor: "var(--win95-border)",
+                                background: "var(--error)",
+                                color: "white",
+                              }}
+                            >
+                              {t("ui.events.detail.button.cancel")}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {attendeeCount > 5 && (
+                    <p className="text-xs text-center pt-2" style={{ color: "var(--neutral-gray)" }}>
+                      {t("ui.events.detail.label.more_attendees", { count: attendeeCount - 5 })}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Middle Column - Description */}

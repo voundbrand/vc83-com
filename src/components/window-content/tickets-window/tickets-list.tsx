@@ -12,14 +12,17 @@ interface TicketsListProps {
   sessionId: string;
   organizationId: Id<"organizations">;
   onEdit: (ticketId: Id<"objects">) => void;
+  initialEventId?: Id<"objects">;
 }
 
 type SortField = "createdAt" | "name" | "status" | "subtype";
 type SortDirection = "asc" | "desc";
 
-export function TicketsList({ sessionId, organizationId, onEdit }: TicketsListProps) {
+export function TicketsList({ sessionId, organizationId, onEdit, initialEventId }: TicketsListProps) {
   const { t } = useNamespaceTranslations("ui.tickets");
-  const [filter, setFilter] = useState<{ ticketType?: string; status?: string; eventId?: Id<"objects"> }>({});
+  const [filter, setFilter] = useState<{ ticketType?: string; status?: string; eventId?: Id<"objects"> }>(
+    initialEventId ? { eventId: initialEventId } : {}
+  );
   const [sortField, setSortField] = useState<SortField>("createdAt");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc"); // Default: newest first
   const [selectedTicket, setSelectedTicket] = useState<Doc<"objects"> | null>(null);

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Press_Start_2P } from "next/font/google";
 import { Providers } from "./providers";
 import { NotificationContainer } from "@/components/ui/notification-container";
+import { SessionExpiredBoundary } from "@/components/session-expired-boundary";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -76,10 +77,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${pressStart2P.variable} antialiased crt-scanlines`}
       >
-        <Providers>
-          {children}
-          <NotificationContainer />
-        </Providers>
+        <SessionExpiredBoundary>
+          <Providers>
+            {children}
+            <NotificationContainer />
+          </Providers>
+        </SessionExpiredBoundary>
       </body>
     </html>
   );

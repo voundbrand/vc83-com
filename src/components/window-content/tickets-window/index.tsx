@@ -11,7 +11,11 @@ import { TicketForm } from "./ticket-form";
 
 type ViewMode = "list" | "create" | "edit";
 
-export function TicketsWindow() {
+interface TicketsWindowProps {
+  initialEventId?: Id<"objects">;
+}
+
+export function TicketsWindow({ initialEventId }: TicketsWindowProps = {}) {
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [selectedTicketId, setSelectedTicketId] = useState<Id<"objects"> | null>(null);
   const { user, isLoading, sessionId } = useAuth();
@@ -153,6 +157,7 @@ export function TicketsWindow() {
             sessionId={sessionId!}
             organizationId={organizationId as Id<"organizations">}
             onEdit={handleEdit}
+            initialEventId={initialEventId}
           />
         )}
 

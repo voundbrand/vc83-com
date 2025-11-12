@@ -45,6 +45,18 @@ const translations: Translation[] = [
   { locale: "en", key: "ui.events.detail.action.view_map", value: "View on Google Maps" },
   { locale: "en", key: "ui.events.detail.button.download_attendees", value: "Download Attendee List" },
   { locale: "en", key: "ui.events.detail.button.downloading", value: "Downloading..." },
+  { locale: "en", key: "ui.events.detail.button.view_all_attendees", value: "View All Attendees" },
+  { locale: "en", key: "ui.events.detail.button.all_attendees", value: "All Attendees" },
+  { locale: "en", key: "ui.events.detail.button.cancel", value: "Cancel" },
+
+  // Recent Attendees
+  { locale: "en", key: "ui.events.detail.section.recent_attendees", value: "Recent Attendees" },
+  { locale: "en", key: "ui.events.detail.label.more_attendees", value: "+{count} more attendees" },
+  { locale: "en", key: "ui.events.detail.confirm_cancel_attendee", value: "Are you sure you want to cancel this attendee's ticket?" },
+  { locale: "en", key: "ui.events.detail.error.cancel_failed", value: "Failed to cancel ticket. Please try again." },
+
+  // Tooltips
+  { locale: "en", key: "ui.events.detail.tooltip.view_all", value: "Open Tickets window to manage all attendees" },
 
   // Agenda Labels
   { locale: "en", key: "ui.events.detail.agenda.speaker", value: "Speaker" },
@@ -86,6 +98,18 @@ const translations: Translation[] = [
   { locale: "de", key: "ui.events.detail.action.view_map", value: "Auf Google Maps anzeigen" },
   { locale: "de", key: "ui.events.detail.button.download_attendees", value: "Teilnehmerliste herunterladen" },
   { locale: "de", key: "ui.events.detail.button.downloading", value: "Wird heruntergeladen..." },
+  { locale: "de", key: "ui.events.detail.button.view_all_attendees", value: "Alle Teilnehmer anzeigen" },
+  { locale: "de", key: "ui.events.detail.button.all_attendees", value: "Alle Teilnehmer" },
+  { locale: "de", key: "ui.events.detail.button.cancel", value: "Stornieren" },
+
+  // Recent Attendees
+  { locale: "de", key: "ui.events.detail.section.recent_attendees", value: "Aktuelle Teilnehmer" },
+  { locale: "de", key: "ui.events.detail.label.more_attendees", value: "+{count} weitere Teilnehmer" },
+  { locale: "de", key: "ui.events.detail.confirm_cancel_attendee", value: "Möchten Sie das Ticket dieses Teilnehmers wirklich stornieren?" },
+  { locale: "de", key: "ui.events.detail.error.cancel_failed", value: "Ticket konnte nicht storniert werden. Bitte versuchen Sie es erneut." },
+
+  // Tooltips
+  { locale: "de", key: "ui.events.detail.tooltip.view_all", value: "Ticket-Fenster öffnen, um alle Teilnehmer zu verwalten" },
 
   // Agenda Labels
   { locale: "de", key: "ui.events.detail.agenda.speaker", value: "Sprecher" },
@@ -127,6 +151,18 @@ const translations: Translation[] = [
   { locale: "es", key: "ui.events.detail.action.view_map", value: "Ver en Google Maps" },
   { locale: "es", key: "ui.events.detail.button.download_attendees", value: "Descargar Lista de Asistentes" },
   { locale: "es", key: "ui.events.detail.button.downloading", value: "Descargando..." },
+  { locale: "es", key: "ui.events.detail.button.view_all_attendees", value: "Ver Todos los Asistentes" },
+  { locale: "es", key: "ui.events.detail.button.all_attendees", value: "Todos los Asistentes" },
+  { locale: "es", key: "ui.events.detail.button.cancel", value: "Cancelar" },
+
+  // Recent Attendees
+  { locale: "es", key: "ui.events.detail.section.recent_attendees", value: "Asistentes Recientes" },
+  { locale: "es", key: "ui.events.detail.label.more_attendees", value: "+{count} más asistentes" },
+  { locale: "es", key: "ui.events.detail.confirm_cancel_attendee", value: "¿Está seguro de que desea cancelar el ticket de este asistente?" },
+  { locale: "es", key: "ui.events.detail.error.cancel_failed", value: "No se pudo cancelar el ticket. Por favor, inténtelo de nuevo." },
+
+  // Tooltips
+  { locale: "es", key: "ui.events.detail.tooltip.view_all", value: "Abrir ventana de Tickets para gestionar todos los asistentes" },
 
   // Agenda Labels
   { locale: "es", key: "ui.events.detail.agenda.speaker", value: "Orador" },
@@ -168,6 +204,18 @@ const translations: Translation[] = [
   { locale: "fr", key: "ui.events.detail.action.view_map", value: "Voir sur Google Maps" },
   { locale: "fr", key: "ui.events.detail.button.download_attendees", value: "Télécharger la Liste des Participants" },
   { locale: "fr", key: "ui.events.detail.button.downloading", value: "Téléchargement..." },
+  { locale: "fr", key: "ui.events.detail.button.view_all_attendees", value: "Voir Tous les Participants" },
+  { locale: "fr", key: "ui.events.detail.button.all_attendees", value: "Tous les Participants" },
+  { locale: "fr", key: "ui.events.detail.button.cancel", value: "Annuler" },
+
+  // Recent Attendees
+  { locale: "fr", key: "ui.events.detail.section.recent_attendees", value: "Participants Récents" },
+  { locale: "fr", key: "ui.events.detail.label.more_attendees", value: "+{count} participants supplémentaires" },
+  { locale: "fr", key: "ui.events.detail.confirm_cancel_attendee", value: "Êtes-vous sûr de vouloir annuler le billet de ce participant ?" },
+  { locale: "fr", key: "ui.events.detail.error.cancel_failed", value: "Impossible d'annuler le billet. Veuillez réessayer." },
+
+  // Tooltips
+  { locale: "fr", key: "ui.events.detail.tooltip.view_all", value: "Ouvrir la fenêtre Billets pour gérer tous les participants" },
 
   // Agenda Labels
   { locale: "fr", key: "ui.events.detail.agenda.speaker", value: "Intervenant" },
@@ -209,6 +257,18 @@ const translations: Translation[] = [
   { locale: "ja", key: "ui.events.detail.action.view_map", value: "Googleマップで見る" },
   { locale: "ja", key: "ui.events.detail.button.download_attendees", value: "参加者リストをダウンロード" },
   { locale: "ja", key: "ui.events.detail.button.downloading", value: "ダウンロード中..." },
+  { locale: "ja", key: "ui.events.detail.button.view_all_attendees", value: "すべての参加者を表示" },
+  { locale: "ja", key: "ui.events.detail.button.all_attendees", value: "すべての参加者" },
+  { locale: "ja", key: "ui.events.detail.button.cancel", value: "キャンセル" },
+
+  // Recent Attendees
+  { locale: "ja", key: "ui.events.detail.section.recent_attendees", value: "最近の参加者" },
+  { locale: "ja", key: "ui.events.detail.label.more_attendees", value: "他{count}人の参加者" },
+  { locale: "ja", key: "ui.events.detail.confirm_cancel_attendee", value: "この参加者のチケットをキャンセルしてもよろしいですか？" },
+  { locale: "ja", key: "ui.events.detail.error.cancel_failed", value: "チケットのキャンセルに失敗しました。もう一度お試しください。" },
+
+  // Tooltips
+  { locale: "ja", key: "ui.events.detail.tooltip.view_all", value: "チケットウィンドウを開いてすべての参加者を管理" },
 
   // Agenda Labels
   { locale: "ja", key: "ui.events.detail.agenda.speaker", value: "スピーカー" },
@@ -250,6 +310,18 @@ const translations: Translation[] = [
   { locale: "pl", key: "ui.events.detail.action.view_map", value: "Zobacz na Mapach Google" },
   { locale: "pl", key: "ui.events.detail.button.download_attendees", value: "Pobierz Listę Uczestników" },
   { locale: "pl", key: "ui.events.detail.button.downloading", value: "Pobieranie..." },
+  { locale: "pl", key: "ui.events.detail.button.view_all_attendees", value: "Zobacz Wszystkich Uczestników" },
+  { locale: "pl", key: "ui.events.detail.button.all_attendees", value: "Wszyscy Uczestnicy" },
+  { locale: "pl", key: "ui.events.detail.button.cancel", value: "Anuluj" },
+
+  // Recent Attendees
+  { locale: "pl", key: "ui.events.detail.section.recent_attendees", value: "Ostatni Uczestnicy" },
+  { locale: "pl", key: "ui.events.detail.label.more_attendees", value: "+{count} więcej uczestników" },
+  { locale: "pl", key: "ui.events.detail.confirm_cancel_attendee", value: "Czy na pewno chcesz anulować bilet tego uczestnika?" },
+  { locale: "pl", key: "ui.events.detail.error.cancel_failed", value: "Nie udało się anulować biletu. Spróbuj ponownie." },
+
+  // Tooltips
+  { locale: "pl", key: "ui.events.detail.tooltip.view_all", value: "Otwórz okno Biletów, aby zarządzać wszystkimi uczestnikami" },
 
   // Agenda Labels
   { locale: "pl", key: "ui.events.detail.agenda.speaker", value: "Prelegent" },
