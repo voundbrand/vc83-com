@@ -14,7 +14,7 @@ import { EventLandingContent } from "./schema";
 import { CheckoutEmbed } from "@/components/checkout/checkout-embed";
 import { SafeHtmlRenderer } from "@/components/ui/safe-html-renderer";
 import { RadarMap, GoogleMapFallback } from "@/components/ui/radar-map";
-import { GalleryLightbox } from "@/components/ui/gallery-lightbox";
+import { HeroSlideshow } from "@/components/ui/hero-slideshow";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { generateMapLink, addToCalendar } from "@/lib/event-utils";
 import styles from "./styles.module.css";
@@ -108,17 +108,23 @@ export function EventLandingTemplate({
 
   // Extract gallery/media items from event data
   // Media can be in customProperties.media.items or directly in media.items
-  const mediaData = ((eventData?.customProperties as any)?.media || (eventData as any)?.media) as { items?: Array<{
-    id: string;
-    type?: string;
-    url?: string;
-    thumbnailUrl?: string;
-    videoUrl?: string;
-    alt?: string;
-    filename?: string;
-    storageId?: string;
-    mimeType?: string;
-  }> } | undefined;
+  const mediaData = ((eventData?.customProperties as any)?.media || (eventData as any)?.media) as {
+    items?: Array<{
+      id: string;
+      type?: string;
+      url?: string;
+      thumbnailUrl?: string;
+      videoUrl?: string;
+      alt?: string;
+      filename?: string;
+      storageId?: string;
+      mimeType?: string;
+    }>;
+    showVideoFirst?: boolean;
+  } | undefined;
+
+  // Get the showVideoFirst setting from event media
+  const showVideoFirst = mediaData?.showVideoFirst ?? false;
 
   // Helper to get media URL - handles both direct URLs and Convex storage IDs
   const getMediaUrl = (item: any): string => {
@@ -137,7 +143,7 @@ export function EventLandingTemplate({
     return '';
   };
 
-  const galleryItems = mediaData?.items?.map(item => {
+  let galleryItems = mediaData?.items?.map(item => {
     const isVideo = item.type === 'video' || !!item.videoUrl;
     const url = getMediaUrl(item);
     const loopValue = (item as any).loop ?? false;
@@ -165,8 +171,17 @@ export function EventLandingTemplate({
     };
   }).filter(item => item.url) || [];
 
+  // Sort gallery items: if showVideoFirst is enabled, videos come first
+  if (showVideoFirst && galleryItems.length > 0) {
+    galleryItems = [
+      ...galleryItems.filter(item => item.type === 'video'),
+      ...galleryItems.filter(item => item.type === 'image'),
+    ];
+  }
+
   // Debug log final gallery items
   console.log('[Event Landing] Gallery items:', galleryItems);
+  console.log('[Event Landing] Show video first:', showVideoFirst);
 
 
   // Convert event agenda to template format if available
@@ -371,7 +386,16 @@ export function EventLandingTemplate({
           {/* Hero Section */}
           {mergedContent.hero && (
             <section className={styles.hero} id="hero">
-              {(content.hero.videoUrl || content.hero.imageUrl) && (
+              {/* Hero Slideshow Background - use gallery items if available, otherwise fallback to static image */}
+              {galleryItems.length > 0 ? (
+                <div className={styles.heroBackground}>
+                  <HeroSlideshow
+                    items={galleryItems}
+                    autoPlayInterval={6000}
+                    className="w-full h-full"
+                  />
+                </div>
+              ) : (content.hero.videoUrl || content.hero.imageUrl) && (
                 <div className={styles.heroBackground}>
                   {mergedContent.hero.imageUrl && (
                     <Image
@@ -463,16 +487,6 @@ export function EventLandingTemplate({
                       ))}
                     </div>
                   )}
-              </div>
-            </section>
-          )}
-
-          {/* Gallery Section - Photo/Video Slideshow */}
-          {galleryItems.length > 0 && (
-            <section className={styles.section} id="gallery">
-              <div className="max-w-6xl mx-auto">
-                <h2 className={styles.sectionTitle}>{t('ui.event_landing.gallery.title')}</h2>
-                <GalleryLightbox items={galleryItems} />
               </div>
             </section>
           )}
