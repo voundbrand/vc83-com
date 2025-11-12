@@ -45,6 +45,7 @@ export const getTickets = query({
     ticketType: v.optional(v.string()), // Filter by ticket type (standard, vip, early-bird, student)
     status: v.optional(v.string()),  // Filter by status
     productId: v.optional(v.id("objects")), // Filter by product
+    eventId: v.optional(v.id("objects")), // Filter by event (tickets that admit to this event)
   },
   handler: async (ctx, args) => {
     await requireAuthenticatedUser(ctx, args.sessionId);
@@ -74,6 +75,14 @@ export const getTickets = query({
     if (args.productId) {
       tickets = tickets.filter(
         (t) => t.customProperties?.productId === args.productId
+      );
+    }
+
+    if (args.eventId) {
+      // Filter by eventId stored in customProperties
+      // Note: eventId is stored when ticket is created for an event
+      tickets = tickets.filter(
+        (t) => t.customProperties?.eventId === args.eventId
       );
     }
 

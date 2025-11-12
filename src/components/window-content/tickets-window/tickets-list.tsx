@@ -19,7 +19,7 @@ type SortDirection = "asc" | "desc";
 
 export function TicketsList({ sessionId, organizationId, onEdit }: TicketsListProps) {
   const { t } = useNamespaceTranslations("ui.tickets");
-  const [filter, setFilter] = useState<{ ticketType?: string; status?: string }>({});
+  const [filter, setFilter] = useState<{ ticketType?: string; status?: string; eventId?: Id<"objects"> }>({});
   const [sortField, setSortField] = useState<SortField>("createdAt");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc"); // Default: newest first
   const [selectedTicket, setSelectedTicket] = useState<Doc<"objects"> | null>(null);
@@ -29,6 +29,12 @@ export function TicketsList({ sessionId, organizationId, onEdit }: TicketsListPr
     sessionId,
     organizationId,
     ...filter,
+  });
+
+  // Get all events for the event filter dropdown
+  const events = useQuery(api.eventOntology.getEvents, {
+    sessionId,
+    organizationId,
   });
 
   const cancelTicket = useMutation(api.ticketOntology.cancelTicket);
@@ -164,6 +170,26 @@ export function TicketsList({ sessionId, organizationId, onEdit }: TicketsListPr
     <div className="p-4">
       {/* Filters and Sort */}
       <div className="flex flex-wrap gap-2 mb-4">
+        {/* Event Filter */}
+        <select
+          value={filter.eventId || ""}
+          onChange={(e) => setFilter({ ...filter, eventId: (e.target.value as Id<"objects">) || undefined })}
+          className="px-3 py-1.5 text-xs border-2"
+          style={{
+            borderColor: "var(--win95-border)",
+            background: "var(--win95-bg-light)",
+            color: "var(--win95-text)",
+          }}
+        >
+          <option value="">{t("ui.tickets.list.filter.all_events")}</option>
+          {events?.map((event) => (
+            <option key={event._id} value={event._id}>
+              {event.name}
+            </option>
+          ))}
+        </select>
+
+        {/* Ticket Type Filter */}
         <select
           value={filter.ticketType || ""}
           onChange={(e) => setFilter({ ...filter, ticketType: e.target.value || undefined })}
@@ -181,6 +207,7 @@ export function TicketsList({ sessionId, organizationId, onEdit }: TicketsListPr
           <option value="student">{t("ui.tickets.type.student")}</option>
         </select>
 
+        {/* Status Filter */}
         <select
           value={filter.status || ""}
           onChange={(e) => setFilter({ ...filter, status: e.target.value || undefined })}

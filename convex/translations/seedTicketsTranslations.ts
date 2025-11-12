@@ -156,6 +156,17 @@ export const seed = internalMutation({
         },
       },
       {
+        key: "ui.tickets.list.filter.all_events",
+        values: {
+          en: "All Events",
+          de: "Alle Veranstaltungen",
+          pl: "Wszystkie wydarzenia",
+          es: "Todos los eventos",
+          fr: "Tous les événements",
+          ja: "すべてのイベント",
+        },
+      },
+      {
         key: "ui.tickets.list.sort.label",
         values: {
           en: "Sort:",
