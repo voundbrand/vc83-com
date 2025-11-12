@@ -345,7 +345,7 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
 
       {/* Event Detail Modal */}
       {selectedEvent && (
-        <EventDetailModal event={selectedEvent} onClose={() => setSelectedEvent(null)} sessionId={sessionId} />
+        <EventDetailModal event={selectedEvent} onClose={() => setSelectedEvent(null)} />
       )}
 
       {/* Confirmation Modal */}
