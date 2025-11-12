@@ -146,10 +146,19 @@ const translations: Translation[] = [
   { locale: "es", key: "ui.events.action.back_to_list", value: "Volver a la lista" },
   { locale: "es", key: "ui.events.action.edit", value: "Editar" },
   { locale: "es", key: "ui.events.action.publish", value: "Publicar" },
-  { locale: "es", key: "ui.events.action.cancel_event", value: "Cancelar" },
+  { locale: "es", key: "ui.events.action.cancel", value: "Cancelar" },
+  { locale: "es", key: "ui.events.action.delete", value: "Eliminar" },
   { locale: "es", key: "ui.events.action.save", value: "Guardar evento" },
   { locale: "es", key: "ui.events.action.cancel_form", value: "Cancelar" },
   { locale: "es", key: "ui.events.action.saving", value: "Guardando..." },
+
+  // Confirmation Modals
+  { locale: "es", key: "ui.events.list.confirm_cancel_title", value: "Cancelar evento" },
+  { locale: "es", key: "ui.events.list.confirm_cancel_message", value: "¿Estás seguro de que deseas cancelar \"{name}\"?\n\nEsto marcará el evento como cancelado, pero permanecerá en el sistema." },
+  { locale: "es", key: "ui.events.list.confirm_delete_title", value: "Eliminar evento" },
+  { locale: "es", key: "ui.events.list.confirm_delete_message", value: "¿Estás seguro de que deseas eliminar permanentemente \"{name}\"?\n\n¡Esta acción no se puede deshacer!" },
+  { locale: "es", key: "ui.events.list.confirm_publish_title", value: "Publicar evento" },
+  { locale: "es", key: "ui.events.list.confirm_publish_message", value: "¿Publicar \"{name}\" y hacerlo visible para los asistentes?" },
 
   // Events List
   { locale: "es", key: "ui.events.list.no_events", value: "Aún no hay eventos. Haz clic en \"Crear evento\" para comenzar." },
@@ -192,10 +201,19 @@ const translations: Translation[] = [
   { locale: "fr", key: "ui.events.action.back_to_list", value: "Retour à la liste" },
   { locale: "fr", key: "ui.events.action.edit", value: "Modifier" },
   { locale: "fr", key: "ui.events.action.publish", value: "Publier" },
-  { locale: "fr", key: "ui.events.action.cancel_event", value: "Annuler" },
+  { locale: "fr", key: "ui.events.action.cancel", value: "Annuler" },
+  { locale: "fr", key: "ui.events.action.delete", value: "Supprimer" },
   { locale: "fr", key: "ui.events.action.save", value: "Enregistrer l'événement" },
   { locale: "fr", key: "ui.events.action.cancel_form", value: "Annuler" },
   { locale: "fr", key: "ui.events.action.saving", value: "Enregistrement..." },
+
+  // Confirmation Modals
+  { locale: "fr", key: "ui.events.list.confirm_cancel_title", value: "Annuler l'événement" },
+  { locale: "fr", key: "ui.events.list.confirm_cancel_message", value: "Êtes-vous sûr de vouloir annuler \"{name}\" ?\n\nCela marquera l'événement comme annulé, mais il restera dans le système." },
+  { locale: "fr", key: "ui.events.list.confirm_delete_title", value: "Supprimer l'événement" },
+  { locale: "fr", key: "ui.events.list.confirm_delete_message", value: "Êtes-vous sûr de vouloir supprimer définitivement \"{name}\" ?\n\nCette action ne peut pas être annulée !" },
+  { locale: "fr", key: "ui.events.list.confirm_publish_title", value: "Publier l'événement" },
+  { locale: "fr", key: "ui.events.list.confirm_publish_message", value: "Publier \"{name}\" et le rendre visible aux participants ?" },
 
   // Events List
   { locale: "fr", key: "ui.events.list.no_events", value: "Aucun événement pour le moment. Cliquez sur \"Créer un événement\" pour commencer." },
@@ -238,10 +256,19 @@ const translations: Translation[] = [
   { locale: "ja", key: "ui.events.action.back_to_list", value: "リストに戻る" },
   { locale: "ja", key: "ui.events.action.edit", value: "編集" },
   { locale: "ja", key: "ui.events.action.publish", value: "公開" },
-  { locale: "ja", key: "ui.events.action.cancel_event", value: "キャンセル" },
+  { locale: "ja", key: "ui.events.action.cancel", value: "キャンセル" },
+  { locale: "ja", key: "ui.events.action.delete", value: "削除" },
   { locale: "ja", key: "ui.events.action.save", value: "イベントを保存" },
   { locale: "ja", key: "ui.events.action.cancel_form", value: "キャンセル" },
   { locale: "ja", key: "ui.events.action.saving", value: "保存中..." },
+
+  // Confirmation Modals
+  { locale: "ja", key: "ui.events.list.confirm_cancel_title", value: "イベントをキャンセル" },
+  { locale: "ja", key: "ui.events.list.confirm_cancel_message", value: "\"{name}\"をキャンセルしてもよろしいですか？\n\nこれによりイベントはキャンセル済みとしてマークされますが、システムに残ります。" },
+  { locale: "ja", key: "ui.events.list.confirm_delete_title", value: "イベントを削除" },
+  { locale: "ja", key: "ui.events.list.confirm_delete_message", value: "\"{name}\"を完全に削除してもよろしいですか？\n\nこの操作は元に戻せません！" },
+  { locale: "ja", key: "ui.events.list.confirm_publish_title", value: "イベントを公開" },
+  { locale: "ja", key: "ui.events.list.confirm_publish_message", value: "\"{name}\"を公開して参加者に表示しますか？" },
 
   // Events List
   { locale: "ja", key: "ui.events.list.no_events", value: "まだイベントがありません。「イベントを作成」をクリックして始めましょう。" },
@@ -284,10 +311,19 @@ const translations: Translation[] = [
   { locale: "pl", key: "ui.events.action.back_to_list", value: "Powrót do listy" },
   { locale: "pl", key: "ui.events.action.edit", value: "Edytuj" },
   { locale: "pl", key: "ui.events.action.publish", value: "Opublikuj" },
-  { locale: "pl", key: "ui.events.action.cancel_event", value: "Anuluj" },
+  { locale: "pl", key: "ui.events.action.cancel", value: "Anuluj" },
+  { locale: "pl", key: "ui.events.action.delete", value: "Usuń" },
   { locale: "pl", key: "ui.events.action.save", value: "Zapisz wydarzenie" },
   { locale: "pl", key: "ui.events.action.cancel_form", value: "Anuluj" },
   { locale: "pl", key: "ui.events.action.saving", value: "Zapisywanie..." },
+
+  // Confirmation Modals
+  { locale: "pl", key: "ui.events.list.confirm_cancel_title", value: "Anuluj wydarzenie" },
+  { locale: "pl", key: "ui.events.list.confirm_cancel_message", value: "Czy na pewno chcesz anulować \"{name}\"?\n\nSpowoduje to oznaczenie wydarzenia jako anulowanego, ale pozostanie w systemie." },
+  { locale: "pl", key: "ui.events.list.confirm_delete_title", value: "Usuń wydarzenie" },
+  { locale: "pl", key: "ui.events.list.confirm_delete_message", value: "Czy na pewno chcesz trwale usunąć \"{name}\"?\n\nTej operacji nie można cofnąć!" },
+  { locale: "pl", key: "ui.events.list.confirm_publish_title", value: "Opublikuj wydarzenie" },
+  { locale: "pl", key: "ui.events.list.confirm_publish_message", value: "Opublikować \"{name}\" i uczynić widocznym dla uczestników?" },
 
   // Events List
   { locale: "pl", key: "ui.events.list.no_events", value: "Brak wydarzeń. Kliknij \"Utwórz wydarzenie\", aby rozpocząć." },
