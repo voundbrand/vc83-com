@@ -98,23 +98,39 @@ export function HeroSlideshow({
     return null;
   }
 
-  const getVideoEmbedUrl = (url: string, item: SlideItem): string => {
-    // YouTube
-    const youtubeMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
-    if (youtubeMatch) {
-      const videoId = youtubeMatch[1];
-      const loop = item.loop ? 1 : 0;
-      return `https://www.youtube.com/embed/${videoId}?autoplay=${item.autostart ? 1 : 0}&loop=${loop}&playlist=${videoId}&controls=1&modestbranding=1&mute=0`;
-    }
+  const getYouTubeVideoId = (url: string): string | null => {
+    try {
+      const urlObj = new URL(url);
+      if (urlObj.hostname.includes('youtube.com') || urlObj.hostname.includes('youtu.be')) {
+        let videoId: string | null = null;
 
-    // Vimeo
-    const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
-    if (vimeoMatch) {
-      return `https://player.vimeo.com/video/${vimeoMatch[1]}?autoplay=${item.autostart ? 1 : 0}&loop=${item.loop ? 1 : 0}&muted=0`;
-    }
+        if (urlObj.hostname.includes('youtube.com')) {
+          videoId = urlObj.searchParams.get('v') || urlObj.pathname.split('/embed/')[1];
+        } else if (urlObj.hostname.includes('youtu.be')) {
+          videoId = urlObj.pathname.substring(1);
+        }
 
-    // Direct video URL
-    return url;
+        if (videoId) {
+          videoId = videoId.split('?')[0].split('&')[0];
+        }
+
+        return videoId;
+      }
+    } catch (e) {
+      console.error('Error parsing YouTube URL:', e);
+    }
+    return null;
+  };
+
+  const getYouTubeEmbedUrl = (url: string, loop = false, autostart = false): string | null => {
+    const videoId = getYouTubeVideoId(url);
+    if (videoId) {
+      // For YouTube loop to work on a single video, we need to add it to a playlist of itself
+      const loopParams = loop ? `&loop=1&playlist=${videoId}` : '';
+      const autostartParam = autostart ? '1' : '0';
+      return `https://www.youtube.com/embed/${videoId}?autoplay=${autostartParam}${loopParams}`;
+    }
+    return null;
   };
 
   return (
@@ -129,39 +145,47 @@ export function HeroSlideshow({
             }`}
           >
             {item.type === 'video' ? (
-              // Check if it's a YouTube/Vimeo URL or direct video
-              item.url.includes('youtube.com') ||
-              item.url.includes('youtu.be') ||
-              item.url.includes('vimeo.com') ? (
-                <iframe
-                  src={index === currentIndex ? getVideoEmbedUrl(item.url, item) : ''}
-                  className="w-full h-full object-cover"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  onPlay={() => setIsVideoPlaying(true)}
-                  onPause={() => setIsVideoPlaying(false)}
-                  onEnded={() => setIsVideoPlaying(false)}
-                />
-              ) : (
-                <video
-                  ref={index === currentIndex ? videoRef : null}
-                  src={item.url}
-                  className="w-full h-full object-cover"
-                  autoPlay={item.autostart && index === currentIndex}
-                  loop={item.loop}
-                  muted
-                  playsInline
-                  onPlay={() => setIsVideoPlaying(true)}
-                  onPause={() => setIsVideoPlaying(false)}
-                  onEnded={() => {
-                    setIsVideoPlaying(false);
-                    // If video has autostart but not loop, advance to next slide when it ends
-                    if (item.autostart && !item.loop && index === currentIndex) {
-                      goToNext();
-                    }
-                  }}
-                />
-              )
+              (() => {
+                // Check if it's a YouTube video
+                const youtubeEmbedUrl = getYouTubeEmbedUrl(item.url, item.loop, item.autostart);
+
+                if (youtubeEmbedUrl) {
+                  // YouTube video - use iframe
+                  return index === currentIndex ? (
+                    <iframe
+                      key={`youtube-${item.id}-${currentIndex}`}
+                      src={youtubeEmbedUrl}
+                      className="w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      title={item.alt || `Video ${index + 1}`}
+                    />
+                  ) : null;
+                } else {
+                  // Regular video file - use video tag
+                  return (
+                    <video
+                      key={`video-${item.id}-${currentIndex}`}
+                      ref={index === currentIndex ? videoRef : null}
+                      src={item.url}
+                      className="w-full h-full object-cover"
+                      autoPlay={item.autostart ?? false}
+                      loop={item.loop ?? false}
+                      muted
+                      playsInline
+                      onPlay={() => setIsVideoPlaying(true)}
+                      onPause={() => setIsVideoPlaying(false)}
+                      onEnded={() => {
+                        setIsVideoPlaying(false);
+                        // If video has autostart but not loop, advance to next slide when it ends
+                        if (item.autostart && !item.loop && index === currentIndex) {
+                          goToNext();
+                        }
+                      }}
+                    />
+                  );
+                }
+              })()
             ) : (
               <Image
                 src={item.url}
