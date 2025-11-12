@@ -66,16 +66,16 @@ export function TicketsList({ sessionId, organizationId, onEdit, initialEventId 
   ) => {
     const configs = {
       cancel: {
-        title: t("list.confirm_cancel_title"),
-        message: t("list.confirm_cancel_message").replace("{name}", ticketName),
+        title: t("ui.tickets.list.confirm_cancel_title"),
+        message: t("ui.tickets.list.confirm_cancel_message").replace("{name}", ticketName),
       },
       delete: {
-        title: t("list.confirm_delete_title"),
-        message: t("list.confirm_delete_message").replace("{name}", ticketName),
+        title: t("ui.tickets.list.confirm_delete_title"),
+        message: t("ui.tickets.list.confirm_delete_message").replace("{name}", ticketName),
       },
       redeem: {
-        title: t("list.confirm_redeem_title"),
-        message: t("list.confirm_redeem_message").replace("{name}", ticketName),
+        title: t("ui.tickets.list.confirm_redeem_title"),
+        message: t("ui.tickets.list.confirm_redeem_message").replace("{name}", ticketName),
       },
     };
 
@@ -367,17 +367,17 @@ export function TicketsList({ sessionId, organizationId, onEdit, initialEventId 
                 </div>
               ) : (
                 <div className="text-xs italic" style={{ color: "var(--neutral-gray)" }}>
-                  {t("list.no_event")}
+                  {t("ui.tickets.list.no_event")}
                 </div>
               )}
               {ticket.customProperties?.purchaseDate && (
                 <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                  {t("list.purchased")} {formatDate(ticket.customProperties.purchaseDate)}
+                  {t("ui.tickets.list.purchased")} {formatDate(ticket.customProperties.purchaseDate)}
                 </div>
               )}
               {ticket.customProperties?.redeemedAt && (
                 <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                  {t("list.redeemed")} {formatDate(ticket.customProperties.redeemedAt)}
+                  {t("ui.tickets.list.redeemed")} {formatDate(ticket.customProperties.redeemedAt)}
                 </div>
               )}
             </div>
@@ -471,7 +471,7 @@ export function TicketsList({ sessionId, organizationId, onEdit, initialEventId 
         title={confirmModal.title}
         message={confirmModal.message}
         variant={confirmModal.action === "delete" ? "danger" : "warning"}
-        confirmText={confirmModal.action === "delete" ? t("list.button.delete") : "OK"}
+        confirmText={confirmModal.action === "delete" ? t("ui.tickets.list.button.delete") : "OK"}
         isLoading={isProcessing}
       />
     </div>

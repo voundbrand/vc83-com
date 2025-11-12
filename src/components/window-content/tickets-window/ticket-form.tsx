@@ -107,7 +107,7 @@ export function TicketForm({
     );
   }
 
-  if (!ticketId && (products === undefined || events === undefined)) {
+  if (products === undefined || events === undefined) {
     return (
       <div className="flex items-center justify-center p-8">
         <Loader2 size={32} className="animate-spin" style={{ color: "var(--win95-highlight)" }} />
@@ -150,34 +150,32 @@ export function TicketForm({
         </div>
       )}
 
-      {/* Event Association (only for new tickets) */}
-      {!ticketId && (
-        <div>
-          <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-            {t("ui.tickets.form.event_label")}
-          </label>
-          <select
-            value={formData.eventId}
-            onChange={(e) => setFormData({ ...formData, eventId: e.target.value })}
-            className="w-full px-3 py-2 text-sm border-2"
-            style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-input-bg)",
-              color: "var(--win95-input-text)",
-            }}
-          >
-            <option value="">{t("ui.tickets.form.event_none")}</option>
-            {events?.map((event) => (
-              <option key={event._id} value={event._id}>
-                {event.name} - {new Date(event.customProperties?.startDate || Date.now()).toLocaleDateString()}
-              </option>
-            ))}
-          </select>
-          <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-            {t("ui.tickets.form.event_help")}
-          </p>
-        </div>
-      )}
+      {/* Event Association (for both new and editing tickets) */}
+      <div>
+        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+          {t("ui.tickets.form.event_label")}
+        </label>
+        <select
+          value={formData.eventId}
+          onChange={(e) => setFormData({ ...formData, eventId: e.target.value })}
+          className="w-full px-3 py-2 text-sm border-2"
+          style={{
+            borderColor: "var(--win95-border)",
+            background: "var(--win95-input-bg)",
+            color: "var(--win95-input-text)",
+          }}
+        >
+          <option value="">{t("ui.tickets.form.event_none")}</option>
+          {events?.map((event) => (
+            <option key={event._id} value={event._id}>
+              {event.name} - {new Date(event.customProperties?.startDate || Date.now()).toLocaleDateString()}
+            </option>
+          ))}
+        </select>
+        <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+          {t("ui.tickets.form.event_help")}
+        </p>
+      </div>
 
       {/* Holder Name */}
       <div>
