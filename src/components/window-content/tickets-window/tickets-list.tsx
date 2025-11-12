@@ -288,7 +288,7 @@ export function TicketsList({ sessionId, organizationId, onEdit, initialEventId 
             <div className="flex items-start justify-between mb-3">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs">{getTicketTypeLabel((ticket.customProperties?.ticketType as string) || "standard")}</span>
+                  <span className="text-xs">{getTicketTypeLabel(ticket.subtype || "standard")}</span>
                   {getStatusBadge(ticket.status || "issued")}
                 </div>
                 <h3 className="font-bold text-sm" style={{ color: "var(--win95-text)" }}>
