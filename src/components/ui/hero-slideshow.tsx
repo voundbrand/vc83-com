@@ -98,19 +98,19 @@ export function HeroSlideshow({
     return null;
   }
 
-  const getVideoEmbedUrl = (url: string): string => {
+  const getVideoEmbedUrl = (url: string, item: SlideItem): string => {
     // YouTube
     const youtubeMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
     if (youtubeMatch) {
       const videoId = youtubeMatch[1];
-      const loop = currentItem.loop ? 1 : 0;
-      return `https://www.youtube.com/embed/${videoId}?autoplay=${currentItem.autostart ? 1 : 0}&loop=${loop}&playlist=${videoId}&controls=1&modestbranding=1`;
+      const loop = item.loop ? 1 : 0;
+      return `https://www.youtube.com/embed/${videoId}?autoplay=${item.autostart ? 1 : 0}&loop=${loop}&playlist=${videoId}&controls=1&modestbranding=1&mute=0`;
     }
 
     // Vimeo
     const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
     if (vimeoMatch) {
-      return `https://player.vimeo.com/video/${vimeoMatch[1]}?autoplay=${currentItem.autostart ? 1 : 0}&loop=${currentItem.loop ? 1 : 0}`;
+      return `https://player.vimeo.com/video/${vimeoMatch[1]}?autoplay=${item.autostart ? 1 : 0}&loop=${item.loop ? 1 : 0}&muted=0`;
     }
 
     // Direct video URL
@@ -134,7 +134,7 @@ export function HeroSlideshow({
               item.url.includes('youtu.be') ||
               item.url.includes('vimeo.com') ? (
                 <iframe
-                  src={getVideoEmbedUrl(item.url)}
+                  src={index === currentIndex ? getVideoEmbedUrl(item.url, item) : ''}
                   className="w-full h-full object-cover"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
