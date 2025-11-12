@@ -1,13 +1,14 @@
 "use client";
 
 import { Doc, Id } from "../../../../convex/_generated/dataModel";
-import { X, Download, Printer, User, Mail, Phone, Calendar, Loader2 } from "lucide-react";
+import { X, Download, Printer, User, Mail, Phone, Calendar, Loader2, Send, Eye } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import Image from "next/image";
 import QRCode from "qrcode";
-import { useAction } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
+import { useAuth } from "@/hooks/use-auth";
 
 interface TicketDetailModalProps {
   ticket: Doc<"objects">;
@@ -19,8 +20,30 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
   const [qrCode, setQrCode] = useState<string>("");
   const [isDownloading, setIsDownloading] = useState(false);
 
+  // Email state
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailAction, setEmailAction] = useState<"preview" | "test" | "send" | null>(null);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [emailPreviewHtml, setEmailPreviewHtml] = useState<string>("");
+  const [testEmail, setTestEmail] = useState("");
+  const [emailResult, setEmailResult] = useState<{success: boolean; message: string} | null>(null);
+
+  // Get current user and organization
+  const { user } = useAuth();
+  const currentOrgId = user?.defaultOrgId;
+
   // PDF generation action
   const generateTicketPDF = useAction(api.pdfGeneration.generateTicketPDF);
+
+  // Email actions
+  const previewTicketEmail = useAction(api.ticketEmailService.previewTicketEmail);
+  const sendTicketEmail = useAction(api.ticketEmailService.sendTicketConfirmationEmail);
+
+  // Get domain configs for organization
+  const domainConfigs = useQuery(
+    api.domainConfigOntology.listDomainConfigs,
+    currentOrgId ? { sessionId: `ticket_modal_${Date.now()}`, organizationId: currentOrgId as Id<"organizations"> } : "skip"
+  );
 
   useEffect(() => {
     // Generate QR code for ticket
@@ -122,6 +145,120 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
       alert(t("ui.tickets.detail.error.download_failed"));
     } finally {
       setIsDownloading(false);
+    }
+  };
+
+  const handleSendEmail = () => {
+    // Check if domain config exists
+    if (!domainConfigs || domainConfigs.length === 0) {
+      alert("Please create a domain configuration first in Settings → Domains");
+      return;
+    }
+
+    setShowEmailModal(true);
+    setEmailResult(null);
+  };
+
+  const handleEmailPreview = async () => {
+    if (!domainConfigs || domainConfigs.length === 0) return;
+
+    setEmailAction("preview");
+    setIsSendingEmail(true);
+    try {
+      const result = await previewTicketEmail({
+        ticketId: ticket._id,
+        domainConfigId: domainConfigs[0]._id,
+      });
+
+      setEmailPreviewHtml(result.html);
+    } catch (error) {
+      console.error("Failed to preview email:", error);
+      alert("Failed to generate email preview");
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
+  const handleSendTestEmail = async () => {
+    if (!domainConfigs || domainConfigs.length === 0 || !testEmail) return;
+
+    setEmailAction("test");
+    setIsSendingEmail(true);
+    setEmailResult(null);
+    try {
+      const result = await sendTicketEmail({
+        ticketId: ticket._id,
+        domainConfigId: domainConfigs[0]._id,
+        isTest: true,
+        testRecipient: testEmail,
+      });
+
+      if (result.success) {
+        setEmailResult({
+          success: true,
+          message: `Test email sent to ${testEmail}! Check your inbox.`
+        });
+      } else {
+        setEmailResult({
+          success: false,
+          message: "Failed to send test email. Check console for details."
+        });
+      }
+    } catch (error) {
+      console.error("Failed to send test email:", error);
+      setEmailResult({
+        success: false,
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
+  const handleSendRealEmail = async () => {
+    if (!domainConfigs || domainConfigs.length === 0) return;
+
+    const customProps = ticket.customProperties || {};
+    const recipientEmail = customProps.holderEmail || customProps.attendeeEmail;
+
+    if (!recipientEmail) {
+      alert("This ticket has no email address associated with it.");
+      return;
+    }
+
+    if (!confirm(`Send confirmation email to ${recipientEmail}?`)) {
+      return;
+    }
+
+    setEmailAction("send");
+    setIsSendingEmail(true);
+    setEmailResult(null);
+    try {
+      const result = await sendTicketEmail({
+        ticketId: ticket._id,
+        domainConfigId: domainConfigs[0]._id,
+        isTest: false,
+      });
+
+      if (result.success) {
+        setEmailResult({
+          success: true,
+          message: `✅ Confirmation email sent to ${recipientEmail}!`
+        });
+      } else {
+        setEmailResult({
+          success: false,
+          message: "Failed to send email. Check console for details."
+        });
+      }
+    } catch (error) {
+      console.error("Failed to send email:", error);
+      setEmailResult({
+        success: false,
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    } finally {
+      setIsSendingEmail(false);
     }
   };
 
@@ -231,6 +368,18 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
               >
                 <Printer size={16} />
                 <span className="text-sm">{t("ui.tickets.detail.button.print")}</span>
+              </button>
+              <button
+                onClick={handleSendEmail}
+                className="w-full px-4 py-2 border-2 flex items-center justify-center gap-2 hover:bg-opacity-90 transition-colors"
+                style={{
+                  borderColor: "var(--win95-border)",
+                  background: "var(--success)",
+                  color: "white",
+                }}
+              >
+                <Send size={16} />
+                <span className="text-sm font-bold">Send Email</span>
               </button>
             </div>
           </div>
@@ -501,6 +650,163 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
             </div>
           </div>
         </div>
+
+        {/* Email Modal */}
+        {showEmailModal && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: "rgba(0, 0, 0, 0.7)" }}
+            onClick={() => setShowEmailModal(false)}
+          >
+            <div
+              className="border-4 p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto"
+              style={{
+                borderColor: "var(--win95-border)",
+                background: "var(--win95-bg-light)",
+                boxShadow: "4px 4px 0 rgba(0,0,0,0.2)",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Email Modal Header */}
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold" style={{ color: "var(--win95-highlight)" }}>
+                  <Send size={20} className="inline mr-2" />
+                  Send Confirmation Email
+                </h3>
+                <button
+                  onClick={() => setShowEmailModal(false)}
+                  className="p-1 border-2"
+                  style={{
+                    borderColor: "var(--win95-border)",
+                    background: "var(--win95-button-face)",
+                  }}
+                >
+                  <X size={16} style={{ color: "var(--win95-text)" }} />
+                </button>
+              </div>
+
+              {/* Domain Config Info */}
+              {domainConfigs && domainConfigs.length > 0 && (
+                <div className="mb-4 p-3 border-2" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
+                  <p className="text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                    Using Domain: {(domainConfigs[0].customProperties as any)?.domainName}
+                  </p>
+                  <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                    From: {(domainConfigs[0].customProperties as any)?.email?.senderEmail}
+                  </p>
+                </div>
+              )}
+
+              {/* Email Preview */}
+              {emailAction === "preview" && emailPreviewHtml && (
+                <div className="mb-4 border-2 p-4" style={{ borderColor: "var(--win95-border)", background: "white", maxHeight: "400px", overflow: "auto" }}>
+                  <div dangerouslySetInnerHTML={{ __html: emailPreviewHtml }} />
+                </div>
+              )}
+
+              {/* Test Email Input */}
+              {emailAction === "test" && (
+                <div className="mb-4">
+                  <label className="block text-sm font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                    Test Email Address:
+                  </label>
+                  <input
+                    type="email"
+                    value={testEmail}
+                    onChange={(e) => setTestEmail(e.target.value)}
+                    placeholder="your.email@example.com"
+                    className="w-full px-3 py-2 border-2"
+                    style={{
+                      borderColor: "var(--win95-border)",
+                      background: "var(--win95-input-bg)",
+                      color: "var(--win95-text)",
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* Email Result */}
+              {emailResult && (
+                <div
+                  className="mb-4 p-3 border-2"
+                  style={{
+                    borderColor: "var(--win95-border)",
+                    background: emailResult.success ? "var(--success)" : "var(--error)",
+                    color: "white",
+                  }}
+                >
+                  <p className="text-sm font-bold">{emailResult.message}</p>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  onClick={handleEmailPreview}
+                  disabled={isSendingEmail}
+                  className="px-4 py-2 border-2 flex items-center justify-center gap-2 hover:bg-opacity-90 disabled:opacity-50 transition-colors"
+                  style={{
+                    borderColor: "var(--win95-border)",
+                    background: "var(--win95-button-face)",
+                    color: "var(--win95-text)",
+                  }}
+                >
+                  {isSendingEmail && emailAction === "preview" ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Eye size={16} />
+                  )}
+                  <span className="text-sm">Preview</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setEmailAction("test");
+                    if (testEmail) {
+                      handleSendTestEmail();
+                    }
+                  }}
+                  disabled={isSendingEmail}
+                  className="px-4 py-2 border-2 flex items-center justify-center gap-2 hover:bg-opacity-90 disabled:opacity-50 transition-colors"
+                  style={{
+                    borderColor: "var(--win95-border)",
+                    background: "var(--win95-highlight)",
+                    color: "white",
+                  }}
+                >
+                  {isSendingEmail && emailAction === "test" ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Send size={16} />
+                  )}
+                  <span className="text-sm">Test</span>
+                </button>
+
+                <button
+                  onClick={handleSendRealEmail}
+                  disabled={isSendingEmail}
+                  className="px-4 py-2 border-2 flex items-center justify-center gap-2 hover:bg-opacity-90 disabled:opacity-50 transition-colors"
+                  style={{
+                    borderColor: "var(--win95-border)",
+                    background: "var(--success)",
+                    color: "white",
+                  }}
+                >
+                  {isSendingEmail && emailAction === "send" ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Send size={16} />
+                  )}
+                  <span className="text-sm font-bold">Send Real</span>
+                </button>
+              </div>
+
+              <p className="text-xs mt-3 text-center" style={{ color: "var(--neutral-gray)" }}>
+                Preview the email, send a test to yourself, then send the real confirmation.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
