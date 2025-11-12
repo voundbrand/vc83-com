@@ -10,7 +10,7 @@
  * - Reusable across multiple systems (email behaviors, web templates, APIs)
  */
 
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 
 /**
@@ -99,6 +99,23 @@ export const createDomainConfig = mutation({
     });
 
     return { success: true, configId };
+  },
+});
+
+/**
+ * GET domain config by ID
+ * Used internally by email service and other backend operations
+ */
+export const getDomainConfig = query({
+  args: {
+    configId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const config = await ctx.db.get(args.configId);
+    if (!config || config.type !== "configuration" || config.subtype !== "domain") {
+      throw new Error("Domain config not found");
+    }
+    return config;
   },
 });
 
@@ -233,5 +250,22 @@ export const deleteDomainConfig = mutation({
     });
 
     return { success: true };
+  },
+});
+
+/**
+ * Internal mutation to get domain config (for use from actions)
+ * Avoids circular imports with api
+ */
+export const getDomainConfigInternal = internalMutation({
+  args: {
+    configId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const config = await ctx.db.get(args.configId);
+    if (!config || config.type !== "configuration" || config.subtype !== "domain") {
+      throw new Error("Domain config not found");
+    }
+    return config;
   },
 });
