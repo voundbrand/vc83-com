@@ -15,6 +15,17 @@
  * - "sold_out" - No more inventory
  * - "archived" - No longer offered
  *
+ * Tax Behavior (customProperties.taxBehavior):
+ * Product-level override for tax calculation. Overrides organization default.
+ * - "inclusive" - Price INCLUDES VAT (gross pricing) - VAT extracted from price
+ * - "exclusive" - Price EXCLUDES VAT (net pricing) - VAT added on top
+ * - "automatic" - Let system decide (currently defaults to exclusive)
+ * - undefined/null - Use organization default (from organization_legal.defaultTaxBehavior)
+ *
+ * Example: Product with €119 price and 19% VAT rate:
+ * - taxBehavior: "inclusive" → €119 total (€100 net + €19 VAT)
+ * - taxBehavior: "exclusive" → €119 net + €22.61 VAT = €141.61 total
+ *
  * B2B Invoicing Configuration (customProperties.invoiceConfig):
  * Used when checkout has invoice payment provider enabled.
  * - employerSourceField: string - Form field ID containing employer/organization info

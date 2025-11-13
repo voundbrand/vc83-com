@@ -508,11 +508,63 @@ export const createTransactionInternal = internalMutation({
     paymentIntentId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // Calculate financial details
-    const unitPriceInCents = Math.round(args.amountInCents / args.quantity);
+    // Get product to check for product-level tax behavior override
+    const product = await ctx.db.get(args.productId);
+
+    // Get organization tax settings as fallback
+    const organizationLegal = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "organization_legal")
+      )
+      .first();
+
+    // Product-level setting overrides organization setting
+    const productTaxBehavior = product?.customProperties?.taxBehavior as "inclusive" | "exclusive" | "automatic" | undefined;
+    const orgTaxBehavior = (organizationLegal?.customProperties?.defaultTaxBehavior as "inclusive" | "exclusive" | "automatic") || "exclusive";
+    const taxBehavior = productTaxBehavior || orgTaxBehavior;
     const taxRatePercent = args.taxRatePercent || 0;
-    const taxAmountInCents = Math.round((args.amountInCents * taxRatePercent) / 100);
-    const totalPriceInCents = args.amountInCents + taxAmountInCents;
+
+    console.log(`💰 [createTransactionInternal] Product: ${args.productName}`);
+    console.log(`   Product tax behavior: ${productTaxBehavior || "(not set - using org default)"}`);
+    console.log(`   Organization tax behavior: ${orgTaxBehavior}`);
+    console.log(`   Final tax calculation mode: ${taxBehavior}, rate: ${taxRatePercent}%`);
+
+    // Calculate financial details based on tax behavior
+    let unitPriceInCents: number;
+    let taxAmountInCents: number;
+    let totalPriceInCents: number;
+
+    if (taxBehavior === "inclusive" && taxRatePercent > 0) {
+      // INCLUSIVE: args.amountInCents is the GROSS price (includes VAT)
+      // Calculate VAT backwards from gross price
+      totalPriceInCents = args.amountInCents; // This is the gross total
+      const unitGrossPriceInCents = Math.round(args.amountInCents / args.quantity);
+
+      // Calculate net price from gross: net = gross / (1 + rate/100)
+      const unitNetPriceInCents = Math.round(unitGrossPriceInCents / (1 + taxRatePercent / 100));
+      unitPriceInCents = unitNetPriceInCents;
+
+      // VAT = gross - net
+      taxAmountInCents = totalPriceInCents - (unitNetPriceInCents * args.quantity);
+
+      console.log(`  ✅ INCLUSIVE calculation:`);
+      console.log(`     Gross total: €${(totalPriceInCents / 100).toFixed(2)}`);
+      console.log(`     Net per unit: €${(unitPriceInCents / 100).toFixed(2)}`);
+      console.log(`     VAT amount: €${(taxAmountInCents / 100).toFixed(2)} (extracted from gross)`);
+    } else {
+      // EXCLUSIVE: args.amountInCents is the NET price (excludes VAT)
+      // Calculate VAT on top of net price
+      unitPriceInCents = Math.round(args.amountInCents / args.quantity);
+      taxAmountInCents = Math.round((args.amountInCents * taxRatePercent) / 100);
+      totalPriceInCents = args.amountInCents + taxAmountInCents;
+
+      console.log(`  ✅ EXCLUSIVE calculation:`);
+      console.log(`     Net total: €${(args.amountInCents / 100).toFixed(2)}`);
+      console.log(`     Net per unit: €${(unitPriceInCents / 100).toFixed(2)}`);
+      console.log(`     VAT amount: €${(taxAmountInCents / 100).toFixed(2)} (added on top)`);
+      console.log(`     Gross total: €${(totalPriceInCents / 100).toFixed(2)}`);
+    }
 
     // Get system user for createdBy (transactions created by system, not a specific user)
     const systemUser = await ctx.db

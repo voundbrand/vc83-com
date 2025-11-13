@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
-import { FileText, CreditCard, Palette, X, Download, Mail, Edit, Lock, Calendar, User, History, Plus } from "lucide-react";
+import { FileText, CreditCard, Palette, X, Download, Mail, Edit, Lock, Calendar, User, History, Plus, RefreshCw, Loader2, AlertCircle } from "lucide-react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { type Id, type Doc } from "../../../../convex/_generated/dataModel";
@@ -405,8 +405,17 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
   const { sessionId } = useAuth();
   const sealInvoiceMutation = useMutation(api.invoicingOntology.sealInvoice);
   const generatePDFAction = useAction(api.pdfGeneration.generateInvoicePDF);
+  const regeneratePDFAction = useAction(api.invoiceRegeneration.regenerateInvoicePDF);
+  const processRefundAction = useAction(api.stripeRefunds.processStripeRefund);
+
   const [isSealing, setIsSealing] = React.useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = React.useState(false);
+  const [isRegeneratingPDF, setIsRegeneratingPDF] = React.useState(false);
+  const [isRefunding, setIsRefunding] = React.useState(false);
+  const [pdfError, setPdfError] = React.useState<string | null>(null);
+  const [pdfSuccess, setPdfSuccess] = React.useState(false);
+  const [refundError, setRefundError] = React.useState<string | null>(null);
+  const [refundSuccess, setRefundSuccess] = React.useState(false);
 
   const props = invoice.customProperties || {};
   const billTo = props.billTo as { name?: string; billingEmail?: string; vatNumber?: string; billingAddress?: { city?: string; country?: string } } | undefined;
@@ -490,6 +499,89 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
     }
   };
 
+  const handleRegeneratePDF = async () => {
+    if (!sessionId) return;
+
+    const confirmed = window.confirm(
+      "Regenerate invoice PDF with current data?\n\nThis will create a new PDF using the invoice's current values."
+    );
+
+    if (!confirmed) return;
+
+    setIsRegeneratingPDF(true);
+    setPdfError(null);
+
+    try {
+      const result = await regeneratePDFAction({
+        sessionId,
+        invoiceId: invoice._id,
+      });
+
+      if (result.success) {
+        setPdfSuccess(true);
+        setTimeout(() => {
+          setPdfSuccess(false);
+          onClose(); // Refresh the list
+        }, 2000);
+      }
+    } catch (error) {
+      console.error("PDF regeneration error:", error);
+      setPdfError(error instanceof Error ? error.message : "Failed to regenerate PDF");
+    } finally {
+      setIsRegeneratingPDF(false);
+    }
+  };
+
+  const handleRefund = async () => {
+    if (!sessionId) return;
+
+    // Find the transaction associated with this invoice
+    const transactionIds = (props.consolidatedTicketIds as Id<"objects">[]) || [];
+    if (transactionIds.length === 0) {
+      setRefundError("No transactions found for this invoice");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Issue refund for ${formatCurrency(total, currency)}?\n\nThis action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    setIsRefunding(true);
+    setRefundError(null);
+
+    try {
+      // For now, refund the first transaction
+      // TODO: Handle consolidated invoices with multiple transactions
+      const transactionId = transactionIds[0];
+
+      const result = await processRefundAction({
+        sessionId,
+        transactionId,
+        reason: "requested_by_customer",
+      });
+
+      if (result.success) {
+        setRefundSuccess(true);
+        setTimeout(() => {
+          setRefundSuccess(false);
+          onClose();
+        }, 2000);
+      }
+    } catch (error) {
+      console.error("Refund error:", error);
+      setRefundError(error instanceof Error ? error.message : "Failed to process refund");
+    } finally {
+      setIsRefunding(false);
+    }
+  };
+
+  // Check if can refund
+  const canRefund = () => {
+    return invoice.status === "paid" && !isDraft;
+  };
+
   return (
     <div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
@@ -524,6 +616,36 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
             <X size={16} />
           </button>
         </div>
+
+        {/* Alert Messages */}
+        {pdfError && (
+          <div className="mx-4 mt-4 border-2 border-red-500 bg-red-50 p-3 flex items-start gap-2">
+            <AlertCircle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-xs font-bold text-red-700">PDF Regeneration Failed</p>
+              <p className="text-xs text-red-600 mt-1">{pdfError}</p>
+            </div>
+          </div>
+        )}
+        {pdfSuccess && (
+          <div className="mx-4 mt-4 border-2 border-green-500 bg-green-50 p-3">
+            <p className="text-xs font-bold text-green-700">✓ Invoice PDF regenerated successfully!</p>
+          </div>
+        )}
+        {refundError && (
+          <div className="mx-4 mt-4 border-2 border-red-500 bg-red-50 p-3 flex items-start gap-2">
+            <AlertCircle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-xs font-bold text-red-700">Refund Failed</p>
+              <p className="text-xs text-red-600 mt-1">{refundError}</p>
+            </div>
+          </div>
+        )}
+        {refundSuccess && (
+          <div className="mx-4 mt-4 border-2 border-green-500 bg-green-50 p-3">
+            <p className="text-xs font-bold text-green-700">✓ Refund processed successfully!</p>
+          </div>
+        )}
 
         {/* Modal Body */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -637,8 +759,58 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
             )}
           </div>
 
-          {/* Right side - Download, Email, Close */}
+          {/* Right side - Regenerate PDF, Refund, Download, Email, Close */}
           <div className="flex items-center gap-2">
+            {!isDraft && (
+              <button
+                className="px-4 py-2 text-xs rounded hover:opacity-90 transition-opacity flex items-center gap-2 disabled:opacity-50"
+                style={{
+                  background: "var(--primary)",
+                  color: "white",
+                  border: "2px solid var(--win95-border)",
+                }}
+                onClick={handleRegeneratePDF}
+                disabled={isRegeneratingPDF}
+                title="Regenerate invoice PDF with current data"
+              >
+                {isRegeneratingPDF ? (
+                  <>
+                    <Loader2 className="animate-spin" size={14} />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <FileText size={14} />
+                    Regenerate PDF
+                  </>
+                )}
+              </button>
+            )}
+            {canRefund() && !refundSuccess && (
+              <button
+                className="px-4 py-2 text-xs rounded hover:opacity-90 transition-opacity flex items-center gap-2 disabled:opacity-50"
+                style={{
+                  background: "var(--error)",
+                  color: "white",
+                  border: "2px solid var(--win95-border)",
+                }}
+                onClick={handleRefund}
+                disabled={isRefunding}
+                title="Issue refund via Stripe"
+              >
+                {isRefunding ? (
+                  <>
+                    <Loader2 className="animate-spin" size={14} />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw size={14} />
+                    Issue Refund
+                  </>
+                )}
+              </button>
+            )}
             <button
               className="px-4 py-2 text-xs rounded hover:opacity-90 transition-opacity flex items-center gap-2"
               style={{

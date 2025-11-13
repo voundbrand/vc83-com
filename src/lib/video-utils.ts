@@ -64,15 +64,29 @@ export const getVideoEmbedUrl = (
   autostart: boolean = false
 ): string => {
   if (provider === 'youtube') {
-    const loopParam = loop ? `&loop=1&playlist=${videoId}` : '';
+    // YouTube requires mute=1 for autoplay to work
     const autostartParam = autostart ? '1' : '0';
-    return `https://www.youtube.com/embed/${videoId}?autoplay=${autostartParam}${loopParam}`;
+    let embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=${autostartParam}&mute=1`;
+
+    // Add loop parameters if loop is enabled
+    if (loop) {
+      embedUrl += `&loop=1&playlist=${videoId}`;
+    }
+
+    return embedUrl;
   }
 
   if (provider === 'vimeo') {
-    const loopParam = loop ? '&loop=1' : '';
+    // Vimeo also requires muted for autoplay
     const autostartParam = autostart ? '1' : '0';
-    return `https://player.vimeo.com/video/${videoId}?autoplay=${autostartParam}${loopParam}`;
+    let embedUrl = `https://player.vimeo.com/video/${videoId}?autoplay=${autostartParam}&muted=1`;
+
+    // Add loop parameter if loop is enabled
+    if (loop) {
+      embedUrl += '&loop=1';
+    }
+
+    return embedUrl;
   }
 
   return '';

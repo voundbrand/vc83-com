@@ -125,11 +125,22 @@
 
 .hero {
   position: relative;
-  min-height: 60vh;
+  height: 60vh;
+  min-height: 400px;
+  max-height: 700px;
+  overflow: clip; /* Use clip instead of hidden to preserve sticky */
+}
+
+.heroWithSlideshow {
+  /* When slideshow is present, no need for flex centering */
+  display: block;
+}
+
+.heroWithoutSlideshow {
+  /* When no slideshow, center the content */
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: clip; /* Use clip instead of hidden to preserve sticky */
   padding-bottom: 2rem;
 }
 
@@ -178,20 +189,32 @@
   position: absolute;
   inset: 0;
   background: linear-gradient(
-    to top,
-    var(--color-background),
-    rgba(var(--color-background-rgb, 255, 255, 255), 0.5),
-    transparent
+    to bottom,
+    transparent 0%,
+    transparent 50%,
+    rgba(0, 0, 0, 0.3) 100%
   );
   pointer-events: none;
   z-index: 5;
 }
 
 .heroContent {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  text-align: center;
+  padding: var(--spacing-xl) var(--spacing-lg);
+  max-width: var(--layout-maxWidth-lg);
+  margin: 0 auto;
+}
+
+.heroContentBelow {
   position: relative;
   z-index: 10;
   text-align: center;
-  padding: var(--spacing-2xl) var(--spacing-lg);
+  padding: var(--spacing-3xl) var(--spacing-lg) var(--spacing-2xl);
   max-width: var(--layout-maxWidth-lg);
   margin: 0 auto;
 }
@@ -212,10 +235,21 @@
 
 .heroTitle {
   font-family: var(--font-heading);
-  font-size: clamp(3rem, 8vw, 6rem);
+  font-size: clamp(2rem, 5vw, 3.5rem);
   font-weight: var(--font-weight-bold);
   line-height: var(--line-height-tight);
-  margin-bottom: var(--spacing-2xl);
+  margin-bottom: var(--spacing-lg);
+  color: white;
+  letter-spacing: -0.02em;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.heroTitleBelow {
+  font-family: var(--font-heading);
+  font-size: clamp(2.5rem, 6vw, 4.5rem);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+  margin-bottom: var(--spacing-xl);
   color: var(--color-textDark);
   letter-spacing: -0.02em;
 }
