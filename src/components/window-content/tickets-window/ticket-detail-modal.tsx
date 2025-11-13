@@ -162,28 +162,13 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
   };
 
   const handleSendEmail = () => {
-    // Check if domain config exists
-    if (!domainConfigs || domainConfigs.length === 0) {
-      notification.error(
-        t("ui.tickets.email.error.no_domain"),
-        t("ui.tickets.email.error.no_domain_message")
-      );
-      return;
-    }
-
+    // Domain config is now optional - system defaults will be used if not selected
     setShowEmailModal(true);
     setEmailResult(null);
   };
 
   const handleEmailPreview = async () => {
-    if (!selectedDomainId) {
-      notification.error(
-        t("ui.tickets.email.error.no_domain"),
-        t("ui.tickets.email.error.no_domain_message")
-      );
-      return;
-    }
-
+    // Domain is now optional - system defaults will be used if not selected
     setEmailAction("preview");
     setIsSendingEmail(true);
     try {
@@ -194,7 +179,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
       const result = await previewTicketEmail({
         sessionId: userSessionId,
         ticketId: ticket._id,
-        domainConfigId: selectedDomainId,
+        domainConfigId: selectedDomainId || undefined, // undefined = use system defaults
         language: selectedLanguage,
       });
 
@@ -211,7 +196,8 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
   };
 
   const handleSendTestEmail = async () => {
-    if (!selectedDomainId || !testEmail || !userSessionId) return;
+    // Domain is optional now, only validate required fields
+    if (!testEmail || !userSessionId) return;
 
     setEmailAction("test");
     setIsSendingEmail(true);
@@ -220,7 +206,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
       const result = await sendTicketEmail({
         sessionId: userSessionId,
         ticketId: ticket._id,
-        domainConfigId: selectedDomainId,
+        domainConfigId: selectedDomainId || undefined, // undefined = use system defaults
         isTest: true,
         testRecipient: testEmail,
         language: selectedLanguage,
@@ -268,14 +254,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
   };
 
   const handleSendRealEmail = async () => {
-    if (!selectedDomainId) {
-      notification.error(
-        t("ui.tickets.email.error.no_domain"),
-        t("ui.tickets.email.error.no_domain_message")
-      );
-      return;
-    }
-
+    // Domain is optional now, only validate recipient email
     const customProps = ticket.customProperties || {};
     const recipientEmail = customProps.holderEmail || customProps.attendeeEmail;
 
@@ -303,7 +282,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
       const result = await sendTicketEmail({
         sessionId: userSessionId,
         ticketId: ticket._id,
-        domainConfigId: selectedDomainId,
+        domainConfigId: selectedDomainId || undefined, // undefined = use system defaults
         isTest: false,
         language: selectedLanguage,
       });
@@ -772,34 +751,44 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                 </button>
               </div>
 
-              {/* Domain Config Selector */}
-              {domainConfigs && domainConfigs.length > 0 && (
-                <div className="mb-4 p-3 border-2" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
-                  <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
-                    {t("ui.tickets.email.domain.label")}
-                  </label>
-                  <select
-                    value={selectedDomainId || ""}
-                    onChange={(e) => setSelectedDomainId(e.target.value as Id<"objects">)}
-                    className="w-full px-3 py-2 border-2"
-                    style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--win95-input-bg)",
-                      color: "var(--win95-text)",
-                    }}
-                  >
-                    <option value="">{t("ui.tickets.email.domain.select")}</option>
-                    {domainConfigs.map((config) => {
-                      const props = config.customProperties as any;
-                      return (
-                        <option key={config._id} value={config._id}>
-                          {props?.domainName} ({props?.email?.senderEmail})
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-              )}
+              {/* Domain Config Selector - Always show with system defaults option */}
+              <div className="mb-4 p-3 border-2" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
+                <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                  {t("ui.tickets.email.domain.label")}
+                </label>
+                <select
+                  value={selectedDomainId || ""}
+                  onChange={(e) => setSelectedDomainId(e.target.value as Id<"objects">)}
+                  className="w-full px-3 py-2 border-2"
+                  style={{
+                    borderColor: "var(--win95-border)",
+                    background: "var(--win95-input-bg)",
+                    color: "var(--win95-text)",
+                  }}
+                >
+                  <option value="">
+                    🏠 System Defaults (tickets@mail.l4yercak3.com)
+                  </option>
+                  {domainConfigs && domainConfigs.length > 0 && (
+                    <>
+                      <option disabled>──────────</option>
+                      {domainConfigs.map((config) => {
+                        const props = config.customProperties as any;
+                        return (
+                          <option key={config._id} value={config._id}>
+                            {props?.domainName} ({props?.email?.senderEmail})
+                          </option>
+                        );
+                      })}
+                    </>
+                  )}
+                </select>
+                {!selectedDomainId && (
+                  <p className="text-xs mt-2" style={{ color: "var(--win95-text-secondary)" }}>
+                    ℹ️ Using platform defaults: Gold branding, luxury template
+                  </p>
+                )}
+              </div>
 
               {/* Language Selector */}
               <div className="mb-4 p-3 border-2" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>

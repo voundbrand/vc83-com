@@ -174,6 +174,19 @@ export const createCheckoutSession = mutation({
     // Get organization currency from locale settings
     const currency = await getOrganizationCurrency(ctx, args.organizationId);
 
+    // Get checkout configuration to extract defaultLanguage
+    let defaultLanguage = "en"; // Fallback
+    let pdfTemplateCode: string | undefined;
+
+    if (args.checkoutInstanceId) {
+      const checkoutInstance = await ctx.db.get(args.checkoutInstanceId);
+      if (checkoutInstance?.customProperties?.configuration) {
+        const config = checkoutInstance.customProperties.configuration as Record<string, unknown>;
+        defaultLanguage = (config.defaultLanguage as string) || "en";
+        pdfTemplateCode = config.pdfTemplateCode as string | undefined;
+      }
+    }
+
     // Create session object
     const checkoutSessionId = await ctx.db.insert("objects", {
       organizationId: args.organizationId,
@@ -189,6 +202,8 @@ export const createCheckoutSession = mutation({
         taxAmount: 0,
         totalAmount: 0,
         currency,
+        defaultLanguage,        // ← Store checkout's language
+        pdfTemplateCode,        // ← Store checkout's PDF template choice
         formResponses: [],
         stepProgress: ["started"],
         startedAt: Date.now(),
@@ -314,6 +329,7 @@ export const updatePublicCheckoutSession = mutation({
             quantity: v.number(),
             pricePerUnit: v.number(),
             totalPrice: v.number(),
+            ticketTemplateId: v.optional(v.id("objects")), // PDF template for tickets
           })
         )
       ),
@@ -465,6 +481,7 @@ export const updateCheckoutSession = mutation({
             quantity: v.number(),
             pricePerUnit: v.number(),
             totalPrice: v.number(),
+            ticketTemplateId: v.optional(v.id("objects")), // PDF template for tickets
           })
         )
       ),

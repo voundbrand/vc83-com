@@ -22,6 +22,12 @@ export function EventDetailModal({ event, onClose }: EventDetailModalProps) {
   // PDF generation action
   const generateAttendeeListPDF = useAction(api.pdfGeneration.generateEventAttendeeListPDF);
 
+  // Query to get attendee count (public query, no auth needed)
+  // IMPORTANT: Must be called before any conditional returns (Rules of Hooks)
+  const attendees = useQuery(api.eventOntology.getEventAttendees, {
+    eventId: event._id,
+  });
+
   // Show loading state while translations load
   if (isLoading) {
     return (
@@ -33,11 +39,6 @@ export function EventDetailModal({ event, onClose }: EventDetailModalProps) {
       </div>
     );
   }
-
-  // Query to get attendee count (public query, no auth needed)
-  const attendees = useQuery(api.eventOntology.getEventAttendees, {
-    eventId: event._id,
-  });
 
   // Handle loading state
   const isLoadingAttendees = attendees === undefined;

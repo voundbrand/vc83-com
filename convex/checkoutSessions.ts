@@ -172,6 +172,39 @@ export const getOrgLocaleSettings = internalQuery({
   },
 });
 
+/**
+ * PUBLIC: Get organization locale settings (currency, locale, etc.)
+ * Used by checkout to format prices correctly
+ */
+export const getOrgLocaleSettingsPublic = query({
+  args: {
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, { organizationId }) => {
+    const settings = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", organizationId).eq("type", "organization_settings")
+      )
+      .filter((q) => q.eq(q.field("subtype"), "locale"))
+      .first();
+
+    if (!settings) {
+      return null;
+    }
+
+    // Return only the currency and locale (don't expose other settings)
+    return {
+      currency: settings.customProperties?.currency
+        ? String(settings.customProperties.currency).toLowerCase()
+        : "eur",
+      locale: settings.customProperties?.locale
+        ? String(settings.customProperties.locale)
+        : "de-DE",
+    };
+  },
+});
+
 // =========================================
 // ACTIONS (Using Provider)
 // =========================================

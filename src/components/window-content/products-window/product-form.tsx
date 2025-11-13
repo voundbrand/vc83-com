@@ -13,6 +13,7 @@ import { ProductAddon } from "@/types/product-addons";
 import { InvoicingConfigSection, InvoiceConfig } from "./invoicing-config-section";
 import { usePostHog } from "posthog-js/react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+import { TemplateSelector } from "@/components/template-selector";
 
 /**
  * Helper: Extract all field IDs, labels, types, and options from a form template
@@ -149,6 +150,8 @@ export function ProductForm({
     addons: [] as ProductAddon[], // Product addons configuration
     // NEW: B2B Invoicing Configuration (nullable - only set if configured)
     invoiceConfig: null as InvoiceConfig | null,
+    // NEW: Ticket Template (for ticket subtype only)
+    ticketTemplateId: "" as string, // Template ID for ticket PDF generation
   });
   const [saving, setSaving] = useState(false);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
@@ -268,6 +271,8 @@ export function ProductForm({
         addons: (props.addons as ProductAddon[]) || [],
         // B2B Invoicing Configuration
         invoiceConfig: (props.invoiceConfig as InvoiceConfig) || null,
+        // Ticket Template
+        ticketTemplateId: (props.ticketTemplateId as string) || "",
       });
     }
   }, [existingProduct]);
@@ -306,6 +311,11 @@ export function ProductForm({
       // B2B Invoicing Configuration (applies to all product types) - only store if configured
       if (formData.invoiceConfig) {
         customProperties.invoiceConfig = formData.invoiceConfig;
+      }
+
+      // Ticket Template (only for ticket subtype)
+      if (formData.subtype === "ticket" && formData.ticketTemplateId) {
+        customProperties.ticketTemplateId = formData.ticketTemplateId;
       }
 
       // Form linking (generalized - works for all product types)
@@ -909,6 +919,19 @@ export function ProductForm({
               </div>
             </div>
           )}
+
+          {/* Ticket Template Selector */}
+          <TemplateSelector
+            category="ticket"
+            value={formData.ticketTemplateId ? (formData.ticketTemplateId as Id<"objects">) : null}
+            onChange={(templateId) => setFormData({ ...formData, ticketTemplateId: templateId || "" })}
+            label="🎨 Ticket Design Template"
+            description="Choose the PDF template used for generating tickets for this product."
+            organizationId={organizationId}
+            required={false}
+            allowNull={true}
+            nullLabel="Use system default template"
+          />
 
           {/* Active/Inactive Status Toggle */}
           <div className="flex items-center justify-between p-3 border-2 rounded" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>

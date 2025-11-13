@@ -40,6 +40,7 @@ export const createDomainConfig = mutation({
       systemEmail: v.string(),        // System notifications (e.g., "system@mail.pluseins.gg")
       salesEmail: v.string(),         // Sales inquiries (e.g., "sales@pluseins.gg")
       replyToEmail: v.string(),       // Reply-to address (e.g., "reply@pluseins.gg")
+      defaultTemplateCode: v.optional(v.string()), // Default email template code (e.g., "luxury-confirmation")
     })),
 
     // Optional: Web publishing configuration
@@ -183,6 +184,7 @@ export const updateDomainConfig = mutation({
       systemEmail: v.string(),        // System notifications (e.g., "system@mail.pluseins.gg")
       salesEmail: v.string(),         // Sales inquiries (e.g., "sales@pluseins.gg")
       replyToEmail: v.string(),       // Reply-to address (e.g., "reply@pluseins.gg")
+      defaultTemplateCode: v.optional(v.string()), // Default email template code (e.g., "luxury-confirmation")
     })),
     webPublishing: v.optional(v.object({
       templateId: v.optional(v.string()),

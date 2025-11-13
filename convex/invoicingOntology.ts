@@ -1841,7 +1841,7 @@ export const generateAndStorePDFForInvoice = internalAction({
   },
   handler: async (ctx, args) => {
     try {
-      // 1. Generate PDF using existing action
+      // 1. Generate PDF using existing action with transaction IDs
       const pdfResult = await ctx.runAction(api.pdfGeneration.generateInvoicePDF, {
         checkoutSessionId: args.checkoutSessionId,
         crmOrganizationId: args.crmOrganizationId, // Pass for B2B "BILL TO" section

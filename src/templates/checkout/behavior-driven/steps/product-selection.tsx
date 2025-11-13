@@ -95,10 +95,18 @@ export function ProductSelectionStep({ organizationId, products, checkoutData, o
         defaultTaxBehavior
       );
 
-  const { subtotal, taxAmount, total } = taxCalculation;
+  // Extract values from tax calculation
+  // subtotal = NET amount (before tax) - correct for both inclusive and exclusive modes
+  // taxAmount = tax to charge
+  // total = final total (subtotal + tax for exclusive, original price for inclusive)
+  const { subtotal: subtotalNet, taxAmount, total } = taxCalculation;
 
   const formatPrice = (amount: number, currency: string) => {
-    return new Intl.NumberFormat("en-US", {
+    // Use locale based on currency for correct thousand/decimal separators
+    // EUR, GBP, etc. → European format (1.000,00)
+    // USD, CAD, etc. → US format (1,000.00)
+    const locale = currency.toUpperCase() === "USD" ? "en-US" : "de-DE";
+    return new Intl.NumberFormat(locale, {
       style: "currency",
       currency: currency.toUpperCase(),
     }).format(amount / 100);
@@ -117,7 +125,7 @@ export function ProductSelectionStep({ organizationId, products, checkoutData, o
       })),
       totalPrice: total,
       taxCalculation: {
-        subtotal,
+        subtotal: subtotalNet,
         taxAmount,
         total,
         taxRate: defaultTaxRate,
@@ -142,7 +150,7 @@ export function ProductSelectionStep({ organizationId, products, checkoutData, o
           <ShoppingCart size={32} />
           {t("ui.checkout_template.behavior_driven.product_selection.headers.title")}
         </h2>
-        <p className="text-gray-600">{t("ui.checkout_template.behavior_driven.product_selection.headers.subtitle")}</p>
+        <p style={{ color: 'var(--color-textLight, #6B7280)' }}>{t("ui.checkout_template.behavior_driven.product_selection.headers.subtitle")}</p>
       </div>
 
       {/* Product Grid */}
@@ -161,12 +169,12 @@ export function ProductSelectionStep({ organizationId, products, checkoutData, o
                 <div className="flex-1">
                   <h3 className="text-xl font-bold mb-2">{product.name}</h3>
                   {product.description && (
-                    <p className="text-gray-600 mb-4">{product.description}</p>
+                    <p className="mb-4" style={{ color: 'var(--color-textLight, #6B7280)' }}>{product.description}</p>
                   )}
 
                   {/* Price and Quantity */}
                   <div className="flex items-center gap-4">
-                    <div className="text-2xl font-bold text-purple-600">
+                    <div className="text-2xl font-bold" style={{ color: 'var(--color-primary, #6B46C1)' }}>
                       {formatPrice(product.price, product.currency)}
                     </div>
 
@@ -190,7 +198,7 @@ export function ProductSelectionStep({ organizationId, products, checkoutData, o
 
                     {quantity > 0 && (
                       <div className="ml-auto text-lg font-bold">
-                        = {formatPrice(product.price * quantity, product.currency)}
+                        {formatPrice(product.price * quantity, product.currency)}
                       </div>
                     )}
                   </div>
@@ -224,31 +232,56 @@ export function ProductSelectionStep({ organizationId, products, checkoutData, o
           <div className="space-y-2 pt-4 border-t-2 border-purple-200">
             <div className="flex justify-between text-sm">
               <span>{t("ui.checkout_template.behavior_driven.product_selection.cart.subtotal")}</span>
-              <span className="font-medium">{formatPrice(subtotal, products[0]?.currency || "EUR")}</span>
+              <span className="font-medium">{formatPrice(subtotalNet, products[0]?.currency || "EUR")}</span>
             </div>
-            {taxCalculation.isTaxable && taxAmount > 0 && (() => {
-              // Calculate effective tax rate: (taxAmount / subtotal) * 100
-              const effectiveTaxRate = subtotal > 0 ? (taxAmount / subtotal) * 100 : 0;
+            {taxCalculation.isTaxable && taxAmount > 0 && taxCalculation.lineItems && (() => {
+              // Group line items by tax rate
+              const taxGroups = new Map<number, { subtotal: number; taxAmount: number }>();
+
+              for (const item of taxCalculation.lineItems) {
+                // Calculate effective tax rate from tax amount and subtotal
+                const rate = item.taxable && item.subtotal > 0
+                  ? (item.taxAmount / item.subtotal) * 100
+                  : 0;
+                const roundedRate = Math.round(rate * 10) / 10; // Round to 1 decimal place
+
+                const existing = taxGroups.get(roundedRate) || { subtotal: 0, taxAmount: 0 };
+                taxGroups.set(roundedRate, {
+                  subtotal: existing.subtotal + item.subtotal,
+                  taxAmount: existing.taxAmount + item.taxAmount,
+                });
+              }
+
+              // Sort by tax rate (0% first, then ascending)
+              const sortedRates = Array.from(taxGroups.entries()).sort((a, b) => a[0] - b[0]);
 
               return (
-                <div className="flex justify-between text-sm">
-                  <span>
-                    {t("ui.checkout_template.behavior_driven.product_selection.cart.tax")} ({effectiveTaxRate.toFixed(1)}%)
-                    <span className="text-xs ml-1 opacity-70">
-                      {taxCalculation.taxBehavior === "inclusive"
-                        ? t("ui.checkout_template.behavior_driven.product_selection.cart.tax_included")
-                        : t("ui.checkout_template.behavior_driven.product_selection.cart.tax_added")
-                      }
-                    </span>
-                  </span>
-                  <span className="font-medium">{formatPrice(taxAmount, products[0]?.currency || "EUR")}</span>
-                </div>
+                <>
+                  {sortedRates.map(([rate, amounts]) => {
+                    // Ensure rate is a valid number
+                    const rateDisplay = typeof rate === 'number' && !isNaN(rate) ? rate.toFixed(1) : '0.0';
+                    return (
+                      <div key={rate} className="flex justify-between text-sm">
+                        <span>
+                          {t("ui.checkout_template.behavior_driven.product_selection.cart.tax")} ({rateDisplay}%)
+                        <span className="text-xs ml-1 opacity-70">
+                          {taxCalculation.taxBehavior === "inclusive"
+                            ? t("ui.checkout_template.behavior_driven.product_selection.cart.tax_included")
+                            : t("ui.checkout_template.behavior_driven.product_selection.cart.tax_added")
+                          }
+                        </span>
+                        </span>
+                        <span className="font-medium">{formatPrice(amounts.taxAmount, products[0]?.currency || "EUR")}</span>
+                      </div>
+                    );
+                  })}
+                </>
               );
             })()}
           </div>
           <div className="pt-4 border-t-2 border-purple-400 flex justify-between items-center">
             <span className="text-xl font-bold">{t("ui.checkout_template.behavior_driven.product_selection.cart.total")}</span>
-            <span className="text-2xl font-bold text-purple-600">
+            <span className="text-2xl font-bold" style={{ color: 'var(--color-primary, #6B46C1)' }}>
               {formatPrice(total, products[0]?.currency || "EUR")}
             </span>
           </div>

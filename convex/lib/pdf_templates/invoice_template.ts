@@ -42,17 +42,17 @@ export const INVOICE_TEMPLATE_HTML = `
 
         <!-- Invoice header bar with highlight color -->
         <div class="invoice-header">
-            <h1>INVOICE</h1>
+            <h1>{{t_invoice}}</h1>
             <div class="invoice-meta">
-                <div><strong>Invoice #:</strong> {{invoice_number}}</div>
-                <div><strong>Date:</strong> {{invoice_date}}</div>
-                <div><strong>Due:</strong> {{due_date}}</div>
+                <div><strong>{{t_invoiceNumber}}</strong> {{invoice_number}}</div>
+                <div><strong>{{t_date}}</strong> {{invoice_date}}</div>
+                <div><strong>{{t_due}}</strong> {{due_date}}</div>
             </div>
         </div>
 
         <!-- Bill to section -->
         <section class="bill-to">
-            <h3>Bill To:</h3>
+            <h3>{{t_billTo}}</h3>
             <div class="bill-to-content">
                 <div>{{bill_to.company_name}}</div>
                 <div>{{bill_to.address}}</div>
@@ -64,10 +64,10 @@ export const INVOICE_TEMPLATE_HTML = `
         <table class="items-table">
             <thead>
                 <tr>
-                    <th class="item-desc">Item Description</th>
-                    <th class="item-qty">Qty</th>
-                    <th class="item-price">Price</th>
-                    <th class="item-total">Total</th>
+                    <th class="item-desc">{{t_itemDescription}}</th>
+                    <th class="item-qty">{{t_qty}}</th>
+                    <th class="item-price">{{t_price}}</th>
+                    <th class="item-total">{{t_total}}</th>
                 </tr>
             </thead>
             <tbody>
@@ -82,35 +82,36 @@ export const INVOICE_TEMPLATE_HTML = `
             </tbody>
             <tfoot>
                 <tr>
-                    <td colspan="3" class="subtotal-label">Subtotal</td>
-                    <td class="subtotal-amount">\${{ '%0.2f' % subtotal}}</td>
+                    <td colspan="3" class="subtotal-label">{{t_subtotal}}</td>
+                    <td class="subtotal-amount">{{subtotal_formatted}}</td>
                 </tr>
-                <tr>
-                    <td colspan="3" class="tax-label">Tax ({{tax_rate}}%)</td>
-                    <td class="tax-amount">\${{ '%0.2f' % tax}}</td>
-                </tr>
+                {%if has_multiple_tax_rates%}
+                    {%for tax_group in tax_groups%}
+                    <tr>
+                        <td colspan="3" class="tax-label">{{t_tax}} ({{tax_group.rate_formatted}})</td>
+                        <td class="tax-amount">{{tax_group.tax_amount_formatted}}</td>
+                    </tr>
+                    {%endfor%}
+                {%else%}
+                    <tr>
+                        <td colspan="3" class="tax-label">{{t_tax}} ({{tax_rate}}%)</td>
+                        <td class="tax-amount">{{tax_formatted}}</td>
+                    </tr>
+                {%endif%}
                 <tr class="total-row">
-                    <td colspan="3" class="total-label"><strong>Total</strong></td>
-                    <td class="total-amount"><strong>\${{ '%0.2f' % total}}</strong></td>
+                    <td colspan="3" class="total-label"><strong>{{t_total}}</strong></td>
+                    <td class="total-amount"><strong>{{total_formatted}}</strong></td>
                 </tr>
             </tfoot>
         </table>
 
         <!-- Payment terms and information (hard-coded template info) -->
         <section class="payment-terms">
-            <h3>Payment Terms</h3>
-            <p>Payment is due within 30 days of invoice date. We accept the following payment methods:</p>
-            <ul>
-                <li>ACH/Wire Transfer - Please contact us for banking details</li>
-                <li>Check - Make payable to {{organization_name}}</li>
-                <li>Credit Card - Additional 3% processing fee applies</li>
-            </ul>
+            <h3>{{t_paymentTerms}}</h3>
+            <p>{{t_paymentDue}} <strong>{{due_date}}</strong>.</p>
 
-            <h3>Late Payment Policy</h3>
-            <p>Invoices not paid within 30 days will incur a 1.5% monthly late fee. For questions regarding this invoice, please contact us at {{organization_email}} or {{organization_phone}}.</p>
-
-            <h3>Thank You</h3>
-            <p>We appreciate your business and look forward to serving you again.</p>
+            <h3>{{t_thankYou}}</h3>
+            <p>{{t_forQuestions}} {{organization_email}} {{t_contactUs}} {{organization_phone}}.</p>
         </section>
 
         <!-- Footer -->

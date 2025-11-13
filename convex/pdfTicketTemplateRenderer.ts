@@ -412,10 +412,11 @@ export const generatePdfTicketWithTemplateIo = action({
         order_id: templateData.order.orderId.substring(0, 12),
         order_date: new Date(templateData.order.orderDate).toLocaleDateString(),
         currency: templateData.order.currency.toUpperCase(),
-        net_price: formatPrice(templateData.order.netPrice),
-        tax_amount: formatPrice(templateData.order.taxAmount),
-        tax_rate: templateData.order.taxRate.toFixed(1),
-        total_price: formatPrice(templateData.order.totalPrice),
+        // Pass as numbers (convert cents to currency) for Jinja2 template comparisons
+        net_price: templateData.order.netPrice / 100,
+        tax_amount: templateData.order.taxAmount / 100,
+        tax_rate: templateData.order.taxRate,
+        total_price: templateData.order.totalPrice / 100,
       };
 
       // 4. Import and call Template.io generator

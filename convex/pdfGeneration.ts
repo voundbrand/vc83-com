@@ -25,6 +25,7 @@ import { action } from "./_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import type { Id, Doc } from "./_generated/dataModel";
+import { formatCurrency, getCurrencySymbol } from "./lib/currencyFormatter";
 
 type PDFAttachment = {
   filename: string;
@@ -202,18 +203,100 @@ export const generateTicketPDF = action({
         order_id: session._id.substring(0, 12),
         order_date: formatDate(session.createdAt),
         currency: currency.toUpperCase(),
-        net_price: netPrice.toFixed(2),
-        tax_amount: taxAmount.toFixed(2),
-        tax_rate: taxRate.toFixed(1),
-        total_price: totalPrice.toFixed(2),
+        // Pass as numbers, not strings - Jinja2 template needs numeric types for comparisons
+        net_price: netPrice,
+        tax_amount: taxAmount,
+        tax_rate: taxRate,
+        total_price: totalPrice,
       };
 
-      // 10. Call API Template.io generator
+      // 10. RESOLVE TEMPLATE FROM ONTOLOGY (No hardcoded defaults!)
+      // First try session-level template ID
+      let ticketTemplateId = session.customProperties?.ticketTemplateId as Id<"objects"> | undefined;
+
+      // Fallback: Check if product has ticketTemplateId in selectedProducts
+      if (!ticketTemplateId) {
+        const selectedProducts = (session.customProperties?.selectedProducts as Array<{
+          productId: Id<"objects">;
+          ticketTemplateId?: Id<"objects">;
+        }>) || [];
+
+        // Find this ticket's product and get its template ID
+        const productForTicket = selectedProducts.find(p => p.productId === product._id);
+        if (productForTicket?.ticketTemplateId) {
+          ticketTemplateId = productForTicket.ticketTemplateId;
+          console.log("🎫 Using ticket template from product in selectedProducts:", ticketTemplateId);
+        } else {
+          // Last resort: Read template ID directly from product
+          const productTemplateId = product.customProperties?.ticketTemplateId as Id<"objects"> | undefined;
+          if (productTemplateId) {
+            ticketTemplateId = productTemplateId;
+            console.log("🎫 Using ticket template from product.customProperties:", productTemplateId);
+          }
+        }
+      }
+
+      let templateCode: string;
+
+      // Try new template ID system first
+      if (ticketTemplateId) {
+        const template = await ctx.runQuery(internal.pdfTemplateQueries.resolvePdfTemplateInternal, {
+          templateId: ticketTemplateId,
+        });
+        templateCode = template.templateCode;
+        console.log("🎫 Using ticket template from ticketTemplateId:", template.templateCode);
+      }
+      // Legacy: args.templateCode (old string-based system)
+      else if (args.templateCode) {
+        // Try to find template by code
+        const template = await ctx.runQuery(api.pdfTemplateQueries.getPdfTemplateByCode, {
+          templateCode: args.templateCode,
+        });
+
+        if (template) {
+          const resolved = await ctx.runQuery(internal.pdfTemplateQueries.resolvePdfTemplateInternal, {
+            templateId: template._id,
+          });
+          templateCode = resolved.templateCode;
+          console.log("🎫 Using ticket template from legacy templateCode:", resolved.templateCode);
+        } else {
+          // Use default
+          const defaultTemplateId = await ctx.runQuery(api.pdfTemplateQueries.getDefaultPdfTemplate, {
+            category: "ticket",
+          });
+          if (defaultTemplateId) {
+            const resolved = await ctx.runQuery(internal.pdfTemplateQueries.resolvePdfTemplateInternal, {
+              templateId: defaultTemplateId,
+            });
+            templateCode = resolved.templateCode;
+          } else {
+            templateCode = "ticket_professional_v1"; // hardcoded fallback
+          }
+          console.warn("⚠️ Legacy templateCode not found, using default:", templateCode);
+        }
+      }
+      // Ultimate fallback to system default
+      else {
+        const defaultTemplateId = await ctx.runQuery(api.pdfTemplateQueries.getDefaultPdfTemplate, {
+          category: "ticket",
+        });
+        if (defaultTemplateId) {
+          const resolved = await ctx.runQuery(internal.pdfTemplateQueries.resolvePdfTemplateInternal, {
+            templateId: defaultTemplateId,
+          });
+          templateCode = resolved.templateCode;
+        } else {
+          templateCode = "ticket_professional_v1"; // hardcoded fallback
+        }
+        console.log("🎫 Using default ticket template:", templateCode);
+      }
+
+      // 11. Call API Template.io generator with resolved template
       const { generateTicketPdfFromTemplate } = await import("./lib/generateTicketPdf");
 
       const result = await generateTicketPdfFromTemplate({
         apiKey,
-        templateCode: args.templateCode || "modern-ticket",
+        templateCode,
         ticketData,
       });
 
@@ -259,10 +342,10 @@ export const generateReceiptPDF = action({
     checkoutSessionId: v.id("objects"),
   },
   handler: async (ctx, args): Promise<PDFAttachment | null> => {
-    // Use the B2C receipt template for customer-friendly formatting
+    // Use whatever template is configured in the checkout session
     return await ctx.runAction(api.pdfGeneration.generateInvoicePDF, {
       checkoutSessionId: args.checkoutSessionId,
-      templateCode: "b2c-receipt", // B2C-friendly receipt template
+      // No templateCode - let generateInvoicePDF use the session's configured template
     });
   },
 });
@@ -271,8 +354,12 @@ export const generateReceiptPDF = action({
  * GENERATE INVOICE/RECEIPT PDF (API Template.io)
  *
  * Creates a professional receipt/invoice PDF using HTML/CSS templates via API Template.io.
- * Supports both B2B (with company billing) and B2C (individual customer) invoices.
- * Template options: b2b-professional, detailed-breakdown, b2c-receipt
+ * Uses the pdfTemplateCode configured in the checkout session's customProperties.
+ *
+ * Template Priority:
+ * 1. args.templateCode (if explicitly passed)
+ * 2. session.customProperties.pdfTemplateCode (from checkout configuration)
+ * 3. Fallback: invoice_b2c_receipt_v1
  */
 export const generateInvoicePDF = action({
   args: {
@@ -325,6 +412,15 @@ export const generateInvoicePDF = action({
         { organizationId }
       ) as Doc<"objects"> | null;
 
+      // Get locale settings for currency formatting
+      const localeSettings = await ctx.runQuery(
+        internal.checkoutSessions.getOrgLocaleSettings,
+        { organizationId }
+      );
+
+      const invoiceCurrency = (localeSettings?.customProperties?.currency as string) || "eur";
+      const invoiceLocale = (localeSettings?.customProperties?.locale as string) || "de-DE";
+
       // Get tax settings for origin address
       const taxSettings = await ctx.runQuery(
         api.organizationTaxSettings.getPublicTaxSettings,
@@ -344,90 +440,172 @@ export const generateInvoicePDF = action({
         });
       }
 
-      // 3. Get purchase items
+      // 3. Get purchase items and GROUP by product
       const purchaseItemIds = (session.customProperties?.purchasedItemIds as Id<"objects">[]) || [];
+
+      if (purchaseItemIds.length === 0) {
+        console.error("❌ No purchase items found in checkout session");
+        return null;
+      }
+
       const purchaseItems = await Promise.all(
-        purchaseItemIds.map((id: Id<"objects">) =>
+        purchaseItemIds.map((id) =>
           ctx.runQuery(internal.purchaseOntology.getPurchaseItemInternal, {
             purchaseItemId: id,
           })
         )
-      ) as (Doc<"objects"> | null)[];
+      );
 
-      // 4. Get product details AND transactions for each item
-      const itemsWithProductsAndTransactions = await Promise.all(
-        purchaseItems.map(async (item) => {
-          if (!item) return null;
-          const productId = item.customProperties?.productId as Id<"objects">;
-          const product = await ctx.runQuery(internal.productOntology.getProductInternal, {
+      console.log(`✓ Found ${purchaseItems.length} purchase items`);
+
+      // 4. GROUP purchase items by productId (one line per unique product)
+      const groupedByProduct = new Map<string, {
+        productId: Id<"objects">;
+        productName: string;
+        items: typeof purchaseItems;
+      }>();
+
+      for (const item of purchaseItems) {
+        if (!item) continue;
+
+        const productId = item.customProperties?.productId as Id<"objects"> | undefined;
+        const productName = item.customProperties?.productName as string || "Unknown Product";
+
+        if (!productId) continue;
+
+        if (!groupedByProduct.has(productId)) {
+          groupedByProduct.set(productId, {
             productId,
-          }) as Doc<"objects"> | null;
+            productName,
+            items: [],
+          });
+        }
 
-          // 🔥 CRITICAL: Get transaction to get ACCURATE tax info
-          const fulfillmentData = item.customProperties?.fulfillmentData as { ticketId?: Id<"objects"> } | undefined;
-          let transaction: Doc<"objects"> | null = null;
+        groupedByProduct.get(productId)!.items.push(item);
+      }
 
-          if (fulfillmentData?.ticketId) {
-            // Get ticket to find transaction
-            const ticket = await ctx.runQuery(internal.ticketOntology.getTicketInternal, {
-              ticketId: fulfillmentData.ticketId,
-            });
+      console.log(`✓ Grouped into ${groupedByProduct.size} unique products`);
 
-            if (ticket) {
-              const transactionId = ticket.customProperties?.transactionId as Id<"objects"> | undefined;
-              if (transactionId) {
-                transaction = await ctx.runQuery(internal.transactionOntology.getTransactionInternal, {
-                  transactionId,
-                });
+      // 5. Convert grouped items to invoice line items
+      // For each product group, find its transaction by looking up tickets
+      const validItems = await Promise.all(
+        Array.from(groupedByProduct.values()).map(async (group) => {
+          const quantity = group.items.length; // Number of items of this product
+
+          // Find transaction ID by looking up ANY ticket in this group
+          // All tickets of same product share the same transaction
+          let transactionId: Id<"objects"> | undefined;
+          for (const item of group.items) {
+            if (!item) continue;
+
+            const fulfillmentData = item.customProperties?.fulfillmentData as { ticketId?: Id<"objects"> } | undefined;
+            if (fulfillmentData?.ticketId) {
+              const ticket = await ctx.runQuery(internal.ticketOntology.getTicketInternal, {
+                ticketId: fulfillmentData.ticketId,
+              });
+
+              if (ticket?.customProperties?.transactionId) {
+                transactionId = ticket.customProperties.transactionId as Id<"objects">;
+                break; // Found it, no need to check other items
               }
             }
           }
 
+          // Calculate totals from the items
+          const totalPriceInCents = group.items.reduce((sum, item) => {
+            if (!item) return sum;
+            return sum + ((item.customProperties?.totalPrice as number) || 0);
+          }, 0);
+
           return {
-            productName: product?.name || "Unknown Product",
-            quantity: item.customProperties?.quantity as number,
-            pricePerUnit: item.customProperties?.pricePerUnit as number,
-            totalPrice: item.customProperties?.totalPrice as number,
-            transaction, // Include transaction for tax data
+            productName: group.productName,
+            quantity,
+            totalPrice: totalPriceInCents,
+            transactionId, // Keep for tax data lookup
           };
         })
       );
 
-      const validItems = itemsWithProductsAndTransactions.filter((item) => item !== null);
+      // 6. Fetch transactions for tax data (needed for accurate tax calculations)
+      const transactionIds = validItems.map(item => item.transactionId).filter(Boolean) as Id<"objects">[];
+      const transactions = await Promise.all(
+        transactionIds.map(id =>
+          ctx.runQuery(internal.transactionOntology.getTransactionInternal, { transactionId: id })
+        )
+      );
 
-      // 5. Calculate totals from TRANSACTIONS (accurate tax data)
-      const subtotal = validItems.reduce((sum, item) => {
-        // Use transaction unitPriceInCents if available (pre-tax amount)
-        if (item.transaction) {
-          const unitPrice = (item.transaction.customProperties?.unitPriceInCents as number) || 0;
-          return sum + unitPrice;
+      // Create a map of transactionId -> transaction for quick lookup
+      const transactionMap = new Map<string, typeof transactions[0]>();
+      for (const txn of transactions) {
+        if (txn) {
+          transactionMap.set(txn._id, txn);
         }
-        return sum + item.totalPrice;
+      }
+
+      // 7. Calculate totals using transaction data (which has accurate tax)
+      const subtotal = validItems.reduce((sum, item) => {
+        const txn = item.transactionId ? transactionMap.get(item.transactionId) : null;
+        if (txn) {
+          const unitPrice = (txn.customProperties?.unitPriceInCents as number) || 0;
+          const quantity = (txn.customProperties?.quantity as number) || 1;
+          return sum + (unitPrice * quantity);
+        }
+        return sum;
       }, 0);
 
       const taxAmount = validItems.reduce((sum, item) => {
-        // Use transaction taxAmountInCents if available
-        if (item.transaction) {
-          const taxAmt = (item.transaction.customProperties?.taxAmountInCents as number) || 0;
+        const txn = item.transactionId ? transactionMap.get(item.transactionId) : null;
+        if (txn) {
+          const taxAmt = (txn.customProperties?.taxAmountInCents as number) || 0;
           return sum + taxAmt;
         }
         return sum;
       }, 0);
 
       const total = validItems.reduce((sum, item) => {
-        // Use transaction totalPriceInCents if available (includes tax)
-        if (item.transaction) {
-          const totalPrice = (item.transaction.customProperties?.totalPriceInCents as number) || 0;
+        const txn = item.transactionId ? transactionMap.get(item.transactionId) : null;
+        if (txn) {
+          const totalPrice = (txn.customProperties?.totalPriceInCents as number) || 0;
           return sum + totalPrice;
         }
         return sum + item.totalPrice;
       }, 0);
 
-      const currency = (session.customProperties?.currency as string) || "EUR";
+      // Currency already fetched from locale settings above (invoiceCurrency)
 
       // Get tax rate from first transaction (assumes all items have same rate)
-      const firstTransaction = validItems.find(item => item.transaction)?.transaction;
+      const firstTransaction = transactions.find(txn => txn !== null);
       const taxRatePercent = (firstTransaction?.customProperties?.taxRatePercent as number) || 0;
+
+      // 8. Group transactions by tax rate for invoice display
+      interface TaxGroup {
+        rate: number;
+        subtotal: number;
+        taxAmount: number;
+      }
+
+      const taxGroupsMap = new Map<number, TaxGroup>();
+
+      for (const item of validItems) {
+        const txn = item.transactionId ? transactionMap.get(item.transactionId) : null;
+        if (txn) {
+          const rate = (txn.customProperties?.taxRatePercent as number) || 0;
+          const unitPrice = (txn.customProperties?.unitPriceInCents as number) || 0;
+          const quantity = (txn.customProperties?.quantity as number) || 1;
+          const itemSubtotal = unitPrice * quantity;
+          const itemTax = (txn.customProperties?.taxAmountInCents as number) || 0;
+
+          const existing = taxGroupsMap.get(rate) || { rate, subtotal: 0, taxAmount: 0 };
+          taxGroupsMap.set(rate, {
+            rate,
+            subtotal: existing.subtotal + itemSubtotal,
+            taxAmount: existing.taxAmount + itemTax,
+          });
+        }
+      }
+
+      // Convert to array and sort by rate (0% first, then ascending)
+      const taxGroups = Array.from(taxGroupsMap.values()).sort((a, b) => a.rate - b.rate);
 
       // Extract B2B info
       const transactionType = session.customProperties?.transactionType as "B2C" | "B2B" | undefined;
@@ -509,11 +687,16 @@ export const generateInvoicePDF = action({
       } else {
         // B2C customer
         const customerName = session.customProperties?.customerName as string | undefined || "Customer";
+        const customerEmail = session.customProperties?.customerEmail as string | undefined;
+        const customerPhone = session.customProperties?.customerPhone as string | undefined;
+
+        // For B2C, if no billing address, show email/phone as contact info
+        const contactInfo = [customerEmail, customerPhone].filter(Boolean).join(" | ");
 
         billTo = {
           company_name: customerName,
           vat_number: undefined,
-          address: billingStreet,
+          address: billingStreet || contactInfo || undefined,
           city: billingCity,
           state: billingState,
           zip_code: billingPostalCode,
@@ -521,21 +704,57 @@ export const generateInvoicePDF = action({
         };
       }
 
-      // 9. Prepare line items for invoice
-      const items = validItems.map(item => ({
-        description: item.productName,
-        quantity: item.quantity,
-        rate: item.pricePerUnit / 100,
-        amount: item.totalPrice / 100,
-      }));
+      // 9. Prepare line items for invoice with pre-formatted currency
+      const currencySymbol = getCurrencySymbol(invoiceCurrency.toUpperCase());
+      const items = validItems.map(item => {
+        // Get transaction for this line item
+        const txn = item.transactionId ? transactionMap.get(item.transactionId) : null;
+
+        if (txn) {
+          // Use transaction data for accurate tax breakdown
+          const unitPriceInCents = (txn.customProperties?.unitPriceInCents as number) || 0;
+          const taxAmountInCents = (txn.customProperties?.taxAmountInCents as number) || 0;
+          const totalPriceInCents = (txn.customProperties?.totalPriceInCents as number) || 0;
+          const itemTaxRate = (txn.customProperties?.taxRatePercent as number) || taxRatePercent;
+          const quantity = item.quantity; // From grouped purchase items
+
+          // Calculate per-unit amounts (transaction stores TOTAL amounts for all units)
+          const taxPerUnitInCents = Math.round(taxAmountInCents / quantity);
+          const totalPerUnitInCents = Math.round(totalPriceInCents / quantity);
+
+          return {
+            description: item.productName,
+            quantity: quantity,
+            // Pre-formatted currency strings (template will display as-is)
+            unit_price_formatted: formatCurrency(unitPriceInCents, { locale: invoiceLocale, currency: invoiceCurrency.toUpperCase() }),
+            tax_amount_formatted: formatCurrency(taxPerUnitInCents, { locale: invoiceLocale, currency: invoiceCurrency.toUpperCase() }),
+            total_price_formatted: formatCurrency(totalPerUnitInCents, { locale: invoiceLocale, currency: invoiceCurrency.toUpperCase() }),
+            tax_rate: itemTaxRate,
+          };
+        }
+
+        // Fallback if no transaction (shouldn't happen in normal flow)
+        const pricePerUnit = Math.round(item.totalPrice / item.quantity);
+        return {
+          description: item.productName,
+          quantity: item.quantity,
+          unit_price_formatted: formatCurrency(pricePerUnit, { locale: invoiceLocale, currency: invoiceCurrency.toUpperCase() }),
+          tax_amount_formatted: formatCurrency(0, { locale: invoiceLocale, currency: invoiceCurrency.toUpperCase() }),
+          total_price_formatted: formatCurrency(item.totalPrice, { locale: invoiceLocale, currency: invoiceCurrency.toUpperCase() }),
+          tax_rate: 0,
+        };
+      });
 
       // 10. Prepare invoice template data
       const invoiceData = {
         // Organization info
         organization_name: businessName,
         organization_address: organizationAddress,
-        organization_phone: sellerContact?.customProperties?.primaryPhone as string | undefined,
-        organization_email: sellerContact?.customProperties?.primaryEmail as string | undefined,
+        organization_phone: (sellerContact?.customProperties?.primaryPhone as string) ||
+                           "+49 (0) 123 456 789", // Fallback
+        organization_email: (sellerContact?.customProperties?.primaryEmail as string) ||
+                           ("info@" + (organization?.slug || "company") + ".com"), // Fallback
+        logo_url: sellerOrg?.customProperties?.logoUrl as string | undefined,
         tax_id: sellerLegal?.customProperties?.taxId as string | undefined,
         vat_number: sellerLegal?.customProperties?.vatNumber as string | undefined,
 
@@ -552,33 +771,129 @@ export const generateInvoicePDF = action({
           day: "numeric",
         }),
 
+        // Translations (English defaults - template requires these)
+        t_invoice: "Invoice",
+        t_invoiceNumber: "Invoice #",
+        t_date: "Date",
+        t_due: "Due Date",
+        t_from: "From",
+        t_billTo: "Bill To",
+        t_attention: "Attn:",
+        t_vat: "VAT #",
+        t_itemDescription: "Description",
+        t_qty: "Qty",
+        t_unitPrice: "Unit Price",
+        t_net: "Net",
+        t_gross: "Gross",
+        t_total: "Total",
+        t_subtotal: "Subtotal",
+        t_tax: "VAT",
+        t_paymentTerms: "Payment Terms",
+        t_terms: "Terms:",
+        t_method: "Method:",
+        t_paymentDue: "Payment due by",
+        t_latePayment: "Late fees may apply.",
+        t_forQuestions: "For questions, contact",
+        t_contactUs: "or call",
+        t_thankYou: "Thank you for your business!",
+
         // Bill to
         bill_to: billTo,
 
-        // Line items
+        // Line items (with pre-formatted currency)
         items,
 
-        // Totals
-        subtotal: subtotal / 100,
+        // Totals (pre-formatted for display)
+        subtotal_formatted: formatCurrency(subtotal, { locale: invoiceLocale, currency: invoiceCurrency.toUpperCase() }),
+        tax_formatted: formatCurrency(taxAmount, { locale: invoiceLocale, currency: invoiceCurrency.toUpperCase() }),
+        total_formatted: formatCurrency(total, { locale: invoiceLocale, currency: invoiceCurrency.toUpperCase() }),
         tax_rate: taxRatePercent,
-        tax: taxAmount / 100,
-        total: total / 100,
-        currency: currency.toUpperCase(),
+        currency_symbol: currencySymbol,
 
-        // Additional info
-        payment_terms: "Payment due within 30 days",
-        notes: transactionType === "B2B" ? "Thank you for your business!" : "Thank you for your purchase!",
-        highlight_color: "#6B46C1",
+        // Tax groups (for invoices with multiple tax rates)
+        tax_groups: taxGroups.map(group => ({
+          rate: group.rate,
+          rate_formatted: group.rate.toFixed(1) + "%",
+          subtotal_formatted: formatCurrency(group.subtotal, { locale: invoiceLocale, currency: invoiceCurrency.toUpperCase() }),
+          tax_amount_formatted: formatCurrency(group.taxAmount, { locale: invoiceLocale, currency: invoiceCurrency.toUpperCase() }),
+        })),
+        has_multiple_tax_rates: taxGroups.length > 1,
       };
 
-      // 11. Call API Template.io generator
-      const { generateInvoicePdfFromTemplate } = await import("./lib/generateInvoicePdf");
-
-      // Choose template based on transaction type
-      let templateCode = args.templateCode;
-      if (!templateCode) {
-        templateCode = transactionType === "B2B" ? "b2b-professional" : "b2c-receipt";
+      // DEBUG: Log invoice data structure
+      console.log("📋 Invoice Data Structure:");
+      console.log("  - Items count:", items.length);
+      console.log("  - Subtotal:", subtotal, "→", formatCurrency(subtotal, { locale: invoiceLocale, currency: invoiceCurrency.toUpperCase() }));
+      console.log("  - Tax:", taxAmount, "→", formatCurrency(taxAmount, { locale: invoiceLocale, currency: invoiceCurrency.toUpperCase() }));
+      console.log("  - Total:", total, "→", formatCurrency(total, { locale: invoiceLocale, currency: invoiceCurrency.toUpperCase() }));
+      console.log("  - Tax Rate:", taxRatePercent + "%");
+      if (items.length > 0) {
+        console.log("  - First item:", JSON.stringify(items[0], null, 2));
       }
+
+      // 11. RESOLVE TEMPLATE FROM ONTOLOGY (No hardcoded B2B/B2C logic!)
+      // Priority: 1) invoiceTemplateId, 2) pdfTemplateCode (deprecated), 3) fallback
+      const invoiceTemplateId = session.customProperties?.invoiceTemplateId as Id<"objects"> | undefined;
+      const legacyTemplateCode = session.customProperties?.pdfTemplateCode as string | undefined;
+
+      let templateCode: string;
+
+      // Try new template ID system first
+      if (invoiceTemplateId) {
+        // Resolve template via query (Actions must use runQuery, not direct DB access)
+        const template = await ctx.runQuery(internal.pdfTemplateQueries.resolvePdfTemplateInternal, {
+          templateId: invoiceTemplateId,
+        });
+        templateCode = template.templateCode;
+        console.log("📄 Using invoice template from invoiceTemplateId:", template.templateCode);
+      }
+      // Fall back to legacy templateCode (will be deprecated)
+      else if (legacyTemplateCode) {
+        // Try to find template by code
+        const template = await ctx.runQuery(api.pdfTemplateQueries.getPdfTemplateByCode, {
+          templateCode: legacyTemplateCode,
+        });
+
+        if (template) {
+          const resolved = await ctx.runQuery(internal.pdfTemplateQueries.resolvePdfTemplateInternal, {
+            templateId: template._id,
+          });
+          templateCode = resolved.templateCode;
+          console.log("📄 Using invoice template from legacy pdfTemplateCode:", resolved.templateCode);
+        } else {
+          // Use default
+          const defaultTemplateId = await ctx.runQuery(api.pdfTemplateQueries.getDefaultPdfTemplate, {
+            category: "invoice",
+          });
+          if (defaultTemplateId) {
+            const resolved = await ctx.runQuery(internal.pdfTemplateQueries.resolvePdfTemplateInternal, {
+              templateId: defaultTemplateId,
+            });
+            templateCode = resolved.templateCode;
+          } else {
+            templateCode = "invoice_b2c_receipt_v1"; // hardcoded fallback
+          }
+          console.warn("⚠️ Legacy templateCode not found, using default:", templateCode);
+        }
+      }
+      // Ultimate fallback
+      else {
+        const defaultTemplateId = await ctx.runQuery(api.pdfTemplateQueries.getDefaultPdfTemplate, {
+          category: "invoice",
+        });
+        if (defaultTemplateId) {
+          const resolved = await ctx.runQuery(internal.pdfTemplateQueries.resolvePdfTemplateInternal, {
+            templateId: defaultTemplateId,
+          });
+          templateCode = resolved.templateCode;
+        } else {
+          templateCode = "invoice_b2c_receipt_v1"; // hardcoded fallback
+        }
+        console.log("📄 Using default invoice template:", templateCode);
+      }
+
+      // 12. Call API Template.io generator with resolved template
+      const { generateInvoicePdfFromTemplate } = await import("./lib/generateInvoicePdf");
 
       const result = await generateInvoicePdfFromTemplate({
         apiKey,

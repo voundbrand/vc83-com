@@ -13,6 +13,10 @@ import {
   INVOICE_TEMPLATE_CSS,
 } from "./lib/pdf_templates/invoice_template";
 import {
+  INVOICE_B2B_SINGLE_HTML,
+  INVOICE_B2B_SINGLE_CSS,
+} from "./lib/pdf_templates/invoice_b2b_single";
+import {
   TICKET_TEMPLATE_HTML,
   TICKET_TEMPLATE_CSS,
 } from "./lib/pdf_templates/ticket_template";
@@ -48,7 +52,8 @@ export interface PdfTemplateDefinition {
   };
   apiTemplate: {
     provider: "apitemplate.io";
-    endpoint: string; // /v2/create-pdf-from-html endpoint
+    endpoint: string; // /v2/create-pdf-from-html or /v2/create-pdf-url
+    dashboardTemplateId?: string; // Template ID from API Template.io dashboard (when using /v2/create-pdf-url)
   };
   requiredFields: PdfTemplateField[];
   defaultStyling?: {
@@ -563,6 +568,173 @@ export const INVOICE_B2B_CONSOLIDATED_DETAILED_V1: PdfTemplateDefinition = {
   version: "1.0.0",
 };
 
+export const INVOICE_B2B_SINGLE_V1: PdfTemplateDefinition = {
+  code: "invoice_b2b_single_v1",
+  name: "B2B Single Invoice",
+  description: "Professional invoice for individual B2B transactions with complete VAT breakdown",
+  category: "invoice",
+  template: {
+    html: INVOICE_B2B_SINGLE_HTML,
+    css: INVOICE_B2B_SINGLE_CSS,
+  },
+  apiTemplate: {
+    provider: "apitemplate.io",
+    endpoint: "https://rest.apitemplate.io/v2/create-pdf-from-html",
+  },
+  requiredFields: [
+    {
+      name: "invoiceNumber",
+      type: "string",
+      required: true,
+      description: "Unique invoice identifier",
+      example: "INV-2025-001234",
+    },
+    {
+      name: "invoiceDate",
+      type: "string",
+      required: true,
+      description: "Invoice issue date",
+      example: "January 15, 2025",
+    },
+    {
+      name: "dueDate",
+      type: "string",
+      required: true,
+      description: "Payment due date",
+      example: "February 14, 2025",
+    },
+    {
+      name: "billTo",
+      type: "object",
+      required: true,
+      description: "Billing company information",
+      example: {
+        companyName: "ABC Medical School",
+        contactName: "Dr. John Smith",
+        address: "123 University Ave",
+        city: "Boston",
+        state: "MA",
+        zipCode: "02115",
+        vatNumber: "DE123456789",
+      },
+    },
+    {
+      name: "items",
+      type: "array",
+      required: true,
+      description: "Invoice line items with VAT breakdown",
+      example: [
+        {
+          description: "VIP Conference Ticket",
+          quantity: 1,
+          unitPrice: 6639, // Net price in cents (€66.39)
+          taxAmount: 1261, // VAT in cents (€12.61)
+          totalPrice: 7900, // Gross in cents (€79.00)
+          taxRate: 19, // Tax rate percentage
+        },
+      ],
+    },
+    {
+      name: "subtotal",
+      type: "number",
+      required: true,
+      description: "Subtotal (net) in cents",
+      example: 6639,
+    },
+    {
+      name: "taxRate",
+      type: "number",
+      required: true,
+      description: "Tax rate percentage",
+      example: 19,
+    },
+    {
+      name: "tax",
+      type: "number",
+      required: true,
+      description: "Tax amount (VAT) in cents",
+      example: 1261,
+    },
+    {
+      name: "total",
+      type: "number",
+      required: true,
+      description: "Total amount (gross) in cents",
+      example: 7900,
+    },
+    {
+      name: "currency",
+      type: "string",
+      required: true,
+      description: "Currency symbol",
+      example: "€",
+    },
+    {
+      name: "paymentTerms",
+      type: "string",
+      required: false,
+      description: "Payment terms",
+      example: "NET30",
+    },
+    {
+      name: "paymentMethod",
+      type: "string",
+      required: false,
+      description: "Payment method used",
+      example: "Stripe",
+    },
+    {
+      name: "organizationName",
+      type: "string",
+      required: true,
+      description: "Seller organization name",
+      example: "Medical Education Institute",
+    },
+    {
+      name: "organizationAddress",
+      type: "string",
+      required: true,
+      description: "Seller address",
+      example: "456 Provider St, New York, NY 10001",
+    },
+    {
+      name: "organizationPhone",
+      type: "string",
+      required: true,
+      description: "Seller phone",
+      example: "(555) 123-4567",
+    },
+    {
+      name: "organizationEmail",
+      type: "string",
+      required: true,
+      description: "Seller email",
+      example: "billing@mei.org",
+    },
+    {
+      name: "logoUrl",
+      type: "string",
+      required: false,
+      description: "Organization logo URL",
+      example: "https://cdn.vc83.com/logos/org-logo.png",
+    },
+    {
+      name: "highlightColor",
+      type: "string",
+      required: false,
+      description: "Accent color for branding",
+      example: "#6B46C1",
+    },
+  ],
+  defaultStyling: {
+    primaryColor: "#2C3E50",
+    secondaryColor: "#6B46C1",
+    fontSize: "11pt",
+  },
+  previewImageUrl: "https://cdn.vc83.com/templates/invoice-b2b-single-preview.png",
+  version: "1.0.0",
+};
+
 /**
  * CERTIFICATE TEMPLATES
  */
@@ -676,6 +848,7 @@ export const PDF_TEMPLATE_REGISTRY: Record<string, PdfTemplateDefinition> = {
 
   // Receipts & Invoices
   invoice_b2c_receipt_v1: INVOICE_B2C_RECEIPT_V1,
+  invoice_b2b_single_v1: INVOICE_B2B_SINGLE_V1,
   invoice_b2b_consolidated_v1: INVOICE_B2B_CONSOLIDATED_V1,
   invoice_b2b_consolidated_detailed_v1: INVOICE_B2B_CONSOLIDATED_DETAILED_V1,
 
@@ -750,4 +923,40 @@ export function validateTemplateData(
     missing,
     errors,
   };
+}
+// Helper functions for template lookups
+
+/**
+ * TICKET TEMPLATES - Subset for easy access
+ */
+export const TICKET_TEMPLATES = [
+  TICKET_PROFESSIONAL_V1,
+  TICKET_RETRO_V1,
+  TICKET_ELEGANT_GOLD_V1,
+  TICKET_MODERN_V1,
+  TICKET_VIP_PREMIUM_V1,
+];
+
+/**
+ * INVOICE TEMPLATES - Subset for easy access
+ */
+export const INVOICE_TEMPLATES = [
+  INVOICE_B2C_RECEIPT_V1,
+  INVOICE_B2B_SINGLE_V1,
+  INVOICE_B2B_CONSOLIDATED_V1,
+  INVOICE_B2B_CONSOLIDATED_DETAILED_V1,
+];
+
+/**
+ * Get ticket template by code
+ */
+export function getTicketTemplateByCode(code: string): PdfTemplateDefinition | null {
+  return TICKET_TEMPLATES.find(t => t.code === code) || null;
+}
+
+/**
+ * Get invoice template by code
+ */
+export function getInvoiceTemplateByCode(code: string): PdfTemplateDefinition | null {
+  return INVOICE_TEMPLATES.find(t => t.code === code) || null;
 }

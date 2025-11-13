@@ -530,12 +530,14 @@ export const generateB2BInvoicePdf = action({
           vat_number: b2bData.vatNumber,
         },
 
-        // Line items (convert from cents to dollars)
+        // Line items (keep in cents for template compatibility)
         items: args.items.map((item) => ({
           description: item.description,
           quantity: item.quantity,
-          rate: item.unitPriceCents / 100,
-          amount: (item.quantity * item.unitPriceCents) / 100,
+          unit_price: item.unitPriceCents, // Keep in cents, template divides by 100
+          tax_amount: (item.quantity * item.unitPriceCents * (item.taxRate || 0)), // Calculate tax amount
+          total_price: (item.quantity * item.unitPriceCents * (1 + (item.taxRate || 0))), // Include tax in total
+          tax_rate: (item.taxRate || 0) * 100, // Convert decimal to percentage (0.19 → 19)
         })),
 
         // Totals (convert to dollars)

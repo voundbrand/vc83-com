@@ -53,6 +53,14 @@ export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
     }
   );
 
+  // Load organization locale settings (currency, locale) for proper formatting
+  const orgLocaleSettings = useQuery(
+    api.checkoutSessions.getOrgLocaleSettingsPublic,
+    {
+      organizationId: config.organizationId,
+    }
+  );
+
   // Debug: Log workflow loading
   useEffect(() => {
     console.log("🔍 [Workflow Query] organizationId:", config.organizationId);
@@ -502,6 +510,8 @@ export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
       organizationId: config.organizationId,
       sessionId,
       checkoutData,
+      currency: orgLocaleSettings?.currency || "eur",
+      locale: orgLocaleSettings?.locale || "de-DE",
       products: config.products,
       theme: config.theme,
       workflowBehaviors,

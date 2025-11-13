@@ -1,17 +1,17 @@
 /**
- * VIP Premium Event Ticket PDF Template
+ * VIP Premium Event Ticket PDF Template (Geschlossene Gesellschaft Style)
  *
- * Design: Exclusive VIP design with premium styling and VIP badge
- * Features elevated aesthetics for VIP ticket holders
+ * Design: Luxurious gold & dark design matching geschlossene-gesellschaft frontend
+ * Features elegant typography and premium styling for upscale events
  *
  * Design Standards:
- * - Very dark background (#0f0f0f)
- * - VIP gold accents (#FFD700)
- * - Silver highlights (#C0C0C0)
- * - Light text (#f5f5f5)
- * - Logo support with fallback to organization name
+ * - Dark brown/black gradient background (#1a1412 to #2c1810)
+ * - Elegant gold accents (#d4af37)
+ * - Warm gold highlights (#a89968)
+ * - Light cream text (#f5f1e8)
+ * - Serif typography (Didot, Bodoni, Garamond)
  * - QR code for ticket validation
- * - VIP badge/indicator
+ * - Ornamental dividers
  *
  * Template Variables (passed via data object):
  * - Organization: logo_url, highlight_color, organization_name, organization_email, organization_phone, organization_website
@@ -31,138 +31,99 @@ export const VIP_PREMIUM_TICKET_TEMPLATE_HTML = `
 </head>
 <body>
     <div class="ticket-container">
-        <!-- VIP Badge -->
-        <div class="vip-badge-container">
-            <div class="vip-badge">⭐ V I P ⭐</div>
+        <!-- Header with ornamental dividers -->
+        <div class="header">
+            <div class="ornament-top"></div>
+            <h1 class="title">Geschlossene Gesellschaft</h1>
+            <div class="ornament-bottom"></div>
+            <p class="subtitle">Exklusives Event</p>
         </div>
 
-        <!-- Event name -->
-        <div class="event-name-section">
-            <h1>{{event_name}}</h1>
+        <!-- Event Information -->
+        <div class="event-info">
+            <div class="event-name">{{event_name}}</div>
+
             {%if ticket_type%}
-                <div class="ticket-type">{{ticket_type}}</div>
+            <div class="ticket-type-badge">{{ticket_type}}</div>
+            {%endif%}
+
+            <div class="details-grid">
+                <div class="detail-item">
+                    <div class="detail-label">Event:</div>
+                    <div class="detail-value">{{event_name}}</div>
+                </div>
+
+                <div class="detail-item">
+                    <div class="detail-label">Datum:</div>
+                    <div class="detail-value">{{event_date}}</div>
+                </div>
+
+                <div class="detail-item">
+                    <div class="detail-label">Zeit:</div>
+                    <div class="detail-value">{{event_time}}</div>
+                </div>
+
+                <div class="detail-item">
+                    <div class="detail-label">Ort:</div>
+                    <div class="detail-value">{{event_location}}</div>
+                </div>
+
+                {%if guest_count and guest_count > 0%}
+                <div class="detail-item">
+                    <div class="detail-label">Gäste:</div>
+                    <div class="detail-value">+{{guest_count}} {%if guest_count > 1%}Gäste{%else%}Gast{%endif%}</div>
+                </div>
+                {%endif%}
+            </div>
+        </div>
+
+        <!-- Guest Information -->
+        <div class="guest-info">
+            <div class="guest-label">Reserviert für</div>
+            <div class="guest-name">{{attendee_name}}</div>
+            {%if guest_count and guest_count > 0%}
+            <div class="guest-count">+ {{guest_count}} {%if guest_count > 1%}Gäste{%else%}Gast{%endif%}</div>
             {%endif%}
         </div>
 
-        <!-- Event sponsors -->
-        {%if event_sponsors%}
-        <div class="sponsors-section">
-            {%if event_sponsors|length == 1%}
-                <p>Presented by {{event_sponsors[0].name}}</p>
-            {%else%}
-                <p>Presented by:</p>
-                <ul>
-                {%for sponsor in event_sponsors%}
-                    <li>
-                        {%if sponsor.level%}
-                            • {{sponsor.name}} ({{sponsor.level}})
-                        {%else%}
-                            • {{sponsor.name}}
-                        {%endif%}
-                    </li>
-                {%endfor%}
-                </ul>
-            {%endif%}
-        </div>
-        {%endif%}
-
-        <!-- Decorative line -->
-        <div class="decorative-line"></div>
-
-        <!-- QR Code (centered, prominent) -->
+        <!-- QR Code Section -->
         <div class="qr-section">
-            <div class="qr-frame">
-                <img src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&data={{qr_code_data}}"
-                     alt="VIP Ticket QR Code"
+            <div class="qr-container">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data={{qr_code_data}}"
+                     alt="Ticket QR Code"
                      class="qr-code" />
             </div>
-            <div class="qr-label">EXCLUSIVE VIP ACCESS</div>
-        </div>
-
-        <!-- Decorative line -->
-        <div class="decorative-line"></div>
-
-        <!-- Event details (centered layout) -->
-        <div class="event-details">
-            <div class="detail-item">
-                <div class="detail-value">{{event_date}}</div>
-            </div>
-
-            <div class="detail-item">
-                <div class="detail-value">{{event_time}}</div>
-            </div>
-
-            <div class="detail-item">
-                <div class="detail-value location">{{event_location}}</div>
-            </div>
-
-            {%if guest_count and guest_count > 0%}
-            <div class="detail-item">
-                <div class="detail-value">Plus {{guest_count}} Guest{%if guest_count > 1%}s{%endif%}</div>
-            </div>
+            <p class="qr-instruction">Bitte an der Tür vorzeigen</p>
+            {%if ticket_number%}
+            <p class="ticket-id">Ticket-ID: {{ticket_number}}</p>
             {%endif%}
         </div>
-
-        <!-- Decorative line -->
-        <div class="decorative-line"></div>
-
-        <!-- VIP ticket holder -->
-        <div class="holder-section">
-            <div class="holder-label">VIP TICKET HOLDER</div>
-            <div class="holder-name">{{attendee_name}}</div>
-            {%if attendee_email%}
-                <div class="holder-email">{{attendee_email}}</div>
-            {%endif%}
-        </div>
-
-        <!-- Order information -->
-        {%if order_id%}
-        <div class="order-section">
-            <div class="order-row">
-                <span>Order #{{order_id}}</span>
-            </div>
-            <div class="order-row">
-                <span>Purchased: {{order_date}}</span>
-            </div>
-            <div class="order-total">
-                <span>Total: {{currency}} {{total_price}}</span>
-            </div>
-        </div>
-        {%endif%}
-
-        <!-- Ticket number (barcode style) -->
-        {%if ticket_number%}
-        <div class="ticket-number-section">
-            <div class="ticket-number-label">TICKET NUMBER</div>
-            <div class="ticket-number-value">{{ticket_number}}</div>
-        </div>
-        {%endif%}
 
         <!-- Footer -->
-        <footer class="footer">
+        <div class="footer">
+            <div class="footer-line"></div>
+            <p class="footer-text">Privat · Offen · Echt</p>
+            <p class="footer-disclaimer">
+                Dies ist eine kuratierte Veranstaltung. Der Zutritt ist nur mit gültigem Ticket möglich.
+            </p>
             {%if organization_name%}
-                <span>{{organization_name}}</span>
+            <p class="footer-org">{{organization_name}}</p>
             {%endif%}
-            {%if organization_email%}
-                <span> • {{organization_email}}</span>
-            {%endif%}
-        </footer>
-
-        <!-- Gold accent bar at bottom -->
-        <div class="accent-bar-bottom"></div>
+        </div>
     </div>
 </body>
 </html>
 `;
 
 export const VIP_PREMIUM_TICKET_TEMPLATE_CSS = `
-/* Color variables */
+/* Color variables - Geschlossene Gesellschaft palette */
 :root {
-    --vip-gold: #FFD700;
-    --vip-silver: #C0C0C0;
-    --dark-bg: #0f0f0f;
-    --light-text: #f5f5f5;
-    --mid-gray: #808080;
+    --elegant-gold: #d4af37;
+    --warm-gold: #a89968;
+    --cream-text: #f5f1e8;
+    --dark-bg: #1a1412;
+    --darker-bg: #2c1810;
+    --subtle-gray: #6b5d47;
 }
 
 * {
@@ -172,235 +133,240 @@ export const VIP_PREMIUM_TICKET_TEMPLATE_CSS = `
 }
 
 body {
-    background-color: var(--dark-bg);
-    color: var(--light-text);
-    font-family: 'Helvetica Neue', 'Arial', sans-serif;
-    font-size: 11pt;
-    line-height: 1.6;
-    padding: 40px;
+    font-family: 'Didot', 'Bodoni MT', 'Garamond', serif;
+    background: linear-gradient(135deg, #1a1412 0%, #2c1810 100%);
+    color: var(--cream-text);
+    margin: 0;
+    padding: 0;
 }
 
 .ticket-container {
-    max-width: 600px;
+    width: 100%;
+    padding: 15px;
+    background: linear-gradient(135deg, #1a1412 0%, #2c1810 100%);
+}
+
+/* Header */
+.header {
+    text-align: center;
+    padding: 15px 20px 12px;
+    border-bottom: 2px solid var(--elegant-gold);
+    margin-bottom: 20px;
+}
+
+.ornament-top,
+.ornament-bottom {
+    width: 80px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--elegant-gold), transparent);
     margin: 0 auto;
-    background-color: var(--dark-bg);
-    padding: 30px;
-    border: 2px solid var(--vip-gold);
 }
 
-/* VIP Badge */
-.vip-badge-container {
-    text-align: center;
-    margin-bottom: 25px;
-}
-
-.vip-badge {
-    display: inline-block;
-    background: linear-gradient(135deg, var(--vip-gold) 0%, #FFA500 100%);
-    color: var(--dark-bg);
-    padding: 10px 40px;
-    font-size: 12pt;
-    font-weight: 900;
-    letter-spacing: 4px;
-    border-radius: 5px;
-    box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);
-}
-
-/* Event name section */
-.event-name-section {
-    text-align: center;
+.ornament-top {
     margin-bottom: 15px;
 }
 
-.event-name-section h1 {
-    font-size: 26pt;
-    font-weight: 900;
-    color: var(--vip-gold);
-    letter-spacing: 1px;
-    margin-bottom: 10px;
-}
-
-.ticket-type {
-    font-size: 16pt;
-    color: var(--vip-silver);
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    font-weight: 400;
-}
-
-/* Sponsors section */
-.sponsors-section {
-    text-align: center;
-    padding: 12px 0;
-    margin-bottom: 15px;
-    font-size: 10pt;
-    color: var(--vip-silver);
-    font-style: italic;
-}
-
-.sponsors-section ul {
-    list-style: none;
-    margin-top: 6px;
-}
-
-.sponsors-section li {
-    margin-bottom: 3px;
-}
-
-/* Decorative line */
-.decorative-line {
-    height: 1px;
-    background: linear-gradient(90deg, transparent 0%, var(--vip-gold) 50%, transparent 100%);
-    margin: 20px 0;
-}
-
-/* QR Section */
-.qr-section {
-    text-align: center;
-    margin: 25px 0;
-}
-
-.qr-frame {
-    display: inline-block;
-    padding: 8px;
-    border: 3px solid var(--vip-gold);
-    background-color: #FFFFFF;
-    box-shadow: 0 6px 20px rgba(255, 215, 0, 0.3);
-}
-
-.qr-code {
-    width: 240px;
-    height: 240px;
-    display: block;
-}
-
-.qr-label {
+.ornament-bottom {
     margin-top: 15px;
-    font-size: 9pt;
-    color: var(--vip-silver);
-    letter-spacing: 2px;
+    margin-bottom: 0;
+}
+
+.title {
+    font-size: 28px;
+    font-weight: 300;
+    letter-spacing: 6px;
     text-transform: uppercase;
+    color: var(--elegant-gold);
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    margin: 0;
+    line-height: 1.3;
 }
 
-/* Event details */
-.event-details {
+.subtitle {
+    font-size: 13px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.8);
+    margin: 15px 0 0 0;
+    font-weight: 300;
+}
+
+/* Event Information */
+.event-info {
+    margin-bottom: 18px;
+}
+
+.event-name {
+    font-size: 24px;
+    font-weight: 300;
+    letter-spacing: 2px;
+    color: var(--cream-text);
     text-align: center;
-    padding: 15px 0;
-}
-
-.detail-item {
     margin-bottom: 12px;
 }
 
+.ticket-type-badge {
+    text-align: center;
+    font-size: 13px;
+    color: var(--elegant-gold);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 18px;
+}
+
+.details-grid {
+    background: rgba(212, 175, 55, 0.08);
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    border-radius: 8px;
+    padding: 18px;
+    margin-bottom: 15px;
+}
+
+.detail-item {
+    padding: 8px 0;
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid rgba(212, 175, 55, 0.1);
+}
+
+.detail-item:last-child {
+    border-bottom: none;
+}
+
+.detail-label {
+    font-size: 13px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--warm-gold);
+    width: 120px;
+    flex-shrink: 0;
+}
+
 .detail-value {
-    font-size: 10pt;
-    color: var(--light-text);
+    font-size: 16px;
+    font-weight: 300;
+    color: var(--cream-text);
+    flex: 1;
 }
 
-.detail-value.location {
-    font-size: 11pt;
-    font-weight: 600;
-}
-
-/* VIP holder section */
-.holder-section {
+/* Guest Information */
+.guest-info {
     text-align: center;
-    padding: 20px 0;
+    padding: 15px;
+    background: rgba(212, 175, 55, 0.05);
+    border-radius: 8px;
+    border: 1px dashed rgba(212, 175, 55, 0.3);
+    margin-bottom: 18px;
 }
 
-.holder-label {
-    font-size: 9pt;
-    color: var(--vip-silver);
+.guest-label {
+    font-size: 13px;
+    letter-spacing: 2px;
     text-transform: uppercase;
-    letter-spacing: 1.5px;
-    margin-bottom: 10px;
-}
-
-.holder-name {
-    font-size: 15pt;
-    font-weight: 900;
-    color: var(--vip-gold);
-    margin-bottom: 6px;
-}
-
-.holder-email {
-    font-size: 10pt;
-    color: var(--light-text);
-}
-
-/* Order section */
-.order-section {
-    text-align: center;
-    padding: 15px 0;
-    margin-top: 20px;
-    border-top: 1px solid var(--mid-gray);
-}
-
-.order-row {
-    font-size: 9pt;
-    color: var(--vip-silver);
-    margin-bottom: 5px;
-}
-
-.order-total {
-    font-size: 12pt;
-    font-weight: 700;
-    color: var(--vip-gold);
-    margin-top: 10px;
-}
-
-/* Ticket number barcode */
-.ticket-number-section {
-    text-align: center;
-    padding: 20px 0;
-    margin-top: 15px;
-    border-top: 1px solid var(--mid-gray);
-}
-
-.ticket-number-label {
-    font-size: 8pt;
-    color: var(--vip-silver);
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
+    color: var(--elegant-gold);
     margin-bottom: 8px;
 }
 
-.ticket-number-value {
-    font-size: 12pt;
-    font-weight: 900;
-    color: var(--vip-gold);
+.guest-name {
+    font-size: 24px;
+    font-weight: 300;
+    letter-spacing: 2px;
+    color: var(--cream-text);
+    margin-bottom: 5px;
+}
+
+.guest-count {
+    font-size: 13px;
+    color: #d4c5a0;
+    letter-spacing: 1px;
+}
+
+/* QR Code Section */
+.qr-section {
+    text-align: center;
+    padding: 15px;
+    background: rgba(245, 241, 232, 0.95);
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+.qr-container {
+    display: inline-block;
+    padding: 12px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.qr-code {
+    width: 160px;
+    height: 160px;
+    display: block;
+}
+
+.qr-instruction {
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #2c1810;
+    margin-top: 12px;
+    font-weight: 600;
+}
+
+.ticket-id {
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--subtle-gray);
+    margin-top: 6px;
     font-family: 'Courier New', monospace;
-    letter-spacing: 4px;
 }
 
 /* Footer */
 .footer {
     text-align: center;
-    padding: 15px 0;
-    font-size: 8pt;
-    color: var(--mid-gray);
-    line-height: 1.8;
+    padding-top: 12px;
+    border-top: 1px solid rgba(212, 175, 55, 0.2);
 }
 
-.footer span {
-    white-space: nowrap;
+.footer-line {
+    width: 60px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--elegant-gold), transparent);
+    margin: 0 auto 8px;
 }
 
-/* Gold accent bar at bottom */
-.accent-bar-bottom {
-    height: 6px;
-    background: linear-gradient(90deg, var(--vip-gold) 0%, #FFA500 50%, var(--vip-gold) 100%);
-    margin-top: 25px;
-    margin-left: -30px;
-    margin-right: -30px;
-    margin-bottom: -30px;
+.footer-text {
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--warm-gold);
+    margin-bottom: 6px;
 }
 
-/* Print optimizations */
+.footer-disclaimer {
+    font-size: 9px;
+    line-height: 1.5;
+    color: var(--subtle-gray);
+    max-width: 500px;
+    margin: 0 auto 6px;
+}
+
+.footer-org {
+    font-size: 9px;
+    color: var(--subtle-gray);
+    margin-top: 4px;
+}
+
+/* Print Optimization */
 @media print {
     body {
+        background: linear-gradient(135deg, #1a1412 0%, #2c1810 100%);
         print-color-adjust: exact;
         -webkit-print-color-adjust: exact;
+    }
+
+    .ticket-container {
+        page-break-inside: avoid;
+        page-break-after: avoid;
     }
 }
 `;

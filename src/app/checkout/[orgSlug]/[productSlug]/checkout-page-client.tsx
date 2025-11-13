@@ -259,6 +259,7 @@ export function CheckoutPageClient({ orgSlug, slug }: CheckoutPageClientProps) {
       style={{
         ...themeStyles,
         background: theme?.colors.background || "#ffffff",
+        color: theme?.colors.text || "#1F2937", // Override admin theme's white text
       }}
     >
       {/* Header */}

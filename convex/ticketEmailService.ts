@@ -23,7 +23,7 @@ export const sendTicketConfirmationEmail = action({
   args: {
     sessionId: v.string(),
     ticketId: v.id("objects"),
-    domainConfigId: v.id("objects"),
+    domainConfigId: v.optional(v.id("objects")), // Optional: if not provided, uses system defaults
     isTest: v.optional(v.boolean()), // If true, sends to test email
     testRecipient: v.optional(v.string()),
     language: v.optional(v.union(v.literal("de"), v.literal("en"), v.literal("es"), v.literal("fr"))),
@@ -62,17 +62,35 @@ export const sendTicketConfirmationEmail = action({
 
     const eventProps = event.customProperties as any;
 
-    // 3. Load domain config for branding
-    const domainConfig = await ctx.runQuery(api.domainConfigOntology.getDomainConfig, {
-      configId: args.domainConfigId,
-    });
+    // 3. Load domain config for branding (or use system defaults)
+    let domainProps: any = null;
+    let emailSettings: any = null;
 
-    const domainProps = domainConfig.customProperties as any;
-    const branding = domainProps.branding;
-    const emailSettings = domainProps.email;
-
-    if (!emailSettings) {
-      throw new Error("Email settings not configured for this domain");
+    if (args.domainConfigId) {
+      // Use custom domain configuration
+      const domainConfig = await ctx.runQuery(api.domainConfigOntology.getDomainConfig, {
+        configId: args.domainConfigId,
+      });
+      domainProps = domainConfig.customProperties as any;
+      emailSettings = domainProps.email;
+    } else {
+      // Use system defaults
+      domainProps = {
+        branding: {
+          logoUrl: "https://l4yercak3.com/logo.png",
+          primaryColor: "#d4af37", // Gold
+          secondaryColor: "#1a1412",
+          accentColor: "#f5f1e8",
+        },
+        webPublishing: {
+          siteUrl: "https://l4yercak3.com",
+        },
+      };
+      emailSettings = {
+        senderEmail: "tickets@mail.l4yercak3.com",
+        replyToEmail: "support@l4yercak3.com",
+        defaultTemplateCode: "luxury-confirmation",
+      };
     }
 
     // 4. Extract attendee info from ticket
@@ -91,7 +109,7 @@ export const sendTicketConfirmationEmail = action({
     const templateData = await ctx.runAction(api.emailTemplateRenderer.getEmailTemplateData, {
       sessionId: args.sessionId,
       ticketId: args.ticketId,
-      domainConfigId: args.domainConfigId,
+      domainConfigId: args.domainConfigId || undefined as any, // Pass undefined if not provided
       language,
     });
 
@@ -130,14 +148,19 @@ export const sendTicketConfirmationEmail = action({
     // 7b. Generate ICS calendar file
     let hasICS = false;
     try {
+      // Ensure date and time are strings
+      const startDate = String(eventProps.startDate || new Date().toISOString().split('T')[0]);
+      const startTime = String(eventProps.startTime || '19:00');
+      const durationHours = Number(eventProps.durationHours || 3);
+
       // Generate ICS file
       const icsContent = generateICSFile({
         eventName: event.name,
         eventDescription: `You have a confirmed reservation for ${event.name}. This is an exclusive event.`,
         eventLocation: eventProps.location || 'TBD',
-        startDate: eventProps.startDate || new Date().toISOString().split('T')[0],
-        startTime: eventProps.startTime || '19:00',
-        durationHours: eventProps.durationHours || 3,
+        startDate,
+        startTime,
+        durationHours,
         organizerEmail: emailSettings.senderEmail,
         attendeeEmail,
         attendeeName: `${attendeeFirstName} ${attendeeLastName}`,
@@ -160,13 +183,56 @@ export const sendTicketConfirmationEmail = action({
     const subject = args.isTest ? `[TEST] ${templateSubject}` : templateSubject;
 
     // 9. Send email via delivery service
-    const result: any = await ctx.runAction(internal.emailDelivery.sendEmail, {
-      domainConfigId: args.domainConfigId,
-      to: attendeeEmail,
-      subject,
-      html: emailHtml,
-      attachments: attachments.length > 0 ? attachments : undefined,
-    });
+    // If no domainConfigId, send directly using Resend with system defaults
+    let result: any;
+
+    if (args.domainConfigId) {
+      result = await ctx.runAction(internal.emailDelivery.sendEmail, {
+        domainConfigId: args.domainConfigId,
+        to: attendeeEmail,
+        subject,
+        html: emailHtml,
+        attachments: attachments.length > 0 ? attachments : undefined,
+      });
+    } else {
+      // Send directly with system defaults using Resend
+      const RESEND_API_KEY = process.env.RESEND_API_KEY;
+      if (!RESEND_API_KEY) {
+        throw new Error("RESEND_API_KEY not configured");
+      }
+
+      const emailPayload = {
+        from: emailSettings.senderEmail,
+        to: attendeeEmail,
+        replyTo: emailSettings.replyToEmail,
+        subject,
+        html: emailHtml,
+        attachments: attachments.length > 0 ? attachments : undefined,
+      };
+
+      console.log(`📧 Sending email with system defaults to ${attendeeEmail}...`);
+
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${RESEND_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(emailPayload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Resend API error: ${JSON.stringify(errorData)}`);
+      }
+
+      const resendResult = await response.json();
+      result = {
+        success: true,
+        messageId: resendResult.id,
+        attempts: 1,
+      };
+    }
 
     return {
       success: result.success,
@@ -189,7 +255,7 @@ export const previewTicketEmail = action({
   args: {
     sessionId: v.string(),
     ticketId: v.id("objects"),
-    domainConfigId: v.id("objects"),
+    domainConfigId: v.optional(v.id("objects")), // Optional: uses system defaults if not provided
     language: v.optional(v.union(v.literal("de"), v.literal("en"), v.literal("es"), v.literal("fr"))),
   },
   handler: async (ctx, args): Promise<{
@@ -213,7 +279,7 @@ export const previewTicketEmail = action({
     const templateData = await ctx.runAction(api.emailTemplateRenderer.getEmailTemplateData, {
       sessionId: args.sessionId,
       ticketId: args.ticketId,
-      domainConfigId: args.domainConfigId,
+      domainConfigId: args.domainConfigId || undefined as any, // Use system defaults if not provided
       language,
     });
 

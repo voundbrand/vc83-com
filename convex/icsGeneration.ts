@@ -36,6 +36,11 @@ export function generateICSFile(params: {
     url,
   } = params;
 
+  // Validate inputs
+  if (typeof startDate !== 'string' || typeof startTime !== 'string') {
+    throw new Error(`Invalid date/time format: startDate=${typeof startDate}, startTime=${typeof startTime}`);
+  }
+
   // Parse start date and time
   const [year, month, day] = startDate.split('-').map(Number);
   const [hour, minute] = startTime.split(':').map(Number);
@@ -91,7 +96,20 @@ export function generateICSFile(params: {
 
 /**
  * Convert ICS content to base64 for email attachment
+ * Uses browser-compatible btoa since Buffer is not available in Convex runtime
  */
 export function icsToBase64(icsContent: string): string {
-  return Buffer.from(icsContent, 'utf-8').toString('base64');
+  // In Convex runtime, we need to use browser-compatible encoding
+  // Convert string to UTF-8 bytes, then to base64
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(icsContent);
+
+  // Convert bytes to base64 using browser-compatible method
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+
+  // Use btoa which is available in Convex runtime
+  return btoa(binary);
 }

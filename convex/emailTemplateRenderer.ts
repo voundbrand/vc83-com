@@ -104,7 +104,7 @@ export const getEmailTemplateData = action({
   args: {
     sessionId: v.string(),
     ticketId: v.id("objects"),
-    domainConfigId: v.id("objects"),
+    domainConfigId: v.optional(v.id("objects")), // Optional: uses system defaults if not provided
     language: v.union(v.literal("de"), v.literal("en"), v.literal("es"), v.literal("fr")),
   },
   handler: async (ctx, args): Promise<{
@@ -159,13 +159,32 @@ export const getEmailTemplateData = action({
       eventId: eventId as Id<"objects">,
     });
 
-    // Load domain config
-    const domainConfig = await ctx.runQuery(api.domainConfigOntology.getDomainConfig, {
-      configId: args.domainConfigId,
-    });
+    // Load domain config (or use system defaults)
+    let domainProps: any;
+    let branding: any;
 
-    const domainProps = domainConfig.customProperties as any;
-    const branding = domainProps.branding;
+    if (args.domainConfigId) {
+      const domainConfig = await ctx.runQuery(api.domainConfigOntology.getDomainConfig, {
+        configId: args.domainConfigId,
+      });
+      domainProps = domainConfig.customProperties as any;
+      branding = domainProps.branding;
+    } else {
+      // Use system defaults
+      domainProps = {
+        domainName: "l4yercak3.com",
+        branding: {
+          logoUrl: "https://l4yercak3.com/logo.png",
+          primaryColor: "#d4af37", // Gold
+          secondaryColor: "#1a1412",
+          accentColor: "#f5f1e8",
+        },
+        webPublishing: {
+          siteUrl: "https://l4yercak3.com",
+        },
+      };
+      branding = domainProps.branding;
+    }
 
     // Extract attendee info
     const attendeeFirstName = ticketProps.attendeeFirstName || ticket.name.split(' ')[0];

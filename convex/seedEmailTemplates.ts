@@ -58,7 +58,8 @@ export const seedEmailTemplates = mutation({
           name: template.name,
           status: "published",
           customProperties: {
-            code: template.code,
+            code: template.code, // Legacy field
+            templateCode: template.code, // Required field for template resolution
             description: template.description,
             category: template.category,
             supportedLanguages: template.supportedLanguages,
@@ -66,6 +67,7 @@ export const seedEmailTemplates = mutation({
             author: template.author,
             version: template.version,
             previewImageUrl: template.previewImageUrl,
+            isDefault: false, // Can be set to true for default templates
           },
           createdBy: firstUser._id,
           createdAt: Date.now(),
@@ -75,14 +77,17 @@ export const seedEmailTemplates = mutation({
         created.push(template.code);
         console.log(`✅ Created email template: ${template.name} (${template.code})`);
       } else {
-        // Check if template needs updating (version changed)
+        // Check if template needs updating (version changed OR missing templateCode)
         const existingVersion = existing.customProperties?.version;
-        if (existingVersion !== template.version) {
+        const missingTemplateCode = !existing.customProperties?.templateCode;
+
+        if (existingVersion !== template.version || missingTemplateCode) {
           // Update template
           await ctx.db.patch(existing._id, {
             name: template.name,
             customProperties: {
-              code: template.code,
+              code: template.code, // Legacy field
+              templateCode: template.code, // Required field for template resolution
               description: template.description,
               category: template.category,
               supportedLanguages: template.supportedLanguages,
@@ -90,13 +95,18 @@ export const seedEmailTemplates = mutation({
               author: template.author,
               version: template.version,
               previewImageUrl: template.previewImageUrl,
+              isDefault: existing.customProperties?.isDefault || false,
             },
             updatedAt: Date.now(),
           });
           updated.push(template.code);
-          console.log(
-            `🔄 Updated email template: ${template.name} (${template.code}) - v${existingVersion} → v${template.version}`
-          );
+          if (missingTemplateCode) {
+            console.log(`🔄 Updated email template (added templateCode): ${template.name} (${template.code})`);
+          } else {
+            console.log(
+              `🔄 Updated email template: ${template.name} (${template.code}) - v${existingVersion} → v${template.version}`
+            );
+          }
         } else {
           skipped.push(template.code);
           console.log(`⏭️  Skipping ${template.code} (already exists with same version)`);

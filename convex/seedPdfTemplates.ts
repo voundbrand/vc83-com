@@ -55,7 +55,8 @@ export const seedPdfTemplates = mutation({
           name: template.name,
           status: "published",
           customProperties: {
-            code: template.code,
+            code: template.code, // Legacy field
+            templateCode: template.code, // Required field for pdfTemplateResolver
             description: template.description,
             category: template.category,
             apiTemplate: template.apiTemplate,
@@ -63,6 +64,7 @@ export const seedPdfTemplates = mutation({
             defaultStyling: template.defaultStyling,
             previewImageUrl: template.previewImageUrl,
             version: template.version,
+            isDefault: false, // Can be set to true for default templates
           },
           createdBy: firstUser._id,
           createdAt: Date.now(),
@@ -72,14 +74,17 @@ export const seedPdfTemplates = mutation({
         created.push(code);
         console.log(`✅ Created PDF template: ${template.name} (${code})`);
       } else {
-        // Check if template needs updating (version changed)
+        // Check if template needs updating (version changed OR missing templateCode)
         const existingVersion = existing.customProperties?.version;
-        if (existingVersion !== template.version) {
+        const missingTemplateCode = !existing.customProperties?.templateCode;
+
+        if (existingVersion !== template.version || missingTemplateCode) {
           // Update template
           await ctx.db.patch(existing._id, {
             name: template.name,
             customProperties: {
-              code: template.code,
+              code: template.code, // Legacy field
+              templateCode: template.code, // Required field for pdfTemplateResolver
               description: template.description,
               category: template.category,
               apiTemplate: template.apiTemplate,
@@ -87,11 +92,16 @@ export const seedPdfTemplates = mutation({
               defaultStyling: template.defaultStyling,
               previewImageUrl: template.previewImageUrl,
               version: template.version,
+              isDefault: existing.customProperties?.isDefault || false,
             },
             updatedAt: Date.now(),
           });
           updated.push(code);
-          console.log(`🔄 Updated PDF template: ${template.name} (${code}) - v${existingVersion} → v${template.version}`);
+          if (missingTemplateCode) {
+            console.log(`🔄 Updated PDF template (added templateCode): ${template.name} (${code})`);
+          } else {
+            console.log(`🔄 Updated PDF template: ${template.name} (${code}) - v${existingVersion} → v${template.version}`);
+          }
         } else {
           skipped.push(code);
           console.log(`⏭️  Skipping ${code} (already exists with same version)`);

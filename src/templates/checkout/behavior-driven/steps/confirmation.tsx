@@ -47,7 +47,11 @@ export function ConfirmationStep({ checkoutData, products }: StepProps) {
   const addonsInfo = behaviorResults ? getAddonsFromResults(behaviorResults) : null;
 
   const formatPrice = (amount: number, currency: string) => {
-    return new Intl.NumberFormat("en-US", {
+    // Use locale based on currency for correct thousand/decimal separators
+    // EUR, GBP, etc. → European format (1.000,00)
+    // USD, CAD, etc. → US format (1,000.00)
+    const locale = currency.toUpperCase() === "USD" ? "en-US" : "de-DE";
+    return new Intl.NumberFormat(locale, {
       style: "currency",
       currency: currency.toUpperCase(),
     }).format(amount / 100);
@@ -55,17 +59,14 @@ export function ConfirmationStep({ checkoutData, products }: StepProps) {
 
   const currency = products[0]?.currency || "EUR";
 
-  // Calculate totals with add-ons AND form costs
-  const productsSubtotal = selectedProducts.reduce((sum, sp) => sum + sp.price * sp.quantity, 0);
-  const formAddonsSubtotal = (checkoutData.formResponses || []).reduce((sum, fr) => sum + (fr.addedCosts || 0), 0);
-  const behaviorAddonsSubtotal = addonsInfo?.totalAddonCost || 0;
-  const subtotal = productsSubtotal + formAddonsSubtotal + behaviorAddonsSubtotal;
-
-  // Use tax calculation total if available (includes tax), otherwise use subtotal
+  // Get tax calculation from checkout data
   const taxCalculation = checkoutData.taxCalculation;
-  const total = taxCalculation && taxCalculation.isTaxable && taxCalculation.total > 0
-    ? subtotal + taxCalculation.taxAmount  // subtotal + tax
-    : subtotal; // no tax or tax-inclusive
+
+  // For display purposes, use NET amounts from tax calculation
+  // taxCalculation.subtotal = NET price (before tax) - correct for both inclusive and exclusive
+  // taxCalculation.total = final total (NET + tax for exclusive, original price for inclusive)
+  const subtotalForDisplay = taxCalculation?.subtotal || 0;
+  const total = taxCalculation?.total || 0;
 
   // Download tickets handler
   const handleDownloadTickets = async () => {
@@ -220,14 +221,15 @@ export function ConfirmationStep({ checkoutData, products }: StepProps) {
         <div className="space-y-2">
           <div className="flex justify-between text-sm text-gray-700">
             <span>{t('ui.checkout_template.behavior_driven.confirmation.labels.subtotal')}</span>
-            <span className="font-medium">{formatPrice(subtotal, currency)}</span>
+            <span className="font-medium">{formatPrice(subtotalForDisplay, currency)}</span>
           </div>
 
           {taxCalculation && taxCalculation.isTaxable && taxCalculation.taxAmount > 0 && (() => {
-            // Calculate effective tax rate from actual amounts
+            // Calculate effective tax rate from NET price (subtotal before tax)
+            // IMPORTANT: taxCalculation.subtotal is always the NET price (before tax)
             const effectiveTaxRate = taxCalculation.subtotal > 0
               ? (taxCalculation.taxAmount / taxCalculation.subtotal) * 100
-              : 0;
+              : taxCalculation.taxRate; // Fallback to stored rate
 
             return (
               <div className="flex justify-between text-sm text-gray-700">

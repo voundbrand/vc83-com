@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { Eye, FileText, Building2, Users, FileStack } from "lucide-react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+import { TemplatePreviewModal } from "@/components/template-preview-modal";
 
 /**
  * Templates Tab - PDF Invoice Templates
@@ -87,10 +89,20 @@ const getTemplates = (): Template[] => [
 
 export function TemplatesTab() {
   const { t, isLoading } = useNamespaceTranslations("ui.invoicing_window");
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [selectedTemplateCode, setSelectedTemplateCode] = useState<string>("");
 
   const handlePreview = (templateId: TemplateId) => {
-    // TODO: Open preview modal with sample PDF
-    alert(t("ui.invoicing_window.templates.preview_coming_soon", { templateId }));
+    // Map template ID to template code
+    const templateCodeMap: Record<TemplateId, string> = {
+      b2c_receipt: "invoice_b2c_receipt_v1",
+      b2b_single: "invoice_b2b_single_v1",
+      b2b_consolidated: "invoice_b2b_consolidated_v1",
+      b2b_consolidated_detailed: "invoice_b2b_consolidated_detailed_v1",
+    };
+
+    setSelectedTemplateCode(templateCodeMap[templateId]);
+    setPreviewModalOpen(true);
   };
 
   if (isLoading) {
@@ -219,6 +231,14 @@ export function TemplatesTab() {
           <p>• {t("ui.invoicing_window.templates.usage.b2b_consolidated_detailed")}</p>
         </div>
       </div>
+
+      {/* Preview Modal */}
+      <TemplatePreviewModal
+        isOpen={previewModalOpen}
+        onClose={() => setPreviewModalOpen(false)}
+        templateType="pdf"
+        templateCode={selectedTemplateCode}
+      />
     </div>
   );
 }

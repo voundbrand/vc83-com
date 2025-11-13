@@ -26,15 +26,6 @@ export const TICKET_TEMPLATE_HTML = `
 </head>
 <body>
     <div class="ticket-container">
-        <!-- Logo section -->
-        <div class="logo-section">
-            {%if logo_url%}
-                <img src="{{logo_url}}" class="logo" alt="{{organization_name}}" />
-            {%else%}
-                <div class="logo-text">{{organization_name}}</div>
-            {%endif%}
-        </div>
-
         <!-- Event name banner -->
         <div class="event-banner">
             <h1>{{event_name}}</h1>
@@ -78,7 +69,7 @@ export const TICKET_TEMPLATE_HTML = `
         <!-- QR Code section -->
         <div class="qr-section">
             <div class="qr-code-container">
-                <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={{qr_code_data}}"
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data={{qr_code_data}}"
                      alt="Ticket QR Code"
                      class="qr-code" />
             </div>
@@ -138,48 +129,27 @@ body {
     font-family: 'Inter', 'Helvetica', 'Arial', sans-serif;
     font-size: 11pt;
     line-height: 1.5;
-    padding: 40px;
+    padding: 20px;
 }
 
 .ticket-container {
     max-width: 600px;
     margin: 0 auto;
-    border: 3px solid var(--highlight-color);
-    padding: 30px;
-}
-
-/* Logo section */
-.logo-section {
-    text-align: center;
-    margin-bottom: 30px;
-    padding-bottom: 20px;
-    border-bottom: 2px solid var(--border-gray);
-}
-
-.logo {
-    max-height: 120px;
-    max-width: 400px;
-    object-fit: contain;
-}
-
-.logo-text {
-    font-size: 28px;
-    font-weight: 700;
-    color: var(--highlight-color);
+    padding: 20px;
 }
 
 /* Event banner */
 .event-banner {
     background-color: var(--highlight-color);
     color: var(--bg-white);
-    padding: 25px;
-    margin-bottom: 30px;
+    padding: 15px;
+    margin-bottom: 20px;
     text-align: center;
 }
 
 .event-banner h1 {
     margin: 0;
-    font-size: 24pt;
+    font-size: 20pt;
     font-weight: 700;
 }
 
@@ -187,14 +157,14 @@ body {
 .ticket-details {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 25px;
-    margin-bottom: 30px;
+    gap: 15px;
+    margin-bottom: 20px;
 }
 
 .detail-section {
-    padding: 15px;
-    border-left: 4px solid var(--highlight-color);
+    padding: 12px;
     background-color: #F9FAFB;
+    border-radius: 4px;
 }
 
 .detail-section h3 {
@@ -244,20 +214,20 @@ body {
 /* QR Code section */
 .qr-section {
     text-align: center;
-    padding: 30px;
-    margin-bottom: 30px;
-    border: 2px dashed var(--highlight-color);
+    padding: 20px;
+    margin-bottom: 20px;
     background-color: #F9FAFB;
+    border-radius: 4px;
 }
 
 .qr-code-container {
-    margin-bottom: 20px;
+    margin-bottom: 15px;
 }
 
 .qr-code {
-    width: 200px;
-    height: 200px;
-    border: 4px solid var(--bg-white);
+    width: 160px;
+    height: 160px;
+    border: 2px solid var(--bg-white);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
@@ -280,43 +250,43 @@ body {
 
 /* Event policies */
 .event-policies {
-    padding: 20px;
-    margin-top: 30px;
-    border-top: 2px solid var(--border-gray);
+    padding: 15px;
+    margin-top: 20px;
+    border-top: 1px solid var(--border-gray);
 }
 
 .event-policies h3 {
     color: var(--highlight-color);
     margin-top: 0;
-    margin-bottom: 15px;
-    font-size: 12pt;
+    margin-bottom: 10px;
+    font-size: 11pt;
     font-weight: 600;
 }
 
 .event-policies p {
-    margin: 8px 0;
-    font-size: 10pt;
+    margin: 6px 0;
+    font-size: 9pt;
     color: var(--text-gray);
 }
 
 .event-policies ul {
-    margin: 10px 0 20px 20px;
-    font-size: 9pt;
+    margin: 8px 0 15px 20px;
+    font-size: 8pt;
     color: var(--text-gray);
 }
 
 .event-policies li {
-    margin-bottom: 8px;
-    line-height: 1.6;
+    margin-bottom: 6px;
+    line-height: 1.5;
 }
 
 /* Footer */
 .footer {
-    margin-top: 30px;
-    padding-top: 20px;
+    margin-top: 20px;
+    padding-top: 15px;
     border-top: 1px solid var(--border-gray);
     text-align: center;
-    font-size: 9pt;
+    font-size: 8pt;
     color: var(--text-light-gray);
 }
 

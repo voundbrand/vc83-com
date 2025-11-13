@@ -1,16 +1,25 @@
 /**
  * Invoice PDF Generation using API Template.io
  *
- * This module provides functions to generate invoice PDFs from HTML/CSS templates
- * using the API Template.io /v2/create-pdf-from-html endpoint.
+ * This module provides functions to generate invoice PDFs using API Template.io.
+ *
+ * SUPPORTS TWO MODES:
+ * 1. Dashboard Templates (Recommended): Uses template IDs from API Template.io dashboard
+ *    - Template ID stored in database: template.customProperties.apiTemplateDashboardId
+ *    - Uses /v2/create-pdf-url endpoint
+ *    - Beautiful pre-designed templates from dashboard
+ *
+ * 2. HTML/CSS Templates (Fallback): Uses HTML/CSS stored in code
+ *    - Uses /v2/create-pdf-from-html endpoint
+ *    - Templates stored in convex/lib/pdf_templates/
  *
  * Integrates with the B2B invoicing system and invoice template registry.
  */
 
 import {
-  INVOICE_TEMPLATE_HTML,
-  INVOICE_TEMPLATE_CSS,
-} from "./pdf_templates/invoice_template";
+  INVOICE_TEMPLATES,
+  getInvoiceTemplateByCode,
+} from "../pdfTemplateRegistry";
 
 /**
  * API Template.io Configuration
@@ -28,29 +37,6 @@ export interface ApiTemplateResponse {
   error?: string;
   message?: string;
 }
-
-/**
- * Template registry for invoice templates
- */
-interface InvoiceTemplateDefinition {
-  html: string;
-  css: string;
-}
-
-const INVOICE_TEMPLATE_REGISTRY: Record<string, InvoiceTemplateDefinition> = {
-  "b2b-professional": {
-    html: INVOICE_TEMPLATE_HTML,
-    css: INVOICE_TEMPLATE_CSS,
-  },
-  "b2c-receipt": {
-    html: INVOICE_TEMPLATE_HTML, // Can be customized later
-    css: INVOICE_TEMPLATE_CSS,
-  },
-  "detailed-breakdown": {
-    html: INVOICE_TEMPLATE_HTML, // Can be extended with attendee breakdown
-    css: INVOICE_TEMPLATE_CSS,
-  },
-};
 
 /**
  * Invoice PDF Generation Options
@@ -85,19 +71,32 @@ export interface InvoicePdfGenerationOptions {
       vat_number?: string;
     };
 
-    // Line items
+    // Line items (supports both raw cents and pre-formatted strings)
     items: Array<{
       description: string;
       quantity: number;
-      rate: number; // in dollars
-      amount: number; // in dollars
+      // New approach: pre-formatted strings (recommended)
+      unit_price_formatted?: string;
+      tax_amount_formatted?: string;
+      total_price_formatted?: string;
+      // Legacy: raw cents (deprecated, for backward compatibility)
+      unit_price?: number;
+      tax_amount?: number;
+      total_price?: number;
+      tax_rate: number; // percentage (e.g., 19 for 19%)
     }>;
 
-    // Totals
-    subtotal: number;
+    // Totals (supports both raw cents and pre-formatted strings)
+    // New approach: pre-formatted strings (recommended)
+    subtotal_formatted?: string;
+    tax_formatted?: string;
+    total_formatted?: string;
+    // Legacy: raw cents (deprecated, for backward compatibility)
+    subtotal?: number;
+    tax?: number;
+    total?: number;
     tax_rate?: number;
-    tax: number;
-    total: number;
+    currency_symbol?: string;
 
     // Payment terms
     payment_terms?: string;
@@ -121,13 +120,20 @@ export interface InvoicePdfGenerationOptions {
 }
 
 /**
- * Generate Invoice PDF from HTML template using API Template.io
+ * Generate Invoice PDF using API Template.io
+ *
+ * Automatically chooses between:
+ * 1. Dashboard template (if apiTemplateDashboardId is set in template) - RECOMMENDED
+ * 2. HTML/CSS template (fallback)
+ *
+ * @param options.dashboardTemplateId - Optional: Dashboard template ID from resolved template
  *
  * @example
  * ```typescript
  * const pdfUrl = await generateInvoicePdfFromTemplate({
  *   apiKey: process.env.API_TEMPLATE_IO_KEY!,
- *   templateCode: "b2b-professional",
+ *   templateCode: "invoice_b2b_single_v1",
+ *   dashboardTemplateId: "abc123def456", // From template.customProperties.apiTemplateDashboardId
  *   invoiceData: {
  *     organization_name: "Medical Education Institute",
  *     organization_address: "123 Provider St, New York, NY 10001",
@@ -149,26 +155,121 @@ export interface InvoicePdfGenerationOptions {
  *       {
  *         description: "Conference Registration (10 attendees)",
  *         quantity: 10,
- *         rate: 299.00,
- *         amount: 2990.00,
- *       },
- *       {
- *         description: "Workshop Bundle Access",
- *         quantity: 10,
- *         rate: 99.00,
- *         amount: 990.00,
+ *         unit_price_formatted: "$299.00",
+ *         tax_amount_formatted: "$57.00",
+ *         total_price_formatted: "$356.00",
+ *         tax_rate: 19,
  *       },
  *     ],
- *     subtotal: 3980.00,
- *     tax_rate: 8.0,
- *     tax: 318.40,
- *     total: 4298.40,
+ *     subtotal_formatted: "$2,990.00",
+ *     tax_formatted: "$570.00",
+ *     total_formatted: "$3,560.00",
+ *     tax_rate: 19,
  *     highlight_color: "#6B46C1",
  *   }
  * });
  * ```
  */
 export async function generateInvoicePdfFromTemplate(
+  options: InvoicePdfGenerationOptions & { dashboardTemplateId?: string }
+): Promise<ApiTemplateResponse> {
+  const {
+    apiKey,
+    templateCode,
+    dashboardTemplateId,
+    invoiceData,
+    paperSize = "A4",
+    orientation = "portrait",
+  } = options;
+
+  // Check if we should use dashboard template (from database field)
+  if (dashboardTemplateId && dashboardTemplateId.length > 0) {
+    // MODE 1: Use dashboard template (RECOMMENDED)
+    console.log(`📤 API Template.io: Using DASHBOARD template ${dashboardTemplateId} for ${templateCode}`);
+    return await generateInvoicePdfFromDashboard(apiKey, dashboardTemplateId, invoiceData, {
+      paperSize,
+      orientation,
+      marginTop: options.marginTop,
+      marginBottom: options.marginBottom,
+      marginLeft: options.marginLeft,
+      marginRight: options.marginRight,
+    });
+  } else {
+    // MODE 2: Use HTML/CSS template (FALLBACK)
+    console.log(`📤 API Template.io: Using HTML/CSS template for ${templateCode} (no dashboard template ID in database)`);
+    return await generateInvoicePdfFromHtml(options);
+  }
+}
+
+/**
+ * Generate Invoice PDF from Dashboard Template (Mode 1 - RECOMMENDED)
+ */
+async function generateInvoicePdfFromDashboard(
+  apiKey: string,
+  templateId: string,
+  invoiceData: InvoicePdfGenerationOptions["invoiceData"],
+  settings: {
+    paperSize: string;
+    orientation: string;
+    marginTop?: string;
+    marginBottom?: string;
+    marginLeft?: string;
+    marginRight?: string;
+  }
+): Promise<ApiTemplateResponse> {
+  try {
+    const response = await fetch(`${API_TEMPLATE_BASE_URL}/v2/create-pdf-url`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-KEY": apiKey,
+      },
+      body: JSON.stringify({
+        template_id: templateId,
+        data: invoiceData,
+        settings: {
+          paper_size: settings.paperSize,
+          orientation: settings.orientation === "portrait" ? "1" : "2",
+          margin_top: settings.marginTop || "5mm",
+          margin_bottom: settings.marginBottom || "5mm",
+          margin_left: settings.marginLeft || "5mm",
+          margin_right: settings.marginRight || "5mm",
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ API Template.io error: ${response.status} ${response.statusText}`, errorText);
+      return {
+        status: "error",
+        error: "API_REQUEST_FAILED",
+        message: `API Template.io request failed: ${response.status} ${errorText}`,
+      };
+    }
+
+    const result = (await response.json()) as ApiTemplateResponse;
+
+    if (result.status === "success") {
+      console.log(`✅ Invoice PDF generated from DASHBOARD template. Transaction: ${result.transaction_ref}`);
+      console.log(`🔗 Download URL: ${result.download_url}`);
+    }
+
+    return result;
+  } catch (error) {
+    console.error(`❌ Network error generating invoice PDF from dashboard:`, error);
+    return {
+      status: "error",
+      error: "NETWORK_ERROR",
+      message: error instanceof Error ? error.message : "Unknown error occurred",
+    };
+  }
+}
+
+/**
+ * Generate Invoice PDF from HTML/CSS Template (Mode 2 - FALLBACK)
+ */
+async function generateInvoicePdfFromHtml(
   options: InvoicePdfGenerationOptions
 ): Promise<ApiTemplateResponse> {
   const {
@@ -179,13 +280,13 @@ export async function generateInvoicePdfFromTemplate(
     orientation = "portrait",
   } = options;
 
-  // Get template from registry
-  const template = INVOICE_TEMPLATE_REGISTRY[templateCode];
+  // Get template from centralized registry
+  const template = getInvoiceTemplateByCode(templateCode);
   if (!template) {
     return {
       status: "error",
       error: "TEMPLATE_NOT_FOUND",
-      message: `Invoice template '${templateCode}' not found in registry. Available templates: ${Object.keys(INVOICE_TEMPLATE_REGISTRY).join(", ")}`,
+      message: `Invoice template '${templateCode}' not found in registry. Available templates: ${INVOICE_TEMPLATES.map(t => t.code).join(", ")}`,
     };
   }
 
@@ -195,24 +296,29 @@ export async function generateInvoicePdfFromTemplate(
     highlight_color: invoiceData.highlight_color || "#6B46C1",
   };
 
-  // Prepare API request
+  // Prepare API request with HTML and CSS as SEPARATE fields (per API Template.io spec)
+  // NOTE: The 'css' field should contain CSS wrapped in <style> tags according to API docs
   const requestBody = {
-    body: template.html,
-    css: template.css,
+    body: template.template.html, // HTML (without CSS)
+    css: `<style>${template.template.css}</style>`, // CSS wrapped in style tags!
     data: templateDataWithDefaults,
     settings: {
       paper_size: paperSize,
       orientation: orientation === "portrait" ? "1" : "2",
-      margin_top: options.marginTop || "15mm",
-      margin_bottom: options.marginBottom || "15mm",
-      margin_left: options.marginLeft || "15mm",
-      margin_right: options.marginRight || "15mm",
+      margin_top: options.marginTop || "5mm",
+      margin_bottom: options.marginBottom || "5mm",
+      margin_left: options.marginLeft || "5mm",
+      margin_right: options.marginRight || "5mm",
+      print_background: true, // Enable background colors/gradients
     },
   };
 
-  try {
-    console.log(`📤 API Template.io: Generating invoice PDF for template ${templateCode}`);
+  // DEBUG: Log what we're sending
+  console.log("🔍 [generateInvoicePdfFromHtml] Request body keys:", Object.keys(requestBody));
+  console.log("🔍 [generateInvoicePdfFromHtml] Has css field?", 'css' in requestBody);
+  console.log("🔍 [generateInvoicePdfFromHtml] CSS preview:", requestBody.css?.substring(0, 150));
 
+  try {
     const response = await fetch(`${API_TEMPLATE_BASE_URL}/v2/create-pdf-from-html`, {
       method: "POST",
       headers: {
@@ -235,7 +341,7 @@ export async function generateInvoicePdfFromTemplate(
     const result = (await response.json()) as ApiTemplateResponse;
 
     if (result.status === "success") {
-      console.log(`✅ Invoice PDF generated successfully. Transaction: ${result.transaction_ref}`);
+      console.log(`✅ Invoice PDF generated from HTML/CSS. Transaction: ${result.transaction_ref}`);
       console.log(`🔗 Download URL: ${result.download_url}`);
     }
 
@@ -254,12 +360,12 @@ export async function generateInvoicePdfFromTemplate(
  * Get available invoice template codes
  */
 export function getAvailableInvoiceTemplateCodes(): string[] {
-  return Object.keys(INVOICE_TEMPLATE_REGISTRY);
+  return INVOICE_TEMPLATES.map(t => t.code);
 }
 
 /**
  * Check if an invoice template code exists
  */
 export function isValidInvoiceTemplateCode(code: string): boolean {
-  return code in INVOICE_TEMPLATE_REGISTRY;
+  return getInvoiceTemplateByCode(code) !== null;
 }

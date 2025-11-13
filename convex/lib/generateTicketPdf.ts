@@ -1,24 +1,25 @@
 /**
  * Ticket PDF Generation using API Template.io
  *
- * This module provides functions to generate ticket PDFs from HTML/CSS templates
- * using the API Template.io /v2/create-pdf-from-html endpoint.
+ * This module provides functions to generate ticket PDFs using API Template.io.
+ *
+ * SUPPORTS TWO MODES:
+ * 1. Dashboard Templates (Recommended): Uses template IDs from API Template.io dashboard
+ *    - Template ID stored in database: template.customProperties.apiTemplateDashboardId
+ *    - Uses /v2/create-pdf-url endpoint
+ *    - Beautiful pre-designed templates from dashboard
+ *
+ * 2. HTML/CSS Templates (Fallback): Uses HTML/CSS stored in code
+ *    - Uses /v2/create-pdf-from-html endpoint
+ *    - Templates stored in convex/lib/pdf_templates/
  *
  * Integrates with the new ticket template system and resolution chain.
  */
 
 import {
-  ELEGANT_GOLD_TICKET_TEMPLATE_HTML,
-  ELEGANT_GOLD_TICKET_TEMPLATE_CSS,
-} from "./pdf_templates/elegant_gold_ticket_template";
-import {
-  MODERN_TICKET_TEMPLATE_HTML,
-  MODERN_TICKET_TEMPLATE_CSS,
-} from "./pdf_templates/modern_ticket_template";
-import {
-  VIP_PREMIUM_TICKET_TEMPLATE_HTML,
-  VIP_PREMIUM_TICKET_TEMPLATE_CSS,
-} from "./pdf_templates/vip_premium_ticket_template";
+  TICKET_TEMPLATES,
+  getTicketTemplateByCode,
+} from "../pdfTemplateRegistry";
 
 /**
  * API Template.io Configuration
@@ -36,29 +37,6 @@ export interface ApiTemplateResponse {
   error?: string;
   message?: string;
 }
-
-/**
- * Template registry for ticket templates
- */
-interface TicketTemplateDefinition {
-  html: string;
-  css: string;
-}
-
-const TICKET_TEMPLATE_REGISTRY: Record<string, TicketTemplateDefinition> = {
-  "elegant-gold": {
-    html: ELEGANT_GOLD_TICKET_TEMPLATE_HTML,
-    css: ELEGANT_GOLD_TICKET_TEMPLATE_CSS,
-  },
-  "modern-ticket": {
-    html: MODERN_TICKET_TEMPLATE_HTML,
-    css: MODERN_TICKET_TEMPLATE_CSS,
-  },
-  "vip-premium": {
-    html: VIP_PREMIUM_TICKET_TEMPLATE_HTML,
-    css: VIP_PREMIUM_TICKET_TEMPLATE_CSS,
-  },
-};
 
 /**
  * Ticket PDF Generation Options
@@ -97,10 +75,11 @@ export interface TicketPdfGenerationOptions {
     order_id?: string;
     order_date?: string;
     currency?: string;
-    net_price?: string;
-    tax_amount?: string;
-    tax_rate?: string;
-    total_price?: string;
+    // Changed to numbers for Jinja2 template comparisons
+    net_price?: number;
+    tax_amount?: number;
+    tax_rate?: number;
+    total_price?: number;
   };
   paperSize?: "A4" | "Letter" | "Legal";
   orientation?: "portrait" | "landscape";
@@ -111,13 +90,20 @@ export interface TicketPdfGenerationOptions {
 }
 
 /**
- * Generate Ticket PDF from HTML template using API Template.io
+ * Generate Ticket PDF using API Template.io
+ *
+ * Automatically chooses between:
+ * 1. Dashboard template (if apiTemplateDashboardId is set in template) - RECOMMENDED
+ * 2. HTML/CSS template (fallback)
+ *
+ * @param options.dashboardTemplateId - Optional: Dashboard template ID from resolved template
  *
  * @example
  * ```typescript
  * const pdfUrl = await generateTicketPdfFromTemplate({
  *   apiKey: process.env.API_TEMPLATE_IO_KEY!,
- *   templateCode: "elegant-gold",
+ *   templateCode: "ticket_elegant_gold_v1",
+ *   dashboardTemplateId: "abc123def456", // From template.customProperties.apiTemplateDashboardId
  *   ticketData: {
  *     ticket_number: "TKT-2025-001234",
  *     ticket_type: "VIP Access",
@@ -135,6 +121,105 @@ export interface TicketPdfGenerationOptions {
  * ```
  */
 export async function generateTicketPdfFromTemplate(
+  options: TicketPdfGenerationOptions & { dashboardTemplateId?: string }
+): Promise<ApiTemplateResponse> {
+  const {
+    apiKey,
+    templateCode,
+    dashboardTemplateId,
+    ticketData,
+    paperSize = "A4",
+    orientation = "portrait",
+  } = options;
+
+  // Check if we should use dashboard template (from database field)
+  if (dashboardTemplateId && dashboardTemplateId.length > 0) {
+    // MODE 1: Use dashboard template (RECOMMENDED)
+    console.log(`📤 API Template.io: Using DASHBOARD template ${dashboardTemplateId} for ${templateCode}`);
+    return await generateTicketPdfFromDashboard(apiKey, dashboardTemplateId, ticketData, {
+      paperSize,
+      orientation,
+      marginTop: options.marginTop,
+      marginBottom: options.marginBottom,
+      marginLeft: options.marginLeft,
+      marginRight: options.marginRight,
+    });
+  } else {
+    // MODE 2: Use HTML/CSS template (FALLBACK)
+    console.log(`📤 API Template.io: Using HTML/CSS template for ${templateCode} (no dashboard template ID in database)`);
+    return await generateTicketPdfFromHtml(options);
+  }
+}
+
+/**
+ * Generate Ticket PDF from Dashboard Template (Mode 1 - RECOMMENDED)
+ */
+async function generateTicketPdfFromDashboard(
+  apiKey: string,
+  templateId: string,
+  ticketData: TicketPdfGenerationOptions["ticketData"],
+  settings: {
+    paperSize: string;
+    orientation: string;
+    marginTop?: string;
+    marginBottom?: string;
+    marginLeft?: string;
+    marginRight?: string;
+  }
+): Promise<ApiTemplateResponse> {
+  try {
+    const response = await fetch(`${API_TEMPLATE_BASE_URL}/v2/create-pdf-url`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-KEY": apiKey,
+      },
+      body: JSON.stringify({
+        template_id: templateId,
+        data: ticketData,
+        settings: {
+          paper_size: settings.paperSize,
+          orientation: settings.orientation === "portrait" ? "1" : "2",
+          margin_top: settings.marginTop || "5mm",
+          margin_bottom: settings.marginBottom || "5mm",
+          margin_left: settings.marginLeft || "5mm",
+          margin_right: settings.marginRight || "5mm",
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ API Template.io error: ${response.status} ${response.statusText}`, errorText);
+      return {
+        status: "error",
+        error: "API_REQUEST_FAILED",
+        message: `API Template.io request failed: ${response.status} ${errorText}`,
+      };
+    }
+
+    const result = (await response.json()) as ApiTemplateResponse;
+
+    if (result.status === "success") {
+      console.log(`✅ Ticket PDF generated from DASHBOARD template. Transaction: ${result.transaction_ref}`);
+      console.log(`🔗 Download URL: ${result.download_url}`);
+    }
+
+    return result;
+  } catch (error) {
+    console.error(`❌ Network error generating ticket PDF from dashboard:`, error);
+    return {
+      status: "error",
+      error: "NETWORK_ERROR",
+      message: error instanceof Error ? error.message : "Unknown error occurred",
+    };
+  }
+}
+
+/**
+ * Generate Ticket PDF from HTML/CSS Template (Mode 2 - FALLBACK)
+ */
+async function generateTicketPdfFromHtml(
   options: TicketPdfGenerationOptions
 ): Promise<ApiTemplateResponse> {
   const {
@@ -145,13 +230,13 @@ export async function generateTicketPdfFromTemplate(
     orientation = "portrait",
   } = options;
 
-  // Get template from registry
-  const template = TICKET_TEMPLATE_REGISTRY[templateCode];
+  // Get template from centralized registry
+  const template = getTicketTemplateByCode(templateCode);
   if (!template) {
     return {
       status: "error",
       error: "TEMPLATE_NOT_FOUND",
-      message: `Ticket template '${templateCode}' not found in registry. Available templates: ${Object.keys(TICKET_TEMPLATE_REGISTRY).join(", ")}`,
+      message: `Ticket template '${templateCode}' not found in registry. Available templates: ${TICKET_TEMPLATES.map(t => t.code).join(", ")}`,
     };
   }
 
@@ -161,24 +246,24 @@ export async function generateTicketPdfFromTemplate(
     highlight_color: ticketData.highlight_color || "#6B46C1",
   };
 
-  // Prepare API request
+  // Prepare API request with HTML and CSS as SEPARATE fields (per API Template.io spec)
+  // NOTE: The 'css' field should contain CSS wrapped in <style> tags according to API docs
   const requestBody = {
-    body: template.html,
-    css: template.css,
+    body: template.template.html, // HTML (without CSS)
+    css: `<style>${template.template.css}</style>`, // CSS wrapped in style tags!
     data: templateDataWithDefaults,
     settings: {
       paper_size: paperSize,
       orientation: orientation === "portrait" ? "1" : "2",
-      margin_top: options.marginTop || "15mm",
-      margin_bottom: options.marginBottom || "15mm",
-      margin_left: options.marginLeft || "15mm",
-      margin_right: options.marginRight || "15mm",
+      margin_top: options.marginTop || "5mm",
+      margin_bottom: options.marginBottom || "5mm",
+      margin_left: options.marginLeft || "5mm",
+      margin_right: options.marginRight || "5mm",
+      print_background: true, // Enable background colors/gradients
     },
   };
 
   try {
-    console.log(`📤 API Template.io: Generating ticket PDF for template ${templateCode}`);
-
     const response = await fetch(`${API_TEMPLATE_BASE_URL}/v2/create-pdf-from-html`, {
       method: "POST",
       headers: {
@@ -201,7 +286,7 @@ export async function generateTicketPdfFromTemplate(
     const result = (await response.json()) as ApiTemplateResponse;
 
     if (result.status === "success") {
-      console.log(`✅ Ticket PDF generated successfully. Transaction: ${result.transaction_ref}`);
+      console.log(`✅ Ticket PDF generated from HTML/CSS. Transaction: ${result.transaction_ref}`);
       console.log(`🔗 Download URL: ${result.download_url}`);
     }
 
@@ -220,12 +305,12 @@ export async function generateTicketPdfFromTemplate(
  * Get available ticket template codes
  */
 export function getAvailableTicketTemplateCodes(): string[] {
-  return Object.keys(TICKET_TEMPLATE_REGISTRY);
+  return TICKET_TEMPLATES.map(t => t.code);
 }
 
 /**
  * Check if a ticket template code exists
  */
 export function isValidTicketTemplateCode(code: string): boolean {
-  return code in TICKET_TEMPLATE_REGISTRY;
+  return getTicketTemplateByCode(code) !== null;
 }

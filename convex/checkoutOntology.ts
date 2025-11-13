@@ -96,9 +96,26 @@ export const createCheckoutInstance = mutation({
       publishedAt: v.optional(v.number()), // Timestamp when published
       settings: v.optional(v.any()),
       themeCode: v.optional(v.string()), // Theme code (e.g., "modern-gradient")
-      templateId: v.optional(v.id("objects")), // Template reference
+      templateId: v.optional(v.id("objects")), // Template reference (checkout page template)
       forceB2B: v.optional(v.boolean()), // Force B2B mode (require organization info)
       defaultLanguage: v.optional(v.string()), // Default language code (en, de, pl, es, fr, ja)
+
+      // PDF TEMPLATE REFERENCES (for generated PDFs)
+      invoiceTemplateId: v.optional(v.id("objects")), // Reference to PDF invoice template
+      ticketTemplateId: v.optional(v.id("objects")), // Reference to PDF ticket template
+      certificateTemplateId: v.optional(v.id("objects")), // Reference to PDF certificate template
+
+      // EMAIL TEMPLATE REFERENCES (for transactional emails)
+      confirmationEmailTemplateId: v.optional(v.id("objects")), // Order confirmation email template
+      salesNotificationEmailTemplateId: v.optional(v.id("objects")), // Internal sales notification template
+
+      // DEPRECATED: Old template code system (kept for backward compatibility)
+      pdfTemplateCode: v.optional(v.union(
+        v.literal("invoice_b2c_receipt_v1"),
+        v.literal("invoice_b2b_single_v1"),
+        v.literal("invoice_b2b_consolidated_v1"),
+        v.literal("invoice_b2b_consolidated_detailed_v1")
+      )), // DEPRECATED: Use invoiceTemplateId instead
       // Behavior execution settings
       allowBackNavigation: v.optional(v.boolean()), // Allow users to go back to previous steps
       behaviorExecutionTiming: v.optional(v.string()), // "eager" or "lazy" execution
@@ -214,9 +231,26 @@ export const updateCheckoutInstance = mutation({
       settings: v.optional(v.any()),
       themeCode: v.optional(v.string()), // Theme code (e.g., "modern-gradient")
       templateCode: v.optional(v.string()), // Template code reference
-      templateId: v.optional(v.id("objects")), // Template reference
+      templateId: v.optional(v.id("objects")), // Template reference (checkout page template)
       forceB2B: v.optional(v.boolean()), // Force B2B mode (require organization info)
       defaultLanguage: v.optional(v.string()), // Default language code (en, de, pl, es, fr, ja)
+
+      // PDF TEMPLATE REFERENCES (for generated PDFs)
+      invoiceTemplateId: v.optional(v.id("objects")), // Reference to PDF invoice template
+      ticketTemplateId: v.optional(v.id("objects")), // Reference to PDF ticket template
+      certificateTemplateId: v.optional(v.id("objects")), // Reference to PDF certificate template
+
+      // EMAIL TEMPLATE REFERENCES (for transactional emails)
+      confirmationEmailTemplateId: v.optional(v.id("objects")), // Order confirmation email template
+      salesNotificationEmailTemplateId: v.optional(v.id("objects")), // Internal sales notification template
+
+      // DEPRECATED: Old template code system (kept for backward compatibility)
+      pdfTemplateCode: v.optional(v.union(
+        v.literal("invoice_b2c_receipt_v1"),
+        v.literal("invoice_b2b_single_v1"),
+        v.literal("invoice_b2b_consolidated_v1"),
+        v.literal("invoice_b2b_consolidated_detailed_v1")
+      )), // DEPRECATED: Use invoiceTemplateId instead
       // Behavior execution settings
       allowBackNavigation: v.optional(v.boolean()), // Allow users to go back to previous steps
       behaviorExecutionTiming: v.optional(v.string()), // "eager" or "lazy" execution

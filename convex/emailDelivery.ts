@@ -58,6 +58,7 @@ export const sendEmail = internalAction({
     }
 
     // 3. Prepare email payload
+    // Note: Resend API accepts base64 strings directly, no need to convert from Buffer
     const emailPayload = {
       from: emailSettings.senderEmail,
       to: args.to,
@@ -67,7 +68,7 @@ export const sendEmail = internalAction({
       text: args.text,
       attachments: args.attachments?.map((a: any) => ({
         filename: a.filename,
-        content: Buffer.from(a.content, 'base64'),
+        content: a.content, // Already base64 encoded
         contentType: a.contentType,
       })),
     };

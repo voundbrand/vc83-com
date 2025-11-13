@@ -160,12 +160,12 @@ export const seed = internalMutation({
       {
         key: "ui.checkout_template.behavior_driven.payment.buttons.pay",
         values: {
-          en: "Complete Payment ${amount}",
-          de: "Zahlung abschließen ${amount}",
-          pl: "Dokończ płatność ${amount}",
-          es: "Completar pago ${amount}",
-          fr: "Finaliser le paiement ${amount}",
-          ja: "支払いを完了 ${amount}",
+          en: "Complete Payment {amount}",
+          de: "Zahlung abschließen {amount}",
+          pl: "Dokończ płatność {amount}",
+          es: "Completar pago {amount}",
+          fr: "Finaliser le paiement {amount}",
+          ja: "支払いを完了 {amount}",
         }
       },
       {

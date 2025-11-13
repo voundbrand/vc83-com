@@ -553,94 +553,77 @@ export const sendOrderConfirmationEmail = internalAction({
           })
         : "Date TBA";
 
-      const formattedTotal =
-        totalAmount === 0
-          ? "Free"
-          : `${currency.toUpperCase()} ${(totalAmount / 100).toFixed(2)}`;
+      // 5. RESOLVE EMAIL TEMPLATE (if configured in checkout)
+      // Get confirmationEmailTemplateId from checkout session
+      const confirmationEmailTemplateId = session.customProperties?.confirmationEmailTemplateId as Id<"objects"> | undefined;
 
-      const emailHtml = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body { font-family: 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4; }
-    .container { max-width: 600px; margin: 0 auto; background: white; }
-    .header { background: #6B46C1; color: white; padding: 30px; text-align: center; }
-    .content { padding: 30px; }
-    .event-box { background: #f9fafb; border-left: 4px solid #6B46C1; padding: 20px; margin: 20px 0; }
-    .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1 style="margin: 0;">Your Tickets for ${eventName}</h1>
-    </div>
-    <div class="content">
-      <p>${args.recipientName}, you've got tickets!</p>
-      <div class="event-box">
-        <h2 style="margin-top: 0;">${eventName}</h2>
-        ${eventSponsors && eventSponsors.length > 0 ? (() => {
-          if (eventSponsors.length === 1) {
-            return `<p style="color: #6B46C1; font-weight: 600;">Presented by ${eventSponsors[0].name}</p>`;
-          }
-          return `<p style="color: #6B46C1; font-weight: 600;">Presented by:</p><ul style="color: #6B46C1; margin: 5px 0 15px 20px; padding: 0;">${eventSponsors.map(s => `<li>${s.name}${s.level ? ` (${s.level})` : ''}</li>`).join('')}</ul>`;
-        })() : ""}
-        <p><strong>${ticketCount} x Ticket${ticketCount > 1 ? 's' : ''}</strong></p>
-        <p><strong>${formattedDate}</strong></p>
-        ${eventLocation ? `<p>${eventLocation}</p>` : ""}
-      </div>
-      <h3>Order Summary</h3>
-      <p>Order #${orderNumber} - ${new Date(session.createdAt).toLocaleDateString()}</p>
-      <table style="width: 100%; margin: 20px 0; border-collapse: collapse;">
-        <tr style="border-bottom: 1px solid #e5e7eb;">
-          <td style="padding: 8px;">Subtotal</td>
-          <td style="padding: 8px; text-align: right;">${currency.toUpperCase()} ${(subtotalAmount / 100).toFixed(2)}</td>
-        </tr>
-        ${(() => {
-          console.log(`📊 [sendOrderConfirmationEmail] Email template tax check:`);
-          console.log(`   taxAmount > 0? ${taxAmount > 0} (taxAmount = ${taxAmount})`);
-          console.log(`   Will include tax line in email: ${taxAmount > 0}`);
+      console.log("📧 [sendOrderConfirmationEmail] Email template resolution:", {
+        hasConfirmationEmailTemplateId: !!confirmationEmailTemplateId,
+        confirmationEmailTemplateId,
+      });
 
-          if (taxAmount > 0) {
-            console.log(`✅ [sendOrderConfirmationEmail] Including tax line in email HTML`);
-            return `
-        <tr style="border-bottom: 1px solid #e5e7eb;">
-          <td style="padding: 8px; color: #666;">Tax (${taxRatePercent.toFixed(1)}%)</td>
-          <td style="padding: 8px; text-align: right; color: #666;">${currency.toUpperCase()} ${(taxAmount / 100).toFixed(2)}</td>
-        </tr>`;
-          } else {
-            console.log(`❌ [sendOrderConfirmationEmail] NOT including tax line (taxAmount = ${taxAmount})`);
-            return '';
-          }
-        })()}
-        <tr style="font-weight: bold; font-size: 18px;">
-          <td style="padding: 12px 8px;">Total</td>
-          <td style="padding: 12px 8px; text-align: right;">${formattedTotal}</td>
-        </tr>
-      </table>
-      <p><strong>Your tickets and invoice are attached as PDFs.</strong></p>
-      <p style="color: #666;">Present your ticket PDF at the event entrance.</p>
-    </div>
-    <div class="footer">
-      <p>Need help? Contact support@l4yercak3.com</p>
-      <p>&copy; ${new Date().getFullYear()} L4YERCAK3. All rights reserved.</p>
-    </div>
-  </div>
-</body>
-</html>
-      `;
+      // Resolve email template (with fallback to luxury category default)
+      const primaryColor = "#d4af37"; // Default elegant gold (changed from purple)
+      let templateCode = "luxury-confirmation"; // Default template
 
-      // 6. Send email using Resend with ALL PDFs attached
+      if (confirmationEmailTemplateId) {
+        try {
+          const resolvedTemplate = await ctx.runQuery(internal.pdfTemplateQueries.resolveEmailTemplateInternal, {
+            templateId: confirmationEmailTemplateId,
+            fallbackCategory: "luxury",
+          });
+
+          console.log("✅ [sendOrderConfirmationEmail] Resolved email template:", {
+            templateCode: resolvedTemplate.templateCode,
+            templateName: resolvedTemplate.name,
+            category: resolvedTemplate.category,
+          });
+
+          templateCode = resolvedTemplate.templateCode;
+
+          // TODO: Extract primaryColor from template's customProperties if available
+          // For now, we use the default color
+        } catch (error) {
+          console.warn("⚠️ [sendOrderConfirmationEmail] Failed to resolve email template, using default:", error);
+          // Fall back to default template
+        }
+      } else {
+        console.log("ℹ️ [sendOrderConfirmationEmail] No email template configured, using default luxury template");
+      }
+
+      // 6. Generate email HTML using template-driven renderer
+      const { generateOrderConfirmationHtml, generateOrderConfirmationSubject } = await import("./helpers/orderEmailRenderer");
+
+      const emailHtml = generateOrderConfirmationHtml({
+        recipientName: args.recipientName,
+        eventName,
+        eventSponsors,
+        eventLocation,
+        formattedDate,
+        ticketCount,
+        orderNumber,
+        orderDate: new Date(session.createdAt).toLocaleDateString(),
+        primaryColor,
+        organizationName: "L4YERCAK3",
+      });
+
+      const emailSubject = generateOrderConfirmationSubject(eventName);
+
+      console.log("📧 [sendOrderConfirmationEmail] Generated email:", {
+        subject: emailSubject,
+        templateCode,
+        hasHtml: !!emailHtml,
+        attachmentCount: attachments.length,
+      });
+
+      // 7. Send email using Resend with ALL PDFs attached
       const { Resend } = await import("resend");
       const resend = new Resend(process.env.RESEND_API_KEY);
 
       const result = await resend.emails.send({
         from: "L4YERCAK3 <tickets@mail.l4yercak3.com>",
         to: args.recipientEmail,
-        subject: `Your Tickets for ${eventName}`,
+        subject: emailSubject,
         html: emailHtml,
         attachments,
       });

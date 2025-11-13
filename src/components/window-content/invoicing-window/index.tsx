@@ -416,6 +416,7 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
   const [pdfSuccess, setPdfSuccess] = React.useState(false);
   const [refundError, setRefundError] = React.useState<string | null>(null);
   const [refundSuccess, setRefundSuccess] = React.useState(false);
+  const [regeneratedPdfUrl, setRegeneratedPdfUrl] = React.useState<string | null>(null);
 
   const props = invoice.customProperties || {};
   const billTo = props.billTo as { name?: string; billingEmail?: string; vatNumber?: string; billingAddress?: { city?: string; country?: string } } | undefined;
@@ -431,9 +432,12 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
   const isDraft = props.isDraft === true;
   const checkoutSessionId = props.checkoutSessionId as Id<"objects"> | undefined;
 
+  // Use regenerated PDF URL if available, otherwise use original
+  const currentPdfUrl = regeneratedPdfUrl || pdfUrl;
+
   const handleDownloadPDF = () => {
-    if (pdfUrl) {
-      window.open(pdfUrl, "_blank");
+    if (currentPdfUrl) {
+      window.open(currentPdfUrl, "_blank");
     } else {
       alert(t("ui.invoicing_window.alerts.no_pdf"));
     }
@@ -519,10 +523,12 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
 
       if (result.success) {
         setPdfSuccess(true);
-        setTimeout(() => {
-          setPdfSuccess(false);
-          onClose(); // Refresh the list
-        }, 2000);
+        // Update the PDF URL so the download button works with the new PDF
+        if (result.pdfUrl) {
+          setRegeneratedPdfUrl(result.pdfUrl);
+        }
+        // Don't auto-close - let user download the PDF first
+        // They can manually close the modal when done
       }
     } catch (error) {
       console.error("PDF regeneration error:", error);
@@ -819,8 +825,8 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
                 border: "2px solid var(--win95-border)",
               }}
               onClick={handleDownloadPDF}
-              disabled={!pdfUrl || isDraft}
-              title={isDraft ? t("ui.invoicing_window.alerts.seal_first") : pdfUrl ? t("ui.invoicing_window.buttons.download_pdf") : t("ui.invoicing_window.alerts.no_pdf")}
+              disabled={!currentPdfUrl || isDraft}
+              title={isDraft ? t("ui.invoicing_window.alerts.seal_first") : currentPdfUrl ? t("ui.invoicing_window.buttons.download_pdf") : t("ui.invoicing_window.alerts.no_pdf")}
             >
               <Download size={14} />
               {t("ui.invoicing_window.buttons.download_pdf")}

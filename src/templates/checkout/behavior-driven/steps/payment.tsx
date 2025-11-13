@@ -67,26 +67,23 @@ export function PaymentStep({
   const formAddonsSubtotal = (checkoutData.formResponses || []).reduce((sum, fr) => sum + (fr.addedCosts || 0), 0);
   const subtotal = productsSubtotal + formAddonsSubtotal;
 
-  // Use tax calculation total if available, otherwise use subtotal
+  // Use pre-calculated total from tax calculation behavior
+  // The behavior handler correctly handles inclusive vs exclusive tax
   const taxCalculation = checkoutData.taxCalculation;
   const totalAmount = taxCalculation && taxCalculation.isTaxable && taxCalculation.total > 0
-    ? subtotal + taxCalculation.taxAmount  // subtotal + tax
-    : subtotal; // no tax or tax-inclusive
-
-  // Get currency from selected products (should match organization's currency)
-  const currency = selectedProducts[0]
-    ? (selectedProducts.find(sp => {
-        const productId = typeof sp.productId === 'string' ? sp.productId : sp.productId;
-        return productId;
-      }))
-    : undefined;
+    ? taxCalculation.total  // Use pre-calculated total (handles inclusive/exclusive correctly)
+    : subtotal; // no tax applied
 
   // Helper to format currency
   const formatCurrency = (amountInCents: number) => {
-    // TODO: Get actual currency from products/organization settings
-    // For now, default to EUR as that's the organization's currency
-    const currencyCode = "EUR"; // Placeholder - should come from product/org
-    return new Intl.NumberFormat("en-US", {
+    // Get currency - default to EUR for now (should come from organization settings)
+    // TODO: Pass currency through checkoutData from product selection step
+    const currencyCode = "EUR";
+    // Use locale based on currency for correct thousand/decimal separators
+    // EUR, GBP, etc. → European format (1.000,00)
+    // USD, CAD, etc. → US format (1,000.00)
+    const locale = currencyCode.toUpperCase() === "USD" ? "en-US" : "de-DE";
+    return new Intl.NumberFormat(locale, {
       style: "currency",
       currency: currencyCode.toUpperCase(),
     }).format(amountInCents / 100);
@@ -471,7 +468,7 @@ export function PaymentStep({
               </>
             ) : (
               <>
-                {t('ui.checkout_template.behavior_driven.payment.buttons.complete_payment')} {formatCurrency(totalAmount)}
+                {t('ui.checkout_template.behavior_driven.payment.buttons.pay', { amount: formatCurrency(totalAmount) })}
               </>
             )}
           </button>

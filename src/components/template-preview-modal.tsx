@@ -95,15 +95,63 @@ export function TemplatePreviewModal({
             setPreviewHtml(result.html);
           }
         } else if (templateType === "pdf") {
-          // TODO: PDF template preview
-          // For now, show a placeholder
-          setPreviewHtml(`
-            <div style="padding: 40px; text-align: center; font-family: system-ui, sans-serif;">
-              <h2>PDF Template Preview</h2>
-              <p>Template: ${templateCode}</p>
-              <p>PDF preview coming soon...</p>
-            </div>
-          `);
+          // PDF template preview - render HTML/CSS with mock data
+          try {
+            const { getTemplateByCode } = await import("../../convex/pdfTemplateRegistry");
+            const { renderTemplate, createMockInvoiceData } = await import("@/lib/template-renderer");
+
+            const template = getTemplateByCode(templateCode);
+
+            if (!template) {
+              setPreviewHtml(`
+                <div style="padding: 40px; text-align: center; font-family: system-ui, sans-serif;">
+                  <h2>Template Not Found</h2>
+                  <p>Template code: ${templateCode}</p>
+                </div>
+              `);
+              return;
+            }
+
+            // Set template metadata for display (cast category to EmailCategory for compatibility)
+            setTemplateMetadata({
+              code: template.code,
+              name: template.name,
+              description: template.description,
+              category: "standard" as const, // Use standard as fallback for PDF templates
+              author: "VC83 Team",
+              version: template.version || "1.0.0",
+              supportedLanguages: ["en"], // PDF templates don't have multi-language yet
+              supportsAttachments: false, // PDF templates are standalone documents
+            });
+
+            // Get mock data for this template type
+            const mockData = createMockInvoiceData(templateCode);
+
+            // Render HTML and CSS with mock data
+            const renderedHtml = renderTemplate(template.template.html, mockData);
+            const renderedCss = renderTemplate(template.template.css, mockData);
+
+            // Combine into full HTML document
+            const fullHtml = `
+              <!DOCTYPE html>
+              <html>
+                <head>
+                  <style>${renderedCss}</style>
+                </head>
+                <body>${renderedHtml}</body>
+              </html>
+            `;
+
+            setPreviewHtml(fullHtml);
+          } catch (error) {
+            console.error("Failed to render PDF template:", error);
+            setPreviewHtml(`
+              <div style="padding: 40px; text-align: center; color: red; font-family: system-ui, sans-serif;">
+                <h2>Render Error</h2>
+                <p>${error instanceof Error ? error.message : "Failed to render template"}</p>
+              </div>
+            `);
+          }
         }
       } catch (error) {
         console.error("Failed to load template preview:", error);

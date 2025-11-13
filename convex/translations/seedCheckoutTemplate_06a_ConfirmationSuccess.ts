@@ -6,7 +6,7 @@
  */
 
 import { internalMutation } from "../_generated/server";
-import { getExistingTranslationKeys, insertTranslationIfNew } from "./_translationHelpers";
+import { upsertTranslation } from "./_translationHelpers";
 
 export const seed = internalMutation({
   handler: async (ctx) => {
@@ -223,24 +223,40 @@ export const seed = internalMutation({
           ja: "各チケット保持者は、QRコード付きの個別チケットを受け取ります。",
         }
       },
+      {
+        key: "ui.checkout_template.behavior_driven.confirmation.email.sent_payment",
+        values: {
+          en: "A confirmation email has been sent to {email}.",
+          de: "Eine Bestätigungs-E-Mail wurde an {email} gesendet.",
+          pl: "E-mail z potwierdzeniem został wysłany na adres {email}.",
+          es: "Se ha enviado un correo de confirmación a {email}.",
+          fr: "Un e-mail de confirmation a été envoyé à {email}.",
+          ja: "確認メールが{email}に送信されました。",
+        }
+      },
+      {
+        key: "ui.checkout_template.behavior_driven.confirmation.email.sent_invoice",
+        values: {
+          en: "An invoice will be sent to your employer. Confirmation sent to {email}.",
+          de: "Eine Rechnung wird an Ihren Arbeitgeber gesendet. Bestätigung wurde an {email} gesendet.",
+          pl: "Faktura zostanie wysłana do Twojego pracodawcy. Potwierdzenie wysłano na adres {email}.",
+          es: "Se enviará una factura a su empleador. Confirmación enviada a {email}.",
+          fr: "Une facture sera envoyée à votre employeur. Confirmation envoyée à {email}.",
+          ja: "請求書は雇用主に送信されます。確認書が{email}に送信されました。",
+        }
+      },
     ];
 
-    const allKeys = translations.map(t => t.key);
-    const existingKeys = await getExistingTranslationKeys(
-      ctx.db,
-      systemOrg._id,
-      allKeys
-    );
+    let insertedCount = 0;
+    let updatedCount = 0;
 
-    let count = 0;
     for (const trans of translations) {
       for (const locale of supportedLocales) {
         const value = trans.values[locale.code as keyof typeof trans.values];
 
         if (value) {
-          const inserted = await insertTranslationIfNew(
+          const result = await upsertTranslation(
             ctx.db,
-            existingKeys,
             systemOrg._id,
             systemUser._id,
             trans.key,
@@ -250,14 +266,14 @@ export const seed = internalMutation({
             "behavior-driven-confirmation"
           );
 
-          if (inserted) {
-            count++;
-          }
+          if (result.inserted) insertedCount++;
+          if (result.updated) updatedCount++;
         }
       }
     }
 
-    console.log(`✅ Seeded ${count} Confirmation Success translations (${translations.length} keys)`);
-    return { success: true, count, totalKeys: translations.length };
+    const totalCount = insertedCount + updatedCount;
+    console.log(`✅ Confirmation Success: ${insertedCount} inserted, ${updatedCount} updated (${translations.length} keys)`);
+    return { success: true, count: totalCount, inserted: insertedCount, updated: updatedCount, totalKeys: translations.length };
   }
 });
