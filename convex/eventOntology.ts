@@ -119,8 +119,16 @@ export const createEvent = mutation({
       throw new Error("End date must be after start date");
     }
 
+    // Generate slug from event name
+    const slug = args.name
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-") // Replace non-alphanumeric with dashes
+      .replace(/^-+|-+$/g, ""); // Remove leading/trailing dashes
+
     // Build customProperties with event data
     const customProperties = {
+      slug, // Add slug for URL-friendly event access
       startDate: args.startDate,
       endDate: args.endDate,
       location: args.location,
@@ -179,7 +187,16 @@ export const updateEvent = mutation({
       updatedAt: Date.now(),
     };
 
-    if (args.name !== undefined) updates.name = args.name;
+    // If name is being updated, regenerate slug
+    let newSlug: string | undefined;
+    if (args.name !== undefined) {
+      updates.name = args.name;
+      newSlug = args.name
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, "-") // Replace non-alphanumeric with dashes
+        .replace(/^-+|-+$/g, ""); // Remove leading/trailing dashes
+    }
     if (args.description !== undefined) updates.description = args.description;
     if (args.subtype !== undefined) {
       const validSubtypes = ["conference", "workshop", "concert", "meetup", "seminar"];
@@ -201,7 +218,7 @@ export const updateEvent = mutation({
     }
 
     // Update customProperties
-    if (args.startDate !== undefined || args.endDate !== undefined || args.location !== undefined || args.customProperties) {
+    if (args.startDate !== undefined || args.endDate !== undefined || args.location !== undefined || args.customProperties || newSlug) {
       const currentProps = event.customProperties || {};
 
       // Validate date changes
@@ -213,6 +230,7 @@ export const updateEvent = mutation({
 
       updates.customProperties = {
         ...currentProps,
+        ...(newSlug && { slug: newSlug }), // Update slug if name changed
         ...(args.startDate !== undefined && { startDate: args.startDate }),
         ...(args.endDate !== undefined && { endDate: args.endDate }),
         ...(args.location !== undefined && { location: args.location }),
