@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anmeldung zum 8. HaffSymposium der Sportmedizin</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c5282 0%, #2d3748 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        
+        .form-container {
+            padding: 40px;
+        }
+        
+        .section {
+            margin-bottom: 40px;
+            padding: 25px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border-left: 4px solid #4299e1;
+        }
+        
+        .section.hidden {
+            display: none;
+        }
+        
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 15px;
+            align-items: start;
+        }
+        
+        .form-row.full {
+            grid-template-columns: 1fr;
+        }
+        
+        .form-row.three-col {
+            grid-template-columns: 1fr 1fr 1fr;
+        }
+        
+        label {
+            font-weight: 500;
+            color: #4a5568;
+            margin-bottom: 5px;
+            display: block;
+            font-size: 14px;
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #4299e1;
+            box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+        }
+        
+        .radio-group, .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .radio-item, .checkbox-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 12px;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .radio-item:hover, .checkbox-item:hover {
+            background: #edf2f7;
+            border-color: #cbd5e0;
+        }
+        
+        .radio-item input[type="radio"], .checkbox-item input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+            margin-top: 2px;
+        }
+        
+        .radio-item label, .checkbox-item label {
+            margin: 0;
+            cursor: pointer;
+            flex: 1;
+        }
+        
+        .submit-btn {
+            background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+            color: white;
+            padding: 15px 40px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            width: 100%;
+            margin-top: 30px;
+        }
+        
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(66, 153, 225, 0.3);
+        }
+        
+        .note {
+            background: #fef5e7;
+            border: 1px solid #f6e05e;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+            font-size: 14px;
+            color: #744210;
+        }
+        
+        .cost-note {
+            background: #e6fffa;
+            border: 1px solid #38b2ac;
+            border-radius: 6px;
+            padding: 12px;
+            margin: 10px 0;
+            font-size: 13px;
+            color: #234e52;
+            font-weight: 500;
+        }
+        
+        .employer-note {
+            background: #f0fff4;
+            border: 1px solid #48bb78;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+            font-size: 14px;
+            color: #22543d;
+            font-weight: 500;
+        }
+        
+        @media (max-width: 768px) {
+            .form-row, .form-row.three-col {
+                grid-template-columns: 1fr;
+            }
+            
+            .form-container {
+                padding: 20px;
+            }
+            
+            .header {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>8. HaffSymposium der Sportmedizin</h1>
+            <p>31. Mai - 1. Juni 2024 • Ueckermünde</p>
+        </div>
+        
+        <div class="form-container">
+            <form id="registrationForm" onsubmit="handleSubmit(event)">
+                
+                <!-- Attendee Category Selection -->
+                <div class="section">
+                    <h2 class="section-title">Anmeldekategorie</h2>
+                    <div class="form-group">
+                        <label>Bitte helfen Sie uns, Ihre Anmeldung besser zuzuordnen:</label>
+                        <div class="radio-group">
+                            <div class="radio-item">
+                                <input type="radio" id="external" name="attendee_category" value="1" onchange="showRelevantSections()">
+                                <label for="external">Ich bin ein externer Teilnehmer.</label>
+                            </div>
+                            <div class="radio-item">
+                                <input type="radio" id="ameos" name="attendee_category" value="2" onchange="showRelevantSections()">
+                                <label for="ameos">Ich bin ein Mitarbeiter der AMEOS Einrichtungen in Vorpommern.</label>
+                            </div>
+                            <div class="radio-item">
+                                <input type="radio" id="haffnet" name="attendee_category" value="3" onchange="showRelevantSections()">
+                                <label for="haffnet">Ich bin ein HaffNet-Mitglied/-Partner.</label>
+                            </div>
+                            <div class="radio-item">
+                                <input type="radio" id="speaker" name="attendee_category" value="4" onchange="showRelevantSections()">
+                                <label for="speaker">Ich bin ein Referent der Veranstaltung.</label>
+                            </div>
+                            <div class="radio-item">
+                                <input type="radio" id="sponsor" name="attendee_category" value="5" onchange="showRelevantSections()">
+                                <label for="sponsor">Ich bin ein Sponsoring-Partner.</label>
+                            </div>
+                            <div class="radio-item">
+                                <input type="radio" id="orga" name="attendee_category" value="6" onchange="showRelevantSections()">
+                                <label for="orga">Ich gehöre zum Orga-Team.</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="other_info">Sonstiges:</label>
+                        <textarea id="other_info" name="other_info" rows="3" placeholder="Weitere Informationen..."></textarea>
+                    </div>
+                </div>
+
+                <!-- Personal Information -->
+                <div class="section">
+                    <h2 class="section-title">Persönliche Angaben</h2>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="salutation">Anrede: *</label>
+                            <select id="salutation" name="salutation" required>
+                                <option value="">Bitte wählen</option>
+                                <option value="Herr">Herr</option>
+                                <option value="Frau">Frau</option>
+                                <option value="Frau ">Frau </option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="title">Titel:</label>
+                            <select id="title" name="title">
+                                <option value="">Kein Titel</option>
+                                <option value="Dr.">Dr.</option>
+                                <option value="Prof.">Prof.</option>
+                                <option value="Prof. Dr.">Prof. Dr.</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="first_name">Vorname: *</label>
+                            <input type="text" id="first_name" name="first_name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="last_name">Nachname: *</label>
+                            <input type="text" id="last_name" name="last_name" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="mobile_phone">Handynummer:</label>
+                            <input type="tel" id="mobile_phone" name="mobile_phone">
+                        </div>
+                        <div class="form-group">
+                            <label for="private_email">Private Mail-Adresse: *</label>
+                            <input type="email" id="private_email" name="private_email" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="organization">Praxis/Organisation mit kompletter Anschrift:</label>
+                        <textarea id="organization" name="organization" rows="3" placeholder="Name der Praxis/Organisation&#10;Straße und Hausnummer&#10;PLZ und Ort"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="profession">Fachrichtung:</label>
+                        <input type="text" id="profession" name="profession" placeholder="z.B. Fachärztin für Allgemeinmedizin oder Physiotherapeut">
+                    </div>
+                </div>
+
+                <!-- External Participant Section -->
+                <div class="section hidden" id="external-section">
+                    <h2 class="section-title">Anmeldung zu der Veranstaltung am 31.05.2024 sowie am 01.06.2024</h2>
+                    
+                    <div class="form-group">
+                        <label for="arrival_time_external">Bitte teilen Sie uns Ihre geplante Anreisezeit im Bürgersaal am 31.05.2024 mit:</label>
+                        <input type="time" id="arrival_time_external" name="arrival_time_external">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Mit wie viel Personen möchten Sie an der individuellen Abendveranstaltung auf der Pommernkogge "UCRA" teilnehmen?</label>
+                        <div class="cost-note">Pro Person entstehen Ihnen zusätzliche Kosten von 30,00 EUR</div>
+                        <div class="note">Antwortmöglichkeiten: 0= gar nicht, 1= 1 Person, 2= Sie und Ihre Begleitung</div>
+                        <div class="radio-group">
+                            <div class="radio-item">
+                                <input type="radio" id="ucra_0_ext" name="ucra_participants_external" value="0">
+                                <label for="ucra_0_ext">0 = gar nicht</label>
+                            </div>
+                            <div class="radio-item">
+                                <input type="radio" id="ucra_1_ext" name="ucra_participants_external" value="1">
+                                <label for="ucra_1_ext">1 = 1 Person</label>
+                            </div>
+                            <div class="radio-item">
+                                <input type="radio" id="ucra_2_ext" name="ucra_participants_external" value="2">
+                                <label for="ucra_2_ext">2 = Sie und Ihre Begleitung</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="accommodation_external">Informationen rund um Ihre Übernachtung:</label>
+                        <textarea id="accommodation_external" name="accommodation_external" rows="3" placeholder="Benötigen Sie eine Übernachtung? Besondere Wünsche?"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="activity_external">Ich möchte an folgender Aktivität am 01.06.2024 teilnehmen:</label>
+                        <select id="activity_external" name="activity_external">
+                            <option value="">Bitte wählen</option>
+                            <option value="workshop_a">Workshop A</option>
+                            <option value="workshop_b">Workshop B</option>
+                            <option value="exkursion">Exkursion</option>
+                            <option value="andere">Andere Aktivität</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Dürfen wir Sie im Anschluss an Ihre Aktivität zum Grillen & Chillen bei Uwe's Bootsverleih im Standhafen Ueckermünde begrüßen?</label>
+                        <div class="radio-group">
+                            <div class="radio-item">
+                                <input type="radio" id="bbq_yes_ext" name="bbq_external" value="yes">
+                                <label for="bbq_yes_ext">Ja</label>
+                            </div>
+                            <div class="radio-item">
+                                <input type="radio" id="bbq_no_ext" name="bbq_external" value="no">
+                                <label for="bbq_no_ext">Nein</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="special_requests_external">Möchten Sie uns etwas Bestimmtes mitteilen?</label>
+                        <textarea id="special_requests_external" name="special_requests_external" rows="3" placeholder="z.B. eine Lebensmittelunverträglichkeit, Informationen zu einer Begleitperson oder Ähnliches"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="billing_address_external">Wie lautet Ihre korrekte Rechnungsadresse?</label>
+                        <textarea id="billing_address_external" name="billing_address_external" rows="3" placeholder="Vollständige Rechnungsadresse für die Teilnahmegebühren"></textarea>
+                    </div>
+                </div>
+
+                <!-- AMEOS Employee Section -->
+                <div class="section hidden" id="ameos-section">
+                    <h2 class="section-title">Ihre Anmeldung als AMEOS Mitarbeiter für die Veranstaltung am 31.05.2024 sowie am 01.06.2024</h2>
+                    
+                    <div class="form-group">
+                        <label for="arrival_time_ameos">Bitte teilen Sie uns Ihre geplante Anreisezeit im Bürgersaal am 31.05.2024 mit:</label>
+                        <input type="time" id="arrival_time_ameos" name="arrival_time_ameos">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Mit wie viel Personen möchten Sie an der individuellen Abendveranstaltung auf der Pommernkogge "UCRA" teilnehmen?</label>
+                        <div class="cost-note">Pro Person entstehen Ihnen zusätzliche Kosten von 30,00 EUR</div>
+                        <div class="note">Antwortmöglichkeiten: 0= gar nicht, 1= 1 Person, 2= Sie und Ihre Begleitung</div>
+                        <div class="radio-group">
+                            <div class="radio-item">
+                                <input type="radio" id="ucra_0_ameos" name="ucra_participants_ameos" value="0">
+                                <label for="ucra_0_ameos">0 = gar nicht</label>
+                            </div>
+                            <div class="radio-item">
+                                <input type="radio" id="ucra_1_ameos" name="ucra_participants_ameos" value="1">
+                                <label for="ucra_1_ameos">1 = 1 Person</label>
+                            </div>
+                            <div class="radio-item">
+                                <input type="radio" id="ucra_2_ameos" name="ucra_participants_ameos" value="2">
+                                <label for="ucra_2_ameos">2 = Sie und Ihre Begleitung</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="accommodation_ameos">Informationen rund um Ihre Übernachtung:</label>
+                        <textarea id="accommodation_ameos" name="accommodation_ameos" rows="3" placeholder="Benötigen Sie eine Übernachtung? Besondere Wünsche?"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="activity_ameos">Ich möchte an folgender Aktivität am 01.06.2024 teilnehmen:</label>
+                        <select id="activity_ameos" name="activity_ameos">
+                            <option value="">Bitte wählen</option>
+                            <option value="workshop_a">Workshop A</option>
+                            <option value="workshop_b">Workshop B</option>
+                            <option value="exkursion">Exkursion</option>
+                            <option value="andere">Andere Aktivität</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Dürfen wir Sie im Anschluss an Ihre Aktivität zum Grillen & Chillen bei Uwe's Bootsverleih im Standhafen Ueckermünde begrüßen?</label>
+                        <div class="radio-group">
+                            <div class="radio-item">
+                                <input type="radio" id="bbq_yes_ameos" name="bbq_ameos" value="yes">
+                                <label for="bbq_yes_ameos">Ja</label>
+                            </div>
+                            <div class="radio-item">
+                                <input type="radio" id="bbq_no_ameos" name="bbq_ameos" value="no">
+                                <label for="bbq_no_ameos">Nein</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="special_requests_ameos">Möchten Sie uns etwas Bestimmtes mitteilen?</label>
+                        <textarea id="special_requests_ameos" name="special_requests_ameos" rows="3" placeholder="z.B. eine Lebensmittelunverträglichkeit, Informationen zu einer Begleitperson oder Ähnliches"></textarea>
+                    </div>
+                    
+                    <div class="employer-note">
+                        Ihr Arbeitgeber wird die Kosten für die Veranstaltung sowie die UCRA-Ausfahrt übernehmen.
+                    </div>
+                </div>
+
+                <!-- HaffNet Member/Partner Section -->
+                <div class="section hidden" id="haffnet-section">
+                    <h2 class="section-title">Ihre Anmeldung als HaffNet-Mitglied/-Partner für die Veranstaltung am 31.05.2024 sowie am 01.06.2024</h2>
+                    
+                    <div class="form-group">
+                        <label for="arrival_time_haffnet">Bitte teilen Sie uns Ihre geplante Anreisezeit im Bürgersaal am 31.05.2024 mit:</label>
+                        <input type="time" id="arrival_time_haffnet" name="arrival_time_haffnet">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Mit wie viel Personen möchten Sie an der individuellen Abendveranstaltung auf der Pommernkogge "UCRA" teilnehmen?</label>
+                        <div class="cost-note">Pro Person entstehen Ihnen zusätzliche Kosten von 30,00 EUR</div>
+                        <div class="note">Antwortmöglichkeiten: 0= gar nicht, 1= 1 Person, 2= Sie und Ihre Begleitung</div>
+                        <div class="radio-group">
+                            <div class="radio-item">
+                                <input type="radio" id="ucra_0_haffnet" name="ucra_participants_haffnet" value="0">
+                                <label for="ucra_0_haffnet">0 = gar nicht</label>
+                            </div>
+                            <div class="radio-item">
+                                <input type="radio" id="ucra_1_haffnet" name="ucra_participants_haffnet" value="1">
+                                <label for="ucra_1_haffnet">1 = 1 Person</label>
+                            </div>
+                            <div class="radio-item">
+                                <input type="radio" id="ucra_2_haffnet" name="ucra_participants_haffnet" value="2">
+                                <label for="ucra_2_haffnet">2 = Sie und Ihre Begleitung</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="accommodation_haffnet">Informationen rund um Ihre Übernachtung:</label>
+                        <textarea id="accommodation_haffnet" name="accommodation_haffnet" rows="3" placeholder="Benötigen Sie eine Übernachtung? Besondere Wünsche?"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="activity_haffnet">Ich möchte an folgender Aktivität am 01.06.2024 teilnehmen:</label>
+                        <select id="activity_haffnet" name="activity_haffnet">
+                            <option value="">Bitte wählen</option>
+                            <option value="workshop_a">Workshop A</option>
+                            <option value="workshop_b">Workshop B</option>
+                            <option value="exkursion">Exkursion</option>
+                            <option value="andere">Andere Aktivität</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Dürfen wir Sie im Anschluss an Ihre Aktivität zum Grillen & Chillen bei Uwe's Bootsverleih im Standhafen Ueckermünde begrüßen?</label>
+                        <div class="radio-group">
+                            <div class="radio-item">
+                                <input type="radio" id="bbq_yes_haffnet" name="bbq_haffnet" value="yes">
+                                <label for="bbq_yes_haffnet">Ja</label>
+                            </div>
+                            <div class="radio-item">
+                                <input type="radio" id="bbq_no_haffnet" name="bbq_haffnet" value="no">
+                                <label for="bbq_no_haffnet">Nein</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="special_requests_haffnet">Möchten Sie uns etwas Bestimmtes mitteilen?</label>
+                        <textarea id="special_requests_haffnet" name="special_requests_haffnet" rows="3" placeholder="z.B. eine Lebensmittelunverträglichkeit, Informationen zu einer Begleitperson oder Ähnliches"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="billing_address_haffnet">Wie lautet Ihre korrekte Rechnungsadresse?</label>
+                        <textarea id="billing_address_haffnet" name="billing_address_haffnet" rows="3" placeholder="Vollständige Rechnungsadresse für die Teilnahmegebühren"></textarea>
+                    </div>
+                </div>
+
+                <!-- Speaker/Presenter Section -->
+                <div class="section hidden" id="speaker-section">
+                    <h2 class="section-title">Angaben zu Ihrer Teilnahme als Referent am 31.05.2024 sowie am 01.06.2024</h2>
+                    
+                    <div class="form-group">
+                        <label for="arrival_time_speaker">Bitte teilen Sie uns Ihre geplante Anreisezeit im Bürgersaal am 31.05.2024 mit:</label>
+                        <input type="time" id="arrival_time_speaker" name="arrival_time_speaker">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Mit wie viel Personen möchten Sie an der individuellen Abendveranstaltung auf der Pommernkogge "UCRA" teilnehmen?</label>
+                        <div class="note">Antwortmöglichkeiten: 0= gar nicht, 1= 1 Person, 2= Sie und Ihre Begleitung</div>
+                        <div class="radio-group">
+                            <div class="radio-item">
+                                <input type="radio" id="ucra_0_speaker" name="ucra_participants_speaker" value="0">
+                                <label for="ucra_0_speaker">0 = gar nicht</label>
+                            </div>
+                            <div class="radio-item">
+                                <input type="radio" id="ucra_1_speaker" name="ucra_participants_speaker" value="1">
+                                <label for="ucra_1_speaker">1 = 1 Person</label>
+                            </div>
+                            <div class="radio-item">
+                                <input type="radio" id="ucra_2_speaker" name="ucra_participants_speaker" value="2">
+                                <label for="ucra_2_speaker">2 = Sie und Ihre Begleitung</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="accommodation_speaker">Informationen rund um Ihre Übernachtung:</label>
+                        <textarea id="accommodation_speaker" name="accommodation_speaker" rows="3" placeholder="Benötigen Sie eine Übernachtung? Besondere Wünsche?"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="activity_speaker">Ich möchte an folgender Aktivität am 01.06.2024 teilnehmen:</label>
+                        <select id="activity_speaker" name="activity_speaker">
+                            <option value="">Bitte wählen</option>
+                            <option value="workshop_a">Workshop A</option>
+                            <option value="workshop_b">Workshop B</option>
+                            <option value="exkursion">Exkursion</option>
+                            <option value="andere">Andere Aktivität</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Dürfen wir Sie im Anschluss an Ihre Aktivität zum Grillen & Chillen bei Uwe's Bootsverleih im Standhafen Ueckermünde begrüßen?</label>
+                        <div class="radio-group">
+                            <div class="radio-item">
+                                <input type="radio" id="bbq_yes_speaker" name="bbq_speaker" value="yes">
+                                <label for="bbq_yes_speaker">Ja</label>
+                            </div>
+                            <div class="radio-item">
+                                <input type="radio" id="bbq_no_speaker" name="bbq_speaker" value="no">
+                                <label for="bbq_no_speaker">Nein</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="special_requests_speaker">Möchten Sie uns etwas Bestimmtes mitteilen?</label>
+                        <textarea id="special_requests_speaker" name="special_requests_speaker" rows="3" placeholder="z.B. eine Lebensmittelunverträglichkeit, Informationen zu einer Begleitperson oder Ähnliches"></textarea>
+                    </div>
+                </div>
+
+                <!-- Sponsoring Partner Section -->
+                <div class="section hidden" id="sponsor-section">
+                    <h2 class="section-title">Detaillierte Angaben zu Ihrer Teilnahme als Sponsoring-Partner am 31.05.2024 sowie am 01.06.2024</h2>
+                    
+                    <div class="form-group">
+                        <label for="arrival_time_sponsor">Bitte teilen Sie uns Ihre geplante Ankunftzeit im Bürgersaal am 31.05.2024 mit:</label>
+                        <input type="time" id="arrival_time_sponsor" name="arrival_time_sponsor">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="sponsor_comment">Platz für Ihr Kommentar:</label>
+                        <textarea id="sponsor_comment" name="sponsor_comment" rows="3" placeholder="Ihre Anmerkungen oder Wünsche als Sponsoring-Partner"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Mit wie viel Personen möchten Sie an der individuellen Abendveranstaltung auf der Pommernkogge "UCRA" teilnehmen?</label>
+                        <div class="note">Antwortmöglichkeiten: 0= gar nicht, 1= 1 Person, 2= Sie und Ihre Begleitung</div>
+                        <div class="radio-group">
+                            <div class="radio-item">
+                                <input type="radio" id="ucra_0_sponsor" name="ucra_participants_sponsor" value="0">
+                                <label for="ucra_0_sponsor">0 = gar nicht</label>
+                            </div>
+                            <div class="radio-item">
+                                <input type="radio" id="ucra_1_sponsor" name="ucra_participants_sponsor" value="1">
+                                <label for="ucra_1_sponsor">1 = 1 Person</label>
+                            </div>
+                            <div class="radio-item">
+                                <input type="radio" id="ucra_2_sponsor" name="ucra_participants_sponsor" value="2">
+                                <label for="ucra_2_sponsor">2 = Sie und Ihre Begleitung</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="accommodation_sponsor">Informationen rund um Ihre Übernachtung:</label>
+                        <textarea id="accommodation_sponsor" name="accommodation_sponsor" rows="3" placeholder="Benötigen Sie eine Übernachtung? Besondere Wünsche?"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="activity_sponsor">Ich möchte an folgender Aktivität am 01.06.2024 teilnehmen:</label>
+                        <select id="activity_sponsor" name="activity_sponsor">
+                            <option value="">Bitte wählen</option>
+                            <option value="workshop_a">Workshop A</option>
+                            <option value="workshop_b">Workshop B</option>
+                            <option value="exkursion">Exkursion</option>
+                            <option value="andere">Andere Aktivität</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Dürfen wir Sie im Anschluss an Ihre Aktivität zum Grillen & Chillen bei Uwe's Bootsverleih im Standhafen Ueckermünde begrüßen?</label>
+                        <div class="radio-group">
+                            <div class="radio-item">
+                                <input type="radio" id="bbq_yes_sponsor" name="bbq_sponsor" value="yes">
+                                <label for="bbq_yes_sponsor">Ja</label>
+                            </div>
+                            <div class="radio-item">
+                                <input type="radio" id="bbq_no_sponsor" name="bbq_sponsor" value="no">
+                                <label for="bbq_no_sponsor">Nein</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="sponsor_additional">Sonstiges:</label>
+                        <textarea id="sponsor_additional" name="sponsor_additional" rows="3" placeholder="Weitere Informationen oder Wünsche"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="special_requests_sponsor">Möchten Sie uns etwas Bestimmtes mitteilen?</label>
+                        <textarea id="special_requests_sponsor" name="special_requests_sponsor" rows="3" placeholder="z.B. eine Lebensmittelunverträglichkeit, Informationen zu einer Begleitperson oder Ähnliches"></textarea>
+                    </div>
+                </div>
+
+                <!-- Organization Team Section -->
+                <div class="section hidden" id="orga-section">
+                    <h2 class="section-title">Registrierung als Orga-Mitglied für das 8. Haff-Symposium</h2>
+                    
+                    <div class="form-group">
+                        <label for="arrival_time_orga">Bitte teilen Sie uns Ihre geplante Anreisezeit im Bürgersaal am 31.05.2024 mit:</label>
+                        <input type="time" id="arrival_time_orga" name="arrival_time_orga">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Ich unterstütze folgende Aktivitäten am 01.06.2024:</label>
+                        <div class="checkbox-group">
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="support_setup" name="support_activities" value="setup">
+                                <label for="support_setup">Aufbau und Vorbereitung</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="support_registration" name="support_activities" value="registration">
+                                <label for="support_registration">Registrierung und Check-in</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="support_catering" name="support_activities" value="catering">
+                                <label for="support_catering">Catering-Betreuung</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="support_technical" name="support_activities" value="technical">
+                                <label for="support_technical">Technische Unterstützung</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="support_workshops" name="support_activities" value="workshops">
+                                <label for="support_workshops">Workshop-Betreuung</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="support_activities_coordination" name="support_activities" value="activities">
+                                <label for="support_activities_coordination">Aktivitäten-Koordination</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="support_cleanup" name="support_activities" value="cleanup">
+                                <label for="support_cleanup">Abbau und Nachbereitung</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Dürfen wir Sie im Anschluss an Ihre Aktivität zum Grillen & Chillen bei Uwe's Bootsverleih im Standhafen Ueckermünde einplanen?</label>
+                        <div class="radio-group">
+                            <div class="radio-item">
+                                <input type="radio" id="bbq_yes_orga" name="bbq_orga" value="yes">
+                                <label for="bbq_yes_orga">Ja</label>
+                            </div>
+                            <div class="radio-item">
+                                <input type="radio" id="bbq_no_orga" name="bbq_orga" value="no">
+                                <label for="bbq_no_orga">Nein</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="special_requests_orga">Möchten Sie uns etwas Bestimmtes mitteilen?</label>
+                        <textarea id="special_requests_orga" name="special_requests_orga" rows="3" placeholder="z.B. eine Lebensmittelunverträglichkeit, Informationen zu einer Begleitperson oder Ähnliches"></textarea>
+                    </div>
+                </div>
+                
+                <button type="submit" class="submit-btn">Anmeldung abschicken</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function showRelevantSections() {
+            // Hide all conditional sections
+            const sections = ['external-section', 'ameos-section', 'haffnet-section', 'speaker-section', 'sponsor-section', 'orga-section'];
+            sections.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) element.classList.add('hidden');
+            });
+            
+            // Show relevant section based on selection
+            const selectedValue = document.querySelector('input[name="attendee_category"]:checked')?.value;
+            const sectionMap = {
+                '1': 'external-section',
+                '2': 'ameos-section', 
+                '3': 'haffnet-section',
+                '4': 'speaker-section',
+                '5': 'sponsor-section',
+                '6': 'orga-section'
+            };
+            
+            if (selectedValue && sectionMap[selectedValue]) {
+                const targetSection = document.getElementById(sectionMap[selectedValue]);
+                if (targetSection) {
+                    targetSection.classList.remove('hidden');
+                    // Scroll to the section
+                    targetSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }
+        }
+        
+        function handleSubmit(event) {
+            event.preventDefault();
+            
+            // Collect form data
+            const formData = new FormData(event.target);
+            const data = Object.fromEntries(formData.entries());
+            
+            // Handle multiple checkboxes for organization team support activities
+            const supportActivities = Array.from(document.querySelectorAll('input[name="support_activities"]:checked'))
+                .map(cb => cb.value);
+            if (supportActivities.length > 0) {
+                data.support_activities = supportActivities;
+            }
+            
+            // Add timestamp and unique ID (simulating backend behavior)
+            data.submission_time = new Date().toISOString();
+            data.unique_id = Math.random().toString(36).substr(2, 9).toUpperCase();
+            
+            console.log('Complete Form Data:', data);
+            
+            // Show success message with details
+            const attendeeType = document.querySelector('input[name="attendee_category"]:checked');
+            const attendeeLabel = attendeeType ? attendeeType.nextElementSibling.textContent : 'Teilnehmer';
+            
+            alert(`Vielen Dank für Ihre Anmeldung als ${attendeeLabel}!\n\nIhre Anmeldung wurde erfolgreich übermittelt.\nAnmelde-ID: ${data.unique_id}\n\nSie erhalten in Kürze eine Bestätigung per E-Mail.`);
+        }
+        
+        // Initialize form
+        document.addEventListener('DOMContentLoaded', function() {
+            showRelevantSections();
+            
+            // Add smooth scrolling for better UX
+            const radioInputs = document.querySelectorAll('input[name="attendee_category"]');
+            radioInputs.forEach(input => {
+                input.addEventListener('change', function() {
+                    setTimeout(() => {
+                        const activeSection = document.querySelector('.section:not(.hidden):last-of-type');
+                        if (activeSection) {
+                            activeSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
+                    }, 100);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

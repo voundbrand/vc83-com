@@ -125,11 +125,9 @@ export function AddonManager({
   };
 
   const handleSave = () => {
-    // Check if we have either new formFieldIds or legacy formFieldId
-    const hasFormFields = (currentAddon.formFieldIds && currentAddon.formFieldIds.length > 0) || currentAddon.formFieldId;
-
-    if (!currentAddon.name || !hasFormFields) {
-      notification.error("Missing Required Fields", "Please fill in Name and select at least one Form Field");
+    // Only name is required - form fields are now optional
+    if (!currentAddon.name) {
+      notification.error("Missing Required Fields", "Please fill in the addon Name");
       return;
     }
 
@@ -287,7 +285,7 @@ export function AddonManager({
                       Linked to form field: <code className="text-xs">{addon.formFieldId}</code>
                     </>
                   ) : (
-                    <span style={{ color: "var(--error)" }}>⚠ No form fields configured</span>
+                    <span style={{ color: "var(--neutral-gray)" }}>💡 Standalone addon (no form field trigger)</span>
                   )}
                   {addon.taxable && addon.taxCode && ` • Tax: ${addon.taxCode}`}
                   {!addon.taxable && " • Not taxable"}
@@ -449,10 +447,10 @@ export function AddonManager({
           {/* Form Field Mapping - Multi-Select */}
           <div>
             <label className="block text-xs font-semibold mb-1" style={{ color: "var(--win95-text)" }}>
-              Form Fields <span style={{ color: "var(--error)" }}>*</span>
+              Form Fields (Optional)
             </label>
             <p className="text-xs mb-2" style={{ color: "var(--neutral-gray)" }}>
-              Select form fields that trigger this addon (e.g., all UCRA fields across categories)
+              Optional: Select form fields that trigger this addon automatically. Leave empty for standalone addons that can be added manually.
             </p>
 
             {availableFormFields && availableFormFields.length > 0 ? (
@@ -529,12 +527,13 @@ export function AddonManager({
             )}
           </div>
 
-          {/* Field Value Mapping */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-xs font-semibold" style={{ color: "var(--win95-text)" }}>
-                Field Value → Quantity Mapping
-              </label>
+          {/* Field Value Mapping - Only show if form fields are selected */}
+          {((currentAddon.formFieldIds && currentAddon.formFieldIds.length > 0) || currentAddon.formFieldId) && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-semibold" style={{ color: "var(--win95-text)" }}>
+                  Field Value → Quantity Mapping
+                </label>
               {availableFormFields && availableFormFields.length > 0 && (
                 <button
                   type="button"
@@ -604,10 +603,11 @@ export function AddonManager({
                 Add Mapping
               </button>
             </div>
-            <p className="text-xs mt-2" style={{ color: "var(--neutral-gray)" }}>
-              Example: &quot;0&quot; → 0, &quot;1&quot; → 1, &quot;2&quot; → 2 (for radio button with 0, 1, or 2 participants)
-            </p>
-          </div>
+              <p className="text-xs mt-2" style={{ color: "var(--neutral-gray)" }}>
+                Example: &quot;0&quot; → 0, &quot;1&quot; → 1, &quot;2&quot; → 2 (for radio button with 0, 1, or 2 participants)
+              </p>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex gap-2 pt-2">
