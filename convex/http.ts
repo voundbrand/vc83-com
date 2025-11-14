@@ -280,7 +280,7 @@ http.route({
  */
 
 // Import API handlers
-import { getEvents, getEventBySlug } from "./api/v1/events";
+import { getEvents, getEventBySlug, getEventById, getEventProducts } from "./api/v1/events";
 import { getProduct } from "./api/v1/products";
 import { getForm } from "./api/v1/forms";
 import { triggerWorkflow } from "./api/v1/workflows";
@@ -311,11 +311,25 @@ http.route({
   handler: getEvents,
 });
 
-// GET /api/v1/events/:slug
+// GET /api/v1/events/by-slug/:slug
 http.route({
-  path: "/api/v1/events/:slug",
+  path: "/api/v1/events/by-slug/:slug",
   method: "GET",
   handler: getEventBySlug,
+});
+
+// GET /api/v1/events/:eventId (by ID)
+http.route({
+  path: "/api/v1/events/:eventId",
+  method: "GET",
+  handler: getEventById,
+});
+
+// GET /api/v1/events/:eventId/products
+http.route({
+  path: "/api/v1/events/:eventId/products",
+  method: "GET",
+  handler: getEventProducts,
 });
 
 // GET /api/v1/products/:productId

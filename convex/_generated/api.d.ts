@@ -16,6 +16,7 @@ import type {
 import type * as accountManagement from "../accountManagement.js";
 import type * as addressValidation from "../addressValidation.js";
 import type * as api_auth from "../api/auth.js";
+import type * as api_v1_auth from "../api/v1/auth.js";
 import type * as api_v1_bookings from "../api/v1/bookings.js";
 import type * as api_v1_bookingsInternal from "../api/v1/bookingsInternal.js";
 import type * as api_v1_checkout from "../api/v1/checkout.js";
@@ -259,6 +260,7 @@ declare const fullApi: ApiFromModules<{
   accountManagement: typeof accountManagement;
   addressValidation: typeof addressValidation;
   "api/auth": typeof api_auth;
+  "api/v1/auth": typeof api_v1_auth;
   "api/v1/bookings": typeof api_v1_bookings;
   "api/v1/bookingsInternal": typeof api_v1_bookingsInternal;
   "api/v1/checkout": typeof api_v1_checkout;

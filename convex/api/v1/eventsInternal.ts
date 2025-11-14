@@ -120,3 +120,100 @@ export const getEventBySlugInternal = internalQuery({
     };
   },
 });
+
+/**
+ * GET EVENT BY ID INTERNAL
+ * Returns a single event by ID without requiring session authentication
+ */
+export const getEventByIdInternal = internalQuery({
+  args: {
+    eventId: v.id("objects"),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    // Get event by ID
+    const event = await ctx.db.get(args.eventId);
+
+    if (!event) {
+      return null;
+    }
+
+    // Verify event belongs to organization
+    if (event.organizationId !== args.organizationId) {
+      return null;
+    }
+
+    // Verify it's an event type
+    if (event.type !== "event") {
+      return null;
+    }
+
+    // Parse customProperties to get event-specific data
+    const customProps = event.customProperties as Record<string, unknown> | undefined;
+
+    // Return full event details matching the documentation format
+    return {
+      _id: event._id,
+      type: event.type,
+      subtype: event.subtype,
+      name: event.name,
+      slug: customProps?.slug as string | undefined,
+      description: event.description,
+      eventDetails: customProps?.eventDetails as Record<string, unknown> | undefined,
+      registration: customProps?.registration as Record<string, unknown> | undefined,
+      workflow: customProps?.workflow as Record<string, unknown> | undefined,
+      publishedAt: customProps?.publishedAt as string | undefined,
+      status: event.status,
+    };
+  },
+});
+
+/**
+ * GET EVENT PRODUCTS INTERNAL
+ * Returns all products associated with a specific event
+ */
+export const getEventProductsInternal = internalQuery({
+  args: {
+    eventId: v.id("objects"),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    // First verify event exists and belongs to organization
+    const event = await ctx.db.get(args.eventId);
+
+    if (!event || event.organizationId !== args.organizationId || event.type !== "event") {
+      return [];
+    }
+
+    // Query products associated with this event
+    // Products have a relationship to events via customProperties.eventId
+    const products = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "product")
+      )
+      .collect();
+
+    // Filter products that are linked to this event
+    const eventProducts = products.filter((product) => {
+      const customProps = product.customProperties as Record<string, unknown> | undefined;
+      return customProps?.eventId === args.eventId;
+    });
+
+    // Transform for API response
+    return eventProducts.map((product) => {
+      const customProps = product.customProperties as Record<string, unknown> | undefined;
+      return {
+        id: product._id,
+        name: product.name,
+        description: product.description,
+        status: product.status,
+        price: customProps?.price as number | undefined,
+        currency: customProps?.currency as string | undefined,
+        category: customProps?.category as string | undefined,
+        inventory: customProps?.inventory as Record<string, unknown> | undefined,
+        metadata: customProps?.metadata as Record<string, unknown> | undefined,
+      };
+    });
+  },
+});
