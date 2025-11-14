@@ -181,10 +181,15 @@ curl -X GET "https://agreeable-lion-828.convex.site/api/v1/events/ns73596xb9xmyp
       "id": "ns72v16yzsa6h5w5f0m9156g397vc57s",
       "name": "9. HaffSymposium (Standard)",
       "description": "Reguläre Teilnahmegebühr für externe Teilnehmer...",
-      "price": 15000,
-      "currency": "EUR",
       "status": "active",
-      "inventory": null
+      "customProperties": {
+        "price": 15000,
+        "currency": "EUR",
+        "category": "ticket",
+        "categoryLabel": "Standard Ticket",
+        "inventory": null,
+        "eventId": "ns73596xb9xmypy0g28pypyard7vcpv2"
+      }
     }
   ],
   "total": 1
@@ -197,15 +202,19 @@ interface EventProduct {
   id: string;
   name: string;
   description?: string;
-  price: number;      // Price in cents (15000 = €150.00)
-  currency: string;   // ISO 4217 currency code (e.g., "EUR", "USD")
   status: 'active' | 'inactive' | 'sold_out';
-  inventory?: {
-    available?: number;
-    total?: number;
-  } | null;
-  category?: string;
-  metadata?: Record<string, any>;
+  customProperties: {
+    price: number;      // Price in cents (15000 = €150.00)
+    currency: string;   // ISO 4217 currency code (e.g., "EUR", "USD")
+    category?: string;
+    categoryLabel?: string;
+    inventory?: {
+      available?: number;
+      total?: number;
+    } | null;
+    metadata?: Record<string, any>;
+    eventId: string;    // ID of the associated event
+  };
 }
 ```
 
