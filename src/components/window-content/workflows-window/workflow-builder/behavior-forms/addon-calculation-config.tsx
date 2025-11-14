@@ -460,11 +460,27 @@ export function AddonCalculationConfigForm({
                               maxHeight: "150px",
                             }}
                           >
-                            {availableFormFields.map((field) => (
-                              <label
-                                key={field.id}
-                                className="flex items-center gap-2 py-1 cursor-pointer hover:bg-black/5"
-                              >
+                            {availableFormFields.map((field) => {
+                              const isSelected = addon.formFieldIds?.includes(field.id);
+                              return (
+                                <label
+                                  key={field.id}
+                                  className="flex items-center gap-2 py-1 cursor-pointer"
+                                  style={{
+                                    backgroundColor: isSelected ? "var(--win95-selected-bg)" : "transparent",
+                                    color: isSelected ? "var(--win95-selected-text)" : "var(--win95-text)",
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    if (!isSelected) {
+                                      e.currentTarget.style.backgroundColor = "var(--win95-hover-light)";
+                                    }
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    if (!isSelected) {
+                                      e.currentTarget.style.backgroundColor = "transparent";
+                                    }
+                                  }}
+                                >
                                 <input
                                   type="checkbox"
                                   checked={addon.formFieldIds?.includes(field.id)}
@@ -486,7 +502,8 @@ export function AddonCalculationConfigForm({
                                   {field.label} <span style={{ color: "var(--neutral-gray)" }}>({field.id})</span>
                                 </span>
                               </label>
-                            ))}
+                              );
+                            })}
                           </div>
                         ) : (
                           <input

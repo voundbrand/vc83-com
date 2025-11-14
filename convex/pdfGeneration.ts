@@ -210,86 +210,43 @@ export const generateTicketPDF = action({
         total_price: totalPrice,
       };
 
-      // 10. RESOLVE TEMPLATE FROM ONTOLOGY (No hardcoded defaults!)
-      // First try session-level template ID
-      let ticketTemplateId = session.customProperties?.ticketTemplateId as Id<"objects"> | undefined;
+      // 10. RESOLVE TEMPLATE FROM TEMPLATE SET (New unified resolver)
+      // Uses Template Set system with 3-level precedence:
+      // 1. Manual Send (if manualSetId provided)
+      // 2. Context Override (Product > Checkout > Domain)
+      // 3. Organization Default
+      console.log("🎫 [Ticket Template Resolution] Starting template set resolution...");
 
-      // Fallback: Check if product has ticketTemplateId in selectedProducts
-      if (!ticketTemplateId) {
-        const selectedProducts = (session.customProperties?.selectedProducts as Array<{
-          productId: Id<"objects">;
-          ticketTemplateId?: Id<"objects">;
-        }>) || [];
+      // Build context for template resolution
+      const templateContext = {
+        productId: product._id,
+        checkoutInstanceId: session.customProperties?.checkoutInstanceId as Id<"objects"> | undefined,
+        domainConfigId: session.customProperties?.domainConfigId as Id<"objects"> | undefined,
+      };
 
-        // Find this ticket's product and get its template ID
-        const productForTicket = selectedProducts.find(p => p.productId === product._id);
-        if (productForTicket?.ticketTemplateId) {
-          ticketTemplateId = productForTicket.ticketTemplateId;
-          console.log("🎫 Using ticket template from product in selectedProducts:", ticketTemplateId);
-        } else {
-          // Last resort: Read template ID directly from product
-          const productTemplateId = product.customProperties?.ticketTemplateId as Id<"objects"> | undefined;
-          if (productTemplateId) {
-            ticketTemplateId = productTemplateId;
-            console.log("🎫 Using ticket template from product.customProperties:", productTemplateId);
-          }
-        }
-      }
+      console.log("🎫 [Ticket Template Resolution] Context:", {
+        organizationId: organizationId,
+        productId: templateContext.productId,
+        checkoutInstanceId: templateContext.checkoutInstanceId,
+        domainConfigId: templateContext.domainConfigId,
+      });
 
-      let templateCode: string;
+      // Resolve ticket template using new Template Set resolver
+      const ticketTemplateId = await ctx.runQuery(internal.templateSetQueries.resolveIndividualTemplateInternal, {
+        organizationId: organizationId,
+        templateType: "ticket",
+        context: templateContext,
+      });
 
-      // Try new template ID system first
-      if (ticketTemplateId) {
-        const template = await ctx.runQuery(internal.pdfTemplateQueries.resolvePdfTemplateInternal, {
-          templateId: ticketTemplateId,
-        });
-        templateCode = template.templateCode;
-        console.log("🎫 Using ticket template from ticketTemplateId:", template.templateCode);
-      }
-      // Legacy: args.templateCode (old string-based system)
-      else if (args.templateCode) {
-        // Try to find template by code
-        const template = await ctx.runQuery(api.pdfTemplateQueries.getPdfTemplateByCode, {
-          templateCode: args.templateCode,
-        });
+      console.log("🎫 [Ticket Template Resolution] Resolved template ID:", ticketTemplateId);
 
-        if (template) {
-          const resolved = await ctx.runQuery(internal.pdfTemplateQueries.resolvePdfTemplateInternal, {
-            templateId: template._id,
-          });
-          templateCode = resolved.templateCode;
-          console.log("🎫 Using ticket template from legacy templateCode:", resolved.templateCode);
-        } else {
-          // Use default
-          const defaultTemplateId = await ctx.runQuery(api.pdfTemplateQueries.getDefaultPdfTemplate, {
-            category: "ticket",
-          });
-          if (defaultTemplateId) {
-            const resolved = await ctx.runQuery(internal.pdfTemplateQueries.resolvePdfTemplateInternal, {
-              templateId: defaultTemplateId,
-            });
-            templateCode = resolved.templateCode;
-          } else {
-            templateCode = "ticket_professional_v1"; // hardcoded fallback
-          }
-          console.warn("⚠️ Legacy templateCode not found, using default:", templateCode);
-        }
-      }
-      // Ultimate fallback to system default
-      else {
-        const defaultTemplateId = await ctx.runQuery(api.pdfTemplateQueries.getDefaultPdfTemplate, {
-          category: "ticket",
-        });
-        if (defaultTemplateId) {
-          const resolved = await ctx.runQuery(internal.pdfTemplateQueries.resolvePdfTemplateInternal, {
-            templateId: defaultTemplateId,
-          });
-          templateCode = resolved.templateCode;
-        } else {
-          templateCode = "ticket_professional_v1"; // hardcoded fallback
-        }
-        console.log("🎫 Using default ticket template:", templateCode);
-      }
+      // Get template details (templateCode, etc.)
+      const template = await ctx.runQuery(internal.pdfTemplateQueries.resolvePdfTemplateInternal, {
+        templateId: ticketTemplateId,
+      });
+
+      const templateCode = template.templateCode;
+      console.log("🎫 [Ticket Template Resolution] Using template code:", templateCode, "from template:", template.name);
 
       // 11. Call API Template.io generator with resolved template
       const { generateTicketPdfFromTemplate } = await import("./lib/generateTicketPdf");
@@ -437,6 +394,9 @@ export const generateInvoicePDF = action({
           orgId: args.crmOrganizationId,
           orgName: buyerCrmOrg?.name,
           hasBillingAddress: !!buyerCrmOrg?.customProperties?.billingAddress,
+          // 🔍 DEBUG: Show actual billing address data
+          billingAddressData: buyerCrmOrg?.customProperties?.billingAddress,
+          vatNumber: buyerCrmOrg?.customProperties?.vatNumber,
         });
       }
 
@@ -673,6 +633,9 @@ export const generateInvoicePDF = action({
           zip_code: crmBillingAddress?.postalCode,
           country: crmBillingAddress?.country,
         };
+
+        // 🔍 DEBUG: Log actual billTo object sent to PDF template
+        console.log("📄 [generateInvoicePDF] billTo object (from CRM org):", JSON.stringify(billTo, null, 2));
       } else if (transactionType === "B2B" && buyerCompanyName) {
         // B2B from session data
         billTo = {
@@ -745,6 +708,57 @@ export const generateInvoicePDF = action({
         };
       });
 
+      // 9.5. Load translations for invoice PDF labels
+      // Read language from checkout instance (set in checkout configuration)
+      const checkoutInstanceId = session.customProperties?.checkoutInstanceId as Id<"objects"> | undefined;
+      let invoiceLanguage = "en"; // Default to English
+
+      if (checkoutInstanceId) {
+        const checkoutInstance = await ctx.runQuery(api.checkoutOntology.getPublicCheckoutInstanceById, {
+          instanceId: checkoutInstanceId,
+        });
+
+        if (checkoutInstance) {
+          const defaultLanguage = checkoutInstance.customProperties?.defaultLanguage as string | undefined;
+          if (defaultLanguage) {
+            // Normalize locale (e.g., "de-DE" -> "de")
+            invoiceLanguage = defaultLanguage.toLowerCase().split("-")[0];
+            console.log(`📄 Using invoice language from checkout instance: ${invoiceLanguage}`);
+          }
+        }
+      }
+
+      // Fetch translations from database
+      const { getBackendTranslations } = await import("./helpers/backendTranslationHelper");
+      const translationKeys = [
+        "pdf.invoice.title",
+        "pdf.invoice.number",
+        "pdf.invoice.date",
+        "pdf.invoice.dueDate",
+        "pdf.invoice.from",
+        "pdf.invoice.billTo",
+        "pdf.invoice.attention",
+        "pdf.invoice.vat",
+        "pdf.invoice.itemDescription",
+        "pdf.invoice.quantity",
+        "pdf.invoice.unitPrice",
+        "pdf.invoice.net",
+        "pdf.invoice.gross",
+        "pdf.invoice.total",
+        "pdf.invoice.subtotal",
+        "pdf.invoice.tax",
+        "pdf.invoice.paymentTerms",
+        "pdf.invoice.terms",
+        "pdf.invoice.method",
+        "pdf.invoice.paymentDue",
+        "pdf.invoice.latePayment",
+        "pdf.invoice.forQuestions",
+        "pdf.invoice.contactUs",
+        "pdf.invoice.thankYou",
+      ];
+
+      const translations = await getBackendTranslations(ctx, invoiceLanguage, translationKeys);
+
       // 10. Prepare invoice template data
       const invoiceData = {
         // Organization info
@@ -771,31 +785,31 @@ export const generateInvoicePDF = action({
           day: "numeric",
         }),
 
-        // Translations (English defaults - template requires these)
-        t_invoice: "Invoice",
-        t_invoiceNumber: "Invoice #",
-        t_date: "Date",
-        t_due: "Due Date",
-        t_from: "From",
-        t_billTo: "Bill To",
-        t_attention: "Attn:",
-        t_vat: "VAT #",
-        t_itemDescription: "Description",
-        t_qty: "Qty",
-        t_unitPrice: "Unit Price",
-        t_net: "Net",
-        t_gross: "Gross",
-        t_total: "Total",
-        t_subtotal: "Subtotal",
-        t_tax: "VAT",
-        t_paymentTerms: "Payment Terms",
-        t_terms: "Terms:",
-        t_method: "Method:",
-        t_paymentDue: "Payment due by",
-        t_latePayment: "Late fees may apply.",
-        t_forQuestions: "For questions, contact",
-        t_contactUs: "or call",
-        t_thankYou: "Thank you for your business!",
+        // Translations (from database)
+        t_invoice: translations["pdf.invoice.title"],
+        t_invoiceNumber: translations["pdf.invoice.number"],
+        t_date: translations["pdf.invoice.date"],
+        t_due: translations["pdf.invoice.dueDate"],
+        t_from: translations["pdf.invoice.from"],
+        t_billTo: translations["pdf.invoice.billTo"],
+        t_attention: translations["pdf.invoice.attention"],
+        t_vat: translations["pdf.invoice.vat"],
+        t_itemDescription: translations["pdf.invoice.itemDescription"],
+        t_qty: translations["pdf.invoice.quantity"],
+        t_unitPrice: translations["pdf.invoice.unitPrice"],
+        t_net: translations["pdf.invoice.net"],
+        t_gross: translations["pdf.invoice.gross"],
+        t_total: translations["pdf.invoice.total"],
+        t_subtotal: translations["pdf.invoice.subtotal"],
+        t_tax: translations["pdf.invoice.tax"],
+        t_paymentTerms: translations["pdf.invoice.paymentTerms"],
+        t_terms: translations["pdf.invoice.terms"],
+        t_method: translations["pdf.invoice.method"],
+        t_paymentDue: translations["pdf.invoice.paymentDue"],
+        t_latePayment: translations["pdf.invoice.latePayment"],
+        t_forQuestions: translations["pdf.invoice.forQuestions"],
+        t_contactUs: translations["pdf.invoice.contactUs"],
+        t_thankYou: translations["pdf.invoice.thankYou"],
 
         // Bill to
         bill_to: billTo,
@@ -831,66 +845,41 @@ export const generateInvoicePDF = action({
         console.log("  - First item:", JSON.stringify(items[0], null, 2));
       }
 
-      // 11. RESOLVE TEMPLATE FROM ONTOLOGY (No hardcoded B2B/B2C logic!)
-      // Priority: 1) invoiceTemplateId, 2) pdfTemplateCode (deprecated), 3) fallback
-      const invoiceTemplateId = session.customProperties?.invoiceTemplateId as Id<"objects"> | undefined;
-      const legacyTemplateCode = session.customProperties?.pdfTemplateCode as string | undefined;
+      // 11. RESOLVE TEMPLATE FROM TEMPLATE SET (New unified resolver)
+      // Uses Template Set system with 3-level precedence:
+      // 1. Manual Send (if manualSetId provided)
+      // 2. Context Override (Product > Checkout > Domain)
+      // 3. Organization Default
+      console.log("📄 [Invoice Template Resolution] Starting template set resolution...");
 
-      let templateCode: string;
+      // Build context for template resolution
+      const invoiceTemplateContext = {
+        checkoutInstanceId: session.customProperties?.checkoutInstanceId as Id<"objects"> | undefined,
+        domainConfigId: session.customProperties?.domainConfigId as Id<"objects"> | undefined,
+      };
 
-      // Try new template ID system first
-      if (invoiceTemplateId) {
-        // Resolve template via query (Actions must use runQuery, not direct DB access)
-        const template = await ctx.runQuery(internal.pdfTemplateQueries.resolvePdfTemplateInternal, {
-          templateId: invoiceTemplateId,
-        });
-        templateCode = template.templateCode;
-        console.log("📄 Using invoice template from invoiceTemplateId:", template.templateCode);
-      }
-      // Fall back to legacy templateCode (will be deprecated)
-      else if (legacyTemplateCode) {
-        // Try to find template by code
-        const template = await ctx.runQuery(api.pdfTemplateQueries.getPdfTemplateByCode, {
-          templateCode: legacyTemplateCode,
-        });
+      console.log("📄 [Invoice Template Resolution] Context:", {
+        organizationId: organizationId,
+        checkoutInstanceId: invoiceTemplateContext.checkoutInstanceId,
+        domainConfigId: invoiceTemplateContext.domainConfigId,
+      });
 
-        if (template) {
-          const resolved = await ctx.runQuery(internal.pdfTemplateQueries.resolvePdfTemplateInternal, {
-            templateId: template._id,
-          });
-          templateCode = resolved.templateCode;
-          console.log("📄 Using invoice template from legacy pdfTemplateCode:", resolved.templateCode);
-        } else {
-          // Use default
-          const defaultTemplateId = await ctx.runQuery(api.pdfTemplateQueries.getDefaultPdfTemplate, {
-            category: "invoice",
-          });
-          if (defaultTemplateId) {
-            const resolved = await ctx.runQuery(internal.pdfTemplateQueries.resolvePdfTemplateInternal, {
-              templateId: defaultTemplateId,
-            });
-            templateCode = resolved.templateCode;
-          } else {
-            templateCode = "invoice_b2c_receipt_v1"; // hardcoded fallback
-          }
-          console.warn("⚠️ Legacy templateCode not found, using default:", templateCode);
-        }
-      }
-      // Ultimate fallback
-      else {
-        const defaultTemplateId = await ctx.runQuery(api.pdfTemplateQueries.getDefaultPdfTemplate, {
-          category: "invoice",
-        });
-        if (defaultTemplateId) {
-          const resolved = await ctx.runQuery(internal.pdfTemplateQueries.resolvePdfTemplateInternal, {
-            templateId: defaultTemplateId,
-          });
-          templateCode = resolved.templateCode;
-        } else {
-          templateCode = "invoice_b2c_receipt_v1"; // hardcoded fallback
-        }
-        console.log("📄 Using default invoice template:", templateCode);
-      }
+      // Resolve invoice template using new Template Set resolver
+      const invoiceTemplateId = await ctx.runQuery(internal.templateSetQueries.resolveIndividualTemplateInternal, {
+        organizationId: organizationId,
+        templateType: "invoice",
+        context: invoiceTemplateContext,
+      });
+
+      console.log("📄 [Invoice Template Resolution] Resolved template ID:", invoiceTemplateId);
+
+      // Get template details (templateCode, etc.)
+      const invoiceTemplate = await ctx.runQuery(internal.pdfTemplateQueries.resolvePdfTemplateInternal, {
+        templateId: invoiceTemplateId,
+      });
+
+      const templateCode = invoiceTemplate.templateCode;
+      console.log("📄 [Invoice Template Resolution] Using template code:", templateCode, "from template:", invoiceTemplate.name);
 
       // 12. Call API Template.io generator with resolved template
       const { generateInvoicePdfFromTemplate } = await import("./lib/generateInvoicePdf");

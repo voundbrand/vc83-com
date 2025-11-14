@@ -3,6 +3,8 @@
  *
  * Helper to render order confirmation emails using template system.
  * Handles multi-ticket orders (unlike single-ticket email templates).
+ *
+ * Uses database translations from email.order.* namespace.
  */
 
 interface OrderEmailData {
@@ -25,12 +27,39 @@ interface OrderEmailData {
 }
 
 /**
+ * Translation object for email templates
+ * Passed from caller who fetches translations from database
+ */
+export interface EmailTranslations {
+  header: string;
+  greeting: string;
+  confirmed: string;
+  eventName: string;
+  presentedBy: string;
+  ticketCount: string;
+  date: string;
+  location: string;
+  orderNumber: string;
+  orderDate: string;
+  documentsHeader: string;
+  documentsBody: string;
+  supportText: string;
+  copyright: string;
+}
+
+/**
  * Generate Order Confirmation Email HTML
  *
  * Uses elegant luxury styling matching email templates.
  * Supports multi-ticket orders with order-level summary.
+ *
+ * @param data - Order data for email
+ * @param translations - Translated strings from database (from email.order.* namespace)
  */
-export function generateOrderConfirmationHtml(data: OrderEmailData): string {
+export function generateOrderConfirmationHtml(
+  data: OrderEmailData,
+  translations: EmailTranslations
+): string {
   const {
     recipientName,
     eventName,
@@ -61,7 +90,7 @@ export function generateOrderConfirmationHtml(data: OrderEmailData): string {
     <div style="background: linear-gradient(135deg, #2c1810 0%, #1a1412 100%); padding: 50px 30px; text-align: center; border-bottom: 2px solid ${primaryColor}; position: relative;">
       <div style="width: 80px; height: 2px; background: linear-gradient(90deg, transparent, ${primaryColor}, transparent); margin: 0 auto 30px;"></div>
       <h1 style="margin: 0; color: ${primaryColor}; font-size: 24px; font-weight: 300; letter-spacing: 4px; text-transform: uppercase; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); line-height: 1.4;">
-        Order Confirmation
+        ${translations.header}
       </h1>
       <div style="width: 80px; height: 2px; background: linear-gradient(90deg, transparent, ${primaryColor}, transparent); margin: 30px auto 0;"></div>
     </div>
@@ -73,7 +102,7 @@ export function generateOrderConfirmationHtml(data: OrderEmailData): string {
           ${recipientName}
         </p>
         <p style="margin: 0; font-size: 16px; color: #b8a891; letter-spacing: 1px; line-height: 1.8;">
-          Your order has been confirmed
+          ${translations.confirmed}
         </p>
       </div>
 
@@ -109,10 +138,10 @@ export function generateOrderConfirmationHtml(data: OrderEmailData): string {
       <!-- Attachments Note -->
       <div style="background: rgba(212, 175, 55, 0.05); border-left: 3px solid ${primaryColor}; padding: 20px; margin: 30px 0; border-radius: 4px;">
         <p style="margin: 0 0 10px 0; color: ${primaryColor}; font-size: 14px; font-weight: 400; letter-spacing: 1px;">
-          Your Documents
+          ${translations.documentsHeader}
         </p>
         <p style="margin: 0; color: #b8a891; font-size: 13px; line-height: 1.6;">
-          Your tickets and invoice are attached as PDF files. Please present your ticket at the event entrance.
+          ${translations.documentsBody}
         </p>
       </div>
     </div>
@@ -120,10 +149,10 @@ export function generateOrderConfirmationHtml(data: OrderEmailData): string {
     <!-- Footer -->
     <div style="background: linear-gradient(135deg, #1a1412 0%, #0a0806 100%); padding: 30px 40px; text-align: center; border-top: 1px solid rgba(212, 175, 55, 0.3);">
       <p style="margin: 0 0 10px 0; color: #b8a891; font-size: 12px; letter-spacing: 1px;">
-        Need assistance? Contact us at support@${organizationName.toLowerCase().replace(/\s+/g, '')}.com
+        ${translations.supportText.replace('{supportEmail}', `support@${organizationName.toLowerCase().replace(/\s+/g, '')}.com`)}
       </p>
       <p style="margin: 15px 0 0 0; color: #6b5d4f; font-size: 11px; letter-spacing: 1px;">
-        © ${year} ${organizationName}. All rights reserved.
+        ${translations.copyright.replace('{year}', String(year)).replace('{organizationName}', organizationName)}
       </p>
     </div>
   </div>
@@ -134,7 +163,13 @@ export function generateOrderConfirmationHtml(data: OrderEmailData): string {
 
 /**
  * Generate Order Confirmation Subject Line
+ *
+ * @param eventName - Event name
+ * @param subjectTemplate - Translated subject template from database (e.g., "Your Tickets for {eventName}")
  */
-export function generateOrderConfirmationSubject(eventName: string): string {
-  return `Your Tickets for ${eventName}`;
+export function generateOrderConfirmationSubject(
+  eventName: string,
+  subjectTemplate: string
+): string {
+  return subjectTemplate.replace('{eventName}', eventName);
 }

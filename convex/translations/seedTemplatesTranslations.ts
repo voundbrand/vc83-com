@@ -531,6 +531,250 @@ export const seed = internalMutation({
           ja: "内部",
         }
       },
+
+      // === TEMPLATE SETS (NEW!) ===
+      {
+        key: "ui.templates.categories.template_sets",
+        values: {
+          en: "Template Sets",
+          de: "Vorlagensätze",
+          pl: "Zestawy szablonów",
+          es: "Conjuntos de plantillas",
+          fr: "Ensembles de modèles",
+          ja: "テンプレートセット",
+        }
+      },
+      {
+        key: "ui.templates.template_set.badge.default",
+        values: {
+          en: "Default",
+          de: "Standard",
+          pl: "Domyślny",
+          es: "Predeterminado",
+          fr: "Par défaut",
+          ja: "デフォルト",
+        }
+      },
+      {
+        key: "ui.templates.template_set.label.ticket",
+        values: {
+          en: "Ticket",
+          de: "Ticket",
+          pl: "Bilet",
+          es: "Entrada",
+          fr: "Billet",
+          ja: "チケット",
+        }
+      },
+      {
+        key: "ui.templates.template_set.label.invoice",
+        values: {
+          en: "Invoice",
+          de: "Rechnung",
+          pl: "Faktura",
+          es: "Factura",
+          fr: "Facture",
+          ja: "請求書",
+        }
+      },
+      {
+        key: "ui.templates.template_set.label.email",
+        values: {
+          en: "Email",
+          de: "E-Mail",
+          pl: "E-mail",
+          es: "Correo",
+          fr: "E-mail",
+          ja: "メール",
+        }
+      },
+      {
+        key: "ui.templates.template_set.label.not_set",
+        values: {
+          en: "Not set",
+          de: "Nicht festgelegt",
+          pl: "Nie ustawiono",
+          es: "No establecido",
+          fr: "Non défini",
+          ja: "未設定",
+        }
+      },
+      {
+        key: "ui.templates.template_set.button.preview_all",
+        values: {
+          en: "Preview All",
+          de: "Alle anzeigen",
+          pl: "Podgląd wszystkich",
+          es: "Ver todo",
+          fr: "Tout prévisualiser",
+          ja: "すべてプレビュー",
+        }
+      },
+      {
+        key: "ui.templates.template_set.button.use_set",
+        values: {
+          en: "Use This Set",
+          de: "Dieses Set verwenden",
+          pl: "Użyj tego zestawu",
+          es: "Usar este conjunto",
+          fr: "Utiliser cet ensemble",
+          ja: "このセットを使用",
+        }
+      },
+      {
+        key: "ui.templates.template_set.preview.title",
+        values: {
+          en: "Template Set Preview",
+          de: "Vorlagensatz-Vorschau",
+          pl: "Podgląd zestawu szablonów",
+          es: "Vista previa del conjunto",
+          fr: "Aperçu de l'ensemble",
+          ja: "テンプレートセットプレビュー",
+        }
+      },
+      {
+        key: "ui.templates.template_set.preview.ticket_tab",
+        values: {
+          en: "🎫 Ticket",
+          de: "🎫 Ticket",
+          pl: "🎫 Bilet",
+          es: "🎫 Entrada",
+          fr: "🎫 Billet",
+          ja: "🎫 チケット",
+        }
+      },
+      {
+        key: "ui.templates.template_set.preview.invoice_tab",
+        values: {
+          en: "💰 Invoice",
+          de: "💰 Rechnung",
+          pl: "💰 Faktura",
+          es: "💰 Factura",
+          fr: "💰 Facture",
+          ja: "💰 請求書",
+        }
+      },
+      {
+        key: "ui.templates.template_set.preview.email_tab",
+        values: {
+          en: "📧 Email",
+          de: "📧 E-Mail",
+          pl: "📧 E-mail",
+          es: "📧 Correo",
+          fr: "📧 E-mail",
+          ja: "📧 メール",
+        }
+      },
+      {
+        key: "ui.templates.template_set.preview.ticket_title",
+        values: {
+          en: "🎫 Ticket Template Preview",
+          de: "🎫 Ticket-Vorlage Vorschau",
+          pl: "🎫 Podgląd szablonu biletu",
+          es: "🎫 Vista previa de plantilla de entrada",
+          fr: "🎫 Aperçu du modèle de billet",
+          ja: "🎫 チケットテンプレートプレビュー",
+        }
+      },
+      {
+        key: "ui.templates.template_set.preview.invoice_title",
+        values: {
+          en: "💰 Invoice Template Preview",
+          de: "💰 Rechnungs-Vorlage Vorschau",
+          pl: "💰 Podgląd szablonu faktury",
+          es: "💰 Vista previa de plantilla de factura",
+          fr: "💰 Aperçu du modèle de facture",
+          ja: "💰 請求書テンプレートプレビュー",
+        }
+      },
+      {
+        key: "ui.templates.template_set.preview.email_title",
+        values: {
+          en: "📧 Email Template Preview",
+          de: "📧 E-Mail-Vorlage Vorschau",
+          pl: "📧 Podgląd szablonu e-mail",
+          es: "📧 Vista previa de plantilla de correo",
+          fr: "📧 Aperçu du modèle d'e-mail",
+          ja: "📧 メールテンプレートプレビュー",
+        }
+      },
+      {
+        key: "ui.templates.template_set.preview.no_ticket",
+        values: {
+          en: "No ticket template configured",
+          de: "Keine Ticket-Vorlage konfiguriert",
+          pl: "Nie skonfigurowano szablonu biletu",
+          es: "No se configuró plantilla de entrada",
+          fr: "Aucun modèle de billet configuré",
+          ja: "チケットテンプレートが設定されていません",
+        }
+      },
+      {
+        key: "ui.templates.template_set.preview.no_invoice",
+        values: {
+          en: "No invoice template configured",
+          de: "Keine Rechnungs-Vorlage konfiguriert",
+          pl: "Nie skonfigurowano szablonu faktury",
+          es: "No se configuró plantilla de factura",
+          fr: "Aucun modèle de facture configuré",
+          ja: "請求書テンプレートが設定されていません",
+        }
+      },
+      {
+        key: "ui.templates.template_set.preview.no_email",
+        values: {
+          en: "No email template configured",
+          de: "Keine E-Mail-Vorlage konfiguriert",
+          pl: "Nie skonfigurowano szablonu e-mail",
+          es: "No se configuró plantilla de correo",
+          fr: "Aucun modèle d'e-mail configuré",
+          ja: "メールテンプレートが設定されていません",
+        }
+      },
+      {
+        key: "ui.templates.template_set.preview.placeholder",
+        values: {
+          en: "Template preview will be rendered here",
+          de: "Vorlagenvorschau wird hier angezeigt",
+          pl: "Podgląd szablonu zostanie wyświetlony tutaj",
+          es: "La vista previa se mostrará aquí",
+          fr: "L'aperçu sera affiché ici",
+          ja: "テンプレートプレビューがここに表示されます",
+        }
+      },
+      {
+        key: "ui.templates.template_set.preview.button.use_set",
+        values: {
+          en: "Use This Template Set",
+          de: "Diesen Vorlagensatz verwenden",
+          pl: "Użyj tego zestawu szablonów",
+          es: "Usar este conjunto de plantillas",
+          fr: "Utiliser cet ensemble de modèles",
+          ja: "このテンプレートセットを使用",
+        }
+      },
+      {
+        key: "ui.templates.template_set.error.no_sets_title",
+        values: {
+          en: "No Template Sets Available",
+          de: "Keine Vorlagensätze verfügbar",
+          pl: "Brak dostępnych zestawów szablonów",
+          es: "No hay conjuntos disponibles",
+          fr: "Aucun ensemble disponible",
+          ja: "利用可能なテンプレートセットがありません",
+        }
+      },
+      {
+        key: "ui.templates.template_set.error.no_sets_message",
+        values: {
+          en: "No template sets have been configured for your organization.",
+          de: "Für Ihre Organisation wurden keine Vorlagensätze konfiguriert.",
+          pl: "Nie skonfigurowano zestawów szablonów dla Twojej organizacji.",
+          es: "No se configuraron conjuntos para su organización.",
+          fr: "Aucun ensemble n'a été configuré pour votre organisation.",
+          ja: "組織に対してテンプレートセットが設定されていません。",
+        }
+      },
     ];
 
     let insertedCount = 0;

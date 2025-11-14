@@ -70,6 +70,7 @@ function TicketCheckoutAdapter({
 function BehaviorDrivenCheckoutAdapter({
   linkedProducts,
   organizationId,
+  checkoutInstanceId,
   configuration,
   theme,
 }: CheckoutTemplateProps) {
@@ -81,6 +82,7 @@ function BehaviorDrivenCheckoutAdapter({
   const debugMode = (configuration?.debugMode as boolean) ?? false;
 
   console.log("🧠 [BehaviorDrivenCheckoutAdapter] Configuration:", {
+    checkoutInstanceId,
     allowBackNavigation,
     showProgressBar,
     executeBehaviorsOnStepChange,
@@ -96,6 +98,7 @@ function BehaviorDrivenCheckoutAdapter({
   // - Business logic (no hardcoded rules in checkout code)
   return React.createElement(BehaviorDrivenCheckout, {
     organizationId,
+    checkoutInstanceId, // ✅ Pass through for sales notifications
     products: linkedProducts,
     theme,
     allowBackNavigation,

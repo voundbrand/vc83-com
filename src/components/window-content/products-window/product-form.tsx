@@ -14,6 +14,7 @@ import { InvoicingConfigSection, InvoiceConfig } from "./invoicing-config-sectio
 import { usePostHog } from "posthog-js/react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { TemplateSelector } from "@/components/template-selector";
+import { TemplateSetSelector } from "@/components/template-set-selector";
 
 /**
  * Helper: Extract all field IDs, labels, types, and options from a form template
@@ -150,8 +151,10 @@ export function ProductForm({
     addons: [] as ProductAddon[], // Product addons configuration
     // NEW: B2B Invoicing Configuration (nullable - only set if configured)
     invoiceConfig: null as InvoiceConfig | null,
-    // NEW: Ticket Template (for ticket subtype only)
-    ticketTemplateId: "" as string, // Template ID for ticket PDF generation
+    // NEW: Template Set Override (for consistent branding)
+    templateSetId: "" as string, // Template set ID for unified branding
+    // NEW: Ticket Template Override (legacy - for ticket subtype only)
+    ticketTemplateId: "" as string, // Template ID for ticket PDF generation (overrides template set)
   });
   const [saving, setSaving] = useState(false);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
@@ -271,7 +274,9 @@ export function ProductForm({
         addons: (props.addons as ProductAddon[]) || [],
         // B2B Invoicing Configuration
         invoiceConfig: (props.invoiceConfig as InvoiceConfig) || null,
-        // Ticket Template
+        // Template Set
+        templateSetId: (props.templateSetId as string) || "",
+        // Ticket Template (legacy)
         ticketTemplateId: (props.ticketTemplateId as string) || "",
       });
     }
@@ -313,7 +318,12 @@ export function ProductForm({
         customProperties.invoiceConfig = formData.invoiceConfig;
       }
 
-      // Ticket Template (only for ticket subtype)
+      // Template Set (for consistent branding across all templates)
+      if (formData.templateSetId) {
+        customProperties.templateSetId = formData.templateSetId;
+      }
+
+      // Ticket Template (only for ticket subtype - overrides template set ticket template)
       if (formData.subtype === "ticket" && formData.ticketTemplateId) {
         customProperties.ticketTemplateId = formData.ticketTemplateId;
       }
@@ -920,18 +930,55 @@ export function ProductForm({
             </div>
           )}
 
-          {/* Ticket Template Selector */}
-          <TemplateSelector
-            category="ticket"
-            value={formData.ticketTemplateId ? (formData.ticketTemplateId as Id<"objects">) : null}
-            onChange={(templateId) => setFormData({ ...formData, ticketTemplateId: templateId || "" })}
-            label="🎨 Ticket Design Template"
-            description="Choose the PDF template used for generating tickets for this product."
-            organizationId={organizationId}
-            required={false}
-            allowNull={true}
-            nullLabel="Use system default template"
-          />
+          {/* Template Set Selector (NEW - Unified Branding) */}
+          <div className="mb-4 border-t-2 pt-4" style={{ borderColor: 'var(--win95-border)' }}>
+            <h4 className="text-xs font-bold mb-3" style={{ color: 'var(--win95-text)' }}>
+              🎨 Branding Templates (Optional Override)
+            </h4>
+            <TemplateSetSelector
+              organizationId={organizationId}
+              value={formData.templateSetId ? (formData.templateSetId as Id<"objects">) : null}
+              onChange={(templateSetId) => setFormData({ ...formData, templateSetId: templateSetId || "" })}
+              label="Template Set Override"
+              description="Override checkout-level templates for this product. Provides consistent branding across tickets, invoices, and emails."
+              required={false}
+              allowNull={true}
+              nullLabel="Use checkout-level templates"
+              showDetails={true}
+            />
+
+            <div className="mt-3 p-3 rounded text-xs" style={{ backgroundColor: 'rgba(107, 70, 193, 0.1)', color: 'var(--win95-highlight)' }}>
+              <div className="font-bold mb-1">💡 Template Precedence:</div>
+              <ul className="space-y-1 ml-4">
+                <li>• <strong>Product Template Set</strong>: Highest priority (if set)</li>
+                <li>• <strong>Checkout Template Set</strong>: Mid priority (fallback)</li>
+                <li>• <strong>Organization Default</strong>: Lowest priority (ultimate fallback)</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Legacy: Individual Ticket Template Selector */}
+          <details className="mb-4">
+            <summary className="cursor-pointer text-xs font-bold p-2 rounded" style={{ backgroundColor: 'rgba(107, 70, 193, 0.05)', color: 'var(--win95-text)' }}>
+              Advanced: Override Ticket Template Only
+            </summary>
+            <div className="mt-2 p-3 border-2 rounded" style={{ borderColor: 'var(--win95-border)' }}>
+              <p className="text-xs mb-3" style={{ color: 'var(--neutral-gray)' }}>
+                Override ONLY the ticket template (not recommended - use Template Set for consistent branding).
+              </p>
+              <TemplateSelector
+                category="ticket"
+                value={formData.ticketTemplateId ? (formData.ticketTemplateId as Id<"objects">) : null}
+                onChange={(templateId) => setFormData({ ...formData, ticketTemplateId: templateId || "" })}
+                label="Ticket Template Override"
+                description="Overrides the ticket template from the template set."
+                organizationId={organizationId}
+                required={false}
+                allowNull={true}
+                nullLabel="Use template from template set"
+              />
+            </div>
+          </details>
 
           {/* Active/Inactive Status Toggle */}
           <div className="flex items-center justify-between p-3 border-2 rounded" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>

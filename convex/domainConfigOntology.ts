@@ -10,7 +10,7 @@
  * - Reusable across multiple systems (email behaviors, web templates, APIs)
  */
 
-import { mutation, query, internalMutation } from "./_generated/server";
+import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser } from "./rbacHelpers";
 
@@ -53,6 +53,9 @@ export const createDomainConfig = mutation({
         description: v.string(),
       })),
     })),
+
+    // NEW: Template Set Override (replaces individual template IDs)
+    templateSetId: v.optional(v.id("objects")), // Domain-specific template set
   },
   handler: async (ctx, args) => {
     // Verify session and get authenticated user
@@ -195,6 +198,7 @@ export const updateDomainConfig = mutation({
         description: v.string(),
       })),
     })),
+    templateSetId: v.optional(v.id("objects")), // Domain-specific template set
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db.get(args.configId);
@@ -257,5 +261,24 @@ export const getDomainConfigInternal = internalMutation({
       throw new Error("Domain config not found");
     }
     return config;
+  },
+});
+
+/**
+ * Internal query to list domain configs for an organization (for use from actions)
+ * Avoids circular imports with api
+ */
+export const listDomainConfigsForOrg = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "configuration")
+      )
+      .filter((q) => q.eq(q.field("subtype"), "domain"))
+      .collect();
   },
 });

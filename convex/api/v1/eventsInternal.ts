@@ -72,3 +72,51 @@ export const getEventsInternal = internalQuery({
     });
   },
 });
+
+/**
+ * GET EVENT BY SLUG INTERNAL
+ * Returns a single event by slug without requiring session authentication
+ */
+export const getEventBySlugInternal = internalQuery({
+  args: {
+    slug: v.string(),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    // Query events by organization and type
+    const events = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "event")
+      )
+      .collect();
+
+    // Find event with matching slug (slug is in customProperties)
+    const event = events.find((e) => {
+      const customProps = e.customProperties as Record<string, unknown> | undefined;
+      return customProps?.slug === args.slug;
+    });
+
+    if (!event) {
+      return null;
+    }
+
+    // Parse customProperties to get event-specific data
+    const customProps = event.customProperties as Record<string, unknown> | undefined;
+
+    // Return full event details matching the documentation format
+    return {
+      _id: event._id,
+      type: event.type,
+      subtype: event.subtype,
+      name: event.name,
+      slug: customProps?.slug as string | undefined,
+      description: event.description,
+      eventDetails: customProps?.eventDetails as Record<string, unknown> | undefined,
+      registration: customProps?.registration as Record<string, unknown> | undefined,
+      workflow: customProps?.workflow as Record<string, unknown> | undefined,
+      publishedAt: customProps?.publishedAt as string | undefined,
+      status: event.status,
+    };
+  },
+});

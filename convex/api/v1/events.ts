@@ -107,3 +107,115 @@ export const getEvents = httpAction(async (ctx, request) => {
     );
   }
 });
+
+/**
+ * GET EVENT BY SLUG
+ * Returns detailed information about a specific event by its slug
+ *
+ * Path Parameters:
+ * - slug: Event slug (e.g., "haffsymposium-2024")
+ *
+ * Response:
+ * {
+ *   success: true,
+ *   event: {
+ *     _id: string,
+ *     type: string,
+ *     name: string,
+ *     slug: string,
+ *     description: string,
+ *     eventDetails: {
+ *       startDate: string,
+ *       endDate: string,
+ *       location: string,
+ *       venue: string,
+ *       address: object
+ *     },
+ *     registration: {
+ *       enabled: boolean,
+ *       formId: string,
+ *       registrationOpenDate: string,
+ *       registrationCloseDate: string,
+ *       maxAttendees: number,
+ *       currentRegistrations: number,
+ *       categories: array,
+ *       addons: array
+ *     }
+ *   }
+ * }
+ */
+export const getEventBySlug = httpAction(async (ctx, request) => {
+  try {
+    // 1. Verify API key
+    const authHeader = request.headers.get("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return new Response(
+        JSON.stringify({ error: "Missing or invalid Authorization header" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const apiKey = authHeader.substring(7);
+    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
+      apiKey,
+    });
+
+    if (!authContext) {
+      return new Response(
+        JSON.stringify({ error: "Invalid API key" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const { organizationId } = authContext;
+
+    // 2. Extract slug from URL
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split("/");
+    const slug = pathParts[pathParts.length - 1];
+
+    if (!slug) {
+      return new Response(
+        JSON.stringify({ error: "Event slug required" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // 3. Get event by slug
+    const event = await ctx.runQuery(
+      internal.api.v1.eventsInternal.getEventBySlugInternal,
+      {
+        slug,
+        organizationId,
+      }
+    );
+
+    if (!event) {
+      return new Response(
+        JSON.stringify({ error: "Event not found" }),
+        { status: 404, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // 4. Return response
+    return new Response(
+      JSON.stringify({
+        success: true,
+        event,
+      }),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "X-Organization-Id": organizationId,
+        },
+      }
+    );
+  } catch (error) {
+    console.error("API /events/:slug error:", error);
+    return new Response(
+      JSON.stringify({ error: "Internal server error" }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
+});

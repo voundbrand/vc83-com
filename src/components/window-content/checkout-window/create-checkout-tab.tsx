@@ -13,6 +13,8 @@ import type { CheckoutProduct } from "@/templates/checkout/types";
 import { useNotification } from "@/hooks/use-notification";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { TemplateSelector } from "@/components/template-selector";
+import { TemplateSetSelector } from "@/components/template-set-selector";
+import { EmailSelector } from "@/components/email-selector";
 
 /**
  * Create Checkout Tab
@@ -55,13 +57,13 @@ export function CreateCheckoutTab({
   const [selectedPaymentProviders, setSelectedPaymentProviders] = useState<string[]>([]);
   const [forceB2B, setForceB2B] = useState(false);
   const [defaultLanguage, setDefaultLanguage] = useState<string>("en");
-  // PDF Template selections (use IDs instead of codes)
-  const [invoiceTemplateId, setInvoiceTemplateId] = useState<Id<"objects"> | undefined>(undefined);
-  const [ticketTemplateId, setTicketTemplateId] = useState<Id<"objects"> | undefined>(undefined);
 
-  // Email Template selections
-  const [confirmationEmailTemplateId, setConfirmationEmailTemplateId] = useState<Id<"objects"> | undefined>(undefined);
+  // Template Set Selection (replaces individual template selections)
+  const [templateSetId, setTemplateSetId] = useState<Id<"objects"> | undefined>(undefined);
+
+  // Email Template selections (internal notifications only)
   const [salesNotificationEmailTemplateId, setSalesNotificationEmailTemplateId] = useState<Id<"objects"> | undefined>(undefined);
+  const [salesNotificationRecipientEmail, setSalesNotificationRecipientEmail] = useState<string | undefined>(undefined);
 
   // DEPRECATED: Legacy template code system (keep for backward compatibility during migration)
   const [selectedPdfTemplate, setSelectedPdfTemplate] = useState<
@@ -144,13 +146,12 @@ export function CreateCheckoutTab({
       setForceB2B((config.forceB2B as boolean) || false);
       setDefaultLanguage((config.defaultLanguage as string) || "en");
 
-      // Load PDF template IDs (new system)
-      setInvoiceTemplateId((config.invoiceTemplateId as Id<"objects">) || undefined);
-      setTicketTemplateId((config.ticketTemplateId as Id<"objects">) || undefined);
+      // Load template set ID (new unified system)
+      setTemplateSetId((config.templateSetId as Id<"objects">) || undefined);
 
-      // Load email template IDs
-      setConfirmationEmailTemplateId((config.confirmationEmailTemplateId as Id<"objects">) || undefined);
+      // Load internal email template IDs
       setSalesNotificationEmailTemplateId((config.salesNotificationEmailTemplateId as Id<"objects">) || undefined);
+      setSalesNotificationRecipientEmail((config.salesNotificationRecipientEmail as string) || undefined);
 
       // Load legacy template code for backward compatibility
       setSelectedPdfTemplate(
@@ -248,13 +249,12 @@ export function CreateCheckoutTab({
             forceB2B, // Save Force B2B setting
             defaultLanguage, // Save default language
 
-            // NEW: PDF Template IDs (proper way)
-            invoiceTemplateId, // Invoice template reference
-            ticketTemplateId, // Ticket template reference (optional, falls back to system default)
+            // NEW: Template Set ID (replaces individual template IDs)
+            templateSetId, // Template set containing ticket, invoice, and email templates
 
-            // NEW: Email Template IDs
-            confirmationEmailTemplateId, // Customer confirmation email
+            // Internal Email Template IDs (not part of customer-facing template set)
             salesNotificationEmailTemplateId, // Internal sales team notification
+            salesNotificationRecipientEmail, // Email to receive sales notifications
 
             // DEPRECATED: Legacy template code (keep for backward compatibility)
             pdfTemplateCode: selectedPdfTemplate,
@@ -277,13 +277,12 @@ export function CreateCheckoutTab({
             forceB2B, // Save Force B2B setting
             defaultLanguage, // Save default language
 
-            // NEW: PDF Template IDs (proper way)
-            invoiceTemplateId, // Invoice template reference
-            ticketTemplateId, // Ticket template reference (optional, falls back to system default)
+            // NEW: Template Set ID (replaces individual template IDs)
+            templateSetId, // Template set containing ticket, invoice, and email templates
 
-            // NEW: Email Template IDs
-            confirmationEmailTemplateId, // Customer confirmation email
+            // Internal Email Template IDs (not part of customer-facing template set)
             salesNotificationEmailTemplateId, // Internal sales team notification
+            salesNotificationRecipientEmail, // Email to receive sales notifications
 
             // DEPRECATED: Legacy template code (keep for backward compatibility)
             pdfTemplateCode: selectedPdfTemplate,
@@ -694,90 +693,78 @@ export function CreateCheckoutTab({
             </select>
           </div>
 
-          {/* PDF Template Selection */}
+          {/* Template Set Selection */}
           <div className="mb-4 border-t-2 pt-4" style={{ borderColor: 'var(--win95-border)' }}>
             <h4 className="text-xs font-bold mb-3" style={{ color: 'var(--win95-text)' }}>
-              📄 PDF Templates
+              🎨 Branding Templates
             </h4>
             <p className="text-xs mb-4" style={{ color: 'var(--neutral-gray)' }}>
-              Select templates for generating PDF documents (invoices, tickets, etc.) for this checkout.
+              Choose a template set for consistent branding across tickets, invoices, and emails.
             </p>
 
-            {/* Invoice Template */}
-            <TemplateSelector
-              category="invoice"
-              value={invoiceTemplateId}
-              onChange={(id) => setInvoiceTemplateId(id || undefined)}
-              label="Invoice Template"
-              description="Template used when generating invoices/receipts for orders."
+            {/* Template Set Selector */}
+            <TemplateSetSelector
               organizationId={currentOrg?.id as Id<"organizations">}
+              value={templateSetId}
+              onChange={(id) => setTemplateSetId(id || undefined)}
+              label="Template Set"
+              description="Bundles ticket, invoice, and email templates for consistent customer experience."
               required={false}
               allowNull={true}
-              nullLabel="Use system default (recommended)"
-            />
-
-            {/* Ticket Template (optional override) */}
-            <TemplateSelector
-              category="ticket"
-              value={ticketTemplateId}
-              onChange={(id) => setTicketTemplateId(id || undefined)}
-              label="Ticket Template (Optional Override)"
-              description="Override ticket design for all products in this checkout. Leave blank to use product-specific ticket templates."
-              organizationId={currentOrg?.id as Id<"organizations">}
-              required={false}
-              allowNull={true}
-              nullLabel="Use product-specific templates"
+              nullLabel="Use organization default"
+              showDetails={true}
             />
 
             <div className="mt-3 p-3 rounded text-xs" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', color: 'var(--win95-highlight)' }}>
-              <div className="font-bold mb-1">💡 How Template Selection Works:</div>
+              <div className="font-bold mb-1">💡 How Template Sets Work:</div>
               <ul className="space-y-1 ml-4">
-                <li>• <strong>Invoice</strong>: Uses your selected template or system default</li>
-                <li>• <strong>Tickets</strong>: Each product can have its own ticket template. Use this to override all products.</li>
+                <li>• <strong>Unified Branding</strong>: One set = consistent look across all customer touchpoints</li>
+                <li>• <strong>Precedence</strong>: Product templates can override checkout-level settings</li>
+                <li>• <strong>Fallback</strong>: Uses organization default if not specified</li>
               </ul>
             </div>
           </div>
 
-          {/* Email Template Selection */}
+          {/* Email Template Selection - Internal Only */}
           <div className="mb-4 border-t-2 pt-4" style={{ borderColor: 'var(--win95-border)' }}>
             <h4 className="text-xs font-bold mb-3" style={{ color: 'var(--win95-text)' }}>
-              📧 Email Templates
+              📧 Internal Notifications
             </h4>
             <p className="text-xs mb-4" style={{ color: 'var(--neutral-gray)' }}>
-              Select email templates for customer communications and internal notifications.
+              Configure internal email notifications for your team (separate from customer emails).
             </p>
-
-            {/* Confirmation Email Template */}
-            <TemplateSelector
-              category="luxury"
-              value={confirmationEmailTemplateId}
-              onChange={(id) => setConfirmationEmailTemplateId(id || undefined)}
-              label="Customer Confirmation Email"
-              description="Email sent to customers after successful checkout with order details and tickets."
-              organizationId={currentOrg?.id as Id<"organizations">}
-              required={false}
-              allowNull={true}
-              nullLabel="Use system default (Luxury Confirmation)"
-            />
 
             {/* Internal Sales Notification Email */}
             <TemplateSelector
               category="internal"
               value={salesNotificationEmailTemplateId}
               onChange={(id) => setSalesNotificationEmailTemplateId(id || undefined)}
-              label="Internal Sales Notification"
-              description="Email sent to your sales team when a new order is placed."
+              label="Internal Sales Notification Template"
+              description="Email template for sales team notifications when a new order is placed."
               organizationId={currentOrg?.id as Id<"organizations">}
               required={false}
               allowNull={true}
               nullLabel="Use system default (Sales Notification)"
             />
 
+            {/* Sales Notification Recipient Email */}
+            <EmailSelector
+              value={salesNotificationRecipientEmail}
+              onChange={(email) => setSalesNotificationRecipientEmail(email)}
+              organizationId={currentOrg?.id as Id<"organizations">}
+              sessionId={sessionId}
+              label="Sales Notification Recipient"
+              description="Email address to receive sales notifications. Select from your organization emails or enter a custom address."
+              required={false}
+              defaultEmail="support@l4yercak3.com"
+            />
+
             <div className="mt-3 p-3 rounded text-xs" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', color: 'var(--win95-highlight)' }}>
-              <div className="font-bold mb-1">💡 Email Template Categories:</div>
+              <div className="font-bold mb-1">💡 Email Configuration:</div>
               <ul className="space-y-1 ml-4">
-                <li>• <strong>Luxury/Minimal/VIP</strong>: Customer-facing confirmation emails with different styling</li>
-                <li>• <strong>Internal</strong>: Sales team notifications with actionable information</li>
+                <li>• <strong>Customer Templates</strong>: Choose Luxury/Minimal/VIP styles for order confirmations</li>
+                <li>• <strong>Sales Notifications</strong>: Internal alerts sent to your team</li>
+                <li>• <strong>Recipient Email</strong>: Defaults to support@l4yercak3.com if not configured</li>
               </ul>
             </div>
           </div>

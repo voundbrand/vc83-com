@@ -128,6 +128,7 @@ export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
         console.log("🛒 [BehaviorCheckout] Creating checkout session...");
         const result = await createCheckoutSession({
           organizationId: config.organizationId,
+          checkoutInstanceId: config.checkoutInstanceId, // ✅ Link session to instance for sales notifications
         });
 
         setCheckoutSessionId(result.checkoutSessionId);

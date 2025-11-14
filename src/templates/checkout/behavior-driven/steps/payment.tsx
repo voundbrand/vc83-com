@@ -21,6 +21,7 @@ import { getInvoiceMappingFromResults } from "@/lib/behaviors/adapters/checkout-
 import type { Id } from "../../../../../convex/_generated/dataModel";
 import { loadStripe, Stripe, StripeElements, StripeCardElement } from "@stripe/stripe-js";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+import { ProcessingModal } from "@/components/processing-modal";
 
 export interface PaymentStepProps extends StepProps {
   checkoutSessionId: string | null;
@@ -40,6 +41,7 @@ export function PaymentStep({
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedMethod, setSelectedMethod] = useState<"invoice" | "stripe" | null>(null);
+  const [processingMethod, setProcessingMethod] = useState<"invoice" | "stripe" | null>(null);
 
   // Stripe State
   const [stripe, setStripe] = useState<Stripe | null>(null);
@@ -193,6 +195,7 @@ export function PaymentStep({
     }
 
     setIsProcessing(true);
+    setProcessingMethod("invoice");
     setError(null);
 
     try {
@@ -249,6 +252,7 @@ export function PaymentStep({
     }
 
     setIsProcessing(true);
+    setProcessingMethod("stripe");
     setError(null);
 
     try {
@@ -481,6 +485,9 @@ export function PaymentStep({
           {t('ui.checkout_template.behavior_driven.payment.security.notice_footer')}
         </p>
       </div>
+
+      {/* Processing Modal - Shows humorous loading steps during payment */}
+      <ProcessingModal isOpen={isProcessing} isInvoicePayment={processingMethod === "invoice"} />
     </div>
   );
 }

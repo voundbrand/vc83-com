@@ -1088,6 +1088,43 @@ export const completeCheckoutAndFulfill = action({
       console.error("Email sending failed (non-critical):", emailError);
     }
 
+    // 8. SEND SALES NOTIFICATION EMAIL (non-blocking)
+    // Sends internal notification to sales team about the new order
+    try {
+      // Get checkout instance to retrieve sales notification settings
+      const checkoutInstanceId = session.customProperties?.checkoutInstanceId as Id<"objects"> | undefined;
+
+      if (checkoutInstanceId) {
+        // ✅ Use public query - no authentication required
+        const checkoutInstance = await ctx.runQuery(api.checkoutOntology.getPublicCheckoutInstanceById, {
+          instanceId: checkoutInstanceId,
+        });
+
+        const salesNotificationRecipientEmail =
+          checkoutInstance?.customProperties?.salesNotificationRecipientEmail as string | undefined;
+        const salesNotificationEmailTemplateId =
+          checkoutInstance?.customProperties?.salesNotificationEmailTemplateId as Id<"objects"> | undefined;
+
+        // Send sales notification if recipient is configured
+        if (salesNotificationRecipientEmail) {
+          console.log("📧 [completeCheckoutAndFulfill] Sending sales notification to:", salesNotificationRecipientEmail);
+
+          await ctx.runAction(internal.emailDelivery.sendSalesNotificationEmail, {
+            checkoutSessionId: args.checkoutSessionId,
+            recipientEmail: salesNotificationRecipientEmail,
+            templateId: salesNotificationEmailTemplateId, // Optional: use custom template
+          });
+        } else {
+          console.log("📧 [completeCheckoutAndFulfill] No sales notification recipient configured, skipping");
+        }
+      } else {
+        console.log("📧 [completeCheckoutAndFulfill] No checkout instance ID, skipping sales notification");
+      }
+    } catch (salesEmailError) {
+      // Don't fail checkout if sales notification fails - log and continue
+      console.error("Sales notification email failed (non-critical):", salesEmailError);
+    }
+
     return {
       success: true,
       purchasedItemIds: createdPurchaseItems, // Generic! Works for any product type

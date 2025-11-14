@@ -402,6 +402,16 @@ export const sendOrderConfirmationEmail = internalAction({
         throw new Error("Checkout session not found");
       }
 
+      // 1.5. Get checkout instance to read email template configuration
+      const checkoutInstanceId = session.customProperties?.checkoutInstanceId as Id<"objects"> | undefined;
+      let checkoutInstance: Doc<"objects"> | null = null;
+
+      if (checkoutInstanceId) {
+        checkoutInstance = await ctx.runQuery(api.checkoutOntology.getPublicCheckoutInstanceById, {
+          instanceId: checkoutInstanceId,
+        });
+      }
+
       const allTickets = await ctx.runQuery(internal.ticketOntology.getTicketsByCheckoutInternal, {
         checkoutSessionId: args.checkoutSessionId,
       }) as Doc<"objects">[];
@@ -553,61 +563,113 @@ export const sendOrderConfirmationEmail = internalAction({
           })
         : "Date TBA";
 
-      // 5. RESOLVE EMAIL TEMPLATE (if configured in checkout)
-      // Get confirmationEmailTemplateId from checkout session
-      const confirmationEmailTemplateId = session.customProperties?.confirmationEmailTemplateId as Id<"objects"> | undefined;
+      // 4.5. GET EMAIL LANGUAGE from checkout instance
+      const defaultLanguage = checkoutInstance?.customProperties?.defaultLanguage as string | undefined;
+      const emailLanguage = defaultLanguage ? defaultLanguage.toLowerCase().split("-")[0] : "en";
+      console.log(`📧 Using email language from checkout instance: ${emailLanguage}`);
 
-      console.log("📧 [sendOrderConfirmationEmail] Email template resolution:", {
-        hasConfirmationEmailTemplateId: !!confirmationEmailTemplateId,
-        confirmationEmailTemplateId,
+      // 4.6. FETCH EMAIL TRANSLATIONS from database
+      const { getBackendTranslations } = await import("./helpers/backendTranslationHelper");
+      const emailTranslationKeys = [
+        "email.order.subject",
+        "email.order.header",
+        "email.order.greeting",
+        "email.order.confirmed",
+        "email.order.eventName",
+        "email.order.presentedBy",
+        "email.order.ticketCount",
+        "email.order.date",
+        "email.order.location",
+        "email.order.orderNumber",
+        "email.order.orderDate",
+        "email.order.documentsHeader",
+        "email.order.documentsBody",
+        "email.order.supportText",
+        "email.order.copyright",
+      ];
+
+      const emailTranslationsRaw = await getBackendTranslations(ctx, emailLanguage, emailTranslationKeys);
+
+      // Build translations object for email renderer
+      const emailTranslations = {
+        header: emailTranslationsRaw["email.order.header"],
+        greeting: emailTranslationsRaw["email.order.greeting"],
+        confirmed: emailTranslationsRaw["email.order.confirmed"],
+        eventName: emailTranslationsRaw["email.order.eventName"],
+        presentedBy: emailTranslationsRaw["email.order.presentedBy"],
+        ticketCount: emailTranslationsRaw["email.order.ticketCount"],
+        date: emailTranslationsRaw["email.order.date"],
+        location: emailTranslationsRaw["email.order.location"],
+        orderNumber: emailTranslationsRaw["email.order.orderNumber"],
+        orderDate: emailTranslationsRaw["email.order.orderDate"],
+        documentsHeader: emailTranslationsRaw["email.order.documentsHeader"],
+        documentsBody: emailTranslationsRaw["email.order.documentsBody"],
+        supportText: emailTranslationsRaw["email.order.supportText"],
+        copyright: emailTranslationsRaw["email.order.copyright"],
+      };
+
+      const subjectTemplate = emailTranslationsRaw["email.order.subject"];
+
+      // 5. RESOLVE EMAIL TEMPLATE FROM TEMPLATE SET (New unified resolver)
+      // Uses Template Set system with 3-level precedence:
+      // 1. Manual Send (if manualSetId provided)
+      // 2. Context Override (Product > Checkout > Domain)
+      // 3. Organization Default
+      console.log("📧 [Email Template Resolution] Starting template set resolution...");
+
+      // Build context for template resolution
+      const emailTemplateContext = {
+        checkoutInstanceId: checkoutInstance?._id,
+        domainConfigId: session.customProperties?.domainConfigId as Id<"objects"> | undefined,
+      };
+
+      console.log("📧 [Email Template Resolution] Context:", {
+        organizationId: session.organizationId,
+        checkoutInstanceId: emailTemplateContext.checkoutInstanceId,
+        domainConfigId: emailTemplateContext.domainConfigId,
       });
 
-      // Resolve email template (with fallback to luxury category default)
+      // Resolve email template using new Template Set resolver
+      const emailTemplateId = await ctx.runQuery(internal.templateSetQueries.resolveIndividualTemplateInternal, {
+        organizationId: session.organizationId,
+        templateType: "email",
+        context: emailTemplateContext,
+      });
+
+      console.log("📧 [Email Template Resolution] Resolved template ID:", emailTemplateId);
+
+      // Get template details (templateCode, etc.)
+      const emailTemplate = await ctx.runQuery(internal.pdfTemplateQueries.resolveEmailTemplateInternal, {
+        templateId: emailTemplateId,
+        fallbackCategory: "luxury",
+      });
+
+      const templateCode = emailTemplate.templateCode;
+      console.log("📧 [Email Template Resolution] Using template code:", templateCode, "from template:", emailTemplate.name);
+
+      // TODO: Extract primaryColor from template's customProperties if available
       const primaryColor = "#d4af37"; // Default elegant gold (changed from purple)
-      let templateCode = "luxury-confirmation"; // Default template
 
-      if (confirmationEmailTemplateId) {
-        try {
-          const resolvedTemplate = await ctx.runQuery(internal.pdfTemplateQueries.resolveEmailTemplateInternal, {
-            templateId: confirmationEmailTemplateId,
-            fallbackCategory: "luxury",
-          });
-
-          console.log("✅ [sendOrderConfirmationEmail] Resolved email template:", {
-            templateCode: resolvedTemplate.templateCode,
-            templateName: resolvedTemplate.name,
-            category: resolvedTemplate.category,
-          });
-
-          templateCode = resolvedTemplate.templateCode;
-
-          // TODO: Extract primaryColor from template's customProperties if available
-          // For now, we use the default color
-        } catch (error) {
-          console.warn("⚠️ [sendOrderConfirmationEmail] Failed to resolve email template, using default:", error);
-          // Fall back to default template
-        }
-      } else {
-        console.log("ℹ️ [sendOrderConfirmationEmail] No email template configured, using default luxury template");
-      }
-
-      // 6. Generate email HTML using template-driven renderer
+      // 6. Generate email HTML using template-driven renderer with translations
       const { generateOrderConfirmationHtml, generateOrderConfirmationSubject } = await import("./helpers/orderEmailRenderer");
 
-      const emailHtml = generateOrderConfirmationHtml({
-        recipientName: args.recipientName,
-        eventName,
-        eventSponsors,
-        eventLocation,
-        formattedDate,
-        ticketCount,
-        orderNumber,
-        orderDate: new Date(session.createdAt).toLocaleDateString(),
-        primaryColor,
-        organizationName: "L4YERCAK3",
-      });
+      const emailHtml = generateOrderConfirmationHtml(
+        {
+          recipientName: args.recipientName,
+          eventName,
+          eventSponsors,
+          eventLocation,
+          formattedDate,
+          ticketCount,
+          orderNumber,
+          orderDate: new Date(session.createdAt).toLocaleDateString(),
+          primaryColor,
+          organizationName: "L4YERCAK3",
+        },
+        emailTranslations // ✅ Pass translations from database
+      );
 
-      const emailSubject = generateOrderConfirmationSubject(eventName);
+      const emailSubject = generateOrderConfirmationSubject(eventName, subjectTemplate); // ✅ Pass subject template
 
       console.log("📧 [sendOrderConfirmationEmail] Generated email:", {
         subject: emailSubject,

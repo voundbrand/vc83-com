@@ -120,6 +120,9 @@ export interface BehaviorDrivenCheckoutConfig {
   products: BehaviorDrivenProduct[];
   theme: Theme;
 
+  // Optional - for linking checkout session to checkout instance
+  checkoutInstanceId?: Id<"objects">; // Checkout instance ID for sales notifications
+
   // Optional customization
   allowBackNavigation?: boolean;
   showProgressBar?: boolean;

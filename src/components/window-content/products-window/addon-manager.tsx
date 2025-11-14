@@ -239,7 +239,7 @@ export function AddonManager({
             className="px-3 py-1 text-xs font-bold border-2 flex items-center gap-1"
             style={{
               borderColor: "var(--win95-border)",
-              background: "var(--win95-button-bg)",
+              background: "var(--win95-button-face)",
               color: "var(--win95-text)",
             }}
           >
@@ -298,7 +298,7 @@ export function AddonManager({
                   type="button"
                   onClick={() => handleEdit(index)}
                   className="p-1 border-2"
-                  style={{ borderColor: "var(--win95-border)", background: "var(--win95-button-bg)" }}
+                  style={{ borderColor: "var(--win95-border)", background: "var(--win95-button-face)" }}
                   title={t("ui.products.addons.button.edit")}
                 >
                   <Edit2 size={14} />
@@ -307,7 +307,7 @@ export function AddonManager({
                   type="button"
                   onClick={() => handleDelete(index)}
                   className="p-1 border-2"
-                  style={{ borderColor: "var(--error)", background: "var(--win95-button-bg)", color: "var(--error)" }}
+                  style={{ borderColor: "var(--error)", background: "var(--win95-button-face)", color: "var(--error)" }}
                   title={t("ui.products.addons.button.delete")}
                 >
                   <Trash2 size={14} />
@@ -336,7 +336,7 @@ export function AddonManager({
               onChange={(e) => setCurrentAddon({ ...currentAddon, name: e.target.value })}
               placeholder={t("ui.products.addons.name.placeholder")}
               className="w-full px-2 py-1 text-sm border-2"
-              style={{ borderColor: "var(--win95-border)", background: "white" }}
+              style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)", color: "var(--win95-input-text)" }}
             />
           </div>
 
@@ -352,7 +352,7 @@ export function AddonManager({
               placeholder="⛵ 🎓 🍽️"
               maxLength={2}
               className="w-20 px-2 py-1 text-sm border-2"
-              style={{ borderColor: "var(--win95-border)", background: "white" }}
+              style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)", color: "var(--win95-input-text)" }}
             />
           </div>
 
@@ -367,7 +367,7 @@ export function AddonManager({
               placeholder="Brief description of what this addon includes..."
               rows={2}
               className="w-full px-2 py-1 text-sm border-2"
-              style={{ borderColor: "var(--win95-border)", background: "white" }}
+              style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)", color: "var(--win95-input-text)" }}
             />
           </div>
 
@@ -400,7 +400,7 @@ export function AddonManager({
                 }}
                 placeholder="30.00"
                 className="flex-1 px-2 py-1 text-sm border-2"
-                style={{ borderColor: "var(--win95-border)", background: "white" }}
+                style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)", color: "var(--win95-input-text)" }}
               />
               <span className="px-2 py-1 text-sm border-2" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}>
                 {currency}
@@ -430,7 +430,7 @@ export function AddonManager({
                   value={currentAddon.taxCode || ""}
                   onChange={(e) => setCurrentAddon({ ...currentAddon, taxCode: e.target.value || undefined })}
                   className="w-full px-2 py-1 text-xs border-2"
-                  style={{ borderColor: "var(--win95-border)", background: "white" }}
+                  style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)", color: "var(--win95-input-text)" }}
                 >
                   <option value="">Use product&apos;s tax code</option>
                   {taxCodes?.codes.map((code) => (
@@ -458,14 +458,28 @@ export function AddonManager({
             {availableFormFields && availableFormFields.length > 0 ? (
               <div
                 className="border-2 rounded p-2 max-h-48 overflow-y-auto"
-                style={{ borderColor: "var(--win95-border)", background: "white" }}
+                style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}
               >
                 {availableFormFields.map((field) => {
                   const isSelected = (currentAddon.formFieldIds || []).includes(field.id);
                   return (
                     <label
                       key={field.id}
-                      className="flex items-center gap-2 py-1 px-1 hover:bg-gray-100 cursor-pointer"
+                      className="flex items-center gap-2 py-1 px-1 cursor-pointer"
+                      style={{
+                        backgroundColor: isSelected ? "var(--win95-selected-bg)" : "transparent",
+                        color: isSelected ? "var(--win95-selected-text)" : "var(--win95-text)",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isSelected) {
+                          e.currentTarget.style.backgroundColor = "var(--win95-hover-light)";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isSelected) {
+                          e.currentTarget.style.backgroundColor = "transparent";
+                        }
+                      }}
                     >
                       <input
                         type="checkbox"
@@ -503,7 +517,7 @@ export function AddonManager({
                 }}
                 placeholder="ucra_participants_external"
                 className="w-full px-2 py-1 text-sm border-2"
-                style={{ borderColor: "var(--win95-border)", background: "white" }}
+                style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)", color: "var(--win95-input-text)" }}
               />
             )}
 
@@ -528,7 +542,7 @@ export function AddonManager({
                   className="px-2 py-1 text-xs border-2"
                   style={{
                     borderColor: "var(--win95-border)",
-                    background: "var(--win95-button-bg)",
+                    background: "var(--win95-button-face)",
                     color: "var(--win95-text)"
                   }}
                   title="Auto-generate mapping from selected field options"
@@ -554,7 +568,7 @@ export function AddonManager({
                     }}
                     placeholder="Field value (e.g., '1', 'yes')"
                     className="flex-1 px-2 py-1 text-sm border-2"
-                    style={{ borderColor: "var(--win95-border)", background: "white" }}
+                    style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)", color: "var(--win95-input-text)" }}
                   />
                   <span style={{ color: "var(--win95-text)" }}>→</span>
                   <input
@@ -564,7 +578,7 @@ export function AddonManager({
                     onChange={(e) => handleMappingChange(key, e.target.value)}
                     placeholder="Qty"
                     className="w-20 px-2 py-1 text-sm border-2"
-                    style={{ borderColor: "var(--win95-border)", background: "white" }}
+                    style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)", color: "var(--win95-input-text)" }}
                   />
                   <button
                     type="button"
@@ -574,7 +588,7 @@ export function AddonManager({
                       setCurrentAddon({ ...currentAddon, formFieldMapping: newMapping });
                     }}
                     className="p-1 border-2"
-                    style={{ borderColor: "var(--error)", background: "var(--win95-button-bg)", color: "var(--error)" }}
+                    style={{ borderColor: "var(--error)", background: "var(--win95-button-face)", color: "var(--error)" }}
                   >
                     <X size={14} />
                   </button>
@@ -584,7 +598,7 @@ export function AddonManager({
                 type="button"
                 onClick={addMappingEntry}
                 className="px-2 py-1 text-xs border-2 flex items-center gap-1"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-button-bg)" }}
+                style={{ borderColor: "var(--win95-border)", background: "var(--win95-button-face)", color: "var(--win95-text)" }}
               >
                 <Plus size={12} />
                 Add Mapping

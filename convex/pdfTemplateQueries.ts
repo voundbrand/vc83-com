@@ -281,6 +281,70 @@ export const getEmailTemplatesByCategory = query({
 });
 
 /**
+ * Get ALL Email Templates (No Category Filter)
+ *
+ * Returns all published email templates regardless of category.
+ * Used for dropdowns that should show all available options.
+ */
+export const getAllEmailTemplates = query({
+  args: {
+    organizationId: v.optional(v.id("organizations")),
+  },
+  handler: async (ctx, args) => {
+    // Get system organization
+    const systemOrg = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", "system"))
+      .first();
+
+    if (!systemOrg) {
+      throw new Error("System organization not found");
+    }
+
+    // Get system templates (no category filter)
+    const systemTemplates = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", systemOrg._id).eq("type", "template")
+      )
+      .filter((q) => q.eq(q.field("subtype"), "email"))
+      .filter((q) => q.eq(q.field("status"), "published"))
+      .collect();
+
+    // Get org-specific templates if organization provided
+    let orgTemplates: typeof systemTemplates = [];
+    if (args.organizationId && args.organizationId !== systemOrg._id) {
+      orgTemplates = await ctx.db
+        .query("objects")
+        .withIndex("by_org_type", (q) =>
+          q.eq("organizationId", args.organizationId!).eq("type", "template")
+        )
+        .filter((q) => q.eq(q.field("subtype"), "email"))
+        .filter((q) => q.eq(q.field("status"), "published"))
+        .collect();
+    }
+
+    // Combine and format results
+    const allTemplates = [...systemTemplates, ...orgTemplates];
+
+    return allTemplates.map((t) => {
+      const props = t.customProperties || {};
+      return {
+        _id: t._id,
+        name: t.name,
+        description: t.description || "",
+        templateCode: props.templateCode as string,
+        category: props.category as string,
+        version: props.version as string || "1.0",
+        previewImageUrl: props.previewImageUrl as string | undefined,
+        isDefault: props.isDefault as boolean || false,
+        isSystemTemplate: t.organizationId === systemOrg._id,
+      };
+    });
+  },
+});
+
+/**
  * Resolve Email Template for Actions (Internal Query)
  *
  * Resolves email template ID to templateCode for use in actions.

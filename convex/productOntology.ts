@@ -42,6 +42,19 @@
  *   },
  *   defaultPaymentTerms: "net30"
  * }
+ *
+ * Template Set Override (customProperties.templateSetId):
+ * Products can override the default template set (ticket + invoice + email).
+ * This is useful for VIP tickets that need premium branding.
+ * - templateSetId: Id<"objects"> - Reference to template_set object
+ *
+ * Example:
+ * {
+ *   customProperties: {
+ *     templateSetId: "templateSetId123", // VIP-specific templates
+ *     ...
+ *   }
+ * }
  */
 
 import { query, mutation } from "./_generated/server";

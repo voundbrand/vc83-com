@@ -185,6 +185,7 @@ export function CheckoutPageClient({ orgSlug, slug }: CheckoutPageClientProps) {
   // Build template props
   const templateProps: CheckoutTemplateProps = {
     organizationId: checkoutInstance.organizationId as Id<"organizations">,
+    checkoutInstanceId: checkoutInstance._id, // ✅ Pass checkout instance ID for sales notifications
     configuration: config,
     linkedProducts,
     theme: theme!, // We know theme exists because getThemeByCode returns default

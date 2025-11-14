@@ -8,7 +8,9 @@ import { Id } from "../../../../convex/_generated/dataModel";
 import { FileText, Loader2, AlertCircle, Building2, Search } from "lucide-react";
 import { TemplateCategories, TemplateCategory } from "./template-categories";
 import { TemplateCard } from "./template-card";
+import { TemplateSetCard } from "./template-set-card";
 import { TemplatePreviewModal } from "@/components/template-preview-modal";
+import { TemplateSetPreviewModal } from "@/components/template-set-preview-modal";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 /**
@@ -35,6 +37,7 @@ export function TemplatesWindow() {
     code: string;
     type: "email" | "pdf";
   } | null>(null);
+  const [previewTemplateSetId, setPreviewTemplateSetId] = useState<Id<"objects"> | null>(null);
 
   // Fetch available PDF templates for this org
   const availablePdfTemplates = useQuery(
@@ -56,6 +59,14 @@ export function TemplatesWindow() {
   const availableEmailTemplates = useQuery(
     api.emailTemplateOntology.getAllSystemEmailTemplates,
     {}
+  );
+
+  // Fetch available template sets for this org
+  const availableTemplateSets = useQuery(
+    api.templateSetQueries.getAvailableTemplateSets,
+    sessionId && organizationId
+      ? { organizationId: organizationId as Id<"organizations"> }
+      : "skip"
   );
 
   // Loading state
@@ -112,7 +123,12 @@ export function TemplatesWindow() {
 
   // Filter by category
   let filteredTemplates = allTemplates;
-  if (selectedCategory !== "all") {
+  let filteredTemplateSets: typeof availableTemplateSets = [];
+
+  if (selectedCategory === "template_sets") {
+    // Show template sets instead of templates
+    filteredTemplateSets = availableTemplateSets || [];
+  } else if (selectedCategory !== "all") {
     filteredTemplates = allTemplates.filter((template) => {
       const subtype = template.subtype;
       const category = template.customProperties?.category;
@@ -147,6 +163,7 @@ export function TemplatesWindow() {
   // Calculate category counts
   const categoryCounts: Record<TemplateCategory, number> = {
     all: allTemplates.length,
+    template_sets: (availableTemplateSets || []).length,
     email: allTemplates.filter((t) => t.subtype === "email").length,
     pdf_ticket: allTemplates.filter((t) => t.subtype === "pdf" && t.customProperties?.category === "ticket").length,
     pdf_invoice: allTemplates.filter((t) => t.subtype === "pdf" && (t.customProperties?.category === "invoice" || t.customProperties?.category === "receipt")).length,
@@ -223,44 +240,95 @@ export function TemplatesWindow() {
 
         {/* Template Grid */}
         <div className="flex-1 overflow-y-auto p-4">
-          {filteredTemplates.length === 0 ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <AlertCircle size={48} style={{ color: "var(--neutral-gray)" }} className="mx-auto mb-4" />
-                <p style={{ color: "var(--win95-text)" }} className="font-semibold">
-                  {t("ui.templates.error.no_templates_title")}
-                </p>
-                <p style={{ color: "var(--neutral-gray)" }} className="text-xs mt-2">
-                  {searchQuery
-                    ? t("ui.templates.error.no_search_results", { query: searchQuery })
-                    : t("ui.templates.error.no_category_templates")}
-                </p>
+          {selectedCategory === "template_sets" ? (
+            // Template Sets View
+            filteredTemplateSets.length === 0 ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <AlertCircle size={48} style={{ color: "var(--neutral-gray)" }} className="mx-auto mb-4" />
+                  <p style={{ color: "var(--win95-text)" }} className="font-semibold">
+                    {t("ui.templates.template_set.error.no_sets_title")}
+                  </p>
+                  <p style={{ color: "var(--neutral-gray)" }} className="text-xs mt-2">
+                    {t("ui.templates.template_set.error.no_sets_message")}
+                  </p>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredTemplateSets.map((set) => (
+                  <TemplateSetCard
+                    key={set._id}
+                    templateSet={set}
+                    ticketTemplate={set.ticketTemplateId ? { _id: set.ticketTemplateId, name: "Ticket Template" } : null}
+                    invoiceTemplate={set.invoiceTemplateId ? { _id: set.invoiceTemplateId, name: "Invoice Template" } : null}
+                    emailTemplate={set.emailTemplateId ? { _id: set.emailTemplateId, name: "Email Template" } : null}
+                    onPreview={() => setPreviewTemplateSetId(set._id as Id<"objects">)}
+                    onUseSet={() => {
+                      // TODO: Handle using this template set
+                      console.log("Use template set:", set._id);
+                    }}
+                    t={t}
+                  />
+                ))}
+              </div>
+            )
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {filteredTemplates.map((template) => (
-                <TemplateCard
-                  key={template._id}
-                  template={{
-                    ...template,
-                    organizationId: organizationId as Id<"organizations">,
-                  }}
-                  onPreview={() => handlePreview(template)}
-                />
-              ))}
-            </div>
+            // Regular Templates View
+            filteredTemplates.length === 0 ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <AlertCircle size={48} style={{ color: "var(--neutral-gray)" }} className="mx-auto mb-4" />
+                  <p style={{ color: "var(--win95-text)" }} className="font-semibold">
+                    {t("ui.templates.error.no_templates_title")}
+                  </p>
+                  <p style={{ color: "var(--neutral-gray)" }} className="text-xs mt-2">
+                    {searchQuery
+                      ? t("ui.templates.error.no_search_results", { query: searchQuery })
+                      : t("ui.templates.error.no_category_templates")}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {filteredTemplates.map((template) => (
+                  <TemplateCard
+                    key={template._id}
+                    template={{
+                      ...template,
+                      organizationId: organizationId as Id<"organizations">,
+                    }}
+                    onPreview={() => handlePreview(template)}
+                  />
+                ))}
+              </div>
+            )
           )}
         </div>
       </div>
 
-      {/* Preview Modal */}
+      {/* Template Preview Modal */}
       {previewTemplate && (
         <TemplatePreviewModal
           isOpen={true}
           onClose={() => setPreviewTemplate(null)}
           templateType={previewTemplate.type}
           templateCode={previewTemplate.code}
+        />
+      )}
+
+      {/* Template Set Preview Modal */}
+      {previewTemplateSetId && (
+        <TemplateSetPreviewModal
+          isOpen={true}
+          onClose={() => setPreviewTemplateSetId(null)}
+          templateSetId={previewTemplateSetId}
+          onUseSet={() => {
+            // TODO: Handle using this template set
+            console.log("Use template set:", previewTemplateSetId);
+            setPreviewTemplateSetId(null);
+          }}
+          t={t}
         />
       )}
     </div>

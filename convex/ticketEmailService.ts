@@ -24,6 +24,7 @@ export const sendTicketConfirmationEmail = action({
     sessionId: v.string(),
     ticketId: v.id("objects"),
     domainConfigId: v.optional(v.id("objects")), // Optional: if not provided, uses system defaults
+    emailTemplateId: v.optional(v.id("objects")), // Optional: custom email template to use
     isTest: v.optional(v.boolean()), // If true, sends to test email
     testRecipient: v.optional(v.string()),
     language: v.optional(v.union(v.literal("de"), v.literal("en"), v.literal("es"), v.literal("fr"))),
@@ -113,8 +114,17 @@ export const sendTicketConfirmationEmail = action({
       language,
     });
 
+    // Determine which template code to use (custom template or default)
+    let templateCode = templateData.templateCode;
+    if (args.emailTemplateId) {
+      // If custom email template provided, get its template code
+      // For now, we'll log a message and use the default template
+      // TODO: Implement template override once database access is available in actions
+      console.log(`📧 Custom email template requested: ${args.emailTemplateId} (using default template for now)`);
+    }
+
     // Get the template function and generate HTML
-    const templateFn = getEmailTemplate(templateData.templateCode);
+    const templateFn = getEmailTemplate(templateCode);
     const { html: emailHtml, subject: templateSubject } = templateFn(templateData);
 
     // 7. Generate attachments
@@ -256,6 +266,7 @@ export const previewTicketEmail = action({
     sessionId: v.string(),
     ticketId: v.id("objects"),
     domainConfigId: v.optional(v.id("objects")), // Optional: uses system defaults if not provided
+    emailTemplateId: v.optional(v.id("objects")), // Optional: custom email template to use
     language: v.optional(v.union(v.literal("de"), v.literal("en"), v.literal("es"), v.literal("fr"))),
   },
   handler: async (ctx, args): Promise<{
@@ -283,8 +294,17 @@ export const previewTicketEmail = action({
       language,
     });
 
+    // Determine which template code to use (custom template or default)
+    let templateCode = templateData.templateCode;
+    if (args.emailTemplateId) {
+      // If custom email template provided, get its template code
+      // For now, we'll log a message and use the default template
+      // TODO: Implement template override once database access is available in actions
+      console.log(`📧 [PREVIEW] Custom email template requested: ${args.emailTemplateId} (using default template for now)`);
+    }
+
     // Get the template function and generate HTML
-    const templateFn = getEmailTemplate(templateData.templateCode);
+    const templateFn = getEmailTemplate(templateCode);
     const { html: emailHtml, subject } = templateFn(templateData);
 
     return {

@@ -316,3 +316,49 @@ export function createMockInvoiceData(templateCode: string): TemplateData {
     total: 5950, // Gross: €59.50
   };
 }
+
+/**
+ * Create mock ticket data for preview
+ */
+export function createMockTicketData(_templateCode: string): TemplateData {
+  const baseData = {
+    // Organization (seller/organizer)
+    organization_name: "L4YERCAK3 Events",
+    organization_address: "123 Event Plaza, New York, NY 10001",
+    organization_phone: "(555) 123-4567",
+    organization_email: "tickets@l4yercak3.com",
+    organization_website: "https://l4yercak3.com",
+    logo_url: undefined, // No logo for mock preview
+    highlight_color: "#d4af37", // Gold
+
+    // Event details
+    event_name: "Exclusive VIP Gala 2025",
+    event_date: "Saturday, January 25, 2025",
+    event_time: "7:00 PM - 11:00 PM",
+    event_location: "Grand Ballroom",
+    event_address: "456 Luxury Avenue, New York, NY 10022",
+    event_sponsors: [
+      { name: "Premium Sponsor Co.", level: "Platinum" },
+      { name: "Gold Partner LLC", level: "Gold" },
+    ],
+
+    // Ticket details
+    ticket_number: "TKT-2025-001234",
+    ticket_type: "VIP Access",
+
+    // Attendee details
+    attendee_name: "John Doe",
+    attendee_email: "john.doe@example.com",
+    guest_count: 2,
+
+    // QR Code data (URL-encoded verification URL)
+    qr_code_data: encodeURIComponent("https://l4yercak3.com/verify/TKT-2025-001234"),
+
+    // Additional metadata
+    order_id: "ORD-2025-5678",
+    purchase_date: "January 10, 2025",
+    price_paid: "$79.00",
+  };
+
+  return baseData;
+}

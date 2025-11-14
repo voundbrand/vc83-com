@@ -7,7 +7,7 @@ import { Id } from "../../convex/_generated/dataModel";
 import { FileText, Loader2, AlertCircle } from "lucide-react";
 
 type PdfCategory = "invoice" | "ticket" | "certificate" | "receipt" | "badge";
-type EmailCategory = "luxury" | "minimal" | "internal";
+type EmailCategory = "luxury" | "minimal" | "internal" | "all"; // Added "all" for no filter
 
 interface TemplateSelectorProps {
   category: PdfCategory | EmailCategory;
@@ -53,7 +53,8 @@ export function TemplateSelector({
 }: TemplateSelectorProps) {
   // Determine if this is a PDF or email template category
   const isPdfCategory = (["invoice", "ticket", "certificate", "receipt", "badge"] as const).includes(category as PdfCategory);
-  const isEmailCategory = (["luxury", "minimal", "internal"] as const).includes(category as EmailCategory);
+  const isAllEmailCategory = category === "all";
+  const isEmailCategory = (["luxury", "minimal", "internal"] as const).includes(category as "luxury" | "minimal" | "internal");
 
   // Fetch templates for category (PDF or Email)
   // Note: Passing "skip" as args tells Convex to skip that query
@@ -63,13 +64,24 @@ export function TemplateSelector({
     isPdfCategory ? { category: category as PdfCategory, organizationId } : "skip"
   );
 
-  const emailTemplates = useQuery(
+  const emailTemplatesByCategory = useQuery(
     api.pdfTemplateQueries.getEmailTemplatesByCategory,
-    isEmailCategory ? { category: category as EmailCategory, organizationId } : "skip"
+    isEmailCategory ? { category: category as "luxury" | "minimal" | "internal", organizationId } : "skip"
+  );
+
+  const allEmailTemplates = useQuery(
+    api.pdfTemplateQueries.getAllEmailTemplates,
+    isAllEmailCategory ? { organizationId } : "skip"
   );
 
   // Use the appropriate result based on category
-  const templates = isPdfCategory ? pdfTemplates : isEmailCategory ? emailTemplates : undefined;
+  const templates = isPdfCategory
+    ? pdfTemplates
+    : isEmailCategory
+      ? emailTemplatesByCategory
+      : isAllEmailCategory
+        ? allEmailTemplates
+        : undefined;
 
   // Loading state
   if (templates === undefined) {

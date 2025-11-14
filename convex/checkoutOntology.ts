@@ -108,6 +108,7 @@ export const createCheckoutInstance = mutation({
       // EMAIL TEMPLATE REFERENCES (for transactional emails)
       confirmationEmailTemplateId: v.optional(v.id("objects")), // Order confirmation email template
       salesNotificationEmailTemplateId: v.optional(v.id("objects")), // Internal sales notification template
+      salesNotificationRecipientEmail: v.optional(v.string()), // Email to receive sales notifications (defaults to support@l4yercak3.com)
 
       // DEPRECATED: Old template code system (kept for backward compatibility)
       pdfTemplateCode: v.optional(v.union(
@@ -116,6 +117,10 @@ export const createCheckoutInstance = mutation({
         v.literal("invoice_b2b_consolidated_v1"),
         v.literal("invoice_b2b_consolidated_detailed_v1")
       )), // DEPRECATED: Use invoiceTemplateId instead
+
+      // NEW: Template Set Override (simplifies configuration)
+      templateSetId: v.optional(v.id("objects")), // Checkout-specific template set (ticket + invoice + email)
+
       // Behavior execution settings
       allowBackNavigation: v.optional(v.boolean()), // Allow users to go back to previous steps
       behaviorExecutionTiming: v.optional(v.string()), // "eager" or "lazy" execution
@@ -243,6 +248,7 @@ export const updateCheckoutInstance = mutation({
       // EMAIL TEMPLATE REFERENCES (for transactional emails)
       confirmationEmailTemplateId: v.optional(v.id("objects")), // Order confirmation email template
       salesNotificationEmailTemplateId: v.optional(v.id("objects")), // Internal sales notification template
+      salesNotificationRecipientEmail: v.optional(v.string()), // Email to receive sales notifications (defaults to support@l4yercak3.com)
 
       // DEPRECATED: Old template code system (kept for backward compatibility)
       pdfTemplateCode: v.optional(v.union(
@@ -251,6 +257,10 @@ export const updateCheckoutInstance = mutation({
         v.literal("invoice_b2b_consolidated_v1"),
         v.literal("invoice_b2b_consolidated_detailed_v1")
       )), // DEPRECATED: Use invoiceTemplateId instead
+
+      // NEW: Template Set Override (simplifies configuration)
+      templateSetId: v.optional(v.id("objects")), // Checkout-specific template set (ticket + invoice + email)
+
       // Behavior execution settings
       allowBackNavigation: v.optional(v.boolean()), // Allow users to go back to previous steps
       behaviorExecutionTiming: v.optional(v.string()), // "eager" or "lazy" execution

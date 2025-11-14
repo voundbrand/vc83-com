@@ -10,6 +10,7 @@ import QRCode from "qrcode";
 import { useAction, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
+import { TemplateSelector } from "@/components/template-selector";
 
 interface TicketDetailModalProps {
   ticket: Doc<"objects">;
@@ -31,6 +32,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
   const [emailResult, setEmailResult] = useState<{success: boolean; message: string; attachments?: {pdf: boolean; ics: boolean}} | null>(null);
   const [selectedDomainId, setSelectedDomainId] = useState<Id<"objects"> | null>(null);
   const [selectedLanguage, setSelectedLanguage] = useState<"de" | "en" | "es" | "fr">("de");
+  const [selectedEmailTemplateId, setSelectedEmailTemplateId] = useState<Id<"objects"> | null>(null);
 
   // Get current user and organization
   const { user, sessionId: userSessionId } = useAuth();
@@ -180,6 +182,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
         sessionId: userSessionId,
         ticketId: ticket._id,
         domainConfigId: selectedDomainId || undefined, // undefined = use system defaults
+        emailTemplateId: selectedEmailTemplateId || undefined, // undefined = use default template
         language: selectedLanguage,
       });
 
@@ -207,6 +210,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
         sessionId: userSessionId,
         ticketId: ticket._id,
         domainConfigId: selectedDomainId || undefined, // undefined = use system defaults
+        emailTemplateId: selectedEmailTemplateId || undefined, // undefined = use default template
         isTest: true,
         testRecipient: testEmail,
         language: selectedLanguage,
@@ -283,6 +287,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
         sessionId: userSessionId,
         ticketId: ticket._id,
         domainConfigId: selectedDomainId || undefined, // undefined = use system defaults
+        emailTemplateId: selectedEmailTemplateId || undefined, // undefined = use default template
         isTest: false,
         language: selectedLanguage,
       });
@@ -789,6 +794,20 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                   </p>
                 )}
               </div>
+
+              {/* Email Template Selector */}
+              {currentOrgId && (
+                <TemplateSelector
+                  category="all"
+                  value={selectedEmailTemplateId}
+                  onChange={(templateId) => setSelectedEmailTemplateId(templateId || null)}
+                  organizationId={currentOrgId as Id<"organizations">}
+                  label="📧 Email Template"
+                  description="Select which email template to use for this email. System default will be used if not selected."
+                  allowNull={true}
+                  nullLabel="Use system default email template"
+                />
+              )}
 
               {/* Language Selector */}
               <div className="mb-4 p-3 border-2" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>

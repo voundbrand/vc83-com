@@ -5,7 +5,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { useAuth } from "@/hooks/use-auth";
-import { FileText, Check, X, Loader2, AlertCircle, FileInput, ShoppingCart, FileType } from "lucide-react";
+import { FileText, Check, X, Loader2, AlertCircle, FileInput, ShoppingCart, FileType, Package } from "lucide-react";
 
 /**
  * Templates Tab
@@ -68,6 +68,18 @@ export function TemplatesTab() {
     sessionId ? { sessionId } : "skip"
   );
 
+  // Fetch all system template sets
+  const allTemplateSets = useQuery(
+    api.templateSetAvailability.getAllSystemTemplateSets,
+    sessionId ? { sessionId } : "skip"
+  );
+
+  // Fetch all template set availabilities (for all orgs)
+  const allTemplateSetAvailabilities = useQuery(
+    api.templateSetAvailability.getAllTemplateSetAvailabilities,
+    sessionId ? { sessionId } : "skip"
+  );
+
   // Fetch all organizations
   const organizations = useQuery(
     api.organizations.listAll,
@@ -101,6 +113,8 @@ export function TemplatesTab() {
     !allCheckoutAvailabilities ||
     !allPdfTemplates ||
     !allPdfAvailabilities ||
+    !allTemplateSets ||
+    !allTemplateSetAvailabilities ||
     !organizations
   ) {
     return (
@@ -468,6 +482,101 @@ export function TemplatesTab() {
                       organization={org}
                       templates={allPdfTemplates}
                       availabilities={allPdfAvailabilities.filter((a) => a.organizationId === org._id)}
+                      sessionId={sessionId}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Legend */}
+            <div className="mt-4 flex items-center gap-4 text-xs">
+              <div className="flex items-center gap-1">
+                <div className="w-4 h-4 bg-green-500 border-2 border-gray-400 flex items-center justify-center">
+                  <Check size={10} className="text-white" />
+                </div>
+                <span>Available</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-4 h-4 bg-red-500 border-2 border-gray-400 flex items-center justify-center">
+                  <X size={10} className="text-white" />
+                </div>
+                <span>Not Available</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-4 h-4 bg-gray-300 border-2 border-gray-400 flex items-center justify-center">
+                  <Loader2 size={10} className="animate-spin" />
+                </div>
+                <span>Updating...</span>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* TEMPLATE SETS SECTION */}
+      <div>
+        {/* Header */}
+        <div className="mb-4">
+          <h3 className="text-sm font-bold flex items-center gap-2">
+            <Package size={16} />
+            Template Sets Availability
+          </h3>
+          <p className="text-xs text-gray-600 mt-1">
+            Control which template sets are visible to each organization. Template sets bundle ticket, invoice, and email templates for consistent branding.
+          </p>
+        </div>
+
+        {allTemplateSets.length === 0 ? (
+          <div className="border-2 border-yellow-600 bg-yellow-50 p-4">
+            <div className="flex items-start gap-2">
+              <AlertCircle size={20} className="text-yellow-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-bold text-sm text-yellow-900">No Template Sets Found</h4>
+                <p className="text-xs text-yellow-800 mt-1">
+                  No template sets have been seeded yet. Run the seed script to create template sets.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Matrix Table */}
+            <div className="border-2 border-gray-400 overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-gray-200 border-b-2 border-gray-400">
+                    <th className="px-3 py-2 text-left font-bold sticky left-0 bg-gray-200 z-10">
+                      Organization
+                    </th>
+                    {allTemplateSets.map((templateSet) => (
+                      <th key={templateSet._id} className="px-3 py-2 text-center font-bold min-w-[140px]">
+                        <div className="flex flex-col items-center gap-1">
+                          <span>
+                            {templateSet.isSystemDefault ? "⭐" : "📦"}
+                          </span>
+                          <span className="text-center">{templateSet.name}</span>
+                          {templateSet.tags && templateSet.tags.length > 0 && (
+                            <div className="flex gap-1 flex-wrap justify-center">
+                              {templateSet.tags.map((tag) => (
+                                <code key={tag} className="text-xs text-gray-500 bg-gray-100 px-1">
+                                  {tag}
+                                </code>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {organizations.map((org) => (
+                    <TemplateSetRow
+                      key={org._id}
+                      organization={org}
+                      templateSets={allTemplateSets}
+                      availabilities={allTemplateSetAvailabilities.filter((a) => a.organizationId === org._id)}
                       sessionId={sessionId}
                     />
                   ))}
@@ -889,6 +998,107 @@ function PdfTemplateRow({
                   : isAvailable
                   ? `Click to disable ${template.name} for ${organization.name}`
                   : `Click to enable ${template.name} for ${organization.name}`
+              }
+            >
+              {isLoading ? (
+                <Loader2 size={14} className="animate-spin text-gray-600" />
+              ) : isAvailable ? (
+                <Check size={16} className="text-white" />
+              ) : (
+                <X size={16} className="text-white" />
+              )}
+            </button>
+          </td>
+        );
+      })}
+    </tr>
+  );
+}
+
+
+/**
+ * Template Set Row - for template sets (bundles of ticket, invoice, email templates)
+ */
+function TemplateSetRow({
+  organization,
+  templateSets,
+  availabilities,
+  sessionId,
+}: {
+  organization: { _id: Id<"organizations">; name: string; slug?: string };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  templateSets: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  availabilities: any[];
+  sessionId: string;
+}) {
+  const [loadingTemplateSetId, setLoadingTemplateSetId] = useState<string | null>(null);
+  const enableTemplateSet = useMutation(api.templateSetAvailability.enableTemplateSet);
+  const disableTemplateSet = useMutation(api.templateSetAvailability.disableTemplateSet);
+
+  const handleToggle = async (templateSetId: string, currentState: boolean) => {
+    try {
+      setLoadingTemplateSetId(templateSetId);
+
+      if (currentState) {
+        // Disable
+        await disableTemplateSet({
+          sessionId,
+          organizationId: organization._id,
+          templateSetId: templateSetId as Id<"objects">,
+        });
+      } else {
+        // Enable
+        await enableTemplateSet({
+          sessionId,
+          organizationId: organization._id,
+          templateSetId: templateSetId as Id<"objects">,
+        });
+      }
+    } catch (error) {
+      console.error("Failed to toggle template set availability:", error);
+      alert(`Failed to update: ${error instanceof Error ? error.message : "Unknown error"}`);
+    } finally {
+      setLoadingTemplateSetId(null);
+    }
+  };
+
+  return (
+    <tr className="border-b border-gray-300 hover:bg-gray-50">
+      <td className="px-3 py-2 font-semibold sticky left-0 bg-white z-10">
+        <div>
+          <div>{organization.name}</div>
+          <div className="text-gray-500 text-xs font-normal">
+            {organization.slug}
+          </div>
+        </div>
+      </td>
+      {templateSets.map((templateSet) => {
+        const availability = availabilities.find(
+          (a) => a.templateSetId === templateSet._id
+        );
+        const isAvailable = availability?.available ?? false;
+        const isLoading = loadingTemplateSetId === templateSet._id;
+
+        return (
+          <td key={templateSet._id} className="px-3 py-2 text-center">
+            <button
+              onClick={() => handleToggle(templateSet._id, isAvailable)}
+              disabled={isLoading}
+              className="w-8 h-8 border-2 border-gray-400 flex items-center justify-center transition-colors hover:opacity-80 disabled:opacity-50 mx-auto"
+              style={{
+                backgroundColor: isLoading
+                  ? "#d1d5db"
+                  : isAvailable
+                  ? "#22c55e"
+                  : "#ef4444",
+              }}
+              title={
+                isLoading
+                  ? "Updating..."
+                  : isAvailable
+                  ? `Click to disable ${templateSet.name} for ${organization.name}`
+                  : `Click to enable ${templateSet.name} for ${organization.name}`
               }
             >
               {isLoading ? (

@@ -1,9 +1,9 @@
 "use client";
 
-import { FileText, FileType, FileInput, ShoppingCart, Mail } from "lucide-react";
+import { FileText, FileType, FileInput, ShoppingCart, Mail, Package } from "lucide-react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
-export type TemplateCategory = "all" | "email" | "pdf_ticket" | "pdf_invoice" | "web" | "form" | "checkout";
+export type TemplateCategory = "all" | "template_sets" | "email" | "pdf_ticket" | "pdf_invoice" | "web" | "form" | "checkout";
 
 interface TemplateCategoriesProps {
   selectedCategory: TemplateCategory;
@@ -32,6 +32,7 @@ export function TemplateCategories({
 
   const categories = [
     { id: "all" as TemplateCategory, translationKey: "ui.templates.categories.all", icon: FileText, emoji: "📁" },
+    { id: "template_sets" as TemplateCategory, translationKey: "ui.templates.categories.template_sets", icon: Package, emoji: "📦" },
     { id: "email" as TemplateCategory, translationKey: "ui.templates.categories.email", icon: Mail, emoji: "📧" },
     { id: "pdf_ticket" as TemplateCategory, translationKey: "ui.templates.categories.pdf_ticket", icon: FileType, emoji: "🎫" },
     { id: "pdf_invoice" as TemplateCategory, translationKey: "ui.templates.categories.pdf_invoice", icon: FileType, emoji: "💰" },

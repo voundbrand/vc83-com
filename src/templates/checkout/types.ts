@@ -45,6 +45,7 @@ export interface CheckoutSchemaField {
  */
 export interface CheckoutTemplateProps {
   organizationId: Id<"organizations">;
+  checkoutInstanceId?: Id<"objects">; // Checkout instance ID for linking checkout session
   configuration: Record<string, unknown>;
   linkedProducts: CheckoutProduct[];
   theme: Theme;

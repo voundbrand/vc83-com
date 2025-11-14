@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, Plus, Grid3x3, FileText } from "lucide-react";
+import { Building2, Plus, Grid3x3, FileText, Package } from "lucide-react";
 import { SystemOrganizationsTab } from "./system-organizations-tab";
 import { OrganizationsListTab } from "./organizations-list-tab";
 import { AppAvailabilityTab } from "./app-availability-tab";
 import { TemplatesTab } from "./templates-tab";
+import { TemplateSetsTab } from "./template-sets-tab";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 /**
@@ -18,7 +19,7 @@ import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
  * - Templates: Manage which templates are available to which orgs (super admin only)
  */
 
-type TabType = "list" | "create" | "app-availability" | "templates";
+type TabType = "list" | "create" | "template-sets" | "app-availability" | "templates";
 
 export function OrganizationsWindow() {
   const { t } = useNamespaceTranslations("ui.organizations");
@@ -66,6 +67,18 @@ export function OrganizationsWindow() {
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
           style={{
             borderColor: 'var(--win95-border)',
+            background: activeTab === "template-sets" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+            color: activeTab === "template-sets" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+          }}
+          onClick={() => setActiveTab("template-sets")}
+        >
+          <Package size={14} />
+          Template Sets
+        </button>
+        <button
+          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
+          style={{
+            borderColor: 'var(--win95-border)',
             background: activeTab === "app-availability" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
             color: activeTab === "app-availability" ? 'var(--win95-text)' : 'var(--neutral-gray)'
           }}
@@ -92,6 +105,7 @@ export function OrganizationsWindow() {
       <div className="flex-1 overflow-y-auto">
         {activeTab === "list" && <OrganizationsListTab />}
         {activeTab === "create" && <SystemOrganizationsTab />}
+        {activeTab === "template-sets" && <TemplateSetsTab />}
         {activeTab === "app-availability" && <AppAvailabilityTab />}
         {activeTab === "templates" && <TemplatesTab />}
       </div>

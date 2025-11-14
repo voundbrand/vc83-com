@@ -182,6 +182,36 @@ export function ReviewOrderStep({ checkoutData, products, onComplete, onBack }: 
               <strong>{t('ui.checkout_template.behavior_driven.review_order.labels.phone')}</strong> {checkoutData.customerInfo.phone}
             </p>
           )}
+
+          {/* B2B Information */}
+          {checkoutData.customerInfo?.transactionType === "B2B" && checkoutData.customerInfo.companyName && (
+            <>
+              <div className="border-t border-gray-300 my-3 pt-3"></div>
+              <p className="font-bold text-gray-700 mb-2">Business Information:</p>
+              <p>
+                <strong>Company:</strong> {checkoutData.customerInfo.companyName}
+              </p>
+              {checkoutData.customerInfo.vatNumber && (
+                <p>
+                  <strong>VAT Number:</strong> {checkoutData.customerInfo.vatNumber}
+                </p>
+              )}
+              {checkoutData.customerInfo.billingAddress && (
+                <>
+                  <p className="font-bold text-gray-700 mt-2 mb-1">Billing Address:</p>
+                  <p>{checkoutData.customerInfo.billingAddress.line1}</p>
+                  {checkoutData.customerInfo.billingAddress.line2 && (
+                    <p>{checkoutData.customerInfo.billingAddress.line2}</p>
+                  )}
+                  <p>
+                    {checkoutData.customerInfo.billingAddress.postalCode} {checkoutData.customerInfo.billingAddress.city}
+                    {checkoutData.customerInfo.billingAddress.state && `, ${checkoutData.customerInfo.billingAddress.state}`}
+                  </p>
+                  <p>{checkoutData.customerInfo.billingAddress.country}</p>
+                </>
+              )}
+            </>
+          )}
         </div>
       </div>
 
