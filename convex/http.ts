@@ -304,32 +304,120 @@ import { createBooking } from "./api/v1/bookings";
  * Layer 1: READ APIs (Before Checkout)
  */
 
-// GET /api/v1/events
+// GET /api/v1/events (exact match - list all events)
 http.route({
   path: "/api/v1/events",
   method: "GET",
   handler: getEvents,
 });
 
-// GET /api/v1/events/by-slug/:slug
+// GET /api/v1/events/by-slug/:slug (get event by slug)
 http.route({
-  path: "/api/v1/events/by-slug/:slug",
+  pathPrefix: "/api/v1/events/by-slug/",
   method: "GET",
   handler: getEventBySlug,
 });
 
-// GET /api/v1/events/:eventId (by ID)
+// GET /api/v1/events/:eventId (get event by ID)
+// GET /api/v1/events/:eventId/products (get event products)
 http.route({
-  path: "/api/v1/events/:eventId",
+  pathPrefix: "/api/v1/events/",
   method: "GET",
-  handler: getEventById,
-});
+  handler: httpAction(async (ctx, request) => {
+    try {
+      const url = new URL(request.url);
+      const pathname = url.pathname;
 
-// GET /api/v1/events/:eventId/products
-http.route({
-  path: "/api/v1/events/:eventId/products",
-  method: "GET",
-  handler: getEventProducts,
+      // Skip if it's the by-slug route (handled above)
+      if (pathname.includes("/by-slug/")) {
+        return new Response("Route handled elsewhere", { status: 404 });
+      }
+
+      // Verify API key first
+      const authHeader = request.headers.get("Authorization");
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return new Response(
+          JSON.stringify({ error: "Missing or invalid Authorization header" }),
+          { status: 401, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      const apiKey = authHeader.substring(7);
+      const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, { apiKey });
+
+      if (!authContext) {
+        return new Response(
+          JSON.stringify({ error: "Invalid API key" }),
+          { status: 401, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      const { organizationId } = authContext;
+
+      // Parse path
+      const afterPrefix = pathname.substring("/api/v1/events/".length);
+      const parts = afterPrefix.split("/").filter(p => p);
+
+      // Route: /api/v1/events/{eventId}/products
+      if (parts.length === 2 && parts[1] === "products") {
+        const eventId = parts[0];
+        const products = await ctx.runQuery(
+          internal.api.v1.eventsInternal.getEventProductsInternal,
+          { eventId: eventId as any, organizationId }
+        );
+
+        return new Response(
+          JSON.stringify({ success: true, products, total: products.length }),
+          {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json",
+              "X-Organization-Id": organizationId,
+            },
+          }
+        );
+      }
+
+      // Route: /api/v1/events/{eventId}
+      if (parts.length === 1) {
+        const eventId = parts[0];
+        const event = await ctx.runQuery(
+          internal.api.v1.eventsInternal.getEventByIdInternal,
+          { eventId: eventId as any, organizationId }
+        );
+
+        if (!event) {
+          return new Response(
+            JSON.stringify({ error: "Event not found" }),
+            { status: 404, headers: { "Content-Type": "application/json" } }
+          );
+        }
+
+        return new Response(
+          JSON.stringify({ success: true, event }),
+          {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json",
+              "X-Organization-Id": organizationId,
+            },
+          }
+        );
+      }
+
+      // No matching route
+      return new Response("No matching routes found", {
+        status: 404,
+        headers: { "Content-Type": "text/plain" },
+      });
+    } catch (error) {
+      console.error("API /events/* error:", error);
+      return new Response(
+        JSON.stringify({ error: "Internal server error" }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
+    }
+  }),
 });
 
 // GET /api/v1/products/:productId
