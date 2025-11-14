@@ -213,6 +213,7 @@ export const getEventProductsInternal = internalQuery({
           currency: customProps?.currency as string | undefined,
           category: customProps?.category as string | undefined,
           categoryLabel: customProps?.categoryLabel as string | undefined,
+          addons: (customProps?.addons as Array<unknown> | undefined) || [],
           inventory: customProps?.inventory as Record<string, unknown> | undefined,
           metadata: customProps?.metadata as Record<string, unknown> | undefined,
           eventId: customProps?.eventId,
