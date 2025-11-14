@@ -200,7 +200,7 @@ export const getEventProductsInternal = internalQuery({
       return customProps?.eventId === args.eventId;
     });
 
-    // Transform for API response
+    // Transform for API response - keep customProperties nested for frontend compatibility
     return eventProducts.map((product) => {
       const customProps = product.customProperties as Record<string, unknown> | undefined;
       return {
@@ -208,11 +208,15 @@ export const getEventProductsInternal = internalQuery({
         name: product.name,
         description: product.description,
         status: product.status,
-        price: customProps?.price as number | undefined,
-        currency: customProps?.currency as string | undefined,
-        category: customProps?.category as string | undefined,
-        inventory: customProps?.inventory as Record<string, unknown> | undefined,
-        metadata: customProps?.metadata as Record<string, unknown> | undefined,
+        customProperties: {
+          price: customProps?.price as number | undefined,
+          currency: customProps?.currency as string | undefined,
+          category: customProps?.category as string | undefined,
+          categoryLabel: customProps?.categoryLabel as string | undefined,
+          inventory: customProps?.inventory as Record<string, unknown> | undefined,
+          metadata: customProps?.metadata as Record<string, unknown> | undefined,
+          eventId: customProps?.eventId,
+        },
       };
     });
   },
