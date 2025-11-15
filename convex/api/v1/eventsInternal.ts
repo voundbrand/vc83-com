@@ -65,7 +65,7 @@ export const getEventsInternal = internalQuery({
         startDate: customProps?.startDate as number | undefined,
         endDate: customProps?.endDate as number | undefined,
         location: customProps?.location as string | undefined,
-        capacity: customProps?.capacity as number | undefined,
+        capacity: customProps?.maxCapacity as number | undefined,
         agenda: customProps?.agenda as string | undefined,
         metadata: customProps?.metadata as Record<string, unknown> | undefined,
       };

@@ -169,7 +169,7 @@ export function EventForm({
         startTime: startTimestamp ? timestampToLocalTime(startTimestamp, orgTimezone) : "",
         endDate: endTimestamp ? timestampToLocalDate(endTimestamp, orgTimezone) : "",
         endTime: endTimestamp ? timestampToLocalTime(endTimestamp, orgTimezone) : "",
-        capacity: existingEvent.customProperties?.capacity?.toString() || "",
+        capacity: existingEvent.customProperties?.maxCapacity?.toString() || "",
       });
 
       // Load detailed description (only if not actively editing to prevent cursor jumps)
@@ -405,7 +405,7 @@ export function EventForm({
         // Update existing event
         // Update custom properties to include detailed description, agenda, and format
         const customProps: Record<string, unknown> = {};
-        if (capacity) customProps.capacity = capacity;
+        if (capacity) customProps.maxCapacity = capacity;
         if (detailedDescription) customProps.detailedDescription = detailedDescription;
         if (eventAgenda.length > 0) customProps.agenda = eventAgenda;
         customProps.format = formData.format; // Add format
@@ -430,7 +430,7 @@ export function EventForm({
 
         // Build custom properties with detailed description, agenda, format, and address validation
         const customProps: Record<string, unknown> = {};
-        if (capacity) customProps.capacity = capacity;
+        if (capacity) customProps.maxCapacity = capacity;
         if (detailedDescription) customProps.detailedDescription = detailedDescription;
         if (eventAgenda.length > 0) customProps.agenda = eventAgenda;
         customProps.format = formData.format; // Add format
