@@ -81,16 +81,20 @@ export function TemplatesTab() {
   );
 
   // Fetch all system workflow templates
-  const allWorkflowTemplates = useQuery(
-    api.workflowTemplateAvailability.getAllSystemWorkflowTemplates,
-    sessionId ? { sessionId } : "skip"
-  );
+  // TODO: Re-enable when workflowTemplateAvailability API is properly generated on Vercel
+  // const allWorkflowTemplates = useQuery(
+  //   api.workflowTemplateAvailability.getAllSystemWorkflowTemplates,
+  //   sessionId ? { sessionId } : "skip"
+  // );
+  const allWorkflowTemplates: any = undefined;
 
   // Fetch all workflow template availabilities (for all orgs)
-  const allWorkflowAvailabilities = useQuery(
-    api.workflowTemplateAvailability.getAllWorkflowTemplateAvailabilities,
-    sessionId ? { sessionId } : "skip"
-  );
+  // TODO: Re-enable when workflowTemplateAvailability API is properly generated on Vercel
+  // const allWorkflowAvailabilities = useQuery(
+  //   api.workflowTemplateAvailability.getAllWorkflowTemplateAvailabilities,
+  //   sessionId ? { sessionId } : "skip"
+  // );
+  const allWorkflowAvailabilities: any = undefined;
 
   // Fetch all organizations
   const organizations = useQuery(
@@ -624,6 +628,8 @@ export function TemplatesTab() {
       </div>
 
       {/* WORKFLOW TEMPLATES SECTION */}
+      {/* TODO: Re-enable when workflowTemplateAvailability API is working */}
+      {allWorkflowTemplates && allWorkflowAvailabilities && (
       <div>
         {/* Header */}
         <div className="mb-4">
@@ -658,7 +664,7 @@ export function TemplatesTab() {
                     <th className="px-3 py-2 text-left font-bold sticky left-0 bg-gray-200 z-10">
                       Organization
                     </th>
-                    {allWorkflowTemplates.map((template) => (
+                    {allWorkflowTemplates.map((template: any) => (
                       <th key={template._id} className="px-3 py-2 text-center font-bold min-w-[120px]">
                         <div className="flex flex-col items-center gap-1">
                           <span>
@@ -682,7 +688,7 @@ export function TemplatesTab() {
                       key={org._id}
                       organization={org}
                       templates={allWorkflowTemplates}
-                      availabilities={allWorkflowAvailabilities.filter((a) => a.organizationId === org._id)}
+                      availabilities={allWorkflowAvailabilities.filter((a: any) => a.organizationId === org._id)}
                       sessionId={sessionId}
                     />
                   ))}
@@ -714,6 +720,7 @@ export function TemplatesTab() {
           </>
         )}
       </div>
+      )}
     </div>
   );
 }
