@@ -891,3 +891,295 @@ export const deleteSession = internalMutation({
     await ctx.db.delete(args.sessionId as Id<"sessions">);
   },
 });
+
+// ==========================================
+// FRONTEND USER AUTHENTICATION
+// ==========================================
+// These functions manage OAuth users from frontend applications
+// stored in the ontology system (objects table with type="frontend_user")
+
+/**
+ * Find a frontend user by email
+ */
+export const findFrontendUserByEmail = internalQuery({
+  args: {
+    email: v.string(),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "frontend_user")
+      )
+      .filter((q) => q.eq(q.field("name"), args.email))
+      .first();
+
+    return user;
+  },
+});
+
+/**
+ * Find a frontend user by OAuth provider and ID
+ */
+export const findFrontendUserByOAuth = internalQuery({
+  args: {
+    oauthProvider: v.string(),
+    oauthId: v.string(),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    const users = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "frontend_user")
+      )
+      .collect();
+
+    const user = users.find(
+      (u) =>
+        u.customProperties?.oauthProvider === args.oauthProvider &&
+        u.customProperties?.oauthId === args.oauthId
+    );
+
+    return user || null;
+  },
+});
+
+/**
+ * Sync a frontend user (create or update after OAuth login)
+ */
+export const syncFrontendUser = internalMutation({
+  args: {
+    email: v.string(),
+    name: v.string(),
+    oauthProvider: v.string(),
+    oauthId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // TODO: Get organization ID from request context or environment
+    const PLATFORM_ORG_ID = process.env.PLATFORM_ORGANIZATION_ID;
+    if (!PLATFORM_ORG_ID) {
+      throw new Error("PLATFORM_ORGANIZATION_ID not configured");
+    }
+    const organizationId = PLATFORM_ORG_ID as Id<"organizations">;
+
+    type FrontendUserObject = {
+      _id: Id<"objects">;
+      customProperties?: Record<string, unknown>;
+    } | null;
+
+    // Check by OAuth provider first
+    const existingUserByOAuth: FrontendUserObject = await ctx.runQuery(internal.auth.findFrontendUserByOAuth, {
+      oauthProvider: args.oauthProvider,
+      oauthId: args.oauthId,
+      organizationId,
+    }) as FrontendUserObject;
+
+    if (existingUserByOAuth) {
+      await ctx.db.patch(existingUserByOAuth._id, {
+        updatedAt: Date.now(),
+        customProperties: {
+          ...existingUserByOAuth.customProperties,
+          lastLogin: Date.now(),
+          displayName: args.name,
+        },
+      });
+      return await ctx.db.get(existingUserByOAuth._id);
+    }
+
+    // Check by email
+    const existingUserByEmail: FrontendUserObject = await ctx.runQuery(internal.auth.findFrontendUserByEmail, {
+      email: args.email,
+      organizationId,
+    }) as FrontendUserObject;
+
+    if (existingUserByEmail) {
+      await ctx.db.patch(existingUserByEmail._id, {
+        updatedAt: Date.now(),
+        customProperties: {
+          ...existingUserByEmail.customProperties,
+          lastLogin: Date.now(),
+          displayName: args.name,
+          [`${args.oauthProvider}Id`]: args.oauthId,
+        },
+      });
+      return await ctx.db.get(existingUserByEmail._id);
+    }
+
+    // Create new frontend_user
+    const SYSTEM_USER_ID = "k1system000000000000000000" as Id<"users">;
+    const userId = await ctx.db.insert("objects", {
+      organizationId,
+      type: "frontend_user",
+      subtype: "oauth",
+      name: args.email,
+      description: `OAuth user from ${args.oauthProvider}`,
+      status: "active",
+      customProperties: {
+        oauthProvider: args.oauthProvider,
+        oauthId: args.oauthId,
+        displayName: args.name,
+        lastLogin: Date.now(),
+      },
+      createdBy: SYSTEM_USER_ID,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    // Link to CRM contact if exists
+    await ctx.runMutation(internal.auth.linkFrontendUserToCRM, {
+      userId,
+      email: args.email,
+      organizationId,
+    });
+
+    return await ctx.db.get(userId);
+  },
+});
+
+/**
+ * Link frontend_user to existing crm_contact by email
+ */
+export const linkFrontendUserToCRM = internalMutation({
+  args: {
+    userId: v.id("objects"),
+    email: v.string(),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    // Find crm_contact with matching email
+    const contacts = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "crm_contact")
+      )
+      .collect();
+
+    const matchingContact = contacts.find(
+      (c) => c.customProperties?.email === args.email
+    );
+
+    if (!matchingContact) {
+      console.log(`No matching crm_contact found for: ${args.email}`);
+      return;
+    }
+
+    // Create link: frontend_user -> crm_contact
+    await ctx.db.insert("objectLinks", {
+      organizationId: args.organizationId,
+      fromObjectId: args.userId,
+      toObjectId: matchingContact._id,
+      linkType: "authenticates_as",
+      createdAt: Date.now(),
+    });
+
+    // Update user with CRM contact reference
+    const user = await ctx.db.get(args.userId);
+    if (user) {
+      await ctx.db.patch(args.userId, {
+        customProperties: {
+          ...user.customProperties,
+          crmContactId: matchingContact._id,
+        },
+      });
+    }
+
+    // Get CRM organization
+    const crmOrgLinks = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_from_link_type", (q) =>
+        q.eq("fromObjectId", matchingContact._id).eq("linkType", "belongs_to_organization")
+      )
+      .collect();
+
+    if (crmOrgLinks.length > 0) {
+      const crmOrganizationId = crmOrgLinks[0].toObjectId;
+
+      await ctx.db.insert("objectLinks", {
+        organizationId: args.organizationId,
+        fromObjectId: args.userId,
+        toObjectId: crmOrganizationId,
+        linkType: "belongs_to_crm_org",
+        createdAt: Date.now(),
+      });
+
+      const updatedUser = await ctx.db.get(args.userId);
+      if (updatedUser) {
+        await ctx.db.patch(args.userId, {
+          customProperties: {
+            ...updatedUser.customProperties,
+            crmOrganizationId: crmOrganizationId,
+          },
+        });
+      }
+    }
+
+    console.log(`✓ Linked frontend_user to crm_contact: ${matchingContact._id}`);
+  },
+});
+
+/**
+ * Validate a frontend user by ID
+ */
+export const validateFrontendUser = internalQuery({
+  args: {
+    userId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+
+    if (!user || user.type !== "frontend_user") {
+      return null;
+    }
+
+    if (user.status !== "active") {
+      return {
+        valid: false,
+        error: "User account is not active",
+      };
+    }
+
+    return {
+      valid: true,
+      user,
+      crmContext: {
+        contactId: user.customProperties?.crmContactId,
+        organizationId: user.customProperties?.crmOrganizationId,
+      },
+    };
+  },
+});
+
+/**
+ * Get CRM organization for frontend user
+ */
+export const getCrmOrganizationForUser = internalQuery({
+  args: {
+    userId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user || user.type !== "frontend_user") {
+      return null;
+    }
+
+    const crmOrganizationId = user.customProperties?.crmOrganizationId;
+    if (crmOrganizationId) {
+      return await ctx.db.get(crmOrganizationId as Id<"objects">);
+    }
+
+    const orgLinks = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_from_link_type", (q) =>
+        q.eq("fromObjectId", args.userId).eq("linkType", "belongs_to_crm_org")
+      )
+      .first();
+
+    if (!orgLinks) {
+      return null;
+    }
+
+    return await ctx.db.get(orgLinks.toObjectId);
+  },
+});

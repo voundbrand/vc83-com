@@ -80,8 +80,8 @@ export const triggerWorkflow = httpAction(async (ctx, request) => {
       );
     }
 
-    // 3. Execute workflow
-    const result = await ctx.runMutation(
+    // 3. Execute workflow (now an action, not a mutation)
+    const result = await ctx.runAction(
       internal.api.v1.workflowsInternal.executeWorkflowInternal,
       {
         organizationId,

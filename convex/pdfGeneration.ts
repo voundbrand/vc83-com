@@ -472,7 +472,7 @@ export const generateInvoicePDF = action({
           }
 
           // Calculate totals from the items
-          const totalPriceInCents = group.items.reduce((sum, item) => {
+          const totalPriceInCents = group.items.reduce((sum: number, item: any) => {
             if (!item) return sum;
             return sum + ((item.customProperties?.totalPrice as number) || 0);
           }, 0);
@@ -534,7 +534,7 @@ export const generateInvoicePDF = action({
       // Currency already fetched from locale settings above (invoiceCurrency)
 
       // Get tax rate from first transaction (assumes all items have same rate)
-      const firstTransaction = transactions.find(txn => txn !== null);
+      const firstTransaction = transactions.find((txn: any) => txn !== null);
       const taxRatePercent = (firstTransaction?.customProperties?.taxRatePercent as number) || 0;
 
       // 8. Group transactions by tax rate for invoice display
@@ -1082,7 +1082,7 @@ export const generateEventAttendeeListPDF = action({
       doc.setTextColor(0, 0, 0);
       doc.setFontSize(8);
 
-      attendees.forEach((attendee, index) => {
+      attendees.forEach((attendee: any, index: number) => {
         // Check if we need a new page
         if (yPos > pageHeight - 20) {
           doc.addPage();

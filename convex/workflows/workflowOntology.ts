@@ -754,7 +754,13 @@ export const executeWorkflow = action({
         message: result.success
           ? `Workflow "${workflow.name}" executed successfully. ${result.executedCount} of ${result.totalCount} behaviors completed.`
           : `Workflow execution completed with errors. ${result.executedCount} of ${result.totalCount} behaviors completed.`,
-        behaviorResults: result.results.map((r) => ({
+        behaviorResults: result.results.map((r: {
+          behaviorType: string;
+          success: boolean;
+          error?: string;
+          message?: string;
+          data?: unknown;
+        }) => ({
           ...r,
           executionId: result.executionId,
         })),

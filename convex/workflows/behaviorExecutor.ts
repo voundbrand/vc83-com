@@ -36,6 +36,19 @@ export const executeBehavior = action({
     console.log(`🔧 Executing behavior: ${args.behaviorType}`);
 
     try {
+      // Check behavior condition before execution (CONDITIONAL EXECUTION SUPPORT)
+      if (args.config?.condition) {
+        const conditionMet = evaluateCondition(args.config.condition, args.context);
+        if (!conditionMet) {
+          console.log(`⏭️ Skipping behavior ${args.behaviorType} - condition not met: ${args.config.condition}`);
+          return {
+            success: true,
+            message: `Skipped - condition not met: ${args.config.condition}`,
+            data: { skipped: true, reason: args.config.condition },
+          };
+        }
+      }
+
       // Route to appropriate action based on behavior type
       switch (args.behaviorType) {
         case "consolidated-invoice-generation":
@@ -48,23 +61,142 @@ export const executeBehavior = action({
             }
           );
 
-        // Add more behavior types here as they're implemented
+        // Event Registration Behaviors (NEW!)
+        case "validate-registration":
+          return await ctx.runAction(
+            api.workflows.behaviors.validateRegistration.executeValidateRegistration,
+            {
+              sessionId: args.sessionId,
+              organizationId: args.organizationId,
+              config: args.config,
+              context: args.context,
+            }
+          );
+
+        case "detect-employer-billing":
+          return await ctx.runAction(
+            api.workflows.behaviors.detectEmployerBilling.executeDetectEmployerBilling,
+            {
+              sessionId: args.sessionId,
+              organizationId: args.organizationId,
+              config: args.config,
+              context: args.context,
+            }
+          );
+
+        case "create-contact":
+          return await ctx.runAction(
+            api.workflows.behaviors.createContact.executeCreateContact,
+            {
+              sessionId: args.sessionId,
+              organizationId: args.organizationId,
+              config: args.config,
+              context: args.context,
+            }
+          );
+
+        case "create-ticket":
+          return await ctx.runAction(
+            api.workflows.behaviors.createTicket.executeCreateTicket,
+            {
+              sessionId: args.sessionId,
+              organizationId: args.organizationId,
+              config: args.config,
+              context: args.context,
+            }
+          );
+
+        case "create-transaction":
+          return await ctx.runAction(
+            api.workflows.behaviors.createTransaction.executeCreateTransaction,
+            {
+              sessionId: args.sessionId,
+              organizationId: args.organizationId,
+              config: args.config,
+              context: args.context,
+            }
+          );
+
+        case "generate-invoice":
+          return await ctx.runAction(
+            api.workflows.behaviors.generateInvoice.executeGenerateInvoice,
+            {
+              sessionId: args.sessionId,
+              organizationId: args.organizationId,
+              config: args.config,
+              context: args.context,
+            }
+          );
+
+        case "send-confirmation-email":
+          return await ctx.runAction(
+            api.workflows.behaviors.sendConfirmationEmail.executeSendConfirmationEmail,
+            {
+              sessionId: args.sessionId,
+              organizationId: args.organizationId,
+              config: args.config,
+              context: args.context,
+            }
+          );
+
+        case "check-event-capacity":
+          return await ctx.runAction(
+            api.workflows.behaviors.checkEventCapacity.executeCheckEventCapacity,
+            {
+              sessionId: args.sessionId,
+              organizationId: args.organizationId,
+              config: args.config,
+              context: args.context,
+            }
+          );
+
+        case "calculate-pricing":
+          return await ctx.runAction(
+            api.workflows.behaviors.calculatePricing.executeCalculatePricing,
+            {
+              sessionId: args.sessionId,
+              organizationId: args.organizationId,
+              config: args.config,
+              context: args.context,
+            }
+          );
+
+        case "create-form-response":
+          return await ctx.runAction(
+            api.workflows.behaviors.createFormResponse.executeCreateFormResponse,
+            {
+              sessionId: args.sessionId,
+              organizationId: args.organizationId,
+              config: args.config,
+              context: args.context,
+            }
+          );
+
+        case "update-statistics":
+          return await ctx.runAction(
+            api.workflows.behaviors.updateStatistics.executeUpdateStatistics,
+            {
+              sessionId: args.sessionId,
+              organizationId: args.organizationId,
+              config: args.config,
+              context: args.context,
+            }
+          );
+
+        case "send-admin-notification":
+          return await ctx.runAction(
+            api.workflows.behaviors.sendAdminNotification.executeSendAdminNotification,
+            {
+              sessionId: args.sessionId,
+              organizationId: args.organizationId,
+              config: args.config,
+              context: args.context,
+            }
+          );
+
+        // Checkout behaviors (client-side)
         case "employer-detection":
-          // TODO: Implement employer detection action
-          return {
-            success: false,
-            error: "Employer detection backend action not yet implemented",
-            message: "This behavior runs client-side during checkout",
-          };
-
         case "invoice-mapping":
-          // TODO: Implement invoice mapping action
-          return {
-            success: false,
-            error: "Invoice mapping backend action not yet implemented",
-            message: "This behavior runs client-side during checkout",
-          };
-
         case "form-linking":
         case "addon-calculation":
         case "payment-provider-selection":
@@ -96,6 +228,39 @@ export const executeBehavior = action({
     }
   },
 });
+
+/**
+ * HELPER: Evaluate conditional expression
+ * Supports simple conditions like "billingMethod === 'employer_invoice'"
+ */
+function evaluateCondition(condition: string, context: unknown): boolean {
+  // Simple condition parser
+  // Format: "field === 'value'" or "field !== 'value'"
+
+  const contextObj = context as Record<string, unknown>;
+
+  // Match patterns like: billingMethod === 'employer_invoice'
+  const equalsMatch = condition.match(/^(\w+)\s*===\s*'([^']+)'$/);
+  if (equalsMatch) {
+    const [, field, value] = equalsMatch;
+    return contextObj[field] === value;
+  }
+
+  // Match patterns like: billingMethod !== 'free'
+  const notEqualsMatch = condition.match(/^(\w+)\s*!==\s*'([^']+)'$/);
+  if (notEqualsMatch) {
+    const [, field, value] = notEqualsMatch;
+    return contextObj[field] !== value;
+  }
+
+  // Match boolean fields: isEmployerBilling
+  if (condition.match(/^\w+$/)) {
+    return !!contextObj[condition];
+  }
+
+  console.warn(`⚠️ Unknown condition format: ${condition}`);
+  return false;
+}
 
 /**
  * Execute multiple behaviors in sequence

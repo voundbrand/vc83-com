@@ -3,21 +3,26 @@
  *
  * Executes workflows triggered via API.
  * This orchestrates the entire registration flow including:
+ * - Executing behaviors via behavior executor
  * - Creating transactions
  * - Generating tickets
  * - Sending emails
  * - Creating invoices (if employer billing)
+ *
+ * REFACTORED: Now uses internalAction instead of internalMutation
+ * so it can call the behavior executor actions properly.
  */
 
-import { internalMutation } from "../../_generated/server";
+import { internalAction } from "../../_generated/server";
 import { v } from "convex/values";
-import { Id } from "../../_generated/dataModel";
+import { api } from "../../_generated/api";
+import type { Id } from "../../_generated/dataModel";
 
 /**
  * EXECUTE WORKFLOW INTERNAL
- * Core workflow execution logic
+ * Core workflow execution logic (ACTION - can call other actions)
  */
-export const executeWorkflowInternal = internalMutation({
+export const executeWorkflowInternal = internalAction({
   args: {
     organizationId: v.id("organizations"),
     userId: v.id("users"), // User who owns the API key
@@ -28,19 +33,31 @@ export const executeWorkflowInternal = internalMutation({
   },
   handler: async (ctx, args) => {
     try {
-      // Track API key usage (will be called by workflow.ts after this)
+      console.log(`🔥 Executing workflow for trigger: ${args.trigger}`);
 
       // Find matching workflow
-      const workflows = await ctx.db
-        .query("objects")
-        .withIndex("by_org_type", (q) =>
-          q.eq("organizationId", args.organizationId).eq("type", "workflow")
-        )
-        .collect();
+      const workflows = (await ctx.runQuery(api.ontologyHelpers.getObjects, {
+        organizationId: args.organizationId,
+        type: "workflow",
+      })) as Array<{
+        _id: Id<"objects">;
+        name: string;
+        type: string;
+        status?: string;
+        customProperties?: {
+          execution?: { triggerOn?: string; errorHandling?: "rollback" | "continue" | "notify" };
+          behaviors?: Array<{
+            type: string;
+            config: Record<string, unknown>;
+            priority: number;
+            enabled: boolean;
+          }>;
+        };
+      }>;
 
       const matchingWorkflow = workflows.find((w) => {
-        const customProps = w.customProperties as Record<string, unknown> | undefined;
-        const execution = customProps?.execution as Record<string, unknown> | undefined;
+        const customProps = w.customProperties;
+        const execution = customProps?.execution;
         return (
           execution?.triggerOn === args.trigger &&
           w.status === "active"
@@ -48,18 +65,24 @@ export const executeWorkflowInternal = internalMutation({
       });
 
       if (!matchingWorkflow) {
+        console.error(`❌ No active workflow found for trigger: ${args.trigger}`);
         return {
           success: false,
           error: `No active workflow found for trigger: ${args.trigger}`,
         };
       }
 
+      console.log(`✅ Found workflow: ${matchingWorkflow.name}`);
+
       // Extract input data
-      const { productId, formResponses, metadata } = args.inputData;
+      const { eventId, productId, customerData, formResponses, transactionData } = args.inputData;
 
       // Validate product exists if provided
       if (productId) {
-        const product = await ctx.db.get(productId as Id<"objects">);
+        const product = (await ctx.runQuery(api.ontologyHelpers.getObject, {
+          objectId: productId as Id<"objects">,
+        })) as { type: string; organizationId: Id<"organizations"> } | null;
+
         if (!product || product.type !== "product") {
           return {
             success: false,
@@ -76,114 +99,95 @@ export const executeWorkflowInternal = internalMutation({
         }
       }
 
-      // Create transaction
-      // Use the userId from the API key for proper audit trails
-      const timestamp = Date.now();
-      const transactionId = await ctx.db.insert("objects", {
+      // Build execution context for behaviors
+      const customProps = matchingWorkflow.customProperties as {
+        behaviors: Array<{
+          type: string;
+          config: Record<string, unknown>;
+          priority: number;
+          enabled: boolean;
+        }>;
+        execution: {
+          triggerOn: string;
+          errorHandling: "rollback" | "continue" | "notify";
+        };
+      };
+
+      const sessionId = `api_${Date.now()}`;
+
+      const behaviorContext = {
         organizationId: args.organizationId,
-        type: "transaction",
-        subtype: "purchase",
-        status: "completed", // API registrations are pre-paid or invoiced
-        name: `Registration via API - ${new Date(timestamp).toISOString()}`,
-        description: `API registration for ${args.trigger}`,
-        customProperties: {
-          source: "api",
-          trigger: args.trigger,
-          productId,
-          formResponses,
-          metadata,
-          webhookUrl: args.webhookUrl,
-          createdAt: timestamp,
-        },
-        createdBy: args.userId, // Track the API key owner
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      });
+        sessionId,
+        workflow: args.trigger.replace("_start", "").replace("_complete", ""),
+        eventId,
+        productId,
+        customerData,
+        formResponses,
+        transactionData,
+        webhookUrl: args.webhookUrl,
+        apiTrigger: true,
+        triggeredAt: Date.now(),
+        triggeredBy: args.userId,
+      };
 
-      // Execute workflow behaviors
-      // This will trigger ticket generation, email sending, invoice creation, etc.
-      const customProps = matchingWorkflow.customProperties as Record<string, unknown> | undefined;
-      const behaviors = (customProps?.behaviors as Array<Record<string, unknown>>) || [];
+      // Execute behaviors using the behavior executor
+      console.log(`🔧 Executing ${customProps.behaviors.length} behaviors...`);
 
-      const behaviorResults = [];
+      const result = (await ctx.runAction(api.workflows.behaviorExecutor.executeBehaviors, {
+        sessionId,
+        organizationId: args.organizationId,
+        behaviors: customProps.behaviors
+          .filter(b => b.enabled)
+          .map((b) => ({
+            type: b.type,
+            config: b.config,
+            priority: b.priority,
+          })),
+        context: behaviorContext,
+        continueOnError: customProps.execution.errorHandling !== "rollback",
+        workflowId: matchingWorkflow._id as Id<"objects">,
+        workflowName: matchingWorkflow.name,
+      })) as {
+        success: boolean;
+        results: Array<{
+          behaviorType: string;
+          success: boolean;
+          error?: string;
+          message?: string;
+          data?: unknown;
+        }>;
+        executedCount: number;
+        totalCount: number;
+        executionId?: unknown;
+      };
 
-      for (const behavior of behaviors) {
-        if (!behavior.enabled) continue;
-
-        // Execute each behavior
-        // Note: In production, this would use the actual behavior executor
-        // For now, we'll create placeholder results
-        behaviorResults.push({
-          type: behavior.type,
-          success: true,
-          executedAt: timestamp,
-        });
+      if (!result.success) {
+        console.error(`❌ Workflow execution failed:`, result);
+        return {
+          success: false,
+          error: "Workflow execution failed",
+          behaviors: result.results,
+          executedCount: result.executedCount,
+          totalCount: result.totalCount,
+          executionId: result.executionId,
+        };
       }
 
-      // Generate ticket if product is a ticket
-      let ticketId: Id<"objects"> | null = null;
-      if (productId) {
-        const product = await ctx.db.get(productId as Id<"objects">);
-        if (product && product.subtype === "ticket") {
-          ticketId = await ctx.db.insert("objects", {
-            organizationId: args.organizationId,
-            type: "ticket",
-            subtype: "event_ticket",
-            status: "active",
-            name: `Ticket - ${formResponses?.fullName || "Guest"}`,
-            description: product.name,
-            customProperties: {
-              productId,
-              transactionId,
-              registrationData: formResponses,
-              qrCode: generateQRCode(),
-              createdAt: timestamp,
-            },
-            createdBy: args.userId,
-            createdAt: timestamp,
-            updatedAt: timestamp,
-          });
+      console.log(`✅ Workflow executed successfully`);
 
-          // Link ticket to transaction
-          await ctx.db.insert("objectLinks", {
-            organizationId: args.organizationId,
-            fromObjectId: transactionId,
-            toObjectId: ticketId,
-            linkType: "has_ticket",
-            createdAt: timestamp,
-          });
+      // Extract results from behaviors
+      // Behaviors should return their created IDs in the data field
+      let transactionId = null;
+      let ticketId = null;
+      let invoiceId = null;
+
+      for (const behaviorResult of result.results) {
+        if (behaviorResult.data) {
+          const data = behaviorResult.data as Record<string, unknown>;
+          if (data.transactionId) transactionId = data.transactionId;
+          if (data.ticketId) ticketId = data.ticketId;
+          if (data.invoiceId) invoiceId = data.invoiceId;
         }
-      }
-
-      // Check if invoice generation is needed
-      let invoiceId: Id<"objects"> | null = null;
-      if (formResponses?.employerPays === true) {
-        // Create invoice (will be handled by consolidated invoice behavior)
-        invoiceId = await ctx.db.insert("objects", {
-          organizationId: args.organizationId,
-          type: "invoice",
-          subtype: "b2b_consolidated",
-          status: "pending",
-          name: `Invoice - ${formResponses.employerName || "Organization"}`,
-          description: `Invoice for course registration`,
-          customProperties: {
-            transactionId,
-            dueDate: timestamp + 30 * 24 * 60 * 60 * 1000, // 30 days
-            createdAt: timestamp,
-          },
-          createdBy: args.userId,
-          createdAt: timestamp,
-          updatedAt: timestamp,
-        });
-
-        // Link invoice to transaction
-        await ctx.db.insert("objectLinks", {
-          organizationId: args.organizationId,
-          fromObjectId: transactionId,
-          toObjectId: invoiceId,
-          linkType: "has_invoice",
-          createdAt: timestamp,
-        });
       }
 
       // Return success with IDs
@@ -193,10 +197,13 @@ export const executeWorkflowInternal = internalMutation({
         ticketId,
         invoiceId,
         message: "Workflow executed successfully",
-        behaviors: behaviorResults,
+        behaviors: result.results,
+        executedCount: result.executedCount,
+        totalCount: result.totalCount,
+        executionId: result.executionId,
       };
     } catch (error) {
-      console.error("Workflow execution error:", error);
+      console.error("❌ Workflow execution error:", error);
       return {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
@@ -204,12 +211,3 @@ export const executeWorkflowInternal = internalMutation({
     }
   },
 });
-
-/**
- * HELPER: Generate QR code data
- */
-function generateQRCode(): string {
-  // In production, this would generate actual QR code
-  // For now, return a random code
-  return `QR-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-}

@@ -184,6 +184,179 @@ const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
       errorHandling: "continue",
     },
   },
+  {
+    id: "event-registration-complete",
+    name: "Complete Event Registration (12 Behaviors)",
+    description:
+      "Full-featured event registration with validation, capacity checking, pricing, employer billing detection, CRM integration, ticket creation, transaction audit trail, form response archiving, conditional invoice generation, email confirmations, statistics tracking, and admin notifications.",
+    category: "registration",
+    subtype: "event-checkout-flow",
+    objects: [
+      {
+        objectType: "product",
+        role: "primary",
+        description: "Event ticket product with pricing and invoice configuration",
+        required: true,
+      },
+      {
+        objectType: "form",
+        role: "input-source",
+        description: "Registration form collecting attendee information",
+        required: true,
+      },
+      {
+        objectType: "event",
+        role: "context",
+        description: "Event being registered for",
+        required: true,
+      },
+    ],
+    behaviors: [
+      {
+        type: "validate-registration",
+        enabled: true,
+        priority: 100,
+        description: "Validates all required fields and data formats (email, name, salutation, consent)",
+        config: {
+          requiredFields: ["email", "firstName", "lastName", "salutation", "consent_privacy"],
+          validateEmailFormat: true,
+          validatePhone: true,
+          requireBillingAddressFor: ["external", "haffnet"],
+        },
+      },
+      {
+        type: "check-event-capacity",
+        enabled: true,
+        priority: 95,
+        description: "Checks if event has available capacity before allowing registration",
+        config: {
+          blockOnFull: true,
+          checkConfirmedOnly: false,
+        },
+      },
+      {
+        type: "calculate-pricing",
+        enabled: true,
+        priority: 90,
+        description: "Calculates final price with discounts and VAT",
+        config: {
+          includeTax: true,
+          taxRate: 19,
+          allowDiscountCodes: true,
+        },
+      },
+      {
+        type: "detect-employer-billing",
+        enabled: true,
+        priority: 70,
+        description: "Determines billing method based on attendee category (employer vs customer payment)",
+        config: {
+          matchCrmOrganizations: true,
+          employerCategories: ["ameos", "haffnet"],
+        },
+      },
+      {
+        type: "create-contact",
+        enabled: true,
+        priority: 60,
+        description: "Creates or updates CRM contact with salutation, title, profession, and dietary requirements",
+        config: {
+          upsertByEmail: true,
+          storeDietaryRequirements: true,
+          includeTitle: true,
+          includeProfession: true,
+        },
+      },
+      {
+        type: "create-ticket",
+        enabled: true,
+        priority: 55,
+        description: "Creates event ticket with full logistics (arrival time, dietary needs, accommodation, UCRA)",
+        config: {
+          includeLogistics: true,
+          generateQrCode: true,
+          storeAllCustomProperties: true,
+        },
+      },
+      {
+        type: "create-transaction",
+        enabled: true,
+        priority: 48,
+        description: "Creates transaction audit trail linking customer → payer → ticket (enables B2B invoicing)",
+        config: {
+          trackPayer: true,
+          enableInvoicing: true,
+          separatePayerFromCustomer: true,
+          setPaymentStatusByBillingMethod: true,
+        },
+      },
+      {
+        type: "create-form-response",
+        enabled: true,
+        priority: 40,
+        description: "Stores complete form submission data for audit trail",
+        config: {
+          createAuditTrail: true,
+          linkToEvent: true,
+          linkToProduct: true,
+          linkToContact: true,
+        },
+      },
+      {
+        type: "generate-invoice",
+        enabled: true,
+        priority: 35,
+        description: "Generates employer invoice (CONDITIONAL - only if billingMethod === 'employer_invoice')",
+        config: {
+          condition: "billingMethod === 'employer_invoice'",
+          paymentTerms: "net30",
+          templateId: "b2b_consolidated",
+          createAsDraft: true,
+        },
+      },
+      {
+        type: "send-confirmation-email",
+        enabled: true,
+        priority: 30,
+        description: "Sends German confirmation email with proper salutation and logistics",
+        config: {
+          includeTicketPdf: false,
+          includeQrCode: false,
+          germanSalutation: true,
+          formatLogistics: true,
+        },
+      },
+      {
+        type: "update-statistics",
+        enabled: true,
+        priority: 20,
+        description: "Updates event and product statistics (registrations, revenue, confirmed vs pending)",
+        config: {
+          trackAttendees: true,
+          trackRevenue: true,
+          separatePendingFromConfirmed: true,
+        },
+      },
+      {
+        type: "send-admin-notification",
+        enabled: true,
+        priority: 10,
+        description: "Sends admin notification email with registration details (non-critical)",
+        config: {
+          notifyOrgOwner: false,
+          useEventAdminEmails: true,
+          germanLanguage: true,
+          includeInvoiceWarning: true,
+        },
+      },
+    ],
+    execution: {
+      triggerOn: "form_submission",
+      requiredInputs: ["form_responses", "product_selection", "customer_data"],
+      outputActions: ["create_ticket", "send_email", "create_invoice", "update_statistics"],
+      errorHandling: "continue",
+    },
+  },
 ];
 
 // ============================================================================

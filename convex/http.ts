@@ -497,6 +497,16 @@ http.route({
  * Layer 3: WORKFLOW API (During Checkout)
  */
 
+// OPTIONS /api/v1/workflows/trigger (CORS preflight)
+http.route({
+  path: "/api/v1/workflows/trigger",
+  method: "OPTIONS",
+  handler: httpAction(async (ctx, request) => {
+    const origin = request.headers.get("origin");
+    return handleOptionsRequest(origin);
+  }),
+});
+
 // POST /api/v1/workflows/trigger
 http.route({
   path: "/api/v1/workflows/trigger",
