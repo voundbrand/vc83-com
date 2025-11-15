@@ -3,11 +3,15 @@
  *
  * Pre-built workflow templates that users can instantiate and customize.
  * Templates provide starting points for common workflow patterns.
+ *
+ * MIGRATED TO DATABASE: Templates are now stored in the objects table.
+ * Use workflowTemplateAvailability.ts to manage which orgs can access which templates.
  */
 
 import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser } from "../rbacHelpers";
+import { api } from "../_generated/api";
 
 // ============================================================================
 // TEMPLATE DEFINITIONS
@@ -41,323 +45,12 @@ export interface WorkflowTemplate {
 }
 
 /**
- * Built-in workflow templates
+ * DEPRECATED: Hardcoded templates moved to database
+ * Run: npx convex run seedWorkflowTemplates:seedWorkflowTemplates
+ * Use: getAvailableWorkflowTemplates from workflowTemplateAvailability.ts
+ *
+ * This array has been removed. Templates are now stored in the database.
  */
-const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
-  {
-    id: "event-registration-employer-billing",
-    name: "Event Registration with Employer Billing",
-    description:
-      "Handles event registration with automatic employer detection and invoice generation for employer-paid tickets.",
-    category: "registration",
-    subtype: "checkout-flow",
-    objects: [
-      {
-        objectType: "product",
-        role: "primary",
-        description: "Event ticket product",
-        required: true,
-      },
-      {
-        objectType: "form",
-        role: "input-source",
-        description: "Registration form collecting attendee and employer info",
-        required: true,
-      },
-      {
-        objectType: "checkout",
-        role: "payment-processor",
-        description: "Checkout instance for payment processing",
-        required: true,
-      },
-    ],
-    behaviors: [
-      {
-        type: "employer-detection",
-        enabled: true,
-        priority: 100,
-        description: "Detects employer from form data and matches to CRM",
-        config: {
-          employerField: "company",
-          requireCrmMatch: true,
-        },
-      },
-      {
-        type: "invoice-mapping",
-        enabled: true,
-        priority: 90,
-        description: "Maps detected employer to CRM organization",
-        config: {
-          organizationSourceField: "company",
-          organizationMapping: {},
-          defaultPaymentTerms: "net30",
-          templateId: "b2b_consolidated",
-        },
-      },
-      {
-        type: "invoice-payment",
-        enabled: true,
-        priority: 80,
-        description: "Creates invoice and skips payment step for employer billing",
-        config: {
-          defaultPaymentTerms: "net30",
-          employerPaymentTerms: {},
-          requireCrmOrganization: true,
-          requireBillingAddress: false,
-          autoFillFromCrm: true,
-          sendInvoiceEmail: true,
-          includeDetailedLineItems: true,
-          includeTaxBreakdown: true,
-          includeAddons: true,
-        },
-      },
-    ],
-    execution: {
-      triggerOn: "checkout_start",
-      requiredInputs: ["form_responses", "product_selection"],
-      outputActions: ["create_invoice", "skip_payment_step"],
-      errorHandling: "continue",
-    },
-  },
-  {
-    id: "simple-product-checkout",
-    name: "Simple Product Checkout",
-    description: "Basic checkout flow for products without special behaviors.",
-    category: "checkout",
-    subtype: "checkout-flow",
-    objects: [
-      {
-        objectType: "product",
-        role: "primary",
-        description: "Product to sell",
-        required: true,
-      },
-      {
-        objectType: "checkout",
-        role: "payment-processor",
-        description: "Checkout instance for payment processing",
-        required: true,
-      },
-    ],
-    behaviors: [],
-    execution: {
-      triggerOn: "checkout_start",
-      requiredInputs: ["product_selection"],
-      outputActions: [],
-      errorHandling: "rollback",
-    },
-  },
-  {
-    id: "multi-product-bundle",
-    name: "Multi-Product Bundle with Discounts",
-    description:
-      "Checkout flow for product bundles with automatic discount application.",
-    category: "checkout",
-    subtype: "checkout-flow",
-    objects: [
-      {
-        objectType: "product",
-        role: "primary",
-        description: "Primary product",
-        required: true,
-      },
-      {
-        objectType: "product",
-        role: "bundle-item",
-        description: "Additional bundled products",
-        required: false,
-      },
-      {
-        objectType: "checkout",
-        role: "payment-processor",
-        description: "Checkout instance",
-        required: true,
-      },
-    ],
-    behaviors: [
-      // Discount behaviors can be added here when implemented
-    ],
-    execution: {
-      triggerOn: "checkout_start",
-      requiredInputs: ["product_selection"],
-      outputActions: ["apply_discount"],
-      errorHandling: "continue",
-    },
-  },
-  {
-    id: "event-registration-complete",
-    name: "Complete Event Registration (12 Behaviors)",
-    description:
-      "Full-featured event registration with validation, capacity checking, pricing, employer billing detection, CRM integration, ticket creation, transaction audit trail, form response archiving, conditional invoice generation, email confirmations, statistics tracking, and admin notifications.",
-    category: "registration",
-    subtype: "event-checkout-flow",
-    objects: [
-      {
-        objectType: "product",
-        role: "primary",
-        description: "Event ticket product with pricing and invoice configuration",
-        required: true,
-      },
-      {
-        objectType: "form",
-        role: "input-source",
-        description: "Registration form collecting attendee information",
-        required: true,
-      },
-      {
-        objectType: "event",
-        role: "context",
-        description: "Event being registered for",
-        required: true,
-      },
-    ],
-    behaviors: [
-      {
-        type: "validate-registration",
-        enabled: true,
-        priority: 100,
-        description: "Validates all required fields and data formats (email, name, salutation, consent)",
-        config: {
-          requiredFields: ["email", "firstName", "lastName", "salutation", "consent_privacy"],
-          validateEmailFormat: true,
-          validatePhone: true,
-          requireBillingAddressFor: ["external", "haffnet"],
-        },
-      },
-      {
-        type: "check-event-capacity",
-        enabled: true,
-        priority: 95,
-        description: "Checks if event has available capacity before allowing registration",
-        config: {
-          blockOnFull: true,
-          checkConfirmedOnly: false,
-        },
-      },
-      {
-        type: "calculate-pricing",
-        enabled: true,
-        priority: 90,
-        description: "Calculates final price with discounts and VAT",
-        config: {
-          includeTax: true,
-          taxRate: 19,
-          allowDiscountCodes: true,
-        },
-      },
-      {
-        type: "detect-employer-billing",
-        enabled: true,
-        priority: 70,
-        description: "Determines billing method based on attendee category (employer vs customer payment)",
-        config: {
-          matchCrmOrganizations: true,
-          employerCategories: ["ameos", "haffnet"],
-        },
-      },
-      {
-        type: "create-contact",
-        enabled: true,
-        priority: 60,
-        description: "Creates or updates CRM contact with salutation, title, profession, and dietary requirements",
-        config: {
-          upsertByEmail: true,
-          storeDietaryRequirements: true,
-          includeTitle: true,
-          includeProfession: true,
-        },
-      },
-      {
-        type: "create-ticket",
-        enabled: true,
-        priority: 55,
-        description: "Creates event ticket with full logistics (arrival time, dietary needs, accommodation, UCRA)",
-        config: {
-          includeLogistics: true,
-          generateQrCode: true,
-          storeAllCustomProperties: true,
-        },
-      },
-      {
-        type: "create-transaction",
-        enabled: true,
-        priority: 48,
-        description: "Creates transaction audit trail linking customer → payer → ticket (enables B2B invoicing)",
-        config: {
-          trackPayer: true,
-          enableInvoicing: true,
-          separatePayerFromCustomer: true,
-          setPaymentStatusByBillingMethod: true,
-        },
-      },
-      {
-        type: "create-form-response",
-        enabled: true,
-        priority: 40,
-        description: "Stores complete form submission data for audit trail",
-        config: {
-          createAuditTrail: true,
-          linkToEvent: true,
-          linkToProduct: true,
-          linkToContact: true,
-        },
-      },
-      {
-        type: "generate-invoice",
-        enabled: true,
-        priority: 35,
-        description: "Generates employer invoice (CONDITIONAL - only if billingMethod === 'employer_invoice')",
-        config: {
-          condition: "billingMethod === 'employer_invoice'",
-          paymentTerms: "net30",
-          templateId: "b2b_consolidated",
-          createAsDraft: true,
-        },
-      },
-      {
-        type: "send-confirmation-email",
-        enabled: true,
-        priority: 30,
-        description: "Sends German confirmation email with proper salutation and logistics",
-        config: {
-          includeTicketPdf: false,
-          includeQrCode: false,
-          germanSalutation: true,
-          formatLogistics: true,
-        },
-      },
-      {
-        type: "update-statistics",
-        enabled: true,
-        priority: 20,
-        description: "Updates event and product statistics (registrations, revenue, confirmed vs pending)",
-        config: {
-          trackAttendees: true,
-          trackRevenue: true,
-          separatePendingFromConfirmed: true,
-        },
-      },
-      {
-        type: "send-admin-notification",
-        enabled: true,
-        priority: 10,
-        description: "Sends admin notification email with registration details (non-critical)",
-        config: {
-          notifyOrgOwner: false,
-          useEventAdminEmails: true,
-          germanLanguage: true,
-          includeInvoiceWarning: true,
-        },
-      },
-    ],
-    execution: {
-      triggerOn: "form_submission",
-      requiredInputs: ["form_responses", "product_selection", "customer_data"],
-      outputActions: ["create_ticket", "send_email", "create_invoice", "update_statistics"],
-      errorHandling: "continue",
-    },
-  },
-];
 
 // ============================================================================
 // QUERY OPERATIONS
@@ -365,44 +58,91 @@ const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
 
 /**
  * GET TEMPLATES
- * Returns all available workflow templates
+ * Returns available workflow templates for the organization
+ * NOW USES DATABASE: Queries from objects table based on availability rules
  */
 export const getTemplates = query({
   args: {
     sessionId: v.string(),
+    organizationId: v.id("organizations"),
     category: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
-    await requireAuthenticatedUser(ctx, args.sessionId);
+  handler: async (ctx, args): Promise<WorkflowTemplate[]> => {
+    // Delegate to availability-filtered query
+    const dbTemplates: any = await ctx.runQuery(
+      api.workflowTemplateAvailability.getAvailableWorkflowTemplates,
+      {
+        sessionId: args.sessionId,
+        organizationId: args.organizationId,
+        category: args.category,
+      }
+    );
 
-    let templates = WORKFLOW_TEMPLATES;
-
-    if (args.category) {
-      templates = templates.filter((t) => t.category === args.category);
-    }
-
-    return templates;
+    // Convert database objects to WorkflowTemplate format
+    return dbTemplates.map((template: any): WorkflowTemplate => ({
+      id: template.customProperties?.code || template._id,
+      name: template.name,
+      description: template.description || "",
+      category: template.customProperties?.category || "automation",
+      subtype: template.customProperties?.subtype || template.subtype || "",
+      objects: template.customProperties?.objects || [],
+      behaviors: template.customProperties?.behaviors || [],
+      execution: template.customProperties?.execution || {
+        triggerOn: "manual",
+        errorHandling: "continue" as const,
+      },
+    }));
   },
 });
 
 /**
  * GET TEMPLATE
- * Returns a specific template by ID
+ * Returns a specific template by code
+ * NOW USES DATABASE: Queries from objects table
  */
 export const getTemplate = query({
   args: {
     sessionId: v.string(),
-    templateId: v.string(),
+    organizationId: v.id("organizations"),
+    templateId: v.string(), // This is actually the template code
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<WorkflowTemplate> => {
     await requireAuthenticatedUser(ctx, args.sessionId);
 
-    const template = WORKFLOW_TEMPLATES.find((t) => t.id === args.templateId);
-    if (!template) {
-      throw new Error("Template not found");
+    // Get all available templates for this org
+    const dbTemplates: any = await ctx.runQuery(
+      api.workflowTemplateAvailability.getAvailableWorkflowTemplates,
+      {
+        sessionId: args.sessionId,
+        organizationId: args.organizationId,
+      }
+    );
+
+    // Find the specific template by code
+    const dbTemplate: any = dbTemplates.find(
+      (t: any) => t.customProperties?.code === args.templateId
+    );
+
+    if (!dbTemplate) {
+      throw new Error(`Template not found: ${args.templateId}`);
     }
 
-    return template;
+    // Convert to WorkflowTemplate format
+    const result: WorkflowTemplate = {
+      id: dbTemplate.customProperties?.code || dbTemplate._id,
+      name: dbTemplate.name,
+      description: dbTemplate.description || "",
+      category: dbTemplate.customProperties?.category || "automation",
+      subtype: dbTemplate.customProperties?.subtype || dbTemplate.subtype || "",
+      objects: dbTemplate.customProperties?.objects || [],
+      behaviors: dbTemplate.customProperties?.behaviors || [],
+      execution: dbTemplate.customProperties?.execution || {
+        triggerOn: "manual",
+        errorHandling: "continue" as const,
+      },
+    };
+
+    return result;
   },
 });
 
@@ -435,11 +175,37 @@ export const createFromTemplate = mutation({
   handler: async (ctx, args) => {
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
-    // Get template
-    const template = WORKFLOW_TEMPLATES.find((t) => t.id === args.templateId);
-    if (!template) {
-      throw new Error("Template not found");
+    // Get template from database
+    const dbTemplates: any = await ctx.runQuery(
+      api.workflowTemplateAvailability.getAvailableWorkflowTemplates,
+      {
+        sessionId: args.sessionId,
+        organizationId: args.organizationId,
+      }
+    );
+
+    const dbTemplate: any = dbTemplates.find(
+      (t: any) => t.customProperties?.code === args.templateId
+    );
+
+    if (!dbTemplate) {
+      throw new Error(`Template not found: ${args.templateId}`);
     }
+
+    // Convert to WorkflowTemplate format for processing
+    const template: WorkflowTemplate = {
+      id: dbTemplate.customProperties?.code || dbTemplate._id,
+      name: dbTemplate.name,
+      description: dbTemplate.description || "",
+      category: dbTemplate.customProperties?.category || "automation",
+      subtype: dbTemplate.customProperties?.subtype || dbTemplate.subtype || "",
+      objects: dbTemplate.customProperties?.objects || [],
+      behaviors: dbTemplate.customProperties?.behaviors || [],
+      execution: dbTemplate.customProperties?.execution || {
+        triggerOn: "manual",
+        errorHandling: "continue" as const,
+      },
+    };
 
     // Validate that all required object types are provided
     const requiredObjectTypes = template.objects
@@ -456,7 +222,7 @@ export const createFromTemplate = mutation({
     }
 
     // Build behaviors with custom config if provided
-    const behaviors = template.behaviors.map((b, index) => {
+    const behaviors = template.behaviors.map((b: any, index: number) => {
       const customConfig =
         args.customization.behaviorConfig &&
         args.customization.behaviorConfig[index]
