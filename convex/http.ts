@@ -14,38 +14,9 @@ import { httpRouter } from "convex/server";
 import { internal } from "./_generated/api";
 import { httpAction } from "./_generated/server";
 import { getProviderByCode } from "./paymentProviders";
+import { getCorsHeaders, handleOptionsRequest } from "./api/v1/corsHeaders";
 
 const http = httpRouter();
-
-/**
- * CORS Helper - Add CORS headers to API responses
- * Allows requests from pluseins.gg and all subdomains
- */
-function getCorsHeaders(origin: string | null): Record<string, string> {
-  const allowedOrigins = [
-    "https://pluseins.gg",
-    "https://www.pluseins.gg",
-    "http://localhost:3000",
-    "http://localhost:5173",
-  ];
-
-  // Allow all subdomains of pluseins.gg
-  const isAllowedOrigin = origin && (
-    allowedOrigins.includes(origin) ||
-    origin.match(/^https:\/\/[\w-]+\.pluseins\.gg$/)
-  );
-
-  if (isAllowedOrigin) {
-    return {
-      "Access-Control-Allow-Origin": origin,
-      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
-      "Access-Control-Max-Age": "86400", // 24 hours
-    };
-  }
-
-  return {};
-}
 
 /**
  * STRIPE WEBHOOK ENDPOINT (REFACTORED)
@@ -304,6 +275,16 @@ import { createBooking } from "./api/v1/bookings";
  * Layer 1: READ APIs (Before Checkout)
  */
 
+// OPTIONS /api/v1/events (CORS preflight)
+http.route({
+  path: "/api/v1/events",
+  method: "OPTIONS",
+  handler: httpAction(async (ctx, request) => {
+    const origin = request.headers.get("origin");
+    return handleOptionsRequest(origin);
+  }),
+});
+
 // GET /api/v1/events (exact match - list all events)
 http.route({
   path: "/api/v1/events",
@@ -311,11 +292,31 @@ http.route({
   handler: getEvents,
 });
 
+// OPTIONS /api/v1/events/by-slug/:slug (CORS preflight)
+http.route({
+  pathPrefix: "/api/v1/events/by-slug/",
+  method: "OPTIONS",
+  handler: httpAction(async (ctx, request) => {
+    const origin = request.headers.get("origin");
+    return handleOptionsRequest(origin);
+  }),
+});
+
 // GET /api/v1/events/by-slug/:slug (get event by slug)
 http.route({
   pathPrefix: "/api/v1/events/by-slug/",
   method: "GET",
   handler: getEventBySlug,
+});
+
+// OPTIONS /api/v1/events/:eventId (CORS preflight for both /:eventId and /:eventId/products)
+http.route({
+  pathPrefix: "/api/v1/events/",
+  method: "OPTIONS",
+  handler: httpAction(async (ctx, request) => {
+    const origin = request.headers.get("origin");
+    return handleOptionsRequest(origin);
+  }),
 });
 
 // GET /api/v1/events/:eventId (get event by ID)

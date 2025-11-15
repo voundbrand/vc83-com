@@ -12,35 +12,7 @@
 
 import { httpAction } from "../../_generated/server";
 import { internal } from "../../_generated/api";
-
-/**
- * CORS Helper - Add CORS headers to API responses
- */
-function getCorsHeaders(origin: string | null): Record<string, string> {
-  const allowedOrigins = [
-    "https://pluseins.gg",
-    "https://www.pluseins.gg",
-    "http://localhost:3000",
-    "http://localhost:5173",
-  ];
-
-  // Allow all subdomains of pluseins.gg
-  const isAllowedOrigin = origin && (
-    allowedOrigins.includes(origin) ||
-    origin.match(/^https:\/\/[\w-]+\.pluseins\.gg$/)
-  );
-
-  if (isAllowedOrigin) {
-    return {
-      "Access-Control-Allow-Origin": origin,
-      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
-      "Access-Control-Max-Age": "86400", // 24 hours
-    };
-  }
-
-  return {};
-}
+import { getCorsHeaders } from "./corsHeaders";
 
 /**
  * GET EVENTS
