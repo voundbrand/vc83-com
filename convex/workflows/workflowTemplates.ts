@@ -11,7 +11,6 @@
 import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser } from "../rbacHelpers";
-import { api } from "../_generated/api";
 
 // ============================================================================
 // TEMPLATE DEFINITIONS
@@ -68,18 +67,60 @@ export const getTemplates = query({
     category: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<WorkflowTemplate[]> => {
-    // Delegate to availability-filtered query
-    const dbTemplates: any = await ctx.runQuery(
-      api.workflowTemplateAvailability.getAvailableWorkflowTemplates,
-      {
-        sessionId: args.sessionId,
-        organizationId: args.organizationId,
-        category: args.category,
-      }
-    );
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    // Get system organization
+    const systemOrg = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", "system"))
+      .first();
+
+    if (!systemOrg) {
+      throw new Error("System organization not found");
+    }
+
+    // Get all system workflow templates (type: "template", subtype: "workflow")
+    let systemTemplates = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", systemOrg._id).eq("type", "template")
+      )
+      .filter((q) => q.eq(q.field("status"), "published"))
+      .filter((q) => q.eq(q.field("subtype"), "workflow"))
+      .collect();
+
+    // Filter by category if specified
+    if (args.category) {
+      systemTemplates = systemTemplates.filter(
+        (t) => t.customProperties?.category === args.category
+      );
+    }
+
+    // Get enabled availability rules for this organization
+    const availabilityRules = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q
+          .eq("organizationId", args.organizationId)
+          .eq("type", "workflow_template_availability")
+      )
+      .filter((q) => q.eq(q.field("customProperties.available"), true))
+      .collect();
+
+    // Get the list of enabled template codes
+    const enabledTemplateCodes = availabilityRules.map(
+      (rule) => rule.customProperties?.templateCode
+    ).filter(Boolean);
+
+    // Filter to only enabled templates
+    const availableTemplates = systemTemplates.filter((template) => {
+      const code = template.customProperties?.code;
+      if (!code) return false;
+      return enabledTemplateCodes.includes(code);
+    });
 
     // Convert database objects to WorkflowTemplate format
-    return dbTemplates.map((template: any): WorkflowTemplate => ({
+    return availableTemplates.map((template: any): WorkflowTemplate => ({
       id: template.customProperties?.code || template._id,
       name: template.name,
       description: template.description || "",
@@ -109,17 +150,51 @@ export const getTemplate = query({
   handler: async (ctx, args): Promise<WorkflowTemplate> => {
     await requireAuthenticatedUser(ctx, args.sessionId);
 
-    // Get all available templates for this org
-    const dbTemplates: any = await ctx.runQuery(
-      api.workflowTemplateAvailability.getAvailableWorkflowTemplates,
-      {
-        sessionId: args.sessionId,
-        organizationId: args.organizationId,
-      }
-    );
+    // Get system organization
+    const systemOrg = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", "system"))
+      .first();
+
+    if (!systemOrg) {
+      throw new Error("System organization not found");
+    }
+
+    // Get all system workflow templates
+    const systemTemplates = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", systemOrg._id).eq("type", "template")
+      )
+      .filter((q) => q.eq(q.field("status"), "published"))
+      .filter((q) => q.eq(q.field("subtype"), "workflow"))
+      .collect();
+
+    // Get enabled availability rules for this organization
+    const availabilityRules = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q
+          .eq("organizationId", args.organizationId)
+          .eq("type", "workflow_template_availability")
+      )
+      .filter((q) => q.eq(q.field("customProperties.available"), true))
+      .collect();
+
+    // Get the list of enabled template codes
+    const enabledTemplateCodes = availabilityRules.map(
+      (rule) => rule.customProperties?.templateCode
+    ).filter(Boolean);
+
+    // Filter to only enabled templates and find the specific one
+    const availableTemplates = systemTemplates.filter((template) => {
+      const code = template.customProperties?.code;
+      if (!code) return false;
+      return enabledTemplateCodes.includes(code);
+    });
 
     // Find the specific template by code
-    const dbTemplate: any = dbTemplates.find(
+    const dbTemplate: any = availableTemplates.find(
       (t: any) => t.customProperties?.code === args.templateId
     );
 
@@ -175,16 +250,50 @@ export const createFromTemplate = mutation({
   handler: async (ctx, args) => {
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
-    // Get template from database
-    const dbTemplates: any = await ctx.runQuery(
-      api.workflowTemplateAvailability.getAvailableWorkflowTemplates,
-      {
-        sessionId: args.sessionId,
-        organizationId: args.organizationId,
-      }
-    );
+    // Get system organization
+    const systemOrg = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", "system"))
+      .first();
 
-    const dbTemplate: any = dbTemplates.find(
+    if (!systemOrg) {
+      throw new Error("System organization not found");
+    }
+
+    // Get all system workflow templates
+    const systemTemplates = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", systemOrg._id).eq("type", "template")
+      )
+      .filter((q) => q.eq(q.field("status"), "published"))
+      .filter((q) => q.eq(q.field("subtype"), "workflow"))
+      .collect();
+
+    // Get enabled availability rules for this organization
+    const availabilityRules = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q
+          .eq("organizationId", args.organizationId)
+          .eq("type", "workflow_template_availability")
+      )
+      .filter((q) => q.eq(q.field("customProperties.available"), true))
+      .collect();
+
+    // Get the list of enabled template codes
+    const enabledTemplateCodes = availabilityRules.map(
+      (rule) => rule.customProperties?.templateCode
+    ).filter(Boolean);
+
+    // Filter to only enabled templates and find the specific one
+    const availableTemplates = systemTemplates.filter((template) => {
+      const code = template.customProperties?.code;
+      if (!code) return false;
+      return enabledTemplateCodes.includes(code);
+    });
+
+    const dbTemplate: any = availableTemplates.find(
       (t: any) => t.customProperties?.code === args.templateId
     );
 
