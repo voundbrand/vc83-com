@@ -5,23 +5,20 @@
 
 /**
  * Get CORS headers for API responses
- * Supports localhost development and production domains
+ *
+ * For third-party API access:
+ * - Echoes back any origin since API key authentication is the security boundary
+ * - Allows organizations to use the API from any domain (localhost, staging, production, mobile apps)
+ * - Standard practice for public APIs (Stripe, Twilio, etc.)
+ *
+ * Security note:
+ * - CORS only protects browsers, not backend/curl requests
+ * - API key is the real security mechanism
+ * - Anyone with a valid API key can access from anywhere already
  */
 export function getCorsHeaders(origin: string | null): Record<string, string> {
-  const allowedOrigins = [
-    "https://pluseins.gg",
-    "https://www.pluseins.gg",
-    "http://localhost:3000",
-    "http://localhost:5173",
-  ];
-
-  // Allow all subdomains of pluseins.gg
-  const isAllowedOrigin = origin && (
-    allowedOrigins.includes(origin) ||
-    origin.match(/^https:\/\/[\w-]+\.pluseins\.gg$/)
-  );
-
-  if (isAllowedOrigin) {
+  // Echo back any origin - API key authentication is the security boundary
+  if (origin) {
     return {
       "Access-Control-Allow-Origin": origin,
       "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
@@ -30,6 +27,7 @@ export function getCorsHeaders(origin: string | null): Record<string, string> {
     };
   }
 
+  // No origin header means non-browser request (curl, Postman, backend)
   return {};
 }
 
