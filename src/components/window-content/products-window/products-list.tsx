@@ -213,7 +213,7 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
             <div className="flex gap-2 pt-3 border-t-2" style={{ borderColor: "var(--win95-border)" }}>
               <button
                 onClick={() => onEdit(product._id)}
-                className="flex-1 px-2 py-1.5 text-xs font-bold flex items-center justify-center gap-1 border-2 transition-colors"
+                className="px-2 py-1.5 text-xs font-bold flex items-center justify-center border-2 transition-colors"
                 style={{
                   borderColor: "var(--win95-border)",
                   background: "var(--win95-button-face)",
@@ -222,7 +222,6 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
                 title={t("ui.products.list.button.edit")}
               >
                 <Edit2 size={12} />
-                {t("ui.products.list.button.edit")}
               </button>
 
               {product.status === "draft" && (
