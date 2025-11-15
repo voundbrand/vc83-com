@@ -3,7 +3,7 @@
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
-import { Edit2, Trash2, CheckCircle, Loader2 } from "lucide-react";
+import { Edit2, Trash2, CheckCircle, Loader2, Copy } from "lucide-react";
 import { useState } from "react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
@@ -26,6 +26,16 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
 
   const deleteProduct = useMutation(api.productOntology.deleteProduct);
   const publishProduct = useMutation(api.productOntology.publishProduct);
+  const duplicateProduct = useMutation(api.productOntology.duplicateProduct);
+
+  const handleDuplicate = async (productId: Id<"objects">) => {
+    try {
+      await duplicateProduct({ sessionId, productId });
+    } catch (error) {
+      console.error("Failed to duplicate product:", error);
+      alert("Failed to duplicate product");
+    }
+  };
 
   const handleDelete = async (productId: Id<"objects">) => {
     if (confirm(t("ui.products.list.confirm.delete"))) {
@@ -230,6 +240,19 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
                   {t("ui.products.list.button.publish")}
                 </button>
               )}
+
+              <button
+                onClick={() => handleDuplicate(product._id)}
+                className="px-2 py-1.5 text-xs font-bold flex items-center justify-center border-2 transition-colors"
+                style={{
+                  borderColor: "var(--win95-border)",
+                  background: "var(--win95-button-face)",
+                  color: "var(--win95-text)",
+                }}
+                title="Duplicate"
+              >
+                <Copy size={12} />
+              </button>
 
               <button
                 onClick={() => handleDelete(product._id)}

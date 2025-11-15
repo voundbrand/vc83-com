@@ -574,6 +574,88 @@ export const publishProduct = mutation({
 });
 
 /**
+ * DUPLICATE PRODUCT
+ * Create a copy of an existing product with "Copy X" naming
+ */
+export const duplicateProduct = mutation({
+  args: {
+    sessionId: v.string(),
+    productId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    // Get the original product
+    const originalProduct = await ctx.db.get(args.productId);
+    if (!originalProduct || originalProduct.type !== "product") {
+      throw new Error("Product not found");
+    }
+
+    // Find all products with similar names to determine copy number
+    const allProducts = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", originalProduct.organizationId).eq("type", "product")
+      )
+      .collect();
+
+    // Find highest copy number for this product name
+    const baseName = originalProduct.name.replace(/ Copy \d+$/, ""); // Remove existing "Copy X" suffix
+    const copyPattern = new RegExp(`^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} Copy (\\d+)$`);
+
+    let highestCopyNumber = 0;
+    for (const product of allProducts) {
+      const match = product.name.match(copyPattern);
+      if (match) {
+        const copyNumber = parseInt(match[1], 10);
+        if (copyNumber > highestCopyNumber) {
+          highestCopyNumber = copyNumber;
+        }
+      }
+    }
+
+    // Generate new name
+    const newName = `${baseName} Copy ${highestCopyNumber + 1}`;
+
+    // Create the duplicated product
+    const newProductId = await ctx.db.insert("objects", {
+      organizationId: originalProduct.organizationId,
+      type: "product",
+      subtype: originalProduct.subtype,
+      name: newName,
+      description: originalProduct.description,
+      status: "draft", // Always create copies as draft
+      customProperties: {
+        ...originalProduct.customProperties,
+        sold: 0, // Reset sold count for the copy
+      },
+      createdBy: userId,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    // Copy objectLinks (form associations, event links, etc.)
+    const originalLinks = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_from_object", (q) => q.eq("fromObjectId", args.productId))
+      .collect();
+
+    for (const link of originalLinks) {
+      await ctx.db.insert("objectLinks", {
+        organizationId: link.organizationId,
+        fromObjectId: newProductId,
+        toObjectId: link.toObjectId,
+        linkType: link.linkType,
+        properties: link.properties,
+        createdAt: Date.now(),
+      });
+    }
+
+    return newProductId;
+  },
+});
+
+/**
  * UNLINK FORM FROM PRODUCT
  * Remove form link from a product (clears customProperties.formId)
  */
