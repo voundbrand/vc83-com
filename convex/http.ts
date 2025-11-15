@@ -327,6 +327,8 @@ http.route({
     try {
       const url = new URL(request.url);
       const pathname = url.pathname;
+      const origin = request.headers.get("origin");
+      const corsHeaders = getCorsHeaders(origin);
 
       // Skip if it's the by-slug route (handled above)
       if (pathname.includes("/by-slug/")) {
@@ -338,7 +340,13 @@ http.route({
       if (!authHeader || !authHeader.startsWith("Bearer ")) {
         return new Response(
           JSON.stringify({ error: "Missing or invalid Authorization header" }),
-          { status: 401, headers: { "Content-Type": "application/json" } }
+          {
+            status: 401,
+            headers: {
+              "Content-Type": "application/json",
+              ...corsHeaders,
+            }
+          }
         );
       }
 
@@ -348,7 +356,13 @@ http.route({
       if (!authContext) {
         return new Response(
           JSON.stringify({ error: "Invalid API key" }),
-          { status: 401, headers: { "Content-Type": "application/json" } }
+          {
+            status: 401,
+            headers: {
+              "Content-Type": "application/json",
+              ...corsHeaders,
+            }
+          }
         );
       }
 
@@ -373,6 +387,7 @@ http.route({
             headers: {
               "Content-Type": "application/json",
               "X-Organization-Id": organizationId,
+              ...corsHeaders,
             },
           }
         );
@@ -389,7 +404,13 @@ http.route({
         if (!event) {
           return new Response(
             JSON.stringify({ error: "Event not found" }),
-            { status: 404, headers: { "Content-Type": "application/json" } }
+            {
+              status: 404,
+              headers: {
+                "Content-Type": "application/json",
+                ...corsHeaders,
+              }
+            }
           );
         }
 
@@ -400,6 +421,7 @@ http.route({
             headers: {
               "Content-Type": "application/json",
               "X-Organization-Id": organizationId,
+              ...corsHeaders,
             },
           }
         );
@@ -408,13 +430,24 @@ http.route({
       // No matching route
       return new Response("No matching routes found", {
         status: 404,
-        headers: { "Content-Type": "text/plain" },
+        headers: {
+          "Content-Type": "text/plain",
+          ...corsHeaders,
+        },
       });
     } catch (error) {
       console.error("API /events/* error:", error);
+      const origin = request.headers.get("origin");
+      const corsHeaders = getCorsHeaders(origin);
       return new Response(
         JSON.stringify({ error: "Internal server error" }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
+        {
+          status: 500,
+          headers: {
+            "Content-Type": "application/json",
+            ...corsHeaders,
+          }
+        }
       );
     }
   }),

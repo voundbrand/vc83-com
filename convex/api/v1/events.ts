@@ -14,6 +14,35 @@ import { httpAction } from "../../_generated/server";
 import { internal } from "../../_generated/api";
 
 /**
+ * CORS Helper - Add CORS headers to API responses
+ */
+function getCorsHeaders(origin: string | null): Record<string, string> {
+  const allowedOrigins = [
+    "https://pluseins.gg",
+    "https://www.pluseins.gg",
+    "http://localhost:3000",
+    "http://localhost:5173",
+  ];
+
+  // Allow all subdomains of pluseins.gg
+  const isAllowedOrigin = origin && (
+    allowedOrigins.includes(origin) ||
+    origin.match(/^https:\/\/[\w-]+\.pluseins\.gg$/)
+  );
+
+  if (isAllowedOrigin) {
+    return {
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Max-Age": "86400", // 24 hours
+    };
+  }
+
+  return {};
+}
+
+/**
  * GET EVENTS
  * Returns all published events for an organization
  *
@@ -42,12 +71,21 @@ import { internal } from "../../_generated/api";
  */
 export const getEvents = httpAction(async (ctx, request) => {
   try {
+    const origin = request.headers.get("origin");
+    const corsHeaders = getCorsHeaders(origin);
+
     // 1. Verify API key
     const authHeader = request.headers.get("Authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return new Response(
         JSON.stringify({ error: "Missing or invalid Authorization header" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        {
+          status: 401,
+          headers: {
+            "Content-Type": "application/json",
+            ...corsHeaders,
+          }
+        }
       );
     }
 
@@ -59,7 +97,13 @@ export const getEvents = httpAction(async (ctx, request) => {
     if (!authContext) {
       return new Response(
         JSON.stringify({ error: "Invalid API key" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        {
+          status: 401,
+          headers: {
+            "Content-Type": "application/json",
+            ...corsHeaders,
+          }
+        }
       );
     }
 
@@ -96,14 +140,23 @@ export const getEvents = httpAction(async (ctx, request) => {
         headers: {
           "Content-Type": "application/json",
           "X-Organization-Id": organizationId,
+          ...corsHeaders,
         },
       }
     );
   } catch (error) {
     console.error("API /events error:", error);
+    const origin = request.headers.get("origin");
+    const corsHeaders = getCorsHeaders(origin);
     return new Response(
       JSON.stringify({ error: "Internal server error" }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      {
+        status: 500,
+        headers: {
+          "Content-Type": "application/json",
+          ...corsHeaders,
+        }
+      }
     );
   }
 });
@@ -146,12 +199,21 @@ export const getEvents = httpAction(async (ctx, request) => {
  */
 export const getEventBySlug = httpAction(async (ctx, request) => {
   try {
+    const origin = request.headers.get("origin");
+    const corsHeaders = getCorsHeaders(origin);
+
     // 1. Verify API key
     const authHeader = request.headers.get("Authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return new Response(
         JSON.stringify({ error: "Missing or invalid Authorization header" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        {
+          status: 401,
+          headers: {
+            "Content-Type": "application/json",
+            ...corsHeaders,
+          }
+        }
       );
     }
 
@@ -163,7 +225,13 @@ export const getEventBySlug = httpAction(async (ctx, request) => {
     if (!authContext) {
       return new Response(
         JSON.stringify({ error: "Invalid API key" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        {
+          status: 401,
+          headers: {
+            "Content-Type": "application/json",
+            ...corsHeaders,
+          }
+        }
       );
     }
 
@@ -177,7 +245,13 @@ export const getEventBySlug = httpAction(async (ctx, request) => {
     if (!slug) {
       return new Response(
         JSON.stringify({ error: "Event slug required" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
+        {
+          status: 400,
+          headers: {
+            "Content-Type": "application/json",
+            ...corsHeaders,
+          }
+        }
       );
     }
 
@@ -193,7 +267,13 @@ export const getEventBySlug = httpAction(async (ctx, request) => {
     if (!event) {
       return new Response(
         JSON.stringify({ error: "Event not found" }),
-        { status: 404, headers: { "Content-Type": "application/json" } }
+        {
+          status: 404,
+          headers: {
+            "Content-Type": "application/json",
+            ...corsHeaders,
+          }
+        }
       );
     }
 
@@ -208,14 +288,23 @@ export const getEventBySlug = httpAction(async (ctx, request) => {
         headers: {
           "Content-Type": "application/json",
           "X-Organization-Id": organizationId,
+          ...corsHeaders,
         },
       }
     );
   } catch (error) {
     console.error("API /events/:slug error:", error);
+    const origin = request.headers.get("origin");
+    const corsHeaders = getCorsHeaders(origin);
     return new Response(
       JSON.stringify({ error: "Internal server error" }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      {
+        status: 500,
+        headers: {
+          "Content-Type": "application/json",
+          ...corsHeaders,
+        }
+      }
     );
   }
 });
