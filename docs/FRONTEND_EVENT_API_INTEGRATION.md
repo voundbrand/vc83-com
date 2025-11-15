@@ -20,6 +20,23 @@ All API requests require an `Authorization` header with a Bearer token:
 Authorization: Bearer org_ks79z6rj8kc42sn7r847smrdr57vd3mz_00lbs61zzosdidru0vucxp4xynnbbp3p
 ```
 
+### CORS Policy
+
+This API follows **public API best practices** for CORS:
+
+- ✅ **Any origin is allowed** - Use the API from localhost, staging, production, mobile apps, etc.
+- ✅ **No domain registration needed** - Just use your API key
+- ✅ **API key is the security boundary** - Not the requesting origin
+- ✅ **Standard for third-party APIs** - Same approach as Stripe, Twilio, etc.
+
+**Why this approach?**
+- Organizations can use the API from any domain without coordination
+- CORS only protects browsers (backend/curl requests bypass it anyway)
+- Your API key controls access, not the origin domain
+- Simplifies development and deployment
+
+**Security Note:** Keep your API key secret! Anyone with your API key can access the API regardless of CORS settings.
+
 ---
 
 ## 📡 Available Endpoints
