@@ -143,6 +143,7 @@ import type * as seedOntologyData from "../seedOntologyData.js";
 import type * as seedPdfTemplates from "../seedPdfTemplates.js";
 import type * as seedTemplateSet from "../seedTemplateSet.js";
 import type * as seedTemplates from "../seedTemplates.js";
+import type * as seedWorkflowTemplates from "../seedWorkflowTemplates.js";
 import type * as stripeCheckout from "../stripeCheckout.js";
 import type * as stripeConnect from "../stripeConnect.js";
 import type * as stripeRefunds from "../stripeRefunds.js";
@@ -243,6 +244,7 @@ import type * as translations_seedWorkflowsTranslations from "../translations/se
 import type * as userPreferences from "../userPreferences.js";
 import type * as vatValidation from "../vatValidation.js";
 import type * as workflowExecutionLogs from "../workflowExecutionLogs.js";
+import type * as workflowTemplateAvailability from "../workflowTemplateAvailability.js";
 import type * as workflows_behaviorExecutor from "../workflows/behaviorExecutor.js";
 import type * as workflows_behaviors_calculatePricing from "../workflows/behaviors/calculatePricing.js";
 import type * as workflows_behaviors_checkEventCapacity from "../workflows/behaviors/checkEventCapacity.js";
@@ -401,6 +403,7 @@ declare const fullApi: ApiFromModules<{
   seedPdfTemplates: typeof seedPdfTemplates;
   seedTemplateSet: typeof seedTemplateSet;
   seedTemplates: typeof seedTemplates;
+  seedWorkflowTemplates: typeof seedWorkflowTemplates;
   stripeCheckout: typeof stripeCheckout;
   stripeConnect: typeof stripeConnect;
   stripeRefunds: typeof stripeRefunds;
@@ -501,6 +504,7 @@ declare const fullApi: ApiFromModules<{
   userPreferences: typeof userPreferences;
   vatValidation: typeof vatValidation;
   workflowExecutionLogs: typeof workflowExecutionLogs;
+  workflowTemplateAvailability: typeof workflowTemplateAvailability;
   "workflows/behaviorExecutor": typeof workflows_behaviorExecutor;
   "workflows/behaviors/calculatePricing": typeof workflows_behaviors_calculatePricing;
   "workflows/behaviors/checkEventCapacity": typeof workflows_behaviors_checkEventCapacity;
