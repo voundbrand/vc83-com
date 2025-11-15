@@ -11,6 +11,7 @@ import React, { useState } from "react";
 import { Zap, List, FileText, Settings } from "lucide-react";
 import { WorkflowList } from "./workflow-list";
 import { WorkflowBuilder } from "./workflow-builder";
+import { WorkflowTemplates } from "./workflow-templates";
 import { useCurrentOrganization, useAuth } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
@@ -142,17 +143,16 @@ export function WorkflowsWindow() {
         )}
 
         {activeTab === "templates" && (
-          <div className="flex h-full items-center justify-center p-8">
-            <div className="text-center">
-              <FileText className="mx-auto h-16 w-16" style={{ color: 'var(--neutral-gray)', opacity: 0.3 }} />
-              <h3 className="mt-4 text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
-                {t("ui.workflows.templates.title")}
-              </h3>
-              <p className="mt-2 text-xs" style={{ color: 'var(--neutral-gray)' }}>
-                {t("ui.workflows.templates.message")}
-              </p>
-            </div>
-          </div>
+          <WorkflowTemplates
+            organizationId={organizationId}
+            sessionId={sessionId}
+            onCreateFromTemplate={(templateId) => {
+              // TODO: Implement create workflow from template
+              console.log("Create from template:", templateId);
+              setEditingWorkflowId(null);
+              setActiveTab("builder");
+            }}
+          />
         )}
 
         {activeTab === "settings" && (

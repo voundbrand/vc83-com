@@ -394,22 +394,7 @@ export const getAllWorkflowTemplateAvailabilities = query({
       availabilities = await queryBuilder.collect();
     }
 
-    // Enhance with organization info
-    const enhancedAvailabilities = await Promise.all(
-      availabilities.map(async (availability) => {
-        const org = await ctx.db.get(availability.organizationId);
-        return {
-          ...availability,
-          organization: org ? {
-            id: org._id,
-            name: (org as any).name,
-            slug: (org as any).slug
-          } : null,
-        };
-      })
-    );
-
-    return enhancedAvailabilities;
+    return availabilities;
   },
 });
 
@@ -486,5 +471,122 @@ export const updateWorkflowTemplateSettings = mutation({
     });
 
     return { success: true };
+  },
+});
+
+/**
+ * CREATE WORKFLOW FROM TEMPLATE
+ *
+ * Creates a new workflow in the organization based on a workflow template.
+ * Clones the template's configuration and behaviors.
+ */
+export const createWorkflowFromTemplate = mutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    templateId: v.id("objects"),
+    workflowName: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    // Check permission to create workflows
+    const hasPermission = await checkPermission(
+      ctx,
+      userId,
+      "manage_workflows",
+      args.organizationId
+    );
+
+    if (!hasPermission) {
+      throw new Error(
+        "Permission denied: manage_workflows required to create workflows from templates"
+      );
+    }
+
+    // Get the template
+    const template = await ctx.db.get(args.templateId);
+    if (!template) {
+      throw new Error("Template not found");
+    }
+
+    // Verify this is a workflow template
+    if (template.type !== "template" || template.subtype !== "workflow") {
+      throw new Error("Invalid template: must be a workflow template");
+    }
+
+    // Verify template is available to this organization
+    const templateCode = template.customProperties?.code;
+    if (!templateCode) {
+      throw new Error("Template code not found");
+    }
+
+    const availability = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q
+          .eq("organizationId", args.organizationId)
+          .eq("type", "workflow_template_availability")
+      )
+      .filter((q) =>
+        q.eq(q.field("customProperties.templateCode"), templateCode)
+      )
+      .filter((q) => q.eq(q.field("customProperties.available"), true))
+      .first();
+
+    if (!availability) {
+      throw new Error("Template not available to this organization");
+    }
+
+    // Clone template configuration
+    const templateConfig = template.customProperties?.workflowConfig || {};
+    const workflowName = args.workflowName || `${template.name} (Copy)`;
+
+    // Create workflow from template
+    const workflowId = await ctx.db.insert("objects", {
+      type: "workflow",
+      subtype: templateConfig.subtype || "general",
+      organizationId: args.organizationId,
+      name: workflowName,
+      description: template.description,
+      status: "draft", // Start as draft
+      customProperties: {
+        objects: templateConfig.objects || [],
+        behaviors: (templateConfig.behaviors || []).map((b: any) => ({
+          ...b,
+          id: `bhv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          metadata: {
+            createdAt: Date.now(),
+            createdBy: userId,
+          },
+        })),
+        execution: templateConfig.execution || {
+          triggerOn: "manual",
+          errorHandling: "notify",
+        },
+        visualData: templateConfig.visualData,
+        templateId: args.templateId, // Track which template this came from
+        templateCode: templateCode,
+      },
+      createdBy: userId,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    // Log the action
+    await ctx.db.insert("objectActions", {
+      organizationId: args.organizationId,
+      objectId: workflowId,
+      actionType: "workflow_created_from_template",
+      actionData: {
+        templateId: args.templateId,
+        templateCode: templateCode,
+        workflowName: workflowName,
+      },
+      performedBy: userId,
+      performedAt: Date.now(),
+    });
+
+    return { workflowId, success: true };
   },
 });
