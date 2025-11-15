@@ -115,7 +115,7 @@ export const sendTicketConfirmationEmail = action({
     });
 
     // Determine which template code to use (custom template or default)
-    let templateCode = templateData.templateCode;
+    const templateCode = templateData.templateCode;
     if (args.emailTemplateId) {
       // If custom email template provided, get its template code
       // For now, we'll log a message and use the default template
@@ -295,7 +295,7 @@ export const previewTicketEmail = action({
     });
 
     // Determine which template code to use (custom template or default)
-    let templateCode = templateData.templateCode;
+    const templateCode = templateData.templateCode;
     if (args.emailTemplateId) {
       // If custom email template provided, get its template code
       // For now, we'll log a message and use the default template
