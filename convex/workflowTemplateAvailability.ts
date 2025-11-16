@@ -573,12 +573,11 @@ export const createWorkflowFromTemplate = mutation({
       throw new Error("Template not available to this organization");
     }
 
-    // Clone template configuration
-    const templateConfig = template.customProperties?.workflowConfig || {};
+    // Clone template configuration (behaviors/objects/execution are directly in customProperties, not nested in workflowConfig)
+    const templateConfig = template.customProperties || {};
     const workflowName = args.workflowName || `${template.name} (Copy)`;
 
     console.log("🔵 [Backend] Template config:", {
-      hasWorkflowConfig: !!template.customProperties?.workflowConfig,
       subtype: templateConfig.subtype,
       objectsCount: templateConfig.objects?.length || 0,
       behaviorsCount: templateConfig.behaviors?.length || 0,
