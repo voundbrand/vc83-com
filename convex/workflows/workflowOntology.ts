@@ -534,6 +534,7 @@ export const deleteWorkflow = mutation({
   args: {
     sessionId: v.string(),
     workflowId: v.id("objects"),
+    hardDelete: v.optional(v.boolean()), // If true, permanently delete; if false/undefined, archive
   },
   handler: async (ctx, args) => {
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
@@ -548,23 +549,40 @@ export const deleteWorkflow = mutation({
       organizationId: workflow.organizationId,
     });
 
-    // Soft delete
-    await ctx.db.patch(args.workflowId, {
-      status: "archived",
-      updatedAt: Date.now(),
-    });
+    if (args.hardDelete) {
+      // Hard delete - permanently remove from database
+      await ctx.db.delete(args.workflowId);
 
-    // Log action
-    await ctx.db.insert("objectActions", {
-      organizationId: workflow.organizationId,
-      objectId: args.workflowId,
-      actionType: "workflow_deleted",
-      actionData: {
-        workflowName: workflow.name,
-      },
-      performedBy: userId,
-      performedAt: Date.now(),
-    });
+      // Log action
+      await ctx.db.insert("objectActions", {
+        organizationId: workflow.organizationId,
+        objectId: args.workflowId,
+        actionType: "workflow_permanently_deleted",
+        actionData: {
+          workflowName: workflow.name,
+        },
+        performedBy: userId,
+        performedAt: Date.now(),
+      });
+    } else {
+      // Soft delete - archive
+      await ctx.db.patch(args.workflowId, {
+        status: "archived",
+        updatedAt: Date.now(),
+      });
+
+      // Log action
+      await ctx.db.insert("objectActions", {
+        organizationId: workflow.organizationId,
+        objectId: args.workflowId,
+        actionType: "workflow_archived",
+        actionData: {
+          workflowName: workflow.name,
+        },
+        performedBy: userId,
+        performedAt: Date.now(),
+      });
+    }
   },
 });
 

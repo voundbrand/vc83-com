@@ -96,11 +96,27 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
     triggerOn === "api_call" ||
     !triggerOn; // Default to allowing if undefined
 
-  const handleDelete = async () => {
-    if (confirm(t("ui.workflows.card.menu.confirmDelete"))) {
+  const handleArchive = async () => {
+    if (confirm(t("ui.workflows.card.menu.confirmArchive"))) {
       await deleteWorkflow({
         sessionId,
         workflowId: workflow._id,
+        hardDelete: false,
+      });
+    }
+    setMenuOpen(false);
+  };
+
+  const handleDelete = async () => {
+    const confirmMessage = workflow.status === "archived"
+      ? t("ui.workflows.card.menu.confirmPermanentDelete")
+      : t("ui.workflows.card.menu.confirmDelete");
+
+    if (confirm(confirmMessage)) {
+      await deleteWorkflow({
+        sessionId,
+        workflowId: workflow._id,
+        hardDelete: true,
       });
     }
     setMenuOpen(false);
@@ -302,14 +318,26 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
                   {t("ui.workflows.card.menu.duplicate")}
                 </button>
                 <div className="my-1 border-t" style={{ borderColor: 'var(--win95-border)' }} />
-                <button
-                  onClick={handleDelete}
-                  className="flex w-full items-center gap-2 px-3 py-1.5 text-xs hover:bg-opacity-50 transition-colors"
-                  style={{ color: 'var(--error)' }}
-                >
-                  <Trash2 className="h-3 w-3" />
-                  {t("ui.workflows.card.menu.archive")}
-                </button>
+                {workflow.status !== "archived" && (
+                  <button
+                    onClick={handleArchive}
+                    className="flex w-full items-center gap-2 px-3 py-1.5 text-xs hover:bg-opacity-50 transition-colors"
+                    style={{ color: 'var(--warning)' }}
+                  >
+                    <ArchiveX className="h-3 w-3" />
+                    {t("ui.workflows.card.menu.archive")}
+                  </button>
+                )}
+                {workflow.status === "archived" && (
+                  <button
+                    onClick={handleDelete}
+                    className="flex w-full items-center gap-2 px-3 py-1.5 text-xs hover:bg-opacity-50 transition-colors"
+                    style={{ color: 'var(--error)' }}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    {t("ui.workflows.card.menu.deletePermanently")}
+                  </button>
+                )}
               </div>
             </>
           )}
