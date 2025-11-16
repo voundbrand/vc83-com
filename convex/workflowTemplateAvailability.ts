@@ -488,7 +488,13 @@ export const createWorkflowFromTemplate = mutation({
     workflowName: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    console.log("🔵 [Backend] createWorkflowFromTemplate called", {
+      templateId: args.templateId,
+      organizationId: args.organizationId,
+    });
+
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    console.log("🔵 [Backend] User authenticated:", { userId });
 
     // Check permission to create workflows
     const hasPermission = await checkPermission(
@@ -499,25 +505,44 @@ export const createWorkflowFromTemplate = mutation({
     );
 
     if (!hasPermission) {
+      console.error("❌ [Backend] Permission denied for user:", userId);
       throw new Error(
         "Permission denied: manage_workflows required to create workflows from templates"
       );
     }
 
+    console.log("✅ [Backend] Permission check passed");
+
     // Get the template
     const template = await ctx.db.get(args.templateId);
+    console.log("🔵 [Backend] Template retrieved:", {
+      templateId: args.templateId,
+      found: !!template,
+      type: template?.type,
+      subtype: template?.subtype,
+      name: template?.name,
+    });
+
     if (!template) {
+      console.error("❌ [Backend] Template not found:", args.templateId);
       throw new Error("Template not found");
     }
 
     // Verify this is a workflow template
     if (template.type !== "template" || template.subtype !== "workflow") {
+      console.error("❌ [Backend] Invalid template type:", {
+        type: template.type,
+        subtype: template.subtype,
+      });
       throw new Error("Invalid template: must be a workflow template");
     }
 
     // Verify template is available to this organization
     const templateCode = template.customProperties?.code;
+    console.log("🔵 [Backend] Template code:", templateCode);
+
     if (!templateCode) {
+      console.error("❌ [Backend] Template code not found in customProperties");
       throw new Error("Template code not found");
     }
 
@@ -534,13 +559,36 @@ export const createWorkflowFromTemplate = mutation({
       .filter((q) => q.eq(q.field("customProperties.available"), true))
       .first();
 
+    console.log("🔵 [Backend] Availability check:", {
+      templateCode,
+      availabilityFound: !!availability,
+      available: availability?.customProperties?.available,
+    });
+
     if (!availability) {
+      console.error("❌ [Backend] Template not available to organization:", {
+        templateCode,
+        organizationId: args.organizationId,
+      });
       throw new Error("Template not available to this organization");
     }
 
     // Clone template configuration
     const templateConfig = template.customProperties?.workflowConfig || {};
     const workflowName = args.workflowName || `${template.name} (Copy)`;
+
+    console.log("🔵 [Backend] Template config:", {
+      hasWorkflowConfig: !!template.customProperties?.workflowConfig,
+      subtype: templateConfig.subtype,
+      objectsCount: templateConfig.objects?.length || 0,
+      behaviorsCount: templateConfig.behaviors?.length || 0,
+      hasExecution: !!templateConfig.execution,
+      hasVisualData: !!templateConfig.visualData,
+    });
+
+    console.log("🔵 [Backend] Full template customProperties:",
+      JSON.stringify(template.customProperties, null, 2)
+    );
 
     // Create workflow from template
     const workflowId = await ctx.db.insert("objects", {
@@ -573,6 +621,12 @@ export const createWorkflowFromTemplate = mutation({
       updatedAt: Date.now(),
     });
 
+    console.log("✅ [Backend] Workflow created:", {
+      workflowId,
+      name: workflowName,
+      behaviorsCount: (templateConfig.behaviors || []).length,
+    });
+
     // Log the action
     await ctx.db.insert("objectActions", {
       organizationId: args.organizationId,
@@ -587,6 +641,7 @@ export const createWorkflowFromTemplate = mutation({
       performedAt: Date.now(),
     });
 
+    console.log("✅ [Backend] Action logged, returning result");
     return { workflowId, success: true };
   },
 });

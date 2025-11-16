@@ -81,13 +81,23 @@ export function WorkflowsWindow() {
   };
 
   const handleCreateFromTemplate = async (templateId: string) => {
+    console.log("🔵 [Frontend] handleCreateFromTemplate called", {
+      templateId,
+      sessionId,
+      organizationId,
+    });
+
     if (!sessionId || !organizationId) {
-      console.error("Missing sessionId or organizationId");
+      console.error("❌ [Frontend] Missing sessionId or organizationId", {
+        sessionId,
+        organizationId,
+      });
       return;
     }
 
     try {
       setIsCreatingFromTemplate(true);
+      console.log("🔵 [Frontend] Calling createFromTemplate mutation...");
 
       // Create workflow from template
       const result = await createFromTemplate({
@@ -96,13 +106,20 @@ export function WorkflowsWindow() {
         templateId: templateId as Id<"objects">,
       });
 
+      console.log("✅ [Frontend] Mutation result:", result);
+
       if (result.success && result.workflowId) {
+        console.log("🔵 [Frontend] Setting workflowId and switching to builder", {
+          workflowId: result.workflowId,
+        });
         // Set the new workflow ID and switch to builder
         setEditingWorkflowId(result.workflowId);
         setActiveTab("builder");
+      } else {
+        console.warn("⚠️ [Frontend] Result missing success or workflowId", result);
       }
     } catch (error) {
-      console.error("Failed to create workflow from template:", error);
+      console.error("❌ [Frontend] Failed to create workflow from template:", error);
       alert("Failed to create workflow from template. Please try again.");
     } finally {
       setIsCreatingFromTemplate(false);
