@@ -9,6 +9,9 @@
 
 import React, { useState } from "react";
 import { Zap, List, FileText, Settings } from "lucide-react";
+import { useMutation } from "convex/react";
+import { api } from "../../../../convex/_generated/api";
+import { Id } from "../../../../convex/_generated/dataModel";
 import { WorkflowList } from "./workflow-list";
 import { WorkflowBuilder } from "./workflow-builder";
 import { WorkflowTemplates } from "./workflow-templates";
@@ -23,9 +26,15 @@ export function WorkflowsWindow() {
   const { sessionId } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>("list");
   const [editingWorkflowId, setEditingWorkflowId] = useState<string | null>(null);
+  const [isCreatingFromTemplate, setIsCreatingFromTemplate] = useState(false);
 
   // Use current org and authenticated session ID
   const organizationId = currentOrg?.id || "";
+
+  // Mutation to create workflow from template
+  const createFromTemplate = useMutation(
+    api.workflowTemplateAvailability.createWorkflowFromTemplate
+  );
 
   // Show loading state while translations load
   if (isLoading) {
@@ -69,6 +78,35 @@ export function WorkflowsWindow() {
   const handleBackToList = () => {
     setEditingWorkflowId(null);
     setActiveTab("list");
+  };
+
+  const handleCreateFromTemplate = async (templateId: string) => {
+    if (!sessionId || !organizationId) {
+      console.error("Missing sessionId or organizationId");
+      return;
+    }
+
+    try {
+      setIsCreatingFromTemplate(true);
+
+      // Create workflow from template
+      const result = await createFromTemplate({
+        sessionId,
+        organizationId: organizationId as Id<"organizations">,
+        templateId: templateId as Id<"objects">,
+      });
+
+      if (result.success && result.workflowId) {
+        // Set the new workflow ID and switch to builder
+        setEditingWorkflowId(result.workflowId);
+        setActiveTab("builder");
+      }
+    } catch (error) {
+      console.error("Failed to create workflow from template:", error);
+      alert("Failed to create workflow from template. Please try again.");
+    } finally {
+      setIsCreatingFromTemplate(false);
+    }
   };
 
   return (
@@ -146,13 +184,36 @@ export function WorkflowsWindow() {
           <WorkflowTemplates
             organizationId={organizationId}
             sessionId={sessionId}
-            onCreateFromTemplate={(templateId) => {
-              // TODO: Implement create workflow from template
-              console.log("Create from template:", templateId);
-              setEditingWorkflowId(null);
-              setActiveTab("builder");
-            }}
+            onCreateFromTemplate={handleCreateFromTemplate}
           />
+        )}
+
+        {isCreatingFromTemplate && (
+          <div
+            className="fixed inset-0 flex items-center justify-center"
+            style={{
+              background: "rgba(0, 0, 0, 0.5)",
+              zIndex: 9999,
+            }}
+          >
+            <div
+              className="border-2 p-8"
+              style={{
+                background: "var(--win95-bg)",
+                borderColor: "var(--win95-border)",
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className="h-6 w-6 animate-spin rounded-full border-4 border-purple-600"
+                  style={{ borderTopColor: "transparent" }}
+                />
+                <p className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+                  Creating workflow from template...
+                </p>
+              </div>
+            </div>
+          </div>
         )}
 
         {activeTab === "settings" && (
