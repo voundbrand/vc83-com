@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { RetroButton } from "@/components/retro-button";
 import { useAuth } from "@/hooks/use-auth";
@@ -11,6 +11,7 @@ import { Loader2, CheckCircle2, RefreshCw } from "lucide-react";
 export function IntegrationsTab() {
   const { user, sessionId } = useAuth();
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const notification = useNotification();
 
   // Query Microsoft connection status
@@ -19,9 +20,17 @@ export function IntegrationsTab() {
     sessionId ? { sessionId } : "skip"
   );
 
-  // Mutations
+  // Query email sync status
+  const emailSyncStatus = useQuery(
+    api.emails.getEmailSyncStatus,
+    connection?.id ? { connectionId: connection.id } : "skip"
+  );
+
+  // Mutations and actions
   const initiateMicrosoftOAuth = useMutation(api.oauth.microsoft.initiateMicrosoftOAuth);
   const disconnectMicrosoft = useMutation(api.oauth.microsoft.disconnectMicrosoft);
+  const updateSyncSettings = useMutation(api.emails.updateSyncSettings);
+  const syncEmails = useAction(api.emails.syncEmailsFromMicrosoft);
 
   // Check URL params for OAuth callback messages
   useEffect(() => {
@@ -105,6 +114,59 @@ export function IntegrationsTab() {
     }
   };
 
+  const handleEmailSyncToggle = async (enabled: boolean) => {
+    if (!sessionId || !connection?.id) return;
+
+    try {
+      await updateSyncSettings({
+        sessionId,
+        connectionId: connection.id,
+        syncSettings: {
+          email: enabled,
+        },
+      });
+
+      notification.success(
+        enabled ? "Email Sync Enabled" : "Email Sync Disabled",
+        enabled
+          ? "Email syncing has been enabled"
+          : "Email syncing has been disabled"
+      );
+    } catch (error) {
+      console.error("Failed to update sync settings:", error);
+      notification.error(
+        "Update Failed",
+        error instanceof Error ? error.message : "Failed to update sync settings"
+      );
+    }
+  };
+
+  const handleSyncNow = async () => {
+    if (!sessionId || !connection?.id) return;
+
+    setIsSyncing(true);
+
+    try {
+      const result = await syncEmails({
+        connectionId: connection.id,
+        top: 50,
+      });
+
+      notification.success(
+        "Sync Complete",
+        `Successfully synced ${result.emailsStored} of ${result.totalFetched} emails`
+      );
+    } catch (error) {
+      console.error("Failed to sync emails:", error);
+      notification.error(
+        "Sync Failed",
+        error instanceof Error ? error.message : "Failed to sync emails"
+      );
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const isLoading = connection === undefined;
   const isConnected = connection && connection.status === "active";
 
@@ -182,9 +244,9 @@ export function IntegrationsTab() {
               )}
             </div>
 
-            {/* Sync Settings (Phase 3 - Coming Soon) */}
+            {/* Sync Settings */}
             <div
-              className="p-3 border-2 rounded opacity-50"
+              className="p-3 border-2 rounded"
               style={{
                 borderColor: "var(--win95-border)",
                 background: "var(--win95-bg)",
@@ -193,17 +255,26 @@ export function IntegrationsTab() {
               <p className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
                 Sync Settings
               </p>
-              <div className="space-y-1">
-                <label className="flex items-center gap-2 text-xs cursor-not-allowed">
-                  <input type="checkbox" disabled className="opacity-50" />
-                  <span style={{ color: "var(--neutral-gray)" }}>Email (Coming Soon)</span>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-xs cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={emailSyncStatus?.syncEnabled || false}
+                    onChange={(e) => handleEmailSyncToggle(e.target.checked)}
+                  />
+                  <span style={{ color: "var(--win95-text)" }}>Email</span>
+                  {emailSyncStatus && (
+                    <span className="text-xs ml-auto" style={{ color: "var(--neutral-gray)" }}>
+                      ({emailSyncStatus.totalEmails} synced, {emailSyncStatus.unreadEmails} unread)
+                    </span>
+                  )}
                 </label>
-                <label className="flex items-center gap-2 text-xs cursor-not-allowed">
-                  <input type="checkbox" disabled className="opacity-50" />
+                <label className="flex items-center gap-2 text-xs cursor-not-allowed opacity-50">
+                  <input type="checkbox" disabled />
                   <span style={{ color: "var(--neutral-gray)" }}>Calendar (Coming Soon)</span>
                 </label>
-                <label className="flex items-center gap-2 text-xs cursor-not-allowed">
-                  <input type="checkbox" disabled className="opacity-50" />
+                <label className="flex items-center gap-2 text-xs cursor-not-allowed opacity-50">
+                  <input type="checkbox" disabled />
                   <span style={{ color: "var(--neutral-gray)" }}>OneDrive (Coming Soon)</span>
                 </label>
               </div>
@@ -220,11 +291,21 @@ export function IntegrationsTab() {
               </RetroButton>
               <RetroButton
                 variant="secondary"
-                disabled
-                className="flex-1 opacity-50"
+                onClick={handleSyncNow}
+                disabled={isSyncing || !emailSyncStatus?.syncEnabled}
+                className="flex-1"
               >
-                <RefreshCw size={14} className="mr-1" />
-                Sync Now
+                {isSyncing ? (
+                  <>
+                    <Loader2 size={14} className="mr-1 animate-spin" />
+                    Syncing...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw size={14} className="mr-1" />
+                    Sync Now
+                  </>
+                )}
               </RetroButton>
             </div>
           </div>

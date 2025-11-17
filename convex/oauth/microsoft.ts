@@ -21,12 +21,12 @@ const INITIAL_SCOPES = [
   "profile",
   "email",
   "offline_access",
-  "User.Read"
+  "User.Read",
+  "Mail.Read", // Added for email sync
 ];
 
 // Future scopes for Phase 3+
 // const EXTENDED_SCOPES = [
-//   "Mail.Read",
 //   "Calendars.Read",
 //   "Files.Read.All",
 //   "Sites.Read.All"
@@ -589,6 +589,21 @@ export const updateConnectionStatus = internalMutation({
     await ctx.db.patch(args.connectionId, {
       status: args.status,
       lastSyncError: args.error,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+/**
+ * Update last sync timestamp (internal mutation)
+ */
+export const updateLastSync = internalMutation({
+  args: {
+    connectionId: v.id("oauthConnections"),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.connectionId, {
+      lastSyncAt: Date.now(),
       updatedAt: Date.now(),
     });
   },
