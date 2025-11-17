@@ -265,3 +265,100 @@ export const organizationMedia = defineTable({
   .index("by_organization_and_category", ["organizationId", "category"])
   .index("by_storage_id", ["storageId"])
   .index("by_uploaded_by", ["uploadedBy"]);
+
+// OAuth Connections - User and organization OAuth account linking
+export const oauthConnections = defineTable({
+  // Ownership (EITHER user-level OR org-level, not both)
+  userId: v.optional(v.id("users")),           // Personal connection (user links their own account)
+  organizationId: v.id("organizations"),       // Always scoped to an organization
+
+  // OAuth provider details
+  provider: v.union(
+    v.literal("microsoft"),
+    v.literal("google"),
+    v.literal("slack"),
+    v.literal("salesforce"),
+    v.literal("dropbox"),
+    v.literal("github"),
+    v.literal("okta")
+    // Add more providers as needed - no DB migration required!
+  ),
+  providerAccountId: v.string(),               // Provider's unique user ID
+  providerEmail: v.string(),                   // Email address from provider
+
+  // Connection type
+  connectionType: v.union(
+    v.literal("personal"),                     // User's personal connection
+    v.literal("organizational")                // Organization-wide connection (admin-linked)
+  ),
+
+  // OAuth tokens (stored encrypted)
+  accessToken: v.string(),                     // Encrypted access token
+  refreshToken: v.string(),                    // Encrypted refresh token
+  tokenExpiresAt: v.number(),                  // Timestamp when access token expires
+
+  // Granted scopes/permissions
+  scopes: v.array(v.string()),                 // e.g., ["Mail.Read", "Calendars.Read", "Files.Read"]
+
+  // Sync settings (user-controlled)
+  syncSettings: v.object({
+    email: v.boolean(),                        // Sync emails
+    calendar: v.boolean(),                     // Sync calendar events
+    oneDrive: v.boolean(),                     // Sync OneDrive files
+    sharePoint: v.boolean(),                   // Sync SharePoint sites
+    // Add more sync options as features are added
+  }),
+
+  // Connection status
+  status: v.union(
+    v.literal("active"),                       // Connection working
+    v.literal("expired"),                      // Token expired (needs refresh)
+    v.literal("revoked"),                      // User revoked access
+    v.literal("error")                         // Error occurred
+  ),
+  lastSyncAt: v.optional(v.number()),          // Last successful sync timestamp
+  lastSyncError: v.optional(v.string()),       // Last error message (if any)
+
+  // Provider-specific metadata (extensible)
+  customProperties: v.optional(v.any()),       // e.g., { tenantId: "...", workspace: "..." }
+
+  // Metadata
+  connectedAt: v.number(),                     // When connection was established
+  updatedAt: v.number(),                       // Last update timestamp
+})
+  .index("by_user_and_org", ["userId", "organizationId"])               // Find user's connections in an org
+  .index("by_organization", ["organizationId"])                         // Find all org connections
+  .index("by_provider_account", ["provider", "providerAccountId"])      // Find connection by provider account
+  .index("by_status", ["status"])                                       // Find connections by status
+  .index("by_org_and_provider", ["organizationId", "provider"]);        // Find connections by org and provider
+
+// OAuth State Tokens - CSRF protection for OAuth flows
+export const oauthStates = defineTable({
+  // State token
+  state: v.string(),                           // Random UUID for CSRF protection
+
+  // User and organization context
+  userId: v.id("users"),
+  organizationId: v.id("organizations"),
+
+  // OAuth flow metadata
+  provider: v.union(
+    v.literal("microsoft"),
+    v.literal("google"),
+    v.literal("slack"),
+    v.literal("salesforce"),
+    v.literal("dropbox"),
+    v.literal("github"),
+    v.literal("okta")
+  ),
+  connectionType: v.union(
+    v.literal("personal"),
+    v.literal("organizational")
+  ),
+
+  // Expiration (short-lived: 10 minutes)
+  createdAt: v.number(),
+  expiresAt: v.number(),
+})
+  .index("by_state", ["state"])
+  .index("by_user", ["userId"]);

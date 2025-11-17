@@ -25,7 +25,9 @@ import {
   permissions,
   rolePermissions,
   userPreferences,
-  organizationMedia
+  organizationMedia,
+  oauthConnections,
+  oauthStates
 } from "./schemas/coreSchemas";
 import { apps, appInstallations, snapshots, snapshotLoads, purchases, appAvailabilities } from "./schemas/appStoreSchemas";
 // import { app_podcasting } from "./schemas/appDataSchemas"; // Not yet used
@@ -59,6 +61,8 @@ export default defineSchema({
   apiKeys,
   userPreferences,
   organizationMedia,
+  oauthConnections,
+  oauthStates,
 
   // 🔐 RBAC: Role-Based Access Control
   roles,

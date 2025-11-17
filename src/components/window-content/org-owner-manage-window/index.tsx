@@ -20,8 +20,9 @@ import { usePermissions } from "@/contexts/permission-context";
 import { PermissionGuard, PermissionButton } from "@/components/permission";
 import { Id, Doc } from "../../../../convex/_generated/dataModel";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+import { IntegrationsTab } from "../settings-window/integrations-tab";
 
-type TabType = "organization" | "users" | "roles" | "domains" | "security";
+type TabType = "organization" | "users" | "integrations" | "roles" | "domains" | "security";
 
 export function ManageWindow() {
   const { t } = useNamespaceTranslations("ui.manage");
@@ -265,6 +266,18 @@ export function ManageWindow() {
         >
           <Users size={14} />
           {t("ui.manage.tab.users_invites")}
+        </button>
+        <button
+          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
+          style={{
+            borderColor: 'var(--win95-border)',
+            background: activeTab === "integrations" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+            color: activeTab === "integrations" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+          }}
+          onClick={() => setActiveTab("integrations")}
+        >
+          🔗
+          Integrations
         </button>
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
@@ -650,6 +663,10 @@ export function ManageWindow() {
               organizationId={organizationId as Id<"organizations">}
             />
           </div>
+        )}
+
+        {activeTab === "integrations" && (
+          <IntegrationsTab />
         )}
 
         {activeTab === "roles" && (

@@ -92,6 +92,9 @@ import type * as migratePdfTemplates from "../migratePdfTemplates.js";
 import type * as migrations_migratePageTemplates from "../migrations/migratePageTemplates.js";
 import type * as migrations_migratePaymentProviders from "../migrations/migratePaymentProviders.js";
 import type * as migrations_updateExistingHaffForms from "../migrations/updateExistingHaffForms.js";
+import type * as oauth_encryption from "../oauth/encryption.js";
+import type * as oauth_graphClient from "../oauth/graphClient.js";
+import type * as oauth_microsoft from "../oauth/microsoft.js";
 import type * as ontologyAdmin from "../ontologyAdmin.js";
 import type * as ontologyHelpers from "../ontologyHelpers.js";
 import type * as ontologyTranslations from "../ontologyTranslations.js";
@@ -262,6 +265,7 @@ import type * as workflows_behaviors_validateRegistration from "../workflows/beh
 import type * as workflows_workflowExecution from "../workflows/workflowExecution.js";
 import type * as workflows_workflowOntology from "../workflows/workflowOntology.js";
 import type * as workflows_workflowTemplates from "../workflows/workflowTemplates.js";
+import type * as workflows_workflowTestExecution from "../workflows/workflowTestExecution.js";
 import type * as workflows_workflowValidation from "../workflows/workflowValidation.js";
 
 /**
@@ -352,6 +356,9 @@ declare const fullApi: ApiFromModules<{
   "migrations/migratePageTemplates": typeof migrations_migratePageTemplates;
   "migrations/migratePaymentProviders": typeof migrations_migratePaymentProviders;
   "migrations/updateExistingHaffForms": typeof migrations_updateExistingHaffForms;
+  "oauth/encryption": typeof oauth_encryption;
+  "oauth/graphClient": typeof oauth_graphClient;
+  "oauth/microsoft": typeof oauth_microsoft;
   ontologyAdmin: typeof ontologyAdmin;
   ontologyHelpers: typeof ontologyHelpers;
   ontologyTranslations: typeof ontologyTranslations;
@@ -522,6 +529,7 @@ declare const fullApi: ApiFromModules<{
   "workflows/workflowExecution": typeof workflows_workflowExecution;
   "workflows/workflowOntology": typeof workflows_workflowOntology;
   "workflows/workflowTemplates": typeof workflows_workflowTemplates;
+  "workflows/workflowTestExecution": typeof workflows_workflowTestExecution;
   "workflows/workflowValidation": typeof workflows_workflowValidation;
 }>;
 export declare const api: FilterApi<
