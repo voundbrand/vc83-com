@@ -25,25 +25,28 @@ export const executeDetectEmployerBilling = action({
     context: v.any(),
   },
   handler: async (ctx, args) => {
-    console.log("✓ [Behavior 4/12] Detect Employer Billing");
+    console.log(`${args.config?.dryRun ? '🧪 [DRY RUN]' : '✓'} [Behavior 4/12] Detect Employer Billing`);
 
     const context = args.context as {
-      productId?: string;
+      products?: Array<{
+        productId: string;
+        quantity: number;
+      }>;
       formResponses?: {
         attendee_category?: string;
       };
     };
 
-    // Get product to check invoice config
-    if (!context.productId) {
+    // Get first product to check invoice config (employer billing applies to all)
+    if (!context.products || context.products.length === 0) {
       return {
         success: false,
-        error: "Product ID is required",
+        error: "At least one product is required",
       };
     }
 
     const product = await ctx.runQuery(api.ontologyHelpers.getObject, {
-      objectId: context.productId as Id<"objects">,
+      objectId: context.products[0].productId as Id<"objects">,
     });
 
     if (!product) {
@@ -62,10 +65,10 @@ export const executeDetectEmployerBilling = action({
 
     // Check if product is free
     if (!customProps.price || customProps.price === 0) {
-      console.log("✅ Free product - no billing needed");
+      console.log(`${args.config?.dryRun ? '🧪 [DRY RUN]' : '✅'} Free product - no billing needed`);
       return {
         success: true,
-        message: "Free product detected",
+        message: `Free product detected${args.config?.dryRun ? ' (dry run)' : ''}`,
         data: {
           billingMethod: "free",
           employerName: undefined,
@@ -80,7 +83,7 @@ export const executeDetectEmployerBilling = action({
 
     if (employerMapping && attendeeCategory && employerMapping[attendeeCategory]) {
       const employerName = employerMapping[attendeeCategory];
-      console.log(`✅ Employer billing detected: ${employerName}`);
+      console.log(`${args.config?.dryRun ? '🧪 [DRY RUN]' : '✅'} Employer billing detected: ${employerName}`);
 
       // Try to find CRM organization
       let crmOrganizationId: Id<"objects"> | undefined;
@@ -93,7 +96,7 @@ export const executeDetectEmployerBilling = action({
         const matchingOrg = crmOrgs.find((org: { name?: string }) => org.name === employerName);
         if (matchingOrg) {
           crmOrganizationId = matchingOrg._id as Id<"objects">;
-          console.log(`✅ Found CRM organization: ${crmOrganizationId}`);
+          console.log(`${args.config?.dryRun ? '🧪 [DRY RUN]' : '✅'} Found CRM organization: ${crmOrganizationId}`);
         } else {
           console.warn(`⚠️ CRM organization not found for: ${employerName}`);
         }
@@ -103,7 +106,7 @@ export const executeDetectEmployerBilling = action({
 
       return {
         success: true,
-        message: `Employer billing: ${employerName}`,
+        message: `Employer billing: ${employerName}${args.config?.dryRun ? ' (dry run)' : ''}`,
         data: {
           billingMethod: "employer_invoice",
           employerName,
@@ -114,10 +117,10 @@ export const executeDetectEmployerBilling = action({
     }
 
     // Default: customer payment
-    console.log("✅ Customer payment detected");
+    console.log(`${args.config?.dryRun ? '🧪 [DRY RUN]' : '✅'} Customer payment detected`);
     return {
       success: true,
-      message: "Customer payment method",
+      message: `Customer payment method${args.config?.dryRun ? ' (dry run)' : ''}`,
       data: {
         billingMethod: "customer_payment",
         employerName: undefined,

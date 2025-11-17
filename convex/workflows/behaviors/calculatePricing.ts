@@ -33,90 +33,140 @@ export const executeCalculatePricing = action({
     context: v.any(),
   },
   handler: async (ctx, args) => {
-    console.log("✓ [Behavior 3/12] Calculate Pricing");
+    console.log(`${args.config?.dryRun ? '🧪 [DRY RUN]' : '✓'} [Behavior 3/12] Calculate Pricing`);
 
     const context = args.context as {
-      productId?: string;
-      quantity?: number;
+      products?: Array<{
+        productId: string;
+        quantity: number;
+      }>;
       discountCode?: string;
     };
 
-    if (!context.productId) {
+    if (!context.products || context.products.length === 0) {
       return {
         success: false,
-        error: "Product ID is required",
+        error: "At least one product is required",
       };
     }
 
-    // Get product pricing
-    const product = await ctx.runQuery(api.ontologyHelpers.getObject, {
-      objectId: context.productId as Id<"objects">,
-    });
+    // Process each product
+    const productDetails: Array<{
+      productId: string;
+      productName: string;
+      quantity: number;
+      pricePerUnit: number;
+      total: number;
+    }> = [];
 
-    if (!product) {
-      return {
-        success: false,
-        error: "Product not found",
+    let subtotal = 0;
+    let currency = "EUR";
+
+    for (const productItem of context.products) {
+      // Get product pricing
+      const product = await ctx.runQuery(api.ontologyHelpers.getObject, {
+        objectId: productItem.productId as Id<"objects">,
+      });
+
+      if (!product) {
+        return {
+          success: false,
+          error: `Product not found: ${productItem.productId}`,
+        };
+      }
+
+      const customProps = product.customProperties as {
+        price?: number;
+        currency?: string;
+        taxRate?: number;
       };
-    }
 
-    const customProps = product.customProperties as {
-      price?: number;
-      currency?: string;
-      taxRate?: number;
-      discounts?: Array<{
-        code: string;
-        type: "percentage" | "fixed";
-        value: number;
-        validUntil?: number;
-      }>;
-    };
+      const pricePerUnit = customProps.price || 0;
+      const productCurrency = customProps.currency || "EUR";
+      const total = pricePerUnit * productItem.quantity;
 
-    const basePrice = customProps.price || 0;
-    const currency = customProps.currency || "EUR";
-    const taxRate = customProps.taxRate || 19; // German VAT default
-    const quantity = context.quantity || 1;
+      // Store product details
+      productDetails.push({
+        productId: productItem.productId,
+        productName: product.name,
+        quantity: productItem.quantity,
+        pricePerUnit,
+        total,
+      });
 
-    // Calculate discount if code provided
-    let discountAmount = 0;
-    let discountApplied = false;
+      // Add to subtotal
+      subtotal += total;
 
-    if (context.discountCode && customProps.discounts) {
-      const discount = customProps.discounts.find(
-        (d) => d.code === context.discountCode &&
-               (!d.validUntil || d.validUntil > Date.now())
-      );
-
-      if (discount) {
-        if (discount.type === "percentage") {
-          discountAmount = Math.round((basePrice * quantity * discount.value) / 100);
-        } else {
-          discountAmount = discount.value * quantity;
-        }
-        discountApplied = true;
-        console.log(`✅ Discount applied: ${discount.code} = ${discountAmount} cents`);
+      // Use currency from first product
+      if (currency === "EUR") {
+        currency = productCurrency;
       }
     }
 
+    // Calculate discount if code provided (applied to total)
+    let discountAmount = 0;
+    let discountApplied = false;
+
+    if (context.discountCode) {
+      // Get discount from first product (could be enhanced to support global discounts)
+      const firstProduct = await ctx.runQuery(api.ontologyHelpers.getObject, {
+        objectId: context.products[0].productId as Id<"objects">,
+      });
+
+      const customProps = firstProduct?.customProperties as {
+        discounts?: Array<{
+          code: string;
+          type: "percentage" | "fixed";
+          value: number;
+          validUntil?: number;
+        }>;
+      };
+
+      if (customProps?.discounts) {
+        const discount = customProps.discounts.find(
+          (d) => d.code === context.discountCode &&
+                 (!d.validUntil || d.validUntil > Date.now())
+        );
+
+        if (discount) {
+          if (discount.type === "percentage") {
+            discountAmount = Math.round((subtotal * discount.value) / 100);
+          } else {
+            discountAmount = discount.value;
+          }
+          discountApplied = true;
+          console.log(`✅ Discount applied: ${discount.code} = ${discountAmount} cents`);
+        }
+      }
+    }
+
+    // Get tax rate from first product
+    const firstProduct: { customProperties?: { taxRate?: number } } | null = await ctx.runQuery(api.ontologyHelpers.getObject, {
+      objectId: context.products[0].productId as Id<"objects">,
+    });
+    const taxRate: number = (firstProduct?.customProperties as { taxRate?: number })?.taxRate || 19;
+
     // Calculate totals
-    const subtotal = basePrice * quantity;
     const priceAfterDiscount = subtotal - discountAmount;
     const taxAmount = Math.round((priceAfterDiscount * taxRate) / 100);
     const finalPrice = priceAfterDiscount + taxAmount;
 
-    console.log(`✅ Pricing calculated:`);
-    console.log(`   Base: ${basePrice} cents × ${quantity} = ${subtotal} cents`);
+    console.log(`${args.config?.dryRun ? '🧪 [DRY RUN]' : '✅'} Pricing calculated:`);
+    console.log(`   Products: ${productDetails.length}`);
+    productDetails.forEach((p) => {
+      console.log(`     - ${p.productName}: ${p.pricePerUnit} × ${p.quantity} = ${p.total} cents`);
+    });
+    console.log(`   Subtotal: ${subtotal} cents`);
     console.log(`   Discount: -${discountAmount} cents`);
-    console.log(`   Subtotal: ${priceAfterDiscount} cents`);
+    console.log(`   After Discount: ${priceAfterDiscount} cents`);
     console.log(`   Tax (${taxRate}%): +${taxAmount} cents`);
     console.log(`   Final: ${finalPrice} cents (${(finalPrice / 100).toFixed(2)} ${currency})`);
 
     return {
       success: true,
-      message: `Price calculated: ${(finalPrice / 100).toFixed(2)} ${currency}`,
+      message: `Price calculated: ${(finalPrice / 100).toFixed(2)} ${currency} for ${productDetails.length} product(s)${args.config?.dryRun ? ' (dry run)' : ''}`,
       data: {
-        basePrice,
-        quantity,
+        products: productDetails,
         subtotal,
         discountAmount,
         discountApplied,

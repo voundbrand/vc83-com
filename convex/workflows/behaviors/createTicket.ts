@@ -33,7 +33,10 @@ export const executeCreateTicket = action({
     console.log("✓ [Behavior 6/12] Create Ticket");
 
     const context = args.context as {
-      productId?: string;
+      products?: Array<{
+        productId: string;
+        quantity: number;
+      }>;
       eventId?: string;
       customerData?: {
         email?: string;
@@ -44,12 +47,24 @@ export const executeCreateTicket = action({
       billingMethod?: string;
       billingAddress?: string;
       contactId?: string;
+      transactionData?: {
+        price?: number;
+        breakdown?: {
+          products?: Array<{
+            productId: string;
+            productName: string;
+            quantity: number;
+            pricePerUnit: number;
+            total: number;
+          }>;
+        };
+      };
     };
 
-    if (!context.productId || !context.eventId) {
+    if (!context.products || context.products.length === 0 || !context.eventId) {
       return {
         success: false,
-        error: "Product ID and Event ID are required",
+        error: "At least one product and Event ID are required",
       };
     }
 
@@ -63,8 +78,20 @@ export const executeCreateTicket = action({
     const holderName = `${context.customerData.firstName} ${context.customerData.lastName}`;
     const holderEmail = context.customerData.email;
 
-    // Build custom properties with ALL logistics
+    // Build products array for ticket (from transaction breakdown if available)
+    const ticketProducts = context.transactionData?.breakdown?.products || context.products.map((p) => ({
+      productId: p.productId,
+      quantity: p.quantity,
+      pricePerUnit: 0,
+      total: 0,
+    }));
+
+    // Build custom properties with ALL logistics + products
     const customProperties = {
+      // Products purchased (for multi-product support)
+      products: ticketProducts,
+      totalPrice: context.transactionData?.price,
+
       // Logistics from form
       arrivalTime: context.formResponses?.arrival_time,
       activityDay2: context.formResponses?.activity_day2,
@@ -92,31 +119,45 @@ export const executeCreateTicket = action({
     // Use a fixed system user ID
     const systemUserId: Id<"users"> = "k1system000000000000000000" as Id<"users">;
 
-    // Create ticket using internal mutation
-    const ticketId: Id<"objects"> = await ctx.runMutation(internal.ticketOntology.createTicketInternal, {
-      organizationId: args.organizationId,
-      productId: context.productId as Id<"objects">,
-      eventId: context.eventId as Id<"objects">,
-      holderName,
-      holderEmail,
-      customProperties,
-      userId: systemUserId,
-    });
+    let ticketId: Id<"objects">;
+
+    // DRY-RUN MODE: Skip actual database write
+    if (args.config?.dryRun) {
+      ticketId = `dryrun_ticket_${Date.now()}` as Id<"objects">;
+      console.log(`🧪 [DRY RUN] Would create ticket for: ${holderEmail}`);
+    } else {
+      // Create ticket using internal mutation (PRODUCTION)
+      // Note: Use first product for productId field (legacy compatibility)
+      ticketId = await ctx.runMutation(internal.ticketOntology.createTicketInternal, {
+        organizationId: args.organizationId,
+        productId: context.products[0].productId as Id<"objects">,
+        eventId: context.eventId as Id<"objects">,
+        holderName,
+        holderEmail,
+        customProperties,
+        userId: systemUserId,
+      });
+    }
 
     // Generate ticket number (readable format)
     const ticketNumber: string = `TKT-${Date.now()}-${ticketId.substring(0, 8)}`;
 
-    console.log(`✅ Ticket created: ${ticketNumber}`);
+    console.log(`${args.config?.dryRun ? '🧪 [DRY RUN]' : '✅'} Ticket created: ${ticketNumber}`);
+    console.log(`   Products: ${ticketProducts.length}`);
+    ticketProducts.forEach((p: { productName?: string; productId: string; quantity: number }) => {
+      console.log(`     - ${p.productName || p.productId} × ${p.quantity}`);
+    });
 
     return {
       success: true,
-      message: `Ticket created: ${ticketNumber}`,
+      message: `Ticket created: ${ticketNumber}${args.config?.dryRun ? ' (dry run)' : ''}`,
       data: {
         ticketId,
         ticketNumber,
         qrCode: `QR-${ticketId}`, // Simplified QR code
         holderName,
         holderEmail,
+        customProperties,
       },
     };
   },

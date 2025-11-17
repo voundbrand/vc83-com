@@ -59,15 +59,18 @@ export const executeUpdateStatistics = action({
 
     const context = args.context as {
       eventId?: string;
-      productId?: string;
+      products?: Array<{
+        productId: string;
+        quantity: number;
+      }>;
       finalPrice?: number;
       billingMethod?: string;
     };
 
-    if (!context.eventId || !context.productId) {
+    if (!context.eventId || !context.products || context.products.length === 0) {
       return {
         success: false,
-        error: "Event ID and Product ID are required",
+        error: "Event ID and at least one product are required",
       };
     }
 
@@ -113,64 +116,89 @@ export const executeUpdateStatistics = action({
       revenue: (currentStats.revenue || 0) + (context.finalPrice || 0),
     };
 
-    // Update event statistics
-    await ctx.runMutation(internal.workflows.behaviors.updateStatistics.updateObjectStatsInternal, {
-      objectId: context.eventId as Id<"objects">,
-      newStats: newEventStats,
-      statsKey: "registrationStats",
-    });
-
-    // Get current product
-    const product = await ctx.runQuery(api.ontologyHelpers.getObject, {
-      objectId: context.productId as Id<"objects">,
-    });
-
-    if (product) {
-      const productCustomProps = product.customProperties as {
-        salesStats?: {
-          totalSales?: number;
-          revenue?: number;
-        };
-      };
-
-      const currentProductStats = productCustomProps.salesStats || {
-        totalSales: 0,
-        revenue: 0,
-      };
-
-      const newProductStats = {
-        totalSales: (currentProductStats.totalSales || 0) + 1,
-        revenue: (currentProductStats.revenue || 0) + (context.finalPrice || 0),
-      };
-
-      // Update product statistics
+    // DRY-RUN MODE: Skip actual database write
+    if (args.config?.dryRun) {
+      console.log(`🧪 [DRY RUN] Would update event statistics:`, newEventStats);
+    } else {
+      // Update event statistics (PRODUCTION)
       await ctx.runMutation(internal.workflows.behaviors.updateStatistics.updateObjectStatsInternal, {
-        objectId: context.productId as Id<"objects">,
-        newStats: newProductStats,
-        statsKey: "salesStats",
+        objectId: context.eventId as Id<"objects">,
+        newStats: newEventStats,
+        statsKey: "registrationStats",
       });
-
-      console.log(`✅ Statistics updated:`);
-      console.log(`   Event: ${newEventStats.totalRegistrations} total, ${newEventStats.confirmedRegistrations} confirmed`);
-      console.log(`   Product: ${newProductStats.totalSales} sales, €${(newProductStats.revenue / 100).toFixed(2)} revenue`);
-
-      return {
-        success: true,
-        message: "Statistics updated successfully",
-        data: {
-          eventStats: newEventStats,
-          productStats: newProductStats,
-        },
-      };
     }
 
-    console.log(`✅ Event statistics updated: ${newEventStats.totalRegistrations} total registrations`);
+    // Update statistics for ALL products
+    const productStatsUpdates: Array<{
+      productId: string;
+      productName?: string;
+      newStats: {
+        totalSales: number;
+        revenue: number;
+      };
+    }> = [];
+
+    for (const productItem of context.products) {
+      const product = await ctx.runQuery(api.ontologyHelpers.getObject, {
+        objectId: productItem.productId as Id<"objects">,
+      });
+
+      if (product) {
+        const productCustomProps = product.customProperties as {
+          salesStats?: {
+            totalSales?: number;
+            revenue?: number;
+          };
+          price?: number;
+        };
+
+        const currentProductStats = productCustomProps.salesStats || {
+          totalSales: 0,
+          revenue: 0,
+        };
+
+        // Calculate revenue for this product (price × quantity)
+        const productPrice = productCustomProps.price || 0;
+        const productRevenue = productPrice * productItem.quantity;
+
+        const newProductStats = {
+          totalSales: (currentProductStats.totalSales || 0) + productItem.quantity,
+          revenue: (currentProductStats.revenue || 0) + productRevenue,
+        };
+
+        // Store for logging
+        productStatsUpdates.push({
+          productId: productItem.productId,
+          productName: product.name,
+          newStats: newProductStats,
+        });
+
+        // DRY-RUN MODE: Skip actual database write
+        if (args.config?.dryRun) {
+          console.log(`🧪 [DRY RUN] Would update ${product.name} statistics:`, newProductStats);
+        } else {
+          // Update product statistics (PRODUCTION)
+          await ctx.runMutation(internal.workflows.behaviors.updateStatistics.updateObjectStatsInternal, {
+            objectId: productItem.productId as Id<"objects">,
+            newStats: newProductStats,
+            statsKey: "salesStats",
+          });
+        }
+      }
+    }
+
+    console.log(`${args.config?.dryRun ? '🧪 [DRY RUN]' : '✅'} Statistics updated:`);
+    console.log(`   Event: ${newEventStats.totalRegistrations} total, ${newEventStats.confirmedRegistrations} confirmed`);
+    productStatsUpdates.forEach((update) => {
+      console.log(`   ${update.productName}: ${update.newStats.totalSales} sales, €${(update.newStats.revenue / 100).toFixed(2)} revenue`);
+    });
 
     return {
       success: true,
-      message: "Event statistics updated successfully",
+      message: `Statistics updated for event and ${context.products.length} product(s)${args.config?.dryRun ? ' (dry run)' : ''}`,
       data: {
         eventStats: newEventStats,
+        productStatsUpdates,
       },
     };
   },

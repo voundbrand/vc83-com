@@ -33,7 +33,10 @@ export const executeCreateTransaction = action({
     console.log("✓ [Behavior 7/12] Create Transaction (CRITICAL - Audit Trail)");
 
     const context = args.context as {
-      productId?: string;
+      products?: Array<{
+        productId: string;
+        quantity: number;
+      }>;
       eventId?: string;
       customerData?: {
         email?: string;
@@ -44,7 +47,17 @@ export const executeCreateTransaction = action({
       transactionData?: {
         price?: number;
         currency?: string;
-        quantity?: number;
+        breakdown?: {
+          products?: Array<{
+            productId: string;
+            productName: string;
+            quantity: number;
+            pricePerUnit: number;
+            total: number;
+          }>;
+          subtotal?: number;
+          total?: number;
+        };
       };
       billingMethod?: string;
       employerName?: string;
@@ -54,10 +67,10 @@ export const executeCreateTransaction = action({
     };
 
     // Validate required fields
-    if (!context.productId || !context.eventId) {
+    if (!context.products || context.products.length === 0 || !context.eventId) {
       return {
         success: false,
-        error: "Product ID and Event ID are required",
+        error: "At least one product and Event ID are required",
       };
     }
 
@@ -75,22 +88,41 @@ export const executeCreateTransaction = action({
       };
     }
 
-    // Get product and event details
-    const product: any = await ctx.runQuery(internal.api.v1.productsInternal.getProductInternal, {
-      productId: context.productId as Id<"objects">,
-      organizationId: args.organizationId,
-    });
-
+    // Get event details
     const event: any = await ctx.runQuery(internal.api.v1.eventsInternal.getEventByIdInternal, {
       eventId: context.eventId as Id<"objects">,
       organizationId: args.organizationId,
     });
 
-    if (!product || !event) {
+    if (!event) {
       return {
         success: false,
-        error: "Product or Event not found",
+        error: "Event not found",
       };
+    }
+
+    // Get all product details
+    const products: Array<{
+      _id: Id<"objects">;
+      name: string;
+      description?: string;
+      subtype: string;
+    }> = [];
+
+    for (const productItem of context.products) {
+      const product: any = await ctx.runQuery(internal.api.v1.productsInternal.getProductInternal, {
+        productId: productItem.productId as Id<"objects">,
+        organizationId: args.organizationId,
+      });
+
+      if (!product) {
+        return {
+          success: false,
+          error: `Product not found: ${productItem.productId}`,
+        };
+      }
+
+      products.push(product);
     }
 
     // Build customer info
@@ -113,59 +145,84 @@ export const executeCreateTransaction = action({
 
     console.log(`Creating transaction with payer type: ${payerType}, status: ${paymentStatus}`);
 
-    // Create transaction using internal mutation
-    const transactionId: Id<"objects"> = await ctx.runMutation(internal.transactionOntology.createTransactionInternal, {
-      organizationId: args.organizationId,
-      subtype: "ticket_purchase",
+    let transactionId: Id<"objects">;
 
-      // Product context
-      productId: context.productId as Id<"objects">,
-      productName: product.name,
-      productDescription: product.description,
-      productSubtype: product.subtype,
+    // Build product breakdown for customProperties
+    const productBreakdown = context.transactionData?.breakdown?.products || context.products.map((p, idx) => ({
+      productId: p.productId,
+      productName: products[idx].name,
+      quantity: p.quantity,
+      pricePerUnit: 0, // Will be calculated by pricing behavior
+      total: 0,
+    }));
 
-      // Event context
-      eventId: context.eventId as Id<"objects">,
-      eventName: event.name,
-      eventLocation: event.customProperties?.location,
-      eventStartDate: event.customProperties?.startDate,
-      eventEndDate: event.customProperties?.endDate,
+    // DRY-RUN MODE: Skip actual database write
+    if (args.config?.dryRun) {
+      transactionId = `dryrun_transaction_${Date.now()}` as Id<"objects">;
+      console.log(`🧪 [DRY RUN] Would create transaction for: ${customerEmail}`);
+    } else {
+      // Create transaction using internal mutation (PRODUCTION)
+      // Note: Use first product for legacy fields
+      transactionId = await ctx.runMutation(internal.transactionOntology.createTransactionInternal, {
+        organizationId: args.organizationId,
+        subtype: "ticket_purchase",
 
-      // Links
-      ticketId: context.ticketId as Id<"objects"> | undefined,
+        // Product context (first product for legacy compatibility)
+        productId: context.products[0].productId as Id<"objects">,
+        productName: products[0].name,
+        productDescription: products[0].description,
+        productSubtype: products[0].subtype,
 
-      // Customer (who receives)
-      customerName,
-      customerEmail,
-      customerPhone: context.customerData.phone,
-      customerId: context.contactId as Id<"objects"> | undefined,
+        // Event context
+        eventId: context.eventId as Id<"objects">,
+        eventName: event.name,
+        eventLocation: event.customProperties?.location,
+        eventStartDate: event.customProperties?.startDate,
+        eventEndDate: event.customProperties?.endDate,
 
-      // Payer (who pays - may differ in B2B)
-      payerType,
-      payerId: context.crmOrganizationId as Id<"objects"> | undefined,
-      crmOrganizationId: context.crmOrganizationId as Id<"objects"> | undefined,
-      employerName: context.employerName,
+        // Links
+        ticketId: context.ticketId as Id<"objects"> | undefined,
 
-      // Financial
-      amountInCents: context.transactionData.price,
-      currency: context.transactionData.currency || "EUR",
-      quantity: context.transactionData.quantity || 1,
-      taxRatePercent: 19, // German VAT
+        // Customer (who receives)
+        customerName,
+        customerEmail,
+        customerPhone: context.customerData.phone,
+        customerId: context.contactId as Id<"objects"> | undefined,
 
-      // Payment
-      paymentMethod: billingMethod === "employer_invoice" ? "invoice" : "stripe",
-      paymentStatus,
-    });
+        // Payer (who pays - may differ in B2B)
+        payerType,
+        payerId: context.crmOrganizationId as Id<"objects"> | undefined,
+        crmOrganizationId: context.crmOrganizationId as Id<"objects"> | undefined,
+        employerName: context.employerName,
 
-    console.log(`✅ Transaction created: ${transactionId}`);
+        // Financial
+        amountInCents: context.transactionData.price,
+        currency: context.transactionData.currency || "EUR",
+        quantity: context.products.reduce((sum, p) => sum + p.quantity, 0),
+        taxRatePercent: 19, // German VAT
+
+        // Payment
+        paymentMethod: billingMethod === "employer_invoice" ? "invoice" : "stripe",
+        paymentStatus,
+      });
+
+      // Note: Full product breakdown is stored in context for ticket creation
+      // Transaction stores first product for legacy compatibility
+    }
+
+    console.log(`${args.config?.dryRun ? '🧪 [DRY RUN]' : '✅'} Transaction created: ${transactionId}`);
     console.log(`   Customer: ${customerName} (${customerEmail})`);
     console.log(`   Payer: ${payerType} ${context.employerName || customerName}`);
+    console.log(`   Products: ${context.products.length}`);
+    productBreakdown.forEach((p) => {
+      console.log(`     - ${p.productName} × ${p.quantity}`);
+    });
     console.log(`   Amount: €${(context.transactionData.price / 100).toFixed(2)}`);
     console.log(`   Payment Status: ${paymentStatus}`);
 
     return {
       success: true,
-      message: `Transaction created successfully`,
+      message: `Transaction created successfully${args.config?.dryRun ? ' (dry run)' : ''}`,
       data: {
         transactionId,
         customerName,
@@ -174,6 +231,7 @@ export const executeCreateTransaction = action({
         employerName: context.employerName,
         amountInCents: context.transactionData.price,
         paymentStatus,
+        billingMethod,
       },
     };
   },
