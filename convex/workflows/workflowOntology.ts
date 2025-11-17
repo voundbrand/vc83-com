@@ -285,14 +285,14 @@ export const createWorkflow = mutation({
       subtype: v.string(), // "checkout-flow", "form-processing", etc.
       description: v.optional(v.string()),
       status: v.optional(v.string()), // "active" | "draft" | "archived"
-      objects: v.array(
+      objects: v.optional(v.array(
         v.object({
           objectId: v.id("objects"),
           objectType: v.string(),
           role: v.string(),
           config: v.optional(v.any()), // Object-specific config - intentionally flexible
         })
-      ),
+      )),
       behaviors: v.array(
         v.object({
           type: v.string(),
@@ -325,10 +325,12 @@ export const createWorkflow = mutation({
       organizationId: args.organizationId,
     });
 
-    // Validate object references exist
-    const objectErrors = await validateObjectReferences(ctx, args.workflow.objects);
-    if (objectErrors.length > 0) {
-      throw new Error(`Invalid object references: ${objectErrors.join(", ")}`);
+    // Validate object references exist (if objects are provided)
+    if (args.workflow.objects && args.workflow.objects.length > 0) {
+      const objectErrors = await validateObjectReferences(ctx, args.workflow.objects);
+      if (objectErrors.length > 0) {
+        throw new Error(`Invalid object references: ${objectErrors.join(", ")}`);
+      }
     }
 
     // Validate behavior configurations
@@ -377,7 +379,7 @@ export const createWorkflow = mutation({
       actionType: "workflow_created",
       actionData: {
         workflowType: args.workflow.subtype,
-        objectCount: args.workflow.objects.length,
+        objectCount: args.workflow.objects?.length || 0,
         behaviorCount: behaviors.length,
       },
       performedBy: userId,

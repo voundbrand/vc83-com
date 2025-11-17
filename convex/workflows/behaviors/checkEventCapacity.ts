@@ -29,7 +29,7 @@ export const executeCheckEventCapacity = action({
     context: v.any(),
   },
   handler: async (ctx, args) => {
-    console.log("✓ [Behavior 2/12] Check Event Capacity");
+    console.log(`${args.config?.dryRun ? '🧪 [DRY RUN]' : '✓'} [Behavior 2/12] Check Event Capacity`);
 
     const context = args.context as {
       eventId?: string;
@@ -67,10 +67,10 @@ export const executeCheckEventCapacity = action({
 
     // If no capacity limit is set, always allow registration
     if (!maxCapacity) {
-      console.log("✅ No capacity limit - registration allowed");
+      console.log(`${args.config?.dryRun ? '🧪 [DRY RUN]' : '✅'} No capacity limit - registration allowed`);
       return {
         success: true,
-        message: "No capacity limit set for event",
+        message: `No capacity limit set for event${args.config?.dryRun ? ' (dry run)' : ''}`,
         data: {
           capacityAvailable: true,
           currentRegistrations,
@@ -100,10 +100,10 @@ export const executeCheckEventCapacity = action({
       };
     }
 
-    console.log(`✅ Capacity available: ${availableSlots} of ${maxCapacity} slots remaining`);
+    console.log(`${args.config?.dryRun ? '🧪 [DRY RUN]' : '✅'} Capacity available: ${availableSlots} of ${maxCapacity} slots remaining`);
     return {
       success: true,
-      message: `Capacity available: ${availableSlots} slots remaining`,
+      message: `Capacity available: ${availableSlots} slots remaining${args.config?.dryRun ? ' (dry run)' : ''}`,
       data: {
         capacityAvailable: true,
         currentRegistrations,

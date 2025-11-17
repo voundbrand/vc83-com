@@ -52,7 +52,6 @@ interface WorkflowBehavior {
 
 interface BehaviorConfigModalProps {
   behavior: WorkflowBehavior;
-  selectedObjects: WorkflowObject[];
   onClose: () => void;
   onSave: (updatedBehavior: WorkflowBehavior) => void;
   sessionId: string;
@@ -61,12 +60,13 @@ interface BehaviorConfigModalProps {
 
 export function BehaviorConfigModal({
   behavior,
-  selectedObjects,
   onClose,
   onSave,
   sessionId,
   organizationId,
 }: BehaviorConfigModalProps) {
+  // Note: Objects come from runtime API, not design-time selection
+  const selectedObjects: WorkflowObject[] = [];
   const { t } = useNamespaceTranslations("ui.workflows");
   const [config, setConfig] = React.useState(behavior.config);
 

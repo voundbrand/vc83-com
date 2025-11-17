@@ -34,6 +34,9 @@ export const executeGenerateInvoice = action({
       crmOrganizationId?: string;
       transactionId?: string;
       employerName?: string;
+      transactionData?: {
+        price?: number;
+      };
     };
 
     // Check condition: Only run if employer billing
@@ -65,33 +68,48 @@ export const executeGenerateInvoice = action({
 
     console.log(`Creating invoice for employer: ${context.employerName || context.crmOrganizationId}`);
 
-    // Create draft invoice from transaction
-    const invoiceResult: any = await ctx.runMutation(api.invoicingOntology.createDraftInvoiceFromTransactions, {
-      sessionId: args.sessionId,
-      organizationId: args.organizationId,
-      crmOrganizationId: context.crmOrganizationId as Id<"objects">,
-      transactionIds: [context.transactionId as Id<"objects">],
-      paymentTerms: "net30",
-      notes: `Event registration invoice for ${context.employerName || "organization"}`,
-    });
+    let invoiceResult: any;
 
-    if (!invoiceResult.success) {
-      return {
-        success: false,
-        error: invoiceResult.error || "Failed to create invoice",
+    // DRY-RUN MODE: Skip actual database write
+    if (args.config?.dryRun) {
+      const dryRunInvoiceNumber = `INV-${new Date().getFullYear()}-DRYRUN-${Date.now()}`;
+      invoiceResult = {
+        success: true,
+        invoiceId: `dryrun_invoice_${Date.now()}`,
+        invoiceNumber: dryRunInvoiceNumber,
+        totalInCents: context.transactionData?.price || 0,
       };
+      console.log(`🧪 [DRY RUN] Would create invoice: ${dryRunInvoiceNumber}`);
+    } else {
+      // Create draft invoice from transaction (PRODUCTION)
+      invoiceResult = await ctx.runMutation(api.invoicingOntology.createDraftInvoiceFromTransactions, {
+        sessionId: args.sessionId,
+        organizationId: args.organizationId,
+        crmOrganizationId: context.crmOrganizationId as Id<"objects">,
+        transactionIds: [context.transactionId as Id<"objects">],
+        paymentTerms: "net30",
+        notes: `Event registration invoice for ${context.employerName || "organization"}`,
+      });
+
+      if (!invoiceResult.success) {
+        return {
+          success: false,
+          error: invoiceResult.error || "Failed to create invoice",
+        };
+      }
     }
 
-    console.log(`✅ Invoice created: ${invoiceResult.invoiceNumber}`);
+    console.log(`${args.config?.dryRun ? '🧪 [DRY RUN]' : '✅'} Invoice created: ${invoiceResult.invoiceNumber}`);
 
     return {
       success: true,
-      message: `Invoice created: ${invoiceResult.invoiceNumber}`,
+      message: `Invoice created: ${invoiceResult.invoiceNumber}${args.config?.dryRun ? ' (dry run)' : ''}`,
       data: {
         invoiceId: invoiceResult.invoiceId,
         invoiceNumber: invoiceResult.invoiceNumber,
         isDraft: true,
         totalInCents: invoiceResult.totalInCents,
+        employerName: context.employerName,
       },
     };
   },

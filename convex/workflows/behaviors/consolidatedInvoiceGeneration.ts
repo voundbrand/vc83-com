@@ -1,19 +1,20 @@
 /**
- * BEHAVIOR EXECUTION ACTIONS
+ * BEHAVIOR: CONSOLIDATED INVOICE GENERATION
  *
- * Convex actions for executing workflow behaviors.
- * Each behavior that requires server-side execution (database queries, external APIs)
- * needs an action implementation here.
+ * Creates consolidated invoices from multiple transactions for employer billing.
+ * Used for bulk invoicing at the end of a period.
  *
- * Architecture:
- * - Frontend behaviors (validation, UI logic) run in client
- * - Backend behaviors (data mutations, API calls) run as Convex actions
- * - This file provides the action implementations
+ * Priority: Variable (configured)
  *
  * PHASE 3B: TRANSACTION-BASED INVOICING
  * - Queries TRANSACTIONS instead of tickets (universal for any product type)
  * - Creates DRAFT invoices (editable before sealing)
  * - PDF generation on-demand (not automatic)
+ *
+ * DRY-RUN MODE:
+ * - Skips actual invoice creation
+ * - Returns realistic mock invoice data
+ * - Shows what would be invoiced
  */
 
 import { action } from "../../_generated/server";
@@ -34,6 +35,9 @@ export const executeConsolidatedInvoiceGeneration = action({
     sessionId: v.string(),
     organizationId: v.id("organizations"),
     config: v.object({
+      // Dry-run flag
+      dryRun: v.optional(v.boolean()),
+
       // Selection criteria
       eventId: v.optional(v.string()),
       crmOrganizationId: v.optional(v.string()),
@@ -236,24 +240,49 @@ export const executeConsolidatedInvoiceGeneration = action({
       });
 
       let invoiceResult: { invoiceId: Id<"objects">; [key: string]: unknown };
-      try {
-        invoiceResult = await ctx.runMutation(api.invoicingOntology.createDraftInvoiceFromTransactions, {
-          sessionId: args.sessionId,
-          organizationId: args.organizationId,
-          crmOrganizationId: args.config.crmOrganizationId as Id<"objects">,
-          transactionIds: transactionIds as Id<"objects">[],
-          paymentTerms: (args.config.paymentTerms as "due_on_receipt" | "net30" | "net60" | "net90") || "net30",
-          notes: args.config.notes,
-        }) as { invoiceId: Id<"objects">; [key: string]: unknown };
-      } catch (invoiceError) {
-        console.error("❌ Failed to create draft invoice:", invoiceError);
-        steps.push({
-          step: "draft_invoice_creation",
-          status: "failed",
-          message: `Draft invoice creation failed: ${invoiceError instanceof Error ? invoiceError.message : String(invoiceError)}`,
-          data: { error: String(invoiceError) }
-        });
-        throw new Error(`Draft invoice creation failed: ${invoiceError instanceof Error ? invoiceError.message : 'Unknown error'}`);
+
+      // DRY-RUN MODE: Skip actual invoice creation
+      if (args.config.dryRun) {
+        // Calculate mock invoice total from transactions
+        const totalInCents = eligibleTransactions.reduce((sum, tx) => {
+          const amount = (tx.customProperties?.amountInCents as number) || 0;
+          return sum + amount;
+        }, 0);
+
+        const dryRunInvoiceNumber = `INV-${new Date().getFullYear()}-DRYRUN-${Date.now()}`;
+
+        invoiceResult = {
+          success: true,
+          invoiceId: `dryrun_invoice_${Date.now()}` as Id<"objects">,
+          invoiceNumber: dryRunInvoiceNumber,
+          transactionCount: transactionIds.length,
+          totalInCents,
+          isDraft: true,
+        };
+
+        console.log(`🧪 [DRY RUN] Would create consolidated invoice: ${dryRunInvoiceNumber}`);
+        console.log(`   Transactions: ${transactionIds.length}`);
+        console.log(`   Total: €${(totalInCents / 100).toFixed(2)}`);
+      } else {
+        try {
+          invoiceResult = await ctx.runMutation(api.invoicingOntology.createDraftInvoiceFromTransactions, {
+            sessionId: args.sessionId,
+            organizationId: args.organizationId,
+            crmOrganizationId: args.config.crmOrganizationId as Id<"objects">,
+            transactionIds: transactionIds as Id<"objects">[],
+            paymentTerms: (args.config.paymentTerms as "due_on_receipt" | "net30" | "net60" | "net90") || "net30",
+            notes: args.config.notes,
+          }) as { invoiceId: Id<"objects">; [key: string]: unknown };
+        } catch (invoiceError) {
+          console.error("❌ Failed to create draft invoice:", invoiceError);
+          steps.push({
+            step: "draft_invoice_creation",
+            status: "failed",
+            message: `Draft invoice creation failed: ${invoiceError instanceof Error ? invoiceError.message : String(invoiceError)}`,
+            data: { error: String(invoiceError) }
+          });
+          throw new Error(`Draft invoice creation failed: ${invoiceError instanceof Error ? invoiceError.message : 'Unknown error'}`);
+        }
       }
 
       if (!invoiceResult.success) {
@@ -305,7 +334,7 @@ export const executeConsolidatedInvoiceGeneration = action({
 
       return {
         success: true,
-        message: `Successfully created DRAFT invoice ${invoiceResult.invoiceNumber} for ${transactionIds.length} transactions`,
+        message: `Successfully created DRAFT invoice ${invoiceResult.invoiceNumber} for ${transactionIds.length} transactions${args.config.dryRun ? ' (dry run)' : ''}`,
         invoiceId: invoiceResult.invoiceId,
         invoiceNumber: invoiceResult.invoiceNumber,
         transactionCount: invoiceResult.transactionCount,

@@ -30,7 +30,6 @@ interface WorkflowBehavior {
 
 interface BehaviorConfigPanelProps {
   selectedBehaviors: WorkflowBehavior[];
-  selectedObjects: WorkflowObject[];
   onAddBehavior: (behavior: WorkflowBehavior) => void;
   onRemoveBehavior: (behaviorId: string) => void;
   onUpdateBehavior: (behaviorId: string, updates: Partial<WorkflowBehavior>) => void;
@@ -41,6 +40,16 @@ interface BehaviorConfigPanelProps {
 // Behavior type definitions with default configs
 // Note: Names and descriptions are translated via translation keys
 const BEHAVIOR_TYPES = [
+  {
+    type: "conditional",
+    translationKey: "conditional",
+    defaultConfig: {
+      conditions: [
+        { name: "success", expression: "input.valid === true", color: "#16a34a" },
+        { name: "error", expression: "input.valid !== true", color: "#dc2626" },
+      ],
+    },
+  },
   {
     type: "employer-detection",
     translationKey: "employerDetection",
@@ -156,7 +165,6 @@ const BEHAVIOR_TYPES = [
 
 export function BehaviorConfigPanel({
   selectedBehaviors,
-  selectedObjects,
   onAddBehavior,
   onRemoveBehavior,
   onUpdateBehavior,
@@ -252,27 +260,6 @@ export function BehaviorConfigPanel({
     }
   };
 
-  // Check if behavior has required objects
-  const hasRequiredObjects = (behavior: WorkflowBehavior): { valid: boolean; missing: string[] } => {
-    const { types } = getRequiredObjects(behavior.type);
-    const missing: string[] = [];
-
-    for (const type of types) {
-      // Handle checkout and checkout_instance as equivalent
-      const hasType = selectedObjects.some(obj => {
-        if (type === "checkout") {
-          return obj.objectType === "checkout" || obj.objectType === "checkout_instance";
-        }
-        return obj.objectType === type;
-      });
-      if (!hasType) {
-        missing.push(type);
-      }
-    }
-
-    return { valid: missing.length === 0, missing };
-  };
-
   const getBehaviorName = (type: string) => {
     const behaviorType = BEHAVIOR_TYPES.find((b) => b.type === type);
     if (behaviorType) {
@@ -281,61 +268,6 @@ export function BehaviorConfigPanel({
     return type;
   };
 
-  // Get objects that this behavior is targeting
-  const getTargetedObjects = (behavior: WorkflowBehavior): WorkflowObject[] => {
-    const config = behavior.config || {};
-    const targets: WorkflowObject[] = [];
-
-    // Check for form references
-    if (config.formId) {
-      const form = selectedObjects.find(obj => obj.objectId === config.formId);
-      if (form) targets.push(form);
-    }
-
-    // Check for product references
-    if (config.productId) {
-      const product = selectedObjects.find(obj => obj.objectId === config.productId);
-      if (product) targets.push(product);
-    }
-
-    // Check for checkout references
-    if (config.checkoutId) {
-      const checkout = selectedObjects.find(obj => obj.objectId === config.checkoutId);
-      if (checkout) targets.push(checkout);
-    }
-
-    // Check for organization references
-    if (config.organizationId) {
-      const org = selectedObjects.find(obj => obj.objectId === config.organizationId);
-      if (org) targets.push(org);
-    }
-
-    // Check for CRM organization references (consolidated invoice)
-    if (config.crmOrganizationId) {
-      const org = selectedObjects.find(obj => obj.objectId === config.crmOrganizationId);
-      if (org) targets.push(org);
-    }
-
-    // Check for event references (consolidated invoice)
-    if (config.eventId) {
-      const event = selectedObjects.find(obj => obj.objectId === config.eventId);
-      if (event) targets.push(event);
-    }
-
-    // For behaviors that work with all objects of certain types
-    if (targets.length === 0) {
-      const { types } = getRequiredObjects(behavior.type);
-      return selectedObjects.filter(obj => {
-        // Handle checkout and checkout_instance as equivalent
-        if (types.includes("checkout") && (obj.objectType === "checkout" || obj.objectType === "checkout_instance")) {
-          return true;
-        }
-        return types.includes(obj.objectType);
-      });
-    }
-
-    return targets;
-  };
 
   // Get icon for object type
   const getObjectIcon = (objectType: string) => {
@@ -451,20 +383,17 @@ export function BehaviorConfigPanel({
             {selectedBehaviors
               .sort((a, b) => (b.priority || 0) - (a.priority || 0))
               .map((behavior) => {
-                const { valid, missing } = hasRequiredObjects(behavior);
-                const targetedObjects = getTargetedObjects(behavior);
-
                 return (
                   <div
                     key={behavior.id}
                     className="border-2 mb-2"
-                    style={{ borderColor: valid ? 'var(--win95-border)' : '#dc2626', background: 'var(--win95-bg-light)' }}
+                    style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}
                   >
                     <div className="p-2">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2 flex-1">
                           <div className="border p-1" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg)' }}>
-                            <Zap className="h-3 w-3" style={{ color: valid ? 'var(--win95-highlight)' : '#dc2626' }} />
+                            <Zap className="h-3 w-3" style={{ color: 'var(--win95-highlight)' }} />
                           </div>
                           <div className="flex-1">
                             <div className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
@@ -493,42 +422,6 @@ export function BehaviorConfigPanel({
                         </div>
                       </div>
 
-                      {/* Target Objects Indicator */}
-                      {targetedObjects.length > 0 && (
-                        <div className="mt-2 pt-2 border-t" style={{ borderColor: 'var(--win95-border)' }}>
-                          <div className="flex items-center gap-1 mb-1">
-                            <ArrowRight className="h-3 w-3" style={{ color: 'var(--neutral-gray)' }} />
-                            <span className="text-[10px] font-bold" style={{ color: 'var(--neutral-gray)' }}>
-                              {t("ui.workflows.behaviorConfig.appliedTo")}:
-                            </span>
-                          </div>
-                          <div className="flex flex-wrap gap-1">
-                            {targetedObjects.map((obj) => {
-                              const colors = getObjectColor(obj.objectType);
-                              return (
-                                <div
-                                  key={obj.objectId}
-                                  className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
-                                  style={{ background: colors.bg, color: colors.text }}
-                                  title={`${obj.objectType}: ${obj.objectId}`}
-                                >
-                                  {getObjectIcon(obj.objectType)}
-                                  <span className="font-bold uppercase">{obj.objectType}</span>
-                                  {obj.role && (
-                                    <span className="opacity-70">({obj.role})</span>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-
-                      {!valid && (
-                        <div className="mt-2 pt-2 border-t text-[10px] font-bold" style={{ borderColor: '#dc2626', color: '#dc2626' }}>
-                          {t("ui.workflows.behaviorConfig.missingObjects", { objects: missing.join(", ") })}
-                        </div>
-                      )}
                     </div>
                   </div>
                 );
@@ -548,7 +441,6 @@ export function BehaviorConfigPanel({
         {editingBehavior && (
           <BehaviorConfigModal
             behavior={editingBehavior}
-            selectedObjects={selectedObjects}
             onClose={() => setEditingBehavior(null)}
             onSave={handleSaveBehavior}
             sessionId={sessionId}

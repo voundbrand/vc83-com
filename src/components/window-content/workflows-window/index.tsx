@@ -80,12 +80,11 @@ export function WorkflowsWindow() {
     setActiveTab("list");
   };
 
-  const handleCreateFromTemplate = async (templateId: string, objectMappings: Record<string, string>) => {
+  const handleCreateFromTemplate = async (templateId: string) => {
     console.log("🔵 [Frontend] handleCreateFromTemplate called", {
       templateId,
       sessionId,
       organizationId,
-      objectMappings,
     });
 
     if (!sessionId || !organizationId) {
@@ -100,12 +99,11 @@ export function WorkflowsWindow() {
       setIsCreatingFromTemplate(true);
       console.log("🔵 [Frontend] Calling createFromTemplate mutation...");
 
-      // Create workflow from template with object mappings
+      // Create workflow directly from template - no object mappings needed!
       const result = await createFromTemplate({
         sessionId,
         organizationId: organizationId as Id<"organizations">,
         templateId: templateId as Id<"objects">,
-        objectMappings: objectMappings as Record<string, Id<"objects">>,
       });
 
       console.log("✅ [Frontend] Mutation result:", result);

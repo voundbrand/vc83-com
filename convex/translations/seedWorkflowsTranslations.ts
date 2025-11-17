@@ -294,6 +294,9 @@ export const seed = internalMutation({
       // ========================================
       // BEHAVIOR TYPES - NAMES
       // ========================================
+      { key: "ui.workflows.behaviorTypes.conditional.name", values: { en: "Conditional Branch", de: "Bedingte Verzweigung", es: "Rama Condicional", fr: "Branche Conditionnelle", ja: "条件分岐", pl: "Rozgałęzienie Warunkowe" } },
+      { key: "ui.workflows.behaviorTypes.conditional.description", values: { en: "Add IF/ELSE branching logic based on conditions", de: "WENN/SONST-Verzweigungslogik basierend auf Bedingungen hinzufügen", es: "Agregar lógica de ramificación IF/ELSE basada en condiciones", fr: "Ajouter une logique de branchement IF/ELSE basée sur des conditions", ja: "条件に基づくIF/ELSE分岐ロジックを追加", pl: "Dodaj logikę rozgałęzień IF/ELSE na podstawie warunków" } },
+
       { key: "ui.workflows.behaviorTypes.employerDetection.name", values: { en: "Employer Detection", de: "Arbeitgebererkennung", es: "Detección de Empleador", fr: "Détection d'Employeur", ja: "雇用主検出", pl: "Wykrywanie Pracodawcy" } },
       { key: "ui.workflows.behaviorTypes.employerDetection.description", values: { en: "Detect employer from form data and match to CRM", de: "Arbeitgeber aus Formulardaten erkennen und mit CRM abgleichen", es: "Detectar empleador de datos del formulario y hacer coincidir con CRM", fr: "Détecter l'employeur à partir des données du formulaire et faire correspondre au CRM", ja: "フォームデータから雇用主を検出してCRMに照合", pl: "Wykryj pracodawcę z danych formularza i dopasuj do CRM" } },
 

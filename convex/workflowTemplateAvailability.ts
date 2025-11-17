@@ -590,32 +590,6 @@ export const createWorkflowFromTemplate = mutation({
       JSON.stringify(template.customProperties, null, 2)
     );
 
-    // Map template object requirements to actual user objects
-    const mappedObjects = [];
-    if (args.objectMappings) {
-      for (const [objectType, objectId] of Object.entries(args.objectMappings)) {
-        // Verify object exists and user has access
-        const object = await ctx.db.get(objectId);
-        if (object && object.organizationId === args.organizationId) {
-          const requirement = (templateConfig.objects || []).find(
-            (req: any) => req.objectType === objectType
-          );
-
-          mappedObjects.push({
-            objectId: objectId,
-            objectType: objectType,
-            role: requirement?.role || "general",
-          });
-        }
-      }
-    }
-
-    console.log("🔵 [Backend] Mapped objects:", {
-      mappingsProvided: !!args.objectMappings,
-      mappedCount: mappedObjects.length,
-      mappedObjects,
-    });
-
     // Create workflow from template
     const workflowId = await ctx.db.insert("objects", {
       type: "workflow",
@@ -625,8 +599,6 @@ export const createWorkflowFromTemplate = mutation({
       description: template.description,
       status: "draft", // Start as draft
       customProperties: {
-        objects: mappedObjects, // User-selected objects
-        objectRequirements: templateConfig.objects || [], // Store template requirements for reference
         behaviors: (templateConfig.behaviors || []).map((b: any) => ({
           ...b,
           id: `bhv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,

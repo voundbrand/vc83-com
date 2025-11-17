@@ -7,17 +7,15 @@
 
 "use client";
 
-import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { Zap, Copy, Loader2, AlertCircle } from "lucide-react";
-import { ObjectMappingModal } from "./object-mapping-modal";
 
 interface WorkflowTemplatesProps {
   organizationId: string;
   sessionId: string;
-  onCreateFromTemplate?: (templateId: string, objectMappings: Record<string, string>) => void;
+  onCreateFromTemplate?: (templateId: string) => void;
 }
 
 export function WorkflowTemplates({
@@ -25,13 +23,6 @@ export function WorkflowTemplates({
   sessionId,
   onCreateFromTemplate,
 }: WorkflowTemplatesProps) {
-  const [selectedTemplate, setSelectedTemplate] = useState<{
-    id: string;
-    name: string;
-    description?: string;
-    objectRequirements: any[];
-  } | null>(null);
-
   // Fetch available workflow templates for this organization
   const templates = useQuery(
     api.workflowTemplateAvailability.getAvailableWorkflowTemplates,
@@ -43,21 +34,11 @@ export function WorkflowTemplates({
       : "skip"
   );
 
-  const handleTemplateClick = (template: any) => {
-    // Show modal with object requirements
-    setSelectedTemplate({
-      id: template._id,
-      name: template.name,
-      description: template.description,
-      objectRequirements: template.customProperties?.objectRequirements || template.customProperties?.objects || [],
-    });
-  };
-
-  const handleConfirmMapping = (objectMappings: Record<string, string>) => {
-    if (selectedTemplate && onCreateFromTemplate) {
-      onCreateFromTemplate(selectedTemplate.id, objectMappings);
+  const handleTemplateClick = (templateId: string) => {
+    // Create workflow directly from template - no mapping modal needed!
+    if (onCreateFromTemplate) {
+      onCreateFromTemplate(templateId);
     }
-    setSelectedTemplate(null);
   };
 
   if (!sessionId || !organizationId) {
@@ -184,7 +165,7 @@ export function WorkflowTemplates({
 
             {/* Use Template Button */}
             <button
-              onClick={() => handleTemplateClick(template)}
+              onClick={() => handleTemplateClick(template._id)}
               className="retro-button w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold"
             >
               <Copy className="h-3 w-3" />
@@ -193,19 +174,6 @@ export function WorkflowTemplates({
           </div>
         ))}
       </div>
-
-      {/* Object Mapping Modal */}
-      {selectedTemplate && (
-        <ObjectMappingModal
-          templateName={selectedTemplate.name}
-          templateDescription={selectedTemplate.description}
-          objectRequirements={selectedTemplate.objectRequirements}
-          organizationId={organizationId}
-          sessionId={sessionId}
-          onConfirm={handleConfirmMapping}
-          onCancel={() => setSelectedTemplate(null)}
-        />
-      )}
     </div>
   );
 }

@@ -71,32 +71,42 @@ export const executeCreateContact = action({
       contactId = matchingContact._id;
       console.log(`✅ Using existing contact: ${contactId}`);
     } else {
-      // Create new contact
-      console.log(`✅ Creating new contact for: ${email}`);
-      isNew = true;
+      // DRY-RUN MODE: Skip actual database write
+      if (args.config?.dryRun) {
+        contactId = `dryrun_contact_${Date.now()}` as Id<"objects">;
+        isNew = true;
+        console.log(`🧪 [DRY RUN] Would create new contact for: ${email}`);
+      } else {
+        // Create new contact (PRODUCTION)
+        console.log(`✅ Creating new contact for: ${email}`);
+        isNew = true;
 
-      const result: any = await ctx.runMutation(internal.api.v1.crmInternal.createContactInternal, {
-        organizationId: args.organizationId,
-        subtype: "event_attendee",
-        email,
-        firstName: context.customerData?.firstName || "",
-        lastName: context.customerData?.lastName || "",
-        phone: context.customerData?.phone,
-        performedBy: "k1system000000000000000000" as Id<"users">,
-      });
+        const result: any = await ctx.runMutation(internal.api.v1.crmInternal.createContactInternal, {
+          organizationId: args.organizationId,
+          subtype: "event_attendee",
+          email,
+          firstName: context.customerData?.firstName || "",
+          lastName: context.customerData?.lastName || "",
+          phone: context.customerData?.phone,
+          performedBy: "k1system000000000000000000" as Id<"users">,
+        });
 
-      contactId = result.contactId as Id<"objects">;
+        contactId = result.contactId as Id<"objects">;
+      }
     }
 
-    console.log(`✅ Contact ${isNew ? "created" : "updated"}: ${contactId}`);
+    console.log(`${args.config?.dryRun ? '🧪 [DRY RUN]' : '✅'} Contact ${isNew ? "created" : "updated"}: ${contactId}`);
 
     return {
       success: true,
-      message: `Contact ${isNew ? "created" : "updated"} successfully`,
+      message: `Contact ${isNew ? "created" : "updated"} successfully${args.config?.dryRun ? ' (dry run)' : ''}`,
       data: {
         contactId,
         isNew,
         email,
+        firstName: context.customerData?.firstName,
+        lastName: context.customerData?.lastName,
+        phone: context.customerData?.phone,
       },
     };
   },

@@ -138,27 +138,38 @@ Diese E-Mail wurde automatisch generiert.
     `.trim();
 
     try {
-      // Send email to all admin recipients using the email delivery service
-      const emailPromises = adminEmails.map((email) =>
-        ctx.runAction(internal.emailDelivery.sendEmail, {
-          to: email,
-          domainConfigId: "default" as Id<"objects">, // TODO: Get from organization config
-          subject: emailSubject,
-          text: emailBody,
-          html: emailBody, // Use same content for HTML
-        })
-      );
+      let emailSent: boolean;
 
-      await Promise.all(emailPromises);
+      // DRY-RUN MODE: Skip actual email sending
+      if (args.config?.dryRun) {
+        emailSent = false;
+        console.log(`🧪 [DRY RUN] Would send admin notifications to ${adminEmails.length} recipient(s)`);
+        console.log(`   Recipients: ${adminEmails.join(", ")}`);
+        console.log(`   Subject: ${emailSubject}`);
+        console.log(`   Body: ${emailBody.substring(0, 150)}...`);
+      } else {
+        // Send email to all admin recipients using the email delivery service (PRODUCTION)
+        const emailPromises = adminEmails.map((email) =>
+          ctx.runAction(internal.emailDelivery.sendEmail, {
+            to: email,
+            domainConfigId: "default" as Id<"objects">, // TODO: Get from organization config
+            subject: emailSubject,
+            text: emailBody,
+            html: emailBody, // Use same content for HTML
+          })
+        );
 
-      console.log(`✅ Admin notifications sent to ${adminEmails.length} recipient(s)`);
-      console.log(`   Recipients: ${adminEmails.join(", ")}`);
+        await Promise.all(emailPromises);
+        emailSent = true;
+        console.log(`✅ Admin notifications sent to ${adminEmails.length} recipient(s)`);
+        console.log(`   Recipients: ${adminEmails.join(", ")}`);
+      }
 
       return {
         success: true,
-        message: `Admin notifications sent to ${adminEmails.length} recipient(s)`,
+        message: `Admin notifications ${args.config?.dryRun ? 'prepared (dry run)' : 'sent to ' + adminEmails.length + ' recipient(s)'}`,
         data: {
-          emailSent: true,
+          emailSent,
           recipients: adminEmails,
           subject: emailSubject,
         },

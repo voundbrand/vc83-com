@@ -22,7 +22,7 @@ export const executeValidateRegistration = action({
     context: v.any(),
   },
   handler: async (ctx, args) => {
-    console.log("✓ [Behavior 1/12] Validate Registration Data");
+    console.log(`${args.config?.dryRun ? '🧪 [DRY RUN]' : '✓'} [Behavior 1/12] Validate Registration Data`);
 
     const context = args.context as {
       customerData?: {
@@ -88,10 +88,10 @@ export const executeValidateRegistration = action({
       };
     }
 
-    console.log("✅ All fields validated successfully");
+    console.log(`${args.config?.dryRun ? '🧪 [DRY RUN]' : '✅'} All fields validated successfully`);
     return {
       success: true,
-      message: "All registration data validated",
+      message: `All registration data validated${args.config?.dryRun ? ' (dry run)' : ''}`,
       data: { validated: true, fieldCount: 5 },
     };
   },

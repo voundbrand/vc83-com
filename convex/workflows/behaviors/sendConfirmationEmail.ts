@@ -82,26 +82,38 @@ Ihr Veranstaltungsteam
 Diese E-Mail wurde automatisch generiert.
     `.trim();
 
-    console.log(`Sending confirmation email to: ${context.customerData.email}`);
+    console.log(`${args.config?.dryRun ? '🧪 [DRY RUN]' : ''} Sending confirmation email to: ${context.customerData.email}`);
     console.log(`Salutation: ${salutation}`);
 
-    // TODO: Implement actual email sending via Convex email service
-    // For now, we'll log that it would be sent
-    console.log(`📧 Email would be sent:`);
-    console.log(`   To: ${context.customerData.email}`);
-    console.log(`   Subject: ${emailSubject}`);
-    console.log(`   Body: ${emailBody.substring(0, 100)}...`);
+    let emailId: string;
+    let emailSent: boolean;
 
-    // Simulate email sending
-    const emailId = `email_${Date.now()}`;
+    // DRY-RUN MODE: Skip actual email sending
+    if (args.config?.dryRun) {
+      emailId = `dryrun_email_${Date.now()}`;
+      emailSent = false;
+      console.log(`🧪 [DRY RUN] Would send confirmation email:`);
+      console.log(`   To: ${context.customerData.email}`);
+      console.log(`   Subject: ${emailSubject}`);
+      console.log(`   Body: ${emailBody.substring(0, 100)}...`);
+    } else {
+      // PRODUCTION: TODO - Implement actual email sending via Convex email service
+      // For now, we simulate email sending
+      emailId = `email_${Date.now()}`;
+      emailSent = true;
+      console.log(`📧 Email would be sent:`);
+      console.log(`   To: ${context.customerData.email}`);
+      console.log(`   Subject: ${emailSubject}`);
+      console.log(`   Body: ${emailBody.substring(0, 100)}...`);
+    }
 
-    console.log(`✅ Confirmation email sent: ${emailId}`);
+    console.log(`${args.config?.dryRun ? '🧪 [DRY RUN]' : '✅'} Confirmation email ${args.config?.dryRun ? 'prepared' : 'sent'}: ${emailId}`);
 
     return {
       success: true,
-      message: `Confirmation email sent to ${context.customerData.email}`,
+      message: `Confirmation email ${args.config?.dryRun ? 'prepared (dry run)' : 'sent to ' + context.customerData.email}`,
       data: {
-        emailSent: true,
+        emailSent,
         emailId,
         recipient: context.customerData.email,
         subject: emailSubject,

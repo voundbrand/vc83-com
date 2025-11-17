@@ -8,7 +8,7 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
 import { useNotification } from "../../../../hooks/use-notification";
@@ -18,11 +18,12 @@ import {
   Save,
   Loader2,
   HelpCircle,
+  Play,
 } from "lucide-react";
 import { WorkflowCanvas } from "./workflow-canvas";
-import { ObjectSelectorPanel } from "./object-selector-panel";
 import { BehaviorConfigPanel } from "./behavior-config-panel";
 import { WorkflowHelpModal } from "./workflow-help-modal";
+import { TestModePanel } from "./test-mode-panel";
 
 // Types
 interface WorkflowObject {
@@ -63,12 +64,29 @@ export function WorkflowBuilder({
   const [workflowDescription, setWorkflowDescription] = useState("");
   const [workflowSubtype, setWorkflowSubtype] = useState("checkout-flow");
   const [triggerOn, setTriggerOn] = useState<string>("manual"); // Default to manual
-  const [selectedObjects, setSelectedObjects] = useState<WorkflowObject[]>([]);
   const [selectedBehaviors, setSelectedBehaviors] = useState<WorkflowBehavior[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [showTestMode, setShowTestMode] = useState(false);
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [executionResults, setExecutionResults] = useState<{
+    success: boolean;
+    message?: string;
+    results: Array<{
+      behaviorId: string;
+      behaviorType: string;
+      status: "success" | "error" | "running";
+      duration: number;
+      input?: unknown;
+      output?: unknown;
+      error?: string;
+    }>;
+    finalOutput?: unknown;
+  } | null>(null);
 
   const notification = useNotification();
+
+  const testWorkflow = useAction(api.workflows.workflowTestExecution.testWorkflow);
 
   // Load existing workflow if editing
   const existingWorkflow = useQuery(
@@ -88,11 +106,9 @@ export function WorkflowBuilder({
       setWorkflowDescription(existingWorkflow.description || "");
       setWorkflowSubtype(existingWorkflow.subtype || "checkout-flow");
       const customProps = existingWorkflow.customProperties as {
-        objects?: WorkflowObject[];
         behaviors?: WorkflowBehavior[];
         execution?: { triggerOn?: string };
       };
-      setSelectedObjects(customProps?.objects || []);
       setSelectedBehaviors(customProps?.behaviors || []);
       setTriggerOn(customProps?.execution?.triggerOn || "manual");
     }
@@ -107,10 +123,7 @@ export function WorkflowBuilder({
       return;
     }
 
-    // Filter out any invalid objects (null or empty objectIds)
-    const validObjects = selectedObjects.filter(obj => obj.objectId && obj.objectId.trim() !== "");
-
-    if (validObjects.length === 0 && selectedBehaviors.length === 0) {
+    if (selectedBehaviors.length === 0) {
       notification.error(
         t("ui.workflows.builder.validation.emptyWorkflow.title"),
         t("ui.workflows.builder.validation.emptyWorkflow.message")
@@ -124,7 +137,6 @@ export function WorkflowBuilder({
         name: workflowName,
         description: workflowDescription,
         status: "draft",
-        objects: validObjects,
         behaviors: selectedBehaviors.map((b) => ({
           type: b.type,
           enabled: b.enabled ?? true,
@@ -178,20 +190,6 @@ export function WorkflowBuilder({
     }
   };
 
-  const handleAddObject = useCallback((object: WorkflowObject) => {
-    setSelectedObjects((prev) => {
-      // Prevent duplicates
-      if (prev.some((o) => o.objectId === object.objectId)) {
-        return prev;
-      }
-      return [...prev, object];
-    });
-  }, []);
-
-  const handleRemoveObject = useCallback((objectId: string) => {
-    setSelectedObjects((prev) => prev.filter((o) => o.objectId !== objectId));
-  }, []);
-
   const handleAddBehavior = useCallback((behavior: WorkflowBehavior) => {
     setSelectedBehaviors((prev) => [...prev, behavior]);
   }, []);
@@ -205,6 +203,53 @@ export function WorkflowBuilder({
       prev.map((b) => (b.id === behaviorId ? { ...b, ...updates } : b))
     );
   }, []);
+
+  const handleTestExecute = useCallback(async (testData: Record<string, unknown>) => {
+    if (!workflowId) {
+      notification.error(
+        "Save Required",
+        "Please save the workflow before testing"
+      );
+      return;
+    }
+
+    setIsExecuting(true);
+    setExecutionResults(null);
+
+    try {
+      const result = await testWorkflow({
+        sessionId,
+        workflowId: workflowId as Id<"objects">,
+        testData,
+      });
+
+      setExecutionResults(result);
+
+      if (result.success) {
+        notification.success(
+          "Test Complete",
+          result.message || "Workflow executed successfully"
+        );
+      } else {
+        notification.error(
+          "Test Failed",
+          result.message || "Workflow execution failed"
+        );
+      }
+    } catch (error) {
+      notification.error(
+        "Test Error",
+        error instanceof Error ? error.message : "Test execution failed"
+      );
+      setExecutionResults({
+        success: false,
+        message: error instanceof Error ? error.message : "Test execution failed",
+        results: [],
+      });
+    } finally {
+      setIsExecuting(false);
+    }
+  }, [workflowId, sessionId, testWorkflow, notification]);
 
   if (workflowId && existingWorkflow === undefined) {
     return (
@@ -247,6 +292,16 @@ export function WorkflowBuilder({
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowTestMode(!showTestMode)}
+              className="retro-button flex items-center gap-1 px-2 py-1 text-xs"
+              style={{ background: showTestMode ? "var(--win95-highlight)" : undefined, color: showTestMode ? "white" : undefined }}
+              title="Test Workflow with Sample Data"
+            >
+              <Play className="h-3 w-3" />
+              Test
+            </button>
+
             <button
               onClick={() => setShowHelp(true)}
               className="retro-button flex items-center gap-1 px-2 py-1 text-xs"
@@ -308,32 +363,21 @@ export function WorkflowBuilder({
 
       {/* Builder Content */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left Panel: Object Selector */}
-        <div className="w-80 border-r-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg)' }}>
-          <ObjectSelectorPanel
-            organizationId={organizationId}
-            sessionId={sessionId}
-            selectedObjects={selectedObjects}
-            onAddObject={handleAddObject}
-            onRemoveObject={handleRemoveObject}
-          />
-        </div>
-
-        {/* Center: Canvas */}
+        {/* Center: Canvas (Behavior Pipeline) */}
         <div className="flex-1" style={{ background: 'var(--win95-bg)' }}>
           <WorkflowCanvas
-            objects={selectedObjects}
             behaviors={selectedBehaviors}
-            onRemoveObject={handleRemoveObject}
+            triggerOn={triggerOn}
             onRemoveBehavior={handleRemoveBehavior}
+            onAddBehavior={handleAddBehavior}
+            onUpdateBehavior={handleUpdateBehavior}
           />
         </div>
 
         {/* Right Panel: Behavior Config */}
-        <div className="w-80 border-l-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg)' }}>
+        <div className="w-96 border-l-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg)' }}>
           <BehaviorConfigPanel
             selectedBehaviors={selectedBehaviors}
-            selectedObjects={selectedObjects}
             onAddBehavior={handleAddBehavior}
             onRemoveBehavior={handleRemoveBehavior}
             onUpdateBehavior={handleUpdateBehavior}
@@ -345,6 +389,18 @@ export function WorkflowBuilder({
 
       {/* Help Modal */}
       {showHelp && <WorkflowHelpModal onClose={() => setShowHelp(false)} />}
+
+      {/* Test Mode Panel */}
+      {showTestMode && (
+        <TestModePanel
+          sessionId={sessionId}
+          organizationId={organizationId}
+          onExecute={handleTestExecute}
+          isExecuting={isExecuting}
+          executionResults={executionResults}
+          onClose={() => setShowTestMode(false)}
+        />
+      )}
     </div>
   );
 }

@@ -139,32 +139,41 @@ export const executeCreateFormResponse = action({
     // Use a fixed system user ID
     const SYSTEM_USER_ID = "k1system000000000000000000" as Id<"users">;
 
-    // Create form response object using internal mutation
-    const formResponseId: Id<"objects"> = await ctx.runMutation(internal.workflows.behaviors.createFormResponse.createFormResponseInternal, {
-      organizationId: args.organizationId,
-      formId: context.formId,
-      eventId: context.eventId,
-      productId: context.productId,
-      contactId: context.contactId,
-      customerEmail: context.customerData?.email,
-      customerName: `${context.customerData?.firstName} ${context.customerData?.lastName}`,
-      responses: context.formResponses,
-      sessionId: args.sessionId,
-      createdBy: SYSTEM_USER_ID,
-    });
+    let formResponseId: Id<"objects">;
 
-    console.log(`✅ Form response created: ${formResponseId}`);
+    // DRY-RUN MODE: Skip actual database write
+    if (args.config?.dryRun) {
+      formResponseId = `dryrun_form_response_${Date.now()}` as Id<"objects">;
+      console.log(`🧪 [DRY RUN] Would create form response for: ${context.customerData?.email}`);
+    } else {
+      // Create form response object using internal mutation (PRODUCTION)
+      formResponseId = await ctx.runMutation(internal.workflows.behaviors.createFormResponse.createFormResponseInternal, {
+        organizationId: args.organizationId,
+        formId: context.formId,
+        eventId: context.eventId,
+        productId: context.productId,
+        contactId: context.contactId,
+        customerEmail: context.customerData?.email,
+        customerName: `${context.customerData?.firstName} ${context.customerData?.lastName}`,
+        responses: context.formResponses,
+        sessionId: args.sessionId,
+        createdBy: SYSTEM_USER_ID,
+      });
+    }
+
+    console.log(`${args.config?.dryRun ? '🧪 [DRY RUN]' : '✅'} Form response created: ${formResponseId}`);
     console.log(`   Customer: ${context.customerData?.firstName} ${context.customerData?.lastName}`);
     console.log(`   Email: ${context.customerData?.email}`);
     console.log(`   Fields: ${Object.keys(context.formResponses).length}`);
 
     return {
       success: true,
-      message: "Form response created successfully",
+      message: `Form response created successfully${args.config?.dryRun ? ' (dry run)' : ''}`,
       data: {
         formResponseId,
         customerEmail: context.customerData?.email,
         fieldCount: Object.keys(context.formResponses).length,
+        responses: context.formResponses,
       },
     };
   },
