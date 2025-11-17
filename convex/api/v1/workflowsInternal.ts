@@ -74,32 +74,9 @@ export const executeWorkflowInternal = internalAction({
 
       console.log(`✅ Found workflow: ${matchingWorkflow.name}`);
 
-      // Extract input data
-      const { eventId, productId, customerData, formResponses, transactionData } = args.inputData;
-
-      // Validate product exists if provided
-      if (productId) {
-        const product = (await ctx.runQuery(api.ontologyHelpers.getObject, {
-          objectId: productId as Id<"objects">,
-        })) as { type: string; organizationId: Id<"organizations"> } | null;
-
-        if (!product || product.type !== "product") {
-          return {
-            success: false,
-            error: "Invalid product ID",
-          };
-        }
-
-        // Verify product belongs to this organization
-        if (product.organizationId !== args.organizationId) {
-          return {
-            success: false,
-            error: "Product not found",
-          };
-        }
-      }
-
       // Build execution context for behaviors
+      // IMPORTANT: Spread all inputData so behaviors can access any field they need
+      // (products, formId, metadata, etc.)
       const customProps = matchingWorkflow.customProperties as {
         behaviors: Array<{
           type: string;
@@ -116,18 +93,21 @@ export const executeWorkflowInternal = internalAction({
       const sessionId = `api_${Date.now()}`;
 
       const behaviorContext = {
+        // Organization and session context
         organizationId: args.organizationId,
         sessionId,
         workflow: args.trigger.replace("_start", "").replace("_complete", ""),
-        eventId,
-        productId,
-        customerData,
-        formResponses,
-        transactionData,
+
+        // Spread ALL input data from frontend
+        // This allows behaviors to access: products[], formId, metadata, etc.
+        ...args.inputData,
+
+        // API-specific metadata
         webhookUrl: args.webhookUrl,
         apiTrigger: true,
         triggeredAt: Date.now(),
         triggeredBy: args.userId,
+        performedBy: args.userId, // For behaviors that need a user context (guest registrations)
       };
 
       // Execute behaviors using the behavior executor
