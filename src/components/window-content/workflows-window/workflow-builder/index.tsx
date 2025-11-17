@@ -328,15 +328,16 @@ export function WorkflowBuilder({
                 value={triggerOn}
                 onChange={(e) => setTriggerOn(e.target.value)}
                 className="retro-input px-2 py-1 text-xs"
-                title={t("ui.workflows.builder.header.triggerTooltip")}
+                title="Select the trigger value that matches your API call"
               >
-                <option value="manual">{t("ui.workflows.builder.header.triggers.manual")}</option>
-                <option value="scheduled">{t("ui.workflows.builder.header.triggers.scheduled")}</option>
-                <option value="event_completion">{t("ui.workflows.builder.header.triggers.eventCompletion")}</option>
-                <option value="api_call">{t("ui.workflows.builder.header.triggers.apiCall")}</option>
-                <option value="checkout_start">{t("ui.workflows.builder.header.triggers.checkoutStart")}</option>
-                <option value="form_submit">{t("ui.workflows.builder.header.triggers.formSubmit")}</option>
-                <option value="payment_complete">{t("ui.workflows.builder.header.triggers.paymentComplete")}</option>
+                <option value="manual">manual</option>
+                <option value="scheduled">scheduled</option>
+                <option value="event_registration_complete">event_registration_complete</option>
+                <option value="event_completion">event_completion</option>
+                <option value="api_call">api_call</option>
+                <option value="checkout_start">checkout_start</option>
+                <option value="form_submit">form_submit</option>
+                <option value="payment_complete">payment_complete</option>
               </select>
             </div>
 
