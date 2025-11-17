@@ -277,7 +277,7 @@ export function ManageWindow() {
           onClick={() => setActiveTab("integrations")}
         >
           🔗
-          Integrations
+          {t("ui.manage.tab.integrations")}
         </button>
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"

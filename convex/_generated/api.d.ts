@@ -227,6 +227,7 @@ import type * as translations_seedManage_03b_DeleteAccount from "../translations
 import type * as translations_seedManage_04_RolesPermissions from "../translations/seedManage_04_RolesPermissions.js";
 import type * as translations_seedManage_05_Security from "../translations/seedManage_05_Security.js";
 import type * as translations_seedManage_06_DomainConfig from "../translations/seedManage_06_DomainConfig.js";
+import type * as translations_seedManage_07_Integrations from "../translations/seedManage_07_Integrations.js";
 import type * as translations_seedMediaLibrary from "../translations/seedMediaLibrary.js";
 import type * as translations_seedNotifications from "../translations/seedNotifications.js";
 import type * as translations_seedOrganizations from "../translations/seedOrganizations.js";
@@ -492,6 +493,7 @@ declare const fullApi: ApiFromModules<{
   "translations/seedManage_04_RolesPermissions": typeof translations_seedManage_04_RolesPermissions;
   "translations/seedManage_05_Security": typeof translations_seedManage_05_Security;
   "translations/seedManage_06_DomainConfig": typeof translations_seedManage_06_DomainConfig;
+  "translations/seedManage_07_Integrations": typeof translations_seedManage_07_Integrations;
   "translations/seedMediaLibrary": typeof translations_seedMediaLibrary;
   "translations/seedNotifications": typeof translations_seedNotifications;
   "translations/seedOrganizations": typeof translations_seedOrganizations;

@@ -10,6 +10,7 @@ import React, { useState, useEffect } from "react";
 import { useMutation, useAction, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useNotification } from "../../../hooks/use-notification";
+import { useRetroConfirm } from "@/components/retro-confirm-dialog";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import {
@@ -62,6 +63,7 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
   const [createdInvoiceNumber, setCreatedInvoiceNumber] = useState<string | null>(null);
 
   const notification = useNotification();
+  const confirmDialog = useRetroConfirm();
 
   // Subscribe to real-time execution logs
   const executionLogs = useQuery(
@@ -97,7 +99,15 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
     !triggerOn; // Default to allowing if undefined
 
   const handleArchive = async () => {
-    if (confirm(t("ui.workflows.card.menu.confirmArchive"))) {
+    const confirmed = await confirmDialog.confirm({
+      title: t("ui.workflows.card.menu.archive"),
+      message: t("ui.workflows.card.menu.confirmArchive"),
+      confirmText: t("ui.workflows.card.menu.archive"),
+      cancelText: "Cancel",
+      confirmVariant: "secondary",
+    });
+
+    if (confirmed) {
       await deleteWorkflow({
         sessionId,
         workflowId: workflow._id,
@@ -112,7 +122,15 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
       ? t("ui.workflows.card.menu.confirmPermanentDelete")
       : t("ui.workflows.card.menu.confirmDelete");
 
-    if (confirm(confirmMessage)) {
+    const confirmed = await confirmDialog.confirm({
+      title: t("ui.workflows.card.menu.deletePermanently"),
+      message: confirmMessage,
+      confirmText: t("ui.workflows.card.menu.deletePermanently"),
+      cancelText: "Cancel",
+      confirmVariant: "primary",
+    });
+
+    if (confirmed) {
       await deleteWorkflow({
         sessionId,
         workflowId: workflow._id,
@@ -264,7 +282,9 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
   const status = statusConfig[workflow.status as keyof typeof statusConfig] || statusConfig.draft;
 
   return (
-    <div className="group relative border-2 p-3 transition-shadow" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+    <>
+      <confirmDialog.Dialog />
+      <div className="group relative border-2 p-3 transition-shadow" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
       {/* Header */}
       <div className="mb-2 flex items-start justify-between">
         <div className="flex items-start gap-2">
@@ -543,6 +563,7 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }

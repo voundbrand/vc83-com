@@ -6,13 +6,17 @@ import { api } from "../../../../convex/_generated/api";
 import { RetroButton } from "@/components/retro-button";
 import { useAuth } from "@/hooks/use-auth";
 import { useNotification } from "@/hooks/use-notification";
+import { useRetroConfirm } from "@/components/retro-confirm-dialog";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { Loader2, CheckCircle2, RefreshCw } from "lucide-react";
 
 export function IntegrationsTab() {
+  const { t } = useNamespaceTranslations("ui.manage");
   const { user, sessionId } = useAuth();
   const [isConnecting, setIsConnecting] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const notification = useNotification();
+  const confirmDialog = useRetroConfirm();
 
   // Query Microsoft connection status
   const connection = useQuery(
@@ -94,7 +98,15 @@ export function IntegrationsTab() {
   const handleDisconnect = async () => {
     if (!sessionId || !connection?.id) return;
 
-    if (!confirm("Are you sure you want to disconnect your Microsoft account?")) {
+    const confirmed = await confirmDialog.confirm({
+      title: "Disconnect Microsoft Account",
+      message: "Are you sure you want to disconnect your Microsoft account? This will disable email syncing and other integrations.",
+      confirmText: "Disconnect",
+      cancelText: "Cancel",
+      confirmVariant: "primary",
+    });
+
+    if (!confirmed) {
       return;
     }
 
@@ -171,17 +183,19 @@ export function IntegrationsTab() {
   const isConnected = connection && connection.status === "active";
 
   return (
-    <div className="space-y-6">
+    <>
+      <confirmDialog.Dialog />
+      <div className="space-y-6">
       {/* Microsoft Integration Section */}
       <div>
         <div className="flex items-center gap-2 mb-4">
           <div className="text-3xl">🔷</div>
           <div>
             <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
-              Microsoft Account
+              {t("ui.manage.integrations.microsoft.title")}
             </h3>
             <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-              Connect your Microsoft account to sync emails, calendar, and files
+              {t("ui.manage.integrations.microsoft.description")}
             </p>
           </div>
         </div>
@@ -196,7 +210,7 @@ export function IntegrationsTab() {
           >
             <Loader2 size={24} className="animate-spin" style={{ color: "var(--win95-text)" }} />
             <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-              Loading connection status...
+              {t("ui.manage.integrations.status.loading")}
             </p>
           </div>
         ) : isConnected ? (
@@ -211,7 +225,7 @@ export function IntegrationsTab() {
             <div className="flex items-center gap-2">
               <CheckCircle2 size={16} style={{ color: "var(--win95-highlight)" }} />
               <span className="text-xs font-bold" style={{ color: "var(--win95-highlight)" }}>
-                Connected
+                {t("ui.manage.integrations.status.connected")}
               </span>
             </div>
 
@@ -219,7 +233,7 @@ export function IntegrationsTab() {
             <div className="space-y-2">
               <div>
                 <p className="text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                  Account:
+                  {t("ui.manage.integrations.account_label")}
                 </p>
                 <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                   {connection.providerEmail}
@@ -229,7 +243,7 @@ export function IntegrationsTab() {
               {connection.lastSyncAt && (
                 <div>
                   <p className="text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                    Last Synced:
+                    {t("ui.manage.integrations.last_synced")}
                   </p>
                   <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                     {new Date(connection.lastSyncAt).toLocaleDateString("en-US", {
@@ -253,7 +267,7 @@ export function IntegrationsTab() {
               }}
             >
               <p className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
-                Sync Settings
+                {t("ui.manage.integrations.sync_settings.title")}
               </p>
               <div className="space-y-2">
                 <label className="flex items-center gap-2 text-xs cursor-pointer">
@@ -262,7 +276,7 @@ export function IntegrationsTab() {
                     checked={emailSyncStatus?.syncEnabled || false}
                     onChange={(e) => handleEmailSyncToggle(e.target.checked)}
                   />
-                  <span style={{ color: "var(--win95-text)" }}>Email</span>
+                  <span style={{ color: "var(--win95-text)" }}>{t("ui.manage.integrations.sync_settings.email")}</span>
                   {emailSyncStatus && (
                     <span className="text-xs ml-auto" style={{ color: "var(--neutral-gray)" }}>
                       ({emailSyncStatus.totalEmails} synced, {emailSyncStatus.unreadEmails} unread)
@@ -271,11 +285,11 @@ export function IntegrationsTab() {
                 </label>
                 <label className="flex items-center gap-2 text-xs cursor-not-allowed opacity-50">
                   <input type="checkbox" disabled />
-                  <span style={{ color: "var(--neutral-gray)" }}>Calendar (Coming Soon)</span>
+                  <span style={{ color: "var(--neutral-gray)" }}>{t("ui.manage.integrations.sync_settings.calendar_coming_soon")}</span>
                 </label>
                 <label className="flex items-center gap-2 text-xs cursor-not-allowed opacity-50">
                   <input type="checkbox" disabled />
-                  <span style={{ color: "var(--neutral-gray)" }}>OneDrive (Coming Soon)</span>
+                  <span style={{ color: "var(--neutral-gray)" }}>{t("ui.manage.integrations.sync_settings.onedrive_coming_soon")}</span>
                 </label>
               </div>
             </div>
@@ -287,7 +301,7 @@ export function IntegrationsTab() {
                 onClick={handleDisconnect}
                 className="flex-1"
               >
-                Disconnect
+                {t("ui.manage.integrations.actions.disconnect")}
               </RetroButton>
               <RetroButton
                 variant="secondary"
@@ -298,12 +312,12 @@ export function IntegrationsTab() {
                 {isSyncing ? (
                   <>
                     <Loader2 size={14} className="mr-1 animate-spin" />
-                    Syncing...
+                    {t("ui.manage.integrations.actions.syncing")}
                   </>
                 ) : (
                   <>
                     <RefreshCw size={14} className="mr-1" />
-                    Sync Now
+                    {t("ui.manage.integrations.actions.sync_now")}
                   </>
                 )}
               </RetroButton>
@@ -320,10 +334,10 @@ export function IntegrationsTab() {
             <div className="text-center space-y-2">
               <div className="text-5xl">🔷</div>
               <p className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
-                Not Connected
+                {t("ui.manage.integrations.status.not_connected")}
               </p>
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                Connect your Microsoft account to access these features:
+                {t("ui.manage.integrations.features.connect_message")}
               </p>
             </div>
 
@@ -331,19 +345,19 @@ export function IntegrationsTab() {
             <div className="space-y-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
               <div className="flex items-start gap-2">
                 <span>📧</span>
-                <span>Sync emails and contacts (Coming Soon)</span>
+                <span>{t("ui.manage.integrations.features.sync_emails")}</span>
               </div>
               <div className="flex items-start gap-2">
                 <span>📅</span>
-                <span>Access calendar and events (Coming Soon)</span>
+                <span>{t("ui.manage.integrations.features.access_calendar")}</span>
               </div>
               <div className="flex items-start gap-2">
                 <span>📁</span>
-                <span>Browse OneDrive files (Coming Soon)</span>
+                <span>{t("ui.manage.integrations.features.browse_onedrive")}</span>
               </div>
               <div className="flex items-start gap-2">
                 <span>🔒</span>
-                <span>Secure OAuth 2.0 connection with encryption</span>
+                <span>{t("ui.manage.integrations.features.secure_oauth")}</span>
               </div>
             </div>
 
@@ -356,16 +370,16 @@ export function IntegrationsTab() {
               {isConnecting ? (
                 <>
                   <Loader2 size={14} className="mr-1 animate-spin" />
-                  Connecting...
+                  {t("ui.manage.integrations.actions.connecting")}
                 </>
               ) : (
-                <>Connect Microsoft Account</>
+                <>{t("ui.manage.integrations.actions.connect")}</>
               )}
             </RetroButton>
 
             {!user && (
               <p className="text-xs text-center italic" style={{ color: "var(--neutral-gray)" }}>
-                Please sign in to connect integrations
+                {t("ui.manage.integrations.messages.sign_in_required")}
               </p>
             )}
           </div>
@@ -378,10 +392,10 @@ export function IntegrationsTab() {
           <div className="text-3xl">🔗</div>
           <div>
             <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
-              Other Integrations
+              {t("ui.manage.integrations.other.title")}
             </h3>
             <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-              More integrations coming soon
+              {t("ui.manage.integrations.other.description")}
             </p>
           </div>
         </div>
@@ -398,10 +412,10 @@ export function IntegrationsTab() {
             <div className="text-2xl">🔴</div>
             <div className="flex-1">
               <p className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
-                Google Workspace
+                {t("ui.manage.integrations.google.title")}
               </p>
               <p className="text-xs italic" style={{ color: "var(--neutral-gray)" }}>
-                Coming Soon
+                {t("ui.manage.integrations.coming_soon")}
               </p>
             </div>
           </div>
@@ -417,15 +431,16 @@ export function IntegrationsTab() {
             <div className="text-2xl">💬</div>
             <div className="flex-1">
               <p className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
-                Slack
+                {t("ui.manage.integrations.slack.title")}
               </p>
               <p className="text-xs italic" style={{ color: "var(--neutral-gray)" }}>
-                Coming Soon
+                {t("ui.manage.integrations.coming_soon")}
               </p>
             </div>
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
