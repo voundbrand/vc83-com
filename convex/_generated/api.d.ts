@@ -62,6 +62,7 @@ import type * as emailService_plain_text from "../emailService_plain_text.js";
 import type * as emailTemplateOntology from "../emailTemplateOntology.js";
 import type * as emailTemplateRenderer from "../emailTemplateRenderer.js";
 import type * as emailTemplateResolver from "../emailTemplateResolver.js";
+import type * as emails from "../emails.js";
 import type * as eventOntology from "../eventOntology.js";
 import type * as formTemplateAvailability from "../formTemplateAvailability.js";
 import type * as formsOntology from "../formsOntology.js";
@@ -326,6 +327,7 @@ declare const fullApi: ApiFromModules<{
   emailTemplateOntology: typeof emailTemplateOntology;
   emailTemplateRenderer: typeof emailTemplateRenderer;
   emailTemplateResolver: typeof emailTemplateResolver;
+  emails: typeof emails;
   eventOntology: typeof eventOntology;
   formTemplateAvailability: typeof formTemplateAvailability;
   formsOntology: typeof formsOntology;
