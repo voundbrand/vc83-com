@@ -5,15 +5,13 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { RetroButton } from "@/components/retro-button";
 import { useAuth } from "@/hooks/use-auth";
-import { Loader2, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
+import { useNotification } from "@/hooks/use-notification";
+import { Loader2, CheckCircle2, RefreshCw } from "lucide-react";
 
 export function IntegrationsTab() {
   const { user, sessionId } = useAuth();
   const [isConnecting, setIsConnecting] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<{
-    type: "success" | "error";
-    message: string;
-  } | null>(null);
+  const notification = useNotification();
 
   // Query Microsoft connection status
   const connection = useQuery(
@@ -35,43 +33,36 @@ export function IntegrationsTab() {
     const email = params.get("email");
 
     if (success === "microsoft_connected" && email) {
-      setStatusMessage({
-        type: "success",
-        message: `Successfully connected Microsoft account: ${decodeURIComponent(email)}`,
-      });
+      notification.success(
+        "Microsoft Connected!",
+        `Successfully connected account: ${decodeURIComponent(email)}`
+      );
 
       // Clean up URL params
       window.history.replaceState({}, "", window.location.pathname);
-
-      // Clear message after 5 seconds
-      setTimeout(() => setStatusMessage(null), 5000);
     }
 
     if (error) {
-      setStatusMessage({
-        type: "error",
-        message: `Connection failed: ${decodeURIComponent(error)}`,
-      });
+      notification.error(
+        "Connection Failed",
+        `Could not connect Microsoft account: ${decodeURIComponent(error)}`
+      );
 
       // Clean up URL params
       window.history.replaceState({}, "", window.location.pathname);
-
-      // Clear message after 7 seconds
-      setTimeout(() => setStatusMessage(null), 7000);
     }
-  }, []);
+  }, [notification]);
 
   const handleConnect = async () => {
     if (!sessionId) {
-      setStatusMessage({
-        type: "error",
-        message: "You must be signed in to connect Microsoft account",
-      });
+      notification.error(
+        "Sign In Required",
+        "You must be signed in to connect Microsoft account"
+      );
       return;
     }
 
     setIsConnecting(true);
-    setStatusMessage(null);
 
     try {
       const result = await initiateMicrosoftOAuth({
@@ -83,10 +74,10 @@ export function IntegrationsTab() {
       window.location.href = result.authUrl;
     } catch (error) {
       console.error("Failed to initiate OAuth:", error);
-      setStatusMessage({
-        type: "error",
-        message: error instanceof Error ? error.message : "Failed to start connection process",
-      });
+      notification.error(
+        "Connection Error",
+        error instanceof Error ? error.message : "Failed to start connection process"
+      );
       setIsConnecting(false);
     }
   };
@@ -101,19 +92,16 @@ export function IntegrationsTab() {
     try {
       await disconnectMicrosoft({ sessionId, connectionId: connection.id });
 
-      setStatusMessage({
-        type: "success",
-        message: "Microsoft account disconnected successfully",
-      });
-
-      // Clear message after 5 seconds
-      setTimeout(() => setStatusMessage(null), 5000);
+      notification.success(
+        "Disconnected",
+        "Microsoft account disconnected successfully"
+      );
     } catch (error) {
       console.error("Failed to disconnect:", error);
-      setStatusMessage({
-        type: "error",
-        message: error instanceof Error ? error.message : "Failed to disconnect",
-      });
+      notification.error(
+        "Disconnect Failed",
+        error instanceof Error ? error.message : "Failed to disconnect"
+      );
     }
   };
 
@@ -122,26 +110,6 @@ export function IntegrationsTab() {
 
   return (
     <div className="space-y-6">
-      {/* Status Message */}
-      {statusMessage && (
-        <div
-          className="p-3 border-2 rounded flex items-start gap-2"
-          style={{
-            borderColor: statusMessage.type === "success" ? "var(--win95-highlight)" : "#dc2626",
-            background: statusMessage.type === "success" ? "#ecfdf5" : "#fef2f2",
-          }}
-        >
-          {statusMessage.type === "success" ? (
-            <CheckCircle2 size={16} className="mt-0.5" style={{ color: "var(--win95-highlight)" }} />
-          ) : (
-            <XCircle size={16} className="mt-0.5" style={{ color: "#dc2626" }} />
-          )}
-          <p className="text-xs flex-1" style={{ color: "var(--win95-text)" }}>
-            {statusMessage.message}
-          </p>
-        </div>
-      )}
-
       {/* Microsoft Integration Section */}
       <div>
         <div className="flex items-center gap-2 mb-4">

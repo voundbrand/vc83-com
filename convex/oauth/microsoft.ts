@@ -89,6 +89,15 @@ export const initiateMicrosoftOAuth = mutation({
     // Get redirect URI from environment
     const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/oauth/microsoft/callback`;
 
+    // DEBUG: Log environment variables (will appear in Convex logs)
+    console.log("OAuth Environment Check:", {
+      hasClientId: !!process.env.MICROSOFT_CLIENT_ID,
+      clientIdLength: process.env.MICROSOFT_CLIENT_ID?.length || 0,
+      hasAppUrl: !!process.env.NEXT_PUBLIC_APP_URL,
+      appUrl: process.env.NEXT_PUBLIC_APP_URL,
+      redirectUri,
+    });
+
     // Build OAuth URL
     const params = new URLSearchParams({
       client_id: process.env.MICROSOFT_CLIENT_ID || "",
@@ -100,6 +109,9 @@ export const initiateMicrosoftOAuth = mutation({
     });
 
     const authUrl = `${MICROSOFT_AUTH_URL}?${params.toString()}`;
+
+    // DEBUG: Log generated URL
+    console.log("Generated OAuth URL:", authUrl);
 
     return {
       authUrl,

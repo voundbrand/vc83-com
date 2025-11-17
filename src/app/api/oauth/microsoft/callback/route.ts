@@ -44,10 +44,10 @@ export async function GET(request: NextRequest) {
       state,
     });
 
-    // Redirect to Settings with success message
+    // Redirect back to home with Manage window open to Integrations tab
     return NextResponse.redirect(
       new URL(
-        `/?tab=integrations&success=microsoft_connected&email=${encodeURIComponent(
+        `/?window=manage&tab=integrations&success=microsoft_connected&email=${encodeURIComponent(
           result.providerEmail
         )}`,
         request.url
@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.redirect(
       new URL(
-        `/?tab=integrations&error=${encodeURIComponent(errorMessage)}`,
+        `/?window=manage&tab=integrations&error=${encodeURIComponent(errorMessage)}`,
         request.url
       )
     );
