@@ -67,7 +67,8 @@ export const syncEmailsFromMicrosoft = action({
 
     for (const email of emailsData.value || []) {
       try {
-        const emailObjectId = await ctx.runMutation(internal.emails.createEmailObject as any, {
+        // @ts-expect-error - createEmailObject is an internal mutation that will be available at runtime
+        const emailObjectId = await ctx.runMutation(internal.emails.createEmailObject, {
           organizationId: connection.organizationId,
           userId: connection.userId,
           emailData: {
