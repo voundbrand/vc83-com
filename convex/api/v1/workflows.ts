@@ -13,6 +13,7 @@
 
 import { httpAction } from "../../_generated/server";
 import { internal } from "../../_generated/api";
+import { getCorsHeaders } from "./corsHeaders";
 
 /**
  * TRIGGER WORKFLOW
@@ -40,12 +41,22 @@ import { internal } from "../../_generated/api";
  */
 export const triggerWorkflow = httpAction(async (ctx, request) => {
   try {
+    // Get CORS headers for this request
+    const origin = request.headers.get("origin");
+    const corsHeaders = getCorsHeaders(origin);
+
     // 1. Verify API key
     const authHeader = request.headers.get("Authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return new Response(
         JSON.stringify({ error: "Missing or invalid Authorization header" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        {
+          status: 401,
+          headers: {
+            "Content-Type": "application/json",
+            ...corsHeaders,
+          }
+        }
       );
     }
 
@@ -57,7 +68,13 @@ export const triggerWorkflow = httpAction(async (ctx, request) => {
     if (!authContext) {
       return new Response(
         JSON.stringify({ error: "Invalid API key" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        {
+          status: 401,
+          headers: {
+            "Content-Type": "application/json",
+            ...corsHeaders,
+          }
+        }
       );
     }
 
@@ -69,14 +86,26 @@ export const triggerWorkflow = httpAction(async (ctx, request) => {
     if (!body.trigger) {
       return new Response(
         JSON.stringify({ error: "Missing 'trigger' field" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
+        {
+          status: 400,
+          headers: {
+            "Content-Type": "application/json",
+            ...corsHeaders,
+          }
+        }
       );
     }
 
     if (!body.inputData) {
       return new Response(
         JSON.stringify({ error: "Missing 'inputData' field" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
+        {
+          status: 400,
+          headers: {
+            "Content-Type": "application/json",
+            ...corsHeaders,
+          }
+        }
       );
     }
 
@@ -104,17 +133,26 @@ export const triggerWorkflow = httpAction(async (ctx, request) => {
       headers: {
         "Content-Type": "application/json",
         "X-Organization-Id": organizationId,
+        ...corsHeaders,
       },
     });
   } catch (error) {
     console.error("API /workflows/trigger error:", error);
+    const origin = request.headers.get("origin");
+    const corsHeaders = getCorsHeaders(origin);
     return new Response(
       JSON.stringify({
         success: false,
         error: "Internal server error",
         message: error instanceof Error ? error.message : "Unknown error",
       }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      {
+        status: 500,
+        headers: {
+          "Content-Type": "application/json",
+          ...corsHeaders,
+        }
+      }
     );
   }
 });
