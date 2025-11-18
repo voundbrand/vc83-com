@@ -101,7 +101,7 @@ export const executeCreateTransaction = action({
       };
     }
 
-    // Get all product details
+    // Get all product details (skip addons - they're not in the database)
     const products: Array<{
       _id: Id<"objects">;
       name: string;
@@ -110,6 +110,12 @@ export const executeCreateTransaction = action({
     }> = [];
 
     for (const productItem of context.products) {
+      // Skip addon products (they have IDs like "addon-123" instead of Convex IDs)
+      if (productItem.productId.startsWith("addon-")) {
+        console.log(`⚠️ Skipping addon product in transaction: ${productItem.productId}`);
+        continue;
+      }
+
       const product: any = await ctx.runQuery(internal.api.v1.productsInternal.getProductInternal, {
         productId: productItem.productId as Id<"objects">,
         organizationId: args.organizationId,
@@ -123,6 +129,14 @@ export const executeCreateTransaction = action({
       }
 
       products.push(product);
+    }
+
+    // Ensure we have at least one real product
+    if (products.length === 0) {
+      return {
+        success: false,
+        error: "At least one non-addon product is required to create a transaction",
+      };
     }
 
     // Build customer info
