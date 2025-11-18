@@ -334,6 +334,9 @@ export const executeBehaviors = action({
     }> = [];
     let allSuccess = true;
 
+    // CRITICAL: Maintain a shared context that accumulates data from each behavior
+    let sharedContext = args.context || {};
+
     for (const behavior of sortedBehaviors) {
       if (executionId) {
         await ctx.runMutation(internal.workflowExecutionLogs.addLogEntry, {
@@ -348,7 +351,7 @@ export const executeBehaviors = action({
         organizationId: args.organizationId,
         behaviorType: behavior.type,
         config: behavior.config,
-        context: args.context,
+        context: sharedContext, // Use accumulated context
       });
 
       results.push({
@@ -378,6 +381,17 @@ export const executeBehaviors = action({
             level: "success",
             message: `✅ Behavior ${behavior.type} completed successfully`,
           });
+        }
+
+        // CRITICAL FIX: Merge behavior result data into shared context for next behavior
+        // This ensures data flows between behaviors (e.g., transactionData from calculate-pricing
+        // becomes available to create-transaction)
+        if (result.data !== undefined) {
+          sharedContext = {
+            ...sharedContext,
+            ...result.data as Record<string, unknown>,
+          };
+          console.log(`✓ Context updated with data from ${behavior.type}`);
         }
       }
     }
