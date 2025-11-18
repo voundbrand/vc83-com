@@ -24,7 +24,7 @@ async function findOrCreateOrganization(
     taxId?: string;
     billingEmail?: string;
     phone?: string;
-    performedBy: Id<"users">;
+    performedBy?: Id<"users"> | Id<"objects">; // Optional - platform user or frontend_user
   }
 ): Promise<Id<"objects">> {
   // 1. Try to find existing organization by name (case-insensitive match)
@@ -83,18 +83,20 @@ async function findOrCreateOrganization(
     updatedAt: Date.now(),
   });
 
-  // Log creation
-  await ctx.db.insert("objectActions", {
-    organizationId: args.organizationId,
-    objectId: orgId,
-    actionType: "created",
-    actionData: {
-      source: "api",
-      subtype: "prospect",
-    },
-    performedBy: args.performedBy,
-    performedAt: Date.now(),
-  });
+  // Log creation (only if performedBy provided)
+  if (args.performedBy) {
+    await ctx.db.insert("objectActions", {
+      organizationId: args.organizationId,
+      objectId: orgId,
+      actionType: "created",
+      actionData: {
+        source: "api",
+        subtype: "prospect",
+      },
+      performedBy: args.performedBy,
+      performedAt: Date.now(),
+    });
+  }
 
   return orgId;
 }
@@ -404,7 +406,7 @@ export const createContactInternal = internalMutation({
       billingEmail: v.optional(v.string()),
       phone: v.optional(v.string()),
     })),
-    performedBy: v.id("users"),
+    performedBy: v.optional(v.id("users")), // Optional for guest registrations
   },
   handler: async (ctx, args) => {
     // 1. Check if contact already exists by email (deduplication)
@@ -460,18 +462,20 @@ export const createContactInternal = internalMutation({
         updatedAt: Date.now(),
       });
 
-      // Log update action
-      await ctx.db.insert("objectActions", {
-        organizationId: args.organizationId,
-        objectId: contactId,
-        actionType: "updated_via_api",
-        actionData: {
-          source: args.source || "api",
-          fieldsUpdated: ["firstName", "lastName", "tags", "phone", "company", "jobTitle"],
-        },
-        performedBy: args.performedBy,
-        performedAt: Date.now(),
-      });
+      // Log update action (only if performedBy is provided)
+      if (args.performedBy) {
+        await ctx.db.insert("objectActions", {
+          organizationId: args.organizationId,
+          objectId: contactId,
+          actionType: "updated_via_api",
+          actionData: {
+            source: args.source || "api",
+            fieldsUpdated: ["firstName", "lastName", "tags", "phone", "company", "jobTitle"],
+          },
+          performedBy: args.performedBy,
+          performedAt: Date.now(),
+        });
+      }
     } else {
       // 2. Create new contact
       contactId = await ctx.db.insert("objects", {
@@ -499,18 +503,20 @@ export const createContactInternal = internalMutation({
         updatedAt: Date.now(),
       });
 
-      // 3. Log creation action
-      await ctx.db.insert("objectActions", {
-        organizationId: args.organizationId,
-        objectId: contactId,
-        actionType: "created",
-        actionData: {
-          source: args.source || "api",
-          subtype: args.subtype,
-        },
-        performedBy: args.performedBy,
-        performedAt: Date.now(),
-      });
+      // 3. Log creation action (only if performedBy is provided)
+      if (args.performedBy) {
+        await ctx.db.insert("objectActions", {
+          organizationId: args.organizationId,
+          objectId: contactId,
+          actionType: "created",
+          actionData: {
+            source: args.source || "api",
+            subtype: args.subtype,
+          },
+          performedBy: args.performedBy,
+          performedAt: Date.now(),
+        });
+      }
     }
 
     // 4. Handle CRM organization (if organizationInfo provided OR company name exists)

@@ -43,6 +43,7 @@ export const executeCreateContact = action({
         profession?: string;
         dietary_requirements?: string;
       };
+      frontendUserId?: string; // May already be created by earlier behavior
     };
 
     const email = context.customerData?.email;
@@ -53,7 +54,24 @@ export const executeCreateContact = action({
       };
     }
 
-    // Check if contact already exists using ontologyHelpers
+    // Step 1: Create or get frontend_user (dormant account for future activation)
+    let frontendUserId: Id<"objects">;
+
+    if (context.frontendUserId) {
+      // Already created by earlier behavior
+      frontendUserId = context.frontendUserId as Id<"objects">;
+      console.log(`✅ Using existing frontend_user: ${frontendUserId}`);
+    } else {
+      // Create dormant frontend_user account
+      frontendUserId = await ctx.runMutation(internal.auth.createOrGetGuestUser, {
+        email,
+        firstName: context.customerData?.firstName,
+        lastName: context.customerData?.lastName,
+        organizationId: args.organizationId,
+      });
+    }
+
+    // Step 2: Check if CRM contact already exists
     const existingContacts = (await ctx.runQuery(api.ontologyHelpers.getObjects, {
       organizationId: args.organizationId,
       type: "crm_contact",
@@ -67,18 +85,18 @@ export const executeCreateContact = action({
     let isNew = false;
 
     if (matchingContact) {
-      // Use existing contact
+      // Use existing CRM contact
       contactId = matchingContact._id;
-      console.log(`✅ Using existing contact: ${contactId}`);
+      console.log(`✅ Using existing CRM contact: ${contactId}`);
     } else {
       // DRY-RUN MODE: Skip actual database write
       if (args.config?.dryRun) {
         contactId = `dryrun_contact_${Date.now()}` as Id<"objects">;
         isNew = true;
-        console.log(`🧪 [DRY RUN] Would create new contact for: ${email}`);
+        console.log(`🧪 [DRY RUN] Would create new CRM contact for: ${email}`);
       } else {
-        // Create new contact (PRODUCTION)
-        console.log(`✅ Creating new contact for: ${email}`);
+        // Create new CRM contact (PRODUCTION)
+        console.log(`✅ Creating new CRM contact for: ${email}`);
         isNew = true;
 
         const result: any = await ctx.runMutation(internal.api.v1.crmInternal.createContactInternal, {
@@ -88,20 +106,31 @@ export const executeCreateContact = action({
           firstName: context.customerData?.firstName || "",
           lastName: context.customerData?.lastName || "",
           phone: context.customerData?.phone,
-          performedBy: "k1system000000000000000000" as Id<"users">,
+          performedBy: undefined, // Guest registration - no platform user (will need to make this optional)
         });
 
         contactId = result.contactId as Id<"objects">;
       }
     }
 
-    console.log(`${args.config?.dryRun ? '🧪 [DRY RUN]' : '✅'} Contact ${isNew ? "created" : "updated"}: ${contactId}`);
+    // Step 3: Link frontend_user → crm_contact
+    if (!args.config?.dryRun) {
+      await ctx.runMutation(internal.auth.linkFrontendUserToCRM, {
+        userId: frontendUserId,
+        email,
+        organizationId: args.organizationId,
+      });
+    }
+
+    console.log(`${args.config?.dryRun ? '🧪 [DRY RUN]' : '✅'} CRM Contact ${isNew ? "created" : "updated"}: ${contactId}`);
+    console.log(`${args.config?.dryRun ? '🧪 [DRY RUN]' : '✅'} Frontend user: ${frontendUserId} (dormant account - can activate later)`);
 
     return {
       success: true,
       message: `Contact ${isNew ? "created" : "updated"} successfully${args.config?.dryRun ? ' (dry run)' : ''}`,
       data: {
         contactId,
+        frontendUserId, // Pass to next behaviors
         isNew,
         email,
         firstName: context.customerData?.firstName,

@@ -139,6 +139,12 @@ export const executeUpdateStatistics = action({
     }> = [];
 
     for (const productItem of context.products) {
+      // Skip addon products (they're not in the database)
+      if (productItem.productId.startsWith("addon-")) {
+        console.log(`⚠️ Skipping statistics update for addon: ${productItem.productId}`);
+        continue;
+      }
+
       const product = await ctx.runQuery(api.ontologyHelpers.getObject, {
         objectId: productItem.productId as Id<"objects">,
       });

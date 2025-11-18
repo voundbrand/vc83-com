@@ -214,7 +214,7 @@ export const createTicketInternal = internalMutation({
     holderName: v.string(),
     holderEmail: v.string(),
     customProperties: v.optional(v.record(v.string(), v.any())),
-    userId: v.optional(v.id("users")),
+    userId: v.optional(v.union(v.id("users"), v.id("objects"))), // Platform user or frontend_user
   },
   handler: async (ctx, args) => {
     // Validate product exists
@@ -231,22 +231,8 @@ export const createTicketInternal = internalMutation({
       }
     }
 
-    // Get userId - if not provided (guest checkout), use system user
-    let userId = args.userId;
-    if (!userId) {
-      const systemUser = await ctx.db
-        .query("users")
-        .filter(q => q.eq(q.field("email"), "system@l4yercak3.com"))
-        .first();
-
-      if (!systemUser) {
-        throw new Error("System user not found - run seed script first");
-      }
-
-      userId = systemUser._id;
-    }
-
     // Build customProperties with ticket data
+    // Note: userId can be platform user or frontend_user (dormant account for guests)
     const customProperties = {
       productId: args.productId,
       holderName: args.holderName,
@@ -267,7 +253,7 @@ export const createTicketInternal = internalMutation({
       description: `Ticket for ${args.holderName}`,
       status: "issued",
       customProperties,
-      createdBy: userId,
+      createdBy: args.userId, // Platform user or frontend_user (customer account)
       createdAt: Date.now(),
       updatedAt: Date.now(),
     });

@@ -45,7 +45,10 @@ export const objects = defineTable({
   customProperties: v.optional(v.record(v.string(), v.any())),
 
   // Metadata
-  createdBy: v.id("users"),
+  // createdBy can be either platform user (staff) or frontend_user (customer)
+  // - Platform user (Id<"users">): When staff creates records administratively
+  // - Frontend user (Id<"objects">): When customers create records (guest registration, checkout)
+  createdBy: v.optional(v.union(v.id("users"), v.id("objects"))),
   createdAt: v.number(),
   updatedAt: v.number(),
 })
@@ -91,7 +94,8 @@ export const objectLinks = defineTable({
   properties: v.optional(v.record(v.string(), v.any())),
 
   // Metadata
-  createdBy: v.optional(v.id("users")),
+  // createdBy can be platform user or frontend_user (same as objects table)
+  createdBy: v.optional(v.union(v.id("users"), v.id("objects"))),
   createdAt: v.number(),
 })
   .index("by_from_object", ["fromObjectId"])
@@ -121,7 +125,8 @@ export const objectActions = defineTable({
   actionData: v.optional(v.record(v.string(), v.any())),
 
   // Who & When
-  performedBy: v.id("users"),
+  // performedBy can be platform user or frontend_user (same as objects table)
+  performedBy: v.optional(v.union(v.id("users"), v.id("objects"))),
   performedAt: v.number(),
 })
   .index("by_object", ["objectId"])

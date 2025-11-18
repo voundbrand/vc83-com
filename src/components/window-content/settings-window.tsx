@@ -8,16 +8,14 @@ import { useTheme, themes } from "@/contexts/theme-context";
 import { useTranslation } from "@/contexts/translation-context";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useIsSuperAdmin } from "@/hooks/use-auth";
-import { OntologyAdminWindow } from "./ontology-admin";
 
-type TabType = "appearance" | "wallpaper" | "region" | "admin";
+type TabType = "appearance" | "wallpaper" | "region";
 
 export function SettingsWindow() {
-  const { closeWindow, openWindow } = useWindowManager();
+  const { closeWindow } = useWindowManager();
   const { currentTheme, setTheme, windowStyle, setWindowStyle } = useTheme();
   const { locale, availableLocales, setLocale } = useTranslation(); // For locale management only
   const { t } = useNamespaceTranslations("ui.settings"); // For translations
-  const isSuperAdmin = useIsSuperAdmin();
   const [activeTab, setActiveTab] = useState<TabType>("appearance");
   const [selectedThemeId, setSelectedThemeId] = useState<string>(currentTheme.id);
   const [selectedLanguage, setSelectedLanguage] = useState<string>(locale);
@@ -88,19 +86,6 @@ export function SettingsWindow() {
         >
           🌍 {t('ui.settings.tab.region')}
         </button>
-        {isSuperAdmin && (
-          <button
-            className="px-4 py-2 text-xs font-bold border-r-2 transition-colors"
-            style={{
-              borderColor: 'var(--win95-border)',
-              background: activeTab === "admin" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-              color: activeTab === "admin" ? 'var(--win95-text)' : 'var(--neutral-gray)'
-            }}
-            onClick={() => setActiveTab("admin")}
-          >
-            🥷 {t('ui.settings.tab.admin')}
-          </button>
-        )}
       </div>
 
       {/* Tab Content - Add padding bottom for mobile buttons */}
@@ -350,84 +335,6 @@ export function SettingsWindow() {
               </div>
             </div>
           </>
-        )}
-
-        {activeTab === "admin" && isSuperAdmin && (
-          <div>
-            <h3 className="text-xs font-bold mb-3 uppercase tracking-wide" style={{ color: 'var(--win95-text)' }}>
-              🥷 Super Admin Tools
-            </h3>
-            <div className="space-y-3">
-              {/* Ontology Admin */}
-              <button
-                className="w-full flex items-center gap-3 p-4 border-2 rounded transition-all hover:shadow-md"
-                style={{
-                  borderColor: 'var(--win95-border)',
-                  background: 'var(--win95-bg-light)',
-                }}
-                onClick={() => {
-                  // Open full-screen ontology admin window
-                  const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 1200;
-                  const screenHeight = typeof window !== 'undefined' ? window.innerHeight : 800;
-                  openWindow(
-                    "ontology-admin",
-                    "Ontology Admin",
-                    <OntologyAdminWindow />,
-                    { x: 20, y: 20 },
-                    { width: screenWidth - 40, height: screenHeight - 40 }
-                  );
-                  closeWindow("settings");
-                }}
-              >
-                <div className="text-3xl">🥷</div>
-                <div className="flex-1 text-left">
-                  <div className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
-                    {t('ui.settings.admin.ontology_title')}
-                  </div>
-                  <div className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-                    {t('ui.settings.admin.ontology_description')}
-                  </div>
-                </div>
-              </button>
-
-              {/* Future Admin Tools */}
-              <div
-                className="w-full flex items-center gap-3 p-4 border-2 rounded opacity-50"
-                style={{
-                  borderColor: 'var(--win95-border)',
-                  background: 'var(--win95-bg-light)',
-                }}
-              >
-                <div className="text-3xl">👥</div>
-                <div className="flex-1 text-left">
-                  <div className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
-                    {t('ui.settings.admin.user_management_title')}
-                  </div>
-                  <div className="text-xs mt-1 italic" style={{ color: 'var(--neutral-gray)' }}>
-                    {t('ui.settings.appearance.coming_soon')}
-                  </div>
-                </div>
-              </div>
-
-              <div
-                className="w-full flex items-center gap-3 p-4 border-2 rounded opacity-50"
-                style={{
-                  borderColor: 'var(--win95-border)',
-                  background: 'var(--win95-bg-light)',
-                }}
-              >
-                <div className="text-3xl">📊</div>
-                <div className="flex-1 text-left">
-                  <div className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
-                    {t('ui.settings.admin.system_analytics_title')}
-                  </div>
-                  <div className="text-xs mt-1 italic" style={{ color: 'var(--neutral-gray)' }}>
-                    {t('ui.settings.appearance.coming_soon')}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
         )}
       </div>
 

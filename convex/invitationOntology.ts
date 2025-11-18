@@ -616,6 +616,7 @@ export const internalAcceptInvitation = internalMutation({
       joinedAt: now,
       invitedBy: invitation.customProperties?.invitedBy as Id<"users">,
       invitedAt: invitation.createdAt,
+      acceptedAt: now, // Track when user accepted the invitation
     });
 
     // Update invitation status to accepted

@@ -28,11 +28,13 @@ export const sendTicketConfirmationEmail = action({
     isTest: v.optional(v.boolean()), // If true, sends to test email
     testRecipient: v.optional(v.string()),
     language: v.optional(v.union(v.literal("de"), v.literal("en"), v.literal("es"), v.literal("fr"))),
+    forceSendVia: v.optional(v.union(v.literal("microsoft"), v.literal("resend"))), // Optional: force specific sender
   },
   handler: async (ctx, args): Promise<{
     success: boolean;
     messageId?: string;
     sentTo: string;
+    sentVia: 'microsoft' | 'resend'; // NEW: Track which service was used
     isTest: boolean;
     attachments: { pdf: boolean; ics: boolean };
   }> => {
@@ -192,62 +194,124 @@ export const sendTicketConfirmationEmail = action({
     // 8. Generate subject line (from template, add TEST prefix if needed)
     const subject = args.isTest ? `[TEST] ${templateSubject}` : templateSubject;
 
-    // 9. Send email via delivery service
-    // If no domainConfigId, send directly using Resend with system defaults
+    // ========================================================================
+    // 🆕 PHASE 1: SMART SENDER SELECTION (Microsoft vs Resend)
+    // ========================================================================
+
+    // Determine best sender (Microsoft or Resend)
+    const senderConfig = await ctx.runQuery(api.oauth.emailSenderSelection.selectEmailSender, {
+      organizationId: ticket.organizationId,
+      domainConfigId: args.domainConfigId,
+      preferredType: args.forceSendVia, // User can override automatic selection
+    });
+
+    console.log(`📧 Selected sender: ${senderConfig.type} (${senderConfig.email})`);
+
     let result: any;
+    let sentVia: 'microsoft' | 'resend' = 'resend'; // Default to resend
 
-    if (args.domainConfigId) {
-      result = await ctx.runAction(internal.emailDelivery.sendEmail, {
-        domainConfigId: args.domainConfigId,
-        to: attendeeEmail,
-        subject,
-        html: emailHtml,
-        attachments: attachments.length > 0 ? attachments : undefined,
-      });
-    } else {
-      // Send directly with system defaults using Resend
-      const RESEND_API_KEY = process.env.RESEND_API_KEY;
-      if (!RESEND_API_KEY) {
-        throw new Error("RESEND_API_KEY not configured");
+    // ========================================================================
+    // 🆕 TRY MICROSOFT GRAPH FIRST (if connection active)
+    // ========================================================================
+    if (senderConfig.type === 'microsoft' && senderConfig.connectionId) {
+      console.log(`📧 Attempting to send via Microsoft Graph from ${senderConfig.email}...`);
+
+      try {
+        const msResult = await ctx.runAction(internal.oauth.emailSending.sendEmailViaMicrosoft, {
+          connectionId: senderConfig.connectionId,
+          to: attendeeEmail,
+          subject,
+          body: emailHtml,
+          attachments: attachments.length > 0 ? attachments : undefined,
+          replyTo: emailSettings.replyToEmail,
+          importance: "normal",
+        });
+
+        if (msResult.success) {
+          console.log(`✅ Email sent successfully via Microsoft Graph`);
+          result = {
+            success: true,
+            messageId: msResult.messageId,
+          };
+          sentVia = 'microsoft';
+        } else {
+          // Microsoft send failed, fall back to Resend
+          console.warn(`⚠️ Microsoft send failed: ${msResult.error}. Falling back to Resend.`);
+          throw new Error(msResult.error || "Microsoft send failed");
+        }
+      } catch (error) {
+        // Microsoft send failed, fall back to Resend
+        console.warn(`⚠️ Microsoft send exception: ${error instanceof Error ? error.message : 'Unknown error'}. Falling back to Resend.`);
+        // Set senderConfig.type to 'resend' to trigger fallback below
+        senderConfig.type = 'resend';
       }
-
-      const emailPayload = {
-        from: emailSettings.senderEmail,
-        to: attendeeEmail,
-        replyTo: emailSettings.replyToEmail,
-        subject,
-        html: emailHtml,
-        attachments: attachments.length > 0 ? attachments : undefined,
-      };
-
-      console.log(`📧 Sending email with system defaults to ${attendeeEmail}...`);
-
-      const response = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${RESEND_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(emailPayload),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`Resend API error: ${JSON.stringify(errorData)}`);
-      }
-
-      const resendResult = await response.json();
-      result = {
-        success: true,
-        messageId: resendResult.id,
-        attempts: 1,
-      };
     }
 
+    // ========================================================================
+    // SEND VIA RESEND (fallback or default)
+    // ========================================================================
+    if (senderConfig.type === 'resend') {
+      console.log(`📧 Sending via Resend from ${senderConfig.email}...`);
+
+      if (args.domainConfigId) {
+        // Send via emailDelivery service (domain-specific)
+        result = await ctx.runAction(internal.emailDelivery.sendEmail, {
+          domainConfigId: args.domainConfigId,
+          to: attendeeEmail,
+          subject,
+          html: emailHtml,
+          attachments: attachments.length > 0 ? attachments : undefined,
+        });
+      } else {
+        // Send directly with system defaults using Resend
+        const RESEND_API_KEY = process.env.RESEND_API_KEY;
+        if (!RESEND_API_KEY) {
+          throw new Error("RESEND_API_KEY not configured");
+        }
+
+        const emailPayload = {
+          from: emailSettings.senderEmail,
+          to: attendeeEmail,
+          replyTo: emailSettings.replyToEmail,
+          subject,
+          html: emailHtml,
+          attachments: attachments.length > 0 ? attachments : undefined,
+        };
+
+        console.log(`📧 Sending email with system defaults to ${attendeeEmail}...`);
+
+        const response = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${RESEND_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(emailPayload),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(`Resend API error: ${JSON.stringify(errorData)}`);
+        }
+
+        const resendResult = await response.json();
+        result = {
+          success: true,
+          messageId: resendResult.id,
+        };
+      }
+      sentVia = 'resend';
+      console.log(`✅ Email sent successfully via Resend`);
+    }
+
+    // ========================================================================
+    // RETURN RESULT
+    // ========================================================================
     return {
       success: result.success,
       messageId: result.messageId,
       sentTo: attendeeEmail,
+      sentVia, // NEW: Track which service was used
       isTest: args.isTest || false,
       attachments: {
         pdf: hasPDF,

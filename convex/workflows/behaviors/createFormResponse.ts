@@ -34,7 +34,7 @@ export const createFormResponseInternal = internalMutation({
     customerName: v.string(),
     responses: v.any(),
     sessionId: v.string(),
-    createdBy: v.id("users"), // System user ID
+    createdBy: v.optional(v.union(v.id("users"), v.id("objects"))), // Platform user or frontend_user
   },
   handler: async (ctx, args) => {
     // Create form response object
@@ -114,6 +114,7 @@ export const executeCreateFormResponse = action({
       eventId?: string;
       productId?: string;
       contactId?: string;
+      frontendUserId?: string; // From create-contact behavior
       customerData?: {
         email?: string;
         firstName?: string;
@@ -136,9 +137,6 @@ export const executeCreateFormResponse = action({
       };
     }
 
-    // Use a fixed system user ID
-    const SYSTEM_USER_ID = "k1system000000000000000000" as Id<"users">;
-
     let formResponseId: Id<"objects">;
 
     // DRY-RUN MODE: Skip actual database write
@@ -157,7 +155,7 @@ export const executeCreateFormResponse = action({
         customerName: `${context.customerData?.firstName} ${context.customerData?.lastName}`,
         responses: context.formResponses,
         sessionId: args.sessionId,
-        createdBy: SYSTEM_USER_ID,
+        createdBy: context.frontendUserId as Id<"objects"> | undefined, // Frontend user (dormant account)
       });
     }
 

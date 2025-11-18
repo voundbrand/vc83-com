@@ -47,6 +47,7 @@ export const executeCreateTicket = action({
       billingMethod?: string;
       billingAddress?: string;
       contactId?: string;
+      frontendUserId?: string; // From create-contact behavior
       transactionData?: {
         price?: number;
         breakdown?: {
@@ -116,9 +117,6 @@ export const executeCreateTicket = action({
       registeredAt: Date.now(),
     };
 
-    // Use a fixed system user ID
-    const systemUserId: Id<"users"> = "k1system000000000000000000" as Id<"users">;
-
     let ticketId: Id<"objects">;
 
     // DRY-RUN MODE: Skip actual database write
@@ -127,15 +125,24 @@ export const executeCreateTicket = action({
       console.log(`🧪 [DRY RUN] Would create ticket for: ${holderEmail}`);
     } else {
       // Create ticket using internal mutation (PRODUCTION)
-      // Note: Use first product for productId field (legacy compatibility)
+      // Note: Use first non-addon product for productId field (legacy compatibility)
+      const realProductId = context.products.find(p => !p.productId.startsWith("addon-"))?.productId;
+
+      if (!realProductId) {
+        return {
+          success: false,
+          error: "At least one non-addon product is required",
+        };
+      }
+
       ticketId = await ctx.runMutation(internal.ticketOntology.createTicketInternal, {
         organizationId: args.organizationId,
-        productId: context.products[0].productId as Id<"objects">,
+        productId: realProductId as Id<"objects">,
         eventId: context.eventId as Id<"objects">,
         holderName,
         holderEmail,
         customProperties,
-        userId: systemUserId,
+        userId: context.frontendUserId as Id<"objects"> | undefined, // Frontend user (dormant account)
       });
     }
 

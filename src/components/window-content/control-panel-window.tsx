@@ -3,7 +3,6 @@
 import { useWindowManager } from "@/hooks/use-window-manager";
 import { SettingsWindow } from "./settings-window";
 import { ManageWindow } from "./org-owner-manage-window";
-import { OntologyAdminWindow } from "./ontology-admin";
 import { TranslationsWindow } from "./translations-window";
 import { OrganizationsWindow } from "./super-admin-organizations-window";
 import { usePermissions } from "@/contexts/permission-context";
@@ -40,19 +39,6 @@ export function ControlPanelWindow() {
       <ManageWindow />,
       { x: 200, y: 50 },
       { width: 950, height: 600 }
-    );
-  };
-
-  const openOntologyAdmin = () => {
-    // Full screen window for ontology admin
-    const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 1200;
-    const screenHeight = typeof window !== 'undefined' ? window.innerHeight : 800;
-    openWindow(
-      "ontology-admin",
-      "🥷 Ontology Admin",
-      <OntologyAdminWindow />,
-      { x: 20, y: 20 },
-      { width: screenWidth - 40, height: screenHeight - 40 }
     );
   };
 
@@ -116,16 +102,6 @@ export function ControlPanelWindow() {
       icon: "🏢",
       label: t('ui.controlpanel.item.system_organizations'),
       onClick: openOrganizations,
-    });
-  }
-
-  // Ontology - requires manage_ontology (super admin only)
-  if (canPerform('manage_ontology')) {
-    controlPanelItems.push({
-      id: "ontology-admin",
-      icon: "🥷",
-      label: t('ui.controlpanel.item.ontology'),
-      onClick: openOntologyAdmin,
     });
   }
 

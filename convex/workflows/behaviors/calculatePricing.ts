@@ -63,7 +63,34 @@ export const executeCalculatePricing = action({
     let currency = "EUR";
 
     for (const productItem of context.products) {
-      // Get product pricing
+      // Skip addon products (they have IDs like "addon-123" instead of Convex IDs)
+      if (productItem.productId.startsWith("addon-")) {
+        // For addons, use data from transactionData.breakdown if available
+        const addonFromBreakdown = (context as any).transactionData?.breakdown?.addons?.find(
+          (a: any) => a.id === productItem.productId
+        );
+
+        if (addonFromBreakdown) {
+          const total = addonFromBreakdown.total || addonFromBreakdown.pricePerUnit * productItem.quantity;
+
+          productDetails.push({
+            productId: productItem.productId,
+            productName: addonFromBreakdown.name,
+            quantity: productItem.quantity,
+            pricePerUnit: addonFromBreakdown.pricePerUnit,
+            total,
+          });
+
+          subtotal += total;
+          continue;
+        } else {
+          // Skip this addon if not in breakdown
+          console.warn(`⚠️ Addon ${productItem.productId} not found in transaction breakdown, skipping`);
+          continue;
+        }
+      }
+
+      // Get product pricing from database
       const product = await ctx.runQuery(api.ontologyHelpers.getObject, {
         objectId: productItem.productId as Id<"objects">,
       });

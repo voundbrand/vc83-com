@@ -152,6 +152,23 @@ export const internalSetupPassword = internalMutation({
 
     await ctx.db.patch(args.userId, updates);
 
+    // Update all pending organization memberships to mark them as accepted
+    // This happens when user sets password for the first time (activates account)
+    const pendingMemberships = await ctx.db
+      .query("organizationMembers")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    const now = Date.now();
+    for (const membership of pendingMemberships) {
+      // Only update if not already accepted
+      if (!membership.acceptedAt) {
+        await ctx.db.patch(membership._id, {
+          acceptedAt: now,
+        });
+      }
+    }
+
     // Create a session
     const sessionId = await ctx.db.insert("sessions", {
       userId: args.userId,
@@ -1035,6 +1052,79 @@ export const syncFrontendUser = internalMutation({
     });
 
     return await ctx.db.get(userId);
+  },
+});
+
+/**
+ * Create or get guest frontend_user for event registrations
+ *
+ * This creates a DORMANT account that can be activated later via password setup.
+ * See docs/FRONTEND_USER_ARCHITECTURE.md for full details.
+ *
+ * IMPORTANT: frontend_user objects are stored in the objects table (NOT users table)
+ * They represent CUSTOMERS, not platform staff.
+ */
+export const createOrGetGuestUser = internalMutation({
+  args: {
+    email: v.string(),
+    firstName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    // Check if frontend_user already exists for this email
+    const existingUsers = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "frontend_user")
+      )
+      .collect();
+
+    const existingUser = existingUsers.find(
+      (u) => u.customProperties?.email === args.email
+    );
+
+    if (existingUser) {
+      // Update last activity
+      await ctx.db.patch(existingUser._id, {
+        updatedAt: Date.now(),
+        customProperties: {
+          ...existingUser.customProperties,
+          lastLogin: Date.now(),
+        },
+      });
+      console.log(`✅ Using existing frontend_user: ${existingUser._id} for ${args.email}`);
+      return existingUser._id;
+    }
+
+    // Create new guest frontend_user (dormant account - no password set)
+    const displayName = args.firstName && args.lastName
+      ? `${args.firstName} ${args.lastName}`
+      : args.email;
+
+    const userId = await ctx.db.insert("objects", {
+      organizationId: args.organizationId,
+      type: "frontend_user",
+      subtype: "guest", // Different from "oauth"
+      name: args.email,
+      description: `Guest user from event registration`,
+      status: "dormant", // Will be "active" after password setup
+      customProperties: {
+        email: args.email,
+        firstName: args.firstName,
+        lastName: args.lastName,
+        displayName,
+        registrationSource: "event_registration",
+        isPasswordSet: false, // No password yet - can activate later
+        lastLogin: Date.now(),
+      },
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      // NO createdBy field - frontend_users are top-level customer accounts
+    });
+
+    console.log(`✅ Created guest frontend_user: ${userId} for ${args.email}`);
+    return userId;
   },
 });
 
