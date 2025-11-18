@@ -193,6 +193,7 @@ export const executeCalculatePricing = action({
       success: true,
       message: `Price calculated: ${(finalPrice / 100).toFixed(2)} ${currency} for ${productDetails.length} product(s)${args.config?.dryRun ? ' (dry run)' : ''}`,
       data: {
+        // Legacy format (for backwards compatibility)
         products: productDetails,
         subtotal,
         discountAmount,
@@ -202,6 +203,20 @@ export const executeCalculatePricing = action({
         taxAmount,
         finalPrice,
         currency,
+
+        // Transaction data format (for createTransaction behavior)
+        transactionData: {
+          price: finalPrice,
+          currency,
+          breakdown: {
+            products: productDetails,
+            subtotal,
+            discountAmount,
+            priceAfterDiscount,
+            taxAmount,
+            total: finalPrice,
+          },
+        },
       },
     };
   },
