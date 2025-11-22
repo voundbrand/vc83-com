@@ -4,12 +4,14 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
-import { Loader2, AlertCircle, FileText, ExternalLink, Check, ChevronDown, ChevronUp, Palette, Eye, ShoppingCart } from "lucide-react";
+import { Loader2, AlertCircle, FileText, ExternalLink, Check, ChevronDown, ChevronUp, Palette, Eye, ShoppingCart, Settings2, Globe } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { getTemplateSchema, getTemplateComponent, getTheme } from "@/templates/registry";
 import { DynamicFormGenerator } from "./template-content-forms/dynamic-form-generator";
 import { TranslationProvider } from "@/contexts/translation-context";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+import { useNotification } from "@/hooks/use-notification";
+import { ContentRulesModal } from "./content-rules-modal";
 
 /**
  * Deep merge two objects
@@ -80,6 +82,7 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
   const { t } = useNamespaceTranslations("ui.web_publishing");
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
+  const notification = useNotification();
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [selectedThemeId, setSelectedThemeId] = useState<string>("");
   const [metaTitle, setMetaTitle] = useState("");
@@ -91,6 +94,11 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
   const [createdPageUrl, setCreatedPageUrl] = useState<string | null>(null);
   const [templateAccordionOpen, setTemplateAccordionOpen] = useState(true); // Auto-open
   const [themeAccordionOpen, setThemeAccordionOpen] = useState(true); // Auto-open
+  const [isExternalPage, setIsExternalPage] = useState(false); // External page toggle
+  const [externalDomain, setExternalDomain] = useState(""); // External domain URL
+  const [showContentRulesModal, setShowContentRulesModal] = useState(false); // Content rules modal
+  const [tempPageForContentRules, setTempPageForContentRules] = useState<any>(null); // Temporary page object for content rules
+  const [contentRules, setContentRules] = useState<any>(null); // Stored content rules for page creation
 
   // Fetch available templates for this org
   const availableTemplates = useQuery(
@@ -120,6 +128,7 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
   );
 
   const createPage = useMutation(api.publishingOntology.createPublishedPage);
+  const createExternalPageConfig = useMutation(api.publishingOntology.createExternalPageConfig);
   const updatePage = useMutation(api.publishingOntology.updatePublishedPage);
 
   // Load page data when in edit mode
@@ -130,27 +139,42 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
       setSlug(page.customProperties?.slug || "");
       setMetaDescription(page.customProperties?.metaDescription || "");
 
-      // Find template/theme IDs from codes
-      const templateCode = page.customProperties?.templateCode;
-      const themeCode = page.customProperties?.themeCode;
-
-      if (templateCode && availableTemplates) {
-        const template = availableTemplates.find(t => t.customProperties?.code === templateCode);
-        if (template) setSelectedTemplateId(template._id);
-      }
-
-      if (themeCode && availableThemes) {
-        const theme = availableThemes.find(t => t.customProperties?.code === themeCode);
-        if (theme) setSelectedThemeId(theme._id);
-      }
-
-      // Load template content and linked products
+      // Load template content
       const content = page.customProperties?.templateContent || {};
       setTemplateContent(content);
 
-      // Extract linked products from templateContent
-      const linkedProds = (content as { linkedProducts?: string[] }).linkedProducts || [];
-      setLinkedProducts(linkedProds);
+      // Check if this is an external page
+      const isExternal = (content as { isExternal?: boolean }).isExternal;
+      const externalDomain = (content as { externalDomain?: string }).externalDomain;
+      const contentRules = (content as { contentRules?: any }).contentRules;
+
+      if (isExternal) {
+        // External page - load external settings
+        setIsExternalPage(true);
+        setExternalDomain(externalDomain || "");
+        setContentRules(contentRules || null);
+      } else {
+        // Regular template-based page
+        setIsExternalPage(false);
+
+        // Find template/theme IDs from codes
+        const templateCode = page.customProperties?.templateCode;
+        const themeCode = page.customProperties?.themeCode;
+
+        if (templateCode && availableTemplates) {
+          const template = availableTemplates.find(t => t.customProperties?.code === templateCode);
+          if (template) setSelectedTemplateId(template._id);
+        }
+
+        if (themeCode && availableThemes) {
+          const theme = availableThemes.find(t => t.customProperties?.code === themeCode);
+          if (theme) setSelectedThemeId(theme._id);
+        }
+
+        // Extract linked products from templateContent
+        const linkedProds = (content as { linkedProducts?: string[] }).linkedProducts || [];
+        setLinkedProducts(linkedProds);
+      }
     }
   }, [editMode, availableTemplates, availableThemes]);
 
@@ -222,74 +246,143 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedTemplateId || !selectedThemeId || !metaTitle || !slug) return;
 
+    console.log("Submit clicked - validating...", {
+      metaTitle,
+      slug,
+      isExternalPage,
+      externalDomain,
+      selectedTemplateId,
+      selectedThemeId
+    });
+
+    // Validation: external pages don't need template/theme
+    if (!metaTitle || !slug) {
+      console.log("Validation failed: missing metaTitle or slug");
+      return;
+    }
+    if (isExternalPage && !externalDomain) {
+      console.log("Validation failed: external page missing domain");
+      return;
+    }
+    if (!isExternalPage && (!selectedTemplateId || !selectedThemeId)) {
+      console.log("Validation failed: regular page missing template/theme");
+      return;
+    }
+
+    console.log("Validation passed, creating page...");
     setIsCreating(true);
     try {
-      // Get the selected template and theme codes
-      const selectedTemplate = availableTemplates.find((t: TemplateOrTheme) => t._id === selectedTemplateId);
-      const selectedTheme = availableThemes.find((t: TemplateOrTheme) => t._id === selectedThemeId);
+      // Handle external pages differently
+      if (isExternalPage) {
+        // External page - minimal data, no template/theme required
+        const customProperties = {
+          isExternal: true,
+          externalDomain,
+          contentRules: contentRules || undefined, // Include content rules if configured
+        };
 
-      if (!selectedTemplate || !selectedTheme) {
-        throw new Error("Selected template or theme not found");
-      }
+        if (editMode) {
+          // UPDATE existing external page (if editing)
+          // TODO: Implement updatePage for external pages if needed
+          throw new Error("Editing external pages not yet implemented");
+        } else {
+          // First, create a placeholder object for the external page config
+          // This is needed because published pages require a linkedObjectId from the objects table
+          const configObjectId = await createExternalPageConfig({
+            sessionId,
+            organizationId: currentOrg.id as Id<"organizations">,
+            externalDomain,
+            contentRules: contentRules || {},
+          });
 
-      const templateCode = selectedTemplate.customProperties?.code as string;
-      const themeCode = selectedTheme.customProperties?.code as string;
+          // CREATE new external page
+          const result = await createPage({
+            sessionId,
+            organizationId: currentOrg.id as Id<"organizations">,
+            linkedObjectId: configObjectId,
+            linkedObjectType: "external_page",
+            slug,
+            metaTitle,
+            metaDescription: metaDescription || "",
+            templateCode: "external", // Use a special "external" template code
+            themeCode: "external", // Use a special "external" theme code
+            templateContent: customProperties,
+          });
 
-      // Get the schema to merge default content with user edits
-      const schema = getTemplateSchema(templateCode);
+          setCreatedPageUrl(result.publicUrl);
+          notification.success("Created!", `External page created! URL: ${result.publicUrl}`);
 
-      // Deep merge: defaultContent + user edits
-      // User edits override defaults at each level
-      const mergedContent = deepMerge(
-        schema.defaultContent as Record<string, unknown>,
-        templateContent
-      );
+          // Don't reset form immediately - let user see what was created
+          // They can navigate away or manually clear fields if needed
+        }
+      } else {
+        // Regular template-based page
+        // Get the selected template and theme codes
+        const selectedTemplate = availableTemplates.find((t: TemplateOrTheme) => t._id === selectedTemplateId);
+        const selectedTheme = availableThemes.find((t: TemplateOrTheme) => t._id === selectedThemeId);
 
-      // Transform linked products into checkout tickets format
-      // This embeds product data into the page so we don't need auth at runtime
-      let checkoutTickets: Array<{
-        id: string;
-        name: string;
-        price: number;
-        originalPrice?: number;
-        description: string;
-        features: string[];
-        currency: string;
-        checkoutUrl: string;
-      }> = [];
+        if (!selectedTemplate || !selectedTheme) {
+          throw new Error("Selected template or theme not found");
+        }
 
-      // Check if mergedContent has checkout with tickets
-      const existingCheckout = mergedContent.checkout as { tickets?: Array<unknown> } | undefined;
-      if (existingCheckout?.tickets) {
-        checkoutTickets = existingCheckout.tickets as typeof checkoutTickets;
-      }
+        const templateCode = selectedTemplate.customProperties?.code as string;
+        const themeCode = selectedTheme.customProperties?.code as string;
 
-      if (linkedProducts.length > 0 && availableProducts) {
-        checkoutTickets = availableProducts
-          .filter(p => linkedProducts.includes(p._id))
-          .map(product => ({
-            id: product._id,
-            name: product.name,
-            price: (product.customProperties?.price as number) || 0, // Keep in cents
-            originalPrice: undefined,
-            description: product.description || "",
-            features: [],
-            currency: (product.customProperties?.currency as string) || "EUR",
-            checkoutUrl: `/checkout/${currentOrg.slug}/${product.customProperties?.slug || product._id}`,
-          }));
-      }
+        // Get the schema to merge default content with user edits
+        const schema = getTemplateSchema(templateCode);
 
-      // Add linked products and transformed tickets to custom properties
-      const customPropertiesWithProducts = {
-        ...mergedContent,
-        linkedProducts, // Keep the product IDs for reference
-        checkout: {
-          ...(typeof mergedContent.checkout === 'object' && mergedContent.checkout !== null ? mergedContent.checkout as Record<string, unknown> : {}),
-          tickets: checkoutTickets, // Embed product data as tickets
-        },
-      };
+        // Deep merge: defaultContent + user edits
+        // User edits override defaults at each level
+        const mergedContent = deepMerge(
+          schema.defaultContent as Record<string, unknown>,
+          templateContent
+        );
+
+        // Transform linked products into checkout tickets format
+        // This embeds product data into the page so we don't need auth at runtime
+        let checkoutTickets: Array<{
+          id: string;
+          name: string;
+          price: number;
+          originalPrice?: number;
+          description: string;
+          features: string[];
+          currency: string;
+          checkoutUrl: string;
+        }> = [];
+
+        // Check if mergedContent has checkout with tickets
+        const existingCheckout = mergedContent.checkout as { tickets?: Array<unknown> } | undefined;
+        if (existingCheckout?.tickets) {
+          checkoutTickets = existingCheckout.tickets as typeof checkoutTickets;
+        }
+
+        if (linkedProducts.length > 0 && availableProducts) {
+          checkoutTickets = availableProducts
+            .filter(p => linkedProducts.includes(p._id))
+            .map(product => ({
+              id: product._id,
+              name: product.name,
+              price: (product.customProperties?.price as number) || 0, // Keep in cents
+              originalPrice: undefined,
+              description: product.description || "",
+              features: [],
+              currency: (product.customProperties?.currency as string) || "EUR",
+              checkoutUrl: `/checkout/${currentOrg.slug}/${product.customProperties?.slug || product._id}`,
+            }));
+        }
+
+        // Add linked products and transformed tickets to custom properties
+        const customPropertiesWithProducts = {
+          ...mergedContent,
+          linkedProducts, // Keep the product IDs for reference
+          checkout: {
+            ...(typeof mergedContent.checkout === 'object' && mergedContent.checkout !== null ? mergedContent.checkout as Record<string, unknown> : {}),
+            tickets: checkoutTickets, // Embed product data as tickets
+          },
+          contentRules: contentRules || undefined, // Include content rules if configured
+        };
 
       if (editMode) {
         // UPDATE existing page
@@ -348,9 +441,34 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
         setMetaDescription("");
         setTemplateContent({});
       }
+      } // End of regular page else block
     } catch (error) {
       console.error(`Failed to ${editMode ? "update" : "create"} page:`, error);
-      alert(`Failed to ${editMode ? "update" : "create"} page: ${error instanceof Error ? error.message : "Unknown error"}`);
+
+      // Extract error message
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+
+      // Provide user-friendly error messages
+      let title = "Error";
+      let message = errorMessage;
+
+      // Check for specific error cases
+      if (errorMessage.includes("already in use")) {
+        title = "Slug Already Exists";
+        message = `The slug "${slug}" is already being used by another page in your organization. Please choose a different slug or edit the existing page instead.`;
+      } else if (errorMessage.includes("Permission denied")) {
+        title = "Permission Denied";
+        message = "You don't have permission to create or update published pages. Please contact your organization administrator.";
+      } else if (errorMessage.includes("Organization not found")) {
+        title = "Organization Error";
+        message = "Your organization could not be found. Please try refreshing the page.";
+      } else {
+        title = editMode ? "Update Failed" : "Creation Failed";
+        message = `Failed to ${editMode ? "update" : "create"} page: ${errorMessage}`;
+      }
+
+      // Show themed notification instead of browser alert
+      notification.error(title, message, false); // Don't auto-close error messages
     } finally {
       setIsCreating(false);
     }
@@ -369,7 +487,7 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
     return value
       .toLowerCase()
       .replace(/\s+/g, "-") // Replace spaces with hyphens
-      .replace(/[^a-z0-9-]/g, "") // Remove invalid characters (keep hyphens)
+      .replace(/[^a-z0-9/-]/g, "") // Remove invalid characters (keep hyphens and slashes)
       .replace(/-+/g, "-") // Replace multiple hyphens with single hyphen
       .replace(/^-|-$/g, ""); // Remove leading/trailing hyphens
   };
@@ -443,7 +561,29 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
         )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Template selection */}
+        {/* External Page Toggle - AT THE TOP */}
+        <div className="border-2 p-3" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isExternalPage}
+              onChange={(e) => setIsExternalPage(e.target.checked)}
+              className="w-4 h-4"
+            />
+            <div className="flex items-center gap-2">
+              <Globe size={16} style={{ color: 'var(--win95-highlight)' }} />
+              <span className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+                External Page (hosted on your own domain)
+              </span>
+            </div>
+          </label>
+          <p className="text-xs mt-2 ml-6" style={{ color: 'var(--neutral-gray)' }}>
+            Check this if the page will be hosted on your external website. This prevents creating a dead page on app.l4yercak3.com
+          </p>
+        </div>
+
+        {/* Template selection - HIDDEN for external pages */}
+        {!isExternalPage && (
         <div className="border-2" style={{ borderColor: 'var(--win95-border)' }}>
           {/* Accordion Header */}
           <button
@@ -502,8 +642,10 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
             </div>
           )}
         </div>
+        )}
 
-        {/* Theme selection */}
+        {/* Theme selection - HIDDEN for external pages */}
+        {!isExternalPage && (
         <div className="border-2" style={{ borderColor: 'var(--win95-border)' }}>
           {/* Accordion Header */}
           <button
@@ -569,6 +711,7 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
             </div>
           )}
         </div>
+        )}
 
         {/* Page metadata */}
         <div>
@@ -596,16 +739,41 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
             onChange={(e) => handleSlugChange(e.target.value)}
             className="w-full border-2 px-2 py-1 text-sm"
             style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)', color: 'var(--win95-text)' }}
-            placeholder="e.g., amazing-product"
+            placeholder="e.g., / or /events or /amazing-product"
             required
-            pattern="[a-z0-9-]+"
-            title="Type any text - spaces and special chars will be auto-converted"
+            pattern="[a-z0-9/-]+"
+            title="Use / for root URL, or /page-name for sub-pages"
           />
-          <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-            {t("ui.web_publishing.meta.url_preview")} {process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/p/{currentOrg?.slug || "your-org"}/{slug || "page-slug"}
-          </p>
+          {!isExternalPage && (
+            <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
+              {t("ui.web_publishing.meta.url_preview")} {process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/p/{currentOrg?.slug || "your-org"}/{slug || "page-slug"}
+            </p>
+          )}
         </div>
 
+        {/* External Domain Field (only if external page is checked) */}
+        {isExternalPage && (
+          <div>
+            <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+              External Domain URL <span style={{ color: 'var(--error)' }}>*</span>
+            </label>
+            <input
+              type="url"
+              value={externalDomain}
+              onChange={(e) => setExternalDomain(e.target.value)}
+              className="w-full border-2 px-2 py-1 text-sm"
+              style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)', color: 'var(--win95-text)' }}
+              placeholder="e.g., https://yourwebsite.com"
+              required={isExternalPage}
+            />
+            <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
+              Full URL: {externalDomain || "https://yourwebsite.com"}{slug || "/page-slug"}
+            </p>
+          </div>
+        )}
+
+        {/* Meta description - HIDDEN for external pages */}
+        {!isExternalPage && (
         <div>
           <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
             {t("ui.web_publishing.meta.meta_description")}
@@ -623,8 +791,10 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
             {t("ui.web_publishing.meta.character_count").replace("{count}", String(metaDescription.length))}
           </p>
         </div>
+        )}
 
-        {/* LINK PRODUCTS */}
+        {/* LINK PRODUCTS - HIDDEN for external pages */}
+        {!isExternalPage && (
         <div className="border-t-2 pt-4" style={{ borderColor: 'var(--win95-border)' }}>
           <h4 className="text-xs font-bold mb-2 flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
             <ShoppingCart size={14} />
@@ -713,9 +883,10 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
             </p>
           )}
         </div>
+        )}
 
-        {/* DYNAMIC CONTENT FORM */}
-        {selectedTemplateId && (() => {
+        {/* DYNAMIC CONTENT FORM - HIDDEN for external pages */}
+        {!isExternalPage && selectedTemplateId && (() => {
           const selectedTemplate = availableTemplates.find(t => t._id === selectedTemplateId);
           const templateCode = selectedTemplate?.customProperties?.code as string;
 
@@ -739,6 +910,54 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
           return null;
         })()}
 
+        {/* Configure Content Rules (Optional) */}
+        <div className="border-t-2 pt-4" style={{ borderColor: 'var(--win95-border)' }}>
+          <h4 className="text-xs font-bold mb-2 flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
+            <Settings2 size={14} />
+            Content Rules (Optional)
+          </h4>
+          <p className="text-xs mb-3" style={{ color: 'var(--neutral-gray)' }}>
+            Configure what events, checkouts, and forms should appear on this page for your external frontend.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              // Create a temporary page object for the content rules modal
+              const tempPage = {
+                _id: "temp_page" as Id<"objects">,
+                name: metaTitle || "New Page",
+                customProperties: {
+                  slug,
+                  contentRules: {},
+                },
+              };
+              setTempPageForContentRules(tempPage);
+              setShowContentRulesModal(true);
+            }}
+            disabled={!metaTitle || !slug}
+            className="px-3 py-2 text-xs font-bold border-2 flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              borderColor: 'var(--win95-border)',
+              background: 'var(--win95-bg-light)',
+              color: 'var(--win95-highlight)'
+            }}
+            onMouseEnter={(e) => {
+              if (metaTitle && slug) e.currentTarget.style.background = 'var(--win95-hover-light)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'var(--win95-bg-light)';
+            }}
+          >
+            <Settings2 size={12} />
+            Configure Content Rules
+          </button>
+          {(!metaTitle || !slug) && (
+            <p className="text-xs mt-2" style={{ color: 'var(--warning)' }}>
+              Please fill in the page title and slug first
+            </p>
+          )}
+        </div>
+
         {/* Submit */}
         <div className="flex items-center justify-between pt-4 border-t-2" style={{ borderColor: 'var(--win95-border)' }}>
           <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
@@ -746,12 +965,24 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
           </p>
           <button
             type="submit"
-            disabled={!selectedTemplateId || !selectedThemeId || !metaTitle || !slug || isCreating}
+            disabled={
+              (!isExternalPage && (!selectedTemplateId || !selectedThemeId)) ||
+              !metaTitle ||
+              !slug ||
+              (isExternalPage && !externalDomain) ||
+              isCreating
+            }
             className="px-4 py-2 text-sm font-bold border-2 disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
               borderColor: 'var(--win95-border)',
-              backgroundColor: selectedTemplateId && selectedThemeId && metaTitle && slug && !isCreating ? 'var(--win95-highlight)' : 'var(--win95-bg)',
-              color: selectedTemplateId && selectedThemeId && metaTitle && slug && !isCreating ? 'white' : 'var(--neutral-gray)',
+              backgroundColor: (
+                (isExternalPage ? (metaTitle && slug && externalDomain) : (selectedTemplateId && selectedThemeId && metaTitle && slug)) &&
+                !isCreating
+              ) ? 'var(--win95-highlight)' : 'var(--win95-bg)',
+              color: (
+                (isExternalPage ? (metaTitle && slug && externalDomain) : (selectedTemplateId && selectedThemeId && metaTitle && slug)) &&
+                !isCreating
+              ) ? 'white' : 'var(--neutral-gray)',
             }}
           >
             {isCreating ? (
@@ -777,11 +1008,32 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
         </h3>
 
         {/* Preview content */}
-        {selectedTemplateId && selectedThemeId ? (
+        {(selectedTemplateId && selectedThemeId) || (isExternalPage && externalDomain && slug) ? (
           <div className="space-y-4">
-            {/* LIVE TEMPLATE PREVIEW with actual content */}
-            <div className="border-2 overflow-hidden" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
-              {(() => {
+            {/* External Page iframe Preview */}
+            {isExternalPage && externalDomain ? (
+              <div className="border-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+                <div className="p-2 border-b-2 flex items-center gap-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg)' }}>
+                  <Globe size={14} style={{ color: 'var(--win95-highlight)' }} />
+                  <span className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+                    External Page Preview
+                  </span>
+                </div>
+                <iframe
+                  src={`${externalDomain}${slug || ''}`}
+                  className="w-full"
+                  style={{ height: '600px', border: 'none' }}
+                  title="External Page Preview"
+                  sandbox="allow-same-origin allow-scripts"
+                />
+                <div className="p-2 border-t-2 text-xs" style={{ borderColor: 'var(--win95-border)', color: 'var(--neutral-gray)' }}>
+                  Showing: {externalDomain}{slug || '/'}
+                </div>
+              </div>
+            ) : (
+              /* LIVE TEMPLATE PREVIEW with actual content */
+              <div className="border-2 overflow-hidden" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+                {(() => {
                 const selectedTemplate = availableTemplates.find(t => t._id === selectedTemplateId);
                 const selectedTheme = availableThemes.find(t => t._id === selectedThemeId);
                 const templateCode = selectedTemplate?.customProperties?.code as string;
@@ -891,7 +1143,8 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
                   </div>
                 );
               })()}
-            </div>
+              </div>
+            )}
 
             {/* Template Info */}
             <div className="border-2 p-4" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
@@ -949,6 +1202,21 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
           </div>
         )}
       </div>
+
+      {/* Content Rules Modal */}
+      {showContentRulesModal && tempPageForContentRules && (
+        <ContentRulesModal
+          page={tempPageForContentRules}
+          onClose={() => {
+            setShowContentRulesModal(false);
+            setTempPageForContentRules(null);
+          }}
+          onSaveRules={(rules) => {
+            // Store rules to be saved with the page
+            setContentRules(rules);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -176,7 +176,7 @@ function evaluateExpression(expression: string, data: TemplateData): number {
     if (!/^[\d\s+*/().\-]+$/.test(evaluated)) {
       throw new Error("Invalid expression");
     }
-    // eslint-disable-next-line no-eval
+     
     return eval(evaluated);
   } catch (error) {
     console.error("Error evaluating expression:", evaluated, error);

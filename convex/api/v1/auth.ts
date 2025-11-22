@@ -77,12 +77,26 @@ export const syncUser = httpAction(async (ctx, request) => {
       );
     }
 
+    // Get default organization for OAuth users (first non-system org)
+    // In multi-tenant setups, you may want to get this from a query parameter
+    const organizations = await ctx.runQuery(internal.auth.getDefaultOrganization, {});
+    if (!organizations) {
+      return new Response(
+        JSON.stringify({ error: "No organization found for user registration" }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
     // Call internal mutation to sync user
     const frontendUser = await ctx.runMutation(internal.auth.syncFrontendUser, {
       email,
       name: name || email,
       oauthProvider,
       oauthId,
+      organizationId: organizations,
     });
 
     return new Response(JSON.stringify(frontendUser), {

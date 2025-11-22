@@ -33,6 +33,11 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
   const [selectedDomainId, setSelectedDomainId] = useState<Id<"objects"> | null>(null);
   const [selectedLanguage, setSelectedLanguage] = useState<"de" | "en" | "es" | "fr">("de");
   const [selectedEmailTemplateId, setSelectedEmailTemplateId] = useState<Id<"objects"> | null>(null);
+  const [selectedPdfTemplateId, setSelectedPdfTemplateId] = useState<Id<"objects"> | null>(null);
+
+  // Attachment controls
+  const [includePdfAttachment, setIncludePdfAttachment] = useState(true);
+  const [includeIcsAttachment, setIncludeIcsAttachment] = useState(true);
 
   // Get current user and organization
   const { user, sessionId: userSessionId } = useAuth();
@@ -184,6 +189,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
         domainConfigId: selectedDomainId || undefined, // undefined = use system defaults
         emailTemplateId: selectedEmailTemplateId || undefined, // undefined = use default template
         language: selectedLanguage,
+        ticketPdfTemplateId: selectedPdfTemplateId || undefined, // PDF template for ticket attachment
       });
 
       setEmailPreviewHtml(result.html);
@@ -211,9 +217,12 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
         ticketId: ticket._id,
         domainConfigId: selectedDomainId || undefined, // undefined = use system defaults
         emailTemplateId: selectedEmailTemplateId || undefined, // undefined = use default template
+        ticketPdfTemplateId: selectedPdfTemplateId || undefined, // PDF template for ticket attachment
         isTest: true,
         testRecipient: testEmail,
         language: selectedLanguage,
+        includePdfAttachment,
+        includeIcsAttachment,
       });
 
       if (result.success) {
@@ -288,8 +297,11 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
         ticketId: ticket._id,
         domainConfigId: selectedDomainId || undefined, // undefined = use system defaults
         emailTemplateId: selectedEmailTemplateId || undefined, // undefined = use default template
+        ticketPdfTemplateId: selectedPdfTemplateId || undefined, // PDF template for ticket attachment
         isTest: false,
         language: selectedLanguage,
+        includePdfAttachment,
+        includeIcsAttachment,
       });
 
       if (result.success) {
@@ -808,6 +820,54 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                   nullLabel="Use system default email template"
                 />
               )}
+
+              {/* PDF Template Selector */}
+              {currentOrgId && (
+                <TemplateSelector
+                  category="ticket"
+                  value={selectedPdfTemplateId}
+                  onChange={(templateId) => setSelectedPdfTemplateId(templateId || null)}
+                  organizationId={currentOrgId as Id<"organizations">}
+                  label="🎫 PDF Ticket Template"
+                  description="Select which PDF template to use for the ticket attachment. System default will be used if not selected."
+                  allowNull={true}
+                  nullLabel="Use system default ticket template"
+                />
+              )}
+
+              {/* Attachment Controls */}
+              <div className="mb-4 p-3 border-2" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
+                <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                  📎 Email Attachments
+                </label>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includePdfAttachment}
+                      onChange={(e) => setIncludePdfAttachment(e.target.checked)}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm" style={{ color: "var(--win95-text)" }}>
+                      Include PDF Ticket ({selectedPdfTemplateId ? 'Custom' : 'Default'} template)
+                    </span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includeIcsAttachment}
+                      onChange={(e) => setIncludeIcsAttachment(e.target.checked)}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm" style={{ color: "var(--win95-text)" }}>
+                      Include ICS Calendar File
+                    </span>
+                  </label>
+                </div>
+                <p className="text-xs mt-2" style={{ color: "var(--neutral-gray)" }}>
+                  Choose which files to attach to the email. At least one attachment is recommended.
+                </p>
+              </div>
 
               {/* Language Selector */}
               <div className="mb-4 p-3 border-2" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>

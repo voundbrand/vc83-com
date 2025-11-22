@@ -117,7 +117,7 @@ export const getUserProfile = action({
   },
   handler: async (ctx, args): Promise<any> => {
     const { internal } = await import("../_generated/api");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     return await ctx.runAction(internal.oauth.graphClient.graphRequest, {
       connectionId: args.connectionId,
       endpoint: "/me",
@@ -139,7 +139,7 @@ export const getEmails = action({
       ? `/me/messages?$top=${args.top}&$orderby=receivedDateTime desc`
       : `/me/messages?$orderby=receivedDateTime desc`;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     return await ctx.runAction(internal.oauth.graphClient.graphRequest, {
       connectionId: args.connectionId,
       endpoint,
@@ -164,7 +164,7 @@ export const getCalendarEvents = action({
       endpoint += `?startDateTime=${args.startDateTime}&endDateTime=${args.endDateTime}`;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     return await ctx.runAction(internal.oauth.graphClient.graphRequest, {
       connectionId: args.connectionId,
       endpoint,
@@ -186,7 +186,7 @@ export const getOneDriveFiles = action({
       ? `/me/drive/items/${args.folderId}/children`
       : "/me/drive/root/children";
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     return await ctx.runAction(internal.oauth.graphClient.graphRequest, {
       connectionId: args.connectionId,
       endpoint,
@@ -203,7 +203,7 @@ export const getSharePointSites = action({
   },
   handler: async (ctx, args): Promise<any> => {
     const { internal } = await import("../_generated/api");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     return await ctx.runAction(internal.oauth.graphClient.graphRequest, {
       connectionId: args.connectionId,
       endpoint: "/sites?search=*",

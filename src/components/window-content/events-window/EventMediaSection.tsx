@@ -13,7 +13,7 @@ import { useNamespaceTranslations } from '@/hooks/use-namespace-translations';
 
 interface MediaItem {
   _id: Id<"organizationMedia">;
-  storageId: Id<"_storage">;
+  storageId?: Id<"_storage">; // Optional - not present for Layer Cake documents
   filename: string;
   mimeType: string;
   sizeBytes: number;

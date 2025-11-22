@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
-import { ShoppingCart, Plus, Edit, Eye, Trash2, Loader2, AlertCircle, CheckCircle, ExternalLink } from "lucide-react";
+import { ShoppingCart, Plus, Edit, Eye, Trash2, Loader2, AlertCircle, CheckCircle, ExternalLink, Copy, Check } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { ConfirmationModal } from "@/components/confirmation-modal";
 import { useNotification } from "@/hooks/use-notification";
@@ -29,6 +29,7 @@ export function CheckoutsListTab({ onCreateNew, onEdit }: CheckoutsListTabProps)
   const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.checkout_window");
   const [deletingId, setDeletingId] = useState<Id<"objects"> | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ id: Id<"objects">; name: string } | null>(null);
+  const [copiedId, setCopiedId] = useState<Id<"objects"> | null>(null);
 
   // Fetch checkout instances
   const checkoutInstances = useQuery(
@@ -93,6 +94,19 @@ export function CheckoutsListTab({ onCreateNew, onEdit }: CheckoutsListTabProps)
       notification.error(errorTitle, errorMessage);
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  // Handle copy ID to clipboard
+  const handleCopyId = async (instanceId: Id<"objects">) => {
+    try {
+      await navigator.clipboard.writeText(instanceId);
+      setCopiedId(instanceId);
+      notification.success("Copied!", "Checkout ID copied to clipboard");
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch (error) {
+      console.error("Failed to copy ID:", error);
+      notification.error("Copy Failed", "Could not copy ID to clipboard");
     }
   };
 
@@ -226,7 +240,31 @@ export function CheckoutsListTab({ onCreateNew, onEdit }: CheckoutsListTabProps)
                     {/* Name */}
                     <td className="p-3">
                       <div>
-                        <div className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>{instance.name}</div>
+                        <div className="flex items-center gap-2">
+                          <div className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>{instance.name}</div>
+                          <button
+                            onClick={() => handleCopyId(instance._id)}
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-mono border transition-colors hover:bg-opacity-20"
+                            style={{
+                              borderColor: 'var(--neutral-gray)',
+                              color: 'var(--neutral-gray)',
+                              background: copiedId === instance._id ? 'rgba(34, 197, 94, 0.1)' : 'transparent'
+                            }}
+                            title="Click to copy checkout ID"
+                          >
+                            {copiedId === instance._id ? (
+                              <>
+                                <Check size={10} style={{ color: 'var(--success)' }} />
+                                <span style={{ color: 'var(--success)' }}>ID</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy size={10} />
+                                <span>ID</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
                         {instance.description && (
                           <div className="text-xs mt-0.5 line-clamp-1" style={{ color: 'var(--neutral-gray)' }}>
                             {instance.description}

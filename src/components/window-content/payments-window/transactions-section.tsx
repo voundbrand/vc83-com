@@ -251,7 +251,7 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
               className="w-full pl-10 pr-4 py-2 text-sm border-2"
               style={{
                 borderColor: "var(--win95-border)",
-                background: "white",
+                background: "var(--win95-input-bg)",
                 color: "var(--win95-text)",
               }}
             />
@@ -266,7 +266,7 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
             className="px-4 py-2 text-sm border-2 cursor-pointer"
             style={{
               borderColor: "var(--win95-border)",
-              background: "white",
+              background: "var(--win95-input-bg)",
               color: "var(--win95-text)",
             }}
           >
@@ -286,7 +286,7 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
             className="px-4 py-2 text-sm border-2 cursor-pointer"
             style={{
               borderColor: "var(--win95-border)",
-              background: "white",
+              background: "var(--win95-input-bg)",
               color: "var(--win95-text)",
             }}
           >
@@ -305,7 +305,7 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
             className="px-4 py-2 text-sm border-2 cursor-pointer"
             style={{
               borderColor: "var(--win95-border)",
-              background: "white",
+              background: "var(--win95-input-bg)",
               color: "var(--win95-text)",
             }}
           >
@@ -349,7 +349,7 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
               className="px-3 py-1.5 text-sm border-2"
               style={{
                 borderColor: "var(--win95-border)",
-                background: "white",
+                background: "var(--win95-input-bg)",
                 color: "var(--win95-text)",
               }}
             />
@@ -365,7 +365,7 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
               className="px-3 py-1.5 text-sm border-2"
               style={{
                 borderColor: "var(--win95-border)",
-                background: "white",
+                background: "var(--win95-input-bg)",
                 color: "var(--win95-text)",
               }}
             />
@@ -433,7 +433,7 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
       {/* Transactions Table */}
       <div
         className="border-2 overflow-hidden"
-        style={{ borderColor: "var(--win95-border)", background: "white" }}
+        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}
       >
         {/* Table Header */}
         <div

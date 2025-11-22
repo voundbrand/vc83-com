@@ -7,7 +7,7 @@ import { v } from "convex/values";
  */
 
 export const auditLogs = defineTable({
-  organizationId: v.id("organizations"),
+  organizationId: v.optional(v.id("organizations")), // Optional for user-level actions (passkeys, password changes, etc.)
   userId: v.id("users"),
 
   // What happened

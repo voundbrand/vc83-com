@@ -15,6 +15,53 @@ import { requireAuthenticatedUser, getUserContext, checkPermission } from "./rba
  */
 
 /**
+ * Create external page config object
+ *
+ * Creates a placeholder object for external pages to link to.
+ * External pages are hosted on the user's own domain, not on app.l4yercak3.com
+ */
+export const createExternalPageConfig = mutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    externalDomain: v.string(),
+    contentRules: v.optional(v.any()),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    // Check permission
+    const hasPermission = await checkPermission(
+      ctx,
+      userId,
+      "create_published_pages",
+      args.organizationId
+    );
+    if (!hasPermission) {
+      throw new Error("Permission denied: create_published_pages required");
+    }
+
+    // Create a minimal config object
+    const configId = await ctx.db.insert("objects", {
+      organizationId: args.organizationId,
+      type: "external_page_config",
+      subtype: "config",
+      name: `External Page Config - ${args.externalDomain}`,
+      description: "Configuration for external page hosted on custom domain",
+      status: "active",
+      customProperties: {
+        externalDomain: args.externalDomain,
+        contentRules: args.contentRules || {},
+      },
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    return configId;
+  },
+});
+
+/**
  * Create a new published page with template + theme
  *
  * Links any object to make it web-accessible with a public URL.
@@ -77,9 +124,21 @@ export const createPublishedPage = mutation({
     const org = await ctx.db.get(args.organizationId);
     if (!org) throw new Error("Organization not found");
 
-    // Use environment variable for base URL (falls back to production URL)
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.l4yercak3.com";
-    const publicUrl = `${baseUrl}/p/${org.slug}/${args.slug}`;
+    // Check if this is an external page
+    const isExternal = args.templateContent?.isExternal === true;
+    const externalDomain = args.templateContent?.externalDomain as string | undefined;
+
+    let publicUrl: string;
+    if (isExternal && externalDomain) {
+      // For external pages, use the user's domain
+      const slugPart = args.slug === "/" ? "" : args.slug;
+      publicUrl = `${externalDomain}${slugPart}`;
+    } else {
+      // For internal pages, use app domain
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.l4yercak3.com";
+      const slugPart = args.slug === "/" ? "" : args.slug;
+      publicUrl = `${baseUrl}/p/${org.slug}${slugPart}`;
+    }
 
     // Create published_page object with templateCode + themeCode
     const publishedPageId = await ctx.db.insert("objects", {
@@ -309,6 +368,77 @@ export const getPublishedPageBySlug = query({
 });
 
 /**
+ * Update published page content rules (for external frontend CMS)
+ */
+export const updateContentRules = mutation({
+  args: {
+    sessionId: v.string(),
+    pageId: v.id("objects"),
+    contentRules: v.object({
+      events: v.optional(v.object({
+        filter: v.optional(v.union(v.literal("all"), v.literal("future"), v.literal("past"), v.literal("featured"))),
+        visibility: v.optional(v.union(v.literal("all"), v.literal("public"), v.literal("private"))),
+        subtypes: v.optional(v.array(v.string())),
+        limit: v.optional(v.number()),
+        sortBy: v.optional(v.string()),
+        sortOrder: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
+      })),
+      checkoutId: v.optional(v.string()),
+      formIds: v.optional(v.array(v.string())),
+    }),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const page = await ctx.db.get(args.pageId);
+    if (!page) throw new Error("Published page not found");
+
+    const userContext = await getUserContext(ctx, userId, page.organizationId);
+
+    // Check permission
+    const hasPermission = await checkPermission(
+      ctx,
+      userId,
+      "edit_published_pages",
+      page.organizationId
+    );
+    if (!hasPermission) {
+      throw new Error("Permission denied: edit_published_pages required");
+    }
+
+    // Validate organization membership
+    if (!userContext.isGlobal && userContext.organizationId !== page.organizationId) {
+      throw new Error("Cannot edit published page for another organization");
+    }
+
+    // Update content rules
+    const updatedProperties = {
+      ...page.customProperties,
+      contentRules: args.contentRules,
+    };
+
+    await ctx.db.patch(args.pageId, {
+      customProperties: updatedProperties,
+      updatedAt: Date.now(),
+    });
+
+    // Audit log
+    await ctx.db.insert("objectActions", {
+      organizationId: page.organizationId,
+      objectId: args.pageId,
+      actionType: "content_rules_updated",
+      actionData: {
+        contentRules: args.contentRules,
+      },
+      performedBy: userId,
+      performedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
  * Update published page metadata (including template/theme)
  */
 export const updatePublishedPage = mutation({
@@ -362,6 +492,17 @@ export const updatePublishedPage = mutation({
     if (args.templateContent !== undefined) updates.templateContent = args.templateContent;
     if (args.colorOverrides !== undefined) updates.colorOverrides = args.colorOverrides;
     if (args.sectionVisibility !== undefined) updates.sectionVisibility = args.sectionVisibility;
+
+    // If slug changed, regenerate publicUrl
+    if (args.slug !== undefined) {
+      const org = await ctx.db.get(page.organizationId);
+      if (org) {
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.l4yercak3.com";
+        // Handle root slug (/) specially to avoid double slashes
+        const slugPart = args.slug === "/" ? "" : args.slug;
+        updates.publicUrl = `${baseUrl}/p/${org.slug}${slugPart}`;
+      }
+    }
 
     // Update page
     const updatedProperties = {
@@ -474,7 +615,58 @@ export const setPublishingStatus = mutation({
 });
 
 /**
- * Delete published page (soft delete to archived)
+ * Archive published page (soft delete to archived)
+ */
+export const archivePublishedPage = mutation({
+  args: {
+    sessionId: v.string(),
+    publishedPageId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const page = await ctx.db.get(args.publishedPageId);
+    if (!page) throw new Error("Published page not found");
+
+    const userContext = await getUserContext(ctx, userId, page.organizationId);
+
+    // Check permission
+    const hasPermission = await checkPermission(
+      ctx,
+      userId,
+      "delete_published_pages",
+      page.organizationId
+    );
+    if (!hasPermission) {
+      throw new Error("Permission denied: delete_published_pages required");
+    }
+
+    // Validate organization membership
+    if (!userContext.isGlobal && userContext.organizationId !== page.organizationId) {
+      throw new Error("Cannot archive published page for another organization");
+    }
+
+    // Soft delete to archived
+    await ctx.db.patch(args.publishedPageId, {
+      status: "archived",
+      updatedAt: Date.now(),
+    });
+
+    // Audit log
+    await ctx.db.insert("objectActions", {
+      organizationId: page.organizationId,
+      objectId: args.publishedPageId,
+      actionType: "archived",
+      performedBy: userId,
+      performedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Delete published page (hard delete - permanent)
  */
 export const deletePublishedPage = mutation({
   args: {
@@ -505,21 +697,236 @@ export const deletePublishedPage = mutation({
       throw new Error("Cannot delete published page for another organization");
     }
 
-    // Soft delete to archived
-    await ctx.db.patch(args.publishedPageId, {
-      status: "archived",
-      updatedAt: Date.now(),
-    });
+    // Hard delete - permanent removal
+    await ctx.db.delete(args.publishedPageId);
 
     // Audit log
     await ctx.db.insert("objectActions", {
       organizationId: page.organizationId,
       objectId: args.publishedPageId,
-      actionType: "deleted",
+      actionType: "deleted_permanently",
       performedBy: userId,
       performedAt: Date.now(),
     });
 
     return { success: true };
+  },
+});
+
+/**
+ * GET PUBLISHED CONTENT FOR EXTERNAL FRONTEND
+ *
+ * This query powers external Next.js frontends by providing filtered content
+ * based on contentRules configured in the CMS.
+ *
+ * PUBLIC QUERY - No authentication required
+ *
+ * Usage:
+ * - External frontend calls: GET /api/published-content?org=vc83&page=/events
+ * - Returns filtered events, checkout, forms based on CMS configuration
+ *
+ * contentRules example in published_page.customProperties:
+ * {
+ *   events: {
+ *     filter: "future",        // "all" | "future" | "past" | "featured"
+ *     visibility: "public",    // "all" | "public" | "private"
+ *     subtypes: ["seminar"],   // Event types to include
+ *     limit: 10,               // Max events to return
+ *     sortBy: "startDate",     // Sort field
+ *     sortOrder: "asc"         // "asc" | "desc"
+ *   },
+ *   checkoutId: "checkout_xxx", // Primary checkout instance
+ *   formIds: ["form_1"]         // Available forms
+ * }
+ */
+export const getPublishedContentForFrontend = query({
+  args: {
+    orgSlug: v.string(),
+    pageSlug: v.string(),
+  },
+  handler: async (ctx, args) => {
+    console.log("🌐 [getPublishedContentForFrontend] Query:", args);
+
+    // 1. Get organization by slug
+    const org = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", args.orgSlug))
+      .first();
+
+    if (!org) {
+      console.log("❌ [getPublishedContentForFrontend] Organization not found");
+      return null;
+    }
+
+    console.log("✅ [getPublishedContentForFrontend] Organization:", org._id);
+
+    // 2. Find published page configuration for this slug
+    const publishedPages = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", org._id).eq("type", "published_page")
+      )
+      .filter((q) => q.eq(q.field("status"), "published"))
+      .collect();
+
+    const page = publishedPages.find(
+      (p) => p.customProperties?.slug === args.pageSlug
+    );
+
+    if (!page) {
+      console.log("❌ [getPublishedContentForFrontend] Published page not found for slug:", args.pageSlug);
+      return null;
+    }
+
+    console.log("✅ [getPublishedContentForFrontend] Page found:", page.name);
+
+    // 3. Extract content rules from page configuration
+    const contentRules = (page.customProperties?.contentRules || {}) as {
+      events?: {
+        filter?: "all" | "future" | "past" | "featured";
+        visibility?: "all" | "public" | "private";
+        subtypes?: string[];
+        limit?: number;
+        sortBy?: string;
+        sortOrder?: "asc" | "desc";
+      };
+      checkoutId?: string;
+      formIds?: string[];
+    };
+
+    console.log("📋 [getPublishedContentForFrontend] Content rules:", contentRules);
+
+    // 4. Fetch and filter events based on rules
+    let events = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", org._id).eq("type", "event")
+      )
+      .filter((q) => q.eq(q.field("status"), "published"))
+      .collect();
+
+    console.log("📅 [getPublishedContentForFrontend] Initial events count:", events.length);
+
+    // Apply event filtering rules
+    if (contentRules.events) {
+      const rules = contentRules.events;
+
+      // Filter by visibility (public vs private)
+      if (rules.visibility === "public") {
+        events = events.filter((e) => {
+          const customProps = e.customProperties as Record<string, unknown> | undefined;
+          return !customProps?.isPrivate;
+        });
+        console.log("🔒 [getPublishedContentForFrontend] After visibility filter:", events.length);
+      } else if (rules.visibility === "private") {
+        events = events.filter((e) => {
+          const customProps = e.customProperties as Record<string, unknown> | undefined;
+          return customProps?.isPrivate === true;
+        });
+        console.log("🔒 [getPublishedContentForFrontend] After private filter:", events.length);
+      }
+
+      // Filter by time (future/past/featured)
+      const now = Date.now();
+      if (rules.filter === "future") {
+        events = events.filter((e) => {
+          const customProps = e.customProperties as Record<string, unknown> | undefined;
+          const startDate = customProps?.startDate as number | undefined;
+          return startDate && startDate > now;
+        });
+        console.log("⏭️ [getPublishedContentForFrontend] After future filter:", events.length);
+      } else if (rules.filter === "past") {
+        events = events.filter((e) => {
+          const customProps = e.customProperties as Record<string, unknown> | undefined;
+          const endDate = customProps?.endDate as number | undefined;
+          return endDate && endDate < now;
+        });
+        console.log("⏮️ [getPublishedContentForFrontend] After past filter:", events.length);
+      } else if (rules.filter === "featured") {
+        events = events.filter((e) => {
+          const customProps = e.customProperties as Record<string, unknown> | undefined;
+          return customProps?.featured === true;
+        });
+        console.log("⭐ [getPublishedContentForFrontend] After featured filter:", events.length);
+      }
+
+      // Filter by event subtypes (seminar, conference, etc.)
+      if (rules.subtypes && rules.subtypes.length > 0) {
+        events = events.filter((e) => rules.subtypes!.includes(e.subtype || ""));
+        console.log("🏷️ [getPublishedContentForFrontend] After subtype filter:", events.length);
+      }
+
+      // Sort events
+      if (rules.sortBy === "startDate") {
+        events.sort((a, b) => {
+          const aProps = a.customProperties as Record<string, unknown> | undefined;
+          const bProps = b.customProperties as Record<string, unknown> | undefined;
+          const aDate = (aProps?.startDate as number) || 0;
+          const bDate = (bProps?.startDate as number) || 0;
+          return rules.sortOrder === "desc" ? bDate - aDate : aDate - bDate;
+        });
+        console.log("🔄 [getPublishedContentForFrontend] Sorted by startDate:", rules.sortOrder);
+      } else if (rules.sortBy === "createdAt") {
+        events.sort((a, b) => {
+          return rules.sortOrder === "desc"
+            ? b.createdAt - a.createdAt
+            : a.createdAt - b.createdAt;
+        });
+        console.log("🔄 [getPublishedContentForFrontend] Sorted by createdAt:", rules.sortOrder);
+      }
+
+      // Limit number of events
+      if (rules.limit && rules.limit > 0) {
+        events = events.slice(0, rules.limit);
+        console.log("✂️ [getPublishedContentForFrontend] Limited to:", rules.limit);
+      }
+    }
+
+    // 5. Load checkout instance if specified
+    let checkout = null;
+    if (contentRules.checkoutId) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const checkoutDoc = await ctx.db.get(contentRules.checkoutId as any);
+        if (checkoutDoc && "type" in checkoutDoc && checkoutDoc.type === "checkout_instance") {
+          checkout = checkoutDoc;
+          console.log("🛒 [getPublishedContentForFrontend] Checkout loaded:", checkoutDoc.name);
+        }
+      } catch (error) {
+        console.error("❌ [getPublishedContentForFrontend] Failed to load checkout:", error);
+      }
+    }
+
+    // 6. Load forms if specified
+    const forms = [];
+    if (contentRules.formIds && contentRules.formIds.length > 0) {
+      for (const formId of contentRules.formIds) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const formDoc = await ctx.db.get(formId as any);
+          if (formDoc && "type" in formDoc && formDoc.type === "form") {
+            forms.push(formDoc);
+            console.log("📋 [getPublishedContentForFrontend] Form loaded:", formDoc.name);
+          }
+        } catch (error) {
+          console.error("❌ [getPublishedContentForFrontend] Failed to load form:", formId, error);
+        }
+      }
+    }
+
+    console.log("✅ [getPublishedContentForFrontend] Final results:", {
+      events: events.length,
+      checkout: checkout ? "loaded" : "none",
+      forms: forms.length,
+    });
+
+    // 7. Return complete content package
+    return {
+      page,
+      events,
+      checkout,
+      forms,
+      organization: org,
+    };
   },
 });

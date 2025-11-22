@@ -646,6 +646,9 @@ export const completeCheckoutAndFulfill = action({
     paymentId: string;
     amount: number;
     currency: string;
+    isGuestRegistration: boolean;
+    frontendUserId?: Id<"objects">;
+    invoiceType: 'employer' | 'manual_b2b' | 'manual_b2c' | 'receipt' | 'none';
   }> => {
     console.log("🛍️ [completeCheckoutAndFulfill] Starting checkout fulfillment...");
     console.log("🛍️ [completeCheckoutAndFulfill] Args:", {
@@ -767,19 +770,52 @@ export const completeCheckoutAndFulfill = action({
       throw new Error("Organization has not connected Stripe");
     }
 
-    // 3. Verify payment was successful (pass connected account ID for Stripe Connect)
-    const provider = getProviderByCode("stripe-connect");
-    const paymentResult = await provider.verifyCheckoutPayment(args.paymentIntentId, connectedAccountId);
+    let paymentResult: { success: boolean; paymentId: string; amount: number; currency: string };
 
-    if (!paymentResult.success) {
-      // Mark session as failed
-      await ctx.runMutation(api.checkoutSessionOntology.failCheckoutSession, {
-        sessionId: args.sessionId,
-        checkoutSessionId: args.checkoutSessionId,
-        errorMessage: "Payment verification failed",
-      });
-      throw new Error("Payment verification failed");
+    // 3. Verify payment based on payment method
+    if (args.paymentIntentId === 'free' || args.paymentIntentId.startsWith('free_')) {
+      // FREE PAYMENT: No payment required (free events)
+      console.log("✅ [completeCheckoutAndFulfill] Free registration - no payment verification needed");
+      paymentResult = {
+        success: true,
+        paymentId: args.paymentIntentId,
+        amount: 0,
+        currency: session.customProperties?.currency as string || 'EUR',
+      };
+
+    } else if (args.paymentIntentId.startsWith('inv_') || args.paymentIntentId === 'invoice') {
+      // INVOICE PAYMENT: Pay later (B2B or B2C)
+      console.log("✅ [completeCheckoutAndFulfill] Invoice payment - no immediate payment verification");
+      paymentResult = {
+        success: true,
+        paymentId: args.paymentIntentId,
+        amount: session.customProperties?.totalAmount as number || 0,
+        currency: session.customProperties?.currency as string || 'EUR',
+      };
+
+    } else {
+      // STRIPE PAYMENT: Verify payment with Stripe
+      console.log("💳 [completeCheckoutAndFulfill] Stripe payment - verifying with provider");
+      const provider = getProviderByCode("stripe-connect");
+      paymentResult = await provider.verifyCheckoutPayment(args.paymentIntentId, connectedAccountId);
+
+      if (!paymentResult.success) {
+        // Mark session as failed
+        await ctx.runMutation(api.checkoutSessionOntology.failCheckoutSession, {
+          sessionId: args.sessionId,
+          checkoutSessionId: args.checkoutSessionId,
+          errorMessage: "Payment verification failed",
+        });
+        throw new Error("Payment verification failed");
+      }
     }
+
+    console.log("✅ [completeCheckoutAndFulfill] Payment verification complete:", {
+      method: args.paymentIntentId.startsWith('free') ? 'free' :
+              args.paymentIntentId.startsWith('inv') ? 'invoice' : 'stripe',
+      amount: paymentResult.amount,
+      currency: paymentResult.currency,
+    });
 
     const createdPurchaseItems: string[] = [];
 
@@ -787,12 +823,37 @@ export const completeCheckoutAndFulfill = action({
     // Do this BEFORE creating purchase items so we can link them
     let crmContactId: Id<"objects"> | undefined;
     let crmOrganizationId: Id<"objects"> | undefined;
+    let frontendUserId: Id<"objects"> | undefined; // ✅ Declare here for wider scope
 
     try {
       const contactResult = await ctx.runMutation(internal.crmIntegrations.autoCreateContactFromCheckoutInternal, {
         checkoutSessionId: args.checkoutSessionId,
       });
       crmContactId = contactResult.contactId;
+
+      // ✅ NEW: Create dormant frontend user for guest checkout
+      // This allows customers to activate their account later to view tickets/registrations
+      try {
+        console.log("👤 [completeCheckoutAndFulfill] Creating dormant frontend user for guest checkout...");
+
+        // Extract name parts from customerName
+        const nameParts = customerName.split(' ');
+        const firstName = nameParts[0] || customerName;
+        const lastName = nameParts.slice(1).join(' ') || '';
+
+        frontendUserId = await ctx.runMutation(internal.auth.createOrGetGuestUser, {
+          email: customerEmail,
+          firstName,
+          lastName,
+          organizationId, // Pass the platform organization ID
+        });
+
+        console.log(`✅ [completeCheckoutAndFulfill] Created/found dormant frontend user: ${frontendUserId}`);
+        console.log(`   Email: ${customerEmail}, Organization: ${organizationId}`);
+      } catch (userError) {
+        console.error("❌ [completeCheckoutAndFulfill] Failed to create frontend user (non-critical):", userError);
+        // Don't fail checkout if user creation fails - this is a nice-to-have feature
+      }
 
       // 🔥 FIRST: Check if employer-detection behavior already identified a CRM org
       const behaviorMetadata = behaviorContext?.metadata;
@@ -950,7 +1011,7 @@ export const completeCheckoutAndFulfill = action({
         crmOrganizationId, // Link to CRM organization if B2B
         fulfillmentType,
         registrationData: undefined, // Will be set below if forms exist
-        userId: undefined, // Guest checkout - no user account required
+        userId: frontendUserId, // ✅ CHANGED: Pass dormant user ID
       });
 
       console.log("✅ [completeCheckoutAndFulfill] Purchase items created:", {
@@ -1003,7 +1064,7 @@ export const completeCheckoutAndFulfill = action({
             eventId,
             holderName,
             holderEmail,
-            userId: undefined, // Guest checkout - no user account required
+            userId: frontendUserId, // ✅ CHANGED: Pass dormant user ID instead of undefined
             customProperties: {
               purchaseDate: Date.now(),
               paymentIntentId: args.paymentIntentId,
@@ -1030,7 +1091,7 @@ export const completeCheckoutAndFulfill = action({
               ticketId,
               eventId,
             },
-            userId: undefined, // Guest checkout - no user account required
+            userId: frontendUserId, // ✅ Pass dormant user ID
           });
         }
         // TODO: Add more fulfillment types here:
@@ -1048,7 +1109,7 @@ export const completeCheckoutAndFulfill = action({
       purchasedItemIds: createdPurchaseItems, // Store purchase_item IDs (generic!)
       crmContactId,
       crmOrganizationId, // Pass B2B organization ID
-      userId: undefined, // Guest checkout - no user account required
+      userId: frontendUserId, // ✅ Pass dormant user ID
     });
 
     // 6.5. CREATE TRANSACTIONS AND LINK TO TICKETS
@@ -1066,12 +1127,50 @@ export const completeCheckoutAndFulfill = action({
       // Don't fail checkout, but log the error
     }
 
-    // 6.6. Determine whether to include invoice PDF in email
+    // 6.6. Determine invoice handling based on payment method
     const isEmployerBilled = !!crmOrganizationId && behaviorContext?.metadata?.isEmployerBilling === true;
-    const includeInvoicePDF = !isEmployerBilled; // Skip PDF for employer billing
+    const isManualInvoice = args.paymentIntentId.startsWith('inv_') || args.paymentIntentId === 'invoice';
+    const isFreeRegistration = args.paymentIntentId === 'free' || args.paymentIntentId.startsWith('free_');
 
-    if (isEmployerBilled) {
-      console.log("📋 [completeCheckoutAndFulfill] B2B employer billing detected - skipping invoice PDF");
+    // Invoice PDF logic:
+    // - Auto-detected employer billing: Skip PDF (they get consolidated invoice later)
+    // - Manual invoice request (B2B/B2C): Include PDF in email
+    // - Free registration: No invoice needed
+    // - Stripe payment: Receipt/invoice included
+
+    let includeInvoicePDF = false;
+    let invoiceType: 'employer' | 'manual_b2b' | 'manual_b2c' | 'receipt' | 'none' = 'none';
+
+    if (isEmployerBilled && !isManualInvoice) {
+      // Auto-detected employer billing - consolidated invoice later
+      includeInvoicePDF = false;
+      invoiceType = 'employer';
+      console.log("📋 [completeCheckoutAndFulfill] Employer billing - consolidated invoice will be generated later");
+
+    } else if (isManualInvoice) {
+      // Manual invoice request (B2B or B2C pay-later)
+      includeInvoicePDF = true;
+
+      // Determine if B2B or B2C based on presence of CRM organization
+      if (crmOrganizationId) {
+        invoiceType = 'manual_b2b';
+        console.log("📋 [completeCheckoutAndFulfill] Manual B2B invoice - will generate and send PDF");
+      } else {
+        invoiceType = 'manual_b2c';
+        console.log("📋 [completeCheckoutAndFulfill] Manual B2C invoice - will generate and send PDF");
+      }
+
+    } else if (isFreeRegistration) {
+      // Free registration - no invoice needed
+      includeInvoicePDF = false;
+      invoiceType = 'none';
+      console.log("📋 [completeCheckoutAndFulfill] Free registration - no invoice needed");
+
+    } else {
+      // Stripe payment - include receipt/invoice
+      includeInvoicePDF = true;
+      invoiceType = 'receipt';
+      console.log("📋 [completeCheckoutAndFulfill] Stripe payment - will include receipt/invoice PDF");
     }
 
     // 7. SEND ORDER CONFIRMATION EMAIL (non-blocking)
@@ -1132,6 +1231,10 @@ export const completeCheckoutAndFulfill = action({
       paymentId: paymentResult.paymentId,
       amount: paymentResult.amount,
       currency: paymentResult.currency,
+      // ✅ NEW: Indicate if guest registration (for frontend account activation prompt)
+      isGuestRegistration: !!frontendUserId,
+      frontendUserId, // For debugging/linking
+      invoiceType, // 'employer' | 'manual_b2b' | 'manual_b2c' | 'receipt' | 'none'
     };
   },
 });

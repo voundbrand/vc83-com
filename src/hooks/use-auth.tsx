@@ -34,6 +34,7 @@ interface User {
   email: string;
   firstName?: string;
   lastName?: string;
+  hasPasskey: boolean; // Whether user has set up passkey authentication
   isSuperAdmin: boolean;
   globalRole?: Role | null;
   organizations: Organization[];
@@ -164,6 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email: userQuery.email,
     firstName: userQuery.firstName,
     lastName: userQuery.lastName,
+    hasPasskey: userQuery.hasPasskey || false,
     isSuperAdmin: userQuery.isSuperAdmin,
     globalRole: userQuery.globalRole,
     scheduledDeletionDate: userQuery.scheduledDeletionDate,

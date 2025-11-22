@@ -585,7 +585,7 @@ export const completeCheckoutSessionInternal = internalMutation({
     purchasedItemIds: v.optional(v.array(v.string())),
     crmContactId: v.optional(v.id("objects")),
     crmOrganizationId: v.optional(v.id("objects")), // B2B organization
-    userId: v.optional(v.id("users")),
+    userId: v.optional(v.union(v.id("users"), v.id("objects"))), // Platform user or frontend_user
   },
   handler: async (ctx, args) => {
     // Get session

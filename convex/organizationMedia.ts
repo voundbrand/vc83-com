@@ -231,10 +231,13 @@ export const listMedia = query({
 
     const media = await mediaQuery.collect();
 
-    // Get URLs for all media
+    // Get URLs for all media (null for Layer Cake documents)
     const mediaWithUrls = await Promise.all(
       media.map(async (m) => {
-        const url = await ctx.storage.getUrl(m.storageId);
+        let url = null;
+        if (m.storageId) {
+          url = await ctx.storage.getUrl(m.storageId);
+        }
         return {
           ...m,
           url,
@@ -255,7 +258,12 @@ export const getMedia = query({
     const media = await ctx.db.get(mediaId);
     if (!media) return null;
 
-    const url = await ctx.storage.getUrl(media.storageId);
+    // Get URL only for files with storage (not Layer Cake documents)
+    let url = null;
+    if (media.storageId) {
+      url = await ctx.storage.getUrl(media.storageId);
+    }
+
     return {
       ...media,
       url,
@@ -287,8 +295,10 @@ export const deleteMedia = mutation({
       organizationId: media.organizationId,
     });
 
-    // Delete from storage
-    await ctx.storage.delete(media.storageId);
+    // Delete from storage (only for files, not Layer Cake documents)
+    if (media.storageId) {
+      await ctx.storage.delete(media.storageId);
+    }
 
     // Delete metadata
     await ctx.db.delete(mediaId);
@@ -355,5 +365,252 @@ export const incrementUsage = mutation({
       usageCount: (media.usageCount || 0) + 1,
       lastUsedAt: Date.now(),
     });
+  },
+});
+
+/**
+ * Star/favorite a media item
+ * Requires: media_library.edit permission
+ */
+export const starMedia = mutation({
+  args: {
+    sessionId: v.string(),
+    mediaId: v.id("organizationMedia"),
+  },
+  handler: async (ctx, { sessionId, mediaId }) => {
+    // Get media
+    const media = await ctx.db.get(mediaId);
+    if (!media) {
+      throw new Error("Media not found");
+    }
+
+    // RBAC check
+    const { userId } = await requireAuthenticatedUser(ctx, sessionId);
+    await requirePermission(ctx, userId, "media_library.edit", {
+      organizationId: media.organizationId,
+    });
+
+    // Star the media
+    await ctx.db.patch(mediaId, {
+      isStarred: true,
+      starredAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Unstar/unfavorite a media item
+ * Requires: media_library.edit permission
+ */
+export const unstarMedia = mutation({
+  args: {
+    sessionId: v.string(),
+    mediaId: v.id("organizationMedia"),
+  },
+  handler: async (ctx, { sessionId, mediaId }) => {
+    // Get media
+    const media = await ctx.db.get(mediaId);
+    if (!media) {
+      throw new Error("Media not found");
+    }
+
+    // RBAC check
+    const { userId } = await requireAuthenticatedUser(ctx, sessionId);
+    await requirePermission(ctx, userId, "media_library.edit", {
+      organizationId: media.organizationId,
+    });
+
+    // Unstar the media
+    await ctx.db.patch(mediaId, {
+      isStarred: false,
+      starredAt: undefined,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Rename a media item
+ * Requires: media_library.edit permission
+ */
+export const renameMedia = mutation({
+  args: {
+    sessionId: v.string(),
+    mediaId: v.id("organizationMedia"),
+    newFilename: v.string(),
+  },
+  handler: async (ctx, { sessionId, mediaId, newFilename }) => {
+    // Get media
+    const media = await ctx.db.get(mediaId);
+    if (!media) {
+      throw new Error("Media not found");
+    }
+
+    // RBAC check
+    const { userId } = await requireAuthenticatedUser(ctx, sessionId);
+    await requirePermission(ctx, userId, "media_library.edit", {
+      organizationId: media.organizationId,
+    });
+
+    // Rename the media
+    await ctx.db.patch(mediaId, {
+      filename: newFilename,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Move media item to a folder
+ * Requires: media_library.edit permission
+ */
+export const moveMediaToFolder = mutation({
+  args: {
+    sessionId: v.string(),
+    mediaId: v.id("organizationMedia"),
+    folderId: v.optional(v.string()), // null = move to root
+  },
+  handler: async (ctx, { sessionId, mediaId, folderId }) => {
+    // Get media
+    const media = await ctx.db.get(mediaId);
+    if (!media) {
+      throw new Error("Media not found");
+    }
+
+    // RBAC check
+    const { userId } = await requireAuthenticatedUser(ctx, sessionId);
+    await requirePermission(ctx, userId, "media_library.edit", {
+      organizationId: media.organizationId,
+    });
+
+    // Validate folder exists if specified
+    if (folderId) {
+      const folder = await ctx.db
+        .query("objects")
+        .withIndex("by_org_type", (q) =>
+          q.eq("organizationId", media.organizationId).eq("type", "media_folder")
+        )
+        .filter((q) => q.eq(q.field("_id"), folderId as any))
+        .first();
+
+      if (!folder) {
+        throw new Error("Folder not found");
+      }
+    }
+
+    // Move the media
+    await ctx.db.patch(mediaId, {
+      folderId,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Create a Layer Cake Document (native markdown document)
+ * Requires: media_library.upload permission
+ */
+export const createLayerCakeDocument = mutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    filename: v.string(),
+    documentContent: v.string(), // Markdown content
+    folderId: v.optional(v.string()),
+    description: v.optional(v.string()),
+    tags: v.optional(v.array(v.string())),
+  },
+  handler: async (ctx, args) => {
+    // RBAC check
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    await requirePermission(ctx, userId, "media_library.upload", {
+      organizationId: args.organizationId,
+    });
+
+    // Calculate size in bytes (approximate)
+    const sizeBytes = new Blob([args.documentContent]).size;
+
+    // Check storage quota
+    const usage = await calculateStorageUsage(ctx, args.organizationId);
+    if (usage.totalBytes + sizeBytes > usage.quotaBytes) {
+      throw new Error(
+        `Storage quota exceeded. Using ${usage.totalMB}MB of ${usage.quotaMB}MB.`
+      );
+    }
+
+    // Create Layer Cake document
+    const docId = await ctx.db.insert("organizationMedia", {
+      organizationId: args.organizationId,
+      uploadedBy: userId,
+      folderId: args.folderId,
+      itemType: "layercake_document",
+      documentContent: args.documentContent,
+      filename: args.filename.endsWith(".md") ? args.filename : `${args.filename}.md`,
+      mimeType: "text/markdown",
+      sizeBytes,
+      category: "general",
+      description: args.description,
+      tags: args.tags,
+      usageCount: 0,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    return {
+      docId,
+      success: true,
+    };
+  },
+});
+
+/**
+ * Update Layer Cake Document content
+ * Requires: media_library.edit permission
+ */
+export const updateLayerCakeDocument = mutation({
+  args: {
+    sessionId: v.string(),
+    mediaId: v.id("organizationMedia"),
+    documentContent: v.string(),
+    filename: v.optional(v.string()),
+  },
+  handler: async (ctx, { sessionId, mediaId, documentContent, filename }) => {
+    // Get document
+    const doc = await ctx.db.get(mediaId);
+    if (!doc) {
+      throw new Error("Document not found");
+    }
+
+    if (doc.itemType !== "layercake_document") {
+      throw new Error("This is not a Layer Cake document");
+    }
+
+    // RBAC check
+    const { userId } = await requireAuthenticatedUser(ctx, sessionId);
+    await requirePermission(ctx, userId, "media_library.edit", {
+      organizationId: doc.organizationId,
+    });
+
+    // Calculate new size
+    const sizeBytes = new Blob([documentContent]).size;
+
+    // Update document
+    await ctx.db.patch(mediaId, {
+      documentContent,
+      filename: filename ?? doc.filename,
+      sizeBytes,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
   },
 });

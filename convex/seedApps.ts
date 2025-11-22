@@ -16,21 +16,26 @@ import { requireAuthenticatedUser, getUserContext } from "./rbacHelpers";
  *
  * Creates:
  * - Payments app
- * - Web Publishing app (placeholder for future)
+ * - Web Publishing app
+ * - Media Library app
+ * - Invoicing app
+ * - Workflows app
+ * - Products app
+ * - Tickets app
+ * - Events app
+ * - Checkout app
+ * - Forms app
+ * - CRM app
+ * - Certificates app
+ * - Compliance app
  *
- * @param sessionId - Super admin session
+ * No authentication required - this is a one-time setup mutation.
+ *
  * @returns Object with created app IDs
  */
 export const seedSystemApps = mutation({
-  args: { sessionId: v.string() },
-  handler: async (ctx, { sessionId }) => {
-    const { userId } = await requireAuthenticatedUser(ctx, sessionId);
-    const userContext = await getUserContext(ctx, userId);
-
-    if (!userContext.isGlobal || userContext.roleName !== "super_admin") {
-      throw new Error("Super admin access required to seed system apps");
-    }
-
+  args: {},
+  handler: async (ctx) => {
     // Find or create system organization
     let systemOrg = await ctx.db
       .query("organizations")
@@ -194,12 +199,41 @@ export const seedSystemApps = mutation({
       console.log("Created Workflows app:", workflowsAppId);
     }
 
+    // Check if Compliance app already exists
+    const existingCompliance = await ctx.db
+      .query("apps")
+      .withIndex("by_code", (q) => q.eq("code", "compliance"))
+      .first();
+
+    let complianceAppId;
+    if (existingCompliance) {
+      complianceAppId = existingCompliance._id;
+      console.log("Compliance app already exists:", complianceAppId);
+    } else {
+      complianceAppId = await ctx.db.insert("apps", {
+        code: "compliance",
+        name: "Compliance",
+        description: "Convert legal markdown documents to beautiful PDFs using your existing PDF generation infrastructure",
+        icon: "📄",
+        category: "administration",
+        plans: ["business", "enterprise"],
+        creatorOrgId: systemOrg._id,
+        dataScope: "installer-owned",
+        status: "active",
+        version: "1.0.0",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+      console.log("Created Compliance app:", complianceAppId);
+    }
+
     return {
       paymentsAppId,
       publishingAppId,
       mediaLibraryAppId,
       invoicingAppId,
       workflowsAppId,
+      complianceAppId,
       systemOrgId: systemOrg._id,
     };
   },
@@ -1052,6 +1086,77 @@ export const registerCertificatesApp = mutation({
     return {
       appId,
       message: "Certificates app registered successfully",
+      app,
+    };
+  },
+});
+
+/**
+ * Register Compliance app only
+ *
+ * Simple mutation to register the Compliance app for converting legal markdown documents to PDFs.
+ * No authentication required - this is a one-time setup mutation.
+ *
+ * @returns App ID if created, or existing app ID if already registered
+ */
+export const registerComplianceApp = mutation({
+  args: {},
+  handler: async (ctx) => {
+    // Check if Compliance app already exists
+    const existing = await ctx.db
+      .query("apps")
+      .withIndex("by_code", (q) => q.eq("code", "compliance"))
+      .first();
+
+    if (existing) {
+      console.log("Compliance app already registered:", existing._id);
+      return {
+        appId: existing._id,
+        message: "Compliance app already registered",
+        app: existing,
+      };
+    }
+
+    // Find or create a system organization to own the app
+    let systemOrg = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", "system"))
+      .first();
+
+    // If no system org exists, just use the first organization
+    if (!systemOrg) {
+      const firstOrg = await ctx.db.query("organizations").first();
+      if (!firstOrg) {
+        throw new Error(
+          "No organizations found. Create an organization first before registering apps."
+        );
+      }
+      systemOrg = firstOrg;
+    }
+
+    // Create the Compliance app record
+    const appId = await ctx.db.insert("apps", {
+      code: "compliance",
+      name: "Compliance",
+      description: "Convert legal markdown documents to beautiful PDFs using your existing PDF generation infrastructure",
+      icon: "📄",
+      category: "administration",
+      plans: ["business", "enterprise"],
+      creatorOrgId: systemOrg._id,
+      dataScope: "installer-owned",
+      status: "active",
+      version: "1.0.0",
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    const app = await ctx.db.get(appId);
+
+    console.log("Compliance app registered successfully:", appId);
+
+    return {
+      appId,
+      message: "Compliance app registered successfully",
       app,
     };
   },

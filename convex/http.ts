@@ -11,7 +11,7 @@
  */
 
 import { httpRouter } from "convex/server";
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { httpAction } from "./_generated/server";
 import { getProviderByCode } from "./paymentProviders";
 import { getCorsHeaders, handleOptionsRequest } from "./api/v1/corsHeaders";
@@ -270,6 +270,14 @@ import {
   getContact,
 } from "./api/v1/crm";
 import { createBooking } from "./api/v1/bookings";
+import {
+  getCurrentUser,
+  getCompleteProfile,
+  getTransactions,
+  getTickets,
+  getEvents as getUserEvents,
+  updateCurrentUser,
+} from "./api/v1/users";
 
 /**
  * Layer 1: READ APIs (Before Checkout)
@@ -572,7 +580,57 @@ http.route({
 });
 
 /**
- * Layer 6: BOOKINGS API (Event Registration)
+ * Layer 6: USER PROFILE APIs (Session-Based Authentication)
+ *
+ * These endpoints allow logged-in users to access their own data.
+ * Authentication: Session-based (NOT API key)
+ * Users can ONLY access their own data.
+ */
+
+// GET /api/v1/users/me - Get current user profile
+http.route({
+  path: "/api/v1/users/me",
+  method: "GET",
+  handler: getCurrentUser,
+});
+
+// GET /api/v1/users/me/profile-complete - Get complete user profile with activity
+http.route({
+  path: "/api/v1/users/me/profile-complete",
+  method: "GET",
+  handler: getCompleteProfile,
+});
+
+// GET /api/v1/users/me/transactions - Get user's transactions
+http.route({
+  path: "/api/v1/users/me/transactions",
+  method: "GET",
+  handler: getTransactions,
+});
+
+// GET /api/v1/users/me/tickets - Get user's event tickets
+http.route({
+  path: "/api/v1/users/me/tickets",
+  method: "GET",
+  handler: getTickets,
+});
+
+// GET /api/v1/users/me/events - Get user's registered events
+http.route({
+  path: "/api/v1/users/me/events",
+  method: "GET",
+  handler: getUserEvents,
+});
+
+// PATCH /api/v1/users/me - Update user profile
+http.route({
+  path: "/api/v1/users/me",
+  method: "PATCH",
+  handler: updateCurrentUser,
+});
+
+/**
+ * Layer 7: BOOKINGS API (Event Registration)
  */
 
 // OPTIONS /api/v1/bookings/create - CORS preflight
@@ -594,6 +652,91 @@ http.route({
   path: "/api/v1/bookings/create",
   method: "POST",
   handler: createBooking,
+});
+
+/**
+ * Layer 8: EXTERNAL FRONTEND CONTENT API
+ *
+ * Public API for external Next.js frontends to fetch CMS-configured content
+ */
+
+// OPTIONS /api/v1/published-content - CORS preflight
+http.route({
+  path: "/api/v1/published-content",
+  method: "OPTIONS",
+  handler: httpAction(async (ctx, request) => {
+    const origin = request.headers.get("origin");
+    return handleOptionsRequest(origin);
+  }),
+});
+
+// GET /api/v1/published-content?org=vc83&page=/events
+http.route({
+  path: "/api/v1/published-content",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const url = new URL(request.url);
+    const orgSlug = url.searchParams.get("org");
+    const pageSlug = url.searchParams.get("page");
+
+    console.log("🌐 [GET /api/v1/published-content] Query params:", { orgSlug, pageSlug });
+
+    // Validate parameters
+    if (!orgSlug || !pageSlug) {
+      return new Response(
+        JSON.stringify({
+          error: "Missing required parameters: org and page"
+        }),
+        {
+          status: 400,
+          headers: {
+            "Content-Type": "application/json",
+            ...getCorsHeaders(request.headers.get("origin")),
+          },
+        }
+      );
+    }
+
+    // Fetch content using the publishing ontology query
+    const content = await ctx.runQuery(api.publishingOntology.getPublishedContentForFrontend, {
+      orgSlug,
+      pageSlug,
+    });
+
+    if (!content) {
+      return new Response(
+        JSON.stringify({
+          error: "Published page not found"
+        }),
+        {
+          status: 404,
+          headers: {
+            "Content-Type": "application/json",
+            ...getCorsHeaders(request.headers.get("origin")),
+          },
+        }
+      );
+    }
+
+    console.log("✅ [GET /api/v1/published-content] Content found:", {
+      page: content.page.name,
+      events: content.events.length,
+      checkout: content.checkout ? "loaded" : "none",
+      forms: content.forms.length,
+    });
+
+    // Return content
+    return new Response(
+      JSON.stringify(content),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          ...getCorsHeaders(request.headers.get("origin")),
+        },
+      }
+    );
+  }),
 });
 
 export default http;

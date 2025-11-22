@@ -18,10 +18,10 @@ import { TemplateContentSchema, FieldType } from "../../schema-types";
  */
 export interface LandingPageContent {
   hero: {
-    headline: string;
-    subheadline: string;
-    ctaText: string;
-    ctaUrl: string;
+    headline?: string;
+    subheadline?: string;
+    ctaText?: string;
+    ctaUrl?: string;
     backgroundImage?: string;
   };
   features: Array<{
@@ -121,13 +121,13 @@ export const landingPageSchema: TemplateContentSchema<LandingPageContent> = {
     {
       id: "hero",
       label: "Hero Section",
-      description: "The first thing visitors see",
+      description: "The first thing visitors see (all fields optional)",
       fields: [
         {
           id: "hero.headline",
           label: "Headline",
           type: FieldType.Text,
-          required: true,
+          required: false,
           placeholder: "Transform Your Business Today",
           helpText: "Main headline - keep it punchy and benefit-focused",
           maxLength: 100,
@@ -136,7 +136,7 @@ export const landingPageSchema: TemplateContentSchema<LandingPageContent> = {
           id: "hero.subheadline",
           label: "Subheadline",
           type: FieldType.Textarea,
-          required: true,
+          required: false,
           placeholder: "The all-in-one platform for modern teams",
           helpText: "Supporting text that explains your value proposition",
           maxLength: 200,
@@ -146,7 +146,7 @@ export const landingPageSchema: TemplateContentSchema<LandingPageContent> = {
           id: "hero.ctaText",
           label: "Call to Action Button Text",
           type: FieldType.Text,
-          required: true,
+          required: false,
           placeholder: "Get Started Free",
           maxLength: 30,
         },
@@ -154,7 +154,7 @@ export const landingPageSchema: TemplateContentSchema<LandingPageContent> = {
           id: "hero.ctaUrl",
           label: "Call to Action URL",
           type: FieldType.Url,
-          required: true,
+          required: false,
           placeholder: "/signup",
           helpText: "Where the button should link to",
         },

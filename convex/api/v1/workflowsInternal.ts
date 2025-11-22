@@ -160,6 +160,8 @@ export const executeWorkflowInternal = internalAction({
       let transactionId = null;
       let ticketId = null;
       let invoiceId = null;
+      let frontendUserId = null; // For user-registration workflow
+      let contactId = null; // For user-registration workflow (CRM contact)
 
       for (const behaviorResult of result.results) {
         if (behaviorResult.data) {
@@ -167,6 +169,8 @@ export const executeWorkflowInternal = internalAction({
           if (data.transactionId) transactionId = data.transactionId;
           if (data.ticketId) ticketId = data.ticketId;
           if (data.invoiceId) invoiceId = data.invoiceId;
+          if (data.frontendUserId) frontendUserId = data.frontendUserId; // From create-contact behavior
+          if (data.contactId) contactId = data.contactId; // From create-contact behavior
         }
       }
 
@@ -176,6 +180,8 @@ export const executeWorkflowInternal = internalAction({
         transactionId,
         ticketId,
         invoiceId,
+        frontendUserId, // Frontend team needs this
+        crmContactId: contactId, // Frontend team needs this (renamed for clarity)
         message: "Workflow executed successfully",
         behaviors: result.results,
         executedCount: result.executedCount,

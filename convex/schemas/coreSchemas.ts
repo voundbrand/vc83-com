@@ -127,12 +127,71 @@ export const userPasswords = defineTable({
   .index("by_user", ["userId"]);
 
 export const sessions = defineTable({
-  userId: v.id("users"),
+  userId: v.id("users"), // Platform staff user (REQUIRED)
   email: v.string(),
+  organizationId: v.id("organizations"), // Which org context this session belongs to (REQUIRED for security)
   createdAt: v.number(),
   expiresAt: v.number(),
 })
-  .index("by_user", ["userId"]);
+  .index("by_user", ["userId"])
+  .index("by_user_org", ["userId", "organizationId"]) // Find user's session in specific org
+  .index("by_email_org", ["email", "organizationId"]); // Fast lookup by email within org context
+
+// Frontend customer sessions (separate table for clean separation)
+export const frontendSessions = defineTable({
+  frontendUserId: v.id("objects"), // Frontend customer user (REQUIRED)
+  email: v.string(),
+  organizationId: v.id("organizations"), // Customer's organization (from API key)
+  createdAt: v.number(),
+  expiresAt: v.number(),
+})
+  .index("by_frontend_user", ["frontendUserId"])
+  .index("by_email_org", ["email", "organizationId"]); // Fast lookup by email within org context
+
+// Passkeys (WebAuthn) - Multi-factor authentication
+export const passkeys = defineTable({
+  userId: v.id("users"),
+
+  // WebAuthn credential data
+  credentialId: v.string(),           // Base64URL encoded credential ID (unique per device)
+  publicKey: v.string(),              // Base64URL encoded public key
+  counter: v.number(),                // Signature counter for replay attack prevention
+
+  // Device metadata
+  deviceName: v.string(),             // User-friendly name ("iPhone 15 Pro", "MacBook Air")
+  deviceType: v.optional(v.string()), // "platform" (Face ID/Touch ID) or "cross-platform" (security key)
+
+  // Authenticator metadata (from WebAuthn)
+  aaguid: v.optional(v.string()),     // Authenticator Attestation GUID
+  transports: v.optional(v.array(v.string())), // ["internal", "usb", "nfc", "ble"]
+
+  // Security
+  backupEligible: v.optional(v.boolean()),  // Can credential be backed up (iCloud Keychain)
+  backupState: v.optional(v.boolean()),     // Is credential currently backed up
+
+  // Status
+  isActive: v.boolean(),
+  lastUsedAt: v.optional(v.number()),
+
+  // Metadata
+  createdAt: v.number(),
+  revokedAt: v.optional(v.number()),
+})
+  .index("by_user", ["userId"])
+  .index("by_credential", ["credentialId"])
+  .index("by_user_active", ["userId", "isActive"]);
+
+// Passkey Challenges - Temporary storage for WebAuthn challenges
+export const passkeysChallenges = defineTable({
+  userId: v.id("users"),
+  challenge: v.string(),              // WebAuthn challenge string
+  type: v.union(v.literal("registration"), v.literal("authentication")), // Challenge type
+  deviceName: v.optional(v.string()), // For registration challenges only
+  createdAt: v.number(),
+  expiresAt: v.number(),              // Auto-expire after 5 minutes
+})
+  .index("by_user_type", ["userId", "type"])
+  .index("by_expiry", ["expiresAt"]);
 
 // API Keys - Enterprise API authentication
 export const apiKeys = defineTable({
@@ -231,8 +290,20 @@ export const organizationMedia = defineTable({
   organizationId: v.id("organizations"),
   uploadedBy: v.id("users"),
 
-  // Convex Storage
-  storageId: v.id("_storage"), // Convex file storage ID
+  // Folder organization (links to ontology media_folder objects)
+  folderId: v.optional(v.string()), // ID of media_folder object in ontology (null = root level)
+
+  // Item type
+  itemType: v.optional(v.union(
+    v.literal("file"),              // Regular file (image, PDF, etc.) - default
+    v.literal("layercake_document") // Native Layer Cake document with markdown
+  )),
+
+  // Convex Storage (for files only)
+  storageId: v.optional(v.id("_storage")), // Convex file storage ID (null for Layer Cake docs)
+
+  // Layer Cake Document content (for layercake_document itemType only)
+  documentContent: v.optional(v.string()), // Markdown content
 
   // File metadata
   filename: v.string(),
@@ -249,13 +320,18 @@ export const organizationMedia = defineTable({
 
   // Organization & categorization
   category: v.optional(v.union(
-    v.literal("template"), // Used in web templates
-    v.literal("logo"),     // Organization logo
-    v.literal("avatar"),   // User avatars
-    v.literal("general")   // General media
+    v.literal("template"),   // Used in web templates
+    v.literal("logo"),       // Organization logo
+    v.literal("avatar"),     // User avatars
+    v.literal("compliance"), // Compliance PDFs
+    v.literal("general")     // General media
   )),
   tags: v.optional(v.array(v.string())), // For searching
   description: v.optional(v.string()),
+
+  // Starring/favoriting
+  isStarred: v.optional(v.boolean()),
+  starredAt: v.optional(v.number()),
 
   // Metadata
   createdAt: v.number(),
@@ -264,7 +340,10 @@ export const organizationMedia = defineTable({
   .index("by_organization", ["organizationId"])
   .index("by_organization_and_category", ["organizationId", "category"])
   .index("by_storage_id", ["storageId"])
-  .index("by_uploaded_by", ["uploadedBy"]);
+  .index("by_uploaded_by", ["uploadedBy"])
+  .index("by_folder", ["folderId"])
+  .index("by_organization_and_folder", ["organizationId", "folderId"])
+  .index("by_organization_and_starred", ["organizationId", "isStarred"]);
 
 // OAuth Connections - User and organization OAuth account linking
 export const oauthConnections = defineTable({

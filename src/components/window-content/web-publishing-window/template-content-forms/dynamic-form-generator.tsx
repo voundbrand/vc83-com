@@ -314,6 +314,9 @@ function TextInput({
   value: string;
   onChange: (value: string) => void;
 }) {
+  // For optional URL fields, use text type to avoid HTML5 validation issues
+  const inputType = field.type === FieldType.Url && !field.required ? 'text' : field.type;
+
   return (
     <div>
       <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
@@ -321,7 +324,7 @@ function TextInput({
         {field.required && <span className="ml-1" style={{ color: 'var(--error)' }}>*</span>}
       </label>
       <input
-        type={field.type}
+        type={inputType}
         value={value || ""}
         onChange={(e) => onChange(e.target.value)}
         placeholder={field.placeholder}
@@ -652,7 +655,7 @@ function ImageInput({
       <MediaLibraryWindow
         selectionMode={true}
         onSelect={(media) => {
-          onChange(media.url);
+          onChange(media.url || '');
         }}
       />,
       { x: 240, y: 160 },

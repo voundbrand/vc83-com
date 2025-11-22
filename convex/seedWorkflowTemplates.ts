@@ -370,6 +370,52 @@ export const seedWorkflowTemplates = mutation({
           errorHandling: "continue",
         },
       },
+      {
+        code: "user-registration",
+        name: "Direct User Registration",
+        description:
+          "Handles direct user registration from frontend registration form. Creates frontend_user and CRM contact, links them together, and optionally sends welcome email.",
+        category: "registration",
+        subtype: "user-onboarding",
+        icon: "👤",
+        objects: [
+          {
+            objectType: "form",
+            role: "input-source",
+            description: "Registration form collecting user data",
+            required: false,
+          },
+        ],
+        behaviors: [
+          {
+            type: "create-contact",
+            enabled: true,
+            priority: 100,
+            description: "Creates CRM contact and frontend_user account, links them together",
+            config: {
+              upsertByEmail: true,
+              createFrontendUser: true,
+              linkToFrontendUser: true,
+            },
+          },
+          {
+            type: "send-welcome-email",
+            enabled: false,
+            priority: 90,
+            description: "Sends welcome email to new user (optional)",
+            config: {
+              templateId: "welcome_email",
+              includeActivationLink: false,
+            },
+          },
+        ],
+        execution: {
+          triggerOn: "user_registration",
+          requiredInputs: ["email", "firstName", "lastName"],
+          outputActions: ["create_frontend_user", "create_crm_contact"],
+          errorHandling: "rollback",
+        },
+      },
     ];
 
     let createdCount = 0;

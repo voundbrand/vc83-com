@@ -128,7 +128,7 @@ export const createPurchaseItemInternal = internalMutation({
     crmOrganizationId: v.optional(v.id("objects")),
     fulfillmentType: v.string(),
     registrationData: v.optional(v.any()),
-    userId: v.optional(v.id("users")),
+    userId: v.optional(v.union(v.id("users"), v.id("objects"))), // Platform user or frontend_user
   },
   handler: async (ctx, args) => {
     const product = await ctx.db.get(args.productId);
@@ -296,7 +296,7 @@ export const updateFulfillmentStatusInternal = internalMutation({
     fulfillmentStatus: v.string(),
     fulfillmentData: v.optional(v.any()),
     fulfilledAt: v.optional(v.number()),
-    userId: v.optional(v.id("users")),
+    userId: v.optional(v.union(v.id("users"), v.id("objects"))), // Platform user or frontend_user
   },
   handler: async (ctx, args) => {
     const purchaseItem = await ctx.db.get(args.purchaseItemId);

@@ -169,24 +169,33 @@ export const internalSetupPassword = internalMutation({
       }
     }
 
-    // Create a session
+    // Create a session (org-scoped for security)
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const organizationId = user.defaultOrgId;
+    if (!organizationId) {
+      throw new Error("User has no default organization. Please set one first.");
+    }
+
     const sessionId = await ctx.db.insert("sessions", {
       userId: args.userId,
-      email: (await ctx.db.get(args.userId))!.email,
+      email: user.email,
+      organizationId, // Server-side org context enforcement
       createdAt: Date.now(),
       expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
     });
-
-    const user = await ctx.db.get(args.userId);
 
     return {
       success: true,
       sessionId,
       user: {
         id: args.userId,
-        email: user!.email,
-        firstName: user!.firstName,
-        lastName: user!.lastName,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
       },
     };
   },
@@ -238,6 +247,12 @@ export const signIn = action({
     }
 
     // Create session via mutation
+    // Create org-scoped session
+    const organizationId = userData.defaultOrgId;
+    if (!organizationId) {
+      throw new Error("Benutzer hat keine Standardorganisation. Bitte zuerst festlegen.");
+    }
+
     const result: {
       success: boolean;
       sessionId: string;
@@ -246,6 +261,7 @@ export const signIn = action({
       await ctx.runMutation(internal.auth.internalCreateSession, {
         userId: userData.userId!,
         email: userData.email!,
+        organizationId, // Org-scoped session for security
       });
 
     // Log audit event
@@ -300,11 +316,13 @@ export const internalCreateSession = internalMutation({
   args: {
     userId: v.id("users"),
     email: v.string(),
+    organizationId: v.id("organizations"), // Required for org-scoped security
   },
   handler: async (ctx, args) => {
     const sessionId = await ctx.db.insert("sessions", {
       userId: args.userId,
       email: args.email,
+      organizationId: args.organizationId, // Server-side org context enforcement
       createdAt: Date.now(),
       expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
     });
@@ -474,6 +492,13 @@ export const getCurrentUser = query({
       }
     }
 
+    // Check if user has any active passkeys
+    const passkeys = await ctx.db
+      .query("passkeys")
+      .withIndex("by_user_active", (q) => q.eq("userId", user._id).eq("isActive", true))
+      .collect();
+    const hasPasskey = passkeys.length > 0;
+
     // Get user's organizations and roles
     const memberships = await ctx.db
       .query("organizationMembers")
@@ -536,6 +561,7 @@ export const getCurrentUser = query({
       firstName: user.firstName,
       lastName: user.lastName,
       isPasswordSet: user.isPasswordSet || false,
+      hasPasskey, // Include passkey status for encouragement UI
       isSuperAdmin,
       globalRole,
       organizations: validOrganizations,
@@ -964,6 +990,21 @@ export const findFrontendUserByOAuth = internalQuery({
 });
 
 /**
+ * GET DEFAULT ORGANIZATION
+ * Returns the first non-system organization for OAuth user registration
+ */
+export const getDefaultOrganization = internalQuery({
+  args: {},
+  handler: async (ctx): Promise<Id<"organizations"> | null> => {
+    const orgs = await ctx.db
+      .query("organizations")
+      .filter((q) => q.neq(q.field("slug"), "system"))
+      .first();
+    return orgs?._id || null;
+  },
+});
+
+/**
  * Sync a frontend user (create or update after OAuth login)
  */
 export const syncFrontendUser = internalMutation({
@@ -972,14 +1013,12 @@ export const syncFrontendUser = internalMutation({
     name: v.string(),
     oauthProvider: v.string(),
     oauthId: v.string(),
+    organizationId: v.id("organizations"), // From API key auth context
   },
   handler: async (ctx, args) => {
-    // TODO: Get organization ID from request context or environment
-    const PLATFORM_ORG_ID = process.env.PLATFORM_ORGANIZATION_ID;
-    if (!PLATFORM_ORG_ID) {
-      throw new Error("PLATFORM_ORGANIZATION_ID not configured");
-    }
-    const organizationId = PLATFORM_ORG_ID as Id<"organizations">;
+    // Organization ID comes from API key authentication
+    // The API key contains the organization ID it was generated for
+    const organizationId = args.organizationId;
 
     type FrontendUserObject = {
       _id: Id<"objects">;

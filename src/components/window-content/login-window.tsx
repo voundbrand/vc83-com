@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Smartphone } from "lucide-react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+import { startAuthentication } from "@simplewebauthn/browser";
+import { PasskeyEncouragementBanner } from "@/components/passkey-encouragement-banner";
+import { FirstLoginPasskeyModal } from "@/components/first-login-passkey-modal";
 
 export function LoginWindow() {
   const [mode, setMode] = useState<"check" | "signin" | "setup">("check");
@@ -18,8 +21,11 @@ export function LoginWindow() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordMatch, setPasswordMatch] = useState<boolean | null>(null);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
+  const [showFirstLoginModal, setShowFirstLoginModal] = useState(false);
+  const [isFirstLogin, setIsFirstLogin] = useState(false);
 
-  const { user, isSignedIn, signIn, setupPassword, checkNeedsPasswordSetup, signOut } = useAuth();
+  const { user, isSignedIn, signIn, setupPassword, checkNeedsPasswordSetup, signOut, sessionId } = useAuth();
   const { t } = useNamespaceTranslations("ui.login");
 
   const handleCheckEmail = async () => {
@@ -104,6 +110,9 @@ export function LoginWindow() {
 
     try {
       await setupPassword(email, password, firstName || undefined, lastName || undefined);
+      // Mark as first login to show passkey setup modal
+      setIsFirstLogin(true);
+      setShowFirstLoginModal(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('ui.login.error_generic'));
     } finally {
@@ -111,9 +120,93 @@ export function LoginWindow() {
     }
   };
 
+  const handlePasskeyLogin = async () => {
+    setError("");
+    setPasskeyLoading(true);
+
+    try {
+      // Step 1: Get authentication challenge from server
+      const challengeResponse = await fetch("/api/passkeys/authenticate/challenge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      if (!challengeResponse.ok) {
+        const errorData = await challengeResponse.json();
+        throw new Error(errorData.error || "Failed to start passkey authentication");
+      }
+
+      const options = await challengeResponse.json();
+
+      // Step 2: Prompt user for biometric authentication
+      let authResponse;
+      try {
+        authResponse = await startAuthentication(options);
+      } catch (webAuthnError) {
+        // User cancelled or biometric failed
+        if (webAuthnError instanceof Error && webAuthnError.name === "NotAllowedError") {
+          throw new Error("Authentication was cancelled");
+        }
+        throw new Error("Biometric authentication failed. Please try again or use your password.");
+      }
+
+      // Step 3: Verify authentication with server
+      const verifyResponse = await fetch("/api/passkeys/authenticate/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          response: authResponse,
+        }),
+      });
+
+      if (!verifyResponse.ok) {
+        const errorData = await verifyResponse.json();
+        throw new Error(errorData.error || "Authentication verification failed");
+      }
+
+      const result = await verifyResponse.json();
+
+      if (result.success && result.sessionId) {
+        // Store the session ID directly (passkey creates a valid session)
+        localStorage.setItem("convex_session_id", result.sessionId);
+        // Reload the page to trigger auth context update
+        window.location.reload();
+      } else {
+        throw new Error("Authentication failed");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Passkey authentication failed");
+    } finally {
+      setPasskeyLoading(false);
+    }
+  };
+
   if (isSignedIn && user) {
     return (
       <div className="h-full flex flex-col p-6 retro-bg">
+        {/* Show passkey encouragement banner if user doesn't have passkey */}
+        {!user.hasPasskey && sessionId && !isFirstLogin && (
+          <PasskeyEncouragementBanner sessionId={sessionId} />
+        )}
+
+        {/* First login modal for passkey setup */}
+        {showFirstLoginModal && sessionId && (
+          <FirstLoginPasskeyModal
+            sessionId={sessionId}
+            userName={user.firstName || undefined}
+            onClose={() => {
+              setShowFirstLoginModal(false);
+              setIsFirstLogin(false);
+            }}
+            onPasskeySetup={() => {
+              setShowFirstLoginModal(false);
+              setIsFirstLogin(false);
+            }}
+          />
+        )}
+
         <div className="flex-1 flex flex-col items-center justify-center space-y-6">
           <div className="text-center space-y-2">
             <div className="text-6xl mb-4">👤</div>
@@ -389,7 +482,7 @@ export function LoginWindow() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || passkeyLoading}
               className="w-full retro-button py-2"
             >
               <span className="font-pixel text-xs">
@@ -397,6 +490,30 @@ export function LoginWindow() {
               </span>
             </button>
           </form>
+
+          {/* Passkey Login Option */}
+          <div className="mt-4">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t" style={{ borderColor: 'var(--win95-border)' }}></div>
+              </div>
+              <div className="relative flex justify-center text-xs">
+                <span className="px-2 retro-bg retro-text-secondary">or</span>
+              </div>
+            </div>
+
+            <button
+              onClick={handlePasskeyLogin}
+              disabled={loading || passkeyLoading}
+              className="w-full retro-button py-2 mt-4"
+              style={{ background: 'var(--info)' }}
+            >
+              <span className="font-pixel text-xs flex items-center justify-center gap-2">
+                <Smartphone size={14} />
+                {passkeyLoading ? "Authenticating..." : "Sign in with Face ID / Touch ID"}
+              </span>
+            </button>
+          </div>
 
           <button
             onClick={() => {

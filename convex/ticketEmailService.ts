@@ -25,10 +25,13 @@ export const sendTicketConfirmationEmail = action({
     ticketId: v.id("objects"),
     domainConfigId: v.optional(v.id("objects")), // Optional: if not provided, uses system defaults
     emailTemplateId: v.optional(v.id("objects")), // Optional: custom email template to use
+    ticketPdfTemplateId: v.optional(v.id("objects")), // Optional: custom PDF ticket template to use
     isTest: v.optional(v.boolean()), // If true, sends to test email
     testRecipient: v.optional(v.string()),
     language: v.optional(v.union(v.literal("de"), v.literal("en"), v.literal("es"), v.literal("fr"))),
     forceSendVia: v.optional(v.union(v.literal("microsoft"), v.literal("resend"))), // Optional: force specific sender
+    includePdfAttachment: v.optional(v.boolean()), // Optional: include PDF ticket attachment (default: true)
+    includeIcsAttachment: v.optional(v.boolean()), // Optional: include ICS calendar attachment (default: true)
   },
   handler: async (ctx, args): Promise<{
     success: boolean;
@@ -132,63 +135,95 @@ export const sendTicketConfirmationEmail = action({
     // 7. Generate attachments
     const attachments: Array<{ filename: string; content: string; contentType: string }> = [];
 
-    // 7a. Generate PDF ticket
+    // 7a. Generate PDF ticket (if enabled)
     let hasPDF = false;
-    try {
-      const checkoutSessionId = ticketProps.checkoutSessionId;
-      if (checkoutSessionId) {
-        const pdf = await ctx.runAction(api.pdfGeneration.generateTicketPDF, {
-          ticketId: args.ticketId,
-          checkoutSessionId: checkoutSessionId as Id<"objects">,
-        });
+    const shouldIncludePdf = args.includePdfAttachment !== false; // Default to true
+    if (shouldIncludePdf) {
+      try {
+        const checkoutSessionId = ticketProps.checkoutSessionId;
+        if (checkoutSessionId) {
+          // Pass ticketPdfTemplateId to generateTicketPDF if provided
+          const pdfGenerationArgs: {
+            ticketId: Id<"objects">;
+            checkoutSessionId: Id<"objects">;
+            templateCode?: string;
+          } = {
+            ticketId: args.ticketId,
+            checkoutSessionId: checkoutSessionId as Id<"objects">,
+          };
 
-        if (pdf) {
-          attachments.push({
-            filename: `ticket-${ticket.name.replace(/\s+/g, '-')}.pdf`,
-            content: pdf.content, // Already base64 encoded
-            contentType: pdf.contentType,
-          });
-          hasPDF = true;
-          console.log(`✅ Generated PDF attachment for ticket ${args.ticketId}`);
+          // If ticketPdfTemplateId is provided, fetch the template code
+          if (args.ticketPdfTemplateId) {
+            const pdfTemplate = await ctx.runQuery(internal.pdfTemplateQueries.resolvePdfTemplateInternal, {
+              templateId: args.ticketPdfTemplateId,
+            });
+            if (pdfTemplate?.templateCode) {
+              pdfGenerationArgs.templateCode = pdfTemplate.templateCode;
+              console.log(`🎫 Using custom PDF template: ${pdfTemplate.name} (${pdfTemplate.templateCode})`);
+            }
+          }
+
+          const pdf = await ctx.runAction(api.pdfGeneration.generateTicketPDF, pdfGenerationArgs);
+
+          if (pdf) {
+            attachments.push({
+              filename: `ticket-${ticket.name.replace(/\s+/g, '-')}.pdf`,
+              content: pdf.content, // Already base64 encoded
+              contentType: pdf.contentType,
+            });
+            hasPDF = true;
+            console.log(`✅ Generated PDF attachment for ticket ${args.ticketId}`);
+          } else {
+            console.warn(`⚠️ PDF generation returned null for ticket ${args.ticketId}`);
+          }
+        } else {
+          console.warn(`⚠️ No checkoutSessionId found for ticket ${args.ticketId}`);
         }
+      } catch (error) {
+        console.error(`⚠️ Failed to generate PDF for ticket ${args.ticketId}:`, error);
+        // Continue without PDF - email will still send
       }
-    } catch (error) {
-      console.error(`⚠️ Failed to generate PDF for ticket ${args.ticketId}:`, error);
-      // Continue without PDF - email will still send
+    } else {
+      console.log(`ℹ️ PDF attachment disabled by user for ticket ${args.ticketId}`);
     }
 
-    // 7b. Generate ICS calendar file
+    // 7b. Generate ICS calendar file (if enabled)
     let hasICS = false;
-    try {
-      // Ensure date and time are strings
-      const startDate = String(eventProps.startDate || new Date().toISOString().split('T')[0]);
-      const startTime = String(eventProps.startTime || '19:00');
-      const durationHours = Number(eventProps.durationHours || 3);
+    const shouldIncludeIcs = args.includeIcsAttachment !== false; // Default to true
+    if (shouldIncludeIcs) {
+      try {
+        // Ensure date and time are strings
+        const startDate = String(eventProps.startDate || new Date().toISOString().split('T')[0]);
+        const startTime = String(eventProps.startTime || '19:00');
+        const durationHours = Number(eventProps.durationHours || 3);
 
-      // Generate ICS file
-      const icsContent = generateICSFile({
-        eventName: event.name,
-        eventDescription: `You have a confirmed reservation for ${event.name}. This is an exclusive event.`,
-        eventLocation: eventProps.location || 'TBD',
-        startDate,
-        startTime,
-        durationHours,
-        organizerEmail: emailSettings.senderEmail,
-        attendeeEmail,
-        attendeeName: `${attendeeFirstName} ${attendeeLastName}`,
-        url: domainProps.webPublishing?.siteUrl,
-      });
+        // Generate ICS file
+        const icsContent = generateICSFile({
+          eventName: event.name,
+          eventDescription: `You have a confirmed reservation for ${event.name}. This is an exclusive event.`,
+          eventLocation: eventProps.location || 'TBD',
+          startDate,
+          startTime,
+          durationHours,
+          organizerEmail: emailSettings.senderEmail,
+          attendeeEmail,
+          attendeeName: `${attendeeFirstName} ${attendeeLastName}`,
+          url: domainProps.webPublishing?.siteUrl,
+        });
 
-      attachments.push({
-        filename: `${event.name.replace(/\s+/g, '-')}.ics`,
-        content: icsToBase64(icsContent),
-        contentType: 'text/calendar',
-      });
-      hasICS = true;
-      console.log(`✅ Generated ICS attachment for ticket ${args.ticketId}`);
-    } catch (error) {
-      console.error(`⚠️ Failed to generate ICS for ticket ${args.ticketId}:`, error);
-      // Continue without ICS - email will still send
+        attachments.push({
+          filename: `${event.name.replace(/\s+/g, '-')}.ics`,
+          content: icsToBase64(icsContent),
+          contentType: 'text/calendar',
+        });
+        hasICS = true;
+        console.log(`✅ Generated ICS attachment for ticket ${args.ticketId}`);
+      } catch (error) {
+        console.error(`⚠️ Failed to generate ICS for ticket ${args.ticketId}:`, error);
+        // Continue without ICS - email will still send
+      }
+    } else {
+      console.log(`ℹ️ ICS attachment disabled by user for ticket ${args.ticketId}`);
     }
 
     // 8. Generate subject line (from template, add TEST prefix if needed)
@@ -331,6 +366,7 @@ export const previewTicketEmail = action({
     ticketId: v.id("objects"),
     domainConfigId: v.optional(v.id("objects")), // Optional: uses system defaults if not provided
     emailTemplateId: v.optional(v.id("objects")), // Optional: custom email template to use
+    ticketPdfTemplateId: v.optional(v.id("objects")), // Optional: custom PDF ticket template (for preview info only)
     language: v.optional(v.union(v.literal("de"), v.literal("en"), v.literal("es"), v.literal("fr"))),
   },
   handler: async (ctx, args): Promise<{

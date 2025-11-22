@@ -284,7 +284,7 @@ export async function requirePermission(
       const user = await ctx.db.get(userId);
       await ctx.db.insert("auditLogs", {
         userId,
-        organizationId: options?.organizationId || user?.defaultOrgId || ("" as Id<"organizations">),
+        organizationId: options?.organizationId || user?.defaultOrgId,
         action: "permission_denied",
         resource: permission,
         success: false,

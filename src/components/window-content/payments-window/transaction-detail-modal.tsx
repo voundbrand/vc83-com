@@ -121,8 +121,8 @@ export function TransactionDetailModal({
         onClick={onClose}
       >
         <div
-          className="bg-white border-4 max-w-4xl w-full max-h-[90vh] overflow-hidden"
-          style={{ borderColor: "var(--win95-border)" }}
+          className="border-4 max-w-4xl w-full max-h-[90vh] overflow-hidden"
+          style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-center p-12">
@@ -144,8 +144,8 @@ export function TransactionDetailModal({
       onClick={onClose}
     >
       <div
-        className="bg-white border-4 max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
-        style={{ borderColor: "var(--win95-border)" }}
+        className="border-4 max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -169,8 +169,10 @@ export function TransactionDetailModal({
           </div>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-gray-200"
+            className="p-1 transition-colors"
             style={{ color: "var(--win95-text)" }}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--win95-hover-light)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
           >
             <X size={20} />
           </button>
@@ -426,17 +428,29 @@ export function TransactionDetailModal({
 
         {/* Refund Status Alert */}
         {refundError && (
-          <div className="mx-4 mb-4 border-2 border-red-500 bg-red-50 p-3 flex items-start gap-2">
-            <AlertCircle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
+          <div
+            className="mx-4 mb-4 border-2 p-3 flex items-start gap-2"
+            style={{
+              borderColor: "var(--error)",
+              background: "var(--error-light)",
+            }}
+          >
+            <AlertCircle size={16} style={{ color: "var(--error)" }} className="flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <p className="text-xs font-bold text-red-700">Refund Failed</p>
-              <p className="text-xs text-red-600 mt-1">{refundError}</p>
+              <p className="text-xs font-bold" style={{ color: "var(--error)" }}>Refund Failed</p>
+              <p className="text-xs mt-1" style={{ color: "var(--error)" }}>{refundError}</p>
             </div>
           </div>
         )}
         {refundSuccess && (
-          <div className="mx-4 mb-4 border-2 border-green-500 bg-green-50 p-3">
-            <p className="text-xs font-bold text-green-700">
+          <div
+            className="mx-4 mb-4 border-2 p-3"
+            style={{
+              borderColor: "var(--success)",
+              background: "var(--success-light)",
+            }}
+          >
+            <p className="text-xs font-bold" style={{ color: "var(--success)" }}>
               ✓ Refund processed successfully!
             </p>
           </div>

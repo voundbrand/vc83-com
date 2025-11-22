@@ -3,10 +3,13 @@
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
-import { FileText, ExternalLink, Eye, EyeOff, Trash2, Loader2, AlertCircle, Edit } from "lucide-react";
+import { FileText, ExternalLink, Eye, EyeOff, Trash2, Loader2, AlertCircle, Edit, Settings2, Archive } from "lucide-react";
 import { useState } from "react";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+import { ContentRulesModal } from "./content-rules-modal";
+import { useNotification } from "@/hooks/use-notification";
+import { useRetroConfirm } from "@/components/retro-confirm-dialog";
 
 interface PublishedPagesTabProps {
   onEditPage: (page: {
@@ -157,15 +160,20 @@ function PageCard({
   page,
   onEditPage,
 }: {
-  page: { _id: Id<"objects">; name: string; status?: string; customProperties?: { publicUrl?: string; metaTitle?: string; metaDescription?: string; slug?: string; templateCode?: string; themeCode?: string; templateContent?: Record<string, unknown>; viewCount?: number; publishedAt?: number }; template?: { name: string; code?: string } | null };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  page: any;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onEditPage: (page: any) => void;
 }) {
   const { sessionId } = useAuth();
   const { t } = useNamespaceTranslations("ui.web_publishing");
+  const notification = useNotification();
+  const confirmDialog = useRetroConfirm();
   const [isLoading, setIsLoading] = useState(false);
+  const [showContentRules, setShowContentRules] = useState(false);
 
   const publishPage = useMutation(api.publishingOntology.setPublishingStatus);
+  const archivePage = useMutation(api.publishingOntology.archivePublishedPage);
   const deletePage = useMutation(api.publishingOntology.deletePublishedPage);
 
   const publicUrl = page.customProperties?.publicUrl || "";
@@ -183,9 +191,10 @@ function PageCard({
         publishedPageId: page._id,
         status: "published"
       });
+      notification.success("Published", "Page has been published successfully");
     } catch (error) {
       console.error("Failed to publish page:", error);
-      alert(`Failed to publish: ${error instanceof Error ? error.message : "Unknown error"}`);
+      notification.error("Publish Failed", error instanceof Error ? error.message : "Unknown error", false);
     } finally {
       setIsLoading(false);
     }
@@ -200,9 +209,38 @@ function PageCard({
         publishedPageId: page._id,
         status: "unpublished"
       });
+      notification.success("Unpublished", "Page has been unpublished successfully");
     } catch (error) {
       console.error("Failed to unpublish page:", error);
-      alert(`Failed to unpublish: ${error instanceof Error ? error.message : "Unknown error"}`);
+      notification.error("Unpublish Failed", error instanceof Error ? error.message : "Unknown error", false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleArchive = async () => {
+    if (!sessionId) return;
+
+    const confirmed = await confirmDialog.confirm({
+      title: "Archive Page",
+      message: `Are you sure you want to archive "${page.name}"? The page will be hidden but can be restored later.`,
+      confirmText: "Archive",
+      cancelText: "Cancel",
+      confirmVariant: "secondary",
+    });
+
+    if (!confirmed) return;
+
+    setIsLoading(true);
+    try {
+      await archivePage({
+        sessionId,
+        publishedPageId: page._id
+      });
+      notification.success("Archived", "Page has been archived successfully");
+    } catch (error) {
+      console.error("Failed to archive page:", error);
+      notification.error("Archive Failed", error instanceof Error ? error.message : "Unknown error", false);
     } finally {
       setIsLoading(false);
     }
@@ -210,8 +248,16 @@ function PageCard({
 
   const handleDelete = async () => {
     if (!sessionId) return;
-    const confirmMessage = t("ui.web_publishing.page_card.delete_confirm").replace("{name}", page.name);
-    if (!confirm(confirmMessage)) return;
+
+    const confirmed = await confirmDialog.confirm({
+      title: "Permanently Delete Page",
+      message: `Are you sure you want to PERMANENTLY delete "${page.name}"? This action cannot be undone. Consider archiving instead.`,
+      confirmText: "Delete Forever",
+      cancelText: "Cancel",
+      confirmVariant: "primary",
+    });
+
+    if (!confirmed) return;
 
     setIsLoading(true);
     try {
@@ -219,9 +265,10 @@ function PageCard({
         sessionId,
         publishedPageId: page._id
       });
+      notification.success("Deleted", "Page has been permanently deleted");
     } catch (error) {
       console.error("Failed to delete page:", error);
-      alert(`Failed to delete: ${error instanceof Error ? error.message : "Unknown error"}`);
+      notification.error("Delete Failed", error instanceof Error ? error.message : "Unknown error", false);
     } finally {
       setIsLoading(false);
     }
@@ -316,6 +363,27 @@ function PageCard({
 
         {/* Right: Action buttons */}
         <div className="flex items-center gap-1">
+          {/* Content Rules button */}
+          <button
+            className="px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors"
+            style={{
+              borderColor: 'var(--win95-border)',
+              background: 'var(--win95-bg-light)',
+              color: 'var(--win95-highlight)'
+            }}
+            title="Configure content rules for external frontend"
+            disabled={isLoading}
+            onClick={() => setShowContentRules(true)}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'var(--win95-hover-light)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'var(--win95-bg-light)';
+            }}
+          >
+            <Settings2 size={12} />
+          </button>
+
           {/* Edit button */}
           <button
             className="px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors"
@@ -381,7 +449,30 @@ function PageCard({
             </button>
           )}
 
-          {/* Delete button */}
+          {/* Archive button (for non-archived pages) */}
+          {status !== "archived" && (
+            <button
+              onClick={handleArchive}
+              disabled={isLoading}
+              className="px-2 py-1 text-xs border-2 flex items-center gap-1 disabled:opacity-50 transition-colors"
+              style={{
+                borderColor: 'var(--win95-border)',
+                background: 'var(--win95-bg-light)',
+                color: 'var(--warning)'
+              }}
+              title="Archive page (can be restored later)"
+              onMouseEnter={(e) => {
+                if (!isLoading) e.currentTarget.style.background = 'var(--win95-hover-light)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'var(--win95-bg-light)';
+              }}
+            >
+              {isLoading ? <Loader2 size={12} className="animate-spin" /> : <Archive size={12} />}
+            </button>
+          )}
+
+          {/* Delete button (permanent) */}
           <button
             onClick={handleDelete}
             disabled={isLoading}
@@ -391,7 +482,7 @@ function PageCard({
               background: 'var(--win95-bg-light)',
               color: 'var(--error)'
             }}
-            title={t("ui.web_publishing.page_card.action.delete")}
+            title="Permanently delete page (cannot be undone)"
             onMouseEnter={(e) => {
               if (!isLoading) e.currentTarget.style.background = 'var(--win95-hover-light)';
             }}
@@ -403,6 +494,17 @@ function PageCard({
           </button>
         </div>
       </div>
+
+      {/* Content Rules Modal */}
+      {showContentRules && (
+        <ContentRulesModal
+          page={page}
+          onClose={() => setShowContentRules(false)}
+        />
+      )}
+
+      {/* Confirmation Dialog */}
+      <confirmDialog.Dialog />
     </div>
   );
 }

@@ -392,7 +392,7 @@ export const updateUserProfile = mutation({
     const user = await ctx.db.get(currentUserId);
     await ctx.db.insert("auditLogs", {
       userId: currentUserId,
-      organizationId: user?.defaultOrgId || ("" as Id<"organizations">),
+      organizationId: user?.defaultOrgId,
       action: isOwnProfile ? "update_own_profile" : "update_user_profile",
       resource: "users",
       resourceId: args.userId,
