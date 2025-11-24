@@ -270,14 +270,17 @@ export const generateAuthenticationChallenge = action({
     email: v.string(),
     origin: v.string(), // Origin URL (e.g., "http://localhost:3000" or "https://app.l4yercak3.com")
   },
-  handler: async (ctx, args): Promise<PublicKeyCredentialRequestOptionsJSON> => {
+  handler: async (ctx, args): Promise<PublicKeyCredentialRequestOptionsJSON | { error: string; code: string }> => {
     // Get user by email
     const user = await ctx.runQuery(internal.passkeys.getUserByEmail, {
       email: args.email,
     });
 
     if (!user) {
-      throw new Error("No account found with this email address. Please check your email or sign in with password.");
+      return {
+        error: "No account found with this email address. Please check your email or sign in with password.",
+        code: "ACCOUNT_NOT_FOUND"
+      };
     }
 
     // Get user's active passkeys
@@ -286,7 +289,10 @@ export const generateAuthenticationChallenge = action({
     });
 
     if (passkeys.length === 0) {
-      throw new Error("No passkey set up for this account. Please sign in with your password first, then set up Face ID / Touch ID from your account settings.");
+      return {
+        error: "No passkey set up for this account. Please sign in with your password first, then set up Face ID / Touch ID from your account settings.",
+        code: "NO_PASSKEY_CONFIGURED"
+      };
     }
 
     // Determine RP_ID from origin (remove protocol and port)
