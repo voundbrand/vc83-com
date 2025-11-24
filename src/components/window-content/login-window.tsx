@@ -24,6 +24,7 @@ export function LoginWindow() {
   const [passkeyLoading, setPasskeyLoading] = useState(false);
   const [showFirstLoginModal, setShowFirstLoginModal] = useState(false);
   const [isFirstLogin, setIsFirstLogin] = useState(false);
+  const [showPasskeySetupPrompt, setShowPasskeySetupPrompt] = useState(false);
 
   const { user, isSignedIn, signIn, setupPassword, checkNeedsPasswordSetup, signOut, sessionId } = useAuth();
   const { t } = useNamespaceTranslations("ui.login");
@@ -134,6 +135,13 @@ export function LoginWindow() {
 
       if (!challengeResponse.ok) {
         const errorData = await challengeResponse.json();
+
+        // Handle specific error: no passkey configured
+        if (errorData.code === "NO_PASSKEY_CONFIGURED") {
+          setShowPasskeySetupPrompt(true);
+          return;
+        }
+
         throw new Error(errorData.error || "Failed to start passkey authentication");
       }
 
@@ -453,6 +461,53 @@ export function LoginWindow() {
             {error && (
               <div className="retro-error">
                 {error}
+              </div>
+            )}
+
+            {/* Passkey Setup Prompt Modal */}
+            {showPasskeySetupPrompt && (
+              <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                <div className="retro-window w-full max-w-md mx-4">
+                  <div className="retro-window-title-bar">
+                    <span className="retro-window-title">Passkey Setup Required</span>
+                    <button
+                      onClick={() => setShowPasskeySetupPrompt(false)}
+                      className="retro-window-close"
+                      aria-label="Close"
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <div className="retro-window-body p-6 space-y-4">
+                    <div className="text-center">
+                      <div className="text-5xl mb-3">🔐</div>
+                      <h3 className="font-pixel text-sm retro-text mb-2">
+                        No Passkey Found
+                      </h3>
+                      <p className="text-xs retro-text-secondary leading-relaxed">
+                        You don&apos;t have Face ID / Touch ID set up for this account yet.
+                        Please sign in with your password first, then you can set up biometric
+                        authentication from your account settings.
+                      </p>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setShowPasskeySetupPrompt(false)}
+                        className="flex-1 retro-button py-2"
+                      >
+                        <span className="font-pixel text-xs">Use Password</span>
+                      </button>
+                    </div>
+
+                    <div className="retro-note">
+                      <p className="text-xs">
+                        <strong>Tip:</strong> After signing in, look for the passkey setup banner
+                        or visit your account settings to enable Face ID / Touch ID for faster logins.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 

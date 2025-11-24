@@ -23,36 +23,47 @@ export async function POST(request: NextRequest) {
     // Get origin from request headers
     const origin = request.headers.get("origin") || `${request.nextUrl.protocol}//${request.nextUrl.host}`;
 
-    const options = await convex.action(api.passkeys.generateAuthenticationChallenge, {
-      email,
-      origin,
-    });
+    try {
+      const options = await convex.action(api.passkeys.generateAuthenticationChallenge, {
+        email,
+        origin,
+      });
 
-    return NextResponse.json(options);
-  } catch (error) {
-    console.error("Error generating authentication challenge:", error);
-    console.error("Error type:", typeof error);
-    console.error("Error keys:", error && typeof error === 'object' ? Object.keys(error) : 'N/A');
-    console.error("Error stringified:", JSON.stringify(error, null, 2));
+      return NextResponse.json(options);
+    } catch (convexError) {
+      // Convex action threw an error - extract the message
+      let errorMessage = "Failed to generate authentication challenge";
+      let errorCode = "AUTHENTICATION_ERROR";
 
-    // Extract error message from Convex error or regular Error
-    let errorMessage = "Failed to generate authentication challenge";
-
-    if (error instanceof Error) {
-      errorMessage = error.message;
-    } else if (error && typeof error === 'object' && 'message' in error) {
-      errorMessage = String(error.message);
-    } else if (error && typeof error === 'object' && 'data' in error) {
-      // Convex errors sometimes have error message in data field
-      const data = (error as any).data;
-      if (data && data.message) {
-        errorMessage = data.message;
+      // Try to get error message from Convex error
+      if (convexError instanceof Error) {
+        errorMessage = convexError.message;
+      } else if (typeof convexError === 'string') {
+        errorMessage = convexError;
+      } else if (convexError && typeof convexError === 'object') {
+        // Try various properties where Convex might store the error
+        const errObj = convexError as any;
+        errorMessage = errObj.message || errObj.error || errObj.data?.message || errorMessage;
       }
-    }
 
+      // Detect specific error types for better client handling
+      if (errorMessage.includes("No passkey set up")) {
+        errorCode = "NO_PASSKEY_CONFIGURED";
+      } else if (errorMessage.includes("No account found")) {
+        errorCode = "ACCOUNT_NOT_FOUND";
+      }
+
+      return NextResponse.json(
+        { error: errorMessage, code: errorCode },
+        { status: 500 }
+      );
+    }
+  } catch (error) {
+    // Outer catch for request parsing errors
+    console.error("Request parsing error:", error);
     return NextResponse.json(
-      { error: errorMessage },
-      { status: 500 }
+      { error: error instanceof Error ? error.message : "Invalid request" },
+      { status: 400 }
     );
   }
 }

@@ -94,6 +94,8 @@ import type * as lib_pdf_templates_vip_premium_ticket_template from "../lib/pdf_
 import type * as lib_vatValidation from "../lib/vatValidation.js";
 import type * as mediaFolderOntology from "../mediaFolderOntology.js";
 import type * as migratePdfTemplates from "../migratePdfTemplates.js";
+import type * as migrations_addOrganizationIdToSessions from "../migrations/addOrganizationIdToSessions.js";
+import type * as migrations_deleteOldSessions from "../migrations/deleteOldSessions.js";
 import type * as migrations_migratePageTemplates from "../migrations/migratePageTemplates.js";
 import type * as migrations_migratePaymentProviders from "../migrations/migratePaymentProviders.js";
 import type * as migrations_updateExistingHaffForms from "../migrations/updateExistingHaffForms.js";
@@ -368,6 +370,8 @@ declare const fullApi: ApiFromModules<{
   "lib/vatValidation": typeof lib_vatValidation;
   mediaFolderOntology: typeof mediaFolderOntology;
   migratePdfTemplates: typeof migratePdfTemplates;
+  "migrations/addOrganizationIdToSessions": typeof migrations_addOrganizationIdToSessions;
+  "migrations/deleteOldSessions": typeof migrations_deleteOldSessions;
   "migrations/migratePageTemplates": typeof migrations_migratePageTemplates;
   "migrations/migratePaymentProviders": typeof migrations_migratePaymentProviders;
   "migrations/updateExistingHaffForms": typeof migrations_updateExistingHaffForms;
