@@ -16,7 +16,6 @@ interface LeftSidebarProps {
   selectedFolderId: string | null;
   onFolderSelect: (folderId: string | null) => void;
   organizationId: string;
-  sessionId: string;
 }
 
 export function LeftSidebar({
@@ -25,7 +24,6 @@ export function LeftSidebar({
   selectedFolderId,
   onFolderSelect,
   organizationId,
-  sessionId,
 }: LeftSidebarProps) {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
 

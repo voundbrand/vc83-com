@@ -47,6 +47,7 @@ export default function MediaLibraryDropbox({
   const [showNewMenu, setShowNewMenu] = useState(false);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [showCreateDocument, setShowCreateDocument] = useState(false);
+  const [showUpload, setShowUpload] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
 
@@ -84,7 +85,6 @@ export default function MediaLibraryDropbox({
           selectedFolderId={selectedFolderId}
           onFolderSelect={setSelectedFolderId}
           organizationId={activeOrgId}
-          sessionId={sessionId}
         />
       </div>
 
@@ -108,8 +108,10 @@ export default function MediaLibraryDropbox({
             setShowCreateDocument(true);
             setShowNewMenu(false);
           }}
-          organizationId={activeOrgId}
-          sessionId={sessionId}
+          onUpload={() => {
+            setShowUpload(true);
+            setShowNewMenu(false);
+          }}
         />
 
         {/* Storage Usage Bar */}
@@ -182,6 +184,14 @@ export default function MediaLibraryDropbox({
           onSuccess={() => {
             setShowCreateDocument(false);
           }}
+        />
+      )}
+
+      {showUpload && (
+        <UploadModal
+          organizationId={activeOrgId}
+          sessionId={sessionId}
+          onClose={() => setShowUpload(false)}
         />
       )}
     </div>

@@ -4,10 +4,8 @@
  * TOP BAR - Search, view controls, and new button
  */
 
-import { useState } from "react";
 import { Search, Grid3x3, List, Plus } from "lucide-react";
 import { NewDropdownMenu } from "../dropbox-components";
-import { UploadModal } from "../dropbox-modals";
 
 interface TopBarProps {
   searchQuery: string;
@@ -20,8 +18,7 @@ interface TopBarProps {
   onToggleNewMenu: () => void;
   onCreateFolder: () => void;
   onCreateDocument: () => void;
-  organizationId: string;
-  sessionId: string;
+  onUpload: () => void;
 }
 
 export function TopBar({
@@ -35,10 +32,8 @@ export function TopBar({
   onToggleNewMenu,
   onCreateFolder,
   onCreateDocument,
-  organizationId,
-  sessionId,
+  onUpload,
 }: TopBarProps) {
-  const [showUploadModal, setShowUploadModal] = useState(false);
 
   return (
     <div
@@ -64,10 +59,7 @@ export function TopBar({
           <NewDropdownMenu
             onCreateFolder={onCreateFolder}
             onCreateDocument={onCreateDocument}
-            onUpload={() => {
-              setShowUploadModal(true);
-              onToggleNewMenu();
-            }}
+            onUpload={onUpload}
             onClose={onToggleNewMenu}
           />
         )}
@@ -134,15 +126,6 @@ export function TopBar({
         <option value="date">Date</option>
         <option value="size">Size</option>
       </select>
-
-      {/* Upload Modal */}
-      {showUploadModal && (
-        <UploadModal
-          organizationId={organizationId}
-          sessionId={sessionId}
-          onClose={() => setShowUploadModal(false)}
-        />
-      )}
     </div>
   );
 }

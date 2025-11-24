@@ -5,7 +5,7 @@
  * Supporting components for the main Dropbox-style interface
  */
 
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
@@ -13,17 +13,9 @@ import {
   FolderPlus,
   FileText,
   Upload,
-  X,
   Star,
-  Download,
-  Copy,
-  Trash2,
-  Edit2,
-  Move,
-  MoreVertical,
 } from "lucide-react";
 import Image from "next/image";
-import SimpleTiptapEditor from "@/components/ui/tiptap-editor-simple";
 
 // ============================================================================
 // NEW DROPDOWN MENU
@@ -301,24 +293,14 @@ export function ContentArea({
         <GridView
           media={filteredMedia}
           selectedMediaIds={selectedMediaIds}
-          onSelectMedia={onSelectMedia}
           onMediaClick={onMediaClick}
-          organizationId={organizationId}
           sessionId={sessionId}
         />
       ) : (
         <ListView
           media={filteredMedia}
           selectedMediaIds={selectedMediaIds}
-          onSelectMedia={onSelectMedia}
           onMediaClick={onMediaClick}
-          organizationId={organizationId}
-          sessionId={sessionId}
-          renamingId={renamingId}
-          newName={newName}
-          onStartRename={onStartRename}
-          onCancelRename={onCancelRename}
-          onSaveRename={onSaveRename}
         />
       )}
     </div>
@@ -329,9 +311,7 @@ export function ContentArea({
 function GridView({
   media,
   selectedMediaIds,
-  onSelectMedia,
   onMediaClick,
-  organizationId,
   sessionId,
 }: any) {
   return (
@@ -341,9 +321,7 @@ function GridView({
           key={item._id}
           item={item}
           isSelected={selectedMediaIds.has(item._id)}
-          onSelect={() => onSelectMedia(item._id)}
           onClick={() => onMediaClick(item)}
-          organizationId={organizationId}
           sessionId={sessionId}
         />
       ))}
@@ -355,15 +333,7 @@ function GridView({
 function ListView({
   media,
   selectedMediaIds,
-  onSelectMedia,
   onMediaClick,
-  organizationId,
-  sessionId,
-  renamingId,
-  newName,
-  onStartRename,
-  onCancelRename,
-  onSaveRename,
 }: any) {
   return (
     <div className="space-y-1">
@@ -384,15 +354,7 @@ function ListView({
           key={item._id}
           item={item}
           isSelected={selectedMediaIds.has(item._id)}
-          onSelect={() => onSelectMedia(item._id)}
           onClick={() => onMediaClick(item)}
-          organizationId={organizationId}
-          sessionId={sessionId}
-          isRenaming={renamingId === item._id}
-          newName={newName}
-          onStartRename={() => onStartRename(item._id, item.filename)}
-          onCancelRename={onCancelRename}
-          onSaveRename={() => onSaveRename(item._id)}
         />
       ))}
     </div>
@@ -400,7 +362,7 @@ function ListView({
 }
 
 // Media Grid Item Component
-function MediaGridItem({ item, isSelected, onSelect, onClick, organizationId, sessionId }: any) {
+function MediaGridItem({ item, isSelected, onClick, sessionId }: any) {
   const starMedia = useMutation(api.organizationMedia.starMedia);
   const unstarMedia = useMutation(api.organizationMedia.unstarMedia);
 
@@ -475,7 +437,7 @@ function MediaGridItem({ item, isSelected, onSelect, onClick, organizationId, se
 }
 
 // Media List Item Component (simplified - full version would be larger)
-function MediaListItem({ item, isSelected, onClick, organizationId, sessionId }: any) {
+function MediaListItem({ item, isSelected, onClick }: any) {
   return (
     <div
       onClick={onClick}
