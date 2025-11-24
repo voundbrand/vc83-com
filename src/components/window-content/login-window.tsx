@@ -466,25 +466,63 @@ export function LoginWindow() {
 
             {/* Passkey Setup Prompt Modal */}
             {showPasskeySetupPrompt && (
-              <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                <div className="retro-window w-full max-w-md mx-4">
-                  <div className="retro-window-title-bar">
-                    <span className="retro-window-title">{t('ui.login.passkey_setup_required.title')}</span>
+              <div
+                className="fixed inset-0 z-[99999] flex items-center justify-center"
+                style={{ background: "var(--modal-overlay-bg)" }}
+                onClick={() => setShowPasskeySetupPrompt(false)}
+              >
+                <div
+                  className="border-4 max-w-md w-full mx-4"
+                  style={{
+                    borderColor: 'var(--win95-border)',
+                    background: 'var(--win95-bg)',
+                    boxShadow: "var(--modal-shadow)",
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Titlebar */}
+                  <div
+                    className="px-3 py-2 flex items-center justify-between border-b-2"
+                    style={{
+                      background: "var(--win95-titlebar)",
+                      borderColor: "var(--win95-border)",
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-4 h-4 border"
+                        style={{
+                          background: "var(--win95-window-icon-bg)",
+                          borderColor: "var(--win95-window-icon-border)",
+                        }}
+                      />
+                      <span className="text-xs font-bold" style={{ color: "var(--win95-titlebar-text)" }}>
+                        {t('ui.login.passkey_setup_required.title')}
+                      </span>
+                    </div>
                     <button
                       onClick={() => setShowPasskeySetupPrompt(false)}
-                      className="retro-window-close"
-                      aria-label="Close"
+                      className="w-5 h-5 flex items-center justify-center border hover:opacity-80"
+                      style={{
+                        background: "var(--win95-button-face)",
+                        borderTopColor: "var(--win95-button-light)",
+                        borderLeftColor: "var(--win95-button-light)",
+                        borderBottomColor: "var(--win95-button-dark)",
+                        borderRightColor: "var(--win95-button-dark)",
+                      }}
                     >
-                      ×
+                      <span className="text-xs" style={{ color: "var(--win95-text)" }}>✕</span>
                     </button>
                   </div>
-                  <div className="retro-window-body p-6 space-y-4">
+
+                  {/* Content */}
+                  <div className="p-6 space-y-4" style={{ background: 'var(--win95-bg)' }}>
                     <div className="text-center">
                       <div className="text-5xl mb-3">🔐</div>
-                      <h3 className="font-pixel text-sm retro-text mb-2">
+                      <h3 className="font-pixel text-sm mb-2" style={{ color: 'var(--win95-text)' }}>
                         {t('ui.login.passkey_setup_required.heading')}
                       </h3>
-                      <p className="text-xs retro-text-secondary leading-relaxed">
+                      <p className="text-xs leading-relaxed" style={{ color: 'var(--neutral-gray)' }}>
                         {t('ui.login.passkey_setup_required.description')}
                       </p>
                     </div>
@@ -492,16 +530,29 @@ export function LoginWindow() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => setShowPasskeySetupPrompt(false)}
-                        className="flex-1 retro-button py-2"
+                        className="flex-1 px-4 py-2 text-xs font-bold border-2"
+                        style={{
+                          background: "var(--win95-highlight)",
+                          color: "white",
+                          borderTopColor: "var(--win95-button-light)",
+                          borderLeftColor: "var(--win95-button-light)",
+                          borderBottomColor: "var(--win95-button-dark)",
+                          borderRightColor: "var(--win95-button-dark)",
+                        }}
                       >
-                        <span className="font-pixel text-xs">{t('ui.login.passkey_setup_required.button_use_password')}</span>
+                        <span className="font-pixel">{t('ui.login.passkey_setup_required.button_use_password')}</span>
                       </button>
                     </div>
 
-                    <div className="retro-note">
-                      <p className="text-xs">
-                        <strong>{t('ui.login.passkey_setup_required.tip_title')}</strong> {t('ui.login.passkey_setup_required.tip_description')}
-                      </p>
+                    <div
+                      className="p-3 border-l-4 text-xs"
+                      style={{
+                        background: 'var(--win95-button-face)',
+                        borderColor: 'var(--info)',
+                        color: 'var(--win95-text)'
+                      }}
+                    >
+                      <strong>{t('ui.login.passkey_setup_required.tip_title')}</strong> {t('ui.login.passkey_setup_required.tip_description')}
                     </div>
                   </div>
                 </div>
