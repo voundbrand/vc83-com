@@ -469,7 +469,7 @@ export function LoginWindow() {
               <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
                 <div className="retro-window w-full max-w-md mx-4">
                   <div className="retro-window-title-bar">
-                    <span className="retro-window-title">Passkey Setup Required</span>
+                    <span className="retro-window-title">{t('ui.login.passkey_setup_required.title')}</span>
                     <button
                       onClick={() => setShowPasskeySetupPrompt(false)}
                       className="retro-window-close"
@@ -482,12 +482,10 @@ export function LoginWindow() {
                     <div className="text-center">
                       <div className="text-5xl mb-3">🔐</div>
                       <h3 className="font-pixel text-sm retro-text mb-2">
-                        No Passkey Found
+                        {t('ui.login.passkey_setup_required.heading')}
                       </h3>
                       <p className="text-xs retro-text-secondary leading-relaxed">
-                        You don&apos;t have Face ID / Touch ID set up for this account yet.
-                        Please sign in with your password first, then you can set up biometric
-                        authentication from your account settings.
+                        {t('ui.login.passkey_setup_required.description')}
                       </p>
                     </div>
 
@@ -496,14 +494,13 @@ export function LoginWindow() {
                         onClick={() => setShowPasskeySetupPrompt(false)}
                         className="flex-1 retro-button py-2"
                       >
-                        <span className="font-pixel text-xs">Use Password</span>
+                        <span className="font-pixel text-xs">{t('ui.login.passkey_setup_required.button_use_password')}</span>
                       </button>
                     </div>
 
                     <div className="retro-note">
                       <p className="text-xs">
-                        <strong>Tip:</strong> After signing in, look for the passkey setup banner
-                        or visit your account settings to enable Face ID / Touch ID for faster logins.
+                        <strong>{t('ui.login.passkey_setup_required.tip_title')}</strong> {t('ui.login.passkey_setup_required.tip_description')}
                       </p>
                     </div>
                   </div>

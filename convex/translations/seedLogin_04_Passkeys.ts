@@ -319,6 +319,74 @@ export const seedLoginPasskeyTranslations = internalMutation({
           ja: "パスキーの検証に失敗しました",
         }
       },
+
+      // Passkey Setup Required Modal
+      {
+        key: "ui.login.passkey_setup_required.title",
+        values: {
+          en: "Passkey Setup Required",
+          de: "Passkey-Einrichtung erforderlich",
+          pl: "Wymagana konfiguracja passkey",
+          es: "Configuración de passkey requerida",
+          fr: "Configuration du passkey requise",
+          ja: "パスキー設定が必要です",
+        }
+      },
+      {
+        key: "ui.login.passkey_setup_required.heading",
+        values: {
+          en: "No Passkey Found",
+          de: "Kein Passkey gefunden",
+          pl: "Nie znaleziono passkey",
+          es: "No se encontró passkey",
+          fr: "Aucun passkey trouvé",
+          ja: "パスキーが見つかりません",
+        }
+      },
+      {
+        key: "ui.login.passkey_setup_required.description",
+        values: {
+          en: "You don't have Face ID / Touch ID set up for this account yet. Please sign in with your password first, then you can set up biometric authentication from your account settings.",
+          de: "Sie haben noch kein Face ID / Touch ID für dieses Konto eingerichtet. Bitte melden Sie sich zuerst mit Ihrem Passwort an, dann können Sie die biometrische Authentifizierung in Ihren Kontoeinstellungen einrichten.",
+          pl: "Nie masz jeszcze skonfigurowanego Face ID / Touch ID dla tego konta. Zaloguj się najpierw hasłem, a następnie możesz skonfigurować uwierzytelnianie biometryczne w ustawieniach konta.",
+          es: "Aún no tienes Face ID / Touch ID configurado para esta cuenta. Inicia sesión primero con tu contraseña y luego podrás configurar la autenticación biométrica desde la configuración de tu cuenta.",
+          fr: "Vous n'avez pas encore configuré Face ID / Touch ID pour ce compte. Veuillez d'abord vous connecter avec votre mot de passe, puis vous pourrez configurer l'authentification biométrique dans les paramètres de votre compte.",
+          ja: "このアカウントにはまだFace ID / Touch IDが設定されていません。まずパスワードでサインインしてから、アカウント設定で生体認証を設定できます。",
+        }
+      },
+      {
+        key: "ui.login.passkey_setup_required.button_use_password",
+        values: {
+          en: "Use Password",
+          de: "Passwort verwenden",
+          pl: "Użyj hasła",
+          es: "Usar contraseña",
+          fr: "Utiliser le mot de passe",
+          ja: "パスワードを使用",
+        }
+      },
+      {
+        key: "ui.login.passkey_setup_required.tip_title",
+        values: {
+          en: "Tip:",
+          de: "Tipp:",
+          pl: "Wskazówka:",
+          es: "Consejo:",
+          fr: "Astuce :",
+          ja: "ヒント：",
+        }
+      },
+      {
+        key: "ui.login.passkey_setup_required.tip_description",
+        values: {
+          en: "After signing in, look for the passkey setup banner or visit your account settings to enable Face ID / Touch ID for faster logins.",
+          de: "Suchen Sie nach dem Anmelden nach dem Passkey-Einrichtungs-Banner oder besuchen Sie Ihre Kontoeinstellungen, um Face ID / Touch ID für schnellere Anmeldungen zu aktivieren.",
+          pl: "Po zalogowaniu poszukaj baneru konfiguracji passkey lub odwiedź ustawienia konta, aby włączyć Face ID / Touch ID dla szybszych logowań.",
+          es: "Después de iniciar sesión, busca el banner de configuración de passkey o visita la configuración de tu cuenta para habilitar Face ID / Touch ID para inicios de sesión más rápidos.",
+          fr: "Après vous être connecté, recherchez la bannière de configuration du passkey ou visitez les paramètres de votre compte pour activer Face ID / Touch ID pour des connexions plus rapides.",
+          ja: "サインイン後、パスキー設定バナーを探すか、アカウント設定にアクセスしてFace ID / Touch IDを有効にすると、より速くログインできます。",
+        }
+      },
     ];
 
     let count = 0;
