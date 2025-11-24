@@ -277,7 +277,7 @@ export const generateAuthenticationChallenge = action({
     });
 
     if (!user) {
-      throw new Error("User not found");
+      throw new Error("No account found with this email address. Please check your email or sign in with password.");
     }
 
     // Get user's active passkeys
@@ -286,7 +286,7 @@ export const generateAuthenticationChallenge = action({
     });
 
     if (passkeys.length === 0) {
-      throw new Error("No passkeys registered for this user");
+      throw new Error("No passkey set up for this account. Please sign in with your password first, then set up Face ID / Touch ID from your account settings.");
     }
 
     // Determine RP_ID from origin (remove protocol and port)
