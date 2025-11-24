@@ -31,6 +31,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(options);
   } catch (error) {
     console.error("Error generating authentication challenge:", error);
+    console.error("Error type:", typeof error);
+    console.error("Error keys:", error && typeof error === 'object' ? Object.keys(error) : 'N/A');
+    console.error("Error stringified:", JSON.stringify(error, null, 2));
 
     // Extract error message from Convex error or regular Error
     let errorMessage = "Failed to generate authentication challenge";
@@ -41,7 +44,7 @@ export async function POST(request: NextRequest) {
       errorMessage = String(error.message);
     } else if (error && typeof error === 'object' && 'data' in error) {
       // Convex errors sometimes have error message in data field
-      const data = error.data as any;
+      const data = (error as any).data;
       if (data && data.message) {
         errorMessage = data.message;
       }
