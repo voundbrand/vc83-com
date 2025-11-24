@@ -31,8 +31,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(options);
   } catch (error) {
     console.error("Error generating authentication challenge:", error);
+
+    // Extract error message from Convex error or regular Error
+    let errorMessage = "Failed to generate authentication challenge";
+
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    } else if (error && typeof error === 'object' && 'message' in error) {
+      errorMessage = String(error.message);
+    } else if (error && typeof error === 'object' && 'data' in error) {
+      // Convex errors sometimes have error message in data field
+      const data = error.data as any;
+      if (data && data.message) {
+        errorMessage = data.message;
+      }
+    }
+
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to generate authentication challenge" },
+      { error: errorMessage },
       { status: 500 }
     );
   }
