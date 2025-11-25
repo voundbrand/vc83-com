@@ -1,10 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
-import { Eye, FileText, ClipboardCheck, FileQuestion, Users } from "lucide-react";
+import { Eye, FileText, ClipboardCheck, FileQuestion, Users, MessageSquare } from "lucide-react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { Loader2 } from "lucide-react";
@@ -13,84 +12,44 @@ import { Loader2 } from "lucide-react";
  * Templates Tab - Form Templates
  *
  * Displays available form templates that can be used to create new forms.
- * Shows templates enabled for the current organization.
+ * Dynamically fetches templates from database - only shows enabled templates.
  */
 
-type TemplateId = "haffsymposium-registration" | "conference-feedback-survey" | "speaker-proposal" | "volunteer-application";
+// Icon mapping for template categories
+const getCategoryIcon = (category: string) => {
+  switch (category) {
+    case "registration":
+      return <FileText size={24} />;
+    case "survey":
+      return <ClipboardCheck size={24} />;
+    case "application":
+      return <FileQuestion size={24} />;
+    case "volunteer":
+      return <Users size={24} />;
+    case "contact":
+      return <MessageSquare size={24} />;
+    default:
+      return <FileText size={24} />;
+  }
+};
 
-interface Template {
-  id: TemplateId;
-  nameKey: string;
-  descriptionKey: string;
-  useCaseKey: string;
-  colorVar: string;
-  icon: React.ReactNode;
-  featureKeys: string[];
-  available?: boolean;
-}
-
-const getTemplates = (): Template[] => [
-  {
-    id: "haffsymposium-registration",
-    nameKey: "ui.forms.templates.haffsymposium_registration.name",
-    descriptionKey: "ui.forms.templates.haffsymposium_registration.description",
-    useCaseKey: "ui.forms.templates.haffsymposium_registration.use_case",
-    colorVar: "var(--win95-highlight)",
-    icon: <FileText size={24} />,
-    featureKeys: [
-      "ui.forms.templates.haffsymposium_registration.features.categories",
-      "ui.forms.templates.haffsymposium_registration.features.pricing",
-      "ui.forms.templates.haffsymposium_registration.features.personal_info",
-      "ui.forms.templates.haffsymposium_registration.features.special_requests",
-      "ui.forms.templates.haffsymposium_registration.features.ucra_addon",
-    ],
-  },
-  {
-    id: "conference-feedback-survey",
-    nameKey: "ui.forms.templates.conference_feedback_survey.name",
-    descriptionKey: "ui.forms.templates.conference_feedback_survey.description",
-    useCaseKey: "ui.forms.templates.conference_feedback_survey.use_case",
-    colorVar: "var(--success)",
-    icon: <ClipboardCheck size={24} />,
-    featureKeys: [
-      "ui.forms.templates.conference_feedback_survey.features.nps",
-      "ui.forms.templates.conference_feedback_survey.features.ratings",
-      "ui.forms.templates.conference_feedback_survey.features.content",
-      "ui.forms.templates.conference_feedback_survey.features.venue",
-      "ui.forms.templates.conference_feedback_survey.features.future_topics",
-    ],
-  },
-  {
-    id: "speaker-proposal",
-    nameKey: "ui.forms.templates.speaker_proposal.name",
-    descriptionKey: "ui.forms.templates.speaker_proposal.description",
-    useCaseKey: "ui.forms.templates.speaker_proposal.use_case",
-    colorVar: "var(--win95-highlight)",
-    icon: <FileQuestion size={24} />,
-    featureKeys: [
-      "ui.forms.templates.speaker_proposal.features.bio",
-      "ui.forms.templates.speaker_proposal.features.topic",
-      "ui.forms.templates.speaker_proposal.features.abstract",
-      "ui.forms.templates.speaker_proposal.features.requirements",
-      "ui.forms.templates.speaker_proposal.features.availability",
-    ],
-  },
-  {
-    id: "volunteer-application",
-    nameKey: "ui.forms.templates.volunteer_application.name",
-    descriptionKey: "ui.forms.templates.volunteer_application.description",
-    useCaseKey: "ui.forms.templates.volunteer_application.use_case",
-    colorVar: "var(--success)",
-    icon: <Users size={24} />,
-    featureKeys: [
-      "ui.forms.templates.volunteer_application.features.personal",
-      "ui.forms.templates.volunteer_application.features.availability",
-      "ui.forms.templates.volunteer_application.features.skills",
-      "ui.forms.templates.volunteer_application.features.experience",
-      "ui.forms.templates.volunteer_application.features.references",
-    ],
-  },
-];
+// Color mapping for template categories
+const getCategoryColor = (category: string) => {
+  switch (category) {
+    case "registration":
+      return "var(--win95-highlight)";
+    case "survey":
+      return "var(--success)";
+    case "application":
+      return "var(--win95-highlight)";
+    case "volunteer":
+      return "var(--success)";
+    case "contact":
+      return "var(--info)";
+    default:
+      return "var(--win95-highlight)";
+  }
+};
 
 interface TemplatesTabProps {
   onUseTemplate: (templateCode: string) => void;
@@ -120,18 +79,20 @@ export function TemplatesTab({ onUseTemplate }: TemplatesTabProps) {
     );
   }
 
-  const templates = getTemplates();
-
-  // Map available templates to template IDs
-  const availableTemplateCodes = availableTemplates.map(
-    (t) => t.customProperties?.code as string
-  );
-
-  // Mark templates as available or not
-  const templatesWithAvailability = templates.map((template) => ({
-    ...template,
-    available: availableTemplateCodes.includes(template.id),
-  }));
+  // If no templates are available, show empty state
+  if (availableTemplates.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+        <FileText size={48} className="mb-4" style={{ color: "var(--neutral-gray)" }} />
+        <h3 className="text-sm font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+          {t("ui.forms.templates.empty_title")}
+        </h3>
+        <p className="text-xs max-w-md" style={{ color: "var(--neutral-gray)" }}>
+          {t("ui.forms.templates.empty_description")}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 space-y-4">
@@ -147,105 +108,110 @@ export function TemplatesTab({ onUseTemplate }: TemplatesTabProps) {
 
       {/* Template Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {templatesWithAvailability.map((template) => (
-          <div
-            key={template.id}
-            className={`border-2 rounded-lg p-4 transition-shadow ${
-              template.available ? "hover:shadow-md" : "opacity-60"
-            }`}
-            style={{
-              background: "var(--win95-bg-light)",
-              borderColor: "var(--win95-border)",
-            }}
-          >
-            {/* Template Header */}
-            <div className="flex items-start gap-3 mb-3">
-              <div
-                className="p-2 rounded border-2"
-                style={{
-                  backgroundColor: "var(--win95-bg)",
-                  color: template.colorVar,
-                  borderColor: template.colorVar,
-                }}
-              >
-                {template.icon}
-              </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="text-sm font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                  {t(template.nameKey)}
-                </h4>
-                <p className="text-xs mb-2" style={{ color: "var(--neutral-gray)" }}>
-                  {t(template.descriptionKey)}
-                </p>
-              </div>
-            </div>
+        {availableTemplates.map((template) => {
+          const customProps = template.customProperties as Record<string, unknown> | undefined;
+          const templateCode = customProps?.code as string;
+          const templateName = customProps?.name as string;
+          const templateDescription = customProps?.description as string;
+          const templateCategory = customProps?.category as string;
+          const templateFeatures = customProps?.features as string[];
+          const colorVar = getCategoryColor(templateCategory);
+          const icon = getCategoryIcon(templateCategory);
 
-            {/* Use Case Badge */}
+          return (
             <div
-              className="inline-block px-2 py-1 text-[10px] font-bold rounded border mb-3"
+              key={template._id}
+              className="border-2 rounded-lg p-4 transition-shadow hover:shadow-md cursor-pointer"
               style={{
-                backgroundColor: "var(--win95-bg)",
-                color: template.colorVar,
-                borderColor: template.colorVar,
+                background: "var(--win95-bg-light)",
+                borderColor: "var(--win95-border)",
               }}
+              onClick={() => onUseTemplate(templateCode)}
             >
-              {t(template.useCaseKey)}
-            </div>
-
-            {/* Availability Badge */}
-            {!template.available && (
-              <div
-                className="inline-block px-2 py-1 text-[10px] font-bold rounded border mb-3 ml-2"
-                style={{
-                  backgroundColor: "var(--win95-bg)",
-                  color: "var(--neutral-gray)",
-                  borderColor: "var(--neutral-gray)",
-                }}
-              >
-                {t("ui.forms.templates.not_available")}
-              </div>
-            )}
-
-            {/* Features */}
-            <div className="space-y-1 mb-4">
-              {template.featureKeys.map((featureKey, idx) => (
-                <div key={idx} className="flex items-start gap-2 text-xs" style={{ color: "var(--neutral-gray)" }}>
-                  <span className="text-[10px] mt-0.5">✓</span>
-                  <span>{t(featureKey)}</span>
+              {/* Template Header */}
+              <div className="flex items-start gap-3 mb-3">
+                <div
+                  className="p-2 rounded border-2 shrink-0"
+                  style={{
+                    backgroundColor: "var(--win95-bg)",
+                    color: colorVar,
+                    borderColor: colorVar,
+                  }}
+                >
+                  {icon}
                 </div>
-              ))}
-            </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-sm font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                    {templateName}
+                  </h4>
+                  <p className="text-xs mb-2 line-clamp-2" style={{ color: "var(--neutral-gray)" }}>
+                    {templateDescription}
+                  </p>
+                </div>
+              </div>
 
-            {/* Actions */}
-            <div className="flex gap-2">
-              <button
-                onClick={() => onUseTemplate(template.id)}
-                disabled={!template.available}
-                className="flex-1 px-3 py-2 text-xs font-semibold rounded flex items-center justify-center gap-2 transition-opacity border-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{
-                  backgroundColor: template.available ? template.colorVar : "var(--win95-bg)",
-                  color: template.available ? "var(--win95-titlebar-text)" : "var(--neutral-gray)",
-                  borderColor: template.available ? template.colorVar : "var(--win95-border)",
-                }}
-              >
-                <FileText size={14} />
-                {t("ui.forms.templates.buttons.use")}
-              </button>
-              <button
-                disabled
-                className="px-3 py-2 text-xs font-semibold rounded opacity-50 cursor-not-allowed"
+              {/* Category Badge */}
+              <div
+                className="inline-block px-2 py-1 text-[10px] font-bold rounded border mb-3 uppercase"
                 style={{
                   backgroundColor: "var(--win95-bg)",
-                  color: "var(--win95-text)",
-                  border: "2px solid var(--win95-border)",
+                  color: colorVar,
+                  borderColor: colorVar,
                 }}
-                title={t("ui.forms.templates.buttons.preview_hint")}
               >
-                <Eye size={14} />
-              </button>
+                {templateCategory}
+              </div>
+
+              {/* Features */}
+              {templateFeatures && templateFeatures.length > 0 && (
+                <div className="space-y-1 mb-4">
+                  {templateFeatures.slice(0, 5).map((feature, idx) => (
+                    <div key={idx} className="flex items-start gap-2 text-xs" style={{ color: "var(--neutral-gray)" }}>
+                      <span className="text-[10px] mt-0.5 shrink-0">✓</span>
+                      <span className="line-clamp-1">{feature}</span>
+                    </div>
+                  ))}
+                  {templateFeatures.length > 5 && (
+                    <div className="text-[10px] mt-1" style={{ color: "var(--neutral-gray)" }}>
+                      +{templateFeatures.length - 5} more features
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex gap-2 mt-4">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onUseTemplate(templateCode);
+                  }}
+                  className="flex-1 px-3 py-2 text-xs font-semibold rounded flex items-center justify-center gap-2 transition-opacity border-2"
+                  style={{
+                    backgroundColor: colorVar,
+                    color: "var(--win95-titlebar-text)",
+                    borderColor: colorVar,
+                  }}
+                >
+                  <FileText size={14} />
+                  {t("ui.forms.templates.buttons.use")}
+                </button>
+                <button
+                  disabled
+                  className="px-3 py-2 text-xs font-semibold rounded opacity-50 cursor-not-allowed"
+                  style={{
+                    backgroundColor: "var(--win95-bg)",
+                    color: "var(--win95-text)",
+                    border: "2px solid var(--win95-border)",
+                  }}
+                  title={t("ui.forms.templates.buttons.preview_hint")}
+                >
+                  <Eye size={14} />
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Info Box */}

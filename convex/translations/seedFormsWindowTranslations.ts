@@ -1256,6 +1256,28 @@ export const seed = mutation({
         }
       },
       {
+        key: "ui.forms.templates.empty_title",
+        values: {
+          en: "No Templates Available",
+          de: "Keine Vorlagen verfügbar",
+          pl: "Brak dostępnych szablonów",
+          es: "No hay plantillas disponibles",
+          fr: "Aucun modèle disponible",
+          ja: "利用可能なテンプレートがありません",
+        }
+      },
+      {
+        key: "ui.forms.templates.empty_description",
+        values: {
+          en: "No form templates are currently enabled for your organization. Contact your administrator to enable templates.",
+          de: "Für Ihre Organisation sind derzeit keine Formularvorlagen aktiviert. Wenden Sie sich an Ihren Administrator, um Vorlagen zu aktivieren.",
+          pl: "Obecnie nie ma włączonych szablonów formularzy dla Twojej organizacji. Skontaktuj się z administratorem, aby włączyć szablony.",
+          es: "Actualmente no hay plantillas de formularios habilitadas para su organización. Contacte a su administrador para habilitar plantillas.",
+          fr: "Aucun modèle de formulaire n'est actuellement activé pour votre organisation. Contactez votre administrateur pour activer des modèles.",
+          ja: "現在、組織で有効なフォームテンプレートはありません。管理者に連絡してテンプレートを有効にしてください。",
+        }
+      },
+      {
         key: "ui.forms.templates.not_available",
         values: {
           en: "Not Available",
