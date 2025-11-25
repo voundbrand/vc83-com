@@ -5,7 +5,7 @@ import { useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
-import { FileText, Plus, Edit, Trash2, Eye, Send, FileX, Loader2, ExternalLink, Code } from "lucide-react";
+import { FileText, Plus, Edit, Trash2, Eye, Send, FileX, Loader2, ExternalLink, Code, Copy } from "lucide-react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { ConfirmationModal } from "@/components/confirmation-modal";
 
@@ -39,6 +39,7 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
   const { t } = useNamespaceTranslations("ui.forms");
   const [deletingFormId, setDeletingFormId] = useState<string | null>(null);
   const [publishingFormId, setPublishingFormId] = useState<string | null>(null);
+  const [duplicatingFormId, setDuplicatingFormId] = useState<string | null>(null);
   const [deleteConfirmModal, setDeleteConfirmModal] = useState<{
     isOpen: boolean;
     formId: string;
@@ -52,6 +53,7 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
   const deleteFormMutation = useMutation(api.formsOntology.deleteForm);
   const publishFormMutation = useMutation(api.formsOntology.publishForm);
   const unpublishFormMutation = useMutation(api.formsOntology.unpublishForm);
+  const duplicateFormMutation = useMutation(api.formsOntology.duplicateForm);
 
   const getFormIcon = (subtype?: string) => {
     switch (subtype) {
@@ -129,6 +131,35 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
     }
   };
 
+  const handleDuplicate = async (formId: string, formName: string) => {
+    if (!sessionId) return;
+
+    try {
+      setDuplicatingFormId(formId);
+      await duplicateFormMutation({
+        sessionId,
+        formId: formId as Id<"objects">,
+      });
+
+      // Show success message briefly
+      setErrorAlert({
+        isOpen: true,
+        message: `Successfully duplicated "${formName}" as "Copy of ${formName}"`,
+      });
+
+      // Auto-close success message after 3 seconds
+      setTimeout(() => setErrorAlert(null), 3000);
+    } catch (error) {
+      console.error("Failed to duplicate form:", error);
+      setErrorAlert({
+        isOpen: true,
+        message: `Failed to duplicate form: ${error instanceof Error ? error.message : "Unknown error"}`,
+      });
+    } finally {
+      setDuplicatingFormId(null);
+    }
+  };
+
   if (forms.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-8">
@@ -182,6 +213,7 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
             const submissions = form.customProperties?.stats?.submissions || 0;
             const isDeleting = deletingFormId === form._id;
             const isPublishing = publishingFormId === form._id;
+            const isDuplicating = duplicatingFormId === form._id;
             const isPublished = form.status === "published";
             const publicUrl = form.customProperties?.publicUrl;
             const status = form.status || "draft";
@@ -266,10 +298,10 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
                         color: "var(--info)",
                       }}
                       title={t("ui.forms.tooltip_edit")}
-                      disabled={isDeleting || isPublishing}
+                      disabled={isDeleting || isPublishing || isDuplicating}
                       onClick={() => onEditForm(form._id)}
                       onMouseEnter={(e) => {
-                        if (!isDeleting && !isPublishing)
+                        if (!isDeleting && !isPublishing && !isDuplicating)
                           e.currentTarget.style.background = "var(--win95-hover-light)";
                       }}
                       onMouseLeave={(e) => {
@@ -279,6 +311,28 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
                       <Edit size={12} />
                     </button>
 
+                    {/* Duplicate button */}
+                    <button
+                      className="px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors"
+                      style={{
+                        borderColor: "var(--win95-border)",
+                        background: "var(--win95-bg-light)",
+                        color: "#8b5cf6", // Purple color like schema button
+                      }}
+                      title="Duplicate form"
+                      disabled={isDeleting || isPublishing || isDuplicating}
+                      onClick={() => handleDuplicate(form._id, form.name)}
+                      onMouseEnter={(e) => {
+                        if (!isDeleting && !isPublishing && !isDuplicating)
+                          e.currentTarget.style.background = "var(--win95-hover-light)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "var(--win95-bg-light)";
+                      }}
+                    >
+                      {isDuplicating ? <Loader2 size={12} className="animate-spin" /> : <Copy size={12} />}
+                    </button>
+
                     {/* Edit Schema button */}
                     {onEditSchema && (
                       <button
@@ -286,13 +340,13 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
                         style={{
                           borderColor: "var(--win95-border)",
                           background: "var(--win95-bg-light)",
-                          color: "#8b5cf6", // Purple color for schema
+                          color: "#10b981", // Green color for schema
                         }}
                         title="Edit form schema (JSON)"
-                        disabled={isDeleting || isPublishing}
+                        disabled={isDeleting || isPublishing || isDuplicating}
                         onClick={() => onEditSchema(form._id)}
                         onMouseEnter={(e) => {
-                          if (!isDeleting && !isPublishing)
+                          if (!isDeleting && !isPublishing && !isDuplicating)
                             e.currentTarget.style.background = "var(--win95-hover-light)";
                         }}
                         onMouseLeave={(e) => {
@@ -306,7 +360,7 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
                     {/* Publish/Unpublish button */}
                     <button
                       onClick={() => handlePublish(form._id, form.status || "draft")}
-                      disabled={isDeleting || isPublishing}
+                      disabled={isDeleting || isPublishing || isDuplicating}
                       className="px-2 py-1 text-xs border-2 flex items-center gap-1 disabled:opacity-50 transition-colors"
                       style={{
                         borderColor: "var(--win95-border)",
@@ -315,7 +369,7 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
                       }}
                       title={isPublished ? t("ui.forms.tooltip_unpublish") : t("ui.forms.tooltip_publish")}
                       onMouseEnter={(e) => {
-                        if (!isDeleting && !isPublishing)
+                        if (!isDeleting && !isPublishing && !isDuplicating)
                           e.currentTarget.style.background = "var(--win95-hover-light)";
                       }}
                       onMouseLeave={(e) => {
@@ -348,7 +402,7 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
                     {/* Delete button */}
                     <button
                       onClick={() => handleDelete(form._id, form.name)}
-                      disabled={isDeleting || isPublishing}
+                      disabled={isDeleting || isPublishing || isDuplicating}
                       className="px-2 py-1 text-xs border-2 flex items-center gap-1 disabled:opacity-50 transition-colors"
                       style={{
                         borderColor: "var(--win95-border)",
@@ -357,7 +411,7 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
                       }}
                       title={t("ui.forms.tooltip_delete")}
                       onMouseEnter={(e) => {
-                        if (!isDeleting && !isPublishing)
+                        if (!isDeleting && !isPublishing && !isDuplicating)
                           e.currentTarget.style.background = "var(--win95-hover-light)";
                       }}
                       onMouseLeave={(e) => {

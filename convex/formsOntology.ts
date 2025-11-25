@@ -809,3 +809,203 @@ export const unpublishForm = mutation({
     return { success: true };
   },
 });
+
+/**
+ * DUPLICATE FORM
+ * Create a copy of an existing form with "Copy of [name]"
+ */
+export const duplicateForm = mutation({
+  args: {
+    sessionId: v.string(),
+    formId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const form = await ctx.db.get(args.formId);
+    if (!form || !("type" in form) || form.type !== "form") {
+      throw new Error("Form not found");
+    }
+
+    // Check permission
+    const hasPermission = await checkPermission(
+      ctx,
+      userId,
+      "manage_forms",
+      form.organizationId
+    );
+
+    if (!hasPermission) {
+      throw new Error("Permission denied: manage_forms required to duplicate forms");
+    }
+
+    // Create the duplicated form
+    const now = Date.now();
+    const newFormId = await ctx.db.insert("objects", {
+      organizationId: form.organizationId,
+      type: "form",
+      subtype: form.subtype,
+      name: `Copy of ${form.name}`,
+      description: form.description || "",
+      status: "draft", // Always start as draft
+      customProperties: {
+        ...form.customProperties,
+        // Reset stats for the new form
+        stats: {
+          views: 0,
+          submissions: 0,
+          completionRate: 0,
+        },
+      },
+      createdBy: userId,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // If the original form has an event link, copy it
+    const eventId = form.customProperties?.eventId;
+    if (eventId) {
+      await ctx.db.insert("objectLinks", {
+        organizationId: form.organizationId,
+        fromObjectId: newFormId,
+        toObjectId: eventId as any,
+        linkType: "form_for",
+        properties: {},
+        createdAt: now,
+      });
+    }
+
+    // Log the action
+    await ctx.db.insert("objectActions", {
+      organizationId: form.organizationId,
+      objectId: newFormId,
+      actionType: "created",
+      performedBy: userId,
+      performedAt: now,
+      actionData: {
+        status: "draft",
+        duplicatedFrom: args.formId,
+      },
+    });
+
+    return newFormId;
+  },
+});
+
+/**
+ * SAVE FORM AS TEMPLATE
+ * Save a form's schema as a reusable template in the system organization
+ */
+export const saveFormAsTemplate = mutation({
+  args: {
+    sessionId: v.string(),
+    formId: v.id("objects"),
+    templateName: v.string(),
+    templateDescription: v.optional(v.string()),
+    templateCode: v.string(), // Unique code for the template
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const form = await ctx.db.get(args.formId);
+    if (!form || !("type" in form) || form.type !== "form") {
+      throw new Error("Form not found");
+    }
+
+    // Check permission
+    const hasPermission = await checkPermission(
+      ctx,
+      userId,
+      "manage_forms",
+      form.organizationId
+    );
+
+    if (!hasPermission) {
+      throw new Error("Permission denied: manage_forms required to save templates");
+    }
+
+    // Get system organization
+    const systemOrg = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", "system"))
+      .first();
+
+    if (!systemOrg) {
+      throw new Error("System organization not found");
+    }
+
+    // Check if template code already exists
+    const existingTemplate = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", systemOrg._id).eq("type", "template")
+      )
+      .filter((q) => q.eq(q.field("subtype"), "form"))
+      .filter((q) => q.eq(q.field("customProperties.code"), args.templateCode))
+      .first();
+
+    if (existingTemplate) {
+      throw new Error(`Template with code "${args.templateCode}" already exists`);
+    }
+
+    // Extract the form schema
+    const formSchema = form.customProperties?.formSchema;
+    if (!formSchema) {
+      throw new Error("Form does not have a schema to save as template");
+    }
+
+    // Create the template in the system organization
+    const now = Date.now();
+    const templateId = await ctx.db.insert("objects", {
+      organizationId: systemOrg._id,
+      type: "template",
+      subtype: "form",
+      name: args.templateName,
+      description: args.templateDescription || "",
+      status: "published",
+      customProperties: {
+        code: args.templateCode,
+        description: args.templateDescription || "",
+        category: form.subtype || "registration",
+        formSchema: formSchema,
+        createdFromForm: args.formId,
+        originalOrganizationId: form.organizationId,
+      },
+      createdBy: userId,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // Auto-enable this template for the current organization
+    await ctx.db.insert("objects", {
+      organizationId: form.organizationId,
+      type: "form_template_availability",
+      name: `Form Template Availability: ${args.templateCode}`,
+      status: "active",
+      customProperties: {
+        templateCode: args.templateCode,
+        available: true,
+        enabledBy: userId,
+        enabledAt: now,
+      },
+      createdBy: userId,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // Log the action
+    await ctx.db.insert("objectActions", {
+      organizationId: form.organizationId,
+      objectId: templateId,
+      actionType: "template_created",
+      performedBy: userId,
+      performedAt: now,
+      actionData: {
+        templateCode: args.templateCode,
+        sourceFormId: args.formId,
+      },
+    });
+
+    return templateId;
+  },
+});

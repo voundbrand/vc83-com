@@ -19,13 +19,15 @@ import {
   Database,
   Globe,
   ExternalLink,
+  Save,
+  X,
 } from "lucide-react";
 import { getFormTemplate } from "@/templates/forms/registry";
 import { webPublishingThemes } from "@/templates/themes";
 
 interface FormBuilderProps {
   formId: string | null;
-  templateCode: string | null;
+  templateCode: string | null; // templateCode prop from Templates tab
   onBack: () => void;
 }
 
@@ -60,6 +62,11 @@ export function FormBuilder({ formId, templateCode, onBack }: FormBuilderProps) 
   const [enableExternalHosting, setEnableExternalHosting] = useState(false); // Default: external hosting disabled
   const [selectedPublishedPageId, setSelectedPublishedPageId] = useState<string>(""); // Published page with external domain (for external hosting)
   const [previewMode, setPreviewMode] = useState<"internal" | "external">("internal"); // Preview mode toggle
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState("");
+  const [newTemplateDescription, setNewTemplateDescription] = useState("");
+  const [newTemplateCode, setNewTemplateCode] = useState("");
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
 
   // Fetch available form templates for this org
   const availableTemplates = useQuery(
@@ -105,6 +112,7 @@ export function FormBuilder({ formId, templateCode, onBack }: FormBuilderProps) 
 
   const createForm = useMutation(api.formsOntology.createForm);
   const updateForm = useMutation(api.formsOntology.updateForm);
+  const saveFormAsTemplate = useMutation(api.formsOntology.saveFormAsTemplate);
 
   // Load existing form data when editing
   useEffect(() => {
@@ -395,6 +403,46 @@ export function FormBuilder({ formId, templateCode, onBack }: FormBuilderProps) 
       );
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleSaveAsTemplate = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!sessionId || !formId) {
+      alert("Can only save existing forms as templates");
+      return;
+    }
+
+    if (!newTemplateName || !newTemplateCode) {
+      alert("Template name and code are required");
+      return;
+    }
+
+    setIsSavingTemplate(true);
+    try {
+      await saveFormAsTemplate({
+        sessionId,
+        formId: formId as Id<"objects">,
+        templateName: newTemplateName,
+        templateDescription: newTemplateDescription,
+        templateCode: newTemplateCode.toLowerCase().replace(/\s+/g, "_"),
+      });
+
+      setSuccessMessage(`Template "${newTemplateName}" created successfully! It's now available in your Templates tab.`);
+      setShowTemplateModal(false);
+      setNewTemplateName("");
+      setNewTemplateDescription("");
+      setNewTemplateCode("");
+
+      setTimeout(() => setSuccessMessage(null), 5000);
+    } catch (error) {
+      console.error("Failed to save template:", error);
+      alert(
+        `Failed to save template: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
+    } finally {
+      setIsSavingTemplate(false);
     }
   };
 
@@ -887,51 +935,72 @@ export function FormBuilder({ formId, templateCode, onBack }: FormBuilderProps) 
           </div>
 
           {/* Submit */}
-          <div className="flex items-center justify-between pt-4 border-t-2" style={{ borderColor: "var(--win95-border)" }}>
-            <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-              {t("ui.forms.submit_note")} <span className="font-bold">{t("ui.forms.status_draft").toLowerCase()}</span>.
-            </p>
-            <button
-              type="submit"
-              disabled={
-                !formName ||
-                isSaving ||
-                (!enableInternalHosting && !enableExternalHosting) ||
-                (enableInternalHosting && !selectedThemeId) ||
-                (enableExternalHosting && !selectedPublishedPageId)
-              }
-              className="px-4 py-2 text-sm font-bold border-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{
-                borderColor: "var(--win95-border)",
-                backgroundColor:
-                  formName &&
-                  !isSaving &&
-                  (enableInternalHosting || enableExternalHosting) &&
-                  (!enableInternalHosting || selectedThemeId) &&
-                  (!enableExternalHosting || selectedPublishedPageId)
-                    ? "var(--win95-highlight)"
-                    : "var(--win95-button-face)",
-                color:
-                  formName &&
-                  !isSaving &&
-                  (enableInternalHosting || enableExternalHosting) &&
-                  (!enableInternalHosting || selectedThemeId) &&
-                  (!enableExternalHosting || selectedPublishedPageId)
-                    ? "white"
-                    : "var(--neutral-gray)",
-              }}
-            >
-              {isSaving ? (
-                <span className="flex items-center gap-2">
-                  <Loader2 size={14} className="animate-spin" />
-                  {formId ? t("ui.forms.button_updating") : t("ui.forms.button_creating")}
-                </span>
-              ) : formId ? (
-                t("ui.forms.button_update_form")
-              ) : (
-                t("ui.forms.button_create_form")
-              )}
-            </button>
+          <div className="pt-4 border-t-2 space-y-3" style={{ borderColor: "var(--win95-border)" }}>
+            <div className="flex items-center justify-between">
+              <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                {t("ui.forms.submit_note")} <span className="font-bold">{t("ui.forms.status_draft").toLowerCase()}</span>.
+              </p>
+              <button
+                type="submit"
+                disabled={
+                  !formName ||
+                  isSaving ||
+                  (!enableInternalHosting && !enableExternalHosting) ||
+                  (enableInternalHosting && !selectedThemeId) ||
+                  (enableExternalHosting && !selectedPublishedPageId)
+                }
+                className="px-4 py-2 text-sm font-bold border-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  borderColor: "var(--win95-border)",
+                  backgroundColor:
+                    formName &&
+                    !isSaving &&
+                    (enableInternalHosting || enableExternalHosting) &&
+                    (!enableInternalHosting || selectedThemeId) &&
+                    (!enableExternalHosting || selectedPublishedPageId)
+                      ? "var(--win95-highlight)"
+                      : "var(--win95-button-face)",
+                  color:
+                    formName &&
+                    !isSaving &&
+                    (enableInternalHosting || enableExternalHosting) &&
+                    (!enableInternalHosting || selectedThemeId) &&
+                    (!enableExternalHosting || selectedPublishedPageId)
+                      ? "white"
+                      : "var(--neutral-gray)",
+                }}
+              >
+                {isSaving ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 size={14} className="animate-spin" />
+                    {formId ? t("ui.forms.button_updating") : t("ui.forms.button_creating")}
+                  </span>
+                ) : formId ? (
+                  t("ui.forms.button_update_form")
+                ) : (
+                  t("ui.forms.button_create_form")
+                )}
+              </button>
+            </div>
+
+            {/* Save as Template button (only when editing) */}
+            {formId && (
+              <div className="flex items-center justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowTemplateModal(true)}
+                  className="px-3 py-1.5 text-xs font-bold border-2 flex items-center gap-2 transition-colors hover:brightness-95"
+                  style={{
+                    borderColor: "var(--win95-border)",
+                    background: "var(--win95-bg-light)",
+                    color: "#8b5cf6", // Purple color
+                  }}
+                >
+                  <Save size={12} />
+                  Save as Template
+                </button>
+              </div>
+            )}
           </div>
         </form>
       </div>
@@ -1275,6 +1344,141 @@ export function FormBuilder({ formId, templateCode, onBack }: FormBuilderProps) 
           </div>
         )}
       </div>
+
+      {/* Save as Template Modal */}
+      {showTemplateModal && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50"
+          style={{ background: "rgba(0, 0, 0, 0.5)" }}
+          onClick={() => setShowTemplateModal(false)}
+        >
+          <div
+            className="border-4 p-6 max-w-md w-full mx-4"
+            style={{
+              borderColor: "var(--win95-border)",
+              background: "var(--win95-bg)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Save size={20} style={{ color: "#8b5cf6" }} />
+                <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+                  Save as Template
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowTemplateModal(false)}
+                className="p-1 hover:brightness-95"
+                style={{ color: "var(--win95-text)" }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveAsTemplate} className="space-y-4">
+              {/* Template Name */}
+              <div>
+                <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                  Template Name <span style={{ color: "var(--error)" }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newTemplateName}
+                  onChange={(e) => setNewTemplateName(e.target.value)}
+                  className="w-full border-2 px-2 py-1 text-sm"
+                  style={{
+                    borderColor: "var(--win95-border)",
+                    background: "var(--win95-input-bg)",
+                    color: "var(--win95-text)",
+                  }}
+                  placeholder="e.g., Registration Form"
+                  required
+                />
+              </div>
+
+              {/* Template Code */}
+              <div>
+                <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                  Template Code <span style={{ color: "var(--error)" }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newTemplateCode}
+                  onChange={(e) => setNewTemplateCode(e.target.value)}
+                  className="w-full border-2 px-2 py-1 text-sm font-mono"
+                  style={{
+                    borderColor: "var(--win95-border)",
+                    background: "var(--win95-input-bg)",
+                    color: "var(--win95-text)",
+                  }}
+                  placeholder="e.g., registration_form"
+                  pattern="[a-z0-9_]+"
+                  required
+                />
+                <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+                  Lowercase letters, numbers, and underscores only
+                </p>
+              </div>
+
+              {/* Template Description */}
+              <div>
+                <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                  Description
+                </label>
+                <textarea
+                  value={newTemplateDescription}
+                  onChange={(e) => setNewTemplateDescription(e.target.value)}
+                  className="w-full border-2 px-2 py-1 text-sm"
+                  style={{
+                    borderColor: "var(--win95-border)",
+                    background: "var(--win95-input-bg)",
+                    color: "var(--win95-text)",
+                  }}
+                  placeholder="Brief description of this template"
+                  rows={3}
+                  maxLength={500}
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-2 pt-4 border-t-2" style={{ borderColor: "var(--win95-border)" }}>
+                <button
+                  type="button"
+                  onClick={() => setShowTemplateModal(false)}
+                  className="px-4 py-2 text-sm font-bold border-2"
+                  style={{
+                    borderColor: "var(--win95-border)",
+                    background: "var(--win95-button-face)",
+                    color: "var(--win95-text)",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!newTemplateName || !newTemplateCode || isSavingTemplate}
+                  className="px-4 py-2 text-sm font-bold border-2 disabled:opacity-50"
+                  style={{
+                    borderColor: "var(--win95-border)",
+                    background: newTemplateName && newTemplateCode && !isSavingTemplate ? "#8b5cf6" : "var(--win95-button-face)",
+                    color: newTemplateName && newTemplateCode && !isSavingTemplate ? "white" : "var(--neutral-gray)",
+                  }}
+                >
+                  {isSavingTemplate ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 size={14} className="animate-spin" />
+                      Saving...
+                    </span>
+                  ) : (
+                    "Save Template"
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
