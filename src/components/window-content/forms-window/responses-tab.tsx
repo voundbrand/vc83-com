@@ -5,6 +5,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { useAuth } from "@/hooks/use-auth";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { Loader2, Eye, Download, Search } from "lucide-react";
 
 interface ResponsesTabProps {
@@ -22,6 +23,7 @@ interface ResponsesTabProps {
 
 export function ResponsesTab({ forms }: ResponsesTabProps) {
   const { sessionId } = useAuth();
+  const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.forms");
   const [selectedFormId, setSelectedFormId] = useState<Id<"objects"> | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [viewingResponse, setViewingResponse] = useState<any | null>(null);
@@ -34,6 +36,14 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
       : "skip"
   );
 
+  if (translationsLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 size={32} className="animate-spin" style={{ color: "var(--win95-highlight)" }} />
+      </div>
+    );
+  }
+
   // If no form selected, show form selector
   if (!selectedFormId) {
     const formsWithResponses = forms.filter(
@@ -43,17 +53,17 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
     return (
       <div className="p-4">
         <h3 className="text-sm font-bold mb-4" style={{ color: "var(--win95-text)" }}>
-          Select a form to view responses
+          {t("ui.forms.responses.select_form")}
         </h3>
 
         {formsWithResponses.length === 0 ? (
           <div className="text-center py-12">
             <div className="text-4xl mb-4">📝</div>
             <p className="text-sm" style={{ color: "var(--neutral-gray)" }}>
-              No form responses yet
+              {t("ui.forms.responses.no_responses")}
             </p>
             <p className="text-xs mt-2" style={{ color: "var(--neutral-gray)" }}>
-              Responses will appear here once forms are submitted
+              {t("ui.forms.responses.no_responses_hint")}
             </p>
           </div>
         ) : (
@@ -64,10 +74,16 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
                 <button
                   key={form._id}
                   onClick={() => setSelectedFormId(form._id)}
-                  className="p-4 border-2 text-left hover:bg-gray-50 transition-colors"
+                  className="p-4 border-2 text-left transition-colors"
                   style={{
                     borderColor: "var(--win95-border)",
                     background: "var(--win95-bg-light)",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "var(--win95-hover-light)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "var(--win95-bg-light)";
                   }}
                 >
                   <div className="flex items-start justify-between">
@@ -84,7 +100,9 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
                         {submissionCount}
                       </div>
                       <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                        {submissionCount === 1 ? "response" : "responses"}
+                        {submissionCount === 1
+                          ? t("ui.forms.responses.response_singular")
+                          : t("ui.forms.responses.response_plural")}
                       </div>
                     </div>
                   </div>
@@ -126,21 +144,23 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
             style={{
               borderColor: "var(--win95-border)",
               background: "var(--win95-button-face)",
+              color: "var(--win95-text)",
             }}
           >
-            ← Back to Forms
+            ← {t("ui.forms.responses.back_to_forms")}
           </button>
           <button
-            className="text-xs px-3 py-1 border-2 flex items-center gap-2"
+            className="text-xs px-3 py-1 border-2 flex items-center gap-2 opacity-50 cursor-not-allowed"
             style={{
               borderColor: "var(--win95-border)",
               background: "var(--win95-button-face)",
+              color: "var(--win95-text)",
             }}
-            title="Export to CSV (coming soon)"
+            title={t("ui.forms.responses.export_csv_coming_soon")}
             disabled
           >
             <Download size={12} />
-            Export CSV
+            {t("ui.forms.responses.export_csv")}
           </button>
         </div>
 
@@ -148,19 +168,28 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
           {selectedForm?.name}
         </h3>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-          {filteredResponses.length} {filteredResponses.length === 1 ? "response" : "responses"}
+          {filteredResponses.length}{" "}
+          {filteredResponses.length === 1
+            ? t("ui.forms.responses.response_singular")
+            : t("ui.forms.responses.response_plural")}
         </p>
 
         {/* Search */}
-        <div className="mt-3 flex items-center gap-2 border-2 px-3 py-2 bg-white">
+        <div
+          className="mt-3 flex items-center gap-2 border-2 px-3 py-2"
+          style={{
+            borderColor: "var(--win95-border)",
+            background: "var(--win95-input-bg)",
+          }}
+        >
           <Search size={14} style={{ color: "var(--neutral-gray)" }} />
           <input
             type="text"
-            placeholder="Search responses..."
+            placeholder={t("ui.forms.responses.search_placeholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="flex-1 text-xs outline-none"
-            style={{ color: "var(--win95-text)" }}
+            style={{ color: "var(--win95-text)", background: "transparent" }}
           />
         </div>
       </div>
@@ -170,7 +199,9 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
         {filteredResponses.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-sm" style={{ color: "var(--neutral-gray)" }}>
-              {searchQuery ? "No responses match your search" : "No responses yet"}
+              {searchQuery
+                ? t("ui.forms.responses.no_matches")
+                : t("ui.forms.responses.no_responses")}
             </p>
           </div>
         ) : (
@@ -183,15 +214,21 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
               // Try to get a name from the response data
               const name = responseData.firstName || responseData.first_name ||
                           responseData.contact_name || responseData.name ||
-                          responseData.email || "Anonymous";
+                          responseData.email || t("ui.forms.responses.anonymous");
 
               return (
                 <div
                   key={response._id}
-                  className="p-3 border-2 hover:bg-gray-50 transition-colors"
+                  className="p-3 border-2 transition-colors"
                   style={{
                     borderColor: "var(--win95-border)",
                     background: "var(--win95-bg-light)",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "var(--win95-hover-light)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "var(--win95-bg-light)";
                   }}
                 >
                   <div className="flex items-start justify-between">
@@ -205,15 +242,15 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
                             className="text-xs px-2 py-0.5 rounded"
                             style={{
                               background: "var(--win95-highlight)",
-                              color: "white",
+                              color: "var(--win95-titlebar-text)",
                             }}
                           >
-                            Public
+                            {t("ui.forms.responses.public")}
                           </span>
                         )}
                       </div>
                       <p className="text-xs mb-2" style={{ color: "var(--neutral-gray)" }}>
-                        {submittedAt ? new Date(submittedAt).toLocaleString() : "Unknown time"}
+                        {submittedAt ? new Date(submittedAt).toLocaleString() : t("ui.forms.responses.unknown_time")}
                       </p>
 
                       {/* Show first few fields */}
@@ -236,10 +273,11 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
                       style={{
                         borderColor: "var(--win95-border)",
                         background: "var(--win95-button-face)",
+                        color: "var(--win95-text)",
                       }}
                     >
                       <Eye size={12} />
-                      View
+                      {t("ui.forms.responses.view")}
                     </button>
                   </div>
                 </div>
@@ -261,7 +299,7 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
             style={{
               borderColor: "var(--win95-border)",
               background: "var(--win95-bg-light)",
-              boxShadow: "4px 4px 0 rgba(0,0,0,0.25)",
+              boxShadow: "var(--win95-shadow)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -273,10 +311,13 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
                 background: "var(--win95-highlight)",
               }}
             >
-              <h3 className="text-sm font-bold text-white">Response Details</h3>
+              <h3 className="text-sm font-bold" style={{ color: "var(--win95-titlebar-text)" }}>
+                {t("ui.forms.responses.response_details")}
+              </h3>
               <button
                 onClick={() => setViewingResponse(null)}
-                className="text-white text-sm font-bold px-2 hover:bg-black/20"
+                className="text-sm font-bold px-2 hover:bg-black/20"
+                style={{ color: "var(--win95-titlebar-text)" }}
               >
                 ✕
               </button>
@@ -285,26 +326,40 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
             {/* Modal Content */}
             <div className="p-4 space-y-4">
               {/* Metadata */}
-              <div className="p-3 border-2" style={{ borderColor: "var(--win95-border)", background: "white" }}>
+              <div
+                className="p-3 border-2"
+                style={{
+                  borderColor: "var(--win95-border)",
+                  background: "var(--win95-bg)",
+                }}
+              >
                 <h4 className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
-                  Submission Info
+                  {t("ui.forms.responses.submission_info")}
                 </h4>
                 <div className="text-xs space-y-1">
                   <div className="flex justify-between">
-                    <span style={{ color: "var(--neutral-gray)" }}>Submitted:</span>
+                    <span style={{ color: "var(--neutral-gray)" }}>
+                      {t("ui.forms.responses.submitted")}:
+                    </span>
                     <span style={{ color: "var(--win95-text)" }}>
                       {new Date(viewingResponse.customProperties?.submittedAt || 0).toLocaleString()}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span style={{ color: "var(--neutral-gray)" }}>Type:</span>
+                    <span style={{ color: "var(--neutral-gray)" }}>
+                      {t("ui.forms.responses.type")}:
+                    </span>
                     <span style={{ color: "var(--win95-text)" }}>
-                      {viewingResponse.customProperties?.isPublicSubmission ? "Public Submission" : "Authenticated"}
+                      {viewingResponse.customProperties?.isPublicSubmission
+                        ? t("ui.forms.responses.public_submission")
+                        : t("ui.forms.responses.authenticated")}
                     </span>
                   </div>
                   {viewingResponse.customProperties?.ipAddress && (
                     <div className="flex justify-between">
-                      <span style={{ color: "var(--neutral-gray)" }}>IP Address:</span>
+                      <span style={{ color: "var(--neutral-gray)" }}>
+                        {t("ui.forms.responses.ip_address")}:
+                      </span>
                       <span style={{ color: "var(--win95-text)" }}>
                         {viewingResponse.customProperties.ipAddress}
                       </span>
@@ -314,14 +369,20 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
               </div>
 
               {/* Response Data */}
-              <div className="p-3 border-2" style={{ borderColor: "var(--win95-border)", background: "white" }}>
+              <div
+                className="p-3 border-2"
+                style={{
+                  borderColor: "var(--win95-border)",
+                  background: "var(--win95-bg)",
+                }}
+              >
                 <h4 className="text-xs font-bold mb-3" style={{ color: "var(--win95-text)" }}>
-                  Form Data
+                  {t("ui.forms.responses.form_data")}
                 </h4>
                 <div className="text-xs space-y-3">
                   {Object.entries((viewingResponse.customProperties?.responses as Record<string, any>) || {}).map(
                     ([key, value]) => (
-                      <div key={key} className="border-b pb-2 last:border-b-0">
+                      <div key={key} className="border-b pb-2 last:border-b-0" style={{ borderColor: "var(--win95-border-light)" }}>
                         <div className="font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
                           {key}
                         </div>
@@ -342,9 +403,10 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
                   style={{
                     borderColor: "var(--win95-border)",
                     background: "var(--win95-button-face)",
+                    color: "var(--win95-text)",
                   }}
                 >
-                  Close
+                  {t("ui.forms.responses.close")}
                 </button>
               </div>
             </div>
