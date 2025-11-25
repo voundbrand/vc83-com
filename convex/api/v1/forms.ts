@@ -174,8 +174,29 @@ export const getPublicForm = httpAction(async (ctx, request) => {
 
     console.log(`✅ [GET /api/v1/forms/public] Form found: ${form.name}`);
 
-    // 3. Return response
-    return new Response(JSON.stringify(form), {
+    // 3. Transform response to match API format (same as authenticated endpoint)
+    const customProps = form.customProperties as Record<string, unknown> | undefined;
+    const transformedForm = {
+      id: form._id,
+      organizationId: form.organizationId,
+      name: form.name,
+      description: form.description,
+      status: form.status,
+      subtype: form.subtype,
+      fields: (customProps?.fields as unknown[]) || [],
+      settings: (customProps?.settings as Record<string, unknown>) || {
+        submitButtonText: "Submit",
+        successMessage: "Form submitted successfully",
+      },
+      translations: (customProps?.translations as Record<string, unknown>) || {},
+      customProperties: {
+        formSchema: customProps?.formSchema,
+        ...customProps,
+      },
+    };
+
+    // 4. Return transformed response
+    return new Response(JSON.stringify(transformedForm), {
       status: 200,
       headers: {
         "Content-Type": "application/json",
