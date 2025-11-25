@@ -196,6 +196,7 @@ export const createForm = mutation({
             submitButtonText: "Submit",
             successMessage: "Thank you for your submission!",
             redirectUrl: null,
+            displayMode: "all", // "all" | "single-question" | "section-by-section" | "paginated"
           },
           sections: [],
         },
