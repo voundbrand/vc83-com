@@ -16,6 +16,7 @@ interface ContentRulesModalProps {
       slug?: string;
       contentRules?: {
         events?: {
+          enabled?: boolean;
           filter?: "all" | "future" | "past" | "featured";
           visibility?: "all" | "public" | "private";
           subtypes?: string[];
@@ -62,6 +63,9 @@ export function ContentRulesModal({ page, onClose, onSaveRules }: ContentRulesMo
   const existingRules = page.customProperties?.contentRules || {};
 
   // Form state
+  const [eventsEnabled, setEventsEnabled] = useState<boolean>(
+    existingRules.events?.enabled !== false // Default to true if not specified
+  );
   const [eventFilter, setEventFilter] = useState<"all" | "future" | "past" | "featured">(
     existingRules.events?.filter || "all"
   );
@@ -93,6 +97,7 @@ export function ContentRulesModal({ page, onClose, onSaveRules }: ContentRulesMo
   const handleSave = async () => {
     const contentRules = {
       events: {
+        enabled: eventsEnabled,
         filter: eventFilter,
         visibility: eventVisibility,
         subtypes: eventSubtypes.length > 0 ? eventSubtypes : undefined,
@@ -196,7 +201,28 @@ export function ContentRulesModal({ page, onClose, onSaveRules }: ContentRulesMo
                 📅 Event Display Rules
               </h4>
 
-              {/* Time Filter */}
+              {/* Enable/Disable Events Toggle */}
+              <div className="mb-4 p-3 border-2" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={eventsEnabled}
+                    onChange={(e) => setEventsEnabled(e.target.checked)}
+                    className="w-4 h-4"
+                  />
+                  <div>
+                    <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                      Show events on this page
+                    </span>
+                    <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+                      Uncheck to hide ALL events (useful for pages that only show forms or checkout)
+                    </p>
+                  </div>
+                </label>
+              </div>
+
+              {/* Time Filter - Only show if events are enabled */}
+              {eventsEnabled && (
               <div className="mb-4">
                 <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
                   Show Events:
@@ -218,8 +244,10 @@ export function ContentRulesModal({ page, onClose, onSaveRules }: ContentRulesMo
                   ))}
                 </div>
               </div>
+              )}
 
-              {/* Visibility Filter */}
+              {/* Visibility Filter - Only show if events are enabled */}
+              {eventsEnabled && (
               <div className="mb-4">
                 <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
                   Visibility:
@@ -241,8 +269,10 @@ export function ContentRulesModal({ page, onClose, onSaveRules }: ContentRulesMo
                   ))}
                 </div>
               </div>
+              )}
 
-              {/* Event Types */}
+              {/* Event Types - Only show if events are enabled */}
+              {eventsEnabled && (
               <div className="mb-4">
                 <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
                   Event Types (optional):
@@ -267,8 +297,10 @@ export function ContentRulesModal({ page, onClose, onSaveRules }: ContentRulesMo
                   Leave empty to show all event types
                 </p>
               </div>
+              )}
 
-              {/* Limit */}
+              {/* Limit - Only show if events are enabled */}
+              {eventsEnabled && (
               <div className="mb-4">
                 <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
                   Maximum Events:
@@ -305,8 +337,10 @@ export function ContentRulesModal({ page, onClose, onSaveRules }: ContentRulesMo
                   }}
                 />
               </div>
+              )}
 
-              {/* Sort Options */}
+              {/* Sort Options - Only show if events are enabled */}
+              {eventsEnabled && (
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
@@ -345,6 +379,7 @@ export function ContentRulesModal({ page, onClose, onSaveRules }: ContentRulesMo
                   </select>
                 </div>
               </div>
+              )}
             </div>
 
             <div className="border-t-2" style={{ borderColor: "var(--win95-border)" }} />

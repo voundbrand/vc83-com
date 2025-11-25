@@ -32,11 +32,15 @@ interface PublishedPagesTabProps {
  * Shows list of organization's published pages with status badges and actions.
  * Org owners can view, edit, publish/unpublish, and delete pages.
  */
+type PageSubTab = "drafts" | "published";
+
 export function PublishedPagesTab({ onEditPage }: PublishedPagesTabProps) {
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
   const { t } = useNamespaceTranslations("ui.web_publishing");
 
+  // Default to showing drafts
+  const [subTab, setSubTab] = useState<PageSubTab>("drafts");
   // Default to showing only "active" (non-archived) pages
   const [selectedStatus, setSelectedStatus] = useState<string | undefined>("active");
 
@@ -47,6 +51,10 @@ export function PublishedPagesTab({ onEditPage }: PublishedPagesTabProps) {
       ? { sessionId, organizationId: currentOrg.id as Id<"organizations">, status: selectedStatus }
       : "skip"
   );
+
+  // Separate pages by status for tabs
+  const draftPages = pages?.filter(p => ["draft", "review"].includes(p.status || "draft")) || [];
+  const publishedPages = pages?.filter(p => ["published", "unpublished", "archived"].includes(p.status || "draft")) || [];
 
   if (!sessionId || !currentOrg) {
     return (
@@ -104,50 +112,105 @@ export function PublishedPagesTab({ onEditPage }: PublishedPagesTabProps) {
     );
   }
 
-  return (
-    <div className="p-4">
-      {/* Header with filters */}
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
-            {t("ui.web_publishing.pages.your_pages")}
-          </h3>
-          <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-            {pages.length} {pages.length !== 1 ? t("ui.web_publishing.pages.count_plural").replace('{count}', String(pages.length)) : t("ui.web_publishing.pages.count").replace('{count}', String(pages.length))} {t("ui.web_publishing.pages.total")}
-          </p>
-        </div>
+  const currentPages = subTab === "drafts" ? draftPages : publishedPages;
 
-        {/* Status filter */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
-            {t("ui.web_publishing.pages.status_label")}
-          </span>
-          <select
-            className="px-2 py-1 text-xs border-2"
-            style={{
-              borderColor: 'var(--win95-border)',
-              background: 'var(--win95-bg-light)',
-              color: 'var(--win95-text)'
-            }}
-            value={selectedStatus || "all"}
-            onChange={(e) => setSelectedStatus(e.target.value === "all" ? undefined : e.target.value)}
-          >
-            <option value="active">{t("ui.web_publishing.pages.filter.active")}</option>
-            <option value="all">{t("ui.web_publishing.pages.filter.all")}</option>
-            <option value="draft">{t("ui.web_publishing.pages.filter.draft")}</option>
-            <option value="review">{t("ui.web_publishing.pages.filter.review")}</option>
-            <option value="published">{t("ui.web_publishing.pages.filter.published")}</option>
-            <option value="unpublished">{t("ui.web_publishing.pages.filter.unpublished")}</option>
-            <option value="archived">{t("ui.web_publishing.pages.filter.archived")}</option>
-          </select>
-        </div>
+  return (
+    <div className="flex flex-col h-full">
+      {/* Sub-tabs for Drafts/Published */}
+      <div className="flex border-b-2 px-4 pt-4" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}>
+        <button
+          onClick={() => setSubTab("drafts")}
+          className={`px-4 py-2 text-xs font-semibold border-2 border-b-0 transition-colors flex items-center gap-2 ${
+            subTab === "drafts" ? "-mb-0.5" : ""
+          }`}
+          style={{
+            backgroundColor: subTab === "drafts" ? "var(--win95-bg-light)" : "var(--win95-bg)",
+            color: subTab === "drafts" ? "var(--win95-highlight)" : "var(--neutral-gray)",
+            borderColor: subTab === "drafts" ? "var(--win95-border)" : "transparent",
+          }}
+        >
+          <Edit size={12} />
+          {t("ui.web_publishing.subtabs.drafts")} ({draftPages.length})
+        </button>
+        <button
+          onClick={() => setSubTab("published")}
+          className={`px-4 py-2 text-xs font-semibold border-2 border-b-0 transition-colors flex items-center gap-2 ${
+            subTab === "published" ? "-mb-0.5" : ""
+          }`}
+          style={{
+            backgroundColor: subTab === "published" ? "var(--win95-bg-light)" : "var(--win95-bg)",
+            color: subTab === "published" ? "var(--win95-highlight)" : "var(--neutral-gray)",
+            borderColor: subTab === "published" ? "var(--win95-border)" : "transparent",
+          }}
+        >
+          <Eye size={12} />
+          {t("ui.web_publishing.subtabs.published")} ({publishedPages.length})
+        </button>
       </div>
 
-      {/* Pages list */}
-      <div className="space-y-2">
-        {pages.map((page) => (
-          <PageCard key={page._id} page={page} onEditPage={onEditPage} />
-        ))}
+      {/* Tab content */}
+      <div className="flex-1 overflow-y-auto">
+        {currentPages.length === 0 ? (
+          <div className="text-center py-12" style={{ color: "var(--neutral-gray)" }}>
+            <div className="text-4xl mb-4">{subTab === "drafts" ? "📝" : "🌐"}</div>
+            <h3 className="text-sm font-semibold mb-2">
+              {subTab === "drafts"
+                ? t("ui.web_publishing.empty_drafts_title")
+                : t("ui.web_publishing.empty_published_title")}
+            </h3>
+            <p className="text-xs">
+              {subTab === "drafts"
+                ? t("ui.web_publishing.empty_drafts_description")
+                : t("ui.web_publishing.empty_published_description")}
+            </p>
+          </div>
+        ) : (
+          <div className="p-4">
+            {/* Header with filters */}
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
+                  {subTab === "drafts" ? t("ui.web_publishing.pages.your_drafts") : t("ui.web_publishing.pages.your_published")}
+                </h3>
+                <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
+                  {currentPages.length} {currentPages.length !== 1 ? t("ui.web_publishing.pages.count_plural").replace('{count}', String(currentPages.length)) : t("ui.web_publishing.pages.count").replace('{count}', String(currentPages.length))} {t("ui.web_publishing.pages.total")}
+                </p>
+              </div>
+
+              {/* Status filter - only show in published tab */}
+              {subTab === "published" && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+                    {t("ui.web_publishing.pages.status_label")}
+                  </span>
+                  <select
+                    className="px-2 py-1 text-xs border-2"
+                    style={{
+                      borderColor: 'var(--win95-border)',
+                      background: 'var(--win95-bg-light)',
+                      color: 'var(--win95-text)'
+                    }}
+                    value={selectedStatus || "all"}
+                    onChange={(e) => setSelectedStatus(e.target.value === "all" ? undefined : e.target.value)}
+                  >
+                    <option value="active">{t("ui.web_publishing.pages.filter.active")}</option>
+                    <option value="all">{t("ui.web_publishing.pages.filter.all")}</option>
+                    <option value="published">{t("ui.web_publishing.pages.filter.published")}</option>
+                    <option value="unpublished">{t("ui.web_publishing.pages.filter.unpublished")}</option>
+                    <option value="archived">{t("ui.web_publishing.pages.filter.archived")}</option>
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {/* Pages list */}
+            <div className="space-y-2">
+              {currentPages.map((page) => (
+                <PageCard key={page._id} page={page} onEditPage={onEditPage} />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

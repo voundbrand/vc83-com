@@ -5,7 +5,7 @@ import { useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
-import { FileText, Plus, Edit, Trash2, Eye, Send, FileX, Loader2 } from "lucide-react";
+import { FileText, Plus, Edit, Trash2, Eye, Send, FileX, Loader2, ExternalLink } from "lucide-react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { ConfirmationModal } from "@/components/confirmation-modal";
 
@@ -23,6 +23,7 @@ interface Form {
       submissions?: number;
       views?: number;
     };
+    publicUrl?: string;
   };
 }
 
@@ -61,40 +62,6 @@ export function FormsList({ forms, onCreateForm, onEditForm }: FormsListProps) {
         return "📝";
       default:
         return "📋";
-    }
-  };
-
-  const getStatusBadge = (status?: string) => {
-    switch (status) {
-      case "draft":
-        return (
-          <span
-            className="px-2 py-0.5 text-xs rounded"
-            style={{ background: "var(--warning)", color: "white" }}
-          >
-            {t("ui.forms.status_draft")}
-          </span>
-        );
-      case "published":
-        return (
-          <span
-            className="px-2 py-0.5 text-xs rounded"
-            style={{ background: "var(--success)", color: "white" }}
-          >
-            {t("ui.forms.status_published")}
-          </span>
-        );
-      case "archived":
-        return (
-          <span
-            className="px-2 py-0.5 text-xs rounded"
-            style={{ background: "var(--neutral-gray)", color: "white" }}
-          >
-            {t("ui.forms.status_archived")}
-          </span>
-        );
-      default:
-        return null;
     }
   };
 
@@ -187,129 +154,194 @@ export function FormsList({ forms, onCreateForm, onEditForm }: FormsListProps) {
     );
   }
 
+  // Status badge colors - matching web publishing style
+  const statusColors: Record<string, { bg: string; text: string; label: string }> = {
+    draft: { bg: "var(--neutral-gray)", text: "white", label: t("ui.forms.status_draft") },
+    published: { bg: "var(--success)", text: "white", label: t("ui.forms.status_published") },
+    archived: { bg: "var(--error)", text: "white", label: t("ui.forms.status_archived") },
+  };
+
   return (
     <>
       <div className="p-4">
-        <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+        {/* Header */}
+        <div className="mb-4">
+          <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+            {t("ui.forms.your_forms")}
+          </h3>
+          <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+            {forms.length} {forms.length !== 1 ? t("ui.forms.count_plural") : t("ui.forms.count")} {t("ui.forms.total")}
+          </p>
+        </div>
+
+        {/* Forms list - list style like web publishing */}
+        <div className="space-y-2">
           {forms.map((form) => {
             const fieldCount = form.customProperties?.formSchema?.fields?.length || 0;
             const submissions = form.customProperties?.stats?.submissions || 0;
             const isDeleting = deletingFormId === form._id;
             const isPublishing = publishingFormId === form._id;
             const isPublished = form.status === "published";
+            const publicUrl = form.customProperties?.publicUrl;
+            const status = form.status || "draft";
+            const statusStyle = statusColors[status] || statusColors.draft;
 
             return (
               <div
                 key={form._id}
-                className="border-2 rounded p-4 hover:brightness-95 transition-all"
+                className="border-2 p-3 transition-colors"
                 style={{
                   borderColor: "var(--win95-border)",
-                  background: "var(--win95-input-bg)",
+                  background: "var(--win95-bg-light)",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "var(--win95-hover-light)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "var(--win95-bg-light)";
                 }}
               >
-                {/* Header */}
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl">{getFormIcon(form.subtype)}</span>
-                    <div className="flex-1">
-                      <h3 className="font-bold text-sm" style={{ color: "var(--win95-text)" }}>
+                <div className="flex items-start justify-between">
+                  {/* Left: Form info */}
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-lg">{getFormIcon(form.subtype)}</span>
+                      <h4 className="font-bold text-sm" style={{ color: "var(--win95-text)" }}>
                         {form.name}
-                      </h3>
-                      <p className="text-xs capitalize" style={{ color: "var(--neutral-gray)" }}>
-                        {form.subtype ? t(`ui.forms.type_${form.subtype}` as any) : t("ui.forms.type_form")}
-                      </p>
+                      </h4>
+                      <span
+                        className="px-2 py-0.5 text-xs font-bold"
+                        style={{ backgroundColor: statusStyle.bg, color: statusStyle.text }}
+                      >
+                        {statusStyle.label}
+                      </span>
                     </div>
-                  </div>
-                  {getStatusBadge(form.status)}
-                </div>
 
-                {/* Description */}
-                {form.description && (
-                  <p
-                    className="text-xs mb-3 line-clamp-2"
-                    style={{ color: "var(--neutral-gray)" }}
-                  >
-                    {form.description}
-                  </p>
-                )}
+                    {/* Type badge */}
+                    <div className="text-xs mb-1 capitalize" style={{ color: "var(--neutral-gray)" }}>
+                      {t("ui.forms.type_label")} <span className="font-bold">{form.subtype ? t(`ui.forms.type_${form.subtype}` as any) : t("ui.forms.type_form")}</span>
+                    </div>
 
-                {/* Stats */}
-                <div className="flex gap-4 mb-3 text-xs" style={{ color: "var(--neutral-gray)" }}>
-                  <div>
-                    <span className="font-bold">{fieldCount}</span> {t("ui.forms.stats_fields")}
-                  </div>
-                  <div>
-                    <span className="font-bold">{submissions}</span> {t("ui.forms.stats_responses")}
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="flex gap-2">
-                  {/* Edit */}
-                  <button
-                    onClick={() => onEditForm(form._id)}
-                    disabled={isDeleting || isPublishing}
-                    className="flex-1 px-3 py-1.5 text-xs font-bold flex items-center justify-center gap-1 border-2 transition-colors hover:brightness-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                    style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--win95-button-face)",
-                      color: "var(--win95-text)",
-                    }}
-                    title={t("ui.forms.tooltip_edit")}
-                  >
-                    <Edit size={12} />
-                    {t("ui.forms.button_edit")}
-                  </button>
-
-                  {/* Publish/Unpublish */}
-                  <button
-                    onClick={() => handlePublish(form._id, form.status || "draft")}
-                    disabled={isDeleting || isPublishing}
-                    className="px-3 py-1.5 text-xs font-bold flex items-center gap-1 border-2 transition-colors hover:brightness-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                    style={{
-                      borderColor: "var(--win95-border)",
-                      background: isPublished ? "var(--warning)" : "var(--success)",
-                      color: "white",
-                    }}
-                    title={isPublished ? t("ui.forms.tooltip_unpublish") : t("ui.forms.tooltip_publish")}
-                  >
-                    {isPublishing ? (
-                      <Loader2 size={12} className="animate-spin" />
-                    ) : isPublished ? (
-                      <FileX size={12} />
-                    ) : (
-                      <Send size={12} />
+                    {/* Description (if exists) */}
+                    {form.description && (
+                      <p className="text-xs mb-1 line-clamp-2" style={{ color: "var(--neutral-gray)" }}>
+                        {form.description}
+                      </p>
                     )}
-                  </button>
 
-                  {/* Preview (disabled for now) */}
-                  <button
-                    disabled
-                    className="px-3 py-1.5 text-xs font-bold border-2 opacity-50 cursor-not-allowed"
-                    style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--win95-button-face)",
-                      color: "var(--win95-text)",
-                    }}
-                    title={t("ui.forms.tooltip_preview_soon")}
-                  >
-                    <Eye size={12} />
-                  </button>
+                    {/* Meta info - stats */}
+                    <div className="flex items-center gap-4 text-xs" style={{ color: "var(--neutral-gray)" }}>
+                      <span>
+                        <span className="font-bold">{fieldCount}</span> {t("ui.forms.stats_fields")}
+                      </span>
+                      <span>
+                        <span className="font-bold">{submissions}</span> {t("ui.forms.stats_responses")}
+                      </span>
+                    </div>
 
-                  {/* Delete */}
-                  <button
-                    onClick={() => handleDelete(form._id, form.name)}
-                    disabled={isDeleting || isPublishing}
-                    className="px-3 py-1.5 text-xs font-bold border-2 transition-colors hover:brightness-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                    style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--error)",
-                      color: "white",
-                    }}
-                    title={t("ui.forms.tooltip_delete")}
-                  >
-                    {isDeleting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
-                  </button>
+                    {/* Public URL (if exists) */}
+                    {publicUrl && (
+                      <a
+                        href={publicUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs hover:underline mt-1 flex items-center gap-1"
+                        style={{ color: "var(--win95-highlight)" }}
+                      >
+                        {publicUrl}
+                        <ExternalLink size={10} />
+                      </a>
+                    )}
+                  </div>
+
+                  {/* Right: Action buttons - inline like web publishing */}
+                  <div className="flex items-center gap-1">
+                    {/* Edit button */}
+                    <button
+                      className="px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors"
+                      style={{
+                        borderColor: "var(--win95-border)",
+                        background: "var(--win95-bg-light)",
+                        color: "var(--info)",
+                      }}
+                      title={t("ui.forms.tooltip_edit")}
+                      disabled={isDeleting || isPublishing}
+                      onClick={() => onEditForm(form._id)}
+                      onMouseEnter={(e) => {
+                        if (!isDeleting && !isPublishing)
+                          e.currentTarget.style.background = "var(--win95-hover-light)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "var(--win95-bg-light)";
+                      }}
+                    >
+                      <Edit size={12} />
+                    </button>
+
+                    {/* Publish/Unpublish button */}
+                    <button
+                      onClick={() => handlePublish(form._id, form.status || "draft")}
+                      disabled={isDeleting || isPublishing}
+                      className="px-2 py-1 text-xs border-2 flex items-center gap-1 disabled:opacity-50 transition-colors"
+                      style={{
+                        borderColor: "var(--win95-border)",
+                        background: "var(--win95-bg-light)",
+                        color: isPublished ? "var(--warning)" : "var(--success)",
+                      }}
+                      title={isPublished ? t("ui.forms.tooltip_unpublish") : t("ui.forms.tooltip_publish")}
+                      onMouseEnter={(e) => {
+                        if (!isDeleting && !isPublishing)
+                          e.currentTarget.style.background = "var(--win95-hover-light)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "var(--win95-bg-light)";
+                      }}
+                    >
+                      {isPublishing ? (
+                        <Loader2 size={12} className="animate-spin" />
+                      ) : isPublished ? (
+                        <FileX size={12} />
+                      ) : (
+                        <Send size={12} />
+                      )}
+                    </button>
+
+                    {/* Preview button (disabled for now) */}
+                    <button
+                      disabled
+                      className="px-2 py-1 text-xs border-2 opacity-50 cursor-not-allowed"
+                      style={{
+                        borderColor: "var(--win95-border)",
+                        background: "var(--win95-bg-light)",
+                        color: "var(--win95-text)",
+                      }}
+                      title={t("ui.forms.tooltip_preview_soon")}
+                    >
+                      <Eye size={12} />
+                    </button>
+
+                    {/* Delete button */}
+                    <button
+                      onClick={() => handleDelete(form._id, form.name)}
+                      disabled={isDeleting || isPublishing}
+                      className="px-2 py-1 text-xs border-2 flex items-center gap-1 disabled:opacity-50 transition-colors"
+                      style={{
+                        borderColor: "var(--win95-border)",
+                        background: "var(--win95-bg-light)",
+                        color: "var(--error)",
+                      }}
+                      title={t("ui.forms.tooltip_delete")}
+                      onMouseEnter={(e) => {
+                        if (!isDeleting && !isPublishing)
+                          e.currentTarget.style.background = "var(--win95-hover-light)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "var(--win95-bg-light)";
+                      }}
+                    >
+                      {isDeleting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                    </button>
+                  </div>
                 </div>
               </div>
             );

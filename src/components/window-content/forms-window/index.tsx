@@ -116,18 +116,6 @@ export function FormsWindow() {
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
           style={{
             borderColor: 'var(--win95-border)',
-            background: activeTab === "create" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-            color: activeTab === "create" ? 'var(--win95-text)' : 'var(--neutral-gray)'
-          }}
-          onClick={() => setActiveTab("create")}
-        >
-          <Plus size={14} />
-          {t("ui.forms.tabs.create")}
-        </button>
-        <button
-          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
-          style={{
-            borderColor: 'var(--win95-border)',
             background: activeTab === "forms" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
             color: activeTab === "forms" ? 'var(--win95-text)' : 'var(--neutral-gray)'
           }}
@@ -135,6 +123,18 @@ export function FormsWindow() {
         >
           <FileText size={14} />
           {t("ui.forms.tabs.all_forms")}
+        </button>
+        <button
+          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
+          style={{
+            borderColor: 'var(--win95-border)',
+            background: activeTab === "create" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+            color: activeTab === "create" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+          }}
+          onClick={() => setActiveTab("create")}
+        >
+          <Plus size={14} />
+          {t("ui.forms.tabs.create")}
         </button>
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2 opacity-50 cursor-not-allowed"

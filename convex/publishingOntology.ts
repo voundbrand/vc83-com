@@ -379,6 +379,7 @@ export const updateContentRules = mutation({
     pageId: v.id("objects"),
     contentRules: v.object({
       events: v.optional(v.object({
+        enabled: v.optional(v.boolean()),
         filter: v.optional(v.union(v.literal("all"), v.literal("future"), v.literal("past"), v.literal("featured"))),
         visibility: v.optional(v.union(v.literal("all"), v.literal("public"), v.literal("private"))),
         subtypes: v.optional(v.array(v.string())),
@@ -806,6 +807,7 @@ export const getPublishedContentForFrontend = query({
     // 3. Extract content rules from page configuration
     const contentRules = (page.customProperties?.contentRules || {}) as {
       events?: {
+        enabled?: boolean;
         filter?: "all" | "future" | "past" | "featured";
         visibility?: "all" | "public" | "private";
         subtypes?: string[];
@@ -820,18 +822,35 @@ export const getPublishedContentForFrontend = query({
     console.log("📋 [getPublishedContentForFrontend] Content rules:", contentRules);
 
     // 4. Fetch and filter events based on rules
-    let events = await ctx.db
-      .query("objects")
-      .withIndex("by_org_type", (q) =>
-        q.eq("organizationId", org._id).eq("type", "event")
-      )
-      .filter((q) => q.eq(q.field("status"), "published"))
-      .collect();
+    let events: Array<{
+      _id: string;
+      _creationTime: number;
+      organizationId: string;
+      type: string;
+      subtype?: string;
+      name: string;
+      status: string;
+      customProperties?: Record<string, unknown>;
+      createdAt: number;
+      [key: string]: unknown;
+    }> = [];
 
-    console.log("📅 [getPublishedContentForFrontend] Initial events count:", events.length);
+    // Check if events are enabled (default to true if not specified)
+    const eventsEnabled = contentRules.events?.enabled !== false;
 
-    // Apply event filtering rules
-    if (contentRules.events) {
+    if (eventsEnabled) {
+      events = await ctx.db
+        .query("objects")
+        .withIndex("by_org_type", (q) =>
+          q.eq("organizationId", org._id).eq("type", "event")
+        )
+        .filter((q) => q.eq(q.field("status"), "published"))
+        .collect();
+
+      console.log("📅 [getPublishedContentForFrontend] Initial events count:", events.length);
+
+      // Apply event filtering rules
+      if (contentRules.events) {
       const rules = contentRules.events;
 
       // Filter by visibility (public vs private)
@@ -898,11 +917,14 @@ export const getPublishedContentForFrontend = query({
         console.log("🔄 [getPublishedContentForFrontend] Sorted by createdAt:", rules.sortOrder);
       }
 
-      // Limit number of events
-      if (rules.limit && rules.limit > 0) {
-        events = events.slice(0, rules.limit);
-        console.log("✂️ [getPublishedContentForFrontend] Limited to:", rules.limit);
+        // Limit number of events
+        if (rules.limit && rules.limit > 0) {
+          events = events.slice(0, rules.limit);
+          console.log("✂️ [getPublishedContentForFrontend] Limited to:", rules.limit);
+        }
       }
+    } else {
+      console.log("🚫 [getPublishedContentForFrontend] Events disabled for this page");
     }
 
     // 5. Load checkout instance if specified
