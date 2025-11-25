@@ -567,8 +567,8 @@ export function FormBuilder({ formId, templateCode, onBack }: FormBuilderProps) 
             </div>
           )}
 
-          {/* Warning if no template selected */}
-          {!selectedTemplateId && (
+          {/* Warning if no template selected - only show for NEW forms without schema */}
+          {!selectedTemplateId && !formId && !existingForm?.customProperties?.formSchema && (
             <div className="border-2 p-4" style={{ borderColor: "var(--warning)", background: "rgba(251, 191, 36, 0.1)" }}>
               <div className="flex items-start gap-2">
                 <AlertCircle size={16} style={{ color: "var(--warning)" }} className="flex-shrink-0 mt-0.5" />
@@ -946,7 +946,6 @@ export function FormBuilder({ formId, templateCode, onBack }: FormBuilderProps) 
                   !formName ||
                   isSaving ||
                   (!enableInternalHosting && !enableExternalHosting) ||
-                  (enableInternalHosting && !selectedThemeId) ||
                   (enableExternalHosting && !selectedPublishedPageId)
                 }
                 className="px-4 py-2 text-sm font-bold border-2 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -956,7 +955,6 @@ export function FormBuilder({ formId, templateCode, onBack }: FormBuilderProps) 
                     formName &&
                     !isSaving &&
                     (enableInternalHosting || enableExternalHosting) &&
-                    (!enableInternalHosting || selectedThemeId) &&
                     (!enableExternalHosting || selectedPublishedPageId)
                       ? "var(--win95-highlight)"
                       : "var(--win95-button-face)",
@@ -964,7 +962,6 @@ export function FormBuilder({ formId, templateCode, onBack }: FormBuilderProps) 
                     formName &&
                     !isSaving &&
                     (enableInternalHosting || enableExternalHosting) &&
-                    (!enableInternalHosting || selectedThemeId) &&
                     (!enableExternalHosting || selectedPublishedPageId)
                       ? "white"
                       : "var(--neutral-gray)",
