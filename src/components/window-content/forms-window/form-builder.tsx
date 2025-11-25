@@ -936,6 +936,27 @@ export function FormBuilder({ formId, templateCode, onBack }: FormBuilderProps) 
 
           {/* Submit */}
           <div className="pt-4 border-t-2 space-y-3" style={{ borderColor: "var(--win95-border)" }}>
+            {/* Helpful message if form can't be saved */}
+            {(!formName || (!enableInternalHosting && !enableExternalHosting) || (enableExternalHosting && !selectedPublishedPageId)) && (
+              <div className="border-2 p-3" style={{ borderColor: "var(--info)", background: "rgba(59, 130, 246, 0.1)" }}>
+                <div className="flex items-start gap-2">
+                  <AlertCircle size={16} style={{ color: "var(--info)" }} className="flex-shrink-0 mt-0.5" />
+                  <div className="text-xs" style={{ color: "var(--info)" }}>
+                    <p className="font-bold mb-1">Form kann nicht gespeichert werden:</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      {!formName && <li>Bitte geben Sie einen Formularnamen ein</li>}
+                      {(!enableInternalHosting && !enableExternalHosting) && (
+                        <li>Bitte wählen Sie mindestens eine Hosting-Methode (Intern oder Extern)</li>
+                      )}
+                      {enableExternalHosting && !selectedPublishedPageId && (
+                        <li>Bitte wählen Sie eine veröffentlichte Seite für externes Hosting</li>
+                      )}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center justify-between">
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                 {t("ui.forms.submit_note")} <span className="font-bold">{t("ui.forms.status_draft").toLowerCase()}</span>.
