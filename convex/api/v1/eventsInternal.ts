@@ -103,18 +103,23 @@ export const getEventBySlugInternal = internalQuery({
 
     // Parse customProperties to get event-specific data
     const customProps = event.customProperties as Record<string, unknown> | undefined;
+    const registration = customProps?.registration as Record<string, unknown> | undefined;
+    const workflow = customProps?.workflow as Record<string, unknown> | undefined;
 
     // Return full event details matching the documentation format
     return {
       _id: event._id,
+      organizationId: event.organizationId, // ✅ Added for frontend
       type: event.type,
       subtype: event.subtype,
       name: event.name,
       slug: customProps?.slug as string | undefined,
       description: event.description,
       eventDetails: customProps?.eventDetails as Record<string, unknown> | undefined,
-      registration: customProps?.registration as Record<string, unknown> | undefined,
-      workflow: customProps?.workflow as Record<string, unknown> | undefined,
+      registration,
+      registrationFormId: registration?.formId as string | undefined, // ✅ Added for frontend
+      checkoutInstanceId: workflow?.checkoutInstanceId as string | undefined, // ✅ Added for frontend
+      workflow,
       publishedAt: customProps?.publishedAt as string | undefined,
       status: event.status,
     };
@@ -150,18 +155,23 @@ export const getEventByIdInternal = internalQuery({
 
     // Parse customProperties to get event-specific data
     const customProps = event.customProperties as Record<string, unknown> | undefined;
+    const registration = customProps?.registration as Record<string, unknown> | undefined;
+    const workflow = customProps?.workflow as Record<string, unknown> | undefined;
 
     // Return full event details matching the documentation format
     return {
       _id: event._id,
+      organizationId: event.organizationId, // ✅ Added for frontend
       type: event.type,
       subtype: event.subtype,
       name: event.name,
       slug: customProps?.slug as string | undefined,
       description: event.description,
       eventDetails: customProps?.eventDetails as Record<string, unknown> | undefined,
-      registration: customProps?.registration as Record<string, unknown> | undefined,
-      workflow: customProps?.workflow as Record<string, unknown> | undefined,
+      registration,
+      registrationFormId: registration?.formId as string | undefined, // ✅ Added for frontend
+      checkoutInstanceId: workflow?.checkoutInstanceId as string | undefined, // ✅ Added for frontend
+      workflow,
       publishedAt: customProps?.publishedAt as string | undefined,
       status: event.status,
     };

@@ -78,6 +78,30 @@ export const seed = mutation({
           ja: "新しいフォーム",
         }
       },
+
+      // Main Tabs
+      {
+        key: "ui.forms.tabs.create",
+        values: {
+          en: "Create",
+          de: "Erstellen",
+          pl: "Utwórz",
+          es: "Crear",
+          fr: "Créer",
+          ja: "作成",
+        }
+      },
+      {
+        key: "ui.forms.tabs.all_forms",
+        values: {
+          en: "All Forms",
+          de: "Alle Formulare",
+          pl: "Wszystkie formularze",
+          es: "Todos los formularios",
+          fr: "Tous les formulaires",
+          ja: "すべてのフォーム",
+        }
+      },
       {
         key: "ui.forms.tab_all_forms",
         values: {
@@ -90,6 +114,39 @@ export const seed = mutation({
         }
       },
       {
+        key: "ui.forms.tabs.responses",
+        values: {
+          en: "Responses",
+          de: "Antworten",
+          pl: "Odpowiedzi",
+          es: "Respuestas",
+          fr: "Réponses",
+          ja: "回答",
+        }
+      },
+      {
+        key: "ui.forms.tabs.templates",
+        values: {
+          en: "Templates",
+          de: "Vorlagen",
+          pl: "Szablony",
+          es: "Plantillas",
+          fr: "Modèles",
+          ja: "テンプレート",
+        }
+      },
+      {
+        key: "ui.forms.tabs.responses_coming_soon",
+        values: {
+          en: "Responses tab coming soon - View and analyze form submissions",
+          de: "Antworten-Tab kommt bald - Formularantworten anzeigen und analysieren",
+          pl: "Zakładka odpowiedzi wkrótce - Przeglądaj i analizuj odpowiedzi formularzy",
+          es: "Pestaña de respuestas próximamente - Ver y analizar envíos de formularios",
+          fr: "Onglet Réponses bientôt disponible - Voir et analyser les soumissions de formulaires",
+          ja: "回答タブは近日公開 - フォーム送信の表示と分析",
+        }
+      },
+      {
         key: "ui.forms.tab_all_responses",
         values: {
           en: "All Responses",
@@ -98,6 +155,30 @@ export const seed = mutation({
           es: "Todas las respuestas",
           fr: "Toutes les réponses",
           ja: "すべての回答",
+        }
+      },
+
+      // Sub-tabs
+      {
+        key: "ui.forms.subtabs.drafts",
+        values: {
+          en: "Drafts",
+          de: "Entwürfe",
+          pl: "Szkice",
+          es: "Borradores",
+          fr: "Brouillons",
+          ja: "下書き",
+        }
+      },
+      {
+        key: "ui.forms.subtabs.published",
+        values: {
+          en: "Published",
+          de: "Veröffentlicht",
+          pl: "Opublikowane",
+          es: "Publicados",
+          fr: "Publiés",
+          ja: "公開済み",
         }
       },
 
@@ -483,6 +564,130 @@ export const seed = mutation({
           ja: "ライブプレビュー",
         }
       },
+
+      // External Hosting
+      {
+        key: "ui.forms.external_hosting_label",
+        values: {
+          en: "External Hosting (hosted on your own domain)",
+          de: "Externes Hosting (auf Ihrer eigenen Domain gehostet)",
+          pl: "Hosting zewnętrzny (hostowany na Twojej domenie)",
+          es: "Alojamiento externo (alojado en tu propio dominio)",
+          fr: "Hébergement externe (hébergé sur votre propre domaine)",
+          ja: "外部ホスティング（独自ドメインでホスト）",
+        }
+      },
+      {
+        key: "ui.forms.external_hosting_description",
+        values: {
+          en: "Check this if the form will be hosted on your external website. The preview will show how it appears on your domain.",
+          de: "Aktivieren Sie dies, wenn das Formular auf Ihrer externen Website gehostet wird. Die Vorschau zeigt, wie es auf Ihrer Domain erscheint.",
+          pl: "Zaznacz to, jeśli formularz będzie hostowany na Twojej zewnętrznej stronie. Podgląd pokaże, jak wygląda na Twojej domenie.",
+          es: "Marca esto si el formulario estará alojado en tu sitio web externo. La vista previa mostrará cómo aparece en tu dominio.",
+          fr: "Cochez ceci si le formulaire sera hébergé sur votre site web externe. L'aperçu montrera comment il apparaît sur votre domaine.",
+          ja: "フォームが外部ウェブサイトでホストされる場合、これをチェックしてください。プレビューでドメインでの表示を確認できます。",
+        }
+      },
+      {
+        key: "ui.forms.select_published_page",
+        values: {
+          en: "Select Published Page",
+          de: "Veröffentlichte Seite auswählen",
+          pl: "Wybierz opublikowaną stronę",
+          es: "Seleccionar página publicada",
+          fr: "Sélectionner une page publiée",
+          ja: "公開ページを選択",
+        }
+      },
+      {
+        key: "ui.forms.select_page_placeholder",
+        values: {
+          en: "Choose a published page...",
+          de: "Veröffentlichte Seite wählen...",
+          pl: "Wybierz opublikowaną stronę...",
+          es: "Elegir una página publicada...",
+          fr: "Choisir une page publiée...",
+          ja: "公開ページを選択...",
+        }
+      },
+      {
+        key: "ui.forms.published_page_hint",
+        values: {
+          en: "Forms will be hosted at: {externalDomain}/forms/{formId}",
+          de: "Formulare werden gehostet unter: {externalDomain}/forms/{formId}",
+          pl: "Formularze będą hostowane pod adresem: {externalDomain}/forms/{formId}",
+          es: "Los formularios se alojarán en: {externalDomain}/forms/{formId}",
+          fr: "Les formulaires seront hébergés à: {externalDomain}/forms/{formId}",
+          ja: "フォームのホスティング先: {externalDomain}/forms/{formId}",
+        }
+      },
+      {
+        key: "ui.forms.no_external_pages",
+        values: {
+          en: "No external pages available",
+          de: "Keine externen Seiten verfügbar",
+          pl: "Brak dostępnych stron zewnętrznych",
+          es: "No hay páginas externas disponibles",
+          fr: "Aucune page externe disponible",
+          ja: "利用可能な外部ページがありません",
+        }
+      },
+      {
+        key: "ui.forms.create_external_page_hint",
+        values: {
+          en: "Create a published page with an external domain in Web Publishing first, then link forms to it.",
+          de: "Erstellen Sie zuerst eine veröffentlichte Seite mit einer externen Domain in Web Publishing und verknüpfen Sie dann Formulare damit.",
+          pl: "Najpierw utwórz opublikowaną stronę z zewnętrzną domeną w Web Publishing, a następnie połącz z nią formularze.",
+          es: "Primero crea una página publicada con un dominio externo en Web Publishing, luego vincula formularios a ella.",
+          fr: "Créez d'abord une page publiée avec un domaine externe dans Web Publishing, puis liez-y des formulaires.",
+          ja: "まずWeb Publishingで外部ドメインを持つ公開ページを作成し、その後フォームをリンクしてください。",
+        }
+      },
+      {
+        key: "ui.forms.preview_internal",
+        values: {
+          en: "Internal",
+          de: "Intern",
+          pl: "Wewnętrzny",
+          es: "Interno",
+          fr: "Interne",
+          ja: "内部",
+        }
+      },
+      {
+        key: "ui.forms.preview_external",
+        values: {
+          en: "External",
+          de: "Extern",
+          pl: "Zewnętrzny",
+          es: "Externo",
+          fr: "Externe",
+          ja: "外部",
+        }
+      },
+      {
+        key: "ui.forms.external_preview",
+        values: {
+          en: "External Form Preview",
+          de: "Externe Formularvorschau",
+          pl: "Zewnętrzny podgląd formularza",
+          es: "Vista previa del formulario externo",
+          fr: "Aperçu du formulaire externe",
+          ja: "外部フォームプレビュー",
+        }
+      },
+      {
+        key: "ui.forms.showing",
+        values: {
+          en: "Showing",
+          de: "Anzeige",
+          pl: "Pokazywanie",
+          es: "Mostrando",
+          fr: "Affichage",
+          ja: "表示中",
+        }
+      },
+
       {
         key: "ui.forms.preview_select_prompt",
         values: {
@@ -888,6 +1093,39 @@ export const seed = mutation({
           ja: "カラー：",
         }
       },
+      {
+        key: "ui.forms.template_from_library",
+        values: {
+          en: "Template selected from library",
+          de: "Vorlage aus Bibliothek ausgewählt",
+          pl: "Szablon wybrany z biblioteki",
+          es: "Plantilla seleccionada de la biblioteca",
+          fr: "Modèle sélectionné depuis la bibliothèque",
+          ja: "ライブラリから選択されたテンプレート",
+        }
+      },
+      {
+        key: "ui.forms.no_template_selected_title",
+        values: {
+          en: "No Template Selected",
+          de: "Keine Vorlage ausgewählt",
+          pl: "Nie wybrano szablonu",
+          es: "No hay plantilla seleccionada",
+          fr: "Aucun modèle sélectionné",
+          ja: "テンプレートが選択されていません",
+        }
+      },
+      {
+        key: "ui.forms.no_template_selected_message",
+        values: {
+          en: "Please go to the Templates tab to choose a form template.",
+          de: "Bitte gehen Sie zur Registerkarte Vorlagen, um eine Formularvorlage auszuwählen.",
+          pl: "Przejdź do zakładki Szablony, aby wybrać szablon formularza.",
+          es: "Por favor, vaya a la pestaña Plantillas para elegir una plantilla de formulario.",
+          fr: "Veuillez aller dans l'onglet Modèles pour choisir un modèle de formulaire.",
+          ja: "フォームテンプレートを選択するには、テンプレートタブに移動してください。",
+        }
+      },
 
       // Color Palette Titles
       {
@@ -945,6 +1183,478 @@ export const seed = mutation({
           es: "*",
           fr: "*",
           ja: "*",
+        }
+      },
+
+      // Templates Tab
+      {
+        key: "ui.forms.templates.title",
+        values: {
+          en: "Form Templates",
+          de: "Formularvorlagen",
+          pl: "Szablony formularzy",
+          es: "Plantillas de formularios",
+          fr: "Modèles de formulaires",
+          ja: "フォームテンプレート",
+        }
+      },
+      {
+        key: "ui.forms.templates.description",
+        values: {
+          en: "Choose a pre-built template to get started quickly",
+          de: "Wählen Sie eine vorgefertigte Vorlage für einen schnellen Start",
+          pl: "Wybierz gotowy szablon, aby szybko rozpocząć",
+          es: "Elija una plantilla prediseñada para comenzar rápidamente",
+          fr: "Choisissez un modèle prédéfini pour démarrer rapidement",
+          ja: "事前に作成されたテンプレートを選択して素早く開始",
+        }
+      },
+      {
+        key: "ui.forms.templates.not_available",
+        values: {
+          en: "Not Available",
+          de: "Nicht verfügbar",
+          pl: "Niedostępne",
+          es: "No disponible",
+          fr: "Non disponible",
+          ja: "利用不可",
+        }
+      },
+      {
+        key: "ui.forms.templates.buttons.use",
+        values: {
+          en: "Use Template",
+          de: "Vorlage verwenden",
+          pl: "Użyj szablonu",
+          es: "Usar plantilla",
+          fr: "Utiliser le modèle",
+          ja: "テンプレートを使用",
+        }
+      },
+      {
+        key: "ui.forms.templates.buttons.preview_hint",
+        values: {
+          en: "Preview (coming soon)",
+          de: "Vorschau (demnächst)",
+          pl: "Podgląd (wkrótce)",
+          es: "Vista previa (próximamente)",
+          fr: "Aperçu (bientôt disponible)",
+          ja: "プレビュー（近日公開）",
+        }
+      },
+      {
+        key: "ui.forms.templates.usage.title",
+        values: {
+          en: "Template Usage Tips",
+          de: "Tipps zur Verwendung von Vorlagen",
+          pl: "Wskazówki dotyczące korzystania z szablonów",
+          es: "Consejos de uso de plantillas",
+          fr: "Conseils d'utilisation des modèles",
+          ja: "テンプレート使用のヒント",
+        }
+      },
+      {
+        key: "ui.forms.templates.usage.registration",
+        values: {
+          en: "Registration forms collect attendee information for events",
+          de: "Anmeldeformulare sammeln Teilnehmerinformationen für Veranstaltungen",
+          pl: "Formularze rejestracyjne zbierają informacje o uczestnikach wydarzeń",
+          es: "Los formularios de registro recopilan información de los asistentes para eventos",
+          fr: "Les formulaires d'inscription collectent les informations des participants pour les événements",
+          ja: "登録フォームはイベントの参加者情報を収集します",
+        }
+      },
+      {
+        key: "ui.forms.templates.usage.survey",
+        values: {
+          en: "Survey forms gather feedback and opinions from participants",
+          de: "Umfrageformulare sammeln Feedback und Meinungen von Teilnehmern",
+          pl: "Formularze ankiet zbierają opinie i uwagi uczestników",
+          es: "Los formularios de encuesta recopilan comentarios y opiniones de los participantes",
+          fr: "Les formulaires de sondage recueillent les commentaires et avis des participants",
+          ja: "アンケートフォームは参加者からのフィードバックと意見を収集します",
+        }
+      },
+      {
+        key: "ui.forms.templates.usage.application",
+        values: {
+          en: "Application forms screen and select candidates for programs",
+          de: "Bewerbungsformulare prüfen und wählen Kandidaten für Programme aus",
+          pl: "Formularze aplikacyjne sprawdzają i wybierają kandydatów do programów",
+          es: "Los formularios de solicitud evalúan y seleccionan candidatos para programas",
+          fr: "Les formulaires de candidature évaluent et sélectionnent les candidats pour les programmes",
+          ja: "申請フォームはプログラムの候補者を審査・選考します",
+        }
+      },
+      {
+        key: "ui.forms.templates.usage.custom",
+        values: {
+          en: "All templates can be customized to fit your specific needs",
+          de: "Alle Vorlagen können an Ihre spezifischen Anforderungen angepasst werden",
+          pl: "Wszystkie szablony można dostosować do konkretnych potrzeb",
+          es: "Todas las plantillas se pueden personalizar para adaptarse a sus necesidades específicas",
+          fr: "Tous les modèles peuvent être personnalisés selon vos besoins spécifiques",
+          ja: "すべてのテンプレートは特定のニーズに合わせてカスタマイズできます",
+        }
+      },
+
+      // Template: HAFF Symposium Registration
+      {
+        key: "ui.forms.templates.haffsymposium_registration.name",
+        values: {
+          en: "HAFF Symposium Registration",
+          de: "HAFF Symposium Anmeldung",
+          pl: "Rejestracja na Sympozjum HAFF",
+          es: "Registro del Simposio HAFF",
+          fr: "Inscription au Symposium HAFF",
+          ja: "HAFFシンポジウム登録",
+        }
+      },
+      {
+        key: "ui.forms.templates.haffsymposium_registration.description",
+        values: {
+          en: "Professional conference registration with pricing tiers and add-ons",
+          de: "Professionelle Konferenzanmeldung mit Preisstufen und Zusatzoptionen",
+          pl: "Profesjonalna rejestracja na konferencję z poziomami cenowymi i dodatkami",
+          es: "Registro profesional de conferencias con niveles de precios y complementos",
+          fr: "Inscription professionnelle à une conférence avec niveaux de prix et modules complémentaires",
+          ja: "価格階層とアドオン付きのプロフェッショナル会議登録",
+        }
+      },
+      {
+        key: "ui.forms.templates.haffsymposium_registration.use_case",
+        values: {
+          en: "Professional Symposiums",
+          de: "Professionelle Symposien",
+          pl: "Profesjonalne sympozja",
+          es: "Simposios profesionales",
+          fr: "Symposiums professionnels",
+          ja: "プロフェッショナルシンポジウム",
+        }
+      },
+      {
+        key: "ui.forms.templates.haffsymposium_registration.features.categories",
+        values: {
+          en: "Multiple attendance categories (Professional, Resident, Student, etc.)",
+          de: "Mehrere Teilnahmekategorien (Fachkraft, Resident, Student usw.)",
+          pl: "Wiele kategorii uczestnictwa (Zawodowiec, Rezydent, Student itp.)",
+          es: "Múltiples categorías de asistencia (Profesional, Residente, Estudiante, etc.)",
+          fr: "Plusieurs catégories de participation (Professionnel, Résident, Étudiant, etc.)",
+          ja: "複数の参加カテゴリー（専門家、研修医、学生など）",
+        }
+      },
+      {
+        key: "ui.forms.templates.haffsymposium_registration.features.pricing",
+        values: {
+          en: "Dynamic pricing based on registration date and category",
+          de: "Dynamische Preisgestaltung basierend auf Anmeldedatum und Kategorie",
+          pl: "Dynamiczne ceny w zależności od daty rejestracji i kategorii",
+          es: "Precios dinámicos según la fecha de registro y la categoría",
+          fr: "Tarification dynamique selon la date d'inscription et la catégorie",
+          ja: "登録日とカテゴリーに基づく動的価格設定",
+        }
+      },
+      {
+        key: "ui.forms.templates.haffsymposium_registration.features.personal_info",
+        values: {
+          en: "Comprehensive personal and professional information collection",
+          de: "Umfassende Erfassung persönlicher und beruflicher Informationen",
+          pl: "Kompleksowe zbieranie informacji osobistych i zawodowych",
+          es: "Recopilación completa de información personal y profesional",
+          fr: "Collecte complète d'informations personnelles et professionnelles",
+          ja: "包括的な個人情報および職業情報の収集",
+        }
+      },
+      {
+        key: "ui.forms.templates.haffsymposium_registration.features.special_requests",
+        values: {
+          en: "Dietary restrictions and accessibility needs",
+          de: "Diätvorschriften und Barrierefreiheitsbedarf",
+          pl: "Ograniczenia dietetyczne i potrzeby związane z dostępnością",
+          es: "Restricciones dietéticas y necesidades de accesibilidad",
+          fr: "Restrictions alimentaires et besoins d'accessibilité",
+          ja: "食事制限とアクセシビリティのニーズ",
+        }
+      },
+      {
+        key: "ui.forms.templates.haffsymposium_registration.features.ucra_addon",
+        values: {
+          en: "Optional add-ons like UCRA membership",
+          de: "Optionale Zusätze wie UCRA-Mitgliedschaft",
+          pl: "Opcjonalne dodatki, takie jak członkostwo w UCRA",
+          es: "Complementos opcionales como membresía UCRA",
+          fr: "Modules complémentaires optionnels comme l'adhésion à l'UCRA",
+          ja: "UCRA会員資格などのオプショナルアドオン",
+        }
+      },
+
+      // Template: Conference Feedback Survey
+      {
+        key: "ui.forms.templates.conference_feedback_survey.name",
+        values: {
+          en: "Conference Feedback Survey",
+          de: "Konferenz-Feedback-Umfrage",
+          pl: "Ankieta opinii o konferencji",
+          es: "Encuesta de opinión sobre la conferencia",
+          fr: "Enquête de satisfaction sur la conférence",
+          ja: "会議フィードバックアンケート",
+        }
+      },
+      {
+        key: "ui.forms.templates.conference_feedback_survey.description",
+        values: {
+          en: "Comprehensive post-event feedback collection",
+          de: "Umfassende Feedback-Erfassung nach der Veranstaltung",
+          pl: "Kompleksowe zbieranie opinii po wydarzeniu",
+          es: "Recopilación completa de comentarios posteriores al evento",
+          fr: "Collecte complète de commentaires après l'événement",
+          ja: "イベント後の包括的なフィードバック収集",
+        }
+      },
+      {
+        key: "ui.forms.templates.conference_feedback_survey.use_case",
+        values: {
+          en: "Post-Event Surveys",
+          de: "Umfragen nach der Veranstaltung",
+          pl: "Ankiety po wydarzeniu",
+          es: "Encuestas posteriores al evento",
+          fr: "Enquêtes après l'événement",
+          ja: "イベント後アンケート",
+        }
+      },
+      {
+        key: "ui.forms.templates.conference_feedback_survey.features.nps",
+        values: {
+          en: "Net Promoter Score (NPS) question",
+          de: "Net Promoter Score (NPS) Frage",
+          pl: "Pytanie o Net Promoter Score (NPS)",
+          es: "Pregunta de Net Promoter Score (NPS)",
+          fr: "Question du Net Promoter Score (NPS)",
+          ja: "ネットプロモータースコア（NPS）質問",
+        }
+      },
+      {
+        key: "ui.forms.templates.conference_feedback_survey.features.ratings",
+        values: {
+          en: "Session and speaker rating scales",
+          de: "Bewertungsskalen für Sitzungen und Sprecher",
+          pl: "Skale oceny sesji i prelegentów",
+          es: "Escalas de calificación de sesiones y oradores",
+          fr: "Échelles d'évaluation des sessions et des intervenants",
+          ja: "セッションおよび講演者の評価スケール",
+        }
+      },
+      {
+        key: "ui.forms.templates.conference_feedback_survey.features.content",
+        values: {
+          en: "Content quality and relevance assessment",
+          de: "Bewertung der Inhaltsqualität und Relevanz",
+          pl: "Ocena jakości i trafności treści",
+          es: "Evaluación de la calidad y relevancia del contenido",
+          fr: "Évaluation de la qualité et de la pertinence du contenu",
+          ja: "コンテンツの質と関連性の評価",
+        }
+      },
+      {
+        key: "ui.forms.templates.conference_feedback_survey.features.venue",
+        values: {
+          en: "Venue and logistics feedback",
+          de: "Feedback zu Veranstaltungsort und Logistik",
+          pl: "Opinie o miejscu i logistyce",
+          es: "Comentarios sobre el lugar y la logística",
+          fr: "Commentaires sur le lieu et la logistique",
+          ja: "会場とロジスティクスのフィードバック",
+        }
+      },
+      {
+        key: "ui.forms.templates.conference_feedback_survey.features.future_topics",
+        values: {
+          en: "Future topic suggestions",
+          de: "Vorschläge für zukünftige Themen",
+          pl: "Sugestie przyszłych tematów",
+          es: "Sugerencias de temas futuros",
+          fr: "Suggestions de sujets futurs",
+          ja: "今後のトピックの提案",
+        }
+      },
+
+      // Template: Speaker Proposal
+      {
+        key: "ui.forms.templates.speaker_proposal.name",
+        values: {
+          en: "Speaker Proposal Form",
+          de: "Redner-Vorschlagsformular",
+          pl: "Formularz propozycji prelegenta",
+          es: "Formulario de propuesta de ponente",
+          fr: "Formulaire de proposition d'intervenant",
+          ja: "講演者提案フォーム",
+        }
+      },
+      {
+        key: "ui.forms.templates.speaker_proposal.description",
+        values: {
+          en: "Submit speaking proposals for conferences and events",
+          de: "Einreichen von Vorträgen für Konferenzen und Veranstaltungen",
+          pl: "Przesyłanie propozycji wystąpień na konferencje i wydarzenia",
+          es: "Enviar propuestas de ponencias para conferencias y eventos",
+          fr: "Soumettre des propositions de présentation pour des conférences et des événements",
+          ja: "会議やイベントの講演提案を提出",
+        }
+      },
+      {
+        key: "ui.forms.templates.speaker_proposal.use_case",
+        values: {
+          en: "Call for Papers",
+          de: "Aufruf zur Einreichung von Beiträgen",
+          pl: "Zgłaszanie referatów",
+          es: "Convocatoria de ponencias",
+          fr: "Appel à communications",
+          ja: "論文募集",
+        }
+      },
+      {
+        key: "ui.forms.templates.speaker_proposal.features.bio",
+        values: {
+          en: "Speaker biography and credentials",
+          de: "Biografie und Referenzen des Redners",
+          pl: "Biografia i referencje prelegenta",
+          es: "Biografía y credenciales del ponente",
+          fr: "Biographie et références de l'intervenant",
+          ja: "講演者の経歴と資格",
+        }
+      },
+      {
+        key: "ui.forms.templates.speaker_proposal.features.topic",
+        values: {
+          en: "Presentation topic and title",
+          de: "Präsentationsthema und Titel",
+          pl: "Temat i tytuł prezentacji",
+          es: "Tema y título de la presentación",
+          fr: "Sujet et titre de la présentation",
+          ja: "プレゼンテーションのトピックとタイトル",
+        }
+      },
+      {
+        key: "ui.forms.templates.speaker_proposal.features.abstract",
+        values: {
+          en: "Detailed abstract and learning objectives",
+          de: "Ausführliches Abstract und Lernziele",
+          pl: "Szczegółowy abstrakt i cele edukacyjne",
+          es: "Resumen detallado y objetivos de aprendizaje",
+          fr: "Résumé détaillé et objectifs d'apprentissage",
+          ja: "詳細な要約と学習目標",
+        }
+      },
+      {
+        key: "ui.forms.templates.speaker_proposal.features.requirements",
+        values: {
+          en: "Technical and equipment requirements",
+          de: "Technische und Ausstattungsanforderungen",
+          pl: "Wymagania techniczne i sprzętowe",
+          es: "Requisitos técnicos y de equipo",
+          fr: "Exigences techniques et matérielles",
+          ja: "技術的要件および機器要件",
+        }
+      },
+      {
+        key: "ui.forms.templates.speaker_proposal.features.availability",
+        values: {
+          en: "Availability and scheduling preferences",
+          de: "Verfügbarkeit und Terminpräferenzen",
+          pl: "Dostępność i preferencje terminowe",
+          es: "Disponibilidad y preferencias de programación",
+          fr: "Disponibilité et préférences de planification",
+          ja: "空き状況とスケジュールの希望",
+        }
+      },
+
+      // Template: Volunteer Application
+      {
+        key: "ui.forms.templates.volunteer_application.name",
+        values: {
+          en: "Volunteer Application",
+          de: "Freiwilligen-Bewerbung",
+          pl: "Zgłoszenie wolontariusza",
+          es: "Solicitud de voluntario",
+          fr: "Candidature de bénévole",
+          ja: "ボランティア申込",
+        }
+      },
+      {
+        key: "ui.forms.templates.volunteer_application.description",
+        values: {
+          en: "Recruit and screen event volunteers",
+          de: "Rekrutierung und Screening von Veranstaltungs-Freiwilligen",
+          pl: "Rekrutacja i weryfikacja wolontariuszy na wydarzenia",
+          es: "Reclutar y evaluar voluntarios para eventos",
+          fr: "Recruter et évaluer des bénévoles pour événements",
+          ja: "イベントボランティアの募集とスクリーニング",
+        }
+      },
+      {
+        key: "ui.forms.templates.volunteer_application.use_case",
+        values: {
+          en: "Volunteer Recruitment",
+          de: "Freiwilligen-Rekrutierung",
+          pl: "Rekrutacja wolontariuszy",
+          es: "Reclutamiento de voluntarios",
+          fr: "Recrutement de bénévoles",
+          ja: "ボランティア募集",
+        }
+      },
+      {
+        key: "ui.forms.templates.volunteer_application.features.personal",
+        values: {
+          en: "Personal contact information",
+          de: "Persönliche Kontaktinformationen",
+          pl: "Dane kontaktowe",
+          es: "Información de contacto personal",
+          fr: "Coordonnées personnelles",
+          ja: "個人連絡先情報",
+        }
+      },
+      {
+        key: "ui.forms.templates.volunteer_application.features.availability",
+        values: {
+          en: "Availability schedule and time commitment",
+          de: "Verfügbarkeitsplan und Zeitaufwand",
+          pl: "Harmonogram dostępności i zobowiązanie czasowe",
+          es: "Horario de disponibilidad y compromiso de tiempo",
+          fr: "Disponibilité et engagement horaire",
+          ja: "スケジュールの空き状況と時間的コミットメント",
+        }
+      },
+      {
+        key: "ui.forms.templates.volunteer_application.features.skills",
+        values: {
+          en: "Skills and areas of interest",
+          de: "Fähigkeiten und Interessensgebiete",
+          pl: "Umiejętności i obszary zainteresowań",
+          es: "Habilidades y áreas de interés",
+          fr: "Compétences et domaines d'intérêt",
+          ja: "スキルと興味のある分野",
+        }
+      },
+      {
+        key: "ui.forms.templates.volunteer_application.features.experience",
+        values: {
+          en: "Previous volunteer experience",
+          de: "Frühere Freiwilligen-Erfahrung",
+          pl: "Poprzednie doświadczenie wolontariackie",
+          es: "Experiencia voluntaria previa",
+          fr: "Expérience bénévole antérieure",
+          ja: "以前のボランティア経験",
+        }
+      },
+      {
+        key: "ui.forms.templates.volunteer_application.features.references",
+        values: {
+          en: "Emergency contact and references",
+          de: "Notfallkontakt und Referenzen",
+          pl: "Kontakt awaryjny i referencje",
+          es: "Contacto de emergencia y referencias",
+          fr: "Contact d'urgence et références",
+          ja: "緊急連絡先と推薦人",
         }
       },
     ];

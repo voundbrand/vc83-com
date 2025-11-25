@@ -13,6 +13,7 @@
 
 import { mutation } from "./_generated/server";
 import { haffSymposiumFormSchema } from "../src/templates/forms/haffsymposium-registration/schema";
+import { conferenceFeedbackSurveySchema } from "../src/templates/forms/conference-feedback-survey/schema";
 
 export const seedFormTemplates = mutation({
   args: {},
@@ -104,6 +105,51 @@ export const seedFormTemplates = mutation({
         supportedLanguages: ["de", "en"],
         // Import the actual form schema with fields!
         formSchema: haffSymposiumFormSchema,
+      },
+      {
+        code: "conference-feedback-survey",
+        name: "Conference Feedback Survey (Post-Event)",
+        description:
+          "Comprehensive post-event feedback survey for conferences and symposiums. Collects satisfaction ratings (NPS score), content quality feedback, organization evaluation, venue/catering ratings, and suggestions for future events. Perfect for gathering actionable insights after conferences.",
+        category: "survey",
+        previewImageUrl: "/images/form-templates/survey-preview.png",
+        features: [
+          "Net Promoter Score (NPS) rating (0-10 scale)",
+          "Overall satisfaction rating (5-point scale)",
+          "Matrix questions for multi-aspect evaluation",
+          "Content quality and relevance assessment",
+          "Speaker competence ratings",
+          "Organization and logistics feedback",
+          "Venue and catering evaluation",
+          "Networking opportunities rating",
+          "Future topic preferences (multi-select)",
+          "Open-ended feedback fields",
+          "Optional contact information collection",
+          "Multi-language support (German)",
+          "Responsive mobile-friendly design",
+          "Anonymous submission option",
+        ],
+        fieldTypes: [
+          "rating",
+          "radio",
+          "checkbox",
+          "text",
+          "email",
+          "textarea",
+        ],
+        useCases: [
+          "Post-conference feedback collection",
+          "Medical symposium evaluation",
+          "Professional association events",
+          "Training and workshop feedback",
+          "Multi-day conference assessment",
+          "Stakeholder satisfaction surveys",
+        ],
+        complexity: "intermediate",
+        estimatedFields: 22,
+        supportedLanguages: ["de", "en"],
+        // Import the actual form schema with fields!
+        formSchema: conferenceFeedbackSurveySchema,
       },
       // You can add more starter templates here:
       // {

@@ -7,18 +7,36 @@ import type { Id } from "../../../../convex/_generated/dataModel";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
-import { Loader2, Plus, FileText } from "lucide-react";
-import { FormsList } from "./forms-list";
+import { Loader2, Plus, FileText, ClipboardList, Palette } from "lucide-react";
 import { FormBuilder } from "./form-builder";
+import { AllFormsTab } from "./all-forms-tab";
+import { TemplatesTab } from "./templates-tab";
 
-export type ViewMode = "list" | "builder" | "responses";
+/**
+ * Forms Window
+ *
+ * Comprehensive form management system:
+ * - Create new forms from templates or scratch
+ * - List all forms with draft/published status
+ * - View form responses (coming soon)
+ * - Manage form templates
+ *
+ * Tabs:
+ * - Create: Create/edit forms with visual builder
+ * - All Forms: List of forms with Draft/Published subtabs
+ * - Responses: View and analyze form submissions
+ * - Templates: Browse and use form templates
+ */
+
+type TabType = "create" | "forms" | "responses" | "templates";
 
 export function FormsWindow() {
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
   const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.forms");
-  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [activeTab, setActiveTab] = useState<TabType>("forms"); // Default to All Forms tab
   const [selectedFormId, setSelectedFormId] = useState<string | null>(null);
+  const [selectedTemplateCode, setSelectedTemplateCode] = useState<string | null>(null);
 
   // Check app availability - returns guard component if unavailable/loading, null if available
   const guard = useAppAvailabilityGuard({
@@ -58,107 +76,148 @@ export function FormsWindow() {
 
   const handleCreateForm = () => {
     setSelectedFormId(null);
-    setViewMode("builder");
+    setSelectedTemplateCode(null); // Clear template selection
+    setActiveTab("create");
   };
 
   const handleEditForm = (formId: string) => {
     setSelectedFormId(formId);
-    setViewMode("builder");
+    setActiveTab("create");
   };
 
-  const handleBackToList = () => {
+  const handleUseTemplate = (templateCode: string) => {
+    // Switch to create tab with selected template
     setSelectedFormId(null);
-    setViewMode("list");
+    setSelectedTemplateCode(templateCode);
+    setActiveTab("create");
+  };
+
+  const handleBackToForms = () => {
+    setSelectedFormId(null);
+    setActiveTab("forms");
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full" style={{ background: 'var(--win95-bg)' }}>
       {/* Header */}
-      <div className="p-4 border-b-2" style={{ borderColor: "var(--win95-border)" }}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <FileText size={24} style={{ color: "var(--win95-highlight)" }} />
-            <div>
-              <h1 className="text-lg font-bold" style={{ color: "var(--win95-text)" }}>
-                {t("ui.forms.title")}
-              </h1>
-              <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                {t("ui.forms.subtitle")}
-              </p>
-            </div>
-          </div>
-
-          {viewMode === "list" && (
-            <button
-              onClick={handleCreateForm}
-              className="px-4 py-2 text-sm font-bold flex items-center gap-2 border-2 transition-colors hover:brightness-95"
-              style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-button-face)",
-                color: "var(--win95-text)",
-              }}
-            >
-              <Plus size={16} />
-              {t("ui.forms.button_new_form")}
-            </button>
-          )}
-        </div>
-
-        {/* Tab Navigation */}
-        <div className="flex gap-2 mt-3">
-          <button
-            onClick={() => setViewMode("list")}
-            className={`px-3 py-1.5 text-xs font-bold border-2 transition-colors ${
-              viewMode === "list" ? "brightness-90" : "hover:brightness-95"
-            }`}
-            style={{
-              borderColor: "var(--win95-border)",
-              background: viewMode === "list" ? "var(--win95-bg-light)" : "var(--win95-button-face)",
-              color: "var(--win95-text)",
-            }}
-          >
-            <FileText size={12} className="inline mr-1" />
-            {t("ui.forms.tab_all_forms")}
-          </button>
-          {/* Future tabs */}
-          {/* <button
-            onClick={() => setViewMode("responses")}
-            className={`px-3 py-1.5 text-xs font-bold border-2 transition-colors ${
-              viewMode === "responses" ? "brightness-90" : "hover:brightness-95"
-            }`}
-            style={{
-              borderColor: "var(--win95-border)",
-              background: viewMode === "responses" ? "var(--win95-bg-light)" : "var(--win95-button-face)",
-              color: "var(--win95-text)",
-            }}
-          >
-            <ClipboardList size={12} className="inline mr-1" />
-            {t("ui.forms.tab_all_responses")}
-          </button> */}
-        </div>
+      <div className="px-4 py-3 border-b-2" style={{ borderColor: 'var(--win95-border)' }}>
+        <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
+          <FileText size={16} />
+          {t("ui.forms.title")}
+        </h2>
+        <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
+          {t("ui.forms.subtitle")}
+        </p>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-auto">
-        {viewMode === "list" && (
-          <FormsList
+      {/* Tabs */}
+      <div className="flex border-b-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+        <button
+          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
+          style={{
+            borderColor: 'var(--win95-border)',
+            background: activeTab === "create" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+            color: activeTab === "create" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+          }}
+          onClick={() => setActiveTab("create")}
+        >
+          <Plus size={14} />
+          {t("ui.forms.tabs.create")}
+        </button>
+        <button
+          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
+          style={{
+            borderColor: 'var(--win95-border)',
+            background: activeTab === "forms" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+            color: activeTab === "forms" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+          }}
+          onClick={() => setActiveTab("forms")}
+        >
+          <FileText size={14} />
+          {t("ui.forms.tabs.all_forms")}
+        </button>
+        <button
+          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2 opacity-50 cursor-not-allowed"
+          style={{
+            borderColor: 'var(--win95-border)',
+            background: 'var(--win95-bg)',
+            color: 'var(--neutral-gray)'
+          }}
+          disabled
+          title={t("ui.forms.tabs.responses_coming_soon")}
+        >
+          <ClipboardList size={14} />
+          {t("ui.forms.tabs.responses")}
+        </button>
+        <button
+          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2"
+          style={{
+            borderColor: 'var(--win95-border)',
+            background: activeTab === "templates" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+            color: activeTab === "templates" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+          }}
+          onClick={() => setActiveTab("templates")}
+        >
+          <Palette size={14} />
+          {t("ui.forms.tabs.templates")}
+        </button>
+      </div>
+
+      {/* Tab Content */}
+      <div className="flex-1 overflow-y-auto">
+        {activeTab === "create" && (
+          <FormBuilder
+            formId={selectedFormId}
+            templateCode={selectedTemplateCode}
+            onBack={handleBackToForms}
+          />
+        )}
+
+        {activeTab === "forms" && (
+          <AllFormsTab
             forms={forms}
             onCreateForm={handleCreateForm}
             onEditForm={handleEditForm}
           />
         )}
 
-        {viewMode === "builder" && (
-          <FormBuilder
-            formId={selectedFormId}
-            onBack={handleBackToList}
-          />
+        {activeTab === "responses" && (
+          <div className="flex items-center justify-center h-full p-8">
+            <div className="text-center max-w-md">
+              <div className="text-4xl mb-4">📊</div>
+              <h3 className="text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+                {t("ui.forms.responses_coming_soon_title")}
+              </h3>
+              <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                {t("ui.forms.responses_coming_soon_description")}
+              </p>
+            </div>
+          </div>
         )}
 
-        {/* Future: Responses view */}
-        {/* {viewMode === "responses" && (
-          <ResponsesList />
-        )} */}
+        {activeTab === "templates" && (
+          <TemplatesTab onUseTemplate={handleUseTemplate} />
+        )}
+      </div>
+
+      {/* Footer - Status Bar */}
+      <div
+        className="px-4 py-1 border-t-2 text-xs flex items-center justify-between"
+        style={{
+          borderColor: "var(--win95-border)",
+          background: "var(--win95-bg-light)",
+          color: "var(--neutral-gray)",
+        }}
+      >
+        <span>
+          {forms !== undefined
+            ? t("ui.forms.footer.form_count", {
+                count: forms.length,
+                plural: forms.length !== 1 ? "s" : ""
+              })
+            : t("ui.forms.footer.loading")}
+        </span>
+        <span>{currentOrg?.name || ""}</span>
       </div>
     </div>
   );

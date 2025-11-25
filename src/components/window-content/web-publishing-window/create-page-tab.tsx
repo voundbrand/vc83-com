@@ -283,9 +283,19 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
         };
 
         if (editMode) {
-          // UPDATE existing external page (if editing)
-          // TODO: Implement updatePage for external pages if needed
-          throw new Error("Editing external pages not yet implemented");
+          // UPDATE existing external page
+          await updatePage({
+            sessionId,
+            pageId: editMode.pageId,
+            slug,
+            metaTitle,
+            metaDescription: metaDescription || "",
+            templateCode: "external", // Keep as external template
+            themeCode: "none", // External pages don't use themes
+            templateContent: customProperties, // Store external page config
+          });
+
+          notification.success("Updated!", `External page updated successfully!`);
         } else {
           // First, create a placeholder object for the external page config
           // This is needed because published pages require a linkedObjectId from the objects table

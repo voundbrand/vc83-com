@@ -493,14 +493,30 @@ export const updatePublishedPage = mutation({
     if (args.colorOverrides !== undefined) updates.colorOverrides = args.colorOverrides;
     if (args.sectionVisibility !== undefined) updates.sectionVisibility = args.sectionVisibility;
 
-    // If slug changed, regenerate publicUrl
-    if (args.slug !== undefined) {
+    // Regenerate publicUrl if slug OR external domain changed
+    const shouldRegenerateUrl = args.slug !== undefined || args.templateContent !== undefined;
+
+    if (shouldRegenerateUrl) {
       const org = await ctx.db.get(page.organizationId);
       if (org) {
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.l4yercak3.com";
+        // Check if this is an external page
+        const templateContent = updates.templateContent || page.customProperties?.templateContent;
+        const isExternal = templateContent?.isExternal === true;
+        const externalDomain = templateContent?.externalDomain as string | undefined;
+
+        // Use updated slug or existing slug
+        const currentSlug = args.slug !== undefined ? args.slug : (page.customProperties?.slug as string || "/");
         // Handle root slug (/) specially to avoid double slashes
-        const slugPart = args.slug === "/" ? "" : args.slug;
-        updates.publicUrl = `${baseUrl}/p/${org.slug}${slugPart}`;
+        const slugPart = currentSlug === "/" ? "" : currentSlug;
+
+        if (isExternal && externalDomain) {
+          // For external pages, use the user's domain
+          updates.publicUrl = `${externalDomain}${slugPart}`;
+        } else {
+          // For internal pages, use app domain
+          const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.l4yercak3.com";
+          updates.publicUrl = `${baseUrl}/p/${org.slug}${slugPart}`;
+        }
       }
     }
 

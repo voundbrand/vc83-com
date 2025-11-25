@@ -7,6 +7,7 @@
 
 import { FormTemplateComponent } from "./types"; // Use form-specific type with .schema property
 import { HaffSymposiumRegistrationForm } from "./haffsymposium-registration";
+import { ConferenceFeedbackSurveyForm } from "./conference-feedback-survey";
 
 /**
  * Form Template Registry
@@ -15,9 +16,9 @@ import { HaffSymposiumRegistrationForm } from "./haffsymposium-registration";
  */
 export const formTemplateRegistry: Record<string, FormTemplateComponent> = {
   "haffsymposium-registration": HaffSymposiumRegistrationForm,
+  "conference-feedback-survey": ConferenceFeedbackSurveyForm,
   // Add more form templates here:
   // "contact-form": ContactForm,
-  // "feedback-survey": FeedbackSurvey,
   // "speaker-proposal": SpeakerProposalForm,
 };
 

@@ -17,12 +17,15 @@ import {
   Palette,
   Eye,
   Database,
+  Globe,
+  ExternalLink,
 } from "lucide-react";
 import { getFormTemplate } from "@/templates/forms/registry";
 import { webPublishingThemes } from "@/templates/themes";
 
 interface FormBuilderProps {
   formId: string | null;
+  templateCode: string | null;
   onBack: () => void;
 }
 
@@ -37,7 +40,7 @@ interface TemplateOrTheme {
   };
 }
 
-export function FormBuilder({ formId, onBack }: FormBuilderProps) {
+export function FormBuilder({ formId, templateCode, onBack }: FormBuilderProps) {
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
   const { t } = useNamespaceTranslations("ui.forms");
@@ -48,11 +51,15 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
   const [formDescription, setFormDescription] = useState("");
   const [formSubtype, setFormSubtype] = useState<string>("registration");
   const [isSaving, setIsSaving] = useState(false);
-  const [templateAccordionOpen, setTemplateAccordionOpen] = useState(true);
   const [themeAccordionOpen, setThemeAccordionOpen] = useState(true);
   const [dataSourcesAccordionOpen, setDataSourcesAccordionOpen] = useState(true);
   const [selectedEventId, setSelectedEventId] = useState<string>("");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  // Hosting mode: separate flags for internal and external
+  const [enableInternalHosting, setEnableInternalHosting] = useState(true); // Default: internal hosting enabled
+  const [enableExternalHosting, setEnableExternalHosting] = useState(false); // Default: external hosting disabled
+  const [selectedPublishedPageId, setSelectedPublishedPageId] = useState<string>(""); // Published page with external domain (for external hosting)
+  const [previewMode, setPreviewMode] = useState<"internal" | "external">("internal"); // Preview mode toggle
 
   // Fetch available form templates for this org
   const availableTemplates = useQuery(
@@ -75,6 +82,20 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
       ? { sessionId, organizationId: currentOrg.id as Id<"organizations"> }
       : "skip"
   );
+
+  // Fetch published pages with external domains (for external form hosting)
+  const availablePublishedPages = useQuery(
+    api.publishingOntology.getPublishedPages,
+    sessionId && currentOrg?.id
+      ? { sessionId, organizationId: currentOrg.id as Id<"organizations"> }
+      : "skip"
+  );
+
+  // Filter to only pages with external domains (isExternal flag)
+  const externalPublishedPages = availablePublishedPages?.filter(page => {
+    const templateContent = page.customProperties?.templateContent as { isExternal?: boolean; externalDomain?: string } | undefined;
+    return templateContent?.isExternal && templateContent?.externalDomain;
+  }) || [];
 
   // Fetch existing form data if editing
   const existingForm = useQuery(
@@ -102,10 +123,24 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
       const formSchema = existingForm.customProperties?.formSchema as {
         templateCode?: string;
         themeCode?: string;
+        enableInternalHosting?: boolean;
+        enableExternalHosting?: boolean;
+        publishedPageId?: string;
       } | undefined;
       const templateCode = formSchema?.templateCode;
       const themeCode = formSchema?.themeCode;
 
+      // Load hosting mode settings
+      // Default to internal only if not specified
+      setEnableInternalHosting(formSchema?.enableInternalHosting !== false);
+      setEnableExternalHosting(formSchema?.enableExternalHosting === true);
+
+      // Load published page if external hosting is enabled
+      if (formSchema?.enableExternalHosting && formSchema?.publishedPageId) {
+        setSelectedPublishedPageId(formSchema.publishedPageId);
+      }
+
+      // Load template if it exists (no placeholder checks needed - field exists or doesn't)
       if (templateCode && availableTemplates) {
         const template = availableTemplates.find(
           (t) => t.customProperties?.code === templateCode
@@ -113,12 +148,38 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
         if (template) setSelectedTemplateId(template._id);
       }
 
+      // Load theme if it exists
       if (themeCode && availableThemes) {
         const theme = availableThemes.find((t) => t.customProperties?.code === themeCode);
         if (theme) setSelectedThemeId(theme._id);
       }
     }
   }, [existingForm, availableTemplates, availableThemes]);
+
+  // Auto-select template when coming from Templates tab
+  useEffect(() => {
+    if (templateCode && availableTemplates && !formId) {
+      const template = availableTemplates.find(
+        (t) => t.customProperties?.code === templateCode
+      );
+      if (template) {
+        setSelectedTemplateId(template._id);
+      }
+    }
+  }, [templateCode, availableTemplates, formId]);
+
+  // Auto-set preview mode based on hosting configuration
+  useEffect(() => {
+    // If only external hosting is enabled (internal disabled), force external preview
+    if (enableExternalHosting && !enableInternalHosting) {
+      setPreviewMode("external");
+    }
+    // If only internal hosting is enabled (external disabled), force internal preview
+    else if (enableInternalHosting && !enableExternalHosting) {
+      setPreviewMode("internal");
+    }
+    // If both are enabled, keep current preview mode (user can toggle)
+  }, [enableInternalHosting, enableExternalHosting]);
 
   if (!sessionId || !currentOrg) {
     return (
@@ -170,81 +231,138 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedTemplateId || !selectedThemeId || !formName) return;
+
+    // Validation based on hosting mode
+    if (!formName) {
+      alert("Please enter a form name");
+      return;
+    }
+
+    // At least one hosting mode must be enabled
+    if (!enableInternalHosting && !enableExternalHosting) {
+      alert("Please enable at least one hosting mode (Internal or External)");
+      return;
+    }
+
+    // Theme is only required for internal hosting (external frontend handles styling)
+    if (enableInternalHosting && !selectedThemeId) {
+      alert(t("ui.forms.select_template_theme_required") || "Internal hosting requires theme selection");
+      return;
+    }
+
+    // External hosting requires published page
+    if (enableExternalHosting && !selectedPublishedPageId) {
+      alert(t("ui.forms.select_published_page_required") || "External hosting requires a published page selection");
+      return;
+    }
 
     setIsSaving(true);
     try {
-      // Get the selected template and theme codes
-      const selectedTemplate = availableTemplates.find(
-        (t: TemplateOrTheme) => t._id === selectedTemplateId
-      );
-      const selectedTheme = availableThemes.find(
-        (t: TemplateOrTheme) => t._id === selectedThemeId
-      );
+      // Get template and theme codes (only if selected)
+      const templateCode = selectedTemplateId
+        ? availableTemplates.find((t: TemplateOrTheme) => t._id === selectedTemplateId)?.customProperties?.code as string | undefined
+        : undefined;
 
-      if (!selectedTemplate || !selectedTheme) {
-        throw new Error("Selected template or theme not found");
-      }
-
-      const templateCode = selectedTemplate.customProperties?.code as string;
-      const themeCode = selectedTheme.customProperties?.code as string;
+      const themeCode = selectedThemeId
+        ? availableThemes.find((t: TemplateOrTheme) => t._id === selectedThemeId)?.customProperties?.code as string | undefined
+        : undefined;
 
       if (formId) {
         // UPDATE existing form
-        // Store templateCode and themeCode in formSchema
         const existingSchema = (existingForm?.customProperties?.formSchema || {}) as {
           version?: string;
           fields?: unknown[];
           settings?: Record<string, unknown>;
         };
 
+        // Build formSchema - only include fields that have values (Option B)
+        const formSchema: Record<string, unknown> = {
+          ...existingSchema,
+          version: "1.0",
+          fields: existingSchema.fields || [],
+          settings: existingSchema.settings || {
+            allowMultipleSubmissions: false,
+            showProgressBar: true,
+            submitButtonText: "Submit",
+            successMessage: "Thank you for your submission!",
+            redirectUrl: null,
+          },
+          enableInternalHosting,
+          enableExternalHosting,
+        };
+
+        // Only add optional fields if they exist
+        if (templateCode) formSchema.templateCode = templateCode;
+        if (themeCode) formSchema.themeCode = themeCode;
+        if (enableExternalHosting && selectedPublishedPageId) {
+          formSchema.publishedPageId = selectedPublishedPageId;
+        }
+
         await updateForm({
           sessionId,
           formId: formId as Id<"objects">,
           name: formName,
           description: formDescription,
-          formSchema: {
-            ...existingSchema,
-            version: "1.0",
-            templateCode,
-            themeCode,
-            fields: existingSchema.fields || [],
-            settings: existingSchema.settings || {
-              allowMultipleSubmissions: false,
-              showProgressBar: true,
-              submitButtonText: "Submit",
-              successMessage: "Thank you for your submission!",
-              redirectUrl: null,
-            },
-          },
+          formSchema,
           eventId: selectedEventId ? (selectedEventId as Id<"objects">) : null,
         });
 
         setSuccessMessage(t("ui.forms.form_updated"));
         setTimeout(() => setSuccessMessage(null), 5000);
       } else {
-        // CREATE new form - Load schema from DATABASE template (primary source)
-        const templateSchemaFromDB = selectedTemplate.customProperties?.formSchema as {
-          version?: string;
-          sections?: unknown[];
-          settings?: Record<string, unknown>;
-        } | undefined;
+        // CREATE new form
+        let sections: unknown[] = [];
 
-        // Fallback to TypeScript registry if DB doesn't have schema
-        const templateComponent = getFormTemplate(templateCode);
-        const templateSchemaFromCode = templateComponent?.schema;
+        // Load sections from template if one is selected
+        if (templateCode) {
+          const selectedTemplate = availableTemplates.find(
+            (t: TemplateOrTheme) => t._id === selectedTemplateId
+          );
+          const templateSchemaFromDB = selectedTemplate?.customProperties?.formSchema as {
+            version?: string;
+            sections?: unknown[];
+            settings?: Record<string, unknown>;
+          } | undefined;
 
-        // Get sections from template (sections contain all fields!)
-        const sections = templateSchemaFromDB?.sections || templateSchemaFromCode?.sections || [];
+          // Fallback to TypeScript registry if DB doesn't have schema
+          const templateComponent = templateCode ? getFormTemplate(templateCode) : null;
+          const templateSchemaFromCode = templateComponent?.schema;
+
+          // Get sections from template (sections contain all fields!)
+          sections = templateSchemaFromDB?.sections || templateSchemaFromCode?.sections || [];
+        }
+        // Forms without templates will have empty sections (user will build manually in future)
 
         console.log("🔍 [FormBuilder] Creating form with schema:", {
-          templateCode,
-          selectedTemplateCustomProps: selectedTemplate.customProperties,
-          templateSchemaFromDB: templateSchemaFromDB,
-          templateSchemaFromCode: !!templateSchemaFromCode,
+          enableInternalHosting,
+          enableExternalHosting,
+          templateCode: templateCode || "none",
+          themeCode: themeCode || "none",
           hasSections: sections.length > 0,
           sectionsCount: sections.length,
         });
+
+        // Build formSchema - only include fields that have values (Option B)
+        const formSchema: Record<string, unknown> = {
+          version: "1.0",
+          sections,
+          settings: {
+            allowMultipleSubmissions: false,
+            showProgressBar: true,
+            submitButtonText: "Submit",
+            successMessage: "Thank you for your submission!",
+            redirectUrl: null,
+          },
+          enableInternalHosting,
+          enableExternalHosting,
+        };
+
+        // Only add optional fields if they exist
+        if (templateCode) formSchema.templateCode = templateCode;
+        if (themeCode) formSchema.themeCode = themeCode;
+        if (enableExternalHosting && selectedPublishedPageId) {
+          formSchema.publishedPageId = selectedPublishedPageId;
+        }
 
         await createForm({
           sessionId,
@@ -252,20 +370,7 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
           subtype: formSubtype,
           name: formName,
           description: formDescription,
-          formSchema: {
-            version: templateSchemaFromCode?.version || templateSchemaFromDB?.version || "1.0",
-            templateCode,
-            themeCode,
-            // Sections contain all fields and conditional logic!
-            sections,
-            settings: templateSchemaFromCode?.settings || templateSchemaFromDB?.settings || {
-              allowMultipleSubmissions: false,
-              showProgressBar: true,
-              submitButtonText: "Submit",
-              successMessage: "Thank you for your submission!",
-              redirectUrl: null,
-            },
-          },
+          formSchema,
           eventId: selectedEventId ? (selectedEventId as Id<"objects">) : undefined,
         });
 
@@ -344,67 +449,95 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Template selection */}
-          <div className="border-2" style={{ borderColor: "var(--win95-border)" }}>
-            {/* Accordion Header */}
-            <button
-              type="button"
-              onClick={() => setTemplateAccordionOpen(!templateAccordionOpen)}
-              className="w-full px-4 py-3 flex items-center justify-between transition-colors hover:brightness-95"
-              style={{ background: "var(--win95-bg-light)", color: "var(--win95-text)" }}
-            >
-              <div className="flex items-center gap-2">
-                <FileText size={16} />
-                <span className="text-sm font-bold">
-                  {t("ui.forms.section_select_template")} <span style={{ color: "var(--error)" }}>{t("ui.forms.required_indicator")}</span>
-                </span>
-                {selectedTemplateId && (
-                  <span className="text-xs px-2 py-0.5 rounded" style={{ background: "var(--win95-highlight)", color: "white" }}>
-                    {availableTemplates.find((t) => t._id === selectedTemplateId)?.name}
-                  </span>
-                )}
-              </div>
-              {templateAccordionOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </button>
+          {/* Hosting Mode Selection - AT THE TOP */}
+          <div className="border-2 p-3" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}>
+            <h4 className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+              {t("ui.forms.hosting_mode_title") || "Hosting Mode"}
+            </h4>
 
-            {/* Accordion Content */}
-            {templateAccordionOpen && (
-              <div className="p-3 space-y-2" style={{ background: "var(--win95-input-bg)" }}>
-                {availableTemplates.map((template) => (
-                  <button
-                    key={template._id}
-                    type="button"
-                    onClick={() => setSelectedTemplateId(template._id)}
-                    className="w-full border-2 p-3 text-left transition-all hover:shadow-md"
-                    style={{
-                      borderColor:
-                        selectedTemplateId === template._id ? "var(--win95-highlight)" : "var(--win95-border)",
-                      backgroundColor:
-                        selectedTemplateId === template._id ? "var(--win95-bg-light)" : "var(--win95-input-bg)",
-                      borderWidth: selectedTemplateId === template._id ? "3px" : "2px",
-                    }}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="font-bold text-sm mb-1" style={{ color: "var(--win95-text)" }}>{template.name}</div>
-                        <p className="text-xs mb-1" style={{ color: "var(--neutral-gray)" }}>
-                          {template.customProperties?.description}
-                        </p>
-                        <code className="text-xs px-1" style={{ background: "var(--win95-bg)", color: "var(--win95-text)" }}>
-                          {template.customProperties?.code}
-                        </code>
-                      </div>
-                      {selectedTemplateId === template._id && (
-                        <Check size={20} style={{ color: "var(--win95-highlight)" }} className="flex-shrink-0" />
-                      )}
-                    </div>
-                  </button>
-                ))}
+            {/* Internal Hosting Checkbox */}
+            <label className="flex items-center gap-2 cursor-pointer mb-2">
+              <input
+                type="checkbox"
+                checked={enableInternalHosting}
+                onChange={(e) => setEnableInternalHosting(e.target.checked)}
+                className="w-4 h-4"
+              />
+              <div className="flex items-center gap-2">
+                <Database size={16} style={{ color: "var(--win95-highlight)" }} />
+                <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                  {t("ui.forms.internal_hosting_label") || "Internal Hosting"}
+                </span>
               </div>
-            )}
+            </label>
+            <p className="text-xs ml-6 mb-3" style={{ color: "var(--neutral-gray)" }}>
+              {t("ui.forms.internal_hosting_description") || "Host form on your main application (requires template + theme)"}
+            </p>
+
+            {/* External Hosting Checkbox */}
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={enableExternalHosting}
+                onChange={(e) => setEnableExternalHosting(e.target.checked)}
+                className="w-4 h-4"
+              />
+              <div className="flex items-center gap-2">
+                <Globe size={16} style={{ color: "var(--win95-highlight)" }} />
+                <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                  {t("ui.forms.external_hosting_label")}
+                </span>
+              </div>
+            </label>
+            <p className="text-xs mt-2 ml-6" style={{ color: "var(--neutral-gray)" }}>
+              {t("ui.forms.external_hosting_description")}
+            </p>
           </div>
 
-          {/* Theme selection */}
+          {/* Template Display (Read-only when coming from Templates tab) */}
+          {selectedTemplateId && (
+            <div className="border-2 p-4" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}>
+              <div className="flex items-start gap-2">
+                <FileText size={16} style={{ color: "var(--win95-highlight)" }} className="flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <h4 className="font-bold text-sm mb-1" style={{ color: "var(--win95-text)" }}>
+                    {t("ui.forms.label_template")}: {availableTemplates.find((t) => t._id === selectedTemplateId)?.name}
+                  </h4>
+                  <p className="text-xs mb-2" style={{ color: "var(--neutral-gray)" }}>
+                    {availableTemplates.find((t) => t._id === selectedTemplateId)?.customProperties?.description}
+                  </p>
+                  <code className="text-xs px-2 py-1" style={{ background: "var(--win95-bg)", color: "var(--win95-text)" }}>
+                    {availableTemplates.find((t) => t._id === selectedTemplateId)?.customProperties?.code}
+                  </code>
+                  {templateCode && (
+                    <p className="text-xs mt-2" style={{ color: "var(--win95-highlight)" }}>
+                      💡 {t("ui.forms.template_from_library")}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Warning if no template selected */}
+          {!selectedTemplateId && (
+            <div className="border-2 p-4" style={{ borderColor: "var(--warning)", background: "rgba(251, 191, 36, 0.1)" }}>
+              <div className="flex items-start gap-2">
+                <AlertCircle size={16} style={{ color: "var(--warning)" }} className="flex-shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-bold text-xs" style={{ color: "var(--warning)" }}>
+                    {t("ui.forms.no_template_selected_title")}
+                  </h4>
+                  <p className="text-xs mt-1" style={{ color: "var(--warning)" }}>
+                    {t("ui.forms.no_template_selected_message")}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Theme selection - Only show if internal hosting is enabled */}
+          {enableInternalHosting && (
           <div className="border-2" style={{ borderColor: "var(--win95-border)" }}>
             {/* Accordion Header */}
             <button
@@ -496,8 +629,10 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
               </div>
             )}
           </div>
+          )}
 
-          {/* Data Sources (Optional) */}
+          {/* Data Sources (Optional) - Only show if internal hosting is enabled */}
+          {enableInternalHosting && (
           <div className="border-2" style={{ borderColor: "var(--win95-border)" }}>
             {/* Accordion Header */}
             <button
@@ -595,6 +730,96 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
               </div>
             )}
           </div>
+          )}
+
+          {/* Published Page Selection (only if external hosting is enabled) */}
+          {enableExternalHosting && (
+            <div>
+              <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                {t("ui.forms.select_published_page")} <span style={{ color: "var(--error)" }}>*</span>
+              </label>
+
+              {externalPublishedPages.length === 0 ? (
+                <div className="border-2 p-3" style={{ borderColor: "var(--warning)", background: "rgba(251, 191, 36, 0.1)" }}>
+                  <p className="text-xs" style={{ color: "var(--warning)" }}>
+                    {t("ui.forms.no_external_pages")}
+                  </p>
+                  <p className="text-xs mt-2" style={{ color: "var(--neutral-gray)" }}>
+                    {t("ui.forms.create_external_page_hint")}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <select
+                    value={selectedPublishedPageId}
+                    onChange={(e) => setSelectedPublishedPageId(e.target.value)}
+                    className="w-full border-2 px-2 py-1 text-sm"
+                    style={{
+                      borderColor: "var(--win95-border)",
+                      background: "var(--win95-input-bg)",
+                      color: "var(--win95-text)"
+                    }}
+                    required={enableExternalHosting}
+                  >
+                    <option value="">{t("ui.forms.select_page_placeholder")}</option>
+                    {externalPublishedPages.map((page) => {
+                      const templateContent = page.customProperties?.templateContent as { externalDomain?: string } | undefined;
+                      const domain = templateContent?.externalDomain || "";
+                      const slug = page.customProperties?.slug || "";
+                      return (
+                        <option key={page._id} value={page._id}>
+                          {page.name} ({domain}{slug})
+                        </option>
+                      );
+                    })}
+                  </select>
+
+                  {/* Show clickable external URL if a page is selected */}
+                  {selectedPublishedPageId && (() => {
+                    const selectedPage = externalPublishedPages.find(p => p._id === selectedPublishedPageId);
+                    const templateContent = selectedPage?.customProperties?.templateContent as { externalDomain?: string } | undefined;
+                    const externalDomain = templateContent?.externalDomain || "";
+                    const slug = selectedPage?.customProperties?.slug || "";
+
+                    // Construct the URL
+                    const cleanDomain = externalDomain.replace(/\/$/, '');
+                    const cleanSlug = slug.startsWith('/') ? slug : `/${slug}`;
+                    const externalUrl = formId
+                      ? `${cleanDomain}${cleanSlug}/${formId}`
+                      : `${cleanDomain}${cleanSlug}/{form-id}`;
+
+                    return (
+                      <div className="mt-2 p-2 border-2 rounded" style={{
+                        borderColor: "var(--win95-border)",
+                        background: "var(--win95-bg-light)"
+                      }}>
+                        <div className="flex items-center gap-2">
+                          <Globe size={14} style={{ color: "var(--win95-highlight)" }} />
+                          <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                            External URL:
+                          </span>
+                        </div>
+                        <a
+                          href={externalUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs break-all hover:underline flex items-center gap-1 mt-1"
+                          style={{ color: "var(--win95-highlight)" }}
+                        >
+                          {externalUrl}
+                          <ExternalLink size={12} />
+                        </a>
+                      </div>
+                    );
+                  })()}
+
+                  <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+                    {t("ui.forms.published_page_hint")}
+                  </p>
+                </>
+              )}
+            </div>
+          )}
 
           {/* Form Type (only for new forms) */}
           {!formId && (
@@ -668,16 +893,30 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
             </p>
             <button
               type="submit"
-              disabled={!selectedTemplateId || !selectedThemeId || !formName || isSaving}
+              disabled={
+                !formName ||
+                isSaving ||
+                (!enableInternalHosting && !enableExternalHosting) ||
+                (enableInternalHosting && !selectedThemeId) ||
+                (enableExternalHosting && !selectedPublishedPageId)
+              }
               className="px-4 py-2 text-sm font-bold border-2 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
                 borderColor: "var(--win95-border)",
                 backgroundColor:
-                  selectedTemplateId && selectedThemeId && formName && !isSaving
+                  formName &&
+                  !isSaving &&
+                  (enableInternalHosting || enableExternalHosting) &&
+                  (!enableInternalHosting || selectedThemeId) &&
+                  (!enableExternalHosting || selectedPublishedPageId)
                     ? "var(--win95-highlight)"
                     : "var(--win95-button-face)",
                 color:
-                  selectedTemplateId && selectedThemeId && formName && !isSaving
+                  formName &&
+                  !isSaving &&
+                  (enableInternalHosting || enableExternalHosting) &&
+                  (!enableInternalHosting || selectedThemeId) &&
+                  (!enableExternalHosting || selectedPublishedPageId)
                     ? "white"
                     : "var(--neutral-gray)",
               }}
@@ -699,28 +938,141 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
 
       {/* RIGHT: Live Preview (60%) */}
       <div className="w-[60%] p-4 overflow-y-auto" style={{ background: "var(--win95-bg)" }}>
-        <h3 className="text-sm font-bold mb-4 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
-          <Eye size={16} />
-          {t("ui.forms.live_preview")}
-        </h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+            <Eye size={16} />
+            {t("ui.forms.live_preview")}
+          </h3>
+
+          {/* Debug: Show conditions */}
+          {(() => {
+            console.log("🔍 Preview Toggle Conditions:", {
+              enableInternalHosting,
+              enableExternalHosting,
+              selectedPublishedPageId,
+              selectedTemplateId,
+              selectedThemeId,
+              externalPublishedPages: externalPublishedPages.length,
+              shouldShowToggle: enableInternalHosting && enableExternalHosting && selectedPublishedPageId && selectedTemplateId && selectedThemeId
+            });
+            return null;
+          })()}
+
+          {/* Preview Mode Toggle - only show when BOTH internal AND external hosting are enabled */}
+          {enableInternalHosting && enableExternalHosting && selectedPublishedPageId && selectedTemplateId && selectedThemeId && (
+            <div className="flex border-2" style={{ borderColor: "var(--win95-border)" }}>
+              <button
+                type="button"
+                onClick={() => setPreviewMode("internal")}
+                className="px-3 py-1 text-xs font-bold transition-colors"
+                style={{
+                  background: previewMode === "internal" ? "var(--win95-highlight)" : "var(--win95-button-face)",
+                  color: previewMode === "internal" ? "white" : "var(--win95-text)",
+                  borderRight: "2px solid var(--win95-border)"
+                }}
+              >
+                {t("ui.forms.preview_internal")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setPreviewMode("external")}
+                className="px-3 py-1 text-xs font-bold transition-colors"
+                style={{
+                  background: previewMode === "external" ? "var(--win95-highlight)" : "var(--win95-button-face)",
+                  color: previewMode === "external" ? "white" : "var(--win95-text)"
+                }}
+              >
+                {t("ui.forms.preview_external")}
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* Preview content */}
-        {selectedTemplateId && selectedThemeId ? (
+        {/* Show preview if EITHER internal hosting has requirements OR external hosting has requirements */}
+        {(enableInternalHosting && selectedTemplateId && selectedThemeId) ||
+         (enableExternalHosting && selectedPublishedPageId) ? (
           <div className="space-y-4">
-            {/* LIVE FORM PREVIEW - Isolated from Win95 theme */}
-            <div className="border-2" style={{ borderColor: "var(--win95-border)" }}>
-              {/* Label above preview */}
-              <div className="px-3 py-2 border-b-2" style={{
-                background: "var(--win95-bg-light)",
-                borderColor: "var(--win95-border)"
-              }}>
-                <p className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
-                  {t("ui.forms.live_preview")}
-                </p>
-              </div>
+            {/* Debug: Show preview mode state */}
+            {(() => {
+              console.log("🔍 Preview Mode State:", {
+                previewMode,
+                enableInternalHosting,
+                enableExternalHosting,
+                selectedPublishedPageId,
+                shouldShowExternal: previewMode === "external" && enableExternalHosting && selectedPublishedPageId,
+                shouldShowInternal: previewMode === "internal" && enableInternalHosting && selectedTemplateId && selectedThemeId
+              });
+              return null;
+            })()}
 
-              {/* Isolated preview container - resets all CSS variables */}
-              <div
+            {/* Show internal OR external preview based on previewMode */}
+            {previewMode === "external" && enableExternalHosting && selectedPublishedPageId && (() => {
+              // Get the selected published page to extract external domain and slug
+              const selectedPage = externalPublishedPages.find(p => p._id === selectedPublishedPageId);
+              const templateContent = selectedPage?.customProperties?.templateContent as { externalDomain?: string } | undefined;
+              const externalDomain = templateContent?.externalDomain || "";
+              const slug = selectedPage?.customProperties?.slug || "";
+
+              // Construct the preview URL: {externalDomain}{slug}/{formId}
+              // Remove trailing slash from domain and leading slash from slug to avoid double slashes
+              const cleanDomain = externalDomain.replace(/\/$/, '');
+              const cleanSlug = slug.startsWith('/') ? slug : `/${slug}`;
+
+              const previewUrl = formId
+                ? `${cleanDomain}${cleanSlug}/${formId}`
+                : `${cleanDomain}${cleanSlug}/preview-form-id`;
+
+              // Debug logging
+              console.log("🔍 External Preview URL:", {
+                previewUrl,
+                cleanDomain,
+                cleanSlug,
+                formId,
+                enableExternalHosting,
+                selectedPublishedPageId
+              });
+
+              return (
+                /* EXTERNAL IFRAME PREVIEW */
+                <div className="border-2" style={{ borderColor: "var(--win95-border)" }}>
+                  <div className="px-3 py-2 border-b-2 flex items-center gap-2" style={{
+                    background: "var(--win95-bg-light)",
+                    borderColor: "var(--win95-border)"
+                  }}>
+                    <Globe size={14} style={{ color: "var(--win95-highlight)" }} />
+                    <p className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                      {t("ui.forms.external_preview")}
+                    </p>
+                  </div>
+                  <iframe
+                    src={previewUrl}
+                    className="w-full"
+                    style={{ height: "600px", border: "none" }}
+                    title="External Form Preview"
+                    sandbox="allow-same-origin allow-scripts"
+                  />
+                  <div className="px-3 py-2 border-t-2 text-xs" style={{ borderColor: "var(--win95-border)", color: "var(--neutral-gray)" }}>
+                    {t("ui.forms.showing")}: {previewUrl}
+                  </div>
+                </div>
+              );
+            })()}
+            {(previewMode === "internal" || !enableExternalHosting || !selectedPublishedPageId) && enableInternalHosting && selectedTemplateId && selectedThemeId && (
+              /* INTERNAL TEMPLATE PREVIEW - Isolated from Win95 theme */
+              <div className="border-2" style={{ borderColor: "var(--win95-border)" }}>
+                {/* Label above preview */}
+                <div className="px-3 py-2 border-b-2" style={{
+                  background: "var(--win95-bg-light)",
+                  borderColor: "var(--win95-border)"
+                }}>
+                  <p className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                    {t("ui.forms.live_preview")}
+                  </p>
+                </div>
+
+                {/* Isolated preview container - resets all CSS variables */}
+                <div
                 className="overflow-hidden relative"
                 style={{
                   // Reset all Win95 theme variables to neutral values
@@ -822,7 +1174,8 @@ export function FormBuilder({ formId, onBack }: FormBuilderProps) {
                   );
                 })()}
               </div>
-            </div>
+              </div>
+            )}
 
             {/* Template Info */}
             <div className="border-2 p-4" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
