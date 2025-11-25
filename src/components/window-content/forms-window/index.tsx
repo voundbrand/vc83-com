@@ -11,6 +11,7 @@ import { Loader2, Plus, FileText, ClipboardList, Palette } from "lucide-react";
 import { FormBuilder } from "./form-builder";
 import { AllFormsTab } from "./all-forms-tab";
 import { TemplatesTab } from "./templates-tab";
+import { ResponsesTab } from "./responses-tab";
 
 /**
  * Forms Window
@@ -137,14 +138,13 @@ export function FormsWindow() {
           {t("ui.forms.tabs.create")}
         </button>
         <button
-          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2 opacity-50 cursor-not-allowed"
+          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
           style={{
             borderColor: 'var(--win95-border)',
-            background: 'var(--win95-bg)',
-            color: 'var(--neutral-gray)'
+            background: activeTab === "responses" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+            color: activeTab === "responses" ? 'var(--win95-text)' : 'var(--neutral-gray)'
           }}
-          disabled
-          title={t("ui.forms.tabs.responses_coming_soon")}
+          onClick={() => setActiveTab("responses")}
         >
           <ClipboardList size={14} />
           {t("ui.forms.tabs.responses")}
@@ -182,17 +182,7 @@ export function FormsWindow() {
         )}
 
         {activeTab === "responses" && (
-          <div className="flex items-center justify-center h-full p-8">
-            <div className="text-center max-w-md">
-              <div className="text-4xl mb-4">📊</div>
-              <h3 className="text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-                {t("ui.forms.responses_coming_soon_title")}
-              </h3>
-              <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                {t("ui.forms.responses_coming_soon_description")}
-              </p>
-            </div>
-          </div>
+          <ResponsesTab forms={forms} />
         )}
 
         {activeTab === "templates" && (
