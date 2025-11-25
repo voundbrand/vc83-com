@@ -253,7 +253,7 @@ http.route({
 // Import API handlers
 import { getEvents, getEventBySlug, getEventById, getEventProducts } from "./api/v1/events";
 import { getProduct } from "./api/v1/products";
-import { getForm, getPublicForm } from "./api/v1/forms";
+import { getForm, getPublicForm, submitPublicForm } from "./api/v1/forms";
 import { triggerWorkflow } from "./api/v1/workflows";
 import { getTransaction } from "./api/v1/transactions";
 import { getTicketPdf } from "./api/v1/tickets";
@@ -491,6 +491,23 @@ http.route({
   pathPrefix: "/api/v1/forms/public/",
   method: "GET",
   handler: getPublicForm,
+});
+
+// OPTIONS /api/v1/forms/public/:formId/submit (CORS preflight for submission)
+http.route({
+  pathPrefix: "/api/v1/forms/public/",
+  method: "OPTIONS",
+  handler: httpAction(async (ctx, request) => {
+    const origin = request.headers.get("origin");
+    return handleOptionsRequest(origin);
+  }),
+});
+
+// POST /api/v1/forms/public/:formId/submit (public submission - no auth)
+http.route({
+  pathPrefix: "/api/v1/forms/public/",
+  method: "POST",
+  handler: submitPublicForm,
 });
 
 /**

@@ -28,7 +28,7 @@
  * - "abandoned" - User left before completion
  */
 
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser, checkPermission } from "./rbacHelpers";
 
@@ -511,6 +511,95 @@ export const createFormResponse = mutation({
       performedAt: now,
       actionData: {
         status: "complete",
+      },
+    });
+
+    return responseId;
+  },
+});
+
+/**
+ * CREATE PUBLIC FORM RESPONSE (Internal)
+ * Submit a form response without authentication
+ * Used by public submission API endpoint
+ */
+export const createPublicFormResponse = internalMutation({
+  args: {
+    formId: v.id("objects"),
+    responses: v.any(), // The actual form data (key-value pairs)
+    metadata: v.optional(v.any()), // IP, userAgent, submittedAt, etc.
+  },
+  handler: async (ctx, args) => {
+    // Get the form to verify it exists and is published
+    const form = await ctx.db.get(args.formId);
+    if (!form || !("type" in form) || form.type !== "form") {
+      throw new Error("Form not found");
+    }
+
+    // Only allow submissions to published forms
+    if (form.status !== "published") {
+      throw new Error("Form is not published");
+    }
+
+    // Generate a name from responses (first + last name if available)
+    const firstName = args.responses.first_name || args.responses.firstName || args.responses.contact_name || "";
+    const lastName = args.responses.last_name || args.responses.lastName || "";
+    const responseName = firstName && lastName
+      ? `Response from ${firstName} ${lastName}`
+      : firstName
+      ? `Response from ${firstName}`
+      : `Response ${new Date().toLocaleDateString()}`;
+
+    // Create the form response
+    const now = Date.now();
+    const responseId = await ctx.db.insert("objects", {
+      organizationId: form.organizationId,
+      type: "formResponse",
+      subtype: form.subtype || "registration",
+      name: responseName,
+      description: `Public form submission for ${form.name}`,
+      status: "complete",
+      customProperties: {
+        formId: args.formId,
+        responses: args.responses,
+        submittedAt: args.metadata?.submittedAt || now,
+        userAgent: args.metadata?.userAgent,
+        ipAddress: args.metadata?.ipAddress,
+        isPublicSubmission: true,
+      },
+      createdBy: undefined, // No user ID for public submissions
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // Update form stats
+    const currentStats = form.customProperties?.stats || {
+      views: 0,
+      submissions: 0,
+      completionRate: 0,
+    };
+
+    await ctx.db.patch(args.formId, {
+      customProperties: {
+        ...form.customProperties,
+        stats: {
+          ...currentStats,
+          submissions: currentStats.submissions + 1,
+        },
+      },
+      updatedAt: Date.now(),
+    });
+
+    // Log the action (no user, public submission)
+    await ctx.db.insert("objectActions", {
+      organizationId: form.organizationId,
+      objectId: responseId,
+      actionType: "created",
+      performedBy: undefined, // No user ID for public submissions
+      performedAt: now,
+      actionData: {
+        status: "complete",
+        isPublicSubmission: true,
       },
     });
 

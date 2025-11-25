@@ -224,3 +224,202 @@ export const getPublicForm = httpAction(async (ctx, request) => {
     );
   }
 });
+
+/**
+ * SUBMIT PUBLIC FORM
+ * Submit a form response without authentication (public endpoint)
+ *
+ * Path: /api/v1/forms/public/:formId/submit
+ * Method: POST
+ *
+ * Security:
+ * - Rate limiting: 5 submissions per IP per hour per form
+ * - Honeypot field detection (bot_trap field)
+ * - Only accepts submissions to published forms
+ * - CORS enabled for external domains
+ *
+ * Request Body:
+ * {
+ *   "responses": {
+ *     "firstName": "John",
+ *     "email": "john@example.com",
+ *     ...
+ *   },
+ *   "bot_trap": "" // Should be empty (honeypot field)
+ * }
+ *
+ * Response:
+ * {
+ *   "success": true,
+ *   "responseId": "...",
+ *   "message": "Form submitted successfully"
+ * }
+ */
+export const submitPublicForm = httpAction(async (ctx, request) => {
+  try {
+    const origin = request.headers.get("origin");
+    const corsHeaders = getCorsHeaders(origin);
+
+    // Only accept POST requests
+    if (request.method !== "POST") {
+      return new Response(
+        JSON.stringify({ error: "Method not allowed" }),
+        {
+          status: 405,
+          headers: {
+            "Content-Type": "application/json",
+            ...corsHeaders,
+          }
+        }
+      );
+    }
+
+    // 1. Extract form ID from URL
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split("/");
+    // Path is /api/v1/forms/public/:formId/submit
+    const formIdIndex = pathParts.indexOf("public") + 1;
+    const formId = pathParts[formIdIndex] as Id<"objects">;
+
+    if (!formId) {
+      return new Response(
+        JSON.stringify({ error: "Form ID required" }),
+        {
+          status: 400,
+          headers: {
+            "Content-Type": "application/json",
+            ...corsHeaders,
+          }
+        }
+      );
+    }
+
+    console.log(`📝 [POST /api/v1/forms/public/${formId}/submit] Receiving submission...`);
+
+    // 2. Parse request body
+    let body: { responses: Record<string, unknown>; bot_trap?: string };
+    try {
+      body = await request.json();
+    } catch {
+      return new Response(
+        JSON.stringify({ error: "Invalid JSON body" }),
+        {
+          status: 400,
+          headers: {
+            "Content-Type": "application/json",
+            ...corsHeaders,
+          }
+        }
+      );
+    }
+
+    // 3. Honeypot validation - reject if bot_trap field is filled
+    if (body.bot_trap && body.bot_trap.length > 0) {
+      console.log(`🍯 [POST /api/v1/forms/public] Honeypot triggered - bot detected`);
+      // Return success to fool the bot
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "Form submitted successfully"
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            ...corsHeaders,
+          }
+        }
+      );
+    }
+
+    // 4. Rate limiting - extract IP address
+    const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+      || request.headers.get("x-real-ip")
+      || "unknown";
+
+    console.log(`🔍 [POST /api/v1/forms/public] IP: ${ipAddress}`);
+
+    // 5. Check rate limit (5 submissions per IP per hour per form)
+    const oneHourAgo = Date.now() - (60 * 60 * 1000);
+
+    // Query recent submissions from this IP for this form
+    const recentSubmissions = await ctx.runQuery(internal.api.v1.formsInternal.checkRateLimit, {
+      formId,
+      ipAddress,
+      since: oneHourAgo,
+    });
+
+    if (recentSubmissions >= 5) {
+      console.log(`⚠️ [POST /api/v1/forms/public] Rate limit exceeded for IP: ${ipAddress}`);
+      return new Response(
+        JSON.stringify({
+          error: "Rate limit exceeded. Please try again later.",
+          retryAfter: 3600 // seconds
+        }),
+        {
+          status: 429,
+          headers: {
+            "Content-Type": "application/json",
+            "Retry-After": "3600",
+            ...corsHeaders,
+          }
+        }
+      );
+    }
+
+    // 6. Extract metadata
+    const metadata = {
+      ipAddress,
+      userAgent: request.headers.get("user-agent") || "unknown",
+      submittedAt: Date.now(),
+      referer: request.headers.get("referer") || null,
+    };
+
+    // 7. Submit the form
+    const responseId = await ctx.runMutation(internal.formsOntology.createPublicFormResponse, {
+      formId,
+      responses: body.responses,
+      metadata,
+    });
+
+    console.log(`✅ [POST /api/v1/forms/public] Submission successful: ${responseId}`);
+
+    // 8. Return success
+    return new Response(
+      JSON.stringify({
+        success: true,
+        responseId,
+        message: "Form submitted successfully"
+      }),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          ...corsHeaders,
+        }
+      }
+    );
+
+  } catch (error) {
+    console.error("API /forms/public/submit error:", error);
+    const origin = request.headers.get("origin");
+    const corsHeaders = getCorsHeaders(origin);
+
+    // Check if it's a known error
+    const errorMessage = error instanceof Error ? error.message : "Internal server error";
+    const statusCode = errorMessage.includes("not published") ? 403
+      : errorMessage.includes("not found") ? 404
+      : 500;
+
+    return new Response(
+      JSON.stringify({ error: errorMessage }),
+      {
+        status: statusCode,
+        headers: {
+          "Content-Type": "application/json",
+          ...corsHeaders,
+        }
+      }
+    );
+  }
+});

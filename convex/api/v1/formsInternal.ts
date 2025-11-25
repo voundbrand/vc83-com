@@ -52,3 +52,42 @@ export const getFormInternal = internalQuery({
     };
   },
 });
+
+/**
+ * CHECK RATE LIMIT
+ * Count recent form submissions from a specific IP address
+ *
+ * Used for rate limiting public form submissions
+ * Returns the number of submissions from this IP for this form since the given timestamp
+ */
+export const checkRateLimit = internalQuery({
+  args: {
+    formId: v.id("objects"),
+    ipAddress: v.string(),
+    since: v.number(), // Timestamp - check submissions after this time
+  },
+  handler: async (ctx, args) => {
+    // Get all form responses for this form
+    const allResponses = await ctx.db
+      .query("objects")
+      .withIndex("by_type", (q) => q.eq("type", "formResponse"))
+      .collect();
+
+    // Filter by formId, IP address, and time window
+    const recentSubmissions = allResponses.filter((response) => {
+      const customProps = response.customProperties as Record<string, unknown> | undefined;
+      const responseFormId = customProps?.formId;
+      const responseIp = customProps?.ipAddress as string | undefined;
+      const submittedAt = customProps?.submittedAt as number | undefined;
+
+      return (
+        responseFormId === args.formId &&
+        responseIp === args.ipAddress &&
+        submittedAt &&
+        submittedAt >= args.since
+      );
+    });
+
+    return recentSubmissions.length;
+  },
+});
