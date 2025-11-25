@@ -1170,6 +1170,39 @@ export const seed = mutation({
           ja: "フォームを削除",
         }
       },
+      {
+        key: "ui.forms.tooltip_view_published",
+        values: {
+          en: "View published form",
+          de: "Veröffentlichtes Formular anzeigen",
+          pl: "Zobacz opublikowany formularz",
+          es: "Ver formulario publicado",
+          fr: "Voir le formulaire publié",
+          ja: "公開されたフォームを表示",
+        }
+      },
+      {
+        key: "ui.forms.tooltip_not_published",
+        values: {
+          en: "Form must be published first",
+          de: "Formular muss zuerst veröffentlicht werden",
+          pl: "Formularz musi zostać najpierw opublikowany",
+          es: "El formulario debe publicarse primero",
+          fr: "Le formulaire doit d'abord être publié",
+          ja: "フォームは最初に公開する必要があります",
+        }
+      },
+      {
+        key: "ui.forms.tooltip_no_url",
+        values: {
+          en: "No public URL available",
+          de: "Keine öffentliche URL verfügbar",
+          pl: "Brak publicznego adresu URL",
+          es: "No hay URL pública disponible",
+          fr: "Aucune URL publique disponible",
+          ja: "公開URLがありません",
+        }
+      },
 
       // Character Counter
       {

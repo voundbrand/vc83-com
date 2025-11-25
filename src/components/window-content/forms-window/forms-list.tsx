@@ -5,7 +5,7 @@ import { useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
-import { FileText, Plus, Edit, Trash2, Eye, Send, FileX, Loader2, ExternalLink, Code, Copy } from "lucide-react";
+import { FileText, Plus, Edit, Trash2, Send, FileX, Loader2, ExternalLink, Code, Copy } from "lucide-react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { ConfirmationModal } from "@/components/confirmation-modal";
 
@@ -385,19 +385,43 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
                       )}
                     </button>
 
-                    {/* Preview button (disabled for now) */}
-                    <button
-                      disabled
-                      className="px-2 py-1 text-xs border-2 opacity-50 cursor-not-allowed"
-                      style={{
-                        borderColor: "var(--win95-border)",
-                        background: "var(--win95-bg-light)",
-                        color: "var(--win95-text)",
-                      }}
-                      title={t("ui.forms.tooltip_preview_soon")}
-                    >
-                      <Eye size={12} />
-                    </button>
+                    {/* View Published Form button - opens public URL in new tab */}
+                    {isPublished && publicUrl ? (
+                      <a
+                        href={publicUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors no-underline"
+                        style={{
+                          borderColor: "var(--win95-border)",
+                          background: "var(--win95-bg-light)",
+                          color: "var(--success)",
+                        }}
+                        title={t("ui.forms.tooltip_view_published")}
+                        onMouseEnter={(e) => {
+                          if (!isDeleting && !isPublishing && !isDuplicating)
+                            e.currentTarget.style.background = "var(--win95-hover-light)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = "var(--win95-bg-light)";
+                        }}
+                      >
+                        <ExternalLink size={12} />
+                      </a>
+                    ) : (
+                      <button
+                        disabled
+                        className="px-2 py-1 text-xs border-2 opacity-50 cursor-not-allowed"
+                        style={{
+                          borderColor: "var(--win95-border)",
+                          background: "var(--win95-bg-light)",
+                          color: "var(--win95-text)",
+                        }}
+                        title={isPublished ? t("ui.forms.tooltip_no_url") : t("ui.forms.tooltip_not_published")}
+                      >
+                        <ExternalLink size={12} />
+                      </button>
+                    )}
 
                     {/* Delete button */}
                     <button
