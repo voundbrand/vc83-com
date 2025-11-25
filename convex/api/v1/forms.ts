@@ -176,6 +176,8 @@ export const getPublicForm = httpAction(async (ctx, request) => {
 
     // 3. Transform response to match API format (same as authenticated endpoint)
     const customProps = form.customProperties as Record<string, unknown> | undefined;
+    const formSchema = customProps?.formSchema as Record<string, unknown> | undefined;
+
     const transformedForm = {
       id: form._id,
       organizationId: form.organizationId,
@@ -183,14 +185,17 @@ export const getPublicForm = httpAction(async (ctx, request) => {
       description: form.description,
       status: form.status,
       subtype: form.subtype,
-      fields: (customProps?.fields as unknown[]) || [],
-      settings: (customProps?.settings as Record<string, unknown>) || {
+      fields: (formSchema?.fields as unknown[]) || [],
+      settings: (formSchema?.settings as Record<string, unknown>) || {
         submitButtonText: "Submit",
         successMessage: "Form submitted successfully",
       },
       translations: (customProps?.translations as Record<string, unknown>) || {},
       customProperties: {
-        formSchema: customProps?.formSchema,
+        formSchema: formSchema,
+        fields: (formSchema?.fields as unknown[]) || [],
+        settings: (formSchema?.settings as Record<string, unknown>) || {},
+        translations: (customProps?.translations as Record<string, unknown>) || {},
         ...customProps,
       },
     };
