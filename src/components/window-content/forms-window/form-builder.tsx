@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { getFormTemplate } from "@/templates/forms/registry";
 import { webPublishingThemes } from "@/templates/themes";
+import { FORM_TYPES, DEFAULT_FORM_TYPE, getFormTypeIcon } from "@/templates/forms/form-types";
 
 interface FormBuilderProps {
   formId: string | null;
@@ -51,7 +52,7 @@ export function FormBuilder({ formId, templateCode, onBack }: FormBuilderProps) 
   const [selectedThemeId, setSelectedThemeId] = useState<string>("");
   const [formName, setFormName] = useState("");
   const [formDescription, setFormDescription] = useState("");
-  const [formSubtype, setFormSubtype] = useState<string>("registration");
+  const [formSubtype, setFormSubtype] = useState<string>(DEFAULT_FORM_TYPE);
   const [isSaving, setIsSaving] = useState(false);
   const [themeAccordionOpen, setThemeAccordionOpen] = useState(true);
   const [dataSourcesAccordionOpen, setDataSourcesAccordionOpen] = useState(true);
@@ -127,7 +128,7 @@ export function FormBuilder({ formId, templateCode, onBack }: FormBuilderProps) 
     if (existingForm && availableTemplates && availableThemes) {
       setFormName(existingForm.name || "");
       setFormDescription(existingForm.description || "");
-      setFormSubtype(existingForm.subtype || "registration");
+      setFormSubtype(existingForm.subtype || DEFAULT_FORM_TYPE);
 
       // Load eventId if present
       const eventId = existingForm.customProperties?.eventId as string | undefined;
@@ -447,7 +448,7 @@ export function FormBuilder({ formId, templateCode, onBack }: FormBuilderProps) 
         setSelectedEventId("");
         setFormName("");
         setFormDescription("");
-        setFormSubtype("registration");
+        setFormSubtype(DEFAULT_FORM_TYPE);
 
         setTimeout(() => setSuccessMessage(null), 5000);
       }
@@ -926,29 +927,29 @@ export function FormBuilder({ formId, templateCode, onBack }: FormBuilderProps) 
             </div>
           )}
 
-          {/* Form Type (only for new forms) */}
-          {!formId && (
-            <div>
-              <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                {t("ui.forms.label_form_type")} <span style={{ color: "var(--error)" }}>{t("ui.forms.required_indicator")}</span>
-              </label>
-              <select
-                value={formSubtype}
-                onChange={(e) => setFormSubtype(e.target.value)}
-                className="w-full border-2 px-2 py-1 text-sm"
-                style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-input-bg)",
-                  color: "var(--win95-text)"
-                }}
-                required
-              >
-                <option value="registration">{t("ui.forms.type_option_registration")}</option>
-                <option value="survey">{t("ui.forms.type_option_survey")}</option>
-                <option value="application">{t("ui.forms.type_option_application")}</option>
-              </select>
-            </div>
-          )}
+          {/* Form Type - now editable for both new and existing forms */}
+          <div>
+            <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+              {t("ui.forms.label_form_type")} <span style={{ color: "var(--error)" }}>{t("ui.forms.required_indicator")}</span>
+            </label>
+            <select
+              value={formSubtype}
+              onChange={(e) => setFormSubtype(e.target.value)}
+              className="w-full border-2 px-2 py-1 text-sm"
+              style={{
+                borderColor: "var(--win95-border)",
+                background: "var(--win95-input-bg)",
+                color: "var(--win95-text)"
+              }}
+              required
+            >
+              {FORM_TYPES.map((formType) => (
+                <option key={formType.code} value={formType.code}>
+                  {getFormTypeIcon(formType.code)} {t(formType.translationKey as any)}
+                </option>
+              ))}
+            </select>
+          </div>
 
           {/* Form Name */}
           <div>

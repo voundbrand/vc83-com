@@ -263,38 +263,148 @@ export const seed = mutation({
         }
       },
 
-      // Form Types
+      // Form Types (13 total - registration, survey, application, contact, booking, order, donation, membership, rsvp, feedback, quiz, volunteer, other)
       {
         key: "ui.forms.type_registration",
         values: {
-          en: "registration",
+          en: "Registration",
           de: "Registrierung",
-          pl: "rejestracja",
-          es: "registro",
-          fr: "inscription",
+          pl: "Rejestracja",
+          es: "Registro",
+          fr: "Inscription",
           ja: "登録",
         }
       },
       {
         key: "ui.forms.type_survey",
         values: {
-          en: "survey",
+          en: "Survey",
           de: "Umfrage",
-          pl: "ankieta",
-          es: "encuesta",
-          fr: "sondage",
+          pl: "Ankieta",
+          es: "Encuesta",
+          fr: "Sondage",
           ja: "アンケート",
         }
       },
       {
         key: "ui.forms.type_application",
         values: {
-          en: "application",
+          en: "Application",
           de: "Bewerbung",
-          pl: "aplikacja",
-          es: "solicitud",
-          fr: "candidature",
+          pl: "Aplikacja",
+          es: "Solicitud",
+          fr: "Candidature",
           ja: "申請",
+        }
+      },
+      {
+        key: "ui.forms.type_contact",
+        values: {
+          en: "Contact Form",
+          de: "Kontaktformular",
+          pl: "Formularz kontaktowy",
+          es: "Formulario de contacto",
+          fr: "Formulaire de contact",
+          ja: "お問い合わせフォーム",
+        }
+      },
+      {
+        key: "ui.forms.type_booking",
+        values: {
+          en: "Booking",
+          de: "Buchung",
+          pl: "Rezerwacja",
+          es: "Reserva",
+          fr: "Réservation",
+          ja: "予約",
+        }
+      },
+      {
+        key: "ui.forms.type_order",
+        values: {
+          en: "Order Form",
+          de: "Bestellformular",
+          pl: "Formularz zamówienia",
+          es: "Formulario de pedido",
+          fr: "Formulaire de commande",
+          ja: "注文フォーム",
+        }
+      },
+      {
+        key: "ui.forms.type_donation",
+        values: {
+          en: "Donation",
+          de: "Spende",
+          pl: "Darowizna",
+          es: "Donación",
+          fr: "Don",
+          ja: "寄付",
+        }
+      },
+      {
+        key: "ui.forms.type_membership",
+        values: {
+          en: "Membership",
+          de: "Mitgliedschaft",
+          pl: "Członkostwo",
+          es: "Membresía",
+          fr: "Adhésion",
+          ja: "会員登録",
+        }
+      },
+      {
+        key: "ui.forms.type_rsvp",
+        values: {
+          en: "RSVP",
+          de: "RSVP",
+          pl: "RSVP",
+          es: "RSVP",
+          fr: "RSVP",
+          ja: "出欠確認",
+        }
+      },
+      {
+        key: "ui.forms.type_feedback",
+        values: {
+          en: "Feedback",
+          de: "Feedback",
+          pl: "Opinia",
+          es: "Comentarios",
+          fr: "Retour d'information",
+          ja: "フィードバック",
+        }
+      },
+      {
+        key: "ui.forms.type_quiz",
+        values: {
+          en: "Quiz/Assessment",
+          de: "Quiz/Bewertung",
+          pl: "Quiz/Ocena",
+          es: "Cuestionario/Evaluación",
+          fr: "Quiz/Évaluation",
+          ja: "クイズ/評価",
+        }
+      },
+      {
+        key: "ui.forms.type_volunteer",
+        values: {
+          en: "Volunteer",
+          de: "Freiwillige",
+          pl: "Wolontariusz",
+          es: "Voluntario",
+          fr: "Bénévolat",
+          ja: "ボランティア",
+        }
+      },
+      {
+        key: "ui.forms.type_other",
+        values: {
+          en: "Other",
+          de: "Andere",
+          pl: "Inne",
+          es: "Otro",
+          fr: "Autre",
+          ja: "その他",
         }
       },
       {

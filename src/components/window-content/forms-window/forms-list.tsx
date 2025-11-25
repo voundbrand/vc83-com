@@ -8,6 +8,8 @@ import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { FileText, Plus, Edit, Trash2, Send, FileX, Loader2, ExternalLink, Code, Copy } from "lucide-react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { ConfirmationModal } from "@/components/confirmation-modal";
+import { getFormTypeIcon } from "@/templates/forms/form-types";
+import type { FormField } from "@/templates/forms/types";
 
 interface Form {
   _id: Id<"objects">;
@@ -55,17 +57,21 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
   const unpublishFormMutation = useMutation(api.formsOntology.unpublishForm);
   const duplicateFormMutation = useMutation(api.formsOntology.duplicateForm);
 
-  const getFormIcon = (subtype?: string) => {
-    switch (subtype) {
-      case "registration":
-        return "🎫";
-      case "survey":
-        return "📊";
-      case "application":
-        return "📝";
-      default:
-        return "📋";
-    }
+  // Helper to count only input fields (exclude section_header, text_block, description)
+  const countInputFields = (formSchema?: { sections?: Array<{ fields?: FormField[] }> }): number => {
+    if (!formSchema?.sections) return 0;
+
+    const nonInputTypes = ["section_header", "text_block", "description"];
+
+    return formSchema.sections.reduce((total, section) => {
+      if (!section.fields) return total;
+
+      const inputFieldsInSection = section.fields.filter(
+        (field) => !nonInputTypes.includes(field.type)
+      ).length;
+
+      return total + inputFieldsInSection;
+    }, 0);
   };
 
   const handleDelete = (formId: string, formName: string) => {
@@ -209,7 +215,7 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
         {/* Forms list - list style like web publishing */}
         <div className="space-y-2">
           {forms.map((form) => {
-            const fieldCount = form.customProperties?.formSchema?.fields?.length || 0;
+            const fieldCount = countInputFields(form.customProperties?.formSchema as any);
             const submissions = form.customProperties?.stats?.submissions || 0;
             const isDeleting = deletingFormId === form._id;
             const isPublishing = publishingFormId === form._id;
@@ -238,7 +244,7 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
                   {/* Left: Form info */}
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-lg">{getFormIcon(form.subtype)}</span>
+                      <span className="text-lg">{getFormTypeIcon(form.subtype || "other")}</span>
                       <h4 className="font-bold text-sm" style={{ color: "var(--win95-text)" }}>
                         {form.name}
                       </h4>
