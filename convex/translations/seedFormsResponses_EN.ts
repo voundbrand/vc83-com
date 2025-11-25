@@ -6,6 +6,7 @@
  */
 
 import { internalMutation } from "../_generated/server";
+import { insertTranslationIfNew } from "./_translationHelpers";
 
 export const seed = internalMutation({
   args: {},
@@ -15,11 +16,21 @@ export const seed = internalMutation({
     // Get system organization
     const systemOrg = await ctx.db
       .query("organizations")
-      .filter((q) => q.eq(q.field("name"), "System"))
+      .filter((q) => q.eq(q.field("slug"), "system"))
       .first();
 
     if (!systemOrg) {
       throw new Error("System organization not found");
+    }
+
+    // Get system user
+    const systemUser = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("email"), "system@l4yercak3.com"))
+      .first();
+
+    if (!systemUser) {
+      throw new Error("System user not found");
     }
 
     const translations = [
@@ -49,36 +60,21 @@ export const seed = internalMutation({
     ];
 
     let created = 0;
-    for (const t of translations) {
-      const existing = await ctx.db
-        .query("objects")
-        .filter((q) =>
-          q.and(
-            q.eq(q.field("type"), "translation"),
-            q.eq(q.field("locale"), "en"),
-            q.eq(q.field("name"), t.key)
-          )
-        )
-        .first();
+    const existingKeys = new Set<string>(); // Not used, but required for function signature
 
-      if (existing) {
-        if (existing.value !== t.value) {
-          await ctx.db.patch(existing._id, { value: t.value });
-          console.log(`  ↻ Updated: ${t.key}`);
-        }
-      } else {
-        await ctx.db.insert("objects", {
-          organizationId: systemOrg._id,
-          type: "translation",
-          locale: "en",
-          name: t.key,
-          value: t.value,
-          status: "active",
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        });
-        created++;
-      }
+    for (const t of translations) {
+      const inserted = await insertTranslationIfNew(
+        ctx.db,
+        existingKeys,
+        systemOrg._id,
+        systemUser._id,
+        t.key,
+        t.value,
+        "en",
+        "forms",
+        "responses-tab"
+      );
+      if (inserted) created++;
     }
 
     console.log(`✅ EN translations seeded (${created} new, ${translations.length - created} existing)`);
