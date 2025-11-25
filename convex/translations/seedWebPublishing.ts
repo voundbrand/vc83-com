@@ -27,12 +27,24 @@ const translations: Translation[] = [
   { locale: "en", key: "ui.web_publishing.tab.analytics", value: "Analytics" },
   { locale: "en", key: "ui.web_publishing.tab.coming_soon", value: "Coming soon" },
 
+  // Sub-tabs (Draft/Published)
+  { locale: "en", key: "ui.web_publishing.subtabs.drafts", value: "Drafts" },
+  { locale: "en", key: "ui.web_publishing.subtabs.published", value: "Published" },
+
+  // Empty states
+  { locale: "en", key: "ui.web_publishing.empty_drafts_title", value: "No Drafts Yet" },
+  { locale: "en", key: "ui.web_publishing.empty_drafts_description", value: "Create your first page using the \"Create Page\" tab." },
+  { locale: "en", key: "ui.web_publishing.empty_published_title", value: "No Published Pages Yet" },
+  { locale: "en", key: "ui.web_publishing.empty_published_description", value: "Publish your draft pages to make them publicly visible." },
+
   // Published Pages Tab
   { locale: "en", key: "ui.web_publishing.pages.auth_required", value: "Authentication Required" },
   { locale: "en", key: "ui.web_publishing.pages.auth_required_desc", value: "Please log in to view published pages." },
   { locale: "en", key: "ui.web_publishing.pages.no_pages_title", value: "No Published Pages Yet" },
   { locale: "en", key: "ui.web_publishing.pages.no_pages_desc", value: "Create your first published page using the \"Create Page\" tab." },
   { locale: "en", key: "ui.web_publishing.pages.your_pages", value: "Your Published Pages" },
+  { locale: "en", key: "ui.web_publishing.pages.your_drafts", value: "Your Draft Pages" },
+  { locale: "en", key: "ui.web_publishing.pages.your_published", value: "Your Published Pages" },
   { locale: "en", key: "ui.web_publishing.pages.count", value: "{count} page" },
   { locale: "en", key: "ui.web_publishing.pages.count_plural", value: "{count} pages" },
   { locale: "en", key: "ui.web_publishing.pages.total", value: "total" },
@@ -167,12 +179,24 @@ const translations: Translation[] = [
   { locale: "de", key: "ui.web_publishing.tab.analytics", value: "Analytics" },
   { locale: "de", key: "ui.web_publishing.tab.coming_soon", value: "Demnächst" },
 
+  // Sub-tabs (Draft/Published)
+  { locale: "de", key: "ui.web_publishing.subtabs.drafts", value: "Entwürfe" },
+  { locale: "de", key: "ui.web_publishing.subtabs.published", value: "Veröffentlicht" },
+
+  // Empty states
+  { locale: "de", key: "ui.web_publishing.empty_drafts_title", value: "Noch keine Entwürfe" },
+  { locale: "de", key: "ui.web_publishing.empty_drafts_description", value: "Erstellen Sie Ihre erste Seite im Tab \"Seite erstellen\"." },
+  { locale: "de", key: "ui.web_publishing.empty_published_title", value: "Noch keine veröffentlichten Seiten" },
+  { locale: "de", key: "ui.web_publishing.empty_published_description", value: "Veröffentlichen Sie Ihre Entwürfe, um sie öffentlich sichtbar zu machen." },
+
   // Published Pages Tab
   { locale: "de", key: "ui.web_publishing.pages.auth_required", value: "Authentifizierung erforderlich" },
   { locale: "de", key: "ui.web_publishing.pages.auth_required_desc", value: "Bitte melden Sie sich an, um veröffentlichte Seiten anzuzeigen." },
   { locale: "de", key: "ui.web_publishing.pages.no_pages_title", value: "Noch keine veröffentlichten Seiten" },
   { locale: "de", key: "ui.web_publishing.pages.no_pages_desc", value: "Erstellen Sie Ihre erste veröffentlichte Seite im Tab \"Seite erstellen\"." },
   { locale: "de", key: "ui.web_publishing.pages.your_pages", value: "Ihre veröffentlichten Seiten" },
+  { locale: "de", key: "ui.web_publishing.pages.your_drafts", value: "Ihre Entwürfe" },
+  { locale: "de", key: "ui.web_publishing.pages.your_published", value: "Ihre veröffentlichten Seiten" },
   { locale: "de", key: "ui.web_publishing.pages.count", value: "{count} Seite" },
   { locale: "de", key: "ui.web_publishing.pages.count_plural", value: "{count} Seiten" },
   { locale: "de", key: "ui.web_publishing.pages.total", value: "gesamt" },

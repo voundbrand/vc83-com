@@ -308,6 +308,63 @@ export const seed = mutation({
           ja: "フォーム",
         }
       },
+      {
+        key: "ui.forms.type_label",
+        values: {
+          en: "Type:",
+          de: "Typ:",
+          pl: "Typ:",
+          es: "Tipo:",
+          fr: "Type:",
+          ja: "タイプ:",
+        }
+      },
+
+      // List View Headers
+      {
+        key: "ui.forms.your_forms",
+        values: {
+          en: "Your Forms",
+          de: "Ihre Formulare",
+          pl: "Twoje formularze",
+          es: "Sus formularios",
+          fr: "Vos formulaires",
+          ja: "あなたのフォーム",
+        }
+      },
+      {
+        key: "ui.forms.count",
+        values: {
+          en: "form",
+          de: "Formular",
+          pl: "formularz",
+          es: "formulario",
+          fr: "formulaire",
+          ja: "フォーム",
+        }
+      },
+      {
+        key: "ui.forms.count_plural",
+        values: {
+          en: "forms",
+          de: "Formulare",
+          pl: "formularze",
+          es: "formularios",
+          fr: "formulaires",
+          ja: "フォーム",
+        }
+      },
+      {
+        key: "ui.forms.total",
+        values: {
+          en: "total",
+          de: "gesamt",
+          pl: "łącznie",
+          es: "total",
+          fr: "total",
+          ja: "合計",
+        }
+      },
 
       // Status Badges
       {

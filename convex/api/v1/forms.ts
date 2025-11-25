@@ -4,15 +4,19 @@
  * External API for getting form schemas.
  * Used by external websites to display registration forms.
  *
- * Endpoint: GET /api/v1/forms/{formId}
+ * Endpoints:
+ * - GET /api/v1/forms/{formId} - Authenticated access (requires API key)
+ * - GET /api/v1/forms/public/{formId} - Public access (for published forms only)
  *
- * Security: API key required in Authorization header
- * Scope: Returns only forms for the authenticated organization
+ * Security:
+ * - Authenticated endpoint: API key required in Authorization header
+ * - Public endpoint: No authentication, only returns published forms
  */
 
 import { httpAction } from "../../_generated/server";
-import { internal } from "../../_generated/api";
+import { internal, api } from "../../_generated/api";
 import { Id } from "../../_generated/dataModel";
+import { getCorsHeaders, handleOptionsRequest } from "./corsHeaders";
 
 /**
  * GET FORM
@@ -109,6 +113,88 @@ export const getForm = httpAction(async (ctx, request) => {
     return new Response(
       JSON.stringify({ error: "Internal server error" }),
       { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
+});
+
+/**
+ * GET PUBLIC FORM
+ * Returns form schema for published forms (no authentication required)
+ *
+ * Path: /api/v1/forms/public/{formId}
+ *
+ * Security: None - public endpoint
+ * Scope: Only returns forms with status="published"
+ *
+ * Response: Same as getForm above
+ */
+export const getPublicForm = httpAction(async (ctx, request) => {
+  try {
+    const origin = request.headers.get("origin");
+    const corsHeaders = getCorsHeaders(origin);
+
+    // 1. Extract form ID from URL
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split("/");
+    const formId = pathParts[pathParts.length - 1] as Id<"objects">;
+
+    if (!formId) {
+      return new Response(
+        JSON.stringify({ error: "Form ID required" }),
+        {
+          status: 400,
+          headers: {
+            "Content-Type": "application/json",
+            ...corsHeaders,
+          }
+        }
+      );
+    }
+
+    console.log(`🔓 [GET /api/v1/forms/public] Fetching public form: ${formId}`);
+
+    // 2. Get form using public query (no auth required)
+    const form = await ctx.runQuery(api.formsOntology.getPublicForm, {
+      formId,
+    });
+
+    if (!form) {
+      console.log(`❌ [GET /api/v1/forms/public] Form not found or not published: ${formId}`);
+      return new Response(
+        JSON.stringify({ error: "Form not found or not published" }),
+        {
+          status: 404,
+          headers: {
+            "Content-Type": "application/json",
+            ...corsHeaders,
+          }
+        }
+      );
+    }
+
+    console.log(`✅ [GET /api/v1/forms/public] Form found: ${form.name}`);
+
+    // 3. Return response
+    return new Response(JSON.stringify(form), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        ...corsHeaders,
+      },
+    });
+  } catch (error) {
+    console.error("API /forms/public error:", error);
+    const origin = request.headers.get("origin");
+    const corsHeaders = getCorsHeaders(origin);
+    return new Response(
+      JSON.stringify({ error: "Internal server error" }),
+      {
+        status: 500,
+        headers: {
+          "Content-Type": "application/json",
+          ...corsHeaders,
+        }
+      }
     );
   }
 });
