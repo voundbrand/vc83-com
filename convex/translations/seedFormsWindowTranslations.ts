@@ -182,7 +182,53 @@ export const seed = mutation({
         }
       },
 
-      // Forms List - Empty State
+      // Forms List - Empty State (General)
+      {
+        key: "ui.forms.empty_drafts_title",
+        values: {
+          en: "No Draft Forms",
+          de: "Keine Entwürfe",
+          pl: "Brak szkiców",
+          es: "No hay borradores",
+          fr: "Aucun brouillon",
+          ja: "下書きなし",
+        }
+      },
+      {
+        key: "ui.forms.empty_drafts_description",
+        values: {
+          en: "Draft forms you're working on will appear here. Create a new form to get started.",
+          de: "Formularentwürfe, an denen Sie arbeiten, werden hier angezeigt. Erstellen Sie ein neues Formular, um zu beginnen.",
+          pl: "Szkice formularzy, nad którymi pracujesz, pojawią się tutaj. Utwórz nowy formularz, aby rozpocząć.",
+          es: "Los borradores de formularios en los que estás trabajando aparecerán aquí. Crea un nuevo formulario para comenzar.",
+          fr: "Les brouillons de formulaires sur lesquels vous travaillez apparaîtront ici. Créez un nouveau formulaire pour commencer.",
+          ja: "作業中のフォームの下書きがここに表示されます。新しいフォームを作成して開始してください。",
+        }
+      },
+      {
+        key: "ui.forms.empty_published_title",
+        values: {
+          en: "No Published Forms",
+          de: "Keine veröffentlichten Formulare",
+          pl: "Brak opublikowanych formularzy",
+          es: "No hay formularios publicados",
+          fr: "Aucun formulaire publié",
+          ja: "公開済みフォームなし",
+        }
+      },
+      {
+        key: "ui.forms.empty_published_description",
+        values: {
+          en: "Forms that are live and accepting responses will appear here. Publish a draft form to see it here.",
+          de: "Live-Formulare, die Antworten akzeptieren, werden hier angezeigt. Veröffentlichen Sie einen Entwurf, um ihn hier zu sehen.",
+          pl: "Formularze aktywne i przyjmujące odpowiedzi pojawią się tutaj. Opublikuj szkic formularza, aby go tu zobaczyć.",
+          es: "Los formularios activos que aceptan respuestas aparecerán aquí. Publica un borrador para verlo aquí.",
+          fr: "Les formulaires actifs acceptant des réponses apparaîtront ici. Publiez un brouillon pour le voir ici.",
+          ja: "公開中で回答を受け付けているフォームがここに表示されます。下書きを公開してここに表示させてください。",
+        }
+      },
+
+      // Forms List - Empty State (Legacy)
       {
         key: "ui.forms.empty_title",
         values: {
