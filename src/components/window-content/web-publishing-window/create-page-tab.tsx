@@ -777,7 +777,13 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
               required={isExternalPage}
             />
             <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-              Full URL: {externalDomain || "https://yourwebsite.com"}{slug || "/page-slug"}
+              Full URL: {
+                (() => {
+                  const domain = (externalDomain || "https://yourwebsite.com").replace(/\/+$/, "");
+                  const slugPart = (slug || "/page-slug") === "/" ? "" : (slug || "/page-slug").startsWith("/") ? (slug || "/page-slug") : `/${slug || "/page-slug"}`;
+                  return `${domain}${slugPart}`;
+                })()
+              }
             </p>
           </div>
         )}

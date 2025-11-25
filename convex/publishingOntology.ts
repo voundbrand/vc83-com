@@ -131,8 +131,11 @@ export const createPublishedPage = mutation({
     let publicUrl: string;
     if (isExternal && externalDomain) {
       // For external pages, use the user's domain
-      const slugPart = args.slug === "/" ? "" : args.slug;
-      publicUrl = `${externalDomain}${slugPart}`;
+      // Remove trailing slash from externalDomain to prevent double slashes
+      const normalizedDomain = externalDomain.replace(/\/+$/, "");
+      // Ensure slug starts with / (or is empty for root)
+      const slugPart = args.slug === "/" ? "" : args.slug.startsWith("/") ? args.slug : `/${args.slug}`;
+      publicUrl = `${normalizedDomain}${slugPart}`;
     } else {
       // For internal pages, use app domain
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.l4yercak3.com";
@@ -506,15 +509,19 @@ export const updatePublishedPage = mutation({
 
         // Use updated slug or existing slug
         const currentSlug = args.slug !== undefined ? args.slug : (page.customProperties?.slug as string || "/");
-        // Handle root slug (/) specially to avoid double slashes
-        const slugPart = currentSlug === "/" ? "" : currentSlug;
 
         if (isExternal && externalDomain) {
           // For external pages, use the user's domain
-          updates.publicUrl = `${externalDomain}${slugPart}`;
+          // Remove trailing slash from externalDomain to prevent double slashes
+          const normalizedDomain = externalDomain.replace(/\/+$/, "");
+          // Ensure slug starts with / (or is empty for root)
+          const slugPart = currentSlug === "/" ? "" : currentSlug.startsWith("/") ? currentSlug : `/${currentSlug}`;
+          updates.publicUrl = `${normalizedDomain}${slugPart}`;
         } else {
           // For internal pages, use app domain
           const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.l4yercak3.com";
+          // Handle root slug (/) specially to avoid double slashes
+          const slugPart = currentSlug === "/" ? "" : currentSlug;
           updates.publicUrl = `${baseUrl}/p/${org.slug}${slugPart}`;
         }
       }
