@@ -7,11 +7,12 @@ import type { Id } from "../../../../convex/_generated/dataModel";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
-import { Loader2, Plus, FileText, ClipboardList, Palette } from "lucide-react";
+import { Loader2, Plus, FileText, ClipboardList, Palette, Code } from "lucide-react";
 import { FormBuilder } from "./form-builder";
 import { AllFormsTab } from "./all-forms-tab";
 import { TemplatesTab } from "./templates-tab";
 import { ResponsesTab } from "./responses-tab";
+import { SchemaEditorTab } from "./schema-editor-tab";
 
 /**
  * Forms Window
@@ -29,7 +30,7 @@ import { ResponsesTab } from "./responses-tab";
  * - Templates: Browse and use form templates
  */
 
-type TabType = "create" | "forms" | "responses" | "templates";
+type TabType = "create" | "forms" | "responses" | "templates" | "schema";
 
 export function FormsWindow() {
   const { sessionId } = useAuth();
@@ -84,6 +85,11 @@ export function FormsWindow() {
   const handleEditForm = (formId: string) => {
     setSelectedFormId(formId);
     setActiveTab("create");
+  };
+
+  const handleEditSchema = (formId: string) => {
+    setSelectedFormId(formId);
+    setActiveTab("schema");
   };
 
   const handleUseTemplate = (templateCode: string) => {
@@ -150,7 +156,7 @@ export function FormsWindow() {
           {t("ui.forms.tabs.responses")}
         </button>
         <button
-          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2"
+          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
           style={{
             borderColor: 'var(--win95-border)',
             background: activeTab === "templates" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
@@ -160,6 +166,20 @@ export function FormsWindow() {
         >
           <Palette size={14} />
           {t("ui.forms.tabs.templates")}
+        </button>
+        <button
+          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2"
+          style={{
+            borderColor: 'var(--win95-border)',
+            background: activeTab === "schema" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+            color: activeTab === "schema" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+          }}
+          onClick={() => selectedFormId ? setActiveTab("schema") : alert("Please select a form first")}
+          disabled={!selectedFormId}
+          title={selectedFormId ? "Edit form schema (JSON)" : "Select a form to edit schema"}
+        >
+          <Code size={14} />
+          Schema
         </button>
       </div>
 
@@ -178,6 +198,7 @@ export function FormsWindow() {
             forms={forms}
             onCreateForm={handleCreateForm}
             onEditForm={handleEditForm}
+            onEditSchema={handleEditSchema}
           />
         )}
 
@@ -187,6 +208,10 @@ export function FormsWindow() {
 
         {activeTab === "templates" && (
           <TemplatesTab onUseTemplate={handleUseTemplate} />
+        )}
+
+        {activeTab === "schema" && selectedFormId && (
+          <SchemaEditorTab formId={selectedFormId as Id<"objects">} />
         )}
       </div>
 

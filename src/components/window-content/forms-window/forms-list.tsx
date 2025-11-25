@@ -5,7 +5,7 @@ import { useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
-import { FileText, Plus, Edit, Trash2, Eye, Send, FileX, Loader2, ExternalLink } from "lucide-react";
+import { FileText, Plus, Edit, Trash2, Eye, Send, FileX, Loader2, ExternalLink, Code } from "lucide-react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { ConfirmationModal } from "@/components/confirmation-modal";
 
@@ -31,9 +31,10 @@ interface FormsListProps {
   forms: Form[];
   onCreateForm: () => void;
   onEditForm: (formId: string) => void;
+  onEditSchema?: (formId: string) => void;
 }
 
-export function FormsList({ forms, onCreateForm, onEditForm }: FormsListProps) {
+export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: FormsListProps) {
   const { sessionId } = useAuth();
   const { t } = useNamespaceTranslations("ui.forms");
   const [deletingFormId, setDeletingFormId] = useState<string | null>(null);
@@ -277,6 +278,30 @@ export function FormsList({ forms, onCreateForm, onEditForm }: FormsListProps) {
                     >
                       <Edit size={12} />
                     </button>
+
+                    {/* Edit Schema button */}
+                    {onEditSchema && (
+                      <button
+                        className="px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors"
+                        style={{
+                          borderColor: "var(--win95-border)",
+                          background: "var(--win95-bg-light)",
+                          color: "#8b5cf6", // Purple color for schema
+                        }}
+                        title="Edit form schema (JSON)"
+                        disabled={isDeleting || isPublishing}
+                        onClick={() => onEditSchema(form._id)}
+                        onMouseEnter={(e) => {
+                          if (!isDeleting && !isPublishing)
+                            e.currentTarget.style.background = "var(--win95-hover-light)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = "var(--win95-bg-light)";
+                        }}
+                      >
+                        <Code size={12} />
+                      </button>
+                    )}
 
                     {/* Publish/Unpublish button */}
                     <button

@@ -23,7 +23,9 @@ export type FieldType =
   | "multi_select"
   | "file"
   | "rating"
-  | "section_header";
+  | "section_header"
+  | "text_block"     // Static text/description block (supports HTML/Markdown)
+  | "description";   // Alias for text_block
 
 /**
  * Conditional Logic Operator
@@ -73,6 +75,13 @@ export interface FormField {
     rules: ConditionalRule[];
   };
   metadata?: Record<string, unknown>;
+  // For text_block/description fields
+  content?: string;  // HTML or Markdown content to display
+  formatting?: {
+    style?: "default" | "info" | "warning" | "success" | "error"; // Visual style
+    alignment?: "left" | "center" | "right";  // Text alignment
+    padding?: "none" | "small" | "medium" | "large";  // Padding around text
+  };
 }
 
 /**
@@ -166,6 +175,7 @@ export interface FormTemplateProps {
   onCancel?: () => void;
   initialData?: Partial<FormSubmissionData>;
   mode?: "standalone" | "checkout" | "embedded";
+  customSchema?: FormSchema; // Custom schema from database (overrides template default)
 }
 
 /**

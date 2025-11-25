@@ -220,6 +220,12 @@ import type * as translations_seedEvents_03_FormAgenda from "../translations/see
 import type * as translations_seedEvents_04_FormSponsors from "../translations/seedEvents_04_FormSponsors.js";
 import type * as translations_seedEvents_05_FormDescription from "../translations/seedEvents_05_FormDescription.js";
 import type * as translations_seedEvents_06_DetailModal from "../translations/seedEvents_06_DetailModal.js";
+import type * as translations_seedFormsResponses_DE from "../translations/seedFormsResponses_DE.js";
+import type * as translations_seedFormsResponses_EN from "../translations/seedFormsResponses_EN.js";
+import type * as translations_seedFormsResponses_ES from "../translations/seedFormsResponses_ES.js";
+import type * as translations_seedFormsResponses_FR from "../translations/seedFormsResponses_FR.js";
+import type * as translations_seedFormsResponses_JA from "../translations/seedFormsResponses_JA.js";
+import type * as translations_seedFormsResponses_PL from "../translations/seedFormsResponses_PL.js";
 import type * as translations_seedFormsWindowTranslations from "../translations/seedFormsWindowTranslations.js";
 import type * as translations_seedInvoicingTranslations from "../translations/seedInvoicingTranslations.js";
 import type * as translations_seedInvoicingWindow_Templates from "../translations/seedInvoicingWindow_Templates.js";
@@ -496,6 +502,12 @@ declare const fullApi: ApiFromModules<{
   "translations/seedEvents_04_FormSponsors": typeof translations_seedEvents_04_FormSponsors;
   "translations/seedEvents_05_FormDescription": typeof translations_seedEvents_05_FormDescription;
   "translations/seedEvents_06_DetailModal": typeof translations_seedEvents_06_DetailModal;
+  "translations/seedFormsResponses_DE": typeof translations_seedFormsResponses_DE;
+  "translations/seedFormsResponses_EN": typeof translations_seedFormsResponses_EN;
+  "translations/seedFormsResponses_ES": typeof translations_seedFormsResponses_ES;
+  "translations/seedFormsResponses_FR": typeof translations_seedFormsResponses_FR;
+  "translations/seedFormsResponses_JA": typeof translations_seedFormsResponses_JA;
+  "translations/seedFormsResponses_PL": typeof translations_seedFormsResponses_PL;
   "translations/seedFormsWindowTranslations": typeof translations_seedFormsWindowTranslations;
   "translations/seedInvoicingTranslations": typeof translations_seedInvoicingTranslations;
   "translations/seedInvoicingWindow_Templates": typeof translations_seedInvoicingWindow_Templates;

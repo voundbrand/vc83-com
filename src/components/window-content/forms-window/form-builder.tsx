@@ -1127,15 +1127,19 @@ export function FormBuilder({ formId, templateCode, onBack }: FormBuilderProps) 
                       );
                     }
 
-                    // 🚨 CRITICAL: Load schema from TypeScript template, NOT database!
-                    // The FormComponent.schema contains the actual sections (which contain fields)
-                    const templateSchema = FormComponent.schema;
+                    // 🎯 FIXED: Load custom schema from database when editing, fallback to template schema
+                    // When editing: use customProperties.formSchema (with user modifications like text_blocks)
+                    // When creating: use FormComponent.schema (template default)
+                    const customSchema = existingForm?.customProperties?.formSchema as typeof FormComponent.schema | undefined;
+                    const templateSchema = customSchema || FormComponent.schema;
 
                     console.log("🎨 [FormBuilder] Live preview loading schema:", {
                       templateCode,
                       themeCode,
                       hasSchema: !!templateSchema,
                       sectionsCount: templateSchema?.sections?.length || 0,
+                      isCustomSchema: !!customSchema,
+                      isEditing: !!existingForm,
                     });
 
                     return (
@@ -1150,6 +1154,7 @@ export function FormBuilder({ formId, templateCode, onBack }: FormBuilderProps) 
                           formId={"preview" as Id<"objects">}
                           organizationId={currentOrg.id as Id<"organizations">}
                           theme={theme}
+                          customSchema={templateSchema}
                           onSubmit={async (data) => {
                             console.log("Preview submission:", data);
                             alert("This is a preview - form not actually submitted");

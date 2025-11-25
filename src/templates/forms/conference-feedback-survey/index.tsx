@@ -8,15 +8,20 @@
 import React from "react";
 import type { FormTemplateComponent } from "../types";
 import { conferenceFeedbackSurveySchema } from "./schema";
+import { TextBlockField } from "@/components/forms/field-renderers";
 
 export const ConferenceFeedbackSurveyForm: FormTemplateComponent = ({
   theme,
   onSubmit,
   initialData = {},
+  customSchema, // Accept custom schema from database
 }) => {
   const [formData, setFormData] = React.useState<Record<string, unknown>>(
     initialData
   );
+
+  // Use custom schema if provided, otherwise use template default
+  const schema = customSchema || conferenceFeedbackSurveySchema;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,7 +62,7 @@ export const ConferenceFeedbackSurveyForm: FormTemplateComponent = ({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {conferenceFeedbackSurveySchema.sections.map((section) => (
+          {schema.sections.map((section) => (
             <div
               key={section.id}
               className="bg-white rounded-lg shadow-md p-6"
@@ -83,6 +88,13 @@ export const ConferenceFeedbackSurveyForm: FormTemplateComponent = ({
               <div className="space-y-4">
                 {section.fields.map((field) => {
                   const value = formData[field.id];
+
+                  // Handle text_block and description fields (no input, just display)
+                  if (field.type === "text_block" || field.type === "description") {
+                    return (
+                      <TextBlockField key={field.id} field={field} theme={theme} />
+                    );
+                  }
 
                   return (
                     <div key={field.id}>

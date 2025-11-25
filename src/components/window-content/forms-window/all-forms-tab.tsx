@@ -27,11 +27,12 @@ interface AllFormsTabProps {
   forms: Form[];
   onCreateForm: () => void;
   onEditForm: (formId: string) => void;
+  onEditSchema?: (formId: string) => void;
 }
 
 type FormSubTab = "draft" | "published";
 
-export function AllFormsTab({ forms, onCreateForm, onEditForm }: AllFormsTabProps) {
+export function AllFormsTab({ forms, onCreateForm, onEditForm, onEditSchema }: AllFormsTabProps) {
   const { t } = useNamespaceTranslations("ui.forms");
   const [subTab, setSubTab] = useState<FormSubTab>("draft");
 
@@ -101,6 +102,7 @@ export function AllFormsTab({ forms, onCreateForm, onEditForm }: AllFormsTabProp
                 forms={draftForms}
                 onCreateForm={onCreateForm}
                 onEditForm={onEditForm}
+                onEditSchema={onEditSchema}
               />
             )}
           </div>
@@ -121,6 +123,7 @@ export function AllFormsTab({ forms, onCreateForm, onEditForm }: AllFormsTabProp
                 forms={publishedForms}
                 onCreateForm={onCreateForm}
                 onEditForm={onEditForm}
+                onEditSchema={onEditSchema}
               />
             )}
           </div>
