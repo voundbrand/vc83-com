@@ -598,6 +598,41 @@ export const seed = mutation({
         }
       },
 
+      // Hosting Mode
+      {
+        key: "ui.forms.hosting_mode_title",
+        values: {
+          en: "Hosting Mode",
+          de: "Hosting-Modus",
+          pl: "Tryb hostingu",
+          es: "Modo de alojamiento",
+          fr: "Mode d'hébergement",
+          ja: "ホスティングモード",
+        }
+      },
+      {
+        key: "ui.forms.internal_hosting_label",
+        values: {
+          en: "Internal Hosting (hosted on this platform)",
+          de: "Internes Hosting (gehostet auf dieser Plattform)",
+          pl: "Hosting wewnętrzny (hostowany na tej platformie)",
+          es: "Alojamiento interno (alojado en esta plataforma)",
+          fr: "Hébergement interne (hébergé sur cette plateforme)",
+          ja: "内部ホスティング（このプラットフォームでホスト）",
+        }
+      },
+      {
+        key: "ui.forms.internal_hosting_description",
+        values: {
+          en: "Check this if the form will be hosted on your main application. You'll need to select both a template and a theme.",
+          de: "Aktivieren Sie dies, wenn das Formular auf Ihrer Hauptanwendung gehostet wird. Sie müssen sowohl eine Vorlage als auch ein Thema auswählen.",
+          pl: "Zaznacz to, jeśli formularz będzie hostowany w Twojej głównej aplikacji. Musisz wybrać zarówno szablon, jak i motyw.",
+          es: "Marca esto si el formulario estará alojado en tu aplicación principal. Necesitarás seleccionar tanto una plantilla como un tema.",
+          fr: "Cochez ceci si le formulaire sera hébergé sur votre application principale. Vous devrez sélectionner à la fois un modèle et un thème.",
+          ja: "フォームがメインアプリケーションでホストされる場合、これをチェックしてください。テンプレートとテーマの両方を選択する必要があります。",
+        }
+      },
+
       // Live Preview
       {
         key: "ui.forms.live_preview",
