@@ -306,6 +306,25 @@ export function FormBuilder({ formId, templateCode, onBack }: FormBuilderProps) 
           formSchema.publishedPageId = selectedPublishedPageId;
         }
 
+        // Calculate publicUrl if external hosting is enabled
+        // If external hosting is disabled or no page selected, clear the publicUrl
+        let publicUrl: string | null = null;
+        if (enableExternalHosting && selectedPublishedPageId && formId) {
+          const selectedPage = externalPublishedPages.find(p => p._id === selectedPublishedPageId);
+          if (selectedPage) {
+            const templateContent = selectedPage.customProperties?.templateContent as { externalDomain?: string } | undefined;
+            const externalDomain = templateContent?.externalDomain || "";
+            const slug = selectedPage.customProperties?.slug || "";
+
+            // Construct the URL
+            const cleanDomain = externalDomain.replace(/\/$/, '');
+            const cleanSlug = slug.startsWith('/') ? slug : `/${slug}`;
+            publicUrl = `${cleanDomain}${cleanSlug}/${formId}`;
+          }
+        }
+        // Note: publicUrl will be null if external hosting is disabled or no page is selected
+        // This ensures the URL is cleared from the database in those cases
+
         await updateForm({
           sessionId,
           formId: formId as Id<"objects">,
@@ -313,6 +332,7 @@ export function FormBuilder({ formId, templateCode, onBack }: FormBuilderProps) 
           description: formDescription,
           formSchema,
           eventId: selectedEventId ? (selectedEventId as Id<"objects">) : null,
+          publicUrl,
         });
 
         setSuccessMessage(t("ui.forms.form_updated"));

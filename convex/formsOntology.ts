@@ -252,6 +252,7 @@ export const updateForm = mutation({
     formSchema: v.optional(v.any()),
     status: v.optional(v.string()),
     eventId: v.optional(v.union(v.id("objects"), v.null())), // Allow updating event link
+    publicUrl: v.optional(v.union(v.string(), v.null())), // Allow updating public URL
   },
   handler: async (ctx, args) => {
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
@@ -302,6 +303,15 @@ export const updateForm = mutation({
         eventId: args.eventId,
       };
       changes.eventId = { from: form.customProperties?.eventId, to: args.eventId };
+    }
+
+    // Update publicUrl in customProperties
+    if (args.publicUrl !== undefined) {
+      updates.customProperties = {
+        ...(updates.customProperties || form.customProperties),
+        publicUrl: args.publicUrl,
+      };
+      changes.publicUrl = { from: form.customProperties?.publicUrl, to: args.publicUrl };
     }
 
     if (Object.keys(updates).length > 0) {
