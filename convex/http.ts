@@ -493,16 +493,6 @@ http.route({
   handler: getPublicForm,
 });
 
-// OPTIONS /api/v1/forms/public/:formId/submit (CORS preflight for submission)
-http.route({
-  pathPrefix: "/api/v1/forms/public/",
-  method: "OPTIONS",
-  handler: httpAction(async (ctx, request) => {
-    const origin = request.headers.get("origin");
-    return handleOptionsRequest(origin);
-  }),
-});
-
 // POST /api/v1/forms/public/:formId/submit (public submission - no auth)
 http.route({
   pathPrefix: "/api/v1/forms/public/",
