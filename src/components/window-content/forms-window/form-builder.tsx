@@ -367,6 +367,7 @@ export function FormBuilder({ formId, templateCode, onBack }: FormBuilderProps) 
           formId: formId as Id<"objects">,
           name: formName,
           description: formDescription,
+          subtype: formSubtype,
           formSchema,
           eventId: selectedEventId ? (selectedEventId as Id<"objects">) : null,
           publicUrl,

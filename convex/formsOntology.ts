@@ -250,6 +250,7 @@ export const updateForm = mutation({
     formId: v.id("objects"),
     name: v.optional(v.string()),
     description: v.optional(v.string()),
+    subtype: v.optional(v.string()), // Allow updating form type
     formSchema: v.optional(v.any()),
     status: v.optional(v.string()),
     eventId: v.optional(v.union(v.id("objects"), v.null())), // Allow updating event link
@@ -282,6 +283,11 @@ export const updateForm = mutation({
     if (args.description !== undefined) {
       updates.description = args.description;
       changes.description = { from: form.description, to: args.description };
+    }
+
+    if (args.subtype !== undefined) {
+      updates.subtype = args.subtype;
+      changes.subtype = { from: form.subtype, to: args.subtype };
     }
 
     if (args.status !== undefined) {
