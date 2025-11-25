@@ -68,6 +68,14 @@ export function FormBuilder({ formId, templateCode, onBack }: FormBuilderProps) 
   const [newTemplateCode, setNewTemplateCode] = useState("");
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
 
+  // Form Settings State
+  const [displayMode, setDisplayMode] = useState<"all" | "single-question" | "section-by-section" | "paginated">("all");
+  const [showProgressBar, setShowProgressBar] = useState(true);
+  const [submitButtonText, setSubmitButtonText] = useState("Submit");
+  const [formSuccessMessage, setFormSuccessMessage] = useState("Thank you for your submission!");
+  const [allowMultipleSubmissions, setAllowMultipleSubmissions] = useState(false);
+  const [redirectUrl, setRedirectUrl] = useState("");
+
   // Fetch available form templates for this org
   const availableTemplates = useQuery(
     api.formTemplateAvailability.getAvailableFormTemplates,
@@ -160,6 +168,33 @@ export function FormBuilder({ formId, templateCode, onBack }: FormBuilderProps) 
       if (themeCode && availableThemes) {
         const theme = availableThemes.find((t) => t.customProperties?.code === themeCode);
         if (theme) setSelectedThemeId(theme._id);
+      }
+
+      // Load form settings if they exist
+      const formSchemaWithSettings = formSchema as {
+        templateCode?: string;
+        themeCode?: string;
+        enableInternalHosting?: boolean;
+        enableExternalHosting?: boolean;
+        publishedPageId?: string;
+        settings?: {
+          displayMode?: "all" | "single-question" | "section-by-section" | "paginated";
+          showProgressBar?: boolean;
+          submitButtonText?: string;
+          successMessage?: string;
+          allowMultipleSubmissions?: boolean;
+          redirectUrl?: string | null;
+        };
+      } | undefined;
+
+      if (formSchemaWithSettings?.settings) {
+        const settings = formSchemaWithSettings.settings;
+        setDisplayMode(settings.displayMode || "all");
+        setShowProgressBar(settings.showProgressBar !== false);
+        setSubmitButtonText(settings.submitButtonText || "Submit");
+        setFormSuccessMessage(settings.successMessage || "Thank you for your submission!");
+        setAllowMultipleSubmissions(settings.allowMultipleSubmissions || false);
+        setRedirectUrl(settings.redirectUrl || "");
       }
     }
   }, [existingForm, availableTemplates, availableThemes]);
@@ -288,12 +323,13 @@ export function FormBuilder({ formId, templateCode, onBack }: FormBuilderProps) 
           ...existingSchema,
           version: "1.0",
           fields: existingSchema.fields || [],
-          settings: existingSchema.settings || {
-            allowMultipleSubmissions: false,
-            showProgressBar: true,
-            submitButtonText: "Submit",
-            successMessage: "Thank you for your submission!",
-            redirectUrl: null,
+          settings: {
+            displayMode,
+            allowMultipleSubmissions,
+            showProgressBar,
+            submitButtonText,
+            successMessage: formSuccessMessage,
+            redirectUrl: redirectUrl || null,
           },
           enableInternalHosting,
           enableExternalHosting,
@@ -375,11 +411,12 @@ export function FormBuilder({ formId, templateCode, onBack }: FormBuilderProps) 
           version: "1.0",
           sections,
           settings: {
-            allowMultipleSubmissions: false,
-            showProgressBar: true,
-            submitButtonText: "Submit",
-            successMessage: "Thank you for your submission!",
-            redirectUrl: null,
+            displayMode,
+            allowMultipleSubmissions,
+            showProgressBar,
+            submitButtonText,
+            successMessage: formSuccessMessage,
+            redirectUrl: redirectUrl || null,
           },
           enableInternalHosting,
           enableExternalHosting,
@@ -952,6 +989,139 @@ export function FormBuilder({ formId, templateCode, onBack }: FormBuilderProps) 
             <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
               {formDescription.length}/500 {t("ui.forms.characters")}
             </p>
+          </div>
+
+          {/* Form Settings Section */}
+          <div className="border-2 p-4 space-y-4" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}>
+            <h4 className="text-xs font-bold mb-3 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+              <Database size={16} />
+              Form Settings
+            </h4>
+
+            {/* Display Mode */}
+            <div>
+              <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                Display Mode
+              </label>
+              <select
+                value={displayMode}
+                onChange={(e) => setDisplayMode(e.target.value as typeof displayMode)}
+                className="w-full border-2 px-2 py-1 text-sm"
+                style={{
+                  borderColor: "var(--win95-border)",
+                  background: "var(--win95-input-bg)",
+                  color: "var(--win95-text)"
+                }}
+              >
+                <option value="all">All Questions (Traditional)</option>
+                <option value="single-question">One Question at a Time (Wizard)</option>
+                <option value="section-by-section">Section by Section</option>
+                <option value="paginated">Paginated (Custom)</option>
+              </select>
+              <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+                How the form is displayed to users
+              </p>
+            </div>
+
+            {/* Show Progress Bar */}
+            <div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showProgressBar}
+                  onChange={(e) => setShowProgressBar(e.target.checked)}
+                  className="w-4 h-4"
+                />
+                <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                  Show Progress Bar
+                </span>
+              </label>
+              <p className="text-xs mt-1 ml-6" style={{ color: "var(--neutral-gray)" }}>
+                Display progress indicator during form completion
+              </p>
+            </div>
+
+            {/* Allow Multiple Submissions */}
+            <div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={allowMultipleSubmissions}
+                  onChange={(e) => setAllowMultipleSubmissions(e.target.checked)}
+                  className="w-4 h-4"
+                />
+                <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                  Allow Multiple Submissions
+                </span>
+              </label>
+              <p className="text-xs mt-1 ml-6" style={{ color: "var(--neutral-gray)" }}>
+                Users can submit the form multiple times
+              </p>
+            </div>
+
+            {/* Submit Button Text */}
+            <div>
+              <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                Submit Button Text
+              </label>
+              <input
+                type="text"
+                value={submitButtonText}
+                onChange={(e) => setSubmitButtonText(e.target.value)}
+                className="w-full border-2 px-2 py-1 text-sm"
+                style={{
+                  borderColor: "var(--win95-border)",
+                  background: "var(--win95-input-bg)",
+                  color: "var(--win95-text)"
+                }}
+                placeholder="Submit"
+              />
+            </div>
+
+            {/* Success Message */}
+            <div>
+              <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                Success Message
+              </label>
+              <textarea
+                value={formSuccessMessage}
+                onChange={(e) => setFormSuccessMessage(e.target.value)}
+                className="w-full border-2 px-2 py-1 text-sm"
+                style={{
+                  borderColor: "var(--win95-border)",
+                  background: "var(--win95-input-bg)",
+                  color: "var(--win95-text)"
+                }}
+                placeholder="Thank you for your submission!"
+                rows={2}
+                maxLength={200}
+              />
+              <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+                {formSuccessMessage.length}/200 characters
+              </p>
+            </div>
+
+            {/* Redirect URL */}
+            <div>
+              <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                Redirect URL (Optional)
+              </label>
+              <input
+                type="url"
+                value={redirectUrl}
+                onChange={(e) => setRedirectUrl(e.target.value)}
+                className="w-full border-2 px-2 py-1 text-sm"
+                style={{
+                  borderColor: "var(--win95-border)",
+                  background: "var(--win95-input-bg)",
+                  color: "var(--win95-text)"
+                }}
+                placeholder="https://example.com/thank-you"
+              />
+              <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+                Redirect users after successful submission
+              </p>
+            </div>
           </div>
 
           {/* Submit */}
