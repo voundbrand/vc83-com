@@ -34,7 +34,7 @@ type FormSubTab = "draft" | "published";
 
 export function AllFormsTab({ forms, onCreateForm, onEditForm, onEditSchema }: AllFormsTabProps) {
   const { t } = useNamespaceTranslations("ui.forms");
-  const [subTab, setSubTab] = useState<FormSubTab>("draft");
+  const [subTab, setSubTab] = useState<FormSubTab>("published"); // Default to Active (published) forms
 
   // Separate forms by status
   const draftForms = forms.filter(f => f.status === "draft");
@@ -42,22 +42,8 @@ export function AllFormsTab({ forms, onCreateForm, onEditForm, onEditSchema }: A
 
   return (
     <div className="flex flex-col h-full">
-      {/* Sub-tabs for Draft/Published */}
+      {/* Sub-tabs for Active/Inactive */}
       <div className="flex border-b-2 px-4 pt-4" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}>
-        <button
-          onClick={() => setSubTab("draft")}
-          className={`px-4 py-2 text-xs font-semibold border-2 border-b-0 transition-colors flex items-center gap-2 ${
-            subTab === "draft" ? "-mb-0.5" : ""
-          }`}
-          style={{
-            backgroundColor: subTab === "draft" ? "var(--win95-bg-light)" : "var(--win95-bg)",
-            color: subTab === "draft" ? "var(--win95-highlight)" : "var(--neutral-gray)",
-            borderColor: subTab === "draft" ? "var(--win95-border)" : "transparent",
-          }}
-        >
-          <Edit size={12} />
-          {t("ui.forms.subtabs.drafts")} ({draftForms.length})
-        </button>
         <button
           onClick={() => setSubTab("published")}
           className={`px-4 py-2 text-xs font-semibold border-2 border-b-0 transition-colors flex items-center gap-2 ${
@@ -70,20 +56,55 @@ export function AllFormsTab({ forms, onCreateForm, onEditForm, onEditSchema }: A
           }}
         >
           <Lock size={12} />
-          {t("ui.forms.subtabs.published")} ({publishedForms.length})
+          {t("ui.forms.subtabs.active")} ({publishedForms.length})
+        </button>
+        <button
+          onClick={() => setSubTab("draft")}
+          className={`px-4 py-2 text-xs font-semibold border-2 border-b-0 transition-colors flex items-center gap-2 ${
+            subTab === "draft" ? "-mb-0.5" : ""
+          }`}
+          style={{
+            backgroundColor: subTab === "draft" ? "var(--win95-bg-light)" : "var(--win95-bg)",
+            color: subTab === "draft" ? "var(--win95-highlight)" : "var(--neutral-gray)",
+            borderColor: subTab === "draft" ? "var(--win95-border)" : "transparent",
+          }}
+        >
+          <Edit size={12} />
+          {t("ui.forms.subtabs.inactive")} ({draftForms.length})
         </button>
       </div>
 
       {/* Form Lists */}
       <div className="flex-1 overflow-y-auto">
+        {subTab === "published" && (
+          <div>
+            {publishedForms.length === 0 ? (
+              <div className="text-center py-12" style={{ color: "var(--neutral-gray)" }}>
+                <div className="text-4xl mb-4">✓</div>
+                <h3 className="text-sm font-semibold mb-2">{t("ui.forms.empty_active_title")}</h3>
+                <p className="text-xs">
+                  {t("ui.forms.empty_active_description")}
+                </p>
+              </div>
+            ) : (
+              <FormsList
+                forms={publishedForms}
+                onCreateForm={onCreateForm}
+                onEditForm={onEditForm}
+                onEditSchema={onEditSchema}
+              />
+            )}
+          </div>
+        )}
+
         {subTab === "draft" && (
           <div>
             {draftForms.length === 0 ? (
               <div className="text-center py-12" style={{ color: "var(--neutral-gray)" }}>
                 <div className="text-4xl mb-4">📝</div>
-                <h3 className="text-sm font-semibold mb-2">{t("ui.forms.empty_drafts_title")}</h3>
+                <h3 className="text-sm font-semibold mb-2">{t("ui.forms.empty_inactive_title")}</h3>
                 <p className="text-xs mb-4">
-                  {t("ui.forms.empty_drafts_description")}
+                  {t("ui.forms.empty_inactive_description")}
                 </p>
                 <button
                   onClick={onCreateForm}
@@ -100,27 +121,6 @@ export function AllFormsTab({ forms, onCreateForm, onEditForm, onEditSchema }: A
             ) : (
               <FormsList
                 forms={draftForms}
-                onCreateForm={onCreateForm}
-                onEditForm={onEditForm}
-                onEditSchema={onEditSchema}
-              />
-            )}
-          </div>
-        )}
-
-        {subTab === "published" && (
-          <div>
-            {publishedForms.length === 0 ? (
-              <div className="text-center py-12" style={{ color: "var(--neutral-gray)" }}>
-                <div className="text-4xl mb-4">🔒</div>
-                <h3 className="text-sm font-semibold mb-2">{t("ui.forms.empty_published_title")}</h3>
-                <p className="text-xs">
-                  {t("ui.forms.empty_published_description")}
-                </p>
-              </div>
-            ) : (
-              <FormsList
-                forms={publishedForms}
                 onCreateForm={onCreateForm}
                 onEditForm={onEditForm}
                 onEditSchema={onEditSchema}

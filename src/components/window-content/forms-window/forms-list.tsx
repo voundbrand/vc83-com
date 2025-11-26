@@ -194,9 +194,9 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
 
   // Status badge colors - matching web publishing style
   const statusColors: Record<string, { bg: string; text: string; label: string }> = {
-    draft: { bg: "var(--neutral-gray)", text: "white", label: t("ui.forms.status_draft") },
-    published: { bg: "var(--success)", text: "white", label: t("ui.forms.status_published") },
-    archived: { bg: "var(--error)", text: "white", label: t("ui.forms.status_archived") },
+    draft: { bg: "var(--neutral-gray)", text: "white", label: t("ui.forms.status.inactive") },
+    published: { bg: "var(--success)", text: "white", label: t("ui.forms.status.active") },
+    archived: { bg: "var(--error)", text: "white", label: t("ui.forms.status.archived") },
   };
 
   return (
@@ -373,7 +373,7 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
                         background: "var(--win95-bg-light)",
                         color: isPublished ? "var(--warning)" : "var(--success)",
                       }}
-                      title={isPublished ? t("ui.forms.tooltip_unpublish") : t("ui.forms.tooltip_publish")}
+                      title={isPublished ? t("ui.forms.action_deactivate_tooltip") : t("ui.forms.action_activate_tooltip")}
                       onMouseEnter={(e) => {
                         if (!isDeleting && !isPublishing && !isDuplicating)
                           e.currentTarget.style.background = "var(--win95-hover-light)";

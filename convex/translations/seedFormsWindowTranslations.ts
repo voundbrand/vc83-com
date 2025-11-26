@@ -160,6 +160,29 @@ export const seed = mutation({
 
       // Sub-tabs
       {
+        key: "ui.forms.subtabs.active",
+        values: {
+          en: "Active",
+          de: "Aktiv",
+          pl: "Aktywne",
+          es: "Activos",
+          fr: "Actifs",
+          ja: "アクティブ",
+        }
+      },
+      {
+        key: "ui.forms.subtabs.inactive",
+        values: {
+          en: "Inactive",
+          de: "Inaktiv",
+          pl: "Nieaktywne",
+          es: "Inactivos",
+          fr: "Inactifs",
+          ja: "非アクティブ",
+        }
+      },
+      // Legacy sub-tab translations (kept for backwards compatibility)
+      {
         key: "ui.forms.subtabs.drafts",
         values: {
           en: "Drafts",
@@ -182,7 +205,52 @@ export const seed = mutation({
         }
       },
 
-      // Forms List - Empty State (General)
+      // Forms List - Empty State (Active/Inactive)
+      {
+        key: "ui.forms.empty_active_title",
+        values: {
+          en: "No Active Forms",
+          de: "Keine aktiven Formulare",
+          pl: "Brak aktywnych formularzy",
+          es: "No hay formularios activos",
+          fr: "Aucun formulaire actif",
+          ja: "アクティブなフォームなし",
+        }
+      },
+      {
+        key: "ui.forms.empty_active_description",
+        values: {
+          en: "Forms that are live and accepting responses will appear here. Activate an inactive form to see it here.",
+          de: "Live-Formulare, die Antworten akzeptieren, werden hier angezeigt. Aktivieren Sie ein inaktives Formular, um es hier zu sehen.",
+          pl: "Formularze aktywne i przyjmujące odpowiedzi pojawią się tutaj. Aktywuj nieaktywny formularz, aby go tu zobaczyć.",
+          es: "Los formularios activos que aceptan respuestas aparecerán aquí. Activa un formulario inactivo para verlo aquí.",
+          fr: "Les formulaires actifs acceptant des réponses apparaîtront ici. Activez un formulaire inactif pour le voir ici.",
+          ja: "公開中で回答を受け付けているフォームがここに表示されます。非アクティブなフォームをアクティブ化してここに表示させてください。",
+        }
+      },
+      {
+        key: "ui.forms.empty_inactive_title",
+        values: {
+          en: "No Inactive Forms",
+          de: "Keine inaktiven Formulare",
+          pl: "Brak nieaktywnych formularzy",
+          es: "No hay formularios inactivos",
+          fr: "Aucun formulaire inactif",
+          ja: "非アクティブなフォームなし",
+        }
+      },
+      {
+        key: "ui.forms.empty_inactive_description",
+        values: {
+          en: "Inactive forms you're working on will appear here. Create a new form to get started.",
+          de: "Inaktive Formulare, an denen Sie arbeiten, werden hier angezeigt. Erstellen Sie ein neues Formular, um zu beginnen.",
+          pl: "Nieaktywne formularze, nad którymi pracujesz, pojawią się tutaj. Utwórz nowy formularz, aby rozpocząć.",
+          es: "Los formularios inactivos en los que estás trabajando aparecerán aquí. Crea un nuevo formulario para comenzar.",
+          fr: "Les formulaires inactifs sur lesquels vous travaillez apparaîtront ici. Créez un nouveau formulaire pour commencer.",
+          ja: "作業中の非アクティブなフォームがここに表示されます。新しいフォームを作成して開始してください。",
+        }
+      },
+      // Legacy empty state translations (kept for backwards compatibility)
       {
         key: "ui.forms.empty_drafts_title",
         values: {
@@ -478,6 +546,40 @@ export const seed = mutation({
 
       // Status Badges
       {
+        key: "ui.forms.status.active",
+        values: {
+          en: "Active",
+          de: "Aktiv",
+          pl: "Aktywny",
+          es: "Activo",
+          fr: "Actif",
+          ja: "アクティブ",
+        }
+      },
+      {
+        key: "ui.forms.status.inactive",
+        values: {
+          en: "Inactive",
+          de: "Inaktiv",
+          pl: "Nieaktywny",
+          es: "Inactivo",
+          fr: "Inactif",
+          ja: "非アクティブ",
+        }
+      },
+      {
+        key: "ui.forms.status.archived",
+        values: {
+          en: "Archived",
+          de: "Archiviert",
+          pl: "Zarchiwizowany",
+          es: "Archivado",
+          fr: "Archivé",
+          ja: "アーカイブ済み",
+        }
+      },
+      // Legacy status translations (kept for backwards compatibility)
+      {
         key: "ui.forms.status_draft",
         values: {
           en: "Draft",
@@ -567,6 +669,50 @@ export const seed = mutation({
           es: "Eliminar",
           fr: "Supprimer",
           ja: "削除",
+        }
+      },
+      {
+        key: "ui.forms.action_activate",
+        values: {
+          en: "Activate",
+          de: "Aktivieren",
+          pl: "Aktywuj",
+          es: "Activar",
+          fr: "Activer",
+          ja: "アクティブ化",
+        }
+      },
+      {
+        key: "ui.forms.action_activate_tooltip",
+        values: {
+          en: "Make this form active and available for submissions",
+          de: "Dieses Formular aktiv und für Einreichungen verfügbar machen",
+          pl: "Ustaw ten formularz jako aktywny i dostępny do wypełnienia",
+          es: "Hacer este formulario activo y disponible para envíos",
+          fr: "Rendre ce formulaire actif et disponible pour les soumissions",
+          ja: "このフォームをアクティブにして送信可能にする",
+        }
+      },
+      {
+        key: "ui.forms.action_deactivate",
+        values: {
+          en: "Deactivate",
+          de: "Deaktivieren",
+          pl: "Dezaktywuj",
+          es: "Desactivar",
+          fr: "Désactiver",
+          ja: "非アクティブ化",
+        }
+      },
+      {
+        key: "ui.forms.action_deactivate_tooltip",
+        values: {
+          en: "Make this form inactive and stop accepting submissions",
+          de: "Dieses Formular inaktiv machen und Einreichungen stoppen",
+          pl: "Ustaw ten formularz jako nieaktywny i przestań przyjmować odpowiedzi",
+          es: "Hacer este formulario inactivo y detener los envíos",
+          fr: "Rendre ce formulaire inactif et arrêter les soumissions",
+          ja: "このフォームを非アクティブにして送信を停止する",
         }
       },
 
