@@ -7,12 +7,11 @@ import type { Id } from "../../../../convex/_generated/dataModel";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
-import { Loader2, Plus, FileText, ClipboardList, Palette, Code } from "lucide-react";
+import { Loader2, Plus, FileText, ClipboardList, Palette } from "lucide-react";
 import { FormBuilder } from "./form-builder";
 import { AllFormsTab } from "./all-forms-tab";
 import { TemplatesTab } from "./templates-tab";
 import { ResponsesTab } from "./responses-tab";
-import { SchemaEditorTab } from "./schema-editor-tab";
 
 /**
  * Forms Window
@@ -30,7 +29,7 @@ import { SchemaEditorTab } from "./schema-editor-tab";
  * - Templates: Browse and use form templates
  */
 
-type TabType = "create" | "forms" | "responses" | "templates" | "schema";
+type TabType = "create" | "forms" | "responses" | "templates";
 
 export function FormsWindow() {
   const { sessionId } = useAuth();
@@ -39,6 +38,7 @@ export function FormsWindow() {
   const [activeTab, setActiveTab] = useState<TabType>("forms"); // Default to All Forms tab
   const [selectedFormId, setSelectedFormId] = useState<string | null>(null);
   const [selectedTemplateCode, setSelectedTemplateCode] = useState<string | null>(null);
+  const [shouldOpenSchemaModal, setShouldOpenSchemaModal] = useState(false);
 
   // Check app availability - returns guard component if unavailable/loading, null if available
   const guard = useAppAvailabilityGuard({
@@ -79,23 +79,28 @@ export function FormsWindow() {
   const handleCreateForm = () => {
     setSelectedFormId(null);
     setSelectedTemplateCode(null); // Clear template selection
+    setShouldOpenSchemaModal(false); // New form, don't open schema modal
     setActiveTab("create");
   };
 
   const handleEditForm = (formId: string) => {
     setSelectedFormId(formId);
+    setShouldOpenSchemaModal(false); // Regular edit, don't open schema modal
     setActiveTab("create");
   };
 
   const handleEditSchema = (formId: string) => {
+    // Edit schema directly opens the form builder with the schema modal auto-opened
     setSelectedFormId(formId);
-    setActiveTab("schema");
+    setShouldOpenSchemaModal(true); // Auto-open schema modal
+    setActiveTab("create");
   };
 
   const handleUseTemplate = (templateCode: string) => {
     // Switch to create tab with selected template
     setSelectedFormId(null);
     setSelectedTemplateCode(templateCode);
+    setShouldOpenSchemaModal(false); // Template, don't open schema modal
     setActiveTab("create");
   };
 
@@ -167,20 +172,6 @@ export function FormsWindow() {
           <Palette size={14} />
           {t("ui.forms.tabs.templates")}
         </button>
-        <button
-          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2"
-          style={{
-            borderColor: 'var(--win95-border)',
-            background: activeTab === "schema" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-            color: activeTab === "schema" ? 'var(--win95-text)' : 'var(--neutral-gray)'
-          }}
-          onClick={() => selectedFormId ? setActiveTab("schema") : alert("Please select a form first")}
-          disabled={!selectedFormId}
-          title={selectedFormId ? "Edit form schema (JSON)" : "Select a form to edit schema"}
-        >
-          <Code size={14} />
-          Schema
-        </button>
       </div>
 
       {/* Tab Content */}
@@ -190,6 +181,7 @@ export function FormsWindow() {
             formId={selectedFormId}
             templateCode={selectedTemplateCode}
             onBack={handleBackToForms}
+            openSchemaModal={shouldOpenSchemaModal}
           />
         )}
 
@@ -208,10 +200,6 @@ export function FormsWindow() {
 
         {activeTab === "templates" && (
           <TemplatesTab onUseTemplate={handleUseTemplate} />
-        )}
-
-        {activeTab === "schema" && selectedFormId && (
-          <SchemaEditorTab formId={selectedFormId as Id<"objects">} />
         )}
       </div>
 

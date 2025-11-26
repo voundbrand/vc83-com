@@ -21,15 +21,18 @@ import {
   ExternalLink,
   Save,
   X,
+  Code,
 } from "lucide-react";
 import { getFormTemplate } from "@/templates/forms/registry";
 import { webPublishingThemes } from "@/templates/themes";
 import { FORM_TYPES, DEFAULT_FORM_TYPE, getFormTypeIcon } from "@/templates/forms/form-types";
+import { SchemaEditorTab } from "./schema-editor-tab";
 
 interface FormBuilderProps {
   formId: string | null;
   templateCode: string | null; // templateCode prop from Templates tab
   onBack: () => void;
+  openSchemaModal?: boolean; // Auto-open schema modal on mount
 }
 
 // Type for template/theme objects from DB
@@ -43,7 +46,7 @@ interface TemplateOrTheme {
   };
 }
 
-export function FormBuilder({ formId, templateCode, onBack }: FormBuilderProps) {
+export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: FormBuilderProps) {
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
   const { t } = useNamespaceTranslations("ui.forms");
@@ -68,6 +71,7 @@ export function FormBuilder({ formId, templateCode, onBack }: FormBuilderProps) 
   const [newTemplateDescription, setNewTemplateDescription] = useState("");
   const [newTemplateCode, setNewTemplateCode] = useState("");
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+  const [showSchemaModal, setShowSchemaModal] = useState(false);
 
   // Form Settings State
   const [displayMode, setDisplayMode] = useState<"all" | "single-question" | "section-by-section" | "paginated">("all");
@@ -224,6 +228,13 @@ export function FormBuilder({ formId, templateCode, onBack }: FormBuilderProps) 
     }
     // If both are enabled, keep current preview mode (user can toggle)
   }, [enableInternalHosting, enableExternalHosting]);
+
+  // Auto-open schema modal if requested (from list view)
+  useEffect(() => {
+    if (openSchemaModal && formId && existingForm) {
+      setShowSchemaModal(true);
+    }
+  }, [openSchemaModal, formId, existingForm]);
 
   if (!sessionId || !currentOrg) {
     return (
@@ -536,10 +547,30 @@ export function FormBuilder({ formId, templateCode, onBack }: FormBuilderProps) 
           </div>
         )}
 
-        <h3 className="text-sm font-bold mb-4 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
-          <FileText size={16} />
-          {formId ? t("ui.forms.builder_title_edit") : t("ui.forms.builder_title_create")}
-        </h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+            <FileText size={16} />
+            {formId ? t("ui.forms.builder_title_edit") : t("ui.forms.builder_title_create")}
+          </h3>
+
+          {/* Edit Schema Button - only show when editing an existing form */}
+          {formId && (
+            <button
+              type="button"
+              onClick={() => setShowSchemaModal(true)}
+              className="px-3 py-1.5 text-xs font-bold border-2 flex items-center gap-2 transition-colors hover:brightness-95"
+              style={{
+                borderColor: "var(--win95-border)",
+                background: "var(--win95-bg-light)",
+                color: "var(--win95-highlight)",
+              }}
+              title="Edit form schema (JSON)"
+            >
+              <Code size={12} />
+              Edit Schema
+            </button>
+          )}
+        </div>
 
         {formId && (
           <div className="border-2 p-3 mb-4" style={{ borderColor: "var(--win95-highlight)", background: "rgba(0, 0, 128, 0.05)" }}>
@@ -1554,6 +1585,43 @@ export function FormBuilder({ formId, templateCode, onBack }: FormBuilderProps) 
           </div>
         )}
       </div>
+
+      {/* Schema Editor Modal */}
+      {showSchemaModal && formId && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50"
+          style={{ background: "rgba(0, 0, 0, 0.5)" }}
+          onClick={() => setShowSchemaModal(false)}
+        >
+          <div
+            className="border-4 w-[90%] h-[90%] flex flex-col"
+            style={{
+              borderColor: "var(--win95-border)",
+              background: "var(--win95-bg)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between p-4 border-b-2" style={{ borderColor: "var(--win95-border)" }}>
+              <div className="flex items-center gap-2">
+                <Code size={20} style={{ color: "var(--win95-highlight)" }} />
+                <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+                  Edit Schema - {existingForm?.name}
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowSchemaModal(false)}
+                className="p-1 hover:brightness-95"
+                style={{ color: "var(--win95-text)" }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <SchemaEditorTab formId={formId as Id<"objects">} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Save as Template Modal */}
       {showTemplateModal && (

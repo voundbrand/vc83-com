@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Edit, Lock, FileText } from "lucide-react";
+import { Edit, Lock } from "lucide-react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { FormsList } from "./forms-list";
 import type { Id } from "../../../../convex/_generated/dataModel";

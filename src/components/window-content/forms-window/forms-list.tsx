@@ -5,7 +5,7 @@ import { useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
-import { FileText, Plus, Edit, Trash2, Send, FileX, Loader2, ExternalLink, Code, Copy } from "lucide-react";
+import { FileText, Plus, Edit, Trash2, Send, FileX, Loader2, ExternalLink, Copy, Code } from "lucide-react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { ConfirmationModal } from "@/components/confirmation-modal";
 import { getFormTypeIcon } from "@/templates/forms/form-types";
@@ -228,11 +228,12 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
             return (
               <div
                 key={form._id}
-                className="border-2 p-3 transition-colors"
+                className="border-2 p-3 transition-colors cursor-pointer"
                 style={{
                   borderColor: "var(--win95-border)",
                   background: "var(--win95-bg-light)",
                 }}
+                onClick={() => onEditForm(form._id)}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.background = "var(--win95-hover-light)";
                 }}
@@ -294,16 +295,16 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
                   </div>
 
                   {/* Right: Action buttons - inline like web publishing */}
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                     {/* Edit button */}
                     <button
                       className="px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors"
                       style={{
                         borderColor: "var(--win95-border)",
                         background: "var(--win95-bg-light)",
-                        color: "var(--info)",
+                        color: "var(--win95-highlight)",
                       }}
-                      title={t("ui.forms.tooltip_edit")}
+                      title="Edit form"
                       disabled={isDeleting || isPublishing || isDuplicating}
                       onClick={() => onEditForm(form._id)}
                       onMouseEnter={(e) => {
@@ -315,28 +316,6 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
                       }}
                     >
                       <Edit size={12} />
-                    </button>
-
-                    {/* Duplicate button */}
-                    <button
-                      className="px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors"
-                      style={{
-                        borderColor: "var(--win95-border)",
-                        background: "var(--win95-bg-light)",
-                        color: "#8b5cf6", // Purple color like schema button
-                      }}
-                      title="Duplicate form"
-                      disabled={isDeleting || isPublishing || isDuplicating}
-                      onClick={() => handleDuplicate(form._id, form.name)}
-                      onMouseEnter={(e) => {
-                        if (!isDeleting && !isPublishing && !isDuplicating)
-                          e.currentTarget.style.background = "var(--win95-hover-light)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "var(--win95-bg-light)";
-                      }}
-                    >
-                      {isDuplicating ? <Loader2 size={12} className="animate-spin" /> : <Copy size={12} />}
                     </button>
 
                     {/* Edit Schema button */}
@@ -362,6 +341,28 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
                         <Code size={12} />
                       </button>
                     )}
+
+                    {/* Duplicate button */}
+                    <button
+                      className="px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors"
+                      style={{
+                        borderColor: "var(--win95-border)",
+                        background: "var(--win95-bg-light)",
+                        color: "#8b5cf6", // Purple color
+                      }}
+                      title="Duplicate form"
+                      disabled={isDeleting || isPublishing || isDuplicating}
+                      onClick={() => handleDuplicate(form._id, form.name)}
+                      onMouseEnter={(e) => {
+                        if (!isDeleting && !isPublishing && !isDuplicating)
+                          e.currentTarget.style.background = "var(--win95-hover-light)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "var(--win95-bg-light)";
+                      }}
+                    >
+                      {isDuplicating ? <Loader2 size={12} className="animate-spin" /> : <Copy size={12} />}
+                    </button>
 
                     {/* Publish/Unpublish button */}
                     <button
