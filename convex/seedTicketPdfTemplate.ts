@@ -39,7 +39,7 @@ export const seedTicketPdfTemplate = internalMutation({
       .withIndex("by_org_type", (q) =>
         q.eq("organizationId", systemOrg._id).eq("type", "template")
       )
-      .filter((q) => q.eq(q.field("customProperties.templateCode"), "ticket_standard_v1"))
+      .filter((q) => q.eq(q.field("customProperties.templateCode"), "ticket_professional_v1"))
       .first();
 
     if (existing && !args.overwrite) {
@@ -55,9 +55,9 @@ export const seedTicketPdfTemplate = internalMutation({
     // Complete template schema
     const customProps = {
       // Template identification
-      code: "ticket_standard_v1",
-      templateCode: "ticket_standard_v1", // Both for compatibility
-      name: "Standard Event Ticket",
+      code: "ticket_professional_v1",
+      templateCode: "ticket_professional_v1", // Both for compatibility
+      name: "Professional Event Ticket",
       description: "Professional event ticket with QR code validation",
       version: "1.0.0",
       category: "ticket",
@@ -127,7 +127,7 @@ export const seedTicketPdfTemplate = internalMutation({
     if (existing) {
       // Update existing template
       await ctx.db.patch(existing._id, {
-        name: "Standard Event Ticket (PDF)",
+        name: "Professional Event Ticket (PDF)",
         description: "Professional event ticket with QR code validation for conferences, seminars, and paid events",
         status: "published",
         subtype: "pdf",
@@ -143,7 +143,7 @@ export const seedTicketPdfTemplate = internalMutation({
         organizationId: systemOrg._id,
         type: "template",
         subtype: "pdf",
-        name: "Standard Event Ticket (PDF)",
+        name: "Professional Event Ticket (PDF)",
         description: "Professional event ticket with QR code validation for conferences, seminars, and paid events",
         status: "published",
         customProperties: customProps,
@@ -155,7 +155,7 @@ export const seedTicketPdfTemplate = internalMutation({
     }
 
     console.log("\n📊 Template Details:");
-    console.log("   Code: ticket_standard_v1");
+    console.log("   Code: ticket_professional_v1");
     console.log("   Category: ticket");
     console.log("   Type: PDF");
     console.log("   Status: published");
@@ -165,7 +165,7 @@ export const seedTicketPdfTemplate = internalMutation({
       message: `Ticket PDF template ${action} successfully`,
       templateId,
       action,
-      code: "ticket_standard_v1",
+      code: "ticket_professional_v1",
     };
   },
 });
@@ -188,7 +188,7 @@ export const getTicketTemplateSchema = internalQuery({
       .withIndex("by_org_type", (q) =>
         q.eq("organizationId", systemOrg._id).eq("type", "template")
       )
-      .filter((q) => q.eq(q.field("customProperties.templateCode"), "ticket_standard_v1"))
+      .filter((q) => q.eq(q.field("customProperties.templateCode"), "ticket_professional_v1"))
       .first();
 
     return template;

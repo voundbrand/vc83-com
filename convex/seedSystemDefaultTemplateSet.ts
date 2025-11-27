@@ -97,8 +97,8 @@ export const seedSystemDefaultTemplateSet = internalMutation({
       t.customProperties?.templateCode === "invoice_b2b_single_v1"
     );
     const ticketPdfTemplate = systemTemplates.find((t) =>
-      t.customProperties?.code === "ticket_standard_v1" ||
-      t.customProperties?.templateCode === "ticket_standard_v1"
+      t.customProperties?.code === "ticket_professional_v1" ||
+      t.customProperties?.templateCode === "ticket_professional_v1"
     );
 
     // Verify we have the required templates

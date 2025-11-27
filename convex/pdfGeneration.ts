@@ -240,6 +240,13 @@ export const generateTicketPDF = action({
 
       console.log("🎫 [Ticket Template Resolution] Resolved template ID:", ticketTemplateId);
 
+      if (!ticketTemplateId) {
+        throw new Error(
+          "No ticket template found in resolved template set. " +
+          "Please ensure your template set includes a ticket template."
+        );
+      }
+
       // Get template details (templateCode, etc.)
       const template = await ctx.runQuery(internal.pdfTemplateQueries.resolvePdfTemplateInternal, {
         templateId: ticketTemplateId,
@@ -679,15 +686,15 @@ export const generateInvoicePDF = action({
           const taxAmountInCents = (txn.customProperties?.taxAmountInCents as number) || 0;
           const totalPriceInCents = (txn.customProperties?.totalPriceInCents as number) || 0;
           const itemTaxRate = (txn.customProperties?.taxRatePercent as number) || taxRatePercent;
-          const quantity = item.quantity; // From grouped purchase items
+          const txnQuantity = (txn.customProperties?.quantity as number) || 1; // Use transaction's quantity, NOT purchase item count!
 
           // Calculate per-unit amounts (transaction stores TOTAL amounts for all units)
-          const taxPerUnitInCents = Math.round(taxAmountInCents / quantity);
-          const totalPerUnitInCents = Math.round(totalPriceInCents / quantity);
+          const taxPerUnitInCents = Math.round(taxAmountInCents / txnQuantity);
+          const totalPerUnitInCents = Math.round(totalPriceInCents / txnQuantity);
 
           return {
             description: item.productName,
-            quantity: quantity,
+            quantity: txnQuantity, // Use transaction's quantity for display
             // Pre-formatted currency strings (template will display as-is)
             unit_price_formatted: formatCurrency(unitPriceInCents, { locale: invoiceLocale, currency: invoiceCurrency.toUpperCase() }),
             tax_amount_formatted: formatCurrency(taxPerUnitInCents, { locale: invoiceLocale, currency: invoiceCurrency.toUpperCase() }),
@@ -872,6 +879,13 @@ export const generateInvoicePDF = action({
       });
 
       console.log("📄 [Invoice Template Resolution] Resolved template ID:", invoiceTemplateId);
+
+      if (!invoiceTemplateId) {
+        throw new Error(
+          "No invoice template found in resolved template set. " +
+          "Please ensure your template set includes an invoice template."
+        );
+      }
 
       // Get template details (templateCode, etc.)
       const invoiceTemplate = await ctx.runQuery(internal.pdfTemplateQueries.resolvePdfTemplateInternal, {
