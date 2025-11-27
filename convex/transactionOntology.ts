@@ -461,13 +461,43 @@ export const createTransactionInternal = internalMutation({
     organizationId: v.id("organizations"),
     subtype: v.string(), // Flexible: "ticket_purchase", "product_purchase", "service_purchase", etc.
 
-    // Product context
-    productId: v.id("objects"),
-    productName: v.string(),
+    // ========================================================================
+    // NEW STRUCTURE (v2): Multi-line Item Transactions
+    // ========================================================================
+    // Array of line items (one transaction per checkout)
+    lineItems: v.optional(v.array(v.object({
+      productId: v.id("objects"),
+      productName: v.string(),
+      productDescription: v.optional(v.string()),
+      productSubtype: v.optional(v.string()),
+      quantity: v.number(),
+      unitPriceInCents: v.number(),
+      totalPriceInCents: v.number(),
+      taxRatePercent: v.number(),
+      taxAmountInCents: v.number(),
+      ticketId: v.optional(v.id("objects")),
+      eventId: v.optional(v.id("objects")),
+      eventName: v.optional(v.string()),
+      eventLocation: v.optional(v.string()),
+      eventStartDate: v.optional(v.number()),
+      eventEndDate: v.optional(v.number()),
+    }))),
+
+    // Aggregate totals (for multi-line transactions)
+    subtotalInCents: v.optional(v.number()),
+    taxAmountInCents: v.optional(v.number()),
+    totalInCents: v.optional(v.number()),
+
+    // ========================================================================
+    // LEGACY STRUCTURE (v1): Single Product Per Transaction (DEPRECATED)
+    // ========================================================================
+    // These fields are kept for backward compatibility with old transaction creation
+    productId: v.optional(v.id("objects")),
+    productName: v.optional(v.string()),
     productDescription: v.optional(v.string()),
     productSubtype: v.optional(v.string()),
 
-    // Event context (for tickets)
+    // Event context (for tickets) - legacy single product
     eventId: v.optional(v.id("objects")),
     eventName: v.optional(v.string()),
     eventLocation: v.optional(v.string()),
@@ -479,8 +509,17 @@ export const createTransactionInternal = internalMutation({
       logoUrl: v.optional(v.string()),
     }))),
 
-    // Links
+    // Links - legacy single product
     ticketId: v.optional(v.id("objects")),
+
+    // Financial - legacy single product
+    amountInCents: v.optional(v.number()),
+    quantity: v.optional(v.number()),
+    taxRatePercent: v.optional(v.number()),
+
+    // ========================================================================
+    // COMMON FIELDS (both old and new)
+    // ========================================================================
     checkoutSessionId: v.optional(v.id("objects")),
 
     // Customer (who receives)
@@ -496,77 +535,14 @@ export const createTransactionInternal = internalMutation({
     employerId: v.optional(v.string()),
     employerName: v.optional(v.string()),
 
-    // Financial
-    amountInCents: v.number(),
+    // Currency and payment
     currency: v.string(),
-    quantity: v.number(),
-    taxRatePercent: v.optional(v.number()),
-
-    // Payment
     paymentMethod: v.optional(v.string()),
     paymentStatus: v.optional(v.string()),
     paymentIntentId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // Get product to check for product-level tax behavior override
-    const product = await ctx.db.get(args.productId);
-
-    // Get organization tax settings as fallback
-    const organizationLegal = await ctx.db
-      .query("objects")
-      .withIndex("by_org_type", (q) =>
-        q.eq("organizationId", args.organizationId).eq("type", "organization_legal")
-      )
-      .first();
-
-    // Product-level setting overrides organization setting
-    const productTaxBehavior = product?.customProperties?.taxBehavior as "inclusive" | "exclusive" | "automatic" | undefined;
-    const orgTaxBehavior = (organizationLegal?.customProperties?.defaultTaxBehavior as "inclusive" | "exclusive" | "automatic") || "exclusive";
-    const taxBehavior = productTaxBehavior || orgTaxBehavior;
-    const taxRatePercent = args.taxRatePercent || 0;
-
-    console.log(`💰 [createTransactionInternal] Product: ${args.productName}`);
-    console.log(`   Product tax behavior: ${productTaxBehavior || "(not set - using org default)"}`);
-    console.log(`   Organization tax behavior: ${orgTaxBehavior}`);
-    console.log(`   Final tax calculation mode: ${taxBehavior}, rate: ${taxRatePercent}%`);
-
-    // Calculate financial details based on tax behavior
-    let unitPriceInCents: number;
-    let taxAmountInCents: number;
-    let totalPriceInCents: number;
-
-    if (taxBehavior === "inclusive" && taxRatePercent > 0) {
-      // INCLUSIVE: args.amountInCents is the GROSS price (includes VAT)
-      // Calculate VAT backwards from gross price
-      totalPriceInCents = args.amountInCents; // This is the gross total
-      const unitGrossPriceInCents = Math.round(args.amountInCents / args.quantity);
-
-      // Calculate net price from gross: net = gross / (1 + rate/100)
-      const unitNetPriceInCents = Math.round(unitGrossPriceInCents / (1 + taxRatePercent / 100));
-      unitPriceInCents = unitNetPriceInCents;
-
-      // VAT = gross - net
-      taxAmountInCents = totalPriceInCents - (unitNetPriceInCents * args.quantity);
-
-      console.log(`  ✅ INCLUSIVE calculation:`);
-      console.log(`     Gross total: €${(totalPriceInCents / 100).toFixed(2)}`);
-      console.log(`     Net per unit: €${(unitPriceInCents / 100).toFixed(2)}`);
-      console.log(`     VAT amount: €${(taxAmountInCents / 100).toFixed(2)} (extracted from gross)`);
-    } else {
-      // EXCLUSIVE: args.amountInCents is the NET price (excludes VAT)
-      // Calculate VAT on top of net price
-      unitPriceInCents = Math.round(args.amountInCents / args.quantity);
-      taxAmountInCents = Math.round((args.amountInCents * taxRatePercent) / 100);
-      totalPriceInCents = args.amountInCents + taxAmountInCents;
-
-      console.log(`  ✅ EXCLUSIVE calculation:`);
-      console.log(`     Net total: €${(args.amountInCents / 100).toFixed(2)}`);
-      console.log(`     Net per unit: €${(unitPriceInCents / 100).toFixed(2)}`);
-      console.log(`     VAT amount: €${(taxAmountInCents / 100).toFixed(2)} (added on top)`);
-      console.log(`     Gross total: €${(totalPriceInCents / 100).toFixed(2)}`);
-    }
-
-    // Get system user for createdBy (transactions created by system, not a specific user)
+    // Get system user for createdBy
     const systemUser = await ctx.db
       .query("users")
       .filter(q => q.eq(q.field("email"), "system@l4yercak3.com"))
@@ -576,72 +552,164 @@ export const createTransactionInternal = internalMutation({
       throw new Error("System user not found - run seed script first");
     }
 
-    // Create transaction object
-    const transactionId = await ctx.db.insert("objects", {
-      organizationId: args.organizationId,
-      type: "transaction",
-      subtype: args.subtype,
-      name: `${args.productName} - ${args.customerName}`,
-      description: args.productDescription,
-      status: "active", // Transaction status (not payment status)
-      createdBy: systemUser._id, // Required field for objects table
-      customProperties: {
-        // Product context
-        productId: args.productId,
-        productName: args.productName,
-        productDescription: args.productDescription,
-        productSubtype: args.productSubtype,
+    // ========================================================================
+    // DETECT STRUCTURE: New (lineItems) vs Legacy (single product)
+    // ========================================================================
+    const isNewStructure = args.lineItems && args.lineItems.length > 0;
 
-        // Event context (for tickets)
-        eventId: args.eventId,
-        eventName: args.eventName,
-        eventLocation: args.eventLocation,
-        eventStartDate: args.eventStartDate,
-        eventEndDate: args.eventEndDate,
-        eventSponsors: args.eventSponsors,
+    if (isNewStructure) {
+      // ====================================================================
+      // NEW STRUCTURE (v2): Multi-line Item Transaction
+      // ====================================================================
+      console.log(`💰 [createTransactionInternal] Creating multi-line transaction with ${args.lineItems!.length} items`);
+      console.log(`   Subtotal: €${((args.subtotalInCents || 0) / 100).toFixed(2)}`);
+      console.log(`   Tax: €${((args.taxAmountInCents || 0) / 100).toFixed(2)}`);
+      console.log(`   Total: €${((args.totalInCents || 0) / 100).toFixed(2)}`);
 
-        // Links
-        ticketId: args.ticketId,
-        checkoutSessionId: args.checkoutSessionId,
+      // Build transaction name from line items
+      const itemCount = args.lineItems!.length;
+      const firstProduct = args.lineItems![0].productName;
+      const transactionName = itemCount === 1
+        ? `${firstProduct} - ${args.customerName}`
+        : `${firstProduct} +${itemCount - 1} more - ${args.customerName}`;
 
-        // Customer
-        customerName: args.customerName,
-        customerEmail: args.customerEmail,
-        customerPhone: args.customerPhone,
-        customerId: args.customerId,
+      // Create transaction with lineItems array
+      const transactionId = await ctx.db.insert("objects", {
+        organizationId: args.organizationId,
+        type: "transaction",
+        subtype: args.subtype,
+        name: transactionName,
+        description: `Transaction for ${itemCount} product(s)`,
+        status: "active",
+        createdBy: systemUser._id,
+        customProperties: {
+          // NEW: Line items array
+          lineItems: args.lineItems,
 
-        // Payer
-        payerType: args.payerType,
-        payerId: args.payerId,
-        crmOrganizationId: args.crmOrganizationId,
-        employerId: args.employerId,
-        employerName: args.employerName,
+          // NEW: Aggregate totals
+          subtotalInCents: args.subtotalInCents,
+          taxAmountInCents: args.taxAmountInCents,
+          totalInCents: args.totalInCents,
 
-        // Financial
-        amountInCents: args.amountInCents,
-        currency: args.currency,
-        quantity: args.quantity,
-        unitPriceInCents,
-        totalPriceInCents,
-        taxRatePercent,
-        taxAmountInCents,
+          // Common fields
+          checkoutSessionId: args.checkoutSessionId,
+          customerName: args.customerName,
+          customerEmail: args.customerEmail,
+          customerPhone: args.customerPhone,
+          customerId: args.customerId,
+          payerType: args.payerType,
+          payerId: args.payerId,
+          crmOrganizationId: args.crmOrganizationId,
+          employerId: args.employerId,
+          employerName: args.employerName,
+          currency: args.currency,
+          invoicingStatus: "pending" as const,
+          paymentStatus: args.paymentStatus || "pending",
+          paymentMethod: args.paymentMethod || "unknown",
+          paymentIntentId: args.paymentIntentId,
+          transactionDate: Date.now(),
+        },
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
 
-        // Status tracking
-        invoicingStatus: "pending" as const, // pending | on_draft_invoice | invoiced
-        paymentStatus: args.paymentStatus || "pending",
-        paymentMethod: args.paymentMethod || "unknown",
-        paymentIntentId: args.paymentIntentId,
+      console.log(`✅ [createTransactionInternal] Created multi-line transaction ${transactionId}`);
+      return transactionId;
 
-        // Timestamps
-        transactionDate: Date.now(),
-      },
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    });
+    } else {
+      // ====================================================================
+      // LEGACY STRUCTURE (v1): Single Product Transaction (DEPRECATED)
+      // ====================================================================
+      console.log(`⚠️  [createTransactionInternal] Using LEGACY single-product structure`);
+      console.log(`   Product: ${args.productName}`);
 
-    console.log(`✅ [createTransactionInternal] Created transaction ${transactionId} for ${args.productName}`);
+      // Get product to check for product-level tax behavior override
+      const product = args.productId ? await ctx.db.get(args.productId) : null;
 
-    return transactionId;
+      // Get organization tax settings as fallback
+      const organizationLegal = await ctx.db
+        .query("objects")
+        .withIndex("by_org_type", (q) =>
+          q.eq("organizationId", args.organizationId).eq("type", "organization_legal")
+        )
+        .first();
+
+      const productTaxBehavior = product?.customProperties?.taxBehavior as "inclusive" | "exclusive" | "automatic" | undefined;
+      const orgTaxBehavior = (organizationLegal?.customProperties?.defaultTaxBehavior as "inclusive" | "exclusive" | "automatic") || "exclusive";
+      const taxBehavior = productTaxBehavior || orgTaxBehavior;
+      const taxRatePercent = args.taxRatePercent || 0;
+
+      // Calculate financial details based on tax behavior
+      let unitPriceInCents: number;
+      let taxAmountInCents: number;
+      let totalPriceInCents: number;
+
+      if (taxBehavior === "inclusive" && taxRatePercent > 0) {
+        totalPriceInCents = args.amountInCents || 0;
+        const unitGrossPriceInCents = Math.round(totalPriceInCents / (args.quantity || 1));
+        const unitNetPriceInCents = Math.round(unitGrossPriceInCents / (1 + taxRatePercent / 100));
+        unitPriceInCents = unitNetPriceInCents;
+        taxAmountInCents = totalPriceInCents - (unitNetPriceInCents * (args.quantity || 1));
+      } else {
+        unitPriceInCents = Math.round((args.amountInCents || 0) / (args.quantity || 1));
+        taxAmountInCents = Math.round(((args.amountInCents || 0) * taxRatePercent) / 100);
+        totalPriceInCents = (args.amountInCents || 0) + taxAmountInCents;
+      }
+
+      // Create legacy transaction
+      const transactionId = await ctx.db.insert("objects", {
+        organizationId: args.organizationId,
+        type: "transaction",
+        subtype: args.subtype,
+        name: `${args.productName} - ${args.customerName}`,
+        description: args.productDescription,
+        status: "active",
+        createdBy: systemUser._id,
+        customProperties: {
+          // Legacy single product fields
+          productId: args.productId,
+          productName: args.productName,
+          productDescription: args.productDescription,
+          productSubtype: args.productSubtype,
+          eventId: args.eventId,
+          eventName: args.eventName,
+          eventLocation: args.eventLocation,
+          eventStartDate: args.eventStartDate,
+          eventEndDate: args.eventEndDate,
+          eventSponsors: args.eventSponsors,
+          ticketId: args.ticketId,
+          amountInCents: args.amountInCents,
+          quantity: args.quantity,
+          unitPriceInCents,
+          totalPriceInCents,
+          taxRatePercent,
+          taxAmountInCents,
+
+          // Common fields
+          checkoutSessionId: args.checkoutSessionId,
+          customerName: args.customerName,
+          customerEmail: args.customerEmail,
+          customerPhone: args.customerPhone,
+          customerId: args.customerId,
+          payerType: args.payerType,
+          payerId: args.payerId,
+          crmOrganizationId: args.crmOrganizationId,
+          employerId: args.employerId,
+          employerName: args.employerName,
+          currency: args.currency,
+          invoicingStatus: "pending" as const,
+          paymentStatus: args.paymentStatus || "pending",
+          paymentMethod: args.paymentMethod || "unknown",
+          paymentIntentId: args.paymentIntentId,
+          transactionDate: Date.now(),
+        },
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+
+      console.log(`✅ [createTransactionInternal] Created legacy transaction ${transactionId}`);
+      return transactionId;
+    }
   },
 });
 

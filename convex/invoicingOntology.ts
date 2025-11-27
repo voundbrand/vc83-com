@@ -1559,7 +1559,7 @@ export const enableInvoicingForOrg = internalMutation({
 export const createSimpleInvoiceFromCheckout = internalMutation({
   args: {
     checkoutSessionId: v.id("objects"),
-    transactionIds: v.array(v.id("objects")),
+    transactionIds: v.array(v.id("objects")), // Still array for backward compatibility, but will use first one
     ticketIds: v.optional(v.array(v.id("objects"))),
     transactionType: v.union(v.literal("B2C"), v.literal("B2B")),
     customerInfo: v.object({
@@ -1591,48 +1591,98 @@ export const createSimpleInvoiceFromCheckout = internalMutation({
 
     const organizationId = session.organizationId;
 
-    // 2. Fetch all transactions to build line items
-    const transactions = await Promise.all(
-      args.transactionIds.map(id => ctx.db.get(id))
-    );
-
-    const validTransactions = transactions.filter(
-      (t): t is NonNullable<typeof t> => t !== null && t.type === "transaction"
-    );
-
-    if (validTransactions.length === 0) {
-      throw new Error("No valid transactions found for invoice");
+    // 2. Fetch THE transaction (should be only one now!)
+    if (args.transactionIds.length === 0) {
+      throw new Error("No transaction ID provided for invoice");
     }
 
-    // 3. Build line items from transactions
-    const lineItems: InvoiceLineItem[] = validTransactions.map(tx => ({
-      transactionId: tx._id,
-      ticketId: tx.customProperties?.ticketId,
-      productId: tx.customProperties?.productId,
-      description: tx.customProperties?.productName
-        ? `${tx.customProperties.productName}${tx.customProperties.eventName ? ` - ${tx.customProperties.eventName}` : ""}`
-        : "Product",
-      productName: tx.customProperties?.productName as string | undefined,
-      eventName: tx.customProperties?.eventName as string | undefined,
-      eventLocation: tx.customProperties?.eventLocation as string | undefined,
-      customerName: args.customerInfo.name,
-      customerEmail: args.customerInfo.email,
-      customerId: tx.customProperties?.customerId,
-      quantity: (tx.customProperties?.quantity as number) || 1,
-      unitPriceInCents: (tx.customProperties?.unitPriceInCents as number) || 0,
-      totalPriceInCents: (tx.customProperties?.totalPriceInCents as number) || 0,
-      taxRatePercent: args.transactionType === "B2B" ? 19 : 0, // German VAT for B2B
-      taxAmountInCents: args.transactionType === "B2B"
-        ? Math.round((tx.customProperties?.totalPriceInCents as number || 0) * 0.19)
-        : 0,
-      canEdit: false, // Sealed invoices cannot be edited
-      canRemove: false,
-    }));
+    const transactionId = args.transactionIds[0]; // Use first transaction ID
+    const transaction = await ctx.db.get(transactionId);
 
-    // 4. Calculate totals
-    const subtotalInCents = lineItems.reduce((sum, item) => sum + item.totalPriceInCents, 0);
-    const taxInCents = lineItems.reduce((sum, item) => sum + item.taxAmountInCents, 0);
-    const totalInCents = subtotalInCents + taxInCents;
+    if (!transaction || transaction.type !== "transaction") {
+      throw new Error("Transaction not found for invoice");
+    }
+
+    console.log(`📋 [createSimpleInvoiceFromCheckout] Using transaction ${transactionId} for invoice`);
+
+    const txProps = transaction.customProperties as any;
+
+    // 3. Extract line items from transaction
+    // Transaction now has lineItems array OR legacy single-product structure
+    let lineItems: InvoiceLineItem[];
+    let subtotalInCents: number;
+    let taxInCents: number;
+    let totalInCents: number;
+    let currency: string;
+
+    if (txProps.lineItems && Array.isArray(txProps.lineItems)) {
+      // NEW STRUCTURE: Transaction has lineItems array
+      console.log(`✅ [createSimpleInvoiceFromCheckout] Using NEW transaction structure with ${txProps.lineItems.length} line items`);
+
+      lineItems = txProps.lineItems.map((item: any) => ({
+        transactionId: transaction._id,
+        ticketId: item.ticketId,
+        productId: item.productId,
+        description: item.productName
+          ? `${item.productName}${item.eventName ? ` - ${item.eventName}` : ""}`
+          : "Product",
+        productName: item.productName,
+        eventName: item.eventName,
+        eventLocation: item.eventLocation,
+        customerName: args.customerInfo.name,
+        customerEmail: args.customerInfo.email,
+        customerId: txProps.customerId,
+        quantity: item.quantity,
+        unitPriceInCents: item.unitPriceInCents,
+        totalPriceInCents: item.totalPriceInCents,
+        taxRatePercent: item.taxRatePercent,
+        taxAmountInCents: item.taxAmountInCents,
+        canEdit: false,
+        canRemove: false,
+      }));
+
+      // Use aggregate totals from transaction
+      subtotalInCents = txProps.subtotalInCents;
+      taxInCents = txProps.taxAmountInCents;
+      totalInCents = txProps.totalInCents;
+      currency = txProps.currency;
+
+      console.log(`   Subtotal: €${(subtotalInCents / 100).toFixed(2)}`);
+      console.log(`   Tax: €${(taxInCents / 100).toFixed(2)}`);
+      console.log(`   Total: €${(totalInCents / 100).toFixed(2)}`);
+
+    } else {
+      // LEGACY STRUCTURE: Transaction has single product fields
+      console.log(`⚠️ [createSimpleInvoiceFromCheckout] Using LEGACY single-product transaction structure`);
+
+      lineItems = [{
+        transactionId: transaction._id,
+        ticketId: txProps.ticketId,
+        productId: txProps.productId,
+        description: txProps.productName
+          ? `${txProps.productName}${txProps.eventName ? ` - ${txProps.eventName}` : ""}`
+          : "Product",
+        productName: txProps.productName,
+        eventName: txProps.eventName,
+        eventLocation: txProps.eventLocation,
+        customerName: args.customerInfo.name,
+        customerEmail: args.customerInfo.email,
+        customerId: txProps.customerId,
+        quantity: txProps.quantity || 1,
+        unitPriceInCents: txProps.unitPriceInCents || 0,
+        totalPriceInCents: txProps.totalPriceInCents || 0,
+        taxRatePercent: txProps.taxRatePercent || 0,
+        taxAmountInCents: txProps.taxAmountInCents || 0,
+        canEdit: false,
+        canRemove: false,
+      }];
+
+      // Calculate totals from single transaction
+      subtotalInCents = lineItems[0].unitPriceInCents * lineItems[0].quantity;
+      taxInCents = lineItems[0].taxAmountInCents;
+      totalInCents = lineItems[0].totalPriceInCents;
+      currency = txProps.currency || args.currency;
+    }
 
     // 5. Generate invoice number
     const invoiceNumber = await generateInvoiceNumber(ctx, organizationId, "INV");
@@ -1732,7 +1782,7 @@ export const createSimpleInvoiceFromCheckout = internalMutation({
         subtotalInCents,
         taxInCents,
         totalInCents,
-        currency: args.currency.toUpperCase(),
+        currency: currency.toUpperCase(), // Use currency from transaction!
 
         // === PAYMENT STATUS ===
         paymentStatus,
@@ -1757,17 +1807,15 @@ export const createSimpleInvoiceFromCheckout = internalMutation({
       updatedAt: now,
     });
 
-    // 9. Link invoice to transactions
-    for (const tx of validTransactions) {
-      await ctx.db.patch(tx._id, {
-        customProperties: {
-          ...tx.customProperties,
-          invoiceId,
-          invoicingStatus: "invoiced",
-        },
-        updatedAt: now,
-      });
-    }
+    // 9. Link invoice to THE transaction (just one now!)
+    await ctx.db.patch(transaction._id, {
+      customProperties: {
+        ...txProps,
+        invoiceId,
+        invoicingStatus: "invoiced",
+      },
+      updatedAt: now,
+    });
 
     // 10. Schedule PDF generation (if not employer billed)
     if (!args.isEmployerBilled) {
@@ -1780,12 +1828,14 @@ export const createSimpleInvoiceFromCheckout = internalMutation({
     }
 
     console.log(`✅ [createSimpleInvoiceFromCheckout] Created ${invoiceType} invoice ${invoiceNumber} for ${args.transactionType} checkout`);
+    console.log(`   Transaction ID: ${transaction._id}`);
+    console.log(`   Line items: ${lineItems.length}`);
 
     return {
       success: true,
       invoiceId,
       invoiceNumber,
-      transactionCount: validTransactions.length,
+      transactionCount: 1, // Always 1 transaction per checkout now!
       totalInCents,
       shouldGeneratePDF: !args.isEmployerBilled, // Skip PDF if employer will be billed
     };

@@ -171,6 +171,12 @@ export const createTransactionsFromCheckout = internalAction({
       };
     });
 
+    // Extract tax info from session (populated by Stripe Tax or manual calculation)
+    const taxRatePercent = (session.customProperties?.taxRatePercent as number) || 19;
+    const currency = (session.customProperties?.currency as string) || "EUR";
+
+    console.log(`✓ Tax info: ${taxRatePercent}% in ${currency}`);
+
     const transactionIds = await createTransactionsForPurchase(ctx, {
       organizationId: session.organizationId,
       checkoutSessionId: args.checkoutSessionId,
@@ -186,6 +192,10 @@ export const createTransactionsFromCheckout = internalAction({
         intentId: paymentIntentId,
       },
       billingInfo,
+      taxInfo: {
+        taxRatePercent,
+        currency,
+      },
     });
 
     console.log(`✅ [createTransactionsFromCheckout] Created ${transactionIds.length} transactions`);
