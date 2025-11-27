@@ -8,6 +8,10 @@ import { api } from "../../../../convex/_generated/api";
 import { type Id, type Doc } from "../../../../convex/_generated/dataModel";
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+import { useNotification } from "@/hooks/use-notification";
+import { useOrganizationCurrency } from "@/hooks/use-organization-currency";
+import { useFormatCurrency } from "@/hooks/use-format-currency";
+import { EmailSendModal, type EmailSendConfig, type EmailSendResult } from "@/components/email-send-modal";
 import { TemplatesTab } from "./templates-tab";
 import { TransactionsSection } from "../payments-window/transactions-section";
 import { CreateInvoiceTab } from "./create-invoice-tab";
@@ -62,13 +66,11 @@ export function InvoicingWindow() {
   const draftInvoices = invoices?.filter(inv => inv.customProperties?.isDraft === true) || [];
   const sealedInvoices = invoices?.filter(inv => inv.customProperties?.isDraft !== true) || []; // Catches false and undefined
 
-  // Format helpers
-  const formatCurrency = (cents: number, currency: string = "EUR") => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: currency.toUpperCase(),
-    }).format(cents / 100);
-  };
+  // Get organization currency settings (SINGLE SOURCE OF TRUTH)
+  const { currency: orgCurrency } = useOrganizationCurrency();
+
+  // Currency formatting hook
+  const { formatCurrency } = useFormatCurrency({ currency: orgCurrency });
 
   const formatDate = (timestamp: number) => {
     return new Intl.DateTimeFormat("en-US", {
@@ -402,24 +404,29 @@ interface InvoiceDetailModalProps {
 }
 
 function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDetailModalProps) {
-  const { sessionId } = useAuth();
+  const { sessionId, user } = useAuth();
+  const notification = useNotification();
   const sealInvoiceMutation = useMutation(api.invoicingOntology.sealInvoice);
   const generatePDFAction = useAction(api.pdfGeneration.generateInvoicePDF);
-  const regeneratePDFAction = useAction(api.invoiceRegeneration.regenerateInvoicePDF);
   const processRefundAction = useAction(api.stripeRefunds.processStripeRefund);
+
+  // Email sending actions
+  const previewInvoiceEmail = useAction(api.invoiceEmailService.previewInvoiceEmail);
+  const sendInvoiceEmail = useAction(api.invoiceEmailService.sendInvoiceEmail);
 
   const [isSealing, setIsSealing] = React.useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = React.useState(false);
-  const [isRegeneratingPDF, setIsRegeneratingPDF] = React.useState(false);
   const [isRefunding, setIsRefunding] = React.useState(false);
   const [pdfError, setPdfError] = React.useState<string | null>(null);
   const [pdfSuccess, setPdfSuccess] = React.useState(false);
   const [refundError, setRefundError] = React.useState<string | null>(null);
   const [refundSuccess, setRefundSuccess] = React.useState(false);
-  const [regeneratedPdfUrl, setRegeneratedPdfUrl] = React.useState<string | null>(null);
+
+  // Email modal state
+  const [showEmailModal, setShowEmailModal] = React.useState(false);
 
   const props = invoice.customProperties || {};
-  const billTo = props.billTo as { name?: string; billingEmail?: string; vatNumber?: string; billingAddress?: { city?: string; country?: string } } | undefined;
+  const billTo = props.billTo as { name?: string; email?: string; billingEmail?: string; vatNumber?: string; billingAddress?: { city?: string; country?: string } } | undefined;
   const lineItems = (props.lineItems as Array<{ description?: string; totalPriceInCents?: number }>) || [];
   const subtotal = (props.subtotalInCents as number) || 0;
   const tax = (props.taxInCents as number) || 0;
@@ -432,12 +439,9 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
   const isDraft = props.isDraft === true;
   const checkoutSessionId = props.checkoutSessionId as Id<"objects"> | undefined;
 
-  // Use regenerated PDF URL if available, otherwise use original
-  const currentPdfUrl = regeneratedPdfUrl || pdfUrl;
-
   const handleDownloadPDF = () => {
-    if (currentPdfUrl) {
-      window.open(currentPdfUrl, "_blank");
+    if (pdfUrl) {
+      window.open(pdfUrl, "_blank");
     } else {
       alert(t("ui.invoicing_window.alerts.no_pdf"));
     }
@@ -503,41 +507,6 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
     }
   };
 
-  const handleRegeneratePDF = async () => {
-    if (!sessionId) return;
-
-    const confirmed = window.confirm(
-      "Regenerate invoice PDF with current data?\n\nThis will create a new PDF using the invoice's current values."
-    );
-
-    if (!confirmed) return;
-
-    setIsRegeneratingPDF(true);
-    setPdfError(null);
-
-    try {
-      const result = await regeneratePDFAction({
-        sessionId,
-        invoiceId: invoice._id,
-      });
-
-      if (result.success) {
-        setPdfSuccess(true);
-        // Update the PDF URL so the download button works with the new PDF
-        if (result.pdfUrl) {
-          setRegeneratedPdfUrl(result.pdfUrl);
-        }
-        // Don't auto-close - let user download the PDF first
-        // They can manually close the modal when done
-      }
-    } catch (error) {
-      console.error("PDF regeneration error:", error);
-      setPdfError(error instanceof Error ? error.message : "Failed to regenerate PDF");
-    } finally {
-      setIsRegeneratingPDF(false);
-    }
-  };
-
   const handleRefund = async () => {
     if (!sessionId) return;
 
@@ -588,6 +557,97 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
     return invoice.status === "paid" && !isDraft;
   };
 
+  // Email handlers
+  const handleEmailPreview = async (config: EmailSendConfig) => {
+    if (!sessionId) throw new Error("No session");
+
+    return await previewInvoiceEmail({
+      sessionId,
+      invoiceId: invoice._id,
+      domainConfigId: config.domainConfigId,
+      emailTemplateId: config.emailTemplateId,
+      pdfTemplateId: config.pdfTemplateId,
+      language: config.language,
+    });
+  };
+
+  const handlePdfPreview = async (config: EmailSendConfig) => {
+    // Check if invoice already has a PDF URL
+    const invoiceProps = invoice.customProperties as any;
+    const existingPdfUrl = invoiceProps?.pdfUrl;
+
+    if (existingPdfUrl) {
+      // Return existing PDF
+      return { pdfUrl: existingPdfUrl };
+    }
+
+    // No existing PDF - return null (PDF will be auto-generated when sending)
+    // User will see "PDF will be generated when email is sent" message
+    return null;
+  };
+
+  const handleSendTestEmail = async (config: EmailSendConfig & { testEmail: string }) => {
+    if (!sessionId) throw new Error("No session");
+
+    const result = await sendInvoiceEmail({
+      sessionId,
+      invoiceId: invoice._id,
+      recipientEmail: config.testEmail,
+      domainConfigId: config.domainConfigId,
+      emailTemplateId: config.emailTemplateId,
+      pdfTemplateId: config.pdfTemplateId,
+      language: config.language,
+      includePdfAttachment: config.includePdfAttachment,
+      isTest: true,
+      testRecipient: config.testEmail,
+    });
+
+    return {
+      success: result.success,
+      message: result.success
+        ? `Test email sent successfully to ${config.testEmail}`
+        : "Failed to send test email",
+      messageId: result.messageId,
+      attachments: {
+        pdf: result.attachments.pdf,
+        ics: false, // Invoices don't have ICS attachments
+      },
+    };
+  };
+
+  const handleSendRealEmail = async (config: EmailSendConfig) => {
+    if (!sessionId) throw new Error("No session");
+
+    const recipientEmail = billTo?.email || billTo?.billingEmail || props.recipientEmail as string;
+    if (!recipientEmail) {
+      throw new Error("No recipient email address found");
+    }
+
+    const result = await sendInvoiceEmail({
+      sessionId,
+      invoiceId: invoice._id,
+      recipientEmail,
+      domainConfigId: config.domainConfigId,
+      emailTemplateId: config.emailTemplateId,
+      pdfTemplateId: config.pdfTemplateId,
+      language: config.language,
+      includePdfAttachment: config.includePdfAttachment,
+      isTest: false,
+    });
+
+    return {
+      success: result.success,
+      message: result.success
+        ? `Invoice sent successfully to ${recipientEmail}`
+        : "Failed to send invoice email",
+      messageId: result.messageId,
+      attachments: {
+        pdf: result.attachments.pdf,
+        ics: false, // Invoices don't have ICS attachments
+      },
+    };
+  };
+
   return (
     <div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
@@ -635,7 +695,7 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
         )}
         {pdfSuccess && (
           <div className="mx-4 mt-4 border-2 border-green-500 bg-green-50 p-3">
-            <p className="text-xs font-bold text-green-700">✓ Invoice PDF regenerated successfully!</p>
+            <p className="text-xs font-bold text-green-700">✓ Invoice PDF generated successfully!</p>
           </div>
         )}
         {refundError && (
@@ -688,7 +748,7 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
             <div className="text-xs space-y-1" style={{ color: "var(--neutral-gray)" }}>
               <p className="font-semibold">{billTo?.name || "Unknown"}</p>
               {billTo?.vatNumber && <p>VAT: {billTo.vatNumber}</p>}
-              {billTo?.billingEmail && <p>{billTo.billingEmail}</p>}
+              {(billTo?.email || billTo?.billingEmail) && <p>{billTo.email || billTo.billingEmail}</p>}
               {billTo?.billingAddress && (
                 <p>
                   {billTo.billingAddress.city}, {billTo.billingAddress.country}
@@ -765,33 +825,8 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
             )}
           </div>
 
-          {/* Right side - Regenerate PDF, Refund, Download, Email, Close */}
+          {/* Right side - Refund, Download, Email, Close */}
           <div className="flex items-center gap-2">
-            {!isDraft && (
-              <button
-                className="px-4 py-2 text-xs rounded hover:opacity-90 transition-opacity flex items-center gap-2 disabled:opacity-50"
-                style={{
-                  background: "var(--primary)",
-                  color: "white",
-                  border: "2px solid var(--win95-border)",
-                }}
-                onClick={handleRegeneratePDF}
-                disabled={isRegeneratingPDF}
-                title="Regenerate invoice PDF with current data"
-              >
-                {isRegeneratingPDF ? (
-                  <>
-                    <Loader2 className="animate-spin" size={14} />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <FileText size={14} />
-                    Regenerate PDF
-                  </>
-                )}
-              </button>
-            )}
             {canRefund() && !refundSuccess && (
               <button
                 className="px-4 py-2 text-xs rounded hover:opacity-90 transition-opacity flex items-center gap-2 disabled:opacity-50"
@@ -825,21 +860,22 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
                 border: "2px solid var(--win95-border)",
               }}
               onClick={handleDownloadPDF}
-              disabled={!currentPdfUrl || isDraft}
-              title={isDraft ? t("ui.invoicing_window.alerts.seal_first") : currentPdfUrl ? t("ui.invoicing_window.buttons.download_pdf") : t("ui.invoicing_window.alerts.no_pdf")}
+              disabled={!pdfUrl || isDraft}
+              title={isDraft ? t("ui.invoicing_window.alerts.seal_first") : pdfUrl ? t("ui.invoicing_window.buttons.download_pdf") : t("ui.invoicing_window.alerts.no_pdf")}
             >
               <Download size={14} />
               {t("ui.invoicing_window.buttons.download_pdf")}
             </button>
             <button
-              className="px-4 py-2 text-xs rounded hover:opacity-90 transition-opacity flex items-center gap-2 opacity-50 cursor-not-allowed"
+              className="px-4 py-2 text-xs rounded hover:opacity-90 transition-opacity flex items-center gap-2"
               style={{
                 background: "var(--win95-bg-light)",
                 color: "var(--win95-text)",
                 border: "2px solid var(--win95-border)",
               }}
-              disabled
-              title={t("ui.invoicing_window.alerts.coming_soon")}
+              onClick={() => setShowEmailModal(true)}
+              disabled={isDraft || !(billTo?.email || billTo?.billingEmail)}
+              title={isDraft ? "Seal invoice first" : !(billTo?.email || billTo?.billingEmail) ? "No email address" : "Send invoice via email"}
             >
               <Mail size={14} />
               {t("ui.invoicing_window.buttons.send_email")}
@@ -858,6 +894,40 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
           </div>
         </div>
       </div>
+
+      {/* Email Send Modal */}
+      {showEmailModal && (billTo?.email || billTo?.billingEmail) && user?.defaultOrgId && (
+        <EmailSendModal
+          documentType="invoice"
+          documentId={invoice._id}
+          recipientEmail={billTo.email || billTo.billingEmail || ""}
+          recipientName={billTo.name || "Customer"}
+          organizationId={user.defaultOrgId as Id<"organizations">}
+          emailTemplateCategory="all"
+          pdfTemplateCategory="all"
+          allowPdfAttachment={true}
+          allowIcsAttachment={false}
+          defaultLanguage="de"
+          onPreview={handleEmailPreview}
+          onPreviewPdf={handlePdfPreview}
+          onSendTest={handleSendTestEmail}
+          onSendReal={handleSendRealEmail}
+          onClose={() => setShowEmailModal(false)}
+          onSuccess={(result) => {
+            notification.success(
+              "Invoice Email Sent",
+              result.message
+            );
+            setShowEmailModal(false);
+          }}
+          translations={{
+            title: "Send Invoice Email",
+            pdfTemplateLabel: "📄 PDF Invoice Template",
+            pdfAttachmentLabel: "Include PDF Invoice",
+            confirmSend: `Send invoice to ${billTo.email || billTo.billingEmail}?`,
+          }}
+        />
+      )}
     </div>
   );
 }
