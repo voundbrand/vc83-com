@@ -104,6 +104,184 @@ export const seed = internalMutation({
         }
       },
 
+      // === BILLING MODE ===
+      {
+        key: "ui.manage.ai.billing_mode",
+        values: {
+          en: "Billing Mode",
+          de: "Abrechnungsmodus",
+          pl: "Tryb rozliczeń",
+          es: "Modo de facturación",
+          fr: "Mode de facturation",
+          ja: "請求モード",
+        }
+      },
+      {
+        key: "ui.manage.ai.billing_platform",
+        values: {
+          en: "Use Platform API Key (Recommended)",
+          de: "Plattform-API-Schlüssel verwenden (Empfohlen)",
+          pl: "Użyj klucza API platformy (Zalecane)",
+          es: "Usar clave API de la plataforma (Recomendado)",
+          fr: "Utiliser la clé API de la plateforme (Recommandé)",
+          ja: "プラットフォームAPIキーを使用（推奨）",
+        }
+      },
+      {
+        key: "ui.manage.ai.billing_platform_benefit1",
+        values: {
+          en: "Included in your subscription",
+          de: "In Ihrem Abonnement enthalten",
+          pl: "Wliczone w abonament",
+          es: "Incluido en su suscripción",
+          fr: "Inclus dans votre abonnement",
+          ja: "サブスクリプションに含まれる",
+        }
+      },
+      {
+        key: "ui.manage.ai.billing_platform_benefit2",
+        values: {
+          en: "Automatic budget controls",
+          de: "Automatische Budgetkontrolle",
+          pl: "Automatyczna kontrola budżetu",
+          es: "Controles de presupuesto automáticos",
+          fr: "Contrôles budgétaires automatiques",
+          ja: "自動予算管理",
+        }
+      },
+      {
+        key: "ui.manage.ai.billing_platform_benefit3",
+        values: {
+          en: "No additional setup required",
+          de: "Keine zusätzliche Einrichtung erforderlich",
+          pl: "Nie wymaga dodatkowej konfiguracji",
+          es: "No requiere configuración adicional",
+          fr: "Aucune configuration supplémentaire requise",
+          ja: "追加設定不要",
+        }
+      },
+      {
+        key: "ui.manage.ai.billing_byok",
+        values: {
+          en: "Bring Your Own OpenRouter Key",
+          de: "Eigenen OpenRouter-Schlüssel verwenden",
+          pl: "Użyj własnego klucza OpenRouter",
+          es: "Traiga su propia clave de OpenRouter",
+          fr: "Apportez votre propre clé OpenRouter",
+          ja: "独自のOpenRouterキーを使用",
+        }
+      },
+      {
+        key: "ui.manage.ai.billing_byok_benefit1",
+        values: {
+          en: "Direct billing from OpenRouter",
+          de: "Direkte Abrechnung von OpenRouter",
+          pl: "Bezpośrednie rozliczenia z OpenRouter",
+          es: "Facturación directa de OpenRouter",
+          fr: "Facturation directe d'OpenRouter",
+          ja: "OpenRouterから直接請求",
+        }
+      },
+      {
+        key: "ui.manage.ai.billing_byok_benefit2",
+        values: {
+          en: "Full cost transparency",
+          de: "Volle Kostentransparenz",
+          pl: "Pełna przejrzystość kosztów",
+          es: "Transparencia total de costos",
+          fr: "Transparence totale des coûts",
+          ja: "完全なコスト透明性",
+        }
+      },
+      {
+        key: "ui.manage.ai.billing_byok_benefit3",
+        values: {
+          en: "Enterprise control",
+          de: "Unternehmenskontrolle",
+          pl: "Kontrola korporacyjna",
+          es: "Control empresarial",
+          fr: "Contrôle d'entreprise",
+          ja: "エンタープライズ管理",
+        }
+      },
+      {
+        key: "ui.manage.ai.billing_byok_note",
+        values: {
+          en: "You will be charged directly by OpenRouter. Budget tracking is informational only.",
+          de: "Sie werden direkt von OpenRouter abgerechnet. Budget-Tracking ist nur informativ.",
+          pl: "Zostaniesz obciążony bezpośrednio przez OpenRouter. Śledzenie budżetu jest tylko informacyjne.",
+          es: "Se le facturará directamente por OpenRouter. El seguimiento del presupuesto es solo informativo.",
+          fr: "Vous serez facturé directement par OpenRouter. Le suivi budgétaire est informatif uniquement.",
+          ja: "OpenRouterから直接請求されます。予算追跡は情報提供のみです。",
+        }
+      },
+      {
+        key: "ui.manage.ai.billing_byok_signup",
+        values: {
+          en: "Don't have an OpenRouter account?",
+          de: "Kein OpenRouter-Konto?",
+          pl: "Nie masz konta OpenRouter?",
+          es: "¿No tiene una cuenta de OpenRouter?",
+          fr: "Vous n'avez pas de compte OpenRouter?",
+          ja: "OpenRouterアカウントをお持ちでない場合",
+        }
+      },
+      {
+        key: "ui.manage.ai.billing_byok_signup_link",
+        values: {
+          en: "Sign up here",
+          de: "Hier anmelden",
+          pl: "Zarejestruj się tutaj",
+          es: "Regístrese aquí",
+          fr: "Inscrivez-vous ici",
+          ja: "こちらから登録",
+        }
+      },
+      {
+        key: "ui.manage.ai.api_key_required",
+        values: {
+          en: "OpenRouter API Key (Required)",
+          de: "OpenRouter-API-Schlüssel (Erforderlich)",
+          pl: "Klucz API OpenRouter (Wymagany)",
+          es: "Clave API de OpenRouter (Requerida)",
+          fr: "Clé API OpenRouter (Requis)",
+          ja: "OpenRouter APIキー（必須）",
+        }
+      },
+      {
+        key: "ui.manage.ai.api_key_get_yours",
+        values: {
+          en: "Get your API key at",
+          de: "Holen Sie sich Ihren API-Schlüssel bei",
+          pl: "Uzyskaj klucz API na",
+          es: "Obtenga su clave API en",
+          fr: "Obtenez votre clé API sur",
+          ja: "APIキーを取得:",
+        }
+      },
+      {
+        key: "ui.manage.ai.budget_platform_note",
+        values: {
+          en: "These controls apply to platform API key usage. Requests will be blocked when budget is reached.",
+          de: "Diese Kontrollen gelten für die Nutzung des Plattform-API-Schlüssels. Anfragen werden blockiert, wenn das Budget erreicht ist.",
+          pl: "Te kontrole dotyczą użycia klucza API platformy. Żądania zostaną zablokowane po osiągnięciu budżetu.",
+          es: "Estos controles se aplican al uso de la clave API de la plataforma. Las solicitudes se bloquearán cuando se alcance el presupuesto.",
+          fr: "Ces contrôles s'appliquent à l'utilisation de la clé API de la plateforme. Les demandes seront bloquées lorsque le budget sera atteint.",
+          ja: "これらのコントロールはプラットフォームAPIキーの使用に適用されます。予算に達するとリクエストがブロックされます。",
+        }
+      },
+      {
+        key: "ui.manage.ai.budget_byok_note",
+        values: {
+          en: "Budget tracking is informational only when using your own API key. You will be charged directly by OpenRouter.",
+          de: "Budget-Tracking ist nur informativ, wenn Sie Ihren eigenen API-Schlüssel verwenden. Sie werden direkt von OpenRouter abgerechnet.",
+          pl: "Śledzenie budżetu jest tylko informacyjne przy użyciu własnego klucza API. Zostaniesz obciążony bezpośrednio przez OpenRouter.",
+          es: "El seguimiento del presupuesto es solo informativo cuando usa su propia clave API. Se le facturará directamente por OpenRouter.",
+          fr: "Le suivi budgétaire est informatif uniquement lors de l'utilisation de votre propre clé API. Vous serez facturé directement par OpenRouter.",
+          ja: "独自のAPIキーを使用する場合、予算追跡は情報提供のみです。OpenRouterから直接請求されます。",
+        }
+      },
+
       // === LLM SECTION ===
       {
         key: "ui.manage.ai.llm_title",
