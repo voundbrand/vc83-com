@@ -85,15 +85,51 @@ export async function resolveEmailTemplate(
 /**
  * Get Default Template for Category
  *
- * Finds the system default template for a given email category.
- * Useful for fallback when no template is configured.
+ * Finds the default template for a given email category.
+ * Priority order:
+ * 1. Custom template in user's organization (if organizationId provided)
+ * 2. System template (fallback)
+ *
  * Works with Query and Mutation contexts only.
  */
 export async function getDefaultEmailTemplateForCategory(
   ctx: QueryCtx | MutationCtx,
-  category: "luxury" | "minimal" | "internal"
+  category: "luxury" | "minimal" | "internal" | "transactional" | "marketing" | "event" | "support" | "newsletter",
+  organizationId?: Id<"organizations">
 ): Promise<Id<"objects"> | null> {
-  // First try to find system organization
+  // Step 1: If organizationId provided, check for custom templates first
+  if (organizationId) {
+    const customTemplates = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", organizationId).eq("type", "template")
+      )
+      .filter((q) => q.eq(q.field("subtype"), "email"))
+      .filter((q) => q.eq(q.field("status"), "published"))
+      .collect();
+
+    // Find custom template with matching category and isDefault=true
+    const customDefault = customTemplates.find((t) => {
+      const props = t.customProperties || {};
+      return props.category === category && props.isDefault === true;
+    });
+
+    if (customDefault) {
+      return customDefault._id;
+    }
+
+    // If no default set, check for any published custom template in category
+    const customMatch = customTemplates.find((t) => {
+      const props = t.customProperties || {};
+      return props.category === category;
+    });
+
+    if (customMatch) {
+      return customMatch._id;
+    }
+  }
+
+  // Step 2: Fallback to system organization templates
   const systemOrg = await ctx.db
     .query("organizations")
     .withIndex("by_slug", (q) => q.eq("slug", "system"))
@@ -105,7 +141,7 @@ export async function getDefaultEmailTemplateForCategory(
   }
 
   // Look for default template in system org
-  const templates = await ctx.db
+  const systemTemplates = await ctx.db
     .query("objects")
     .withIndex("by_org_type", (q) =>
       q.eq("organizationId", systemOrg._id).eq("type", "template")
@@ -115,22 +151,22 @@ export async function getDefaultEmailTemplateForCategory(
     .collect();
 
   // Find matching category and default flag
-  const defaultTemplate = templates.find((t) => {
+  const systemDefault = systemTemplates.find((t) => {
     const props = t.customProperties || {};
     return props.category === category && props.isDefault === true;
   });
 
-  if (defaultTemplate) {
-    return defaultTemplate._id;
+  if (systemDefault) {
+    return systemDefault._id;
   }
 
-  // Fallback: return first matching category
-  const firstMatch = templates.find((t) => {
+  // Final fallback: return first matching category from system
+  const systemMatch = systemTemplates.find((t) => {
     const props = t.customProperties || {};
     return props.category === category;
   });
 
-  return firstMatch?._id || null;
+  return systemMatch?._id || null;
 }
 
 /**
@@ -142,7 +178,8 @@ export async function getDefaultEmailTemplateForCategory(
 export async function resolveEmailTemplateWithFallback(
   ctx: QueryCtx | MutationCtx,
   templateId: Id<"objects"> | undefined,
-  category: "luxury" | "minimal" | "internal"
+  category: "luxury" | "minimal" | "internal" | "transactional" | "marketing" | "event" | "support" | "newsletter",
+  organizationId?: Id<"organizations">
 ): Promise<ResolvedEmailTemplate> {
   // Try provided template ID first
   if (templateId) {
@@ -153,8 +190,8 @@ export async function resolveEmailTemplateWithFallback(
     }
   }
 
-  // Fall back to default template for category
-  const defaultTemplateId = await getDefaultEmailTemplateForCategory(ctx, category);
+  // Fall back to default template for category (custom org first, then system)
+  const defaultTemplateId = await getDefaultEmailTemplateForCategory(ctx, category, organizationId);
 
   if (!defaultTemplateId) {
     throw new Error(`No default email template found for category: ${category}`);

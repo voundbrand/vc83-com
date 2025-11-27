@@ -638,6 +638,13 @@ export const sendOrderConfirmationEmail = internalAction({
 
       console.log("📧 [Email Template Resolution] Resolved template ID:", emailTemplateId);
 
+      if (!emailTemplateId) {
+        throw new Error(
+          "No email template found in resolved template set. " +
+          "Please ensure your template set includes an email template."
+        );
+      }
+
       // Get template details (templateCode, etc.)
       const emailTemplate = await ctx.runQuery(internal.pdfTemplateQueries.resolveEmailTemplateInternal, {
         templateId: emailTemplateId,
@@ -678,12 +685,22 @@ export const sendOrderConfirmationEmail = internalAction({
         attachmentCount: attachments.length,
       });
 
-      // 7. Send email using Resend with ALL PDFs attached
-      const { Resend } = await import("resend");
-      const resend = new Resend(process.env.RESEND_API_KEY);
+      // 7. Get domain configuration for email sending
+      const domainConfigId = session.customProperties?.domainConfigId as Id<"objects"> | undefined;
 
-      const result = await resend.emails.send({
-        from: "L4YERCAK3 <tickets@mail.l4yercak3.com>",
+      if (!domainConfigId) {
+        console.error("❌ [sendOrderConfirmationEmail] No domain config ID found in session");
+        throw new Error("No domain configuration found for email sending");
+      }
+
+      // 8. Send email using emailDelivery service (respects domain configuration)
+      const result: {
+        success: boolean;
+        messageId?: string;
+        error?: string;
+        attempts: number;
+      } = await ctx.runAction(internal.emailDelivery.sendEmail, {
+        domainConfigId,
         to: args.recipientEmail,
         subject: emailSubject,
         html: emailHtml,
@@ -691,7 +708,35 @@ export const sendOrderConfirmationEmail = internalAction({
       });
 
       console.log("✓ Order confirmation email sent:", result);
-      return { success: true, emailId: result.data?.id || "unknown" };
+
+      // 9. Log communication for debugging/compliance
+      const crmContactId = session.customProperties?.crmContactId as Id<"objects"> | undefined;
+      const crmOrganizationId = session.customProperties?.crmOrganizationId as Id<"objects"> | undefined;
+
+      await ctx.runMutation(internal.communicationTracking.logEmailCommunication, {
+        organizationId: session.organizationId,
+        recipientEmail: args.recipientEmail,
+        subject: emailSubject,
+        emailType: "order_confirmation",
+        success: result.success,
+        messageId: result.messageId,
+        crmContactId,
+        crmOrganizationId,
+        errorMessage: result.error,
+        metadata: {
+          checkoutSessionId: args.checkoutSessionId,
+          ticketCount: allTickets.length,
+          includeInvoicePDF: args.includeInvoicePDF,
+          attempts: result.attempts,
+        },
+      });
+
+      return {
+        success: result.success,
+        emailId: result.messageId || "unknown",
+        attempts: result.attempts,
+        error: result.error
+      };
     } catch (error) {
       console.error("Failed to send order confirmation email:", error);
       throw new Error("Failed to send order confirmation email");

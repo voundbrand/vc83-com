@@ -357,11 +357,30 @@ export const sendSalesNotificationEmail = internalAction({
 
     // 8. Send email
     try {
+      const emailSubject = `🎉 New Order: ${customerName} - ${formatCurrency(totalAmount)}`;
+
       const result = await ctx.runAction(internal.emailDelivery.sendEmail, {
         domainConfigId: domainConfig._id,
         to: args.recipientEmail,
-        subject: `🎉 New Order: ${customerName} - ${formatCurrency(totalAmount)}`,
+        subject: emailSubject,
         html: emailHtml,
+      });
+
+      // 9. Log communication for debugging/compliance
+      await ctx.runMutation(internal.communicationTracking.logEmailCommunication, {
+        organizationId,
+        recipientEmail: args.recipientEmail,
+        subject: emailSubject,
+        emailType: "sales_notification",
+        success: result.success,
+        messageId: result.messageId,
+        errorMessage: result.error,
+        metadata: {
+          checkoutSessionId: args.checkoutSessionId,
+          totalAmount,
+          currency,
+          customerName,
+        },
       });
 
       console.log("✅ [sendSalesNotificationEmail] Sales notification sent successfully");
