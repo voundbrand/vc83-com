@@ -825,7 +825,7 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
             )}
           </div>
 
-          {/* Right side - Refund, Download, Email, Close */}
+          {/* Right side - Refund, Regenerate PDF, Download, Email, Close */}
           <div className="flex items-center gap-2">
             {canRefund() && !refundSuccess && (
               <button
@@ -848,6 +848,31 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
                   <>
                     <RefreshCw size={14} />
                     Issue Refund
+                  </>
+                )}
+              </button>
+            )}
+            {!isDraft && checkoutSessionId && (
+              <button
+                className="px-4 py-2 text-xs rounded hover:opacity-90 transition-opacity flex items-center gap-2 disabled:opacity-50"
+                style={{
+                  background: "var(--win95-highlight)",
+                  color: "var(--win95-titlebar-text)",
+                  border: "2px solid var(--win95-border)",
+                }}
+                onClick={handleGeneratePDF}
+                disabled={isGeneratingPDF}
+                title="Regenerate invoice PDF from current data"
+              >
+                {isGeneratingPDF ? (
+                  <>
+                    <Loader2 className="animate-spin" size={14} />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw size={14} />
+                    Regenerate PDF
                   </>
                 )}
               </button>
