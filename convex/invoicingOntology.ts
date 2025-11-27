@@ -620,6 +620,46 @@ export const markInvoiceAsSent = mutation({
 });
 
 /**
+ * Update invoice PDF URL after regeneration
+ *
+ * @permission manage_financials - Required to update invoices
+ * @roles org_owner, business_manager, super_admin
+ */
+export const updateInvoicePdfUrlPublic = mutation({
+  args: {
+    sessionId: v.string(),
+    invoiceId: v.id("objects"),
+    pdfUrl: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Authenticate user
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const invoice = await ctx.db.get(args.invoiceId);
+
+    if (!invoice || invoice.type !== "invoice") {
+      throw new Error("Rechnung nicht gefunden");
+    }
+
+    // Check permission
+    const hasPermission = await checkPermission(ctx, userId, "manage_financials", invoice.organizationId);
+    if (!hasPermission) {
+      throw new Error("Nicht autorisiert: Keine Berechtigung zum Aktualisieren von Rechnungen");
+    }
+
+    await ctx.db.patch(args.invoiceId, {
+      customProperties: {
+        ...invoice.customProperties,
+        pdfUrl: args.pdfUrl,
+      },
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
  * Mark invoice as paid (updates status and records payment date)
  *
  * @permission manage_financials - Required to manage invoice payment status

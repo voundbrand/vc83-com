@@ -31,6 +31,7 @@ type PDFAttachment = {
   filename: string;
   content: string; // base64
   contentType: string;
+  downloadUrl?: string; // Permanent URL from API Template.io (optional)
 };
 
 /**
@@ -971,6 +972,7 @@ export const generateInvoicePDF = action({
         filename: `invoice-${session._id.substring(0, 12)}.pdf`,
         content: pdfBase64,
         contentType: "application/pdf",
+        downloadUrl: result.download_url || undefined, // Include the permanent URL from API Template.io
       };
 
     } catch (error) {

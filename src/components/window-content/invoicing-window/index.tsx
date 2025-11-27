@@ -407,6 +407,7 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
   const { sessionId, user } = useAuth();
   const notification = useNotification();
   const sealInvoiceMutation = useMutation(api.invoicingOntology.sealInvoice);
+  const updatePdfUrlMutation = useMutation(api.invoicingOntology.updateInvoicePdfUrlPublic);
   const generatePDFAction = useAction(api.pdfGeneration.generateInvoicePDF);
   const processRefundAction = useAction(api.stripeRefunds.processStripeRefund);
 
@@ -448,7 +449,7 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
   };
 
   const handleGeneratePDF = async () => {
-    if (!checkoutSessionId) return;
+    if (!checkoutSessionId || !sessionId) return;
 
     setIsGeneratingPDF(true);
     try {
@@ -457,7 +458,6 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
       });
 
       if (pdfAttachment && pdfAttachment.content) {
-        alert("PDF generated successfully!");
         // Convert base64 to blob and open in new tab
         const byteCharacters = atob(pdfAttachment.content);
         const byteNumbers = new Array(byteCharacters.length);
@@ -466,8 +466,20 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
         }
         const byteArray = new Uint8Array(byteNumbers);
         const blob = new Blob([byteArray], { type: 'application/pdf' });
-        const url = URL.createObjectURL(blob);
-        window.open(url, "_blank");
+        const blobUrl = URL.createObjectURL(blob);
+        window.open(blobUrl, "_blank");
+
+        // Save the permanent PDF URL to the invoice if available
+        if (pdfAttachment.downloadUrl) {
+          await updatePdfUrlMutation({
+            sessionId,
+            invoiceId: invoice._id,
+            pdfUrl: pdfAttachment.downloadUrl,
+          });
+          console.log("✅ PDF URL saved to invoice:", pdfAttachment.downloadUrl);
+        }
+
+        alert("PDF generated successfully! You can now download it using the Download PDF button.");
         // Close modal to refresh the list
         onClose();
       } else {
