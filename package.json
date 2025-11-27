@@ -47,6 +47,7 @@
     "lucide-react": "^0.544.0",
     "next": "15.5.4",
     "next-intl": "^4.3.11",
+    "openai": "^6.9.1",
     "posthog-js": "^1.285.1",
     "posthog-node": "^5.11.0",
     "qrcode": "^1.5.4",
@@ -56,7 +57,7 @@
     "react-draggable": "^4.5.0",
     "react-dropzone": "^14.3.8",
     "resend": "^6.1.2",
-    "stripe": "^19.1.0",
+    "stripe": "^19.3.1",
     "tailwind-merge": "^3.3.1",
     "zustand": "^5.0.8"
   },
