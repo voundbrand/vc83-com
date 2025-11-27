@@ -6,11 +6,12 @@ import { UserManagementTable } from "./user-management-table";
 import { RolesPermissionsTab } from "./roles-permissions-tab";
 import { DomainConfigTab } from "./domain-config-tab";
 import { SecurityTab } from "./security-tab";
+import { AISettingsTab } from "./ai-settings-tab";
 import { OrganizationSection } from "./components/organization-section";
 import { AddressCard } from "./components/address-card";
 import { AddressModal } from "./components/address-modal";
 import { OrganizationDetailsForm, OrganizationDetailsFormRef } from "./organization-details-form";
-import { Users, Building2, AlertCircle, Loader2, Shield, Save, Crown, Edit2, X, MapPin, Plus, Key, Globe } from "lucide-react";
+import { Users, Building2, AlertCircle, Loader2, Shield, Save, Crown, Edit2, X, MapPin, Plus, Key, Globe, Brain } from "lucide-react";
 import { useState, useRef } from "react";
 import {
   useAuth,
@@ -22,7 +23,7 @@ import { Id, Doc } from "../../../../convex/_generated/dataModel";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { IntegrationsTab } from "../settings-window/integrations-tab";
 
-type TabType = "organization" | "users" | "integrations" | "roles" | "domains" | "security";
+type TabType = "organization" | "users" | "ai" | "integrations" | "roles" | "domains" | "security";
 
 export function ManageWindow() {
   const { t } = useNamespaceTranslations("ui.manage");
@@ -266,6 +267,18 @@ export function ManageWindow() {
         >
           <Users size={14} />
           {t("ui.manage.tab.users_invites")}
+        </button>
+        <button
+          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
+          style={{
+            borderColor: 'var(--win95-border)',
+            background: activeTab === "ai" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+            color: activeTab === "ai" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+          }}
+          onClick={() => setActiveTab("ai")}
+        >
+          <Brain size={14} />
+          {t("ui.manage.tab.ai")}
         </button>
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
@@ -663,6 +676,10 @@ export function ManageWindow() {
               organizationId={organizationId as Id<"organizations">}
             />
           </div>
+        )}
+
+        {activeTab === "ai" && (
+          <AISettingsTab />
         )}
 
         {activeTab === "integrations" && (

@@ -250,6 +250,22 @@ export const createPublicCheckoutSession = mutation({
     // Get organization currency from locale settings
     const currency = await getOrganizationCurrency(ctx, args.organizationId);
 
+    // Get default domain config for the organization (for email sending)
+    const domainConfigs = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "configuration")
+      )
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("subtype"), "domain"),
+          q.eq(q.field("status"), "active")
+        )
+      )
+      .take(1);
+
+    const domainConfigId = domainConfigs[0]?._id;
+
     // Create session object (use system user for createdBy)
     const checkoutSessionId = await ctx.db.insert("objects", {
       organizationId: args.organizationId,
@@ -259,6 +275,7 @@ export const createPublicCheckoutSession = mutation({
       status: "active",
       customProperties: {
         checkoutInstanceId: args.checkoutInstanceId,
+        domainConfigId, // Store domain config for email sending
         customerEmail: args.customerEmail,
         selectedProducts: [],
         subtotal: 0,
