@@ -57,6 +57,8 @@ export const executeCalculatePricing = action({
       quantity: number;
       pricePerUnit: number;
       total: number;
+      taxRate: number; // Add taxRate to product details
+      taxAmount: number; // Add taxAmount to product details
     }> = [];
 
     let subtotal = 0;
@@ -72,6 +74,8 @@ export const executeCalculatePricing = action({
 
         if (addonFromBreakdown) {
           const total = addonFromBreakdown.total || addonFromBreakdown.pricePerUnit * productItem.quantity;
+          const taxRate = addonFromBreakdown.taxRate || 19;
+          const taxAmount = Math.round((total * taxRate) / 100);
 
           productDetails.push({
             productId: productItem.productId,
@@ -79,6 +83,8 @@ export const executeCalculatePricing = action({
             quantity: productItem.quantity,
             pricePerUnit: addonFromBreakdown.pricePerUnit,
             total,
+            taxRate,
+            taxAmount,
           });
 
           subtotal += total;
@@ -110,15 +116,19 @@ export const executeCalculatePricing = action({
 
       const pricePerUnit = customProps.price || 0;
       const productCurrency = customProps.currency || "EUR";
+      const taxRate = customProps.taxRate !== undefined ? customProps.taxRate : 19; // Get tax rate per product
       const total = pricePerUnit * productItem.quantity;
+      const taxAmount = Math.round((total * taxRate) / 100); // Calculate tax per product
 
-      // Store product details
+      // Store product details with individual tax info
       productDetails.push({
         productId: productItem.productId,
         productName: product.name,
         quantity: productItem.quantity,
         pricePerUnit,
         total,
+        taxRate,
+        taxAmount,
       });
 
       // Add to subtotal
@@ -167,26 +177,60 @@ export const executeCalculatePricing = action({
       }
     }
 
-    // Get tax rate from first product
-    const firstProduct: { customProperties?: { taxRate?: number } } | null = await ctx.runQuery(api.ontologyHelpers.getObject, {
-      objectId: context.products[0].productId as Id<"objects">,
-    });
-    const taxRate: number = (firstProduct?.customProperties as { taxRate?: number })?.taxRate || 19;
+    // Group products and taxes by tax rate
+    const taxGroups = new Map<number, {
+      rate: number;
+      subtotal: number;
+      taxAmount: number;
+      products: typeof productDetails;
+    }>();
 
-    // Calculate totals
+    // Apply discount proportionally across all products
+    const discountRatio = discountAmount / subtotal;
+
+    for (const product of productDetails) {
+      // Apply proportional discount to this product
+      const productDiscount = Math.round(product.total * discountRatio);
+      const productPriceAfterDiscount = product.total - productDiscount;
+
+      // Recalculate tax on discounted price
+      const productTaxAfterDiscount = Math.round((productPriceAfterDiscount * product.taxRate) / 100);
+
+      // Group by tax rate
+      const existing = taxGroups.get(product.taxRate);
+      if (existing) {
+        existing.subtotal += productPriceAfterDiscount;
+        existing.taxAmount += productTaxAfterDiscount;
+        existing.products.push(product);
+      } else {
+        taxGroups.set(product.taxRate, {
+          rate: product.taxRate,
+          subtotal: productPriceAfterDiscount,
+          taxAmount: productTaxAfterDiscount,
+          products: [product],
+        });
+      }
+    }
+
+    // Calculate totals from tax groups
     const priceAfterDiscount = subtotal - discountAmount;
-    const taxAmount = Math.round((priceAfterDiscount * taxRate) / 100);
-    const finalPrice = priceAfterDiscount + taxAmount;
+    const taxGroupsArray = Array.from(taxGroups.values()).sort((a, b) => a.rate - b.rate);
+    const totalTaxAmount = taxGroupsArray.reduce((sum, group) => sum + group.taxAmount, 0);
+    const finalPrice = priceAfterDiscount + totalTaxAmount;
 
     console.log(`${args.config?.dryRun ? '🧪 [DRY RUN]' : '✅'} Pricing calculated:`);
     console.log(`   Products: ${productDetails.length}`);
     productDetails.forEach((p) => {
-      console.log(`     - ${p.productName}: ${p.pricePerUnit} × ${p.quantity} = ${p.total} cents`);
+      console.log(`     - ${p.productName}: ${p.pricePerUnit} × ${p.quantity} = ${p.total} cents (Tax: ${p.taxRate}%)`);
     });
     console.log(`   Subtotal: ${subtotal} cents`);
     console.log(`   Discount: -${discountAmount} cents`);
     console.log(`   After Discount: ${priceAfterDiscount} cents`);
-    console.log(`   Tax (${taxRate}%): +${taxAmount} cents`);
+    console.log(`   Tax breakdown by rate:`);
+    taxGroupsArray.forEach((group) => {
+      console.log(`     - ${group.rate}%: ${group.taxAmount} cents on ${group.subtotal} cents`);
+    });
+    console.log(`   Total Tax: ${totalTaxAmount} cents`);
     console.log(`   Final: ${finalPrice} cents (${(finalPrice / 100).toFixed(2)} ${currency})`);
 
     return {
@@ -199,10 +243,18 @@ export const executeCalculatePricing = action({
         discountAmount,
         discountApplied,
         priceAfterDiscount,
-        taxRate,
-        taxAmount,
+        taxRate: taxGroupsArray.length > 0 ? taxGroupsArray[0].rate : 19, // Use first tax rate for legacy compat
+        taxAmount: totalTaxAmount,
         finalPrice,
         currency,
+
+        // NEW: Tax groups (for multi-tax-rate support)
+        taxGroups: taxGroupsArray.map(group => ({
+          rate: group.rate,
+          subtotal: group.subtotal,
+          taxAmount: group.taxAmount,
+        })),
+        hasMultipleTaxRates: taxGroupsArray.length > 1,
 
         // Transaction data format (for createTransaction behavior)
         transactionData: {
@@ -213,7 +265,12 @@ export const executeCalculatePricing = action({
             subtotal,
             discountAmount,
             priceAfterDiscount,
-            taxAmount,
+            taxAmount: totalTaxAmount,
+            taxGroups: taxGroupsArray.map(group => ({
+              rate: group.rate,
+              subtotal: group.subtotal,
+              taxAmount: group.taxAmount,
+            })),
             total: finalPrice,
           },
         },

@@ -485,6 +485,7 @@ export const generateInvoicePDF = action({
           }, 0);
 
           return {
+            productId: group.productId, // Add productId for matching with transaction line items
             productName: group.productName,
             quantity,
             totalPrice: totalPriceInCents,
@@ -510,12 +511,20 @@ export const generateInvoicePDF = action({
       }
 
       // 7. Calculate totals using transaction data (which has accurate tax)
+      // NEW: Multi-line transaction structure - read from lineItems[] array
       const subtotal = validItems.reduce((sum, item) => {
         const txn = item.transactionId ? transactionMap.get(item.transactionId) : null;
         if (txn) {
-          const unitPrice = (txn.customProperties?.unitPriceInCents as number) || 0;
-          const quantity = (txn.customProperties?.quantity as number) || 1;
-          return sum + (unitPrice * quantity);
+          const lineItems = txn.customProperties?.lineItems as Array<{
+            productId: string;
+            quantity: number;
+            unitPriceInCents: number;
+          }> | undefined;
+
+          const lineItem = lineItems?.find(li => li.productId === item.productId);
+          if (lineItem) {
+            return sum + (lineItem.unitPriceInCents * lineItem.quantity);
+          }
         }
         return sum;
       }, 0);
@@ -523,8 +532,15 @@ export const generateInvoicePDF = action({
       const taxAmount = validItems.reduce((sum, item) => {
         const txn = item.transactionId ? transactionMap.get(item.transactionId) : null;
         if (txn) {
-          const taxAmt = (txn.customProperties?.taxAmountInCents as number) || 0;
-          return sum + taxAmt;
+          const lineItems = txn.customProperties?.lineItems as Array<{
+            productId: string;
+            taxAmountInCents: number;
+          }> | undefined;
+
+          const lineItem = lineItems?.find(li => li.productId === item.productId);
+          if (lineItem) {
+            return sum + lineItem.taxAmountInCents;
+          }
         }
         return sum;
       }, 0);
@@ -532,17 +548,33 @@ export const generateInvoicePDF = action({
       const total = validItems.reduce((sum, item) => {
         const txn = item.transactionId ? transactionMap.get(item.transactionId) : null;
         if (txn) {
-          const totalPrice = (txn.customProperties?.totalPriceInCents as number) || 0;
-          return sum + totalPrice;
+          const lineItems = txn.customProperties?.lineItems as Array<{
+            productId: string;
+            totalPriceInCents: number;
+          }> | undefined;
+
+          const lineItem = lineItems?.find(li => li.productId === item.productId);
+          if (lineItem) {
+            return sum + lineItem.totalPriceInCents;
+          }
         }
         return sum + item.totalPrice;
       }, 0);
 
       // Currency already fetched from locale settings above (invoiceCurrency)
 
-      // Get tax rate from first transaction (assumes all items have same rate)
+      // Get tax rate from first transaction's first line item (assumes all items have same rate)
       const firstTransaction = transactions.find((txn: any) => txn !== null);
-      const taxRatePercent = (firstTransaction?.customProperties?.taxRatePercent as number) || 0;
+      const firstLineItems = firstTransaction?.customProperties?.lineItems as Array<{
+        taxRatePercent: number;
+      }> | undefined;
+      const taxRatePercent = firstLineItems?.[0]?.taxRatePercent || 0;
+
+      console.log("📋 [PDF Generation] Calculated Totals:");
+      console.log(`  - Subtotal: ${subtotal} cents → ${formatCurrency(subtotal, { locale: invoiceLocale, currency: invoiceCurrency.toUpperCase() })}`);
+      console.log(`  - Tax: ${taxAmount} cents → ${formatCurrency(taxAmount, { locale: invoiceLocale, currency: invoiceCurrency.toUpperCase() })}`);
+      console.log(`  - Total: ${total} cents → ${formatCurrency(total, { locale: invoiceLocale, currency: invoiceCurrency.toUpperCase() })}`);
+      console.log(`  - Tax Rate: ${taxRatePercent}%`);
 
       // 8. Group transactions by tax rate for invoice display
       interface TaxGroup {
@@ -556,18 +588,31 @@ export const generateInvoicePDF = action({
       for (const item of validItems) {
         const txn = item.transactionId ? transactionMap.get(item.transactionId) : null;
         if (txn) {
-          const rate = (txn.customProperties?.taxRatePercent as number) || 0;
-          const unitPrice = (txn.customProperties?.unitPriceInCents as number) || 0;
-          const quantity = (txn.customProperties?.quantity as number) || 1;
-          const itemSubtotal = unitPrice * quantity;
-          const itemTax = (txn.customProperties?.taxAmountInCents as number) || 0;
+          // NEW: Multi-line transaction structure - read from lineItems[] array
+          const lineItems = txn.customProperties?.lineItems as Array<{
+            productId: string;
+            quantity: number;
+            unitPriceInCents: number;
+            totalPriceInCents: number;
+            taxAmountInCents: number;
+            taxRatePercent: number;
+          }> | undefined;
 
-          const existing = taxGroupsMap.get(rate) || { rate, subtotal: 0, taxAmount: 0 };
-          taxGroupsMap.set(rate, {
-            rate,
-            subtotal: existing.subtotal + itemSubtotal,
-            taxAmount: existing.taxAmount + itemTax,
-          });
+          // Find the line item matching this purchase item
+          const lineItem = lineItems?.find(li => li.productId === item.productId);
+
+          if (lineItem) {
+            const rate = lineItem.taxRatePercent;
+            const itemSubtotal = lineItem.unitPriceInCents * lineItem.quantity;
+            const itemTax = lineItem.taxAmountInCents;
+
+            const existing = taxGroupsMap.get(rate) || { rate, subtotal: 0, taxAmount: 0 };
+            taxGroupsMap.set(rate, {
+              rate,
+              subtotal: existing.subtotal + itemSubtotal,
+              taxAmount: existing.taxAmount + itemTax,
+            });
+          }
         }
       }
 
@@ -681,30 +726,37 @@ export const generateInvoicePDF = action({
         const txn = item.transactionId ? transactionMap.get(item.transactionId) : null;
 
         if (txn) {
-          // Use transaction data for accurate tax breakdown
-          const unitPriceInCents = (txn.customProperties?.unitPriceInCents as number) || 0;
-          const taxAmountInCents = (txn.customProperties?.taxAmountInCents as number) || 0;
-          const totalPriceInCents = (txn.customProperties?.totalPriceInCents as number) || 0;
-          const itemTaxRate = (txn.customProperties?.taxRatePercent as number) || taxRatePercent;
-          const txnQuantity = (txn.customProperties?.quantity as number) || 1; // Use transaction's quantity, NOT purchase item count!
+          // NEW: Multi-line transaction structure - transaction has lineItems[] array
+          const lineItems = txn.customProperties?.lineItems as Array<{
+            productId: string;
+            productName: string;
+            quantity: number;
+            unitPriceInCents: number;
+            totalPriceInCents: number;
+            taxAmountInCents: number;
+            taxRatePercent: number;
+          }> | undefined;
 
-          // Calculate per-unit amounts (transaction stores TOTAL amounts for all units)
-          const taxPerUnitInCents = Math.round(taxAmountInCents / txnQuantity);
-          const totalPerUnitInCents = Math.round(totalPriceInCents / txnQuantity);
+          // Find the line item matching this purchase item by productId
+          const lineItem = lineItems?.find(li => li.productId === item.productId);
 
-          return {
-            description: item.productName,
-            quantity: txnQuantity, // Use transaction's quantity for display
-            // Pre-formatted currency strings (template will display as-is)
-            unit_price_formatted: formatCurrency(unitPriceInCents, { locale: invoiceLocale, currency: invoiceCurrency.toUpperCase() }),
-            tax_amount_formatted: formatCurrency(taxPerUnitInCents, { locale: invoiceLocale, currency: invoiceCurrency.toUpperCase() }),
-            total_price_formatted: formatCurrency(totalPerUnitInCents, { locale: invoiceLocale, currency: invoiceCurrency.toUpperCase() }),
-            tax_rate: itemTaxRate,
-          };
+          if (lineItem) {
+            // Use line item data for accurate amounts
+            return {
+              description: lineItem.productName,
+              quantity: lineItem.quantity,
+              // Pre-formatted currency strings (template will display as-is)
+              unit_price_formatted: formatCurrency(lineItem.unitPriceInCents, { locale: invoiceLocale, currency: invoiceCurrency.toUpperCase() }),
+              tax_amount_formatted: formatCurrency(lineItem.taxAmountInCents, { locale: invoiceLocale, currency: invoiceCurrency.toUpperCase() }),
+              total_price_formatted: formatCurrency(lineItem.totalPriceInCents, { locale: invoiceLocale, currency: invoiceCurrency.toUpperCase() }),
+              tax_rate: lineItem.taxRatePercent,
+            };
+          }
         }
 
-        // Fallback if no transaction (shouldn't happen in normal flow)
+        // Fallback if no transaction or no line item match (shouldn't happen in normal flow)
         const pricePerUnit = Math.round(item.totalPrice / item.quantity);
+        console.log("⚠️ [generateInvoicePDF] Fallback: No transaction line item found for", item.productName);
         return {
           description: item.productName,
           quantity: item.quantity,
@@ -842,15 +894,7 @@ export const generateInvoicePDF = action({
       };
 
       // DEBUG: Log invoice data structure
-      console.log("📋 Invoice Data Structure:");
-      console.log("  - Items count:", items.length);
-      console.log("  - Subtotal:", subtotal, "→", formatCurrency(subtotal, { locale: invoiceLocale, currency: invoiceCurrency.toUpperCase() }));
-      console.log("  - Tax:", taxAmount, "→", formatCurrency(taxAmount, { locale: invoiceLocale, currency: invoiceCurrency.toUpperCase() }));
-      console.log("  - Total:", total, "→", formatCurrency(total, { locale: invoiceLocale, currency: invoiceCurrency.toUpperCase() }));
-      console.log("  - Tax Rate:", taxRatePercent + "%");
-      if (items.length > 0) {
-        console.log("  - First item:", JSON.stringify(items[0], null, 2));
-      }
+      // Debug logging moved earlier in the function (after total calculations)
 
       // 11. RESOLVE TEMPLATE FROM TEMPLATE SET (New unified resolver)
       // Uses Template Set system with 3-level precedence:

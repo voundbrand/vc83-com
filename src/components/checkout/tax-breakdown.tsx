@@ -9,6 +9,12 @@
 
 import { DollarSign, Info } from "lucide-react";
 
+export interface TaxGroup {
+  rate: number;
+  subtotal: number;
+  taxAmount: number;
+}
+
 export interface TaxCalculation {
   subtotal: number;
   taxAmount: number;
@@ -18,6 +24,9 @@ export interface TaxCalculation {
   jurisdiction?: string;
   taxName?: string;
   currency: string;
+  // NEW: Support for multiple tax rates
+  taxGroups?: TaxGroup[];
+  hasMultipleTaxRates?: boolean;
 }
 
 interface TaxBreakdownProps {
@@ -33,7 +42,7 @@ export function TaxBreakdown({ calculation, showDetails = false }: TaxBreakdownP
     }).format(amount / 100);
   };
 
-  const { subtotal, taxAmount, taxRate, total, taxBehavior, jurisdiction, taxName, currency } =
+  const { subtotal, taxAmount, taxRate, total, taxBehavior, jurisdiction, taxName, currency, taxGroups, hasMultipleTaxRates } =
     calculation;
 
   return (
@@ -44,29 +53,56 @@ export function TaxBreakdown({ calculation, showDetails = false }: TaxBreakdownP
         <span className="text-sm font-medium">{formatPrice(subtotal, currency)}</span>
       </div>
 
-      {/* Tax Line */}
-      <div className="flex justify-between items-center mb-2">
-        <div className="flex items-center gap-1">
-          <span className="text-sm text-gray-700">
-            {taxName || "Tax"}
-            {taxRate > 0 && (
-              <span className="text-xs text-gray-500 ml-1">
-                ({(taxRate * 100).toFixed(2)}%)
+      {/* Tax Lines - Show multiple tax rates if available */}
+      {hasMultipleTaxRates && taxGroups && taxGroups.length > 0 ? (
+        // Multiple tax rates
+        taxGroups.map((group, index) => (
+          <div key={`tax-${group.rate}-${index}`} className="flex justify-between items-center mb-2">
+            <div className="flex items-center gap-1">
+              <span className="text-sm text-gray-700">
+                {taxName || "Tax"}
+                <span className="text-xs text-gray-500 ml-1">
+                  ({group.rate.toFixed(1)}%)
+                </span>
               </span>
+              {showDetails && jurisdiction && (
+                <button
+                  type="button"
+                  className="text-gray-400 hover:text-gray-600"
+                  title={`Tax collected for ${jurisdiction}`}
+                >
+                  <Info size={14} />
+                </button>
+              )}
+            </div>
+            <span className="text-sm font-medium">{formatPrice(group.taxAmount, currency)}</span>
+          </div>
+        ))
+      ) : (
+        // Single tax rate (legacy)
+        <div className="flex justify-between items-center mb-2">
+          <div className="flex items-center gap-1">
+            <span className="text-sm text-gray-700">
+              {taxName || "Tax"}
+              {taxRate > 0 && (
+                <span className="text-xs text-gray-500 ml-1">
+                  ({(taxRate).toFixed(1)}%)
+                </span>
+              )}
+            </span>
+            {showDetails && jurisdiction && (
+              <button
+                type="button"
+                className="text-gray-400 hover:text-gray-600"
+                title={`Tax collected for ${jurisdiction}`}
+              >
+                <Info size={14} />
+              </button>
             )}
-          </span>
-          {showDetails && jurisdiction && (
-            <button
-              type="button"
-              className="text-gray-400 hover:text-gray-600"
-              title={`Tax collected for ${jurisdiction}`}
-            >
-              <Info size={14} />
-            </button>
-          )}
+          </div>
+          <span className="text-sm font-medium">{formatPrice(taxAmount, currency)}</span>
         </div>
-        <span className="text-sm font-medium">{formatPrice(taxAmount, currency)}</span>
-      </div>
+      )}
 
       {/* Tax Behavior Note */}
       {showDetails && taxBehavior === "inclusive" && (
@@ -114,7 +150,7 @@ export function CompactTaxBreakdown({ calculation }: CompactTaxBreakdownProps) {
     }).format(amount / 100);
   };
 
-  const { subtotal, taxAmount, total, currency } = calculation;
+  const { subtotal, taxAmount, total, currency, taxGroups, hasMultipleTaxRates } = calculation;
 
   return (
     <div className="compact-tax-breakdown space-y-1">
@@ -122,10 +158,24 @@ export function CompactTaxBreakdown({ calculation }: CompactTaxBreakdownProps) {
         <span className="text-gray-600">Subtotal:</span>
         <span>{formatPrice(subtotal, currency)}</span>
       </div>
-      <div className="flex justify-between text-sm">
-        <span className="text-gray-600">Tax:</span>
-        <span>{formatPrice(taxAmount, currency)}</span>
-      </div>
+
+      {/* Tax Lines - Show multiple tax rates if available */}
+      {hasMultipleTaxRates && taxGroups && taxGroups.length > 0 ? (
+        // Multiple tax rates
+        taxGroups.map((group, index) => (
+          <div key={`compact-tax-${group.rate}-${index}`} className="flex justify-between text-sm">
+            <span className="text-gray-600">Tax ({group.rate.toFixed(1)}%):</span>
+            <span>{formatPrice(group.taxAmount, currency)}</span>
+          </div>
+        ))
+      ) : (
+        // Single tax rate (legacy)
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-600">Tax:</span>
+          <span>{formatPrice(taxAmount, currency)}</span>
+        </div>
+      )}
+
       <div className="flex justify-between text-base font-bold border-t border-gray-300 pt-1">
         <span>Total:</span>
         <span className="text-purple-600">{formatPrice(total, currency)}</span>

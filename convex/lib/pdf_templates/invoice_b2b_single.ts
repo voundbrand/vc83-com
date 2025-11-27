@@ -90,7 +90,7 @@ export const INVOICE_B2B_SINGLE_HTML = `
                     <th class="item-desc">{{t_itemDescription}}</th>
                     <th class="item-qty">{{t_qty}}</th>
                     <th class="item-price">{{t_unitPrice}}<br/>({{t_net}})</th>
-                    <th class="item-tax">{{t_vat}}<br/>({{tax_rate}}%)</th>
+                    <th class="item-tax">{{t_tax}}<br/>({{tax_rate}}%)</th>
                     <th class="item-total">{{t_total}}<br/>({{t_gross}})</th>
                 </tr>
             </thead>
