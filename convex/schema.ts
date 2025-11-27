@@ -48,6 +48,26 @@ import { auditLogs, workflowExecutionLogs } from "./schemas/utilitySchemas";
 // ✅ NEW ONTOLOGY SCHEMAS
 import { objects, objectLinks, objectActions } from "./schemas/ontologySchemas";
 
+// 🤖 AI INTEGRATION SCHEMAS
+import {
+  aiConversations,
+  aiMessages,
+  aiToolExecutions,
+  organizationAiSettings,
+  aiAgentTasks,
+  aiAgentMemory
+} from "./schemas/aiSchemas";
+
+// 💳 AI BILLING SCHEMAS v3.1 (VAT-inclusive pricing, EUR only)
+import {
+  aiUsage,
+  aiSubscriptions,
+  aiTokenBalance,
+  aiTokenPurchases,
+  aiBudgetAlerts,
+  aiBillingEvents
+} from "./schemas/aiBillingSchemas";
+
 /**
  * MAIN SCHEMA EXPORT
  *
@@ -101,6 +121,22 @@ export default defineSchema({
   objects,        // Universal storage for all entity types
   objectLinks,    // Relationships between objects
   objectActions,  // Audit trail of actions
+
+  // 🤖 AI INTEGRATION: General AI Assistant + Email AI Specialist
+  aiConversations,        // Chat history for general AI assistant
+  aiMessages,             // Individual messages in conversations
+  aiToolExecutions,       // Audit trail of tool executions
+  organizationAiSettings, // AI configuration per organization (LLM + embeddings)
+  aiAgentTasks,          // Email AI tasks with approval workflow
+  aiAgentMemory,         // Email templates and preferences with vector search
+
+  // 💳 AI BILLING v3.1: Three-tier system (€49 or €2,500-€12,000/mo, VAT incl.)
+  aiUsage,               // Track AI API usage for billing and monitoring (with privacy audit)
+  aiSubscriptions,       // Stripe subscriptions for AI features (tier-based + sub-tiers)
+  aiTokenBalance,        // Purchased token balance (Standard/Privacy-Enhanced only)
+  aiTokenPurchases,      // Token pack purchase history (with VAT breakdown)
+  aiBudgetAlerts,        // Budget alert history and acknowledgments
+  aiBillingEvents,       // Audit log for billing operations
 
   // ❌ OLD TRANSLATIONS - Replaced by ontology
   // systemTranslations,

@@ -32,6 +32,26 @@ import {
   VIP_PREMIUM_TICKET_TEMPLATE_HTML,
   VIP_PREMIUM_TICKET_TEMPLATE_CSS,
 } from "./lib/pdf_templates/vip_premium_ticket_template";
+import {
+  EBOOK_GUIDE_TEMPLATE_HTML,
+  EBOOK_GUIDE_TEMPLATE_CSS,
+} from "./lib/pdf_templates/ebook_guide";
+import {
+  CHECKLIST_ONEPAGER_TEMPLATE_HTML,
+  CHECKLIST_ONEPAGER_TEMPLATE_CSS,
+} from "./lib/pdf_templates/checklist_onepager";
+import {
+  QUOTE_ESTIMATE_TEMPLATE_HTML,
+  QUOTE_ESTIMATE_TEMPLATE_CSS,
+} from "./lib/pdf_templates/quote_estimate";
+import {
+  BADGE_ATTENDEE_TEMPLATE_HTML,
+  BADGE_ATTENDEE_TEMPLATE_CSS,
+} from "./lib/pdf_templates/badge_attendee";
+import {
+  PROGRAM_EVENT_TEMPLATE_HTML,
+  PROGRAM_EVENT_TEMPLATE_CSS,
+} from "./lib/pdf_templates/program_event";
 
 export interface PdfTemplateField {
   name: string;
@@ -45,7 +65,7 @@ export interface PdfTemplateDefinition {
   code: string;
   name: string;
   description: string;
-  category: "ticket" | "invoice" | "receipt" | "certificate";
+  category: "ticket" | "invoice" | "receipt" | "certificate" | "leadmagnet" | "quote" | "badge" | "eventdoc";
   template: {
     html: string; // HTML template with Jinja2 variables
     css: string; // CSS styling
@@ -169,7 +189,7 @@ export const TICKET_PROFESSIONAL_V1: PdfTemplateDefinition = {
     fontFamily: "Helvetica",
   },
   previewImageUrl: "https://cdn.vc83.com/templates/ticket-professional-preview.png",
-  version: "1.0.0",
+  version: "2.0.0", // Updated to v2.0 - System Default Template
 };
 
 export const TICKET_RETRO_V1: PdfTemplateDefinition = {
@@ -382,7 +402,7 @@ export const INVOICE_B2C_RECEIPT_V1: PdfTemplateDefinition = {
     fontSize: "11pt",
   },
   previewImageUrl: "https://cdn.vc83.com/templates/receipt-b2c-preview.png",
-  version: "1.0.0",
+  version: "2.0.0", // Updated to v2.0 - System Default Template
 };
 
 export const INVOICE_B2B_CONSOLIDATED_V1: PdfTemplateDefinition = {
@@ -736,6 +756,466 @@ export const INVOICE_B2B_SINGLE_V1: PdfTemplateDefinition = {
 };
 
 /**
+ * LEAD MAGNET TEMPLATES
+ */
+
+export const LEADMAGNET_EBOOK_GUIDE_V1: PdfTemplateDefinition = {
+  code: "leadmagnet_ebook_guide_v1",
+  name: "Ebook/Guide Lead Magnet",
+  description: "Multi-page lead magnet template for ebooks, guides, and comprehensive resources with professional branding",
+  category: "leadmagnet",
+  template: {
+    html: EBOOK_GUIDE_TEMPLATE_HTML,
+    css: EBOOK_GUIDE_TEMPLATE_CSS,
+  },
+  apiTemplate: {
+    provider: "apitemplate.io",
+    endpoint: "https://rest.apitemplate.io/v2/create-pdf-from-html",
+  },
+  requiredFields: [
+    {
+      name: "title",
+      type: "string",
+      required: true,
+      description: "Ebook/guide title",
+      example: "The Ultimate Marketing Playbook",
+    },
+    {
+      name: "subtitle",
+      type: "string",
+      required: false,
+      description: "Optional subtitle",
+      example: "50 Proven Strategies to Grow Your Business",
+    },
+    {
+      name: "author",
+      type: "string",
+      required: true,
+      description: "Author name or company",
+      example: "Marketing Institute",
+    },
+    {
+      name: "authorLogo",
+      type: "string",
+      required: false,
+      description: "URL to company/author logo",
+      example: "https://cdn.example.com/logo.png",
+    },
+    {
+      name: "coverImage",
+      type: "string",
+      required: false,
+      description: "Optional cover image URL",
+      example: "https://cdn.example.com/cover.jpg",
+    },
+    {
+      name: "chapters",
+      type: "array",
+      required: true,
+      description: "Array of chapters with title and content (HTML)",
+      example: [
+        { title: "Introduction", content: "<p>Welcome to this guide...</p>" },
+        { title: "Chapter 1: Getting Started", content: "<p>Let's begin...</p>" },
+      ],
+    },
+    {
+      name: "brandColor",
+      type: "string",
+      required: false,
+      description: "Primary brand color hex code",
+      example: "#6B46C1",
+    },
+    {
+      name: "footerText",
+      type: "string",
+      required: false,
+      description: "Copyright or legal text for footer",
+      example: "© 2025 Marketing Institute. All rights reserved.",
+    },
+    {
+      name: "publishDate",
+      type: "string",
+      required: false,
+      description: "Publication date",
+      example: "January 2025",
+    },
+    {
+      name: "authorWebsite",
+      type: "string",
+      required: false,
+      description: "Website URL",
+      example: "https://marketinginstitute.com",
+    },
+    {
+      name: "authorEmail",
+      type: "string",
+      required: false,
+      description: "Contact email",
+      example: "hello@marketinginstitute.com",
+    },
+  ],
+  defaultStyling: {
+    primaryColor: "#6B46C1",
+    secondaryColor: "#9F7AEA",
+    fontSize: "11pt",
+    fontFamily: "-apple-system, sans-serif",
+  },
+  previewImageUrl: "https://cdn.vc83.com/templates/leadmagnet-ebook-preview.png",
+  version: "1.0.0",
+};
+
+export const LEADMAGNET_CHECKLIST_ONEPAGER_V1: PdfTemplateDefinition = {
+  code: "leadmagnet_checklist_onepager_v1",
+  name: "Checklist One-Pager Lead Magnet",
+  description: "Single-page checklist template for quick reference guides and actionable worksheets",
+  category: "leadmagnet",
+  template: {
+    html: CHECKLIST_ONEPAGER_TEMPLATE_HTML,
+    css: CHECKLIST_ONEPAGER_TEMPLATE_CSS,
+  },
+  apiTemplate: {
+    provider: "apitemplate.io",
+    endpoint: "https://rest.apitemplate.io/v2/create-pdf-from-html",
+  },
+  requiredFields: [
+    {
+      name: "title",
+      type: "string",
+      required: true,
+      description: "Checklist title",
+      example: "The Ultimate Marketing Checklist",
+    },
+    {
+      name: "subtitle",
+      type: "string",
+      required: false,
+      description: "Optional subtitle",
+      example: "30 Steps to Marketing Success",
+    },
+    {
+      name: "description",
+      type: "string",
+      required: false,
+      description: "Brief description of checklist purpose",
+      example: "Use this checklist to ensure you've covered all essential marketing activities.",
+    },
+    {
+      name: "author",
+      type: "string",
+      required: true,
+      description: "Author name or company",
+      example: "Marketing Institute",
+    },
+    {
+      name: "authorLogo",
+      type: "string",
+      required: false,
+      description: "URL to company/author logo",
+      example: "https://cdn.example.com/logo.png",
+    },
+    {
+      name: "sections",
+      type: "array",
+      required: true,
+      description: "Array of sections with title and items",
+      example: [
+        {
+          title: "Pre-Launch",
+          items: ["Define target audience", "Set up analytics", "Create content calendar"],
+        },
+        {
+          title: "Launch Phase",
+          items: ["Publish website", "Announce on social media", "Send email campaign"],
+        },
+      ],
+    },
+    {
+      name: "brandColor",
+      type: "string",
+      required: false,
+      description: "Primary brand color hex code",
+      example: "#6B46C1",
+    },
+    {
+      name: "footerText",
+      type: "string",
+      required: false,
+      description: "Copyright or legal text for footer",
+      example: "© 2025 Marketing Institute. All rights reserved.",
+    },
+  ],
+  defaultStyling: {
+    primaryColor: "#6B46C1",
+    secondaryColor: "#9F7AEA",
+    fontSize: "10pt",
+    fontFamily: "-apple-system, sans-serif",
+  },
+  previewImageUrl: "https://cdn.vc83.com/templates/leadmagnet-checklist-preview.png",
+  version: "1.0.0",
+};
+
+/**
+ * QUOTE/ESTIMATE TEMPLATES
+ */
+
+export const QUOTE_ESTIMATE_V1: PdfTemplateDefinition = {
+  code: "quote_estimate_v1",
+  name: "Price Quote/Estimate",
+  description: "Professional pricing proposal document for potential clients with line items, totals, and terms",
+  category: "quote",
+  template: {
+    html: QUOTE_ESTIMATE_TEMPLATE_HTML,
+    css: QUOTE_ESTIMATE_TEMPLATE_CSS,
+  },
+  apiTemplate: {
+    provider: "apitemplate.io",
+    endpoint: "https://rest.apitemplate.io/v2/create-pdf-from-html",
+  },
+  requiredFields: [
+    {
+      name: "quoteNumber",
+      type: "string",
+      required: true,
+      description: "Unique quote identifier",
+      example: "QUO-2024-001",
+    },
+    {
+      name: "issueDate",
+      type: "string",
+      required: true,
+      description: "Date quote was created",
+      example: "January 15, 2025",
+    },
+    {
+      name: "validUntil",
+      type: "string",
+      required: true,
+      description: "Expiration date for quote",
+      example: "February 15, 2025",
+    },
+    {
+      name: "companyName",
+      type: "string",
+      required: true,
+      description: "Your company name",
+      example: "Marketing Agency",
+    },
+    {
+      name: "companyLogo",
+      type: "string",
+      required: false,
+      description: "URL to company logo",
+      example: "https://cdn.example.com/logo.png",
+    },
+    {
+      name: "clientName",
+      type: "string",
+      required: true,
+      description: "Client/prospect name",
+      example: "John Smith",
+    },
+    {
+      name: "lineItems",
+      type: "array",
+      required: true,
+      description: "Array of {description, quantity, unitPrice, total}",
+      example: [
+        { description: "Website Design", quantity: 1, unitPrice: 2500, total: 2500 },
+        { description: "SEO Setup", quantity: 1, unitPrice: 800, total: 800 },
+      ],
+    },
+    {
+      name: "subtotal",
+      type: "number",
+      required: true,
+      description: "Subtotal amount",
+      example: 3300,
+    },
+    {
+      name: "totalAmount",
+      type: "number",
+      required: true,
+      description: "Final total",
+      example: 3927,
+    },
+    {
+      name: "currency",
+      type: "string",
+      required: false,
+      description: "Currency symbol",
+      example: "€",
+    },
+  ],
+  defaultStyling: {
+    primaryColor: "#6B46C1",
+    secondaryColor: "#9F7AEA",
+    fontSize: "11pt",
+    fontFamily: "Inter, Helvetica, sans-serif",
+  },
+  previewImageUrl: "https://cdn.vc83.com/templates/quote-estimate-preview.png",
+  version: "1.0.0",
+};
+
+/**
+ * BADGE TEMPLATES
+ */
+
+export const BADGE_ATTENDEE_V1: PdfTemplateDefinition = {
+  code: "badge_attendee_v1",
+  name: "Attendee Badge",
+  description: "Printable name badge for event attendees with QR code for check-in",
+  category: "badge",
+  template: {
+    html: BADGE_ATTENDEE_TEMPLATE_HTML,
+    css: BADGE_ATTENDEE_TEMPLATE_CSS,
+  },
+  apiTemplate: {
+    provider: "apitemplate.io",
+    endpoint: "https://rest.apitemplate.io/v2/create-pdf-from-html",
+  },
+  requiredFields: [
+    {
+      name: "attendeeName",
+      type: "string",
+      required: true,
+      description: "Full name of attendee",
+      example: "Jane Smith",
+    },
+    {
+      name: "company",
+      type: "string",
+      required: false,
+      description: "Company or organization name",
+      example: "Tech Innovations Inc.",
+    },
+    {
+      name: "badgeType",
+      type: "string",
+      required: true,
+      description: "Type of access (VIP, Speaker, Attendee, Staff)",
+      example: "VIP",
+    },
+    {
+      name: "eventName",
+      type: "string",
+      required: true,
+      description: "Event name",
+      example: "Tech Conference 2025",
+    },
+    {
+      name: "eventDate",
+      type: "string",
+      required: true,
+      description: "Event date",
+      example: "March 15-16, 2025",
+    },
+    {
+      name: "qrCodeUrl",
+      type: "string",
+      required: false,
+      description: "URL to QR code image for check-in",
+      example: "https://cdn.example.com/qr/badge123.png",
+    },
+    {
+      name: "ticketNumber",
+      type: "string",
+      required: true,
+      description: "Ticket identifier",
+      example: "TKT-2025-001234",
+    },
+  ],
+  defaultStyling: {
+    primaryColor: "#6B46C1",
+    secondaryColor: "#9F7AEA",
+    fontSize: "10pt",
+    fontFamily: "Inter, Helvetica, sans-serif",
+  },
+  previewImageUrl: "https://cdn.vc83.com/templates/badge-attendee-preview.png",
+  version: "1.0.0",
+};
+
+/**
+ * EVENT PROGRAM TEMPLATES
+ */
+
+export const PROGRAM_EVENT_V1: PdfTemplateDefinition = {
+  code: "program_event_v1",
+  name: "Event Program/Schedule",
+  description: "Event schedule/agenda document for attendees with session times, speakers, and venue information",
+  category: "eventdoc",
+  template: {
+    html: PROGRAM_EVENT_TEMPLATE_HTML,
+    css: PROGRAM_EVENT_TEMPLATE_CSS,
+  },
+  apiTemplate: {
+    provider: "apitemplate.io",
+    endpoint: "https://rest.apitemplate.io/v2/create-pdf-from-html",
+  },
+  requiredFields: [
+    {
+      name: "eventName",
+      type: "string",
+      required: true,
+      description: "Event name",
+      example: "Tech Conference 2025",
+    },
+    {
+      name: "eventDate",
+      type: "string",
+      required: true,
+      description: "Event date",
+      example: "March 15-16, 2025",
+    },
+    {
+      name: "venue",
+      type: "string",
+      required: true,
+      description: "Venue name",
+      example: "Convention Center",
+    },
+    {
+      name: "venueAddress",
+      type: "string",
+      required: true,
+      description: "Full venue address",
+      example: "123 Main St, San Francisco, CA 94102",
+    },
+    {
+      name: "sessions",
+      type: "array",
+      required: true,
+      description: "Array of session objects with time, title, description, speaker, track, type",
+      example: [
+        {
+          time: "09:00 - 10:30",
+          title: "Opening Keynote",
+          description: "The Future of Technology",
+          speaker: "Dr. Jane Smith",
+          speakerTitle: "CTO, Tech Innovations",
+          track: "Main Hall",
+          type: "keynote",
+        },
+      ],
+    },
+    {
+      name: "organizerInfo",
+      type: "string",
+      required: true,
+      description: "Contact information",
+      example: "For questions: events@techconf.com | (555) 123-4567",
+    },
+  ],
+  defaultStyling: {
+    primaryColor: "#6B46C1",
+    secondaryColor: "#9F7AEA",
+    fontSize: "10pt",
+    fontFamily: "Inter, Helvetica, sans-serif",
+  },
+  previewImageUrl: "https://cdn.vc83.com/templates/program-event-preview.png",
+  version: "1.0.0",
+};
+
+/**
  * CERTIFICATE TEMPLATES
  */
 
@@ -852,6 +1332,19 @@ export const PDF_TEMPLATE_REGISTRY: Record<string, PdfTemplateDefinition> = {
   invoice_b2b_consolidated_v1: INVOICE_B2B_CONSOLIDATED_V1,
   invoice_b2b_consolidated_detailed_v1: INVOICE_B2B_CONSOLIDATED_DETAILED_V1,
 
+  // Lead Magnets
+  leadmagnet_ebook_guide_v1: LEADMAGNET_EBOOK_GUIDE_V1,
+  leadmagnet_checklist_onepager_v1: LEADMAGNET_CHECKLIST_ONEPAGER_V1,
+
+  // Quotes & Estimates
+  quote_estimate_v1: QUOTE_ESTIMATE_V1,
+
+  // Badges
+  badge_attendee_v1: BADGE_ATTENDEE_V1,
+
+  // Event Documents
+  program_event_v1: PROGRAM_EVENT_V1,
+
   // Certificates
   certificate_cme_v1: CERTIFICATE_CME_V1,
 };
@@ -871,7 +1364,7 @@ export function getTemplateByCode(code: string): PdfTemplateDefinition | undefin
  * Get all templates by category
  */
 export function getTemplatesByCategory(
-  category: "ticket" | "invoice" | "receipt" | "certificate"
+  category: "ticket" | "invoice" | "receipt" | "certificate" | "leadmagnet" | "quote" | "badge" | "eventdoc"
 ): PdfTemplateDefinition[] {
   return Object.values(PDF_TEMPLATE_REGISTRY).filter((t) => t.category === category);
 }
@@ -948,6 +1441,14 @@ export const INVOICE_TEMPLATES = [
 ];
 
 /**
+ * LEAD MAGNET TEMPLATES - Subset for easy access
+ */
+export const LEADMAGNET_TEMPLATES = [
+  LEADMAGNET_EBOOK_GUIDE_V1,
+  LEADMAGNET_CHECKLIST_ONEPAGER_V1,
+];
+
+/**
  * Get ticket template by code
  */
 export function getTicketTemplateByCode(code: string): PdfTemplateDefinition | null {
@@ -959,4 +1460,11 @@ export function getTicketTemplateByCode(code: string): PdfTemplateDefinition | n
  */
 export function getInvoiceTemplateByCode(code: string): PdfTemplateDefinition | null {
   return INVOICE_TEMPLATES.find(t => t.code === code) || null;
+}
+
+/**
+ * Get lead magnet template by code
+ */
+export function getLeadMagnetTemplateByCode(code: string): PdfTemplateDefinition | null {
+  return LEADMAGNET_TEMPLATES.find(t => t.code === code) || null;
 }

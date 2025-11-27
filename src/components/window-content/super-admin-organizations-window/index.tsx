@@ -67,18 +67,6 @@ export function OrganizationsWindow() {
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
           style={{
             borderColor: 'var(--win95-border)',
-            background: activeTab === "template-sets" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-            color: activeTab === "template-sets" ? 'var(--win95-text)' : 'var(--neutral-gray)'
-          }}
-          onClick={() => setActiveTab("template-sets")}
-        >
-          <Package size={14} />
-          Template Sets
-        </button>
-        <button
-          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
-          style={{
-            borderColor: 'var(--win95-border)',
             background: activeTab === "app-availability" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
             color: activeTab === "app-availability" ? 'var(--win95-text)' : 'var(--neutral-gray)'
           }}
@@ -88,7 +76,7 @@ export function OrganizationsWindow() {
           App Availability
         </button>
         <button
-          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2"
+          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
           style={{
             borderColor: 'var(--win95-border)',
             background: activeTab === "templates" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
@@ -98,6 +86,18 @@ export function OrganizationsWindow() {
         >
           <FileText size={14} />
           Templates
+        </button>
+        <button
+          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2"
+          style={{
+            borderColor: 'var(--win95-border)',
+            background: activeTab === "template-sets" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+            color: activeTab === "template-sets" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+          }}
+          onClick={() => setActiveTab("template-sets")}
+        >
+          <Package size={14} />
+          Template Sets
         </button>
       </div>
 

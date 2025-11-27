@@ -8,6 +8,7 @@
 import { query, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { resolvePdfTemplate } from "./pdfTemplateResolver";
+import { resolveEmailTemplateWithFallback } from "./emailTemplateResolver";
 
 /**
  * Get Available PDF Templates by Category
@@ -43,12 +44,18 @@ export const getPdfTemplatesByCategory = query({
     }
 
     // Get system templates
+    // Note: Templates can have subtype "pdf" OR specific category subtypes like "invoice", "ticket", etc.
     const systemTemplates = await ctx.db
       .query("objects")
       .withIndex("by_org_type", (q) =>
         q.eq("organizationId", systemOrg._id).eq("type", "template")
       )
-      .filter((q) => q.eq(q.field("subtype"), "pdf"))
+      .filter((q) =>
+        q.or(
+          q.eq(q.field("subtype"), "pdf"),
+          q.eq(q.field("subtype"), args.category) // Allow category-specific subtypes
+        )
+      )
       .filter((q) => q.eq(q.field("status"), "published"))
       .collect();
 
@@ -66,7 +73,12 @@ export const getPdfTemplatesByCategory = query({
         .withIndex("by_org_type", (q) =>
           q.eq("organizationId", args.organizationId!).eq("type", "template")
         )
-        .filter((q) => q.eq(q.field("subtype"), "pdf"))
+        .filter((q) =>
+          q.or(
+            q.eq(q.field("subtype"), "pdf"),
+            q.eq(q.field("subtype"), args.category) // Allow category-specific subtypes
+          )
+        )
         .filter((q) => q.eq(q.field("status"), "published"))
         .collect();
 
@@ -91,6 +103,91 @@ export const getPdfTemplatesByCategory = query({
         previewImageUrl: props.previewImageUrl as string | undefined,
         isDefault: props.isDefault as boolean || false,
         isSystemTemplate: t.organizationId === systemOrg._id,
+        isSchemaTemplate: !!(props.templateSchema || props.emailTemplateSchema), // Schema-based template indicator
+      };
+    });
+  },
+});
+
+/**
+ * Get ALL PDF Templates (No Category Filter)
+ *
+ * Returns all published PDF templates regardless of category.
+ * Used for dropdowns that should show all available PDF options.
+ */
+export const getAllPdfTemplates = query({
+  args: {
+    organizationId: v.optional(v.id("organizations")),
+  },
+  handler: async (ctx, args) => {
+    // Get system organization
+    const systemOrg = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", "system"))
+      .first();
+
+    if (!systemOrg) {
+      throw new Error("System organization not found");
+    }
+
+    // Get system templates (no category filter)
+    // Note: Get all PDF-related templates (subtype "pdf" OR category-specific like "invoice", "ticket")
+    const systemTemplates = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", systemOrg._id).eq("type", "template")
+      )
+      .filter((q) =>
+        q.or(
+          q.eq(q.field("subtype"), "pdf"),
+          q.eq(q.field("subtype"), "invoice"),
+          q.eq(q.field("subtype"), "ticket"),
+          q.eq(q.field("subtype"), "certificate"),
+          q.eq(q.field("subtype"), "receipt"),
+          q.eq(q.field("subtype"), "badge")
+        )
+      )
+      .filter((q) => q.eq(q.field("status"), "published"))
+      .collect();
+
+    // Get org-specific templates if organization provided
+    let orgTemplates: typeof systemTemplates = [];
+    if (args.organizationId && args.organizationId !== systemOrg._id) {
+      orgTemplates = await ctx.db
+        .query("objects")
+        .withIndex("by_org_type", (q) =>
+          q.eq("organizationId", args.organizationId!).eq("type", "template")
+        )
+        .filter((q) =>
+          q.or(
+            q.eq(q.field("subtype"), "pdf"),
+            q.eq(q.field("subtype"), "invoice"),
+            q.eq(q.field("subtype"), "ticket"),
+            q.eq(q.field("subtype"), "certificate"),
+            q.eq(q.field("subtype"), "receipt"),
+            q.eq(q.field("subtype"), "badge")
+          )
+        )
+        .filter((q) => q.eq(q.field("status"), "published"))
+        .collect();
+    }
+
+    // Combine and format results
+    const allTemplates = [...systemTemplates, ...orgTemplates];
+
+    return allTemplates.map((t) => {
+      const props = t.customProperties || {};
+      return {
+        _id: t._id,
+        name: t.name,
+        description: t.description || "",
+        templateCode: props.templateCode as string,
+        category: props.category as string,
+        version: props.version as string || "1.0",
+        previewImageUrl: props.previewImageUrl as string | undefined,
+        isDefault: props.isDefault as boolean || false,
+        isSystemTemplate: t.organizationId === systemOrg._id,
+        isSchemaTemplate: !!(props.templateSchema || props.emailTemplateSchema), // Schema-based template indicator
       };
     });
   },
@@ -127,7 +224,12 @@ export const getDefaultPdfTemplate = query({
       .withIndex("by_org_type", (q) =>
         q.eq("organizationId", systemOrg._id).eq("type", "template")
       )
-      .filter((q) => q.eq(q.field("subtype"), "pdf"))
+      .filter((q) =>
+        q.or(
+          q.eq(q.field("subtype"), "pdf"),
+          q.eq(q.field("subtype"), args.category) // Allow category-specific subtypes
+        )
+      )
       .filter((q) => q.eq(q.field("status"), "published"))
       .collect();
 
@@ -176,7 +278,16 @@ export const getPdfTemplateByCode = query({
       .withIndex("by_org_type", (q) =>
         q.eq("organizationId", systemOrg._id).eq("type", "template")
       )
-      .filter((q) => q.eq(q.field("subtype"), "pdf"))
+      .filter((q) =>
+        q.or(
+          q.eq(q.field("subtype"), "pdf"),
+          q.eq(q.field("subtype"), "invoice"),
+          q.eq(q.field("subtype"), "ticket"),
+          q.eq(q.field("subtype"), "certificate"),
+          q.eq(q.field("subtype"), "receipt"),
+          q.eq(q.field("subtype"), "badge")
+        )
+      )
       .collect();
 
     return templates.find((t) =>
@@ -211,7 +322,12 @@ export const getEmailTemplatesByCategory = query({
     category: v.union(
       v.literal("luxury"),
       v.literal("minimal"),
-      v.literal("internal")
+      v.literal("internal"),
+      v.literal("transactional"),
+      v.literal("marketing"),
+      v.literal("event"),
+      v.literal("support"),
+      v.literal("newsletter")
     ),
     organizationId: v.optional(v.id("organizations")),
   },
@@ -275,6 +391,7 @@ export const getEmailTemplatesByCategory = query({
         previewImageUrl: props.previewImageUrl as string | undefined,
         isDefault: props.isDefault as boolean || false,
         isSystemTemplate: t.organizationId === systemOrg._id,
+        isSchemaTemplate: !!(props.templateSchema || props.emailTemplateSchema), // Schema-based template indicator
       };
     });
   },
@@ -339,8 +456,43 @@ export const getAllEmailTemplates = query({
         previewImageUrl: props.previewImageUrl as string | undefined,
         isDefault: props.isDefault as boolean || false,
         isSystemTemplate: t.organizationId === systemOrg._id,
+        isSchemaTemplate: !!(props.templateSchema || props.emailTemplateSchema), // Schema-based template indicator
       };
     });
+  },
+});
+
+/**
+ * Get Email Template by Template Code
+ *
+ * Find email template by its templateCode string.
+ * Used for loading schema-based email templates by code.
+ */
+export const getEmailTemplateByCode = query({
+  args: {
+    templateCode: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const systemOrg = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", "system"))
+      .first();
+
+    if (!systemOrg) {
+      return null;
+    }
+
+    const templates = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", systemOrg._id).eq("type", "template")
+      )
+      .filter((q) => q.eq(q.field("subtype"), "email"))
+      .collect();
+
+    return templates.find((t) =>
+      t.customProperties?.templateCode === args.templateCode
+    ) || null;
   },
 });
 
@@ -356,11 +508,15 @@ export const resolveEmailTemplateInternal = internalQuery({
     fallbackCategory: v.union(
       v.literal("luxury"),
       v.literal("minimal"),
-      v.literal("internal")
+      v.literal("internal"),
+      v.literal("transactional"),
+      v.literal("marketing"),
+      v.literal("event"),
+      v.literal("support"),
+      v.literal("newsletter")
     ),
   },
   handler: async (ctx, args) => {
-    const { resolveEmailTemplateWithFallback } = await import("./emailTemplateResolver");
     const resolved = await resolveEmailTemplateWithFallback(
       ctx,
       args.templateId,

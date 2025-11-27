@@ -177,9 +177,10 @@ export const resolveIndividualTemplateInternal = internalQuery({
 });
 
 /**
- * Get Template Set by ID
+ * Get Template Set by ID (v1.0 - Legacy)
  *
  * Returns full details for a single template set including linked templates.
+ * This version only returns the 3 core templates for v1.0 compatibility.
  */
 export const getTemplateSetById = query({
   args: {
@@ -191,11 +192,37 @@ export const getTemplateSetById = query({
       return null;
     }
 
-    // Fetch linked templates
+    // Use resolveTemplateSet for proper v1.0/v2.0 compatibility
+    // This handles the smart fallback mapping from granular v2.0 types
+    // ("event", "invoice_email") to legacy v1.0 types ("ticket", "email")
     const props = set.customProperties || {};
-    const ticketTemplate = await ctx.db.get(props.ticketTemplateId as Id<"objects">);
-    const invoiceTemplate = await ctx.db.get(props.invoiceTemplateId as Id<"objects">);
-    const emailTemplate = await ctx.db.get(props.emailTemplateId as Id<"objects">);
+    const version = (props.version as string) || "1.0";
+
+    let ticketTemplateId: Id<"objects"> | undefined;
+    let invoiceTemplateId: Id<"objects"> | undefined;
+    let emailTemplateId: Id<"objects"> | undefined;
+
+    if (version === "2.0" && Array.isArray(props.templates)) {
+      // v2.0: Use smart fallback mapping
+      const templates = new Map<string, Id<"objects">>();
+      for (const t of props.templates as Array<{ templateId: string; templateType: string }>) {
+        templates.set(t.templateType, t.templateId as Id<"objects">);
+      }
+
+      ticketTemplateId = templates.get("ticket") || templates.get("event");
+      invoiceTemplateId = templates.get("invoice");
+      emailTemplateId = templates.get("email") || templates.get("invoice_email") || templates.get("event");
+    } else {
+      // v1.0: Direct access
+      ticketTemplateId = props.ticketTemplateId as Id<"objects"> | undefined;
+      invoiceTemplateId = props.invoiceTemplateId as Id<"objects"> | undefined;
+      emailTemplateId = props.emailTemplateId as Id<"objects"> | undefined;
+    }
+
+    // Fetch templates
+    const ticketTemplate = ticketTemplateId ? await ctx.db.get(ticketTemplateId) : null;
+    const invoiceTemplate = invoiceTemplateId ? await ctx.db.get(invoiceTemplateId) : null;
+    const emailTemplate = emailTemplateId ? await ctx.db.get(emailTemplateId) : null;
 
     return {
       set,
@@ -203,6 +230,88 @@ export const getTemplateSetById = query({
         ticket: ticketTemplate,
         invoice: invoiceTemplate,
         email: emailTemplate,
+      },
+    };
+  },
+});
+
+/**
+ * Get Template Set with All Templates (v2.0)
+ *
+ * Returns template set with ALL linked templates via objectLinks.
+ * Supports v2.0 flexible template composition.
+ *
+ * Returns:
+ * - set: The template set object
+ * - templates: Array of all templates in the set with metadata:
+ *   - template: Full template object
+ *   - templateType: Type from customProperties (email, pdf, ticket, etc.)
+ *   - isRequired: Whether this template is required
+ *   - linkMetadata: Additional metadata from the link
+ */
+export const getTemplateSetWithAllTemplates = query({
+  args: {
+    setId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const set = await ctx.db.get(args.setId);
+    if (!set || set.type !== "template_set") {
+      return null;
+    }
+
+    // Get all objectLinks where this set is the source
+    const links = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_from_object", (q) => q.eq("fromObjectId", args.setId))
+      .collect();
+
+    // Fetch all linked template objects
+    const templates = await Promise.all(
+      links.map(async (link) => {
+        const template = await ctx.db.get(link.toObjectId);
+        if (!template) return null;
+
+        return {
+          template,
+          templateType: link.properties?.templateType as string,
+          isRequired: link.properties?.isRequired as boolean || false,
+          linkMetadata: link.properties || {},
+        };
+      })
+    );
+
+    // Filter out nulls and organize by type
+    const validTemplates = templates.filter((t) => t !== null) as Array<{
+      template: Doc<"objects">;
+      templateType: string;
+      isRequired: boolean;
+      linkMetadata: Record<string, any>;
+    }>;
+
+    // Separate by template category
+    const emailTemplates = validTemplates.filter(t => {
+      const type = t.template.type;
+      const subtype = t.template.subtype;
+      return type === "template" && subtype === "email";
+    });
+
+    const pdfTemplates = validTemplates.filter(t => {
+      const type = t.template.type;
+      const subtype = t.template.subtype;
+      return type === "template" && subtype === "pdf";
+    });
+
+    return {
+      set,
+      templates: validTemplates,
+      emailTemplates,
+      pdfTemplates,
+      counts: {
+        total: validTemplates.length,
+        email: emailTemplates.length,
+        pdf: pdfTemplates.length,
+        required: validTemplates.filter(t => t.isRequired).length,
+        optional: validTemplates.filter(t => !t.isRequired).length,
       },
     };
   },

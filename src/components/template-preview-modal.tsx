@@ -6,6 +6,7 @@ import { useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { EmailLanguage, EmailTemplateMetadata } from "@/templates/emails/types";
+import { GenericEmailMetadata } from "@/templates/emails/generic-types";
 import {
   getEmailTemplateMetadata,
   getEmailTemplate,
@@ -47,7 +48,7 @@ export function TemplatePreviewModal({
   const [viewMode, setViewMode] = useState<"desktop" | "mobile">("desktop");
   const [isLoading, setIsLoading] = useState(true);
   const [previewHtml, setPreviewHtml] = useState<string>("");
-  const [templateMetadata, setTemplateMetadata] = useState<EmailTemplateMetadata | null>(null);
+  const [templateMetadata, setTemplateMetadata] = useState<EmailTemplateMetadata | GenericEmailMetadata | null>(null);
 
   // Get email template data (for preview generation)
   const getEmailTemplateData = useAction(api.emailTemplateRenderer.getEmailTemplateData);
@@ -190,7 +191,7 @@ export function TemplatePreviewModal({
         style={{
           backgroundColor: "var(--win95-bg)",
           borderColor: "var(--win95-border)",
-          boxShadow: "8px 8px 0 rgba(0,0,0,0.3)",
+          boxShadow: "var(--modal-shadow)",
         }}
       >
         {/* Header */}
@@ -208,7 +209,12 @@ export function TemplatePreviewModal({
           </h3>
           <button
             onClick={onClose}
-            className="hover:bg-white hover:bg-opacity-20 p-1 rounded"
+            className="p-1 rounded transition-colors"
+            style={{
+              backgroundColor: "transparent",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.2)")}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
           >
             <X size={16} />
           </button>
@@ -232,7 +238,7 @@ export function TemplatePreviewModal({
               style={{
                 borderColor: "var(--win95-border)",
                 background: viewMode === "desktop" ? "var(--win95-highlight)" : "var(--win95-button-face)",
-                color: viewMode === "desktop" ? "white" : "var(--win95-text)",
+                color: viewMode === "desktop" ? "var(--win95-titlebar-text)" : "var(--win95-text)",
               }}
             >
               <Monitor size={12} />
@@ -246,7 +252,7 @@ export function TemplatePreviewModal({
               style={{
                 borderColor: "var(--win95-border)",
                 background: viewMode === "mobile" ? "var(--win95-highlight)" : "var(--win95-button-face)",
-                color: viewMode === "mobile" ? "white" : "var(--win95-text)",
+                color: viewMode === "mobile" ? "var(--win95-titlebar-text)" : "var(--win95-text)",
               }}
             >
               <Smartphone size={12} />
@@ -268,7 +274,7 @@ export function TemplatePreviewModal({
                   color: "var(--win95-text)",
                 }}
               >
-                {templateMetadata.supportedLanguages.map((lang: EmailLanguage) => (
+                {(templateMetadata.supportedLanguages as EmailLanguage[]).map((lang) => (
                   <option key={lang} value={lang}>
                     {languageLabels[lang]}
                   </option>
@@ -292,7 +298,7 @@ export function TemplatePreviewModal({
         <div
           className="flex-1 overflow-auto p-4"
           style={{
-            backgroundColor: "var(--win95-bg-dark)",
+            backgroundColor: "var(--win95-bg)",
           }}
         >
           {isLoading ? (
@@ -310,8 +316,8 @@ export function TemplatePreviewModal({
                 maxWidth: viewMode === "desktop" ? "800px" : "375px",
                 minHeight: "600px",
                 borderColor: "var(--win95-border)",
-                backgroundColor: "white",
-                boxShadow: "4px 4px 0 rgba(0,0,0,0.2)",
+                backgroundColor: "var(--win95-bg-light)",
+                boxShadow: "var(--modal-shadow)",
               }}
             >
               <iframe
@@ -320,7 +326,7 @@ export function TemplatePreviewModal({
                   width: "100%",
                   minHeight: "600px",
                   border: "none",
-                  background: "white",
+                  background: "var(--win95-bg-light)",
                 }}
                 title="Template Preview"
                 sandbox="allow-same-origin"
@@ -368,7 +374,7 @@ export function TemplatePreviewModal({
                 className="px-4 py-2 text-xs font-semibold border-2"
                 style={{
                   backgroundColor: "var(--success)",
-                  color: "white",
+                  color: "var(--win95-titlebar-text)",
                   borderColor: "var(--win95-border)",
                 }}
               >

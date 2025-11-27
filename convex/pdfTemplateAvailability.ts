@@ -60,10 +60,24 @@ export const enablePdfTemplate = mutation({
       .withIndex("by_org_type", (q) =>
         q.eq("organizationId", systemOrg._id).eq("type", "template")
       )
-      .filter((q) => q.eq(q.field("subtype"), "pdf"))
       .collect();
 
-    const template = allTemplates.find(
+    // Filter to PDF templates only (exclude email and page templates)
+    const pdfTemplates = allTemplates.filter((t) => {
+      const subtype = t.subtype;
+      if (!subtype) return false; // Skip templates without subtype
+      // Exclude email templates and page templates
+      if (subtype === "email" || subtype === "page") return false;
+      // Exclude all email template types
+      const emailTypes = ["transactional", "event_confirmation", "event_reminder", "event_followup",
+                         "newsletter", "marketing", "promotional", "receipt", "shipping",
+                         "support", "account", "notification", "welcome"];
+      if (emailTypes.includes(subtype)) return false;
+      // Include everything else (legacy "pdf", "pdf_ticket", and modern PDF types)
+      return true;
+    });
+
+    const template = pdfTemplates.find(
       (t) => t.customProperties?.code === args.templateCode
     );
 
@@ -417,14 +431,30 @@ export const getAllSystemPdfTemplates = query({
     }
 
     // Get all system PDF templates
-    const templates = await ctx.db
+    // Include all PDF template types (not just "pdf" - also "invoice", "ticket", "certificate", etc.)
+    // Exclude email and page templates only
+    const allTemplates = await ctx.db
       .query("objects")
       .withIndex("by_org_type", (q) =>
         q.eq("organizationId", systemOrg._id).eq("type", "template")
       )
-      .filter((q) => q.eq(q.field("subtype"), "pdf"))
       .filter((q) => q.eq(q.field("status"), "published"))
       .collect();
+
+    // Filter to PDF templates only (exclude email and page templates)
+    const templates = allTemplates.filter((t) => {
+      const subtype = t.subtype;
+      if (!subtype) return false; // Skip templates without subtype
+      // Exclude email templates and page templates
+      if (subtype === "email" || subtype === "page") return false;
+      // Exclude all email template types
+      const emailTypes = ["transactional", "event_confirmation", "event_reminder", "event_followup",
+                         "newsletter", "marketing", "promotional", "receipt", "shipping",
+                         "support", "account", "notification", "welcome"];
+      if (emailTypes.includes(subtype)) return false;
+      // Include everything else (legacy "pdf", "pdf_ticket", and modern PDF types like "invoice", "ticket", etc.)
+      return true;
+    });
 
     return templates;
   },

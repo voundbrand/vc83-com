@@ -54,104 +54,176 @@ export const seedSystemDefaultSet = mutation({
       throw new Error("No users found. Create a user first before seeding template sets.");
     }
 
-    // Check if system default already exists
+    // Check if system default already exists (use take instead of collect)
     const existingSets = await ctx.db
       .query("objects")
       .withIndex("by_org_type", (q) =>
         q.eq("organizationId", systemOrg._id).eq("type", "template_set")
       )
-      .collect();
+      .take(10); // Limit to 10 sets max
 
-    if (existingSets.some((set) => set.customProperties?.isSystemDefault)) {
-      console.log("✅ System default template set already exists");
-      return { message: "System default template set already exists", existed: true };
-    }
+    const existingSystemDefault = existingSets.find((set) => set.customProperties?.isSystemDefault);
 
-    // Find default ticket template
-    const ticketTemplates = await ctx.db
+    // Find Professional ticket template (v2.0) - use specific filter first
+    const defaultTicketTemplate = await ctx.db
       .query("objects")
       .withIndex("by_org_type", (q) =>
         q.eq("organizationId", systemOrg._id).eq("type", "template")
       )
       .filter((q) => q.eq(q.field("subtype"), "pdf"))
       .filter((q) => q.eq(q.field("status"), "published"))
-      .collect();
+      .filter((q) => q.or(
+        q.eq(q.field("customProperties.code"), "ticket_professional_v1"),
+        q.eq(q.field("customProperties.templateCode"), "ticket_professional_v1")
+      ))
+      .first();
 
-    const defaultTicketTemplate = ticketTemplates.find((t) => {
-      const props = t.customProperties || {};
-      return props.category === "ticket" && props.isDefault;
-    }) || ticketTemplates.find((t) => {
-      const props = t.customProperties || {};
-      return props.category === "ticket";
-    });
+    // Fallback: find any ticket template if specific one not found
+    const fallbackTicketTemplate = !defaultTicketTemplate ? await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", systemOrg._id).eq("type", "template")
+      )
+      .filter((q) => q.eq(q.field("subtype"), "pdf"))
+      .filter((q) => q.eq(q.field("status"), "published"))
+      .filter((q) => q.eq(q.field("customProperties.category"), "ticket"))
+      .first() : null;
 
-    // Find default invoice template
-    const defaultInvoiceTemplate = ticketTemplates.find((t) => {
-      const props = t.customProperties || {};
-      return props.category === "invoice" && props.isDefault;
-    }) || ticketTemplates.find((t) => {
-      const props = t.customProperties || {};
-      return props.category === "invoice";
-    });
+    const finalTicketTemplate = defaultTicketTemplate || fallbackTicketTemplate;
 
-    // Find default email template
-    const emailTemplates = await ctx.db
+    // Find Professional invoice template (v2.0)
+    const defaultInvoiceTemplate = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", systemOrg._id).eq("type", "template")
+      )
+      .filter((q) => q.eq(q.field("subtype"), "pdf"))
+      .filter((q) => q.eq(q.field("status"), "published"))
+      .filter((q) => q.or(
+        q.eq(q.field("customProperties.code"), "invoice_b2c_receipt_v1"),
+        q.eq(q.field("customProperties.templateCode"), "invoice_b2c_receipt_v1")
+      ))
+      .first();
+
+    // Fallback: find any invoice template if specific one not found
+    const fallbackInvoiceTemplate = !defaultInvoiceTemplate ? await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", systemOrg._id).eq("type", "template")
+      )
+      .filter((q) => q.eq(q.field("subtype"), "pdf"))
+      .filter((q) => q.eq(q.field("status"), "published"))
+      .filter((q) => q.or(
+        q.eq(q.field("customProperties.category"), "invoice"),
+        q.eq(q.field("customProperties.category"), "receipt")
+      ))
+      .first() : null;
+
+    const finalInvoiceTemplate = defaultInvoiceTemplate || fallbackInvoiceTemplate;
+
+    // Find Professional email template (event-confirmation v2.0)
+    const defaultEmailTemplate = await ctx.db
       .query("objects")
       .withIndex("by_org_type", (q) =>
         q.eq("organizationId", systemOrg._id).eq("type", "template")
       )
       .filter((q) => q.eq(q.field("subtype"), "email"))
       .filter((q) => q.eq(q.field("status"), "published"))
-      .collect();
+      .filter((q) => q.or(
+        q.eq(q.field("customProperties.code"), "email_event_confirmation"),
+        q.eq(q.field("customProperties.templateCode"), "email_event_confirmation")
+      ))
+      .first();
 
-    const defaultEmailTemplate = emailTemplates.find((t) => {
-      return t.customProperties?.isDefault;
-    }) || emailTemplates[0];
+    // Fallback: find any email template if specific one not found
+    const fallbackEmailTemplate = !defaultEmailTemplate ? await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", systemOrg._id).eq("type", "template")
+      )
+      .filter((q) => q.eq(q.field("subtype"), "email"))
+      .filter((q) => q.eq(q.field("status"), "published"))
+      .first() : null;
 
-    if (!defaultTicketTemplate || !defaultInvoiceTemplate || !defaultEmailTemplate) {
+    const finalEmailTemplate = defaultEmailTemplate || fallbackEmailTemplate;
+
+    if (!finalTicketTemplate || !finalInvoiceTemplate || !finalEmailTemplate) {
       console.error("❌ Cannot create system default set: Missing required templates");
-      console.error(`Found: ticket=${!!defaultTicketTemplate}, invoice=${!!defaultInvoiceTemplate}, email=${!!defaultEmailTemplate}`);
+      console.error(`Found: ticket=${!!finalTicketTemplate}, invoice=${!!finalInvoiceTemplate}, email=${!!finalEmailTemplate}`);
       throw new Error(
         "Cannot create system default set: Missing required templates. " +
         `Run 'npx convex run seedPdfTemplates:seedPdfTemplates' and 'npx convex run seedEmailTemplates:seedEmailTemplates' first.`
       );
     }
 
-    // Create system default template set
-    const setId = await ctx.db.insert("objects", {
-      organizationId: systemOrg._id,
-      type: "template_set",
-      name: "System Default",
-      description: "Default template set for all organizations",
-      status: "active",
-      customProperties: {
-        ticketTemplateId: defaultTicketTemplate._id,
-        invoiceTemplateId: defaultInvoiceTemplate._id,
-        emailTemplateId: defaultEmailTemplate._id,
-        isDefault: true,
-        isSystemDefault: true,
-        tags: ["system", "default"],
-        previewImageUrl: "",
-      },
-      createdBy: firstUser._id,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    });
+    // Upsert Professional System Default template set
+    let setId: any;
+    let action = "created";
 
-    console.log("✅ System default template set created:", setId);
-    console.log("   Ticket:", defaultTicketTemplate.name);
-    console.log("   Invoice:", defaultInvoiceTemplate.name);
-    console.log("   Email:", defaultEmailTemplate.name);
+    if (existingSystemDefault) {
+      // Update existing template set with new Professional v2.0 templates
+      await ctx.db.patch(existingSystemDefault._id, {
+        name: "Professional System Default",
+        description: "Comprehensive Professional v2.0 template system with purple branding (#6B46C1). Includes 11 email templates (transactional, marketing, events, support), 8 PDF templates (tickets, invoices, lead magnets, quotes, badges, programs), and 4-language support (EN, DE, ES, FR). AI-adaptable with modular sections.",
+        status: "active",
+        customProperties: {
+          ticketTemplateId: finalTicketTemplate._id,
+          invoiceTemplateId: finalInvoiceTemplate._id,
+          emailTemplateId: finalEmailTemplate._id,
+          isDefault: true,
+          isSystemDefault: true,
+          tags: ["system", "default", "professional", "v2.0", "comprehensive"],
+          previewImageUrl: "",
+          version: "2.0.0",
+          totalEmailTemplates: 11,
+          totalPdfTemplates: 8,
+        },
+        updatedAt: Date.now(),
+      });
+      setId = existingSystemDefault._id;
+      action = "updated";
+      console.log("🔄 Updated system default template set:", setId);
+    } else {
+      // Create new Professional System Default template set
+      setId = await ctx.db.insert("objects", {
+        organizationId: systemOrg._id,
+        type: "template_set",
+        name: "Professional System Default",
+        description: "Comprehensive Professional v2.0 template system with purple branding (#6B46C1). Includes 11 email templates (transactional, marketing, events, support), 8 PDF templates (tickets, invoices, lead magnets, quotes, badges, programs), and 4-language support (EN, DE, ES, FR). AI-adaptable with modular sections.",
+        status: "active",
+        customProperties: {
+          ticketTemplateId: finalTicketTemplate._id,
+          invoiceTemplateId: finalInvoiceTemplate._id,
+          emailTemplateId: finalEmailTemplate._id,
+          isDefault: true,
+          isSystemDefault: true,
+          tags: ["system", "default", "professional", "v2.0", "comprehensive"],
+          previewImageUrl: "",
+          version: "2.0.0",
+          totalEmailTemplates: 11,
+          totalPdfTemplates: 8,
+        },
+        createdBy: firstUser._id,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+      console.log("✅ Created system default template set:", setId);
+    }
+
+    console.log("   Ticket:", finalTicketTemplate.name);
+    console.log("   Invoice:", finalInvoiceTemplate.name);
+    console.log("   Email:", finalEmailTemplate.name);
     console.log("\n⚠️  IMPORTANT: Super admins must enable this template set for organizations!");
     console.log("   Use templateSetAvailability.enableTemplateSet() mutation\n");
 
     return {
-      message: "System default template set created - super admins must enable for orgs",
+      message: `System default template set ${action} - super admins must enable for orgs`,
       setId,
+      action,
       templates: {
-        ticket: defaultTicketTemplate.name,
-        invoice: defaultInvoiceTemplate.name,
-        email: defaultEmailTemplate.name,
+        ticket: finalTicketTemplate.name,
+        invoice: finalInvoiceTemplate.name,
+        email: finalEmailTemplate.name,
       },
     };
   },

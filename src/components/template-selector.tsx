@@ -6,11 +6,12 @@ import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { FileText, Loader2, AlertCircle } from "lucide-react";
 
-type PdfCategory = "invoice" | "ticket" | "certificate" | "receipt" | "badge";
-type EmailCategory = "luxury" | "minimal" | "internal" | "all"; // Added "all" for no filter
+type PdfCategory = "invoice" | "ticket" | "certificate" | "receipt" | "badge" | "all"; // Added "all" for no filter
+type EmailCategory = "luxury" | "minimal" | "internal" | "transactional" | "marketing" | "event" | "support" | "newsletter" | "all"; // Added "all" for no filter
 
 interface TemplateSelectorProps {
   category: PdfCategory | EmailCategory;
+  templateType?: "pdf" | "email"; // Required when category="all" to distinguish PDF vs Email
   value?: Id<"objects"> | null | undefined;
   onChange: (templateId: Id<"objects"> | null | undefined) => void;
   label?: string;
@@ -41,6 +42,7 @@ interface TemplateSelectorProps {
  */
 export function TemplateSelector({
   category,
+  templateType,
   value,
   onChange,
   label,
@@ -52,21 +54,35 @@ export function TemplateSelector({
   nullLabel = "Use system default",
 }: TemplateSelectorProps) {
   // Determine if this is a PDF or email template category
-  const isPdfCategory = (["invoice", "ticket", "certificate", "receipt", "badge"] as const).includes(category as PdfCategory);
-  const isAllEmailCategory = category === "all";
-  const isEmailCategory = (["luxury", "minimal", "internal"] as const).includes(category as "luxury" | "minimal" | "internal");
+  const isSpecificPdfCategory = category !== "all" && (["invoice", "ticket", "certificate", "receipt", "badge"] as const).includes(category as any);
+  const isEmailCategory = category !== "all" && (["luxury", "minimal", "internal", "transactional", "marketing", "event", "support", "newsletter"] as const).includes(category as any);
+
+  // Handle "all" category based on templateType hint
+  const isAllPdfCategory = category === "all" && templateType === "pdf";
+  const isAllEmailCategory = category === "all" && templateType === "email";
 
   // Fetch templates for category (PDF or Email)
   // Note: Passing "skip" as args tells Convex to skip that query
   // Both queries are "registered" but only execute when args are not "skip"
-  const pdfTemplates = useQuery(
+  const pdfTemplatesByCategory = useQuery(
     api.pdfTemplateQueries.getPdfTemplatesByCategory,
-    isPdfCategory ? { category: category as PdfCategory, organizationId } : "skip"
+    isSpecificPdfCategory ? {
+      category: category as "invoice" | "ticket" | "certificate" | "receipt" | "badge",
+      organizationId
+    } : "skip"
+  );
+
+  const allPdfTemplates = useQuery(
+    api.pdfTemplateQueries.getAllPdfTemplates,
+    isAllPdfCategory ? { organizationId } : "skip"
   );
 
   const emailTemplatesByCategory = useQuery(
     api.pdfTemplateQueries.getEmailTemplatesByCategory,
-    isEmailCategory ? { category: category as "luxury" | "minimal" | "internal", organizationId } : "skip"
+    isEmailCategory ? {
+      category: category as "luxury" | "minimal" | "internal" | "transactional" | "marketing" | "event" | "support" | "newsletter",
+      organizationId
+    } : "skip"
   );
 
   const allEmailTemplates = useQuery(
@@ -75,13 +91,15 @@ export function TemplateSelector({
   );
 
   // Use the appropriate result based on category
-  const templates = isPdfCategory
-    ? pdfTemplates
-    : isEmailCategory
-      ? emailTemplatesByCategory
-      : isAllEmailCategory
-        ? allEmailTemplates
-        : undefined;
+  const templates = isSpecificPdfCategory
+    ? pdfTemplatesByCategory
+    : isAllPdfCategory
+      ? allPdfTemplates
+      : isEmailCategory
+        ? emailTemplatesByCategory
+        : isAllEmailCategory
+          ? allEmailTemplates
+          : undefined;
 
   // Loading state
   if (templates === undefined) {
@@ -167,6 +185,7 @@ export function TemplateSelector({
             {template.name}
             {template.isDefault && " (Default)"}
             {template.isSystemTemplate ? "" : " (Custom)"}
+            {(template as any).isSchemaTemplate ? " 🌱" : ""}
           </option>
         ))}
       </select>
@@ -179,12 +198,22 @@ export function TemplateSelector({
             if (!selected) return null;
             return (
               <div>
-                <div className="font-bold">{(selected as any).name}</div>
+                <div className="font-bold">
+                  {(selected as any).name}
+                  {(selected as any).isSchemaTemplate && (
+                    <span className="ml-1" title="Schema-driven template">🌱</span>
+                  )}
+                </div>
                 {(selected as any).description && (
                   <div className="mt-1">{(selected as any).description}</div>
                 )}
                 <div className="mt-1 font-mono text-xs opacity-75">
                   Code: {(selected as any).templateCode} | v{(selected as any).version}
+                  {(selected as any).isSchemaTemplate && (
+                    <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ background: 'rgba(99, 102, 241, 0.2)', color: '#6366f1' }}>
+                      Schema-driven
+                    </span>
+                  )}
                 </div>
               </div>
             );

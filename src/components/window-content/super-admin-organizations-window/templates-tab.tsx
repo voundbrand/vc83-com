@@ -1,95 +1,37 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { useAuth } from "@/hooks/use-auth";
-import { FileText, Check, X, Loader2, AlertCircle, FileInput, ShoppingCart, FileType, Package, Zap } from "lucide-react";
+import {
+  FileText,
+  Check,
+  X,
+  Loader2,
+  AlertCircle,
+  Edit,
+  Trash2,
+  Copy,
+  Search,
+  Filter,
+  Package,
+} from "lucide-react";
 
 /**
- * Templates Tab
+ * Templates Tab - Redesigned with Two Sections + Theme System
  *
- * Super admin UI to manage which templates are available to which organizations.
- * Displays matrices for:
- * 1. Web Page Templates
- * 2. Form Templates
- * 3. Checkout Templates
- * 4. PDF Templates (Tickets, Invoices, Certificates)
+ * SECTION 1: CRUD - Manage ALL system templates in one clean list
+ * SECTION 2: Availability - Select org, enable/disable templates
  */
 export function TemplatesTab() {
   const { sessionId } = useAuth();
 
-  // Fetch all system web page templates
-  const allWebTemplates = useQuery(
-    api.templateAvailability.getAllSystemTemplates,
-    sessionId ? { sessionId } : "skip"
-  );
-
-  // Fetch all web template availabilities (for all orgs)
-  const allWebAvailabilities = useQuery(
-    api.templateAvailability.getAllTemplateAvailabilities,
-    sessionId ? { sessionId } : "skip"
-  );
-
-  // Fetch all system form templates
-  const allFormTemplates = useQuery(
-    api.formTemplateAvailability.getAllSystemFormTemplates,
-    sessionId ? { sessionId } : "skip"
-  );
-
-  // Fetch all form template availabilities (for all orgs)
-  const allFormAvailabilities = useQuery(
-    api.formTemplateAvailability.getAllFormTemplateAvailabilities,
-    sessionId ? { sessionId } : "skip"
-  );
-
-  // Fetch all system checkout templates
-  const allCheckoutTemplates = useQuery(
-    api.checkoutTemplateAvailability.getAllSystemCheckoutTemplates,
-    sessionId ? { sessionId } : "skip"
-  );
-
-  // Fetch all checkout template availabilities (for all orgs)
-  const allCheckoutAvailabilities = useQuery(
-    api.checkoutTemplateAvailability.getAllCheckoutTemplateAvailabilities,
-    sessionId ? { sessionId } : "skip"
-  );
-
-  // Fetch all system PDF templates
-  const allPdfTemplates = useQuery(
-    api.pdfTemplateAvailability.getAllSystemPdfTemplates,
-    sessionId ? { sessionId } : "skip"
-  );
-
-  // Fetch all PDF template availabilities (for all orgs)
-  const allPdfAvailabilities = useQuery(
-    api.pdfTemplateAvailability.getAllPdfTemplateAvailabilities,
-    sessionId ? { sessionId } : "skip"
-  );
-
-  // Fetch all system template sets
-  const allTemplateSets = useQuery(
-    api.templateSetAvailability.getAllSystemTemplateSets,
-    sessionId ? { sessionId } : "skip"
-  );
-
-  // Fetch all template set availabilities (for all orgs)
-  const allTemplateSetAvailabilities = useQuery(
-    api.templateSetAvailability.getAllTemplateSetAvailabilities,
-    sessionId ? { sessionId } : "skip"
-  );
-
-  // Fetch all system workflow templates
-  const allWorkflowTemplates = useQuery(
-    api.workflowTemplateAvailability.getAllSystemWorkflowTemplates,
-    sessionId ? { sessionId } : "skip"
-  );
-
-  // Fetch all workflow template availabilities (for all orgs)
-  const allWorkflowAvailabilities = useQuery(
-    api.workflowTemplateAvailability.getAllWorkflowTemplateAvailabilities,
-    sessionId ? { sessionId } : "skip"
+  // Fetch audit data for all templates
+  const auditData = useQuery(
+    api.auditTemplates.auditAllTemplates,
+    sessionId ? {} : "skip"
   );
 
   // Fetch all organizations
@@ -101,12 +43,20 @@ export function TemplatesTab() {
   if (!sessionId) {
     return (
       <div className="p-4">
-        <div className="border-2 border-red-600 bg-red-50 p-4">
+        <div
+          className="border-2 p-4"
+          style={{
+            borderColor: "#ef4444",
+            background: "#fef2f2",
+          }}
+        >
           <div className="flex items-start gap-2">
-            <AlertCircle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
+            <AlertCircle size={20} style={{ color: "#dc2626" }} className="flex-shrink-0 mt-0.5" />
             <div>
-              <h4 className="font-bold text-sm text-red-900">Authentication Required</h4>
-              <p className="text-xs text-red-800 mt-1">
+              <h4 className="font-bold text-sm" style={{ color: "#991b1b" }}>
+                Authentication Required
+              </h4>
+              <p className="text-xs mt-1" style={{ color: "#b91c1c" }}>
                 Please log in to manage templates.
               </p>
             </div>
@@ -116,24 +66,10 @@ export function TemplatesTab() {
     );
   }
 
-  if (
-    !allWebTemplates ||
-    !allWebAvailabilities ||
-    !allFormTemplates ||
-    !allFormAvailabilities ||
-    !allCheckoutTemplates ||
-    !allCheckoutAvailabilities ||
-    !allPdfTemplates ||
-    !allPdfAvailabilities ||
-    !allTemplateSets ||
-    !allTemplateSetAvailabilities ||
-    !allWorkflowTemplates ||
-    !allWorkflowAvailabilities ||
-    !organizations
-  ) {
+  if (!auditData || !organizations) {
     return (
       <div className="flex items-center justify-center p-8">
-        <Loader2 size={32} className="animate-spin text-purple-600" />
+        <Loader2 size={32} className="animate-spin" style={{ color: "var(--win95-highlight)" }} />
       </div>
     );
   }
@@ -141,12 +77,20 @@ export function TemplatesTab() {
   if (organizations.length === 0) {
     return (
       <div className="p-4">
-        <div className="border-2 border-yellow-600 bg-yellow-50 p-4">
+        <div
+          className="border-2 p-4"
+          style={{
+            borderColor: "#ca8a04",
+            background: "#fefce8",
+          }}
+        >
           <div className="flex items-start gap-2">
-            <AlertCircle size={20} className="text-yellow-600 flex-shrink-0 mt-0.5" />
+            <AlertCircle size={20} style={{ color: "#ca8a04" }} className="flex-shrink-0 mt-0.5" />
             <div>
-              <h4 className="font-bold text-sm text-yellow-900">No Organizations Found</h4>
-              <p className="text-xs text-yellow-800 mt-1">
+              <h4 className="font-bold text-sm" style={{ color: "#854d0e" }}>
+                No Organizations Found
+              </h4>
+              <p className="text-xs mt-1" style={{ color: "#a16207" }}>
                 No organizations exist yet.
               </p>
             </div>
@@ -156,1169 +100,658 @@ export function TemplatesTab() {
     );
   }
 
+  // Combine all templates from audit data
+  const allTemplates = [
+    ...auditData.templates.schemaEmail,
+    ...auditData.templates.htmlEmail,
+    ...auditData.templates.pdf,
+    ...auditData.templates.unknown,
+  ];
+
   return (
-    <div className="p-4 space-y-6 overflow-y-auto">
-      {/* WEB PAGE TEMPLATES SECTION */}
-      <div>
-        {/* Header */}
-        <div className="mb-4">
-          <h3 className="text-sm font-bold flex items-center gap-2">
-            <FileText size={16} />
-            Web Page Templates Availability
-          </h3>
-          <p className="text-xs text-gray-600 mt-1">
-            Control which web page templates are visible to each organization for publishing websites.
-          </p>
-        </div>
+    <div
+      className="p-4 space-y-8 overflow-y-auto max-h-[calc(100vh-200px)]"
+      style={{ background: "var(--win95-bg)" }}
+    >
+      {/* SECTION 1: CRUD - Template Management */}
+      <TemplateCRUDSection templates={allTemplates} sessionId={sessionId} />
 
-        {allWebTemplates.length === 0 ? (
-          <div className="border-2 border-yellow-600 bg-yellow-50 p-4">
-            <div className="flex items-start gap-2">
-              <AlertCircle size={20} className="text-yellow-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <h4 className="font-bold text-sm text-yellow-900">No Web Templates Found</h4>
-                <p className="text-xs text-yellow-800 mt-1">
-                  No web page templates have been seeded yet. Run the seed script to create templates.
-                </p>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <>
-            {/* Matrix Table */}
-            <div className="border-2 border-gray-400 overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="bg-gray-200 border-b-2 border-gray-400">
-                    <th className="px-3 py-2 text-left font-bold sticky left-0 bg-gray-200 z-10">
-                      Organization
-                    </th>
-                    {allWebTemplates.map((template) => (
-                      <th key={template._id} className="px-3 py-2 text-center font-bold min-w-[120px]">
-                        <div className="flex flex-col items-center gap-1">
-                          <span>
-                            {template.customProperties?.category === "events" && "🎉"}
-                            {template.customProperties?.category === "checkout" && "🛒"}
-                            {template.customProperties?.category === "invoicing" && "💰"}
-                            {template.customProperties?.category === "forms" && "📝"}
-                            {!template.customProperties?.category && "📄"}
-                          </span>
-                          <span className="text-center">{template.name}</span>
-                          <code className="text-xs text-gray-500 bg-gray-100 px-1">
-                            {template.customProperties?.code}
-                          </code>
-                        </div>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {organizations.map((org) => (
-                    <WebTemplateRow
-                      key={org._id}
-                      organization={org}
-                      templates={allWebTemplates}
-                      availabilities={allWebAvailabilities.filter((a) => a.organizationId === org._id)}
-                      sessionId={sessionId}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
+      {/* SECTION 2: Availability - Per-Org Template Access */}
+      <TemplateAvailabilitySection
+        templates={allTemplates}
+        organizations={organizations}
+        sessionId={sessionId}
+      />
+    </div>
+  );
+}
 
-            {/* Legend */}
-            <div className="mt-4 flex items-center gap-4 text-xs">
-              <div className="flex items-center gap-1">
-                <div className="w-4 h-4 bg-green-500 border-2 border-gray-400 flex items-center justify-center">
-                  <Check size={10} className="text-white" />
-                </div>
-                <span>Available</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-4 h-4 bg-red-500 border-2 border-gray-400 flex items-center justify-center">
-                  <X size={10} className="text-white" />
-                </div>
-                <span>Not Available</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-4 h-4 bg-gray-300 border-2 border-gray-400 flex items-center justify-center">
-                  <Loader2 size={10} className="animate-spin" />
-                </div>
-                <span>Updating...</span>
-              </div>
-            </div>
-          </>
-        )}
+/**
+ * SECTION 1: CRUD - System Templates Management
+ */
+function TemplateCRUDSection({
+  templates,
+  sessionId,
+}: {
+  templates: any[];
+  sessionId: string;
+}) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [schemaFilter, setSchemaFilter] = useState<string>("all");
+
+  // Filter templates
+  const filteredTemplates = useMemo(() => {
+    return templates.filter((template) => {
+      // Search filter
+      const matchesSearch =
+        searchQuery === "" ||
+        template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        template.code.toLowerCase().includes(searchQuery.toLowerCase());
+
+      // Type filter
+      const templateType = getTemplateType(template);
+      const matchesType = typeFilter === "all" || templateType === typeFilter;
+
+      // Schema filter
+      const matchesSchema =
+        schemaFilter === "all" ||
+        (schemaFilter === "schema" && template.hasSchema) ||
+        (schemaFilter === "legacy" && !template.hasSchema);
+
+      return matchesSearch && matchesType && matchesSchema;
+    });
+  }, [templates, searchQuery, typeFilter, schemaFilter]);
+
+  return (
+    <div>
+      {/* Header */}
+      <div className="mb-4">
+        <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+          <FileText size={16} />
+          System Templates Management
+        </h3>
+        <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+          Manage all system templates: create, edit, delete, and duplicate.
+        </p>
       </div>
 
-      {/* FORM TEMPLATES SECTION */}
-      <div>
-        {/* Header */}
-        <div className="mb-4">
-          <h3 className="text-sm font-bold flex items-center gap-2">
-            <FileInput size={16} />
-            Form Templates Availability
-          </h3>
-          <p className="text-xs text-gray-600 mt-1">
-            Control which form templates are visible to each organization for creating registration, survey, and application forms.
-          </p>
+      {/* Filters */}
+      <div className="mb-4 flex gap-3 flex-wrap items-center">
+        {/* Search */}
+        <div className="relative flex-1 min-w-[200px]">
+          <Search
+            size={14}
+            className="absolute left-2 top-1/2 -translate-y-1/2"
+            style={{ color: "var(--neutral-gray)" }}
+          />
+          <input
+            type="text"
+            placeholder="Search templates..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-8 pr-3 py-1.5 text-xs border-2 focus:outline-none"
+            style={{
+              borderColor: "var(--win95-border)",
+              background: "var(--win95-bg-light)",
+              color: "var(--win95-text)",
+            }}
+          />
         </div>
 
-        {allFormTemplates.length === 0 ? (
-          <div className="border-2 border-yellow-600 bg-yellow-50 p-4">
-            <div className="flex items-start gap-2">
-              <AlertCircle size={20} className="text-yellow-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <h4 className="font-bold text-sm text-yellow-900">No Form Templates Found</h4>
-                <p className="text-xs text-yellow-800 mt-1">
-                  No form templates have been seeded yet. Run the seed script to create form templates.
-                </p>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <>
-            {/* Matrix Table */}
-            <div className="border-2 border-gray-400 overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="bg-gray-200 border-b-2 border-gray-400">
-                    <th className="px-3 py-2 text-left font-bold sticky left-0 bg-gray-200 z-10">
-                      Organization
-                    </th>
-                    {allFormTemplates.map((template) => (
-                      <th key={template._id} className="px-3 py-2 text-center font-bold min-w-[120px]">
-                        <div className="flex flex-col items-center gap-1">
-                          <span>
-                            {template.subtype === "registration" && "🎫"}
-                            {template.subtype === "survey" && "📊"}
-                            {template.subtype === "application" && "📝"}
-                            {!template.subtype && "📋"}
-                          </span>
-                          <span className="text-center">{template.name}</span>
-                          <code className="text-xs text-gray-500 bg-gray-100 px-1">
-                            {template.customProperties?.code}
-                          </code>
-                        </div>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {organizations.map((org) => (
-                    <FormTemplateRow
-                      key={org._id}
-                      organization={org}
-                      templates={allFormTemplates}
-                      availabilities={allFormAvailabilities.filter((a) => a.organizationId === org._id)}
-                      sessionId={sessionId}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
+        {/* Type Filter */}
+        <div className="flex items-center gap-2">
+          <Filter size={14} style={{ color: "var(--neutral-gray)" }} />
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            className="text-xs border-2 px-2 py-1.5 focus:outline-none"
+            style={{
+              borderColor: "var(--win95-border)",
+              background: "var(--win95-bg-light)",
+              color: "var(--win95-text)",
+            }}
+          >
+            <option value="all">All Types</option>
+            <option value="email">Email</option>
+            <option value="pdf">PDF</option>
+            <option value="form">Form</option>
+            <option value="checkout">Checkout</option>
+            <option value="workflow">Workflow</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
 
-            {/* Legend */}
-            <div className="mt-4 flex items-center gap-4 text-xs">
-              <div className="flex items-center gap-1">
-                <div className="w-4 h-4 bg-green-500 border-2 border-gray-400 flex items-center justify-center">
-                  <Check size={10} className="text-white" />
-                </div>
-                <span>Available</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-4 h-4 bg-red-500 border-2 border-gray-400 flex items-center justify-center">
-                  <X size={10} className="text-white" />
-                </div>
-                <span>Not Available</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-4 h-4 bg-gray-300 border-2 border-gray-400 flex items-center justify-center">
-                  <Loader2 size={10} className="animate-spin" />
-                </div>
-                <span>Updating...</span>
-              </div>
-            </div>
-          </>
-        )}
+        {/* Schema Filter */}
+        <select
+          value={schemaFilter}
+          onChange={(e) => setSchemaFilter(e.target.value)}
+          className="text-xs border-2 px-2 py-1.5 focus:outline-none"
+          style={{
+            borderColor: "var(--win95-border)",
+            background: "var(--win95-bg-light)",
+            color: "var(--win95-text)",
+          }}
+        >
+          <option value="all">All Templates</option>
+          <option value="schema">Schema-Driven Only</option>
+          <option value="legacy">Legacy HTML Only</option>
+        </select>
       </div>
 
-      {/* CHECKOUT TEMPLATES SECTION */}
-      <div>
-        {/* Header */}
-        <div className="mb-4">
-          <h3 className="text-sm font-bold flex items-center gap-2">
-            <ShoppingCart size={16} />
-            Checkout Templates Availability
-          </h3>
-          <p className="text-xs text-gray-600 mt-1">
-            Control which checkout templates are visible to each organization for creating checkout pages and payment flows.
-          </p>
-        </div>
-
-        {allCheckoutTemplates.length === 0 ? (
-          <div className="border-2 border-yellow-600 bg-yellow-50 p-4">
-            <div className="flex items-start gap-2">
-              <AlertCircle size={20} className="text-yellow-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <h4 className="font-bold text-sm text-yellow-900">No Checkout Templates Found</h4>
-                <p className="text-xs text-yellow-800 mt-1">
-                  No checkout templates have been seeded yet. Run the seed script to create checkout templates.
-                </p>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <>
-            {/* Matrix Table */}
-            <div className="border-2 border-gray-400 overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="bg-gray-200 border-b-2 border-gray-400">
-                    <th className="px-3 py-2 text-left font-bold sticky left-0 bg-gray-200 z-10">
-                      Organization
-                    </th>
-                    {allCheckoutTemplates.map((template) => (
-                      <th key={template._id} className="px-3 py-2 text-center font-bold min-w-[120px]">
-                        <div className="flex flex-col items-center gap-1">
-                          <span>
-                            {template.subtype === "ticket" && "🎫"}
-                            {template.subtype === "product" && "📦"}
-                            {template.subtype === "service" && "⚙️"}
-                            {!template.subtype && "🛒"}
-                          </span>
-                          <span className="text-center">{template.name}</span>
-                          <code className="text-xs text-gray-500 bg-gray-100 px-1">
-                            {template.customProperties?.code}
-                          </code>
-                        </div>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {organizations.map((org) => (
-                    <CheckoutTemplateRow
-                      key={org._id}
-                      organization={org}
-                      templates={allCheckoutTemplates}
-                      availabilities={allCheckoutAvailabilities.filter((a) => a.organizationId === org._id)}
-                      sessionId={sessionId}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Legend */}
-            <div className="mt-4 flex items-center gap-4 text-xs">
-              <div className="flex items-center gap-1">
-                <div className="w-4 h-4 bg-green-500 border-2 border-gray-400 flex items-center justify-center">
-                  <Check size={10} className="text-white" />
-                </div>
-                <span>Available</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-4 h-4 bg-red-500 border-2 border-gray-400 flex items-center justify-center">
-                  <X size={10} className="text-white" />
-                </div>
-                <span>Not Available</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-4 h-4 bg-gray-300 border-2 border-gray-400 flex items-center justify-center">
-                  <Loader2 size={10} className="animate-spin" />
-                </div>
-                <span>Updating...</span>
-              </div>
-            </div>
-          </>
-        )}
+      {/* Templates Table */}
+      <div className="border-2 overflow-x-auto" style={{ borderColor: "var(--win95-border)" }}>
+        <table className="w-full text-xs">
+          <thead>
+            <tr
+              className="border-b-2"
+              style={{
+                background: "var(--win95-bg-light)",
+                borderColor: "var(--win95-border)",
+              }}
+            >
+              <th
+                className="px-3 py-2 text-left font-bold"
+                style={{ color: "var(--win95-text)" }}
+              >
+                Name
+              </th>
+              <th
+                className="px-3 py-2 text-left font-bold"
+                style={{ color: "var(--win95-text)" }}
+              >
+                Code
+              </th>
+              <th
+                className="px-3 py-2 text-center font-bold"
+                style={{ color: "var(--win95-text)" }}
+              >
+                Type
+              </th>
+              <th
+                className="px-3 py-2 text-center font-bold"
+                style={{ color: "var(--win95-text)" }}
+              >
+                Schema
+              </th>
+              <th
+                className="px-3 py-2 text-center font-bold"
+                style={{ color: "var(--win95-text)" }}
+              >
+                Status
+              </th>
+              <th
+                className="px-3 py-2 text-center font-bold"
+                style={{ color: "var(--win95-text)" }}
+              >
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredTemplates.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-3 py-8 text-center" style={{ color: "var(--neutral-gray)" }}>
+                  No templates found matching your filters.
+                </td>
+              </tr>
+            ) : (
+              filteredTemplates.map((template) => (
+                <TemplateCRUDRow key={template._id} template={template} sessionId={sessionId} />
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
-      {/* PDF TEMPLATES SECTION */}
-      <div>
-        {/* Header */}
-        <div className="mb-4">
-          <h3 className="text-sm font-bold flex items-center gap-2">
-            <FileType size={16} />
-            PDF Templates Availability
-          </h3>
-          <p className="text-xs text-gray-600 mt-1">
-            Control which PDF templates are visible to each organization for generating tickets, invoices, and certificates.
-          </p>
-        </div>
-
-        {allPdfTemplates.length === 0 ? (
-          <div className="border-2 border-yellow-600 bg-yellow-50 p-4">
-            <div className="flex items-start gap-2">
-              <AlertCircle size={20} className="text-yellow-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <h4 className="font-bold text-sm text-yellow-900">No PDF Templates Found</h4>
-                <p className="text-xs text-yellow-800 mt-1">
-                  No PDF templates have been seeded yet. Run the seed script to create PDF templates.
-                </p>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <>
-            {/* Matrix Table */}
-            <div className="border-2 border-gray-400 overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="bg-gray-200 border-b-2 border-gray-400">
-                    <th className="px-3 py-2 text-left font-bold sticky left-0 bg-gray-200 z-10">
-                      Organization
-                    </th>
-                    {allPdfTemplates.map((template) => (
-                      <th key={template._id} className="px-3 py-2 text-center font-bold min-w-[120px]">
-                        <div className="flex flex-col items-center gap-1">
-                          <span>
-                            {template.customProperties?.category === "ticket" && "🎫"}
-                            {template.customProperties?.category === "invoice" && "💰"}
-                            {template.customProperties?.category === "receipt" && "🧾"}
-                            {template.customProperties?.category === "certificate" && "🏆"}
-                            {!template.customProperties?.category && "📄"}
-                          </span>
-                          <span className="text-center">{template.name}</span>
-                          <code className="text-xs text-gray-500 bg-gray-100 px-1">
-                            {template.customProperties?.code}
-                          </code>
-                        </div>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {organizations.map((org) => (
-                    <PdfTemplateRow
-                      key={org._id}
-                      organization={org}
-                      templates={allPdfTemplates}
-                      availabilities={allPdfAvailabilities.filter((a) => a.organizationId === org._id)}
-                      sessionId={sessionId}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Legend */}
-            <div className="mt-4 flex items-center gap-4 text-xs">
-              <div className="flex items-center gap-1">
-                <div className="w-4 h-4 bg-green-500 border-2 border-gray-400 flex items-center justify-center">
-                  <Check size={10} className="text-white" />
-                </div>
-                <span>Available</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-4 h-4 bg-red-500 border-2 border-gray-400 flex items-center justify-center">
-                  <X size={10} className="text-white" />
-                </div>
-                <span>Not Available</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-4 h-4 bg-gray-300 border-2 border-gray-400 flex items-center justify-center">
-                  <Loader2 size={10} className="animate-spin" />
-                </div>
-                <span>Updating...</span>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* TEMPLATE SETS SECTION */}
-      <div>
-        {/* Header */}
-        <div className="mb-4">
-          <h3 className="text-sm font-bold flex items-center gap-2">
-            <Package size={16} />
-            Template Sets Availability
-          </h3>
-          <p className="text-xs text-gray-600 mt-1">
-            Control which template sets are visible to each organization. Template sets bundle ticket, invoice, and email templates for consistent branding.
-          </p>
-        </div>
-
-        {allTemplateSets.length === 0 ? (
-          <div className="border-2 border-yellow-600 bg-yellow-50 p-4">
-            <div className="flex items-start gap-2">
-              <AlertCircle size={20} className="text-yellow-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <h4 className="font-bold text-sm text-yellow-900">No Template Sets Found</h4>
-                <p className="text-xs text-yellow-800 mt-1">
-                  No template sets have been seeded yet. Run the seed script to create template sets.
-                </p>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <>
-            {/* Matrix Table */}
-            <div className="border-2 border-gray-400 overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="bg-gray-200 border-b-2 border-gray-400">
-                    <th className="px-3 py-2 text-left font-bold sticky left-0 bg-gray-200 z-10">
-                      Organization
-                    </th>
-                    {allTemplateSets.map((templateSet) => (
-                      <th key={templateSet._id} className="px-3 py-2 text-center font-bold min-w-[140px]">
-                        <div className="flex flex-col items-center gap-1">
-                          <span>
-                            {templateSet.isSystemDefault ? "⭐" : "📦"}
-                          </span>
-                          <span className="text-center">{templateSet.name}</span>
-                          {templateSet.tags && templateSet.tags.length > 0 && (
-                            <div className="flex gap-1 flex-wrap justify-center">
-                              {templateSet.tags.map((tag) => (
-                                <code key={tag} className="text-xs text-gray-500 bg-gray-100 px-1">
-                                  {tag}
-                                </code>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {organizations.map((org) => (
-                    <TemplateSetRow
-                      key={org._id}
-                      organization={org}
-                      templateSets={allTemplateSets}
-                      availabilities={allTemplateSetAvailabilities.filter((a) => a.organizationId === org._id)}
-                      sessionId={sessionId}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Legend */}
-            <div className="mt-4 flex items-center gap-4 text-xs">
-              <div className="flex items-center gap-1">
-                <div className="w-4 h-4 bg-green-500 border-2 border-gray-400 flex items-center justify-center">
-                  <Check size={10} className="text-white" />
-                </div>
-                <span>Available</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-4 h-4 bg-red-500 border-2 border-gray-400 flex items-center justify-center">
-                  <X size={10} className="text-white" />
-                </div>
-                <span>Not Available</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-4 h-4 bg-gray-300 border-2 border-gray-400 flex items-center justify-center">
-                  <Loader2 size={10} className="animate-spin" />
-                </div>
-                <span>Updating...</span>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* WORKFLOW TEMPLATES SECTION */}
-      <div>
-        {/* Header */}
-        <div className="mb-4">
-          <h3 className="text-sm font-bold flex items-center gap-2">
-            <Zap size={16} />
-            Workflow Templates Availability
-          </h3>
-          <p className="text-xs text-gray-600 mt-1">
-            Control which workflow templates are visible to each organization for creating automated workflows and business processes.
-          </p>
-        </div>
-
-        {allWorkflowTemplates.length === 0 ? (
-          <div className="border-2 border-yellow-600 bg-yellow-50 p-4">
-            <div className="flex items-start gap-2">
-              <AlertCircle size={20} className="text-yellow-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <h4 className="font-bold text-sm text-yellow-900">No Workflow Templates Found</h4>
-                <p className="text-xs text-yellow-800 mt-1">
-                  No workflow templates have been seeded yet. Run: npx convex run seedWorkflowTemplates:seedWorkflowTemplates
-                </p>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <>
-            {/* Matrix Table */}
-            <div className="border-2 border-gray-400 overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="bg-gray-200 border-b-2 border-gray-400">
-                    <th className="px-3 py-2 text-left font-bold sticky left-0 bg-gray-200 z-10">
-                      Organization
-                    </th>
-                    {allWorkflowTemplates.map((template) => (
-                      <th key={template._id} className="px-3 py-2 text-center font-bold min-w-[120px]">
-                        <div className="flex flex-col items-center gap-1">
-                          <span>
-                            {template.customProperties?.icon || "⚡"}
-                          </span>
-                          <span className="text-center">{template.name}</span>
-                          <code className="text-xs text-gray-500 bg-gray-100 px-1">
-                            {template.customProperties?.code}
-                          </code>
-                          <span className="text-xs text-gray-500">
-                            {template.customProperties?.category}
-                          </span>
-                        </div>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {organizations.map((org) => (
-                    <WorkflowTemplateRow
-                      key={org._id}
-                      organization={org}
-                      templates={allWorkflowTemplates}
-                      availabilities={allWorkflowAvailabilities.filter((a) => a.organizationId === org._id)}
-                      sessionId={sessionId}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Legend */}
-            <div className="mt-4 flex items-center gap-4 text-xs">
-              <div className="flex items-center gap-1">
-                <div className="w-4 h-4 bg-green-500 border-2 border-gray-400 flex items-center justify-center">
-                  <Check size={10} className="text-white" />
-                </div>
-                <span>Available</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-4 h-4 bg-red-500 border-2 border-gray-400 flex items-center justify-center">
-                  <X size={10} className="text-white" />
-                </div>
-                <span>Not Available</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-4 h-4 bg-gray-300 border-2 border-gray-400 flex items-center justify-center">
-                  <Loader2 size={10} className="animate-spin" />
-                </div>
-                <span>Updating...</span>
-              </div>
-            </div>
-          </>
-        )}
+      {/* Summary */}
+      <div className="mt-3 text-xs" style={{ color: "var(--neutral-gray)" }}>
+        Showing {filteredTemplates.length} of {templates.length} templates
       </div>
     </div>
   );
 }
 
 /**
- * Web Template Row - for web page templates
+ * Individual row in CRUD table
  */
-function WebTemplateRow({
-  organization,
-  templates,
-  availabilities,
+function TemplateCRUDRow({
+  template,
   sessionId,
 }: {
-  organization: { _id: Id<"organizations">; name: string; slug?: string };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  templates: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  availabilities: any[];
+  template: any;
   sessionId: string;
 }) {
-  const [loadingTemplateCode, setLoadingTemplateCode] = useState<string | null>(null);
-  const enableTemplate = useMutation(api.templateAvailability.enableTemplateForOrg);
-  const disableTemplate = useMutation(api.templateAvailability.disableTemplateForOrg);
-
-  const handleToggle = async (templateCode: string, currentState: boolean) => {
-    try {
-      setLoadingTemplateCode(templateCode);
-
-      if (currentState) {
-        // Disable
-        await disableTemplate({
-          sessionId,
-          organizationId: organization._id,
-          templateCode: templateCode,
-        });
-      } else {
-        // Enable
-        await enableTemplate({
-          sessionId,
-          organizationId: organization._id,
-          templateCode: templateCode,
-        });
-      }
-    } catch (error) {
-      console.error("Failed to toggle web template availability:", error);
-      alert(`Failed to update: ${error instanceof Error ? error.message : "Unknown error"}`);
-    } finally {
-      setLoadingTemplateCode(null);
-    }
-  };
+  const templateType = getTemplateType(template);
+  const typeIcon = getTypeIcon(templateType);
+  const typeColor = getTypeColor(templateType);
 
   return (
-    <tr className="border-b border-gray-300 hover:bg-gray-50">
-      <td className="px-3 py-2 font-semibold sticky left-0 bg-white z-10">
-        <div>
-          <div>{organization.name}</div>
-          <div className="text-gray-500 text-xs font-normal">
-            {organization.slug}
-          </div>
+    <tr
+      className="border-b hover:bg-opacity-50 transition-colors"
+      style={{
+        borderColor: "var(--win95-border-light)",
+        background: "transparent",
+      }}
+    >
+      {/* Name */}
+      <td className="px-3 py-2" style={{ color: "var(--win95-text)" }}>
+        {template.name}
+      </td>
+
+      {/* Code */}
+      <td className="px-3 py-2">
+        <code
+          className="text-xs px-1 py-0.5"
+          style={{
+            background: "var(--win95-bg-light)",
+            color: "var(--neutral-gray)",
+          }}
+        >
+          {template.code}
+        </code>
+      </td>
+
+      {/* Type */}
+      <td className="px-3 py-2 text-center">
+        <span
+          className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold"
+          style={{ backgroundColor: typeColor, color: "white" }}
+        >
+          {typeIcon} {templateType.toUpperCase()}
+        </span>
+      </td>
+
+      {/* Schema */}
+      <td className="px-3 py-2 text-center">
+        {template.hasSchema ? (
+          <span className="font-bold" style={{ color: "#10b981" }}>✅</span>
+        ) : (
+          <span className="font-bold" style={{ color: "#ef4444" }}>❌</span>
+        )}
+      </td>
+
+      {/* Status */}
+      <td className="px-3 py-2 text-center">
+        <span
+          className={`inline-block px-2 py-0.5 text-xs font-semibold`}
+          style={{
+            background: template.status === "published" ? "#dcfce7" : "var(--win95-bg-light)",
+            color: template.status === "published" ? "#166534" : "var(--neutral-gray)",
+          }}
+        >
+          {template.status}
+        </span>
+      </td>
+
+      {/* Actions */}
+      <td className="px-3 py-2">
+        <div className="flex items-center justify-center gap-2">
+          <button
+            className="p-1 border transition-colors"
+            style={{
+              borderColor: "var(--win95-border)",
+              color: "var(--win95-text)",
+            }}
+            title="Edit template"
+          >
+            <Edit size={14} />
+          </button>
+          <button
+            className="p-1 border transition-colors"
+            style={{
+              borderColor: "var(--win95-border)",
+              color: "var(--win95-text)",
+            }}
+            title="Duplicate template"
+          >
+            <Copy size={14} />
+          </button>
+          <button
+            className="p-1 border transition-colors"
+            style={{
+              borderColor: "var(--win95-border)",
+              color: "#ef4444",
+            }}
+            title="Delete template"
+          >
+            <Trash2 size={14} />
+          </button>
         </div>
       </td>
-      {templates.map((template) => {
-        const templateCode = template.customProperties?.code as string;
-        const availability = availabilities.find(
-          (a) => a.customProperties?.templateCode === templateCode
-        );
-        const isAvailable = availability?.customProperties?.available ?? false;
-        const isLoading = loadingTemplateCode === templateCode;
-
-        return (
-          <td key={template._id} className="px-3 py-2 text-center">
-            <button
-              onClick={() => handleToggle(templateCode, isAvailable)}
-              disabled={isLoading}
-              className="w-8 h-8 border-2 border-gray-400 flex items-center justify-center transition-colors hover:opacity-80 disabled:opacity-50 mx-auto"
-              style={{
-                backgroundColor: isLoading
-                  ? "#d1d5db"
-                  : isAvailable
-                  ? "#22c55e"
-                  : "#ef4444",
-              }}
-              title={
-                isLoading
-                  ? "Updating..."
-                  : isAvailable
-                  ? `Click to disable ${template.name} for ${organization.name}`
-                  : `Click to enable ${template.name} for ${organization.name}`
-              }
-            >
-              {isLoading ? (
-                <Loader2 size={14} className="animate-spin text-gray-600" />
-              ) : isAvailable ? (
-                <Check size={16} className="text-white" />
-              ) : (
-                <X size={16} className="text-white" />
-              )}
-            </button>
-          </td>
-        );
-      })}
     </tr>
   );
 }
 
 /**
- * Form Template Row - for form templates
+ * SECTION 2: Availability - Per-Org Template Access Control
  */
-function FormTemplateRow({
-  organization,
+function TemplateAvailabilitySection({
   templates,
-  availabilities,
+  organizations,
   sessionId,
 }: {
-  organization: { _id: Id<"organizations">; name: string; slug?: string };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   templates: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  availabilities: any[];
+  organizations: any[];
   sessionId: string;
 }) {
-  const [loadingTemplateCode, setLoadingTemplateCode] = useState<string | null>(null);
-  const enableTemplate = useMutation(api.formTemplateAvailability.enableFormTemplate);
-  const disableTemplate = useMutation(api.formTemplateAvailability.disableFormTemplate);
+  const [selectedOrgId, setSelectedOrgId] = useState<Id<"organizations"> | null>(
+    organizations.length > 0 ? organizations[0]._id : null
+  );
 
-  const handleToggle = async (templateCode: string, currentState: boolean) => {
+  // Fetch all availabilities for selected org
+  const webAvailabilities = useQuery(
+    api.templateAvailability.getAllTemplateAvailabilities,
+    selectedOrgId && sessionId ? { sessionId, organizationId: selectedOrgId } : "skip"
+  );
+
+  const formAvailabilities = useQuery(
+    api.formTemplateAvailability.getAllFormTemplateAvailabilities,
+    selectedOrgId && sessionId ? { sessionId, organizationId: selectedOrgId } : "skip"
+  );
+
+  const checkoutAvailabilities = useQuery(
+    api.checkoutTemplateAvailability.getAllCheckoutTemplateAvailabilities,
+    selectedOrgId && sessionId ? { sessionId, organizationId: selectedOrgId } : "skip"
+  );
+
+  const pdfAvailabilities = useQuery(
+    api.pdfTemplateAvailability.getAllPdfTemplateAvailabilities,
+    selectedOrgId && sessionId ? { sessionId, organizationId: selectedOrgId } : "skip"
+  );
+
+  const workflowAvailabilities = useQuery(
+    api.workflowTemplateAvailability.getAllWorkflowTemplateAvailabilities,
+    selectedOrgId && sessionId ? { sessionId, organizationId: selectedOrgId } : "skip"
+  );
+
+  const templateSetAvailabilities = useQuery(
+    api.templateSetAvailability.getAllTemplateSetAvailabilities,
+    selectedOrgId && sessionId ? { sessionId } : "skip"
+  );
+
+  // Check if template is available for selected org
+  const isTemplateAvailable = (template: any) => {
+    if (!selectedOrgId) return false;
+
+    const type = getTemplateType(template);
+    const code = template.code;
+
+    // Check appropriate availability list based on type
+    if (type === "email" || type === "page") {
+      return webAvailabilities?.some(
+        (a) => a.customProperties?.templateCode === code && a.customProperties?.available
+      );
+    } else if (type === "form") {
+      return formAvailabilities?.some(
+        (a) => a.customProperties?.templateCode === code && a.customProperties?.available
+      );
+    } else if (type === "checkout") {
+      return checkoutAvailabilities?.some(
+        (a) => a.customProperties?.templateCode === code && a.customProperties?.available
+      );
+    } else if (type === "pdf") {
+      return pdfAvailabilities?.some(
+        (a) => a.customProperties?.templateCode === code && a.customProperties?.available
+      );
+    } else if (type === "workflow") {
+      return workflowAvailabilities?.some(
+        (a) => a.customProperties?.templateCode === code && a.customProperties?.available
+      );
+    }
+
+    return false;
+  };
+
+  // Mutations for toggling availability
+  const enableWebTemplate = useMutation(api.templateAvailability.enableTemplateForOrg);
+  const disableWebTemplate = useMutation(api.templateAvailability.disableTemplateForOrg);
+  const enableFormTemplate = useMutation(api.formTemplateAvailability.enableFormTemplate);
+  const disableFormTemplate = useMutation(api.formTemplateAvailability.disableFormTemplate);
+  const enableCheckoutTemplate = useMutation(api.checkoutTemplateAvailability.enableCheckoutTemplate);
+  const disableCheckoutTemplate = useMutation(api.checkoutTemplateAvailability.disableCheckoutTemplate);
+  const enablePdfTemplate = useMutation(api.pdfTemplateAvailability.enablePdfTemplate);
+  const disablePdfTemplate = useMutation(api.pdfTemplateAvailability.disablePdfTemplate);
+  const enableWorkflowTemplate = useMutation(api.workflowTemplateAvailability.enableWorkflowTemplate);
+  const disableWorkflowTemplate = useMutation(api.workflowTemplateAvailability.disableWorkflowTemplate);
+
+  const [loadingTemplates, setLoadingTemplates] = useState<Set<string>>(new Set());
+
+  const handleToggle = async (template: any, currentState: boolean) => {
+    if (!selectedOrgId) return;
+
+    const code = template.code;
+    const type = getTemplateType(template);
+
+    setLoadingTemplates((prev) => new Set(prev).add(code));
+
     try {
-      setLoadingTemplateCode(templateCode);
+      const args = {
+        sessionId,
+        organizationId: selectedOrgId,
+        templateCode: code,
+      };
 
       if (currentState) {
         // Disable
-        await disableTemplate({
-          sessionId,
-          organizationId: organization._id,
-          templateCode,
-        });
+        if (type === "email" || type === "page") {
+          await disableWebTemplate(args);
+        } else if (type === "form") {
+          await disableFormTemplate(args);
+        } else if (type === "checkout") {
+          await disableCheckoutTemplate(args);
+        } else if (type === "pdf") {
+          await disablePdfTemplate(args);
+        } else if (type === "workflow") {
+          await disableWorkflowTemplate(args);
+        }
       } else {
         // Enable
-        await enableTemplate({
-          sessionId,
-          organizationId: organization._id,
-          templateCode,
-        });
+        if (type === "email" || type === "page") {
+          await enableWebTemplate(args);
+        } else if (type === "form") {
+          await enableFormTemplate(args);
+        } else if (type === "checkout") {
+          await enableCheckoutTemplate(args);
+        } else if (type === "pdf") {
+          await enablePdfTemplate(args);
+        } else if (type === "workflow") {
+          await enableWorkflowTemplate(args);
+        }
       }
     } catch (error) {
-      console.error("Failed to toggle form template availability:", error);
+      console.error("Failed to toggle template availability:", error);
       alert(`Failed to update: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
-      setLoadingTemplateCode(null);
+      setLoadingTemplates((prev) => {
+        const next = new Set(prev);
+        next.delete(code);
+        return next;
+      });
     }
   };
 
-  return (
-    <tr className="border-b border-gray-300 hover:bg-gray-50">
-      <td className="px-3 py-2 font-semibold sticky left-0 bg-white z-10">
-        <div>
-          <div>{organization.name}</div>
-          <div className="text-gray-500 text-xs font-normal">
-            {organization.slug}
-          </div>
-        </div>
-      </td>
-      {templates.map((template) => {
-        const templateCode = template.customProperties?.code as string;
-        const availability = availabilities.find(
-          (a) => a.customProperties?.templateCode === templateCode
-        );
-        const isAvailable = availability?.customProperties?.available ?? false;
-        const isLoading = loadingTemplateCode === templateCode;
+  const selectedOrg = organizations.find((org) => org._id === selectedOrgId);
 
-        return (
-          <td key={template._id} className="px-3 py-2 text-center">
-            <button
-              onClick={() => handleToggle(templateCode, isAvailable)}
-              disabled={isLoading}
-              className="w-8 h-8 border-2 border-gray-400 flex items-center justify-center transition-colors hover:opacity-80 disabled:opacity-50 mx-auto"
-              style={{
-                backgroundColor: isLoading
-                  ? "#d1d5db"
-                  : isAvailable
-                  ? "#22c55e"
-                  : "#ef4444",
-              }}
-              title={
-                isLoading
-                  ? "Updating..."
-                  : isAvailable
-                  ? `Click to disable ${template.name} for ${organization.name}`
-                  : `Click to enable ${template.name} for ${organization.name}`
-              }
-            >
-              {isLoading ? (
-                <Loader2 size={14} className="animate-spin text-gray-600" />
-              ) : isAvailable ? (
-                <Check size={16} className="text-white" />
-              ) : (
-                <X size={16} className="text-white" />
-              )}
-            </button>
-          </td>
-        );
-      })}
-    </tr>
+  return (
+    <div>
+      {/* Header */}
+      <div className="mb-4">
+        <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+          <Package size={16} />
+          Template Availability Management
+        </h3>
+        <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+          Control which templates are visible to each organization.
+        </p>
+      </div>
+
+      {/* Organization Selector */}
+      <div className="mb-4">
+        <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+          Select Organization:
+        </label>
+        <select
+          value={selectedOrgId || ""}
+          onChange={(e) => setSelectedOrgId(e.target.value as Id<"organizations">)}
+          className="w-full max-w-md text-xs border-2 px-3 py-2 focus:outline-none"
+          style={{
+            borderColor: "var(--win95-border)",
+            background: "var(--win95-bg-light)",
+            color: "var(--win95-text)",
+          }}
+        >
+          {organizations.map((org) => (
+            <option key={org._id} value={org._id}>
+              {org.name} ({org.slug})
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Templates List with Checkboxes */}
+      {selectedOrg && (
+        <>
+          <div className="mb-3 text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+            Available Templates for "{selectedOrg.name}":
+          </div>
+
+          <div
+            className="border-2 max-h-[400px] overflow-y-auto"
+            style={{ borderColor: "var(--win95-border)" }}
+          >
+            <div className="divide-y" style={{ borderColor: "var(--win95-border-light)" }}>
+              {templates.map((template) => {
+                const isAvailable = isTemplateAvailable(template);
+                const isLoading = loadingTemplates.has(template.code);
+                const type = getTemplateType(template);
+                const typeIcon = getTypeIcon(type);
+
+                return (
+                  <div
+                    key={template._id}
+                    className="px-4 py-3 flex items-center justify-between transition-colors"
+                    style={{
+                      background: "transparent",
+                    }}
+                  >
+                    <div className="flex items-center gap-3 flex-1">
+                      <button
+                        onClick={() => handleToggle(template, isAvailable || false)}
+                        disabled={isLoading}
+                        className={`w-5 h-5 border-2 flex items-center justify-center transition-colors ${
+                          isLoading ? "opacity-50" : ""
+                        }`}
+                        style={{
+                          borderColor: "var(--win95-border)",
+                          backgroundColor: isLoading
+                            ? "var(--win95-border-light)"
+                            : isAvailable
+                            ? "#22c55e"
+                            : "transparent",
+                        }}
+                      >
+                        {isLoading ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : isAvailable ? (
+                          <Check size={14} style={{ color: "white" }} />
+                        ) : null}
+                      </button>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs">{typeIcon}</span>
+                        <span className="text-xs font-medium" style={{ color: "var(--win95-text)" }}>
+                          {template.name}
+                        </span>
+                        <code
+                          className="text-xs px-1"
+                          style={{
+                            background: "var(--win95-bg-light)",
+                            color: "var(--neutral-gray)",
+                          }}
+                        >
+                          {template.code}
+                        </code>
+                        {template.hasSchema && (
+                          <span className="text-xs font-bold" style={{ color: "#10b981" }}>
+                            ✅ Schema
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <span className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                      {type}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Summary */}
+          <div className="mt-3 text-xs" style={{ color: "var(--neutral-gray)" }}>
+            {templates.filter(isTemplateAvailable).length} of {templates.length} templates enabled
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
 /**
- * Checkout Template Row - for checkout templates
+ * Helper: Determine template type from audit data
  */
-function CheckoutTemplateRow({
-  organization,
-  templates,
-  availabilities,
-  sessionId,
-}: {
-  organization: { _id: Id<"organizations">; name: string; slug?: string };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  templates: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  availabilities: any[];
-  sessionId: string;
-}) {
-  const [loadingTemplateCode, setLoadingTemplateCode] = useState<string | null>(null);
-  const enableTemplate = useMutation(api.checkoutTemplateAvailability.enableCheckoutTemplate);
-  const disableTemplate = useMutation(api.checkoutTemplateAvailability.disableCheckoutTemplate);
-
-  const handleToggle = async (templateCode: string, currentState: boolean) => {
-    try {
-      setLoadingTemplateCode(templateCode);
-
-      if (currentState) {
-        // Disable
-        await disableTemplate({
-          sessionId,
-          organizationId: organization._id,
-          templateCode,
-        });
-      } else {
-        // Enable
-        await enableTemplate({
-          sessionId,
-          organizationId: organization._id,
-          templateCode,
-        });
-      }
-    } catch (error) {
-      console.error("Failed to toggle checkout template availability:", error);
-      alert(`Failed to update: ${error instanceof Error ? error.message : "Unknown error"}`);
-    } finally {
-      setLoadingTemplateCode(null);
-    }
-  };
-
-  return (
-    <tr className="border-b border-gray-300 hover:bg-gray-50">
-      <td className="px-3 py-2 font-semibold sticky left-0 bg-white z-10">
-        <div>
-          <div>{organization.name}</div>
-          <div className="text-gray-500 text-xs font-normal">
-            {organization.slug}
-          </div>
-        </div>
-      </td>
-      {templates.map((template) => {
-        const templateCode = template.customProperties?.code as string;
-        const availability = availabilities.find(
-          (a) => a.customProperties?.templateCode === templateCode
-        );
-        const isAvailable = availability?.customProperties?.available ?? false;
-        const isLoading = loadingTemplateCode === templateCode;
-
-        return (
-          <td key={template._id} className="px-3 py-2 text-center">
-            <button
-              onClick={() => handleToggle(templateCode, isAvailable)}
-              disabled={isLoading}
-              className="w-8 h-8 border-2 border-gray-400 flex items-center justify-center transition-colors hover:opacity-80 disabled:opacity-50 mx-auto"
-              style={{
-                backgroundColor: isLoading
-                  ? "#d1d5db"
-                  : isAvailable
-                  ? "#22c55e"
-                  : "#ef4444",
-              }}
-              title={
-                isLoading
-                  ? "Updating..."
-                  : isAvailable
-                  ? `Click to disable ${template.name} for ${organization.name}`
-                  : `Click to enable ${template.name} for ${organization.name}`
-              }
-            >
-              {isLoading ? (
-                <Loader2 size={14} className="animate-spin text-gray-600" />
-              ) : isAvailable ? (
-                <Check size={16} className="text-white" />
-              ) : (
-                <X size={16} className="text-white" />
-              )}
-            </button>
-          </td>
-        );
-      })}
-    </tr>
-  );
-}
-/**
- * PDF Template Row - for PDF templates (tickets, invoices, certificates)
- */
-function PdfTemplateRow({
-  organization,
-  templates,
-  availabilities,
-  sessionId,
-}: {
-  organization: { _id: Id<"organizations">; name: string; slug?: string };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  templates: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  availabilities: any[];
-  sessionId: string;
-}) {
-  const [loadingTemplateCode, setLoadingTemplateCode] = useState<string | null>(null);
-  const enableTemplate = useMutation(api.pdfTemplateAvailability.enablePdfTemplate);
-  const disableTemplate = useMutation(api.pdfTemplateAvailability.disablePdfTemplate);
-
-  const handleToggle = async (templateCode: string, currentState: boolean) => {
-    try {
-      setLoadingTemplateCode(templateCode);
-
-      if (currentState) {
-        // Disable
-        await disableTemplate({
-          sessionId,
-          organizationId: organization._id,
-          templateCode,
-        });
-      } else {
-        // Enable
-        await enableTemplate({
-          sessionId,
-          organizationId: organization._id,
-          templateCode,
-        });
-      }
-    } catch (error) {
-      console.error("Failed to toggle PDF template availability:", error);
-      alert(`Failed to update: ${error instanceof Error ? error.message : "Unknown error"}`);
-    } finally {
-      setLoadingTemplateCode(null);
-    }
-  };
-
-  return (
-    <tr className="border-b border-gray-300 hover:bg-gray-50">
-      <td className="px-3 py-2 font-semibold sticky left-0 bg-white z-10">
-        <div>
-          <div>{organization.name}</div>
-          <div className="text-gray-500 text-xs font-normal">
-            {organization.slug}
-          </div>
-        </div>
-      </td>
-      {templates.map((template) => {
-        const templateCode = template.customProperties?.code as string;
-        const availability = availabilities.find(
-          (a) => a.customProperties?.templateCode === templateCode
-        );
-        const isAvailable = availability?.customProperties?.available ?? false;
-        const isLoading = loadingTemplateCode === templateCode;
-
-        return (
-          <td key={template._id} className="px-3 py-2 text-center">
-            <button
-              onClick={() => handleToggle(templateCode, isAvailable)}
-              disabled={isLoading}
-              className="w-8 h-8 border-2 border-gray-400 flex items-center justify-center transition-colors hover:opacity-80 disabled:opacity-50 mx-auto"
-              style={{
-                backgroundColor: isLoading
-                  ? "#d1d5db"
-                  : isAvailable
-                  ? "#22c55e"
-                  : "#ef4444",
-              }}
-              title={
-                isLoading
-                  ? "Updating..."
-                  : isAvailable
-                  ? `Click to disable ${template.name} for ${organization.name}`
-                  : `Click to enable ${template.name} for ${organization.name}`
-              }
-            >
-              {isLoading ? (
-                <Loader2 size={14} className="animate-spin text-gray-600" />
-              ) : isAvailable ? (
-                <Check size={16} className="text-white" />
-              ) : (
-                <X size={16} className="text-white" />
-              )}
-            </button>
-          </td>
-        );
-      })}
-    </tr>
-  );
-}
-
-
-/**
- * Template Set Row - for template sets (bundles of ticket, invoice, email templates)
- */
-function TemplateSetRow({
-  organization,
-  templateSets,
-  availabilities,
-  sessionId,
-}: {
-  organization: { _id: Id<"organizations">; name: string; slug?: string };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  templateSets: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  availabilities: any[];
-  sessionId: string;
-}) {
-  const [loadingTemplateSetId, setLoadingTemplateSetId] = useState<string | null>(null);
-  const enableTemplateSet = useMutation(api.templateSetAvailability.enableTemplateSet);
-  const disableTemplateSet = useMutation(api.templateSetAvailability.disableTemplateSet);
-
-  const handleToggle = async (templateSetId: string, currentState: boolean) => {
-    try {
-      setLoadingTemplateSetId(templateSetId);
-
-      if (currentState) {
-        // Disable
-        await disableTemplateSet({
-          sessionId,
-          organizationId: organization._id,
-          templateSetId: templateSetId as Id<"objects">,
-        });
-      } else {
-        // Enable
-        await enableTemplateSet({
-          sessionId,
-          organizationId: organization._id,
-          templateSetId: templateSetId as Id<"objects">,
-        });
-      }
-    } catch (error) {
-      console.error("Failed to toggle template set availability:", error);
-      alert(`Failed to update: ${error instanceof Error ? error.message : "Unknown error"}`);
-    } finally {
-      setLoadingTemplateSetId(null);
-    }
-  };
-
-  return (
-    <tr className="border-b border-gray-300 hover:bg-gray-50">
-      <td className="px-3 py-2 font-semibold sticky left-0 bg-white z-10">
-        <div>
-          <div>{organization.name}</div>
-          <div className="text-gray-500 text-xs font-normal">
-            {organization.slug}
-          </div>
-        </div>
-      </td>
-      {templateSets.map((templateSet) => {
-        const availability = availabilities.find(
-          (a) => a.templateSetId === templateSet._id
-        );
-        const isAvailable = availability?.available ?? false;
-        const isLoading = loadingTemplateSetId === templateSet._id;
-
-        return (
-          <td key={templateSet._id} className="px-3 py-2 text-center">
-            <button
-              onClick={() => handleToggle(templateSet._id, isAvailable)}
-              disabled={isLoading}
-              className="w-8 h-8 border-2 border-gray-400 flex items-center justify-center transition-colors hover:opacity-80 disabled:opacity-50 mx-auto"
-              style={{
-                backgroundColor: isLoading
-                  ? "#d1d5db"
-                  : isAvailable
-                  ? "#22c55e"
-                  : "#ef4444",
-              }}
-              title={
-                isLoading
-                  ? "Updating..."
-                  : isAvailable
-                  ? `Click to disable ${templateSet.name} for ${organization.name}`
-                  : `Click to enable ${templateSet.name} for ${organization.name}`
-              }
-            >
-              {isLoading ? (
-                <Loader2 size={14} className="animate-spin text-gray-600" />
-              ) : isAvailable ? (
-                <Check size={16} className="text-white" />
-              ) : (
-                <X size={16} className="text-white" />
-              )}
-            </button>
-          </td>
-        );
-      })}
-    </tr>
-  );
+function getTemplateType(template: any): string {
+  if (template.subtype === "pdf") return "pdf";
+  if (template.subtype === "email") return "email";
+  if (template.subtype === "form") return "form";
+  if (template.subtype === "page") return "page";
+  if (template.category === "workflow") return "workflow";
+  if (template.category === "checkout") return "checkout";
+  return "other";
 }
 
 /**
- * Workflow Template Row - for workflow templates
+ * Helper: Get icon for template type
  */
-function WorkflowTemplateRow({
-  organization,
-  templates,
-  availabilities,
-  sessionId,
-}: {
-  organization: { _id: Id<"organizations">; name: string; slug?: string };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  templates: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  availabilities: any[];
-  sessionId: string;
-}) {
-  const [loadingTemplateCode, setLoadingTemplateCode] = useState<string | null>(null);
-  const enableTemplate = useMutation(api.workflowTemplateAvailability.enableWorkflowTemplate);
-  const disableTemplate = useMutation(api.workflowTemplateAvailability.disableWorkflowTemplate);
+function getTypeIcon(type: string): React.ReactNode {
+  switch (type) {
+    case "email":
+      return "📧";
+    case "pdf":
+      return "📄";
+    case "form":
+      return "📝";
+    case "checkout":
+      return "🛒";
+    case "workflow":
+      return "⚡";
+    case "page":
+      return "🌐";
+    default:
+      return "📦";
+  }
+}
 
-  const handleToggle = async (templateCode: string, currentState: boolean) => {
-    try {
-      setLoadingTemplateCode(templateCode);
-
-      if (currentState) {
-        // Disable
-        await disableTemplate({
-          sessionId,
-          organizationId: organization._id,
-          templateCode,
-        });
-      } else {
-        // Enable
-        await enableTemplate({
-          sessionId,
-          organizationId: organization._id,
-          templateCode,
-        });
-      }
-    } catch (error) {
-      console.error("Failed to toggle workflow template availability:", error);
-      alert(`Failed to update: ${error instanceof Error ? error.message : "Unknown error"}`);
-    } finally {
-      setLoadingTemplateCode(null);
-    }
-  };
-
-  return (
-    <tr className="border-b border-gray-300 hover:bg-gray-50">
-      <td className="px-3 py-2 font-semibold sticky left-0 bg-white z-10">
-        <div>
-          <div>{organization.name}</div>
-          <div className="text-gray-500 text-xs font-normal">
-            {organization.slug}
-          </div>
-        </div>
-      </td>
-      {templates.map((template) => {
-        const templateCode = template.customProperties?.code as string;
-        const availability = availabilities.find(
-          (a) => a.customProperties?.templateCode === templateCode
-        );
-        const isAvailable = availability?.customProperties?.available ?? false;
-        const isLoading = loadingTemplateCode === templateCode;
-
-        return (
-          <td key={template._id} className="px-3 py-2 text-center">
-            <button
-              onClick={() => handleToggle(templateCode, isAvailable)}
-              disabled={isLoading}
-              className="w-8 h-8 border-2 border-gray-400 flex items-center justify-center transition-colors hover:opacity-80 disabled:opacity-50 mx-auto"
-              style={{
-                backgroundColor: isLoading
-                  ? "#d1d5db"
-                  : isAvailable
-                  ? "#22c55e"
-                  : "#ef4444",
-              }}
-              title={
-                isLoading
-                  ? "Updating..."
-                  : isAvailable
-                  ? `Click to disable ${template.name} for ${organization.name}`
-                  : `Click to enable ${template.name} for ${organization.name}`
-              }
-            >
-              {isLoading ? (
-                <Loader2 size={14} className="animate-spin text-gray-600" />
-              ) : isAvailable ? (
-                <Check size={16} className="text-white" />
-              ) : (
-                <X size={16} className="text-white" />
-              )}
-            </button>
-          </td>
-        );
-      })}
-    </tr>
-  );
+/**
+ * Helper: Get color for template type
+ */
+function getTypeColor(type: string): string {
+  switch (type) {
+    case "email":
+      return "#3b82f6"; // blue
+    case "pdf":
+      return "#ef4444"; // red
+    case "form":
+      return "#8b5cf6"; // purple
+    case "checkout":
+      return "#10b981"; // green
+    case "workflow":
+      return "#f59e0b"; // amber
+    case "page":
+      return "#06b6d4"; // cyan
+    default:
+      return "#6b7280"; // gray
+  }
 }

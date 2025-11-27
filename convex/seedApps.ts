@@ -1163,6 +1163,77 @@ export const registerComplianceApp = mutation({
 });
 
 /**
+ * Register Templates app only
+ *
+ * Simple mutation to register the Templates app for managing email and PDF templates.
+ * No authentication required - this is a one-time setup mutation.
+ *
+ * @returns App ID if created, or existing app ID if already registered
+ */
+export const registerTemplatesApp = mutation({
+  args: {},
+  handler: async (ctx) => {
+    // Check if Templates app already exists
+    const existing = await ctx.db
+      .query("apps")
+      .withIndex("by_code", (q) => q.eq("code", "templates"))
+      .first();
+
+    if (existing) {
+      console.log("Templates app already registered:", existing._id);
+      return {
+        appId: existing._id,
+        message: "Templates app already registered",
+        app: existing,
+      };
+    }
+
+    // Find or create a system organization to own the app
+    let systemOrg = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", "system"))
+      .first();
+
+    // If no system org exists, just use the first organization
+    if (!systemOrg) {
+      const firstOrg = await ctx.db.query("organizations").first();
+      if (!firstOrg) {
+        throw new Error(
+          "No organizations found. Create an organization first before registering apps."
+        );
+      }
+      systemOrg = firstOrg;
+    }
+
+    // Create the Templates app record
+    const appId = await ctx.db.insert("apps", {
+      code: "templates",
+      name: "Templates",
+      description: "Manage email and PDF templates for events, tickets, invoices, and marketing",
+      icon: "📄",
+      category: "content",
+      plans: ["pro", "business", "enterprise"],
+      creatorOrgId: systemOrg._id,
+      dataScope: "installer-owned",
+      status: "active",
+      version: "1.0.0",
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    const app = await ctx.db.get(appId);
+
+    console.log("Templates app registered successfully:", appId);
+
+    return {
+      appId,
+      message: "Templates app registered successfully",
+      app,
+    };
+  },
+});
+
+/**
  * Enable all system apps for an organization
  *
  * Convenience function to enable Payments and Web Publishing for a specific org.

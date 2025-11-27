@@ -64,7 +64,6 @@ export const enableTemplateForOrg = mutation({
       .withIndex("by_org_type", (q) =>
         q.eq("organizationId", systemOrg._id).eq("type", "template")
       )
-      .filter((q) => q.eq(q.field("subtype"), "page"))
       .collect();
 
     const template = allTemplates.find(
@@ -288,7 +287,6 @@ export const getAvailableTemplatesForOrg = query({
       .withIndex("by_org_type", (q) =>
         q.eq("organizationId", systemOrg._id).eq("type", "template")
       )
-      .filter((q) => q.eq(q.field("subtype"), "page"))
       .filter((q) => q.eq(q.field("status"), "published"))
       .collect();
 
@@ -414,7 +412,6 @@ export const getTemplateByCode = query({
       .withIndex("by_org_type", (q) =>
         q.eq("organizationId", systemOrg._id).eq("type", "template")
       )
-      .filter((q) => q.eq(q.field("subtype"), "page"))
       .collect();
 
     const template = allTemplates.find(
@@ -473,7 +470,6 @@ export const getAllSystemTemplates = query({
       .withIndex("by_org_type", (q) =>
         q.eq("organizationId", systemOrg._id).eq("type", "template")
       )
-      .filter((q) => q.eq(q.field("subtype"), "page"))
       .filter((q) => q.eq(q.field("status"), "published"))
       .collect();
 

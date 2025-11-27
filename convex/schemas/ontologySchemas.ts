@@ -22,6 +22,56 @@ import { v } from "convex/values";
  * - type="event", subtype="podcast", name="Episode 42"
  * - type="invoice", subtype="client", name="INV-2024-001"
  * - type="contact", subtype="customer", name="John Doe"
+ * - type="transaction", subtype="ticket_purchase", name="Product - Customer"
+ *
+ * TRANSACTION OBJECT STRUCTURE:
+ * Transactions (type="transaction") store purchase data in customProperties.
+ *
+ * NEW STRUCTURE (v2 - Multi-line Item Transactions):
+ * One transaction per checkout with multiple line items:
+ * {
+ *   checkoutSessionId: Id<"objects">,
+ *   lineItems: [
+ *     {
+ *       productId: Id<"objects">,
+ *       productName: string,
+ *       productDescription?: string,
+ *       quantity: number,
+ *       unitPriceInCents: number,        // Net price per unit
+ *       totalPriceInCents: number,       // Net total for this line (unitPrice * quantity)
+ *       taxRatePercent: number,
+ *       taxAmountInCents: number,
+ *       ticketId?: Id<"objects">,        // If this is a ticket product
+ *       eventId?: Id<"objects">,
+ *       eventName?: string,
+ *     },
+ *     // ... more line items
+ *   ],
+ *   subtotalInCents: number,             // Sum of all line item totals (net)
+ *   taxAmountInCents: number,            // Sum of all line item taxes
+ *   totalInCents: number,                // Grand total (subtotal + tax)
+ *   currency: string,
+ *   customerName: string,
+ *   customerEmail: string,
+ *   payerType: "individual" | "organization",
+ *   paymentMethod: string,
+ *   paymentStatus: string,
+ *   invoicingStatus: "pending" | "on_draft_invoice" | "invoiced",
+ *   // ... other customer/payer fields
+ * }
+ *
+ * LEGACY STRUCTURE (v1 - Single Product Per Transaction):
+ * DEPRECATED: Old approach created one transaction per product.
+ * Kept for backward compatibility with existing data.
+ * {
+ *   productId: Id<"objects">,
+ *   productName: string,
+ *   quantity: number,
+ *   amountInCents: number,               // Total for this ONE product
+ *   currency: string,
+ *   taxRatePercent: number,
+ *   // ... single product fields
+ * }
  */
 export const objects = defineTable({
   // Multi-tenancy
