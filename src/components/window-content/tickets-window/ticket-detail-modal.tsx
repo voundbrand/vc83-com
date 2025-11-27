@@ -1,16 +1,18 @@
 "use client";
 
 import { Doc, Id } from "../../../../convex/_generated/dataModel";
-import { X, Download, Printer, User, Mail, Phone, Calendar, Loader2, Send, Eye } from "lucide-react";
-import { useEffect, useState, useMemo } from "react";
+import { X, Download, Printer, User, Mail, Phone, Calendar, Loader2, Send } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useNotification } from "@/hooks/use-notification";
+import { useOrganizationCurrency } from "@/hooks/use-organization-currency";
+import { useFormatCurrency } from "@/hooks/use-format-currency";
 import Image from "next/image";
 import QRCode from "qrcode";
-import { useAction, useQuery } from "convex/react";
+import { useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
-import { TemplateSelector } from "@/components/template-selector";
+import { EmailSendModal, type EmailSendConfig, type EmailSendResult } from "@/components/email-send-modal";
 
 interface TicketDetailModalProps {
   ticket: Doc<"objects">;
@@ -23,28 +25,12 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
   const [qrCode, setQrCode] = useState<string>("");
   const [isDownloading, setIsDownloading] = useState(false);
 
-  // Email state
+  // Email state - simplified to just show/hide modal
   const [showEmailModal, setShowEmailModal] = useState(false);
-  const [emailAction, setEmailAction] = useState<"preview" | "test" | "send" | null>(null);
-  const [isSendingEmail, setIsSendingEmail] = useState(false);
-  const [emailPreviewHtml, setEmailPreviewHtml] = useState<string>("");
-  const [testEmail, setTestEmail] = useState("");
-  const [emailResult, setEmailResult] = useState<{success: boolean; message: string; attachments?: {pdf: boolean; ics: boolean}} | null>(null);
-  const [selectedDomainId, setSelectedDomainId] = useState<Id<"objects"> | null>(null);
-  const [selectedLanguage, setSelectedLanguage] = useState<"de" | "en" | "es" | "fr">("de");
-  const [selectedEmailTemplateId, setSelectedEmailTemplateId] = useState<Id<"objects"> | null>(null);
-  const [selectedPdfTemplateId, setSelectedPdfTemplateId] = useState<Id<"objects"> | null>(null);
-
-  // Attachment controls
-  const [includePdfAttachment, setIncludePdfAttachment] = useState(true);
-  const [includeIcsAttachment, setIncludeIcsAttachment] = useState(true);
 
   // Get current user and organization
   const { user, sessionId: userSessionId } = useAuth();
   const currentOrgId = user?.defaultOrgId;
-
-  // Create a stable session ID for domain configs query (doesn't need auth)
-  const domainConfigSessionId = useMemo(() => `ticket_modal_${Date.now()}`, []);
 
   // PDF generation action
   const generateTicketPDF = useAction(api.pdfGeneration.generateTicketPDF);
@@ -52,12 +38,6 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
   // Email actions
   const previewTicketEmail = useAction(api.ticketEmailService.previewTicketEmail);
   const sendTicketEmail = useAction(api.ticketEmailService.sendTicketConfirmationEmail);
-
-  // Get domain configs for organization
-  const domainConfigs = useQuery(
-    api.domainConfigOntology.listDomainConfigs,
-    currentOrgId ? { sessionId: domainConfigSessionId, organizationId: currentOrgId as Id<"organizations"> } : "skip"
-  );
 
   useEffect(() => {
     // Generate QR code for ticket
@@ -105,9 +85,13 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
     });
   };
 
-  const formatCurrency = (cents: number) => {
-    return `$${(cents / 100).toFixed(2)}`;
-  };
+  // Get organization currency settings (SINGLE SOURCE OF TRUTH)
+  const { currency: orgCurrency } = useOrganizationCurrency();
+
+  // Currency formatting hook
+  const { formatCurrency } = useFormatCurrency({
+    currency: orgCurrency,
+  });
 
   const getStatusBadge = (status: string) => {
     const badges = {
@@ -168,181 +152,76 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
     }
   };
 
-  const handleSendEmail = () => {
-    // Domain config is now optional - system defaults will be used if not selected
-    setShowEmailModal(true);
-    setEmailResult(null);
+  // Email handlers for EmailSendModal
+  const handleEmailPreview = async (config: EmailSendConfig) => {
+    if (!userSessionId) throw new Error("No valid session");
+
+    return await previewTicketEmail({
+      sessionId: userSessionId,
+      ticketId: ticket._id,
+      domainConfigId: config.domainConfigId,
+      emailTemplateId: config.emailTemplateId,
+      ticketPdfTemplateId: config.pdfTemplateId,
+      language: config.language,
+    });
   };
 
-  const handleEmailPreview = async () => {
-    // Domain is now optional - system defaults will be used if not selected
-    setEmailAction("preview");
-    setIsSendingEmail(true);
-    try {
-      if (!userSessionId) {
-        throw new Error("No valid session");
-      }
+  const handleSendTestEmail = async (config: EmailSendConfig & { testEmail: string }): Promise<EmailSendResult> => {
+    if (!userSessionId) throw new Error("No valid session");
 
-      const result = await previewTicketEmail({
-        sessionId: userSessionId,
-        ticketId: ticket._id,
-        domainConfigId: selectedDomainId || undefined, // undefined = use system defaults
-        emailTemplateId: selectedEmailTemplateId || undefined, // undefined = use default template
-        language: selectedLanguage,
-        ticketPdfTemplateId: selectedPdfTemplateId || undefined, // PDF template for ticket attachment
-      });
+    const result = await sendTicketEmail({
+      sessionId: userSessionId,
+      ticketId: ticket._id,
+      domainConfigId: config.domainConfigId,
+      emailTemplateId: config.emailTemplateId,
+      ticketPdfTemplateId: config.pdfTemplateId,
+      language: config.language,
+      includePdfAttachment: config.includePdfAttachment,
+      includeIcsAttachment: config.includeIcsAttachment,
+      isTest: true,
+      testRecipient: config.testEmail,
+    });
 
-      setEmailPreviewHtml(result.html);
-    } catch (error) {
-      console.error("Failed to preview email:", error);
-      notification.error(
-        t("ui.tickets.email.error.preview_failed"),
-        error instanceof Error ? error.message : ""
-      );
-    } finally {
-      setIsSendingEmail(false);
-    }
+    return {
+      success: result.success,
+      message: result.success
+        ? `Test email sent to ${config.testEmail}`
+        : "Failed to send test email",
+      messageId: result.messageId,
+      attachments: result.attachments,
+    };
   };
 
-  const handleSendTestEmail = async () => {
-    // Domain is optional now, only validate required fields
-    if (!testEmail || !userSessionId) return;
+  const handleSendRealEmail = async (config: EmailSendConfig): Promise<EmailSendResult> => {
+    if (!userSessionId) throw new Error("No valid session");
 
-    setEmailAction("test");
-    setIsSendingEmail(true);
-    setEmailResult(null);
-    try {
-      const result = await sendTicketEmail({
-        sessionId: userSessionId,
-        ticketId: ticket._id,
-        domainConfigId: selectedDomainId || undefined, // undefined = use system defaults
-        emailTemplateId: selectedEmailTemplateId || undefined, // undefined = use default template
-        ticketPdfTemplateId: selectedPdfTemplateId || undefined, // PDF template for ticket attachment
-        isTest: true,
-        testRecipient: testEmail,
-        language: selectedLanguage,
-        includePdfAttachment,
-        includeIcsAttachment,
-      });
-
-      if (result.success) {
-        const attachmentInfo = result.attachments
-          ? `\nAttachments: ${result.attachments.pdf ? '✅ PDF' : '❌ PDF'}, ${result.attachments.ics ? '✅ ICS' : '❌ ICS'}`
-          : '';
-        const message = t("ui.tickets.email.success.test_sent", { email: testEmail }) + attachmentInfo;
-        setEmailResult({
-          success: true,
-          message,
-          attachments: result.attachments
-        });
-        notification.success(
-          t("ui.tickets.email.button.test"),
-          message
-        );
-      } else {
-        const message = t("ui.tickets.email.error.send_failed");
-        setEmailResult({
-          success: false,
-          message
-        });
-        notification.error(
-          t("ui.tickets.email.button.test"),
-          message
-        );
-      }
-    } catch (error) {
-      console.error("Failed to send test email:", error);
-      const message = error instanceof Error ? error.message : t("ui.tickets.email.error.send_failed");
-      setEmailResult({
-        success: false,
-        message
-      });
-      notification.error(
-        t("ui.tickets.email.button.test"),
-        message
-      );
-    } finally {
-      setIsSendingEmail(false);
-    }
-  };
-
-  const handleSendRealEmail = async () => {
-    // Domain is optional now, only validate recipient email
     const customProps = ticket.customProperties || {};
     const recipientEmail = customProps.holderEmail || customProps.attendeeEmail;
 
     if (!recipientEmail) {
-      notification.error(
-        t("ui.tickets.email.error.no_email"),
-        t("ui.tickets.email.error.no_email_message")
-      );
-      return;
+      throw new Error("No recipient email address found");
     }
 
-    if (!confirm(t("ui.tickets.email.confirm.send", { email: recipientEmail }))) {
-      return;
-    }
+    const result = await sendTicketEmail({
+      sessionId: userSessionId,
+      ticketId: ticket._id,
+      domainConfigId: config.domainConfigId,
+      emailTemplateId: config.emailTemplateId,
+      ticketPdfTemplateId: config.pdfTemplateId,
+      language: config.language,
+      includePdfAttachment: config.includePdfAttachment,
+      includeIcsAttachment: config.includeIcsAttachment,
+      isTest: false,
+    });
 
-    if (!userSessionId) {
-      notification.error("Error", "No valid session");
-      return;
-    }
-
-    setEmailAction("send");
-    setIsSendingEmail(true);
-    setEmailResult(null);
-    try {
-      const result = await sendTicketEmail({
-        sessionId: userSessionId,
-        ticketId: ticket._id,
-        domainConfigId: selectedDomainId || undefined, // undefined = use system defaults
-        emailTemplateId: selectedEmailTemplateId || undefined, // undefined = use default template
-        ticketPdfTemplateId: selectedPdfTemplateId || undefined, // PDF template for ticket attachment
-        isTest: false,
-        language: selectedLanguage,
-        includePdfAttachment,
-        includeIcsAttachment,
-      });
-
-      if (result.success) {
-        const attachmentInfo = result.attachments
-          ? `\n📎 Attachments: ${result.attachments.pdf ? '✅ PDF' : '❌ PDF'}, ${result.attachments.ics ? '✅ ICS' : '❌ ICS'}`
-          : '';
-        const message = t("ui.tickets.email.success.sent", { email: recipientEmail }) + attachmentInfo;
-        setEmailResult({
-          success: true,
-          message,
-          attachments: result.attachments
-        });
-        notification.success(
-          t("ui.tickets.email.button.send"),
-          message
-        );
-      } else {
-        const message = t("ui.tickets.email.error.send_failed");
-        setEmailResult({
-          success: false,
-          message
-        });
-        notification.error(
-          t("ui.tickets.email.button.send"),
-          message
-        );
-      }
-    } catch (error) {
-      console.error("Failed to send email:", error);
-      const message = error instanceof Error ? error.message : t("ui.tickets.email.error.send_failed");
-      setEmailResult({
-        success: false,
-        message
-      });
-      notification.error(
-        t("ui.tickets.email.button.send"),
-        message
-      );
-    } finally {
-      setIsSendingEmail(false);
-    }
+    return {
+      success: result.success,
+      message: result.success
+        ? `Ticket sent successfully to ${recipientEmail}`
+        : "Failed to send ticket email",
+      messageId: result.messageId,
+      attachments: result.attachments,
+    };
   };
 
   const customProps = ticket.customProperties || {};
@@ -453,7 +332,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                 <span className="text-sm">{t("ui.tickets.detail.button.print")}</span>
               </button>
               <button
-                onClick={handleSendEmail}
+                onClick={() => setShowEmailModal(true)}
                 className="w-full px-4 py-2 border-2 flex items-center justify-center gap-2 hover:bg-opacity-90 transition-colors"
                 style={{
                   borderColor: "var(--win95-border)",
@@ -734,292 +613,40 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
           </div>
         </div>
 
-        {/* Email Modal */}
-        {showEmailModal && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            style={{ background: "rgba(0, 0, 0, 0.7)" }}
-            onClick={() => setShowEmailModal(false)}
-          >
-            <div
-              className="border-4 p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto"
-              style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg-light)",
-                boxShadow: "4px 4px 0 rgba(0,0,0,0.2)",
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Email Modal Header */}
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold" style={{ color: "var(--win95-highlight)" }}>
-                  <Send size={20} className="inline mr-2" />
-                  {t("ui.tickets.email.modal.title")}
-                </h3>
-                <button
-                  onClick={() => setShowEmailModal(false)}
-                  className="p-1 border-2"
-                  style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-button-face)",
-                  }}
-                >
-                  <X size={16} style={{ color: "var(--win95-text)" }} />
-                </button>
-              </div>
-
-              {/* Domain Config Selector - Always show with system defaults option */}
-              <div className="mb-4 p-3 border-2" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
-                <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
-                  {t("ui.tickets.email.domain.label")}
-                </label>
-                <select
-                  value={selectedDomainId || ""}
-                  onChange={(e) => setSelectedDomainId(e.target.value as Id<"objects">)}
-                  className="w-full px-3 py-2 border-2"
-                  style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-input-bg)",
-                    color: "var(--win95-text)",
-                  }}
-                >
-                  <option value="">
-                    🏠 System Defaults (tickets@mail.l4yercak3.com)
-                  </option>
-                  {domainConfigs && domainConfigs.length > 0 && (
-                    <>
-                      <option disabled>──────────</option>
-                      {domainConfigs.map((config) => {
-                        const props = config.customProperties as any;
-                        return (
-                          <option key={config._id} value={config._id}>
-                            {props?.domainName} ({props?.email?.senderEmail})
-                          </option>
-                        );
-                      })}
-                    </>
-                  )}
-                </select>
-                {!selectedDomainId && (
-                  <p className="text-xs mt-2" style={{ color: "var(--win95-text-secondary)" }}>
-                    ℹ️ Using platform defaults: Gold branding, luxury template
-                  </p>
-                )}
-              </div>
-
-              {/* Email Template Selector */}
-              {currentOrgId && (
-                <TemplateSelector
-                  category="all"
-                  value={selectedEmailTemplateId}
-                  onChange={(templateId) => setSelectedEmailTemplateId(templateId || null)}
-                  organizationId={currentOrgId as Id<"organizations">}
-                  label="📧 Email Template"
-                  description="Select which email template to use for this email. System default will be used if not selected."
-                  allowNull={true}
-                  nullLabel="Use system default email template"
-                />
-              )}
-
-              {/* PDF Template Selector */}
-              {currentOrgId && (
-                <TemplateSelector
-                  category="ticket"
-                  value={selectedPdfTemplateId}
-                  onChange={(templateId) => setSelectedPdfTemplateId(templateId || null)}
-                  organizationId={currentOrgId as Id<"organizations">}
-                  label="🎫 PDF Ticket Template"
-                  description="Select which PDF template to use for the ticket attachment. System default will be used if not selected."
-                  allowNull={true}
-                  nullLabel="Use system default ticket template"
-                />
-              )}
-
-              {/* Attachment Controls */}
-              <div className="mb-4 p-3 border-2" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
-                <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
-                  📎 Email Attachments
-                </label>
-                <div className="space-y-2">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={includePdfAttachment}
-                      onChange={(e) => setIncludePdfAttachment(e.target.checked)}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-sm" style={{ color: "var(--win95-text)" }}>
-                      Include PDF Ticket ({selectedPdfTemplateId ? 'Custom' : 'Default'} template)
-                    </span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={includeIcsAttachment}
-                      onChange={(e) => setIncludeIcsAttachment(e.target.checked)}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-sm" style={{ color: "var(--win95-text)" }}>
-                      Include ICS Calendar File
-                    </span>
-                  </label>
-                </div>
-                <p className="text-xs mt-2" style={{ color: "var(--neutral-gray)" }}>
-                  Choose which files to attach to the email. At least one attachment is recommended.
-                </p>
-              </div>
-
-              {/* Language Selector */}
-              <div className="mb-4 p-3 border-2" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
-                <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
-                  🌐 Email Language
-                </label>
-                <select
-                  value={selectedLanguage}
-                  onChange={(e) => setSelectedLanguage(e.target.value as "de" | "en" | "es" | "fr")}
-                  className="w-full px-3 py-2 border-2"
-                  style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-input-bg)",
-                    color: "var(--win95-text)",
-                  }}
-                >
-                  <option value="de">🇩🇪 Deutsch (German)</option>
-                  <option value="en">🇬🇧 English</option>
-                  <option value="es">🇪🇸 Español (Spanish)</option>
-                  <option value="fr">🇫🇷 Français (French)</option>
-                </select>
-                <p className="text-xs mt-2" style={{ color: "var(--neutral-gray)" }}>
-                  Select the language for the email template. The email will include PDF ticket and ICS calendar attachments.
-                </p>
-              </div>
-
-              {/* Email Preview - Isolated in iframe to prevent CSS bleed */}
-              {emailAction === "preview" && emailPreviewHtml && (
-                <div className="mb-4 border-2" style={{ borderColor: "var(--win95-border)", background: "white", maxHeight: "400px", overflow: "auto" }}>
-                  <iframe
-                    srcDoc={emailPreviewHtml}
-                    style={{
-                      width: "100%",
-                      height: "400px",
-                      border: "none",
-                      background: "white"
-                    }}
-                    title="Email Preview"
-                    sandbox="allow-same-origin"
-                  />
-                </div>
-              )}
-
-              {/* Test Email Input */}
-              {emailAction === "test" && (
-                <div className="mb-4">
-                  <label className="block text-sm font-bold mb-2" style={{ color: "var(--win95-text)" }}>
-                    {t("ui.tickets.email.test.label")}
-                  </label>
-                  <input
-                    type="email"
-                    value={testEmail}
-                    onChange={(e) => setTestEmail(e.target.value)}
-                    placeholder={t("ui.tickets.email.test.placeholder")}
-                    className="w-full px-3 py-2 border-2"
-                    style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--win95-input-bg)",
-                      color: "var(--win95-text)",
-                    }}
-                  />
-                </div>
-              )}
-
-              {/* Email Result */}
-              {emailResult && (
-                <div
-                  className="mb-4 p-3 border-2"
-                  style={{
-                    borderColor: "var(--win95-border)",
-                    background: emailResult.success ? "var(--success)" : "var(--error)",
-                    color: "white",
-                  }}
-                >
-                  <p className="text-sm font-bold">{emailResult.message}</p>
-                  {emailResult.attachments && (
-                    <p className="text-xs mt-2">
-                      📎 Attachments:
-                      {emailResult.attachments.pdf ? " ✅ PDF" : " ❌ PDF"}
-                      {emailResult.attachments.ics ? " ✅ ICS" : " ❌ ICS"}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  onClick={handleEmailPreview}
-                  disabled={isSendingEmail}
-                  className="px-4 py-2 border-2 flex items-center justify-center gap-2 hover:bg-opacity-90 disabled:opacity-50 transition-colors"
-                  style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-button-face)",
-                    color: "var(--win95-text)",
-                  }}
-                >
-                  {isSendingEmail && emailAction === "preview" ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <Eye size={16} />
-                  )}
-                  <span className="text-sm">{t("ui.tickets.email.button.preview")}</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setEmailAction("test");
-                    if (testEmail) {
-                      handleSendTestEmail();
-                    }
-                  }}
-                  disabled={isSendingEmail}
-                  className="px-4 py-2 border-2 flex items-center justify-center gap-2 hover:bg-opacity-90 disabled:opacity-50 transition-colors"
-                  style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-highlight)",
-                    color: "white",
-                  }}
-                >
-                  {isSendingEmail && emailAction === "test" ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <Send size={16} />
-                  )}
-                  <span className="text-sm">{t("ui.tickets.email.button.test")}</span>
-                </button>
-
-                <button
-                  onClick={handleSendRealEmail}
-                  disabled={isSendingEmail}
-                  className="px-4 py-2 border-2 flex items-center justify-center gap-2 hover:bg-opacity-90 disabled:opacity-50 transition-colors"
-                  style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--success)",
-                    color: "white",
-                  }}
-                >
-                  {isSendingEmail && emailAction === "send" ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <Send size={16} />
-                  )}
-                  <span className="text-sm font-bold">{t("ui.tickets.email.button.send_real")}</span>
-                </button>
-              </div>
-
-              <p className="text-xs mt-3 text-center" style={{ color: "var(--neutral-gray)" }}>
-                {t("ui.tickets.email.footer")}
-              </p>
-            </div>
-          </div>
+        {/* Email Send Modal */}
+        {showEmailModal && currentOrgId && (customProps.holderEmail || customProps.attendeeEmail) && (
+          <EmailSendModal
+            documentType="ticket"
+            documentId={ticket._id}
+            recipientEmail={(customProps.holderEmail || customProps.attendeeEmail) as string}
+            recipientName={(customProps.holderName || ticket.name) as string}
+            organizationId={currentOrgId as Id<"organizations">}
+            emailTemplateCategory="all"
+            pdfTemplateCategory="ticket"
+            allowPdfAttachment={true}
+            allowIcsAttachment={true}
+            defaultLanguage="de"
+            onPreview={handleEmailPreview}
+            onSendTest={handleSendTestEmail}
+            onSendReal={handleSendRealEmail}
+            onClose={() => setShowEmailModal(false)}
+            onSuccess={(result) => {
+              notification.success(
+                t("ui.tickets.email.button.send"),
+                result.message
+              );
+              setShowEmailModal(false);
+            }}
+            translations={{
+              title: t("ui.tickets.email.modal.title"),
+              pdfTemplateLabel: "🎫 PDF Ticket Template",
+              pdfAttachmentLabel: "Include PDF Ticket",
+              icsAttachmentLabel: "Include ICS Calendar File",
+              confirmSend: t("ui.tickets.email.confirm.send", {
+                email: (customProps.holderEmail || customProps.attendeeEmail) as string
+              }),
+            }}
+          />
         )}
       </div>
     </div>

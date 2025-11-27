@@ -6,7 +6,7 @@ import { UserManagementTable } from "./user-management-table";
 import { RolesPermissionsTab } from "./roles-permissions-tab";
 import { DomainConfigTab } from "./domain-config-tab";
 import { SecurityTab } from "./security-tab";
-import { AISettingsTab } from "./ai-settings-tab";
+import { AISettingsTabV3 as AISettingsTab } from "./ai-settings-tab-v3";
 import { OrganizationSection } from "./components/organization-section";
 import { AddressCard } from "./components/address-card";
 import { AddressModal } from "./components/address-modal";

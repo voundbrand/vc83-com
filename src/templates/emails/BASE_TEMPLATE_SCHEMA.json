@@ -1,0 +1,150 @@
+{
+  "code": "base-email-template",
+  "name": "Base Email Template",
+  "description": "Copy this file and modify for your specific email type. This is the foundation for all email templates.",
+  "category": "transactional",
+  "version": "1.0.0",
+  "defaultSections": [
+    {
+      "type": "hero",
+      "title": "{heroTitle}",
+      "subtitle": "{heroSubtitle}",
+      "image": "{heroImage}"
+    },
+    {
+      "type": "body",
+      "paragraphs": [
+        "Dear {firstName},",
+        "",
+        "{mainMessage}",
+        "",
+        "{additionalInfo}"
+      ]
+    },
+    {
+      "type": "cta",
+      "text": "{ctaText}",
+      "url": "{ctaUrl}",
+      "style": "primary"
+    }
+  ],
+  "defaultBrandColor": "#6B46C1",
+  "supportedLanguages": ["en", "de", "es", "fr"],
+  "variables": [
+    {
+      "name": "firstName",
+      "type": "string",
+      "description": "Recipient's first name",
+      "required": true,
+      "defaultValue": "John",
+      "aiInstructions": "Use the recipient's first name from the database"
+    },
+    {
+      "name": "lastName",
+      "type": "string",
+      "description": "Recipient's last name",
+      "required": true,
+      "defaultValue": "Doe"
+    },
+    {
+      "name": "email",
+      "type": "email",
+      "description": "Recipient's email address",
+      "required": true,
+      "defaultValue": "john.doe@example.com"
+    },
+    {
+      "name": "heroTitle",
+      "type": "string",
+      "description": "Main headline at top of email",
+      "required": true,
+      "defaultValue": "Welcome!",
+      "aiInstructions": "Create an engaging, action-oriented headline that summarizes the email's purpose"
+    },
+    {
+      "name": "heroSubtitle",
+      "type": "string",
+      "description": "Supporting text under the main headline",
+      "required": false,
+      "defaultValue": "We're excited to have you here",
+      "aiInstructions": "Provide context or additional detail about the email's purpose"
+    },
+    {
+      "name": "heroImage",
+      "type": "url",
+      "description": "Optional hero image URL",
+      "required": false
+    },
+    {
+      "name": "mainMessage",
+      "type": "string",
+      "description": "Primary email content/message",
+      "required": true,
+      "defaultValue": "Thank you for your interest. Here's what you need to know...",
+      "aiInstructions": "Craft the core message based on the email's purpose. Be clear and concise."
+    },
+    {
+      "name": "additionalInfo",
+      "type": "string",
+      "description": "Secondary information or next steps",
+      "required": false,
+      "defaultValue": "If you have any questions, please don't hesitate to reach out.",
+      "aiInstructions": "Provide helpful context, next steps, or supportive information"
+    },
+    {
+      "name": "ctaText",
+      "type": "string",
+      "description": "Call-to-action button text",
+      "required": true,
+      "defaultValue": "Get Started",
+      "aiInstructions": "Create action-oriented button text (e.g., 'View Invoice', 'Confirm Attendance', 'Download Now')"
+    },
+    {
+      "name": "ctaUrl",
+      "type": "url",
+      "description": "Call-to-action button destination",
+      "required": true,
+      "defaultValue": "https://example.com",
+      "aiInstructions": "Generate the appropriate URL for the action"
+    },
+    {
+      "name": "companyName",
+      "type": "string",
+      "description": "Company/organization name",
+      "required": true,
+      "defaultValue": "Your Company"
+    },
+    {
+      "name": "companyAddress",
+      "type": "string",
+      "description": "Company physical address",
+      "required": false,
+      "defaultValue": "123 Main St, City, State 12345"
+    },
+    {
+      "name": "supportEmail",
+      "type": "email",
+      "description": "Support contact email",
+      "required": false,
+      "defaultValue": "support@example.com"
+    }
+  ],
+  "previewData": {
+    "header": {
+      "brandColor": "#6B46C1",
+      "companyName": "Your Company",
+      "logo": "https://placehold.co/200x50/6B46C1/white?text=Logo"
+    },
+    "recipient": {
+      "firstName": "John",
+      "lastName": "Doe",
+      "email": "john.doe@example.com"
+    },
+    "heroTitle": "Welcome to Our Platform",
+    "heroSubtitle": "You're all set to get started",
+    "mainMessage": "We're excited to have you on board. Your account has been successfully created and you can now access all features.",
+    "additionalInfo": "Check out our getting started guide to make the most of your experience.",
+    "ctaText": "Go to Dashboard",
+    "ctaUrl": "https://example.com/dashboard"
+  }
+}

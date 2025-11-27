@@ -93,7 +93,7 @@ export class StripeConnectProvider implements IPaymentProvider {
     }
 
     this.stripe = new Stripe(secretKey, {
-      apiVersion: "2025-09-30.clover",
+      apiVersion: "2025-10-29.clover",
     });
     this.webhookSecret = webhookSecret;
   }

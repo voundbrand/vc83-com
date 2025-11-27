@@ -12,6 +12,9 @@
  * - Checkout instances: /checkout/{org}/{checkout-slug} (new)
  */
 
+// Force dynamic rendering for dynamic routes
+export const dynamic = "force-dynamic";
+
 import { Metadata } from "next";
 import { CheckoutPageClient } from "./checkout-page-client";
 

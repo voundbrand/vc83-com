@@ -1105,3 +1105,37 @@ export const permanentlyDeleteOrganizationInternal = internalMutation({
     };
   },
 });
+// ============================================================================
+// STRIPE BILLING SUPPORT
+// ============================================================================
+
+/**
+ * Get organization by ID (for Stripe integration)
+ * Used by Stripe checkout actions
+ */
+export const get = query({
+  args: {
+    id: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.id);
+  },
+});
+
+/**
+ * Update Stripe customer ID for organization
+ * Used when creating Stripe customers for AI billing
+ */
+export const updateStripeCustomer = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    stripeCustomerId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.organizationId, {
+      stripeCustomerId: args.stripeCustomerId,
+    });
+    return { success: true };
+  },
+});
+

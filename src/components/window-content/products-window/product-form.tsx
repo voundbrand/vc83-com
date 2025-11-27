@@ -17,6 +17,18 @@ import { TemplateSelector } from "@/components/template-selector";
 import { TemplateSetSelector } from "@/components/template-set-selector";
 
 /**
+ * Helper: Derive default category label from subtype
+ */
+function getDefaultCategoryLabel(subtype: string): string {
+  const labels: Record<string, string> = {
+    ticket: "Event Ticket",
+    physical: "Physical Product",
+    digital: "Digital Product",
+  };
+  return labels[subtype] || "Product";
+}
+
+/**
  * Helper: Extract all field IDs, labels, types, and options from a form template
  */
 function extractFormFields(
@@ -99,6 +111,7 @@ export function ProductForm({
   const posthog = usePostHog();
   const [formData, setFormData] = useState({
     subtype: "ticket",
+    categoryLabel: "", // Derived from subtype, but can be customized
     name: "",
     description: "",
     price: "",
@@ -212,8 +225,10 @@ export function ProductForm({
   useEffect(() => {
     if (existingProduct) {
       const props = existingProduct.customProperties || {};
+      const subtype = existingProduct.subtype || "ticket";
       setFormData({
-        subtype: existingProduct.subtype || "ticket",
+        subtype,
+        categoryLabel: (props.categoryLabel as string) || getDefaultCategoryLabel(subtype),
         name: existingProduct.name || "",
         description: existingProduct.description || "",
         price: ((props.price || 0) / 100).toString(),
@@ -282,6 +297,16 @@ export function ProductForm({
     }
   }, [existingProduct]);
 
+  // Auto-populate categoryLabel when creating new product (only if categoryLabel is empty)
+  useEffect(() => {
+    if (!productId && !formData.categoryLabel) {
+      setFormData((prev) => ({
+        ...prev,
+        categoryLabel: getDefaultCategoryLabel(prev.subtype),
+      }));
+    }
+  }, [productId, formData.subtype, formData.categoryLabel]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -301,6 +326,9 @@ export function ProductForm({
 
       // Build custom properties for all product types
       const customProperties: Record<string, unknown> = {};
+
+      // Category Label (applies to all product types)
+      customProperties.categoryLabel = formData.categoryLabel || getDefaultCategoryLabel(formData.subtype);
 
       // Tax settings (applies to all product types)
       customProperties.taxable = formData.taxable;
@@ -518,7 +546,17 @@ export function ProductForm({
         </label>
         <select
           value={formData.subtype}
-          onChange={(e) => setFormData({ ...formData, subtype: e.target.value })}
+          onChange={(e) => {
+            const newSubtype = e.target.value;
+            setFormData({
+              ...formData,
+              subtype: newSubtype,
+              // Auto-update categoryLabel to default when subtype changes (only if not manually edited)
+              categoryLabel: formData.categoryLabel === getDefaultCategoryLabel(formData.subtype)
+                ? getDefaultCategoryLabel(newSubtype)
+                : formData.categoryLabel
+            });
+          }}
           disabled={!!productId}
           className="w-full px-3 py-2 text-sm border-2"
           style={{
@@ -537,6 +575,28 @@ export function ProductForm({
             {t("ui.products.form.type.locked")}
           </p>
         )}
+      </div>
+
+      {/* Category Label */}
+      <div>
+        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+          🏷️ Category Label
+        </label>
+        <input
+          type="text"
+          value={formData.categoryLabel}
+          onChange={(e) => setFormData({ ...formData, categoryLabel: e.target.value })}
+          placeholder={getDefaultCategoryLabel(formData.subtype)}
+          className="w-full px-3 py-2 text-sm border-2"
+          style={{
+            borderColor: "var(--win95-border)",
+            background: "var(--win95-input-bg)",
+            color: "var(--win95-input-text)",
+          }}
+        />
+        <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+          💡 Human-readable category name for external APIs. Auto-derived from product type, but can be customized.
+        </p>
       </div>
 
       {/* Product Name */}

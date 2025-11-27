@@ -669,7 +669,7 @@ export const refreshAccountStatusFromStripe = internalAction({
       if (!stripeSecretKey) {
         throw new Error("STRIPE_SECRET_KEY not configured");
       }
-      const stripe = new Stripe(stripeSecretKey, { apiVersion: "2025-09-30.clover" });
+      const stripe = new Stripe(stripeSecretKey, { apiVersion: "2025-10-29.clover" });
 
       // Retrieve tax settings from the connected account
       // stripeAccount parameter routes this to their account
@@ -712,7 +712,7 @@ export const refreshAccountStatusFromStripe = internalAction({
       if (!stripeSecretKey) {
         throw new Error("STRIPE_SECRET_KEY not configured");
       }
-      const stripe = new Stripe(stripeSecretKey, { apiVersion: "2025-09-30.clover" });
+      const stripe = new Stripe(stripeSecretKey, { apiVersion: "2025-10-29.clover" });
 
       // Retrieve account with capabilities expanded to check invoicing capability
       const accountWithCapabilities = await stripe.accounts.retrieve(
@@ -852,7 +852,7 @@ export const requestInvoicingCapability = internalAction({
     }
 
     const stripe = new Stripe(stripeSecretKey, {
-      apiVersion: "2025-09-30.clover",
+      apiVersion: "2025-10-29.clover",
     });
 
     try {

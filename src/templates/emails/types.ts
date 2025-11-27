@@ -109,7 +109,7 @@ export interface EmailTemplateMetadata {
   code: string;
   name: string;
   description: string;
-  category: "luxury" | "standard" | "minimal" | "festival" | "corporate" | "internal";
+  category: "professional" | "luxury" | "standard" | "minimal" | "festival" | "corporate" | "internal";
   previewImageUrl?: string;
   supportedLanguages: EmailLanguage[];
   supportsAttachments: boolean;

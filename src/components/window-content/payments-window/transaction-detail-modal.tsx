@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useQuery, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
+import { useOrganizationCurrency } from "@/hooks/use-organization-currency";
+import { useFormatCurrency } from "@/hooks/use-format-currency";
 import {
   X,
   User,
@@ -46,13 +48,38 @@ export function TransactionDetailModal({
   // Refund action
   const processRefund = useAction(api.stripeRefunds.processStripeRefund);
 
-  const formatCurrency = (cents: number, currency: string = "eur") => {
-    const amount = cents / 100;
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: currency.toUpperCase(),
-    }).format(amount);
-  };
+  // Get organization currency settings (SINGLE SOURCE OF TRUTH)
+  const { currency: orgCurrency } = useOrganizationCurrency();
+
+  // Currency formatting hook (uses organization's currency)
+  const { formatCurrency } = useFormatCurrency({
+    currency: orgCurrency,
+  });
+
+  // Check if transaction uses NEW format (lineItems array) or LEGACY format
+  const hasLineItems = transaction?.customProperties?.lineItems &&
+    Array.isArray(transaction.customProperties.lineItems) &&
+    transaction.customProperties.lineItems.length > 0;
+
+  // Calculate totals from lineItems if NEW format
+  const totals = hasLineItems && transaction?.customProperties?.lineItems
+    ? {
+        subtotal: (transaction.customProperties.lineItems as Array<{
+          unitPriceInCents: number;
+          quantity: number;
+        }>).reduce((sum, item) => sum + (item.unitPriceInCents * item.quantity), 0),
+        tax: (transaction.customProperties.lineItems as Array<{
+          taxAmountInCents: number;
+        }>).reduce((sum, item) => sum + item.taxAmountInCents, 0),
+        total: (transaction.customProperties.lineItems as Array<{
+          totalPriceInCents: number;
+        }>).reduce((sum, item) => sum + item.totalPriceInCents, 0),
+      }
+    : {
+        subtotal: (transaction?.customProperties?.amountInCents as number) || 0,
+        tax: (transaction?.customProperties?.taxAmountInCents as number) || 0,
+        total: (transaction?.customProperties?.totalPriceInCents as number) || 0,
+      };
 
   const formatDate = (timestamp: number) => {
     return new Intl.DateTimeFormat("en-US", {
@@ -68,9 +95,9 @@ export function TransactionDetailModal({
   const handleRefund = async () => {
     if (!transaction || !sessionId) return;
 
-    // Confirm refund
+    // Confirm refund (use calculated total for both NEW and LEGACY formats)
     const confirmed = window.confirm(
-      `Are you sure you want to refund ${formatCurrency((transaction.customProperties?.totalPriceInCents as number) || 0, (transaction.customProperties?.currency as string) || "EUR")}?\n\nThis action cannot be undone.`
+      `Are you sure you want to refund ${formatCurrency(totals.total)}?\n\nThis action cannot be undone.`
     );
 
     if (!confirmed) return;
@@ -247,57 +274,126 @@ export function TransactionDetailModal({
             <div className="flex items-center gap-2 mb-3">
               <Package size={16} style={{ color: "var(--primary)" }} />
               <h3 className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
-                Product Details
+                {hasLineItems ? "Order Items" : "Product Details"}
               </h3>
+              {hasLineItems && transaction?.customProperties?.lineItems && (
+                <span
+                  className="px-2 py-0.5 text-[10px] font-bold rounded ml-auto"
+                  style={{
+                    backgroundColor: "var(--primary-light)",
+                    color: "var(--primary)",
+                  }}
+                >
+                  {(transaction.customProperties.lineItems as Array<unknown>).length} items
+                </span>
+              )}
             </div>
-            <div className="space-y-2">
-              <div>
-                <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
-                  Product
-                </p>
-                <p className="text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
-                  {transaction.customProperties?.productName as string}
-                </p>
-                {transaction.customProperties?.productDescription && (
-                  <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                    {transaction.customProperties.productDescription as string}
-                  </p>
-                )}
-              </div>
 
-              {transaction.customProperties?.eventName && (
+            {hasLineItems && transaction?.customProperties?.lineItems ? (
+              /* NEW FORMAT: Line Items Table */
+              <div className="space-y-2">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b-2" style={{ borderColor: "var(--win95-border)" }}>
+                        <th className="text-left pb-2 pr-2" style={{ color: "var(--neutral-gray)" }}>Product</th>
+                        <th className="text-center pb-2 px-2" style={{ color: "var(--neutral-gray)" }}>Qty</th>
+                        <th className="text-right pb-2 px-2" style={{ color: "var(--neutral-gray)" }}>Unit Price</th>
+                        <th className="text-right pb-2 pl-2" style={{ color: "var(--neutral-gray)" }}>Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(transaction.customProperties.lineItems as Array<{
+                        productName: string;
+                        description?: string;
+                        eventName?: string;
+                        eventLocation?: string;
+                        quantity: number;
+                        unitPriceInCents: number;
+                        totalPriceInCents: number;
+                      }>).map((item, index) => (
+                        <tr key={index} className="border-b" style={{ borderColor: "var(--win95-border)" }}>
+                          <td className="py-2 pr-2">
+                            <p className="font-semibold" style={{ color: "var(--win95-text)" }}>
+                              {item.productName}
+                            </p>
+                            {item.description && (
+                              <p className="text-[10px] mt-0.5" style={{ color: "var(--neutral-gray)" }}>
+                                {item.description}
+                              </p>
+                            )}
+                            {item.eventName && (
+                              <p className="text-[10px] mt-0.5" style={{ color: "var(--neutral-gray)" }}>
+                                📍 {item.eventName}
+                              </p>
+                            )}
+                          </td>
+                          <td className="py-2 px-2 text-center" style={{ color: "var(--win95-text)" }}>
+                            {item.quantity}
+                          </td>
+                          <td className="py-2 px-2 text-right" style={{ color: "var(--win95-text)" }}>
+                            {formatCurrency(item.unitPriceInCents)}
+                          </td>
+                          <td className="py-2 pl-2 text-right font-semibold" style={{ color: "var(--win95-text)" }}>
+                            {formatCurrency(item.totalPriceInCents)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              /* LEGACY FORMAT: Single Product */
+              <div className="space-y-2">
                 <div>
                   <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
-                    Event
+                    Product
                   </p>
-                  <p className="text-sm" style={{ color: "var(--win95-text)" }}>
-                    {transaction.customProperties.eventName as string}
+                  <p className="text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
+                    {transaction.customProperties?.productName as string}
                   </p>
-                  {transaction.customProperties?.eventLocation && (
-                    <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                      {transaction.customProperties.eventLocation as string}
+                  {transaction.customProperties?.productDescription && (
+                    <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+                      {transaction.customProperties.productDescription as string}
                     </p>
                   )}
                 </div>
-              )}
 
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
-                    Quantity
-                  </p>
-                  <p style={{ color: "var(--win95-text)" }}>{transaction.customProperties?.quantity as number}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
-                    Unit Price
-                  </p>
-                  <p style={{ color: "var(--win95-text)" }}>
-                    {formatCurrency((transaction.customProperties?.unitPriceInCents as number) || 0, (transaction.customProperties?.currency as string) || "EUR")}
-                  </p>
+                {transaction.customProperties?.eventName && (
+                  <div>
+                    <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
+                      Event
+                    </p>
+                    <p className="text-sm" style={{ color: "var(--win95-text)" }}>
+                      {transaction.customProperties.eventName as string}
+                    </p>
+                    {transaction.customProperties?.eventLocation && (
+                      <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                        {transaction.customProperties.eventLocation as string}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
+                      Quantity
+                    </p>
+                    <p style={{ color: "var(--win95-text)" }}>{transaction.customProperties?.quantity as number}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
+                      Unit Price
+                    </p>
+                    <p style={{ color: "var(--win95-text)" }}>
+                      {formatCurrency((transaction.customProperties?.unitPriceInCents as number) || 0)}
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Financial Summary */}
@@ -313,18 +409,18 @@ export function TransactionDetailModal({
             </div>
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span style={{ color: "var(--neutral-gray)" }}>Amount</span>
+                <span style={{ color: "var(--neutral-gray)" }}>Subtotal</span>
                 <span style={{ color: "var(--win95-text)" }}>
-                  {formatCurrency((transaction.customProperties?.amountInCents as number) || 0, (transaction.customProperties?.currency as string) || "EUR")}
+                  {formatCurrency(totals.subtotal)}
                 </span>
               </div>
 
               <div className="flex justify-between text-sm">
                 <span style={{ color: "var(--neutral-gray)" }}>
-                  Tax ({((transaction.customProperties?.taxRatePercent as number) || 0)}%)
+                  Tax {hasLineItems ? "" : `(${((transaction.customProperties?.taxRatePercent as number) || 0)}%)`}
                 </span>
                 <span style={{ color: "var(--win95-text)" }}>
-                  {formatCurrency((transaction.customProperties?.taxAmountInCents as number) || 0, (transaction.customProperties?.currency as string) || "EUR")}
+                  {formatCurrency(totals.tax)}
                 </span>
               </div>
 
@@ -334,7 +430,7 @@ export function TransactionDetailModal({
               >
                 <span style={{ color: "var(--win95-text)" }}>Total</span>
                 <span style={{ color: "var(--primary)" }}>
-                  {formatCurrency((transaction.customProperties?.totalPriceInCents as number) || 0, (transaction.customProperties?.currency as string) || "EUR")}
+                  {formatCurrency(totals.total)}
                 </span>
               </div>
 
@@ -400,7 +496,7 @@ export function TransactionDetailModal({
                     <div className="flex justify-between text-sm">
                       <span style={{ color: "var(--neutral-gray)" }}>Refund Amount</span>
                       <span style={{ color: "var(--error)" }}>
-                        {formatCurrency((transaction.customProperties?.refundAmount as number) || 0, (transaction.customProperties?.currency as string) || "EUR")}
+                        {formatCurrency((transaction.customProperties?.refundAmount as number) || 0)}
                       </span>
                     </div>
                     {transaction.customProperties?.refundDate && (

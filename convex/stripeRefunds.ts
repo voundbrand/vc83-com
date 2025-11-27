@@ -118,7 +118,7 @@ export const processStripeRefund = action({
       // Import Stripe dynamically (since we're in an action)
       const Stripe = (await import("stripe")).default;
       const stripe = new Stripe(stripeSecretKey, {
-        apiVersion: "2025-09-30.clover",
+        apiVersion: "2025-10-29.clover",
       });
 
       console.log(`Processing Stripe refund for payment intent: ${stripePaymentIntentId}`);

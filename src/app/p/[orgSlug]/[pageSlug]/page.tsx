@@ -8,6 +8,9 @@
  * Example: /p/acme-corp/our-amazing-product
  */
 
+// Force dynamic rendering for Convex queries during build
+export const dynamic = "force-dynamic";
+
 import { api } from "../../../../../convex/_generated/api";
 import { fetchQuery } from "convex/nextjs";
 import { notFound } from "next/navigation";

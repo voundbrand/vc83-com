@@ -38,7 +38,7 @@ export function ControlPanelWindow() {
       "Manage",
       <ManageWindow />,
       { x: 200, y: 50 },
-      { width: 950, height: 600 }
+      { width: 1200, height: 700 }
     );
   };
 

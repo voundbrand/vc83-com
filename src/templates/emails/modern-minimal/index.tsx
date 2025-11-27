@@ -1,10 +1,10 @@
 /**
- * MODERN MINIMAL EMAIL TEMPLATE
+ * PROFESSIONAL EMAIL TEMPLATE (Modern Minimal Base)
  *
- * Clean, minimalist design following apitemplate.io best practices
- * Perfect for tech events, conferences, and contemporary brands
+ * Clean, minimalist design matching Professional PDF templates
+ * Uses purple accent (#6B46C1) to match ticket_professional_v1 and invoice_b2c_receipt_v1
  *
- * Design Quality: Matches luxury-confirmation standards
+ * Design Quality: System default template - matches all PDF templates
  * Languages: DE, EN, ES, FR
  * Supports: PDF tickets, ICS calendar files
  */
@@ -13,16 +13,17 @@ import { EmailTemplateProps, EmailTemplateOutput } from "../types";
 import { modernMinimalTranslations } from "./translations";
 
 /**
- * Modern Minimal Email Template
+ * Professional Email Template
  *
  * Clean design with proper spacing, typography hierarchy, and color harmony.
  * Follows email best practices with inline styles and table-based layouts.
+ * Uses purple (#6B46C1) to match Professional PDF ticket and invoice templates.
  */
 export function ModernMinimalTemplate(props: EmailTemplateProps): EmailTemplateOutput {
   const { ticket, event, attendee, domain, branding, language } = props;
 
   const t = modernMinimalTranslations[language];
-  const primaryColor = branding.primaryColor || '#3b82f6'; // Modern blue
+  const primaryColor = branding.primaryColor || '#6B46C1'; // Professional purple (matches PDFs)
   const fullName = `${attendee.firstName} ${attendee.lastName}`;
   const year = new Date().getFullYear();
 
@@ -38,7 +39,7 @@ export function ModernMinimalTemplate(props: EmailTemplateProps): EmailTemplateO
   <div style="max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);">
 
     <!-- Header with Accent Color -->
-    <div style="background: linear-gradient(135deg, ${primaryColor} 0%, #2563eb 100%); padding: 50px 40px; text-align: center;">
+    <div style="background: linear-gradient(135deg, ${primaryColor} 0%, #553C9A 100%); padding: 50px 40px; text-align: center;">
       <div style="width: 60px; height: 3px; background: rgba(255, 255, 255, 0.5); margin: 0 auto 25px; border-radius: 2px;"></div>
       <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 600; letter-spacing: -0.5px; line-height: 1.3;">
         ${t.confirmationHeading}
@@ -93,7 +94,7 @@ export function ModernMinimalTemplate(props: EmailTemplateProps): EmailTemplateO
       </div>
 
       <!-- Attachments -->
-      <div style="text-align: center; padding: 35px 30px; background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(37, 99, 235, 0.05) 100%); border-radius: 12px; border: 2px dashed rgba(59, 130, 246, 0.3); margin: 35px 0;">
+      <div style="text-align: center; padding: 35px 30px; background: linear-gradient(135deg, rgba(107, 70, 193, 0.05) 0%, rgba(85, 60, 154, 0.05) 100%); border-radius: 12px; border: 2px dashed rgba(107, 70, 193, 0.3); margin: 35px 0;">
         <p style="margin: 0 0 20px 0; font-size: 13px; color: ${primaryColor}; letter-spacing: 2px; text-transform: uppercase; font-weight: 600;">
           ${t.attachments}
         </p>

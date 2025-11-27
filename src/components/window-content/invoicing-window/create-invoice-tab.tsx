@@ -6,6 +6,8 @@ import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { type Id, type Doc } from "../../../../convex/_generated/dataModel";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+import { useOrganizationCurrency } from "@/hooks/use-organization-currency";
+import { useFormatCurrency } from "@/hooks/use-format-currency";
 import {
   Building2,
   Plus,
@@ -101,6 +103,12 @@ export function CreateInvoiceTab() {
 
   // Create invoice mutation
   const createInvoiceMutation = useMutation(api.invoicingOntology.createDraftInvoice);
+
+  // Get organization currency settings (SINGLE SOURCE OF TRUTH)
+  const { currency: orgCurrency } = useOrganizationCurrency();
+
+  // Currency formatting hook
+  const { formatCurrency } = useFormatCurrency({ currency: orgCurrency });
 
   // Handle line item changes
   const updateLineItem = (index: number, field: keyof LineItem, value: string | number) => {
@@ -209,10 +217,6 @@ export function CreateInvoiceTab() {
       console.error("Failed to create invoice:", error);
       alert(`${t("ui.invoicing_window.create.errors.failed")}: ${error instanceof Error ? error.message : "Unknown error"}`);
     }
-  };
-
-  const formatCurrency = (cents: number) => {
-    return `€${(cents / 100).toFixed(2)}`;
   };
 
   if (translationsLoading) {

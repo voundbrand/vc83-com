@@ -28,6 +28,7 @@ export function AISettingsTab() {
 
   // Form state
   const [enabled, setEnabled] = useState(false);
+  const [billingMode, setBillingMode] = useState<"platform" | "byok">("platform");
   const [provider, setProvider] = useState("anthropic");
   const [model, setModel] = useState("anthropic/claude-3-5-sonnet");
   const [temperature, setTemperature] = useState(0.7);
@@ -50,10 +51,13 @@ export function AISettingsTab() {
   useEffect(() => {
     if (settings) {
       setEnabled(settings.enabled);
-      setProvider(settings.llm.provider);
-      setModel(settings.llm.model);
+      setProvider(settings.llm.provider || "anthropic");
+      setModel(settings.llm.model || "claude-3-5-sonnet");
       setTemperature(settings.llm.temperature);
       setMaxTokens(settings.llm.maxTokens);
+
+      const hasCustomKey = !!(settings.llm.openrouterApiKey);
+      setBillingMode(hasCustomKey ? "byok" : "platform");
       setOpenrouterApiKey(settings.llm.openrouterApiKey || "");
 
       setEmbeddingProvider(settings.embedding.provider);
@@ -75,12 +79,13 @@ export function AISettingsTab() {
       await upsertSettings({
         organizationId,
         enabled,
+        billingMode,
         llm: {
           provider,
           model,
           temperature,
           maxTokens,
-          openrouterApiKey: openrouterApiKey || undefined,
+          openrouterApiKey: (billingMode === "byok" && openrouterApiKey) ? openrouterApiKey : undefined,
         },
         embedding: {
           provider: embeddingProvider,
@@ -309,28 +314,131 @@ export function AISettingsTab() {
                   {t("ui.manage.ai.max_tokens_description")}
                 </p>
               </div>
+            </div>
+          </div>
 
-              {/* OpenRouter API Key */}
-              <div>
-                <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
-                  {t("ui.manage.ai.custom_api_key")}
-                </label>
+          {/* Billing Mode Selection */}
+          <div
+            className="p-4 border-2"
+            style={{
+              backgroundColor: 'var(--win95-bg-light)',
+              borderColor: 'var(--win95-border)',
+            }}
+          >
+            <h3 className="font-bold text-sm mb-4 flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
+              <DollarSign size={16} />
+              {t("ui.manage.ai.billing_mode")}
+            </h3>
+
+            <div className="space-y-3">
+              {/* Platform API Key Option */}
+              <label
+                className="flex items-start gap-3 cursor-pointer p-3 border-2"
+                style={{
+                  borderColor: billingMode === "platform" ? 'var(--primary)' : 'var(--win95-border)',
+                  backgroundColor: billingMode === "platform" ? 'var(--info)' : 'transparent'
+                }}
+              >
                 <input
-                  type="password"
-                  value={openrouterApiKey}
-                  onChange={(e) => setOpenrouterApiKey(e.target.value)}
-                  placeholder="Use platform key if empty"
-                  className="w-full p-2 text-xs border-2 font-mono"
-                  style={{
-                    borderColor: 'var(--win95-border)',
-                    backgroundColor: 'var(--win95-bg-light)',
-                    color: 'var(--win95-text)'
+                  type="radio"
+                  name="billingMode"
+                  value="platform"
+                  checked={billingMode === "platform"}
+                  onChange={() => {
+                    setBillingMode("platform");
+                    setOpenrouterApiKey("");
                   }}
+                  className="mt-1"
                 />
-                <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-                  {t("ui.manage.ai.custom_api_key_description")}
-                </p>
-              </div>
+                <div className="flex-1">
+                  <span className="font-bold text-sm block mb-1" style={{ color: 'var(--win95-text)' }}>
+                    {t("ui.manage.ai.billing_platform")}
+                  </span>
+                  <ul className="text-xs space-y-1" style={{ color: 'var(--neutral-gray)' }}>
+                    <li>✓ {t("ui.manage.ai.billing_platform_benefit1")}</li>
+                    <li>✓ {t("ui.manage.ai.billing_platform_benefit2")}</li>
+                    <li>✓ {t("ui.manage.ai.billing_platform_benefit3")}</li>
+                  </ul>
+                </div>
+              </label>
+
+              {/* Bring Your Own Key Option */}
+              <label
+                className="flex items-start gap-3 cursor-pointer p-3 border-2"
+                style={{
+                  borderColor: billingMode === "byok" ? 'var(--primary)' : 'var(--win95-border)',
+                  backgroundColor: billingMode === "byok" ? 'var(--info)' : 'transparent'
+                }}
+              >
+                <input
+                  type="radio"
+                  name="billingMode"
+                  value="byok"
+                  checked={billingMode === "byok"}
+                  onChange={() => setBillingMode("byok")}
+                  className="mt-1"
+                />
+                <div className="flex-1">
+                  <span className="font-bold text-sm block mb-1" style={{ color: 'var(--win95-text)' }}>
+                    {t("ui.manage.ai.billing_byok")}
+                  </span>
+                  <ul className="text-xs space-y-1" style={{ color: 'var(--neutral-gray)' }}>
+                    <li>• {t("ui.manage.ai.billing_byok_benefit1")}</li>
+                    <li>• {t("ui.manage.ai.billing_byok_benefit2")}</li>
+                    <li>• {t("ui.manage.ai.billing_byok_benefit3")}</li>
+                  </ul>
+                </div>
+              </label>
+
+              {/* BYOK API Key Input */}
+              {billingMode === "byok" && (
+                <div
+                  className="p-3 border-2"
+                  style={{
+                    backgroundColor: 'var(--warning)',
+                    borderColor: 'var(--win95-border)'
+                  }}
+                >
+                  <div className="mb-3">
+                    <p className="text-xs mb-2" style={{ color: 'var(--win95-text)' }}>
+                      ⚠️ {t("ui.manage.ai.billing_byok_note")}
+                    </p>
+                    <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
+                      {t("ui.manage.ai.billing_byok_signup")}{" "}
+                      <a
+                        href="https://openrouter.ai"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: 'var(--primary)', textDecoration: 'underline' }}
+                      >
+                        {t("ui.manage.ai.billing_byok_signup_link")}
+                      </a>
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+                      {t("ui.manage.ai.api_key_required")}
+                    </label>
+                    <input
+                      type="password"
+                      value={openrouterApiKey}
+                      onChange={(e) => setOpenrouterApiKey(e.target.value)}
+                      placeholder="sk-or-v1-..."
+                      required={billingMode === "byok"}
+                      className="w-full p-2 text-xs border-2 font-mono"
+                      style={{
+                        borderColor: 'var(--win95-border)',
+                        backgroundColor: 'var(--win95-bg-light)',
+                        color: 'var(--win95-text)'
+                      }}
+                    />
+                    <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
+                      {t("ui.manage.ai.api_key_get_yours")} <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>openrouter.ai/keys</a>
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -454,11 +562,24 @@ export function AISettingsTab() {
               {t("ui.manage.ai.budget_title")}
             </h3>
 
+            {/* Info Banner based on Billing Mode */}
+            <div
+              className="p-3 mb-4 border-2 text-xs"
+              style={{
+                backgroundColor: billingMode === "platform" ? 'var(--info)' : 'var(--warning)',
+                borderColor: 'var(--win95-border)',
+                color: 'var(--win95-text)'
+              }}
+            >
+              💡 {billingMode === "platform" ? t("ui.manage.ai.budget_platform_note") : t("ui.manage.ai.budget_byok_note")}
+            </div>
+
             <div className="space-y-4">
               {/* Monthly Budget */}
               <div>
                 <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
                   {t("ui.manage.ai.monthly_budget")}
+                  {billingMode === "byok" && <span style={{ color: 'var(--neutral-gray)' }}> ({t("ui.manage.ai.budget_byok_note").split('.')[0]})</span>}
                 </label>
                 <input
                   type="number"
@@ -466,7 +587,7 @@ export function AISettingsTab() {
                   onChange={(e) => setMonthlyBudgetUsd(e.target.value ? parseFloat(e.target.value) : undefined)}
                   min="0"
                   step="10"
-                  placeholder="No limit"
+                  placeholder={billingMode === "byok" ? "Optional - for tracking only" : "No limit"}
                   className="w-full p-2 text-xs border-2"
                   style={{
                     borderColor: 'var(--win95-border)',
@@ -474,9 +595,6 @@ export function AISettingsTab() {
                     color: 'var(--win95-text)'
                   }}
                 />
-                <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-                  {t("ui.manage.ai.monthly_budget_description")}
-                </p>
               </div>
 
               {/* Current Spend */}

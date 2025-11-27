@@ -5,6 +5,8 @@ import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+import { useOrganizationCurrency } from "@/hooks/use-organization-currency";
+import { useFormatCurrency } from "@/hooks/use-format-currency";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { TransactionDetailModal } from "./transaction-detail-modal";
 import {
@@ -97,6 +99,14 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
 
   const transactions = transactionsData?.transactions;
 
+  // Get organization currency settings (SINGLE SOURCE OF TRUTH)
+  const { currency: orgCurrency } = useOrganizationCurrency();
+
+  // Currency formatting hook (uses organization's currency)
+  const { formatCurrency } = useFormatCurrency({
+    currency: orgCurrency,
+  });
+
   // Show loading state while translations load
   if (translationsLoading) {
     return (
@@ -166,16 +176,6 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
     }
   };
 
-  const formatCurrency = (cents: number, currency?: string) => {
-    const amount = cents / 100;
-    // Use organization currency for stats, or specific currency for transactions
-    const displayCurrency = currency || stats?.currency || "EUR";
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: displayCurrency.toUpperCase(),
-    }).format(amount);
-  };
-
   const formatDate = (timestamp: number) => {
     return new Intl.DateTimeFormat("en-US", {
       month: "short",
@@ -186,6 +186,36 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
     }).format(new Date(timestamp));
   };
 
+  // Helper: Calculate total from lineItems (NEW format) or use direct field (LEGACY)
+  const getTransactionTotal = (tx: { customProperties?: Record<string, unknown> }): number => {
+    const lineItems = tx.customProperties?.lineItems;
+
+    if (lineItems && Array.isArray(lineItems) && lineItems.length > 0) {
+      // NEW format: sum all lineItems
+      return (lineItems as Array<{ totalPriceInCents: number }>)
+        .reduce((sum, item) => sum + item.totalPriceInCents, 0);
+    }
+
+    // LEGACY format: direct field
+    return (tx.customProperties?.totalPriceInCents as number) || 0;
+  };
+
+  // Helper: Get display name for transaction (product name or "Multiple items")
+  const getTransactionDisplayName = (tx: { customProperties?: Record<string, unknown> }): string => {
+    const lineItems = tx.customProperties?.lineItems;
+
+    if (lineItems && Array.isArray(lineItems) && lineItems.length > 0) {
+      // NEW format: show "X items" or single product name
+      if (lineItems.length === 1) {
+        return (lineItems[0] as { productName: string }).productName || "Unknown Product";
+      }
+      return `${lineItems.length} items`;
+    }
+
+    // LEGACY format: single product name
+    return (tx.customProperties?.productName as string) || "Unknown Product";
+  };
+
   // Client-side search and invoicing status filter
   const filteredTransactions = transactions
     ?.filter((tx) => {
@@ -194,8 +224,20 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
         const query = searchQuery.toLowerCase();
         const email = ((tx.customProperties?.customerEmail as string) || "").toLowerCase();
         const name = ((tx.customProperties?.customerName as string) || "").toLowerCase();
-        const productName = ((tx.customProperties?.productName as string) || "").toLowerCase();
-        return email.includes(query) || name.includes(query) || productName.includes(query);
+
+        // Check LEGACY format productName
+        const legacyProductName = ((tx.customProperties?.productName as string) || "").toLowerCase();
+
+        // Check NEW format lineItems
+        const lineItems = tx.customProperties?.lineItems;
+        let lineItemsMatch = false;
+        if (lineItems && Array.isArray(lineItems)) {
+          lineItemsMatch = (lineItems as Array<{ productName?: string }>).some(
+            item => (item.productName || "").toLowerCase().includes(query)
+          );
+        }
+
+        return email.includes(query) || name.includes(query) || legacyProductName.includes(query) || lineItemsMatch;
       }
       return true;
     })
@@ -217,8 +259,9 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
           bValue = b._creationTime;
           break;
         case "amount":
-          aValue = (a.customProperties?.totalPriceInCents as number) || 0;
-          bValue = (b.customProperties?.totalPriceInCents as number) || 0;
+          // Use helper to calculate totals for both NEW and LEGACY formats
+          aValue = getTransactionTotal(a);
+          bValue = getTransactionTotal(b);
           break;
         case "customer":
           aValue = (a.customProperties?.customerName as string) || "";
@@ -528,9 +571,9 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
               const paymentColors = getStatusBadgeColor(paymentStatus);
               const invoicingColors = getInvoicingStatusBadgeColor(invoicingStatus);
               const customerName = (tx.customProperties?.customerName as string) || "Unknown";
-              const productName = (tx.customProperties?.productName as string) || "Unknown Product";
-              const totalPriceInCents = (tx.customProperties?.totalPriceInCents as number) || 0;
-              const currency = (tx.customProperties?.currency as string) || "EUR";
+              const productName = getTransactionDisplayName(tx); // Use helper for NEW/LEGACY
+              const totalPriceInCents = getTransactionTotal(tx); // Use helper for NEW/LEGACY
+              const txCurrency = (tx.customProperties?.currency as string) || "EUR";
               const paymentMethod = (tx.customProperties?.paymentMethod as string) || "card";
               const payerType = tx.customProperties?.payerType as string;
 
@@ -576,7 +619,7 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
                   {/* Amount */}
                   <div className="text-right">
                     <p className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
-                      {formatCurrency(totalPriceInCents, currency)}
+                      {formatCurrency(totalPriceInCents, txCurrency)}
                     </p>
                   </div>
 
