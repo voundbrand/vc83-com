@@ -142,7 +142,7 @@ export function AISettingsTab() {
       // NEW: Handle multi-select models
       if (settings.llm.enabledModels && settings.llm.enabledModels.length > 0) {
         setEnabledModels(settings.llm.enabledModels);
-        setDefaultModelId(settings.llm.defaultModelId || settings.llm.enabledModels.find(m => m.isDefault)?.modelId || "");
+        setDefaultModelId(settings.llm.defaultModelId || settings.llm.enabledModels.find((m: any) => m.isDefault)?.modelId || "");
       } else if (settings.llm.provider && settings.llm.model) {
         // LEGACY: Convert old single model format to new multi-select
         const modelId = settings.llm.model.includes("/")
