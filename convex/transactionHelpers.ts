@@ -91,136 +91,161 @@ export async function createTransactionsForPurchase(
       employerId?: string;
       employerName?: string;
     };
+    // Tax information from checkout session (from Stripe Tax or manual calculation)
+    taxInfo?: {
+      taxRatePercent: number;
+      currency: string;
+    };
   }
 ): Promise<Id<"objects">[]> {
-  const transactionIds: Id<"objects">[] = [];
-
-  console.log(`📝 [createTransactionsForPurchase] Creating ${params.purchasedItems.length} transactions`);
+  console.log(`📝 [createTransactionsForPurchase] Creating transaction for checkout with ${params.purchasedItems.length} items`);
   console.log(`   Payment Method: ${params.paymentInfo.method}`);
   console.log(`   Payment Status: ${params.paymentInfo.status}`);
   console.log(`   Customer: ${params.customerInfo.name} (${params.customerInfo.email})`);
 
-  for (const item of params.purchasedItems) {
-    // 1. Fetch product details
-    const product = await ctx.runQuery(internal.productOntology.getProductInternal, {
-      productId: item.productId,
-    });
-
-    if (!product) {
-      console.error(`❌ [createTransactionsForPurchase] Product ${item.productId} not found, skipping transaction`);
-      continue;
-    }
-
-    console.log(`   Product: ${product.name} (${product.subtype})`);
-
-    // 2. Determine transaction subtype based on product
-    let subtype: "ticket_purchase" | "product_purchase" | "service_purchase" = "product_purchase";
-    if (product.subtype === "ticket") {
-      subtype = "ticket_purchase";
-    } else if (product.subtype === "service") {
-      subtype = "service_purchase";
-    }
-
-    // 3. Fetch event details if product is a ticket
-    let eventId: Id<"objects"> | undefined;
-    let eventName: string | undefined;
-    let eventLocation: string | undefined;
-    let eventStartDate: number | undefined;
-    let eventEndDate: number | undefined;
-    let eventSponsors: Array<{ name: string; level?: string; logoUrl?: string }> | undefined;
-
-    if (product.subtype === "ticket" && product.customProperties?.eventId) {
-      // Get event from product's eventId
-      const eventIdFromProduct = product.customProperties.eventId as Id<"objects">;
-      const event = await ctx.runQuery(internal.eventOntology.getEventInternal, {
-        eventId: eventIdFromProduct,
+  // NEW APPROACH: Build lineItems array for ALL products
+  const lineItems = await Promise.all(
+    params.purchasedItems.map(async (item) => {
+      // 1. Fetch product details
+      const product = await ctx.runQuery(internal.productOntology.getProductInternal, {
+        productId: item.productId,
       });
 
-      if (event && event.type === "event") {
-        eventId = event._id;
-        eventName = event.name;
-        eventLocation = event.customProperties?.location as string;
-        eventStartDate = event.customProperties?.startDate as number;
-        eventEndDate = event.customProperties?.endDate as number;
-
-        console.log(`   Event: ${eventName} at ${eventLocation}`);
-
-        // Fetch event sponsors if applicable
-        // Note: We need to query objectLinks to get sponsors
-        // For now, we'll skip this to avoid creating a new internal query
-        // This can be added later if needed
-        eventSponsors = undefined; // TODO: Add getEventSponsorsInternal if needed
+      if (!product) {
+        console.error(`❌ [createTransactionsForPurchase] Product ${item.productId} not found, skipping`);
+        return null;
       }
-    }
 
-    // 4. Determine payer info
-    const payerType = params.billingInfo?.crmOrganizationId ? "organization" : "individual";
-    const payerId = params.billingInfo?.crmOrganizationId;
+      console.log(`   Product: ${product.name} (${product.subtype}) - Qty: ${item.quantity}`);
 
-    if (payerType === "organization") {
-      console.log(`   Payer: ${params.billingInfo?.employerName} (B2B)`);
-    } else {
-      console.log(`   Payer: ${params.customerInfo.name} (B2C)`);
-    }
+      // 2. Fetch event details if product is a ticket
+      let eventId: Id<"objects"> | undefined;
+      let eventName: string | undefined;
+      let eventLocation: string | undefined;
+      let eventStartDate: number | undefined;
+      let eventEndDate: number | undefined;
 
-    // 5. Create transaction
-    const transactionId = await ctx.runMutation(
-      internal.transactionOntology.createTransactionInternal,
-      {
-        organizationId: params.organizationId,
-        subtype,
+      if (product.subtype === "ticket" && product.customProperties?.eventId) {
+        const eventIdFromProduct = product.customProperties.eventId as Id<"objects">;
+        const event = await ctx.runQuery(internal.eventOntology.getEventInternal, {
+          eventId: eventIdFromProduct,
+        });
 
-        // Product info
+        if (event && event.type === "event") {
+          eventId = event._id;
+          eventName = event.name;
+          eventLocation = event.customProperties?.location as string;
+          eventStartDate = event.customProperties?.startDate as number;
+          eventEndDate = event.customProperties?.endDate as number;
+
+          console.log(`   Event: ${eventName} at ${eventLocation}`);
+        }
+      }
+
+      // 3. Calculate tax for this line item
+      const taxRatePercent = params.taxInfo?.taxRatePercent || 19;
+      const taxAmountInCents = Math.round((item.totalPrice * taxRatePercent) / 100);
+
+      // 4. Build line item
+      return {
         productId: product._id,
         productName: product.name,
         productDescription: product.description,
         productSubtype: product.subtype,
-
-        // Event info (if applicable)
+        quantity: item.quantity,
+        unitPriceInCents: item.pricePerUnit,  // Net price per unit (excluding tax)
+        totalPriceInCents: item.totalPrice + taxAmountInCents,  // Gross total (including tax)
+        taxRatePercent,
+        taxAmountInCents,
+        ticketId: item.ticketId,
         eventId,
         eventName,
         eventLocation,
         eventStartDate,
         eventEndDate,
-        eventSponsors,
+      };
+    })
+  );
 
-        // Links
-        ticketId: item.ticketId,
-        checkoutSessionId: params.checkoutSessionId,
+  // Filter out any null items (products not found)
+  const validLineItems = lineItems.filter((item): item is NonNullable<typeof item> => item !== null);
 
-        // Customer
-        customerName: params.customerInfo.name,
-        customerEmail: params.customerInfo.email,
-        customerPhone: params.customerInfo.phone,
-
-        // Payer (B2B vs B2C)
-        payerType,
-        payerId,
-        crmOrganizationId: params.billingInfo?.crmOrganizationId,
-        employerId: params.billingInfo?.employerId,
-        employerName: params.billingInfo?.employerName,
-
-        // Financial
-        amountInCents: item.totalPrice,
-        currency: "EUR",
-        quantity: item.quantity,
-        taxRatePercent: 19, // German VAT
-
-        // Payment status
-        paymentMethod: params.paymentInfo.method,
-        paymentStatus: params.paymentInfo.status,
-        paymentIntentId: params.paymentInfo.intentId,
-      }
-    );
-
-    transactionIds.push(transactionId);
-
-    console.log(`✅ [createTransactionsForPurchase] Created transaction ${transactionId} for product ${product.name}`);
+  if (validLineItems.length === 0) {
+    console.error(`❌ [createTransactionsForPurchase] No valid products found, cannot create transaction`);
+    return [];
   }
 
-  console.log(`🎉 [createTransactionsForPurchase] Created ${transactionIds.length} transactions total`);
+  // 5. Calculate aggregate totals
+  const subtotalInCents = validLineItems.reduce((sum, item) => sum + (item.unitPriceInCents * item.quantity), 0); // Net subtotal (before tax)
+  const taxAmountInCents = validLineItems.reduce((sum, item) => sum + item.taxAmountInCents, 0);
+  const totalInCents = subtotalInCents + taxAmountInCents; // Gross total (net + tax)
 
-  return transactionIds;
+  console.log(`💰 Transaction Totals:`);
+  console.log(`   Subtotal: €${(subtotalInCents / 100).toFixed(2)}`);
+  console.log(`   Tax (${params.taxInfo?.taxRatePercent || 19}%): €${(taxAmountInCents / 100).toFixed(2)}`);
+  console.log(`   Total: €${(totalInCents / 100).toFixed(2)}`);
+
+  // 6. Determine transaction subtype based on primary product
+  const primaryProduct = validLineItems[0];
+  let subtype: "ticket_purchase" | "product_purchase" | "service_purchase" = "product_purchase";
+  if (primaryProduct.productSubtype === "ticket") {
+    subtype = "ticket_purchase";
+  } else if (primaryProduct.productSubtype === "service") {
+    subtype = "service_purchase";
+  }
+
+  // 7. Determine payer info
+  const payerType = params.billingInfo?.crmOrganizationId ? "organization" : "individual";
+  const payerId = params.billingInfo?.crmOrganizationId;
+
+  if (payerType === "organization") {
+    console.log(`   Payer: ${params.billingInfo?.employerName} (B2B)`);
+  } else {
+    console.log(`   Payer: ${params.customerInfo.name} (B2C)`);
+  }
+
+  // 8. Create SINGLE transaction with ALL line items
+  const transactionId = await ctx.runMutation(
+    internal.transactionOntology.createTransactionInternal,
+    {
+      organizationId: params.organizationId,
+      subtype,
+
+      // NEW: Line items array
+      lineItems: validLineItems,
+
+      // NEW: Aggregate totals
+      subtotalInCents,
+      taxAmountInCents,
+      totalInCents,
+
+      // Links
+      checkoutSessionId: params.checkoutSessionId,
+
+      // Customer info
+      customerName: params.customerInfo.name,
+      customerEmail: params.customerInfo.email,
+      customerPhone: params.customerInfo.phone,
+
+      // Payer info (B2B vs B2C)
+      payerType,
+      payerId,
+      crmOrganizationId: params.billingInfo?.crmOrganizationId,
+      employerId: params.billingInfo?.employerId,
+      employerName: params.billingInfo?.employerName,
+
+      // Currency and payment
+      currency: params.taxInfo?.currency || "EUR",
+      paymentMethod: params.paymentInfo.method,
+      paymentStatus: params.paymentInfo.status,
+      paymentIntentId: params.paymentInfo.intentId,
+    }
+  );
+
+  console.log(`✅ [createTransactionsForPurchase] Created single transaction ${transactionId} with ${validLineItems.length} line items`);
+
+  // Return single transaction ID in array for backward compatibility
+  return [transactionId];
 }
 
 /**
