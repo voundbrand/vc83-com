@@ -314,7 +314,8 @@ export async function resolveInvoiceEmailData(
   // STEP 7: FORMAT TOTALS
   // ==========================================================================
   const subtotalInCents = invoiceProps.subtotalInCents || 0;
-  const taxAmountInCents = invoiceProps.taxAmountInCents || 0;
+  // Support both taxInCents and taxAmountInCents field names for compatibility
+  const taxAmountInCents = invoiceProps.taxInCents || invoiceProps.taxAmountInCents || 0;
   const totalInCents = invoiceProps.totalInCents || 0;
 
   const formattedSubtotal = formatter.format(subtotalInCents / 100);
