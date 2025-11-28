@@ -158,18 +158,29 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
       : null;
 
     // Extract single objects from settings queries (they return arrays when no subtype)
-    const brandingSettings = useMemo(() =>
-      Array.isArray(brandingSettingsData) ? undefined : brandingSettingsData,
-      [brandingSettingsData]
-    );
-    const localeSettings = useMemo(() =>
-      Array.isArray(localeSettingsData) ? undefined : localeSettingsData,
-      [localeSettingsData]
-    );
-    const invoicingSettings = useMemo(() =>
-      Array.isArray(invoicingSettingsData) ? undefined : invoicingSettingsData,
-      [invoicingSettingsData]
-    );
+    const brandingSettings = useMemo(() => {
+      const result = Array.isArray(brandingSettingsData) ? undefined : brandingSettingsData;
+      console.log("🟣 [FORM LOAD] brandingSettingsData:", brandingSettingsData);
+      console.log("🟣 [FORM LOAD] brandingSettings extracted:", result);
+      console.log("🟣 [FORM LOAD] brandingSettings.customProperties:", result?.customProperties);
+      return result;
+    }, [brandingSettingsData]);
+
+    const localeSettings = useMemo(() => {
+      const result = Array.isArray(localeSettingsData) ? undefined : localeSettingsData;
+      console.log("🟣 [FORM LOAD] localeSettingsData:", localeSettingsData);
+      console.log("🟣 [FORM LOAD] localeSettings extracted:", result);
+      console.log("🟣 [FORM LOAD] localeSettings.customProperties:", result?.customProperties);
+      return result;
+    }, [localeSettingsData]);
+
+    const invoicingSettings = useMemo(() => {
+      const result = Array.isArray(invoicingSettingsData) ? undefined : invoicingSettingsData;
+      console.log("🟣 [FORM LOAD] invoicingSettingsData:", invoicingSettingsData);
+      console.log("🟣 [FORM LOAD] invoicingSettings extracted:", result);
+      console.log("🟣 [FORM LOAD] invoicingSettings.customProperties:", result?.customProperties);
+      return result;
+    }, [invoicingSettingsData]);
 
   // Form state for all fields
   const [formData, setFormData] = useState({
@@ -231,7 +242,15 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
 
   // Update form data when organization or ontology data changes
   useEffect(() => {
+    console.log("🟣 [FORM LOAD] useEffect triggered");
+    console.log("🟣 [FORM LOAD] organization:", !!organization);
+    console.log("🟣 [FORM LOAD] isEditing:", isEditing);
+    console.log("🟣 [FORM LOAD] brandingSettings:", brandingSettings);
+    console.log("🟣 [FORM LOAD] localeSettings:", localeSettings);
+    console.log("🟣 [FORM LOAD] invoicingSettings:", invoicingSettings);
+
     if (organization && !isEditing) {
+      console.log("🟣 [FORM LOAD] Updating form data from database...");
       setFormData({
         // Core fields - from organizations table
         name: organization.name || "",

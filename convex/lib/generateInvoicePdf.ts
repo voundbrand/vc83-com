@@ -313,7 +313,7 @@ async function generateInvoicePdfFromHtml(
     },
   };
 
-  // DEBUG: Log what we're sending
+  // DEBUG: Minimal logging (can be expanded for troubleshooting)
   console.log("🔍 [generateInvoicePdfFromHtml] Request body keys:", Object.keys(requestBody));
   console.log("🔍 [generateInvoicePdfFromHtml] Has css field?", 'css' in requestBody);
   console.log("🔍 [generateInvoicePdfFromHtml] CSS preview:", requestBody.css?.substring(0, 150));

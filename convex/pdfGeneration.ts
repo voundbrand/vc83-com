@@ -393,12 +393,28 @@ export const generateInvoicePDF = action({
         { organizationId }
       );
 
-      // 2.4. Get branding colors with cascading fallback: domain → organization → default
-      let brandPrimaryColor = "#6B46C1"; // Default purple
-      let brandSecondaryColor = "#9F7AEA"; // Default light purple
-      let brandLogoUrl = sellerOrg?.customProperties?.logoUrl as string | undefined;
+      // 2.4. Get organization branding settings from organization_settings table
+      const brandingSettingsResult = await ctx.runQuery(
+        api.organizationOntology.getOrganizationSettings,
+        { organizationId, subtype: "branding" }
+      );
 
-      // Try domain config first (if available)
+      // Extract single object (query returns single object when subtype is provided)
+      const brandingSettings = Array.isArray(brandingSettingsResult) ? undefined : brandingSettingsResult;
+
+      // Set initial branding from organization settings or defaults
+      let brandPrimaryColor = brandingSettings?.customProperties?.primaryColor as string || "#6B46C1"; // Default purple
+      let brandSecondaryColor = brandingSettings?.customProperties?.secondaryColor as string || "#9F7AEA"; // Default light purple
+      let brandLogoUrl = brandingSettings?.customProperties?.logo as string || sellerOrg?.customProperties?.logoUrl as string | undefined;
+
+      console.log("🎨 [Invoice Branding] Loaded organization settings:", {
+        primaryColor: brandPrimaryColor,
+        secondaryColor: brandSecondaryColor,
+        hasLogo: !!brandLogoUrl,
+        logoUrl: brandLogoUrl
+      });
+
+      // Try domain config first (if available) - can override organization settings
       const domainConfigId = session.customProperties?.domainConfigId as Id<"objects"> | undefined;
       if (domainConfigId) {
         try {
@@ -422,26 +438,8 @@ export const generateInvoicePDF = action({
         }
       }
 
-      // Fall back to organization branding if no domain branding
-      if (brandPrimaryColor === "#6B46C1") { // Still default, try organization
-        const orgData = sellerOrg as any;
-        if (orgData?.customProperties?.branding) {
-          brandPrimaryColor = orgData.customProperties.branding.primaryColor || brandPrimaryColor;
-          brandSecondaryColor = orgData.customProperties.branding.secondaryColor || brandSecondaryColor;
-          brandLogoUrl = orgData.customProperties.branding.logoUrl || brandLogoUrl;
-          console.log("🎨 [Invoice Branding] Using organization branding:", {
-            primaryColor: brandPrimaryColor,
-            secondaryColor: brandSecondaryColor,
-            hasLogo: !!brandLogoUrl
-          });
-        } else if (orgData?.customProperties?.brandColor) {
-          // Legacy single brandColor field
-          brandPrimaryColor = orgData.customProperties.brandColor;
-          console.log("🎨 [Invoice Branding] Using organization brandColor:", brandPrimaryColor);
-        } else {
-          console.log("🎨 [Invoice Branding] Using default colors (no domain or org branding found)");
-        }
-      }
+      // Note: Organization branding is now loaded above from organization_settings table
+      // Domain config can override if present. No additional fallback needed.
 
       // 2.5. Get buyer CRM organization info (if B2B invoice with employerOrgId)
       let buyerCrmOrg: Doc<"objects"> | null = null;
@@ -968,6 +966,7 @@ export const generateInvoicePDF = action({
         // Branding colors (cascading: domain → organization → default)
         brand_primary_color: brandPrimaryColor,
         brand_secondary_color: brandSecondaryColor,
+        highlight_color: brandPrimaryColor, // Template uses this variable name
 
         // Invoice details
         invoice_number: invoiceNumber,

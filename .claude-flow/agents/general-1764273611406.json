@@ -1,0 +1,14 @@
+{
+  "id": "general-1764273611406",
+  "name": "Project Lead",
+  "type": "general",
+  "status": "active",
+  "activeTasks": 0,
+  "lastActivity": 1764273611406,
+  "capabilities": [
+    "Research",
+    "Analysis",
+    "Code Generation"
+  ],
+  "createdAt": 1764273611406
+}

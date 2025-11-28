@@ -485,15 +485,20 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
           console.log("✅ PDF URL saved to invoice:", pdfAttachment.downloadUrl);
         }
 
-        alert("PDF generated successfully! You can now download it using the Download PDF button.");
-        // Close modal to refresh the list
-        onClose();
+        // Show success notification - keep modal open so user can download
+        notification.success(
+          "PDF Generated Successfully",
+          "Opening in new tab... You can also download it using the Download PDF button below."
+        );
       } else {
-        alert("Failed to generate PDF");
+        notification.error("PDF Generation Failed", "Please try again.");
       }
     } catch (error) {
       console.error("Failed to generate PDF:", error);
-      alert(`Failed to generate PDF: ${error instanceof Error ? error.message : "Unknown error"}`);
+      notification.error(
+        "PDF Generation Failed",
+        error instanceof Error ? error.message : "Unknown error"
+      );
     } finally {
       setIsGeneratingPDF(false);
     }

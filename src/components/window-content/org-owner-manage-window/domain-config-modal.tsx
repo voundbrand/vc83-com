@@ -3,11 +3,13 @@
 import { useState, useEffect } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
-import { X, Globe, Palette, Mail, Layout, Save, Loader2, Eye } from "lucide-react";
+import { X, Globe, Palette, Mail, Layout, Save, Loader2, Eye, Upload } from "lucide-react";
 import { Id, Doc } from "../../../../convex/_generated/dataModel";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { getAllEmailTemplateMetadata } from "@/templates/emails/registry";
 import { TemplatePreviewModal } from "@/components/template-preview-modal";
+import { useWindowManager } from "@/hooks/use-window-manager";
+import MediaLibraryWindow from "@/components/window-content/media-library-window";
 
 interface DomainConfigModalProps {
   isOpen: boolean;
@@ -27,6 +29,7 @@ export function DomainConfigModal({
   const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.manage.domains");
   const createDomainConfig = useMutation(api.domainConfigOntology.createDomainConfig);
   const updateDomainConfig = useMutation(api.domainConfigOntology.updateDomainConfig);
+  const { openWindow } = useWindowManager();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeSection, setActiveSection] = useState<"core" | "email" | "web">("core");
@@ -279,18 +282,60 @@ export function DomainConfigModal({
                 <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
                   {t("ui.manage.domains.modal.field.logo_url")}
                 </label>
-                <input
-                  type="url"
-                  value={formData.logoUrl}
-                  onChange={(e) => setFormData({ ...formData, logoUrl: e.target.value })}
-                  placeholder={t("ui.manage.domains.modal.field.logo_url.placeholder")}
-                  className="w-full px-2 py-1 text-xs border-2"
-                  style={{
-                    borderColor: 'var(--win95-border)',
-                    backgroundColor: 'var(--win95-input-bg)',
-                    color: 'var(--win95-text)'
-                  }}
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={formData.logoUrl}
+                    onChange={(e) => setFormData({ ...formData, logoUrl: e.target.value })}
+                    placeholder={t("ui.manage.domains.modal.field.logo_url.placeholder")}
+                    className="flex-1 px-2 py-1 text-xs border-2"
+                    style={{
+                      borderColor: 'var(--win95-border)',
+                      backgroundColor: 'var(--win95-input-bg)',
+                      color: 'var(--win95-text)'
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      openWindow(
+                        "media-library",
+                        "Media Library",
+                        <MediaLibraryWindow
+                          selectionMode={true}
+                          onSelect={(media) => {
+                            if (media.url) {
+                              setFormData({ ...formData, logoUrl: media.url });
+                            }
+                          }}
+                        />
+                      );
+                    }}
+                    className="px-3 py-1 text-xs font-bold border-2 hover:bg-opacity-90 flex items-center gap-1"
+                    style={{
+                      borderColor: 'var(--win95-border)',
+                      backgroundColor: 'var(--win95-bg-light)',
+                      color: 'var(--win95-text)'
+                    }}
+                  >
+                    <Upload size={12} />
+                    Browse
+                  </button>
+                </div>
+                {/* Logo Preview */}
+                {formData.logoUrl && (
+                  <div className="mt-2">
+                    <img
+                      src={formData.logoUrl}
+                      alt="Domain Logo Preview"
+                      className="max-w-xs max-h-20 border-2"
+                      style={{ borderColor: 'var(--win95-border)' }}
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">

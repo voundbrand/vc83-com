@@ -439,6 +439,11 @@ export const updateOrganizationSettings = mutation({
     settings: v.record(v.string(), v.any()),
   },
   handler: async (ctx, args) => {
+    console.log("🟢 [BACKEND] updateOrganizationSettings called");
+    console.log("🟢 [BACKEND] organizationId:", args.organizationId);
+    console.log("🟢 [BACKEND] subtype:", args.subtype);
+    console.log("🟢 [BACKEND] settings:", args.settings);
+
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
     await requirePermission(ctx, userId, "manage_organization", {
@@ -454,20 +459,30 @@ export const updateOrganizationSettings = mutation({
       .filter(q => q.eq(q.field("subtype"), args.subtype))
       .first();
 
+    console.log("🟢 [BACKEND] Existing settings object found:", !!settingsObj);
     if (settingsObj) {
+      console.log("🟢 [BACKEND] Existing customProperties:", settingsObj.customProperties);
+    }
+
+    if (settingsObj) {
+      const updatedProps = {
+        ...settingsObj.customProperties,
+        ...args.settings,
+      };
+      console.log("🟢 [BACKEND] Updating with merged customProperties:", updatedProps);
+
       await ctx.db.patch(settingsObj._id, {
-        customProperties: {
-          ...settingsObj.customProperties,
-          ...args.settings,
-        },
+        customProperties: updatedProps,
         updatedAt: Date.now(),
       });
+      console.log("✅ [BACKEND] Settings updated successfully for subtype:", args.subtype);
       return settingsObj._id;
     } else {
       const org = await ctx.db.get(args.organizationId);
       if (!org) throw new Error("Organisation nicht gefunden");
 
-      return await ctx.db.insert("objects", {
+      console.log("🟢 [BACKEND] Creating new settings object with:", args.settings);
+      const newId = await ctx.db.insert("objects", {
         organizationId: args.organizationId,
         type: "organization_settings",
         subtype: args.subtype,
@@ -478,6 +493,8 @@ export const updateOrganizationSettings = mutation({
         createdAt: Date.now(),
         updatedAt: Date.now(),
       });
+      console.log("✅ [BACKEND] New settings object created with ID:", newId);
+      return newId;
     }
   },
 });
