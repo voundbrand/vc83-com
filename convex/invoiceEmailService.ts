@@ -115,6 +115,7 @@ export const previewInvoiceEmail = action({
     // 5. Use Smart Data Resolver to prepare fully formatted invoice data
     console.log(`📧 [PREVIEW] Using Smart Data Resolver...`);
     const resolvedData = await resolveInvoiceEmailData(ctx, invoice, language, {
+      sessionId: args.sessionId,
       domainConfigId: args.domainConfigId,
       isTest: false,
     });
@@ -290,6 +291,7 @@ export const sendInvoiceEmail = action({
     // 6. Use Smart Data Resolver to prepare fully formatted invoice data
     console.log(`📧 [SEND] Using Smart Data Resolver...`);
     const resolvedData = await resolveInvoiceEmailData(ctx, invoice, language, {
+      sessionId: args.sessionId,
       domainConfigId: args.domainConfigId,
       isTest: args.isTest || false,
     });

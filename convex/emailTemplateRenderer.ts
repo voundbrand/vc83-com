@@ -221,16 +221,44 @@ export const getEmailTemplateData = action({
 
     console.log("🎨 [Email Branding] Final cascaded branding:", branding);
 
-    // Extract attendee info - use holderName/holderEmail as primary fields
+    // Extract attendee info - try CRM contact first for accurate name
+    let attendeeFirstName = ticketProps.attendeeFirstName || '';
+    let attendeeLastName = ticketProps.attendeeLastName || '';
+    let attendeeEmail = ticketProps.attendeeEmail || (ticketProps.holderEmail as string) || '';
+
+    // Try to load CRM contact for accurate name information
+    if ((!attendeeFirstName || !attendeeLastName) && ticketProps.contactId) {
+      console.log(`🔍 [Email Template] Loading CRM contact: ${ticketProps.contactId}`);
+      try {
+        const contact = await ctx.runQuery(api.crmOntology.getContact, {
+          sessionId: args.sessionId,
+          contactId: ticketProps.contactId as Id<"objects">,
+        });
+
+        if (contact && contact.type === "crm_contact") {
+          const contactProps = contact.customProperties as any;
+          attendeeFirstName = contactProps?.firstName || attendeeFirstName;
+          attendeeLastName = contactProps?.lastName || attendeeLastName;
+          attendeeEmail = attendeeEmail || contactProps?.email || '';
+          console.log(`✅ [Email Template] Using CRM contact: ${attendeeFirstName} ${attendeeLastName}`);
+        }
+      } catch (error) {
+        console.error(`❌ [Email Template] Error loading CRM contact:`, error);
+      }
+    }
+
+    // Fallback to holderName if still no first/last name
     // DON'T use ticket.name as fallback - it's the product/ticket type name (e.g., "Ticket - Frühbucher - LisaBöseke")
-    const holderName = (ticketProps.holderName as string) || (ticketProps.attendeeName as string) || '';
-    const attendeeFirstName = ticketProps.attendeeFirstName ||
-                             (holderName ? holderName.split(' ')[0] : '') ||
-                             'Guest';
-    const attendeeLastName = ticketProps.attendeeLastName ||
-                            (holderName ? holderName.split(' ').slice(1).join(' ') : '') ||
-                            '';
-    const attendeeEmail = ticketProps.attendeeEmail || (ticketProps.holderEmail as string) || '';
+    if (!attendeeFirstName && !attendeeLastName) {
+      const holderName = (ticketProps.holderName as string) || (ticketProps.attendeeName as string) || '';
+      if (holderName) {
+        attendeeFirstName = holderName.split(' ')[0] || 'Guest';
+        attendeeLastName = holderName.split(' ').slice(1).join(' ') || '';
+      } else {
+        attendeeFirstName = 'Guest';
+        attendeeLastName = '';
+      }
+    }
 
     // Resolve template code
     const templateCode: string = await ctx.runAction(api.emailTemplateRenderer.resolveEmailTemplateCode, {

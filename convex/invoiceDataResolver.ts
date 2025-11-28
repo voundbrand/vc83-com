@@ -166,6 +166,7 @@ export async function resolveInvoiceEmailData(
   invoice: Doc<"objects">,
   language: EmailLanguage,
   options?: {
+    sessionId?: string;
     domainConfigId?: Id<"objects">;
     isTest?: boolean;
   }
@@ -351,17 +352,46 @@ export async function resolveInvoiceEmailData(
   console.log(`✅ [RESOLVER] Formatted totals: ${formattedTotal} (${totalInCents} cents)`);
 
   // ==========================================================================
-  // STEP 8: EXTRACT RECIPIENT INFO
+  // STEP 8: EXTRACT RECIPIENT INFO (from CRM contact if available)
   // ==========================================================================
   const billingAddress = invoiceProps.billingAddress || {};
   const recipientEmail = billingAddress.email || invoiceProps.recipientEmail || "";
 
-  // Try to get actual person/company name, fallback to placeholder if nothing available
-  // DON'T use invoice.name as it's the invoice number (like "Invoice #INV-2025-0008")
-  const recipientName = billingAddress.companyName || billingAddress.name ||
-                        (billingAddress.firstName && billingAddress.lastName
-                          ? `${billingAddress.firstName} ${billingAddress.lastName}`
-                          : billingAddress.firstName || billingAddress.lastName || "Customer");
+  // Try to load CRM contact for accurate name information
+  let recipientName = billingAddress.companyName || billingAddress.name;
+
+  if (!recipientName && invoiceProps.contactId && options?.sessionId) {
+    console.log(`🔍 [RESOLVER] Loading CRM contact: ${invoiceProps.contactId}`);
+    try {
+      const contact = await ctx.runQuery(api.crmOntology.getContact, {
+        sessionId: options.sessionId,
+        contactId: invoiceProps.contactId as Id<"objects">,
+      });
+
+      if (contact && contact.type === "crm_contact") {
+        const contactProps = contact.customProperties as any;
+        const firstName = contactProps?.firstName || "";
+        const lastName = contactProps?.lastName || "";
+
+        if (firstName || lastName) {
+          recipientName = `${firstName} ${lastName}`.trim();
+          console.log(`✅ [RESOLVER] Using CRM contact name: ${recipientName}`);
+        } else {
+          recipientName = contact.name;
+          console.log(`✅ [RESOLVER] Using CRM contact.name: ${recipientName}`);
+        }
+      }
+    } catch (error) {
+      console.error(`❌ [RESOLVER] Error loading CRM contact:`, error);
+    }
+  }
+
+  // Final fallback chain (but NOT invoice.name which is the invoice number)
+  if (!recipientName) {
+    recipientName = (billingAddress.firstName && billingAddress.lastName
+                      ? `${billingAddress.firstName} ${billingAddress.lastName}`
+                      : billingAddress.firstName || billingAddress.lastName || "Customer");
+  }
 
   // ==========================================================================
   // STEP 9: BUILD SENDER INFO (from org + domain)
