@@ -569,12 +569,16 @@ export const setDefaultTemplateSet = mutation({
     setId: v.id("objects"),
   },
   handler: async (ctx, args) => {
+    console.log(`🔧 [Set Default] Starting for setId: ${args.setId}`);
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
     const set = await ctx.db.get(args.setId);
     if (!set || set.type !== "template_set") {
+      console.error(`❌ [Set Default] Template set not found: ${args.setId}`);
       throw new Error("Template set not found");
     }
+
+    console.log(`✅ [Set Default] Found template set: ${set.name} in org ${set.organizationId}`);
 
     await getUserContext(ctx, userId, set.organizationId);
 
@@ -586,8 +590,11 @@ export const setDefaultTemplateSet = mutation({
       set.organizationId
     );
     if (!hasPermission) {
+      console.error(`❌ [Set Default] Permission denied for user ${userId}`);
       throw new Error("Permission denied: edit_templates required");
     }
+
+    console.log(`✅ [Set Default] Permission check passed`);
 
     // Unset all existing defaults
     const allSets = await ctx.db
@@ -597,8 +604,11 @@ export const setDefaultTemplateSet = mutation({
       )
       .collect();
 
+    console.log(`🔍 [Set Default] Found ${allSets.length} template sets in org`);
+
     for (const existingSet of allSets) {
       if (existingSet.customProperties?.isDefault) {
+        console.log(`🔄 [Set Default] Unsetting default for: ${existingSet.name}`);
         await ctx.db.patch(existingSet._id, {
           customProperties: {
             ...existingSet.customProperties,
@@ -609,6 +619,7 @@ export const setDefaultTemplateSet = mutation({
     }
 
     // Set new default
+    console.log(`✅ [Set Default] Setting ${set.name} as new default`);
     await ctx.db.patch(args.setId, {
       customProperties: {
         ...set.customProperties,
@@ -617,6 +628,7 @@ export const setDefaultTemplateSet = mutation({
       updatedAt: Date.now(),
     });
 
+    console.log(`✅ [Set Default] Successfully set ${set.name} as default`);
     return { success: true };
   },
 });
@@ -1276,6 +1288,25 @@ export const copyTemplateSet = mutation({
       performedBy: userId,
       performedAt: Date.now(),
     });
+
+    // 🔧 FIX: Auto-create template_set_availability record
+    // This makes the copied template set immediately available in checkout settings
+    await ctx.db.insert("objects", {
+      organizationId: args.targetOrganizationId,
+      type: "template_set_availability",
+      name: `${newSetName} Availability`,
+      status: "active",
+      customProperties: {
+        templateSetId: newSetId,
+        available: true, // Auto-enable copied template sets
+        enabledAt: Date.now(),
+      },
+      createdBy: userId,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    console.log(`✅ [Copy Template Set] Created availability record for ${newSetName} (${newSetId})`);
 
     return {
       success: true,
