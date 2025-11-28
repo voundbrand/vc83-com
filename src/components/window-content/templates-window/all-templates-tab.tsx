@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
-import { Loader2, Plus, FileText, Filter, X, ChevronDown, Tag, Shield } from "lucide-react";
+import { Loader2, Plus, FileText, Filter, X, ChevronDown, Tag, Shield, Layers } from "lucide-react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { TemplatesList } from "./templates-list";
 import { isValidEmailTemplateType, isValidPdfTemplateType } from "@/templates/template-types";
@@ -31,13 +31,27 @@ export function AllTemplatesTab({ onEditTemplate, onCreateTemplate, onViewSchema
   const [filterType, setFilterType] = useState<FilterType>("all");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
   const [propertyFilter, setPropertyFilter] = useState<PropertyFilter>("all");
+  const [templateSetFilter, setTemplateSetFilter] = useState<string>("all");
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [showPropertyDropdown, setShowPropertyDropdown] = useState(false);
+  const [showTemplateSetDropdown, setShowTemplateSetDropdown] = useState(false);
 
   // Fetch ALL templates (both organization and system templates)
   const templates = useQuery(
     api.templateOntology.getAllTemplatesIncludingSystem,
     sessionId && currentOrg ? { sessionId, organizationId: currentOrg.id as Id<"organizations"> } : "skip"
+  );
+
+  // Fetch template sets for the filter dropdown
+  const templateSets = useQuery(
+    api.templateSetOntology.getTemplateSets,
+    sessionId && currentOrg ? { sessionId, organizationId: currentOrg.id as Id<"organizations">, includeSystem: false } : "skip"
+  );
+
+  // Fetch objectLinks to map templates to template sets
+  const templateLinks = useQuery(
+    api.templateSetQueries.getTemplateSetLinks,
+    currentOrg ? { organizationId: currentOrg.id as Id<"organizations"> } : "skip"
   );
 
   // Filter templates based on all active filters
@@ -91,8 +105,17 @@ export function AllTemplatesTab({ onEditTemplate, onCreateTemplate, onViewSchema
       filtered = filtered.filter((t) => (t.customProperties as any)?.isDefault === true);
     }
 
+    // Filter by template set (only if a specific set is selected AND we have link data)
+    if (templateSetFilter !== "all" && templateLinks) {
+      const templatesInSet = templateLinks
+        .filter((link) => link.templateSetId === templateSetFilter)
+        .map((link) => link.templateId);
+
+      filtered = filtered.filter((t) => templatesInSet.includes(t._id));
+    }
+
     return filtered;
-  }, [templates, activeTab, filterType, categoryFilter, propertyFilter]);
+  }, [templates, activeTab, filterType, categoryFilter, propertyFilter, templateSetFilter, templateLinks]);
 
   // Count templates by status
   const counts = useMemo(() => {
@@ -382,6 +405,122 @@ export function AllTemplatesTab({ onEditTemplate, onCreateTemplate, onViewSchema
               </div>
             )}
           </div>
+
+          {/* Template Set Filter */}
+          {templateSets && templateSets.length > 0 && (
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setShowTemplateSetDropdown(!showTemplateSetDropdown);
+                  setShowCategoryDropdown(false);
+                  setShowPropertyDropdown(false);
+                }}
+                className="px-3 py-2 text-xs font-bold transition-colors flex items-center gap-2"
+                style={{
+                  borderColor: templateSetFilter !== "all" ? 'var(--win95-highlight)' : 'var(--win95-border)',
+                  borderWidth: '2px',
+                  borderStyle: 'solid',
+                  background: templateSetFilter !== "all" ? 'rgba(107, 70, 193, 0.1)' : 'var(--win95-bg-light)',
+                  color: 'var(--win95-text)',
+                }}
+              >
+                <Layers size={12} />
+                {templateSetFilter === "all"
+                  ? "All Template Sets"
+                  : templateSets.find(s => s._id === templateSetFilter)?.name || "Template Set"}
+                {templateSetFilter !== "all" && (
+                  <span className="ml-1 px-1.5 py-0.5 text-xs rounded" style={{ background: 'var(--win95-highlight)', color: 'white' }}>
+                    ✓
+                  </span>
+                )}
+                <ChevronDown size={12} />
+              </button>
+
+              {showTemplateSetDropdown && (
+                <div
+                  className="absolute top-full left-0 mt-1 border-2 shadow-lg z-50 max-h-96 overflow-y-auto"
+                  style={{
+                    borderColor: 'var(--win95-border)',
+                    background: 'var(--win95-bg)',
+                    minWidth: '220px',
+                  }}
+                >
+                  {/* All option */}
+                  <button
+                    onClick={() => {
+                      setTemplateSetFilter("all");
+                      setShowTemplateSetDropdown(false);
+                    }}
+                    className="w-full px-3 py-2.5 text-xs text-left hover:bg-opacity-20 transition-colors"
+                    style={{
+                      background: templateSetFilter === "all" ? 'rgba(107, 70, 193, 0.1)' : 'transparent',
+                      color: 'var(--win95-text)',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (templateSetFilter !== "all") {
+                        e.currentTarget.style.background = 'var(--win95-hover-light)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (templateSetFilter !== "all") {
+                        e.currentTarget.style.background = 'transparent';
+                      }
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className={templateSetFilter === "all" ? "font-bold" : ""}>
+                        All Template Sets
+                      </span>
+                      {templateSetFilter === "all" && (
+                        <span className="ml-auto" style={{ color: 'var(--win95-highlight)' }}>✓</span>
+                      )}
+                    </div>
+                  </button>
+
+                  {/* Template set options */}
+                  {templateSets.map((set) => (
+                    <button
+                      key={set._id}
+                      onClick={() => {
+                        setTemplateSetFilter(set._id);
+                        setShowTemplateSetDropdown(false);
+                      }}
+                      className="w-full px-3 py-2.5 text-xs text-left hover:bg-opacity-20 transition-colors"
+                      style={{
+                        background: templateSetFilter === set._id ? 'rgba(107, 70, 193, 0.1)' : 'transparent',
+                        color: 'var(--win95-text)',
+                      }}
+                      onMouseEnter={(e) => {
+                        if (templateSetFilter !== set._id) {
+                          e.currentTarget.style.background = 'var(--win95-hover-light)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (templateSetFilter !== set._id) {
+                          e.currentTarget.style.background = 'transparent';
+                        }
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Layers size={12} style={{ color: 'var(--win95-highlight)' }} />
+                        <span className={templateSetFilter === set._id ? "font-bold" : ""}>
+                          {set.name}
+                        </span>
+                        {templateSetFilter === set._id && (
+                          <span className="ml-auto" style={{ color: 'var(--win95-highlight)' }}>✓</span>
+                        )}
+                      </div>
+                      {set.description && (
+                        <div className="text-xs mt-1" style={{ color: 'var(--neutral-gray)', paddingLeft: '20px' }}>
+                          {set.description}
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Clear Filters Button */}
           {hasActiveFilters && (

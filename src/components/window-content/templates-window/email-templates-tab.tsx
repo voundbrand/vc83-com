@@ -2,9 +2,11 @@
 
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
 import { TemplatesList } from "./templates-list";
+import type { Id } from "../../../../convex/_generated/dataModel";
+import { useMemo } from "react";
 
 interface EmailTemplatesTabProps {
   onEditTemplate: (templateId: string) => void;
@@ -13,12 +15,23 @@ interface EmailTemplatesTabProps {
 
 export function EmailTemplatesTab({ onEditTemplate, onViewSchema }: EmailTemplatesTabProps) {
   const { sessionId } = useAuth();
+  const currentOrg = useCurrentOrganization();
 
-  // Fetch all system email templates
-  const emailTemplates = useQuery(
-    api.emailTemplateOntology.getAllSystemEmailTemplates,
-    {}
+  // 🔧 FIX: Use availability-aware query that respects template_availability ontology
+  // This ensures normal org owners only see email templates enabled for their organization
+  const allTemplates = useQuery(
+    api.templateOntology.getAllTemplatesIncludingSystem,
+    sessionId && currentOrg ? {
+      sessionId,
+      organizationId: currentOrg.id as Id<"organizations">
+    } : "skip"
   );
+
+  // Filter to only email templates
+  const emailTemplates = useMemo(() => {
+    if (!allTemplates) return undefined;
+    return allTemplates.filter(t => t.subtype === "email");
+  }, [allTemplates]);
 
   if (emailTemplates === undefined) {
     return (
@@ -33,7 +46,7 @@ export function EmailTemplatesTab({ onEditTemplate, onViewSchema }: EmailTemplat
       {emailTemplates.length === 0 ? (
         <div className="flex items-center justify-center p-8">
           <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
-            No email templates available.
+            No email templates available for your organization.
           </p>
         </div>
       ) : (

@@ -9,6 +9,7 @@ import { query, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { Id, Doc } from "./_generated/dataModel";
 import { resolveTemplateSet, resolveIndividualTemplate } from "./templateSetResolver";
+import { requireAuthenticatedUser, getUserContext } from "./rbacHelpers";
 
 /**
  * Get Available Template Sets
@@ -51,36 +52,46 @@ export const getAvailableTemplateSets = query({
       throw new Error("System organization not found");
     }
 
-    // Fetch all system template sets
-    const systemSets = await ctx.db
-      .query("objects")
-      .withIndex("by_org_type", (q) =>
-        q.eq("organizationId", systemOrg._id).eq("type", "template_set")
-      )
-      .filter((q) => q.neq(q.field("status"), "deleted"))
-      .collect();
-
-    // Filter to only enabled sets
-    const availableSets = systemSets.filter((set) =>
-      enabledSetIds.includes(set._id)
+    // Get all template sets (both system and org)
+    const allSets = await Promise.all(
+      enabledSetIds.map(async (setId) => {
+        const set = await ctx.db.get(setId);
+        return set;
+      })
     );
 
-    // Format results
-    return availableSets.map((set) => {
-      const props = set.customProperties || {};
-      return {
-        _id: set._id,
-        name: set.name,
-        description: set.description || "",
-        isDefault: props.isDefault as boolean || false,
-        isSystemSet: true, // All template sets are system-level
-        tags: props.tags as string[] || [],
-        previewImageUrl: props.previewImageUrl as string | undefined,
-        ticketTemplateId: props.ticketTemplateId as string,
-        invoiceTemplateId: props.invoiceTemplateId as string,
-        emailTemplateId: props.emailTemplateId as string,
-      };
-    });
+    return allSets.filter(Boolean) as Doc<"objects">[];
+  },
+});
+
+/**
+ * Get Template Set by ID
+ */
+export const getTemplateSetById = query({
+  args: {
+    setId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const set = await ctx.db.get(args.setId);
+    if (!set || set.type !== "template_set") {
+      return null;
+    }
+
+    const props = set.customProperties || {};
+    const templates = (props.templates || []) as Array<{
+      templateId: string;
+      templateType: string;
+      isRequired?: boolean;
+    }>;
+
+    return {
+      _id: set._id,
+      name: set.name,
+      description: set.description || "",
+      ticketTemplateId: props.ticketTemplateId as string,
+      invoiceTemplateId: props.invoiceTemplateId as string,
+      emailTemplateId: props.emailTemplateId as string,
+    };
   },
 });
 
@@ -129,12 +140,12 @@ export const getDefaultTemplateSet = query({
 });
 
 /**
- * Resolve Template Set (Internal Query)
+ * Resolve Template Set for Entity (Public)
  *
- * Used by actions to resolve template sets.
- * Actions can't access ctx.db directly, so they use this query.
+ * Wraps the internal resolver for public use.
+ * Returns the complete template set with resolved templates.
  */
-export const resolveTemplateSetInternal = internalQuery({
+export const resolveTemplateSetForEntity = query({
   args: {
     organizationId: v.id("organizations"),
     context: v.optional(v.object({
@@ -145,20 +156,24 @@ export const resolveTemplateSetInternal = internalQuery({
     })),
   },
   handler: async (ctx, args) => {
-    return await resolveTemplateSet(ctx, args.organizationId, args.context);
+    return await resolveTemplateSet(
+      ctx,
+      args.organizationId,
+      args.context
+    );
   },
 });
 
 /**
- * Resolve Individual Template (Internal Query)
+ * Resolve Individual Template (Public)
  *
- * Resolves a single template type (ticket, invoice, or email) from the set.
- * Used by actions that only need one template type.
+ * Wraps the internal template resolver for public use.
+ * Returns a single resolved template.
  */
-export const resolveIndividualTemplateInternal = internalQuery({
+export const resolveIndividualTemplatePublic = query({
   args: {
     organizationId: v.id("organizations"),
-    templateType: v.union(v.literal("ticket"), v.literal("invoice"), v.literal("email")),
+    templateType: v.string(),
     context: v.optional(v.object({
       manualSetId: v.optional(v.id("objects")),
       productId: v.optional(v.id("objects")),
@@ -177,95 +192,29 @@ export const resolveIndividualTemplateInternal = internalQuery({
 });
 
 /**
- * Get Template Set by ID (v1.0 - Legacy)
+ * Get Templates in Template Set (Public)
  *
- * Returns full details for a single template set including linked templates.
- * This version only returns the 3 core templates for v1.0 compatibility.
+ * Returns all templates included in a specific template set with their metadata.
+ * Used for displaying template set contents in UI.
  */
-export const getTemplateSetById = query({
+export const getTemplatesInSet = internalQuery({
   args: {
     setId: v.id("objects"),
   },
   handler: async (ctx, args) => {
     const set = await ctx.db.get(args.setId);
     if (!set || set.type !== "template_set") {
-      return null;
+      throw new Error("Template set not found");
     }
 
-    // Use resolveTemplateSet for proper v1.0/v2.0 compatibility
-    // This handles the smart fallback mapping from granular v2.0 types
-    // ("event", "invoice_email") to legacy v1.0 types ("ticket", "email")
-    const props = set.customProperties || {};
-    const version = (props.version as string) || "1.0";
-
-    let ticketTemplateId: Id<"objects"> | undefined;
-    let invoiceTemplateId: Id<"objects"> | undefined;
-    let emailTemplateId: Id<"objects"> | undefined;
-
-    if (version === "2.0" && Array.isArray(props.templates)) {
-      // v2.0: Use smart fallback mapping
-      const templates = new Map<string, Id<"objects">>();
-      for (const t of props.templates as Array<{ templateId: string; templateType: string }>) {
-        templates.set(t.templateType, t.templateId as Id<"objects">);
-      }
-
-      ticketTemplateId = templates.get("ticket") || templates.get("event");
-      invoiceTemplateId = templates.get("invoice");
-      emailTemplateId = templates.get("email") || templates.get("invoice_email") || templates.get("event");
-    } else {
-      // v1.0: Direct access
-      ticketTemplateId = props.ticketTemplateId as Id<"objects"> | undefined;
-      invoiceTemplateId = props.invoiceTemplateId as Id<"objects"> | undefined;
-      emailTemplateId = props.emailTemplateId as Id<"objects"> | undefined;
-    }
-
-    // Fetch templates
-    const ticketTemplate = ticketTemplateId ? await ctx.db.get(ticketTemplateId) : null;
-    const invoiceTemplate = invoiceTemplateId ? await ctx.db.get(invoiceTemplateId) : null;
-    const emailTemplate = emailTemplateId ? await ctx.db.get(emailTemplateId) : null;
-
-    return {
-      set,
-      templates: {
-        ticket: ticketTemplate,
-        invoice: invoiceTemplate,
-        email: emailTemplate,
-      },
-    };
-  },
-});
-
-/**
- * Get Template Set with All Templates (v2.0)
- *
- * Returns template set with ALL linked templates via objectLinks.
- * Supports v2.0 flexible template composition.
- *
- * Returns:
- * - set: The template set object
- * - templates: Array of all templates in the set with metadata:
- *   - template: Full template object
- *   - templateType: Type from customProperties (email, pdf, ticket, etc.)
- *   - isRequired: Whether this template is required
- *   - linkMetadata: Additional metadata from the link
- */
-export const getTemplateSetWithAllTemplates = query({
-  args: {
-    setId: v.id("objects"),
-  },
-  handler: async (ctx, args) => {
-    const set = await ctx.db.get(args.setId);
-    if (!set || set.type !== "template_set") {
-      return null;
-    }
-
-    // Get all objectLinks where this set is the source
+    // Get objectLinks that connect this template set to templates
     const links = await ctx.db
       .query("objectLinks")
       .withIndex("by_from_object", (q) => q.eq("fromObjectId", args.setId))
+      .filter((q) => q.eq(q.field("linkType"), "includes_template"))
       .collect();
 
-    // Fetch all linked template objects
+    // Get all template details
     const templates = await Promise.all(
       links.map(async (link) => {
         const template = await ctx.db.get(link.toObjectId);
@@ -314,5 +263,51 @@ export const getTemplateSetWithAllTemplates = query({
         optional: validTemplates.filter(t => !t.isRequired).length,
       },
     };
+  },
+});
+
+/**
+ * Get Template Set Links for Organization
+ *
+ * Returns a mapping of template IDs to template set IDs for filtering purposes.
+ * Used in the Templates window to filter templates by template set.
+ */
+export const getTemplateSetLinks = query({
+  args: {
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    // Get all template sets for this organization
+    const templateSets = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "template_set")
+      )
+      .filter((q) => q.neq(q.field("status"), "deleted"))
+      .collect();
+
+    if (templateSets.length === 0) {
+      return []; // Graceful handling: no template sets yet
+    }
+
+    // Get all objectLinks that connect template sets to templates
+    const allLinks = await Promise.all(
+      templateSets.map(async (set) => {
+        const links = await ctx.db
+          .query("objectLinks")
+          .withIndex("by_from_object", (q) => q.eq("fromObjectId", set._id))
+          .filter((q) => q.eq(q.field("linkType"), "includes_template"))
+          .collect();
+
+        return links.map((link) => ({
+          templateSetId: set._id,
+          templateSetName: set.name,
+          templateId: link.toObjectId,
+        }));
+      })
+    );
+
+    // Flatten the array
+    return allLinks.flat();
   },
 });

@@ -392,6 +392,32 @@ export const updateTemplate = mutation({
 
     const userContext = await getUserContext(ctx, userId, template.organizationId);
 
+    // 🔧 SECURITY: Check if editing system template - only super admins can do this
+    const systemOrg = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", "system"))
+      .first();
+
+    if (systemOrg && template.organizationId === systemOrg._id) {
+      // This is a system template - check for super admin
+      const user = await ctx.db.get(userId);
+      if (!user) throw new Error("User not found");
+
+      let isSuperAdmin = false;
+      if (user.global_role_id) {
+        const globalRole = await ctx.db.get(user.global_role_id);
+        if (globalRole && globalRole.name === "super_admin") {
+          isSuperAdmin = true;
+        }
+      }
+
+      if (!isSuperAdmin) {
+        throw new Error("Permission denied: Only super admins can edit system templates");
+      }
+
+      console.log(`✅ [UPDATE TEMPLATE] Super admin ${userId} editing system template: ${template.name}`);
+    }
+
     // Check permission
     const hasPermission = await checkPermission(
       ctx,
@@ -1055,6 +1081,32 @@ export const deleteTemplate = mutation({
     }
 
     const userContext = await getUserContext(ctx, userId, template.organizationId);
+
+    // 🔧 SECURITY: Check if deleting system template - only super admins can do this
+    const systemOrg = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", "system"))
+      .first();
+
+    if (systemOrg && template.organizationId === systemOrg._id) {
+      // This is a system template - check for super admin
+      const user = await ctx.db.get(userId);
+      if (!user) throw new Error("User not found");
+
+      let isSuperAdmin = false;
+      if (user.global_role_id) {
+        const globalRole = await ctx.db.get(user.global_role_id);
+        if (globalRole && globalRole.name === "super_admin") {
+          isSuperAdmin = true;
+        }
+      }
+
+      if (!isSuperAdmin) {
+        throw new Error("Permission denied: Only super admins can delete system templates");
+      }
+
+      console.log(`✅ [DELETE TEMPLATE] Super admin ${userId} deleting system template: ${template.name}`);
+    }
 
     // Check permission
     const hasPermission = await checkPermission(

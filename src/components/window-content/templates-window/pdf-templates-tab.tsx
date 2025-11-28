@@ -2,9 +2,11 @@
 
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
 import { TemplatesList } from "./templates-list";
+import type { Id } from "../../../../convex/_generated/dataModel";
+import { useMemo } from "react";
 
 interface PdfTemplatesTabProps {
   onEditTemplate: (templateId: string) => void;
@@ -13,12 +15,24 @@ interface PdfTemplatesTabProps {
 
 export function PdfTemplatesTab({ onEditTemplate, onViewSchema }: PdfTemplatesTabProps) {
   const { sessionId } = useAuth();
+  const currentOrg = useCurrentOrganization();
 
-  // Fetch all system PDF templates
-  const pdfTemplates = useQuery(
-    api.pdfTemplateAvailability.getAllSystemPdfTemplates,
-    sessionId ? { sessionId } : "skip"
+  // 🔧 FIX: Use availability-aware query that respects template_availability ontology
+  // This ensures normal org owners only see PDF templates enabled for their organization
+  // They can VIEW available templates but cannot EDIT system templates (enforced by RBAC)
+  const allTemplates = useQuery(
+    api.templateOntology.getAllTemplatesIncludingSystem,
+    sessionId && currentOrg ? {
+      sessionId,
+      organizationId: currentOrg.id as Id<"organizations">
+    } : "skip"
   );
+
+  // Filter to only PDF templates
+  const pdfTemplates = useMemo(() => {
+    if (!allTemplates) return undefined;
+    return allTemplates.filter(t => t.subtype === "pdf");
+  }, [allTemplates]);
 
   if (pdfTemplates === undefined) {
     return (
@@ -33,7 +47,7 @@ export function PdfTemplatesTab({ onEditTemplate, onViewSchema }: PdfTemplatesTa
       {pdfTemplates.length === 0 ? (
         <div className="flex items-center justify-center p-8">
           <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
-            No PDF templates available.
+            No PDF templates available for your organization.
           </p>
         </div>
       ) : (
