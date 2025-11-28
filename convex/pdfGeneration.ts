@@ -256,7 +256,7 @@ export const generateTicketPDF = action({
       const templateCode = template.templateCode;
       console.log("🎫 [Ticket Template Resolution] Using template code:", templateCode, "from template:", template.name);
 
-      // 11. Call API Template.io generator with resolved template
+      // 12. Call API Template.io generator with resolved template
       const { generateTicketPdfFromTemplate } = await import("./lib/generateTicketPdf");
 
       const result = await generateTicketPdfFromTemplate({
@@ -819,7 +819,10 @@ export const generateInvoicePDF = action({
 
       const translations = await getBackendTranslations(ctx, invoiceLanguage, translationKeys);
 
-      // 10. Prepare invoice template data
+      // 10. Generate invoice number (used for both data and filename)
+      const invoiceNumber = `INV-${session._id.substring(0, 12)}`;
+
+      // 11. Prepare invoice template data
       const invoiceData = {
         // Organization info
         organization_name: businessName,
@@ -833,7 +836,7 @@ export const generateInvoicePDF = action({
         vat_number: sellerLegal?.customProperties?.vatNumber as string | undefined,
 
         // Invoice details
-        invoice_number: `INV-${session._id.substring(0, 12)}`,
+        invoice_number: invoiceNumber,
         invoice_date: new Date(session.createdAt).toLocaleDateString("en-US", {
           year: "numeric",
           month: "long",
@@ -954,7 +957,7 @@ export const generateInvoicePDF = action({
         return null;
       }
 
-      // 12. Download PDF from API Template.io and convert to base64
+      // 13. Download PDF from API Template.io and convert to base64
       const pdfResponse = await fetch(result.download_url!);
       if (!pdfResponse.ok) {
         throw new Error("Failed to download PDF from API Template.io");
@@ -969,7 +972,7 @@ export const generateInvoicePDF = action({
       console.log("✅ Invoice PDF generated via API Template.io:", result.transaction_ref);
 
       return {
-        filename: `invoice-${session._id.substring(0, 12)}.pdf`,
+        filename: `${invoiceNumber}.pdf`, // Use clean invoice number as filename
         content: pdfBase64,
         contentType: "application/pdf",
         downloadUrl: result.download_url || undefined, // Include the permanent URL from API Template.io
