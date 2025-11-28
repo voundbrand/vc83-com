@@ -414,6 +414,16 @@ export const generateInvoicePDF = action({
         logoUrl: brandLogoUrl
       });
 
+      // Debug: Log contact information
+      console.log("📞 [Invoice Contact] Organization contact data:", {
+        contactPhone: sellerContact?.customProperties?.contactPhone,
+        contactEmail: sellerContact?.customProperties?.contactEmail,
+        billingEmail: sellerContact?.customProperties?.billingEmail,
+        supportEmail: sellerContact?.customProperties?.supportEmail,
+        website: sellerContact?.customProperties?.website,
+        faxNumber: sellerContact?.customProperties?.faxNumber,
+      });
+
       // Try domain config first (if available) - can override organization settings
       const domainConfigId = session.customProperties?.domainConfigId as Id<"objects"> | undefined;
       if (domainConfigId) {
@@ -954,11 +964,12 @@ export const generateInvoicePDF = action({
         organization_name: businessName,
         organization_address: organizationAddress,
         organization_phone: ((sellerOrg as any)?.customProperties?.phone as string) ||
-                           (sellerContact?.customProperties?.primaryPhone as string) ||
+                           (sellerContact?.customProperties?.contactPhone as string) ||
                            "+49 (0) 123 456 789", // Fallback
         organization_email: ((sellerOrg as any)?.customProperties?.email as string) ||
-                           (sellerContact?.customProperties?.primaryEmail as string) ||
+                           (sellerContact?.customProperties?.contactEmail as string) ||
                            ("info@" + (organization?.slug || "company") + ".com"), // Fallback
+        organization_website: (sellerContact?.customProperties?.website as string) || undefined,
         logo_url: brandLogoUrl,
         tax_id: sellerLegal?.customProperties?.taxId as string | undefined,
         vat_number: sellerLegal?.customProperties?.vatNumber as string | undefined,
