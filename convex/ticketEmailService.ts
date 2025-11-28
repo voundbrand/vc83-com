@@ -115,6 +115,7 @@ export const sendTicketConfirmationEmail = action({
     const templateData = await ctx.runAction(api.emailTemplateRenderer.getEmailTemplateData, {
       sessionId: args.sessionId,
       ticketId: args.ticketId,
+      organizationId: ticket.organizationId, // Pass organizationId for branding
       domainConfigId: args.domainConfigId || undefined as any, // Pass undefined if not provided
       language,
     });
@@ -390,6 +391,7 @@ export const previewTicketEmail = action({
     const templateData = await ctx.runAction(api.emailTemplateRenderer.getEmailTemplateData, {
       sessionId: args.sessionId,
       ticketId: args.ticketId,
+      organizationId: ticket.organizationId, // Pass organizationId for branding
       domainConfigId: args.domainConfigId || undefined as any, // Use system defaults if not provided
       language,
     });

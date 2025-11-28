@@ -104,6 +104,7 @@ export const getEmailTemplateData = action({
   args: {
     sessionId: v.string(),
     ticketId: v.id("objects"),
+    organizationId: v.optional(v.id("organizations")), // Optional: will be derived from ticket if not provided
     domainConfigId: v.optional(v.id("objects")), // Optional: uses system defaults if not provided
     language: v.union(v.literal("de"), v.literal("en"), v.literal("es"), v.literal("fr")),
   },
@@ -159,6 +160,28 @@ export const getEmailTemplateData = action({
       eventId: eventId as Id<"objects">,
     });
 
+    // Get organizationId from ticket if not provided
+    const organizationId = args.organizationId || ticket.organizationId;
+
+    // Load organization branding settings from organization_settings table
+    const orgBrandingSettings = await ctx.runQuery(api.organizationOntology.getOrganizationSettings, {
+      organizationId: organizationId,
+      subtype: "branding",
+    });
+
+    // Extract organization branding or use defaults
+    const orgBranding = Array.isArray(orgBrandingSettings) ? undefined : orgBrandingSettings;
+    const orgPrimaryColor = orgBranding?.customProperties?.primaryColor as string | undefined;
+    const orgSecondaryColor = orgBranding?.customProperties?.secondaryColor as string | undefined;
+    const orgLogoUrl = orgBranding?.customProperties?.logo as string | undefined;
+
+    console.log("🎨 [Email Branding] Organization settings:", {
+      primaryColor: orgPrimaryColor,
+      secondaryColor: orgSecondaryColor,
+      hasLogo: !!orgLogoUrl,
+      logoUrl: orgLogoUrl,
+    });
+
     // Load domain config (or use system defaults)
     let domainProps: any;
     let branding: any;
@@ -168,15 +191,25 @@ export const getEmailTemplateData = action({
         configId: args.domainConfigId,
       });
       domainProps = domainConfig.customProperties as any;
-      branding = domainProps.branding;
+
+      // Cascading branding: domain config can override organization settings
+      const domainBranding = domainProps.branding;
+      console.log("🎨 [Email Branding] Domain config branding:", domainBranding);
+
+      branding = {
+        primaryColor: domainBranding?.primaryColor || orgPrimaryColor || "#d4af37",
+        secondaryColor: domainBranding?.secondaryColor || orgSecondaryColor || "#1a1412",
+        accentColor: domainBranding?.accentColor || "#f5f1e8",
+        logoUrl: domainBranding?.logoUrl || orgLogoUrl || "https://l4yercak3.com/logo.png",
+      };
     } else {
-      // Use system defaults
+      // Use organization branding with system defaults as fallback
       domainProps = {
         domainName: "l4yercak3.com",
         branding: {
-          logoUrl: "https://l4yercak3.com/logo.png",
-          primaryColor: "#d4af37", // Gold
-          secondaryColor: "#1a1412",
+          logoUrl: orgLogoUrl || "https://l4yercak3.com/logo.png",
+          primaryColor: orgPrimaryColor || "#d4af37", // Gold
+          secondaryColor: orgSecondaryColor || "#1a1412",
           accentColor: "#f5f1e8",
         },
         webPublishing: {
@@ -185,6 +218,8 @@ export const getEmailTemplateData = action({
       };
       branding = domainProps.branding;
     }
+
+    console.log("🎨 [Email Branding] Final cascaded branding:", branding);
 
     // Extract attendee info
     const attendeeFirstName = ticketProps.attendeeFirstName || ticket.name.split(' ')[0];
