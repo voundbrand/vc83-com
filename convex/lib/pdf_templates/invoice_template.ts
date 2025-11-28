@@ -146,7 +146,11 @@ body {
     font-family: 'Inter', 'Helvetica', 'Arial', sans-serif;
     font-size: 11pt;
     line-height: 1.5;
-    padding: 40px;
+    padding: 30px 40px;
+}
+
+@page {
+    margin: 0;
 }
 
 .invoice-container {
@@ -327,8 +331,9 @@ body {
 
 /* Footer */
 .footer {
-    margin-top: 40px;
-    padding-top: 20px;
+    margin-top: 30px;
+    padding-top: 15px;
+    padding-bottom: 0;
     border-top: 1px solid var(--border-gray);
     text-align: center;
     font-size: 9pt;
