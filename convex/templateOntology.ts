@@ -893,6 +893,24 @@ export const getAllTemplatesIncludingSystem = query({
       throw new Error("System organization not found");
     }
 
+    // 🔧 FIX: Get template availability records for this organization
+    // Only show system templates that have been enabled via availability ontology
+    const templateAvailabilities = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "template_availability")
+      )
+      .filter((q) => q.eq(q.field("customProperties.available"), true))
+      .collect();
+
+    const enabledTemplateIds = new Set(
+      templateAvailabilities
+        .map((a) => a.customProperties?.templateId)
+        .filter((id): id is string => typeof id === "string")
+    );
+
+    console.log(`🔍 [Templates] Org ${args.organizationId} has ${enabledTemplateIds.size} enabled templates`);
+
     // Get system templates (email and PDF only, exclude page templates)
     const systemTemplatesRaw = await ctx.db
       .query("objects")
@@ -905,6 +923,13 @@ export const getAllTemplatesIncludingSystem = query({
       .filter((t) => {
         const subtype = t.subtype;
         if (!subtype || subtype === "page") return false;
+
+        // 🔧 FIX: Only include system templates that are enabled for this organization
+        if (!enabledTemplateIds.has(t._id)) {
+          console.log(`⚠️ [Templates] Filtering out system template "${t.name}" - not enabled for org`);
+          return false;
+        }
+
         return true;
       })
       .map((t) => ({
@@ -912,7 +937,10 @@ export const getAllTemplatesIncludingSystem = query({
         isSystemTemplate: true, // Add flag for UI badging
       }));
 
+    console.log(`✅ [Templates] Showing ${systemTemplates.length} enabled system templates`);
+
     // Get organization templates (email and PDF only, exclude page templates)
+    // Organization's own templates should ALWAYS be visible
     const orgTemplatesRaw = await ctx.db
       .query("objects")
       .withIndex("by_org_type", (q) =>
@@ -930,6 +958,8 @@ export const getAllTemplatesIncludingSystem = query({
         ...t,
         isSystemTemplate: false, // Org templates are NOT system templates
       }));
+
+    console.log(`✅ [Templates] Showing ${orgTemplates.length} organization templates`);
 
     // Combine: org templates first, then system templates
     const allTemplates = [...orgTemplates, ...systemTemplates];
