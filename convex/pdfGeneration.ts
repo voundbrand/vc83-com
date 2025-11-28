@@ -392,6 +392,56 @@ export const generateInvoicePDF = action({
         { organizationId }
       );
 
+      // 2.4. Get branding colors with cascading fallback: domain → organization → default
+      let brandPrimaryColor = "#6B46C1"; // Default purple
+      let brandSecondaryColor = "#9F7AEA"; // Default light purple
+      let brandLogoUrl = sellerOrg?.customProperties?.logoUrl as string | undefined;
+
+      // Try domain config first (if available)
+      const domainConfigId = session.customProperties?.domainConfigId as Id<"objects"> | undefined;
+      if (domainConfigId) {
+        try {
+          const domainConfig = await ctx.runQuery(api.domainConfigOntology.getDomainConfig, {
+            configId: domainConfigId,
+          });
+
+          if (domainConfig?.customProperties?.branding) {
+            const domainBranding = domainConfig.customProperties.branding as any;
+            brandPrimaryColor = domainBranding.primaryColor || brandPrimaryColor;
+            brandSecondaryColor = domainBranding.secondaryColor || brandSecondaryColor;
+            brandLogoUrl = domainBranding.logoUrl || brandLogoUrl;
+            console.log("🎨 [Invoice Branding] Using domain branding:", {
+              primaryColor: brandPrimaryColor,
+              secondaryColor: brandSecondaryColor,
+              hasLogo: !!brandLogoUrl
+            });
+          }
+        } catch (error) {
+          console.warn("⚠️ Could not fetch domain config branding, falling back to organization");
+        }
+      }
+
+      // Fall back to organization branding if no domain branding
+      if (brandPrimaryColor === "#6B46C1") { // Still default, try organization
+        const orgData = sellerOrg as any;
+        if (orgData?.customProperties?.branding) {
+          brandPrimaryColor = orgData.customProperties.branding.primaryColor || brandPrimaryColor;
+          brandSecondaryColor = orgData.customProperties.branding.secondaryColor || brandSecondaryColor;
+          brandLogoUrl = orgData.customProperties.branding.logoUrl || brandLogoUrl;
+          console.log("🎨 [Invoice Branding] Using organization branding:", {
+            primaryColor: brandPrimaryColor,
+            secondaryColor: brandSecondaryColor,
+            hasLogo: !!brandLogoUrl
+          });
+        } else if (orgData?.customProperties?.brandColor) {
+          // Legacy single brandColor field
+          brandPrimaryColor = orgData.customProperties.brandColor;
+          console.log("🎨 [Invoice Branding] Using organization brandColor:", brandPrimaryColor);
+        } else {
+          console.log("🎨 [Invoice Branding] Using default colors (no domain or org branding found)");
+        }
+      }
+
       // 2.5. Get buyer CRM organization info (if B2B invoice with employerOrgId)
       let buyerCrmOrg: Doc<"objects"> | null = null;
       if (args.crmOrganizationId) {
@@ -865,16 +915,22 @@ export const generateInvoicePDF = action({
 
       // 11. Prepare invoice template data
       const invoiceData = {
-        // Organization info
+        // Organization info (with cascading fallback: organization → contact → default)
         organization_name: businessName,
         organization_address: organizationAddress,
-        organization_phone: (sellerContact?.customProperties?.primaryPhone as string) ||
+        organization_phone: ((sellerOrg as any)?.customProperties?.phone as string) ||
+                           (sellerContact?.customProperties?.primaryPhone as string) ||
                            "+49 (0) 123 456 789", // Fallback
-        organization_email: (sellerContact?.customProperties?.primaryEmail as string) ||
+        organization_email: ((sellerOrg as any)?.customProperties?.email as string) ||
+                           (sellerContact?.customProperties?.primaryEmail as string) ||
                            ("info@" + (organization?.slug || "company") + ".com"), // Fallback
-        logo_url: sellerOrg?.customProperties?.logoUrl as string | undefined,
+        logo_url: brandLogoUrl,
         tax_id: sellerLegal?.customProperties?.taxId as string | undefined,
         vat_number: sellerLegal?.customProperties?.vatNumber as string | undefined,
+
+        // Branding colors (cascading: domain → organization → default)
+        brand_primary_color: brandPrimaryColor,
+        brand_secondary_color: brandSecondaryColor,
 
         // Invoice details
         invoice_number: invoiceNumber,
