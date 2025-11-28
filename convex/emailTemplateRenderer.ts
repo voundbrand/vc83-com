@@ -226,6 +226,16 @@ export const getEmailTemplateData = action({
     let attendeeLastName = '';
     let attendeeEmail = '';
 
+    // DEBUG: Log ticket properties to understand what data we have
+    console.log(`🔍 [Email Template] Ticket properties:`, {
+      contactId: ticketProps.contactId,
+      attendeeFirstName: ticketProps.attendeeFirstName,
+      attendeeLastName: ticketProps.attendeeLastName,
+      attendeeEmail: ticketProps.attendeeEmail,
+      holderName: ticketProps.holderName,
+      holderEmail: ticketProps.holderEmail,
+    });
+
     // STEP 1: Try to load FRESH CRM contact data first (PRIMARY source)
     if (ticketProps.contactId) {
       console.log(`🔍 [Email Template] Loading FRESH CRM contact: ${ticketProps.contactId}`);
@@ -273,6 +283,13 @@ export const getEmailTemplateData = action({
     const templateCode: string = await ctx.runAction(api.emailTemplateRenderer.resolveEmailTemplateCode, {
       sessionId: args.sessionId,
       ticketId: args.ticketId,
+    });
+
+    // DEBUG: Log final resolved attendee data
+    console.log(`✅ [Email Template] Final resolved attendee:`, {
+      firstName: attendeeFirstName,
+      lastName: attendeeLastName,
+      email: attendeeEmail,
     });
 
     // Return all data needed for template rendering
