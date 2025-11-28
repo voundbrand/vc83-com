@@ -5,6 +5,8 @@ import { useQuery, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { OrganizationSection } from "./components/organization-section";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+import { useWindowManager } from "@/hooks/use-window-manager";
+import MediaLibraryWindow from "@/components/window-content/media-library-window";
 import {
   Building2,
   Mail,
@@ -70,6 +72,7 @@ export interface FormData {
   settings: {
     branding: {
       primaryColor: string;
+      secondaryColor: string;
       logo: string;
     };
     locale: {
@@ -88,6 +91,7 @@ export interface FormData {
 export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, OrganizationDetailsFormProps>(
   function OrganizationDetailsForm({ organization, isEditing }, ref) {
     const { t } = useNamespaceTranslations("ui.manage");
+    const { openWindow } = useWindowManager();
     // Check permissions inline using centralized context
     const { hasPermission } = usePermissions();
     const canEdit = hasPermission("manage_organization");
@@ -209,6 +213,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
     settings: {
       branding: {
         primaryColor: brandingSettings?.customProperties?.primaryColor || "#6B46C1",
+        secondaryColor: brandingSettings?.customProperties?.secondaryColor || "#9F7AEA",
         logo: brandingSettings?.customProperties?.logo || "",
       },
       locale: {
@@ -268,6 +273,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
         settings: {
           branding: {
             primaryColor: brandingSettings?.customProperties?.primaryColor || "#6B46C1",
+            secondaryColor: brandingSettings?.customProperties?.secondaryColor || "#9F7AEA",
             logo: brandingSettings?.customProperties?.logo || "",
           },
           locale: {
@@ -967,24 +973,110 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
 
               <div>
                 <label className="block text-xs mb-1" style={{ color: 'var(--neutral-gray)' }}>
+                  {t("ui.manage.org.secondary_color")}
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="color"
+                    value={formData.settings.branding.secondaryColor}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      settings: {
+                        ...formData.settings,
+                        branding: { ...formData.settings.branding, secondaryColor: e.target.value }
+                      }
+                    })}
+                    disabled={!canEdit || !isEditing}
+                    className="h-8 w-16 cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={formData.settings.branding.secondaryColor}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      settings: {
+                        ...formData.settings,
+                        branding: { ...formData.settings.branding, secondaryColor: e.target.value }
+                      }
+                    })}
+                    readOnly={!isEditing}
+                    disabled={!canEdit || !isEditing}
+                    className="flex-1 px-2 py-1 text-sm font-mono"
+                    style={inputStyles}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs mb-1" style={{ color: 'var(--neutral-gray)' }}>
                   {t("ui.manage.org.logo_url")}
                 </label>
-                <input
-                  type="url"
-                  value={formData.settings.branding.logo}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    settings: {
-                      ...formData.settings,
-                      branding: { ...formData.settings.branding, logo: e.target.value }
-                    }
-                  })}
-                  readOnly={!isEditing}
-                  disabled={!canEdit || !isEditing}
-                  placeholder="https://..."
-                  className="w-full px-2 py-1 text-sm"
-                  style={inputStyles}
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={formData.settings.branding.logo}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      settings: {
+                        ...formData.settings,
+                        branding: { ...formData.settings.branding, logo: e.target.value }
+                      }
+                    })}
+                    readOnly={!isEditing}
+                    disabled={!canEdit || !isEditing}
+                    placeholder="https://..."
+                    className="flex-1 px-2 py-1 text-sm"
+                    style={inputStyles}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!canEdit || !isEditing) return;
+                      openWindow(
+                        "media-library-select-logo",
+                        "Select Logo",
+                        <MediaLibraryWindow
+                          selectionMode={true}
+                          onSelect={async (media) => {
+                            // Get the URL for the selected media
+                            const url = media.url || "";
+                            setFormData({
+                              ...formData,
+                              settings: {
+                                ...formData.settings,
+                                branding: { ...formData.settings.branding, logo: url }
+                              }
+                            });
+                          }}
+                        />,
+                        { x: 240, y: 160 },
+                        { width: 1000, height: 700 }
+                      );
+                    }}
+                    disabled={!canEdit || !isEditing}
+                    className="px-3 py-1 text-xs font-bold rounded transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{
+                      background: 'var(--win95-highlight)',
+                      color: 'var(--win95-titlebar-text)',
+                      border: '2px solid var(--win95-border)',
+                    }}
+                  >
+                    Browse
+                  </button>
+                </div>
+                {formData.settings.branding.logo && (
+                  <div className="mt-2">
+                    <img
+                      src={formData.settings.branding.logo}
+                      alt="Logo preview"
+                      className="h-16 object-contain border-2"
+                      style={{ borderColor: 'var(--win95-border)' }}
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </div>

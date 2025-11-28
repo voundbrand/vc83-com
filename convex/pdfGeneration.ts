@@ -330,6 +330,7 @@ export const generateInvoicePDF = action({
   args: {
     checkoutSessionId: v.id("objects"),
     crmOrganizationId: v.optional(v.id("objects")), // Optional: B2B employer organization
+    crmContactId: v.optional(v.id("objects")), // Optional: B2C customer contact
     templateCode: v.optional(v.string()), // "b2b-professional", "detailed-breakdown", "b2c-receipt"
   },
   handler: async (ctx, args): Promise<PDFAttachment | null> => {
@@ -455,6 +456,20 @@ export const generateInvoicePDF = action({
           // 🔍 DEBUG: Show actual billing address data
           billingAddressData: buyerCrmOrg?.customProperties?.billingAddress,
           vatNumber: buyerCrmOrg?.customProperties?.vatNumber,
+        });
+      }
+
+      // 2.6. Get buyer CRM contact info (if B2C invoice with customer contact)
+      let buyerCrmContact: Doc<"objects"> | null = null;
+      if (args.crmContactId) {
+        buyerCrmContact = await ctx.runQuery(internal.crmOntology.getContactInternal, {
+          contactId: args.crmContactId,
+        }) as Doc<"objects"> | null;
+        console.log("📄 [generateInvoicePDF] Found CRM contact for BILL TO:", {
+          contactId: args.crmContactId,
+          contactName: buyerCrmContact?.name,
+          email: buyerCrmContact?.customProperties?.email,
+          phone: buyerCrmContact?.customProperties?.phone,
         });
       }
 
@@ -769,10 +784,24 @@ export const generateInvoicePDF = action({
           country: billingCountry,
         };
       } else {
-        // B2C customer
-        const customerName = session.customProperties?.customerName as string | undefined || "Customer";
-        const customerEmail = session.customProperties?.customerEmail as string | undefined;
-        const customerPhone = session.customProperties?.customerPhone as string | undefined;
+        // B2C customer - prefer fresh CRM contact data if available
+        let customerName: string;
+        let customerEmail: string | undefined;
+        let customerPhone: string | undefined;
+
+        if (buyerCrmContact) {
+          // Use fresh CRM contact data
+          customerName = buyerCrmContact.name || "Customer";
+          customerEmail = buyerCrmContact.customProperties?.email as string | undefined;
+          customerPhone = buyerCrmContact.customProperties?.phone as string | undefined;
+          console.log("📄 [generateInvoicePDF] Using fresh CRM contact data for B2C");
+        } else {
+          // Fall back to session data (stale)
+          customerName = session.customProperties?.customerName as string | undefined || "Customer";
+          customerEmail = session.customProperties?.customerEmail as string | undefined;
+          customerPhone = session.customProperties?.customerPhone as string | undefined;
+          console.log("📄 [generateInvoicePDF] Using session data for B2C (no CRM contact)");
+        }
 
         // For B2C, if no billing address, show email/phone as contact info
         const contactInfo = [customerEmail, customerPhone].filter(Boolean).join(" | ");
@@ -857,21 +886,29 @@ export const generateInvoicePDF = action({
       });
 
       // 9.5. Load translations for invoice PDF labels
-      // Read language from checkout instance (set in checkout configuration)
-      const checkoutInstanceId = session.customProperties?.checkoutInstanceId as Id<"objects"> | undefined;
+      // Priority: Organization locale settings → Checkout instance → Default
       let invoiceLanguage = "en"; // Default to English
 
-      if (checkoutInstanceId) {
-        const checkoutInstance = await ctx.runQuery(api.checkoutOntology.getPublicCheckoutInstanceById, {
-          instanceId: checkoutInstanceId,
-        });
+      // 1. Try organization locale settings first (highest priority)
+      if (localeSettings?.customProperties?.language) {
+        const orgLanguage = localeSettings.customProperties.language as string;
+        invoiceLanguage = orgLanguage.toLowerCase().split("-")[0]; // Normalize "de-DE" → "de"
+        console.log(`📄 Using invoice language from organization settings: ${invoiceLanguage}`);
+      } else {
+        // 2. Fall back to checkout instance
+        const checkoutInstanceId = session.customProperties?.checkoutInstanceId as Id<"objects"> | undefined;
+        if (checkoutInstanceId) {
+          const checkoutInstance = await ctx.runQuery(api.checkoutOntology.getPublicCheckoutInstanceById, {
+            instanceId: checkoutInstanceId,
+          });
 
-        if (checkoutInstance) {
-          const defaultLanguage = checkoutInstance.customProperties?.defaultLanguage as string | undefined;
-          if (defaultLanguage) {
-            // Normalize locale (e.g., "de-DE" -> "de")
-            invoiceLanguage = defaultLanguage.toLowerCase().split("-")[0];
-            console.log(`📄 Using invoice language from checkout instance: ${invoiceLanguage}`);
+          if (checkoutInstance) {
+            const defaultLanguage = checkoutInstance.customProperties?.defaultLanguage as string | undefined;
+            if (defaultLanguage) {
+              // Normalize locale (e.g., "de-DE" -> "de")
+              invoiceLanguage = defaultLanguage.toLowerCase().split("-")[0];
+              console.log(`📄 Using invoice language from checkout instance: ${invoiceLanguage}`);
+            }
           }
         }
       }

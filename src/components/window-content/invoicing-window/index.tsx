@@ -453,8 +453,14 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
 
     setIsGeneratingPDF(true);
     try {
+      // Get CRM IDs from invoice to ensure fresh data on regeneration
+      const crmOrganizationId = invoice.customProperties?.crmOrganizationId as Id<"objects"> | undefined;
+      const crmContactId = invoice.customProperties?.crmContactId as Id<"objects"> | undefined;
+
       const pdfAttachment = await generatePDFAction({
         checkoutSessionId,
+        ...(crmOrganizationId && { crmOrganizationId }), // Pass B2B CRM org ID for fresh data
+        ...(crmContactId && { crmContactId }), // Pass B2C CRM contact ID for fresh data
       });
 
       if (pdfAttachment && pdfAttachment.content) {

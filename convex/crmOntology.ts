@@ -31,7 +31,7 @@
  * - Use objectActions for audit trail
  */
 
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser } from "./rbacHelpers";
 
@@ -90,6 +90,25 @@ export const getContact = query({
 
     if (!contact || contact.type !== "crm_contact") {
       throw new Error("Contact not found");
+    }
+
+    return contact;
+  },
+});
+
+/**
+ * INTERNAL: Get CRM Contact by ID
+ * Used by internal systems (e.g., PDF generation) to fetch contact data
+ */
+export const getContactInternal = internalQuery({
+  args: {
+    contactId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const contact = await ctx.db.get(args.contactId);
+
+    if (!contact || contact.type !== "crm_contact") {
+      return null;
     }
 
     return contact;
