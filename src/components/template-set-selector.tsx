@@ -143,8 +143,8 @@ export function TemplateSetSelector({
         {templateSets.map((set) => (
           <option key={set._id} value={set._id}>
             {set.name}
-            {set.isDefault && " (Default)"}
-            {set.isSystemSet && " (System)"}
+            {set.customProperties?.isDefault && " (Default)"}
+            {set.customProperties?.isSystemSet && " (System)"}
           </option>
         ))}
       </select>
@@ -153,11 +153,11 @@ export function TemplateSetSelector({
       {showDetails && value && selectedSet && (
         <div className="mt-2 p-3 rounded text-xs border-2" style={{ backgroundColor: 'rgba(59, 130, 246, 0.05)', borderColor: 'var(--win95-highlight)' }}>
           <div className="font-bold mb-2" style={{ color: 'var(--win95-highlight)' }}>
-            {selectedSet.set.name}
+            {selectedSet.name}
           </div>
-          {selectedSet.set.description && (
+          {selectedSet.description && (
             <div className="mb-3 text-xs" style={{ color: 'var(--neutral-gray)' }}>
-              {selectedSet.set.description}
+              {selectedSet.description}
             </div>
           )}
 
@@ -173,7 +173,7 @@ export function TemplateSetSelector({
               <div>
                 <div className="font-bold text-xs">Ticket:</div>
                 <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-                  {selectedSet.templates.ticket?.name || "Not configured"}
+                  {selectedSet.ticketTemplateId || "Not configured"}
                 </div>
               </div>
             </div>
@@ -184,7 +184,7 @@ export function TemplateSetSelector({
               <div>
                 <div className="font-bold text-xs">Invoice:</div>
                 <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-                  {selectedSet.templates.invoice?.name || "Not configured"}
+                  {selectedSet.invoiceTemplateId || "Not configured"}
                 </div>
               </div>
             </div>
@@ -195,26 +195,11 @@ export function TemplateSetSelector({
               <div>
                 <div className="font-bold text-xs">Email:</div>
                 <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-                  {selectedSet.templates.email?.name || "Not configured"}
+                  {selectedSet.emailTemplateId || "Not configured"}
                 </div>
               </div>
             </div>
           </div>
-
-          {/* Tags */}
-          {selectedSet.set.customProperties?.tags && (selectedSet.set.customProperties.tags as string[]).length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-1">
-              {(selectedSet.set.customProperties.tags as string[]).map((tag) => (
-                <span
-                  key={tag}
-                  className="px-2 py-0.5 rounded text-xs font-mono"
-                  style={{ backgroundColor: 'rgba(107, 70, 193, 0.1)', color: 'var(--win95-highlight)' }}
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
         </div>
       )}
     </div>

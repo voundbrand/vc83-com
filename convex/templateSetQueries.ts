@@ -192,12 +192,115 @@ export const resolveIndividualTemplatePublic = query({
 });
 
 /**
+ * Resolve Individual Template (Internal)
+ *
+ * Internal version for use by other Convex functions.
+ * Returns a single resolved template ID.
+ */
+export const resolveIndividualTemplateInternal = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    templateType: v.string(),
+    context: v.optional(v.object({
+      manualSetId: v.optional(v.id("objects")),
+      productId: v.optional(v.id("objects")),
+      checkoutInstanceId: v.optional(v.id("objects")),
+      domainConfigId: v.optional(v.id("objects")),
+    })),
+  },
+  handler: async (ctx, args) => {
+    return await resolveIndividualTemplate(
+      ctx,
+      args.organizationId,
+      args.templateType,
+      args.context
+    );
+  },
+});
+
+/**
  * Get Templates in Template Set (Public)
  *
  * Returns all templates included in a specific template set with their metadata.
  * Used for displaying template set contents in UI.
  */
 export const getTemplatesInSet = internalQuery({
+  args: {
+    setId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const set = await ctx.db.get(args.setId);
+    if (!set || set.type !== "template_set") {
+      throw new Error("Template set not found");
+    }
+
+    // Get objectLinks that connect this template set to templates
+    const links = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_from_object", (q) => q.eq("fromObjectId", args.setId))
+      .filter((q) => q.eq(q.field("linkType"), "includes_template"))
+      .collect();
+
+    // Get all template details
+    const templates = await Promise.all(
+      links.map(async (link) => {
+        const template = await ctx.db.get(link.toObjectId);
+        if (!template) return null;
+
+        return {
+          template,
+          templateType: link.properties?.templateType as string,
+          isRequired: link.properties?.isRequired as boolean || false,
+          linkMetadata: link.properties || {},
+        };
+      })
+    );
+
+    // Filter out nulls and organize by type
+    const validTemplates = templates.filter((t) => t !== null) as Array<{
+      template: Doc<"objects">;
+      templateType: string;
+      isRequired: boolean;
+      linkMetadata: Record<string, any>;
+    }>;
+
+    // Separate by template category
+    const emailTemplates = validTemplates.filter(t => {
+      const type = t.template.type;
+      const subtype = t.template.subtype;
+      return type === "template" && subtype === "email";
+    });
+
+    const pdfTemplates = validTemplates.filter(t => {
+      const type = t.template.type;
+      const subtype = t.template.subtype;
+      return type === "template" && subtype === "pdf";
+    });
+
+    return {
+      set,
+      templates: validTemplates,
+      emailTemplates,
+      pdfTemplates,
+      counts: {
+        total: validTemplates.length,
+        email: emailTemplates.length,
+        pdf: pdfTemplates.length,
+        required: validTemplates.filter(t => t.isRequired).length,
+        optional: validTemplates.filter(t => !t.isRequired).length,
+      },
+    };
+  },
+});
+
+/**
+ * Get Template Set With All Templates (Public)
+ *
+ * Public wrapper for getTemplatesInSet.
+ * Returns template set details with all linked templates organized by type.
+ * Used by UI components to display template set contents.
+ */
+export const getTemplateSetWithAllTemplates = query({
   args: {
     setId: v.id("objects"),
   },
