@@ -121,12 +121,25 @@ export const sendTicketConfirmationEmail = action({
     });
 
     // Determine which template code to use (custom template or default)
-    const templateCode = templateData.templateCode;
+    let templateCode = templateData.templateCode;
+
     if (args.emailTemplateId) {
-      // If custom email template provided, get its template code
-      // For now, we'll log a message and use the default template
-      // TODO: Implement template override once database access is available in actions
-      console.log(`📧 Custom email template requested: ${args.emailTemplateId} (using default template for now)`);
+      // If custom email template provided, get its template code from database
+      try {
+        const customTemplate = await ctx.runQuery(api.templateOntology.getEmailTemplateById, {
+          templateId: args.emailTemplateId,
+        });
+
+        if (customTemplate && customTemplate.customProperties?.code) {
+          templateCode = customTemplate.customProperties.code as string;
+          console.log(`📧 ✅ Using custom email template: ${customTemplate.name} (${templateCode})`);
+        } else {
+          console.log(`📧 ⚠️ Custom template ${args.emailTemplateId} has no code, using default: ${templateCode}`);
+        }
+      } catch (error) {
+        console.error(`📧 ❌ Error loading custom template ${args.emailTemplateId}:`, error);
+        console.log(`📧 Falling back to default template: ${templateCode}`);
+      }
     }
 
     // Get the template function and generate HTML
@@ -430,15 +443,32 @@ export const previewTicketEmail = action({
     });
 
     // Determine which template code to use (custom template or default)
-    const templateCode = templateData.templateCode;
+    let templateCode = templateData.templateCode;
+
     if (args.emailTemplateId) {
-      // If custom email template provided, get its template code
-      // For now, we'll log a message and use the default template
-      // TODO: Implement template override once database access is available in actions
-      console.log(`📧 [PREVIEW] Custom email template requested: ${args.emailTemplateId} (using default template for now)`);
+      // If custom email template provided, get its template code from database
+      try {
+        const customTemplate = await ctx.runQuery(api.templateOntology.getEmailTemplateById, {
+          templateId: args.emailTemplateId,
+        });
+
+        if (customTemplate && customTemplate.customProperties?.code) {
+          templateCode = customTemplate.customProperties.code as string;
+          console.log(`📧 [PREVIEW] ✅ Using custom email template: ${customTemplate.name} (${templateCode})`);
+        } else {
+          console.log(`📧 [PREVIEW] ⚠️ Custom template ${args.emailTemplateId} has no code, using default: ${templateCode}`);
+        }
+      } catch (error) {
+        console.error(`📧 [PREVIEW] ❌ Error loading custom template ${args.emailTemplateId}:`, error);
+        console.log(`📧 [PREVIEW] Falling back to default template: ${templateCode}`);
+      }
     }
 
     // Get the template function and generate HTML
+    console.log(`📧 [PREVIEW] 🎯 Final template code: ${templateCode}`);
+    console.log(`📧 [PREVIEW] 🌍 Language passed to template: ${language}`);
+    console.log(`📧 [PREVIEW] 📋 Template data keys:`, Object.keys(templateData));
+
     const templateFn = getEmailTemplate(templateCode);
     const { html: emailHtml, subject } = templateFn(templateData);
 

@@ -25,6 +25,9 @@ import { StatusUpdateEmailTemplate, STATUS_UPDATE_EMAIL_METADATA } from "./statu
 import { InvoiceB2BEmailTemplate, INVOICE_B2B_EMAIL_METADATA } from "./invoice-b2b/index";
 import { InvoiceB2CEmailTemplate, INVOICE_B2C_EMAIL_METADATA } from "./invoice-b2c/index";
 import { ReceiptEmailTemplate, RECEIPT_EMAIL_METADATA } from "./receipt/index";
+import { LuxuryConfirmationTemplate } from "./luxury-confirmation/index";
+import { ModernMinimalTemplate } from "./modern-minimal/index";
+import { VIPExclusiveTemplate } from "./vip-exclusive/index";
 
 /**
  * Email Template Registry Entry
@@ -117,6 +120,53 @@ export const EMAIL_TEMPLATE_REGISTRY: Record<string, EmailTemplateRegistryEntry>
     code: "email_status_update",
     component: StatusUpdateEmailTemplate,
     metadata: STATUS_UPDATE_EMAIL_METADATA,
+  },
+
+  // Premium Templates (3) - Luxury ticket confirmation templates
+  "luxury-confirmation": {
+    code: "luxury-confirmation",
+    component: LuxuryConfirmationTemplate,
+    metadata: {
+      code: "luxury-confirmation",
+      name: "Luxury Confirmation",
+      description: "Elegant gold & dark theme for upscale event confirmations",
+      category: "event",
+      suggestedSections: ["hero", "eventDetails", "attachmentInfo", "cta"],
+      previewImageUrl: "/templates/luxury-confirmation-preview.png",
+      supportedLanguages: ["en", "de", "es", "fr"],
+      author: "L4YERCAK3",
+      version: "1.0.0",
+    },
+  },
+  "modern-minimal": {
+    code: "modern-minimal",
+    component: ModernMinimalTemplate,
+    metadata: {
+      code: "modern-minimal",
+      name: "Modern Minimal",
+      description: "Clean, minimal design for modern event confirmations",
+      category: "event",
+      suggestedSections: ["hero", "eventDetails", "attachmentInfo", "cta"],
+      previewImageUrl: "/templates/modern-minimal-preview.png",
+      supportedLanguages: ["en", "de", "es", "fr"],
+      author: "L4YERCAK3",
+      version: "1.0.0",
+    },
+  },
+  "vip-exclusive": {
+    code: "vip-exclusive",
+    component: VIPExclusiveTemplate,
+    metadata: {
+      code: "vip-exclusive",
+      name: "VIP Exclusive",
+      description: "Premium VIP design for exclusive event confirmations",
+      category: "event",
+      suggestedSections: ["hero", "eventDetails", "attachmentInfo", "cta"],
+      previewImageUrl: "/templates/vip-exclusive-preview.png",
+      supportedLanguages: ["en", "de", "es", "fr"],
+      author: "L4YERCAK3",
+      version: "1.0.0",
+    },
   },
 };
 

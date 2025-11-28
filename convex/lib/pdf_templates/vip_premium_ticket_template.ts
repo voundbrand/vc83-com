@@ -49,29 +49,29 @@ export const VIP_PREMIUM_TICKET_TEMPLATE_HTML = `
 
             <div class="details-grid">
                 <div class="detail-item">
-                    <div class="detail-label">Event:</div>
+                    <div class="detail-label">{{t_event}}:</div>
                     <div class="detail-value">{{event_name}}</div>
                 </div>
 
                 <div class="detail-item">
-                    <div class="detail-label">Datum:</div>
+                    <div class="detail-label">{{t_date}}:</div>
                     <div class="detail-value">{{event_date}}</div>
                 </div>
 
                 <div class="detail-item">
-                    <div class="detail-label">Zeit:</div>
+                    <div class="detail-label">{{t_time}}:</div>
                     <div class="detail-value">{{event_time}}</div>
                 </div>
 
                 <div class="detail-item">
-                    <div class="detail-label">Ort:</div>
+                    <div class="detail-label">{{t_location}}:</div>
                     <div class="detail-value">{{event_location}}</div>
                 </div>
 
                 {%if guest_count and guest_count > 0%}
                 <div class="detail-item">
-                    <div class="detail-label">Gäste:</div>
-                    <div class="detail-value">+{{guest_count}} {%if guest_count > 1%}Gäste{%else%}Gast{%endif%}</div>
+                    <div class="detail-label">{{t_guests}}:</div>
+                    <div class="detail-value">+{{guest_count}} {%if guest_count > 1%}{{t_guests}}{%else%}{{t_guest}}{%endif%}</div>
                 </div>
                 {%endif%}
             </div>
@@ -79,10 +79,10 @@ export const VIP_PREMIUM_TICKET_TEMPLATE_HTML = `
 
         <!-- Guest Information -->
         <div class="guest-info">
-            <div class="guest-label">Reserviert für</div>
+            <div class="guest-label">{{t_reservedFor}}</div>
             <div class="guest-name">{{attendee_name}}</div>
             {%if guest_count and guest_count > 0%}
-            <div class="guest-count">+ {{guest_count}} {%if guest_count > 1%}Gäste{%else%}Gast{%endif%}</div>
+            <div class="guest-count">+ {{guest_count}} {%if guest_count > 1%}{{t_guests}}{%else%}{{t_guest}}{%endif%}</div>
             {%endif%}
         </div>
 
@@ -93,18 +93,18 @@ export const VIP_PREMIUM_TICKET_TEMPLATE_HTML = `
                      alt="Ticket QR Code"
                      class="qr-code" />
             </div>
-            <p class="qr-instruction">Bitte an der Tür vorzeigen</p>
+            <p class="qr-instruction">{{t_presentAtDoor}}</p>
             {%if ticket_number%}
-            <p class="ticket-id">Ticket-ID: {{ticket_number}}</p>
+            <p class="ticket-id">{{t_ticketId}}: {{ticket_number}}</p>
             {%endif%}
         </div>
 
         <!-- Footer -->
         <div class="footer">
             <div class="footer-line"></div>
-            <p class="footer-text">Privat · Offen · Echt</p>
+            <p class="footer-text">{{t_privateEvent}}</p>
             <p class="footer-disclaimer">
-                Dies ist eine kuratierte Veranstaltung. Der Zutritt ist nur mit gültigem Ticket möglich.
+                {{t_curatedEvent}}
             </p>
             {%if organization_name%}
             <p class="footer-org">{{organization_name}}</p>
@@ -142,7 +142,7 @@ body {
 
 .ticket-container {
     width: 100%;
-    padding: 15px;
+    padding: 10px;
     background: linear-gradient(135deg, #1a1412 0%, #2c1810 100%);
 }
 

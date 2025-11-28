@@ -56,23 +56,23 @@ export const MODERN_TICKET_TEMPLATE_HTML = `
         <!-- Event details list -->
         <div class="details-section">
             <div class="detail-row">
-                <div class="detail-label">Date</div>
+                <div class="detail-label">{{t_date}}</div>
                 <div class="detail-value">{{event_date}}</div>
             </div>
 
             <div class="detail-row">
-                <div class="detail-label">Time</div>
+                <div class="detail-label">{{t_time}}</div>
                 <div class="detail-value">{{event_time}}</div>
             </div>
 
             <div class="detail-row">
-                <div class="detail-label">Location</div>
+                <div class="detail-label">{{t_location}}</div>
                 <div class="detail-value">{{event_location}}</div>
             </div>
 
             {%if guest_count and guest_count > 0%}
             <div class="detail-row">
-                <div class="detail-label">Guests</div>
+                <div class="detail-label">{{t_guests}}</div>
                 <div class="detail-value">+{{guest_count}}</div>
             </div>
             {%endif%}
@@ -83,7 +83,7 @@ export const MODERN_TICKET_TEMPLATE_HTML = `
 
         <!-- Ticket holder -->
         <div class="holder-section">
-            <div class="holder-label">Ticket Holder</div>
+            <div class="holder-label">{{t_ticketHolder}}</div>
             <div class="holder-name">{{attendee_name}}</div>
             {%if attendee_email%}
                 <div class="holder-email">{{attendee_email}}</div>
@@ -94,26 +94,26 @@ export const MODERN_TICKET_TEMPLATE_HTML = `
         {%if order_id%}
         <div class="divider"></div>
         <div class="order-section">
-            <div class="order-label">Order Summary</div>
+            <div class="order-label">{{t_orderSummary}}</div>
             <div class="order-details">
                 <div class="order-row">
-                    <span>Order #{{order_id}}</span>
+                    <span>{{t_orderNumber}}{{order_id}}</span>
                 </div>
                 <div class="order-row">
-                    <span>Purchased: {{order_date}}</span>
+                    <span>{{t_purchased}}: {{order_date}}</span>
                 </div>
                 <div class="order-row">
-                    <span>Subtotal:</span>
+                    <span>{{t_subtotal}}:</span>
                     <span>{{currency}} {{net_price}}</span>
                 </div>
                 {%if tax_amount and tax_amount > 0%}
                 <div class="order-row">
-                    <span>Tax ({{tax_rate}}%):</span>
+                    <span>{{t_tax}} ({{tax_rate}}%):</span>
                     <span>{{currency}} {{tax_amount}}</span>
                 </div>
                 {%endif%}
                 <div class="order-row total-row">
-                    <span>Total:</span>
+                    <span>{{t_total}}:</span>
                     <span>{{currency}} {{total_price}}</span>
                 </div>
             </div>
@@ -126,14 +126,14 @@ export const MODERN_TICKET_TEMPLATE_HTML = `
                 <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={{qr_code_data}}"
                      alt="Ticket QR Code"
                      class="qr-code" />
-                <div class="qr-label">Scan to verify</div>
+                <div class="qr-label">{{t_scanToVerify}}</div>
             </div>
         </div>
 
         <!-- Ticket number -->
         {%if ticket_number%}
         <div class="ticket-number-section">
-            <span class="ticket-number-label">Ticket:</span>
+            <span class="ticket-number-label">{{t_ticketHash}}</span>
             <span class="ticket-number-value">{{ticket_number}}</span>
         </div>
         {%endif%}
@@ -177,7 +177,7 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
     font-size: 11pt;
     line-height: 1.6;
-    padding: 40px;
+    padding: 10px;
 }
 
 .ticket-container {

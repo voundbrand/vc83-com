@@ -52,9 +52,9 @@ export const ELEGANT_GOLD_TICKET_TEMPLATE_HTML = `
         {%if event_sponsors%}
         <div class="sponsors-section">
             {%if event_sponsors|length == 1%}
-                <p>Presented by {{event_sponsors[0].name}}</p>
+                <p>{{t_presentedBy}} {{event_sponsors[0].name}}</p>
             {%else%}
-                <p>Presented by:</p>
+                <p>{{t_presentedBy}}:</p>
                 <ul>
                 {%for sponsor in event_sponsors%}
                     <li>
@@ -75,31 +75,31 @@ export const ELEGANT_GOLD_TICKET_TEMPLATE_HTML = `
             <!-- Left column: Event details -->
             <div class="event-details">
                 <div class="detail-box">
-                    <div class="detail-label">Date:</div>
+                    <div class="detail-label">{{t_date}}:</div>
                     <div class="detail-value">{{event_date}}</div>
                 </div>
 
                 <div class="detail-box">
-                    <div class="detail-label">Time:</div>
+                    <div class="detail-label">{{t_time}}:</div>
                     <div class="detail-value">{{event_time}}</div>
                 </div>
 
                 <div class="detail-box">
-                    <div class="detail-label">Venue:</div>
+                    <div class="detail-label">{{t_venue}}:</div>
                     <div class="detail-value location-name">{{event_location}}</div>
                     <div class="detail-value location-address">{{event_address}}</div>
                 </div>
 
                 {%if guest_count and guest_count > 0%}
                 <div class="detail-box">
-                    <div class="detail-label">Guests:</div>
+                    <div class="detail-label">{{t_guests}}:</div>
                     <div class="detail-value">+{{guest_count}}</div>
                 </div>
                 {%endif%}
 
                 <!-- Ticket holder information -->
                 <div class="holder-section">
-                    <div class="holder-label">Ticket Holder</div>
+                    <div class="holder-label">{{t_ticketHolder}}</div>
                     <div class="holder-name">{{attendee_name}}</div>
                     {%if attendee_email%}
                         <div class="holder-email">{{attendee_email}}</div>
@@ -113,7 +113,7 @@ export const ELEGANT_GOLD_TICKET_TEMPLATE_HTML = `
                     <img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data={{qr_code_data}}"
                          alt="Ticket QR Code"
                          class="qr-code" />
-                    <div class="qr-label">SCAN TO VERIFY</div>
+                    <div class="qr-label">{{t_scanToVerify}}</div>
                 </div>
             </div>
         </div>
@@ -121,7 +121,7 @@ export const ELEGANT_GOLD_TICKET_TEMPLATE_HTML = `
         <!-- Ticket number barcode -->
         {%if ticket_number%}
         <div class="barcode-section">
-            <div class="barcode-label">Ticket Number</div>
+            <div class="barcode-label">{{t_ticketNumber}}</div>
             <div class="barcode-value">{{ticket_number}}</div>
         </div>
         {%endif%}
@@ -169,12 +169,13 @@ body {
     font-family: 'Garamond', 'Georgia', serif;
     font-size: 11pt;
     line-height: 1.6;
-    padding: 0;
+    padding: 10px;
 }
 
 .ticket-container {
     background-color: var(--dark-bg);
     position: relative;
+    padding: 10px;
 }
 
 /* Gold accent bars */

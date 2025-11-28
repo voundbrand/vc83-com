@@ -130,6 +130,468 @@ export default mutation(async ({ db }) => {
     if (inserted) insertedCount++;
   }
 
+  // ============================================================================
+  // ENGLISH TRANSLATIONS (Ticket)
+  // ============================================================================
+
+  const englishTicketTranslations = [
+    // Field labels
+    { key: "pdf.ticket.attendee", value: "Attendee" },
+    { key: "pdf.ticket.ticketHolder", value: "Ticket Holder" },
+    { key: "pdf.ticket.date", value: "Date" },
+    { key: "pdf.ticket.dateTime", value: "Date & Time" },
+    { key: "pdf.ticket.time", value: "Time" },
+    { key: "pdf.ticket.location", value: "Location" },
+    { key: "pdf.ticket.venue", value: "Venue" },
+    { key: "pdf.ticket.event", value: "Event" },
+    { key: "pdf.ticket.guests", value: "Guests" },
+    { key: "pdf.ticket.guest", value: "Guest" },
+    { key: "pdf.ticket.ticketNumber", value: "Ticket Number" },
+    { key: "pdf.ticket.ticketId", value: "Ticket ID" },
+    { key: "pdf.ticket.ticketInfo", value: "Ticket Information" },
+    { key: "pdf.ticket.ticketType", value: "Type" },
+    { key: "pdf.ticket.ticketHash", value: "Ticket #" },
+
+    // Order summary
+    { key: "pdf.ticket.orderSummary", value: "Order Summary" },
+    { key: "pdf.ticket.orderNumber", value: "Order #" },
+    { key: "pdf.ticket.purchased", value: "Purchased" },
+    { key: "pdf.ticket.subtotal", value: "Subtotal" },
+    { key: "pdf.ticket.tax", value: "Tax" },
+    { key: "pdf.ticket.total", value: "Total" },
+
+    // QR and verification
+    { key: "pdf.ticket.scanToVerify", value: "Scan to verify" },
+    { key: "pdf.ticket.scanAtEntrance", value: "Scan at entrance for check-in" },
+    { key: "pdf.ticket.presentTicket", value: "Please present this ticket (digital or printed) at the event entrance." },
+    { key: "pdf.ticket.presentAtDoor", value: "Please show at the door" },
+
+    // Sections
+    { key: "pdf.ticket.eventPolicies", value: "Event Policies" },
+    { key: "pdf.ticket.contactInfo", value: "Contact Information" },
+    { key: "pdf.ticket.reservedFor", value: "Reserved for" },
+    { key: "pdf.ticket.presentedBy", value: "Presented by" },
+
+    // Policy items
+    { key: "pdf.ticket.arrival", value: "Arrival" },
+    { key: "pdf.ticket.arrivalPolicy", value: "Please arrive 30 minutes before the event start time for registration and check-in." },
+    { key: "pdf.ticket.identification", value: "Identification" },
+    { key: "pdf.ticket.identificationPolicy", value: "Valid photo ID may be required for entrance." },
+    { key: "pdf.ticket.transfers", value: "Transfers" },
+    { key: "pdf.ticket.transfersPolicy", value: "Tickets are non-transferable unless authorized by the event organizer." },
+    { key: "pdf.ticket.refunds", value: "Refunds" },
+    { key: "pdf.ticket.refundsPolicy", value: "Refund policy varies by event. Contact the organizer for details." },
+    { key: "pdf.ticket.accessibility", value: "Accessibility" },
+    { key: "pdf.ticket.accessibilityPolicy", value: "For accessibility accommodations, please contact us at least 48 hours before the event." },
+    { key: "pdf.ticket.photography", value: "Photography" },
+    { key: "pdf.ticket.photographyPolicy", value: "By attending, you consent to being photographed or recorded for promotional purposes." },
+
+    // Footer and closing
+    { key: "pdf.ticket.forQuestions", value: "For questions or support regarding this event ticket, please contact" },
+    { key: "pdf.ticket.lookForward", value: "We look forward to seeing you at the event!" },
+    { key: "pdf.ticket.privateEvent", value: "Private · Open · Real" },
+    { key: "pdf.ticket.curatedEvent", value: "This is a curated event. Entry is only possible with a valid ticket." },
+  ];
+
+  for (const t of englishTicketTranslations) {
+    const inserted = await insertTranslationIfNew(
+      db,
+      existingKeys,
+      systemOrg._id,
+      systemUser._id,
+      t.key,
+      t.value,
+      "en",
+      category
+    );
+    if (inserted) insertedCount++;
+  }
+
+  // ============================================================================
+  // GERMAN TRANSLATIONS (Ticket)
+  // ============================================================================
+
+  const germanTicketTranslations = [
+    // Field labels
+    { key: "pdf.ticket.attendee", value: "Teilnehmer" },
+    { key: "pdf.ticket.ticketHolder", value: "Ticketinhaber" },
+    { key: "pdf.ticket.date", value: "Datum" },
+    { key: "pdf.ticket.dateTime", value: "Datum & Uhrzeit" },
+    { key: "pdf.ticket.time", value: "Zeit" },
+    { key: "pdf.ticket.location", value: "Ort" },
+    { key: "pdf.ticket.venue", value: "Veranstaltungsort" },
+    { key: "pdf.ticket.event", value: "Veranstaltung" },
+    { key: "pdf.ticket.guests", value: "Gäste" },
+    { key: "pdf.ticket.guest", value: "Gast" },
+    { key: "pdf.ticket.ticketNumber", value: "Ticketnummer" },
+    { key: "pdf.ticket.ticketId", value: "Ticket-ID" },
+    { key: "pdf.ticket.ticketInfo", value: "Ticketinformationen" },
+    { key: "pdf.ticket.ticketType", value: "Typ" },
+    { key: "pdf.ticket.ticketHash", value: "Ticket-Nr." },
+
+    // Order summary
+    { key: "pdf.ticket.orderSummary", value: "Bestellübersicht" },
+    { key: "pdf.ticket.orderNumber", value: "Bestellung-Nr." },
+    { key: "pdf.ticket.purchased", value: "Gekauft" },
+    { key: "pdf.ticket.subtotal", value: "Zwischensumme" },
+    { key: "pdf.ticket.tax", value: "Steuer" },
+    { key: "pdf.ticket.total", value: "Gesamt" },
+
+    // QR and verification
+    { key: "pdf.ticket.scanToVerify", value: "Scannen zum Verifizieren" },
+    { key: "pdf.ticket.scanAtEntrance", value: "Am Eingang zum Einchecken scannen" },
+    { key: "pdf.ticket.presentTicket", value: "Bitte zeigen Sie dieses Ticket (digital oder gedruckt) am Veranstaltungseingang vor." },
+    { key: "pdf.ticket.presentAtDoor", value: "Bitte an der Tür vorzeigen" },
+
+    // Sections
+    { key: "pdf.ticket.eventPolicies", value: "Veranstaltungsrichtlinien" },
+    { key: "pdf.ticket.contactInfo", value: "Kontaktinformationen" },
+    { key: "pdf.ticket.reservedFor", value: "Reserviert für" },
+    { key: "pdf.ticket.presentedBy", value: "Präsentiert von" },
+
+    // Policy items
+    { key: "pdf.ticket.arrival", value: "Ankunft" },
+    { key: "pdf.ticket.arrivalPolicy", value: "Bitte kommen Sie 30 Minuten vor Veranstaltungsbeginn zur Registrierung und zum Check-in." },
+    { key: "pdf.ticket.identification", value: "Identifikation" },
+    { key: "pdf.ticket.identificationPolicy", value: "Ein gültiger Lichtbildausweis kann für den Einlass erforderlich sein." },
+    { key: "pdf.ticket.transfers", value: "Übertragungen" },
+    { key: "pdf.ticket.transfersPolicy", value: "Tickets sind nicht übertragbar, es sei denn, dies wird vom Veranstalter genehmigt." },
+    { key: "pdf.ticket.refunds", value: "Rückerstattungen" },
+    { key: "pdf.ticket.refundsPolicy", value: "Die Rückerstattungsrichtlinie variiert je nach Veranstaltung. Kontaktieren Sie den Veranstalter für Details." },
+    { key: "pdf.ticket.accessibility", value: "Barrierefreiheit" },
+    { key: "pdf.ticket.accessibilityPolicy", value: "Für barrierefreie Anpassungen kontaktieren Sie uns bitte mindestens 48 Stunden vor der Veranstaltung." },
+    { key: "pdf.ticket.photography", value: "Fotografie" },
+    { key: "pdf.ticket.photographyPolicy", value: "Durch Ihre Teilnahme stimmen Sie zu, für Werbezwecke fotografiert oder aufgenommen zu werden." },
+
+    // Footer and closing
+    { key: "pdf.ticket.forQuestions", value: "Bei Fragen oder Unterstützung zu diesem Ticket kontaktieren Sie bitte" },
+    { key: "pdf.ticket.lookForward", value: "Wir freuen uns darauf, Sie bei der Veranstaltung zu sehen!" },
+    { key: "pdf.ticket.privateEvent", value: "Privat · Offen · Echt" },
+    { key: "pdf.ticket.curatedEvent", value: "Dies ist eine kuratierte Veranstaltung. Der Zutritt ist nur mit gültigem Ticket möglich." },
+  ];
+
+  for (const t of germanTicketTranslations) {
+    const inserted = await insertTranslationIfNew(
+      db,
+      existingKeys,
+      systemOrg._id,
+      systemUser._id,
+      t.key,
+      t.value,
+      "de",
+      category
+    );
+    if (inserted) insertedCount++;
+  }
+
+  // ============================================================================
+  // SPANISH TRANSLATIONS (Ticket)
+  // ============================================================================
+
+  const spanishTicketTranslations = [
+    // Field labels
+    { key: "pdf.ticket.attendee", value: "Asistente" },
+    { key: "pdf.ticket.ticketHolder", value: "Titular del Ticket" },
+    { key: "pdf.ticket.date", value: "Fecha" },
+    { key: "pdf.ticket.dateTime", value: "Fecha y Hora" },
+    { key: "pdf.ticket.time", value: "Hora" },
+    { key: "pdf.ticket.location", value: "Ubicación" },
+    { key: "pdf.ticket.venue", value: "Lugar" },
+    { key: "pdf.ticket.event", value: "Evento" },
+    { key: "pdf.ticket.guests", value: "Invitados" },
+    { key: "pdf.ticket.guest", value: "Invitado" },
+    { key: "pdf.ticket.ticketNumber", value: "Número de Ticket" },
+    { key: "pdf.ticket.ticketId", value: "ID de Ticket" },
+    { key: "pdf.ticket.ticketInfo", value: "Información del Ticket" },
+    { key: "pdf.ticket.ticketType", value: "Tipo" },
+    { key: "pdf.ticket.ticketHash", value: "Ticket #" },
+
+    // Order summary
+    { key: "pdf.ticket.orderSummary", value: "Resumen del Pedido" },
+    { key: "pdf.ticket.orderNumber", value: "Pedido #" },
+    { key: "pdf.ticket.purchased", value: "Comprado" },
+    { key: "pdf.ticket.subtotal", value: "Subtotal" },
+    { key: "pdf.ticket.tax", value: "Impuesto" },
+    { key: "pdf.ticket.total", value: "Total" },
+
+    // QR and verification
+    { key: "pdf.ticket.scanToVerify", value: "Escanear para verificar" },
+    { key: "pdf.ticket.scanAtEntrance", value: "Escanear en la entrada para registrarse" },
+    { key: "pdf.ticket.presentTicket", value: "Por favor presente este ticket (digital o impreso) en la entrada del evento." },
+    { key: "pdf.ticket.presentAtDoor", value: "Por favor muestre en la puerta" },
+
+    // Sections
+    { key: "pdf.ticket.eventPolicies", value: "Políticas del Evento" },
+    { key: "pdf.ticket.contactInfo", value: "Información de Contacto" },
+    { key: "pdf.ticket.reservedFor", value: "Reservado para" },
+    { key: "pdf.ticket.presentedBy", value: "Presentado por" },
+
+    // Policy items
+    { key: "pdf.ticket.arrival", value: "Llegada" },
+    { key: "pdf.ticket.arrivalPolicy", value: "Por favor llegue 30 minutos antes del inicio del evento para el registro y check-in." },
+    { key: "pdf.ticket.identification", value: "Identificación" },
+    { key: "pdf.ticket.identificationPolicy", value: "Puede requerirse una identificación con foto válida para la entrada." },
+    { key: "pdf.ticket.transfers", value: "Transferencias" },
+    { key: "pdf.ticket.transfersPolicy", value: "Los tickets no son transferibles a menos que sea autorizado por el organizador del evento." },
+    { key: "pdf.ticket.refunds", value: "Reembolsos" },
+    { key: "pdf.ticket.refundsPolicy", value: "La política de reembolso varía según el evento. Contacte al organizador para más detalles." },
+    { key: "pdf.ticket.accessibility", value: "Accesibilidad" },
+    { key: "pdf.ticket.accessibilityPolicy", value: "Para adaptaciones de accesibilidad, por favor contáctenos al menos 48 horas antes del evento." },
+    { key: "pdf.ticket.photography", value: "Fotografía" },
+    { key: "pdf.ticket.photographyPolicy", value: "Al asistir, usted consiente ser fotografiado o grabado con fines promocionales." },
+
+    // Footer and closing
+    { key: "pdf.ticket.forQuestions", value: "Para preguntas o soporte sobre este ticket, por favor contacte" },
+    { key: "pdf.ticket.lookForward", value: "¡Esperamos verle en el evento!" },
+    { key: "pdf.ticket.privateEvent", value: "Privado · Abierto · Real" },
+    { key: "pdf.ticket.curatedEvent", value: "Este es un evento curado. La entrada solo es posible con un ticket válido." },
+  ];
+
+  for (const t of spanishTicketTranslations) {
+    const inserted = await insertTranslationIfNew(
+      db,
+      existingKeys,
+      systemOrg._id,
+      systemUser._id,
+      t.key,
+      t.value,
+      "es",
+      category
+    );
+    if (inserted) insertedCount++;
+  }
+
+  // ============================================================================
+  // FRENCH TRANSLATIONS (Ticket)
+  // ============================================================================
+
+  const frenchTicketTranslations = [
+    // Field labels
+    { key: "pdf.ticket.attendee", value: "Participant" },
+    { key: "pdf.ticket.ticketHolder", value: "Titulaire du Billet" },
+    { key: "pdf.ticket.date", value: "Date" },
+    { key: "pdf.ticket.dateTime", value: "Date et Heure" },
+    { key: "pdf.ticket.time", value: "Heure" },
+    { key: "pdf.ticket.location", value: "Lieu" },
+    { key: "pdf.ticket.venue", value: "Salle" },
+    { key: "pdf.ticket.event", value: "Événement" },
+    { key: "pdf.ticket.guests", value: "Invités" },
+    { key: "pdf.ticket.guest", value: "Invité" },
+    { key: "pdf.ticket.ticketNumber", value: "Numéro de Billet" },
+    { key: "pdf.ticket.ticketId", value: "ID de Billet" },
+    { key: "pdf.ticket.ticketInfo", value: "Informations du Billet" },
+    { key: "pdf.ticket.ticketType", value: "Type" },
+    { key: "pdf.ticket.ticketHash", value: "Billet #" },
+
+    // Order summary
+    { key: "pdf.ticket.orderSummary", value: "Résumé de la Commande" },
+    { key: "pdf.ticket.orderNumber", value: "Commande #" },
+    { key: "pdf.ticket.purchased", value: "Acheté" },
+    { key: "pdf.ticket.subtotal", value: "Sous-total" },
+    { key: "pdf.ticket.tax", value: "Taxe" },
+    { key: "pdf.ticket.total", value: "Total" },
+
+    // QR and verification
+    { key: "pdf.ticket.scanToVerify", value: "Scanner pour vérifier" },
+    { key: "pdf.ticket.scanAtEntrance", value: "Scanner à l'entrée pour l'enregistrement" },
+    { key: "pdf.ticket.presentTicket", value: "Veuillez présenter ce billet (numérique ou imprimé) à l'entrée de l'événement." },
+    { key: "pdf.ticket.presentAtDoor", value: "Veuillez montrer à la porte" },
+
+    // Sections
+    { key: "pdf.ticket.eventPolicies", value: "Politiques de l'Événement" },
+    { key: "pdf.ticket.contactInfo", value: "Informations de Contact" },
+    { key: "pdf.ticket.reservedFor", value: "Réservé pour" },
+    { key: "pdf.ticket.presentedBy", value: "Présenté par" },
+
+    // Policy items
+    { key: "pdf.ticket.arrival", value: "Arrivée" },
+    { key: "pdf.ticket.arrivalPolicy", value: "Veuillez arriver 30 minutes avant le début de l'événement pour l'inscription et l'enregistrement." },
+    { key: "pdf.ticket.identification", value: "Identification" },
+    { key: "pdf.ticket.identificationPolicy", value: "Une pièce d'identité avec photo valide peut être requise pour l'entrée." },
+    { key: "pdf.ticket.transfers", value: "Transferts" },
+    { key: "pdf.ticket.transfersPolicy", value: "Les billets ne sont pas transférables sauf autorisation de l'organisateur de l'événement." },
+    { key: "pdf.ticket.refunds", value: "Remboursements" },
+    { key: "pdf.ticket.refundsPolicy", value: "La politique de remboursement varie selon l'événement. Contactez l'organisateur pour plus de détails." },
+    { key: "pdf.ticket.accessibility", value: "Accessibilité" },
+    { key: "pdf.ticket.accessibilityPolicy", value: "Pour les aménagements d'accessibilité, veuillez nous contacter au moins 48 heures avant l'événement." },
+    { key: "pdf.ticket.photography", value: "Photographie" },
+    { key: "pdf.ticket.photographyPolicy", value: "En assistant, vous consentez à être photographié ou enregistré à des fins promotionnelles." },
+
+    // Footer and closing
+    { key: "pdf.ticket.forQuestions", value: "Pour des questions ou un soutien concernant ce billet, veuillez contacter" },
+    { key: "pdf.ticket.lookForward", value: "Nous avons hâte de vous voir à l'événement!" },
+    { key: "pdf.ticket.privateEvent", value: "Privé · Ouvert · Authentique" },
+    { key: "pdf.ticket.curatedEvent", value: "Il s'agit d'un événement organisé. L'entrée n'est possible qu'avec un billet valide." },
+  ];
+
+  for (const t of frenchTicketTranslations) {
+    const inserted = await insertTranslationIfNew(
+      db,
+      existingKeys,
+      systemOrg._id,
+      systemUser._id,
+      t.key,
+      t.value,
+      "fr",
+      category
+    );
+    if (inserted) insertedCount++;
+  }
+
+  // ============================================================================
+  // POLISH TRANSLATIONS (Ticket)
+  // ============================================================================
+
+  const polishTicketTranslations = [
+    // Field labels
+    { key: "pdf.ticket.attendee", value: "Uczestnik" },
+    { key: "pdf.ticket.ticketHolder", value: "Posiadacz Biletu" },
+    { key: "pdf.ticket.date", value: "Data" },
+    { key: "pdf.ticket.dateTime", value: "Data i Godzina" },
+    { key: "pdf.ticket.time", value: "Godzina" },
+    { key: "pdf.ticket.location", value: "Lokalizacja" },
+    { key: "pdf.ticket.venue", value: "Miejsce" },
+    { key: "pdf.ticket.event", value: "Wydarzenie" },
+    { key: "pdf.ticket.guests", value: "Goście" },
+    { key: "pdf.ticket.guest", value: "Gość" },
+    { key: "pdf.ticket.ticketNumber", value: "Numer Biletu" },
+    { key: "pdf.ticket.ticketId", value: "ID Biletu" },
+    { key: "pdf.ticket.ticketInfo", value: "Informacje o Bilecie" },
+    { key: "pdf.ticket.ticketType", value: "Typ" },
+    { key: "pdf.ticket.ticketHash", value: "Bilet #" },
+
+    // Order summary
+    { key: "pdf.ticket.orderSummary", value: "Podsumowanie Zamówienia" },
+    { key: "pdf.ticket.orderNumber", value: "Zamówienie #" },
+    { key: "pdf.ticket.purchased", value: "Zakupiono" },
+    { key: "pdf.ticket.subtotal", value: "Suma częściowa" },
+    { key: "pdf.ticket.tax", value: "Podatek" },
+    { key: "pdf.ticket.total", value: "Suma" },
+
+    // QR and verification
+    { key: "pdf.ticket.scanToVerify", value: "Skanuj aby zweryfikować" },
+    { key: "pdf.ticket.scanAtEntrance", value: "Skanuj przy wejściu, aby się zameldować" },
+    { key: "pdf.ticket.presentTicket", value: "Proszę okazać ten bilet (cyfrowy lub wydrukowany) przy wejściu na wydarzenie." },
+    { key: "pdf.ticket.presentAtDoor", value: "Proszę pokazać przy drzwiach" },
+
+    // Sections
+    { key: "pdf.ticket.eventPolicies", value: "Zasady Wydarzenia" },
+    { key: "pdf.ticket.contactInfo", value: "Informacje Kontaktowe" },
+    { key: "pdf.ticket.reservedFor", value: "Zarezerwowane dla" },
+    { key: "pdf.ticket.presentedBy", value: "Prezentowane przez" },
+
+    // Policy items
+    { key: "pdf.ticket.arrival", value: "Przybycie" },
+    { key: "pdf.ticket.arrivalPolicy", value: "Prosimy przybyć 30 minut przed rozpoczęciem wydarzenia na rejestrację i zameldowanie." },
+    { key: "pdf.ticket.identification", value: "Identyfikacja" },
+    { key: "pdf.ticket.identificationPolicy", value: "Ważny dowód tożsamości ze zdjęciem może być wymagany przy wejściu." },
+    { key: "pdf.ticket.transfers", value: "Przekazywanie" },
+    { key: "pdf.ticket.transfersPolicy", value: "Bilety są nieprzenośne, chyba że organizator wydarzenia wyrazi zgodę." },
+    { key: "pdf.ticket.refunds", value: "Zwroty" },
+    { key: "pdf.ticket.refundsPolicy", value: "Zasady zwrotu różnią się w zależności od wydarzenia. Skontaktuj się z organizatorem w celu uzyskania szczegółów." },
+    { key: "pdf.ticket.accessibility", value: "Dostępność" },
+    { key: "pdf.ticket.accessibilityPolicy", value: "W celu zapewnienia dostosowań dla osób niepełnosprawnych prosimy o kontakt co najmniej 48 godzin przed wydarzeniem." },
+    { key: "pdf.ticket.photography", value: "Fotografia" },
+    { key: "pdf.ticket.photographyPolicy", value: "Uczestnicząc, wyrażasz zgodę na fotografowanie lub nagrywanie w celach promocyjnych." },
+
+    // Footer and closing
+    { key: "pdf.ticket.forQuestions", value: "W razie pytań lub wsparcia dotyczącego tego biletu prosimy o kontakt" },
+    { key: "pdf.ticket.lookForward", value: "Nie możemy się doczekać spotkania na wydarzeniu!" },
+    { key: "pdf.ticket.privateEvent", value: "Prywatne · Otwarte · Prawdziwe" },
+    { key: "pdf.ticket.curatedEvent", value: "To jest wydarzenie kuratorskie. Wejście jest możliwe tylko z ważnym biletem." },
+  ];
+
+  for (const t of polishTicketTranslations) {
+    const inserted = await insertTranslationIfNew(
+      db,
+      existingKeys,
+      systemOrg._id,
+      systemUser._id,
+      t.key,
+      t.value,
+      "pl",
+      category
+    );
+    if (inserted) insertedCount++;
+  }
+
+  // ============================================================================
+  // JAPANESE TRANSLATIONS (Ticket)
+  // ============================================================================
+
+  const japaneseTicketTranslations = [
+    // Field labels
+    { key: "pdf.ticket.attendee", value: "参加者" },
+    { key: "pdf.ticket.ticketHolder", value: "チケット所有者" },
+    { key: "pdf.ticket.date", value: "日付" },
+    { key: "pdf.ticket.dateTime", value: "日時" },
+    { key: "pdf.ticket.time", value: "時間" },
+    { key: "pdf.ticket.location", value: "場所" },
+    { key: "pdf.ticket.venue", value: "会場" },
+    { key: "pdf.ticket.event", value: "イベント" },
+    { key: "pdf.ticket.guests", value: "ゲスト" },
+    { key: "pdf.ticket.guest", value: "ゲスト" },
+    { key: "pdf.ticket.ticketNumber", value: "チケット番号" },
+    { key: "pdf.ticket.ticketId", value: "チケットID" },
+    { key: "pdf.ticket.ticketInfo", value: "チケット情報" },
+    { key: "pdf.ticket.ticketType", value: "種類" },
+    { key: "pdf.ticket.ticketHash", value: "チケット #" },
+
+    // Order summary
+    { key: "pdf.ticket.orderSummary", value: "注文概要" },
+    { key: "pdf.ticket.orderNumber", value: "注文番号" },
+    { key: "pdf.ticket.purchased", value: "購入日" },
+    { key: "pdf.ticket.subtotal", value: "小計" },
+    { key: "pdf.ticket.tax", value: "税金" },
+    { key: "pdf.ticket.total", value: "合計" },
+
+    // QR and verification
+    { key: "pdf.ticket.scanToVerify", value: "確認のためにスキャン" },
+    { key: "pdf.ticket.scanAtEntrance", value: "入場時にチェックインのためにスキャン" },
+    { key: "pdf.ticket.presentTicket", value: "このチケット（デジタルまたは印刷）をイベント入場時に提示してください。" },
+    { key: "pdf.ticket.presentAtDoor", value: "ドアでご提示ください" },
+
+    // Sections
+    { key: "pdf.ticket.eventPolicies", value: "イベントポリシー" },
+    { key: "pdf.ticket.contactInfo", value: "連絡先情報" },
+    { key: "pdf.ticket.reservedFor", value: "予約済み" },
+    { key: "pdf.ticket.presentedBy", value: "主催" },
+
+    // Policy items
+    { key: "pdf.ticket.arrival", value: "到着" },
+    { key: "pdf.ticket.arrivalPolicy", value: "受付とチェックインのため、イベント開始の30分前にお越しください。" },
+    { key: "pdf.ticket.identification", value: "本人確認" },
+    { key: "pdf.ticket.identificationPolicy", value: "入場時に有効な写真付き身分証明書が必要な場合があります。" },
+    { key: "pdf.ticket.transfers", value: "譲渡" },
+    { key: "pdf.ticket.transfersPolicy", value: "イベント主催者の許可がない限り、チケットは譲渡できません。" },
+    { key: "pdf.ticket.refunds", value: "払い戻し" },
+    { key: "pdf.ticket.refundsPolicy", value: "払い戻しポリシーはイベントによって異なります。詳細については主催者にお問い合わせください。" },
+    { key: "pdf.ticket.accessibility", value: "アクセシビリティ" },
+    { key: "pdf.ticket.accessibilityPolicy", value: "アクセシビリティの配慮については、イベントの48時間前までにご連絡ください。" },
+    { key: "pdf.ticket.photography", value: "写真撮影" },
+    { key: "pdf.ticket.photographyPolicy", value: "参加することにより、宣伝目的で撮影または録画されることに同意したものとみなされます。" },
+
+    // Footer and closing
+    { key: "pdf.ticket.forQuestions", value: "このチケットに関するご質問やサポートについては、こちらまでお問い合わせください" },
+    { key: "pdf.ticket.lookForward", value: "イベントでお会いできることを楽しみにしています！" },
+    { key: "pdf.ticket.privateEvent", value: "プライベート · オープン · 本物" },
+    { key: "pdf.ticket.curatedEvent", value: "これは厳選されたイベントです。有効なチケットでのみ入場可能です。" },
+  ];
+
+  for (const t of japaneseTicketTranslations) {
+    const inserted = await insertTranslationIfNew(
+      db,
+      existingKeys,
+      systemOrg._id,
+      systemUser._id,
+      t.key,
+      t.value,
+      "ja",
+      category
+    );
+    if (inserted) insertedCount++;
+  }
+
   console.log(`✅ PDF template translations seeded: ${insertedCount} new translations`);
   return { success: true, inserted: insertedCount };
 });

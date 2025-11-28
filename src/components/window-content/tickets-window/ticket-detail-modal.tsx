@@ -9,7 +9,7 @@ import { useOrganizationCurrency } from "@/hooks/use-organization-currency";
 import { useFormatCurrency } from "@/hooks/use-format-currency";
 import Image from "next/image";
 import QRCode from "qrcode";
-import { useAction } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { EmailSendModal, type EmailSendConfig, type EmailSendResult } from "@/components/email-send-modal";
@@ -25,13 +25,58 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
   const [qrCode, setQrCode] = useState<string>("");
   const [isDownloading, setIsDownloading] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>("");
+  const [latestPdfUrl, setLatestPdfUrl] = useState<string | undefined>(
+    () => (ticket.customProperties?.pdfUrl as string | undefined)
+  );
 
   // Email state - simplified to just show/hide modal
   const [showEmailModal, setShowEmailModal] = useState(false);
 
+  // Available ticket templates
+  const ticketTemplates = [
+    { code: "ticket_professional_v1", name: "Professional (Uses Your Branding)" },
+    { code: "ticket_modern_v1", name: "Modern (Uses Your Branding)" },
+    { code: "ticket_retro_v1", name: "Retro (Uses Your Branding)" },
+    { code: "ticket_elegant_gold_v1", name: "Elegant Gold (Uses Your Branding)" },
+    { code: "ticket_vip_premium_v1", name: "VIP Premium (Fixed Gold Colors)" },
+  ];
+
   // Get current user and organization
   const { user, sessionId: userSessionId } = useAuth();
   const currentOrgId = user?.defaultOrgId;
+
+  // Load organization locale settings for email language
+  const orgLocaleSettings = useQuery(
+    api.organizationOntology.getOrganizationSettings,
+    currentOrgId ? { organizationId: currentOrgId, subtype: "locale" } : "skip"
+  );
+
+  // Extract language from organization settings (fallback to "de")
+  const organizationLanguage = (() => {
+    console.log("🌍 [Email Language] Organization locale settings:", orgLocaleSettings);
+    if (!orgLocaleSettings || Array.isArray(orgLocaleSettings)) {
+      console.log("🌍 [Email Language] No settings found, defaulting to: de");
+      return "de";
+    }
+    const lang = orgLocaleSettings.customProperties?.language as string | undefined;
+    console.log("🌍 [Email Language] Raw language from org settings:", lang);
+    if (!lang) {
+      console.log("🌍 [Email Language] Language not set, defaulting to: de");
+      return "de";
+    }
+    // Normalize language code (e.g., "de-DE" → "de", "en-US" → "en")
+    const normalized = lang.toLowerCase().split("-")[0];
+    console.log("🌍 [Email Language] Normalized language:", normalized);
+    // Ensure it's a supported language
+    if (["de", "en", "es", "fr"].includes(normalized)) {
+      console.log("🌍 [Email Language] ✅ Using language:", normalized);
+      return normalized as "de" | "en" | "es" | "fr";
+    }
+    console.log("🌍 [Email Language] Unsupported language, defaulting to: de");
+    return "de";
+  })();
 
   // PDF generation actions
   const generateTicketPDF = useAction(api.pdfGeneration.generateTicketPDF);
@@ -121,9 +166,13 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
     const customProps = ticket.customProperties || {};
     const pdfUrl = customProps.pdfUrl as string | undefined;
 
-    // If PDF URL exists, open it directly
+    // If PDF URL exists, trigger download
     if (pdfUrl) {
-      window.open(pdfUrl, "_blank");
+      const link = document.createElement("a");
+      link.href = pdfUrl;
+      link.download = `ticket-${ticket._id.substring(0, 12)}.pdf`;
+      link.target = "_blank"; // Fallback if download attribute not supported
+      link.click();
       return;
     }
 
@@ -163,7 +212,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
     }
   };
 
-  const handleRegeneratePDF = async () => {
+  const handleRegeneratePDF = async (templateCode?: string) => {
     if (!userSessionId) return;
 
     setIsRegenerating(true);
@@ -171,10 +220,16 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
       const pdfAttachment = await regenerateTicketPDF({
         sessionId: userSessionId,
         ticketId: ticket._id,
+        templateCode: templateCode || selectedTemplate || undefined,
       });
 
       if (pdfAttachment && pdfAttachment.content) {
-        // Convert base64 to blob and open in new tab
+        // Store the new PDF URL for email preview
+        if (pdfAttachment.downloadUrl) {
+          setLatestPdfUrl(pdfAttachment.downloadUrl);
+        }
+
+        // Convert base64 to blob and trigger download
         const byteCharacters = atob(pdfAttachment.content);
         const byteNumbers = new Array(byteCharacters.length);
         for (let i = 0; i < byteCharacters.length; i++) {
@@ -183,11 +238,19 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
         const byteArray = new Uint8Array(byteNumbers);
         const blob = new Blob([byteArray], { type: 'application/pdf' });
         const blobUrl = URL.createObjectURL(blob);
-        window.open(blobUrl, "_blank");
+
+        // Trigger download instead of opening in new window
+        const link = document.createElement("a");
+        link.href = blobUrl;
+        link.download = `ticket-${ticket._id.substring(0, 12)}.pdf`;
+        link.click();
+
+        // Clean up the blob URL after download
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
 
         notification.success(
           "PDF Generated Successfully",
-          "Opening in new tab... You can also download it using the Download PDF button."
+          "The PDF has been downloaded. You can also use the Download PDF button to download it again."
         );
       } else {
         notification.error("PDF Generation Failed", "Please try again.");
@@ -215,6 +278,14 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
       ticketPdfTemplateId: config.pdfTemplateId,
       language: config.language,
     });
+  };
+
+  const handlePdfPreview = async (config: EmailSendConfig) => {
+    // Return the latest PDF URL (including regenerated PDFs)
+    if (latestPdfUrl) {
+      return { pdfUrl: latestPdfUrl };
+    }
+    return null;
   };
 
   const handleSendTestEmail = async (config: EmailSendConfig & { testEmail: string }): Promise<EmailSendResult> => {
@@ -322,7 +393,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Left Column - QR Code and Actions */}
+          {/* First Column - QR Code and Actions */}
           <div className="space-y-4">
             {/* QR Code */}
             {qrCode && (
@@ -371,29 +442,6 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                 )}
               </button>
               <button
-                onClick={handleRegeneratePDF}
-                disabled={isRegenerating}
-                className="w-full px-4 py-2 border-2 flex items-center justify-center gap-2 hover:bg-opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-highlight)",
-                  color: "var(--win95-titlebar-text)",
-                }}
-                title="Regenerate ticket PDF with current branding and settings"
-              >
-                {isRegenerating ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" />
-                    <span className="text-sm font-bold">Generating...</span>
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw size={16} />
-                    <span className="text-sm font-bold">Regenerate PDF</span>
-                  </>
-                )}
-              </button>
-              <button
                 onClick={handlePrint}
                 className="w-full px-4 py-2 border-2 flex items-center justify-center gap-2 hover:bg-opacity-90 transition-colors"
                 style={{
@@ -417,10 +465,74 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                 <Send size={16} />
                 <span className="text-sm font-bold">{t("ui.tickets.email.button.send")}</span>
               </button>
+
+              {/* PDF Regeneration */}
+              <div className="pt-4 border-t-2" style={{ borderColor: "var(--win95-border)" }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <input
+                    type="checkbox"
+                    id="change-template"
+                    checked={showTemplatePicker}
+                    onChange={(e) => setShowTemplatePicker(e.target.checked)}
+                    className="cursor-pointer"
+                  />
+                  <label
+                    htmlFor="change-template"
+                    className="text-xs cursor-pointer"
+                    style={{ color: "var(--win95-text)" }}
+                  >
+                    Change Template
+                  </label>
+                </div>
+
+                {showTemplatePicker && (
+                  <select
+                    value={selectedTemplate}
+                    onChange={(e) => setSelectedTemplate(e.target.value)}
+                    className="w-full px-2 py-2 border-2 text-sm mb-2"
+                    style={{
+                      borderColor: "var(--win95-border)",
+                      background: "var(--win95-input-bg)",
+                      color: "var(--win95-text)",
+                    }}
+                  >
+                    <option value="">Use Previous Template</option>
+                    {ticketTemplates.map((tpl) => (
+                      <option key={tpl.code} value={tpl.code}>
+                        {tpl.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                <button
+                  onClick={() => handleRegeneratePDF()}
+                  disabled={isRegenerating}
+                  className="w-full px-4 py-2 border-2 flex items-center justify-center gap-2 hover:bg-opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  style={{
+                    borderColor: "var(--win95-border)",
+                    background: "var(--win95-highlight)",
+                    color: "var(--win95-titlebar-text)",
+                  }}
+                  title="Regenerate ticket PDF with current branding and settings"
+                >
+                  {isRegenerating ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span className="text-sm font-bold">Generating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw size={16} />
+                      <span className="text-sm font-bold">Regenerate PDF</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Middle Column - Ticket Holder Info */}
+          {/* Second Column - Ticket Holder Info */}
           <div className="space-y-4">
             <div
               className="border-2 p-4"
@@ -546,7 +658,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
             </div>
           </div>
 
-          {/* Right Column - Additional Information */}
+          {/* Third Column - Additional Information */}
           <div className="space-y-4">
             {/* Form Responses */}
             {Object.keys(formResponses).length > 0 && (
@@ -699,8 +811,9 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
             pdfTemplateCategory="ticket"
             allowPdfAttachment={true}
             allowIcsAttachment={true}
-            defaultLanguage="de"
+            defaultLanguage={organizationLanguage}
             onPreview={handleEmailPreview}
+            onPreviewPdf={handlePdfPreview}
             onSendTest={handleSendTestEmail}
             onSendReal={handleSendRealEmail}
             onClose={() => setShowEmailModal(false)}
@@ -722,6 +835,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
             }}
           />
         )}
+
       </div>
     </div>
   );

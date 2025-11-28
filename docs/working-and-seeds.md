@@ -7,29 +7,6 @@ Just for the THEME
 We need to make sure the following ui in our app is using our theme system correctly  /Users/foundbrand_001/Development/vc83-com/docs/THEME_SYSTEM.md I want you to focus on: 
 
 
-# SEED TO RUN ON PROD
-npx convex run seedTemplateSet:seedSystemDefaultSet
+# SEEDS TO RUN ON PROD
+npx convex run translations/seedPdfTemplates
 
-npx convex run seedEmailTemplates:seedEmailTemplates
-
-npx convex run seedPdfTemplates:seedPdfTemplates
-
-npx convex run translations/seedManage_08_AISettings:seed
-
-npx convex run seedEmailTemplates:seedEmailTemplates
-
-npx convex run seedPdfTemplates:seedPdfTemplates
-
-npx convex run seedTemplateSet:seedSystemDefaultSet
-
-npx convex run seedApps:registerTemplatesApp
-
-npx convex run seedEmailTemplates:seedEmailTemplates
-
-npx convex run seedInvoiceB2BTemplate:seedInvoiceB2BTemplate  
-
-npx convex run seedTemplatesWindowTranslations:seed
-
-npx convex run translations/seedTemplatesWindowTranslations:seed
-
-npx convex run seedInvoiceEmailTemplate:seedInvoiceEmailTemplate '{"overwrite": true}'

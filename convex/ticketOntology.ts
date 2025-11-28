@@ -343,12 +343,13 @@ export const updateTicketInternal = internalMutation({
 
 /**
  * UPDATE TICKET PDF (INTERNAL)
- * Store PDF URL after generation
+ * Store PDF URL and template code after generation
  */
 export const updateTicketPDF = internalMutation({
   args: {
     ticketId: v.id("objects"),
     pdfUrl: v.string(),
+    templateCode: v.optional(v.string()), // Store which template was used
   },
   handler: async (ctx, args) => {
     const ticket = await ctx.db.get(args.ticketId);
@@ -357,11 +358,12 @@ export const updateTicketPDF = internalMutation({
       throw new Error("Ticket not found");
     }
 
-    // Update ticket with PDF URL
+    // Update ticket with PDF URL and template info
     await ctx.db.patch(args.ticketId, {
       customProperties: {
         ...ticket.customProperties,
         pdfUrl: args.pdfUrl,
+        pdfTemplateCode: args.templateCode, // Store template for future regeneration
         pdfGeneratedAt: Date.now(),
       },
       updatedAt: Date.now(),

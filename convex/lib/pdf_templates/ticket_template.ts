@@ -34,7 +34,7 @@ export const TICKET_TEMPLATE_HTML = `
         <!-- Ticket details grid -->
         <div class="ticket-details">
             <div class="detail-section">
-                <h3>Attendee</h3>
+                <h3>{{t_attendee}}</h3>
                 <div class="detail-content">
                     <div class="attendee-name">{{attendee_name}}</div>
                     <div class="attendee-email">{{attendee_email}}</div>
@@ -42,7 +42,7 @@ export const TICKET_TEMPLATE_HTML = `
             </div>
 
             <div class="detail-section">
-                <h3>Date & Time</h3>
+                <h3>{{t_dateTime}}</h3>
                 <div class="detail-content">
                     <div class="event-date">{{event_date}}</div>
                     <div class="event-time">{{event_time}}</div>
@@ -50,7 +50,7 @@ export const TICKET_TEMPLATE_HTML = `
             </div>
 
             <div class="detail-section">
-                <h3>Location</h3>
+                <h3>{{t_location}}</h3>
                 <div class="detail-content">
                     <div class="location-name">{{event_location}}</div>
                     <div class="location-address">{{event_address}}</div>
@@ -58,10 +58,10 @@ export const TICKET_TEMPLATE_HTML = `
             </div>
 
             <div class="detail-section">
-                <h3>Ticket Information</h3>
+                <h3>{{t_ticketInfo}}</h3>
                 <div class="detail-content">
-                    <div><strong>Ticket #:</strong> {{ticket_number}}</div>
-                    <div><strong>Type:</strong> {{ticket_type}}</div>
+                    <div><strong>{{t_ticketHash}}</strong> {{ticket_number}}</div>
+                    <div><strong>{{t_ticketType}}:</strong> {{ticket_type}}</div>
                 </div>
             </div>
         </div>
@@ -74,26 +74,26 @@ export const TICKET_TEMPLATE_HTML = `
                      class="qr-code" />
             </div>
             <div class="qr-instructions">
-                <p><strong>Scan at entrance for check-in</strong></p>
-                <p>Please present this ticket (digital or printed) at the event entrance.</p>
+                <p><strong>{{t_scanAtEntrance}}</strong></p>
+                <p>{{t_presentTicket}}</p>
             </div>
         </div>
 
-        <!-- Event policies (hard-coded template info) -->
+        <!-- Event policies -->
         <section class="event-policies">
-            <h3>Event Policies</h3>
+            <h3>{{t_eventPolicies}}</h3>
             <ul>
-                <li><strong>Arrival:</strong> Please arrive 30 minutes before the event start time for registration and check-in.</li>
-                <li><strong>Identification:</strong> Valid photo ID may be required for entrance.</li>
-                <li><strong>Transfers:</strong> Tickets are non-transferable unless authorized by the event organizer.</li>
-                <li><strong>Refunds:</strong> Refund policy varies by event. Contact the organizer for details.</li>
-                <li><strong>Accessibility:</strong> For accessibility accommodations, please contact us at least 48 hours before the event.</li>
-                <li><strong>Photography:</strong> By attending, you consent to being photographed or recorded for promotional purposes.</li>
+                <li><strong>{{t_arrival}}:</strong> {{t_arrivalPolicy}}</li>
+                <li><strong>{{t_identification}}:</strong> {{t_identificationPolicy}}</li>
+                <li><strong>{{t_transfers}}:</strong> {{t_transfersPolicy}}</li>
+                <li><strong>{{t_refunds}}:</strong> {{t_refundsPolicy}}</li>
+                <li><strong>{{t_accessibility}}:</strong> {{t_accessibilityPolicy}}</li>
+                <li><strong>{{t_photography}}:</strong> {{t_photographyPolicy}}</li>
             </ul>
 
-            <h3>Contact Information</h3>
-            <p>For questions or support regarding this event ticket, please contact {{organization_name}}.</p>
-            <p>We look forward to seeing you at the event!</p>
+            <h3>{{t_contactInfo}}</h3>
+            <p>{{t_forQuestions}} {{organization_name}}.</p>
+            <p>{{t_lookForward}}</p>
         </section>
 
         <!-- Footer -->
@@ -129,13 +129,13 @@ body {
     font-family: 'Inter', 'Helvetica', 'Arial', sans-serif;
     font-size: 11pt;
     line-height: 1.5;
-    padding: 20px;
+    padding: 10px;
 }
 
 .ticket-container {
     max-width: 600px;
     margin: 0 auto;
-    padding: 20px;
+    padding: 10px;
 }
 
 /* Event banner */

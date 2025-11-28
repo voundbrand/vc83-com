@@ -10,8 +10,11 @@
 import type { EmailTemplateProps, EmailTemplateOutput } from "../types";
 import type { GenericEmailProps } from "../generic-types";
 import { GenericEmailTemplate } from "../generic/index";
+import { getTranslations } from "../translations";
 
 export function EventConfirmationEmailTemplate(props: EmailTemplateProps): EmailTemplateOutput {
+  const t = getTranslations(props.language);
+
   const genericProps: GenericEmailProps = {
     header: {
       brandColor: props.branding.primaryColor || '#6B46C1',
@@ -26,15 +29,14 @@ export function EventConfirmationEmailTemplate(props: EmailTemplateProps): Email
     sections: [
       {
         type: "hero",
-        title: "Your Event is Confirmed!",
-        subtitle: `We're excited to see you at ${props.event.name}`,
+        title: t.ticketConfirmationTitle,
+        subtitle: `${t.greeting} ${props.attendee.firstName}! ${props.event.name}`,
       },
       {
         type: "body",
         paragraphs: [
-          `Hi ${props.attendee.firstName},`,
-          "Thank you for registering! Your tickets are confirmed and attached to this email.",
-          "Please bring your ticket (digital or printed) to the event for check-in.",
+          t.ticketThankYou,
+          t.presentAtEntrance,
         ],
       },
       {
@@ -49,27 +51,27 @@ export function EventConfirmationEmailTemplate(props: EmailTemplateProps): Email
         type: "attachmentInfo",
         attachments: [
           {
-            name: "Event Ticket (PDF)",
-            description: "Your ticket with QR code for check-in",
+            name: t.ticketPdfAttachment,
+            description: t.ticketPdfDescription,
             icon: "🎫",
           },
           {
-            name: "Calendar Event (ICS)",
-            description: "Add this event to your calendar",
+            name: t.calendarFile,
+            description: t.calendarFileDescription,
             icon: "📅",
           },
         ],
       },
       ...(props.domain.mapsUrl ? [{
         type: "cta" as const,
-        text: "Get Directions",
+        text: t.getDirections,
         url: props.domain.mapsUrl,
         style: "primary" as const,
       }] : []),
     ],
     footer: {
       companyName: props.domain.displayName || props.domain.domainName,
-      tagline: "Professional digital communications",
+      tagline: t.lookForward,
     },
     language: props.language,
   };
@@ -78,7 +80,7 @@ export function EventConfirmationEmailTemplate(props: EmailTemplateProps): Email
 
   return {
     ...result,
-    subject: `${props.event.name} - Confirmed`,
+    subject: `${props.event.name} - ${t.ticketConfirmationTitle}`,
   };
 }
 

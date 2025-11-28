@@ -341,6 +341,30 @@ export const generateTicketPDFFromTicket = action({
         throw new Error("Product not found");
       }
 
+      // 2.5. Load domain config if available (for domain-specific branding)
+      const domainConfigId = product.customProperties?.domainConfigId as Id<"objects"> | undefined;
+      let domainBranding = {
+        primaryColor: undefined as string | undefined,
+        secondaryColor: undefined as string | undefined,
+        logoUrl: undefined as string | undefined,
+      };
+
+      if (domainConfigId) {
+        const domainConfig = await ctx.runMutation(internal.domainConfigOntology.getDomainConfigInternal, {
+          configId: domainConfigId,
+        });
+
+        if (domainConfig?.customProperties?.branding) {
+          const branding = domainConfig.customProperties.branding as Record<string, unknown>;
+          domainBranding = {
+            primaryColor: branding.primaryColor as string | undefined,
+            secondaryColor: branding.secondaryColor as string | undefined,
+            logoUrl: branding.logoUrl as string | undefined,
+          };
+          console.log("🌐 Domain branding loaded:", domainBranding);
+        }
+      }
+
       // 3. Get organization info for branding
       const sellerOrg = await ctx.runQuery(
         api.organizationOntology.getOrganizationProfile,
@@ -367,6 +391,21 @@ export const generateTicketPDFFromTicket = action({
         ticketLanguage = orgLanguage.toLowerCase().split("-")[0]; // Normalize "de-DE" → "de"
         console.log(`🎫 Using ticket language from organization settings: ${ticketLanguage}`);
       }
+
+      // 3.6. Load organization branding settings
+      const brandingSettings = await ctx.runQuery(api.organizationOntology.getOrganizationSettings, {
+        organizationId,
+        subtype: "branding",
+      });
+
+      const brandingSettingsObj = Array.isArray(brandingSettings) ? brandingSettings[0] : brandingSettings;
+      const organizationBranding = {
+        primaryColor: brandingSettingsObj?.customProperties?.primaryColor as string | undefined,
+        secondaryColor: brandingSettingsObj?.customProperties?.secondaryColor as string | undefined,
+        logoUrl: brandingSettingsObj?.customProperties?.logoUrl as string | undefined,
+      };
+
+      console.log("🎨 Organization branding loaded:", organizationBranding);
 
       // 4. Extract event data from ticket or product
       const eventName = (ticketProps.eventName as string) || product.name;
@@ -410,9 +449,17 @@ export const generateTicketPDFFromTicket = action({
         totalPrice = netPrice; // Assume no tax for manual tickets
       }
 
-      // 6. Format dates
+      // 6. Format dates using organization language
+      const languageLocaleMap: Record<string, string> = {
+        de: "de-DE",
+        en: "en-US",
+        es: "es-ES",
+        fr: "fr-FR",
+      };
+      const locale = languageLocaleMap[ticketLanguage] || "en-US";
+
       const formatDate = (timestamp: number) => {
-        return new Date(timestamp).toLocaleDateString("en-US", {
+        return new Date(timestamp).toLocaleDateString(locale, {
           year: "numeric",
           month: "long",
           day: "numeric",
@@ -420,7 +467,7 @@ export const generateTicketPDFFromTicket = action({
       };
 
       const formatDateTime = (timestamp: number) => {
-        return new Date(timestamp).toLocaleDateString("en-US", {
+        return new Date(timestamp).toLocaleDateString(locale, {
           weekday: "long",
           month: "long",
           day: "numeric",
@@ -430,7 +477,71 @@ export const generateTicketPDFFromTicket = action({
         });
       };
 
-      // 7. Prepare ticket data for API Template.io
+      // 7. Load ticket translations from database
+      const { getBackendTranslations } = await import("./helpers/backendTranslationHelper");
+      const ticketTranslationKeys = [
+        // Field labels
+        "pdf.ticket.attendee",
+        "pdf.ticket.ticketHolder",
+        "pdf.ticket.date",
+        "pdf.ticket.dateTime",
+        "pdf.ticket.time",
+        "pdf.ticket.location",
+        "pdf.ticket.venue",
+        "pdf.ticket.event",
+        "pdf.ticket.guests",
+        "pdf.ticket.guest",
+        "pdf.ticket.ticketNumber",
+        "pdf.ticket.ticketId",
+        "pdf.ticket.ticketInfo",
+        "pdf.ticket.ticketType",
+        "pdf.ticket.ticketHash",
+        // Order summary
+        "pdf.ticket.orderSummary",
+        "pdf.ticket.orderNumber",
+        "pdf.ticket.purchased",
+        "pdf.ticket.subtotal",
+        "pdf.ticket.tax",
+        "pdf.ticket.total",
+        // QR and verification
+        "pdf.ticket.scanToVerify",
+        "pdf.ticket.scanAtEntrance",
+        "pdf.ticket.presentTicket",
+        "pdf.ticket.presentAtDoor",
+        // Sections
+        "pdf.ticket.eventPolicies",
+        "pdf.ticket.contactInfo",
+        "pdf.ticket.reservedFor",
+        "pdf.ticket.presentedBy",
+        // Policy items
+        "pdf.ticket.arrival",
+        "pdf.ticket.arrivalPolicy",
+        "pdf.ticket.identification",
+        "pdf.ticket.identificationPolicy",
+        "pdf.ticket.transfers",
+        "pdf.ticket.transfersPolicy",
+        "pdf.ticket.refunds",
+        "pdf.ticket.refundsPolicy",
+        "pdf.ticket.accessibility",
+        "pdf.ticket.accessibilityPolicy",
+        "pdf.ticket.photography",
+        "pdf.ticket.photographyPolicy",
+        // Footer and closing
+        "pdf.ticket.forQuestions",
+        "pdf.ticket.lookForward",
+        "pdf.ticket.privateEvent",
+        "pdf.ticket.curatedEvent",
+      ];
+
+      const ticketTranslations = await getBackendTranslations(ctx, ticketLanguage, ticketTranslationKeys);
+      console.log(`🎫 Loaded ${Object.keys(ticketTranslations).length} ticket translations for language: ${ticketLanguage}`);
+      console.log(`🎫 Sample translations:`, {
+        attendee: ticketTranslations["pdf.ticket.attendee"],
+        dateTime: ticketTranslations["pdf.ticket.dateTime"],
+        eventPolicies: ticketTranslations["pdf.ticket.eventPolicies"],
+      });
+
+      // 8. Prepare ticket data for API Template.io
       const ticketData = {
         ticket_number: ticket._id,
         ticket_type: ticket.subtype || "Standard",
@@ -451,8 +562,9 @@ export const generateTicketPDFFromTicket = action({
         organization_email: (sellerContact?.customProperties?.primaryEmail as string) || "support@yourcompany.com",
         organization_phone: (sellerContact?.customProperties?.primaryPhone as string) || "",
         organization_website: (sellerContact?.customProperties?.website as string) || "",
-        logo_url: undefined,
-        highlight_color: "#6B46C1",
+        // Branding cascade: domain → organization → default
+        logo_url: domainBranding.logoUrl || organizationBranding.logoUrl,
+        highlight_color: domainBranding.primaryColor || organizationBranding.primaryColor || "#6B46C1",
 
         order_id: ticketProps.orderId as string | undefined || ticket._id.substring(0, 12),
         order_date: formatDate(ticket.createdAt),
@@ -461,11 +573,101 @@ export const generateTicketPDFFromTicket = action({
         tax_amount: taxAmount,
         tax_rate: taxRate,
         total_price: totalPrice,
+
+        // Language for template translations
+        language: ticketLanguage,
+
+        // Translations (from database) - Field labels
+        t_attendee: ticketTranslations["pdf.ticket.attendee"],
+        t_ticketHolder: ticketTranslations["pdf.ticket.ticketHolder"],
+        t_date: ticketTranslations["pdf.ticket.date"],
+        t_dateTime: ticketTranslations["pdf.ticket.dateTime"],
+        t_time: ticketTranslations["pdf.ticket.time"],
+        t_location: ticketTranslations["pdf.ticket.location"],
+        t_venue: ticketTranslations["pdf.ticket.venue"],
+        t_event: ticketTranslations["pdf.ticket.event"],
+        t_guests: ticketTranslations["pdf.ticket.guests"],
+        t_guest: ticketTranslations["pdf.ticket.guest"],
+        t_ticketNumber: ticketTranslations["pdf.ticket.ticketNumber"],
+        t_ticketId: ticketTranslations["pdf.ticket.ticketId"],
+        t_ticketInfo: ticketTranslations["pdf.ticket.ticketInfo"],
+        t_ticketType: ticketTranslations["pdf.ticket.ticketType"],
+        t_ticketHash: ticketTranslations["pdf.ticket.ticketHash"],
+        // Translations - Order summary
+        t_orderSummary: ticketTranslations["pdf.ticket.orderSummary"],
+        t_orderNumber: ticketTranslations["pdf.ticket.orderNumber"],
+        t_purchased: ticketTranslations["pdf.ticket.purchased"],
+        t_subtotal: ticketTranslations["pdf.ticket.subtotal"],
+        t_tax: ticketTranslations["pdf.ticket.tax"],
+        t_total: ticketTranslations["pdf.ticket.total"],
+        // Translations - QR and verification
+        t_scanToVerify: ticketTranslations["pdf.ticket.scanToVerify"],
+        t_scanAtEntrance: ticketTranslations["pdf.ticket.scanAtEntrance"],
+        t_presentTicket: ticketTranslations["pdf.ticket.presentTicket"],
+        t_presentAtDoor: ticketTranslations["pdf.ticket.presentAtDoor"],
+        // Translations - Sections
+        t_eventPolicies: ticketTranslations["pdf.ticket.eventPolicies"],
+        t_contactInfo: ticketTranslations["pdf.ticket.contactInfo"],
+        t_reservedFor: ticketTranslations["pdf.ticket.reservedFor"],
+        t_presentedBy: ticketTranslations["pdf.ticket.presentedBy"],
+        // Translations - Policy items
+        t_arrival: ticketTranslations["pdf.ticket.arrival"],
+        t_arrivalPolicy: ticketTranslations["pdf.ticket.arrivalPolicy"],
+        t_identification: ticketTranslations["pdf.ticket.identification"],
+        t_identificationPolicy: ticketTranslations["pdf.ticket.identificationPolicy"],
+        t_transfers: ticketTranslations["pdf.ticket.transfers"],
+        t_transfersPolicy: ticketTranslations["pdf.ticket.transfersPolicy"],
+        t_refunds: ticketTranslations["pdf.ticket.refunds"],
+        t_refundsPolicy: ticketTranslations["pdf.ticket.refundsPolicy"],
+        t_accessibility: ticketTranslations["pdf.ticket.accessibility"],
+        t_accessibilityPolicy: ticketTranslations["pdf.ticket.accessibilityPolicy"],
+        t_photography: ticketTranslations["pdf.ticket.photography"],
+        t_photographyPolicy: ticketTranslations["pdf.ticket.photographyPolicy"],
+        // Translations - Footer and closing
+        t_forQuestions: ticketTranslations["pdf.ticket.forQuestions"],
+        t_lookForward: ticketTranslations["pdf.ticket.lookForward"],
+        t_privateEvent: ticketTranslations["pdf.ticket.privateEvent"],
+        t_curatedEvent: ticketTranslations["pdf.ticket.curatedEvent"],
       };
 
-      // 8. Resolve template (simplified - use default ticket template)
-      const templateCode = args.templateCode || "elegant-gold";
-      console.log("🎫 [generateTicketPDFFromTicket] Using template:", templateCode);
+      // 9. Resolve template with smart fallback chain:
+      // 1. Explicit templateCode argument (user selection)
+      // 2. Previously used template (from ticket.customProperties)
+      // 3. Organization default template
+      // 4. System default
+      let templateCode = args.templateCode;
+
+      if (!templateCode) {
+        // Try previously used template
+        const previousTemplate = ticketProps.pdfTemplateCode as string | undefined;
+        if (previousTemplate) {
+          console.log("🎫 [Template] Using previously used template:", previousTemplate);
+          templateCode = previousTemplate;
+        }
+      }
+
+      if (!templateCode) {
+        // Try organization default template
+        const templateSettings = await ctx.runQuery(api.organizationOntology.getOrganizationSettings, {
+          organizationId,
+          subtype: "templates",
+        });
+        const templateSettingsObj = Array.isArray(templateSettings) ? templateSettings[0] : templateSettings;
+        const orgDefaultTemplate = templateSettingsObj?.customProperties?.defaultTicketTemplate as string | undefined;
+
+        if (orgDefaultTemplate) {
+          console.log("🎫 [Template] Using organization default template:", orgDefaultTemplate);
+          templateCode = orgDefaultTemplate;
+        }
+      }
+
+      if (!templateCode) {
+        // Final fallback to system default
+        templateCode = "ticket_elegant_gold_v1";
+        console.log("🎫 [Template] Using system default template:", templateCode);
+      }
+
+      console.log("🎫 [generateTicketPDFFromTicket] Final template:", templateCode);
 
       // 9. Generate PDF
       const { generateTicketPdfFromTemplate } = await import("./lib/generateTicketPdf");
@@ -481,14 +683,15 @@ export const generateTicketPDFFromTicket = action({
         return null;
       }
 
-      // 10. Store PDF URL on ticket
+      // 10. Store PDF URL and template code on ticket
       const pdfUrl = result.download_url!;
       await ctx.runMutation(internal.ticketOntology.updateTicketPDF, {
         ticketId: args.ticketId,
         pdfUrl,
+        templateCode, // Store which template was used
       });
 
-      console.log("✅ Ticket PDF generated and stored:", pdfUrl);
+      console.log("✅ Ticket PDF generated and stored:", pdfUrl, "using template:", templateCode);
       return pdfUrl;
 
     } catch (error) {

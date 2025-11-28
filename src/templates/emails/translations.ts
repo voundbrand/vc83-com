@@ -80,6 +80,21 @@ export interface EmailTranslationKeys {
   contactSupport: string; // "Contact Support"
   learnMore: string; // "Learn More"
   getStarted: string; // "Get Started"
+
+  // Ticket/Event Confirmation Content
+  ticketConfirmationTitle: string; // "Reservation Confirmed"
+  ticketThankYou: string; // "Thank you for your registration..."
+  ticketPdfAttachment: string; // "Event Ticket (PDF)"
+  ticketPdfDescription: string; // "Your personalized ticket with QR code..."
+  calendarFile: string; // "Calendar File (ICS)"
+  calendarFileDescription: string; // "Click the attached .ics file..."
+  usefulLinks: string; // "Useful Links"
+  getDirections: string; // "Get Directions"
+  openEventPage: string; // "Open Event Page"
+  importantNote: string; // "Important Note"
+  exclusiveEventNote: string; // "This is a curated, exclusive event..."
+  lookForward: string; // "We look forward to your visit"
+  presentAtEntrance: string; // "Please present this ticket at the entrance"
 }
 
 /**
@@ -155,6 +170,21 @@ export const EN_TRANSLATIONS: EmailTranslationKeys = {
   contactSupport: "Contact Support",
   learnMore: "Learn More",
   getStarted: "Get Started",
+
+  // Ticket/Event Confirmation Content
+  ticketConfirmationTitle: "Reservation Confirmed",
+  ticketThankYou: "Thank you for your registration. Your reservation has been successfully confirmed. We look forward to welcoming you to our exclusive circle.",
+  ticketPdfAttachment: "Event Ticket (PDF)",
+  ticketPdfDescription: "Your personalized ticket with QR code. Please present it at the entrance.",
+  calendarFile: "Calendar File (ICS)",
+  calendarFileDescription: "Click the attached .ics file to add the event directly to your calendar.",
+  usefulLinks: "Useful Links",
+  getDirections: "Get Directions",
+  openEventPage: "Open Event Page",
+  importantNote: "Important Note",
+  exclusiveEventNote: "This is a curated, exclusive event. Please treat the details confidentially. Entry is only possible with a valid ticket.",
+  lookForward: "We look forward to your visit",
+  presentAtEntrance: "Please present this ticket (digital or printed) at the event entrance",
 };
 
 /**
@@ -230,6 +260,21 @@ export const DE_TRANSLATIONS: EmailTranslationKeys = {
   contactSupport: "Support kontaktieren",
   learnMore: "Mehr erfahren",
   getStarted: "Loslegen",
+
+  // Ticket/Event Confirmation Content
+  ticketConfirmationTitle: "Reservierung Bestätigt",
+  ticketThankYou: "Vielen Dank für deine Anmeldung. Deine Reservierung wurde erfolgreich bestätigt. Wir freuen uns, dich in unserem exklusiven Kreis begrüßen zu dürfen.",
+  ticketPdfAttachment: "Event-Ticket (PDF)",
+  ticketPdfDescription: "Dein personalisiertes Ticket mit QR-Code. Bitte zeig es am Eingang vor.",
+  calendarFile: "Kalenderdatei (ICS)",
+  calendarFileDescription: "Klicke auf die angehängte .ics-Datei, um das Event direkt zu deinem Kalender hinzuzufügen.",
+  usefulLinks: "Nützliche Links",
+  getDirections: "Wegbeschreibung",
+  openEventPage: "Event-Seite öffnen",
+  importantNote: "Wichtiger Hinweis",
+  exclusiveEventNote: "Dies ist eine kuratierte, exklusive Veranstaltung. Bitte behandle die Details vertraulich. Der Zutritt ist nur mit gültigem Ticket möglich.",
+  lookForward: "Wir freuen uns auf deinen Besuch",
+  presentAtEntrance: "Bitte zeige dieses Ticket (digital oder gedruckt) am Veranstaltungseingang vor",
 };
 
 /**
@@ -305,6 +350,21 @@ export const ES_TRANSLATIONS: EmailTranslationKeys = {
   contactSupport: "Contactar soporte",
   learnMore: "Aprender más",
   getStarted: "Comenzar",
+
+  // Ticket/Event Confirmation Content
+  ticketConfirmationTitle: "Reserva Confirmada",
+  ticketThankYou: "Gracias por tu registro. Tu reserva ha sido confirmada exitosamente. Esperamos darte la bienvenida a nuestro círculo exclusivo.",
+  ticketPdfAttachment: "Boleto del Evento (PDF)",
+  ticketPdfDescription: "Tu boleto personalizado con código QR. Por favor preséntalo en la entrada.",
+  calendarFile: "Archivo de Calendario (ICS)",
+  calendarFileDescription: "Haz clic en el archivo .ics adjunto para agregar el evento directamente a tu calendario.",
+  usefulLinks: "Enlaces Útiles",
+  getDirections: "Obtener Direcciones",
+  openEventPage: "Abrir Página del Evento",
+  importantNote: "Nota Importante",
+  exclusiveEventNote: "Este es un evento curado y exclusivo. Por favor trata los detalles de manera confidencial. La entrada solo es posible con un boleto válido.",
+  lookForward: "Esperamos tu visita",
+  presentAtEntrance: "Por favor presenta este boleto (digital o impreso) en la entrada del evento",
 };
 
 /**
@@ -380,6 +440,21 @@ export const FR_TRANSLATIONS: EmailTranslationKeys = {
   contactSupport: "Contacter le support",
   learnMore: "En savoir plus",
   getStarted: "Commencer",
+
+  // Ticket/Event Confirmation Content
+  ticketConfirmationTitle: "Réservation Confirmée",
+  ticketThankYou: "Merci pour votre inscription. Votre réservation a été confirmée avec succès. Nous sommes impatients de vous accueillir dans notre cercle exclusif.",
+  ticketPdfAttachment: "Billet d'Événement (PDF)",
+  ticketPdfDescription: "Votre billet personnalisé avec code QR. Veuillez le présenter à l'entrée.",
+  calendarFile: "Fichier Calendrier (ICS)",
+  calendarFileDescription: "Cliquez sur le fichier .ics joint pour ajouter l'événement directement à votre calendrier.",
+  usefulLinks: "Liens Utiles",
+  getDirections: "Obtenir l'Itinéraire",
+  openEventPage: "Ouvrir la Page de l'Événement",
+  importantNote: "Note Importante",
+  exclusiveEventNote: "Il s'agit d'un événement exclusif et organisé. Veuillez traiter les détails de manière confidentielle. L'entrée n'est possible qu'avec un billet valide.",
+  lookForward: "Nous avons hâte de vous voir",
+  presentAtEntrance: "Veuillez présenter ce billet (numérique ou imprimé) à l'entrée de l'événement",
 };
 
 /**
