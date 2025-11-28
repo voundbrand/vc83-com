@@ -421,9 +421,10 @@ export const sendInvoiceEmail = action({
             throw new Error(`Failed to fetch PDF: ${response.statusText}`);
           }
 
-          // Get PDF as buffer and convert to base64
-          const pdfBuffer = await response.arrayBuffer();
-          const pdfBase64 = Buffer.from(pdfBuffer).toString('base64');
+          // Get PDF as buffer and convert to base64 (use btoa, not Buffer.from)
+          const pdfBlob = await response.blob();
+          const pdfBuffer = await pdfBlob.arrayBuffer();
+          const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(pdfBuffer)));
 
           attachments.push({
             filename: `invoice-${invoiceProps.invoiceNumber || 'document'}.pdf`,

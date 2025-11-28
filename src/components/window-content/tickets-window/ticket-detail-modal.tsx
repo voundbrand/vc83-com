@@ -1,7 +1,7 @@
 "use client";
 
 import { Doc, Id } from "../../../../convex/_generated/dataModel";
-import { X, Download, Printer, User, Mail, Phone, Calendar, Loader2, Send } from "lucide-react";
+import { X, Download, Printer, User, Mail, Phone, Calendar, Loader2, Send, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useNotification } from "@/hooks/use-notification";
@@ -24,6 +24,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
   const notification = useNotification();
   const [qrCode, setQrCode] = useState<string>("");
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
 
   // Email state - simplified to just show/hide modal
   const [showEmailModal, setShowEmailModal] = useState(false);
@@ -32,8 +33,9 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
   const { user, sessionId: userSessionId } = useAuth();
   const currentOrgId = user?.defaultOrgId;
 
-  // PDF generation action
+  // PDF generation actions
   const generateTicketPDF = useAction(api.pdfGeneration.generateTicketPDF);
+  const regenerateTicketPDF = useAction(api.pdfGeneration.regenerateTicketPDF);
 
   // Email actions
   const previewTicketEmail = useAction(api.ticketEmailService.previewTicketEmail);
@@ -117,12 +119,21 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
 
   const handleDownload = async () => {
     const customProps = ticket.customProperties || {};
+    const pdfUrl = customProps.pdfUrl as string | undefined;
+
+    // If PDF URL exists, open it directly
+    if (pdfUrl) {
+      window.open(pdfUrl, "_blank");
+      return;
+    }
+
+    // Fallback: try to generate PDF if checkoutSessionId exists
     const checkoutSessionId = customProps.checkoutSessionId as Id<"objects"> | undefined;
 
     if (!checkoutSessionId) {
       notification.error(
-        t("ui.tickets.detail.error.no_checkout_session"),
-        ""
+        "No PDF Available",
+        "Please regenerate the ticket PDF first."
       );
       return;
     }
@@ -149,6 +160,46 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
       );
     } finally {
       setIsDownloading(false);
+    }
+  };
+
+  const handleRegeneratePDF = async () => {
+    if (!userSessionId) return;
+
+    setIsRegenerating(true);
+    try {
+      const pdfAttachment = await regenerateTicketPDF({
+        sessionId: userSessionId,
+        ticketId: ticket._id,
+      });
+
+      if (pdfAttachment && pdfAttachment.content) {
+        // Convert base64 to blob and open in new tab
+        const byteCharacters = atob(pdfAttachment.content);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/pdf' });
+        const blobUrl = URL.createObjectURL(blob);
+        window.open(blobUrl, "_blank");
+
+        notification.success(
+          "PDF Generated Successfully",
+          "Opening in new tab... You can also download it using the Download PDF button."
+        );
+      } else {
+        notification.error("PDF Generation Failed", "Please try again.");
+      }
+    } catch (error) {
+      console.error("Failed to regenerate PDF:", error);
+      notification.error(
+        "PDF Generation Failed",
+        error instanceof Error ? error.message : "Unknown error"
+      );
+    } finally {
+      setIsRegenerating(false);
     }
   };
 
@@ -316,6 +367,29 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                   <>
                     <Download size={16} />
                     <span className="text-sm">{t("ui.tickets.detail.button.download")}</span>
+                  </>
+                )}
+              </button>
+              <button
+                onClick={handleRegeneratePDF}
+                disabled={isRegenerating}
+                className="w-full px-4 py-2 border-2 flex items-center justify-center gap-2 hover:bg-opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                style={{
+                  borderColor: "var(--win95-border)",
+                  background: "var(--win95-highlight)",
+                  color: "var(--win95-titlebar-text)",
+                }}
+                title="Regenerate ticket PDF with current branding and settings"
+              >
+                {isRegenerating ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    <span className="text-sm font-bold">Generating...</span>
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw size={16} />
+                    <span className="text-sm font-bold">Regenerate PDF</span>
                   </>
                 )}
               </button>

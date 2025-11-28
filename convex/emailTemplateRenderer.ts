@@ -197,20 +197,20 @@ export const getEmailTemplateData = action({
       console.log("🎨 [Email Branding] Domain config branding:", domainBranding);
 
       branding = {
-        primaryColor: domainBranding?.primaryColor || orgPrimaryColor || "#d4af37",
-        secondaryColor: domainBranding?.secondaryColor || orgSecondaryColor || "#1a1412",
-        accentColor: domainBranding?.accentColor || "#f5f1e8",
-        logoUrl: domainBranding?.logoUrl || orgLogoUrl || "https://l4yercak3.com/logo.png",
+        primaryColor: domainBranding?.primaryColor || orgPrimaryColor || "#ffffff",
+        secondaryColor: domainBranding?.secondaryColor || orgSecondaryColor || "#1f2937",
+        accentColor: domainBranding?.accentColor || "#f3f4f6",
+        logoUrl: domainBranding?.logoUrl || orgLogoUrl,
       };
     } else {
-      // Use organization branding with system defaults as fallback
+      // Use organization branding with neutral defaults as fallback
       domainProps = {
         domainName: "l4yercak3.com",
         branding: {
-          logoUrl: orgLogoUrl || "https://l4yercak3.com/logo.png",
-          primaryColor: orgPrimaryColor || "#d4af37", // Gold
-          secondaryColor: orgSecondaryColor || "#1a1412",
-          accentColor: "#f5f1e8",
+          logoUrl: orgLogoUrl,
+          primaryColor: orgPrimaryColor || "#ffffff", // Neutral white
+          secondaryColor: orgSecondaryColor || "#1f2937", // Neutral dark gray
+          accentColor: "#f3f4f6", // Neutral light gray
         },
         webPublishing: {
           siteUrl: "https://l4yercak3.com",

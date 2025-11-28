@@ -297,6 +297,250 @@ export const generateTicketPDF = action({
 });
 
 /**
+ * GENERATE TICKET PDF FROM TICKET (NO CHECKOUT REQUIRED)
+ *
+ * Generates a ticket PDF using only ticket data - works for both manual and checkout tickets.
+ * This is the version that stores the PDF URL on the ticket object.
+ */
+export const generateTicketPDFFromTicket = action({
+  args: {
+    ticketId: v.id("objects"),
+    templateCode: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<string | null> => {
+    try {
+      const apiKey = process.env.API_TEMPLATE_IO_KEY;
+      if (!apiKey) {
+        console.error("❌ API_TEMPLATE_IO_KEY not configured");
+        return null;
+      }
+
+      // 1. Get ticket data
+      const ticket = await ctx.runQuery(internal.ticketOntology.getTicketInternal, {
+        ticketId: args.ticketId,
+      }) as Doc<"objects"> | null;
+
+      if (!ticket || ticket.type !== "ticket") {
+        throw new Error("Ticket not found");
+      }
+
+      const ticketProps = ticket.customProperties || {};
+      const organizationId = ticket.organizationId;
+
+      // 2. Get product data
+      const productId = ticketProps.productId as Id<"objects"> | undefined;
+      if (!productId) {
+        throw new Error("Ticket has no associated product");
+      }
+
+      const product = await ctx.runQuery(internal.productOntology.getProductInternal, {
+        productId,
+      }) as Doc<"objects"> | null;
+
+      if (!product) {
+        throw new Error("Product not found");
+      }
+
+      // 3. Get organization info for branding
+      const sellerOrg = await ctx.runQuery(
+        api.organizationOntology.getOrganizationProfile,
+        { organizationId }
+      ) as Doc<"objects"> | null;
+
+      const sellerContact = await ctx.runQuery(
+        api.organizationOntology.getOrganizationContact,
+        { organizationId }
+      ) as Doc<"objects"> | null;
+
+      // 3.5. Load organization locale settings for language/currency
+      const localeSettings = await ctx.runQuery(api.organizationOntology.getOrganizationSettings, {
+        organizationId,
+        subtype: "locale",
+      });
+
+      const localeSettingsObj = Array.isArray(localeSettings) ? localeSettings[0] : localeSettings;
+
+      // Get language from organization settings with fallback to English
+      let ticketLanguage = "en";
+      if (localeSettingsObj?.customProperties?.language) {
+        const orgLanguage = localeSettingsObj.customProperties.language as string;
+        ticketLanguage = orgLanguage.toLowerCase().split("-")[0]; // Normalize "de-DE" → "de"
+        console.log(`🎫 Using ticket language from organization settings: ${ticketLanguage}`);
+      }
+
+      // 4. Extract event data from ticket or product
+      const eventName = (ticketProps.eventName as string) || product.name;
+      const eventDate = (ticketProps.eventDate as number) ||
+        (ticketProps.startDate as number) ||
+        (product.customProperties?.eventDate as number | undefined) ||
+        (product.customProperties?.startDate as number | undefined);
+      const eventLocation = (ticketProps.eventLocation as string) ||
+        (product.customProperties?.location as string | undefined);
+      const eventAddress = (ticketProps.eventAddress as string) || "";
+      const eventSponsors = ticketProps.eventSponsors as Array<{ name: string; level?: string }> | undefined;
+
+      // 5. Get pricing from transaction or fallback to ticket data
+      const transactionId = ticketProps.transactionId as Id<"objects"> | undefined;
+      const currency = (ticketProps.currency as string) || "EUR";
+
+      let netPrice = 0;
+      let taxAmount = 0;
+      let totalPrice = 0;
+      let taxRate = 0;
+
+      if (transactionId) {
+        const transaction = await ctx.runQuery(internal.transactionOntology.getTransactionInternal, {
+          transactionId,
+        });
+
+        if (transaction && transaction.type === "transaction") {
+          const unitPriceInCents = (transaction.customProperties?.unitPriceInCents as number) || 0;
+          const totalPriceInCents = (transaction.customProperties?.totalPriceInCents as number) || 0;
+          const taxAmountInCents = (transaction.customProperties?.taxAmountInCents as number) || 0;
+
+          netPrice = unitPriceInCents / 100;
+          totalPrice = totalPriceInCents / 100;
+          taxAmount = taxAmountInCents / 100;
+          taxRate = netPrice > 0 ? ((taxAmount / netPrice) * 100) : 0;
+        }
+      } else {
+        // Fallback to ticket or product pricing
+        const priceInCents = (ticketProps.priceInCents as number) || (product.customProperties?.priceInCents as number) || 0;
+        netPrice = priceInCents / 100;
+        totalPrice = netPrice; // Assume no tax for manual tickets
+      }
+
+      // 6. Format dates
+      const formatDate = (timestamp: number) => {
+        return new Date(timestamp).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        });
+      };
+
+      const formatDateTime = (timestamp: number) => {
+        return new Date(timestamp).toLocaleDateString("en-US", {
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        });
+      };
+
+      // 7. Prepare ticket data for API Template.io
+      const ticketData = {
+        ticket_number: ticket._id,
+        ticket_type: ticket.subtype || "Standard",
+        attendee_name: ticketProps.holderName as string || "Guest",
+        attendee_email: ticketProps.holderEmail as string || "",
+        guest_count: 1,
+
+        event_name: eventName,
+        event_date: eventDate ? formatDate(eventDate) : "TBD",
+        event_time: eventDate ? formatDateTime(eventDate) : "TBD",
+        event_location: eventLocation || "Location TBD",
+        event_address: eventAddress,
+        event_sponsors: eventSponsors,
+
+        qr_code_data: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`${process.env.NEXT_PUBLIC_APP_URL || "https://app.yourcompany.com"}/verify-ticket/${args.ticketId}`)}`,
+
+        organization_name: sellerOrg?.name || "Event Organizer",
+        organization_email: (sellerContact?.customProperties?.primaryEmail as string) || "support@yourcompany.com",
+        organization_phone: (sellerContact?.customProperties?.primaryPhone as string) || "",
+        organization_website: (sellerContact?.customProperties?.website as string) || "",
+        logo_url: undefined,
+        highlight_color: "#6B46C1",
+
+        order_id: ticketProps.orderId as string | undefined || ticket._id.substring(0, 12),
+        order_date: formatDate(ticket.createdAt),
+        currency: currency.toUpperCase(),
+        net_price: netPrice,
+        tax_amount: taxAmount,
+        tax_rate: taxRate,
+        total_price: totalPrice,
+      };
+
+      // 8. Resolve template (simplified - use default ticket template)
+      const templateCode = args.templateCode || "elegant-gold";
+      console.log("🎫 [generateTicketPDFFromTicket] Using template:", templateCode);
+
+      // 9. Generate PDF
+      const { generateTicketPdfFromTemplate } = await import("./lib/generateTicketPdf");
+
+      const result = await generateTicketPdfFromTemplate({
+        apiKey,
+        templateCode,
+        ticketData,
+      });
+
+      if (result.status === "error") {
+        console.error("❌ API Template.io error:", result.error, result.message);
+        return null;
+      }
+
+      // 10. Store PDF URL on ticket
+      const pdfUrl = result.download_url!;
+      await ctx.runMutation(internal.ticketOntology.updateTicketPDF, {
+        ticketId: args.ticketId,
+        pdfUrl,
+      });
+
+      console.log("✅ Ticket PDF generated and stored:", pdfUrl);
+      return pdfUrl;
+
+    } catch (error) {
+      console.error("Failed to generate ticket PDF from ticket:", error);
+      return null;
+    }
+  },
+});
+
+/**
+ * REGENERATE TICKET PDF (Public - for UI button)
+ *
+ * Regenerates a ticket PDF with latest branding/settings.
+ * This is the public version that can be called from the UI.
+ */
+export const regenerateTicketPDF = action({
+  args: {
+    sessionId: v.string(),
+    ticketId: v.id("objects"),
+    templateCode: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<PDFAttachment | null> => {
+    // Use the internal generateTicketPDFFromTicket to generate fresh PDF
+    const pdfUrl = await ctx.runAction(api.pdfGeneration.generateTicketPDFFromTicket, {
+      ticketId: args.ticketId,
+      templateCode: args.templateCode,
+    });
+
+    if (!pdfUrl) {
+      return null;
+    }
+
+    // Fetch the PDF and return as attachment
+    const response = await fetch(pdfUrl);
+    if (!response.ok) {
+      throw new Error("Failed to fetch regenerated PDF");
+    }
+
+    const pdfBlob = await response.blob();
+    const pdfBuffer = await pdfBlob.arrayBuffer();
+    const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(pdfBuffer)));
+
+    return {
+      filename: `ticket-${args.ticketId.substring(0, 12)}.pdf`,
+      content: pdfBase64,
+      contentType: "application/pdf",
+      downloadUrl: pdfUrl,
+    };
+  },
+});
+
+/**
  * GENERATE RECEIPT PDF (Public - for B2C customers)
  *
  * Creates a receipt PDF for paid orders (Stripe, PayPal, etc.) using the B2C-friendly template.

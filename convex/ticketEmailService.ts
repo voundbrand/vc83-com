@@ -136,53 +136,86 @@ export const sendTicketConfirmationEmail = action({
     // 7. Generate attachments
     const attachments: Array<{ filename: string; content: string; contentType: string }> = [];
 
-    // 7a. Generate PDF ticket (if enabled)
+    // 7a. Attach PDF ticket (if exists and enabled)
     let hasPDF = false;
     const shouldIncludePdf = args.includePdfAttachment !== false; // Default to true
-    if (shouldIncludePdf) {
-      try {
-        const checkoutSessionId = ticketProps.checkoutSessionId;
-        if (checkoutSessionId) {
-          // Pass ticketPdfTemplateId to generateTicketPDF if provided
-          const pdfGenerationArgs: {
-            ticketId: Id<"objects">;
-            checkoutSessionId: Id<"objects">;
-            templateCode?: string;
-          } = {
-            ticketId: args.ticketId,
-            checkoutSessionId: checkoutSessionId as Id<"objects">,
-          };
+    const pdfUrl = ticketProps.pdfUrl as string | undefined;
 
-          // If ticketPdfTemplateId is provided, fetch the template code
+    if (shouldIncludePdf) {
+      // Try to use stored PDF URL first, then generate if needed
+      if (pdfUrl) {
+        // PDF URL exists - fetch and attach it
+        try {
+          console.log(`📄 Fetching existing PDF from: ${pdfUrl}`);
+
+          const response = await fetch(pdfUrl);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch PDF: ${response.statusText}`);
+          }
+
+          // Get PDF as buffer and convert to base64 (use btoa, not Buffer.from)
+          const pdfBlob = await response.blob();
+          const pdfBuffer = await pdfBlob.arrayBuffer();
+          const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(pdfBuffer)));
+
+          attachments.push({
+            filename: `ticket-${ticket.name.replace(/\s+/g, '-')}.pdf`,
+            content: pdfBase64,
+            contentType: 'application/pdf',
+          });
+          hasPDF = true;
+          console.log(`✅ Existing PDF attachment added`);
+        } catch (error) {
+          console.error(`⚠️ Failed to attach existing PDF for ticket ${args.ticketId}:`, error);
+          // Continue without PDF - email will still send
+        }
+      } else {
+        // No PDF URL - try to generate one
+        console.log(`📄 No existing PDF found, generating new PDF for ticket ${args.ticketId}...`);
+        try {
+          // Determine template code if custom template provided
+          let templateCode: string | undefined = undefined;
           if (args.ticketPdfTemplateId) {
             const pdfTemplate = await ctx.runQuery(internal.pdfTemplateQueries.resolvePdfTemplateInternal, {
               templateId: args.ticketPdfTemplateId,
             });
             if (pdfTemplate?.templateCode) {
-              pdfGenerationArgs.templateCode = pdfTemplate.templateCode;
-              console.log(`🎫 Using custom PDF template: ${pdfTemplate.name} (${pdfTemplate.templateCode})`);
+              templateCode = pdfTemplate.templateCode;
+              console.log(`🎫 Using custom PDF template: ${pdfTemplate.name} (${templateCode})`);
             }
           }
 
-          const pdf = await ctx.runAction(api.pdfGeneration.generateTicketPDF, pdfGenerationArgs);
+          // Use new generateTicketPDFFromTicket (works without checkout)
+          const generatedPdfUrl = await ctx.runAction(api.pdfGeneration.generateTicketPDFFromTicket, {
+            ticketId: args.ticketId,
+            templateCode,
+          });
 
-          if (pdf) {
+          if (generatedPdfUrl) {
+            // Fetch the newly generated PDF
+            const response = await fetch(generatedPdfUrl);
+            if (!response.ok) {
+              throw new Error(`Failed to fetch generated PDF: ${response.statusText}`);
+            }
+
+            const pdfBlob = await response.blob();
+            const pdfBuffer = await pdfBlob.arrayBuffer();
+            const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(pdfBuffer)));
+
             attachments.push({
               filename: `ticket-${ticket.name.replace(/\s+/g, '-')}.pdf`,
-              content: pdf.content, // Already base64 encoded
-              contentType: pdf.contentType,
+              content: pdfBase64,
+              contentType: 'application/pdf',
             });
             hasPDF = true;
-            console.log(`✅ Generated PDF attachment for ticket ${args.ticketId}`);
+            console.log(`✅ Generated PDF attachment added`);
           } else {
-            console.warn(`⚠️ PDF generation returned null for ticket ${args.ticketId}`);
+            console.error(`⚠️ PDF generation returned no URL for ticket ${args.ticketId}`);
           }
-        } else {
-          console.warn(`⚠️ No checkoutSessionId found for ticket ${args.ticketId}`);
+        } catch (error) {
+          console.error(`⚠️ Failed to generate PDF for ticket ${args.ticketId}:`, error);
+          // Continue without PDF - email will still send
         }
-      } catch (error) {
-        console.error(`⚠️ Failed to generate PDF for ticket ${args.ticketId}:`, error);
-        // Continue without PDF - email will still send
       }
     } else {
       console.log(`ℹ️ PDF attachment disabled by user for ticket ${args.ticketId}`);

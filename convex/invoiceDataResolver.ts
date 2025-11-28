@@ -245,6 +245,30 @@ export async function resolveInvoiceEmailData(
   console.log(`✅ [RESOLVER] Organization settings loaded: currency=${orgSettings.defaultCurrency}, locale=${orgSettings.locale}`);
 
   // ==========================================================================
+  // STEP 2.5: GET ORGANIZATION BRANDING SETTINGS
+  // ==========================================================================
+  console.log(`🔍 [RESOLVER] Loading organization branding settings...`);
+
+  const brandingSettingsResult = await ctx.runQuery(api.organizationOntology.getOrganizationSettings, {
+    organizationId: invoice.organizationId,
+    subtype: "branding",
+  });
+
+  const brandingSettings = Array.isArray(brandingSettingsResult) ? brandingSettingsResult[0] : brandingSettingsResult;
+
+  const organizationBranding = {
+    primaryColor: brandingSettings?.customProperties?.primaryColor as string | undefined,
+    secondaryColor: brandingSettings?.customProperties?.secondaryColor as string | undefined,
+    logoUrl: brandingSettings?.customProperties?.logo as string | undefined,
+  };
+
+  console.log(`✅ [RESOLVER] Organization branding loaded:`, {
+    primaryColor: organizationBranding.primaryColor || "not set",
+    secondaryColor: organizationBranding.secondaryColor || "not set",
+    logoUrl: organizationBranding.logoUrl ? "set" : "not set",
+  });
+
+  // ==========================================================================
   // STEP 3: GET DOMAIN CONFIG (optional overrides)
   // ==========================================================================
   let domainProps: any = null;
@@ -403,12 +427,13 @@ export async function resolveInvoiceEmailData(
     paymentTerms: invoiceProps.paymentTerms || "net30",
     notes: invoiceProps.notes,
 
-    // Branding
+    // Branding (cascade: domain → organization → neutral defaults)
+    // Using neutral colors (white/gray) as final fallbacks instead of brand-specific gold
     branding: {
-      primaryColor: domainProps.branding?.primaryColor || "#d4af37",
-      secondaryColor: domainProps.branding?.secondaryColor || "#1a1412",
-      accentColor: domainProps.branding?.accentColor || "#f5f1e8",
-      logoUrl: domainProps.branding?.logoUrl,
+      primaryColor: domainProps.branding?.primaryColor || organizationBranding.primaryColor || "#ffffff",
+      secondaryColor: domainProps.branding?.secondaryColor || organizationBranding.secondaryColor || "#1f2937",
+      accentColor: domainProps.branding?.accentColor || "#f3f4f6",
+      logoUrl: domainProps.branding?.logoUrl || organizationBranding.logoUrl || undefined,
     },
 
     // Language and testing

@@ -342,6 +342,36 @@ export const updateTicketInternal = internalMutation({
 });
 
 /**
+ * UPDATE TICKET PDF (INTERNAL)
+ * Store PDF URL after generation
+ */
+export const updateTicketPDF = internalMutation({
+  args: {
+    ticketId: v.id("objects"),
+    pdfUrl: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const ticket = await ctx.db.get(args.ticketId);
+
+    if (!ticket || ticket.type !== "ticket") {
+      throw new Error("Ticket not found");
+    }
+
+    // Update ticket with PDF URL
+    await ctx.db.patch(args.ticketId, {
+      customProperties: {
+        ...ticket.customProperties,
+        pdfUrl: args.pdfUrl,
+        pdfGeneratedAt: Date.now(),
+      },
+      updatedAt: Date.now(),
+    });
+
+    return args.ticketId;
+  },
+});
+
+/**
  * CREATE TICKET (PUBLIC)
  * Issue a new ticket from a product
  * Requires authentication via sessionId
