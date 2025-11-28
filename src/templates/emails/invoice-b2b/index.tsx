@@ -246,7 +246,6 @@ export function InvoiceB2BEmailTemplate(props: InvoiceB2BTemplateProps): EmailTe
       {
         type: "body",
         paragraphs: [
-          `${recipientFirstName ? t.dearName + ' ' + recipientFirstName : t.dearCustomer},`,
           t.invoiceDescription,
           t.contactInfo,
         ],

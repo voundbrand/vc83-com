@@ -355,7 +355,13 @@ export async function resolveInvoiceEmailData(
   // ==========================================================================
   const billingAddress = invoiceProps.billingAddress || {};
   const recipientEmail = billingAddress.email || invoiceProps.recipientEmail || "";
-  const recipientName = billingAddress.companyName || billingAddress.name || invoice.name;
+
+  // Try to get actual person/company name, fallback to placeholder if nothing available
+  // DON'T use invoice.name as it's the invoice number (like "Invoice #INV-2025-0008")
+  const recipientName = billingAddress.companyName || billingAddress.name ||
+                        (billingAddress.firstName && billingAddress.lastName
+                          ? `${billingAddress.firstName} ${billingAddress.lastName}`
+                          : billingAddress.firstName || billingAddress.lastName || "Customer");
 
   // ==========================================================================
   // STEP 9: BUILD SENDER INFO (from org + domain)

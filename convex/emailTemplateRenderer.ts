@@ -221,10 +221,16 @@ export const getEmailTemplateData = action({
 
     console.log("🎨 [Email Branding] Final cascaded branding:", branding);
 
-    // Extract attendee info
-    const attendeeFirstName = ticketProps.attendeeFirstName || ticket.name.split(' ')[0];
-    const attendeeLastName = ticketProps.attendeeLastName || ticket.name.split(' ').slice(1).join(' ');
-    const attendeeEmail = ticketProps.attendeeEmail || '';
+    // Extract attendee info - use holderName/holderEmail as primary fields
+    // DON'T use ticket.name as fallback - it's the product/ticket type name (e.g., "Ticket - Frühbucher - LisaBöseke")
+    const holderName = (ticketProps.holderName as string) || (ticketProps.attendeeName as string) || '';
+    const attendeeFirstName = ticketProps.attendeeFirstName ||
+                             (holderName ? holderName.split(' ')[0] : '') ||
+                             'Guest';
+    const attendeeLastName = ticketProps.attendeeLastName ||
+                            (holderName ? holderName.split(' ').slice(1).join(' ') : '') ||
+                            '';
+    const attendeeEmail = ticketProps.attendeeEmail || (ticketProps.holderEmail as string) || '';
 
     // Resolve template code
     const templateCode: string = await ctx.runAction(api.emailTemplateRenderer.resolveEmailTemplateCode, {
