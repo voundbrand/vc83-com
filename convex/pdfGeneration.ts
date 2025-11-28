@@ -660,7 +660,13 @@ export const generateInvoicePDF = action({
       const firstLineItems = firstTransaction?.customProperties?.lineItems as Array<{
         taxRatePercent: number;
       }> | undefined;
-      const taxRatePercent = firstLineItems?.[0]?.taxRatePercent || 0;
+      let taxRatePercent = firstLineItems?.[0]?.taxRatePercent || 0;
+
+      // Fallback: Calculate tax rate from totals if not found in line items
+      if (taxRatePercent === 0 && subtotal > 0 && taxAmount > 0) {
+        taxRatePercent = Math.round((taxAmount / subtotal) * 100 * 10) / 10; // Round to 1 decimal
+        console.log(`⚠️ [PDF Generation] Tax rate not found in line items, calculated from totals: ${taxRatePercent}%`);
+      }
 
       console.log("📋 [PDF Generation] Calculated Totals:");
       console.log(`  - Subtotal: ${subtotal} cents → ${formatCurrency(subtotal, { locale: invoiceLocale, currency: invoiceCurrency.toUpperCase() })}`);
@@ -1093,6 +1099,7 @@ export const generateInvoicePDF = action({
       const result = await generateInvoicePdfFromTemplate({
         apiKey,
         templateCode,
+        filename: invoiceNumber, // Use invoice number as PDF filename
         invoiceData,
       });
 

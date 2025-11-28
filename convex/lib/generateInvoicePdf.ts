@@ -44,6 +44,7 @@ export interface ApiTemplateResponse {
 export interface InvoicePdfGenerationOptions {
   apiKey: string;
   templateCode: string;
+  filename?: string; // Optional custom filename (without .pdf extension)
   invoiceData: {
     // Organization (seller)
     organization_name: string;
@@ -178,6 +179,7 @@ export async function generateInvoicePdfFromTemplate(
     templateCode,
     dashboardTemplateId,
     invoiceData,
+    filename,
     paperSize = "A4",
     orientation = "portrait",
   } = options;
@@ -189,6 +191,7 @@ export async function generateInvoicePdfFromTemplate(
     return await generateInvoicePdfFromDashboard(apiKey, dashboardTemplateId, invoiceData, {
       paperSize,
       orientation,
+      filename,
       marginTop: options.marginTop,
       marginBottom: options.marginBottom,
       marginLeft: options.marginLeft,
@@ -211,6 +214,7 @@ async function generateInvoicePdfFromDashboard(
   settings: {
     paperSize: string;
     orientation: string;
+    filename?: string;
     marginTop?: string;
     marginBottom?: string;
     marginLeft?: string;
@@ -234,6 +238,7 @@ async function generateInvoicePdfFromDashboard(
           margin_bottom: settings.marginBottom || "5mm",
           margin_left: settings.marginLeft || "5mm",
           margin_right: settings.marginRight || "5mm",
+          output_file: settings.filename, // Custom filename for PDF
         },
       }),
     });
@@ -310,6 +315,7 @@ async function generateInvoicePdfFromHtml(
       margin_left: options.marginLeft || "5mm",
       margin_right: options.marginRight || "5mm",
       print_background: true, // Enable background colors/gradients
+      output_file: options.filename, // Custom filename for PDF
     },
   };
 
