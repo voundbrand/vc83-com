@@ -459,6 +459,12 @@ export const previewTicketEmail = action({
     console.log(`📧 [PREVIEW] 🎯 Final template code: ${templateCode}`);
     console.log(`📧 [PREVIEW] 🌍 Language passed to template: ${language}`);
     console.log(`📧 [PREVIEW] 📋 Template data keys:`, Object.keys(templateData));
+    console.log(`📧 [PREVIEW] 👤 Attendee data being used:`, {
+      firstName: templateData.attendee.firstName,
+      lastName: templateData.attendee.lastName,
+      email: templateData.attendee.email,
+      fullName: `${templateData.attendee.firstName} ${templateData.attendee.lastName}`.trim()
+    });
 
     const templateFn = getEmailTemplate(templateCode);
     const { html: emailHtml, subject } = templateFn(templateData);
