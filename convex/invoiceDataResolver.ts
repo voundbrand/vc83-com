@@ -352,45 +352,83 @@ export async function resolveInvoiceEmailData(
   console.log(`✅ [RESOLVER] Formatted totals: ${formattedTotal} (${totalInCents} cents)`);
 
   // ==========================================================================
-  // STEP 8: EXTRACT RECIPIENT INFO (from CRM contact if available)
+  // STEP 8: EXTRACT RECIPIENT INFO (using SAME logic as PDF generation)
+  // Match pdfGeneration.ts lines 1213-1279 exactly
   // ==========================================================================
   const billingAddress = invoiceProps.billingAddress || {};
-  const recipientEmail = billingAddress.email || invoiceProps.recipientEmail || "";
+  let recipientName: string;
+  let recipientEmail: string;
+  let recipientCompanyName: string | undefined;
 
-  // Try to load CRM contact for accurate name information
-  let recipientName = billingAddress.companyName || billingAddress.name;
+  // Get CRM IDs from invoice
+  const crmOrganizationId = invoiceProps.crmOrganizationId as Id<"objects"> | undefined;
+  const contactId = invoiceProps.contactId as Id<"objects"> | undefined;
 
-  if (!recipientName && invoiceProps.contactId && options?.sessionId) {
-    console.log(`🔍 [RESOLVER] Loading CRM contact: ${invoiceProps.contactId}`);
+  // ALWAYS try to load fresh CRM data first (like PDF does), fall back to stale billing address only on error
+  if (crmOrganizationId && options?.sessionId) {
+    // B2B Invoice - load fresh CRM organization
+    console.log(`🔍 [RESOLVER] Loading B2B CRM organization: ${crmOrganizationId}`);
     try {
-      const contact = await ctx.runQuery(api.crmOntology.getContact, {
-        sessionId: options.sessionId,
-        contactId: invoiceProps.contactId as Id<"objects">,
+      const buyerCrmOrg = await ctx.runQuery(api.crmOntology.getPublicCrmOrganizationBilling, {
+        crmOrganizationId: crmOrganizationId,
       });
 
-      if (contact && contact.type === "crm_contact") {
-        const contactProps = contact.customProperties as any;
+      if (buyerCrmOrg) {
+        recipientName = buyerCrmOrg.name;
+        recipientCompanyName = buyerCrmOrg.name;
+        const orgProps = buyerCrmOrg.customProperties as any;
+        recipientEmail = orgProps?.billingEmail || orgProps?.primaryEmail || invoiceProps.recipientEmail || "";
+        console.log(`✅ [RESOLVER] Using fresh B2B CRM org: ${recipientName}`);
+      } else {
+        throw new Error("CRM organization not found");
+      }
+    } catch (error) {
+      console.error(`❌ [RESOLVER] Error loading CRM organization, using stale billing address:`, error);
+      recipientName = billingAddress.companyName || billingAddress.name || "Company";
+      recipientCompanyName = billingAddress.companyName;
+      recipientEmail = billingAddress.email || invoiceProps.recipientEmail || "";
+    }
+  } else if (contactId && options?.sessionId) {
+    // B2C Invoice - load fresh CRM contact
+    console.log(`🔍 [RESOLVER] Loading B2C CRM contact: ${contactId}`);
+    try {
+      const buyerCrmContact = await ctx.runQuery(api.crmOntology.getContact, {
+        sessionId: options.sessionId,
+        contactId: contactId,
+      });
+
+      if (buyerCrmContact && buyerCrmContact.type === "crm_contact") {
+        const contactProps = buyerCrmContact.customProperties as any;
         const firstName = contactProps?.firstName || "";
         const lastName = contactProps?.lastName || "";
 
-        if (firstName || lastName) {
-          recipientName = `${firstName} ${lastName}`.trim();
-          console.log(`✅ [RESOLVER] Using CRM contact name: ${recipientName}`);
-        } else {
-          recipientName = contact.name;
-          console.log(`✅ [RESOLVER] Using CRM contact.name: ${recipientName}`);
-        }
+        // Use firstName + lastName if available (preferred), otherwise use contact.name
+        recipientName = (firstName || lastName)
+          ? `${firstName} ${lastName}`.trim()
+          : (buyerCrmContact.name || "Customer");
+
+        recipientEmail = contactProps?.email || billingAddress.email || invoiceProps.recipientEmail || "";
+        console.log(`✅ [RESOLVER] Using fresh B2C CRM contact: ${recipientName}`);
+      } else {
+        throw new Error("CRM contact not found or wrong type");
       }
     } catch (error) {
-      console.error(`❌ [RESOLVER] Error loading CRM contact:`, error);
+      console.error(`❌ [RESOLVER] Error loading CRM contact, using stale billing address:`, error);
+      recipientName = billingAddress.name ||
+                     (billingAddress.firstName && billingAddress.lastName
+                       ? `${billingAddress.firstName} ${billingAddress.lastName}`.trim()
+                       : billingAddress.firstName || billingAddress.lastName || "Customer");
+      recipientEmail = billingAddress.email || invoiceProps.recipientEmail || "";
     }
-  }
-
-  // Final fallback chain (but NOT invoice.name which is the invoice number)
-  if (!recipientName) {
-    recipientName = (billingAddress.firstName && billingAddress.lastName
-                      ? `${billingAddress.firstName} ${billingAddress.lastName}`
-                      : billingAddress.firstName || billingAddress.lastName || "Customer");
+  } else {
+    // No CRM IDs - use stale billing address (this should rarely happen)
+    console.log(`⚠️ [RESOLVER] No CRM IDs available, using stale billing address`);
+    recipientName = billingAddress.companyName || billingAddress.name ||
+                   (billingAddress.firstName && billingAddress.lastName
+                     ? `${billingAddress.firstName} ${billingAddress.lastName}`.trim()
+                     : billingAddress.firstName || billingAddress.lastName || "Customer");
+    recipientCompanyName = billingAddress.companyName;
+    recipientEmail = billingAddress.email || invoiceProps.recipientEmail || "";
   }
 
   // ==========================================================================

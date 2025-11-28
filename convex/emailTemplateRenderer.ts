@@ -221,14 +221,14 @@ export const getEmailTemplateData = action({
 
     console.log("🎨 [Email Branding] Final cascaded branding:", branding);
 
-    // Extract attendee info - try CRM contact first for accurate name
-    let attendeeFirstName = ticketProps.attendeeFirstName || '';
-    let attendeeLastName = ticketProps.attendeeLastName || '';
-    let attendeeEmail = ticketProps.attendeeEmail || (ticketProps.holderEmail as string) || '';
+    // Extract attendee info - ALWAYS try CRM contact FIRST (matching invoice/PDF pattern)
+    let attendeeFirstName = '';
+    let attendeeLastName = '';
+    let attendeeEmail = '';
 
-    // Try to load CRM contact for accurate name information
-    if ((!attendeeFirstName || !attendeeLastName) && ticketProps.contactId) {
-      console.log(`🔍 [Email Template] Loading CRM contact: ${ticketProps.contactId}`);
+    // STEP 1: Try to load FRESH CRM contact data first (PRIMARY source)
+    if (ticketProps.contactId) {
+      console.log(`🔍 [Email Template] Loading FRESH CRM contact: ${ticketProps.contactId}`);
       try {
         const contact = await ctx.runQuery(api.crmOntology.getContact, {
           sessionId: args.sessionId,
@@ -237,19 +237,28 @@ export const getEmailTemplateData = action({
 
         if (contact && contact.type === "crm_contact") {
           const contactProps = contact.customProperties as any;
-          attendeeFirstName = contactProps?.firstName || attendeeFirstName;
-          attendeeLastName = contactProps?.lastName || attendeeLastName;
-          attendeeEmail = attendeeEmail || contactProps?.email || '';
-          console.log(`✅ [Email Template] Using CRM contact: ${attendeeFirstName} ${attendeeLastName}`);
+          attendeeFirstName = contactProps?.firstName || '';
+          attendeeLastName = contactProps?.lastName || '';
+          attendeeEmail = contactProps?.email || '';
+          console.log(`✅ [Email Template] Using FRESH CRM contact: ${attendeeFirstName} ${attendeeLastName}`);
         }
       } catch (error) {
         console.error(`❌ [Email Template] Error loading CRM contact:`, error);
       }
     }
 
-    // Fallback to holderName if still no first/last name
+    // STEP 2: Fall back to stale ticket properties if CRM failed or was empty
+    if (!attendeeFirstName || !attendeeLastName) {
+      console.log(`⚠️ [Email Template] CRM contact empty/failed, using stale ticket properties as fallback`);
+      attendeeFirstName = attendeeFirstName || ticketProps.attendeeFirstName || '';
+      attendeeLastName = attendeeLastName || ticketProps.attendeeLastName || '';
+      attendeeEmail = attendeeEmail || ticketProps.attendeeEmail || (ticketProps.holderEmail as string) || '';
+    }
+
+    // STEP 3: Final fallback to holderName if still no first/last name
     // DON'T use ticket.name as fallback - it's the product/ticket type name (e.g., "Ticket - Frühbucher - LisaBöseke")
     if (!attendeeFirstName && !attendeeLastName) {
+      console.log(`⚠️ [Email Template] No name in CRM or ticket props, parsing holderName as last resort`);
       const holderName = (ticketProps.holderName as string) || (ticketProps.attendeeName as string) || '';
       if (holderName) {
         attendeeFirstName = holderName.split(' ')[0] || 'Guest';
