@@ -356,8 +356,8 @@ export async function resolveInvoiceEmailData(
   // Match pdfGeneration.ts lines 1213-1279 exactly
   // ==========================================================================
   const billingAddress = invoiceProps.billingAddress || {};
-  let recipientName: string;
-  let recipientEmail: string;
+  let recipientName: string = "";
+  let recipientEmail: string = "";
   let recipientCompanyName: string | undefined;
 
   // Get CRM IDs from invoice
@@ -373,8 +373,11 @@ export async function resolveInvoiceEmailData(
   });
 
   // ALWAYS try to load fresh CRM data first (like PDF does), fall back to stale billing address only on error
+  // Strategy: Load organization for billing, contact for greeting
+  let loadedFromCRM = false;
+
+  // STEP 1: If B2B invoice (has organization), load organization for billing details
   if (crmOrganizationId && options?.sessionId) {
-    // B2B Invoice - load fresh CRM organization
     console.log(`🔍 [RESOLVER] Loading B2B CRM organization: ${crmOrganizationId}`);
     try {
       const buyerCrmOrg = await ctx.runQuery(api.crmOntology.getPublicCrmOrganizationBilling, {
@@ -382,23 +385,21 @@ export async function resolveInvoiceEmailData(
       });
 
       if (buyerCrmOrg) {
-        recipientName = buyerCrmOrg.name;
-        recipientCompanyName = buyerCrmOrg.name;
+        recipientCompanyName = buyerCrmOrg.name; // Company name for billing section
         const orgProps = buyerCrmOrg.customProperties as any;
         recipientEmail = orgProps?.billingEmail || orgProps?.primaryEmail || invoiceProps.recipientEmail || "";
-        console.log(`✅ [RESOLVER] Using fresh B2B CRM org: ${recipientName}`);
-      } else {
-        throw new Error("CRM organization not found");
+        recipientName = buyerCrmOrg.name; // Temporary fallback, will try to get contact person next
+        loadedFromCRM = true;
+        console.log(`✅ [RESOLVER] Loaded B2B CRM org for billing: ${recipientCompanyName}`);
       }
     } catch (error) {
-      console.error(`❌ [RESOLVER] Error loading CRM organization, using stale billing address:`, error);
-      recipientName = billingAddress.companyName || billingAddress.name || "Company";
-      recipientCompanyName = billingAddress.companyName;
-      recipientEmail = billingAddress.email || invoiceProps.recipientEmail || "";
+      console.error(`❌ [RESOLVER] Error loading CRM organization:`, error);
     }
-  } else if (contactId && options?.sessionId) {
-    // B2C Invoice - load fresh CRM contact
-    console.log(`🔍 [RESOLVER] Loading B2C CRM contact: ${contactId}`);
+  }
+
+  // STEP 2: Load contact for greeting (works for both B2B and B2C)
+  if (contactId && options?.sessionId) {
+    console.log(`🔍 [RESOLVER] Loading CRM contact for greeting: ${contactId}`);
     try {
       const buyerCrmContact = await ctx.runQuery(api.crmOntology.getContact, {
         sessionId: options.sessionId,
@@ -413,24 +414,24 @@ export async function resolveInvoiceEmailData(
         // Use firstName + lastName if available (preferred), otherwise use contact.name
         recipientName = (firstName || lastName)
           ? `${firstName} ${lastName}`.trim()
-          : (buyerCrmContact.name || "Customer");
+          : (buyerCrmContact.name || recipientName); // Fall back to org name if contact name empty
 
-        recipientEmail = contactProps?.email || billingAddress.email || invoiceProps.recipientEmail || "";
-        console.log(`✅ [RESOLVER] Using fresh B2C CRM contact: ${recipientName}`);
-      } else {
-        throw new Error("CRM contact not found or wrong type");
+        // Only override email if we didn't get one from org
+        if (!recipientEmail) {
+          recipientEmail = contactProps?.email || billingAddress.email || invoiceProps.recipientEmail || "";
+        }
+
+        loadedFromCRM = true;
+        console.log(`✅ [RESOLVER] Using CRM contact for greeting: ${recipientName}`);
       }
     } catch (error) {
-      console.error(`❌ [RESOLVER] Error loading CRM contact, using stale billing address:`, error);
-      recipientName = billingAddress.name ||
-                     (billingAddress.firstName && billingAddress.lastName
-                       ? `${billingAddress.firstName} ${billingAddress.lastName}`.trim()
-                       : billingAddress.firstName || billingAddress.lastName || "Customer");
-      recipientEmail = billingAddress.email || invoiceProps.recipientEmail || "";
+      console.error(`❌ [RESOLVER] Error loading CRM contact:`, error);
     }
-  } else {
-    // No CRM IDs - use stale billing address (this should rarely happen)
-    console.log(`⚠️ [RESOLVER] No CRM IDs available, using stale billing address`);
+  }
+
+  // STEP 3: Fallback to stale billing address if CRM loading failed
+  if (!loadedFromCRM) {
+    console.log(`⚠️ [RESOLVER] No CRM data loaded, using stale billing address`);
     recipientName = billingAddress.companyName || billingAddress.name ||
                    (billingAddress.firstName && billingAddress.lastName
                      ? `${billingAddress.firstName} ${billingAddress.lastName}`.trim()
