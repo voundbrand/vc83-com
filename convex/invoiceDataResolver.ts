@@ -282,16 +282,18 @@ export async function resolveInvoiceEmailData(
     domainProps = domainConfig.customProperties as any;
     emailSettings = domainProps.email;
   } else {
-    // Use system defaults
+    // No domain config - use empty structure to allow cascading to organization settings
+    console.log(`🔍 [RESOLVER] No domain config provided, will cascade to organization settings`);
     domainProps = {
       branding: {
-        logoUrl: "https://l4yercak3.com/logo.png",
-        primaryColor: "#d4af37",
-        secondaryColor: "#1a1412",
-        accentColor: "#f5f1e8",
+        // Leave undefined to cascade to organization → neutral defaults
+        logoUrl: undefined,
+        primaryColor: undefined,
+        secondaryColor: undefined,
+        accentColor: undefined,
       },
       webPublishing: {
-        siteUrl: "https://l4yercak3.com",
+        siteUrl: "https://l4yercak3.com", // Basic fallback for URLs
       },
     };
     emailSettings = {

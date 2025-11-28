@@ -80,18 +80,9 @@ export const sendTicketConfirmationEmail = action({
       domainProps = domainConfig.customProperties as any;
       emailSettings = domainProps.email;
     } else {
-      // Use system defaults
-      domainProps = {
-        branding: {
-          logoUrl: "https://l4yercak3.com/logo.png",
-          primaryColor: "#d4af37", // Gold
-          secondaryColor: "#1a1412",
-          accentColor: "#f5f1e8",
-        },
-        webPublishing: {
-          siteUrl: "https://l4yercak3.com",
-        },
-      };
+      // No domain config - template renderer will cascade to organization settings → neutral defaults
+      console.log(`📧 No domain config, will use organization settings or neutral defaults`);
+      domainProps = null; // Let template renderer handle branding cascade
       emailSettings = {
         senderEmail: "tickets@mail.l4yercak3.com",
         replyToEmail: "support@l4yercak3.com",
