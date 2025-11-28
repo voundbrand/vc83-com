@@ -1199,9 +1199,11 @@ export const copyTemplateSet = mutation({
       }
     }
 
-    // Validate all templates exist and are accessible
-    const validatedTemplates: Array<{
-      templateId: Id<"objects">;
+    // 🔧 COPY all templates (not just reference them)
+    // This creates editable copies for the target organization
+    const copiedTemplates: Array<{
+      originalTemplateId: Id<"objects">;
+      copiedTemplateId: Id<"objects">;
       templateType: string;
       isRequired: boolean;
       displayOrder: number;
@@ -1213,20 +1215,46 @@ export const copyTemplateSet = mutation({
       isRequired: boolean;
       displayOrder: number;
     }>) {
-      const template = await ctx.db.get(t.templateId);
-      if (!template || template.type !== "template") {
+      const sourceTemplate = await ctx.db.get(t.templateId);
+      if (!sourceTemplate || sourceTemplate.type !== "template") {
         console.warn(`Template ${t.templateId} not found, skipping`);
         continue;
       }
-      validatedTemplates.push({
-        templateId: t.templateId,
+
+      // Create a full copy of the template for the target organization
+      const copiedTemplateName = sourceTemplate.organizationId === args.targetOrganizationId
+        ? `${sourceTemplate.name} (Copy)`
+        : sourceTemplate.name; // Don't add "(Copy)" if copying from system to org
+
+      const copiedTemplateId = await ctx.db.insert("objects", {
+        organizationId: args.targetOrganizationId,
+        type: "template",
+        subtype: sourceTemplate.subtype,
+        name: copiedTemplateName,
+        description: sourceTemplate.description,
+        status: "published", // Copied templates are published by default
+        customProperties: {
+          ...sourceTemplate.customProperties,
+          copiedFrom: t.templateId, // Track original template
+          copiedAt: Date.now(),
+        },
+        createdBy: userId,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+
+      console.log(`✅ [Copy Template Set] Copied template "${sourceTemplate.name}" → "${copiedTemplateName}" (${copiedTemplateId})`);
+
+      copiedTemplates.push({
+        originalTemplateId: t.templateId,
+        copiedTemplateId: copiedTemplateId,
         templateType: t.templateType,
         isRequired: t.isRequired ?? false,
         displayOrder: t.displayOrder ?? 0,
       });
     }
 
-    if (validatedTemplates.length === 0) {
+    if (copiedTemplates.length === 0) {
       throw new Error("No valid templates found in source template set");
     }
 
@@ -1234,9 +1262,15 @@ export const copyTemplateSet = mutation({
     const newSetName = args.name || `${sourceSet.name} (Copy)`;
     const newSetDescription = `Copy of ${sourceSet.name}. ${sourceSet.description || ""}`.trim();
 
+    // 🔧 Use the NEW copied template IDs in customProperties
     const customProps: Record<string, unknown> = {
       version: "2.0",
-      templates: validatedTemplates,
+      templates: copiedTemplates.map(t => ({
+        templateId: t.copiedTemplateId, // Use NEW copied template ID
+        templateType: t.templateType,
+        isRequired: t.isRequired,
+        displayOrder: t.displayOrder,
+      })),
       isDefault: args.setAsDefault || false,
       isSystemDefault: false, // Copies are NEVER system defaults
       tags: [...(sourceProps.tags || []), "copied"],
@@ -1257,12 +1291,12 @@ export const copyTemplateSet = mutation({
       updatedAt: Date.now(),
     });
 
-    // Create objectLinks for all templates
-    for (const t of validatedTemplates) {
+    // Create objectLinks for all COPIED templates (not originals)
+    for (const t of copiedTemplates) {
       await ctx.db.insert("objectLinks", {
         organizationId: args.targetOrganizationId,
         fromObjectId: newSetId,
-        toObjectId: t.templateId,
+        toObjectId: t.copiedTemplateId, // Use NEW copied template ID
         linkType: "includes_template",
         properties: {
           templateType: t.templateType,
@@ -1282,7 +1316,12 @@ export const copyTemplateSet = mutation({
       actionData: {
         sourceSetId: args.sourceSetId,
         sourceSetName: sourceSet.name,
-        templateCount: validatedTemplates.length,
+        templateCount: copiedTemplates.length,
+        templatesCopied: copiedTemplates.map(t => ({
+          originalId: t.originalTemplateId,
+          copiedId: t.copiedTemplateId,
+          templateType: t.templateType,
+        })),
         setAsDefault: args.setAsDefault || false,
       },
       performedBy: userId,
@@ -1307,11 +1346,13 @@ export const copyTemplateSet = mutation({
     });
 
     console.log(`✅ [Copy Template Set] Created availability record for ${newSetName} (${newSetId})`);
+    console.log(`✅ [Copy Template Set] Copied ${copiedTemplates.length} templates as editable copies for organization`);
 
     return {
       success: true,
       setId: newSetId,
-      templateCount: validatedTemplates.length,
+      templateCount: copiedTemplates.length,
+      copiedTemplateIds: copiedTemplates.map(t => t.copiedTemplateId),
     };
   },
 });
