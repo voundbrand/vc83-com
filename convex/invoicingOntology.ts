@@ -1724,8 +1724,17 @@ export const createSimpleInvoiceFromCheckout = internalMutation({
       currency = txProps.currency || args.currency;
     }
 
-    // 5. Generate invoice number
-    const invoiceNumber = await generateInvoiceNumber(ctx, organizationId, "INV");
+    // 5. Generate invoice number using organization's prefix setting
+    // Get organization's invoice prefix from customProperties (stored as object)
+    const organization = await ctx.db
+      .query("organizations")
+      .filter(q => q.eq(q.field("_id"), organizationId))
+      .first();
+
+    // Access customProperties for invoice prefix
+    const orgData = organization as any;
+    const invoicePrefix = (orgData?.customProperties?.invoicePrefix as string) || "INV";
+    const invoiceNumber = await generateInvoiceNumber(ctx, organizationId, invoicePrefix);
 
     // 6. Determine invoice type and status
     const invoiceType: InvoiceType = args.transactionType === "B2C" ? "b2c_single" : "b2b_single";

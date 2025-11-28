@@ -526,6 +526,12 @@ export const generateInvoicePDF = action({
           if (lineItem) {
             return sum + (lineItem.unitPriceInCents * lineItem.quantity);
           }
+
+          // LEGACY: Single-line transaction - data directly in customProperties
+          const txnUnitPrice = txn.customProperties?.unitPriceInCents as number | undefined;
+          if (txnUnitPrice !== undefined) {
+            return sum + (txnUnitPrice * item.quantity);
+          }
         }
         return sum;
       }, 0);
@@ -542,6 +548,12 @@ export const generateInvoicePDF = action({
           if (lineItem) {
             return sum + lineItem.taxAmountInCents;
           }
+
+          // LEGACY: Single-line transaction
+          const txnTaxAmount = txn.customProperties?.taxAmountInCents as number | undefined;
+          if (txnTaxAmount !== undefined) {
+            return sum + txnTaxAmount;
+          }
         }
         return sum;
       }, 0);
@@ -557,6 +569,12 @@ export const generateInvoicePDF = action({
           const lineItem = lineItems?.find(li => li.productId === item.productId);
           if (lineItem) {
             return sum + lineItem.totalPriceInCents;
+          }
+
+          // LEGACY: Single-line transaction
+          const txnTotalPrice = txn.customProperties?.totalPriceInCents as number | undefined;
+          if (txnTotalPrice !== undefined) {
+            return sum + txnTotalPrice;
           }
         }
         return sum + item.totalPrice;
@@ -742,7 +760,7 @@ export const generateInvoicePDF = action({
           const lineItem = lineItems?.find(li => li.productId === item.productId);
 
           if (lineItem) {
-            // Use line item data for accurate amounts
+            // Use line item data for accurate amounts (multi-line transactions)
             return {
               description: lineItem.productName,
               quantity: lineItem.quantity,
@@ -753,11 +771,31 @@ export const generateInvoicePDF = action({
               tax_rate: lineItem.taxRatePercent,
             };
           }
+
+          // LEGACY: Single-line transaction - data directly in customProperties
+          const txnUnitPrice = txn.customProperties?.unitPriceInCents as number | undefined;
+          const txnTaxAmount = txn.customProperties?.taxAmountInCents as number | undefined;
+          const txnTotalPrice = txn.customProperties?.totalPriceInCents as number | undefined;
+          const txnTaxRate = txn.customProperties?.taxRatePercent as number | undefined;
+
+          if (txnUnitPrice !== undefined && txnTotalPrice !== undefined) {
+            // Use transaction data for accurate amounts (single-line transactions)
+            console.log(`📄 [generateInvoicePDF] Using legacy transaction format for ${item.productName}`);
+            return {
+              description: item.productName,
+              quantity: item.quantity,
+              // Pre-formatted currency strings (NET price, not GROSS!)
+              unit_price_formatted: formatCurrency(txnUnitPrice, { locale: invoiceLocale, currency: invoiceCurrency.toUpperCase() }),
+              tax_amount_formatted: formatCurrency(txnTaxAmount || 0, { locale: invoiceLocale, currency: invoiceCurrency.toUpperCase() }),
+              total_price_formatted: formatCurrency(txnTotalPrice, { locale: invoiceLocale, currency: invoiceCurrency.toUpperCase() }),
+              tax_rate: txnTaxRate || 0,
+            };
+          }
         }
 
-        // Fallback if no transaction or no line item match (shouldn't happen in normal flow)
+        // Fallback if no transaction data (shouldn't happen in normal flow)
         const pricePerUnit = Math.round(item.totalPrice / item.quantity);
-        console.log("⚠️ [generateInvoicePDF] Fallback: No transaction line item found for", item.productName);
+        console.warn("⚠️ [generateInvoicePDF] No transaction data found for", item.productName, "- using fallback calculation");
         return {
           description: item.productName,
           quantity: item.quantity,
@@ -819,8 +857,11 @@ export const generateInvoicePDF = action({
 
       const translations = await getBackendTranslations(ctx, invoiceLanguage, translationKeys);
 
-      // 10. Generate invoice number (used for both data and filename)
-      const invoiceNumber = `INV-${session._id.substring(0, 12)}`;
+      // 10. Generate invoice number using organization's prefix (used for both data and filename)
+      // Access customProperties for invoice prefix (organization is typed as any for flexibility)
+      const orgData = organization as any;
+      const invoicePrefix = (orgData?.customProperties?.invoicePrefix as string) || "INV";
+      const invoiceNumber = `${invoicePrefix}-${session._id.substring(0, 12)}`;
 
       // 11. Prepare invoice template data
       const invoiceData = {
