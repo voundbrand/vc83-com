@@ -362,7 +362,15 @@ export async function resolveInvoiceEmailData(
 
   // Get CRM IDs from invoice
   const crmOrganizationId = invoiceProps.crmOrganizationId as Id<"objects"> | undefined;
-  const contactId = invoiceProps.contactId as Id<"objects"> | undefined;
+  const contactId = invoiceProps.crmContactId as Id<"objects"> | undefined; // NOTE: Field is called crmContactId, not contactId!
+
+  console.log(`🔍 [RESOLVER] CRM IDs check:`, {
+    hasCrmOrganizationId: !!crmOrganizationId,
+    hasCrmContactId: !!contactId,
+    crmOrganizationId: crmOrganizationId || 'none',
+    crmContactId: contactId || 'none',
+    hasSessionId: !!options?.sessionId,
+  });
 
   // ALWAYS try to load fresh CRM data first (like PDF does), fall back to stale billing address only on error
   if (crmOrganizationId && options?.sessionId) {
