@@ -90,13 +90,49 @@ export const sendTicketConfirmationEmail = action({
       };
     }
 
-    // 4. Extract attendee info from ticket
-    const attendeeEmail = args.isTest ? args.testRecipient! : ticketProps.attendeeEmail;
-    const attendeeFirstName = ticketProps.attendeeFirstName || ticket.name.split(' ')[0];
-    const attendeeLastName = ticketProps.attendeeLastName || ticket.name.split(' ').slice(1).join(' ');
+    // 4. Extract attendee info from ticket - try multiple email fields
+    let attendeeEmail = args.isTest
+      ? args.testRecipient!
+      : (ticketProps.attendeeEmail || ticketProps.holderEmail) as string | undefined;
+
+    let attendeeFirstName = ticketProps.attendeeFirstName || '';
+    let attendeeLastName = ticketProps.attendeeLastName || '';
+
+    // If no email found in ticket props, try loading from CRM contact
+    if (!attendeeEmail && ticketProps.contactId) {
+      console.log(`🔍 [SEND] No email in ticket props, loading CRM contact: ${ticketProps.contactId}`);
+      try {
+        const contact = await ctx.runQuery(api.crmOntology.getContact, {
+          sessionId: args.sessionId,
+          contactId: ticketProps.contactId as Id<"objects">,
+        });
+
+        if (contact && contact.type === "crm_contact") {
+          const contactProps = contact.customProperties as any;
+          attendeeEmail = contactProps?.email || '';
+          attendeeFirstName = attendeeFirstName || contactProps?.firstName || '';
+          attendeeLastName = attendeeLastName || contactProps?.lastName || '';
+          console.log(`✅ [SEND] Loaded email from CRM contact: ${attendeeEmail}`);
+        }
+      } catch (error) {
+        console.error(`❌ [SEND] Error loading CRM contact:`, error);
+      }
+    }
+
+    // Final fallback for names if still empty
+    if (!attendeeFirstName && !attendeeLastName) {
+      const holderName = (ticketProps.holderName || ticket.name) as string;
+      attendeeFirstName = holderName.split(' ')[0] || 'Guest';
+      attendeeLastName = holderName.split(' ').slice(1).join(' ') || '';
+    }
 
     if (!attendeeEmail) {
-      throw new Error("No email address for attendee");
+      console.error(`❌ [SEND] No email address found for attendee. Ticket props:`, {
+        attendeeEmail: ticketProps.attendeeEmail,
+        holderEmail: ticketProps.holderEmail,
+        contactId: ticketProps.contactId,
+      });
+      throw new Error("No email address for attendee. Please ensure the ticket has an email or is linked to a CRM contact with an email.");
     }
 
     // 5. Determine language (default to German)
