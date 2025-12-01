@@ -8,6 +8,7 @@ import { OrganizationsList } from "./crm-window/organizations-list"
 import { OrganizationDetail } from "./crm-window/organization-detail"
 import { PipelineKanban } from "./crm-window/pipeline-kanban"
 import { PipelineTemplatesTab } from "./crm-window/pipeline-templates-tab"
+import { PipelineSettingsTab } from "./crm-window/pipeline-settings-tab"
 import type { Id } from "../../../convex/_generated/dataModel"
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
 
@@ -135,11 +136,7 @@ export function CRMWindow() {
           <div className="flex-1 overflow-hidden">
             {pipelineSubView === "active" && <PipelineKanban />}
             {pipelineSubView === "templates" && <PipelineTemplatesTab />}
-            {pipelineSubView === "settings" && (
-              <div className="p-4" style={{ color: 'var(--win95-text)' }}>
-                <p className="font-pixel text-sm">Settings view - Coming soon</p>
-              </div>
-            )}
+            {pipelineSubView === "settings" && <PipelineSettingsTab />}
           </div>
         </div>
       ) : (
