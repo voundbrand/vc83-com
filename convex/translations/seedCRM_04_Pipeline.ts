@@ -204,6 +204,230 @@ export const seed = internalMutation({
       },
 
       // ============================================================
+      // ACTIVE PIPELINES - CRUD OPERATIONS
+      // ============================================================
+      {
+        key: "ui.crm.pipeline.edit",
+        values: {
+          en: "Edit",
+          de: "Bearbeiten",
+          pl: "Edytuj",
+          es: "Editar",
+          fr: "Modifier",
+          ja: "編集",
+        }
+      },
+      {
+        key: "ui.crm.pipeline.delete",
+        values: {
+          en: "Delete",
+          de: "Löschen",
+          pl: "Usuń",
+          es: "Eliminar",
+          fr: "Supprimer",
+          ja: "削除",
+        }
+      },
+      {
+        key: "ui.crm.pipeline.save",
+        values: {
+          en: "Save",
+          de: "Speichern",
+          pl: "Zapisz",
+          es: "Guardar",
+          fr: "Enregistrer",
+          ja: "保存",
+        }
+      },
+      {
+        key: "ui.crm.pipeline.cancel",
+        values: {
+          en: "Cancel",
+          de: "Abbrechen",
+          pl: "Anuluj",
+          es: "Cancelar",
+          fr: "Annuler",
+          ja: "キャンセル",
+        }
+      },
+      {
+        key: "ui.crm.pipeline.name",
+        values: {
+          en: "Pipeline Name",
+          de: "Pipeline-Name",
+          pl: "Nazwa Pipeline",
+          es: "Nombre del Pipeline",
+          fr: "Nom du Pipeline",
+          ja: "パイプライン名",
+        }
+      },
+      {
+        key: "ui.crm.pipeline.description",
+        values: {
+          en: "Description",
+          de: "Beschreibung",
+          pl: "Opis",
+          es: "Descripción",
+          fr: "Description",
+          ja: "説明",
+        }
+      },
+      {
+        key: "ui.crm.pipeline.name_placeholder",
+        values: {
+          en: "Enter pipeline name",
+          de: "Pipeline-Namen eingeben",
+          pl: "Wprowadź nazwę pipeline",
+          es: "Ingrese el nombre del pipeline",
+          fr: "Entrez le nom du pipeline",
+          ja: "パイプライン名を入力",
+        }
+      },
+      {
+        key: "ui.crm.pipeline.description_placeholder",
+        values: {
+          en: "Enter pipeline description",
+          de: "Pipeline-Beschreibung eingeben",
+          pl: "Wprowadź opis pipeline",
+          es: "Ingrese la descripción del pipeline",
+          fr: "Entrez la description du pipeline",
+          ja: "パイプラインの説明を入力",
+        }
+      },
+      {
+        key: "ui.crm.pipeline.confirm_delete",
+        values: {
+          en: "Are you sure you want to delete this pipeline?",
+          de: "Möchten Sie diese Pipeline wirklich löschen?",
+          pl: "Czy na pewno chcesz usunąć ten pipeline?",
+          es: "¿Está seguro de que desea eliminar este pipeline?",
+          fr: "Êtes-vous sûr de vouloir supprimer ce pipeline?",
+          ja: "このパイプラインを削除してもよろしいですか？",
+        }
+      },
+      {
+        key: "ui.crm.pipeline.update_failed",
+        values: {
+          en: "Failed to update pipeline",
+          de: "Pipeline konnte nicht aktualisiert werden",
+          pl: "Nie udało się zaktualizować pipeline",
+          es: "Error al actualizar el pipeline",
+          fr: "Échec de la mise à jour du pipeline",
+          ja: "パイプラインの更新に失敗しました",
+        }
+      },
+      {
+        key: "ui.crm.pipeline.delete_failed",
+        values: {
+          en: "Failed to delete pipeline",
+          de: "Pipeline konnte nicht gelöscht werden",
+          pl: "Nie udało się usunąć pipeline",
+          es: "Error al eliminar el pipeline",
+          fr: "Échec de la suppression du pipeline",
+          ja: "パイプラインの削除に失敗しました",
+        }
+      },
+      {
+        key: "ui.crm.pipeline.delete_stage",
+        values: {
+          en: "Delete stage",
+          de: "Stage löschen",
+          pl: "Usuń etap",
+          es: "Eliminar etapa",
+          fr: "Supprimer l'étape",
+          ja: "ステージを削除",
+        }
+      },
+      {
+        key: "ui.crm.pipeline.confirm_delete_stage",
+        values: {
+          en: "Are you sure you want to delete this stage?",
+          de: "Möchten Sie dieses Stage wirklich löschen?",
+          pl: "Czy na pewno chcesz usunąć ten etap?",
+          es: "¿Está seguro de que desea eliminar esta etapa?",
+          fr: "Êtes-vous sûr de vouloir supprimer cette étape?",
+          ja: "このステージを削除してもよろしいですか？",
+        }
+      },
+      {
+        key: "ui.crm.pipeline.cannot_delete_stage_with_contacts",
+        values: {
+          en: "Cannot delete stage with contacts. Move contacts first.",
+          de: "Stage mit Kontakten kann nicht gelöscht werden. Verschieben Sie zuerst die Kontakte.",
+          pl: "Nie można usunąć etapu z kontaktami. Najpierw przenieś kontakty.",
+          es: "No se puede eliminar la etapa con contactos. Mueva los contactos primero.",
+          fr: "Impossible de supprimer l'étape avec des contacts. Déplacez d'abord les contacts.",
+          ja: "連絡先があるステージは削除できません。まず連絡先を移動してください。",
+        }
+      },
+      {
+        key: "ui.crm.pipeline.delete_stage_failed",
+        values: {
+          en: "Failed to delete stage. Make sure it has no contacts.",
+          de: "Stage konnte nicht gelöscht werden. Stellen Sie sicher, dass es keine Kontakte hat.",
+          pl: "Nie udało się usunąć etapu. Upewnij się, że nie ma kontaktów.",
+          es: "Error al eliminar la etapa. Asegúrese de que no tenga contactos.",
+          fr: "Échec de la suppression de l'étape. Assurez-vous qu'elle n'a pas de contacts.",
+          ja: "ステージの削除に失敗しました。連絡先がないことを確認してください。",
+        }
+      },
+      {
+        key: "ui.crm.pipeline.add_stage",
+        values: {
+          en: "Add Stage",
+          de: "Stage hinzufügen",
+          pl: "Dodaj etap",
+          es: "Agregar etapa",
+          fr: "Ajouter une étape",
+          ja: "ステージを追加",
+        }
+      },
+      {
+        key: "ui.crm.pipeline.select_pipeline",
+        values: {
+          en: "Select a pipeline...",
+          de: "Wählen Sie eine Pipeline...",
+          pl: "Wybierz pipeline...",
+          es: "Seleccione un pipeline...",
+          fr: "Sélectionnez un pipeline...",
+          ja: "パイプラインを選択...",
+        }
+      },
+      {
+        key: "ui.crm.pipeline.select_to_view",
+        values: {
+          en: "Select a pipeline to view",
+          de: "Wählen Sie eine Pipeline zum Anzeigen",
+          pl: "Wybierz pipeline do wyświetlenia",
+          es: "Seleccione un pipeline para ver",
+          fr: "Sélectionnez un pipeline à afficher",
+          ja: "表示するパイプラインを選択",
+        }
+      },
+      {
+        key: "ui.crm.pipeline.no_description",
+        values: {
+          en: "No description",
+          de: "Keine Beschreibung",
+          pl: "Brak opisu",
+          es: "Sin descripción",
+          fr: "Pas de description",
+          ja: "説明なし",
+        }
+      },
+      {
+        key: "ui.crm.pipeline.loading_stages",
+        values: {
+          en: "Loading pipeline stages...",
+          de: "Lade Pipeline-Stages...",
+          pl: "Ładowanie etapów pipeline...",
+          es: "Cargando etapas del pipeline...",
+          fr: "Chargement des étapes du pipeline...",
+          ja: "パイプラインステージを読み込んでいます...",
+        }
+      },
+
+      // ============================================================
       // SETTINGS TAB
       // ============================================================
       {
