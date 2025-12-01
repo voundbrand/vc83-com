@@ -128,6 +128,17 @@ export const seed = internalMutation({
           ja: "タグとメモ（オプション）",
         }
       },
+      {
+        key: "ui.crm.contact_form.sections.pipelines",
+        values: {
+          en: "Pipelines",
+          de: "Pipelines",
+          pl: "Ścieżki sprzedaży",
+          es: "Canales",
+          fr: "Pipelines",
+          ja: "パイプライン",
+        }
+      },
 
       // ============================================================
       // FIELD LABELS
@@ -605,6 +616,17 @@ export const seed = internalMutation({
           es: "Eliminando...",
           fr: "Suppression...",
           ja: "削除中...",
+        }
+      },
+      {
+        key: "ui.crm.contact_form.buttons.add_to_pipeline",
+        values: {
+          en: "Add to Pipeline",
+          de: "Zu Pipeline hinzufügen",
+          pl: "Dodaj do ścieżki sprzedaży",
+          es: "Agregar al canal",
+          fr: "Ajouter au pipeline",
+          ja: "パイプラインに追加",
         }
       },
 
