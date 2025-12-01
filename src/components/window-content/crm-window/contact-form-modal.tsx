@@ -438,16 +438,6 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
     return !alreadySelected && !alreadyIn;
   });
 
-  // Debug logging (remove after testing)
-  if (editId && showPipelines) {
-    console.log("🔍 Pipeline Debug:", {
-      availablePipelines: availablePipelines?.length,
-      currentContactPipelines: currentContactPipelines?.length,
-      pipelineSelections: pipelineSelections.length,
-      availableToAdd: availableToAdd?.length,
-      currentPipelines: currentContactPipelines?.map((cp: any) => cp.pipeline?.name),
-    });
-  }
 
   return (
     <div
@@ -806,15 +796,6 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
 
                 {(!availableToAdd || availableToAdd.length === 0) && !addingPipeline && (
                   <div className="text-center">
-                    {/* DEBUG: Show what's happening */}
-                    <div className="text-xs mb-2 p-2 border rounded" style={{ background: "#fff3cd", borderColor: "#ffc107" }}>
-                      <strong>Debug Info:</strong><br/>
-                      Total Pipelines: {availablePipelines?.length || 0}<br/>
-                      Contact In: {currentContactPipelines?.length || 0}<br/>
-                      Available to Add: {availableToAdd?.length || 0}<br/>
-                      Has Nav Callback: {onNavigateToPipelines ? 'Yes' : 'No'}
-                    </div>
-
                     {/* No pipelines exist in organization at all */}
                     {(!availablePipelines || availablePipelines.length === 0) ? (
                       <>
