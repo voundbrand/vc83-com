@@ -18,13 +18,17 @@ import type { Id } from "../../../../convex/_generated/dataModel";
  * Allows selecting which pipeline to view and dragging contacts between stages.
  */
 
-export function ActivePipelinesTab() {
+interface ActivePipelinesTabProps {
+  initialPipelineId?: Id<"objects"> | null;
+}
+
+export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProps = {}) {
   const { sessionId } = useAuth();
   const currentOrganization = useCurrentOrganization();
   const currentOrganizationId = currentOrganization?.id as Id<"organizations"> | undefined;
   const { t } = useNamespaceTranslations("ui.crm");
 
-  const [selectedPipelineId, setSelectedPipelineId] = useState<Id<"objects"> | null>(null);
+  const [selectedPipelineId, setSelectedPipelineId] = useState<Id<"objects"> | null>(initialPipelineId || null);
   const [activeContactId, setActiveContactId] = useState<string | null>(null);
 
   // Query organization's pipelines

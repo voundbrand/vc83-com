@@ -1,10 +1,12 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
 
 export function ChatInput() {
   const [message, setMessage] = useState("")
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const { t } = useNamespaceTranslations("ui.ai_assistant")
 
   // Auto-expand textarea as user types
   useEffect(() => {
@@ -46,7 +48,7 @@ export function ChatInput() {
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Type a message... (Shift+Enter for new line)"
+          placeholder={t("ui.ai_assistant.input.placeholder")}
           className="flex-1 px-3 py-2 border-2 resize-none overflow-hidden min-h-[40px] max-h-[120px]"
           style={{
             borderColor: 'var(--win95-input-border-dark)',
@@ -63,12 +65,12 @@ export function ChatInput() {
           disabled={!message.trim()}
           className="retro-button px-4 py-2 font-pixel text-xs whitespace-nowrap"
         >
-          Send 📤
+          {t("ui.ai_assistant.input.send_button")} 📤
         </button>
       </div>
 
       <div className="mt-2 text-[10px]" style={{ color: 'var(--neutral-gray)' }}>
-        Quick: /email, /forms, /crm, /events
+        {t("ui.ai_assistant.input.quick_commands")}
       </div>
     </form>
   )

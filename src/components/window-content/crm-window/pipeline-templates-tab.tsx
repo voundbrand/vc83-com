@@ -15,6 +15,10 @@ import type { Id } from "../../../../convex/_generated/dataModel";
  * Similar to template sets - read-only system templates that can be instantiated.
  */
 
+interface PipelineTemplatesTabProps {
+  onTemplateCreated?: (pipelineId: Id<"objects">) => void;
+}
+
 interface PipelineTemplate {
   _id: Id<"objects">;
   name: string;
@@ -30,7 +34,7 @@ interface PipelineTemplate {
   stageCount?: number;
 }
 
-export function PipelineTemplatesTab() {
+export function PipelineTemplatesTab({ onTemplateCreated }: PipelineTemplatesTabProps) {
   const { t } = useNamespaceTranslations("ui.crm");
   const { sessionId } = useAuth();
   const currentOrganization = useCurrentOrganization();
@@ -52,12 +56,16 @@ export function PipelineTemplatesTab() {
 
     try {
       setCopying(templateId);
-      await copyTemplate({
+      const result = await copyTemplate({
         sessionId,
         organizationId: currentOrganizationId as Id<"organizations">,
         templateId,
       });
-      // TODO: Show success toast
+
+      // Navigate to the newly created pipeline
+      if (result && onTemplateCreated) {
+        onTemplateCreated(result.pipelineId);
+      }
     } catch (error) {
       console.error("Failed to copy template:", error);
       // TODO: Show error toast

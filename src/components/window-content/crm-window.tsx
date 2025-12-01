@@ -21,12 +21,19 @@ export function CRMWindow() {
   const [pipelineSubView, setPipelineSubView] = useState<PipelineSubView>("active")
   const [selectedContactId, setSelectedContactId] = useState<Id<"objects"> | null>(null)
   const [selectedOrgId, setSelectedOrgId] = useState<Id<"objects"> | null>(null)
+  const [newlyCreatedPipelineId, setNewlyCreatedPipelineId] = useState<Id<"objects"> | null>(null)
 
   // Reset selection when switching views
   const handleViewSwitch = (view: ViewType) => {
     setActiveView(view)
     setSelectedContactId(null)
     setSelectedOrgId(null)
+  }
+
+  // Handle template creation - navigate to the new pipeline
+  const handleTemplateCreated = (pipelineId: Id<"objects">) => {
+    setNewlyCreatedPipelineId(pipelineId)
+    setPipelineSubView("active")
   }
 
   return (
@@ -134,8 +141,8 @@ export function CRMWindow() {
 
           {/* Pipeline Sub-View Content */}
           <div className="flex-1 overflow-hidden">
-            {pipelineSubView === "active" && <ActivePipelinesTab />}
-            {pipelineSubView === "templates" && <PipelineTemplatesTab />}
+            {pipelineSubView === "active" && <ActivePipelinesTab initialPipelineId={newlyCreatedPipelineId} />}
+            {pipelineSubView === "templates" && <PipelineTemplatesTab onTemplateCreated={handleTemplateCreated} />}
             {pipelineSubView === "settings" && <PipelineSettingsTab />}
           </div>
         </div>

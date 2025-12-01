@@ -214,6 +214,7 @@ import type * as transactionInvoicing from "../transactionInvoicing.js";
 import type * as transactionOntology from "../transactionOntology.js";
 import type * as translationResolver from "../translationResolver.js";
 import type * as translations__translationHelpers from "../translations/_translationHelpers.js";
+import type * as translations_seedAIAssistant from "../translations/seedAIAssistant.js";
 import type * as translations_seedAddressTranslations from "../translations/seedAddressTranslations.js";
 import type * as translations_seedCRM_01_OrganizationForm from "../translations/seedCRM_01_OrganizationForm.js";
 import type * as translations_seedCRM_02_MainWindow from "../translations/seedCRM_02_MainWindow.js";
@@ -538,6 +539,7 @@ declare const fullApi: ApiFromModules<{
   transactionOntology: typeof transactionOntology;
   translationResolver: typeof translationResolver;
   "translations/_translationHelpers": typeof translations__translationHelpers;
+  "translations/seedAIAssistant": typeof translations_seedAIAssistant;
   "translations/seedAddressTranslations": typeof translations_seedAddressTranslations;
   "translations/seedCRM_01_OrganizationForm": typeof translations_seedCRM_01_OrganizationForm;
   "translations/seedCRM_02_MainWindow": typeof translations_seedCRM_02_MainWindow;

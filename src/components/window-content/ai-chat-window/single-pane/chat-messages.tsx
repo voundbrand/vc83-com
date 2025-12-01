@@ -1,29 +1,40 @@
 "use client"
 
 import { useEffect, useRef } from "react"
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
 import { SystemMessage } from "./message-types/system-message"
 import { UserMessage } from "./message-types/user-message"
 import { AssistantMessage } from "./message-types/assistant-message"
 import { TypingIndicator } from "./message-types/typing-indicator"
 
-// TODO: Replace with actual conversation data from Convex
-const MOCK_MESSAGES = [
-  {
-    id: "1",
-    role: "system" as const,
-    content: "Welcome! I'm your AI assistant. I can help with emails, CRM, forms, events, and more. What would you like to do today?"
-  }
-]
-
 export function ChatMessages() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const messages = MOCK_MESSAGES
+  const { t, isLoading } = useNamespaceTranslations("ui.ai_assistant")
   const isTyping = false // TODO: Connect to actual typing state
+
+  // TODO: Replace with actual conversation data from Convex
+  const messages = [
+    {
+      id: "1",
+      role: "system" as const,
+      content: t("ui.ai_assistant.welcome.message")
+    }
+  ]
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages, isTyping])
+
+  if (isLoading) {
+    return (
+      <div className="flex-1 flex items-center justify-center" style={{ background: 'var(--win95-bg)' }}>
+        <div style={{ color: 'var(--neutral-gray)' }} className="text-sm">
+          {t("ui.ai_assistant.loading.translations")}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div
