@@ -57,6 +57,7 @@ export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProp
   const moveContact = useMutation(api.crmPipeline.moveContactToStage);
   const updatePipeline = useMutation(api.crmPipeline.updatePipeline);
   const deletePipeline = useMutation(api.crmPipeline.deletePipeline);
+  const deleteStage = useMutation(api.crmPipeline.deleteStage);
 
   // Auto-select first pipeline or default pipeline when pipelines load
   useEffect(() => {
@@ -153,6 +154,20 @@ export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProp
     } catch (error) {
       console.error("Failed to delete pipeline:", error);
       alert(t("ui.crm.pipeline.delete_failed") || "Failed to delete pipeline");
+    }
+  };
+
+  const handleDeleteStage = async (stageId: Id<"objects">) => {
+    if (!sessionId) return;
+
+    try {
+      await deleteStage({
+        sessionId,
+        stageId,
+      });
+    } catch (error) {
+      console.error("Failed to delete stage:", error);
+      alert(t("ui.crm.pipeline.delete_stage_failed") || "Failed to delete stage. Make sure it has no contacts.");
     }
   };
 
@@ -342,6 +357,8 @@ export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProp
                     stageId={stage._id}
                     stageLabel={stage.name}
                     contacts={stageContacts}
+                    isEditMode={isEditingPipeline}
+                    onDeleteStage={handleDeleteStage}
                   />
                 );
               })}

@@ -1,14 +1,17 @@
 "use client"
 
 import { useDroppable } from '@dnd-kit/core'
+import { Trash2 } from 'lucide-react'
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
 import { ContactCard } from "./contact-card"
-import type { Doc } from "../../../../convex/_generated/dataModel"
+import type { Doc, Id } from "../../../../convex/_generated/dataModel"
 
 interface KanbanColumnProps {
   stageId: string
   stageLabel: string
   contacts: Doc<"objects">[]
+  isEditMode?: boolean
+  onDeleteStage?: (stageId: Id<"objects">) => void
 }
 
 // Stage color mappings (theme-aware)
@@ -31,7 +34,7 @@ const STAGE_COLORS = {
   },
 }
 
-export function KanbanColumn({ stageId, stageLabel, contacts }: KanbanColumnProps) {
+export function KanbanColumn({ stageId, stageLabel, contacts, isEditMode = false, onDeleteStage }: KanbanColumnProps) {
   const { t } = useNamespaceTranslations("ui.crm")
   const { setNodeRef, isOver } = useDroppable({
     id: stageId,
@@ -43,6 +46,18 @@ export function KanbanColumn({ stageId, stageLabel, contacts }: KanbanColumnProp
   }, 0)
 
   const stageColors = STAGE_COLORS[stageId as keyof typeof STAGE_COLORS] || STAGE_COLORS.lead
+
+  const handleDeleteStage = () => {
+    if (contacts.length > 0) {
+      alert(t("ui.crm.pipeline.cannot_delete_stage_with_contacts") || "Cannot delete stage with contacts. Move contacts first.");
+      return;
+    }
+
+    const confirmMessage = t("ui.crm.pipeline.confirm_delete_stage") || `Are you sure you want to delete the "${stageLabel}" stage?`;
+    if (confirm(confirmMessage) && onDeleteStage) {
+      onDeleteStage(stageId as Id<"objects">);
+    }
+  };
 
   return (
     <div
@@ -62,12 +77,28 @@ export function KanbanColumn({ stageId, stageLabel, contacts }: KanbanColumnProp
           borderColor: stageColors.border
         }}
       >
-        <div className="font-pixel text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
-          {stageLabel}
-        </div>
-        <div className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-          {contacts.length} {t("ui.crm.pipeline.contact_count", { count: contacts.length })}
-          {totalValue > 0 && ` • $${(totalValue / 100).toFixed(2)}`}
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1">
+            <div className="font-pixel text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
+              {stageLabel}
+            </div>
+            <div className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
+              {contacts.length} {t("ui.crm.pipeline.contact_count", { count: contacts.length })}
+              {totalValue > 0 && ` • $${(totalValue / 100).toFixed(2)}`}
+            </div>
+          </div>
+
+          {/* Delete Button (Edit Mode Only) */}
+          {isEditMode && (
+            <button
+              onClick={handleDeleteStage}
+              className="retro-button p-1.5 hover:bg-red-500 transition-colors"
+              style={{ background: "var(--win95-button-face)" }}
+              title={t("ui.crm.pipeline.delete_stage") || "Delete stage"}
+            >
+              <Trash2 size={12} style={{ color: "var(--error)" }} />
+            </button>
+          )}
         </div>
       </div>
 
