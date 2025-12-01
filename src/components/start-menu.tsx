@@ -11,6 +11,7 @@ interface StartMenuItem {
   onClick?: () => void;
   divider?: boolean;
   submenu?: StartMenuItem[];
+  disabled?: boolean; // For grayed-out/disabled items
 }
 
 interface StartMenuProps {
@@ -133,13 +134,19 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
                               <button
                                 key={colIndex * 5 + subindex}
                                 onClick={() => {
-                                  subitem.onClick?.();
-                                  onClose();
-                                  setOpenSubmenu(null);
+                                  if (!subitem.disabled) {
+                                    subitem.onClick?.();
+                                    onClose();
+                                    setOpenSubmenu(null);
+                                  }
                                 }}
-                                className="w-full px-3 py-2 text-left flex items-center gap-2 transition-colors font-pixel hover-menu-item retro-text"
+                                disabled={subitem.disabled}
+                                className={cn(
+                                  "w-full px-3 py-2 text-left flex items-center gap-2 transition-colors font-pixel retro-text",
+                                  subitem.disabled ? "opacity-40 cursor-not-allowed" : "hover-menu-item"
+                                )}
                                 style={{ color: 'var(--win95-text)' }}
-                                title={subitem.fullLabel || subitem.label}
+                                title={subitem.disabled ? "Coming soon" : (subitem.fullLabel || subitem.label)}
                               >
                                 {subitem.icon && (
                                   <span className="text-base">{subitem.icon}</span>

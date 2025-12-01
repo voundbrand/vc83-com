@@ -251,6 +251,8 @@ export default function HomePage() {
     ...(isAppAvailable("workflows") ? [
       { label: t('ui.app.workflows'), icon: "⚡", onClick: requireAuth(openWorkflowsWindow) }
     ] : []),
+    // Compliance app - Coming soon (grayed out)
+    { label: t('ui.app.compliance') || "Compliance", icon: "⚖️", disabled: true },
     // Templates app - Browse and preview all templates
     { label: t('ui.app.templates'), icon: "📄", onClick: requireAuth(openTemplatesWindow) },
     //{ label: "L4YERCAK3 Podcast", icon: "🎙️", onClick: requireAuth(openEpisodesWindow) },
