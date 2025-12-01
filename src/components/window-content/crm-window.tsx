@@ -153,6 +153,10 @@ export function CRMWindow() {
               <ContactsList
                 selectedId={selectedContactId}
                 onSelect={setSelectedContactId}
+                onNavigateToPipelines={() => {
+                  setActiveView("pipeline");
+                  setPipelineSubView("templates");
+                }}
               />
             ) : (
               <OrganizationsList

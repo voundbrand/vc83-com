@@ -629,6 +629,17 @@ export const seed = internalMutation({
           ja: "パイプラインに追加",
         }
       },
+      {
+        key: "ui.crm.contact_form.buttons.create_pipeline",
+        values: {
+          en: "Create Your First Pipeline",
+          de: "Erstellen Sie Ihre erste Pipeline",
+          pl: "Utwórz swoją pierwszą ścieżkę sprzedaży",
+          es: "Crea tu primer canal",
+          fr: "Créez votre premier pipeline",
+          ja: "最初のパイプラインを作成",
+        }
+      },
 
       // ============================================================
       // VALIDATION / ERROR MESSAGES

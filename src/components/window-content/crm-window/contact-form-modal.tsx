@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
-import { X, Save, Loader2, ChevronDown, ChevronUp, Trash2, Plus } from "lucide-react";
+import { X, Save, Loader2, ChevronDown, ChevronUp, Trash2, Plus, TrendingUp } from "lucide-react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { usePostHog } from "posthog-js/react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
@@ -13,6 +13,7 @@ interface ContactFormModalProps {
   editId?: Id<"objects">;
   onClose: () => void;
   onSuccess: (contactId: Id<"objects">) => void;
+  onNavigateToPipelines?: () => void;
 }
 
 type CompanyAssociation = "none" | "existing" | "new";
@@ -24,7 +25,7 @@ interface PipelineSelection {
   stageName?: string;
 }
 
-export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModalProps) {
+export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipelines }: ContactFormModalProps) {
   const { t } = useNamespaceTranslations("ui.crm");
   const { sessionId } = useAuth();
   const posthog = usePostHog();
@@ -793,11 +794,31 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
                 )}
 
                 {(!availableToAdd || availableToAdd.length === 0) && !addingPipeline && (
-                  <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                    {editId
-                      ? "Contact is already in all available pipelines"
-                      : "No pipelines available. Go to Pipelines → Templates to set up pipelines."}
-                  </p>
+                  <div className="text-center">
+                    <p className="text-xs mb-3" style={{ color: "var(--neutral-gray)" }}>
+                      {editId
+                        ? "Contact is already in all available pipelines"
+                        : "No pipelines available yet"}
+                    </p>
+                    {!editId && onNavigateToPipelines && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onNavigateToPipelines();
+                          onClose();
+                        }}
+                        className="flex items-center gap-2 px-3 py-2 text-sm font-bold border-2 mx-auto"
+                        style={{
+                          borderColor: "var(--primary)",
+                          background: "var(--primary)",
+                          color: "white",
+                        }}
+                      >
+                        <TrendingUp size={14} />
+                        {t("ui.crm.contact_form.buttons.create_pipeline") || "Create Your First Pipeline"}
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             )}

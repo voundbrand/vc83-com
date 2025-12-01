@@ -13,12 +13,13 @@ import { ContactPipelinesBadge } from "./contact-pipelines-badge"
 interface ContactsListProps {
   selectedId: Id<"objects"> | null
   onSelect: (id: Id<"objects">) => void
+  onNavigateToPipelines?: () => void
 }
 
 type LifecycleStage = "lead" | "prospect" | "customer" | "partner" | ""
 type SourceType = "checkout" | "form" | "manual" | "import" | ""
 
-export function ContactsList({ selectedId, onSelect }: ContactsListProps) {
+export function ContactsList({ selectedId, onSelect, onNavigateToPipelines }: ContactsListProps) {
   const { t } = useNamespaceTranslations("ui.crm")
   const { sessionId } = useAuth()
   const currentOrganization = useCurrentOrganization()
@@ -356,6 +357,7 @@ export function ContactsList({ selectedId, onSelect }: ContactsListProps) {
             setShowAddModal(false);
             onSelect(contactId);
           }}
+          onNavigateToPipelines={onNavigateToPipelines}
         />
       )}
 
