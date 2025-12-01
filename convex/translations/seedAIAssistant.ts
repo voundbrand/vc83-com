@@ -175,17 +175,20 @@ export const seed = internalMutation({
     };
 
     let count = 0;
+    const emptySet = new Set<string>(); // Required for helper signature (ignored internally)
 
     // Insert translations using helper function
     for (const [key, values] of Object.entries(translations)) {
       for (const [locale, value] of Object.entries(values)) {
         const inserted = await insertTranslationIfNew(
-          ctx,
-          key,
-          locale,
-          value,
+          ctx.db,
+          emptySet,
           systemOrg._id,
-          systemUser._id
+          systemUser._id,
+          key,
+          value as string,
+          locale,
+          "ai_assistant"
         );
         if (inserted) count++;
       }
