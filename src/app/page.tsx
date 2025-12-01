@@ -205,7 +205,6 @@ export default function HomePage() {
   const programsSubmenu = [
     // All Apps - always show for authenticated users
     { label: t('ui.app.all_applications'), icon: "📱", onClick: requireAuth(openAllAppsWindow) },
-    { divider: true }, // Visual separator
     // AI Assistant - check availability via app availability system
     ...(isAppAvailable("ai-assistant") ? [
       { label: t('ui.app.ai_assistant'), icon: "🤖", onClick: requireAuth(openAIAssistantWindow) }
