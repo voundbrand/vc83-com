@@ -36,6 +36,9 @@ export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProp
   const [isEditingPipeline, setIsEditingPipeline] = useState(false);
   const [editPipelineName, setEditPipelineName] = useState("");
   const [editPipelineDescription, setEditPipelineDescription] = useState("");
+  const [isCreatingPipeline, setIsCreatingPipeline] = useState(false);
+  const [newPipelineName, setNewPipelineName] = useState("");
+  const [newPipelineDescription, setNewPipelineDescription] = useState("");
 
   // Query organization's pipelines
   const pipelines = useQuery(
@@ -58,6 +61,7 @@ export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProp
   const updatePipeline = useMutation(api.crmPipeline.updatePipeline);
   const deletePipeline = useMutation(api.crmPipeline.deletePipeline);
   const deleteStage = useMutation(api.crmPipeline.deleteStage);
+  const createPipeline = useMutation(api.crmPipeline.createPipeline);
 
   // Auto-select first pipeline or default pipeline when pipelines load
   useEffect(() => {
@@ -171,6 +175,42 @@ export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProp
     }
   };
 
+  const handleCreatePipeline = async () => {
+    if (!sessionId || !currentOrganizationId) return;
+    if (!newPipelineName.trim()) {
+      alert(t("ui.crm.pipeline.name_required") || "Please enter a pipeline name");
+      return;
+    }
+
+    try {
+      const result = await createPipeline({
+        sessionId,
+        organizationId: currentOrganizationId,
+        name: newPipelineName,
+        description: newPipelineDescription,
+      });
+
+      // Select the newly created pipeline
+      if (result && result.pipelineId) {
+        setSelectedPipelineId(result.pipelineId);
+      }
+
+      // Reset form
+      setIsCreatingPipeline(false);
+      setNewPipelineName("");
+      setNewPipelineDescription("");
+    } catch (error) {
+      console.error("Failed to create pipeline:", error);
+      alert(t("ui.crm.pipeline.create_failed") || "Failed to create pipeline");
+    }
+  };
+
+  const handleCancelCreate = () => {
+    setIsCreatingPipeline(false);
+    setNewPipelineName("");
+    setNewPipelineDescription("");
+  };
+
   // Loading state
   if (!sessionId || !currentOrganizationId) {
     return (
@@ -240,6 +280,17 @@ export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProp
                 </option>
               ))}
             </select>
+
+            {/* Create New Pipeline Button */}
+            <button
+              onClick={() => setIsCreatingPipeline(true)}
+              className="retro-button px-3 py-1.5 flex items-center gap-2 text-xs"
+              style={{ background: "var(--success)", color: "white" }}
+              title={t("ui.crm.pipeline.create_new") || "Create new pipeline"}
+            >
+              <Plus size={14} />
+              <span className="font-pixel">{t("ui.crm.pipeline.create_new") || "New"}</span>
+            </button>
           </div>
 
           {/* Pipeline Info (when selected) */}
@@ -297,6 +348,58 @@ export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProp
           </div>
         )}
       </div>
+
+      {/* Create Mode: New Pipeline Form */}
+      {isCreatingPipeline && (
+        <div className="p-4 border-b-2 space-y-3" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}>
+          <h3 className="text-sm font-bold mb-3" style={{ color: "var(--win95-text)" }}>
+            {t("ui.crm.pipeline.create_new") || "Create New Pipeline"}
+          </h3>
+          <div>
+            <label className="text-xs font-bold mb-1 block" style={{ color: "var(--win95-text)" }}>
+              {t("ui.crm.pipeline.name") || "Pipeline Name"} *
+            </label>
+            <input
+              type="text"
+              value={newPipelineName}
+              onChange={(e) => setNewPipelineName(e.target.value)}
+              className="w-full retro-input px-3 py-2 text-sm"
+              style={{ background: "var(--win95-bg)", color: "var(--win95-text)" }}
+              placeholder={t("ui.crm.pipeline.name_placeholder") || "Enter pipeline name"}
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="text-xs font-bold mb-1 block" style={{ color: "var(--win95-text)" }}>
+              {t("ui.crm.pipeline.description") || "Description"}
+            </label>
+            <textarea
+              value={newPipelineDescription}
+              onChange={(e) => setNewPipelineDescription(e.target.value)}
+              className="w-full retro-input px-3 py-2 text-sm"
+              style={{ background: "var(--win95-bg)", color: "var(--win95-text)" }}
+              placeholder={t("ui.crm.pipeline.description_placeholder") || "Enter pipeline description"}
+              rows={2}
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleCreatePipeline}
+              className="retro-button px-4 py-2 text-xs font-pixel"
+              style={{ background: "var(--success)", color: "white" }}
+            >
+              {t("ui.crm.pipeline.create") || "Create Pipeline"}
+            </button>
+            <button
+              onClick={handleCancelCreate}
+              className="retro-button px-4 py-2 text-xs font-pixel"
+              style={{ background: "var(--neutral-gray)", color: "white" }}
+            >
+              {t("ui.crm.pipeline.cancel") || "Cancel"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Edit Mode: Pipeline Details Form */}
       {isEditingPipeline && pipelineWithStages && (

@@ -589,6 +589,96 @@ export const deletePipeline = mutation({
   },
 });
 
+/**
+ * CREATE PIPELINE
+ * Create a new blank pipeline with default stages
+ */
+export const createPipeline = mutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    name: v.string(),
+    description: v.optional(v.string()),
+    subtype: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db
+      .query("sessions")
+      .filter((q) => q.eq(q.field("_id"), args.sessionId))
+      .first();
+
+    if (!session) throw new Error("Invalid session");
+
+    // Create new pipeline
+    const newPipelineId = await ctx.db.insert("objects", {
+      organizationId: args.organizationId,
+      type: "crm_pipeline",
+      subtype: args.subtype || "sales",
+      name: args.name,
+      description: args.description || "",
+      status: "active",
+      customProperties: {
+        isTemplate: false,
+        isDefault: false,
+      },
+      createdBy: session.userId,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    // Create default stages
+    const defaultStages = [
+      { name: "Lead", order: 1, color: "#FCD34D" },
+      { name: "Prospect", order: 2, color: "#93C5FD" },
+      { name: "Customer", order: 3, color: "#86EFAC" },
+    ];
+
+    for (const stage of defaultStages) {
+      const newStageId = await ctx.db.insert("objects", {
+        organizationId: args.organizationId,
+        type: "crm_pipeline_stage",
+        subtype: stage.name.toLowerCase(),
+        name: stage.name,
+        description: "",
+        status: "active",
+        customProperties: {
+          color: stage.color,
+          order: stage.order,
+        },
+        createdBy: session.userId,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+
+      // Link stage to pipeline
+      await ctx.db.insert("objectLinks", {
+        organizationId: args.organizationId,
+        fromObjectId: newStageId,
+        toObjectId: newPipelineId,
+        linkType: "belongs_to_pipeline",
+        properties: { order: stage.order },
+        createdBy: session.userId,
+        createdAt: Date.now(),
+      });
+    }
+
+    // Log creation
+    await ctx.db.insert("objectActions", {
+      organizationId: args.organizationId,
+      objectId: newPipelineId,
+      actionType: "created",
+      actionData: {
+        pipelineName: args.name,
+        stagesCreated: defaultStages.length,
+      },
+      performedBy: session.userId,
+      performedAt: Date.now(),
+    });
+
+    return { pipelineId: newPipelineId };
+  },
+});
+
 // ============================================================================
 // PIPELINE STAGES
 // ============================================================================
