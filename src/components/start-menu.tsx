@@ -114,16 +114,17 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
                   {item.submenu && <span className="text-xs" style={{ color: 'var(--win95-text)' }}>►</span>}
                 </button>
 
-                {/* Submenu */}
+                {/* Submenu - Three Column Grid */}
                 {item.submenu && openSubmenu === index && (
                   <div
-                    className="absolute left-full bottom-0 ml-1 min-w-[200px] retro-window window-corners dark:retro-window-dark shadow-lg"
+                    className="absolute left-full bottom-0 ml-1 retro-window window-corners dark:retro-window-dark shadow-lg"
                     style={{
                       zIndex: 10002,
-                      background: 'var(--win95-bg)'
+                      background: 'var(--win95-bg)',
+                      minWidth: '600px'
                     }}
                   >
-                    <div className="py-1">
+                    <div className="py-1 grid grid-cols-3 gap-x-1">
                       {item.submenu.map((subitem, subindex) => (
                         <button
                           key={subindex}
@@ -139,7 +140,7 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
                           {subitem.icon && (
                             <span className="text-base">{subitem.icon}</span>
                           )}
-                          <span className="truncate">{subitem.label || ""}</span>
+                          <span className="truncate text-xs">{subitem.label || ""}</span>
                         </button>
                       ))}
                     </div>
