@@ -85,7 +85,7 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
           <div key={index} className="relative">
             {item.divider ? (
               <div
-                className="h-[1px] mx-1 my-1 retro-border"
+                className="h-[1px] mx-1 my-0.5 retro-border"
                 style={{ background: 'var(--win95-border)' }}
               />
             ) : (
@@ -110,7 +110,7 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
                 >
                   <div className="flex items-center gap-2">
                     {item.icon && <span className="text-base">{item.icon}</span>}
-                    <span>{item.label || ""}</span>
+                    <span className="text-xs">{item.label || ""}</span>
                   </div>
                   {item.submenu && <span className="text-xs" style={{ color: 'var(--win95-text)' }}>►</span>}
                 </button>
@@ -122,7 +122,6 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
                     style={{
                       zIndex: 10002,
                       background: 'var(--win95-bg)',
-                      minWidth: '500px'
                     }}
                   >
                     <div className="py-1 flex">
@@ -131,7 +130,7 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
                         const itemsPerColumn = Math.ceil(item.submenu!.length / 2);
                         return [0, 1].map((colIndex) => (
                         <div key={colIndex} className="flex">
-                          <div className="flex-1">
+                          <div>
                             {item.submenu!.slice(colIndex * itemsPerColumn, (colIndex + 1) * itemsPerColumn).map((subitem, subindex) => (
                               <button
                                 key={colIndex * itemsPerColumn + subindex}
