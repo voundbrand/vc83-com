@@ -438,6 +438,17 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
     return !alreadySelected && !alreadyIn;
   });
 
+  // Debug logging (remove after testing)
+  if (editId && showPipelines) {
+    console.log("🔍 Pipeline Debug:", {
+      availablePipelines: availablePipelines?.length,
+      currentContactPipelines: currentContactPipelines?.length,
+      pipelineSelections: pipelineSelections.length,
+      availableToAdd: availableToAdd?.length,
+      currentPipelines: currentContactPipelines?.map((cp: any) => cp.pipeline?.name),
+    });
+  }
+
   return (
     <div
       className="fixed inset-0 flex items-center justify-center z-[9000]"
@@ -795,28 +806,36 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
 
                 {(!availableToAdd || availableToAdd.length === 0) && !addingPipeline && (
                   <div className="text-center">
-                    <p className="text-xs mb-3" style={{ color: "var(--neutral-gray)" }}>
-                      {editId
-                        ? "Contact is already in all available pipelines"
-                        : "No pipelines available yet"}
-                    </p>
-                    {!editId && onNavigateToPipelines && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onNavigateToPipelines();
-                          onClose();
-                        }}
-                        className="flex items-center gap-2 px-3 py-2 text-sm font-bold border-2 mx-auto"
-                        style={{
-                          borderColor: "var(--primary)",
-                          background: "var(--primary)",
-                          color: "white",
-                        }}
-                      >
-                        <TrendingUp size={14} />
-                        {t("ui.crm.contact_form.buttons.create_pipeline") || "Create Your First Pipeline"}
-                      </button>
+                    {/* No pipelines exist in organization at all */}
+                    {(!availablePipelines || availablePipelines.length === 0) ? (
+                      <>
+                        <p className="text-xs mb-3" style={{ color: "var(--neutral-gray)" }}>
+                          No pipelines available yet
+                        </p>
+                        {onNavigateToPipelines && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onNavigateToPipelines();
+                              onClose();
+                            }}
+                            className="flex items-center gap-2 px-3 py-2 text-sm font-bold border-2 mx-auto"
+                            style={{
+                              borderColor: "var(--primary)",
+                              background: "var(--primary)",
+                              color: "white",
+                            }}
+                          >
+                            <TrendingUp size={14} />
+                            {t("ui.crm.contact_form.buttons.create_pipeline") || "Create Your First Pipeline"}
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      /* Pipelines exist, but contact is already in all of them */
+                      <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                        Contact is already in all available pipelines
+                      </p>
                     )}
                   </div>
                 )}
