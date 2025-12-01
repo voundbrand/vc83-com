@@ -806,6 +806,15 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
 
                 {(!availableToAdd || availableToAdd.length === 0) && !addingPipeline && (
                   <div className="text-center">
+                    {/* DEBUG: Show what's happening */}
+                    <div className="text-xs mb-2 p-2 border rounded" style={{ background: "#fff3cd", borderColor: "#ffc107" }}>
+                      <strong>Debug Info:</strong><br/>
+                      Total Pipelines: {availablePipelines?.length || 0}<br/>
+                      Contact In: {currentContactPipelines?.length || 0}<br/>
+                      Available to Add: {availableToAdd?.length || 0}<br/>
+                      Has Nav Callback: {onNavigateToPipelines ? 'Yes' : 'No'}
+                    </div>
+
                     {/* No pipelines exist in organization at all */}
                     {(!availablePipelines || availablePipelines.length === 0) ? (
                       <>

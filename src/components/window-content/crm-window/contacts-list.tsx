@@ -370,6 +370,7 @@ export function ContactsList({ selectedId, onSelect, onNavigateToPipelines }: Co
             setEditingId(null);
             onSelect(contactId);
           }}
+          onNavigateToPipelines={onNavigateToPipelines}
         />
       )}
 
