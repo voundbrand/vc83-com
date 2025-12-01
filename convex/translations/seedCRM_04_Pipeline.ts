@@ -577,6 +577,76 @@ export const seed = internalMutation({
       },
 
       // ============================================================
+      // ACTIVE PIPELINES TAB
+      // ============================================================
+      {
+        key: "ui.crm.pipeline.no_pipelines",
+        values: {
+          en: "No Pipelines Found",
+          de: "Keine Pipelines gefunden",
+          pl: "Nie znaleziono pipeline'ów",
+          es: "No se encontraron pipelines",
+          fr: "Aucun pipeline trouvé",
+          ja: "パイプラインが見つかりません",
+        }
+      },
+      {
+        key: "ui.crm.pipeline.no_pipelines_hint",
+        values: {
+          en: "Go to the Templates tab to copy a pipeline template to your organization",
+          de: "Gehen Sie zur Registerkarte Vorlagen, um eine Pipeline-Vorlage in Ihre Organisation zu kopieren",
+          pl: "Przejdź do zakładki Szablony, aby skopiować szablon pipeline do swojej organizacji",
+          es: "Vaya a la pestaña Plantillas para copiar una plantilla de pipeline a su organización",
+          fr: "Accédez à l'onglet Modèles pour copier un modèle de pipeline dans votre organisation",
+          ja: "テンプレートタブに移動して、パイプラインテンプレートを組織にコピーしてください",
+        }
+      },
+      {
+        key: "ui.crm.pipeline.select_pipeline",
+        values: {
+          en: "Pipeline:",
+          de: "Pipeline:",
+          pl: "Pipeline:",
+          es: "Pipeline:",
+          fr: "Pipeline:",
+          ja: "パイプライン：",
+        }
+      },
+      {
+        key: "ui.crm.pipeline.loading",
+        values: {
+          en: "Loading pipelines...",
+          de: "Lade Pipelines...",
+          pl: "Ładowanie pipeline'ów...",
+          es: "Cargando pipelines...",
+          fr: "Chargement des pipelines...",
+          ja: "パイプラインを読み込んでいます...",
+        }
+      },
+      {
+        key: "ui.crm.pipeline.loading_stages",
+        values: {
+          en: "Loading pipeline stages...",
+          de: "Lade Pipeline-Phasen...",
+          pl: "Ładowanie etapów pipeline...",
+          es: "Cargando etapas del pipeline...",
+          fr: "Chargement des étapes du pipeline...",
+          ja: "パイプラインステージを読み込んでいます...",
+        }
+      },
+      {
+        key: "ui.crm.pipeline.not_authenticated",
+        values: {
+          en: "Please sign in to view pipelines",
+          de: "Bitte melden Sie sich an, um Pipelines anzuzeigen",
+          pl: "Zaloguj się, aby wyświetlić pipeline'y",
+          es: "Inicie sesión para ver los pipelines",
+          fr: "Veuillez vous connecter pour voir les pipelines",
+          ja: "パイプラインを表示するにはサインインしてください",
+        }
+      },
+
+      // ============================================================
       // PIPELINE STAGE LABELS
       // ============================================================
       {

@@ -342,6 +342,79 @@ export const getPipelineWithStages = query({
 });
 
 /**
+ * GET PIPELINE WITH STAGES AND CONTACTS
+ * Returns a pipeline with all its stages and contacts grouped by stage
+ * Used for the Active Pipelines Kanban view
+ */
+export const getPipelineWithStagesAndContacts = query({
+  args: {
+    sessionId: v.string(),
+    pipelineId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const pipeline = await ctx.db.get(args.pipelineId);
+    if (!pipeline || pipeline.type !== "crm_pipeline") {
+      throw new Error("Pipeline not found");
+    }
+
+    // Get all stages
+    const stageLinks = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_to_object", (q) => q.eq("toObjectId", args.pipelineId))
+      .filter((q) => q.eq(q.field("linkType"), "belongs_to_pipeline"))
+      .collect();
+
+    const stages = await Promise.all(stageLinks.map((link) => ctx.db.get(link.fromObjectId)));
+
+    // Sort by order
+    const sortedStages = stages
+      .filter((s) => s !== null)
+      .sort((a, b) => {
+        const orderA = (a!.customProperties as { order?: number })?.order || 0;
+        const orderB = (b!.customProperties as { order?: number })?.order || 0;
+        return orderA - orderB;
+      });
+
+    // Get contacts for each stage
+    const contactsByStage: Record<string, any[]> = {};
+
+    for (const stage of sortedStages) {
+      if (!stage) continue;
+
+      // Get all links to this stage
+      const links = await ctx.db
+        .query("objectLinks")
+        .withIndex("by_to_object", (q) => q.eq("toObjectId", stage._id))
+        .filter((q) => q.eq(q.field("linkType"), "in_pipeline"))
+        .collect();
+
+      // Get contact objects
+      const contacts = await Promise.all(
+        links.map(async (link) => {
+          const contact = await ctx.db.get(link.fromObjectId);
+          return contact
+            ? {
+                ...contact,
+                pipelineData: link.properties,
+              }
+            : null;
+        })
+      );
+
+      contactsByStage[stage._id] = contacts.filter((c) => c !== null);
+    }
+
+    return {
+      pipeline,
+      stages: sortedStages,
+      contactsByStage,
+    };
+  },
+});
+
+/**
  * UPDATE PIPELINE
  * Update pipeline properties (name, description, AI settings)
  */

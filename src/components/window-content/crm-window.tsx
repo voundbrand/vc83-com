@@ -6,7 +6,7 @@ import { ContactsList } from "./crm-window/contacts-list"
 import { ContactDetail } from "./crm-window/contact-detail"
 import { OrganizationsList } from "./crm-window/organizations-list"
 import { OrganizationDetail } from "./crm-window/organization-detail"
-import { PipelineKanban } from "./crm-window/pipeline-kanban"
+import { ActivePipelinesTab } from "./crm-window/active-pipelines-tab"
 import { PipelineTemplatesTab } from "./crm-window/pipeline-templates-tab"
 import { PipelineSettingsTab } from "./crm-window/pipeline-settings-tab"
 import type { Id } from "../../../convex/_generated/dataModel"
@@ -134,7 +134,7 @@ export function CRMWindow() {
 
           {/* Pipeline Sub-View Content */}
           <div className="flex-1 overflow-hidden">
-            {pipelineSubView === "active" && <PipelineKanban />}
+            {pipelineSubView === "active" && <ActivePipelinesTab />}
             {pipelineSubView === "templates" && <PipelineTemplatesTab />}
             {pipelineSubView === "settings" && <PipelineSettingsTab />}
           </div>
