@@ -23,6 +23,7 @@ import { CRMWindow } from "@/components/window-content/crm-window"
 import { InvoicingWindow } from "@/components/window-content/invoicing-window"
 import { WorkflowsWindow } from "@/components/window-content/workflows-window"
 import { TemplatesWindow } from "@/components/window-content/templates-window"
+import { AIChatWindow } from "@/components/window-content/ai-chat-window"
 import { WindowsMenu } from "@/components/windows-menu"
 import { useIsMobile } from "@/hooks/use-media-query"
 import { useAuth, useOrganizations, useCurrentOrganization, useIsSuperAdmin, useAccountDeletionStatus } from "@/hooks/use-auth"
@@ -117,6 +118,10 @@ export default function HomePage() {
     openWindow("templates", "Templates", <TemplatesWindow />, { x: 220, y: 65 }, { width: 1100, height: 700 }, 'ui.app.templates')
   }
 
+  const openAIAssistantWindow = () => {
+    openWindow("ai-assistant", "AI Assistant", <AIChatWindow />, { x: 230, y: 70 }, { width: 700, height: 600 }, 'ui.app.ai_assistant')
+  }
+
   const handleLogout = () => {
     signOut()
   }
@@ -201,6 +206,10 @@ export default function HomePage() {
     // All Apps - always show for authenticated users
     { label: t('ui.app.all_applications'), icon: "📱", onClick: requireAuth(openAllAppsWindow) },
     { divider: true }, // Visual separator
+    // AI Assistant - check availability via app availability system
+    ...(isAppAvailable("ai-assistant") ? [
+      { label: t('ui.app.ai_assistant'), icon: "🤖", onClick: requireAuth(openAIAssistantWindow) }
+    ] : []),
     // { label: "L4YER.docs", icon: "📝", onClick: requireAuth(openLayerDocsWindow) }, // Hidden for now
     ...(isAppAvailable("media-library") ? [
       { label: t('ui.app.media_library'), icon: "📁", onClick: requireAuth(openMediaLibraryWindow) }

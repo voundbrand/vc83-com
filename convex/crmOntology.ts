@@ -211,6 +211,7 @@ export const updateContact = mutation({
       company: v.optional(v.string()),
       address: v.optional(v.any()),
       status: v.optional(v.string()),
+      subtype: v.optional(v.string()), // Lifecycle stage: "lead" | "prospect" | "customer" | "partner"
       tags: v.optional(v.array(v.string())),
       notes: v.optional(v.string()),
       customFields: v.optional(v.any()),
@@ -240,6 +241,7 @@ export const updateContact = mutation({
     await ctx.db.patch(args.contactId, {
       name: newName,
       status: args.updates.status || contact.status,
+      subtype: args.updates.subtype || contact.subtype, // Update lifecycle stage
       customProperties: {
         ...contact.customProperties,
         ...args.updates,

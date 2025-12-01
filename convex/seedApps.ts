@@ -227,6 +227,34 @@ export const seedSystemApps = mutation({
       console.log("Created Compliance app:", complianceAppId);
     }
 
+    // Check if AI Assistant app already exists
+    const existingAIAssistant = await ctx.db
+      .query("apps")
+      .withIndex("by_code", (q) => q.eq("code", "ai-assistant"))
+      .first();
+
+    let aiAssistantAppId;
+    if (existingAIAssistant) {
+      aiAssistantAppId = existingAIAssistant._id;
+      console.log("AI Assistant app already exists:", aiAssistantAppId);
+    } else {
+      aiAssistantAppId = await ctx.db.insert("apps", {
+        code: "ai-assistant",
+        name: "AI Assistant",
+        description: "AI-powered assistant for emails, CRM, forms, events, and workflow automation with natural language interface",
+        icon: "🤖",
+        category: "business",
+        plans: ["pro", "business", "enterprise"],
+        creatorOrgId: systemOrg._id,
+        dataScope: "installer-owned",
+        status: "active",
+        version: "1.0.0",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+      console.log("Created AI Assistant app:", aiAssistantAppId);
+    }
+
     return {
       paymentsAppId,
       publishingAppId,
@@ -234,6 +262,7 @@ export const seedSystemApps = mutation({
       invoicingAppId,
       workflowsAppId,
       complianceAppId,
+      aiAssistantAppId,
       systemOrgId: systemOrg._id,
     };
   },

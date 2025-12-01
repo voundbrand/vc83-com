@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/use-auth"
 import { Mail, Phone, Building2, Tag, Calendar, DollarSign, ShoppingCart } from "lucide-react"
 import type { Id } from "../../../../convex/_generated/dataModel"
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
+import { ContactPipelineManager } from "./contact-pipeline-manager"
 
 interface ContactDetailProps {
   contactId: Id<"objects">
@@ -40,7 +41,7 @@ export function ContactDetail({ contactId }: ContactDetailProps) {
   const email = props.email?.toString() || ""
   const phone = props.phone?.toString()
   const jobTitle = props.jobTitle?.toString()
-  const stage = props.lifecycleStage?.toString() || "lead"
+  const stage = contact.subtype || "lead" // Read from contact.subtype, not customProperties
   const source = props.source?.toString() || "manual"
   const tags = Array.isArray(props.tags) ? props.tags : []
   const notes = props.notes?.toString()
@@ -111,6 +112,9 @@ export function ContactDetail({ contactId }: ContactDetailProps) {
           })}
         </div>
       )}
+
+      {/* Pipeline Management */}
+      <ContactPipelineManager contactId={contactId} />
 
       {/* Purchase Stats */}
       {totalSpent > 0 && (

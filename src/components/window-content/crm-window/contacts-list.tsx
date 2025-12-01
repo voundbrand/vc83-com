@@ -8,6 +8,7 @@ import { Search, Filter, Plus, Edit, Trash2 } from "lucide-react"
 import type { Id } from "../../../../convex/_generated/dataModel"
 import { ContactFormModal } from "./contact-form-modal"
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
+import { ContactPipelinesBadge } from "./contact-pipelines-badge"
 
 interface ContactsListProps {
   selectedId: Id<"objects"> | null
@@ -99,8 +100,8 @@ export function ContactsList({ selectedId, onSelect }: ContactsListProps) {
       return false
     }
 
-    // Lifecycle stage filter
-    if (stageFilter && props.lifecycleStage !== stageFilter) {
+    // Lifecycle stage filter (read from contact.subtype, not customProperties)
+    if (stageFilter && contact.subtype !== stageFilter) {
       return false
     }
 
@@ -233,7 +234,7 @@ export function ContactsList({ selectedId, onSelect }: ContactsListProps) {
               const props = contact.customProperties || {}
               const fullName = props.fullName || `${props.firstName || ""} ${props.lastName || ""}`.trim() || "Unnamed Contact"
               const email = props.email?.toString() || ""
-              const stage = props.lifecycleStage?.toString() || "lead"
+              const stage = contact.subtype || "lead" // Read from contact.subtype, not customProperties
               const source = props.source?.toString() || "manual"
               const totalSpent = typeof props.totalSpent === "number" ? props.totalSpent : 0
               const purchaseCount = typeof props.purchaseCount === "number" ? props.purchaseCount : 0
@@ -280,16 +281,6 @@ export function ContactsList({ selectedId, onSelect }: ContactsListProps) {
                     {/* Tags row */}
                     <div className="flex gap-1 mt-2 flex-wrap">
                       <span
-                        className="px-1.5 py-0.5 text-[10px] font-pixel border"
-                        style={{
-                          background: stage === "customer" ? '#dcfce7' : stage === "prospect" ? '#dbeafe' : stage === "lead" ? '#fef3c7' : 'var(--win95-bg-light)',
-                          borderColor: stage === "customer" ? '#86efac' : stage === "prospect" ? '#93c5fd' : stage === "lead" ? '#fde047' : 'var(--win95-border)',
-                          color: stage === "customer" ? '#15803d' : stage === "prospect" ? '#1e40af' : stage === "lead" ? '#a16207' : 'var(--win95-text)'
-                        }}
-                      >
-                        {stage.toUpperCase()}
-                      </span>
-                      <span
                         className="px-1.5 py-0.5 text-[10px] border"
                         style={{
                           background: 'var(--win95-bg-light)',
@@ -314,6 +305,9 @@ export function ContactsList({ selectedId, onSelect }: ContactsListProps) {
                         </span>
                       ))}
                     </div>
+
+                    {/* Pipeline badges */}
+                    <ContactPipelinesBadge contactId={contact._id} />
                   </div>
 
                   {/* Action buttons - appear on hover */}

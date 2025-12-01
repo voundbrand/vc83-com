@@ -1,10 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { useQuery } from "convex/react"
+import { useQuery, useMutation } from "convex/react"
 import { api } from "../../../../convex/_generated/api"
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth"
-import { Search, Plus, Building2, Edit } from "lucide-react"
+import { Search, Plus, Building2, Edit, Trash2 } from "lucide-react"
 import type { Id } from "../../../../convex/_generated/dataModel"
 import { OrganizationFormModal } from "./organization-form-modal"
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
@@ -23,6 +23,27 @@ export function OrganizationsList({ selectedId, onSelect }: OrganizationsListPro
   const [searchQuery, setSearchQuery] = useState("")
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingId, setEditingId] = useState<Id<"objects"> | null>(null)
+  const [deletingId, setDeletingId] = useState<Id<"objects"> | null>(null)
+
+  // Mutations
+  const deleteOrgMutation = useMutation(api.crmOntology.deleteCrmOrganization)
+
+  // Handle delete
+  const handleDelete = async (orgId: Id<"objects">) => {
+    if (!sessionId) return
+
+    try {
+      await deleteOrgMutation({ sessionId, crmOrganizationId: orgId })
+      // Clear selection if deleted org was selected
+      if (selectedId === orgId) {
+        onSelect(null as any)
+      }
+      setDeletingId(null)
+    } catch (error) {
+      console.error("Failed to delete organization:", error)
+      alert("Failed to delete organization. Please try again.")
+    }
+  }
 
   // Query organizations
   const organizations = useQuery(
@@ -177,21 +198,37 @@ export function OrganizationsList({ selectedId, onSelect }: OrganizationsListPro
                     )}
                   </div>
 
-                  {/* Edit button - appears on hover */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setEditingId(org._id)
-                    }}
-                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 border-2"
-                    style={{
-                      background: 'var(--win95-bg)',
-                      borderColor: 'var(--win95-border)'
-                    }}
-                    title={t("ui.crm.organizations.edit_organization")}
-                  >
-                    <Edit size={14} style={{ color: 'var(--neutral-gray)' }} />
-                  </button>
+                  {/* Action buttons - appear on hover */}
+                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setEditingId(org._id)
+                      }}
+                      className="p-1.5 border-2 hover:opacity-80"
+                      style={{
+                        background: 'var(--win95-bg-light)',
+                        borderColor: 'var(--win95-border)'
+                      }}
+                      title={t("ui.crm.organizations.edit_organization")}
+                    >
+                      <Edit size={14} style={{ color: 'var(--win95-text)' }} />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setDeletingId(org._id)
+                      }}
+                      className="p-1.5 border-2 hover:opacity-80"
+                      style={{
+                        background: 'var(--win95-bg-light)',
+                        borderColor: 'var(--error)'
+                      }}
+                      title="Delete organization"
+                    >
+                      <Trash2 size={14} style={{ color: 'var(--error)' }} />
+                    </button>
+                  </div>
                 </div>
               )
             })}
@@ -220,6 +257,53 @@ export function OrganizationsList({ selectedId, onSelect }: OrganizationsListPro
             onSelect(organizationId)
           }}
         />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {deletingId && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50"
+          style={{ background: 'rgba(0, 0, 0, 0.5)' }}
+        >
+          <div
+            className="border-4 p-6 max-w-md mx-4 shadow-lg"
+            style={{
+              background: 'var(--win95-bg)',
+              borderColor: 'var(--win95-border)'
+            }}
+          >
+            <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--win95-text)' }}>
+              Delete Organization?
+            </h3>
+            <p className="text-sm mb-6" style={{ color: 'var(--win95-text)' }}>
+              Are you sure you want to delete this organization? This will also remove all contact associations. This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setDeletingId(null)}
+                className="px-4 py-2 border-2 hover:opacity-80 transition-colors"
+                style={{
+                  borderColor: 'var(--win95-border)',
+                  background: 'var(--win95-button-face)',
+                  color: 'var(--win95-text)'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDelete(deletingId)}
+                className="px-4 py-2 border-2 hover:opacity-80 transition-colors"
+                style={{
+                  background: 'var(--error)',
+                  color: 'white',
+                  borderColor: 'var(--error)'
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

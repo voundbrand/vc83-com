@@ -279,6 +279,17 @@ export const seed = internalMutation({
         }
       },
       {
+        key: "ui.app.ai_assistant",
+        values: {
+          en: "AI Assistant",
+          de: "KI-Assistent",
+          pl: "Asystent AI",
+          es: "Asistente de IA",
+          fr: "Assistant IA",
+          ja: "AIアシスタント",
+        }
+      },
+      {
         key: "ui.app.user_account",
         values: {
           en: "User Account",

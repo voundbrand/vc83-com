@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
-import { X, Save, Loader2, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import { X, Save, Loader2, ChevronDown, ChevronUp, Trash2, Plus } from "lucide-react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { usePostHog } from "posthog-js/react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
@@ -17,6 +17,13 @@ interface ContactFormModalProps {
 
 type CompanyAssociation = "none" | "existing" | "new";
 
+interface PipelineSelection {
+  pipelineId: Id<"objects">;
+  stageId: Id<"objects">;
+  pipelineName?: string;
+  stageName?: string;
+}
+
 export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModalProps) {
   const { t } = useNamespaceTranslations("ui.crm");
   const { sessionId } = useAuth();
@@ -28,7 +35,12 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
   const [showCompany, setShowCompany] = useState(false);
   const [showAddress, setShowAddress] = useState(false);
   const [showTagsNotes, setShowTagsNotes] = useState(false);
+  const [showPipelines, setShowPipelines] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [pipelineSelections, setPipelineSelections] = useState<PipelineSelection[]>([]);
+  const [addingPipeline, setAddingPipeline] = useState(false);
+  const [newPipelineId, setNewPipelineId] = useState<Id<"objects"> | "">("");
+  const [newStageId, setNewStageId] = useState<Id<"objects"> | "">("");
 
   // Form data
   const [formData, setFormData] = useState({
@@ -37,7 +49,6 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
     email: "",
     phone: "",
     jobTitle: "",
-    lifecycleStage: "lead" as "lead" | "prospect" | "customer" | "partner",
     source: "manual" as "manual" | "import" | "event" | "form",
     companyAssociation: "none" as CompanyAssociation,
     existingOrgId: "",
@@ -62,12 +73,20 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
     editId && sessionId ? { sessionId, contactId: editId } : "skip"
   );
 
+  // Query existing organization links if editing
+  const existingOrganizations = useQuery(
+    api.crmOntology.getContactOrganizations,
+    editId && sessionId ? { sessionId, contactId: editId } : "skip"
+  );
+
   // Mutations
   const createContact = useMutation(api.crmOntology.createContact);
   const updateContact = useMutation(api.crmOntology.updateContact);
   const deleteContact = useMutation(api.crmOntology.deleteContact);
   const createCrmOrganization = useMutation(api.crmOntology.createCrmOrganization);
   const createLink = useMutation(api.ontologyHelpers.createLink);
+  const deleteLink = useMutation(api.ontologyHelpers.deleteLink);
+  const addContactToPipeline = useMutation(api.crmPipeline.addContactToPipeline);
 
   // Get organizations for dropdown
   const organizations = useQuery(
@@ -77,11 +96,39 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
       : "skip"
   );
 
+  // Get available pipelines
+  const availablePipelines = useQuery(
+    api.crmPipeline.getOrganizationPipelines,
+    sessionId && currentOrganizationId
+      ? { sessionId, organizationId: currentOrganizationId as Id<"organizations"> }
+      : "skip"
+  );
+
+  // Get stages for selected new pipeline
+  const newPipelineStages = useQuery(
+    api.crmPipeline.getPipelineWithStages,
+    sessionId && newPipelineId
+      ? { sessionId, pipelineId: newPipelineId as Id<"objects"> }
+      : "skip"
+  );
+
+  // Get current contact pipelines (for editing)
+  const currentContactPipelines = useQuery(
+    api.crmPipeline.getContactPipelines,
+    editId && sessionId
+      ? { sessionId, contactId: editId }
+      : "skip"
+  );
+
   // Load existing data when editing
   useEffect(() => {
     if (existingContact) {
       const props = existingContact.customProperties || {};
       const address = props.address || {};
+
+      // Check if contact has an organization link
+      const hasOrganization = existingOrganizations && existingOrganizations.length > 0;
+      const linkedOrg = hasOrganization ? existingOrganizations[0] : null;
 
       setFormData({
         firstName: props.firstName?.toString() || "",
@@ -89,10 +136,9 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
         email: props.email?.toString() || "",
         phone: props.phone?.toString() || "",
         jobTitle: props.jobTitle?.toString() || "",
-        lifecycleStage: (existingContact.subtype || "lead") as "lead" | "prospect" | "customer" | "partner",
         source: (props.source?.toString() || "manual") as "manual" | "import" | "event" | "form",
-        companyAssociation: "none",
-        existingOrgId: "",
+        companyAssociation: linkedOrg ? "existing" : "none",
+        existingOrgId: linkedOrg?._id || "",
         newOrgName: "",
         newOrgIndustry: "",
         newOrgWebsite: "",
@@ -106,6 +152,9 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
       });
 
       // Expand sections if they have data
+      if (linkedOrg) {
+        setShowCompany(true);
+      }
       if (address.street || address.city) {
         setShowAddress(true);
       }
@@ -113,7 +162,14 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
         setShowTagsNotes(true);
       }
     }
-  }, [existingContact]);
+  }, [existingContact, existingOrganizations]);
+
+  // Auto-expand pipelines section if contact is in pipelines
+  useEffect(() => {
+    if (currentContactPipelines && currentContactPipelines.length > 0) {
+      setShowPipelines(true);
+    }
+  }, [currentContactPipelines]);
 
   // Handle delete
   const handleDelete = async () => {
@@ -178,23 +234,77 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
         });
         contactId = editId;
 
+        // Handle organization association changes
+        const currentOrgLink = existingOrganizations && existingOrganizations.length > 0 ? existingOrganizations[0] : null;
+        const currentOrgId = currentOrgLink?._id;
+        const currentLinkId = currentOrgLink?.linkId as Id<"objectLinks"> | undefined;
+
+        let newOrgId: Id<"objects"> | undefined;
+
+        // Determine the new organization
+        if (formData.companyAssociation === "existing" && formData.existingOrgId) {
+          newOrgId = formData.existingOrgId as Id<"objects">;
+        } else if (formData.companyAssociation === "new" && formData.newOrgName) {
+          // Create new organization
+          newOrgId = await createCrmOrganization({
+            sessionId,
+            organizationId: currentOrganizationId as Id<"organizations">,
+            name: formData.newOrgName,
+            subtype: "prospect",
+            industry: formData.newOrgIndustry || undefined,
+            website: formData.newOrgWebsite || undefined,
+          });
+        }
+
+        // Update organization link if it changed
+        if (currentOrgId !== newOrgId) {
+          // Delete old link if exists
+          if (currentLinkId) {
+            await deleteLink({
+              sessionId,
+              linkId: currentLinkId,
+            });
+          }
+
+          // Create new link if organization selected
+          if (newOrgId) {
+            await createLink({
+              sessionId,
+              organizationId: currentOrganizationId as Id<"organizations">,
+              fromObjectId: contactId,
+              toObjectId: newOrgId,
+              linkType: "works_at",
+            });
+          }
+        }
+
+        // Add to new pipelines if any
+        for (const selection of pipelineSelections) {
+          await addContactToPipeline({
+            sessionId,
+            contactId,
+            pipelineId: selection.pipelineId,
+            stageId: selection.stageId,
+          });
+        }
+
         // Track contact update
         posthog?.capture("contact_updated", {
           contact_id: editId,
-          lifecycle_stage: formData.lifecycleStage,
           has_phone: !!formData.phone,
           has_job_title: !!formData.jobTitle,
           has_address: !!address,
           tags_count: formData.tags.length,
           has_notes: !!formData.notes,
           organization_id: currentOrganizationId,
+          organization_changed: currentOrgId !== newOrgId,
         });
       } else {
-        // Create new contact
+        // Create new contact (no subtype - pipelines handle stages now)
         contactId = await createContact({
           sessionId,
           organizationId: currentOrganizationId as Id<"organizations">,
-          subtype: formData.lifecycleStage,
+          subtype: "contact", // Generic subtype
           firstName: formData.firstName,
           lastName: formData.lastName,
           email: formData.email,
@@ -214,13 +324,11 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
           last_name: formData.lastName,
           phone: formData.phone,
           job_title: formData.jobTitle,
-          lifecycle_stage: formData.lifecycleStage,
         });
 
         // Track contact creation
         posthog?.capture("contact_created", {
           contact_id: contactId,
-          lifecycle_stage: formData.lifecycleStage,
           source: formData.source,
           has_phone: !!formData.phone,
           has_job_title: !!formData.jobTitle,
@@ -258,6 +366,16 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
             linkType: "works_at",
           });
         }
+
+        // Add to selected pipelines
+        for (const selection of pipelineSelections) {
+          await addContactToPipeline({
+            sessionId,
+            contactId,
+            pipelineId: selection.pipelineId,
+            stageId: selection.stageId,
+          });
+        }
       }
 
       onSuccess(contactId);
@@ -268,7 +386,6 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
       posthog?.capture("$exception", {
         error_type: editId ? "contact_update_failed" : "contact_creation_failed",
         error_message: error instanceof Error ? error.message : "Unknown error",
-        lifecycle_stage: formData.lifecycleStage,
         organization_id: currentOrganizationId,
       });
     } finally {
@@ -286,6 +403,39 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
   const handleRemoveTag = (tag: string) => {
     setFormData({ ...formData, tags: formData.tags.filter((t) => t !== tag) });
   };
+
+  const handleAddPipelineSelection = () => {
+    if (!newPipelineId || !newStageId) return;
+
+    const pipeline = availablePipelines?.find((p) => p._id === newPipelineId);
+    const stage = newPipelineStages?.stages?.find((s: any) => s._id === newStageId);
+
+    setPipelineSelections([
+      ...pipelineSelections,
+      {
+        pipelineId: newPipelineId as Id<"objects">,
+        stageId: newStageId as Id<"objects">,
+        pipelineName: pipeline?.name,
+        stageName: stage?.name,
+      },
+    ]);
+
+    // Reset form
+    setNewPipelineId("");
+    setNewStageId("");
+    setAddingPipeline(false);
+  };
+
+  const handleRemovePipelineSelection = (index: number) => {
+    setPipelineSelections(pipelineSelections.filter((_, i) => i !== index));
+  };
+
+  // Filter out pipelines already selected or contact is already in
+  const availableToAdd = availablePipelines?.filter((p) => {
+    const alreadySelected = pipelineSelections.some((s) => s.pipelineId === p._id);
+    const alreadyIn = currentContactPipelines?.some((cp: any) => cp.pipeline?._id === p._id);
+    return !alreadySelected && !alreadyIn;
+  });
 
   return (
     <div
@@ -425,58 +575,235 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
             </div>
           </div>
 
-          {/* Contact Type */}
+          {/* Source */}
           <div className="space-y-3">
             <h3 className="text-sm font-bold border-b pb-2" style={{ color: "var(--win95-text)", borderColor: "var(--win95-border)" }}>
               {t("ui.crm.contact_form.sections.contact_type")}
             </h3>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                  {t("ui.crm.contact_form.labels.contact_stage")} <span style={{ color: "var(--error)" }}>*</span>
-                </label>
-                <select
-                  value={formData.lifecycleStage}
-                  onChange={(e) => setFormData({ ...formData, lifecycleStage: e.target.value as typeof formData.lifecycleStage })}
-                  className="w-full px-2 py-1.5 text-sm border-2"
-                  style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-input-bg)",
-                    color: "var(--win95-input-text)",
-                  }}
-                >
-                  <option value="lead">{t("ui.crm.contact_form.stages.lead")}</option>
-                  <option value="prospect">{t("ui.crm.contact_form.stages.prospect")}</option>
-                  <option value="customer">{t("ui.crm.contact_form.stages.customer")}</option>
-                  <option value="partner">{t("ui.crm.contact_form.stages.partner")}</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                  {t("ui.crm.contact_form.labels.source")}
-                </label>
-                <select
-                  value={formData.source}
-                  onChange={(e) => setFormData({ ...formData, source: e.target.value as typeof formData.source })}
-                  className="w-full px-2 py-1.5 text-sm border-2"
-                  style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-input-bg)",
-                    color: "var(--win95-input-text)",
-                  }}
-                >
-                  <option value="manual">{t("ui.crm.contact_form.sources.manual")}</option>
-                  <option value="import">{t("ui.crm.contact_form.sources.import")}</option>
-                  <option value="event">{t("ui.crm.contact_form.sources.event")}</option>
-                  <option value="form">{t("ui.crm.contact_form.sources.form")}</option>
-                </select>
-              </div>
+            <div>
+              <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                {t("ui.crm.contact_form.labels.source")}
+              </label>
+              <select
+                value={formData.source}
+                onChange={(e) => setFormData({ ...formData, source: e.target.value as typeof formData.source })}
+                className="w-full px-2 py-1.5 text-sm border-2"
+                style={{
+                  borderColor: "var(--win95-border)",
+                  background: "var(--win95-input-bg)",
+                  color: "var(--win95-input-text)",
+                }}
+              >
+                <option value="manual">{t("ui.crm.contact_form.sources.manual")}</option>
+                <option value="import">{t("ui.crm.contact_form.sources.import")}</option>
+                <option value="event">{t("ui.crm.contact_form.sources.event")}</option>
+                <option value="form">{t("ui.crm.contact_form.sources.form")}</option>
+              </select>
             </div>
           </div>
 
-          {/* Company (Collapsible) */}
+          {/* Pipelines (Collapsible) */}
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => setShowPipelines(!showPipelines)}
+              className="flex items-center justify-between w-full text-left py-2 px-3 border-2"
+              style={{
+                borderColor: "var(--win95-border)",
+                background: "var(--win95-bg-light)",
+                color: "var(--win95-text)",
+              }}
+            >
+              <span className="text-sm font-bold">
+                {t("ui.crm.contact_form.sections.pipelines") || "Pipelines"} (Optional)
+              </span>
+              {showPipelines ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </button>
+
+            {showPipelines && (
+              <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--win95-border)" }}>
+                {/* Current pipelines (for editing) */}
+                {editId && currentContactPipelines && currentContactPipelines.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                      Current Pipelines:
+                    </p>
+                    {currentContactPipelines.map((item: any) => (
+                      <div
+                        key={item.pipeline?._id}
+                        className="flex items-center justify-between p-2 border-2 rounded"
+                        style={{
+                          background: "var(--win95-bg-light)",
+                          borderColor: "var(--win95-border)",
+                        }}
+                      >
+                        <div>
+                          <div className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+                            {item.pipeline?.name}
+                          </div>
+                          <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                            {item.stage?.name}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* New pipeline selections */}
+                {pipelineSelections.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                      {editId ? "Add to Pipelines:" : "Add to Pipelines:"}
+                    </p>
+                    {pipelineSelections.map((selection, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-2 border-2 rounded"
+                        style={{
+                          background: "var(--win95-bg-light)",
+                          borderColor: "var(--win95-border)",
+                        }}
+                      >
+                        <div>
+                          <div className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+                            {selection.pipelineName}
+                          </div>
+                          <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                            {selection.stageName}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePipelineSelection(index)}
+                          className="hover:opacity-70"
+                          style={{ color: "var(--error)" }}
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add pipeline form */}
+                {!addingPipeline ? (
+                  <button
+                    type="button"
+                    onClick={() => setAddingPipeline(true)}
+                    disabled={!availableToAdd || availableToAdd.length === 0}
+                    className="flex items-center gap-2 px-3 py-2 text-sm border-2"
+                    style={{
+                      borderColor: "var(--win95-border)",
+                      background: availableToAdd && availableToAdd.length > 0 ? "var(--win95-button-face)" : "var(--neutral-gray)",
+                      color: "var(--win95-text)",
+                      opacity: availableToAdd && availableToAdd.length > 0 ? 1 : 0.5,
+                    }}
+                  >
+                    <Plus size={14} />
+                    {t("ui.crm.contact_form.buttons.add_to_pipeline") || "Add to Pipeline"}
+                  </button>
+                ) : (
+                  <div className="space-y-2 p-3 border-2 rounded" style={{ borderColor: "var(--win95-border)" }}>
+                    <div>
+                      <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                        Select Pipeline:
+                      </label>
+                      <select
+                        value={newPipelineId}
+                        onChange={(e) => {
+                          setNewPipelineId(e.target.value as Id<"objects">);
+                          setNewStageId("");
+                        }}
+                        className="w-full px-2 py-1.5 text-sm border-2"
+                        style={{
+                          borderColor: "var(--win95-border)",
+                          background: "var(--win95-input-bg)",
+                          color: "var(--win95-input-text)",
+                        }}
+                      >
+                        <option value="">-- Select Pipeline --</option>
+                        {availableToAdd?.map((pipeline) => (
+                          <option key={pipeline._id} value={pipeline._id}>
+                            {pipeline.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {newPipelineId && newPipelineStages?.stages && (
+                      <div>
+                        <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                          Select Stage:
+                        </label>
+                        <select
+                          value={newStageId}
+                          onChange={(e) => setNewStageId(e.target.value as Id<"objects">)}
+                          className="w-full px-2 py-1.5 text-sm border-2"
+                          style={{
+                            borderColor: "var(--win95-border)",
+                            background: "var(--win95-input-bg)",
+                            color: "var(--win95-input-text)",
+                          }}
+                        >
+                          <option value="">-- Select Stage --</option>
+                          {newPipelineStages.stages.map((stage: any) => (
+                            <option key={stage._id} value={stage._id}>
+                              {stage.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleAddPipelineSelection}
+                        disabled={!newPipelineId || !newStageId}
+                        className="px-3 py-1.5 text-sm font-bold border-2"
+                        style={{
+                          borderColor: "var(--win95-border)",
+                          background: newPipelineId && newStageId ? "var(--primary)" : "var(--neutral-gray)",
+                          color: "white",
+                          opacity: newPipelineId && newStageId ? 1 : 0.5,
+                        }}
+                      >
+                        Add
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAddingPipeline(false);
+                          setNewPipelineId("");
+                          setNewStageId("");
+                        }}
+                        className="px-3 py-1.5 text-sm font-bold border-2"
+                        style={{
+                          borderColor: "var(--win95-border)",
+                          background: "var(--win95-button-face)",
+                          color: "var(--win95-text)",
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {(!availableToAdd || availableToAdd.length === 0) && !addingPipeline && (
+                  <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                    {editId
+                      ? "Contact is already in all available pipelines"
+                      : "No pipelines available. Go to Pipelines → Templates to set up pipelines."}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Company (Collapsible) - Available for both create and edit */}
           <div className="space-y-2">
             <button
               type="button"
@@ -488,7 +815,10 @@ export function ContactFormModal({ editId, onClose, onSuccess }: ContactFormModa
                 color: "var(--win95-text)",
               }}
             >
-              <span className="text-sm font-bold">{t("ui.crm.contact_form.sections.company")}</span>
+              <span className="text-sm font-bold">
+                {t("ui.crm.contact_form.sections.company")}
+                {editId && " (Change Organization)"}
+              </span>
               {showCompany ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </button>
 

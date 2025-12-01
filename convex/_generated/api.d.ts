@@ -159,6 +159,7 @@ import type * as purchaseOntology from "../purchaseOntology.js";
 import type * as rbac from "../rbac.js";
 import type * as rbacHelpers from "../rbacHelpers.js";
 import type * as rbacQueries from "../rbacQueries.js";
+import type * as registerAIAssistantApp from "../registerAIAssistantApp.js";
 import type * as schemas_aiBillingSchemas from "../schemas/aiBillingSchemas.js";
 import type * as schemas_aiSchemas from "../schemas/aiSchemas.js";
 import type * as schemas_appDataSchemas from "../schemas/appDataSchemas.js";
@@ -482,6 +483,7 @@ declare const fullApi: ApiFromModules<{
   rbac: typeof rbac;
   rbacHelpers: typeof rbacHelpers;
   rbacQueries: typeof rbacQueries;
+  registerAIAssistantApp: typeof registerAIAssistantApp;
   "schemas/aiBillingSchemas": typeof schemas_aiBillingSchemas;
   "schemas/aiSchemas": typeof schemas_aiSchemas;
   "schemas/appDataSchemas": typeof schemas_appDataSchemas;
