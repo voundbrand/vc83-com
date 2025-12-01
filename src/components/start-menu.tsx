@@ -114,34 +114,48 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
                   {item.submenu && <span className="text-xs" style={{ color: 'var(--win95-text)' }}>►</span>}
                 </button>
 
-                {/* Submenu - Three Column Grid */}
+                {/* Submenu - Three Column Grid with Separators */}
                 {item.submenu && openSubmenu === index && (
                   <div
                     className="absolute left-full bottom-0 ml-1 retro-window window-corners dark:retro-window-dark shadow-lg"
                     style={{
                       zIndex: 10002,
                       background: 'var(--win95-bg)',
-                      minWidth: '600px'
+                      minWidth: '650px'
                     }}
                   >
-                    <div className="py-1 grid grid-cols-3 gap-x-1">
-                      {item.submenu.map((subitem, subindex) => (
-                        <button
-                          key={subindex}
-                          onClick={() => {
-                            subitem.onClick?.();
-                            onClose();
-                            setOpenSubmenu(null);
-                          }}
-                          className="w-full px-3 py-2 text-left flex items-center gap-2 transition-colors font-pixel hover-menu-item retro-text"
-                          style={{ color: 'var(--win95-text)' }}
-                          title={subitem.fullLabel || subitem.label} // Show full name on hover
-                        >
-                          {subitem.icon && (
-                            <span className="text-base">{subitem.icon}</span>
+                    <div className="py-1 flex">
+                      {/* Divide items into 3 columns of 5 items each */}
+                      {[0, 1, 2].map((colIndex) => (
+                        <div key={colIndex} className="flex">
+                          <div className="flex-1">
+                            {item.submenu!.slice(colIndex * 5, (colIndex + 1) * 5).map((subitem, subindex) => (
+                              <button
+                                key={colIndex * 5 + subindex}
+                                onClick={() => {
+                                  subitem.onClick?.();
+                                  onClose();
+                                  setOpenSubmenu(null);
+                                }}
+                                className="w-full px-3 py-2 text-left flex items-center gap-2 transition-colors font-pixel hover-menu-item retro-text"
+                                style={{ color: 'var(--win95-text)' }}
+                                title={subitem.fullLabel || subitem.label}
+                              >
+                                {subitem.icon && (
+                                  <span className="text-base">{subitem.icon}</span>
+                                )}
+                                <span className="truncate text-xs">{subitem.label || ""}</span>
+                              </button>
+                            ))}
+                          </div>
+                          {/* Column separator - only between columns, not after last */}
+                          {colIndex < 2 && (
+                            <div
+                              className="w-[1px] mx-1 my-2"
+                              style={{ background: 'var(--win95-border)' }}
+                            />
                           )}
-                          <span className="truncate text-xs">{subitem.label || ""}</span>
-                        </button>
+                        </div>
                       ))}
                     </div>
                   </div>
