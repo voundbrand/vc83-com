@@ -49,8 +49,9 @@ export function ChatInput() {
           placeholder="Type a message... (Shift+Enter for new line)"
           className="flex-1 px-3 py-2 border-2 resize-none overflow-hidden min-h-[40px] max-h-[120px]"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'white',
+            borderColor: 'var(--win95-input-border-dark)',
+            background: 'var(--win95-input-bg)',
+            color: 'var(--win95-input-text)',
             borderStyle: 'inset',
             fontSize: '13px',
             fontFamily: 'system-ui, sans-serif'
@@ -66,7 +67,7 @@ export function ChatInput() {
         </button>
       </div>
 
-      <div className="mt-2 text-[10px] text-gray-500">
+      <div className="mt-2 text-[10px]" style={{ color: 'var(--neutral-gray)' }}>
         Quick: /email, /forms, /crm, /events
       </div>
     </form>

@@ -19,8 +19,8 @@ export function AssistantMessage({ content, toolExecution, quickActions }: Assis
         className="px-4 py-2 rounded border-2 max-w-[75%] text-sm"
         style={{
           borderColor: 'var(--win95-border)',
-          background: 'white',
-          color: '#000',
+          background: 'var(--win95-bg-light)',
+          color: 'var(--win95-text)',
           borderStyle: 'inset'
         }}
       >
@@ -37,9 +37,10 @@ export function AssistantMessage({ content, toolExecution, quickActions }: Assis
                 className="px-3 py-2 rounded border text-xs flex items-center gap-2"
                 style={{
                   borderColor: 'var(--win95-border)',
-                  background: toolExecution.status === "running" ? '#ffffcc' :
-                             toolExecution.status === "success" ? '#ccffcc' :
-                             '#ffcccc'
+                  background: toolExecution.status === "running" ? 'var(--win95-bg)' :
+                             toolExecution.status === "success" ? 'var(--success)' :
+                             'var(--error)',
+                  color: toolExecution.status === "running" ? 'var(--win95-text)' : '#ffffff'
                 }}
               >
                 {toolExecution.status === "running" && <span className="animate-spin">⚙️</span>}

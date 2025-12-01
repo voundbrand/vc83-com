@@ -11,8 +11,8 @@ export function UserMessage({ content }: UserMessageProps) {
         className="px-4 py-2 rounded border-2 max-w-[75%] text-sm"
         style={{
           borderColor: 'var(--win95-border)',
-          background: '#e6e6fa', // Light purple/lavender
-          color: '#000',
+          background: 'var(--win95-selected-bg)',
+          color: 'var(--win95-selected-text)',
           borderStyle: 'outset'
         }}
       >

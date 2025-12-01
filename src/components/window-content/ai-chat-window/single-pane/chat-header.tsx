@@ -15,10 +15,12 @@ export function ChatHeader() {
     >
       <div className="flex items-center gap-2">
         <span className="text-lg">🤖</span>
-        <span className="font-pixel text-xs">AI Assistant</span>
+        <span className="font-pixel text-xs" style={{ color: 'var(--win95-text)' }}>
+          AI Assistant
+        </span>
         <span
           className="ml-2 w-2 h-2 rounded-full animate-pulse"
-          style={{ background: '#00ff00' }}
+          style={{ background: 'var(--success)' }}
           title="Online"
         />
       </div>

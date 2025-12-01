@@ -136,9 +136,17 @@ export const copyTemplateToOrganization = mutation({
 
     if (!session) throw new Error("Invalid session");
 
+    // Get system organization
+    const systemOrg = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", "system"))
+      .first();
+
+    if (!systemOrg) throw new Error("System organization not found");
+
     // Get template with stages
     const template = await ctx.db.get(args.templateId);
-    if (!template || template.organizationId !== ("SYSTEM" as Id<"organizations">)) {
+    if (!template || template.organizationId !== systemOrg._id) {
       throw new Error("Template not found");
     }
 

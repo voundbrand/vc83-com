@@ -28,7 +28,10 @@ export function ChatMessages() {
   return (
     <div
       className="flex-1 overflow-y-auto p-4 space-y-4"
-      style={{ background: 'var(--win95-bg)' }}
+      style={{
+        background: 'var(--win95-bg)',
+        color: 'var(--win95-text)'
+      }}
     >
       {messages.map((message) => {
         if (message.role === "system") {

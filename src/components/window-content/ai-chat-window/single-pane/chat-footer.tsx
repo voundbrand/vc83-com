@@ -24,7 +24,7 @@ export function ChatFooter() {
       </div>
 
       <div className="flex items-center gap-2">
-        <span className="w-1.5 h-1.5 rounded-full bg-green-500" title="AI Online" />
+        <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--success)' }} title="AI Online" />
         <span>Ready</span>
       </div>
     </div>
