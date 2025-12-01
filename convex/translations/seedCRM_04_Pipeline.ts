@@ -426,6 +426,50 @@ export const seed = internalMutation({
           ja: "パイプラインステージを読み込んでいます...",
         }
       },
+      {
+        key: "ui.crm.pipeline.create_new",
+        values: {
+          en: "Create New Pipeline",
+          de: "Neue Pipeline erstellen",
+          pl: "Utwórz nowy pipeline",
+          es: "Crear nuevo pipeline",
+          fr: "Créer un nouveau pipeline",
+          ja: "新しいパイプラインを作成",
+        }
+      },
+      {
+        key: "ui.crm.pipeline.create",
+        values: {
+          en: "Create Pipeline",
+          de: "Pipeline erstellen",
+          pl: "Utwórz pipeline",
+          es: "Crear pipeline",
+          fr: "Créer un pipeline",
+          ja: "パイプラインを作成",
+        }
+      },
+      {
+        key: "ui.crm.pipeline.create_failed",
+        values: {
+          en: "Failed to create pipeline",
+          de: "Pipeline konnte nicht erstellt werden",
+          pl: "Nie udało się utworzyć pipeline",
+          es: "Error al crear el pipeline",
+          fr: "Échec de la création du pipeline",
+          ja: "パイプラインの作成に失敗しました",
+        }
+      },
+      {
+        key: "ui.crm.pipeline.name_required",
+        values: {
+          en: "Please enter a pipeline name",
+          de: "Bitte geben Sie einen Pipeline-Namen ein",
+          pl: "Wprowadź nazwę pipeline",
+          es: "Por favor ingrese un nombre de pipeline",
+          fr: "Veuillez entrer un nom de pipeline",
+          ja: "パイプライン名を入力してください",
+        }
+      },
 
       // ============================================================
       // SETTINGS TAB
