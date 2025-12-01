@@ -126,13 +126,15 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
                     }}
                   >
                     <div className="py-1 flex">
-                      {/* Divide items into 3 columns of 5 items each */}
-                      {[0, 1, 2].map((colIndex) => (
+                      {/* Divide items into 3 columns dynamically */}
+                      {(() => {
+                        const itemsPerColumn = Math.ceil(item.submenu!.length / 3);
+                        return [0, 1, 2].map((colIndex) => (
                         <div key={colIndex} className="flex">
                           <div className="flex-1">
-                            {item.submenu!.slice(colIndex * 5, (colIndex + 1) * 5).map((subitem, subindex) => (
+                            {item.submenu!.slice(colIndex * itemsPerColumn, (colIndex + 1) * itemsPerColumn).map((subitem, subindex) => (
                               <button
-                                key={colIndex * 5 + subindex}
+                                key={colIndex * itemsPerColumn + subindex}
                                 onClick={() => {
                                   if (!subitem.disabled) {
                                     subitem.onClick?.();
@@ -163,7 +165,8 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
                             />
                           )}
                         </div>
-                      ))}
+                      ));
+                      })()}
                     </div>
                   </div>
                 )}
