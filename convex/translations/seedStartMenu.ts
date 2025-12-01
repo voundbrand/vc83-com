@@ -268,6 +268,17 @@ export const seed = internalMutation({
         }
       },
       {
+        key: "ui.app.compliance",
+        values: {
+          en: "Compliance",
+          de: "Compliance",
+          pl: "Zgodność",
+          es: "Cumplimiento",
+          fr: "Conformité",
+          ja: "コンプライアンス",
+        }
+      },
+      {
         key: "ui.app.templates",
         values: {
           en: "Templates",

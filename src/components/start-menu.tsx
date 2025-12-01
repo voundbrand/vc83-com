@@ -115,21 +115,21 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
                   {item.submenu && <span className="text-xs" style={{ color: 'var(--win95-text)' }}>►</span>}
                 </button>
 
-                {/* Submenu - Three Column Grid with Separators */}
+                {/* Submenu - Two Column Grid with Separator */}
                 {item.submenu && openSubmenu === index && (
                   <div
                     className="absolute left-full bottom-0 ml-1 retro-window window-corners dark:retro-window-dark shadow-lg"
                     style={{
                       zIndex: 10002,
                       background: 'var(--win95-bg)',
-                      minWidth: '650px'
+                      minWidth: '500px'
                     }}
                   >
                     <div className="py-1 flex">
-                      {/* Divide items into 3 columns dynamically */}
+                      {/* Divide items into 2 columns dynamically (8 items each for 16 total) */}
                       {(() => {
-                        const itemsPerColumn = Math.ceil(item.submenu!.length / 3);
-                        return [0, 1, 2].map((colIndex) => (
+                        const itemsPerColumn = Math.ceil(item.submenu!.length / 2);
+                        return [0, 1].map((colIndex) => (
                         <div key={colIndex} className="flex">
                           <div className="flex-1">
                             {item.submenu!.slice(colIndex * itemsPerColumn, (colIndex + 1) * itemsPerColumn).map((subitem, subindex) => (
@@ -158,7 +158,7 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
                             ))}
                           </div>
                           {/* Column separator - only between columns, not after last */}
-                          {colIndex < 2 && (
+                          {colIndex < 1 && (
                             <div
                               className="w-[1px] mx-1 my-2"
                               style={{ background: 'var(--win95-border)' }}
