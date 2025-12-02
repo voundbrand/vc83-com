@@ -5,6 +5,7 @@ import { api } from "../../../../../convex/_generated/api";
 import { UserManagementTable } from "./user-management-table";
 import { RolesPermissionsTab } from "./roles-permissions-tab";
 import { AdminSecurityTab } from "./admin-security-tab";
+import { LicensingTab } from "./licensing-tab";
 import { OrganizationSection } from "./components/organization-section";
 import { AddressCard } from "./components/address-card";
 import { AddressModal } from "./components/address-modal";
@@ -14,7 +15,7 @@ import { useState, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Id, Doc } from "../../../../../convex/_generated/dataModel";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
-type TabType = "organization" | "users" | "roles" | "security";
+type TabType = "organization" | "users" | "roles" | "security" | "licensing";
 
 interface AdminManageWindowProps {
   organizationId: Id<"organizations">;
@@ -282,7 +283,7 @@ export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
           {t("ui.manage.tab.roles_permissions")}
         </button>
         <button
-          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2"
+          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
           style={{
             borderColor: 'var(--win95-border)',
             background: activeTab === "security" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
@@ -292,6 +293,18 @@ export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
         >
           <Key size={14} />
           Security & API
+        </button>
+        <button
+          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2"
+          style={{
+            borderColor: 'var(--win95-border)',
+            background: activeTab === "licensing" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+            color: activeTab === "licensing" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+          }}
+          onClick={() => setActiveTab("licensing")}
+        >
+          <Crown size={14} />
+          Licensing
         </button>
       </div>
 
@@ -598,6 +611,13 @@ export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
 
         {activeTab === "security" && sessionId && (
           <AdminSecurityTab
+            organizationId={organizationId}
+            sessionId={sessionId}
+          />
+        )}
+
+        {activeTab === "licensing" && sessionId && (
+          <LicensingTab
             organizationId={organizationId}
             sessionId={sessionId}
           />
