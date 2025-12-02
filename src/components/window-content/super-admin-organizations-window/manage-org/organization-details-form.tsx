@@ -82,7 +82,7 @@ export interface FormData {
 
 export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, OrganizationDetailsFormProps>(
   function OrganizationDetailsForm({ organization, isEditing }, ref) {
-    const { t } = useNamespaceTranslations("ui.organizations");
+    const { t } = useNamespaceTranslations("ui.manage");
     // Check permissions inline using centralized context
     const { hasPermission } = usePermissions();
     const canEdit = hasPermission("manage_organization");
