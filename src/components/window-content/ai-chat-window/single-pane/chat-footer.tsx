@@ -1,12 +1,74 @@
 "use client"
 
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
+import { useAIChatContext } from "@/contexts/ai-chat-context"
+import { useAIConfig } from "@/hooks/use-ai-config"
+import { useMemo } from "react"
 
 export function ChatFooter() {
   const { t } = useNamespaceTranslations("ui.ai_assistant")
-  // TODO: Connect to actual token counter from Convex
-  const tokens = 150
-  const estimatedCost = (tokens * 0.000015).toFixed(4) // ~$0.015 per 1K tokens for Claude
+  const { chat } = useAIChatContext()
+  const { isAIReady, settings, billing } = useAIConfig()
+
+  // Calculate total tokens and cost from conversation messages
+  const { totalTokens, estimatedCost } = useMemo(() => {
+    const messages = chat.messages || []
+
+    // Sum up all tokens from messages
+    let inputTokens = 0
+    let outputTokens = 0
+
+    messages.forEach((message) => {
+      // Estimate tokens: ~4 characters per token
+      const messageTokens = Math.ceil(message.content.length / 4)
+      if (message.role === "user") {
+        inputTokens += messageTokens
+      } else if (message.role === "assistant") {
+        outputTokens += messageTokens
+      }
+    })
+
+    const total = inputTokens + outputTokens
+
+    // Calculate cost using Claude Sonnet 4 pricing (approximate)
+    // Input: $0.003 per 1K tokens, Output: $0.015 per 1K tokens
+    const cost = (inputTokens * 0.000003) + (outputTokens * 0.000015)
+
+    return {
+      totalTokens: total,
+      estimatedCost: cost.toFixed(4)
+    }
+  }, [chat.messages])
+
+  // Determine AI status based on chat state and configuration
+  const getAIStatus = () => {
+    // Check chat state first
+    if (chat.isLoading) {
+      return { isOnline: false, text: t("ui.ai_assistant.footer.loading") }
+    }
+    if (chat.error) {
+      return { isOnline: false, text: t("ui.ai_assistant.footer.error") }
+    }
+
+    // Check AI configuration
+    if (!settings?.enabled) {
+      return { isOnline: false, text: t("ui.ai_assistant.footer.ai_disabled") }
+    }
+    if (!billing?.hasSubscription) {
+      return { isOnline: false, text: t("ui.ai_assistant.footer.no_subscription") }
+    }
+    if (billing.status !== "active" && billing.status !== "trialing") {
+      return { isOnline: false, text: t("ui.ai_assistant.footer.subscription_inactive") }
+    }
+    if (!isAIReady) {
+      return { isOnline: false, text: t("ui.ai_assistant.footer.no_models") }
+    }
+
+    // All good!
+    return { isOnline: true, text: t("ui.ai_assistant.footer.ready") }
+  }
+
+  const { isOnline: isAIOnline, text: statusText } = getAIStatus()
 
   return (
     <div
@@ -19,7 +81,7 @@ export function ChatFooter() {
     >
       <div className="flex items-center gap-3">
         <span title={t("ui.ai_assistant.footer.tokens_tooltip")}>
-          💬 {tokens.toLocaleString()} {t("ui.ai_assistant.footer.tokens")}
+          💬 {totalTokens.toLocaleString()} {t("ui.ai_assistant.footer.tokens")}
         </span>
         <span title={t("ui.ai_assistant.footer.cost_tooltip")}>
           💰 €{estimatedCost}
@@ -27,8 +89,14 @@ export function ChatFooter() {
       </div>
 
       <div className="flex items-center gap-2">
-        <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--success)' }} title={t("ui.ai_assistant.footer.ai_online")} />
-        <span>{t("ui.ai_assistant.footer.ready")}</span>
+        <span
+          className="w-1.5 h-1.5 rounded-full"
+          style={{
+            background: isAIOnline ? 'var(--success)' : 'var(--error)'
+          }}
+          title={isAIOnline ? t("ui.ai_assistant.footer.ai_online") : t("ui.ai_assistant.footer.ai_offline")}
+        />
+        <span>{statusText}</span>
       </div>
     </div>
   )

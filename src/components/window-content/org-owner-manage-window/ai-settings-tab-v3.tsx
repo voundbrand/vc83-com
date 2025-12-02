@@ -5,14 +5,16 @@ import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useState, useEffect } from "react";
-import { Save, Loader2, Brain, AlertTriangle, Lock, CreditCard, CheckCircle2, XCircle } from "lucide-react";
+import { Save, Loader2, Brain, AlertTriangle, Lock, CreditCard, CheckCircle2, XCircle, ShoppingCart } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { PrivacyBadge } from "@/components/ai-billing/privacy-badge";
-import { SubscriptionModal } from "@/components/ai-billing/subscription-modal";
+import { useWindowManager } from "@/hooks/use-window-manager";
+import { StoreWindow } from "../store-window";
 
 export function AISettingsTabV3() {
   const { user } = useAuth();
   const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.manage.ai");
+  const { openWindow } = useWindowManager();
   const organizationId = user?.defaultOrgId as Id<"organizations"> | undefined;
 
   // Check if user is super admin (only super admin can use BYOK)
@@ -51,9 +53,6 @@ export function AISettingsTabV3() {
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-
-  // Subscription modal state
-  const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
 
   // Initialize form from settings
   useEffect(() => {
@@ -355,41 +354,16 @@ export function AISettingsTabV3() {
     );
   }
 
-  // Handle subscription tier selection
-  const handleSelectTier = async (selectedTier: "standard" | "privacy-enhanced") => {
-    if (!organizationId) return;
-    if (!user?.email) {
-      alert("Email is required to create a subscription");
-      return;
-    }
-
-    try {
-      // Call Stripe checkout action
-      const result = await fetch("/api/stripe/create-checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          organizationId,
-          organizationName: (user as any).name || "Organization",
-          email: user.email,
-          tier: selectedTier,
-          successUrl: `${window.location.origin}${window.location.pathname}?subscription=success`,
-          cancelUrl: `${window.location.origin}${window.location.pathname}?subscription=canceled`,
-        }),
-      });
-
-      const data = await result.json();
-
-      if (!result.ok) {
-        throw new Error(data.error || "Failed to create checkout session");
-      }
-
-      // Redirect to Stripe Checkout
-      window.location.href = data.checkoutUrl;
-    } catch (error) {
-      console.error("Failed to create checkout session:", error);
-      alert(error instanceof Error ? error.message : "Failed to start subscription process. Please try again.");
-    }
+  // Open Store window for subscriptions
+  const handleOpenStore = () => {
+    openWindow(
+      "store",
+      "Platform Store",
+      <StoreWindow />,
+      { x: 200, y: 100 },
+      { width: 900, height: 700 },
+      'ui.store.title'
+    );
   };
 
   // Format price for display
@@ -437,11 +411,12 @@ export function AISettingsTabV3() {
                   {formatTokens(subscriptionStatus.includedTokensUsed)}/{formatTokens(subscriptionStatus.includedTokensTotal)} tokens used
                 </p>
                 <button
-                  onClick={() => setIsSubscriptionModalOpen(true)}
-                  className="mt-2 px-3 py-1 text-xs font-bold underline"
+                  onClick={handleOpenStore}
+                  className="mt-2 px-3 py-1 text-xs font-bold flex items-center gap-1"
                   style={{ color: 'white' }}
                 >
-                  Change Plan
+                  <ShoppingCart size={12} />
+                  Browse Store
                 </button>
               </div>
             </div>
@@ -461,7 +436,7 @@ export function AISettingsTabV3() {
                   Choose a plan to enable AI-powered features for your organization.
                 </p>
                 <button
-                  onClick={() => setIsSubscriptionModalOpen(true)}
+                  onClick={handleOpenStore}
                   className="px-4 py-2 text-xs font-bold flex items-center gap-2"
                   style={{
                     backgroundColor: 'var(--primary)',
@@ -473,8 +448,8 @@ export function AISettingsTabV3() {
                     borderRightColor: 'var(--win95-button-dark)',
                   }}
                 >
-                  <CreditCard size={14} />
-                  Subscribe Now
+                  <ShoppingCart size={14} />
+                  Open Store
                 </button>
               </div>
             </div>
@@ -921,14 +896,6 @@ export function AISettingsTabV3() {
           {isSaving ? "Saving..." : "Save Settings"}
         </button>
       </div>
-
-      {/* Subscription Modal */}
-      <SubscriptionModal
-        isOpen={isSubscriptionModalOpen}
-        onClose={() => setIsSubscriptionModalOpen(false)}
-        currentTier={subscriptionStatus?.tier || null}
-        onSelectTier={handleSelectTier}
-      />
     </div>
   );
 }

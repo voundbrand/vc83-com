@@ -7,6 +7,8 @@ import { DndContext, DragEndEvent, DragOverlay, DragStartEvent } from '@dnd-kit/
 import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+import { useNotification } from "@/hooks/use-notification";
+import { useRetroConfirm } from "@/components/retro-confirm-dialog";
 import { KanbanColumn } from "./kanban-column";
 import { ContactCard } from "./contact-card";
 import type { Id } from "../../../../convex/_generated/dataModel";
@@ -30,6 +32,8 @@ export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProp
   const currentOrganization = useCurrentOrganization();
   const currentOrganizationId = currentOrganization?.id as Id<"organizations"> | undefined;
   const { t } = useNamespaceTranslations("ui.crm");
+  const notification = useNotification();
+  const confirmDialog = useRetroConfirm();
 
   const [selectedPipelineId, setSelectedPipelineId] = useState<Id<"objects"> | null>(initialPipelineId || null);
   const [activeContactId, setActiveContactId] = useState<string | null>(null);
@@ -104,7 +108,10 @@ export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProp
       });
     } catch (error) {
       console.error("Failed to move contact:", error);
-      alert(t("ui.crm.pipeline.update_failed") || "Failed to move contact. Please try again.");
+      notification.error(
+        t("ui.crm.pipeline.update_failed") || "Failed to move contact",
+        "Please try again."
+      );
     }
 
     setActiveContactId(null);
@@ -130,9 +137,16 @@ export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProp
         },
       });
       setIsEditingPipeline(false);
+      notification.success(
+        t("ui.crm.pipeline.update_success") || "Pipeline updated",
+        "Changes saved successfully."
+      );
     } catch (error) {
       console.error("Failed to update pipeline:", error);
-      alert(t("ui.crm.pipeline.update_failed") || "Failed to update pipeline");
+      notification.error(
+        t("ui.crm.pipeline.update_failed") || "Failed to update pipeline",
+        "Please try again."
+      );
     }
   };
 
@@ -145,8 +159,14 @@ export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProp
   const handleDeletePipeline = async () => {
     if (!sessionId || !selectedPipelineId || !pipelineWithStages) return;
 
-    const confirmMessage = t("ui.crm.pipeline.confirm_delete") || `Are you sure you want to delete "${pipelineWithStages.pipeline.name}"?`;
-    if (!confirm(confirmMessage)) return;
+    const confirmed = await confirmDialog.confirm({
+      title: t("ui.crm.pipeline.delete") || "Delete Pipeline",
+      message: t("ui.crm.pipeline.confirm_delete") || `Are you sure you want to delete "${pipelineWithStages.pipeline.name}"?`,
+      confirmText: t("ui.crm.pipeline.delete") || "Delete",
+      confirmVariant: "primary",
+    });
+
+    if (!confirmed) return;
 
     try {
       await deletePipeline({
@@ -155,30 +175,56 @@ export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProp
       });
       // Clear selection after delete
       setSelectedPipelineId(null);
+      notification.success(
+        t("ui.crm.pipeline.delete_success") || "Pipeline deleted",
+        "The pipeline has been archived."
+      );
     } catch (error) {
       console.error("Failed to delete pipeline:", error);
-      alert(t("ui.crm.pipeline.delete_failed") || "Failed to delete pipeline");
+      notification.error(
+        t("ui.crm.pipeline.delete_failed") || "Failed to delete pipeline",
+        "Please try again."
+      );
     }
   };
 
   const handleDeleteStage = async (stageId: Id<"objects">) => {
     if (!sessionId) return;
 
+    const confirmed = await confirmDialog.confirm({
+      title: t("ui.crm.pipeline.delete_stage") || "Delete Stage",
+      message: t("ui.crm.pipeline.confirm_delete_stage") || "Are you sure you want to delete this stage?",
+      confirmText: t("ui.crm.pipeline.delete") || "Delete",
+      confirmVariant: "primary",
+    });
+
+    if (!confirmed) return;
+
     try {
       await deleteStage({
         sessionId,
         stageId,
       });
+      notification.success(
+        t("ui.crm.pipeline.delete_stage_success") || "Stage deleted",
+        "The stage has been removed."
+      );
     } catch (error) {
       console.error("Failed to delete stage:", error);
-      alert(t("ui.crm.pipeline.delete_stage_failed") || "Failed to delete stage. Make sure it has no contacts.");
+      notification.error(
+        t("ui.crm.pipeline.delete_stage_failed") || "Failed to delete stage",
+        t("ui.crm.pipeline.cannot_delete_stage_with_contacts") || "Make sure the stage has no contacts."
+      );
     }
   };
 
   const handleCreatePipeline = async () => {
     if (!sessionId || !currentOrganizationId) return;
     if (!newPipelineName.trim()) {
-      alert(t("ui.crm.pipeline.name_required") || "Please enter a pipeline name");
+      notification.error(
+        t("ui.crm.pipeline.name_required") || "Name required",
+        "Please enter a pipeline name."
+      );
       return;
     }
 
@@ -199,9 +245,17 @@ export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProp
       setIsCreatingPipeline(false);
       setNewPipelineName("");
       setNewPipelineDescription("");
+
+      notification.success(
+        t("ui.crm.pipeline.create_success") || "Pipeline created",
+        "Your new pipeline is ready to use."
+      );
     } catch (error) {
       console.error("Failed to create pipeline:", error);
-      alert(t("ui.crm.pipeline.create_failed") || "Failed to create pipeline");
+      notification.error(
+        t("ui.crm.pipeline.create_failed") || "Failed to create pipeline",
+        "Please try again."
+      );
     }
   };
 
@@ -233,18 +287,86 @@ export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProp
     );
   }
 
-  // No pipelines state
+  // No pipelines state - show empty state with "New Pipeline" button
   if (!pipelines || pipelines.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full p-4 text-center">
-        <TrendingUp size={48} className="mb-4 opacity-30" style={{ color: "var(--neutral-gray)" }} />
-        <p className="font-pixel text-sm mb-2" style={{ color: "var(--win95-text)" }}>
-          {t("ui.crm.pipeline.no_pipelines") || "No Pipelines Found"}
-        </p>
-        <p className="text-xs mb-4" style={{ color: "var(--neutral-gray)" }}>
-          {t("ui.crm.pipeline.no_pipelines_hint") ||
-           "Go to the Templates tab to copy a pipeline template to your organization"}
-        </p>
+      <div className="h-full flex flex-col">
+        <confirmDialog.Dialog />
+        <div className="flex flex-col items-center justify-center flex-1 p-4 text-center">
+          <TrendingUp size={48} className="mb-4 opacity-30" style={{ color: "var(--neutral-gray)" }} />
+          <p className="font-pixel text-sm mb-2" style={{ color: "var(--win95-text)" }}>
+            {t("ui.crm.pipeline.no_pipelines") || "No Pipelines Found"}
+          </p>
+          <p className="text-xs mb-4" style={{ color: "var(--neutral-gray)" }}>
+            {t("ui.crm.pipeline.no_pipelines_hint") ||
+             "Create a new pipeline or go to the Templates tab to copy a template"}
+          </p>
+
+          {/* New Pipeline Button */}
+          <button
+            onClick={() => setIsCreatingPipeline(true)}
+            className="retro-button px-4 py-2 flex items-center gap-2 text-sm"
+            style={{ background: "var(--success)", color: "white" }}
+          >
+            <Plus size={16} />
+            <span className="font-pixel">{t("ui.crm.pipeline.create_new") || "Create New Pipeline"}</span>
+          </button>
+
+          {/* Create Mode Form (shows when button clicked) */}
+          {isCreatingPipeline && (
+            <div
+              className="mt-6 w-full max-w-md p-4 border-2 space-y-3"
+              style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+            >
+              <h3 className="text-sm font-bold mb-3" style={{ color: "var(--win95-text)" }}>
+                {t("ui.crm.pipeline.create_new") || "Create New Pipeline"}
+              </h3>
+              <div>
+                <label className="text-xs font-bold mb-1 block" style={{ color: "var(--win95-text)" }}>
+                  {t("ui.crm.pipeline.name") || "Pipeline Name"} *
+                </label>
+                <input
+                  type="text"
+                  value={newPipelineName}
+                  onChange={(e) => setNewPipelineName(e.target.value)}
+                  className="w-full retro-input px-3 py-2 text-sm"
+                  style={{ background: "var(--win95-bg)", color: "var(--win95-text)" }}
+                  placeholder={t("ui.crm.pipeline.name_placeholder") || "Enter pipeline name"}
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold mb-1 block" style={{ color: "var(--win95-text)" }}>
+                  {t("ui.crm.pipeline.description") || "Description"}
+                </label>
+                <textarea
+                  value={newPipelineDescription}
+                  onChange={(e) => setNewPipelineDescription(e.target.value)}
+                  className="w-full retro-input px-3 py-2 text-sm"
+                  style={{ background: "var(--win95-bg)", color: "var(--win95-text)" }}
+                  placeholder={t("ui.crm.pipeline.description_placeholder") || "Enter pipeline description"}
+                  rows={2}
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleCreatePipeline}
+                  className="retro-button px-4 py-2 text-xs font-pixel"
+                  style={{ background: "var(--success)", color: "white" }}
+                >
+                  {t("ui.crm.pipeline.create") || "Create Pipeline"}
+                </button>
+                <button
+                  onClick={handleCancelCreate}
+                  className="retro-button px-4 py-2 text-xs font-pixel"
+                  style={{ background: "var(--neutral-gray)", color: "white" }}
+                >
+                  {t("ui.crm.pipeline.cancel") || "Cancel"}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     );
   }
@@ -252,6 +374,7 @@ export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProp
   // Single Column Layout with Header Controls
   return (
     <div className="h-full flex flex-col" style={{ background: 'var(--win95-bg)' }}>
+      <confirmDialog.Dialog />
       {/* Header: Pipeline Selector + Actions */}
       <div
         className="p-3 border-b-2 flex items-center justify-between gap-4"

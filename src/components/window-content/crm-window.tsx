@@ -169,6 +169,10 @@ export function CRMWindow() {
               <OrganizationsList
                 selectedId={selectedOrgId}
                 onSelect={setSelectedOrgId}
+                onNavigateToPipelines={() => {
+                  setActiveView("pipeline");
+                  setPipelineSubView("active");
+                }}
               />
             )}
           </div>

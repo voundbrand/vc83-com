@@ -85,17 +85,7 @@ export function OrganizationSection({
                 e.stopPropagation();
                 onEdit();
               }}
-              className="px-3 py-1.5 text-white text-xs font-bold border-2 flex items-center gap-1 transition-colors"
-              style={{
-                backgroundColor: 'var(--win95-highlight)',
-                borderColor: 'var(--win95-border-dark)'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.opacity = '0.9';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.opacity = '1';
-              }}
+              className="retro-button-primary px-3 py-1.5 text-xs font-bold flex items-center gap-1"
             >
               <Edit2 className="w-3.5 h-3.5" />
               Edit

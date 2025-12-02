@@ -1,6 +1,6 @@
 "use client";
 
-import { X, Check, Lock, AlertTriangle, Loader2 } from "lucide-react";
+import { X, Check, Lock, AlertTriangle, Loader2, Building2, User } from "lucide-react";
 import { useState } from "react";
 import { EnterpriseContactModal } from "./enterprise-contact-modal";
 
@@ -8,7 +8,9 @@ interface SubscriptionModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentTier?: "standard" | "privacy-enhanced" | "private-llm" | null;
-  onSelectTier: (tier: "standard" | "privacy-enhanced") => void;
+  onSelectTier: (tier: "standard" | "privacy-enhanced", b2bData?: {
+    isB2B: boolean;
+  }) => void;
 }
 
 export function SubscriptionModal({
@@ -22,6 +24,9 @@ export function SubscriptionModal({
   const [showEnterpriseModal, setShowEnterpriseModal] = useState(false);
   const [enterpriseTier, setEnterpriseTier] = useState<"starter" | "professional" | "enterprise">("starter");
 
+  // B2B checkout state - Stripe handles VAT collection
+  const [isB2B, setIsB2B] = useState(false);
+
   if (!isOpen) return null;
 
   const handleSubscribe = async () => {
@@ -30,7 +35,10 @@ export function SubscriptionModal({
     setIsProcessing(true);
 
     try {
-      await onSelectTier(selectedTier);
+      // Just pass isB2B flag - Stripe checkout handles VAT/tax ID collection
+      const b2bData = { isB2B };
+
+      await onSelectTier(selectedTier, b2bData);
       // Modal will be closed by parent component after successful subscription
     } catch (error) {
       console.error("Subscription failed:", error);
@@ -90,8 +98,38 @@ export function SubscriptionModal({
                 Choose Your AI Plan
               </h2>
               <p className="text-sm" style={{ color: "var(--neutral-gray)" }}>
-                All prices include 19% German VAT • 500,000 tokens included monthly
+                {isB2B ? "Business checkout • VAT handled via reverse charge" : "All prices include 19% German VAT"} • 500,000 tokens included monthly
               </p>
+            </div>
+
+            {/* B2B Toggle */}
+            <div className="mb-6 flex justify-center">
+              <div className="inline-flex border-2" style={{ borderColor: "var(--win95-border)" }}>
+                <button
+                  onClick={() => setIsB2B(false)}
+                  className="px-4 py-2 text-sm font-bold flex items-center gap-2"
+                  style={{
+                    backgroundColor: !isB2B ? "var(--primary)" : "var(--win95-button-face)",
+                    color: !isB2B ? "white" : "var(--win95-text)",
+                    borderRight: "2px solid",
+                    borderRightColor: "var(--win95-border)",
+                  }}
+                >
+                  <User size={14} />
+                  Personal/Consumer
+                </button>
+                <button
+                  onClick={() => setIsB2B(true)}
+                  className="px-4 py-2 text-sm font-bold flex items-center gap-2"
+                  style={{
+                    backgroundColor: isB2B ? "var(--primary)" : "var(--win95-button-face)",
+                    color: isB2B ? "white" : "var(--win95-text)",
+                  }}
+                >
+                  <Building2 size={14} />
+                  Business (B2B)
+                </button>
+              </div>
             </div>
 
             {/* Tier Comparison Grid */}
@@ -397,6 +435,18 @@ export function SubscriptionModal({
               </div>
             </div>
 
+            {/* B2B Info Note */}
+            {isB2B && selectedTier && (
+              <div className="mb-6 p-4 border-2" style={{ borderColor: "var(--win95-border)", backgroundColor: "var(--info)" }}>
+                <p className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                  🏢 Business Checkout Selected
+                </p>
+                <p className="text-xs" style={{ color: "var(--win95-text)" }}>
+                  You'll be able to enter your VAT/Tax ID on the next page. If you provide a valid EU VAT number, the reverse charge mechanism applies and you'll pay €0 VAT.
+                </p>
+              </div>
+            )}
+
             {/* Warning about tier change */}
             {currentTier && (
               <div
@@ -469,7 +519,7 @@ export function SubscriptionModal({
       <EnterpriseContactModal
         isOpen={showEnterpriseModal}
         onClose={() => setShowEnterpriseModal(false)}
-        tier={enterpriseTier}
+        title="Private LLM Hosting"
       />
     </>
   );

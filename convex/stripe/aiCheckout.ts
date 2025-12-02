@@ -81,6 +81,7 @@ const getOrCreateStripeCustomerInternal = internalAction({
  * CREATE CHECKOUT SESSION
  *
  * Creates a Stripe Checkout session for subscribing to an AI tier.
+ * Supports B2B checkout with tax ID collection for EU reverse charge.
  */
 export const createAICheckoutSession = action({
   args: {
@@ -93,6 +94,19 @@ export const createAICheckoutSession = action({
     ),
     successUrl: v.string(),
     cancelUrl: v.string(),
+    // Optional B2B fields
+    isB2B: v.optional(v.boolean()),
+    taxId: v.optional(v.string()),
+    taxIdType: v.optional(v.string()), // e.g., "eu_vat", "gb_vat", "us_ein"
+    companyName: v.optional(v.string()), // Business name for invoice
+    billingAddress: v.optional(v.object({
+      line1: v.string(),
+      line2: v.optional(v.string()),
+      city: v.string(),
+      state: v.optional(v.string()),
+      postalCode: v.string(),
+      country: v.string(), // ISO 2-letter code
+    })),
   },
   handler: async (ctx, args) => {
     const stripe = getStripe();
@@ -101,6 +115,35 @@ export const createAICheckoutSession = action({
     // Get or create Stripe customer
     const org = await ctx.runQuery(api.organizations.get, { id: args.organizationId });
 
+    // Prepare customer data with B2B support
+    const customerData: Stripe.CustomerCreateParams = {
+      name: args.companyName || args.organizationName,
+      email: args.email,
+      metadata: {
+        organizationId: args.organizationId,
+        platform: "L4YERCAK3",
+        isB2B: args.isB2B ? "true" : "false",
+      },
+      // Add billing address if provided
+      ...(args.billingAddress && {
+        address: {
+          line1: args.billingAddress.line1,
+          line2: args.billingAddress.line2,
+          city: args.billingAddress.city,
+          state: args.billingAddress.state,
+          postal_code: args.billingAddress.postalCode,
+          country: args.billingAddress.country,
+        },
+      }),
+      // Add tax ID if provided (for B2B)
+      ...(args.isB2B && args.taxId && args.taxIdType && {
+        tax_id_data: [{
+          type: args.taxIdType as Stripe.CustomerCreateParams.TaxIdDatum.Type,
+          value: args.taxId,
+        }],
+      }),
+    };
+
     let customerId: string;
     if (org?.stripeCustomerId) {
       // Verify existing customer
@@ -108,19 +151,32 @@ export const createAICheckoutSession = action({
         const customer = await stripe.customers.retrieve(org.stripeCustomerId);
         if (!customer.deleted) {
           customerId = org.stripeCustomerId;
+          // Update customer with new B2B information if provided
+          if (args.isB2B || args.billingAddress) {
+            await stripe.customers.update(customerId, {
+              ...(args.companyName && { name: args.companyName }),
+              ...(args.billingAddress && {
+                address: {
+                  line1: args.billingAddress.line1,
+                  line2: args.billingAddress.line2,
+                  city: args.billingAddress.city,
+                  state: args.billingAddress.state,
+                  postal_code: args.billingAddress.postalCode,
+                  country: args.billingAddress.country,
+                },
+              }),
+              metadata: {
+                ...customer.metadata,
+                isB2B: args.isB2B ? "true" : "false",
+              },
+            });
+          }
         } else {
           throw new Error("Customer deleted");
         }
       } catch (error) {
         // Create new customer if verification fails
-        const customer = await stripe.customers.create({
-          name: args.organizationName,
-          email: args.email,
-          metadata: {
-            organizationId: args.organizationId,
-            platform: "L4YERCAK3",
-          },
-        });
+        const customer = await stripe.customers.create(customerData);
         customerId = customer.id;
         await ctx.runMutation(internal.organizations.updateStripeCustomer, {
           organizationId: args.organizationId,
@@ -129,14 +185,7 @@ export const createAICheckoutSession = action({
       }
     } else {
       // Create new customer
-      const customer = await stripe.customers.create({
-        name: args.organizationName,
-        email: args.email,
-        metadata: {
-          organizationId: args.organizationId,
-          platform: "L4YERCAK3",
-        },
-      });
+      const customer = await stripe.customers.create(customerData);
       customerId = customer.id;
       await ctx.runMutation(internal.organizations.updateStripeCustomer, {
         organizationId: args.organizationId,
@@ -146,16 +195,16 @@ export const createAICheckoutSession = action({
 
     // Determine price ID based on tier
     const priceId = args.tier === "standard"
-      ? process.env.NEXT_PUBLIC_STRIPE_AI_STANDARD_PRICE_ID
-      : process.env.NEXT_PUBLIC_STRIPE_AI_PRIVACY_ENHANCED_PRICE_ID;
+      ? process.env.STRIPE_AI_STANDARD_PRICE_ID
+      : process.env.STRIPE_AI_PRIVACY_ENHANCED_PRICE_ID;
 
     if (!priceId) {
       throw new Error(`Price ID not configured for tier: ${args.tier}`);
     }
 
-    // Create Checkout session
-    const session = await stripe.checkout.sessions.create({
-      customer: customerId,
+    // Prepare checkout session parameters
+    const sessionParams: Stripe.Checkout.SessionCreateParams = {
+      customer_email: args.email, // Use email instead of customer ID to allow fresh checkout
       mode: "subscription",
       line_items: [
         {
@@ -166,23 +215,43 @@ export const createAICheckoutSession = action({
       success_url: args.successUrl,
       cancel_url: args.cancelUrl,
       allow_promotion_codes: true,
-      billing_address_collection: "auto",
+      billing_address_collection: "required", // Required for tax calculation
       automatic_tax: {
         enabled: true,
       },
+      // Note: Invoices are automatically created for subscriptions by Stripe
+      // Configure auto-email in Stripe Dashboard → Settings → Billing → Automatic emails
       metadata: {
         organizationId: args.organizationId,
         tier: args.tier,
         platform: "L4YERCAK3",
+        isB2B: args.isB2B ? "true" : "false",
+        ...(args.taxId && { customerTaxId: args.taxId }),
+        ...(args.taxIdType && { customerTaxIdType: args.taxIdType }),
       },
       subscription_data: {
         metadata: {
           organizationId: args.organizationId,
           tier: args.tier,
           platform: "L4YERCAK3",
+          isB2B: args.isB2B ? "true" : "false",
         },
       },
-    });
+    };
+
+    // Always enable tax ID collection for business checkout
+    // Stripe will show a toggle for personal/business and automatically apply EU reverse charge for valid VAT numbers
+    sessionParams.tax_id_collection = {
+      enabled: true, // Allow customer to enter tax ID during checkout
+    };
+
+    // If tax ID is pre-filled, add it to customer's tax IDs
+    if (args.taxId && args.taxIdType) {
+      sessionParams.metadata!.preFilledTaxId = "true";
+    }
+
+    // Create Checkout session
+    const session = await stripe.checkout.sessions.create(sessionParams);
 
     return {
       checkoutUrl: session.url!,

@@ -17,18 +17,23 @@ import { TicketsWindow } from "@/components/window-content/tickets-window"
 import { CertificatesWindow } from "@/components/window-content/certificates-window"
 import { EventsWindow } from "@/components/window-content/events-window"
 import { CheckoutWindow } from "@/components/window-content/checkout-window"
+import { CheckoutSuccessWindow } from "@/components/window-content/checkout-success-window"
 import { FormsWindow } from "@/components/window-content/forms-window"
 import { AllAppsWindow } from "@/components/window-content/all-apps-window"
+import { ShoppingCartButton } from "@/components/shopping-cart-button"
 import { CRMWindow } from "@/components/window-content/crm-window"
 import { InvoicingWindow } from "@/components/window-content/invoicing-window"
 import { WorkflowsWindow } from "@/components/window-content/workflows-window"
 import { TemplatesWindow } from "@/components/window-content/templates-window"
 import { AIChatWindow } from "@/components/window-content/ai-chat-window"
+import { StoreWindow } from "@/components/window-content/store-window"
 import { WindowsMenu } from "@/components/windows-menu"
 import { useIsMobile } from "@/hooks/use-media-query"
 import { useAuth, useOrganizations, useCurrentOrganization, useIsSuperAdmin, useAccountDeletionStatus } from "@/hooks/use-auth"
 import { useAvailableApps } from "@/hooks/use-app-availability"
 import { useMultipleNamespaces } from "@/hooks/use-namespace-translations"
+import { useQuery } from "convex/react"
+import { api } from "../../convex/_generated/api"
 
 export default function HomePage() {
   // Load translations for start menu and app names
@@ -46,16 +51,30 @@ export default function HomePage() {
   // Use the new hook for app availability
   const { isAppAvailable } = useAvailableApps()
 
+  // Query branding settings for desktop background
+  const brandingSettings = useQuery(
+    api.organizationOntology.getOrganizationSettings,
+    currentOrg?.id ? {
+      organizationId: currentOrg.id as any,
+      subtype: "branding"
+    } : "skip"
+  )
+
+  // Extract desktop background URL
+  const desktopBackground = brandingSettings && !Array.isArray(brandingSettings)
+    ? (brandingSettings.customProperties as { desktopBackground?: string })?.desktopBackground
+    : undefined
+
   const openWelcomeWindow = () => {
-    openWindow("welcome", "L4YERCAK3.exe", <WelcomeWindow />, { x: 100, y: 100 }, { width: 650, height: 500 }, 'ui.app.l4yercak3_exe')
+    openWindow("welcome", "L4YERCAK3.exe", <WelcomeWindow />, { x: 100, y: 100 }, { width: 650, height: 500 }, 'ui.app.l4yercak3_exe', '🎂')
   }
 
   const openSettingsWindow = () => {
-    openWindow("settings", "Settings", <ControlPanelWindow />, { x: 200, y: 100 }, { width: 700, height: 550 }, 'ui.start_menu.settings')
+    openWindow("settings", "Settings", <ControlPanelWindow />, { x: 200, y: 100 }, { width: 700, height: 550 }, 'ui.start_menu.settings', '⚙️')
   }
 
   const openLoginWindow = () => {
-    openWindow("login", "User Account", <LoginWindow />, { x: 250, y: 100 }, { width: 450, height: 620 }, 'ui.app.user_account')
+    openWindow("login", "User Account", <LoginWindow />, { x: 250, y: 100 }, { width: 450, height: 620 }, 'ui.app.user_account', '👤')
   }
 
   // const openLayerDocsWindow = () => {
@@ -91,7 +110,16 @@ export default function HomePage() {
   }
 
   const openCheckoutWindow = () => {
-    openWindow("checkout", "Checkout", <CheckoutWindow />, { x: 170, y: 55 }, { width: 950, height: 650 }, 'ui.app.checkout')
+    // Small cart window positioned to the right for quick checkout access
+    const cartX = typeof window !== 'undefined' ? window.innerWidth - 420 : 1000;
+    openWindow("checkout", "Checkout", <CheckoutWindow />, { x: cartX, y: 100 }, { width: 380, height: 500 }, 'ui.app.checkout')
+  }
+
+  const openCheckoutSuccessWindow = () => {
+    // Center the success window on screen
+    const centerX = typeof window !== 'undefined' ? (window.innerWidth - 600) / 2 : 400;
+    const centerY = typeof window !== 'undefined' ? (window.innerHeight - 650) / 2 : 100;
+    openWindow("checkout-success", "Order Complete", <CheckoutSuccessWindow />, { x: centerX, y: centerY }, { width: 600, height: 650 }, 'ui.app.checkout')
   }
 
   const openFormsWindow = () => {
@@ -120,6 +148,10 @@ export default function HomePage() {
 
   const openAIAssistantWindow = () => {
     openWindow("ai-assistant", "AI Assistant", <AIChatWindow />, { x: 230, y: 70 }, { width: 700, height: 600 }, 'ui.app.ai_assistant')
+  }
+
+  const openStoreWindow = () => {
+    openWindow("store", "L4YERCAK3 Store", <StoreWindow />, { x: 150, y: 80 }, { width: 900, height: 650 }, 'ui.start_menu.store', '🏪')
   }
 
   const handleLogout = () => {
@@ -154,6 +186,21 @@ export default function HomePage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSignedIn])
+
+  // Handle checkout success redirect
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const checkoutParam = params.get('checkout');
+
+    if (checkoutParam === 'success') {
+      // Open the checkout success window with confetti
+      openCheckoutSuccessWindow();
+
+      // Clean up the URL (remove query params)
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Build organization submenu items dynamically with truncation
   const truncateOrgName = (name: string, maxLength: number = 20) => {
@@ -228,9 +275,7 @@ export default function HomePage() {
     ...(isAppAvailable("events") ? [
       { label: t('ui.app.events'), icon: "📅", onClick: requireAuth(openEventsWindow) }
     ] : []),
-    ...(isAppAvailable("checkout") ? [
-      { label: t('ui.app.checkout'), icon: "🛒", onClick: requireAuth(openCheckoutWindow) }
-    ] : []),
+    // Note: Checkout window is not shown as an app - accessed via cart button
     ...(isAppAvailable("forms") ? [
       { label: t('ui.app.forms'), icon: "📋", onClick: requireAuth(openFormsWindow) }
     ] : []),
@@ -278,6 +323,9 @@ export default function HomePage() {
       submenu: orgMenuItems
     }] : []),
 
+    // Store menu item - platform services and subscriptions
+    { label: t('ui.start_menu.store'), icon: "🏪", onClick: requireAuth(openStoreWindow) },
+
     { label: t('ui.start_menu.settings'), icon: "⚙️", onClick: requireAuth(openSettingsWindow) },
 
     {
@@ -288,15 +336,21 @@ export default function HomePage() {
   ]
 
   return (
-    <div className="min-h-screen relative" style={{ background: 'var(--background)' }}>
-      {/* Desktop Background Pattern - Win95 style */}
-      <div className="absolute inset-0 opacity-10" style={{ zIndex: 0 }}>
-        <div className="grid grid-cols-20 grid-rows-20 h-full w-full">
-          {Array.from({ length: 400 }).map((_, i) => (
-            <div key={i} className="border" style={{ borderColor: 'var(--desktop-grid-overlay)' }}></div>
-          ))}
+    <div className="min-h-screen relative" style={{
+      background: desktopBackground
+        ? `url(${desktopBackground}) center/cover no-repeat`
+        : 'var(--background)'
+    }}>
+      {/* Desktop Background Pattern - Win95 style (only show if no custom background) */}
+      {!desktopBackground && (
+        <div className="absolute inset-0 opacity-10" style={{ zIndex: 0 }}>
+          <div className="grid grid-cols-20 grid-rows-20 h-full w-full">
+            {Array.from({ length: 400 }).map((_, i) => (
+              <div key={i} className="border" style={{ borderColor: 'var(--desktop-grid-overlay)' }}></div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <ClientOnly>
 
@@ -364,7 +418,7 @@ export default function HomePage() {
                       }}
                       title={displayTitle}
                     >
-                      📄 {displayTitle}
+                      {window.icon || '📄'} {displayTitle}
                     </button>
                   );
                 })}
@@ -386,9 +440,14 @@ export default function HomePage() {
               />
             )}
 
-            {/* Desktop: Clock, Deletion Warning, and Super Admin Badge */}
+            {/* Desktop: Shopping Cart, Clock, Deletion Warning, and Super Admin Badge */}
             {!isMobile && (
               <>
+                {/* Shopping Cart Button - Platform services (AI subscriptions, etc.) */}
+                {isSignedIn && (
+                  <ShoppingCartButton onOpenCart={openCheckoutWindow} />
+                )}
+
                 {/* Account Deletion Warning - Show if scheduled for deletion */}
                 {isSignedIn && deletionStatus.isScheduledForDeletion && (
                   <div
@@ -412,11 +471,7 @@ export default function HomePage() {
                 {/* Super Admin Badge - Only if super admin */}
                 {isSuperAdmin && (
                   <div
-                    className={`${!isSignedIn || !deletionStatus.isScheduledForDeletion ? 'ml-auto' : ''} border-l-2 px-3 py-1 flex items-center gap-2`}
-                    style={{
-                      borderColor: 'var(--win95-border)',
-                      background: 'var(--win95-bg-light)'
-                    }}
+                    className={`${!isSignedIn || !deletionStatus.isScheduledForDeletion ? 'ml-auto' : ''} retro-button-small px-3 py-1 flex items-center gap-2`}
                   >
                     <span className="text-sm" title="Super Admin">🔐</span>
                     <span className="text-[10px] font-pixel">ADMIN</span>
@@ -425,11 +480,7 @@ export default function HomePage() {
 
                 {/* Clock */}
                 <div
-                  className={`${(!isSuperAdmin && (!isSignedIn || !deletionStatus.isScheduledForDeletion)) ? 'ml-auto' : ''} border-l-2 px-3 py-1 flex items-center gap-2`}
-                  style={{
-                    borderColor: 'var(--win95-border)',
-                    background: 'var(--win95-bg-light)'
-                  }}
+                  className={`${(!isSuperAdmin && (!isSignedIn || !deletionStatus.isScheduledForDeletion)) ? 'ml-auto' : ''} retro-button-small px-3 py-1 flex items-center gap-2`}
                 >
                   <span className="text-[10px]">🕐</span>
                   <SystemClock />

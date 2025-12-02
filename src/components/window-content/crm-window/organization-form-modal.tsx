@@ -4,31 +4,33 @@ import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
-import { X, Save, Loader2, ChevronDown, ChevronUp } from "lucide-react";
+import { X, Save, Loader2, ChevronDown, ChevronUp, TrendingUp, Users } from "lucide-react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { getSupportedCountries } from "../../../../convex/legalEntityTypes";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+import { useNotification } from "@/hooks/use-notification";
 import { validateVATNumber } from "../../../../convex/lib/vatValidation";
 
 interface OrganizationFormModalProps {
   editId?: Id<"objects">;
   onClose: () => void;
   onSuccess: (organizationId: Id<"objects">) => void;
+  onNavigateToPipelines?: () => void;
 }
 
-type OrgType = "prospect" | "customer" | "partner" | "sponsor";
-
-export function OrganizationFormModal({ editId, onClose, onSuccess }: OrganizationFormModalProps) {
+export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateToPipelines }: OrganizationFormModalProps) {
   const { t } = useNamespaceTranslations("ui.crm");
   const { sessionId } = useAuth();
   const currentOrganization = useCurrentOrganization();
   const currentOrganizationId = currentOrganization?.id;
+  const notification = useNotification();
 
   const [saving, setSaving] = useState(false);
   const [showContactDetails, setShowContactDetails] = useState(false);
   const [showAddress, setShowAddress] = useState(false);
   const [showBillingSettings, setShowBillingSettings] = useState(false);
   const [showTagsNotes, setShowTagsNotes] = useState(false);
+  const [showPipelineStatus, setShowPipelineStatus] = useState(false);
 
   // Form data
   const [formData, setFormData] = useState({
@@ -36,7 +38,6 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
     website: "",
     industry: "",
     size: "" as "" | "1-10" | "11-50" | "51-200" | "201-500" | "501+",
-    orgType: "prospect" as OrgType,
     phone: "",
     billingEmail: "",
     taxId: "",
@@ -86,6 +87,12 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
     editId && sessionId ? { sessionId, crmOrganizationId: editId } : "skip"
   );
 
+  // Query organization contacts with pipeline status (for editing only)
+  const pipelineStatus = useQuery(
+    api.crmOrganizationPipelines.getOrganizationContactsWithPipelines,
+    editId && sessionId ? { sessionId, crmOrganizationId: editId } : "skip"
+  );
+
   // Mutations
   const createCrmOrganization = useMutation(api.crmOntology.createCrmOrganization);
   const updateCrmOrganization = useMutation(api.crmOntology.updateCrmOrganization);
@@ -102,7 +109,6 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
         website: props.website?.toString() || "",
         industry: props.industry?.toString() || "",
         size: (props.size?.toString() || "") as "" | "1-10" | "11-50" | "51-200" | "201-500" | "501+",
-        orgType: (existingOrg.subtype || "prospect") as OrgType,
         phone: props.phone?.toString() || "",
         billingEmail: props.billingEmail?.toString() || "",
         taxId: props.taxId?.toString() || "",
@@ -153,6 +159,13 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
       }
     }
   }, [existingOrg]);
+
+  // Auto-expand pipeline status if organization has contacts in pipelines
+  useEffect(() => {
+    if (pipelineStatus && pipelineStatus.contactsInPipelines > 0) {
+      setShowPipelineStatus(true);
+    }
+  }, [pipelineStatus]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -208,13 +221,6 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
         country: formData.billingCountry || undefined,
       } : undefined;
 
-      // Prepare custom fields for sponsor info
-      const customFields = formData.orgType === "sponsor" ? {
-        sponsorLevel: formData.sponsorLevel || undefined,
-        logoUrl: formData.logoUrl || undefined,
-        sponsorBio: formData.sponsorBio || undefined,
-      } : undefined;
-
       let orgId: Id<"objects">;
 
       if (editId) {
@@ -224,7 +230,6 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
           crmOrganizationId: editId,
           updates: {
             name: formData.name,
-            subtype: formData.orgType,
             website: website || undefined,
             industry: formData.industry || undefined,
             size: formData.size || undefined,
@@ -249,17 +254,20 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
             billingContactPhone: formData.billingContactPhone || undefined,
             tags: formData.tags.length > 0 ? formData.tags : undefined,
             notes: formData.notes || undefined,
-            customFields,
           },
         });
         orgId = editId;
+        notification.success(
+          t("ui.crm.organization_form.success.updated") || "Organization updated",
+          "Changes saved successfully."
+        );
       } else {
-        // Create new organization
+        // Create new organization (default to prospect subtype)
         orgId = await createCrmOrganization({
           sessionId,
           organizationId: currentOrganizationId as Id<"organizations">,
           name: formData.name,
-          subtype: formData.orgType,
+          subtype: "prospect", // Default to prospect - actual status tracked via pipelines
           website: website || undefined,
           industry: formData.industry || undefined,
           size: formData.size || undefined,
@@ -284,14 +292,20 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
           billingContactPhone: formData.billingContactPhone || undefined,
           tags: formData.tags.length > 0 ? formData.tags : undefined,
           notes: formData.notes || undefined,
-          customFields,
         });
+        notification.success(
+          t("ui.crm.organization_form.success.created") || "Organization created",
+          "New organization added successfully."
+        );
       }
 
       onSuccess(orgId);
     } catch (error) {
       console.error(`Failed to ${editId ? "update" : "create"} organization:`, error);
-      alert(editId ? t("ui.crm.organization_form.errors.update_failed") : t("ui.crm.organization_form.errors.create_failed"));
+      notification.error(
+        editId ? t("ui.crm.organization_form.errors.update_failed") : t("ui.crm.organization_form.errors.create_failed"),
+        "Please try again."
+      );
     } finally {
       setSaving(false);
     }
@@ -464,94 +478,132 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
             </div>
           </div>
 
-          {/* Organization Type */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-bold border-b pb-2" style={{ color: "var(--win95-text)", borderColor: "var(--win95-border)" }}>
-              {t("ui.crm.organization_form.sections.organization_type")} <span style={{ color: "var(--error)" }}>*</span>
-            </h3>
+          {/* Pipeline Status (Read-only, Editing Only) */}
+          {editId && (
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => setShowPipelineStatus(!showPipelineStatus)}
+                className="flex items-center justify-between w-full text-left py-2 px-3 border-2"
+                style={{
+                  borderColor: "var(--win95-border)",
+                  background: "var(--win95-bg-light)",
+                  color: "var(--win95-text)",
+                }}
+              >
+                <span className="flex items-center gap-2">
+                  <TrendingUp size={16} />
+                  <span className="font-bold text-sm">
+                    {t("ui.crm.organization_form.sections.pipeline_status") || "Contacts & Pipeline Status"}
+                  </span>
+                  {pipelineStatus && pipelineStatus.contactsInPipelines > 0 && (
+                    <span className="text-xs px-2 py-0.5 rounded" style={{ background: "var(--primary)", color: "white" }}>
+                      {pipelineStatus.contactsInPipelines} in pipelines
+                    </span>
+                  )}
+                </span>
+                {showPipelineStatus ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </button>
 
-            <div className="grid grid-cols-4 gap-2">
-              <label className="cursor-pointer">
-                <input
-                  type="radio"
-                  name="orgType"
-                  checked={formData.orgType === "prospect"}
-                  onChange={() => setFormData({ ...formData, orgType: "prospect" })}
-                  className="sr-only"
-                />
-                <div
-                  className={`text-center py-2 px-3 text-xs font-bold border-2 transition-colors ${
-                    formData.orgType === "prospect"
-                      ? "bg-blue-100 border-blue-500 text-blue-700"
-                      : "bg-gray-100 border-gray-400 text-gray-700 hover:bg-gray-200"
-                  }`}
-                >
-                  {t("ui.crm.organization_form.types.prospect")}
-                </div>
-              </label>
+              {showPipelineStatus && (
+                <div className="p-4 border-2 space-y-3" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}>
+                  {!pipelineStatus ? (
+                    <div className="text-center py-4">
+                      <Loader2 size={24} className="animate-spin mx-auto mb-2" style={{ color: "var(--primary)" }} />
+                      <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                        Loading pipeline status...
+                      </p>
+                    </div>
+                  ) : pipelineStatus.contacts.length === 0 ? (
+                    <div className="text-center py-6">
+                      <Users size={32} className="mx-auto mb-2 opacity-30" style={{ color: "var(--neutral-gray)" }} />
+                      <p className="text-sm font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                        {t("ui.crm.organization_form.pipeline_status.no_contacts") || "No Contacts Yet"}
+                      </p>
+                      <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                        {t("ui.crm.organization_form.pipeline_status.no_contacts_hint") || "Add contacts to this organization to see their pipeline progress."}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                        {pipelineStatus.totalContacts} {pipelineStatus.totalContacts === 1 ? "Contact" : "Contacts"} •{" "}
+                        {pipelineStatus.contactsInPipelines} in {pipelineStatus.contactsInPipelines === 1 ? "Pipeline" : "Pipelines"}
+                      </div>
 
-              <label className="cursor-pointer">
-                <input
-                  type="radio"
-                  name="orgType"
-                  checked={formData.orgType === "customer"}
-                  onChange={() => setFormData({ ...formData, orgType: "customer" })}
-                  className="sr-only"
-                />
-                <div
-                  className={`text-center py-2 px-3 text-xs font-bold border-2 transition-colors ${
-                    formData.orgType === "customer"
-                      ? "bg-green-100 border-green-500 text-green-700"
-                      : "bg-gray-100 border-gray-400 text-gray-700 hover:bg-gray-200"
-                  }`}
-                >
-                  {t("ui.crm.organization_form.types.customer")}
-                </div>
-              </label>
+                      {/* Contact List with Pipeline Stages */}
+                      <div className="space-y-2 max-h-64 overflow-y-auto">
+                        {pipelineStatus.contacts.map((contact) => (
+                          <div
+                            key={contact.contactId}
+                            className="p-2 border-2"
+                            style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <p className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+                                  {contact.contactName}
+                                </p>
+                                {contact.contactJobTitle && (
+                                  <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                                    {contact.contactJobTitle}
+                                  </p>
+                                )}
+                                {contact.contactEmail && (
+                                  <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                                    {contact.contactEmail}
+                                  </p>
+                                )}
 
-              <label className="cursor-pointer">
-                <input
-                  type="radio"
-                  name="orgType"
-                  checked={formData.orgType === "partner"}
-                  onChange={() => setFormData({ ...formData, orgType: "partner" })}
-                  className="sr-only"
-                />
-                <div
-                  className={`text-center py-2 px-3 text-xs font-bold border-2 transition-colors ${
-                    formData.orgType === "partner"
-                      ? "bg-purple-100 border-purple-500 text-purple-700"
-                      : "bg-gray-100 border-gray-400 text-gray-700 hover:bg-gray-200"
-                  }`}
-                >
-                  {t("ui.crm.organization_form.types.partner")}
-                </div>
-              </label>
+                                {/* Pipeline Stages */}
+                                {contact.pipelines.length > 0 && (
+                                  <div className="mt-2 space-y-1">
+                                    {contact.pipelines.map((pipeline) => (
+                                      <div key={`${pipeline.pipelineId}-${pipeline.stageId}`} className="flex items-center gap-2">
+                                        <div
+                                          className="w-2 h-2 rounded-full"
+                                          style={{ background: pipeline.stageColor }}
+                                        />
+                                        <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                                          {pipeline.pipelineName}:
+                                        </span>
+                                        <span className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                                          {pipeline.stageName}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
 
-              <label className="cursor-pointer">
-                <input
-                  type="radio"
-                  name="orgType"
-                  checked={formData.orgType === "sponsor"}
-                  onChange={() => setFormData({ ...formData, orgType: "sponsor" })}
-                  className="sr-only"
-                />
-                <div
-                  className={`text-center py-2 px-3 text-xs font-bold border-2 transition-colors ${
-                    formData.orgType === "sponsor"
-                      ? "bg-yellow-100 border-yellow-500 text-yellow-700"
-                      : "bg-gray-100 border-gray-400 text-gray-700 hover:bg-gray-200"
-                  }`}
-                >
-                  {t("ui.crm.organization_form.types.sponsor")}
+                                {contact.pipelines.length === 0 && (
+                                  <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+                                    Not in any pipeline
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Navigate to Pipelines Button */}
+                      {onNavigateToPipelines && (
+                        <button
+                          type="button"
+                          onClick={onNavigateToPipelines}
+                          className="retro-button w-full px-3 py-2 text-xs font-bold flex items-center justify-center gap-2"
+                          style={{ background: "var(--primary)", color: "white" }}
+                        >
+                          <TrendingUp size={14} />
+                          {t("ui.crm.organization_form.pipeline_status.manage_in_pipelines") || "Manage in Pipelines"}
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
-              </label>
+              )}
             </div>
-
-            <p className="text-xs" style={{ color: "var(--win95-text)" }}>
-              {t("ui.crm.organization_form.helpers.org_type_description")}
-            </p>
-          </div>
+          )}
 
           {/* Contact Details (Collapsible) */}
           <div className="space-y-2">
@@ -1092,8 +1144,8 @@ export function OrganizationFormModal({ editId, onClose, onSuccess }: Organizati
             )}
           </div>
 
-          {/* Sponsorship Details (Conditional - only if Type = Sponsor) */}
-          {formData.orgType === "sponsor" && (
+          {/* Removed: Sponsorship Details section - organization types are now tracked via pipelines */}
+          {false && (
             <div className="space-y-3">
               <h3 className="text-sm font-bold border-b pb-2" style={{ color: "var(--win95-text)", borderColor: "var(--win95-border)" }}>
                 {t("ui.crm.organization_form.sections.sponsorship_details")}

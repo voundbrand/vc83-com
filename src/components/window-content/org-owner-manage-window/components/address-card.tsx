@@ -14,10 +14,10 @@ interface AddressCardProps {
 }
 
 const ADDRESS_TYPE_STYLES: Record<string, { bg: string; text: string; border: string }> = {
-  billing: { bg: '#f3e8ff', text: '#6B46C1', border: '#d8b4fe' },
-  shipping: { bg: '#dbeafe', text: '#1e40af', border: '#93c5fd' },
-  mailing: { bg: '#dcfce7', text: '#15803d', border: '#86efac' },
-  physical: { bg: '#fed7aa', text: '#c2410c', border: '#fdba74' },
+  billing: { bg: 'var(--win95-bg-light)', text: 'var(--win95-highlight)', border: 'var(--win95-border)' },
+  shipping: { bg: 'var(--win95-bg-light)', text: 'var(--info)', border: 'var(--win95-border)' },
+  mailing: { bg: 'var(--win95-bg-light)', text: 'var(--success)', border: 'var(--win95-border)' },
+  physical: { bg: 'var(--win95-bg-light)', text: 'var(--warning)', border: 'var(--win95-border)' },
   other: { bg: 'var(--win95-bg)', text: 'var(--win95-text)', border: 'var(--win95-border)' },
 };
 
@@ -74,7 +74,7 @@ export function AddressCard({
           <div>
             <div className="flex items-center gap-2">
               {props?.isPrimary && (
-                <Star className="w-4 h-4 fill-yellow-400" style={{ color: '#ca8a04' }} />
+                <Star className="w-4 h-4" style={{ color: 'var(--warning)', fill: 'var(--warning)' }} />
               )}
               <span className="font-bold text-sm" style={{ color: 'var(--win95-text)' }}>
                 {props?.label || address.name || typeLabel}
@@ -95,9 +95,9 @@ export function AddressCard({
                 <span
                   className="text-xs px-2 py-0.5 border font-bold"
                   style={{
-                    backgroundColor: '#dcfce7',
-                    color: '#15803d',
-                    borderColor: '#86efac'
+                    backgroundColor: 'var(--win95-bg-light)',
+                    color: 'var(--success)',
+                    borderColor: 'var(--success)'
                   }}
                 >
                   {t("ui.manage.address.default_badge")}
@@ -107,9 +107,9 @@ export function AddressCard({
                 <span
                   className="text-xs px-2 py-0.5 border font-bold"
                   style={{
-                    backgroundColor: '#fef3c7',
-                    color: '#92400e',
-                    borderColor: '#fcd34d'
+                    backgroundColor: 'var(--win95-bg-light)',
+                    color: 'var(--warning)',
+                    borderColor: 'var(--warning)'
                   }}
                   title="Tax origin address for tax nexus calculation"
                 >
@@ -126,18 +126,7 @@ export function AddressCard({
             {!props?.isPrimary && onSetPrimary && (
               <button
                 onClick={() => onSetPrimary(address)}
-                className="p-1.5 border-2 text-xs font-bold transition-colors"
-                style={{
-                  borderColor: 'var(--win95-border)',
-                  background: 'var(--win95-bg-light)',
-                  color: 'var(--win95-text)'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'var(--win95-bg)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'var(--win95-bg-light)';
-                }}
+                className="retro-button-small p-1.5"
                 title={t("ui.manage.address.set_primary")}
               >
                 <Star className="w-3.5 h-3.5" />
@@ -146,18 +135,7 @@ export function AddressCard({
             {onEdit && (
               <button
                 onClick={() => onEdit(address)}
-                className="p-1.5 border-2 text-xs font-bold transition-colors"
-                style={{
-                  borderColor: 'var(--win95-border)',
-                  background: 'var(--win95-bg-light)',
-                  color: 'var(--win95-text)'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'var(--win95-bg)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'var(--win95-bg-light)';
-                }}
+                className="retro-button-small p-1.5"
                 title={t("ui.manage.address.edit")}
               >
                 <Edit2 className="w-3.5 h-3.5" />
@@ -166,17 +144,9 @@ export function AddressCard({
             {onDelete && !props?.isPrimary && (
               <button
                 onClick={() => onDelete(address)}
-                className="p-1.5 border-2 text-xs font-bold transition-colors"
+                className="retro-button-small p-1.5"
                 style={{
-                  borderColor: '#fca5a5',
-                  background: 'var(--win95-bg-light)',
-                  color: '#dc2626'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = '#fef2f2';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'var(--win95-bg-light)';
+                  color: 'var(--error)'
                 }}
                 title={t("ui.manage.address.delete")}
               >

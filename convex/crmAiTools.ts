@@ -543,7 +543,7 @@ export const approveAiAction = mutation({
       const newRule = args.decision === "approve_always" ? "auto_approve" : "never";
 
       // Get or create CRM AI settings
-      let crmAiSettings = await getCrmAiSettings(ctx, approval.organizationId);
+      const crmAiSettings = await getCrmAiSettings(ctx, approval.organizationId);
 
       if (!crmAiSettings) {
         // Create default settings
@@ -719,7 +719,7 @@ export const updateAiSettings = mutation({
     if (!session) throw new Error("Invalid session");
 
     // Get or create CRM AI settings
-    let crmAiSettings = await getCrmAiSettings(ctx, args.organizationId);
+    const crmAiSettings = await getCrmAiSettings(ctx, args.organizationId);
 
     if (!crmAiSettings) {
       // Create default settings

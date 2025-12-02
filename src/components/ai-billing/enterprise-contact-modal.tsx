@@ -2,22 +2,28 @@
 
 import { X, Calendar, Mail, Phone, Send, User, Building2, MessageSquare } from "lucide-react";
 import { useState } from "react";
-import { useQuery } from "convex/react";
+import { useQuery, useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import Image from "next/image";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+import { useTranslation } from "@/contexts/translation-context";
 
 interface EnterpriseContactModalProps {
   isOpen: boolean;
   onClose: () => void;
-  tier: "starter" | "professional" | "enterprise";
+  title?: string;
 }
 
 export function EnterpriseContactModal({
   isOpen,
   onClose,
-  tier,
+  title = "Enterprise Solutions",
 }: EnterpriseContactModalProps) {
+  const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.contact_modal");
+  const { locale } = useTranslation();
+  const sendContactEmail = useAction(api.emailService.sendContactFormEmail);
+
   const [formData, setFormData] = useState({
     name: "",
     company: "",
@@ -35,48 +41,39 @@ export function EnterpriseContactModal({
     avatarStorageId ? { storageId: avatarStorageId as Id<"_storage"> } : "skip"
   );
 
-  if (!isOpen) return null;
-
-  // Tier-specific information
-  const tierInfo = {
-    starter: {
-      name: "Private LLM - Starter",
-      price: "€2,999/month",
-      description: "Self-hosted AI with scale-to-zero compute. ~50K requests/month. Full data sovereignty.",
-    },
-    professional: {
-      name: "Private LLM - Professional",
-      price: "€7,199/month",
-      description: "Dedicated GPU infrastructure. ~200K requests/month. 99.5% SLA.",
-    },
-    enterprise: {
-      name: "Private LLM - Enterprise",
-      price: "€14,999/month",
-      description: "Custom AI infrastructure with dedicated support and unlimited requests.",
-    },
-  };
-
-  const currentTier = tierInfo[tier];
+  if (!isOpen || translationsLoading) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // TODO: Implement form submission to backend
-    // This should send an email notification and create a sales lead
+    try {
+      // Send email via Convex action
+      await sendContactEmail({
+        name: formData.name,
+        company: formData.company,
+        email: formData.email,
+        phone: formData.phone || undefined,
+        message: formData.message || undefined,
+        productInterest: title, // Pass the modal title as product interest
+        locale: locale, // Pass current language for localized confirmation
+      });
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+      setSubmitted(true);
 
-    setIsSubmitting(false);
-    setSubmitted(true);
-
-    // Reset form after 3 seconds and close
-    setTimeout(() => {
-      setSubmitted(false);
-      setFormData({ name: "", company: "", email: "", phone: "", message: "" });
-      onClose();
-    }, 3000);
+      // Reset form after 3 seconds and close
+      setTimeout(() => {
+        setSubmitted(false);
+        setFormData({ name: "", company: "", email: "", phone: "", message: "" });
+        onClose();
+      }, 3000);
+    } catch (error) {
+      console.error("Failed to send contact form:", error);
+      // TODO: Show error message to user
+      alert("Failed to send message. Please try again or contact us directly.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -93,30 +90,20 @@ export function EnterpriseContactModal({
       >
         {/* Window Title Bar */}
         <div
-          className="flex items-center justify-between px-3 py-2 border-b-2"
-          style={{
-            backgroundColor: "var(--primary)",
-            borderColor: "var(--win95-border)",
-          }}
+          className="retro-titlebar flex items-center justify-between select-none"
         >
           <div className="flex items-center gap-2">
-            <Building2 size={16} style={{ color: "white" }} />
-            <span className="text-sm font-bold" style={{ color: "white" }}>
-              {currentTier.name} - Contact Sales
+            <Building2 size={16} style={{ color: "var(--win95-titlebar-text)" }} />
+            <span className="font-semibold text-sm" style={{ color: "var(--win95-titlebar-text)" }}>
+              {title} - {t("ui.contact_modal.title_suffix")}
             </span>
           </div>
           <button
             onClick={onClose}
-            className="w-6 h-6 flex items-center justify-center border-2"
-            style={{
-              backgroundColor: "var(--win95-button-face)",
-              borderTopColor: "var(--win95-button-light)",
-              borderLeftColor: "var(--win95-button-light)",
-              borderBottomColor: "var(--win95-button-dark)",
-              borderRightColor: "var(--win95-button-dark)",
-            }}
+            className="retro-control-button retro-close-btn"
+            title="Close"
           >
-            <X size={14} />
+            <span className="select-none window-btn-icon">✕</span>
           </button>
         </div>
 
@@ -125,12 +112,12 @@ export function EnterpriseContactModal({
           {!submitted ? (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Left Column: Personal Message */}
-              <div className="space-y-4">
+              <div>
                 {/* Profile Section */}
                 <div
                   className="p-4 border-2"
                   style={{
-                    backgroundColor: "var(--info)",
+                    backgroundColor: "var(--win95-bg-light)",
                     borderColor: "var(--win95-border)",
                   }}
                 >
@@ -173,39 +160,39 @@ export function EnterpriseContactModal({
                         Remington Splettstoesser
                       </h3>
                       <p className="text-sm mb-2" style={{ color: "var(--neutral-gray)" }}>
-                        Founder & CEO, L4YERCAK3
+                        {t("ui.contact_modal.founder_title")}
                       </p>
                       <div className="space-y-1 text-xs">
                         <div className="flex items-center gap-2">
-                          <Mail size={12} style={{ color: "var(--primary)" }} />
+                          <Mail size={12} style={{ color: "var(--win95-highlight)" }} />
                           <a
                             href="mailto:remington@l4yercak3.com"
                             className="underline hover:opacity-80 transition-opacity"
-                            style={{ color: "var(--primary)" }}
+                            style={{ color: "var(--win95-highlight)" }}
                           >
                             remington@l4yercak3.com
                           </a>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Phone size={12} style={{ color: "var(--primary)" }} />
+                          <Phone size={12} style={{ color: "var(--win95-highlight)" }} />
                           <a
                             href="tel:+4915140427103"
                             className="underline hover:opacity-80 transition-opacity"
-                            style={{ color: "var(--primary)" }}
+                            style={{ color: "var(--win95-highlight)" }}
                           >
                             +49 151 404 27 103
                           </a>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Calendar size={12} style={{ color: "var(--primary)" }} />
+                          <Calendar size={12} style={{ color: "var(--win95-highlight)" }} />
                           <a
                             href="https://cal.com/voundbrand/open-end-meeting"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="underline hover:opacity-80 transition-opacity"
-                            style={{ color: "var(--primary)" }}
+                            style={{ color: "var(--win95-highlight)" }}
                           >
-                            Schedule a Call
+                            {t("ui.contact_modal.schedule_call")}
                           </a>
                         </div>
                       </div>
@@ -221,99 +208,66 @@ export function EnterpriseContactModal({
                     }}
                   >
                     <div className="flex gap-2 mb-2">
-                      <MessageSquare size={16} style={{ color: "var(--primary)" }} />
+                      <MessageSquare size={16} style={{ color: "var(--win95-highlight)" }} />
                       <p className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
-                        Personal Message:
+                        {t("ui.contact_modal.message_label")}
                       </p>
                     </div>
                     <p className="text-sm leading-relaxed" style={{ color: "var(--win95-text)" }}>
-                      Hey there! 👋
+                      {t("ui.contact_modal.message_greeting")}
                       <br />
                       <br />
-                      Thanks for your interest in our {currentTier.name} plan. This is our enterprise-grade
-                      solution, and I'd love to chat with you personally to make sure it's the perfect fit
-                      for your needs.
+                      {t("ui.contact_modal.message_thanks_general")}
                       <br />
                       <br />
-                      Private LLM hosting means your data never leaves your infrastructure. We'll set up
-                      everything for you - from the initial deployment to ongoing support.
-                      <br />
-                      <br />
-                      Feel free to reach out directly via{" "}
+                      {t("ui.contact_modal.message_contact_simple")}{" "}
                       <a
                         href="mailto:remington@l4yercak3.com"
-                        className="underline font-semibold"
-                        style={{ color: "var(--primary)" }}
+                        className="underline font-semibold hover:opacity-80 transition-opacity"
+                        style={{ color: "var(--win95-highlight)" }}
                       >
                         email
                       </a>
                       ,{" "}
                       <a
                         href="tel:+4915140427103"
-                        className="underline font-semibold"
-                        style={{ color: "var(--primary)" }}
+                        className="underline font-semibold hover:opacity-80 transition-opacity"
+                        style={{ color: "var(--win95-highlight)" }}
                       >
                         phone
                       </a>
-                      , or{" "}
+                      ,{" "}
                       <a
                         href="https://cal.com/voundbrand/open-end-meeting"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="underline font-semibold"
-                        style={{ color: "var(--primary)" }}
+                        className="underline font-semibold hover:opacity-80 transition-opacity"
+                        style={{ color: "var(--win95-highlight)" }}
                       >
-                        grab a time on my calendar
+                        calendar
                       </a>
-                      . Or just fill out the form and I'll get back to you within 24 hours.
+                      .
                       <br />
                       <br />
-                      Looking forward to connecting! 🚀
+                      {t("ui.contact_modal.message_looking_forward")}
                       <br />
                       <br />
                       <span className="font-bold">- Remington</span>
                     </p>
                   </div>
                 </div>
-
-                {/* Tier Information */}
-                <div
-                  className="p-4 border-2"
-                  style={{
-                    backgroundColor: "var(--win95-bg-light)",
-                    borderColor: "var(--win95-border)",
-                  }}
-                >
-                  <h4 className="text-sm font-bold mb-2" style={{ color: "var(--win95-text)" }}>
-                    {currentTier.name}
-                  </h4>
-                  <p className="text-lg font-bold mb-2" style={{ color: "var(--primary)" }}>
-                    {currentTier.price}
-                  </p>
-                  <p className="text-sm mb-3" style={{ color: "var(--neutral-gray)" }}>
-                    {currentTier.description}
-                  </p>
-                  <ul className="text-xs space-y-1" style={{ color: "var(--win95-text)" }}>
-                    <li>✓ Self-hosted infrastructure</li>
-                    <li>✓ Complete data sovereignty</li>
-                    <li>✓ Zero data retention guaranteed</li>
-                    <li>✓ Dedicated technical support</li>
-                    <li>✓ Custom model fine-tuning</li>
-                    <li>✓ SLA guarantees</li>
-                  </ul>
-                </div>
               </div>
 
               {/* Right Column: Contact Form */}
               <div>
                 <h3 className="text-lg font-bold mb-4" style={{ color: "var(--win95-text)" }}>
-                  Get in Touch
+                  {t("ui.contact_modal.form_title")}
                 </h3>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   {/* Name */}
                   <div>
                     <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                      Your Name *
+                      {t("ui.contact_modal.form_name")} *
                     </label>
                     <input
                       type="text"
@@ -326,14 +280,14 @@ export function EnterpriseContactModal({
                         borderColor: "var(--win95-border)",
                         color: "var(--win95-text)",
                       }}
-                      placeholder="John Doe"
+                      placeholder={t("ui.contact_modal.form_placeholder_name")}
                     />
                   </div>
 
                   {/* Company */}
                   <div>
                     <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                      Company Name *
+                      {t("ui.contact_modal.form_company")} *
                     </label>
                     <input
                       type="text"
@@ -346,14 +300,14 @@ export function EnterpriseContactModal({
                         borderColor: "var(--win95-border)",
                         color: "var(--win95-text)",
                       }}
-                      placeholder="Acme Corp"
+                      placeholder={t("ui.contact_modal.form_placeholder_company")}
                     />
                   </div>
 
                   {/* Email */}
                   <div>
                     <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                      Email Address *
+                      {t("ui.contact_modal.form_email")} *
                     </label>
                     <input
                       type="email"
@@ -366,14 +320,14 @@ export function EnterpriseContactModal({
                         borderColor: "var(--win95-border)",
                         color: "var(--win95-text)",
                       }}
-                      placeholder="john@acme.com"
+                      placeholder={t("ui.contact_modal.form_placeholder_email")}
                     />
                   </div>
 
                   {/* Phone */}
                   <div>
                     <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                      Phone Number
+                      {t("ui.contact_modal.form_phone")}
                     </label>
                     <input
                       type="tel"
@@ -385,14 +339,14 @@ export function EnterpriseContactModal({
                         borderColor: "var(--win95-border)",
                         color: "var(--win95-text)",
                       }}
-                      placeholder="+49 123 456 7890 (optional)"
+                      placeholder={t("ui.contact_modal.form_placeholder_phone")}
                     />
                   </div>
 
                   {/* Message */}
                   <div>
                     <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-                      Tell us about your needs
+                      {t("ui.contact_modal.form_message")}
                     </label>
                     <textarea
                       value={formData.message}
@@ -404,7 +358,7 @@ export function EnterpriseContactModal({
                         borderColor: "var(--win95-border)",
                         color: "var(--win95-text)",
                       }}
-                      placeholder="What are your expected usage levels? Do you have specific compliance requirements? Any other details that would help us prepare for our call..."
+                      placeholder={t("ui.contact_modal.form_placeholder_message")}
                     />
                   </div>
 
@@ -412,25 +366,18 @@ export function EnterpriseContactModal({
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="w-full px-4 py-3 text-sm font-bold flex items-center justify-center gap-2"
+                    className="retro-button w-full py-2 text-xs font-pixel flex items-center justify-center gap-2"
                     style={{
-                      backgroundColor: "var(--primary)",
-                      color: "white",
-                      border: "2px solid",
-                      borderTopColor: "var(--win95-button-light)",
-                      borderLeftColor: "var(--win95-button-light)",
-                      borderBottomColor: "var(--win95-button-dark)",
-                      borderRightColor: "var(--win95-button-dark)",
                       opacity: isSubmitting ? 0.6 : 1,
                       cursor: isSubmitting ? "wait" : "pointer",
                     }}
                   >
                     <Send size={16} />
-                    {isSubmitting ? "Sending..." : "Send Message"}
+                    {isSubmitting ? t("ui.contact_modal.button_sending") : t("ui.contact_modal.button_send")}
                   </button>
 
                   <p className="text-xs text-center" style={{ color: "var(--neutral-gray)" }}>
-                    We'll get back to you within 24 hours
+                    {t("ui.contact_modal.response_time")}
                   </p>
                 </form>
               </div>
@@ -445,13 +392,13 @@ export function EnterpriseContactModal({
                 <Send size={48} style={{ color: "white" }} />
               </div>
               <h3 className="text-2xl font-bold mb-2" style={{ color: "var(--success)" }}>
-                Message Sent!
+                {t("ui.contact_modal.success_title")}
               </h3>
               <p className="text-sm mb-4" style={{ color: "var(--win95-text)" }}>
-                Thanks for reaching out! I'll get back to you within 24 hours.
+                {t("ui.contact_modal.success_message")}
               </p>
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                Check your email for a confirmation.
+                {t("ui.contact_modal.success_email")}
               </p>
             </div>
           )}

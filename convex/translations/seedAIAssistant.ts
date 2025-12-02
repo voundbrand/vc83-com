@@ -126,6 +126,62 @@ export const seed = internalMutation({
         fr: "Prêt",
         ja: "準備完了"
       },
+      "ui.ai_assistant.footer.loading": {
+        en: "Loading...",
+        de: "Lädt...",
+        pl: "Ładowanie...",
+        es: "Cargando...",
+        fr: "Chargement...",
+        ja: "読み込み中..."
+      },
+      "ui.ai_assistant.footer.error": {
+        en: "Error",
+        de: "Fehler",
+        pl: "Błąd",
+        es: "Error",
+        fr: "Erreur",
+        ja: "エラー"
+      },
+      "ui.ai_assistant.footer.ai_disabled": {
+        en: "AI Disabled",
+        de: "KI deaktiviert",
+        pl: "AI wyłączone",
+        es: "IA deshabilitada",
+        fr: "IA désactivée",
+        ja: "AI無効"
+      },
+      "ui.ai_assistant.footer.no_subscription": {
+        en: "No Subscription",
+        de: "Kein Abonnement",
+        pl: "Brak subskrypcji",
+        es: "Sin suscripción",
+        fr: "Aucun abonnement",
+        ja: "サブスクリプションなし"
+      },
+      "ui.ai_assistant.footer.subscription_inactive": {
+        en: "Subscription Inactive",
+        de: "Abonnement inaktiv",
+        pl: "Subskrypcja nieaktywna",
+        es: "Suscripción inactiva",
+        fr: "Abonnement inactif",
+        ja: "サブスクリプション無効"
+      },
+      "ui.ai_assistant.footer.no_models": {
+        en: "No Models Configured",
+        de: "Keine Modelle konfiguriert",
+        pl: "Brak skonfigurowanych modeli",
+        es: "Sin modelos configurados",
+        fr: "Aucun modèle configuré",
+        ja: "モデル未設定"
+      },
+      "ui.ai_assistant.footer.ai_offline": {
+        en: "AI Offline",
+        de: "KI Offline",
+        pl: "AI Offline",
+        es: "IA desconectada",
+        fr: "IA hors ligne",
+        ja: "AIオフライン"
+      },
 
       // Welcome message
       "ui.ai_assistant.welcome.message": {
@@ -171,6 +227,106 @@ export const seed = internalMutation({
         es: "Cargando traducciones...",
         fr: "Chargement des traductions...",
         ja: "翻訳を読み込み中..."
+      },
+
+      // Conversation History (Left Pane)
+      "ui.ai_assistant.history.title": {
+        en: "Conversations",
+        de: "Gespräche",
+        pl: "Rozmowy",
+        es: "Conversaciones",
+        fr: "Conversations",
+        ja: "会話"
+      },
+      "ui.ai_assistant.history.new_chat": {
+        en: "New Chat",
+        de: "Neuer Chat",
+        pl: "Nowa rozmowa",
+        es: "Nuevo chat",
+        fr: "Nouveau chat",
+        ja: "新しいチャット"
+      },
+      "ui.ai_assistant.history.search_placeholder": {
+        en: "Search conversations...",
+        de: "Gespräche durchsuchen...",
+        pl: "Szukaj rozmów...",
+        es: "Buscar conversaciones...",
+        fr: "Rechercher des conversations...",
+        ja: "会話を検索..."
+      },
+      "ui.ai_assistant.history.no_results": {
+        en: "No conversations found",
+        de: "Keine Gespräche gefunden",
+        pl: "Nie znaleziono rozmów",
+        es: "No se encontraron conversaciones",
+        fr: "Aucune conversation trouvée",
+        ja: "会話が見つかりません"
+      },
+      "ui.ai_assistant.history.empty": {
+        en: "No conversations yet",
+        de: "Noch keine Gespräche",
+        pl: "Brak rozmów",
+        es: "Aún no hay conversaciones",
+        fr: "Aucune conversation pour le moment",
+        ja: "まだ会話がありません"
+      },
+      "ui.ai_assistant.history.messages": {
+        en: "messages",
+        de: "Nachrichten",
+        pl: "wiadomości",
+        es: "mensajes",
+        fr: "messages",
+        ja: "メッセージ"
+      },
+      "ui.ai_assistant.history.conversations": {
+        en: "conversations",
+        de: "Gespräche",
+        pl: "rozmów",
+        es: "conversaciones",
+        fr: "conversations",
+        ja: "会話"
+      },
+
+      // Tool Execution Panel (Right Pane)
+      "ui.ai_assistant.tools.title": {
+        en: "Tools",
+        de: "Werkzeuge",
+        pl: "Narzędzia",
+        es: "Herramientas",
+        fr: "Outils",
+        ja: "ツール"
+      },
+      "ui.ai_assistant.tools.empty": {
+        en: "No tool executions yet",
+        de: "Noch keine Werkzeugausführungen",
+        pl: "Brak wykonań narzędzi",
+        es: "Aún no hay ejecuciones de herramientas",
+        fr: "Aucune exécution d'outil pour le moment",
+        ja: "まだツールの実行がありません"
+      },
+      "ui.ai_assistant.tools.active": {
+        en: "active",
+        de: "aktiv",
+        pl: "aktywnych",
+        es: "activo",
+        fr: "actif",
+        ja: "アクティブ"
+      },
+      "ui.ai_assistant.tool.input": {
+        en: "Input",
+        de: "Eingabe",
+        pl: "Wejście",
+        es: "Entrada",
+        fr: "Entrée",
+        ja: "入力"
+      },
+      "ui.ai_assistant.tool.output": {
+        en: "Output",
+        de: "Ausgabe",
+        pl: "Wyjście",
+        es: "Salida",
+        fr: "Sortie",
+        ja: "出力"
       }
     };
 

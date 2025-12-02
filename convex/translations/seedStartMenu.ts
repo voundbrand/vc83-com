@@ -68,6 +68,17 @@ export const seed = internalMutation({
         }
       },
       {
+        key: "ui.start_menu.store",
+        values: {
+          en: "Store",
+          de: "Shop",
+          pl: "Sklep",
+          es: "Tienda",
+          fr: "Boutique",
+          ja: "ストア",
+        }
+      },
+      {
         key: "ui.start_menu.settings",
         values: {
           en: "Settings",

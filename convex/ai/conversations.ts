@@ -122,6 +122,22 @@ export const addMessage = mutation({
 });
 
 /**
+ * Update a conversation
+ */
+export const updateConversation = mutation({
+  args: {
+    conversationId: v.id("aiConversations"),
+    title: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.conversationId, {
+      title: args.title,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+/**
  * Archive a conversation
  */
 export const archiveConversation = mutation({
@@ -169,5 +185,24 @@ export const logToolExecution = mutation({
       executedAt: args.executedAt,
       durationMs: args.durationMs,
     });
+  },
+});
+
+/**
+ * Get tool executions for a conversation
+ */
+export const getToolExecutions = query({
+  args: {
+    conversationId: v.id("aiConversations"),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const executions = await ctx.db
+      .query("aiToolExecutions")
+      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
+      .order("desc")
+      .take(args.limit ?? 20);
+
+    return executions;
   },
 });

@@ -13,7 +13,7 @@
  */
 
 import { v } from "convex/values";
-import { mutation, query } from "../_generated/server";
+import { mutation, query, internalMutation, internalQuery } from "../_generated/server";
 
 /**
  * GET SUBSCRIPTION STATUS
@@ -497,6 +497,250 @@ export const recordUsage = mutation({
       usageId,
       tokensUsed: totalTokens,
       remainingIncludedTokens: Math.max(0, subscription.includedTokensTotal - newTokensUsed),
+    };
+  },
+});
+
+/**
+ * INTERNAL MUTATION WRAPPERS
+ *
+ * These wrappers allow webhook handlers to call billing functions
+ * without authentication (webhooks come from Stripe, not users).
+ */
+
+export const upsertSubscriptionFromStripeInternal = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    stripeSubscriptionId: v.string(),
+    stripeCustomerId: v.string(),
+    stripePriceId: v.string(),
+    status: v.union(
+      v.literal("active"),
+      v.literal("past_due"),
+      v.literal("canceled"),
+      v.literal("incomplete"),
+      v.literal("incomplete_expired"),
+      v.literal("trialing"),
+      v.literal("unpaid"),
+      v.literal("paused")
+    ),
+    tier: v.union(
+      v.literal("standard"),
+      v.literal("privacy-enhanced"),
+      v.literal("private-llm")
+    ),
+    privateLLMTier: v.optional(
+      v.union(v.literal("starter"), v.literal("professional"), v.literal("enterprise"))
+    ),
+    currentPeriodStart: v.number(),
+    currentPeriodEnd: v.number(),
+    cancelAtPeriodEnd: v.boolean(),
+    canceledAt: v.optional(v.number()),
+    priceInCents: v.number(),
+    currency: v.string(),
+    includedTokensTotal: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const existingSubscription = await ctx.db
+      .query("aiSubscriptions")
+      .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+      .first();
+
+    if (existingSubscription) {
+      await ctx.db.patch(existingSubscription._id, {
+        stripeSubscriptionId: args.stripeSubscriptionId,
+        stripeCustomerId: args.stripeCustomerId,
+        stripePriceId: args.stripePriceId,
+        status: args.status,
+        tier: args.tier,
+        privateLLMTier: args.privateLLMTier,
+        currentPeriodStart: args.currentPeriodStart,
+        currentPeriodEnd: args.currentPeriodEnd,
+        cancelAtPeriodEnd: args.cancelAtPeriodEnd,
+        canceledAt: args.canceledAt,
+        priceInCents: args.priceInCents,
+        currency: args.currency,
+        includedTokensTotal: args.includedTokensTotal,
+        updatedAt: Date.now(),
+      });
+      return existingSubscription._id;
+    } else {
+      return await ctx.db.insert("aiSubscriptions", {
+        organizationId: args.organizationId,
+        stripeSubscriptionId: args.stripeSubscriptionId,
+        stripeCustomerId: args.stripeCustomerId,
+        stripePriceId: args.stripePriceId,
+        status: args.status,
+        tier: args.tier,
+        privateLLMTier: args.privateLLMTier,
+        currentPeriodStart: args.currentPeriodStart,
+        currentPeriodEnd: args.currentPeriodEnd,
+        cancelAtPeriodEnd: args.cancelAtPeriodEnd,
+        canceledAt: args.canceledAt,
+        priceInCents: args.priceInCents,
+        currency: args.currency,
+        includedTokensTotal: args.includedTokensTotal,
+        includedTokensUsed: 0,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+    }
+  },
+});
+
+export const updateSubscriptionStatusInternal = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    status: v.union(
+      v.literal("active"),
+      v.literal("past_due"),
+      v.literal("canceled"),
+      v.literal("incomplete"),
+      v.literal("incomplete_expired"),
+      v.literal("trialing"),
+      v.literal("unpaid"),
+      v.literal("paused")
+    ),
+  },
+  handler: async (ctx, args) => {
+    const subscription = await ctx.db
+      .query("aiSubscriptions")
+      .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+      .first();
+
+    if (!subscription) {
+      throw new Error("No subscription found");
+    }
+
+    await ctx.db.patch(subscription._id, {
+      status: args.status,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+/**
+ * SYNC BILLING DETAILS FROM STRIPE
+ *
+ * Syncs billing information from Stripe Checkout to organization_legal object.
+ * Called by AI subscription webhooks after checkout completion.
+ */
+export const syncBillingDetailsInternal = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    isB2B: v.boolean(),
+    billingEmail: v.optional(v.string()),
+    billingName: v.optional(v.string()),
+    billingAddress: v.optional(v.object({
+      line1: v.string(),
+      line2: v.optional(v.string()),
+      city: v.string(),
+      state: v.optional(v.string()),
+      postalCode: v.string(),
+      country: v.string(),
+    })),
+    taxIds: v.optional(v.array(v.object({
+      type: v.string(),
+      value: v.string(),
+    }))),
+  },
+  handler: async (ctx, args) => {
+    // Find or create organization_legal object
+    const orgLegal = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "organization_legal")
+      )
+      .first();
+
+    const now = Date.now();
+
+    // Prepare billing data
+    const billingData = {
+      isB2B: args.isB2B,
+      billingEmail: args.billingEmail,
+      billingName: args.billingName,
+      billingAddress: args.billingAddress,
+      taxIds: args.taxIds,
+      lastSyncedFromStripe: now,
+    };
+
+    if (orgLegal) {
+      // Update existing organization_legal object
+      await ctx.db.patch(orgLegal._id, {
+        customProperties: {
+          ...orgLegal.customProperties,
+          ...billingData,
+        },
+        updatedAt: now,
+      });
+
+      console.log(`[AI Billing] Updated organization_legal for ${args.organizationId}`);
+    } else {
+      // Create new organization_legal object
+      // Get organization to set createdBy
+      const org = await ctx.db.get(args.organizationId);
+      if (!org) {
+        throw new Error(`Organization not found: ${args.organizationId}`);
+      }
+
+      // Find a member to set as createdBy
+      const member = await ctx.db
+        .query("organizationMembers")
+        .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+        .first();
+
+      // Prepare insert data
+      const insertData = {
+        organizationId: args.organizationId,
+        type: "organization_legal" as const,
+        subtype: "billing_entity" as const,
+        name: `${org.name} Billing`,
+        description: "Billing and legal information",
+        status: "active" as const,
+        createdAt: now,
+        updatedAt: now,
+        customProperties: {
+          legalName: args.billingName || org.businessName,
+          ...billingData,
+        },
+        ...(member?.userId && { createdBy: member.userId }),
+      };
+
+      await ctx.db.insert("objects", insertData);
+
+      console.log(`[AI Billing] Created organization_legal for ${args.organizationId}`);
+    }
+
+    return { success: true };
+  },
+});
+
+/**
+ * GET ORGANIZATION INTERNAL
+ *
+ * Internal query to get organization details for webhook processing.
+ * Returns organization name and language preference for emails.
+ */
+export const getOrganizationInternal = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    const org = await ctx.db.get(args.organizationId);
+
+    if (!org) {
+      return null;
+    }
+
+    // Default to English for now
+    // TODO: Add language preference to organization or user model
+    const language = "en";
+
+    return {
+      name: org.name,
+      businessName: org.businessName,
+      language,
     };
   },
 });

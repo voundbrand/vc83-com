@@ -53,6 +53,8 @@ export class PaymentProviderManager {
    */
   private registerAllProviders(): void {
     // Register Stripe Connect (if configured)
+    // NOTE: This is for organization-level Stripe Connect accounts (orgs accepting payments from their customers)
+    // NOT for platform-level AI billing (which uses STRIPE_AI_WEBHOOK_SECRET in http.ts)
     const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
     const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 

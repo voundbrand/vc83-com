@@ -339,12 +339,12 @@ export function ManageWindow() {
               <div
                 className="mb-4 p-3 border-2 flex items-start gap-2"
                 style={{
-                  backgroundColor: 'var(--warning)',
-                  borderColor: 'var(--win95-border)',
+                  backgroundColor: 'var(--win95-bg-light)',
+                  borderColor: 'var(--warning)',
                   color: 'var(--win95-text)'
                 }}
               >
-                <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
+                <AlertCircle size={16} className="mt-0.5 flex-shrink-0" style={{ color: 'var(--warning)' }} />
                 <div className="text-sm">
                   <p className="font-semibold">View Only</p>
                   <p className="text-xs mt-1">
@@ -368,16 +368,7 @@ export function ManageWindow() {
                       <button
                         onClick={handleCancelEdit}
                         disabled={isSavingOrg}
-                        className="px-3 py-1 text-xs font-semibold flex items-center gap-1"
-                        style={{
-                          backgroundColor: "var(--win95-button-face)",
-                          color: "var(--win95-text)",
-                          border: "2px solid",
-                          borderTopColor: "var(--win95-button-light)",
-                          borderLeftColor: "var(--win95-button-light)",
-                          borderBottomColor: "var(--win95-button-dark)",
-                          borderRightColor: "var(--win95-button-dark)",
-                        }}
+                        className="retro-button px-3 py-1 text-xs font-semibold flex items-center gap-1"
                       >
                         <X size={12} />
                         {t("ui.manage.org.cancel")}
@@ -492,16 +483,7 @@ export function ManageWindow() {
                           }
                         }}
                         disabled={isSavingOrg}
-                        className="px-3 py-1 text-xs font-semibold flex items-center gap-1"
-                        style={{
-                          backgroundColor: "var(--success)",
-                          color: "white",
-                          border: "2px solid",
-                          borderTopColor: "var(--win95-button-light)",
-                          borderLeftColor: "var(--win95-button-light)",
-                          borderBottomColor: "var(--win95-button-dark)",
-                          borderRightColor: "var(--win95-button-dark)",
-                        }}
+                        className="retro-button-primary px-3 py-1 text-xs font-semibold flex items-center gap-1"
                       >
                         <Save size={12} />
                         {isSavingOrg ? t("ui.manage.org.saving") : t("ui.manage.org.save_all_changes")}
@@ -510,16 +492,7 @@ export function ManageWindow() {
                   ) : (
                     <button
                       onClick={() => setIsEditingOrg(true)}
-                      className="px-3 py-1 text-xs font-semibold flex items-center gap-1"
-                      style={{
-                        backgroundColor: "var(--primary)",
-                        color: "white",
-                        border: "2px solid",
-                        borderTopColor: "var(--win95-button-light)",
-                        borderLeftColor: "var(--win95-button-light)",
-                        borderBottomColor: "var(--win95-button-dark)",
-                        borderRightColor: "var(--win95-button-dark)",
-                      }}
+                      className="retro-button-primary px-3 py-1 text-xs font-semibold flex items-center gap-1"
                     >
                       <Edit2 size={12} />
                       Edit Organization
@@ -554,16 +527,7 @@ export function ManageWindow() {
                       setEditingAddress(undefined);
                       setIsAddressModalOpen(true);
                     }}
-                    className="px-3 py-1.5 text-xs font-semibold flex items-center gap-1"
-                    style={{
-                      backgroundColor: "var(--success)",
-                      color: "white",
-                      border: "2px solid",
-                      borderTopColor: "var(--win95-button-light)",
-                      borderLeftColor: "var(--win95-button-light)",
-                      borderBottomColor: "var(--win95-button-dark)",
-                      borderRightColor: "var(--win95-button-dark)",
-                    }}
+                    className="retro-button-primary px-3 py-1.5 text-xs font-semibold flex items-center gap-1"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     {t("ui.manage.org.add_address")}
@@ -582,16 +546,7 @@ export function ManageWindow() {
                         setEditingAddress(undefined);
                         setIsAddressModalOpen(true);
                       }}
-                      className="mt-4 px-4 py-2 text-sm font-semibold"
-                      style={{
-                        backgroundColor: "var(--primary)",
-                        color: "white",
-                        border: "2px solid",
-                        borderTopColor: "var(--win95-button-light)",
-                        borderLeftColor: "var(--win95-button-light)",
-                        borderBottomColor: "var(--win95-button-dark)",
-                        borderRightColor: "var(--win95-button-dark)",
-                      }}
+                      className="retro-button-primary mt-4 px-4 py-2 text-sm font-semibold"
                     >
                       {t("ui.manage.org.add_first_address")}
                     </PermissionButton>
@@ -670,12 +625,12 @@ export function ManageWindow() {
               <div
                 className="mb-4 p-3 border-2 flex items-start gap-2"
                 style={{
-                  backgroundColor: 'var(--warning)',
-                  borderColor: 'var(--win95-border)',
+                  backgroundColor: 'var(--win95-bg-light)',
+                  borderColor: 'var(--warning)',
                   color: 'var(--win95-text)'
                 }}
               >
-                <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
+                <AlertCircle size={16} className="mt-0.5 flex-shrink-0" style={{ color: 'var(--warning)' }} />
                 <div className="text-sm">
                   <p className="font-semibold">Limited Access</p>
                   <p className="text-xs mt-1">

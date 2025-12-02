@@ -149,6 +149,102 @@ http.route({
 });
 
 /**
+ * AI SUBSCRIPTION WEBHOOK ENDPOINT
+ *
+ * Handles Stripe webhooks for AI subscription billing.
+ * This is separate from Stripe Connect webhooks (which are for organization payment processing).
+ *
+ * IMPORTANT: This endpoint uses STRIPE_AI_WEBHOOK_SECRET for signature verification,
+ * which is DIFFERENT from STRIPE_WEBHOOK_SECRET used for Stripe Connect webhooks.
+ * These are two separate Stripe integrations:
+ * 1. Platform-level: Organizations subscribe to YOUR platform (this endpoint)
+ * 2. Organization-level: Organizations accept payments from THEIR customers (Stripe Connect)
+ *
+ * Events handled:
+ * - customer.subscription.created - New AI subscription
+ * - customer.subscription.updated - Subscription changes
+ * - customer.subscription.deleted - Subscription cancellation
+ * - invoice.payment_succeeded - Monthly payment success
+ * - invoice.payment_failed - Payment failure
+ */
+http.route({
+  path: "/stripe-ai-webhooks",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    console.log("[AI Webhooks] 🔔 Received webhook request");
+
+    try {
+      const body = await request.text();
+      const signature = request.headers.get("stripe-signature");
+
+      console.log("[AI Webhooks] 📝 Request details:", {
+        hasSignature: !!signature,
+        bodyLength: body.length,
+        url: request.url
+      });
+
+      if (!signature) {
+        console.error("[AI Webhooks] ❌ No signature provided");
+        return new Response("Missing signature", { status: 400 });
+      }
+
+      // Verify webhook signature using AI-specific webhook secret
+      // NOTE: This uses STRIPE_AI_WEBHOOK_SECRET, NOT the Stripe Connect webhook secret
+      const webhookSecret = process.env.STRIPE_AI_WEBHOOK_SECRET;
+
+      console.log("[AI Webhooks] 🔑 Webhook secret configured:", !!webhookSecret);
+
+      if (!webhookSecret) {
+        console.error("[AI Webhooks] ❌ STRIPE_AI_WEBHOOK_SECRET not configured");
+        console.error("[AI Webhooks] 💡 Set this in Convex dashboard or use stripe listen secret");
+        return new Response("Webhook secret not configured", { status: 500 });
+      }
+
+      // Import Stripe for signature verification
+      const Stripe = (await import("stripe")).default;
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
+        apiVersion: "2025-10-29.clover",
+      });
+
+      // Verify signature
+      let event: any;
+      try {
+        event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+        console.log(`[AI Webhooks] ✅ Signature verified for event: ${event.type}`);
+      } catch (error) {
+        console.error("[AI Webhooks] ❌ Signature verification failed:", error);
+        console.error("[AI Webhooks] 🔍 Webhook secret starts with:", webhookSecret.substring(0, 10) + "...");
+        return new Response("Invalid signature", { status: 400 });
+      }
+
+      // Parse event (already parsed by constructEvent)
+      console.log(`[AI Webhooks] 📦 Processing: ${event.type} (${event.id})`);
+      console.log(`[AI Webhooks] 📧 Customer email: ${(event.data.object as any).customer_email || 'N/A'}`);
+
+      // Schedule async processing
+      await ctx.runAction(internal.stripe.aiWebhooks.processAIWebhook, {
+        eventType: event.type,
+        eventId: event.id,
+        eventData: JSON.stringify(event.data.object),
+        created: event.created,
+      });
+
+      console.log(`[AI Webhooks] ✅ Event queued for processing`);
+
+      // Respond immediately (< 5 seconds required by Stripe)
+      return new Response(JSON.stringify({ received: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (error) {
+      console.error("[AI Webhooks] ❌ Processing error:", error);
+      console.error("[AI Webhooks] Stack:", (error as Error).stack);
+      return new Response("Internal server error", { status: 500 });
+    }
+  }),
+});
+
+/**
  * GENERIC PAYMENT WEBHOOK ENDPOINT (Future)
  *
  * This will handle webhooks from ANY payment provider (Stripe, PayPal, Square, etc.)

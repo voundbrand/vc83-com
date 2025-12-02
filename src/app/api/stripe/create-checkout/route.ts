@@ -15,15 +15,13 @@ import { Id } from "../../../../../convex/_generated/dataModel";
 
 // Lazy initialize Convex client to avoid build-time instantiation
 function getConvexClient() {
-  return new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!, {
-    auth: process.env.CONVEX_DEPLOY_KEY,
-  });
+  return new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 }
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { organizationId, organizationName, email, tier, successUrl, cancelUrl } = body;
+    const { organizationId, organizationName, email, tier, successUrl, cancelUrl, isB2B } = body;
 
     // Validate required fields
     if (!organizationId || !organizationName || !email || !tier) {
@@ -42,6 +40,8 @@ export async function POST(req: NextRequest) {
       tier,
       successUrl,
       cancelUrl,
+      // Pass B2B flag - Stripe checkout will handle tax ID collection
+      isB2B: isB2B || false,
     });
 
     return NextResponse.json(result);

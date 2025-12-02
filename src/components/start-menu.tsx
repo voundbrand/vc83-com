@@ -52,7 +52,7 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
     <div
       ref={menuRef}
       className={cn(
-        "absolute bottom-full left-0 mb-1 retro-window window-corners dark:retro-window-dark shadow-lg flex",
+        "absolute bottom-full left-0 mb-1 retro-window start-menu-container window-corners dark:retro-window-dark shadow-lg flex",
         isMobile ? "w-[180px] max-w-[90vw]" : "min-w-[200px]",
         className
       )}

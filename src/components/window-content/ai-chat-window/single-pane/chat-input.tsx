@@ -2,11 +2,18 @@
 
 import { useState, useRef, useEffect } from "react"
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
+import { useAIChatContext } from "@/contexts/ai-chat-context"
+import { useAIConfig } from "@/hooks/use-ai-config"
+import { useNotification } from "@/hooks/use-notification"
 
 export function ChatInput() {
   const [message, setMessage] = useState("")
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { t } = useNamespaceTranslations("ui.ai_assistant")
+  const { chat, currentConversationId, setCurrentConversationId, isSending, setIsSending } =
+    useAIChatContext()
+  const { isAIReady, settings, billing } = useAIConfig()
+  const notification = useNotification()
 
   // Auto-expand textarea as user types
   useEffect(() => {
@@ -16,13 +23,87 @@ export function ChatInput() {
     }
   }, [message])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!message.trim()) return
+    if (!message.trim() || isSending) return
 
-    // TODO: Send message to AI via Convex action
-    console.log("Sending message:", message)
+    // Check if AI is enabled and ready
+    if (!settings?.enabled) {
+      notification.error(
+        "AI Features Not Enabled",
+        "Please enable AI features in Organization Settings > AI to start chatting."
+      )
+      return
+    }
+
+    if (!billing?.hasSubscription) {
+      notification.error(
+        "No AI Subscription",
+        "Please subscribe to an AI plan in Organization Settings > AI to use the AI assistant."
+      )
+      return
+    }
+
+    if (billing.status !== "active" && billing.status !== "trialing") {
+      notification.error(
+        "Subscription Inactive",
+        "Your AI subscription is not active. Please check your billing settings."
+      )
+      return
+    }
+
+    if (!isAIReady) {
+      notification.error(
+        "AI Not Ready",
+        "Please configure at least one AI model in Organization Settings > AI before chatting."
+      )
+      return
+    }
+
+    const messageToSend = message.trim()
     setMessage("")
+    setIsSending(true)
+
+    try {
+      const result = await chat.sendMessage(messageToSend, currentConversationId)
+
+      // If this was a new conversation, set the conversation ID
+      if (!currentConversationId && result.conversationId) {
+        setCurrentConversationId(result.conversationId)
+      }
+    } catch (error) {
+      console.error("Failed to send message:", error)
+
+      // Parse error message for user-friendly feedback
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred"
+
+      if (errorMessage.includes("not enabled")) {
+        notification.error(
+          "AI Features Not Enabled",
+          "Please enable AI features in Organization Settings > AI."
+        )
+      } else if (errorMessage.includes("subscription")) {
+        notification.error(
+          "Subscription Required",
+          "Please subscribe to an AI plan to use the assistant."
+        )
+      } else if (errorMessage.includes("budget") || errorMessage.includes("limit")) {
+        notification.error(
+          "Usage Limit Reached",
+          "You've reached your token limit. Please upgrade your plan or wait for the next billing cycle."
+        )
+      } else {
+        notification.error(
+          "Failed to Send Message",
+          errorMessage.length > 100 ? "An error occurred. Please try again." : errorMessage
+        )
+      }
+
+      // Restore message on error
+      setMessage(messageToSend)
+    } finally {
+      setIsSending(false)
+    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -62,10 +143,10 @@ export function ChatInput() {
         />
         <button
           type="submit"
-          disabled={!message.trim()}
-          className="retro-button px-4 py-2 font-pixel text-xs whitespace-nowrap"
+          disabled={!message.trim() || isSending}
+          className="retro-button px-4 py-2 font-pixel text-xs whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {t("ui.ai_assistant.input.send_button")} 📤
+          {isSending ? "⏳" : "📤"} {t("ui.ai_assistant.input.send_button")}
         </button>
       </div>
 

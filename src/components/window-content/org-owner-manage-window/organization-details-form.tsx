@@ -74,6 +74,7 @@ export interface FormData {
       primaryColor: string;
       secondaryColor: string;
       logo: string;
+      desktopBackground?: string;
     };
     locale: {
       language: string;
@@ -226,6 +227,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
         primaryColor: brandingSettings?.customProperties?.primaryColor || "#6B46C1",
         secondaryColor: brandingSettings?.customProperties?.secondaryColor || "#9F7AEA",
         logo: brandingSettings?.customProperties?.logo || "",
+        desktopBackground: brandingSettings?.customProperties?.desktopBackground || "",
       },
       locale: {
         language: localeSettings?.customProperties?.language || "en",
@@ -294,6 +296,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
             primaryColor: brandingSettings?.customProperties?.primaryColor || "#6B46C1",
             secondaryColor: brandingSettings?.customProperties?.secondaryColor || "#9F7AEA",
             logo: brandingSettings?.customProperties?.logo || "",
+            desktopBackground: brandingSettings?.customProperties?.desktopBackground || "",
           },
           locale: {
             language: localeSettings?.customProperties?.language || "en",
@@ -716,15 +719,8 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                       }
                     }}
                     disabled={isValidatingVAT}
-                    className="px-2 py-1 text-xs font-semibold whitespace-nowrap"
+                    className="retro-button-primary px-2 py-1 text-xs font-semibold whitespace-nowrap"
                     style={{
-                      backgroundColor: "var(--primary)",
-                      color: "white",
-                      border: "2px solid",
-                      borderTopColor: "var(--win95-button-light)",
-                      borderLeftColor: "var(--win95-button-light)",
-                      borderBottomColor: "var(--win95-button-dark)",
-                      borderRightColor: "var(--win95-button-dark)",
                       opacity: isValidatingVAT ? 0.6 : 1,
                     }}
                   >
@@ -737,14 +733,14 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                 <div
                   className="mt-2 p-2 border-2 text-xs"
                   style={{
-                    backgroundColor: vatValidationResult.valid ? 'var(--success-bg, #d4edda)' : 'var(--error-bg, #f8d7da)',
-                    borderColor: vatValidationResult.valid ? 'var(--success, #28a745)' : 'var(--error, #dc3545)',
+                    backgroundColor: vatValidationResult.valid ? 'var(--success-bg)' : 'var(--error-bg)',
+                    borderColor: vatValidationResult.valid ? 'var(--success)' : 'var(--error)',
                     color: 'var(--win95-text)',
                   }}
                 >
                   {vatValidationResult.valid ? (
                     <>
-                      <p className="font-semibold" style={{ color: 'var(--success, #28a745)' }}>
+                      <p className="font-semibold" style={{ color: 'var(--success)' }}>
                         ✅ VAT Number Valid
                       </p>
                       {vatValidationResult.name && (
@@ -756,7 +752,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                     </>
                   ) : (
                     <>
-                      <p className="font-semibold" style={{ color: 'var(--error, #dc3545)' }}>
+                      <p className="font-semibold" style={{ color: 'var(--error)' }}>
                         ❌ VAT Number Invalid
                       </p>
                       {vatValidationResult.error && (
@@ -794,9 +790,9 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
               {/* Show warning if no tax origin address */}
               {!taxOriginAddress && (
                 <div className="mb-2 p-2 border-2 text-xs" style={{
-                  backgroundColor: '#fef3c7',
-                  color: '#92400e',
-                  borderColor: '#fcd34d'
+                  backgroundColor: 'var(--warning-bg)',
+                  color: 'var(--warning)',
+                  borderColor: 'var(--warning)'
                 }}>
                   ⚠️ Please add an address and mark it as &quot;tax origin&quot; in the Addresses section above first.
                 </div>
@@ -1097,6 +1093,78 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                   </div>
                 )}
               </div>
+
+              <div>
+                <label className="block text-xs mb-1" style={{ color: 'var(--neutral-gray)' }}>
+                  Desktop Background
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={formData.settings.branding.desktopBackground || ""}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      settings: {
+                        ...formData.settings,
+                        branding: { ...formData.settings.branding, desktopBackground: e.target.value }
+                      }
+                    })}
+                    readOnly={!isEditing}
+                    disabled={!canEdit || !isEditing}
+                    placeholder="https://..."
+                    className="flex-1 px-2 py-1 text-sm"
+                    style={inputStyles}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!canEdit || !isEditing) return;
+                      openWindow(
+                        "media-library-select-background",
+                        "Select Desktop Background",
+                        <MediaLibraryWindow
+                          selectionMode={true}
+                          onSelect={async (media) => {
+                            // Get the URL for the selected media
+                            const url = media.url || "";
+                            setFormData({
+                              ...formData,
+                              settings: {
+                                ...formData.settings,
+                                branding: { ...formData.settings.branding, desktopBackground: url }
+                              }
+                            });
+                          }}
+                        />,
+                        { x: 240, y: 160 },
+                        { width: 1000, height: 700 }
+                      );
+                    }}
+                    disabled={!canEdit || !isEditing}
+                    className="px-3 py-1 text-xs font-bold rounded transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{
+                      background: 'var(--win95-highlight)',
+                      color: 'var(--win95-titlebar-text)',
+                      border: '2px solid var(--win95-border)',
+                    }}
+                  >
+                    Browse
+                  </button>
+                </div>
+                {formData.settings.branding.desktopBackground && (
+                  <div className="mt-2">
+                    <img
+                      src={formData.settings.branding.desktopBackground}
+                      alt="Desktop background preview"
+                      className="h-24 w-32 object-cover border-2"
+                      style={{ borderColor: 'var(--win95-border)' }}
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -1324,7 +1392,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                   className="px-2 py-1 text-xs font-semibold"
                   style={{
                     backgroundColor: 'var(--success)',
-                    color: 'white',
+                    color: 'var(--win95-bg-light)',
                     border: '1px solid',
                     borderColor: 'var(--win95-border)'
                   }}
@@ -1337,7 +1405,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                   className="px-2 py-1 text-xs font-semibold"
                   style={{
                     backgroundColor: 'var(--success)',
-                    color: 'white',
+                    color: 'var(--win95-bg-light)',
                     border: '1px solid',
                     borderColor: 'var(--win95-border)'
                   }}
@@ -1350,7 +1418,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                   className="px-2 py-1 text-xs font-semibold"
                   style={{
                     backgroundColor: 'var(--success)',
-                    color: 'white',
+                    color: 'var(--win95-bg-light)',
                     border: '1px solid',
                     borderColor: 'var(--win95-border)'
                   }}

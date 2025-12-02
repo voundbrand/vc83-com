@@ -8,6 +8,7 @@ import { Search, Filter, Plus, Edit, Trash2 } from "lucide-react"
 import type { Id } from "../../../../convex/_generated/dataModel"
 import { ContactFormModal } from "./contact-form-modal"
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
+import { useNotification } from "@/hooks/use-notification"
 import { ContactPipelinesBadge } from "./contact-pipelines-badge"
 
 interface ContactsListProps {
@@ -24,6 +25,7 @@ export function ContactsList({ selectedId, onSelect, onNavigateToPipelines }: Co
   const { sessionId } = useAuth()
   const currentOrganization = useCurrentOrganization()
   const currentOrganizationId = currentOrganization?.id
+  const notification = useNotification()
 
   const [searchQuery, setSearchQuery] = useState("")
   const [sourceFilter, setSourceFilter] = useState<SourceType>("")
@@ -47,9 +49,16 @@ export function ContactsList({ selectedId, onSelect, onNavigateToPipelines }: Co
         onSelect(null as any)
       }
       setDeletingId(null)
+      notification.success(
+        t("ui.crm.contacts.delete_success") || "Contact deleted",
+        "The contact has been removed."
+      )
     } catch (error) {
       console.error("Failed to delete contact:", error)
-      alert("Failed to delete contact. Please try again.")
+      notification.error(
+        t("ui.crm.contacts.delete_failed") || "Failed to delete contact",
+        "Please try again."
+      )
     }
   }
 
@@ -295,11 +304,11 @@ export function ContactsList({ selectedId, onSelect, onNavigateToPipelines }: Co
                       {tags.map((tag, idx) => (
                         <span
                           key={idx}
-                          className="px-1.5 py-0.5 text-[10px] border"
+                          className="px-1.5 py-0.5 text-[10px] border-2"
                           style={{
-                            background: '#e0e7ff',
-                            borderColor: '#c7d2fe',
-                            color: '#4338ca'
+                            background: 'var(--win95-bg-light)',
+                            borderColor: 'var(--win95-highlight)',
+                            color: 'var(--win95-highlight)'
                           }}
                         >
                           {tag.toUpperCase()}

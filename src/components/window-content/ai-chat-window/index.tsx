@@ -2,23 +2,15 @@
 
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability"
 import { LayoutModeProvider, useLayoutMode } from "./layout-mode-context"
+import { AIChatProvider } from "@/contexts/ai-chat-context"
 import { SinglePaneLayout } from "./single-pane/single-pane-layout"
-// import { ThreePaneLayout } from "./three-pane/three-pane-layout" // TODO: Phase 2
+import { ThreePaneLayout } from "./three-pane/three-pane-layout"
 
 function AIChatWindowContent() {
   const { mode } = useLayoutMode()
 
   if (mode === "three-pane") {
-    // TODO: Phase 2 - Three-pane layout
-    return (
-      <div className="flex items-center justify-center h-full p-8 text-center">
-        <div>
-          <div className="text-4xl mb-4">🚧</div>
-          <div className="font-pixel text-sm mb-2">Three-Pane Mode</div>
-          <div className="text-xs text-gray-600">Coming in Phase 2...</div>
-        </div>
-      </div>
-    )
+    return <ThreePaneLayout />
   }
 
   return <SinglePaneLayout />
@@ -35,10 +27,12 @@ export function AIChatWindow() {
   if (guard) return guard
 
   return (
-    <LayoutModeProvider>
-      <div className="h-full flex flex-col">
-        <AIChatWindowContent />
-      </div>
-    </LayoutModeProvider>
+    <AIChatProvider>
+      <LayoutModeProvider>
+        <div className="h-full flex flex-col">
+          <AIChatWindowContent />
+        </div>
+      </LayoutModeProvider>
+    </AIChatProvider>
   )
 }

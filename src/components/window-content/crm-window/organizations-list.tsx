@@ -8,17 +8,20 @@ import { Search, Plus, Building2, Edit, Trash2 } from "lucide-react"
 import type { Id } from "../../../../convex/_generated/dataModel"
 import { OrganizationFormModal } from "./organization-form-modal"
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
+import { useNotification } from "@/hooks/use-notification"
 
 interface OrganizationsListProps {
   selectedId: Id<"objects"> | null
   onSelect: (id: Id<"objects">) => void
+  onNavigateToPipelines?: () => void
 }
 
-export function OrganizationsList({ selectedId, onSelect }: OrganizationsListProps) {
+export function OrganizationsList({ selectedId, onSelect, onNavigateToPipelines }: OrganizationsListProps) {
   const { t } = useNamespaceTranslations("ui.crm")
   const { sessionId } = useAuth()
   const currentOrganization = useCurrentOrganization()
   const currentOrganizationId = currentOrganization?.id
+  const notification = useNotification()
 
   const [searchQuery, setSearchQuery] = useState("")
   const [showAddModal, setShowAddModal] = useState(false)
@@ -39,9 +42,16 @@ export function OrganizationsList({ selectedId, onSelect }: OrganizationsListPro
         onSelect(null as any)
       }
       setDeletingId(null)
+      notification.success(
+        t("ui.crm.organizations.delete_success") || "Organization deleted",
+        "The organization has been removed."
+      )
     } catch (error) {
       console.error("Failed to delete organization:", error)
-      alert("Failed to delete organization. Please try again.")
+      notification.error(
+        t("ui.crm.organizations.delete_failed") || "Failed to delete organization",
+        "Please try again."
+      )
     }
   }
 
@@ -244,6 +254,7 @@ export function OrganizationsList({ selectedId, onSelect }: OrganizationsListPro
             setShowAddModal(false)
             onSelect(organizationId)
           }}
+          onNavigateToPipelines={onNavigateToPipelines}
         />
       )}
 
@@ -256,6 +267,7 @@ export function OrganizationsList({ selectedId, onSelect }: OrganizationsListPro
             setEditingId(null)
             onSelect(organizationId)
           }}
+          onNavigateToPipelines={onNavigateToPipelines}
         />
       )}
 

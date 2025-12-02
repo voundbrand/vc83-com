@@ -148,12 +148,12 @@ export function FloatingWindow({
       }}
       onClick={() => focusWindow(id)}
     >
-      {/* Title Bar - Classic Win95 Blue */}
+      {/* Title Bar */}
       <div
         className={`retro-titlebar window-titlebar-corners flex items-center justify-between ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} select-none`}
         onMouseDown={handleMouseDown}
       >
-        <span className="text-white font-semibold text-sm select-none">{displayTitle}</span>
+        <span className="font-semibold text-sm select-none" style={{ color: 'var(--win95-titlebar-text)' }}>{displayTitle}</span>
         <div className="flex gap-[2px]">
           {/* Minimize Button */}
           <button

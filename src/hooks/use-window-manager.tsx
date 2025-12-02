@@ -6,6 +6,7 @@ interface Window {
   id: string
   title: string // Can be either a static string or a translation key
   titleKey?: string // Optional: if provided, will be used for translation
+  icon?: string // Optional: emoji/icon for the app
   component: ReactNode
   isOpen: boolean
   position: { x: number; y: number }
@@ -19,7 +20,7 @@ interface Window {
 
 interface WindowManagerContextType {
   windows: Window[]
-  openWindow: (id: string, title: string, component: ReactNode, position?: { x: number; y: number }, size?: { width: number; height: number }, titleKey?: string) => void
+  openWindow: (id: string, title: string, component: ReactNode, position?: { x: number; y: number }, size?: { width: number; height: number }, titleKey?: string, icon?: string) => void
   closeWindow: (id: string) => void
   closeAllWindows: () => void
   focusWindow: (id: string) => void
@@ -38,7 +39,7 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
   const [nextZIndex, setNextZIndex] = useState(100)
   const [cascadeOffset, setCascadeOffset] = useState({ x: 100, y: 100 })
 
-  const openWindow = (id: string, title: string, component: ReactNode, position?: { x: number; y: number }, size?: { width: number; height: number }, titleKey?: string) => {
+  const openWindow = (id: string, title: string, component: ReactNode, position?: { x: number; y: number }, size?: { width: number; height: number }, titleKey?: string, icon?: string) => {
     setWindows((prev) => {
       const existing = prev.find((w) => w.id === id)
       if (existing) {
@@ -72,6 +73,7 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
           id,
           title,
           titleKey, // Store the translation key if provided
+          icon, // Store the icon if provided
           component,
           isOpen: true,
           position: windowPosition,

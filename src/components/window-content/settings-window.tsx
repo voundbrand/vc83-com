@@ -128,6 +128,21 @@ export function SettingsWindow() {
                   </div>
                   {windowStyle === "mac" && <Check size={16} style={{ color: 'var(--win95-text)' }} />}
                 </button>
+                <button
+                  className="w-full flex items-center gap-3 p-3 border-2 rounded transition-all"
+                  style={{
+                    borderColor: windowStyle === "shadcn" ? 'var(--win95-text)' : 'var(--win95-border)',
+                    background: windowStyle === "shadcn" ? 'var(--win95-bg-light)' : 'transparent'
+                  }}
+                  onClick={() => setWindowStyle("shadcn")}
+                >
+                  <div className="text-2xl">✨</div>
+                  <div className="flex-1 text-left">
+                    <div className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>Shadcn UI</div>
+                    <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>Modern, clean design with subtle shadows</div>
+                  </div>
+                  {windowStyle === "shadcn" && <Check size={16} style={{ color: 'var(--win95-text)' }} />}
+                </button>
               </div>
             </div>
 

@@ -30,6 +30,9 @@ export const aiConversations = defineTable({
   modelId: v.optional(v.string()),              // "anthropic/claude-3-5-sonnet"
   modelName: v.optional(v.string()),            // "Claude 3.5 Sonnet" (for display)
 
+  // Message count (cached for performance)
+  messageCount: v.optional(v.number()),         // Total number of messages in this conversation
+
   // Messages stored in separate table (see aiMessages)
 
   createdAt: v.number(),
@@ -87,6 +90,12 @@ export const aiToolExecutions = defineTable({
   error: v.optional(v.string()),
   status: v.union(v.literal("success"), v.literal("failed")),
 
+  // New fields for getToolExecutions query compatibility
+  input: v.optional(v.any()),  // Alias for parameters
+  output: v.optional(v.any()), // Alias for result
+  success: v.optional(v.boolean()), // Derived from status
+  completedAt: v.optional(v.number()), // When execution finished
+
   // Usage tracking
   tokensUsed: v.number(),
   costUsd: v.number(),
@@ -94,7 +103,8 @@ export const aiToolExecutions = defineTable({
   durationMs: v.number(),
 })
   .index("by_organization", ["organizationId"])
-  .index("by_org_time", ["organizationId", "executedAt"]);
+  .index("by_org_time", ["organizationId", "executedAt"])
+  .index("by_conversation", ["conversationId"]);
 
 /**
  * Organization AI Settings v3.0

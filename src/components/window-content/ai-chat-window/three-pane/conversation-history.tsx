@@ -1,0 +1,177 @@
+"use client"
+
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
+import { MessageSquare, FolderOpen, Plus, Search } from "lucide-react"
+import { useState, useMemo } from "react"
+import { useAIChatContext } from "@/contexts/ai-chat-context"
+
+export function ConversationHistory() {
+  const { t } = useNamespaceTranslations("ui.ai_assistant")
+  const { chat, currentConversationId, setCurrentConversationId } = useAIChatContext()
+  const [searchQuery, setSearchQuery] = useState("")
+
+  // Get real conversations from Convex
+  const conversations = chat.conversations || []
+
+  // Filter conversations based on search query
+  const filteredConversations = useMemo(() => {
+    if (!searchQuery) return conversations
+
+    return conversations.filter((conv) =>
+      conv.title?.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+  }, [conversations, searchQuery])
+
+  // Handle new conversation creation
+  const handleNewChat = async () => {
+    try {
+      await chat.createConversation()
+      setCurrentConversationId(undefined) // Clear selection to start fresh
+    } catch (error) {
+      console.error("Failed to create new conversation:", error)
+    }
+  }
+
+  // Handle conversation selection
+  const handleSelectConversation = (conversationId: string) => {
+    setCurrentConversationId(conversationId as any)
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div
+        className="flex items-center justify-between p-3 border-b-2"
+        style={{
+          borderColor: 'var(--win95-border-dark)',
+          background: 'var(--win95-title-bg)'
+        }}
+      >
+        <div className="flex items-center gap-2">
+          <FolderOpen className="w-4 h-4" style={{ color: 'var(--win95-text)' }} />
+          <span className="text-sm font-semibold" style={{ color: 'var(--win95-text)' }}>
+            {t("ui.ai_assistant.history.title")}
+          </span>
+        </div>
+        <button
+          onClick={handleNewChat}
+          className="p-1 rounded transition-colors"
+          style={{
+            color: 'var(--win95-text)'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--win95-hover-bg)'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+          title={t("ui.ai_assistant.history.new_chat")}
+        >
+          <Plus className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Search Bar */}
+      <div className="p-2 border-b" style={{ borderColor: 'var(--win95-border-light)' }}>
+        <div
+          className="flex items-center gap-2 px-2 py-1 border rounded"
+          style={{
+            borderColor: 'var(--win95-border-dark)',
+            background: 'var(--win95-input-bg)'
+          }}
+        >
+          <Search className="w-3 h-3" style={{ color: 'var(--win95-text-muted)' }} />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={t("ui.ai_assistant.history.search_placeholder")}
+            className="flex-1 text-xs bg-transparent outline-none"
+            style={{ color: 'var(--win95-text)' }}
+          />
+        </div>
+      </div>
+
+      {/* Conversations List */}
+      <div className="flex-1 overflow-y-auto">
+        {filteredConversations.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full p-4 text-center">
+            <MessageSquare className="w-8 h-8 mb-2" style={{ color: 'var(--win95-text-muted)' }} />
+            <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+              {searchQuery
+                ? t("ui.ai_assistant.history.no_results")
+                : t("ui.ai_assistant.history.empty")}
+            </p>
+          </div>
+        ) : (
+          <div className="p-1">
+            {filteredConversations.map((conv) => {
+              const isActive = currentConversationId === conv._id
+              // Calculate message count from messages array (will be added via query)
+              const messageCount = 0 // TODO: Add messageCount to conversation schema or calculate from messages
+
+              return (
+                <button
+                  key={conv._id}
+                  onClick={() => handleSelectConversation(conv._id)}
+                  className={`w-full text-left p-2 mb-1 rounded transition-colors ${
+                    isActive ? 'border-2' : ''
+                  }`}
+                  style={isActive ? {
+                    borderColor: 'var(--win95-border-active)',
+                    background: 'var(--win95-selected-bg)'
+                  } : {}}
+                  onMouseEnter={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.background = 'var(--win95-hover-bg)'
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.background = 'transparent'
+                    }
+                  }}
+                >
+                  <div className="flex items-start gap-2">
+                    <MessageSquare className="w-3 h-3 mt-0.5 flex-shrink-0" style={{ color: 'var(--win95-text)' }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium truncate" style={{ color: 'var(--win95-text)' }}>
+                        {conv.title}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1 text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+                        <span>{messageCount} {t("ui.ai_assistant.history.messages")}</span>
+                        <span>•</span>
+                        <span>{formatRelativeTime(new Date(conv.createdAt))}</span>
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Footer Stats */}
+      <div
+        className="p-2 border-t text-xs"
+        style={{
+          borderColor: 'var(--win95-border-light)',
+          color: 'var(--win95-text-muted)'
+        }}
+      >
+        {filteredConversations.length} {t("ui.ai_assistant.history.conversations")}
+      </div>
+    </div>
+  )
+}
+
+function formatRelativeTime(date: Date): string {
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMs / 3600000)
+  const diffDays = Math.floor(diffMs / 86400000)
+
+  if (diffMins < 1) return "Just now"
+  if (diffMins < 60) return `${diffMins}m ago`
+  if (diffHours < 24) return `${diffHours}h ago`
+  if (diffDays < 7) return `${diffDays}d ago`
+  return date.toLocaleDateString()
+}

@@ -5,7 +5,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 
-export type WindowStyle = "mac" | "windows";
+export type WindowStyle = "mac" | "windows" | "shadcn";
 
 export interface Theme {
   id: string;
@@ -151,6 +151,34 @@ export const themes: Theme[] = [
       win95Text: "#ffffff", // White text for dark mode
       win95Highlight: "#60a5fa", // Light blue accent
       foreground: "#ffffff",
+    },
+  },
+  {
+    id: "clean-light",
+    name: "Clean Light",
+    colors: {
+      background: "#f8f9fa", // Light gray background
+      win95Bg: "#ffffff", // Pure white windows
+      win95BgLight: "#f8f9fa", // Very light gray for sections
+      win95Border: "#e2e8f0", // Subtle border
+      win95BorderLight: "#f1f5f9", // Even lighter border
+      win95Text: "#0f172a", // Slate 900 for text
+      win95Highlight: "#0f172a", // Slate 900 for accents
+      foreground: "#0f172a",
+    },
+  },
+  {
+    id: "clean-dark",
+    name: "Clean Dark",
+    colors: {
+      background: "#0a0a0a", // Near-black background
+      win95Bg: "#171717", // Neutral 900 windows (true dark gray)
+      win95BgLight: "#262626", // Neutral 800 for sections
+      win95Border: "#404040", // Neutral 700 border
+      win95BorderLight: "#525252", // Neutral 600 lighter border
+      win95Text: "#fafafa", // Neutral 50 for text
+      win95Highlight: "#fafafa", // Neutral 50 for accents
+      foreground: "#fafafa",
     },
   },
   // Coming Soon Themes

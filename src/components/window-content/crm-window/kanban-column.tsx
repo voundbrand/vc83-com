@@ -3,6 +3,8 @@
 import { useDroppable } from '@dnd-kit/core'
 import { Trash2 } from 'lucide-react'
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
+import { useNotification } from "@/hooks/use-notification"
+import { useRetroConfirm } from "@/components/retro-confirm-dialog"
 import { ContactCard } from "./contact-card"
 import type { Doc, Id } from "../../../../convex/_generated/dataModel"
 
@@ -14,28 +16,30 @@ interface KanbanColumnProps {
   onDeleteStage?: (stageId: Id<"objects">) => void
 }
 
-// Stage color mappings (theme-aware)
+// Stage color mappings (theme-aware with CSS variable fallbacks)
 const STAGE_COLORS = {
   lead: {
-    light: 'rgba(254, 243, 199, 0.3)',    // Lighter yellow tint
-    border: 'rgba(250, 204, 21, 0.5)',    // Yellow border
+    light: 'var(--stage-lead-bg, rgba(254, 243, 199, 0.3))',
+    border: 'var(--stage-lead-border, rgba(250, 204, 21, 0.5))',
   },
   prospect: {
-    light: 'rgba(219, 234, 254, 0.3)',    // Lighter blue tint
-    border: 'rgba(147, 197, 253, 0.5)',   // Blue border
+    light: 'var(--stage-prospect-bg, rgba(219, 234, 254, 0.3))',
+    border: 'var(--stage-prospect-border, rgba(147, 197, 253, 0.5))',
   },
   customer: {
-    light: 'rgba(220, 252, 231, 0.3)',    // Lighter green tint
-    border: 'rgba(134, 239, 172, 0.5)',   // Green border
+    light: 'var(--stage-customer-bg, rgba(220, 252, 231, 0.3))',
+    border: 'var(--stage-customer-border, rgba(134, 239, 172, 0.5))',
   },
   partner: {
-    light: 'rgba(224, 231, 255, 0.3)',    // Lighter purple tint
-    border: 'rgba(199, 210, 254, 0.5)',   // Purple border
+    light: 'var(--stage-partner-bg, rgba(224, 231, 255, 0.3))',
+    border: 'var(--stage-partner-border, rgba(199, 210, 254, 0.5))',
   },
 }
 
 export function KanbanColumn({ stageId, stageLabel, contacts, isEditMode = false, onDeleteStage }: KanbanColumnProps) {
   const { t } = useNamespaceTranslations("ui.crm")
+  const notification = useNotification()
+  const confirmDialog = useRetroConfirm()
   const { setNodeRef, isOver } = useDroppable({
     id: stageId,
   })
@@ -47,28 +51,39 @@ export function KanbanColumn({ stageId, stageLabel, contacts, isEditMode = false
 
   const stageColors = STAGE_COLORS[stageId as keyof typeof STAGE_COLORS] || STAGE_COLORS.lead
 
-  const handleDeleteStage = () => {
+  const handleDeleteStage = async () => {
     if (contacts.length > 0) {
-      alert(t("ui.crm.pipeline.cannot_delete_stage_with_contacts") || "Cannot delete stage with contacts. Move contacts first.");
+      notification.error(
+        t("ui.crm.pipeline.cannot_delete_stage_with_contacts") || "Cannot delete stage with contacts",
+        "Please move all contacts to another stage first."
+      );
       return;
     }
 
-    const confirmMessage = t("ui.crm.pipeline.confirm_delete_stage") || `Are you sure you want to delete the "${stageLabel}" stage?`;
-    if (confirm(confirmMessage) && onDeleteStage) {
+    const confirmed = await confirmDialog.confirm({
+      title: t("ui.crm.pipeline.delete_stage") || "Delete Stage",
+      message: t("ui.crm.pipeline.confirm_delete_stage") || `Are you sure you want to delete the "${stageLabel}" stage?`,
+      confirmText: t("ui.crm.pipeline.delete") || "Delete",
+      confirmVariant: "primary",
+    });
+
+    if (confirmed && onDeleteStage) {
       onDeleteStage(stageId as Id<"objects">);
     }
   };
 
   return (
-    <div
-      ref={setNodeRef}
-      className="flex-1 min-w-[280px] flex flex-col border-2"
-      style={{
-        background: isOver ? stageColors.light : 'var(--win95-bg-light)',
-        borderColor: isOver ? stageColors.border : 'var(--win95-border)',
-        opacity: isOver ? 0.9 : 1,
-      }}
-    >
+    <>
+      <confirmDialog.Dialog />
+      <div
+        ref={setNodeRef}
+        className="flex-1 min-w-[280px] flex flex-col border-2"
+        style={{
+          background: isOver ? stageColors.light : 'var(--win95-bg-light)',
+          borderColor: isOver ? stageColors.border : 'var(--win95-border)',
+          opacity: isOver ? 0.9 : 1,
+        }}
+      >
       {/* Column Header */}
       <div
         className="p-3 border-b-2"
@@ -117,5 +132,6 @@ export function KanbanColumn({ stageId, stageLabel, contacts, isEditMode = false
         )}
       </div>
     </div>
+    </>
   )
 }
