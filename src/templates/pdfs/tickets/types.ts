@@ -27,7 +27,7 @@ export interface PdfTicketTemplateProps {
       purchaseDate?: number;
       pricePaid?: number;
       guestCount?: number;
-      [key: string]: any;
+      [key: string]: unknown;
     };
   };
 
@@ -42,7 +42,7 @@ export interface PdfTicketTemplateProps {
       durationHours?: number;
       description?: string;
       eventSponsors?: Array<{ name: string; level?: string }>;
-      [key: string]: any;
+      [key: string]: unknown;
     };
   };
 
