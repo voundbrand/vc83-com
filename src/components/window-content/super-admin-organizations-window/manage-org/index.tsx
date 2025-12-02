@@ -22,7 +22,7 @@ interface AdminManageWindowProps {
 }
 
 export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
-  const { t } = useNamespaceTranslations("ui.organizations");
+  const { t } = useNamespaceTranslations("ui.manage");
   const [activeTab, setActiveTab] = useState<TabType>("organization");
   const [isEditingOrg, setIsEditingOrg] = useState(false);
   const [isSavingOrg, setIsSavingOrg] = useState(false);
