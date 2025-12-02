@@ -8,7 +8,7 @@ The current ontology system stores **literal translated strings** directly in th
 // ❌ CURRENT PROBLEM
 await ctx.db.insert("objects", {
   type: "address",
-  name: "L4YERCAK3 Hauptsitz",  // German hardcoded
+  name: "l4yercak3 Hauptsitz",  // German hardcoded
   description: "Hauptstandort des Büros",  // German hardcoded
   customProperties: {
     label: "Hauptsitz"  // German hardcoded
@@ -103,7 +103,7 @@ await ctx.db.insert("objects", {
   descriptionKey: "org.address.headquarters.description",
 
   // OLD: Keep literal values (for backward compatibility)
-  name: "L4YERCAK3 Headquarters",  // English fallback
+  name: "l4yercak3 Headquarters",  // English fallback
   description: "Primary office location",
 
   customProperties: {

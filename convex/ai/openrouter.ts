@@ -37,7 +37,7 @@ export class OpenRouterClient {
       headers: {
         "Authorization": `Bearer ${this.apiKey}`,
         "HTTP-Referer": process.env.OPENROUTER_SITE_URL || "https://l4yercak3.com",
-        "X-Title": process.env.OPENROUTER_APP_NAME || "L4YERCAK3 Platform",
+        "X-Title": process.env.OPENROUTER_APP_NAME || "l4yercak3 Platform",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({

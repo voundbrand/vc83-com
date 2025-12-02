@@ -1,6 +1,6 @@
 # Payment API Integration Guide
 
-This guide shows how to accept payments on your external website using the L4YERCAK3 Payment API while keeping customers on your own domain.
+This guide shows how to accept payments on your external website using the l4yercak3 Payment API while keeping customers on your own domain.
 
 ## Overview
 
@@ -31,9 +31,9 @@ Your Website (yoursite.com)
 
 ## Prerequisites
 
-1. **API Key**: Get your API key from L4YERCAK3 dashboard → Settings → API Keys
-2. **Stripe Connected**: Connect your Stripe account in L4YERCAK3 dashboard → Payments
-3. **Product Created**: Create a product in L4YERCAK3 dashboard → Products
+1. **API Key**: Get your API key from l4yercak3 dashboard → Settings → API Keys
+2. **Stripe Connected**: Connect your Stripe account in l4yercak3 dashboard → Payments
+3. **Product Created**: Create a product in l4yercak3 dashboard → Products
 
 ## Step-by-Step Integration
 
@@ -73,7 +73,7 @@ const sessionResponse = await fetch('https://l4yercak3.com/api/v1/checkout/sessi
     'Content-Type': 'application/json',
   },
   body: JSON.stringify({
-    productId: 'your_product_id', // From L4YERCAK3 dashboard
+    productId: 'your_product_id', // From l4yercak3 dashboard
     quantity: 1,
     customerEmail: 'customer@example.com',
     customerName: 'John Doe',
@@ -206,7 +206,7 @@ console.log(result);
 // Now you can:
 // 1. Show success message to customer
 // 2. Provide download links for tickets
-// 3. Send confirmation email (L4YERCAK3 auto-sends too)
+// 3. Send confirmation email (l4yercak3 auto-sends too)
 // 4. Redirect to ticket download page
 ```
 
@@ -228,10 +228,10 @@ export default async function handler(
   }
 
   const response = await fetch(
-    `${process.env.L4YERCAK3_API_URL}/api/v1/checkout/config`,
+    `${process.env.l4yercak3_API_URL}/api/v1/checkout/config`,
     {
       headers: {
-        Authorization: `Bearer ${process.env.L4YERCAK3_API_KEY}`,
+        Authorization: `Bearer ${process.env.l4yercak3_API_KEY}`,
       },
     }
   );
@@ -257,11 +257,11 @@ export default async function handler(
   const { productId, customerEmail, customerName } = req.body;
 
   const response = await fetch(
-    `${process.env.L4YERCAK3_API_URL}/api/v1/checkout/sessions`,
+    `${process.env.l4yercak3_API_URL}/api/v1/checkout/sessions`,
     {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.L4YERCAK3_API_KEY}`,
+        Authorization: `Bearer ${process.env.l4yercak3_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -534,14 +534,14 @@ Verify payment and fulfill order.
 ## Troubleshooting
 
 ### "Organization has not connected a payment provider"
-- Connect your Stripe account in the L4YERCAK3 dashboard → Payments
+- Connect your Stripe account in the l4yercak3 dashboard → Payments
 
 ### "Product not found"
-- Verify the `productId` exists in your L4YERCAK3 dashboard → Products
+- Verify the `productId` exists in your l4yercak3 dashboard → Products
 - Make sure the product is published
 
 ### "Invalid API key"
-- Generate a new API key in L4YERCAK3 dashboard → Settings → API Keys
+- Generate a new API key in l4yercak3 dashboard → Settings → API Keys
 - Make sure to use the correct environment (test/production)
 
 ### Payment succeeds but tickets aren't generated

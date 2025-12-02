@@ -2,7 +2,7 @@
 
 ## Overview
 
-We have successfully integrated a comprehensive Role-Based Access Control (RBAC) system with the authentication system for the L4YERCAK3.com invite-only platform.
+We have successfully integrated a comprehensive Role-Based Access Control (RBAC) system with the authentication system for the l4yercak3.com invite-only platform.
 
 ## Key Features
 

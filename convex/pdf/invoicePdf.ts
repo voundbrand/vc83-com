@@ -449,7 +449,7 @@ export const generateInvoicePDF = action({
                 organization?.businessName ||
                 organization?.name ||
                 sellerOrg?.name ||
-                "L4YERCAK3.com";
+                "l4yercak3.com";
 
             // 7. Build organization address from tax settings or legal info
             let organizationAddress = "";

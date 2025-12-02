@@ -1,11 +1,11 @@
-# L4YERCAK3.com Technology Stack
+# l4yercak3.com Technology Stack
 
 **Version:** 0.1.0
 **Last Updated:** October 2025
 
 ## Executive Summary
 
-L4YERCAK3.com is a modern multi-tenant SaaS platform built with a retro Windows 95 aesthetic. The platform provides a layered workspace where organizations can install and manage business applications (invoicing, analytics, scheduling) through a unified desktop interface.
+l4yercak3.com is a modern multi-tenant SaaS platform built with a retro Windows 95 aesthetic. The platform provides a layered workspace where organizations can install and manage business applications (invoicing, analytics, scheduling) through a unified desktop interface.
 
 ## Core Architecture
 
@@ -491,7 +491,7 @@ convex/
 - **Stripe Docs**: https://stripe.com/docs
 
 ### Development Team
-- **Platform**: L4YERCAK3.com
+- **Platform**: l4yercak3.com
 - **Location**: Mecklenburg-Vorpommern, Germany
 - **Focus**: VC insights and business tools
 

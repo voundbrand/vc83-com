@@ -178,7 +178,7 @@ Either party may terminate this Agreement with thirty (30) days written notice.
 
 ---
 
-**Generated with L4YERCAK3 Compliance App**`);
+**Generated with l4yercak3 Compliance App**`);
   };
 
   return (

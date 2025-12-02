@@ -51,7 +51,7 @@ stripe listen --forward-to https://aromatic-akita-723.convex.cloud/stripe-ai-web
 
 3. (Optional) Customize invoice footer:
    - Settings → Billing → Invoice settings
-   - Add default footer text: "Thank you for subscribing to L4YERCAK3 AI Features!"
+   - Add default footer text: "Thank you for subscribing to l4yercak3 AI Features!"
 
 ## Complete Webhook Setup Guide
 
@@ -114,7 +114,7 @@ stripe checkout sessions create \
 
 **Option C - Customize Invoice** (Optional):
 - Go to: https://dashboard.stripe.com/settings/billing/invoice
-- Add default footer: "Thank you for subscribing to L4YERCAK3 AI Features!"
+- Add default footer: "Thank you for subscribing to l4yercak3 AI Features!"
 - Customize branding and colors
 
 ## Webhook Event Flow

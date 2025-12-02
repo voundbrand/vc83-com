@@ -79,7 +79,7 @@ export const sendMessage = action({
     const model: string = settings.llm.model || "anthropic/claude-3-5-sonnet";
 
     // 6. Prepare messages for AI
-    const systemPrompt = `You are an AI assistant for L4YERCAK3, a platform for managing forms, events, contacts, and more.
+    const systemPrompt = `You are an AI assistant for l4yercak3, a platform for managing forms, events, contacts, and more.
 
 Available Tools:
 - create_form: Create registration forms, surveys, applications

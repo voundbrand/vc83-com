@@ -35,7 +35,7 @@ import { requireAuthenticatedUser, checkPermission } from "./rbacHelpers";
  * {
  *   type: "checkout_instance",
  *   subtype: "ticket", // From template
- *   name: "L4YERCAK3 Live 2024 Ticket Sales",
+ *   name: "l4yercak3 Live 2024 Ticket Sales",
  *   status: "published" | "draft" | "archived",
  *   customProperties: {
  *     // Template reference

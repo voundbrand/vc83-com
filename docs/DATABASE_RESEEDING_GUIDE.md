@@ -1,6 +1,6 @@
 # 🌱 Database Reseeding Guide
 
-Complete guide for reseeding your L4YERCAK3 database from scratch.
+Complete guide for reseeding your l4yercak3 database from scratch.
 
 ## 📋 Table of Contents
 
@@ -408,7 +408,7 @@ npx tsx scripts/seed-org-manager.ts
 
 **All templates & themes seeded automatically:**
 - **2 page templates**: Landing Page, Event Landing Page
-- **1 visual theme**: Modern Gradient (purple L4YERCAK3 branding)
+- **1 visual theme**: Modern Gradient (purple l4yercak3 branding)
 - **Metadata only**: React components live in `/src/templates/`
 
 ---

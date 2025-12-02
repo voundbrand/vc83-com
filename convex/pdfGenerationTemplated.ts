@@ -190,7 +190,7 @@ async function renderB2CReceipt(
     context.organization?.businessName ||
     context.organization?.name ||
     context.sellerOrg?.name ||
-    "L4YERCAK3.com";
+    "l4yercak3.com";
   doc.text(businessName, 20, yPos);
   yPos += 6;
 
@@ -328,7 +328,7 @@ async function renderB2BSingle(
   doc.setFontSize(9);
   const businessName = context.sellerLegal?.customProperties?.legalEntityName as string | undefined ||
     context.organization?.businessName ||
-    "L4YERCAK3.com";
+    "l4yercak3.com";
   doc.text(businessName, 20, yPos);
   yPos += 5;
 
@@ -478,7 +478,7 @@ async function renderB2BConsolidated(
   let leftY = yPos + 7;
   const businessName = context.sellerLegal?.customProperties?.legalEntityName as string | undefined ||
     context.organization?.businessName ||
-    "L4YERCAK3.com";
+    "l4yercak3.com";
   doc.text(businessName, 20, leftY);
   leftY += 5;
 
@@ -603,7 +603,7 @@ async function renderB2BConsolidatedDetailed(
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
-  const businessName = context.organization?.businessName || "L4YERCAK3.com";
+  const businessName = context.organization?.businessName || "l4yercak3.com";
   doc.text(businessName, 20, yPos + 7);
   doc.text(data.billTo.name, pageWidth / 2 + 10, yPos + 7);
 

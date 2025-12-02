@@ -18,7 +18,7 @@ Simple, clean receipt for individual customer purchases. Used for standard B2C c
 │                                    Date: Oct 27    │
 │                                                     │
 │  FROM:                                              │
-│  L4YERCAK3.com                                      │
+│  l4yercak3.com                                      │
 │  contact@example.com                                │
 │                                                     │
 │  TO:                                                │

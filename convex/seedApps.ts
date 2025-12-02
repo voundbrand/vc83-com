@@ -46,7 +46,7 @@ export const seedSystemApps = mutation({
       systemOrg = await ctx.db.insert("organizations", {
         name: "System",
         slug: "system",
-        businessName: "L4YERCAK3 System",
+        businessName: "l4yercak3 System",
         plan: "enterprise",
         isPersonalWorkspace: false,
         isActive: true,

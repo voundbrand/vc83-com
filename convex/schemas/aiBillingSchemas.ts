@@ -114,7 +114,7 @@ export const aiUsage = defineTable({
  *
  * Important: This is separate from Stripe Connect!
  * - Stripe Connect: Organizations accept payments from THEIR customers
- * - AI Subscriptions: L4YERCAK3 charges organizations for AI usage
+ * - AI Subscriptions: l4yercak3 charges organizations for AI usage
  */
 export const aiSubscriptions = defineTable({
   // Identification

@@ -2,7 +2,7 @@
 
 ## 📋 Overview
 
-This document defines the **complete template configuration hierarchy** across the L4YERCAK3 platform, including all locations where templates can be configured and the **precedence rules** that determine which template is used.
+This document defines the **complete template configuration hierarchy** across the l4yercak3 platform, including all locations where templates can be configured and the **precedence rules** that determine which template is used.
 
 ---
 

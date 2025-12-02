@@ -61,7 +61,7 @@
     // Template Metadata
     description: "Clean, modern design with purple gradient",
     previewImageUrl: "https://cdn.l4yercak3.com/templates/modern-gradient.png",
-    author: "L4YERCAK3 Design Team",
+    author: "l4yercak3 Design Team",
     version: "1.0.0",
 
     // Supported Page Types (what can use this template)

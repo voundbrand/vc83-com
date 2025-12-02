@@ -284,7 +284,7 @@ export function CheckoutPageClient({ orgSlug, slug }: CheckoutPageClientProps) {
               className="font-semibold"
               style={{ color: theme?.colors.primary || "#6B46C1" }}
             >
-              L4YERCAK3
+              l4yercak3
             </span>
           </p>
         </div>

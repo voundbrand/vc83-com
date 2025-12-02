@@ -6,12 +6,11 @@ import { useWindowManager } from "@/hooks/use-window-manager";
 import { ShoppingCart, Sparkles, Lock, Server, Zap, Code, Check } from "lucide-react";
 import { useState } from "react";
 import { EnterpriseContactModal } from "@/components/ai-billing/enterprise-contact-modal";
-import { CheckoutWindow } from "./checkout-window";
 
 /**
  * PLATFORM STORE WINDOW
  *
- * Browse and purchase L4YERCAK3 platform services:
+ * Browse and purchase l4yercak3 platform services:
  * - AI subscriptions (Standard, Privacy-Enhanced)
  * - Private LLM models (Starter, Professional, Enterprise)
  * - Token packs (one-time purchases)
@@ -44,9 +43,11 @@ export function StoreWindow() {
       metadata: product.tier ? { tier: product.tier } : undefined,
     });
 
-    // Open checkout window on the right side
-    const cartX = typeof window !== 'undefined' ? window.innerWidth - 420 : 1000;
-    openWindow("checkout", "Checkout", <CheckoutWindow />, { x: cartX, y: 100 }, { width: 380, height: 500 }, 'ui.app.checkout');
+    // Open platform cart window (not the Checkout App!)
+    import("@/components/window-content/platform-cart-window").then(({ PlatformCartWindow }) => {
+      const cartX = typeof window !== 'undefined' ? window.innerWidth - 420 : 1000;
+      openWindow("platform-cart", "Cart", <PlatformCartWindow />, { x: cartX, y: 100 }, { width: 380, height: 500 });
+    });
   };
 
   const handleEnterpriseClick = (title: string) => {

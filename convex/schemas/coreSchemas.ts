@@ -59,7 +59,7 @@ export const organizations = defineTable({
   isActive: v.boolean(),
 
   // Stripe Customer ID (for platform billing only - NOT Connect)
-  // This is for when L4YERCAK3 charges the organization for subscriptions/usage
+  // This is for when l4yercak3 charges the organization for subscriptions/usage
   stripeCustomerId: v.optional(v.string()),           // Stripe customer ID (cus_...)
 
   // Multi-Provider Payment Integration

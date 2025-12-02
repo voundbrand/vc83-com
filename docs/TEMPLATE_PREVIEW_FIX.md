@@ -24,7 +24,7 @@ Added a new function that creates proper mock data for ticket templates with all
 export function createMockTicketData(templateCode: string): TemplateData {
   return {
     // Organization details
-    organization_name: "L4YERCAK3 Events",
+    organization_name: "l4yercak3 Events",
     organization_email: "tickets@l4yercak3.com",
     organization_phone: "(555) 123-4567",
     highlight_color: "#d4af37", // Gold
@@ -106,7 +106,7 @@ The templates use Jinja2-like syntax which the `renderTemplate()` function proce
 
 With proper mock data, this now renders correctly as:
 ```html
-<div class="logo-text">L4YERCAK3 Events</div>
+<div class="logo-text">l4yercak3 Events</div>
 ```
 
 Instead of showing the raw template code.

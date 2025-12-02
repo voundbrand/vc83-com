@@ -2,7 +2,7 @@
 
 ## Overview
 
-The L4YERCAK3.com platform includes a comprehensive tax management system designed to work with multiple payment providers (Stripe, PayPal, etc.). The system is based on Stripe Tax requirements but generic enough to support any payment provider.
+The l4yercak3.com platform includes a comprehensive tax management system designed to work with multiple payment providers (Stripe, PayPal, etc.). The system is based on Stripe Tax requirements but generic enough to support any payment provider.
 
 ## Architecture
 

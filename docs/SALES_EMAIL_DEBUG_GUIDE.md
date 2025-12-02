@@ -21,7 +21,7 @@ When a checkout completes successfully, the system:
 1. Open your Convex dashboard
 2. Go to **Data** → **objects** table
 3. Filter by `type = "checkout_instance"`
-4. Look for your checkout by name (e.g., "L4YERCAK3 Live 2024 Ticket Sales")
+4. Look for your checkout by name (e.g., "l4yercak3 Live 2024 Ticket Sales")
 5. Click on it to see the full object
 
 ### Method 2: Via Code (Query)
@@ -270,7 +270,7 @@ Here's a complete example of a properly configured checkout instance:
   "type": "checkout_instance",
   "subtype": "ticket",
   "organizationId": "j123...",
-  "name": "L4YERCAK3 Live 2024 Ticket Sales",
+  "name": "l4yercak3 Live 2024 Ticket Sales",
   "status": "published",
   "customProperties": {
     // Template reference

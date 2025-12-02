@@ -312,4 +312,4 @@ For issues or questions:
 
 ---
 
-**Built with ❤️ by the L4YERCAK3 Team**
+**Built with ❤️ by the l4yercak3 Team**

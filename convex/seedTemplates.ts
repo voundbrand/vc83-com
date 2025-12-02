@@ -77,7 +77,7 @@ export const seedSystemTemplates = mutation({
           sections: ["header", "hero", "content", "cta", "footer"],
           supportedContentTypes: ["checkout_product", "event", "published_page"],
           previewImageUrl: "https://cdn.l4yercak3.com/templates/landing-page.png",
-          author: "L4YERCAK3 Design Team",
+          author: "l4yercak3 Design Team",
           version: "1.0.0",
         },
         createdBy: firstUser._id,
@@ -130,7 +130,7 @@ export const seedSystemTemplates = mutation({
           ],
           supportedContentTypes: ["event", "published_page"],
           previewImageUrl: "https://cdn.l4yercak3.com/templates/event-landing.png",
-          author: "L4YERCAK3 Design Team",
+          author: "l4yercak3 Design Team",
           version: "1.0.0",
           features: [
             "Video/image hero with play button",
@@ -226,11 +226,11 @@ export const seedSystemThemes = mutation({
         status: "published",
         customProperties: {
           code: "modern-gradient", // Maps to code in /src/templates/themes.ts
-          description: "Purple gradient with L4YERCAK3 branding - Light theme",
+          description: "Purple gradient with l4yercak3 branding - Light theme",
           category: "brand",
           colorScheme: "purple-gradient-light",
           previewImageUrl: "https://cdn.l4yercak3.com/themes/modern-gradient.png",
-          author: "L4YERCAK3 Design Team",
+          author: "l4yercak3 Design Team",
           version: "1.0.0",
         },
         createdBy: firstUser._id,
@@ -262,11 +262,11 @@ export const seedSystemThemes = mutation({
         status: "published",
         customProperties: {
           code: "modern-gradient-dark", // Maps to code in /src/templates/themes.ts
-          description: "Purple gradient with L4YERCAK3 branding - Dark theme",
+          description: "Purple gradient with l4yercak3 branding - Dark theme",
           category: "brand",
           colorScheme: "purple-gradient-dark",
           previewImageUrl: "https://cdn.l4yercak3.com/themes/modern-gradient-dark.png",
-          author: "L4YERCAK3 Design Team",
+          author: "l4yercak3 Design Team",
           version: "1.0.0",
         },
         createdBy: firstUser._id,

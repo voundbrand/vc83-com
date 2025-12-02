@@ -327,12 +327,12 @@ export const seed = internalMutation({
       {
         key: "ui.app.l4yercak3_exe",
         values: {
-          en: "L4YERCAK3.exe",
-          de: "L4YERCAK3.exe",
-          pl: "L4YERCAK3.exe",
-          es: "L4YERCAK3.exe",
-          fr: "L4YERCAK3.exe",
-          ja: "L4YERCAK3.exe",
+          en: "l4yercak3.exe",
+          de: "l4yercak3.exe",
+          pl: "l4yercak3.exe",
+          es: "l4yercak3.exe",
+          fr: "l4yercak3.exe",
+          ja: "l4yercak3.exe",
         }
       },
 

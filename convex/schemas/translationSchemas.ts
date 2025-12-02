@@ -3,7 +3,7 @@ import { v } from "convex/values";
 
 /**
  * Translation & Internationalization Schemas
- * Database-backed translation management system for L4YERCAK3.com
+ * Database-backed translation management system for l4yercak3.com
  * 
  * Features:
  * - Real-time translation editing

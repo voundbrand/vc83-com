@@ -55,7 +55,7 @@ With the new logging, you'll see:
 ## Stripe Account Separation
 
 ### Platform Stripe (Current - AI Subscriptions)
-- **Purpose**: Bill L4YERCAK3 customers for AI features
+- **Purpose**: Bill l4yercak3 customers for AI features
 - **Env Vars**:
   - `STRIPE_SECRET_KEY` - Main platform Stripe account
   - `STRIPE_AI_WEBHOOK_SECRET` - Webhook secret for AI subscriptions
@@ -71,7 +71,7 @@ With the new logging, you'll see:
 ### File Structure (Proposed)
 ```
 convex/stripe/
-├── platform/              # L4YERCAK3 platform billing
+├── platform/              # l4yercak3 platform billing
 │   ├── aiCheckout.ts      # ✅ Already here
 │   ├── aiWebhooks.ts      # ✅ Already here
 │   └── aiSubscriptions.ts # Subscription management

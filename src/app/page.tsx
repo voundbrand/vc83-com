@@ -17,6 +17,7 @@ import { TicketsWindow } from "@/components/window-content/tickets-window"
 import { CertificatesWindow } from "@/components/window-content/certificates-window"
 import { EventsWindow } from "@/components/window-content/events-window"
 import { CheckoutWindow } from "@/components/window-content/checkout-window"
+import { PlatformCartWindow } from "@/components/window-content/platform-cart-window"
 import { CheckoutSuccessWindow } from "@/components/window-content/checkout-success-window"
 import { FormsWindow } from "@/components/window-content/forms-window"
 import { AllAppsWindow } from "@/components/window-content/all-apps-window"
@@ -81,7 +82,7 @@ export default function HomePage() {
     : undefined
 
   const openWelcomeWindow = () => {
-    openWindow("welcome", "L4YERCAK3.exe", <WelcomeWindow />, { x: 100, y: 100 }, { width: 650, height: 500 }, 'ui.app.l4yercak3_exe', '🎂')
+    openWindow("welcome", "l4yercak3.exe", <WelcomeWindow />, { x: 100, y: 100 }, { width: 650, height: 500 }, 'ui.app.l4yercak3_exe', '🎂')
   }
 
   const openSettingsWindow = () => {
@@ -124,10 +125,16 @@ export default function HomePage() {
     openWindow("events", "Events", <EventsWindow />, { x: 160, y: 50 }, { width: 950, height: 650 }, 'ui.app.events')
   }
 
-  const openCheckoutWindow = () => {
-    // Small cart window positioned to the right for quick checkout access
+  // Open Checkout App - for managing checkout pages (from Programs menu)
+  const openCheckoutAppWindow = () => {
+    const centerX = typeof window !== 'undefined' ? (window.innerWidth - 900) / 2 : 200;
+    openWindow("checkout-app", "Checkout Manager", <CheckoutWindow />, { x: centerX, y: 50 }, { width: 900, height: 650 }, 'ui.app.checkout')
+  }
+
+  // Open Platform Cart - for buying platform services (from cart button)
+  const openPlatformCartWindow = () => {
     const cartX = typeof window !== 'undefined' ? window.innerWidth - 420 : 1000;
-    openWindow("checkout", "Checkout", <CheckoutWindow />, { x: cartX, y: 100 }, { width: 380, height: 500 }, 'ui.app.checkout')
+    openWindow("platform-cart", "Cart", <PlatformCartWindow />, { x: cartX, y: 100 }, { width: 380, height: 500 })
   }
 
   const openCheckoutSuccessWindow = () => {
@@ -166,7 +173,7 @@ export default function HomePage() {
   }
 
   const openStoreWindow = () => {
-    openWindow("store", "L4YERCAK3 Store", <StoreWindow />, { x: 150, y: 80 }, { width: 900, height: 650 }, 'ui.start_menu.store', '🏪')
+    openWindow("store", "l4yercak3 Store", <StoreWindow />, { x: 150, y: 80 }, { width: 900, height: 650 }, 'ui.start_menu.store', '🏪')
   }
 
   const handleLogout = () => {
@@ -290,7 +297,10 @@ export default function HomePage() {
     ...(isAppAvailable("events") ? [
       { label: t('ui.app.events'), icon: "📅", onClick: requireAuth(openEventsWindow) }
     ] : []),
-    // Note: Checkout window is not shown as an app - accessed via cart button
+    // Checkout app - Manage checkout pages for products and events
+    ...(isAppAvailable("checkout") ? [
+      { label: t('ui.app.checkout'), icon: "🛒", onClick: requireAuth(openCheckoutAppWindow) }
+    ] : []),
     ...(isAppAvailable("forms") ? [
       { label: t('ui.app.forms'), icon: "📋", onClick: requireAuth(openFormsWindow) }
     ] : []),
@@ -319,7 +329,7 @@ export default function HomePage() {
     },
     // Templates app - Browse and preview all templates
     { label: t('ui.app.templates'), icon: "📄", onClick: requireAuth(openTemplatesWindow) },
-    //{ label: "L4YERCAK3 Podcast", icon: "🎙️", onClick: requireAuth(openEpisodesWindow) },
+    //{ label: "l4yercak3 Podcast", icon: "🎙️", onClick: requireAuth(openEpisodesWindow) },
     //{ label: "Subscribe", icon: "🔊", onClick: requireAuth(openSubscribeWindow) },
   ]
 
@@ -460,7 +470,7 @@ export default function HomePage() {
               <>
                 {/* Shopping Cart Button - Platform services (AI subscriptions, etc.) */}
                 {isSignedIn && (
-                  <ShoppingCartButton onOpenCart={openCheckoutWindow} />
+                  <ShoppingCartButton onOpenCart={openPlatformCartWindow} />
                 )}
 
                 {/* Theme Toggle - Shows for any theme with a light/dark pair */}

@@ -71,7 +71,7 @@ export const seedAll = internalMutation({
       { namespace: "desktop", key: "about-icon", value: "About" },
 
       // Window titles
-      { namespace: "windows", key: "welcome-title", value: "Welcome to L4YERCAK3" },
+      { namespace: "windows", key: "welcome-title", value: "Welcome to l4yercak3" },
       { namespace: "windows", key: "login-title", value: "Login" },
       { namespace: "windows", key: "manage-title", value: "Management Console" },
       { namespace: "windows", key: "settings-title", value: "Settings" },
@@ -121,7 +121,7 @@ export const seedAll = internalMutation({
       { namespace: "desktop", key: "settings-icon", value: "Einstellungen" },
       { namespace: "desktop", key: "about-icon", value: "Über" },
 
-      { namespace: "windows", key: "welcome-title", value: "Willkommen bei L4YERCAK3" },
+      { namespace: "windows", key: "welcome-title", value: "Willkommen bei l4yercak3" },
       { namespace: "windows", key: "login-title", value: "Anmelden" },
 
       { namespace: "common", key: "save", value: "Speichern" },

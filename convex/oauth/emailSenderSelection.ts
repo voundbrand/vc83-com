@@ -62,7 +62,7 @@ export const selectEmailSender = query({
         type: 'microsoft',
         connectionId: msConnection._id,
         email: msConnection.providerEmail,
-        displayName: "L4YERCAK3 Events", // Can be customized per organization
+        displayName: "l4yercak3 Events", // Can be customized per organization
       };
     }
 

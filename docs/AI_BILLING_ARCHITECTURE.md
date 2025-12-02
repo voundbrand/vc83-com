@@ -2,14 +2,14 @@
 
 ## Overview
 
-This document outlines the billing and subscription architecture for AI features in L4YERCAK3.com. The system supports two billing modes:
+This document outlines the billing and subscription architecture for AI features in l4yercak3.com. The system supports two billing modes:
 
 1. **Platform API Key Mode** (Reseller): Organizations use the platform's OpenRouter API key and are charged via Stripe subscription
 2. **Bring Your Own Key (BYOK) Mode**: Organizations provide their own OpenRouter API key and are billed directly by OpenRouter
 
 ## Integration with Existing Stripe System
 
-L4YERCAK3 already has a comprehensive Stripe Connect integration for payment processing. The AI billing system extends this by adding:
+l4yercak3 already has a comprehensive Stripe Connect integration for payment processing. The AI billing system extends this by adding:
 
 - **Stripe Subscriptions** for AI access (separate from Stripe Connect)
 - **Usage-Based Metering** for platform API key mode

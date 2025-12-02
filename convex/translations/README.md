@@ -272,7 +272,7 @@ npx convex run translations/seedWelcomeTranslations:seed
 ### Q: How do I know what translations are missing?
 
 **In the UI:** Missing translations show as keys!
-- ✅ Found: "Welcome to L4YERCAK3"
+- ✅ Found: "Welcome to l4yercak3"
 - ❌ Missing: "ui.welcome.greeting"
 
 This makes it obvious which translations need to be added!

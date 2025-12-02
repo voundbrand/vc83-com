@@ -48,4 +48,4 @@ HaffNet	9. HaffSymposium (HaffNet)	100.00	10000	haffnet
 Speaker	9. HaffSymposium (Speaker)	0.00	0	speaker
 Sponsor	9. HaffSymposium (Sponsor)	0.00	0	sponsor
 Orga	9. HaffSymposium (Orga)	0.00	0	orga
-Copy/paste ready! Just grab the Name, Description, and Price for each product when creating them in your L4yerCak3 admin. 🎫
+Copy/paste ready! Just grab the Name, Description, and Price for each product when creating them in your l4yercak3 admin. 🎫

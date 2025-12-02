@@ -80,7 +80,7 @@ export const pdfTicketTemplateMetadata: Record<string, PdfTicketTemplateMetadata
       showSponsors: true,
       colorScheme: "gold",
     },
-    author: "L4YERCAK3 Design Team",
+    author: "l4yercak3 Design Team",
     version: "1.0.0",
   },
   "modern-ticket": {
@@ -95,7 +95,7 @@ export const pdfTicketTemplateMetadata: Record<string, PdfTicketTemplateMetadata
       showSponsors: false,
       colorScheme: "light",
     },
-    author: "L4YERCAK3 Design Team",
+    author: "l4yercak3 Design Team",
     version: "1.0.0",
   },
   "vip-premium": {
@@ -110,7 +110,7 @@ export const pdfTicketTemplateMetadata: Record<string, PdfTicketTemplateMetadata
       showSponsors: true,
       colorScheme: "dark",
     },
-    author: "L4YERCAK3 Design Team",
+    author: "l4yercak3 Design Team",
     version: "1.0.0",
   },
 };

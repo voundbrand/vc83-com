@@ -1258,6 +1258,204 @@ export const getRolePermissions = query({
 });
 
 /**
+ * Add a permission to a role (org owner only)
+ */
+export const addPermissionToRole = mutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    roleId: v.id("roles"),
+    permissionId: v.id("permissions"),
+  },
+  handler: async (ctx, args) => {
+    // Verify session and get user
+    const session = await ctx.db.get(args.sessionId as Id<"sessions">);
+    if (!session || session.expiresAt < Date.now()) {
+      throw new Error("Invalid or expired session");
+    }
+
+    const user = await ctx.db.get(session.userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Check if user is org owner or super admin
+    const isOrgOwner = await checkIsOrgOwnerOrSuperAdmin(ctx, session.userId, args.organizationId);
+    if (!isOrgOwner) {
+      throw new Error("Only organization owners can manage role permissions");
+    }
+
+    // Verify role and permission exist
+    const role = await ctx.db.get(args.roleId);
+    if (!role) {
+      throw new Error("Role not found");
+    }
+
+    const permission = await ctx.db.get(args.permissionId);
+    if (!permission) {
+      throw new Error("Permission not found");
+    }
+
+    // Check if mapping already exists
+    const existingMapping = await ctx.db
+      .query("rolePermissions")
+      .withIndex("by_role_permission", (q) =>
+        q.eq("roleId", args.roleId).eq("permissionId", args.permissionId)
+      )
+      .first();
+
+    if (existingMapping) {
+      return { success: true, message: "Permission already assigned to role" };
+    }
+
+    // Create the mapping
+    await ctx.db.insert("rolePermissions", {
+      roleId: args.roleId,
+      permissionId: args.permissionId,
+      createdAt: Date.now(),
+    });
+
+    // Log the action
+    await ctx.db.insert("auditLogs", {
+      userId: session.userId,
+      organizationId: args.organizationId,
+      action: "add_permission_to_role",
+      resource: "rolePermissions",
+      resourceId: `${args.roleId}_${args.permissionId}`,
+      success: true,
+      metadata: {
+        roleName: role.name,
+        permissionName: permission.name,
+      },
+      createdAt: Date.now(),
+    });
+
+    return {
+      success: true,
+      message: `Added ${permission.name} to ${role.name}`,
+    };
+  },
+});
+
+/**
+ * Remove a permission from a role (org owner only)
+ */
+export const removePermissionFromRole = mutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    roleId: v.id("roles"),
+    permissionId: v.id("permissions"),
+  },
+  handler: async (ctx, args) => {
+    // Verify session and get user
+    const session = await ctx.db.get(args.sessionId as Id<"sessions">);
+    if (!session || session.expiresAt < Date.now()) {
+      throw new Error("Invalid or expired session");
+    }
+
+    const user = await ctx.db.get(session.userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Check if user is org owner or super admin
+    const isOrgOwner = await checkIsOrgOwnerOrSuperAdmin(ctx, session.userId, args.organizationId);
+    if (!isOrgOwner) {
+      throw new Error("Only organization owners can manage role permissions");
+    }
+
+    // Verify role and permission exist
+    const role = await ctx.db.get(args.roleId);
+    if (!role) {
+      throw new Error("Role not found");
+    }
+
+    const permission = await ctx.db.get(args.permissionId);
+    if (!permission) {
+      throw new Error("Permission not found");
+    }
+
+    // Prevent removing critical permissions from super_admin
+    if (role.name === "super_admin") {
+      throw new Error("Cannot remove permissions from super_admin role");
+    }
+
+    // Find and delete the mapping
+    const mapping = await ctx.db
+      .query("rolePermissions")
+      .withIndex("by_role_permission", (q) =>
+        q.eq("roleId", args.roleId).eq("permissionId", args.permissionId)
+      )
+      .first();
+
+    if (!mapping) {
+      return { success: true, message: "Permission not assigned to role" };
+    }
+
+    await ctx.db.delete(mapping._id);
+
+    // Log the action
+    await ctx.db.insert("auditLogs", {
+      userId: session.userId,
+      organizationId: args.organizationId,
+      action: "remove_permission_from_role",
+      resource: "rolePermissions",
+      resourceId: `${args.roleId}_${args.permissionId}`,
+      success: true,
+      metadata: {
+        roleName: role.name,
+        permissionName: permission.name,
+      },
+      createdAt: Date.now(),
+    });
+
+    return {
+      success: true,
+      message: `Removed ${permission.name} from ${role.name}`,
+    };
+  },
+});
+
+/**
+ * Helper: Check if user is org owner or super admin
+ */
+async function checkIsOrgOwnerOrSuperAdmin(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any,
+  userId: Id<"users">,
+  organizationId: Id<"organizations">
+): Promise<boolean> {
+  const user = await ctx.db.get(userId);
+  if (!user) return false;
+
+  // Check global super admin role
+  if (user.global_role_id) {
+    const globalRole = await ctx.db.get(user.global_role_id);
+    if (globalRole && globalRole.name === "super_admin") {
+      return true;
+    }
+  }
+
+  // Check org owner role
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const membership = await ctx.db
+    .query("organizationMembers")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .withIndex("by_user_and_org", (q: any) =>
+      q.eq("userId", userId).eq("organizationId", organizationId)
+    )
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .filter((q: any) => q.eq(q.field("isActive"), true))
+    .first();
+
+  if (!membership) return false;
+
+  const role = await ctx.db.get(membership.role);
+  return role && role.name === "org_owner";
+}
+
+/**
  * Get all role-permission mappings for the entire system
  * Returns a map of roleId -> permissions array
  */

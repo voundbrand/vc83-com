@@ -60,7 +60,7 @@ const getOrCreateStripeCustomerInternal = internalAction({
       email: args.email,
       metadata: {
         organizationId: args.organizationId,
-        platform: "L4YERCAK3",
+        platform: "l4yercak3",
       },
     });
 
@@ -121,7 +121,7 @@ export const createAICheckoutSession = action({
       email: args.email,
       metadata: {
         organizationId: args.organizationId,
-        platform: "L4YERCAK3",
+        platform: "l4yercak3",
         isB2B: args.isB2B ? "true" : "false",
       },
       // Add billing address if provided
@@ -224,7 +224,7 @@ export const createAICheckoutSession = action({
       metadata: {
         organizationId: args.organizationId,
         tier: args.tier,
-        platform: "L4YERCAK3",
+        platform: "l4yercak3",
         isB2B: args.isB2B ? "true" : "false",
         ...(args.taxId && { customerTaxId: args.taxId }),
         ...(args.taxIdType && { customerTaxIdType: args.taxIdType }),
@@ -233,7 +233,7 @@ export const createAICheckoutSession = action({
         metadata: {
           organizationId: args.organizationId,
           tier: args.tier,
-          platform: "L4YERCAK3",
+          platform: "l4yercak3",
           isB2B: args.isB2B ? "true" : "false",
         },
       },

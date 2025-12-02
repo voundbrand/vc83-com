@@ -64,7 +64,7 @@ Each template directory contains a `preview.tsx` component that:
 1. Loads sample data
 2. Renders a visual preview of the PDF template
 3. Can be displayed in the Invoicing window → Templates tab
-4. Uses retro styling consistent with the L4YERCAK3 design system
+4. Uses retro styling consistent with the l4yercak3 design system
 
 ## Creating a New Template
 

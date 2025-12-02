@@ -1,8 +1,8 @@
-# Quick Start: Adding New Apps to L4YERCAK3
+# Quick Start: Adding New Apps to l4yercak3
 
 ## 🚀 30-Second Overview
 
-L4YERCAK3 uses a **unified app system** where:
+l4yercak3 uses a **unified app system** where:
 1. **Super admin** registers apps in the system
 2. **Super admin** enables apps for specific organizations
 3. **Organization users** see enabled apps in their Start Menu
@@ -485,7 +485,7 @@ npx convex run seedYourApp:seedYourApp --sessionId "..."
 
 ## 🎉 Congratulations!
 
-You now have everything you need to build apps on L4YERCAK3!
+You now have everything you need to build apps on l4yercak3!
 
 **Next Steps:**
 1. Pick an app to build (CRM, Analytics, Events, etc.)

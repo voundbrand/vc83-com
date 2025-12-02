@@ -1,6 +1,6 @@
-# L4YERCAK3.com Development Guide
+# l4yercak3.com Development Guide
 
-This document provides guidance for Claude Code when working on the L4YERCAK3.com retro desktop podcast website.
+This document provides guidance for Claude Code when working on the l4yercak3.com retro desktop podcast website.
 
 ## IMPORTANT: Quality Check Policy
 
@@ -8,7 +8,7 @@ This document provides guidance for Claude Code when working on the L4YERCAK3.co
 
 ## Project Overview
 
-L4YERCAK3.com is a retro desktop-style workflow tool built with Next.js, TypeScript, and Convex (backend). The platform provides a retro desktop where you layer on marketing superpowers: invoicing that syncs with your CRM, analytics that visualize your funnels, scheduling that automates your workflows—all in one cozy workspace.
+l4yercak3.com is a retro desktop-style workflow tool built with Next.js, TypeScript, and Convex (backend). The platform provides a retro desktop where you layer on marketing superpowers: invoicing that syncs with your CRM, analytics that visualize your funnels, scheduling that automates your workflows—all in one cozy workspace.
 
 ## Core Features
 

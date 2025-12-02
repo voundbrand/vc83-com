@@ -28,17 +28,16 @@ export function ChatHeader() {
       },
     })
 
-    // Open checkout window immediately
-    // Import CheckoutWindow component dynamically to avoid circular dependency
-    import("@/components/window-content/checkout-window").then(({ CheckoutWindow }) => {
+    // Open platform cart window immediately
+    // Import PlatformCartWindow component dynamically to avoid circular dependency
+    import("@/components/window-content/platform-cart-window").then(({ PlatformCartWindow }) => {
+      const cartX = typeof window !== 'undefined' ? window.innerWidth - 420 : 1000;
       openWindow(
-        "checkout",
-        "Checkout",
-        <CheckoutWindow />,
-        { x: 170, y: 55 },
-        { width: 550, height: 650 },
-        'ui.app.checkout',
-        '🛒'
+        "platform-cart",
+        "Cart",
+        <PlatformCartWindow />,
+        { x: cartX, y: 100 },
+        { width: 380, height: 500 }
       )
     })
   }

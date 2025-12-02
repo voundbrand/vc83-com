@@ -11,7 +11,7 @@ import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 /**
  * PLATFORM CHECKOUT WINDOW
  *
- * Checkout for L4YERCAK3 PLATFORM services sold to organizations.
+ * Checkout for l4yercak3 PLATFORM services sold to organizations.
  *
  * IMPORTANT: This is NOT for org-to-customer sales (events, products, tickets).
  * Organizations have separate checkout flows for selling to their customers.
@@ -21,7 +21,7 @@ import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
  * - Token packs
  * - Platform add-ons
  */
-export function CheckoutWindow() {
+export function PlatformCartWindow() {
   const {
     items,
     total,

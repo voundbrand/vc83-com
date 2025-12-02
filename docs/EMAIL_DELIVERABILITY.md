@@ -1,12 +1,12 @@
 # Email Deliverability Guidelines
 
-This document outlines the configuration and best practices for ensuring high email deliverability for L4YERCAK3 transactional emails.
+This document outlines the configuration and best practices for ensuring high email deliverability for l4yercak3 transactional emails.
 
 ## ✅ Current Configuration
 
 ### 1. From Address (AUTH_RESEND_FROM)
 ```
-L4YERCAK3 <team@mail.l4yercak3.com>
+l4yercak3 <team@mail.l4yercak3.com>
 ```
 
 **Why:**
@@ -97,7 +97,7 @@ v=DMARC1; p=none; rua=mailto:dmarc@l4yercak3.com
 ## 🎯 Email Content Best Practices
 
 ### Subject Lines
-- ✅ Clear, specific purpose (e.g., "You've been invited to [Org] on L4YERCAK3")
+- ✅ Clear, specific purpose (e.g., "You've been invited to [Org] on l4yercak3")
 - ✅ Avoid spam trigger words (FREE, URGENT, !!!, etc.)
 - ✅ Professional tone
 

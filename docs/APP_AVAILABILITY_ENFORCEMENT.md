@@ -2,7 +2,7 @@
 
 ## Overview
 
-Every app in L4YERCAK3.com now has **mandatory app availability checks** that prevent unauthorized access and display a standardized notification directing users to contact platform administrators.
+Every app in l4yercak3.com now has **mandatory app availability checks** that prevent unauthorized access and display a standardized notification directing users to contact platform administrators.
 
 ## Problem Solved
 

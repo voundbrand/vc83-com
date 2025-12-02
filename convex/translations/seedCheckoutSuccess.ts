@@ -119,12 +119,12 @@ const translations: Array<{ key: string; values: TranslationValues }> = [
   {
     key: "ui.checkout_success.next_steps_message",
     values: {
-      en: "You can now access your purchased items from the Start Menu. Close this window to continue exploring L4YERCAK3!",
-      de: "Sie können jetzt über das Startmenü auf Ihre gekauften Artikel zugreifen. Schließen Sie dieses Fenster, um L4YERCAK3 weiter zu erkunden!",
-      pl: "Możesz teraz uzyskać dostęp do zakupionych przedmiotów z menu Start. Zamknij to okno, aby kontynuować eksplorację L4YERCAK3!",
-      es: "Ahora puedes acceder a tus artículos comprados desde el menú Inicio. ¡Cierra esta ventana para continuar explorando L4YERCAK3!",
-      fr: "Vous pouvez maintenant accéder à vos articles achetés depuis le menu Démarrer. Fermez cette fenêtre pour continuer à explorer L4YERCAK3!",
-      ja: "スタートメニューから購入したアイテムにアクセスできます。このウィンドウを閉じてL4YERCAK3の探索を続けましょう！",
+      en: "You can now access your purchased items from the Start Menu. Close this window to continue exploring l4yercak3!",
+      de: "Sie können jetzt über das Startmenü auf Ihre gekauften Artikel zugreifen. Schließen Sie dieses Fenster, um l4yercak3 weiter zu erkunden!",
+      pl: "Możesz teraz uzyskać dostęp do zakupionych przedmiotów z menu Start. Zamknij to okno, aby kontynuować eksplorację l4yercak3!",
+      es: "Ahora puedes acceder a tus artículos comprados desde el menú Inicio. ¡Cierra esta ventana para continuar explorando l4yercak3!",
+      fr: "Vous pouvez maintenant accéder à vos articles achetés depuis le menu Démarrer. Fermez cette fenêtre pour continuer à explorer l4yercak3!",
+      ja: "スタートメニューから購入したアイテムにアクセスできます。このウィンドウを閉じてl4yercak3の探索を続けましょう！",
     },
   },
 
@@ -132,12 +132,12 @@ const translations: Array<{ key: string; values: TranslationValues }> = [
   {
     key: "ui.checkout_success.footer_title",
     values: {
-      en: "Thank you for choosing L4YERCAK3! 🚀",
-      de: "Vielen Dank, dass Sie sich für L4YERCAK3 entschieden haben! 🚀",
-      pl: "Dziękujemy za wybór L4YERCAK3! 🚀",
-      es: "¡Gracias por elegir L4YERCAK3! 🚀",
-      fr: "Merci d'avoir choisi L4YERCAK3! 🚀",
-      ja: "L4YERCAK3をお選びいただきありがとうございます！🚀",
+      en: "Thank you for choosing l4yercak3! 🚀",
+      de: "Vielen Dank, dass Sie sich für l4yercak3 entschieden haben! 🚀",
+      pl: "Dziękujemy za wybór l4yercak3! 🚀",
+      es: "¡Gracias por elegir l4yercak3! 🚀",
+      fr: "Merci d'avoir choisi l4yercak3! 🚀",
+      ja: "l4yercak3をお選びいただきありがとうございます！🚀",
     },
   },
   {

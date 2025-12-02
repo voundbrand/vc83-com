@@ -6,7 +6,7 @@ import { appSchemaBase } from "./appSchemaBase";
  * Individual App Data Schemas
  * Each app gets its own self-contained table following the appSchemaBase pattern
  * 
- * NAMING CONVENTION: Use the app's code as the table name (e.g., "L4YERCAK3pod")
+ * NAMING CONVENTION: Use the app's code as the table name (e.g., "l4yercak3pod")
  * REQUIRED FIELDS: All apps must include appSchemaBase fields
  * APP-SPECIFIC FIELDS: Add custom fields after the base fields
  */

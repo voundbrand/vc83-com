@@ -323,7 +323,7 @@ export function createMockInvoiceData(templateCode: string): TemplateData {
 export function createMockTicketData(_templateCode: string): TemplateData {
   const baseData = {
     // Organization (seller/organizer)
-    organization_name: "L4YERCAK3 Events",
+    organization_name: "l4yercak3 Events",
     organization_address: "123 Event Plaza, New York, NY 10001",
     organization_phone: "(555) 123-4567",
     organization_email: "tickets@l4yercak3.com",

@@ -137,12 +137,12 @@ export const seed = internalMutation({
       {
         key: "ui.desktop.program.podcast",
         values: {
-          en: "L4YERCAK3 Podcast",
-          de: "L4YERCAK3 Podcast",
-          pl: "L4YERCAK3 Podcast",
-          es: "L4YERCAK3 Podcast",
-          fr: "L4YERCAK3 Podcast",
-          ja: "L4YERCAK3 Podcast",
+          en: "l4yercak3 Podcast",
+          de: "l4yercak3 Podcast",
+          pl: "l4yercak3 Podcast",
+          es: "l4yercak3 Podcast",
+          fr: "l4yercak3 Podcast",
+          ja: "l4yercak3 Podcast",
         }
       },
       {
@@ -209,12 +209,12 @@ export const seed = internalMutation({
       {
         key: "ui.desktop.window_title.welcome",
         values: {
-          en: "L4YERCAK3.exe",
-          de: "L4YERCAK3.exe",
-          pl: "L4YERCAK3.exe",
-          es: "L4YERCAK3.exe",
-          fr: "L4YERCAK3.exe",
-          ja: "L4YERCAK3.exe",
+          en: "l4yercak3.exe",
+          de: "l4yercak3.exe",
+          pl: "l4yercak3.exe",
+          es: "l4yercak3.exe",
+          fr: "l4yercak3.exe",
+          ja: "l4yercak3.exe",
         }
       },
       {

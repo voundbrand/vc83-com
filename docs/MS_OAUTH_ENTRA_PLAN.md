@@ -1,7 +1,7 @@
-# Microsoft OAuth & Email Integration Plan for L4YERCAK3.com
+# Microsoft OAuth & Email Integration Plan for l4yercak3.com
 
 ## Overview
-This document outlines the implementation strategy for integrating Microsoft account authentication and email access into the L4YERCAK3.com Next.js application using Microsoft Entra ID (formerly Azure AD).
+This document outlines the implementation strategy for integrating Microsoft account authentication and email access into the l4yercak3.com Next.js application using Microsoft Entra ID (formerly Azure AD).
 
 ## Architecture Options
 
@@ -91,7 +91,7 @@ Next.js App � Microsoft OAuth 2.0 � Authorization Code � Access Token � 
    - Register new application
    - Set redirect URIs: 
      - Development: `http://localhost:3000/api/auth/callback/microsoft`
-     - Production: `https://app.L4YERCAK3.com/api/auth/callback/microsoft`
+     - Production: `https://app.l4yercak3.com/api/auth/callback/microsoft`
    - Enable public client flows if needed
 
 2. **Configure API Permissions**
@@ -346,7 +346,7 @@ export function EmailWindow() {
 POST https://graph.microsoft.com/v1.0/subscriptions
 {
   "changeType": "created,updated",
-  "notificationUrl": "https://L4YERCAK3.com/api/webhooks/microsoft",
+  "notificationUrl": "https://l4yercak3.com/api/webhooks/microsoft",
   "resource": "/me/messages",
   "expirationDateTime": "2024-12-01T00:00:00Z",
   "clientState": "secret-client-state"

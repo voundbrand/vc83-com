@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Media Library app is a universal media management system for L4YERCAK3.com that provides centralized storage, organization, and reuse of images across the platform.
+The Media Library app is a universal media management system for l4yercak3.com that provides centralized storage, organization, and reuse of images across the platform.
 
 ## Features Implemented
 

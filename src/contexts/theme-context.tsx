@@ -349,8 +349,8 @@ interface ThemeContextValue {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-const THEME_STORAGE_KEY = "L4YERCAK3-theme";
-const WINDOW_STYLE_STORAGE_KEY = "L4YERCAK3-window-style";
+const THEME_STORAGE_KEY = "l4yercak3-theme";
+const WINDOW_STYLE_STORAGE_KEY = "l4yercak3-window-style";
 
 /**
  * Adjust color brightness for titlebar gradient

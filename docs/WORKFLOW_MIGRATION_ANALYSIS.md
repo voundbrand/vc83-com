@@ -494,7 +494,7 @@ The behavior config panel (behavior-config-panel.tsx) needs to support these new
 // Checkout Instance (simplified)
 {
   type: "checkout_instance",
-  name: "L4YERCAK3 Live 2024",
+  name: "l4yercak3 Live 2024",
   customProperties: {
     templateCode: "event-ticket-checkout",
     paymentProviders: ["stripe", "invoice"],

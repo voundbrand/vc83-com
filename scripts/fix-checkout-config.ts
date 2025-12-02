@@ -47,7 +47,7 @@ async function main() {
       console.log("2. Checkout instance doesn't have publicSlug 'behavior-driven-checkout'");
       console.log("3. Checkout instance status is not 'published'");
       console.log("\nTo fix this:");
-      console.log("1. Go to your L4YERCAK3 desktop");
+      console.log("1. Go to your l4yercak3 desktop");
       console.log("2. Open the Workflows window");
       console.log("3. Find your 'behavior-driven-checkout' checkout instance");
       console.log("4. Make sure:");

@@ -58,12 +58,12 @@ export const seed = internalMutation({
       {
         key: "org.profile.system.description",
         values: {
-          en: "Core platform organization managing L4YERCAK3 infrastructure",
-          de: "Kernplattformorganisation zur Verwaltung der L4YERCAK3-Infrastruktur",
-          pl: "Główna organizacja platformy zarządzająca infrastrukturą L4YERCAK3",
-          es: "Organización central de la plataforma que gestiona la infraestructura de L4YERCAK3",
-          fr: "Organisation principale de la plateforme gérant l'infrastructure L4YERCAK3",
-          ja: "L4YERCAK3インフラストラクチャを管理するコアプラットフォーム組織",
+          en: "Core platform organization managing l4yercak3 infrastructure",
+          de: "Kernplattformorganisation zur Verwaltung der l4yercak3-Infrastruktur",
+          pl: "Główna organizacja platformy zarządzająca infrastrukturą l4yercak3",
+          es: "Organización central de la plataforma que gestiona la infraestructura de l4yercak3",
+          fr: "Organisation principale de la plateforme gérant l'infrastructure l4yercak3",
+          ja: "l4yercak3インフラストラクチャを管理するコアプラットフォーム組織",
         }
       },
     ];

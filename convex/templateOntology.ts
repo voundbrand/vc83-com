@@ -1,6 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser, getUserContext, checkPermission } from "./rbacHelpers";
+import { PERMISSION_ERRORS } from "./permissionErrors";
 
 /**
  * TEMPLATE ONTOLOGY
@@ -32,7 +33,7 @@ export const getAvailableTemplates = query({
       args.organizationId
     );
     if (!hasPermission) {
-      throw new Error("Permission denied: view_templates required");
+      throw new Error(PERMISSION_ERRORS.view_templates);
     }
 
     // Get system organization
@@ -586,7 +587,7 @@ export const listPdfTicketTemplates = query({
       args.organizationId
     );
     if (!hasPermission) {
-      throw new Error("Permission denied: view_templates required");
+      throw new Error(PERMISSION_ERRORS.view_templates);
     }
 
     // Get system organization
@@ -821,7 +822,7 @@ export const getTemplateById = query({
       template.organizationId
     );
     if (!hasPermission) {
-      throw new Error("Permission denied: view_templates required");
+      throw new Error(PERMISSION_ERRORS.view_templates);
     }
 
     return template;
@@ -851,7 +852,7 @@ export const getUserTemplates = query({
       args.organizationId
     );
     if (!hasPermission) {
-      throw new Error("Permission denied: view_templates required");
+      throw new Error(PERMISSION_ERRORS.view_templates);
     }
 
     // Get all templates for this organization
@@ -906,7 +907,7 @@ export const getAllTemplatesIncludingSystem = query({
       args.organizationId
     );
     if (!hasPermission) {
-      throw new Error("Permission denied: view_templates required");
+      throw new Error(PERMISSION_ERRORS.view_templates);
     }
 
     // Get system organization

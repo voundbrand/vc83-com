@@ -22,7 +22,7 @@ The complete tax integration system is now implemented and ready for use! This i
 - Supports inclusive, exclusive, and automatic tax behaviors
 - Handles multiple items with mixed taxable status
 - Real-time calculation based on tax rate and behavior
-- Clean, retro-styled UI matching L4YERCAK3.com aesthetic
+- Clean, retro-styled UI matching l4yercak3.com aesthetic
 
 **Usage:**
 ```tsx

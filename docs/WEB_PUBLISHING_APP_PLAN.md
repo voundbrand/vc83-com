@@ -69,7 +69,7 @@ Makes ANY object accessible via public URL.
     slug: "vip-tickets-2024",           // URL: /p/{org-slug}/vip-tickets-2024
 
     // SEO Metadata
-    metaTitle: "VIP Tickets - L4YERCAK3 Live 2024",
+    metaTitle: "VIP Tickets - l4yercak3 Live 2024",
     metaDescription: "Get exclusive VIP access...",
     metaKeywords: ["vip", "tickets", "live event"],
     ogImage: "https://...",
@@ -99,7 +99,7 @@ Makes ANY object accessible via public URL.
     customCss: ".btn { color: red; }",
     customJs: "console.log('Page loaded')",
     headerHtml: "<script>...</script>",
-    footerHtml: "© 2024 L4YERCAK3",
+    footerHtml: "© 2024 l4yercak3",
 
     // Template/Theme
     templateId: "minimal-checkout",
@@ -779,7 +779,7 @@ const eventPage = await createPublishedPage({
   linkedObjectId: eventId,
   linkedObjectType: "event",
   slug: "l4yercak3-live-2024",
-  metaTitle: "L4YERCAK3 Live 2024",
+  metaTitle: "l4yercak3 Live 2024",
   // ...
 });
 

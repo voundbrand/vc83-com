@@ -28,7 +28,7 @@ import {
 } from "@simplewebauthn/server";
 
 // Relying Party configuration
-const RP_NAME = "L4YERCAK3";
+const RP_NAME = "l4yercak3";
 
 /**
  * Convert Uint8Array to base64url string (without Buffer)

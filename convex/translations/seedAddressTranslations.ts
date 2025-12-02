@@ -45,9 +45,9 @@ export const seed = internalMutation({
       {
         key: "org.address.headquarters.name",
         values: {
-          en: "L4YERCAK3 Headquarters",
-          de: "L4YERCAK3 Hauptsitz",
-          pl: "L4YERCAK3 Siedziba główna",
+          en: "l4yercak3 Headquarters",
+          de: "l4yercak3 Hauptsitz",
+          pl: "l4yercak3 Siedziba główna",
         }
       },
       {
@@ -71,9 +71,9 @@ export const seed = internalMutation({
       {
         key: "org.address.billing.name",
         values: {
-          en: "L4YERCAK3 Billing Address",
-          de: "L4YERCAK3 Rechnungsadresse",
-          pl: "L4YERCAK3 Adres rozliczeniowy",
+          en: "l4yercak3 Billing Address",
+          de: "l4yercak3 Rechnungsadresse",
+          pl: "l4yercak3 Adres rozliczeniowy",
         }
       },
       {

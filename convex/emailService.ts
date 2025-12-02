@@ -31,10 +31,10 @@ export const sendInvitationEmail = internalAction({
     const resend = createResendClient();
     // AUTH_RESEND_FROM should already be in the format "Name <email@domain.com>" or "email@domain.com"
     // Use 'team' or 'support' instead of 'noreply' for better deliverability
-    const fromEmail = process.env.AUTH_RESEND_FROM || "L4YERCAK3 <team@mail.l4yercak3.com>";
+    const fromEmail = process.env.AUTH_RESEND_FROM || "l4yercak3 <team@mail.l4yercak3.com>";
 
     const subject = args.isNewUser
-      ? `Du wurdest zu ${args.organizationName} auf L4YERCAK3 eingeladen`
+      ? `Du wurdest zu ${args.organizationName} auf l4yercak3 eingeladen`
       : `Du wurdest zu ${args.organizationName} hinzugefügt`;
 
     const html = args.isNewUser
@@ -93,7 +93,7 @@ export const sendAISubscriptionConfirmation = internalAction({
   },
   handler: async (ctx, args) => {
     const resend = createResendClient();
-    const fromEmail = process.env.AUTH_RESEND_FROM || "L4YERCAK3 <team@mail.l4yercak3.com>";
+    const fromEmail = process.env.AUTH_RESEND_FROM || "l4yercak3 <team@mail.l4yercak3.com>";
 
     // Format price
     const formatPrice = (cents: number, currency: string) => {
@@ -182,7 +182,7 @@ export const sendAISubscriptionConfirmation = internalAction({
             </p>
           </div>
           <div class="footer">
-            <p>L4YERCAK3 AI Platform</p>
+            <p>l4yercak3 AI Platform</p>
             <p>${args.language === "de"
               ? "Bei Fragen kontaktieren Sie uns unter team@mail.l4yercak3.com"
               : "For questions, contact us at team@mail.l4yercak3.com"}</p>
@@ -234,7 +234,7 @@ export const sendSalesNotification = internalAction({
   },
   handler: async (ctx, args) => {
     const resend = createResendClient();
-    const fromEmail = process.env.AUTH_RESEND_FROM || "L4YERCAK3 <team@mail.l4yercak3.com>";
+    const fromEmail = process.env.AUTH_RESEND_FROM || "l4yercak3 <team@mail.l4yercak3.com>";
     const salesEmail = process.env.SALES_EMAIL || "team@mail.l4yercak3.com";
 
     const formatPrice = (cents: number, currency: string) => {
@@ -326,7 +326,7 @@ export const sendPasswordResetEmail = internalAction({
     const resend = createResendClient();
     // AUTH_RESEND_FROM should already be in the format "Name <email@domain.com>" or "email@domain.com"
     // Use 'team' or 'support' instead of 'noreply' for better deliverability
-    const fromEmail = process.env.AUTH_RESEND_FROM || "L4YERCAK3 <team@mail.l4yercak3.com>";
+    const fromEmail = process.env.AUTH_RESEND_FROM || "l4yercak3 <team@mail.l4yercak3.com>";
 
     const html = getPasswordResetEmail({
       userName: args.userName,
@@ -343,7 +343,7 @@ export const sendPasswordResetEmail = internalAction({
         from: fromEmail, // Use the value directly, don't wrap it again
         replyTo: process.env.REPLY_TO_EMAIL || "team@mail.l4yercak3.com", // Allow users to reply (better deliverability)
         to: args.to,
-        subject: "Reset your L4YERCAK3 password",
+        subject: "Reset your l4yercak3 password",
         html,
         text, // Include plain text version to avoid spam filters
         headers: {
@@ -381,7 +381,7 @@ export const sendContactFormEmail = action({
   },
   handler: async (ctx, args) => {
     const resend = createResendClient();
-    const fromEmail = process.env.AUTH_RESEND_FROM || "L4YERCAK3 <team@mail.l4yercak3.com>";
+    const fromEmail = process.env.AUTH_RESEND_FROM || "l4yercak3 <team@mail.l4yercak3.com>";
     const salesEmail = process.env.SALES_EMAIL || "remington@l4yercak3.com";
 
     // Sales notification is always in English
@@ -570,16 +570,16 @@ function getNewUserInvitationEmail(args: {
 <body>
   <div class="container">
     <div class="header">
-      <h1>L4YERCAK3</h1>
+      <h1>l4yercak3</h1>
     </div>
 
     <div class="content">
-      <div class="greeting">Willkommen bei L4YERCAK3! 🎉</div>
+      <div class="greeting">Willkommen bei l4yercak3! 🎉</div>
 
       <div class="message">
-        <p><strong>${args.inviterName}</strong> hat dich zu <strong>${args.organizationName}</strong> auf L4YERCAK3 eingeladen.</p>
+        <p><strong>${args.inviterName}</strong> hat dich zu <strong>${args.organizationName}</strong> auf l4yercak3 eingeladen.</p>
 
-        <p>L4YERCAK3 (ausgesprochen "Layer Cake") ist eine B2B-Workflow-Plattform, die Unternehmen hilft, ihre Abläufe zu optimieren. Wir bringen alle digitalen Tools zusammen, die dein Unternehmen braucht—CRM, E-Mail-Workflows, Rechnungsstellung, Projektmanagement, Formular-Builder und mehr—in einem integrierten Arbeitsbereich mit KI-gestützter Automatisierung.</p>
+        <p>l4yercak3 (ausgesprochen "Layer Cake") ist eine B2B-Workflow-Plattform, die Unternehmen hilft, ihre Abläufe zu optimieren. Wir bringen alle digitalen Tools zusammen, die dein Unternehmen braucht—CRM, E-Mail-Workflows, Rechnungsstellung, Projektmanagement, Formular-Builder und mehr—in einem integrierten Arbeitsbereich mit KI-gestützter Automatisierung.</p>
 
         <p>Jedes Tool ist eine "Schicht", die nahtlos mit den anderen zusammenarbeitet, sodass deine Kundendaten zwischen deinem CRM, Rechnungen, E-Mail-Kampagnen und Projekten fließen. Kein Wechseln mehr zwischen Dutzenden separater Tools.</p>
 
@@ -594,7 +594,7 @@ function getNewUserInvitationEmail(args: {
       </div>
 
       <div class="button-wrapper">
-        <a href="${args.setupLink}" class="button">L4YERCAK3 besuchen</a>
+        <a href="${args.setupLink}" class="button">l4yercak3 besuchen</a>
       </div>
 
       <div class="divider"></div>
@@ -606,7 +606,7 @@ function getNewUserInvitationEmail(args: {
 
     <div class="footer">
       <div class="footer-text">
-        © ${new Date().getFullYear()} L4YERCAK3. All rights reserved.<br>
+        © ${new Date().getFullYear()} l4yercak3. All rights reserved.<br>
         Layer on the superpowers. 🚀
       </div>
     </div>
@@ -723,14 +723,14 @@ function getExistingUserInvitationEmail(args: {
 <body>
   <div class="container">
     <div class="header">
-      <h1>L4YERCAK3</h1>
+      <h1>l4yercak3</h1>
     </div>
 
     <div class="content">
       <div class="greeting">Du bist jetzt in einer neuen Organisation! 🎯</div>
 
       <div class="message">
-        <p><strong>${args.inviterName}</strong> hat dich zu <strong>${args.organizationName}</strong> auf L4YERCAK3 hinzugefügt.</p>
+        <p><strong>${args.inviterName}</strong> hat dich zu <strong>${args.organizationName}</strong> auf l4yercak3 hinzugefügt.</p>
 
         <p>Du kannst jetzt auf den Arbeitsbereich dieser Organisation mit allen Apps und Daten zugreifen—CRM-Kontakte, Projekte, Rechnungen, E-Mail-Kampagnen und mehr. Alles ist bereit für dich.</p>
 
@@ -738,13 +738,13 @@ function getExistingUserInvitationEmail(args: {
       </div>
 
       <div class="button-wrapper">
-        <a href="${args.setupLink}" class="button">Bei L4YERCAK3 anmelden</a>
+        <a href="${args.setupLink}" class="button">Bei l4yercak3 anmelden</a>
       </div>
     </div>
 
     <div class="footer">
       <div class="footer-text">
-        © ${new Date().getFullYear()} L4YERCAK3. All rights reserved.<br>
+        © ${new Date().getFullYear()} l4yercak3. All rights reserved.<br>
         Layer on the superpowers. 🚀
       </div>
     </div>
@@ -874,14 +874,14 @@ function getPasswordResetEmail(args: {
 <body>
   <div class="container">
     <div class="header">
-      <h1>L4YERCAK3</h1>
+      <h1>l4yercak3</h1>
     </div>
 
     <div class="content">
       <div class="greeting">${greeting}</div>
 
       <div class="message">
-        <p>We received a request to reset your password for your L4YERCAK3 account. Click the button below to create a new password.</p>
+        <p>We received a request to reset your password for your l4yercak3 account. Click the button below to create a new password.</p>
       </div>
 
       <div class="button-wrapper">
@@ -897,7 +897,7 @@ function getPasswordResetEmail(args: {
 
     <div class="footer">
       <div class="footer-text">
-        © ${new Date().getFullYear()} L4YERCAK3. All rights reserved.<br>
+        © ${new Date().getFullYear()} l4yercak3. All rights reserved.<br>
         Layer on the superpowers. 🚀
       </div>
     </div>
@@ -1020,13 +1020,13 @@ function getContactFormEmail(args: {
 <body>
   <div class="container">
     <div class="header">
-      <h1>L4YERCAK3</h1>
+      <h1>l4yercak3</h1>
     </div>
 
     <div class="content">
       <div class="alert">
         <div class="alert-title">🚀 New Enterprise Sales Inquiry</div>
-        <div>A potential customer has contacted you through the L4YERCAK3 store.</div>
+        <div>A potential customer has contacted you through the l4yercak3 store.</div>
       </div>
 
       <div class="info-grid">
@@ -1066,7 +1066,7 @@ function getContactFormEmail(args: {
 
     <div class="footer">
       <div class="footer-text">
-        © ${new Date().getFullYear()} L4YERCAK3. All rights reserved.<br>
+        © ${new Date().getFullYear()} l4yercak3. All rights reserved.<br>
         Layer on the superpowers. 🚀
       </div>
     </div>
@@ -1088,10 +1088,10 @@ function getContactFormText(args: {
   productInterest?: string;
 }) {
   let text = `
-L4YERCAK3 - New Enterprise Sales Inquiry
+l4yercak3 - New Enterprise Sales Inquiry
 =========================================
 
-A potential customer has contacted you through the L4YERCAK3 store.
+A potential customer has contacted you through the l4yercak3 store.
 
 Contact Information:
 --------------------
@@ -1112,7 +1112,7 @@ Email: ${args.email}
     text += `\nMessage:\n--------\n${args.message}\n`;
   }
 
-  text += `\n---\nReply directly to this email to respond to ${args.name}.\n\n© ${new Date().getFullYear()} L4YERCAK3 - Layer on the superpowers. 🚀`;
+  text += `\n---\nReply directly to this email to respond to ${args.name}.\n\n© ${new Date().getFullYear()} l4yercak3 - Layer on the superpowers. 🚀`;
 
   return text;
 }
@@ -1122,7 +1122,7 @@ Email: ${args.email}
  */
 function getConfirmationSubject(locale: string): string {
   const subjects: Record<string, string> = {
-    en: "Thanks for contacting L4YERCAK3! We'll be in touch soon.",
+    en: "Thanks for contacting l4yercak3! We'll be in touch soon.",
     de: "Vielen Dank für Ihre Kontaktaufnahme! Wir melden uns bald.",
     pl: "Dziękujemy za kontakt! Wkrótce się odezwiemy.",
     es: "¡Gracias por contactarnos! Nos pondremos en contacto pronto.",
@@ -1159,11 +1159,11 @@ function getContactFormConfirmationEmail(
   }> = {
     en: {
       greeting: `Hi ${args.name}! 👋`,
-      thanks: "Thanks for reaching out to L4YERCAK3!",
+      thanks: "Thanks for reaching out to l4yercak3!",
       received: `I've received your inquiry from <strong>${args.company}</strong> and I'm excited to learn more about your needs.`,
       details: "Here's what I have on file:",
       response: "I'll review your request and get back to you within 24 hours. If you need to reach me sooner, feel free to:",
-      meanwhile: "In the meantime, feel free to explore more about L4YERCAK3 at",
+      meanwhile: "In the meantime, feel free to explore more about l4yercak3 at",
       email: "Email me directly",
       phone: "Call me",
       calendar: "Book a time on my calendar",
@@ -1171,11 +1171,11 @@ function getContactFormConfirmationEmail(
     },
     de: {
       greeting: `Hallo ${args.name}! 👋`,
-      thanks: "Vielen Dank für Ihre Kontaktaufnahme zu L4YERCAK3!",
+      thanks: "Vielen Dank für Ihre Kontaktaufnahme zu l4yercak3!",
       received: `Ich habe Ihre Anfrage von <strong>${args.company}</strong> erhalten und freue mich darauf, mehr über Ihre Bedürfnisse zu erfahren.`,
       details: "Folgende Informationen habe ich aufgenommen:",
       response: "Ich werde Ihre Anfrage prüfen und mich innerhalb von 24 Stunden bei Ihnen melden. Wenn Sie mich früher erreichen möchten, können Sie gerne:",
-      meanwhile: "In der Zwischenzeit können Sie gerne mehr über L4YERCAK3 erfahren unter",
+      meanwhile: "In der Zwischenzeit können Sie gerne mehr über l4yercak3 erfahren unter",
       email: "Schreiben Sie mir direkt",
       phone: "Rufen Sie mich an",
       calendar: "Buchen Sie einen Termin in meinem Kalender",
@@ -1183,11 +1183,11 @@ function getContactFormConfirmationEmail(
     },
     pl: {
       greeting: `Cześć ${args.name}! 👋`,
-      thanks: "Dziękujemy za skontaktowanie się z L4YERCAK3!",
+      thanks: "Dziękujemy za skontaktowanie się z l4yercak3!",
       received: `Otrzymałem Twoje zapytanie z <strong>${args.company}</strong> i chętnie dowiem się więcej o Twoich potrzebach.`,
       details: "Oto co mam w dokumentacji:",
       response: "Przejrzę Twoje zapytanie i skontaktuję się z Tobą w ciągu 24 godzin. Jeśli chcesz się skontaktować wcześniej, możesz:",
-      meanwhile: "W międzyczasie możesz dowiedzieć się więcej o L4YERCAK3 na",
+      meanwhile: "W międzyczasie możesz dowiedzieć się więcej o l4yercak3 na",
       email: "Napisz do mnie bezpośrednio",
       phone: "Zadzwoń do mnie",
       calendar: "Zarezerwuj czas w moim kalendarzu",
@@ -1195,11 +1195,11 @@ function getContactFormConfirmationEmail(
     },
     es: {
       greeting: `¡Hola ${args.name}! 👋`,
-      thanks: "¡Gracias por ponerte en contacto con L4YERCAK3!",
+      thanks: "¡Gracias por ponerte en contacto con l4yercak3!",
       received: `He recibido tu consulta de <strong>${args.company}</strong> y estoy emocionado de aprender más sobre tus necesidades.`,
       details: "Esto es lo que tengo registrado:",
       response: "Revisaré tu solicitud y me pondré en contacto contigo en 24 horas. Si necesitas contactarme antes, no dudes en:",
-      meanwhile: "Mientras tanto, puedes explorar más sobre L4YERCAK3 en",
+      meanwhile: "Mientras tanto, puedes explorar más sobre l4yercak3 en",
       email: "Envíame un correo directo",
       phone: "Llámame",
       calendar: "Reserva una hora en mi calendario",
@@ -1207,11 +1207,11 @@ function getContactFormConfirmationEmail(
     },
     fr: {
       greeting: `Salut ${args.name}! 👋`,
-      thanks: "Merci de nous avoir contactés chez L4YERCAK3!",
+      thanks: "Merci de nous avoir contactés chez l4yercak3!",
       received: `J'ai reçu votre demande de <strong>${args.company}</strong> et je suis ravi d'en savoir plus sur vos besoins.`,
       details: "Voici ce que j'ai enregistré:",
       response: "Je vais examiner votre demande et vous répondre dans les 24 heures. Si vous avez besoin de me joindre plus tôt, n'hésitez pas à:",
-      meanwhile: "En attendant, n'hésitez pas à explorer plus sur L4YERCAK3 à",
+      meanwhile: "En attendant, n'hésitez pas à explorer plus sur l4yercak3 à",
       email: "M'envoyer un e-mail directement",
       phone: "M'appeler",
       calendar: "Réserver un créneau dans mon agenda",
@@ -1219,11 +1219,11 @@ function getContactFormConfirmationEmail(
     },
     ja: {
       greeting: `こんにちは、${args.name}さん！👋`,
-      thanks: "L4YERCAK3へのお問い合わせありがとうございます！",
+      thanks: "l4yercak3へのお問い合わせありがとうございます！",
       received: `<strong>${args.company}</strong>からのお問い合わせを受け取りました。お客様のニーズについて詳しく知ることを楽しみにしています。`,
       details: "以下の情報を記録しております：",
       response: "24時間以内にご返信させていただきます。お急ぎの場合は、以下の方法でご連絡ください：",
-      meanwhile: "それまでの間、L4YERCAK3について詳しくは、以下をご覧ください",
+      meanwhile: "それまでの間、l4yercak3について詳しくは、以下をご覧ください",
       email: "直接メールを送る",
       phone: "電話をかける",
       calendar: "カレンダーで予約する",
@@ -1333,7 +1333,7 @@ function getContactFormConfirmationEmail(
 <body>
   <div class="container">
     <div class="header">
-      <h1>L4YERCAK3</h1>
+      <h1>l4yercak3</h1>
     </div>
 
     <div class="content">
@@ -1363,13 +1363,13 @@ function getContactFormConfirmationEmail(
       <div class="message">
         <p>${s.meanwhile} <a href="https://l4yercak3.com" style="color: #6B46C1;">l4yercak3.com</a></p>
         <p style="margin-top: 30px;"><strong>${s.signature}</strong></p>
-        <p style="margin-top: 10px;"><strong>- Remington Splettstoesser</strong><br>Founder, L4YERCAK3</p>
+        <p style="margin-top: 10px;"><strong>- Remington Splettstoesser</strong><br>Founder, l4yercak3</p>
       </div>
     </div>
 
     <div class="footer">
       <div class="footer-text">
-        © ${new Date().getFullYear()} L4YERCAK3. All rights reserved.<br>
+        © ${new Date().getFullYear()} l4yercak3. All rights reserved.<br>
         Layer on the superpowers. 🚀
       </div>
     </div>
@@ -1402,70 +1402,70 @@ function getContactFormConfirmationText(
   }> = {
     en: {
       greeting: `Hi ${args.name}!`,
-      thanks: "Thanks for reaching out to L4YERCAK3!",
+      thanks: "Thanks for reaching out to l4yercak3!",
       received: `I've received your inquiry from ${args.company} and I'm excited to learn more about your needs.`,
       details: "Here's what I have on file:",
       response: "I'll review your request and get back to you within 24 hours.",
       contactInfo: "If you need to reach me sooner:\n- Email: remington@l4yercak3.com\n- Phone: +49 151 404 27 103\n- Calendar: https://cal.com/voundbrand/open-end-meeting",
       website: "Learn more at: https://l4yercak3.com",
-      signature: "Looking forward to working with you!\n\n- Remington Splettstoesser\nFounder, L4YERCAK3",
+      signature: "Looking forward to working with you!\n\n- Remington Splettstoesser\nFounder, l4yercak3",
     },
     de: {
       greeting: `Hallo ${args.name}!`,
-      thanks: "Vielen Dank für Ihre Kontaktaufnahme zu L4YERCAK3!",
+      thanks: "Vielen Dank für Ihre Kontaktaufnahme zu l4yercak3!",
       received: `Ich habe Ihre Anfrage von ${args.company} erhalten und freue mich darauf, mehr über Ihre Bedürfnisse zu erfahren.`,
       details: "Folgende Informationen habe ich aufgenommen:",
       response: "Ich werde Ihre Anfrage prüfen und mich innerhalb von 24 Stunden bei Ihnen melden.",
       contactInfo: "Wenn Sie mich früher erreichen möchten:\n- E-Mail: remington@l4yercak3.com\n- Telefon: +49 151 404 27 103\n- Kalender: https://cal.com/voundbrand/open-end-meeting",
       website: "Mehr erfahren unter: https://l4yercak3.com",
-      signature: "Ich freue mich auf die Zusammenarbeit mit Ihnen!\n\n- Remington Splettstoesser\nGründer, L4YERCAK3",
+      signature: "Ich freue mich auf die Zusammenarbeit mit Ihnen!\n\n- Remington Splettstoesser\nGründer, l4yercak3",
     },
     pl: {
       greeting: `Cześć ${args.name}!`,
-      thanks: "Dziękujemy za skontaktowanie się z L4YERCAK3!",
+      thanks: "Dziękujemy za skontaktowanie się z l4yercak3!",
       received: `Otrzymałem Twoje zapytanie z ${args.company} i chętnie dowiem się więcej o Twoich potrzebach.`,
       details: "Oto co mam w dokumentacji:",
       response: "Przejrzę Twoje zapytanie i skontaktuję się z Tobą w ciągu 24 godzin.",
       contactInfo: "Jeśli chcesz się skontaktować wcześniej:\n- Email: remington@l4yercak3.com\n- Telefon: +49 151 404 27 103\n- Kalendarz: https://cal.com/voundbrand/open-end-meeting",
       website: "Dowiedz się więcej na: https://l4yercak3.com",
-      signature: "Nie mogę się doczekać współpracy z Tobą!\n\n- Remington Splettstoesser\nZałożyciel, L4YERCAK3",
+      signature: "Nie mogę się doczekać współpracy z Tobą!\n\n- Remington Splettstoesser\nZałożyciel, l4yercak3",
     },
     es: {
       greeting: `¡Hola ${args.name}!`,
-      thanks: "¡Gracias por ponerte en contacto con L4YERCAK3!",
+      thanks: "¡Gracias por ponerte en contacto con l4yercak3!",
       received: `He recibido tu consulta de ${args.company} y estoy emocionado de aprender más sobre tus necesidades.`,
       details: "Esto es lo que tengo registrado:",
       response: "Revisaré tu solicitud y me pondré en contacto contigo en 24 horas.",
       contactInfo: "Si necesitas contactarme antes:\n- Email: remington@l4yercak3.com\n- Teléfono: +49 151 404 27 103\n- Calendario: https://cal.com/voundbrand/open-end-meeting",
       website: "Más información en: https://l4yercak3.com",
-      signature: "¡Espero trabajar contigo!\n\n- Remington Splettstoesser\nFundador, L4YERCAK3",
+      signature: "¡Espero trabajar contigo!\n\n- Remington Splettstoesser\nFundador, l4yercak3",
     },
     fr: {
       greeting: `Salut ${args.name}!`,
-      thanks: "Merci de nous avoir contactés chez L4YERCAK3!",
+      thanks: "Merci de nous avoir contactés chez l4yercak3!",
       received: `J'ai reçu votre demande de ${args.company} et je suis ravi d'en savoir plus sur vos besoins.`,
       details: "Voici ce que j'ai enregistré:",
       response: "Je vais examiner votre demande et vous répondre dans les 24 heures.",
       contactInfo: "Si vous avez besoin de me joindre plus tôt:\n- Email: remington@l4yercak3.com\n- Téléphone: +49 151 404 27 103\n- Agenda: https://cal.com/voundbrand/open-end-meeting",
       website: "En savoir plus sur: https://l4yercak3.com",
-      signature: "Au plaisir de travailler avec vous!\n\n- Remington Splettstoesser\nFondateur, L4YERCAK3",
+      signature: "Au plaisir de travailler avec vous!\n\n- Remington Splettstoesser\nFondateur, l4yercak3",
     },
     ja: {
       greeting: `こんにちは、${args.name}さん！`,
-      thanks: "L4YERCAK3へのお問い合わせありがとうございます！",
+      thanks: "l4yercak3へのお問い合わせありがとうございます！",
       received: `${args.company}からのお問い合わせを受け取りました。お客様のニーズについて詳しく知ることを楽しみにしています。`,
       details: "以下の情報を記録しております：",
       response: "24時間以内にご返信させていただきます。",
       contactInfo: "お急ぎの場合は、以下の方法でご連絡ください：\n- メール: remington@l4yercak3.com\n- 電話: +49 151 404 27 103\n- カレンダー: https://cal.com/voundbrand/open-end-meeting",
       website: "詳しくは: https://l4yercak3.com",
-      signature: "お取引を楽しみにしております！\n\n- Remington Splettstoesser\n創設者, L4YERCAK3",
+      signature: "お取引を楽しみにしております！\n\n- Remington Splettstoesser\n創設者, l4yercak3",
     },
   };
 
   const s = strings[locale] || strings.en;
 
   return `
-L4YERCAK3
+l4yercak3
 =========
 
 ${s.greeting}
@@ -1489,6 +1489,6 @@ ${s.website}
 ${s.signature}
 
 ---
-© ${new Date().getFullYear()} L4YERCAK3 - Layer on the superpowers. 🚀
+© ${new Date().getFullYear()} l4yercak3 - Layer on the superpowers. 🚀
   `.trim();
 }

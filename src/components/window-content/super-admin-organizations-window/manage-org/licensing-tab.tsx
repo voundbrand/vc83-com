@@ -17,6 +17,9 @@ import {
   Crown,
   Settings
 } from "lucide-react";
+import { ManualSubscriptionGrant } from "./components/manual-subscription-grant";
+import { TokenPackIssuance } from "./components/token-pack-issuance";
+import { ManualGrantsHistory } from "./components/manual-grants-history";
 
 interface LicensingTabProps {
   organizationId: Id<"organizations">;
@@ -204,6 +207,24 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
           </div>
         )}
       </div>
+
+      {/* NEW: Manual Subscription Grant */}
+      <ManualSubscriptionGrant
+        organizationId={organizationId}
+        sessionId={sessionId}
+      />
+
+      {/* NEW: Token Pack Issuance */}
+      <TokenPackIssuance
+        organizationId={organizationId}
+        sessionId={sessionId}
+      />
+
+      {/* NEW: Manual Grants History */}
+      <ManualGrantsHistory
+        organizationId={organizationId}
+        sessionId={sessionId}
+      />
 
       {/* Quota Overrides */}
       <div

@@ -79,7 +79,7 @@ export const fetchAvailableModels = internalAction({
         headers: {
           "Authorization": `Bearer ${apiKey}`,
           "HTTP-Referer": process.env.OPENROUTER_SITE_URL || "https://app.l4yercak3.com",
-          "X-Title": process.env.OPENROUTER_APP_NAME || "L4YERCAK3 Platform",
+          "X-Title": process.env.OPENROUTER_APP_NAME || "l4yercak3 Platform",
         },
       });
 

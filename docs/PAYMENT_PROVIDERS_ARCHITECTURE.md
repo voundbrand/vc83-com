@@ -2,7 +2,7 @@
 
 ## Overview
 
-The L4YERCAK3.com platform uses a **dual payment provider architecture** that separates backend payment operations from frontend checkout integrations. This separation provides clear boundaries, better maintainability, and allows each system to evolve independently.
+The l4yercak3.com platform uses a **dual payment provider architecture** that separates backend payment operations from frontend checkout integrations. This separation provides clear boundaries, better maintainability, and allows each system to evolve independently.
 
 ## Architecture Diagram
 

@@ -1,8 +1,8 @@
-# What is L4YERCAK3?
+# What is l4yercak3?
 
 ## Overview
 
-L4YERCAK3 (pronounced "Layer Cake") is a **B2B workflow platform** that helps businesses of all shapes and sizes streamline their operations through AI-powered tools and integrated applications.
+l4yercak3 (pronounced "Layer Cake") is a **B2B workflow platform** that helps businesses of all shapes and sizes streamline their operations through AI-powered tools and integrated applications.
 
 ## The Layer Cake Concept
 
@@ -16,7 +16,7 @@ The name "Layer Cake" represents our core philosophy: **layer individual applica
 
 ## Core Capabilities
 
-L4YERCAK3 provides the essential digital tools every modern business needs:
+l4yercak3 provides the essential digital tools every modern business needs:
 
 ### Customer Management
 - **CRM**: Customer relationship management

@@ -348,7 +348,7 @@ export const sendSalesNotificationEmail = internalAction({
     <!-- Footer -->
     <div style="padding: 24px; background-color: #f9fafb; text-align: center; border-top: 1px solid #e5e7eb;">
       <p style="margin: 0; color: #6b7280; font-size: 12px;">
-        This is an automated sales notification from ${organization.name || 'L4YERCAK3'}
+        This is an automated sales notification from ${organization.name || 'l4yercak3'}
       </p>
     </div>
   </div>

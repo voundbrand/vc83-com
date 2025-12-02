@@ -22,23 +22,23 @@ const pressStart2P = Press_Start_2P({
 });
 
 export const metadata: Metadata = {
-  title: "L4YERCAK3 - Where Creativity Meets Technology",
+  title: "l4yercak3 - Where Creativity Meets Technology",
   description: "We stand at the forefront of a new era, where creativity meets technology to redefine what's possible. Modern web solutions combining design creativity with cutting-edge innovation.",
   keywords: ["web development", "creative technology", "innovation", "modern web solutions", "l4yercak3"],
-  authors: [{ name: "L4YERCAK3" }],
-  creator: "L4YERCAK3",
-  publisher: "L4YERCAK3",
+  authors: [{ name: "l4yercak3" }],
+  creator: "l4yercak3",
+  publisher: "l4yercak3",
   openGraph: {
     type: "website",
     locale: "en_US",
     url: "https://l4yercak3.com",
-    siteName: "L4YERCAK3",
-    title: "L4YERCAK3 - Where Creativity Meets Technology",
+    siteName: "l4yercak3",
+    title: "l4yercak3 - Where Creativity Meets Technology",
     description: "We stand at the forefront of a new era, where creativity meets technology to redefine what's possible.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "L4YERCAK3 - Where Creativity Meets Technology",
+    title: "l4yercak3 - Where Creativity Meets Technology",
     description: "We stand at the forefront of a new era, where creativity meets technology to redefine what's possible.",
   },
   icons: {

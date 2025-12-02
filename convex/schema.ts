@@ -7,7 +7,7 @@
  * Structure:
  * 1. Core platform (users, organizations, memberships)
  * 2. App Store (apps registry, installations, purchases)
- * 3. Individual Apps (L4YERCAK3pod, etc. - each is self-contained)
+ * 3. Individual Apps (l4yercak3pod, etc. - each is self-contained)
  * 4. Utilities (audit logs)
  */
 
@@ -67,6 +67,12 @@ import {
   aiBudgetAlerts,
   aiBillingEvents
 } from "./schemas/aiBillingSchemas";
+
+// 👤 USER QUOTA SCHEMAS (Phase 1: Foundation for per-user limits)
+import { userAIQuotas } from "./schemas/userQuotaSchemas";
+
+// 💾 STORAGE TRACKING SCHEMAS (Organization + per-user storage)
+import { organizationStorage, userStorageQuotas } from "./schemas/storageSchemas";
 
 /**
  * MAIN SCHEMA EXPORT
@@ -137,6 +143,13 @@ export default defineSchema({
   aiTokenPurchases,      // Token pack purchase history (with VAT breakdown)
   aiBudgetAlerts,        // Budget alert history and acknowledgments
   aiBillingEvents,       // Audit log for billing operations
+
+  // 👤 USER QUOTAS: Per-user limits foundation (Phase 1: tracking only, Phase 4: enforcement)
+  userAIQuotas,          // Per-user monthly AI token limits
+
+  // 💾 STORAGE TRACKING: Organization + per-user storage metrics
+  organizationStorage,   // Aggregated storage per organization
+  userStorageQuotas,     // Per-user storage limits (Phase 1: tracking only)
 
   // ❌ OLD TRANSLATIONS - Replaced by ontology
   // systemTranslations,

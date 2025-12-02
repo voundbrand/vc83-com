@@ -2,7 +2,7 @@
 
 ## Overview
 
-L4YERCAK3.com uses a comprehensive Role-Based Access Control (RBAC) system to manage what users can do within the platform. This guide explains the different roles, their permissions, and how role assignment works.
+l4yercak3.com uses a comprehensive Role-Based Access Control (RBAC) system to manage what users can do within the platform. This guide explains the different roles, their permissions, and how role assignment works.
 
 ---
 

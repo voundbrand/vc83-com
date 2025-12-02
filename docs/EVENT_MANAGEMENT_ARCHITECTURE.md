@@ -23,7 +23,7 @@
 
 ### 🎯 Vision
 
-Build a comprehensive event management and project management suite within L4YERCAK3 that provides:
+Build a comprehensive event management and project management suite within l4yercak3 that provides:
 
 - **Event Management**: Complete event lifecycle management with tickets, attendees, and agendas
 - **CRM Integration**: Customer/contact management that powers event invitations
@@ -280,7 +280,7 @@ All data is stored in the `objects` table with different `type` and `subtype` va
   name: "Acme Corp",
   description: "Global technology solutions provider",
   status: "active" | "inactive" | "archived",
-  organizationId: v.id("organizations"), // The L4YERCAK3 org that owns this CRM record
+  organizationId: v.id("organizations"), // The l4yercak3 org that owns this CRM record
   customProperties: {
     industry: "Technology",
     companySize: "500-1000",

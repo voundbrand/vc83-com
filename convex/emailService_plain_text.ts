@@ -10,15 +10,15 @@ export function getNewUserInvitationText(args: {
   setupLink: string;
 }) {
   return `
-L4YERCAK3 - Team Invitation
+l4yercak3 - Team Invitation
 
-Welcome to L4YERCAK3!
+Welcome to l4yercak3!
 
-${args.inviterName} has invited you to join ${args.organizationName} on L4YERCAK3.
+${args.inviterName} has invited you to join ${args.organizationName} on l4yercak3.
 
-What is L4YERCAK3?
+What is l4yercak3?
 
-L4YERCAK3 (pronounced "Layer Cake") is a B2B workflow platform that helps businesses streamline their operations. We bring together all the digital tools your business needs—CRM, email workflows, invoicing, project management, form builders, and more—into one integrated workspace with AI-powered automation.
+l4yercak3 (pronounced "Layer Cake") is a B2B workflow platform that helps businesses streamline their operations. We bring together all the digital tools your business needs—CRM, email workflows, invoicing, project management, form builders, and more—into one integrated workspace with AI-powered automation.
 
 Each tool is a "layer" that works seamlessly with the others, so your customer data flows between your CRM, invoices, email campaigns, and projects. No more switching between dozens of separate tools.
 
@@ -33,7 +33,7 @@ This link will take you to a secure page where you can create your password and 
 
 If you have any questions, please don't hesitate to reach out to ${args.inviterName} or our support team.
 
-© ${new Date().getFullYear()} L4YERCAK3. All rights reserved.
+© ${new Date().getFullYear()} l4yercak3. All rights reserved.
 Layer on the superpowers.
 
 If you received this email by mistake, you can safely ignore it.
@@ -50,13 +50,13 @@ export function getExistingUserInvitationText(args: {
   setupLink: string;
 }) {
   return `
-L4YERCAK3 - New Organization Access
+l4yercak3 - New Organization Access
 
 Hello!
 
-${args.inviterName} has added you to ${args.organizationName} on L4YERCAK3.
+${args.inviterName} has added you to ${args.organizationName} on l4yercak3.
 
-You already have a L4YERCAK3 account, so you can access this new organization immediately.
+You already have a l4yercak3 account, so you can access this new organization immediately.
 
 Access Your New Organization
 
@@ -68,7 +68,7 @@ Log in with your existing credentials, and you'll find ${args.organizationName} 
 
 If you have any questions, please contact ${args.inviterName}.
 
-© ${new Date().getFullYear()} L4YERCAK3. All rights reserved.
+© ${new Date().getFullYear()} l4yercak3. All rights reserved.
 Layer on the superpowers.
 
 If you received this email by mistake, you can safely ignore it.
@@ -85,11 +85,11 @@ export function getPasswordResetText(args: {
   const greeting = args.userName ? `Hello ${args.userName}` : "Hello";
 
   return `
-L4YERCAK3 - Password Reset Request
+l4yercak3 - Password Reset Request
 
 ${greeting},
 
-We received a request to reset your password for your L4YERCAK3 account.
+We received a request to reset your password for your l4yercak3 account.
 
 Reset Your Password
 
@@ -102,7 +102,7 @@ ${args.resetLink}
 
 ---
 
-© ${new Date().getFullYear()} L4YERCAK3. All rights reserved.
+© ${new Date().getFullYear()} l4yercak3. All rights reserved.
 Layer on the superpowers.
 
 If you have any questions about your account security, please contact our support team.

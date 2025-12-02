@@ -2,7 +2,7 @@
 
 ## Phase 1: Backend Event Structure
 
-This document explains how to configure your L4yerCak3 backend for the HaffSymposium event registration system.
+This document explains how to configure your l4yercak3 backend for the HaffSymposium event registration system.
 
 ---
 
@@ -10,7 +10,7 @@ This document explains how to configure your L4yerCak3 backend for the HaffSympo
 
 ### Create Event in Backend
 
-**Location:** L4yerCak3 Admin UI → Events → Create New Event
+**Location:** l4yercak3 Admin UI → Events → Create New Event
 
 **Event Configuration:**
 
@@ -119,7 +119,7 @@ This document explains how to configure your L4yerCak3 backend for the HaffSympo
 
 ### Create Workflow for Event Registrations
 
-**Location:** L4yerCak3 Admin UI → Workflows → Create New Workflow
+**Location:** l4yercak3 Admin UI → Workflows → Create New Workflow
 
 **Workflow Name:** HaffSymposium 2024 Registration
 
@@ -667,7 +667,7 @@ export const crmActivityLog: BehaviorHandler = {
 
 ## 6. Setup Checklist
 
-### In L4yerCak3 Backend:
+### In l4yercak3 Backend:
 
 - [ ] Create event object for HaffSymposium 2024
 - [ ] Configure registration categories and pricing
@@ -705,7 +705,7 @@ export const crmActivityLog: BehaviorHandler = {
 
 Once backend is configured:
 
-1. **Test the workflow** manually in L4yerCak3 admin
+1. **Test the workflow** manually in l4yercak3 admin
 2. **Verify API endpoints** return correct data
 3. **Move to Phase 2** - Build frontend events listing page
 

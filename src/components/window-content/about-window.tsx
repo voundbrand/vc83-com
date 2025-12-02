@@ -3,7 +3,7 @@
 /**
  * About Window - Static platform information
  *
- * Shows general information about the L4YERCAK3 platform.
+ * Shows general information about the l4yercak3 platform.
  * This is for non-logged-in users (guests).
  *
  * Future: Organizations can install an "About" app to create
@@ -14,7 +14,7 @@ export function AboutWindow() {
     <div className="flex flex-col h-full px-4 py-2 overflow-y-auto" style={{ background: 'var(--win95-bg)' }}>
       {/* Header */}
       <div className="text-center mb-6 pb-4 border-b-2" style={{ borderColor: 'var(--win95-border)' }}>
-        <h2 className="text-2xl font-bold mb-1" style={{ color: 'var(--win95-text)' }}>🍰 About L4YERCAK3</h2>
+        <h2 className="text-2xl font-bold mb-1" style={{ color: 'var(--win95-text)' }}>🍰 About l4yercak3</h2>
         <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>Stack Your Startup Tools Like a Pro</p>
       </div>
 
@@ -125,16 +125,16 @@ export function AboutWindow() {
           borderColor: 'var(--win95-border)'
         }}>
           <a
-            href="https://twitter.com/L4YERCAK3pod"
+            href="https://twitter.com/l4yercak3pod"
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm font-semibold underline"
             style={{ color: 'var(--win95-highlight)' }}
           >
-            @L4YERCAK3pod (Twitter)
+            @l4yercak3pod (Twitter)
           </a>
           <a
-            href="https://www.linkedin.com/company/L4YERCAK3"
+            href="https://www.linkedin.com/company/l4yercak3"
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm font-semibold underline"
@@ -143,7 +143,7 @@ export function AboutWindow() {
             LinkedIn
           </a>
           <a
-            href="https://open.spotify.com/show/L4YERCAK3"
+            href="https://open.spotify.com/show/l4yercak3"
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm font-semibold underline"
@@ -159,7 +159,7 @@ export function AboutWindow() {
         color: 'var(--neutral-gray)',
         borderColor: 'var(--win95-border)'
       }}>
-        Built for startups • Inspired by the &apos;90s • Powered by L4YERCAK3
+        Built for startups • Inspired by the &apos;90s • Powered by l4yercak3
       </div>
     </div>
   );

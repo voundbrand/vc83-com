@@ -58,12 +58,12 @@ export const seed = internalMutation({
       {
         key: "ui.contact_modal.founder_title",
         values: {
-          en: "Founder & CEO, L4YERCAK3",
-          de: "Gründer & CEO, L4YERCAK3",
-          pl: "Założyciel i CEO, L4YERCAK3",
-          es: "Fundador y CEO, L4YERCAK3",
-          fr: "Fondateur et PDG, L4YERCAK3",
-          ja: "創業者兼CEO、L4YERCAK3",
+          en: "Founder & CEO, l4yercak3",
+          de: "Gründer & CEO, l4yercak3",
+          pl: "Założyciel i CEO, l4yercak3",
+          es: "Fundador y CEO, l4yercak3",
+          fr: "Fondateur et PDG, l4yercak3",
+          ja: "創業者兼CEO、l4yercak3",
         }
       },
       {

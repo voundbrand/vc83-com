@@ -32,7 +32,7 @@ type TabType = "checkouts" | "create" | "templates" | "settings" | "analytics";
 export function CheckoutWindow() {
   const [activeTab, setActiveTab] = useState<TabType>("checkouts");
   const [editingInstanceId, setEditingInstanceId] = useState<Id<"objects"> | null>(null);
-  const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.checkout_window");
+  const { t, isLoading: translationsLoading} = useNamespaceTranslations("ui.checkout_window");
 
   // Check app availability
   const guard = useAppAvailabilityGuard({

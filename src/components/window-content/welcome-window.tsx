@@ -50,8 +50,8 @@ export function WelcomeWindow() {
       }}>
         <div>{t("ui.welcome.footer")}</div>
         <div>
-          {t("ui.welcome.footer_startup").split(/(L4YERCAK3|l4yercak3)/i).map((part, index) =>
-            /L4YERCAK3/i.test(part) ? (
+          {t("ui.welcome.footer_startup").split(/(l4yercak3|l4yercak3)/i).map((part, index) =>
+            /l4yercak3/i.test(part) ? (
               <span key={index} className="font-serif italic">{part}</span>
             ) : (
               <span key={index}>{part}</span>

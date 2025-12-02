@@ -1,4 +1,4 @@
-# L4YERCAK3 Complete System Architecture Diagram
+# l4yercak3 Complete System Architecture Diagram
 
 **Date:** 2025-10-10
 **Purpose:** Visual overview of the entire multi-app system
@@ -9,7 +9,7 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│                        L4YERCAK3 PLATFORM                             │
+│                        l4yercak3 PLATFORM                             │
 │                     (Multi-Tenant SaaS)                               │
 └──────────────────────────────────────────────────────────────────────┘
                                   │

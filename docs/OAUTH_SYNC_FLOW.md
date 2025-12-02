@@ -3,7 +3,7 @@
 This document explains how user authentication and data syncing works between three systems:
 1. **Gründungswerft Intranet** (OAuth provider - source of truth)
 2. **Frontend (Benefits Platform)** (Next.js app where members interact)
-3. **Backend (L4YERCAK3)** (Convex database with CRM data)
+3. **Backend (l4yercak3)** (Convex database with CRM data)
 
 ---
 
@@ -27,7 +27,7 @@ This document explains how user authentication and data syncing works between th
 │         │                             ▼                        │
 │         │                  ┌──────────────────┐               │
 │         │                  │     Backend      │               │
-│         └──────────────────┤   L4YERCAK3.com  │               │
+│         └──────────────────┤   l4yercak3.com  │               │
 │           (manual sync)    │    (Convex)      │               │
 │                            │                  │               │
 │                            │  - frontend_user │               │
@@ -303,9 +303,9 @@ Option B (Webhook - Future):
 |-----------|----------------|-----------|-------------|
 | **Authentication** | Gründungswerft Intranet | Frontend (session) | OAuth flow |
 | **User Identity** (email, name) | Gründungswerft Intranet | Backend (frontend_user) | API sync on login |
-| **CRM Contact** | Backend (L4YERCAK3) | - | Manual creation by admin |
-| **CRM Organization** | Backend (L4YERCAK3) | - | Manual creation by admin |
-| **Listings/Inserate** | Backend (L4YERCAK3) | - | Created by user via frontend |
+| **CRM Contact** | Backend (l4yercak3) | - | Manual creation by admin |
+| **CRM Organization** | Backend (l4yercak3) | - | Manual creation by admin |
+| **Listings/Inserate** | Backend (l4yercak3) | - | Created by user via frontend |
 
 ---
 

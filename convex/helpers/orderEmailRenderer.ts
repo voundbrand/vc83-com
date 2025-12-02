@@ -70,7 +70,7 @@ export function generateOrderConfirmationHtml(
     orderNumber,
     orderDate,
     primaryColor = "#d4af37", // Elegant gold (matches luxury template)
-    organizationName = "L4YERCAK3",
+    organizationName = "l4yercak3",
   } = data;
 
   const year = new Date().getFullYear();

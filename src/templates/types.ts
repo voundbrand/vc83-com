@@ -1,5 +1,5 @@
 /**
- * Template/Theme Types for L4YERCAK3.com
+ * Template/Theme Types for l4yercak3.com
  *
  * Defines interfaces for separating structure (templates) from appearance (themes).
  */

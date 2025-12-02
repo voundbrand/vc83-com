@@ -499,5 +499,5 @@ If critical issues arise:
 - [Stripe Metered Billing Guide](https://stripe.com/docs/billing/subscriptions/usage-based)
 - [Stripe Webhook Events Reference](https://stripe.com/docs/api/events/types)
 - [OpenRouter API Documentation](https://openrouter.ai/docs)
-- [L4YERCAK3 AI Integration Guide](./AI_INTEGRATION.md)
-- [L4YERCAK3 AI Billing Architecture](./AI_BILLING_ARCHITECTURE.md)
+- [l4yercak3 AI Integration Guide](./AI_INTEGRATION.md)
+- [l4yercak3 AI Billing Architecture](./AI_BILLING_ARCHITECTURE.md)

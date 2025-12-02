@@ -11,14 +11,14 @@ This directory contains automated tests for Convex backend functions using `conv
 **Coverage**: Security and data isolation for podcast episodes
 
 Tests verify:
-1. ✅ Only L4YERCAK3 creators can create episodes
-2. ✅ L4YERCAK3 creators can create episodes successfully  
+1. ✅ Only l4yercak3 creators can create episodes
+2. ✅ l4yercak3 creators can create episodes successfully  
 3. ✅ Guests can read published episodes
 4. ✅ Guests cannot read draft episodes
-5. ✅ L4YERCAK3 creators can read draft episodes
-6. ✅ Non-L4YERCAK3 users cannot read draft episodes
-7. ✅ Non-L4YERCAK3 users cannot update episodes
-8. ✅ Non-L4YERCAK3 users cannot delete episodes
+5. ✅ l4yercak3 creators can read draft episodes
+6. ✅ Non-l4yercak3 users cannot read draft episodes
+7. ✅ Non-l4yercak3 users cannot update episodes
+8. ✅ Non-l4yercak3 users cannot delete episodes
 9. ✅ Audit logs are created for all episode mutations
 
 ## 🚀 Running Tests
@@ -63,13 +63,13 @@ describe("Your Feature", () => {
   test("Test description", async () => {
     // 1. Setup test environment
     const t = convexTest(schema, import.meta.glob("../**/*.ts"));
-    const { L4YERCAK3OrgId, L4YERCAK3CreatorId } = await setupTestOrgs(t);
+    const { l4yercak3OrgId, l4yercak3CreatorId } = await setupTestOrgs(t);
 
     // 2. Create test identity (if needed)
     const asCreator = t.withIdentity({ 
-      subject: "creator@L4YERCAK3.com", 
-      tokenIdentifier: \`user|\${L4YERCAK3CreatorId}\`,
-      email: "creator@L4YERCAK3.com" 
+      subject: "creator@l4yercak3.com", 
+      tokenIdentifier: \`user|\${l4yercak3CreatorId}\`,
+      email: "creator@l4yercak3.com" 
     });
 
     // 3. Run your test
@@ -106,15 +106,15 @@ const asUserA = t.withIdentity({
 const result = await asUserA.mutation(api.yourFeature.create, {});
 \`\`\`
 
-#### 3. **L4YERCAK3 Creators** (Special Permissions)
+#### 3. **l4yercak3 Creators** (Special Permissions)
 \`\`\`typescript
 const t = convexTest(schema, import.meta.glob("../**/*.ts"));
-const { L4YERCAK3CreatorId } = await setupTestOrgs(t);
+const { l4yercak3CreatorId } = await setupTestOrgs(t);
 
 const asCreator = t.withIdentity({
-  subject: "creator@L4YERCAK3.com",
-  tokenIdentifier: \`user|\${L4YERCAK3CreatorId}\`,
-  email: "creator@L4YERCAK3.com"
+  subject: "creator@l4yercak3.com",
+  tokenIdentifier: \`user|\${l4yercak3CreatorId}\`,
+  email: "creator@l4yercak3.com"
 });
 
 const result = await asCreator.mutation(api.yourFeature.create, {});
@@ -155,8 +155,8 @@ await expect(async () => {
 ### Test Data Setup
 
 The \`setupTestOrgs()\` helper creates:
-- 3 organizations: L4YERCAK3 System, Customer Org A, Customer Org B
-- 3 users: L4YERCAK3 Creator, User A, User B
+- 3 organizations: l4yercak3 System, Customer Org A, Customer Org B
+- 3 users: l4yercak3 Creator, User A, User B
 - Organization memberships linking users to their orgs
 
 ### Schema Validation

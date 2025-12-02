@@ -34,7 +34,7 @@ We've created a **Client-Side Payment Integration API** that allows external web
                             ├─────┐ API Calls
                             ▼     ▼
 ┌─────────────────────────────────────────────────┐
-│ L4YERCAK3 Payment API (your backend)            │
+│ l4yercak3 Payment API (your backend)            │
 │                                                  │
 │  ┌──────────────────────────────────────────┐  │
 │  │ GET /api/v1/checkout/config             │  │
@@ -66,13 +66,13 @@ We've created a **Client-Side Payment Integration API** that allows external web
 
 ### 1. Get Payment Configuration
 
-**Client → L4YERCAK3 API**
+**Client → l4yercak3 API**
 ```http
 GET /api/v1/checkout/config
 Authorization: Bearer YOUR_API_KEY
 ```
 
-**L4YERCAK3 API → Client**
+**l4yercak3 API → Client**
 ```json
 {
   "provider": "stripe",
@@ -85,7 +85,7 @@ Authorization: Bearer YOUR_API_KEY
 
 ### 2. Create Checkout Session
 
-**Client → L4YERCAK3 API**
+**Client → l4yercak3 API**
 ```http
 POST /api/v1/checkout/sessions
 Authorization: Bearer YOUR_API_KEY
@@ -99,7 +99,7 @@ Content-Type: application/json
 }
 ```
 
-**L4YERCAK3 API → Stripe API (server-side)**
+**l4yercak3 API → Stripe API (server-side)**
 ```javascript
 // Uses existing payment provider infrastructure
 const provider = getProviderByCode("stripe-connect");
@@ -115,7 +115,7 @@ const session = await provider.createCheckoutSession({
 });
 ```
 
-**L4YERCAK3 API → Client**
+**l4yercak3 API → Client**
 ```json
 {
   "sessionId": "obj_...",
@@ -156,7 +156,7 @@ await stripe.confirmPayment({
 
 ### 4. Verify Payment & Fulfill Order
 
-**Client → L4YERCAK3 API**
+**Client → l4yercak3 API**
 ```http
 POST /api/v1/checkout/confirm
 Authorization: Bearer YOUR_API_KEY
@@ -168,7 +168,7 @@ Content-Type: application/json
 }
 ```
 
-**L4YERCAK3 API (server-side)**
+**l4yercak3 API (server-side)**
 ```javascript
 // 1. Verify payment with Stripe
 const provider = getProviderByCode("stripe-connect");

@@ -2,7 +2,7 @@
 
 ## Overview
 
-L4YERCAK3.com uses a complete i18n (internationalization) system that supports:
+l4yercak3.com uses a complete i18n (internationalization) system that supports:
 - **Frontend UI translations** via `TranslationContext`
 - **Backend ontology translations** via `translationResolver`
 - **Namespace-based lazy loading** to avoid Convex 1024 field limit

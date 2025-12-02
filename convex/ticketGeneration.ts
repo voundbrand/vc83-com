@@ -264,7 +264,7 @@ export const generateTicketPDFData = action({
       purchaseDate: ticket.createdAt,
       qrCodeDataUrl,
       organizationName:
-        (session.customProperties?.organizationName as string) || "L4YERCAK3",
+        (session.customProperties?.organizationName as string) || "l4yercak3",
       pricePerUnit: ticket.customProperties?.pricePerUnit as number,
       // Legacy field for backwards compatibility
       eventDate: eventStartDate,
@@ -368,7 +368,7 @@ export const generateReceiptPDFData = action({
       currency: (session.customProperties?.currency as string) || "EUR",
       paymentMethod: "Card", // From Stripe
       organizationName:
-        (session.customProperties?.organizationName as string) || "L4YERCAK3",
+        (session.customProperties?.organizationName as string) || "l4yercak3",
       organizationAddress: "VC83 Digital Platform",
       paymentIntentId: session.customProperties?.paymentIntentId as string,
     };
@@ -671,7 +671,7 @@ export const sendOrderConfirmationEmail = internalAction({
           orderNumber,
           orderDate: new Date(session.createdAt).toLocaleDateString(),
           primaryColor,
-          organizationName: "L4YERCAK3",
+          organizationName: "l4yercak3",
         },
         emailTranslations // ✅ Pass translations from database
       );
@@ -885,7 +885,7 @@ export const sendReceiptEmail = internalAction({
 
     try {
       const result = await resend.emails.send({
-        from: "L4YERCAK3 <receipts@mail.l4yercak3.com>",
+        from: "l4yercak3 <receipts@mail.l4yercak3.com>",
         to: args.recipientEmail,
         subject: `Receipt for your purchase - #${receiptData.receiptNumber}`,
         html: emailHtml,

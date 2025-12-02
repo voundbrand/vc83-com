@@ -8,16 +8,16 @@ Dieses Dokument enthält alle System-E-Mail-Vorlagen auf Deutsch in der informel
 
 **Kontext:** Wird gesendet, wenn ein Admin einen neuen Benutzer einlädt, der noch kein Konto hat.
 
-**Betreff:** `Du wurdest zu ${organizationName} auf L4YERCAK3 eingeladen`
+**Betreff:** `Du wurdest zu ${organizationName} auf l4yercak3 eingeladen`
 
 **Text:**
 
 ```
-Willkommen bei L4YERCAK3! 🎉
+Willkommen bei l4yercak3! 🎉
 
-${inviterName} hat dich zu ${organizationName} auf L4YERCAK3 eingeladen.
+${inviterName} hat dich zu ${organizationName} auf l4yercak3 eingeladen.
 
-L4YERCAK3 (ausgesprochen "Layer Cake") ist eine B2B-Workflow-Plattform, die Unternehmen hilft, ihre Abläufe zu optimieren. Wir bringen alle digitalen Tools zusammen, die dein Unternehmen braucht—CRM, E-Mail-Workflows, Rechnungsstellung, Projektmanagement, Formular-Builder und mehr—in einem integrierten Arbeitsbereich mit KI-gestützter Automatisierung.
+l4yercak3 (ausgesprochen "Layer Cake") ist eine B2B-Workflow-Plattform, die Unternehmen hilft, ihre Abläufe zu optimieren. Wir bringen alle digitalen Tools zusammen, die dein Unternehmen braucht—CRM, E-Mail-Workflows, Rechnungsstellung, Projektmanagement, Formular-Builder und mehr—in einem integrierten Arbeitsbereich mit KI-gestützter Automatisierung.
 
 Jedes Tool ist eine "Schicht", die nahtlos mit den anderen zusammenarbeitet, sodass deine Kundendaten zwischen deinem CRM, Rechnungen, E-Mail-Kampagnen und Projekten fließen. Kein Wechseln mehr zwischen Dutzenden separater Tools.
 
@@ -28,7 +28,7 @@ Jedes Tool ist eine "Schicht", die nahtlos mit den anderen zusammenarbeitet, sod
 4. Erstelle dein Passwort
 5. Leg los!
 
-[Button: L4YERCAK3 besuchen]
+[Button: l4yercak3 besuchen]
 
 ---
 
@@ -36,7 +36,7 @@ Fragen? Kontaktiere deinen Organisationsadministrator.
 
 ---
 
-© 2025 L4YERCAK3. Alle Rechte vorbehalten.
+© 2025 l4yercak3. Alle Rechte vorbehalten.
 Layer on die Superpowers. 🚀
 ```
 
@@ -44,7 +44,7 @@ Layer on die Superpowers. 🚀
 
 ## 2. Bestehender Benutzer zu Organisation hinzugefügt
 
-**Kontext:** Wird gesendet, wenn ein Admin einen bestehenden L4YERCAK3-Benutzer zu seiner Organisation hinzufügt.
+**Kontext:** Wird gesendet, wenn ein Admin einen bestehenden l4yercak3-Benutzer zu seiner Organisation hinzufügt.
 
 **Betreff:** `Du wurdest zu ${organizationName} hinzugefügt`
 
@@ -53,17 +53,17 @@ Layer on die Superpowers. 🚀
 ```
 Du bist jetzt in einer neuen Organisation! 🎯
 
-${inviterName} hat dich zu ${organizationName} auf L4YERCAK3 hinzugefügt.
+${inviterName} hat dich zu ${organizationName} auf l4yercak3 hinzugefügt.
 
 Du kannst jetzt auf den Arbeitsbereich dieser Organisation mit allen Apps und Daten zugreifen—CRM-Kontakte, Projekte, Rechnungen, E-Mail-Kampagnen und mehr. Alles ist bereit für dich.
 
 Melde dich mit deinem bestehenden Konto an, um loszulegen.
 
-[Button: Bei L4YERCAK3 anmelden]
+[Button: Bei l4yercak3 anmelden]
 
 ---
 
-© 2025 L4YERCAK3. Alle Rechte vorbehalten.
+© 2025 l4yercak3. Alle Rechte vorbehalten.
 Layer on die Superpowers. 🚀
 ```
 
@@ -73,14 +73,14 @@ Layer on die Superpowers. 🚀
 
 **Kontext:** Wird gesendet, wenn ein Benutzer ein Passwort-Zurücksetzen anfordert.
 
-**Betreff:** `Setze dein L4YERCAK3-Passwort zurück`
+**Betreff:** `Setze dein l4yercak3-Passwort zurück`
 
 **Text:**
 
 ```
 Hallo ${userName},
 
-Wir haben eine Anfrage erhalten, dein Passwort für dein L4YERCAK3-Konto zurückzusetzen. Klicke auf den Button unten, um ein neues Passwort zu erstellen.
+Wir haben eine Anfrage erhalten, dein Passwort für dein l4yercak3-Konto zurückzusetzen. Klicke auf den Button unten, um ein neues Passwort zu erstellen.
 
 [Button: Passwort zurücksetzen]
 
@@ -88,7 +88,7 @@ Wir haben eine Anfrage erhalten, dein Passwort für dein L4YERCAK3-Konto zurück
 
 ---
 
-© 2025 L4YERCAK3. Alle Rechte vorbehalten.
+© 2025 l4yercak3. Alle Rechte vorbehalten.
 Layer on die Superpowers. 🚀
 ```
 
@@ -105,13 +105,13 @@ Layer on die Superpowers. 🚀
 ### Struktur
 - Klare Betreffzeile
 - Mit der Aktion/Einladung beginnen
-- Kontext zu L4YERCAK3 geben (besonders für neue Benutzer)
+- Kontext zu l4yercak3 geben (besonders für neue Benutzer)
 - Klarer Call-to-Action-Button
 - Fallback-Link für Barrierefreiheit
 - Footer mit Copyright und Tagline
 
 ### Branding
-- Immer "L4YERCAK3" verwenden (nicht "LayerCake" oder "Layer Cake")
+- Immer "l4yercak3" verwenden (nicht "LayerCake" oder "Layer Cake")
 - Aussprache erklären: "ausgesprochen 'Layer Cake'"
 - Tagline: "Layer on die Superpowers. 🚀"
 - Retro-Ästhetik im E-Mail-Design beibehalten

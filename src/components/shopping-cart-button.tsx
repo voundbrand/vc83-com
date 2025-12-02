@@ -6,7 +6,7 @@ import { useShoppingCart } from "@/contexts/shopping-cart-context";
 /**
  * PLATFORM SHOPPING CART BUTTON
  *
- * Taskbar button for L4YERCAK3 PLATFORM services cart.
+ * Taskbar button for l4yercak3 PLATFORM services cart.
  * Shows organizations their cart for platform services (AI subscriptions, token packs, etc.).
  *
  * IMPORTANT: This is NOT for org customer carts.

@@ -6,7 +6,7 @@ import { Id } from "../../convex/_generated/dataModel";
 /**
  * SHOPPING CART CONTEXT - PLATFORM SERVICES ONLY
  *
- * Cart system for L4YERCAK3 PLATFORM to sell services to ORGANIZATIONS (our customers).
+ * Cart system for l4yercak3 PLATFORM to sell services to ORGANIZATIONS (our customers).
  *
  * IMPORTANT: This is NOT for organizations to sell to their customers.
  * Organizations use separate checkout flows for their events/products/tickets.

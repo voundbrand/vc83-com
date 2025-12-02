@@ -143,7 +143,7 @@ B2B information is stored in the Stripe Customer:
   }],
   "metadata": {
     "organizationId": "kn7024kr1pag4ck3haeqaf29zs7sfd78",
-    "platform": "L4YERCAK3",
+    "platform": "l4yercak3",
     "isB2B": "true"
   }
 }

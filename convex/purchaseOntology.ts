@@ -47,7 +47,7 @@ import { internal } from "./_generated/api";
  *   type: "purchase_item",
  *   subtype: "ticket",
  *   organizationId,
- *   name: "General Admission - L4YERCAK3 Live 2024",
+ *   name: "General Admission - l4yercak3 Live 2024",
  *
  *   // Purchase context
  *   checkoutSessionId: "checkout_session_id",

@@ -45,12 +45,12 @@ export const seed = internalMutation({
       {
         key: "ui.store.title",
         values: {
-          en: "L4YERCAK3 Store",
-          de: "L4YERCAK3 Shop",
-          pl: "Sklep L4YERCAK3",
-          es: "Tienda L4YERCAK3",
-          fr: "Boutique L4YERCAK3",
-          ja: "L4YERCAK3 ストア",
+          en: "l4yercak3 Store",
+          de: "l4yercak3 Shop",
+          pl: "Sklep l4yercak3",
+          es: "Tienda l4yercak3",
+          fr: "Boutique l4yercak3",
+          ja: "l4yercak3 ストア",
         }
       },
       {
@@ -655,12 +655,12 @@ export const seed = internalMutation({
       {
         key: "ui.store.custom.description",
         values: {
-          en: "Get a fully custom web application built specifically for your needs, connected to the L4YERCAK3 backend via API. Perfect for unique business requirements.",
-          de: "Erhalten Sie eine vollständig maßgeschneiderte Webanwendung für Ihre spezifischen Anforderungen, verbunden mit dem L4YERCAK3-Backend über die API. Perfekt für einzigartige Geschäftsanforderungen.",
-          pl: "Otrzymaj w pełni niestandardową aplikację internetową dostosowaną do Twoich potrzeb, połączoną z backendem L4YERCAK3 przez API. Idealne dla unikalnych wymagań biznesowych.",
-          es: "Obtenga una aplicación web totalmente personalizada creada específicamente para sus necesidades, conectada al backend de L4YERCAK3 a través de API. Perfecta para requisitos comerciales únicos.",
-          fr: "Obtenez une application web entièrement personnalisée conçue spécifiquement pour vos besoins, connectée au backend L4YERCAK3 via API. Parfait pour des exigences commerciales uniques.",
-          ja: "L4YERCAK3バックエンドにAPI経由で接続された、あなたのニーズに特化した完全なカスタムWebアプリケーションを入手しましょう。独自のビジネス要件に最適です。",
+          en: "Get a fully custom web application built specifically for your needs, connected to the l4yercak3 backend via API. Perfect for unique business requirements.",
+          de: "Erhalten Sie eine vollständig maßgeschneiderte Webanwendung für Ihre spezifischen Anforderungen, verbunden mit dem l4yercak3-Backend über die API. Perfekt für einzigartige Geschäftsanforderungen.",
+          pl: "Otrzymaj w pełni niestandardową aplikację internetową dostosowaną do Twoich potrzeb, połączoną z backendem l4yercak3 przez API. Idealne dla unikalnych wymagań biznesowych.",
+          es: "Obtenga una aplicación web totalmente personalizada creada específicamente para sus necesidades, conectada al backend de l4yercak3 a través de API. Perfecta para requisitos comerciales únicos.",
+          fr: "Obtenez une application web entièrement personnalisée conçue spécifiquement pour vos besoins, connectée au backend l4yercak3 via API. Parfait pour des exigences commerciales uniques.",
+          ja: "l4yercak3バックエンドにAPI経由で接続された、あなたのニーズに特化した完全なカスタムWebアプリケーションを入手しましょう。独自のビジネス要件に最適です。",
         }
       },
       {
@@ -699,12 +699,12 @@ export const seed = internalMutation({
       {
         key: "ui.store.custom.feature2_desc",
         values: {
-          en: "Seamless connection to L4YERCAK3 backend",
-          de: "Nahtlose Verbindung zum L4YERCAK3-Backend",
-          pl: "Bezproblemowe połączenie z backendem L4YERCAK3",
-          es: "Conexión perfecta con el backend de L4YERCAK3",
-          fr: "Connexion transparente au backend L4YERCAK3",
-          ja: "L4YERCAK3バックエンドへのシームレスな接続",
+          en: "Seamless connection to l4yercak3 backend",
+          de: "Nahtlose Verbindung zum l4yercak3-Backend",
+          pl: "Bezproblemowe połączenie z backendem l4yercak3",
+          es: "Conexión perfecta con el backend de l4yercak3",
+          fr: "Connexion transparente au backend l4yercak3",
+          ja: "l4yercak3バックエンドへのシームレスな接続",
         }
       },
       {

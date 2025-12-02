@@ -103,7 +103,7 @@ The event-landing template is now:
 ## 📝 How to Use (Next Steps)
 
 ### For Super Admins:
-1. Open the L4YERCAK3 desktop app
+1. Open the l4yercak3 desktop app
 2. Navigate to **Organizations** window
 3. Go to **Templates** tab
 4. Find "Event Landing Page" in the system templates list
