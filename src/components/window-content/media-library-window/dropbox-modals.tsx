@@ -358,22 +358,30 @@ interface UploadModalProps {
   onClose: () => void;
 }
 
+interface FileUploadStatus {
+  file: File;
+  status: "pending" | "uploading" | "success" | "error";
+  progress: number;
+  error?: string;
+}
+
 export function UploadModal({ organizationId, sessionId, onClose }: UploadModalProps) {
   const [isDragging, setIsDragging] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const [fileQueue, setFileQueue] = useState<FileUploadStatus[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
 
   const generateUploadUrl = useMutation(api.organizationMedia.generateUploadUrl);
   const saveMedia = useMutation(api.organizationMedia.saveMedia);
 
-  const handleFileSelect = async (file: File) => {
+  const uploadSingleFile = async (file: File, index: number) => {
     if (!organizationId || !sessionId) {
-      alert("Not authenticated");
-      return;
+      throw new Error("Not authenticated");
     }
 
-    setUploading(true);
-    setUploadProgress(0);
+    // Update status to uploading
+    setFileQueue(prev => prev.map((item, i) =>
+      i === index ? { ...item, status: "uploading" as const, progress: 0 } : item
+    ));
 
     try {
       // Generate upload URL with quota check
@@ -383,6 +391,11 @@ export function UploadModal({ organizationId, sessionId, onClose }: UploadModalP
         estimatedSizeBytes: file.size,
       });
 
+      // Simulate progress (Convex doesn't provide real-time upload progress)
+      setFileQueue(prev => prev.map((item, i) =>
+        i === index ? { ...item, progress: 30 } : item
+      ));
+
       // Upload to Convex storage
       const result = await fetch(uploadUrl, {
         method: "POST",
@@ -390,7 +403,15 @@ export function UploadModal({ organizationId, sessionId, onClose }: UploadModalP
         body: file,
       });
 
+      if (!result.ok) {
+        throw new Error("Upload failed");
+      }
+
       const { storageId } = await result.json();
+
+      setFileQueue(prev => prev.map((item, i) =>
+        i === index ? { ...item, progress: 70 } : item
+      ));
 
       // Save metadata
       await saveMedia({
@@ -402,16 +423,61 @@ export function UploadModal({ organizationId, sessionId, onClose }: UploadModalP
         sizeBytes: file.size,
       });
 
-      setUploadProgress(100);
-      setTimeout(() => {
-        onClose();
-      }, 500);
+      // Success!
+      setFileQueue(prev => prev.map((item, i) =>
+        i === index ? { ...item, status: "success" as const, progress: 100 } : item
+      ));
     } catch (error) {
       console.error("Upload failed:", error);
-      alert(error instanceof Error ? error.message : "Upload failed");
-    } finally {
-      setUploading(false);
-      setUploadProgress(0);
+      setFileQueue(prev => prev.map((item, i) =>
+        i === index ? {
+          ...item,
+          status: "error" as const,
+          progress: 0,
+          error: error instanceof Error ? error.message : "Upload failed"
+        } : item
+      ));
+    }
+  };
+
+  const handleFilesSelect = async (files: FileList | File[]) => {
+    if (!organizationId || !sessionId) {
+      alert("Not authenticated");
+      return;
+    }
+
+    // Convert to array and create status objects
+    const filesArray = Array.from(files);
+    const newFileStatuses: FileUploadStatus[] = filesArray.map(file => ({
+      file,
+      status: "pending" as const,
+      progress: 0,
+    }));
+
+    setFileQueue(prev => [...prev, ...newFileStatuses]);
+    setIsUploading(true);
+
+    // Upload files in parallel (max 3 at a time)
+    const startIndex = fileQueue.length;
+    const maxConcurrent = 3;
+
+    for (let i = 0; i < filesArray.length; i += maxConcurrent) {
+      const batch = filesArray.slice(i, i + maxConcurrent);
+      await Promise.all(
+        batch.map((_, batchIndex) =>
+          uploadSingleFile(filesArray[i + batchIndex], startIndex + i + batchIndex)
+        )
+      );
+    }
+
+    setIsUploading(false);
+
+    // Auto-close if all successful
+    const allSuccess = fileQueue.every(f => f.status === "success");
+    if (allSuccess && fileQueue.length > 0) {
+      setTimeout(() => {
+        onClose();
+      }, 1000);
     }
   };
 
@@ -419,10 +485,32 @@ export function UploadModal({ organizationId, sessionId, onClose }: UploadModalP
     e.preventDefault();
     setIsDragging(false);
 
-    const file = e.dataTransfer.files[0];
-    if (file) {
-      handleFileSelect(file);
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      handleFilesSelect(files);
     }
+  };
+
+  const removeFile = (index: number) => {
+    setFileQueue(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const retryFile = (index: number) => {
+    const file = fileQueue[index].file;
+    setFileQueue(prev => prev.map((item, i) =>
+      i === index ? { ...item, status: "pending" as const, progress: 0, error: undefined } : item
+    ));
+    uploadSingleFile(file, index);
+  };
+
+  const hasErrors = fileQueue.some(f => f.status === "error");
+  const hasSuccess = fileQueue.some(f => f.status === "success");
+  const allComplete = fileQueue.length > 0 && fileQueue.every(f => f.status === "success" || f.status === "error");
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   };
 
   return (
@@ -431,7 +519,7 @@ export function UploadModal({ organizationId, sessionId, onClose }: UploadModalP
       style={{ background: "var(--modal-overlay-bg)" }}
     >
       <div
-        className="w-full max-w-xl border-2 rounded-lg"
+        className="w-full max-w-2xl max-h-[90vh] border-2 rounded-lg flex flex-col"
         style={{
           background: "var(--win95-bg)",
           borderColor: "var(--win95-border)",
@@ -439,7 +527,7 @@ export function UploadModal({ organizationId, sessionId, onClose }: UploadModalP
       >
         {/* Header */}
         <div
-          className="flex items-center justify-between px-4 py-3 border-b-2"
+          className="flex items-center justify-between px-4 py-3 border-b-2 flex-shrink-0"
           style={{
             background: "var(--win95-titlebar-bg)",
             borderColor: "var(--win95-border)",
@@ -451,89 +539,230 @@ export function UploadModal({ organizationId, sessionId, onClose }: UploadModalP
               className="text-sm font-bold"
               style={{ color: "var(--win95-titlebar-text)" }}
             >
-              Upload File
+              Upload Files {fileQueue.length > 0 && `(${fileQueue.length})`}
             </h3>
           </div>
-          <button onClick={onClose}>
+          <button onClick={onClose} disabled={isUploading}>
             <X size={18} style={{ color: "var(--win95-titlebar-text)" }} />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-8">
-          <div
-            className="border-4 border-dashed rounded-2xl p-12 transition-all text-center"
-            style={{
-              borderColor: isDragging ? "var(--win95-highlight)" : "var(--win95-border)",
-              background: isDragging ? "var(--win95-bg)" : "var(--win95-bg-light)",
-            }}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setIsDragging(true);
-            }}
-            onDragLeave={() => setIsDragging(false)}
-            onDrop={handleDrop}
-          >
-            {uploading ? (
-              <div className="space-y-4">
-                <Upload
-                  className="w-16 h-16 mx-auto animate-bounce"
-                  style={{ color: "var(--win95-highlight)" }}
+        <div className="flex-1 overflow-y-auto p-6">
+          {/* Drop Zone */}
+          {fileQueue.length === 0 && (
+            <div
+              className="border-4 border-dashed rounded-2xl p-12 transition-all text-center"
+              style={{
+                borderColor: isDragging ? "var(--win95-highlight)" : "var(--win95-border)",
+                background: isDragging ? "var(--win95-bg)" : "var(--win95-bg-light)",
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsDragging(true);
+              }}
+              onDragLeave={() => setIsDragging(false)}
+              onDrop={handleDrop}
+            >
+              <Upload
+                className="w-16 h-16 mx-auto mb-4"
+                style={{ color: "var(--neutral-gray)" }}
+              />
+              <h3 className="text-xl font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                Drop files here
+              </h3>
+              <p className="mb-6" style={{ color: "var(--neutral-gray)" }}>
+                or click to browse (multiple files supported)
+              </p>
+              <label className="inline-block">
+                <input
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    const files = e.target.files;
+                    if (files && files.length > 0) {
+                      handleFilesSelect(files);
+                    }
+                  }}
                 />
-                <div>
-                  <p className="text-lg font-semibold" style={{ color: "var(--win95-text)" }}>
-                    Uploading...
-                  </p>
-                  <div
-                    className="mt-4 w-full rounded-full h-3"
-                    style={{ background: "var(--win95-border-light)" }}
-                  >
-                    <div
-                      className="h-3 rounded-full transition-all"
-                      style={{
-                        width: `${uploadProgress}%`,
-                        background: "var(--win95-highlight)",
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <>
-                <Upload
-                  className="w-16 h-16 mx-auto mb-4"
-                  style={{ color: "var(--neutral-gray)" }}
-                />
-                <h3 className="text-xl font-bold mb-2" style={{ color: "var(--win95-text)" }}>
-                  Drop files here
-                </h3>
-                <p className="mb-6" style={{ color: "var(--neutral-gray)" }}>
-                  or click to browse
-                </p>
+                <span
+                  className="px-6 py-3 rounded-lg font-medium cursor-pointer transition-colors inline-block border-2"
+                  style={{
+                    background: "var(--win95-highlight)",
+                    borderColor: "var(--win95-border)",
+                    color: "white",
+                  }}
+                >
+                  Choose Files
+                </span>
+              </label>
+            </div>
+          )}
+
+          {/* File Queue */}
+          {fileQueue.length > 0 && (
+            <div className="space-y-3">
+              {/* Add More Files Button */}
+              <div className="flex justify-between items-center mb-4">
+                <h4 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+                  Upload Queue ({fileQueue.length} {fileQueue.length === 1 ? "file" : "files"})
+                </h4>
                 <label className="inline-block">
                   <input
                     type="file"
+                    multiple
                     className="hidden"
+                    disabled={isUploading}
                     onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) handleFileSelect(file);
+                      const files = e.target.files;
+                      if (files && files.length > 0) {
+                        handleFilesSelect(files);
+                      }
                     }}
                   />
                   <span
-                    className="px-6 py-3 rounded-lg font-medium cursor-pointer transition-colors inline-block border-2"
+                    className="px-3 py-1.5 text-xs font-medium cursor-pointer transition-colors inline-block border-2 rounded"
                     style={{
-                      background: "var(--win95-highlight)",
+                      background: "var(--win95-button-face)",
                       borderColor: "var(--win95-border)",
-                      color: "white",
+                      color: "var(--win95-text)",
+                      opacity: isUploading ? 0.5 : 1,
+                      cursor: isUploading ? "not-allowed" : "pointer",
                     }}
                   >
-                    Choose File
+                    + Add More Files
                   </span>
                 </label>
-              </>
-            )}
-          </div>
+              </div>
+
+              {/* File List */}
+              {fileQueue.map((item, index) => (
+                <div
+                  key={index}
+                  className="border-2 rounded p-3"
+                  style={{
+                    borderColor: "var(--win95-border)",
+                    background: "var(--win95-bg-light)",
+                  }}
+                >
+                  <div className="flex items-start gap-3">
+                    {/* Status Icon */}
+                    <div className="flex-shrink-0 mt-0.5">
+                      {item.status === "pending" && (
+                        <div className="w-5 h-5 rounded-full border-2" style={{ borderColor: "var(--neutral-gray)" }} />
+                      )}
+                      {item.status === "uploading" && (
+                        <Loader2 size={20} className="animate-spin" style={{ color: "var(--win95-highlight)" }} />
+                      )}
+                      {item.status === "success" && (
+                        <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ background: "#10B981" }}>
+                          <span className="text-white text-xs font-bold">✓</span>
+                        </div>
+                      )}
+                      {item.status === "error" && (
+                        <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ background: "#EF4444" }}>
+                          <span className="text-white text-xs font-bold">✕</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* File Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate" style={{ color: "var(--win95-text)" }}>
+                            {item.file.name}
+                          </p>
+                          <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                            {formatFileSize(item.file.size)}
+                          </p>
+                        </div>
+
+                        {/* Actions */}
+                        {item.status === "pending" && !isUploading && (
+                          <button
+                            onClick={() => removeFile(index)}
+                            className="text-xs px-2 py-1 border rounded"
+                            style={{
+                              borderColor: "var(--win95-border)",
+                              color: "var(--win95-text)",
+                            }}
+                          >
+                            Remove
+                          </button>
+                        )}
+                        {item.status === "error" && (
+                          <button
+                            onClick={() => retryFile(index)}
+                            className="text-xs px-2 py-1 border rounded"
+                            style={{
+                              borderColor: "var(--win95-border)",
+                              background: "var(--win95-highlight)",
+                              color: "white",
+                            }}
+                          >
+                            Retry
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Progress Bar */}
+                      {(item.status === "uploading" || item.status === "success") && (
+                        <div
+                          className="mt-2 w-full rounded-full h-2"
+                          style={{ background: "var(--win95-border-light)" }}
+                        >
+                          <div
+                            className="h-2 rounded-full transition-all"
+                            style={{
+                              width: `${item.progress}%`,
+                              background: item.status === "success" ? "#10B981" : "var(--win95-highlight)",
+                            }}
+                          />
+                        </div>
+                      )}
+
+                      {/* Error Message */}
+                      {item.status === "error" && item.error && (
+                        <p className="text-xs mt-1" style={{ color: "#EF4444" }}>
+                          {item.error}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
+
+        {/* Footer */}
+        {fileQueue.length > 0 && (
+          <div
+            className="flex justify-between items-center gap-2 px-6 py-4 border-t-2 flex-shrink-0"
+            style={{ borderColor: "var(--win95-border)" }}
+          >
+            <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+              {hasSuccess && `${fileQueue.filter(f => f.status === "success").length} uploaded`}
+              {hasErrors && ` • ${fileQueue.filter(f => f.status === "error").length} failed`}
+            </div>
+            <button
+              onClick={onClose}
+              disabled={isUploading}
+              className="px-4 py-2 text-xs font-bold border-2 rounded"
+              style={{
+                background: allComplete ? "var(--win95-highlight)" : "var(--win95-button-face)",
+                borderColor: "var(--win95-border)",
+                color: allComplete ? "white" : "var(--win95-text)",
+                opacity: isUploading ? 0.5 : 1,
+                cursor: isUploading ? "not-allowed" : "pointer",
+              }}
+            >
+              {allComplete ? "Done" : "Close"}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

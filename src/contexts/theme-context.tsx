@@ -21,6 +21,9 @@ export interface Theme {
     win95BorderLight: string;
     win95Text: string;
     win95Highlight: string;
+    // Hover colors for menus and interactive elements
+    win95HoverBg: string;
+    win95HoverText: string;
     // Text colors
     foreground: string;
   };
@@ -38,6 +41,8 @@ export const themes: Theme[] = [
       win95BorderLight: "#e8e8e8",
       win95Text: "#1f2937", // gray-800
       win95Highlight: "#000080",
+      win95HoverBg: "#000080", // Classic Windows 95 blue
+      win95HoverText: "#ffffff", // White text on blue
       foreground: "#1f2937",
     },
   },
@@ -52,6 +57,8 @@ export const themes: Theme[] = [
       win95BorderLight: "#5d5d5d",
       win95Text: "#ffffff", // Pure white for better contrast
       win95Highlight: "#4169e1",
+      win95HoverBg: "#4169e1", // Royal blue hover
+      win95HoverText: "#ffffff", // White text
       foreground: "#ffffff", // Pure white for better contrast
     },
   },
@@ -66,6 +73,8 @@ export const themes: Theme[] = [
       win95BorderLight: "#e8e8e8",
       win95Text: "#1f2937",
       win95Highlight: "#6B46C1",
+      win95HoverBg: "#6B46C1", // Purple hover
+      win95HoverText: "#ffffff", // White text
       foreground: "#1f2937",
     },
   },
@@ -80,6 +89,8 @@ export const themes: Theme[] = [
       win95BorderLight: "#e8e8e8",
       win95Text: "#1f2937",
       win95Highlight: "#0000AA",
+      win95HoverBg: "#0000AA", // Blue hover
+      win95HoverText: "#ffffff", // White text
       foreground: "#1f2937",
     },
   },
@@ -94,6 +105,8 @@ export const themes: Theme[] = [
       win95BorderLight: "#5d5d5d",
       win95Text: "#ffffff", // White text for dark mode
       win95Highlight: "#9F7AEA", // Lighter purple for dark mode (better visibility)
+      win95HoverBg: "#9F7AEA", // Light purple hover
+      win95HoverText: "#ffffff", // White text
       foreground: "#ffffff",
     },
   },
@@ -108,6 +121,8 @@ export const themes: Theme[] = [
       win95BorderLight: "#e8e8e8",
       win95Text: "#1f2937",
       win95Highlight: "#059669", // Emerald green accent
+      win95HoverBg: "#059669", // Green hover
+      win95HoverText: "#ffffff", // White text
       foreground: "#1f2937",
     },
   },
@@ -122,6 +137,8 @@ export const themes: Theme[] = [
       win95BorderLight: "#5d5d5d",
       win95Text: "#ffffff", // White text for dark mode
       win95Highlight: "#10b981", // Lighter green for dark mode (better visibility)
+      win95HoverBg: "#10b981", // Light green hover
+      win95HoverText: "#ffffff", // White text
       foreground: "#ffffff",
     },
   },
@@ -136,6 +153,8 @@ export const themes: Theme[] = [
       win95BorderLight: "rgba(255, 255, 255, 0.3)",
       win95Text: "#1f2937", // Dark text for light backgrounds
       win95Highlight: "#667eea", // Purple accent
+      win95HoverBg: "rgba(102, 126, 234, 0.2)", // Purple tint hover (handled by CSS for glass)
+      win95HoverText: "#1f2937", // Dark text
       foreground: "#1f2937",
     },
   },
@@ -150,6 +169,8 @@ export const themes: Theme[] = [
       win95BorderLight: "rgba(255, 255, 255, 0.15)",
       win95Text: "#ffffff", // White text for dark mode
       win95Highlight: "#60a5fa", // Light blue accent
+      win95HoverBg: "rgba(96, 165, 250, 0.15)", // Blue tint hover (handled by CSS for glass)
+      win95HoverText: "#ffffff", // White text
       foreground: "#ffffff",
     },
   },
@@ -164,6 +185,8 @@ export const themes: Theme[] = [
       win95BorderLight: "#f1f5f9", // Even lighter border
       win95Text: "#0f172a", // Slate 900 for text
       win95Highlight: "#0f172a", // Slate 900 for accents
+      win95HoverBg: "#f1f5f9", // Very subtle light gray hover
+      win95HoverText: "#0f172a", // Keep text dark on hover
       foreground: "#0f172a",
     },
   },
@@ -178,6 +201,8 @@ export const themes: Theme[] = [
       win95BorderLight: "#525252", // Neutral 600 lighter border
       win95Text: "#fafafa", // Neutral 50 for text
       win95Highlight: "#fafafa", // Neutral 50 for accents
+      win95HoverBg: "#262626", // Subtle dark gray hover
+      win95HoverText: "#ffffff", // Pure white text on hover
       foreground: "#fafafa",
     },
   },
@@ -194,6 +219,8 @@ export const themes: Theme[] = [
       win95BorderLight: "#BFDBFE",
       win95Text: "#1E3A8A",
       win95Highlight: "#2563EB",
+      win95HoverBg: "#2563EB",
+      win95HoverText: "#ffffff",
       foreground: "#1E3A8A",
     },
   },
@@ -209,6 +236,8 @@ export const themes: Theme[] = [
       win95BorderLight: "#A7F3D0",
       win95Text: "#064E3B",
       win95Highlight: "#059669",
+      win95HoverBg: "#059669",
+      win95HoverText: "#ffffff",
       foreground: "#064E3B",
     },
   },
@@ -224,6 +253,8 @@ export const themes: Theme[] = [
       win95BorderLight: "#FED7AA",
       win95Text: "#7C2D12",
       win95Highlight: "#EA580C",
+      win95HoverBg: "#EA580C",
+      win95HoverText: "#ffffff",
       foreground: "#7C2D12",
     },
   },
@@ -239,6 +270,8 @@ export const themes: Theme[] = [
       win95BorderLight: "#FBCFE8",
       win95Text: "#831843",
       win95Highlight: "#DB2777",
+      win95HoverBg: "#DB2777",
+      win95HoverText: "#ffffff",
       foreground: "#831843",
     },
   },
@@ -400,6 +433,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     root.style.setProperty("--win95-border-light", currentTheme.colors.win95BorderLight);
     root.style.setProperty("--win95-text", currentTheme.colors.win95Text);
     root.style.setProperty("--win95-highlight", currentTheme.colors.win95Highlight);
+    root.style.setProperty("--win95-hover-bg", currentTheme.colors.win95HoverBg);
+    root.style.setProperty("--win95-hover-text", currentTheme.colors.win95HoverText);
 
     // Update titlebar gradient to match theme highlight color
     // BUT: For glass themes, keep titlebar transparent (handled by CSS)
@@ -416,7 +451,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
 
     // Update dark class for dark themes
-    const darkThemes = ["win95-dark", "win95-purple-dark", "win95-green-dark", "glass-dark"];
+    const darkThemes = ["win95-dark", "win95-purple-dark", "win95-green-dark", "glass-dark", "clean-dark"];
     if (darkThemes.includes(currentTheme.id)) {
       root.classList.add("dark");
     } else {
