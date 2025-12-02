@@ -680,6 +680,31 @@
   transform: scale(0.95);
 }
 
+/* Shadcn - Align all button icons on same axis */
+[data-window-style="shadcn"] .window-btn-icon {
+  display: inline-block;
+  line-height: 1;
+}
+
+/* Shadcn - Minimize button - underscore needs to be pushed down */
+[data-window-style="shadcn"] .retro-minimize-btn .window-btn-icon {
+  font-size: 16px;
+  padding-top: 6px;
+}
+
+/* Shadcn - Maximize button icon - bigger, needs slight adjustment */
+[data-window-style="shadcn"] .retro-maximize-btn .window-btn-icon {
+  font-size: 24px;
+  font-weight: 500;
+  padding-top: 2px;
+}
+
+/* Shadcn - Close button - X needs to be pushed up slightly */
+[data-window-style="shadcn"] .retro-close-btn .window-btn-icon {
+  font-size: 16px;
+  padding-top: 8px;
+}
+
 /* Shadcn - Window drag shadow */
 [data-window-style="shadcn"] .window-drag-shadow {
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);

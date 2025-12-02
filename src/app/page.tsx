@@ -32,6 +32,8 @@ import { useIsMobile } from "@/hooks/use-media-query"
 import { useAuth, useOrganizations, useCurrentOrganization, useIsSuperAdmin, useAccountDeletionStatus } from "@/hooks/use-auth"
 import { useAvailableApps } from "@/hooks/use-app-availability"
 import { useMultipleNamespaces } from "@/hooks/use-namespace-translations"
+import { useTheme } from "@/contexts/theme-context"
+import { getThemeFamily, isLightTheme, getOppositeTheme } from "@/contexts/theme-context"
 import { useQuery } from "convex/react"
 import { api } from "../../convex/_generated/api"
 
@@ -47,6 +49,19 @@ export default function HomePage() {
   const currentOrg = useCurrentOrganization()
   const isSuperAdmin = useIsSuperAdmin()
   const deletionStatus = useAccountDeletionStatus()
+  const { currentTheme, setTheme } = useTheme()
+
+  // Check if current theme has a light/dark pair (is part of a theme family)
+  const hasThemeToggle = getThemeFamily(currentTheme.id) !== null
+  const isCurrentThemeLight = isLightTheme(currentTheme.id)
+
+  // Toggle between light and dark variant within the same theme family
+  const handleThemeToggle = () => {
+    const oppositeTheme = getOppositeTheme(currentTheme.id)
+    if (oppositeTheme) {
+      setTheme(oppositeTheme)
+    }
+  }
 
   // Use the new hook for app availability
   const { isAppAvailable } = useAvailableApps()
@@ -448,10 +463,27 @@ export default function HomePage() {
                   <ShoppingCartButton onOpenCart={openCheckoutWindow} />
                 )}
 
+                {/* Theme Toggle - Shows for any theme with a light/dark pair */}
+                {hasThemeToggle && (
+                  <button
+                    className="border-l-2 px-3 py-1 flex items-center gap-2 hover:bg-opacity-80 transition-colors"
+                    style={{
+                      borderColor: 'var(--win95-border)',
+                      background: 'var(--win95-bg-light)'
+                    }}
+                    onClick={handleThemeToggle}
+                    title={isCurrentThemeLight ? "Switch to Dark Mode" : "Switch to Light Mode"}
+                  >
+                    <span className="text-sm">
+                      {isCurrentThemeLight ? '☀️' : '🌙'}
+                    </span>
+                  </button>
+                )}
+
                 {/* Account Deletion Warning - Show if scheduled for deletion */}
                 {isSignedIn && deletionStatus.isScheduledForDeletion && (
                   <div
-                    className={`${!isSuperAdmin ? 'ml-auto' : ''} border-l-2 px-3 py-1 flex items-center gap-2 cursor-pointer hover:bg-gray-100 transition-colors`}
+                    className={`${!isSuperAdmin && !hasThemeToggle ? 'ml-auto' : ''} border-l-2 px-3 py-1 flex items-center gap-2 cursor-pointer hover:bg-gray-100 transition-colors`}
                     style={{
                       borderColor: 'var(--win95-border)',
                       background: '#ffcccc' // Light red warning background
@@ -471,7 +503,7 @@ export default function HomePage() {
                 {/* Super Admin Badge - Only if super admin */}
                 {isSuperAdmin && (
                   <div
-                    className={`${!isSignedIn || !deletionStatus.isScheduledForDeletion ? 'ml-auto' : ''} retro-button-small px-3 py-1 flex items-center gap-2`}
+                    className={`${!isSignedIn || (!deletionStatus.isScheduledForDeletion && !hasThemeToggle) ? 'ml-auto' : ''} retro-button-small px-3 py-1 flex items-center gap-2`}
                   >
                     <span className="text-sm" title="Super Admin">🔐</span>
                     <span className="text-[10px] font-pixel">ADMIN</span>
@@ -480,7 +512,7 @@ export default function HomePage() {
 
                 {/* Clock */}
                 <div
-                  className={`${(!isSuperAdmin && (!isSignedIn || !deletionStatus.isScheduledForDeletion)) ? 'ml-auto' : ''} retro-button-small px-3 py-1 flex items-center gap-2`}
+                  className={`${(!isSuperAdmin && (!isSignedIn || !deletionStatus.isScheduledForDeletion) && !hasThemeToggle) ? 'ml-auto' : ''} retro-button-small px-3 py-1 flex items-center gap-2`}
                 >
                   <span className="text-[10px]">🕐</span>
                   <SystemClock />
@@ -488,17 +520,39 @@ export default function HomePage() {
               </>
             )}
 
-            {/* Mobile: Super Admin Badge (no clock) */}
-            {isMobile && isSuperAdmin && (
-              <div
-                className="ml-auto border-l-2 px-3 py-1 flex items-center gap-2"
-                style={{
-                  borderColor: 'var(--win95-border)',
-                  background: 'var(--win95-bg-light)'
-                }}
-              >
-                <span className="text-sm" title="Super Admin">🔐</span>
-              </div>
+            {/* Mobile: Theme Toggle and Super Admin Badge */}
+            {isMobile && (
+              <>
+                {/* Theme Toggle - Shows for any theme with a light/dark pair */}
+                {hasThemeToggle && (
+                  <button
+                    className={`${!isSuperAdmin ? 'ml-auto' : ''} border-l-2 px-3 py-1 flex items-center gap-2 hover:bg-opacity-80 transition-colors`}
+                    style={{
+                      borderColor: 'var(--win95-border)',
+                      background: 'var(--win95-bg-light)'
+                    }}
+                    onClick={handleThemeToggle}
+                    title={isCurrentThemeLight ? "Switch to Dark Mode" : "Switch to Light Mode"}
+                  >
+                    <span className="text-sm">
+                      {isCurrentThemeLight ? '☀️' : '🌙'}
+                    </span>
+                  </button>
+                )}
+
+                {/* Super Admin Badge */}
+                {isSuperAdmin && (
+                  <div
+                    className={`${!hasThemeToggle ? 'ml-auto' : ''} border-l-2 px-3 py-1 flex items-center gap-2`}
+                    style={{
+                      borderColor: 'var(--win95-border)',
+                      background: 'var(--win95-bg-light)'
+                    }}
+                  >
+                    <span className="text-sm" title="Super Admin">🔐</span>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

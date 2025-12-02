@@ -244,6 +244,69 @@ export const themes: Theme[] = [
   },
 ];
 
+/**
+ * Theme Families - Light/Dark pairs for theme toggling
+ * Each family has a light and dark variant that users can toggle between
+ */
+export const themeFamilies = {
+  "win95": {
+    light: "win95-light",
+    dark: "win95-dark",
+    name: "Windows 95"
+  },
+  "win95-purple": {
+    light: "win95-purple",
+    dark: "win95-purple-dark",
+    name: "Windows 95 Purple"
+  },
+  "win95-green": {
+    light: "win95-green",
+    dark: "win95-green-dark",
+    name: "Windows 95 Green"
+  },
+  "glass": {
+    light: "glass-light",
+    dark: "glass-dark",
+    name: "Modern Glass"
+  },
+  "clean": {
+    light: "clean-light",
+    dark: "clean-dark",
+    name: "Clean"
+  }
+};
+
+/**
+ * Get the theme family for a given theme ID
+ * Returns the family key or null if theme has no family
+ */
+export function getThemeFamily(themeId: string): string | null {
+  for (const [familyKey, family] of Object.entries(themeFamilies)) {
+    if (family.light === themeId || family.dark === themeId) {
+      return familyKey;
+    }
+  }
+  return null;
+}
+
+/**
+ * Check if a theme is a light variant
+ */
+export function isLightTheme(themeId: string): boolean {
+  return Object.values(themeFamilies).some(family => family.light === themeId);
+}
+
+/**
+ * Get the opposite theme (light ↔ dark) within the same family
+ */
+export function getOppositeTheme(themeId: string): string | null {
+  const familyKey = getThemeFamily(themeId);
+  if (!familyKey) return null;
+
+  const family = themeFamilies[familyKey as keyof typeof themeFamilies];
+  return isLightTheme(themeId) ? family.dark : family.light;
+}
+
 interface ThemeContextValue {
   currentTheme: Theme;
   setTheme: (themeId: string) => void;
@@ -280,10 +343,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { sessionId } = useAuth();
   const [isHydrated, setIsHydrated] = useState(false);
 
-  // Default to Windows 95 light theme and windows style
-  const defaultTheme = themes.find(t => t.id === "win95-light") || themes[0];
+  // Default to Clean Light (shadcn) theme and shadcn window style
+  const defaultTheme = themes.find(t => t.id === "clean-light") || themes[0];
   const [currentTheme, setCurrentTheme] = useState<Theme>(defaultTheme);
-  const [windowStyle, setWindowStyleState] = useState<WindowStyle>("windows");
+  const [windowStyle, setWindowStyleState] = useState<WindowStyle>("shadcn");
 
   // Load preferences from Convex (only if signed in)
   const userPrefs = useQuery(

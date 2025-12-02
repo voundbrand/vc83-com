@@ -66,8 +66,8 @@ Both domains point to the same deployment, but HTTP routes ONLY work on `.convex
 These are already set correctly in Convex:
 
 ```bash
-STRIPE_AI_WEBHOOK_SECRET=whsec_rcNQIPQmnZ9QTi0EkX1MsByy78a1GMoy  # ✅ Set
-STRIPE_SECRET_KEY=sk_test_51HbNLq...                            # ✅ Set
+STRIPE_AI_WEBHOOK_SECRET=  # ✅ Set
+STRIPE_SECRET_KEY=...                            # ✅ Set
 ```
 
 ## B2B Checkout Changes
