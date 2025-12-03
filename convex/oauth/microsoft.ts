@@ -517,6 +517,34 @@ export const storeConnection = internalMutation({
     scopes: v.array(v.string()),
   },
   handler: async (ctx, args) => {
+    // Check if connection already exists for this user/org/provider
+    const existingConnection = await ctx.db
+      .query("oauthConnections")
+      .withIndex("by_user_and_org", (q) =>
+        q.eq("userId", args.userId).eq("organizationId", args.organizationId)
+      )
+      .filter((q) => q.eq(q.field("provider"), args.provider))
+      .filter((q) => q.neq(q.field("status"), "revoked"))
+      .first();
+
+    if (existingConnection) {
+      // Update existing connection with new tokens
+      await ctx.db.patch(existingConnection._id, {
+        providerAccountId: args.providerAccountId,
+        providerEmail: args.providerEmail,
+        accessToken: args.accessToken,
+        refreshToken: args.refreshToken,
+        tokenExpiresAt: args.tokenExpiresAt,
+        scopes: args.scopes,
+        status: "active",
+        lastSyncError: undefined, // Clear any previous errors
+        updatedAt: Date.now(),
+      });
+
+      return existingConnection._id;
+    }
+
+    // Create new connection if none exists
     const connectionId = await ctx.db.insert("oauthConnections", {
       userId: args.userId,
       organizationId: args.organizationId,
