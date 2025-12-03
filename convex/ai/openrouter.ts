@@ -32,6 +32,37 @@ export class OpenRouterClient {
     max_tokens?: number;
     stream?: boolean;
   }) {
+    // Validate messages array
+    if (!params.messages || params.messages.length === 0) {
+      throw new Error("Messages array cannot be empty");
+    }
+
+    // Ensure all messages have content (except assistant messages with tool_calls)
+    for (const msg of params.messages) {
+      if (msg.role !== "assistant" && (!msg.content || msg.content.trim() === "")) {
+        throw new Error(`Message with role '${msg.role}' must have non-empty content`);
+      }
+    }
+
+    const requestBody = {
+      model: params.model,
+      messages: params.messages,
+      tools: params.tools,
+      temperature: params.temperature ?? 0.7,
+      max_tokens: params.max_tokens ?? 4000,
+      stream: params.stream ?? false,
+    };
+
+    // Log request for debugging (only in development)
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[OpenRouter] Request:", {
+        model: params.model,
+        messageCount: params.messages.length,
+        hasTools: !!params.tools,
+        toolCount: params.tools?.length || 0,
+      });
+    }
+
     const response = await fetch(`${this.baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
@@ -40,19 +71,39 @@ export class OpenRouterClient {
         "X-Title": process.env.OPENROUTER_APP_NAME || "l4yercak3 Platform",
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: params.model,
-        messages: params.messages,
-        tools: params.tools,
-        temperature: params.temperature ?? 0.7,
-        max_tokens: params.max_tokens ?? 4000,
-        stream: params.stream ?? false,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(`OpenRouter API error: ${error.error?.message || "Unknown error"}`);
+      // Try to parse error response
+      let errorMessage = "Unknown error";
+      let errorDetails: any = null;
+
+      try {
+        const errorBody = await response.text();
+        errorDetails = JSON.parse(errorBody);
+
+        // Extract error message from various possible structures
+        errorMessage = errorDetails.error?.message
+          || errorDetails.message
+          || errorDetails.error
+          || "Provider returned error";
+
+        // Log detailed error for debugging
+        console.error("[OpenRouter] API Error:", {
+          status: response.status,
+          statusText: response.statusText,
+          errorBody: errorDetails,
+          model: params.model,
+          messageCount: params.messages.length,
+          lastMessage: params.messages[params.messages.length - 1],
+        });
+      } catch (parseError) {
+        console.error("[OpenRouter] Failed to parse error response:", parseError);
+        errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+      }
+
+      throw new Error(`OpenRouter API error (${response.status}): ${errorMessage}`);
     }
 
     if (params.stream) {
@@ -60,6 +111,19 @@ export class OpenRouterClient {
     }
 
     const data = await response.json();
+
+    // Log response for debugging (only in development)
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[OpenRouter] Response:", {
+        model: params.model,
+        hasChoices: !!data.choices,
+        choiceCount: data.choices?.length || 0,
+        hasToolCalls: !!data.choices?.[0]?.message?.tool_calls,
+        toolCallCount: data.choices?.[0]?.message?.tool_calls?.length || 0,
+        usage: data.usage,
+      });
+    }
+
     return data;
   }
 

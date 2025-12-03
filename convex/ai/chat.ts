@@ -117,9 +117,28 @@ Current Context:
       max_tokens: settings.llm.maxTokens,
     });
 
-    // 8. Handle tool calls
+    // Validate response structure
+    if (!response.choices || response.choices.length === 0) {
+      throw new Error("Invalid response from OpenRouter: no choices returned");
+    }
+
+    // 8. Handle tool calls (with maximum 3 rounds to prevent infinite loops)
     const toolCalls: any[] = [];
-    if (response.choices[0].message.tool_calls) {
+    let toolCallRounds = 0;
+    const maxToolCallRounds = 3;
+
+    while (response.choices[0].message.tool_calls && toolCallRounds < maxToolCallRounds) {
+      toolCallRounds++;
+      console.log(`[AI Chat] Tool call round ${toolCallRounds}`);
+
+      // Add assistant message with tool calls first
+      messages.push({
+        role: "assistant" as const,
+        content: response.choices[0].message.content || "",
+        tool_calls: response.choices[0].message.tool_calls,
+      });
+
+      // Execute each tool call
       for (const toolCall of response.choices[0].message.tool_calls) {
         const startTime = Date.now();
 
@@ -146,8 +165,8 @@ Current Context:
             parameters: JSON.parse(toolCall.function.arguments),
             result,
             status: "success",
-            tokensUsed: response.usage.total_tokens,
-            costUsd: client.calculateCost(response.usage, model),
+            tokensUsed: response.usage?.total_tokens || 0,
+            costUsd: client.calculateCost(response.usage || { prompt_tokens: 0, completion_tokens: 0 }, model),
             executedAt: Date.now(),
             durationMs,
           });
@@ -158,21 +177,18 @@ Current Context:
             arguments: JSON.parse(toolCall.function.arguments),
             result,
             status: "success",
+            round: toolCallRounds,
           });
 
           // Add tool result to messages
-          messages.push({
-            role: "assistant" as const,
-            content: response.choices[0].message.content || "",
-            tool_calls: response.choices[0].message.tool_calls,
-          });
-
           messages.push({
             role: "tool" as const,
             content: JSON.stringify(result),
             name: toolCall.function.name,
           } as any);
         } catch (error: any) {
+          console.error(`[AI Chat] Tool execution failed: ${toolCall.function.name}`, error);
+
           // Log failed execution
           await ctx.runMutation(api.ai.conversations.logToolExecution, {
             conversationId,
@@ -182,8 +198,8 @@ Current Context:
             parameters: JSON.parse(toolCall.function.arguments),
             error: error.message,
             status: "failed",
-            tokensUsed: response.usage.total_tokens,
-            costUsd: client.calculateCost(response.usage, model),
+            tokensUsed: response.usage?.total_tokens || 0,
+            costUsd: client.calculateCost(response.usage || { prompt_tokens: 0, completion_tokens: 0 }, model),
             executedAt: Date.now(),
             durationMs: Date.now() - startTime,
           });
@@ -194,8 +210,10 @@ Current Context:
             arguments: JSON.parse(toolCall.function.arguments),
             error: error.message,
             status: "failed",
+            round: toolCallRounds,
           });
 
+          // Add tool error to messages
           messages.push({
             role: "tool" as const,
             content: JSON.stringify({ error: error.message }),
@@ -204,26 +222,49 @@ Current Context:
         }
       }
 
-      // Get final response after tool execution
+      // Get next response after tool execution (without tools to force final answer)
       response = await client.chatCompletion({
         model,
         messages,
         temperature: settings.llm.temperature,
         max_tokens: settings.llm.maxTokens,
+        // Don't pass tools on subsequent calls to encourage final answer
       });
+
+      // Validate response structure
+      if (!response.choices || response.choices.length === 0) {
+        throw new Error("Invalid response from OpenRouter after tool execution");
+      }
+    }
+
+    // If we hit max rounds, log a warning
+    if (toolCallRounds >= maxToolCallRounds && response.choices[0].message.tool_calls) {
+      console.warn(`[AI Chat] Max tool call rounds (${maxToolCallRounds}) reached, forcing final response`);
     }
 
     // 9. Save assistant message
+    const finalMessage = response.choices[0]?.message;
+    if (!finalMessage) {
+      throw new Error("No message in final response from OpenRouter");
+    }
+
+    const messageContent = finalMessage.content || (toolCalls.length > 0
+      ? `Executed ${toolCalls.length} tool(s): ${toolCalls.map(t => t.name).join(", ")}`
+      : "I'm here to help, but I didn't generate a response.");
+
     await ctx.runMutation(api.ai.conversations.addMessage, {
       conversationId,
       role: "assistant",
-      content: response.choices[0].message.content,
+      content: messageContent,
       timestamp: Date.now(),
       toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
     });
 
     // 10. Update monthly spend
-    const cost = client.calculateCost(response.usage, model);
+    const cost = client.calculateCost(
+      response.usage || { prompt_tokens: 0, completion_tokens: 0 },
+      model
+    );
     await ctx.runMutation(api.ai.settings.updateMonthlySpend, {
       organizationId: args.organizationId,
       costUsd: cost,
@@ -231,9 +272,9 @@ Current Context:
 
     return {
       conversationId,
-      message: response.choices[0].message.content,
+      message: messageContent,
       toolCalls,
-      usage: response.usage,
+      usage: response.usage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
       cost,
     };
   },
