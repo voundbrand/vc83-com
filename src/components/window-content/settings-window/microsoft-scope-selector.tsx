@@ -155,10 +155,16 @@ export function MicrosoftScopeSelector({
   return (
     <div className="space-y-4">
       {/* Info Alert */}
-      <div className="bg-purple-50 border-2 border-purple-600 p-3 rounded">
+      <div
+        className="border-2 p-3 rounded"
+        style={{
+          background: 'var(--win95-bg-light)',
+          borderColor: 'var(--win95-highlight)'
+        }}
+      >
         <div className="flex items-start gap-2">
-          <Info className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" />
-          <div className="text-sm text-purple-900">
+          <Info className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: 'var(--win95-highlight)' }} />
+          <div className="text-sm" style={{ color: 'var(--win95-text)' }}>
             <strong>Permission Scopes:</strong> Select which Microsoft data you want to sync. You can always add or remove permissions later.
           </div>
         </div>
@@ -166,10 +172,16 @@ export function MicrosoftScopeSelector({
 
       {/* Existing Connection Warning */}
       {existingConnection && (
-        <div className="bg-yellow-50 border-2 border-yellow-600 p-3 rounded">
+        <div
+          className="border-2 p-3 rounded"
+          style={{
+            background: 'var(--win95-bg-light)',
+            borderColor: 'var(--warning)'
+          }}
+        >
           <div className="flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
-            <div className="text-sm text-yellow-900">
+            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: 'var(--warning)' }} />
+            <div className="text-sm" style={{ color: 'var(--win95-text)' }}>
               <strong>Reconnection Required:</strong> Changing permissions requires reconnecting your Microsoft account.
             </div>
           </div>
@@ -178,7 +190,7 @@ export function MicrosoftScopeSelector({
 
       {/* Presets */}
       <div>
-        <label className="block text-sm font-['Press_Start_2P'] text-purple-600 mb-2">
+        <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--win95-text)' }}>
           Quick Presets
         </label>
         <div className="grid grid-cols-2 gap-2">
@@ -200,7 +212,7 @@ export function MicrosoftScopeSelector({
 
       {/* Category Selection */}
       <div>
-        <label className="block text-sm font-['Press_Start_2P'] text-purple-600 mb-2">
+        <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--win95-text)' }}>
           Permission Categories
         </label>
         <div className="space-y-2">
@@ -209,17 +221,31 @@ export function MicrosoftScopeSelector({
             const isExpanded = expandedCategories.has(category.id);
 
             return (
-              <div key={category.id} className="border-2 border-gray-300 rounded overflow-hidden">
+              <div
+                key={category.id}
+                className="border-2 rounded overflow-hidden"
+                style={{ borderColor: 'var(--win95-border)' }}
+              >
                 {/* Category Header */}
                 <div
-                  className="bg-gray-100 p-3 cursor-pointer hover:bg-gray-200 transition-colors flex items-center justify-between"
+                  className="p-3 cursor-pointer transition-colors flex items-center justify-between"
+                  style={{
+                    background: 'var(--win95-bg-light)',
+                    color: 'var(--win95-text)'
+                  }}
                   onClick={() => toggleCategory(category.id)}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'var(--win95-hover-light)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'var(--win95-bg-light)';
+                  }}
                 >
                   <div className="flex items-center gap-3">
                     <span className="text-2xl">{category.icon}</span>
                     <div>
                       <div className="font-bold">{category.name}</div>
-                      <div className="text-xs text-gray-600">
+                      <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
                         {stats.selected} of {stats.total} selected
                       </div>
                     </div>
@@ -234,17 +260,24 @@ export function MicrosoftScopeSelector({
                       }}
                       className="w-4 h-4"
                     />
-                    <span className="text-gray-600">{isExpanded ? "▼" : "▶"}</span>
+                    <span style={{ color: 'var(--neutral-gray)' }}>{isExpanded ? "▼" : "▶"}</span>
                   </div>
                 </div>
 
                 {/* Category Scopes */}
                 {isExpanded && (
-                  <div className="p-3 space-y-2 bg-white">
+                  <div className="p-3 space-y-2" style={{ background: 'var(--win95-bg)' }}>
                     {SCOPES_BY_CATEGORY[category.id].map(scope => (
                       <label
                         key={scope.scope}
-                        className="flex items-start gap-3 p-2 rounded hover:bg-gray-50 cursor-pointer"
+                        className="flex items-start gap-3 p-2 rounded cursor-pointer"
+                        style={{ color: 'var(--win95-text)' }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'var(--win95-hover-light)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'transparent';
+                        }}
                       >
                         <input
                           type="checkbox"
@@ -256,13 +289,24 @@ export function MicrosoftScopeSelector({
                           <div className="font-bold text-sm flex items-center gap-2">
                             {scope.name}
                             {scope.adminRequired && (
-                              <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">
+                              <span
+                                className="text-xs px-2 py-0.5 rounded"
+                                style={{
+                                  background: 'var(--win95-bg-light)',
+                                  borderColor: 'var(--warning)',
+                                  color: 'var(--warning)'
+                                }}
+                              >
                                 Admin Consent
                               </span>
                             )}
                           </div>
-                          <div className="text-xs text-gray-600">{scope.description}</div>
-                          <div className="text-xs text-gray-500 font-mono mt-1">{scope.scope}</div>
+                          <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
+                            {scope.description}
+                          </div>
+                          <div className="text-xs font-mono mt-1" style={{ color: 'var(--neutral-gray)' }}>
+                            {scope.scope}
+                          </div>
                         </div>
                       </label>
                     ))}
@@ -275,11 +319,14 @@ export function MicrosoftScopeSelector({
       </div>
 
       {/* Selected Count */}
-      <div className="bg-gray-100 p-3 rounded flex items-center justify-between">
-        <div className="text-sm">
+      <div
+        className="p-3 rounded flex items-center justify-between"
+        style={{ background: 'var(--win95-bg-light)' }}
+      >
+        <div className="text-sm" style={{ color: 'var(--win95-text)' }}>
           <strong>{selectedScopes.length}</strong> permission{selectedScopes.length !== 1 ? "s" : ""} selected
           {selectedScopes.length > 0 && (
-            <span className="text-gray-600 ml-2">
+            <span className="ml-2" style={{ color: 'var(--neutral-gray)' }}>
               (+ 5 required)
             </span>
           )}
