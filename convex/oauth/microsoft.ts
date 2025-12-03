@@ -9,6 +9,7 @@ import { action, mutation, query, internalMutation, internalQuery, internalActio
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
 import { api, internal } from "../_generated/api";
+import { getRequiredScopes } from "./microsoftScopes";
 
 // Microsoft OAuth endpoints
 const MICROSOFT_AUTH_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize";
@@ -86,7 +87,6 @@ export const initiateMicrosoftOAuth = mutation({
     });
 
     // Build scope string from required + requested scopes
-    const { getRequiredScopes } = await import("./microsoftScopes");
     const requiredScopes = getRequiredScopes();
     const requestedScopes = args.requestedScopes || [];
     const allScopes = [...new Set([...requiredScopes, ...requestedScopes])];

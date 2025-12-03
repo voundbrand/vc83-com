@@ -2,39 +2,40 @@
 
 import { useState } from "react";
 import { RetroButton } from "@/components/retro-button";
-import { AlertCircle, CheckCircle2, Info } from "lucide-react";
+import { AlertCircle, Info } from "lucide-react";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
-// Import scope data from backend
+// Import scope data from backend (names will be translated in component)
 const SCOPE_CATEGORIES = [
-  { id: "mail", name: "Email & Messages", icon: "📧" },
-  { id: "calendar", name: "Calendar & Events", icon: "📅" },
-  { id: "contacts", name: "Contacts & People", icon: "👤" },
-  { id: "files", name: "Files & OneDrive", icon: "📁" },
-  { id: "teams", name: "Teams & Chat", icon: "💬" },
-  { id: "sites", name: "SharePoint Sites", icon: "🌐" },
-  { id: "tasks", name: "Tasks & To-Do", icon: "✅" },
-  { id: "notes", name: "OneNote", icon: "📝" },
+  { id: "mail", translationKey: "integrations.scopes.categories.mail.name", icon: "📧" },
+  { id: "calendar", translationKey: "integrations.scopes.categories.calendar.name", icon: "📅" },
+  { id: "contacts", translationKey: "integrations.scopes.categories.contacts.name", icon: "👤" },
+  { id: "files", translationKey: "integrations.scopes.categories.files.name", icon: "📁" },
+  { id: "teams", translationKey: "integrations.scopes.categories.teams.name", icon: "💬" },
+  { id: "sites", translationKey: "integrations.scopes.categories.sites.name", icon: "🌐" },
+  { id: "tasks", translationKey: "integrations.scopes.categories.tasks.name", icon: "✅" },
+  { id: "notes", translationKey: "integrations.scopes.categories.notes.name", icon: "📝" },
 ] as const;
 
 const SCOPE_PRESETS = {
   minimal: {
-    name: "Minimal",
-    description: "Only required permissions",
+    nameKey: "integrations.scopes.presets.minimal.name",
+    descriptionKey: "integrations.scopes.presets.minimal.description",
     scopes: [],
   },
   email: {
-    name: "Email",
-    description: "Read and send emails",
+    nameKey: "integrations.scopes.presets.email.name",
+    descriptionKey: "integrations.scopes.presets.email.description",
     scopes: ["Mail.Read", "Mail.Send"],
   },
   crm: {
-    name: "CRM Suite",
-    description: "Email, calendar, contacts",
+    nameKey: "integrations.scopes.presets.crm.name",
+    descriptionKey: "integrations.scopes.presets.crm.description",
     scopes: ["Mail.ReadWrite", "Mail.Send", "Calendars.ReadWrite", "Contacts.ReadWrite"],
   },
   productivity: {
-    name: "Full Productivity",
-    description: "All 30 permissions (complete access)",
+    nameKey: "integrations.scopes.presets.productivity.name",
+    descriptionKey: "integrations.scopes.presets.productivity.description",
     scopes: [
       // 📧 Email & Messages (5 scopes)
       "Mail.Read",
@@ -146,6 +147,7 @@ export function MicrosoftScopeSelector({
   onChange,
   existingConnection,
 }: MicrosoftScopeSelectorProps) {
+  const { t } = useNamespaceTranslations("ui.manage");
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
   const toggleCategory = (category: string) => {
@@ -211,7 +213,7 @@ export function MicrosoftScopeSelector({
         <div className="flex items-start gap-2">
           <Info className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: 'var(--win95-highlight)' }} />
           <div className="text-sm" style={{ color: 'var(--win95-text)' }}>
-            <strong>Permission Scopes:</strong> Select which Microsoft data you want to sync. You can always add or remove permissions later.
+            <strong>{t("integrations.scopes.info.title")}</strong> {t("integrations.scopes.info.description")}
           </div>
         </div>
       </div>
@@ -228,7 +230,7 @@ export function MicrosoftScopeSelector({
           <div className="flex items-start gap-2">
             <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: 'var(--warning)' }} />
             <div className="text-sm" style={{ color: 'var(--win95-text)' }}>
-              <strong>Reconnection Required:</strong> Changing permissions requires reconnecting your Microsoft account.
+              <strong>{t("integrations.scopes.warning.title")}</strong> {t("integrations.scopes.warning.description")}
             </div>
           </div>
         </div>
@@ -237,7 +239,7 @@ export function MicrosoftScopeSelector({
       {/* Presets */}
       <div>
         <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--win95-text)' }}>
-          Quick Presets
+          {t("integrations.scopes.presets.title")}
         </label>
         <div className="grid grid-cols-2 gap-2">
           {Object.entries(SCOPE_PRESETS).map(([key, preset]) => (
@@ -248,8 +250,8 @@ export function MicrosoftScopeSelector({
               size="sm"
             >
               <div className="text-left">
-                <div className="font-bold">{preset.name}</div>
-                <div className="text-xs opacity-70">{preset.description}</div>
+                <div className="font-bold">{t(preset.nameKey)}</div>
+                <div className="text-xs opacity-70">{t(preset.descriptionKey)}</div>
               </div>
             </RetroButton>
           ))}
@@ -259,7 +261,7 @@ export function MicrosoftScopeSelector({
       {/* Category Selection */}
       <div>
         <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--win95-text)' }}>
-          Permission Categories
+          {t("integrations.scopes.categories.title")}
         </label>
         <div className="space-y-2">
           {SCOPE_CATEGORIES.map(category => {
@@ -290,9 +292,9 @@ export function MicrosoftScopeSelector({
                   <div className="flex items-center gap-3">
                     <span className="text-2xl">{category.icon}</span>
                     <div>
-                      <div className="font-bold">{category.name}</div>
+                      <div className="font-bold">{t(category.translationKey)}</div>
                       <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-                        {stats.selected} of {stats.total} selected
+                        {t("integrations.scopes.category_stats", { selected: stats.selected.toString(), total: stats.total.toString() })}
                       </div>
                     </div>
                   </div>
@@ -343,7 +345,7 @@ export function MicrosoftScopeSelector({
                                   color: 'var(--warning)'
                                 }}
                               >
-                                Admin Consent
+                                {t("integrations.scopes.admin_consent")}
                               </span>
                             )}
                           </div>
@@ -370,10 +372,13 @@ export function MicrosoftScopeSelector({
         style={{ background: 'var(--win95-bg-light)' }}
       >
         <div className="text-sm" style={{ color: 'var(--win95-text)' }}>
-          <strong>{selectedScopes.length}</strong> permission{selectedScopes.length !== 1 ? "s" : ""} selected
+          {t("integrations.scopes.selected_count", {
+            count: selectedScopes.length.toString(),
+            plural: selectedScopes.length !== 1 ? "s" : ""
+          })}
           {selectedScopes.length > 0 && (
             <span className="ml-2" style={{ color: 'var(--neutral-gray)' }}>
-              (+ 5 required)
+              {t("integrations.scopes.required_additional")}
             </span>
           )}
         </div>
@@ -383,7 +388,7 @@ export function MicrosoftScopeSelector({
             variant="secondary"
             size="sm"
           >
-            Clear All
+            {t("integrations.scopes.actions.clear_all")}
           </RetroButton>
         )}
       </div>
