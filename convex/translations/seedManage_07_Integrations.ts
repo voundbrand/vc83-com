@@ -1215,6 +1215,28 @@ export const seed = internalMutation({
           ja: "権限を変更するには、Microsoftアカウントを再接続する必要があります。",
         }
       },
+      {
+        key: "ui.manage.integrations.scopes.readonly.title",
+        values: {
+          en: "Connected Permissions:",
+          de: "Verbundene Berechtigungen:",
+          pl: "Połączone uprawnienia:",
+          es: "Permisos conectados:",
+          fr: "Autorisations connectées :",
+          ja: "接続された権限:",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.readonly.description",
+        values: {
+          en: "These are the permissions currently connected to your Microsoft account. To change them, disconnect and reconnect.",
+          de: "Dies sind die derzeit mit deinem Microsoft-Konto verbundenen Berechtigungen. Um sie zu ändern, trenne die Verbindung und verbinde dich erneut.",
+          pl: "To są uprawnienia obecnie połączone z twoim kontem Microsoft. Aby je zmienić, rozłącz i połącz ponownie.",
+          es: "Estos son los permisos conectados actualmente a tu cuenta de Microsoft. Para cambiarlos, desconecta y vuelve a conectar.",
+          fr: "Ce sont les autorisations actuellement connectées à votre compte Microsoft. Pour les modifier, déconnectez-vous et reconnectez-vous.",
+          ja: "これらは現在Microsoftアカウントに接続されている権限です。変更するには、切断して再接続してください。",
+        }
+      },
 
       // Presets
       {

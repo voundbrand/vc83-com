@@ -150,12 +150,14 @@ interface MicrosoftScopeSelectorProps {
   existingConnection?: {
     scopes: string[];
   };
+  readOnly?: boolean;
 }
 
 export function MicrosoftScopeSelector({
   selectedScopes,
   onChange,
   existingConnection,
+  readOnly = false,
 }: MicrosoftScopeSelectorProps) {
   const { t } = useNamespaceTranslations("ui.manage");
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
@@ -228,8 +230,26 @@ export function MicrosoftScopeSelector({
         </div>
       </div>
 
+      {/* Read-Only Notice */}
+      {readOnly && (
+        <div
+          className="border-2 p-3 rounded"
+          style={{
+            background: 'var(--win95-bg-light)',
+            borderColor: 'var(--win95-highlight)'
+          }}
+        >
+          <div className="flex items-start gap-2">
+            <Info className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: 'var(--win95-highlight)' }} />
+            <div className="text-sm" style={{ color: 'var(--win95-text)' }}>
+              <strong>{t("ui.manage.integrations.scopes.readonly.title")}</strong> {t("ui.manage.integrations.scopes.readonly.description")}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Existing Connection Warning */}
-      {existingConnection && (
+      {existingConnection && !readOnly && (
         <div
           className="border-2 p-3 rounded"
           style={{
@@ -258,6 +278,7 @@ export function MicrosoftScopeSelector({
               onClick={() => applyPreset(key as keyof typeof SCOPE_PRESETS)}
               variant="secondary"
               size="sm"
+              disabled={readOnly}
             >
               <div className="text-left">
                 <div className="font-bold">{t(`ui.manage.${preset.nameKey}`)}</div>
@@ -316,6 +337,7 @@ export function MicrosoftScopeSelector({
                         e.stopPropagation();
                         toggleAllInCategory(category.id, e.target.checked);
                       }}
+                      disabled={readOnly}
                       className="w-4 h-4"
                     />
                     <span style={{ color: 'var(--neutral-gray)' }}>{isExpanded ? "▼" : "▶"}</span>
@@ -341,6 +363,7 @@ export function MicrosoftScopeSelector({
                           type="checkbox"
                           checked={selectedScopes.includes(scope.scope)}
                           onChange={() => toggleScope(scope.scope)}
+                          disabled={readOnly}
                           className="w-4 h-4 mt-1"
                         />
                         <div className="flex-1">
@@ -392,7 +415,7 @@ export function MicrosoftScopeSelector({
             </span>
           )}
         </div>
-        {selectedScopes.length > 0 && (
+        {selectedScopes.length > 0 && !readOnly && (
           <RetroButton
             onClick={() => onChange([])}
             variant="secondary"

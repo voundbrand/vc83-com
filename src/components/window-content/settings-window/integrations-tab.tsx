@@ -327,6 +327,13 @@ export function IntegrationsTab() {
               )}
             </div>
 
+            {/* Connected Permissions Scope Selector */}
+            <MicrosoftScopeSelector
+              selectedScopes={connection.scopes || []}
+              onChange={() => {}} // No-op since read-only
+              readOnly={true}
+            />
+
             {/* Sync Settings */}
             <div
               className="p-3 border-2 rounded"
