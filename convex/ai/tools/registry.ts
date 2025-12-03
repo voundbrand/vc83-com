@@ -4,7 +4,8 @@
  * Central registry of all AI tools in OpenAI function calling format
  */
 
-import type { ActionCtx } from "../../_generated/server";
+import { bulkCRMEmailToolDefinition } from "./bulkCRMEmailTool";
+import { contactSyncToolDefinition } from "./contactSyncTool";
 
 /**
  * Tool definition interface
@@ -145,6 +146,29 @@ const listEventsTool: AITool = {
 };
 
 /**
+ * Contact sync and bulk email tools
+ */
+const syncContactsTool: AITool = {
+  name: "sync_contacts",
+  description: "Sync contacts from Microsoft/Google to CRM. AI intelligently matches, merges, and creates contacts.",
+  parameters: contactSyncToolDefinition.function.parameters,
+  execute: async (_ctx, _args) => {
+    // TODO: Implement actual execution via Convex action
+    return { success: true, message: "Contact sync tool registered" };
+  }
+};
+
+const sendBulkCRMEmailTool: AITool = {
+  name: "send_bulk_crm_email",
+  description: "Send personalized emails to multiple CRM contacts or organizations",
+  parameters: bulkCRMEmailToolDefinition.function.parameters,
+  execute: async (_ctx, _args) => {
+    // TODO: Implement actual execution via Convex action
+    return { success: true, message: "Bulk email tool registered" };
+  }
+};
+
+/**
  * All available tools
  */
 export const TOOL_REGISTRY: Record<string, AITool> = {
@@ -153,11 +177,12 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
   search_contacts: searchContactsTool,
   list_forms: listFormsTool,
   list_events: listEventsTool,
+  sync_contacts: syncContactsTool,
+  send_bulk_crm_email: sendBulkCRMEmailTool,
   // TODO: Add more tools:
   // - create_contact
   // - create_ticket_type
   // - create_product
-  // - send_email
   // etc.
 };
 

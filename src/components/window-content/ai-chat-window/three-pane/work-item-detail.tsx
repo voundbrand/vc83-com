@@ -1,0 +1,564 @@
+"use client"
+
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
+import {
+  Users,
+  Mail,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  User,
+  Building2,
+  AtSign,
+  Phone,
+  MapPin,
+  Briefcase,
+  Check,
+  X,
+  Loader2
+} from "lucide-react"
+import { type ReactNode, useState } from "react"
+import { useQuery, useMutation, useAction } from "convex/react"
+import { api } from "../../../../../convex/_generated/api"
+import { Id } from "../../../../../convex/_generated/dataModel"
+
+interface WorkItem {
+  id: Id<"contactSyncs"> | Id<"emailCampaigns">;
+  type: "contact_sync" | "email_campaign";
+  name: string;
+  status: string;
+  createdAt: number;
+  progress: {
+    total: number;
+    completed: number;
+    failed: number;
+  };
+}
+
+interface WorkItemDetailProps {
+  item: WorkItem;
+  onActionComplete?: () => void;
+}
+
+// Action Buttons Component
+function ActionButtons({
+  itemType,
+  itemId,
+  status,
+  onActionComplete,
+}: {
+  itemType: "contact_sync" | "email_campaign";
+  itemId: Id<"contactSyncs"> | Id<"emailCampaigns">;
+  status: string;
+  onActionComplete?: () => void;
+}) {
+  const [isApproving, setIsApproving] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Mutations
+  const approveContactSync = useAction(api.ai.workItemActions.approveContactSync);
+  const cancelContactSync = useMutation(api.ai.workItemActions.cancelContactSync);
+  const approveEmailCampaign = useAction(api.ai.workItemActions.approveEmailCampaign);
+  const cancelEmailCampaign = useMutation(api.ai.workItemActions.cancelEmailCampaign);
+
+  const handleApprove = async () => {
+    setIsApproving(true);
+    setError(null);
+
+    try {
+      if (itemType === "contact_sync") {
+        await approveContactSync({ syncId: itemId as Id<"contactSyncs"> });
+      } else {
+        await approveEmailCampaign({ campaignId: itemId as Id<"emailCampaigns"> });
+      }
+
+      onActionComplete?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to approve");
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!confirm("Are you sure you want to cancel this? This action cannot be undone.")) {
+      return;
+    }
+
+    setIsCancelling(true);
+    setError(null);
+
+    try {
+      if (itemType === "contact_sync") {
+        await cancelContactSync({ syncId: itemId as Id<"contactSyncs"> });
+      } else {
+        await cancelEmailCampaign({ campaignId: itemId as Id<"emailCampaigns"> });
+      }
+
+      onActionComplete?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to cancel");
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  // Only show buttons for preview/draft/pending statuses
+  const canApprove = status === "preview" || status === "draft" || status === "pending";
+
+  if (!canApprove) {
+    return null;
+  }
+
+  return (
+    <div className="p-3 border-t" style={{ borderColor: 'var(--win95-border-light)' }}>
+      {error && (
+        <div
+          className="mb-2 p-2 rounded text-xs"
+          style={{
+            background: 'var(--error-bg)',
+            color: 'var(--error)',
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        {/* Approve Button */}
+        <button
+          onClick={handleApprove}
+          disabled={isApproving || isCancelling}
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{
+            background: isApproving ? 'var(--success-bg)' : 'var(--success)',
+            color: 'white',
+            border: '2px solid var(--success)',
+          }}
+        >
+          {isApproving ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>Approving...</span>
+            </>
+          ) : (
+            <>
+              <Check className="w-4 h-4" />
+              <span>Approve</span>
+            </>
+          )}
+        </button>
+
+        {/* Cancel Button */}
+        <button
+          onClick={handleCancel}
+          disabled={isApproving || isCancelling}
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{
+            background: isCancelling ? 'var(--error-bg)' : 'transparent',
+            color: isCancelling ? 'var(--error)' : 'var(--win95-text)',
+            border: '2px solid var(--win95-border-dark)',
+          }}
+        >
+          {isCancelling ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>Cancelling...</span>
+            </>
+          ) : (
+            <>
+              <X className="w-4 h-4" />
+              <span>Cancel</span>
+            </>
+          )}
+        </button>
+      </div>
+
+      <p className="text-xs mt-2 text-center" style={{ color: 'var(--win95-text-muted)' }}>
+        {itemType === "contact_sync"
+          ? "Approve to create/update contacts in CRM"
+          : "Approve to send emails to all recipients"}
+      </p>
+    </div>
+  );
+}
+
+// Contact Sync Detail View
+function ContactSyncDetail({
+  syncId,
+  onActionComplete,
+}: {
+  syncId: Id<"contactSyncs">;
+  onActionComplete?: () => void;
+}) {
+  const sync = useQuery(api.ai.workItems.getContactSync, { syncId });
+  const items = useQuery(api.ai.workItems.getContactSyncItems, { syncId });
+
+  if (!sync) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+          Loading sync details...
+        </p>
+      </div>
+    );
+  }
+
+  // Action badge configuration
+  const actionConfig: Record<string, { color: string; bgColor: string; icon: typeof CheckCircle2; label: string }> = {
+    create: { color: 'var(--success)', bgColor: 'var(--success-bg)', icon: CheckCircle2, label: 'Create' },
+    update: { color: 'var(--info)', bgColor: 'var(--info-bg)', icon: AlertCircle, label: 'Update' },
+    skip: { color: 'var(--win95-text-muted)', bgColor: 'var(--win95-border-light)', icon: XCircle, label: 'Skip' },
+    merge: { color: 'var(--warning)', bgColor: 'var(--warning-bg)', icon: AlertCircle, label: 'Merge' },
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Sync Info */}
+      <div className="p-3 border-b" style={{ borderColor: 'var(--win95-border-light)' }}>
+        <p className="text-sm font-semibold mb-2" style={{ color: 'var(--win95-text)' }}>
+          {sync.provider === "microsoft" ? "Microsoft" : "Google"} Contact Sync
+        </p>
+        <div className="space-y-1 text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+          <p>Initiated by: {sync.userName}</p>
+          <p>Started: {new Date(sync.startedAt).toLocaleString()}</p>
+          {sync.completedAt && (
+            <p>Completed: {new Date(sync.completedAt).toLocaleString()}</p>
+          )}
+        </div>
+      </div>
+
+      {/* Statistics */}
+      <div className="p-3 border-b" style={{ borderColor: 'var(--win95-border-light)' }}>
+        <p className="text-xs font-semibold mb-2" style={{ color: 'var(--win95-text)' }}>
+          Statistics
+        </p>
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div>
+            <p style={{ color: 'var(--win95-text-muted)' }}>Total:</p>
+            <p className="font-semibold" style={{ color: 'var(--win95-text)' }}>{sync.totalContacts}</p>
+          </div>
+          <div>
+            <p style={{ color: 'var(--win95-text-muted)' }}>Created:</p>
+            <p className="font-semibold" style={{ color: 'var(--success)' }}>{sync.created}</p>
+          </div>
+          <div>
+            <p style={{ color: 'var(--win95-text-muted)' }}>Updated:</p>
+            <p className="font-semibold" style={{ color: 'var(--info)' }}>{sync.updated}</p>
+          </div>
+          <div>
+            <p style={{ color: 'var(--win95-text-muted)' }}>Skipped:</p>
+            <p className="font-semibold" style={{ color: 'var(--win95-text-muted)' }}>{sync.skipped}</p>
+          </div>
+          {sync.failed > 0 && (
+            <div>
+              <p style={{ color: 'var(--win95-text-muted)' }}>Failed:</p>
+              <p className="font-semibold" style={{ color: 'var(--error)' }}>{sync.failed}</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Action Buttons */}
+      <ActionButtons
+        itemType="contact_sync"
+        itemId={syncId}
+        status={sync.status}
+        onActionComplete={onActionComplete}
+      />
+
+      {/* Contact Items */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="p-2">
+          <p className="text-xs font-semibold mb-2 px-1" style={{ color: 'var(--win95-text)' }}>
+            Contacts ({items?.length || 0})
+          </p>
+          {!items || items.length === 0 ? (
+            <p className="text-xs text-center py-4" style={{ color: 'var(--win95-text-muted)' }}>
+              No preview data available
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {items.map((contact) => {
+                const config = actionConfig[contact.match.action];
+                const ActionIcon = config.icon;
+
+                return (
+                  <div
+                    key={contact.id}
+                    className="p-2 border rounded"
+                    style={{
+                      borderColor: 'var(--win95-border-light)',
+                      background: 'var(--win95-bg)'
+                    }}
+                  >
+                    {/* Contact Header */}
+                    <div className="flex items-start gap-2 mb-2">
+                      <User className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--win95-text)' }} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium truncate" style={{ color: 'var(--win95-text)' }}>
+                          {contact.sourceName}
+                        </p>
+                        <p className="text-xs truncate" style={{ color: 'var(--win95-text-muted)' }}>
+                          {contact.sourceEmail}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Action Badge */}
+                    <div
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs mb-1"
+                      style={{
+                        background: config.bgColor,
+                        color: config.color
+                      }}
+                    >
+                      <ActionIcon className="w-3 h-3" />
+                      {config.label}
+                    </div>
+
+                    {/* Match Reason */}
+                    <p className="text-xs mt-1" style={{ color: 'var(--win95-text-muted)' }}>
+                      {contact.match.reason}
+                    </p>
+
+                    {/* Contact Details */}
+                    {contact.data && (
+                      <div className="mt-2 pt-2 border-t space-y-1" style={{ borderColor: 'var(--win95-border-light)' }}>
+                        {(contact.data as any).companyName && (
+                          <div className="flex items-center gap-1 text-xs">
+                            <Building2 className="w-3 h-3" style={{ color: 'var(--win95-text-muted)' }} />
+                            <span style={{ color: 'var(--win95-text)' }}>{(contact.data as any).companyName}</span>
+                          </div>
+                        )}
+                        {(contact.data as any).jobTitle && (
+                          <div className="flex items-center gap-1 text-xs">
+                            <Briefcase className="w-3 h-3" style={{ color: 'var(--win95-text-muted)' }} />
+                            <span style={{ color: 'var(--win95-text)' }}>{(contact.data as any).jobTitle}</span>
+                          </div>
+                        )}
+                        {(contact.data as any).mobilePhone && (
+                          <div className="flex items-center gap-1 text-xs">
+                            <Phone className="w-3 h-3" style={{ color: 'var(--win95-text-muted)' }} />
+                            <span style={{ color: 'var(--win95-text)' }}>{(contact.data as any).mobilePhone}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Email Campaign Detail View
+function EmailCampaignDetail({
+  campaignId,
+  onActionComplete,
+}: {
+  campaignId: Id<"emailCampaigns">;
+  onActionComplete?: () => void;
+}) {
+  const campaign = useQuery(api.ai.workItems.getEmailCampaign, { campaignId });
+  const items = useQuery(api.ai.workItems.getEmailCampaignItems, { campaignId });
+
+  if (!campaign) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+          Loading campaign details...
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Campaign Info */}
+      <div className="p-3 border-b" style={{ borderColor: 'var(--win95-border-light)' }}>
+        <p className="text-sm font-semibold mb-2" style={{ color: 'var(--win95-text)' }}>
+          {campaign.name}
+        </p>
+        <div className="space-y-1 text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+          <p>Created by: {campaign.userName}</p>
+          <p>Created: {new Date(campaign.createdAt).toLocaleString()}</p>
+          {campaign.sentAt && (
+            <p>Sent: {new Date(campaign.sentAt).toLocaleString()}</p>
+          )}
+          {campaign.aiTone && (
+            <p>Tone: {campaign.aiTone}</p>
+          )}
+        </div>
+      </div>
+
+      {/* Statistics */}
+      <div className="p-3 border-b" style={{ borderColor: 'var(--win95-border-light)' }}>
+        <p className="text-xs font-semibold mb-2" style={{ color: 'var(--win95-text)' }}>
+          Statistics
+        </p>
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div>
+            <p style={{ color: 'var(--win95-text-muted)' }}>Recipients:</p>
+            <p className="font-semibold" style={{ color: 'var(--win95-text)' }}>{campaign.totalRecipients}</p>
+          </div>
+          <div>
+            <p style={{ color: 'var(--win95-text-muted)' }}>Sent:</p>
+            <p className="font-semibold" style={{ color: 'var(--success)' }}>{campaign.sent}</p>
+          </div>
+          <div>
+            <p style={{ color: 'var(--win95-text-muted)' }}>Queued:</p>
+            <p className="font-semibold" style={{ color: 'var(--info)' }}>{campaign.queued || 0}</p>
+          </div>
+          {campaign.failed > 0 && (
+            <div>
+              <p style={{ color: 'var(--win95-text-muted)' }}>Failed:</p>
+              <p className="font-semibold" style={{ color: 'var(--error)' }}>{campaign.failed}</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Action Buttons */}
+      <ActionButtons
+        itemType="email_campaign"
+        itemId={campaignId}
+        status={campaign.status}
+        onActionComplete={onActionComplete}
+      />
+
+      {/* Email Items */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="p-2">
+          <p className="text-xs font-semibold mb-2 px-1" style={{ color: 'var(--win95-text)' }}>
+            Emails ({items?.length || 0})
+          </p>
+          {!items || items.length === 0 ? (
+            <p className="text-xs text-center py-4" style={{ color: 'var(--win95-text-muted)' }}>
+              No preview data available
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {items.map((email, index) => (
+                <div
+                  key={`${email.recipientId}-${index}`}
+                  className="p-2 border rounded"
+                  style={{
+                    borderColor: 'var(--win95-border-light)',
+                    background: 'var(--win95-bg)'
+                  }}
+                >
+                  {/* Recipient Header */}
+                  <div className="flex items-start gap-2 mb-2">
+                    <Mail className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--win95-text)' }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium truncate" style={{ color: 'var(--win95-text)' }}>
+                        {email.recipientName}
+                      </p>
+                      <p className="text-xs truncate" style={{ color: 'var(--win95-text-muted)' }}>
+                        {email.recipientEmail}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Subject */}
+                  <div className="mb-2">
+                    <p className="text-xs font-semibold" style={{ color: 'var(--win95-text)' }}>
+                      Subject:
+                    </p>
+                    <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+                      {email.subject}
+                    </p>
+                  </div>
+
+                  {/* Body Preview */}
+                  <div>
+                    <p className="text-xs font-semibold" style={{ color: 'var(--win95-text)' }}>
+                      Preview:
+                    </p>
+                    <p
+                      className="text-xs line-clamp-3"
+                      style={{ color: 'var(--win95-text-muted)' }}
+                    >
+                      {email.body}
+                    </p>
+                  </div>
+
+                  {/* Personalization */}
+                  {Object.keys(email.personalization).length > 0 && (
+                    <div className="mt-2 pt-2 border-t" style={{ borderColor: 'var(--win95-border-light)' }}>
+                      <p className="text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                        Personalization:
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {Object.entries(email.personalization).slice(0, 3).map(([key, value]) => (
+                          <span
+                            key={key}
+                            className="inline-block px-1.5 py-0.5 rounded text-xs"
+                            style={{
+                              background: 'var(--win95-border-light)',
+                              color: 'var(--win95-text-muted)'
+                            }}
+                          >
+                            {key}: {value}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Main Detail Component
+export function WorkItemDetail({ item, onActionComplete }: WorkItemDetailProps): ReactNode {
+  const { t } = useNamespaceTranslations("ui.ai_assistant");
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div
+        className="flex items-center gap-2 p-3 border-b-2"
+        style={{
+          borderColor: 'var(--win95-border-dark)',
+          background: 'var(--win95-title-bg)'
+        }}
+      >
+        {item.type === "contact_sync" ? (
+          <Users className="w-4 h-4" style={{ color: 'var(--win95-text)' }} />
+        ) : (
+          <Mail className="w-4 h-4" style={{ color: 'var(--win95-text)' }} />
+        )}
+        <span className="text-sm font-semibold" style={{ color: 'var(--win95-text)' }}>
+          Details
+        </span>
+      </div>
+
+      {/* Detail Content */}
+      <div className="flex-1 overflow-hidden">
+        {item.type === "contact_sync" ? (
+          <ContactSyncDetail
+            syncId={item.id as Id<"contactSyncs">}
+            onActionComplete={onActionComplete}
+          />
+        ) : (
+          <EmailCampaignDetail
+            campaignId={item.id as Id<"emailCampaigns">}
+            onActionComplete={onActionComplete}
+          />
+        )}
+      </div>
+    </div>
+  );
+}

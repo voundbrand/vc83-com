@@ -5,11 +5,12 @@ import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useState, useEffect } from "react";
-import { Save, Loader2, Brain, AlertTriangle, Lock, CreditCard, CheckCircle2, XCircle, ShoppingCart } from "lucide-react";
+import { Save, Loader2, Brain, AlertTriangle, Lock, CreditCard, CheckCircle2, XCircle, ShoppingCart, Check } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { PrivacyBadge } from "@/components/ai-billing/privacy-badge";
 import { useWindowManager } from "@/hooks/use-window-manager";
 import { StoreWindow } from "../store-window";
+import { EnterpriseContactModal } from "@/components/ai-billing/enterprise-contact-modal";
 
 export function AISettingsTabV3() {
   const { user } = useAuth();
@@ -53,6 +54,10 @@ export function AISettingsTabV3() {
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Enterprise contact modal state
+  const [showEnterpriseModal, setShowEnterpriseModal] = useState(false);
+  const [enterpriseTier, setEnterpriseTier] = useState<"starter" | "professional" | "enterprise">("starter");
 
   // Initialize form from settings
   useEffect(() => {
@@ -412,8 +417,7 @@ export function AISettingsTabV3() {
                 </p>
                 <button
                   onClick={handleOpenStore}
-                  className="mt-2 px-3 py-1 text-xs font-bold flex items-center gap-1"
-                  style={{ color: 'white' }}
+                  className="mt-2 px-4 py-2 text-xs font-semibold rounded-md transition-colors bg-white/20 text-white hover:bg-white/30 flex items-center gap-1"
                 >
                   <ShoppingCart size={12} />
                   Browse Store
@@ -437,16 +441,7 @@ export function AISettingsTabV3() {
                 </p>
                 <button
                   onClick={handleOpenStore}
-                  className="px-4 py-2 text-xs font-bold flex items-center gap-2"
-                  style={{
-                    backgroundColor: 'var(--primary)',
-                    color: 'white',
-                    border: '2px solid',
-                    borderTopColor: 'var(--win95-button-light)',
-                    borderLeftColor: 'var(--win95-button-light)',
-                    borderBottomColor: 'var(--win95-button-dark)',
-                    borderRightColor: 'var(--win95-button-dark)',
-                  }}
+                  className="px-4 py-2 text-xs font-semibold rounded-md transition-colors bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-2"
                 >
                   <ShoppingCart size={14} />
                   Open Store
@@ -515,15 +510,17 @@ export function AISettingsTabV3() {
               Data Privacy Level
             </h3>
 
-            <div className="space-y-3">
-              {/* Standard Tier */}
-              <label
-                className="flex items-start gap-3 cursor-pointer p-3 border-2"
-                style={{
-                  borderColor: tier === "standard" ? 'var(--primary)' : 'var(--win95-border)',
-                  backgroundColor: tier === "standard" ? 'var(--info)' : 'transparent'
-                }}
-              >
+            <div className="space-y-4">
+              {/* Platform Tiers Row */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Standard Tier */}
+                <label
+                  className="flex items-start gap-3 cursor-pointer p-3 border-2"
+                  style={{
+                    borderColor: tier === "standard" ? 'var(--primary)' : 'var(--win95-border)',
+                    backgroundColor: tier === "standard" ? 'var(--win95-bg-light)' : 'transparent'
+                  }}
+                >
                 <input
                   type="radio"
                   name="tier"
@@ -552,14 +549,14 @@ export function AISettingsTabV3() {
                 </div>
               </label>
 
-              {/* Privacy-Enhanced Tier */}
-              <label
-                className="flex items-start gap-3 cursor-pointer p-3 border-2"
-                style={{
-                  borderColor: tier === "privacy-enhanced" ? 'var(--primary)' : 'var(--win95-border)',
-                  backgroundColor: tier === "privacy-enhanced" ? 'var(--info)' : 'transparent'
-                }}
-              >
+                {/* Privacy-Enhanced Tier */}
+                <label
+                  className="flex items-start gap-3 cursor-pointer p-3 border-2"
+                  style={{
+                    borderColor: tier === "privacy-enhanced" ? 'var(--primary)' : 'var(--win95-border)',
+                    backgroundColor: tier === "privacy-enhanced" ? 'var(--win95-bg-light)' : 'transparent'
+                  }}
+                >
                 <input
                   type="radio"
                   name="tier"
@@ -602,43 +599,176 @@ export function AISettingsTabV3() {
                   </ul>
                 </div>
               </label>
+              </div>
 
-              {/* Private LLM Tier */}
-              <div
-                className="p-3 border-2 opacity-60"
-                style={{
-                  borderColor: 'var(--win95-border)',
-                  backgroundColor: 'var(--win95-bg-light)',
-                }}
-              >
-                <div className="flex items-start gap-3">
-                  <input
-                    type="radio"
-                    name="tier"
-                    disabled
-                    className="mt-1"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-bold text-sm" style={{ color: 'var(--win95-text)' }}>
-                        Private LLM
-                      </span>
-                      <span
-                        className="px-2 py-0.5 text-xs font-bold"
-                        style={{
-                          backgroundColor: 'var(--warning)',
-                          color: 'var(--win95-text)',
-                        }}
-                      >
-                        CONTACT SALES
-                      </span>
-                    </div>
-                    <span className="text-xs block mb-2" style={{ color: 'var(--neutral-gray)' }}>
-                      from €2,500/month incl. VAT
-                    </span>
-                    <p className="text-xs mb-2" style={{ color: 'var(--neutral-gray)' }}>
-                      Self-hosted model. Data never leaves your infrastructure.
-                    </p>
+              {/* Private LLM Tiers Section Header */}
+              <div>
+                <h4 className="text-xs font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
+                  Private LLM Hosting
+                </h4>
+                <p className="text-xs mb-3" style={{ color: 'var(--neutral-gray)' }}>
+                  Self-hosted AI infrastructure. Data never leaves your servers.
+                </p>
+
+                {/* Private LLM Tiers Row */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {/* Private LLM - Starter */}
+                  <div
+                    className="p-3 border-2"
+                    style={{
+                      borderColor: 'var(--win95-border)',
+                      backgroundColor: 'var(--win95-bg-light)',
+                    }}
+                  >
+                <div className="text-center mb-3">
+                  <h3 className="text-sm font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+                    Private LLM
+                  </h3>
+                  <p className="text-xs font-bold mb-1" style={{ color: 'var(--neutral-gray)' }}>
+                    Starter
+                  </p>
+                  <p className="text-xl font-bold mb-1" style={{ color: 'var(--primary)' }}>
+                    €2,999
+                  </p>
+                  <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
+                    per month
+                  </p>
+                </div>
+
+                <ul className="text-xs space-y-1 mb-3" style={{ color: 'var(--win95-text)' }}>
+                  <li className="flex items-start gap-1">
+                    <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
+                    <span>Self-hosted AI</span>
+                  </li>
+                  <li className="flex items-start gap-1">
+                    <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
+                    <span>~50K requests/month</span>
+                  </li>
+                  <li className="flex items-start gap-1">
+                    <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
+                    <span>Scale-to-zero compute</span>
+                  </li>
+                  <li className="flex items-start gap-1">
+                    <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
+                    <span>Full data sovereignty</span>
+                  </li>
+                </ul>
+
+                    <button
+                      onClick={() => {
+                        setEnterpriseTier("starter");
+                        setShowEnterpriseModal(true);
+                      }}
+                      className="w-full px-4 py-2 text-xs font-semibold rounded-md transition-colors bg-primary text-primary-foreground hover:bg-primary/90"
+                    >
+                      Contact Sales
+                    </button>
+                  </div>
+
+                  {/* Private LLM - Professional */}
+                  <div
+                    className="p-3 border-2"
+                    style={{
+                      borderColor: 'var(--win95-border)',
+                      backgroundColor: 'var(--win95-bg-light)',
+                    }}
+                  >
+                <div className="text-center mb-3">
+                  <h3 className="text-sm font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+                    Private LLM
+                  </h3>
+                  <p className="text-xs font-bold mb-1" style={{ color: 'var(--neutral-gray)' }}>
+                    Professional
+                  </p>
+                  <p className="text-xl font-bold mb-1" style={{ color: 'var(--primary)' }}>
+                    €7,199
+                  </p>
+                  <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
+                    per month
+                  </p>
+                </div>
+
+                <ul className="text-xs space-y-1 mb-3" style={{ color: 'var(--win95-text)' }}>
+                  <li className="flex items-start gap-1">
+                    <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
+                    <span>Dedicated GPU infrastructure</span>
+                  </li>
+                  <li className="flex items-start gap-1">
+                    <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
+                    <span>~200K requests/month</span>
+                  </li>
+                  <li className="flex items-start gap-1">
+                    <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
+                    <span>99.5% SLA</span>
+                  </li>
+                  <li className="flex items-start gap-1">
+                    <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
+                    <span>Priority support</span>
+                  </li>
+                </ul>
+
+                    <button
+                      onClick={() => {
+                        setEnterpriseTier("professional");
+                        setShowEnterpriseModal(true);
+                      }}
+                      className="w-full px-4 py-2 text-xs font-semibold rounded-md transition-colors bg-primary text-primary-foreground hover:bg-primary/90"
+                    >
+                      Contact Sales
+                    </button>
+                  </div>
+
+                  {/* Private LLM - Enterprise */}
+                  <div
+                    className="p-3 border-2"
+                    style={{
+                      borderColor: 'var(--win95-border)',
+                      backgroundColor: 'var(--win95-bg-light)',
+                    }}
+                  >
+                <div className="text-center mb-3">
+                  <h3 className="text-sm font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+                    Private LLM
+                  </h3>
+                  <p className="text-xs font-bold mb-1" style={{ color: 'var(--neutral-gray)' }}>
+                    Enterprise
+                  </p>
+                  <p className="text-xl font-bold mb-1" style={{ color: 'var(--primary)' }}>
+                    €14,999
+                  </p>
+                  <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
+                    per month
+                  </p>
+                </div>
+
+                <ul className="text-xs space-y-1 mb-3" style={{ color: 'var(--win95-text)' }}>
+                  <li className="flex items-start gap-1">
+                    <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
+                    <span>Custom infrastructure</span>
+                  </li>
+                  <li className="flex items-start gap-1">
+                    <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
+                    <span>Unlimited requests</span>
+                  </li>
+                  <li className="flex items-start gap-1">
+                    <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
+                    <span>Dedicated support team</span>
+                  </li>
+                  <li className="flex items-start gap-1">
+                    <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
+                    <span>Custom SLA</span>
+                  </li>
+                </ul>
+
+                    <button
+                      onClick={() => {
+                        setEnterpriseTier("enterprise");
+                        setShowEnterpriseModal(true);
+                      }}
+                      className="w-full px-4 py-2 text-xs font-semibold rounded-md transition-colors bg-primary text-primary-foreground hover:bg-primary/90"
+                    >
+                      Contact Sales
+                    </button>
                   </div>
                 </div>
               </div>
@@ -696,7 +826,7 @@ export function AISettingsTabV3() {
                     className="p-3 border-2"
                     style={{
                       borderColor: enabled ? 'var(--primary)' : 'var(--win95-border)',
-                      backgroundColor: enabled ? 'var(--info)' : 'transparent'
+                      backgroundColor: enabled ? 'var(--win95-bg-light)' : 'transparent'
                     }}
                   >
                     <div className="flex items-start gap-3">
@@ -754,13 +884,7 @@ export function AISettingsTabV3() {
                         {enabled && !isDefault && (
                           <button
                             onClick={() => setAsDefaultModel(model.id)}
-                            className="text-xs px-2 py-1 border-2"
-                            style={{
-                              borderColor: 'var(--win95-border)',
-                              backgroundColor: 'var(--win95-bg-light)',
-                              color: 'var(--primary)',
-                              cursor: 'pointer'
-                            }}
+                            className="text-xs px-3 py-1.5 font-semibold rounded-md transition-colors bg-secondary text-secondary-foreground hover:bg-secondary/80"
                           >
                             Set as Default
                           </button>
@@ -879,23 +1003,19 @@ export function AISettingsTabV3() {
         <button
           onClick={handleSave}
           disabled={isSaving || !organizationId}
-          className="px-4 py-2 text-xs font-bold flex items-center gap-2"
-          style={{
-            backgroundColor: 'var(--primary)',
-            color: 'white',
-            border: '2px solid',
-            borderTopColor: 'var(--win95-button-light)',
-            borderLeftColor: 'var(--win95-button-light)',
-            borderBottomColor: 'var(--win95-button-dark)',
-            borderRightColor: 'var(--win95-button-dark)',
-            opacity: isSaving ? 0.6 : 1,
-            cursor: isSaving ? 'wait' : 'pointer'
-          }}
+          className="px-4 py-2 text-xs font-semibold rounded-md transition-colors bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
         >
           {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
           {isSaving ? "Saving..." : "Save Settings"}
         </button>
       </div>
+
+      {/* Enterprise Contact Modal */}
+      <EnterpriseContactModal
+        isOpen={showEnterpriseModal}
+        onClose={() => setShowEnterpriseModal(false)}
+        title={`Private LLM - ${enterpriseTier.charAt(0).toUpperCase() + enterpriseTier.slice(1)}`}
+      />
     </div>
   );
 }

@@ -74,6 +74,9 @@ import { userAIQuotas } from "./schemas/userQuotaSchemas";
 // 💾 STORAGE TRACKING SCHEMAS (Organization + per-user storage)
 import { organizationStorage, userStorageQuotas } from "./schemas/storageSchemas";
 
+// 📧 CONTACT SYNC & BULK EMAIL SCHEMAS (AI-powered external contact integration)
+import { contactSyncs, emailCampaigns } from "./schemas/contactSyncSchemas";
+
 /**
  * MAIN SCHEMA EXPORT
  *
@@ -150,6 +153,10 @@ export default defineSchema({
   // 💾 STORAGE TRACKING: Organization + per-user storage metrics
   organizationStorage,   // Aggregated storage per organization
   userStorageQuotas,     // Per-user storage limits (Phase 1: tracking only)
+
+  // 📧 CONTACT SYNC & BULK EMAIL: AI-powered external contact integration
+  contactSyncs,          // Audit trail for contact synchronization (Microsoft/Google → CRM)
+  emailCampaigns,        // Bulk email campaigns to CRM contacts/organizations
 
   // ❌ OLD TRANSLATIONS - Replaced by ontology
   // systemTranslations,

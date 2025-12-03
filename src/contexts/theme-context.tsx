@@ -197,8 +197,8 @@ export const themes: Theme[] = [
       background: "#0a0a0a", // Near-black background
       win95Bg: "#171717", // Neutral 900 windows (true dark gray)
       win95BgLight: "#262626", // Neutral 800 for sections
-      win95Border: "#404040", // Neutral 700 border
-      win95BorderLight: "#525252", // Neutral 600 lighter border
+      win95Border: "#2a2a2a", // Much darker border (toned down from #404040)
+      win95BorderLight: "#333333", // Subtle lighter border (toned down from #525252)
       win95Text: "#fafafa", // Neutral 50 for text
       win95Highlight: "#fafafa", // Neutral 50 for accents
       win95HoverBg: "#262626", // Subtle dark gray hover
@@ -376,8 +376,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { sessionId } = useAuth();
   const [isHydrated, setIsHydrated] = useState(false);
 
-  // Default to Clean Light (shadcn) theme and shadcn window style
-  const defaultTheme = themes.find(t => t.id === "clean-light") || themes[0];
+  // Default to Clean Dark (shadcn) theme and shadcn window style
+  const defaultTheme = themes.find(t => t.id === "clean-dark") || themes[0];
   const [currentTheme, setCurrentTheme] = useState<Theme>(defaultTheme);
   const [windowStyle, setWindowStyleState] = useState<WindowStyle>("shadcn");
 

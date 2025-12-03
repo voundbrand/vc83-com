@@ -155,12 +155,19 @@ function ToolExecutionItem({ execution }: ToolExecutionItemProps): ReactNode {
 
 export function ToolExecutionPanel() {
   const { t } = useNamespaceTranslations("ui.ai_assistant")
-  const { currentConversationId } = useAIChatContext()
+  const { currentConversationId, organizationId } = useAIChatContext()
+  const [activeTab, setActiveTab] = useState<"tools" | "work">("tools")
 
   // Get tool executions for the current conversation
   const toolExecutionsData = useQuery(
     api.ai.conversations.getToolExecutions,
     currentConversationId ? { conversationId: currentConversationId, limit: 20 } : "skip"
+  )
+
+  // Get work items (contact syncs + email campaigns)
+  const workItems = useQuery(
+    api.ai.workItems.getActiveWorkItems,
+    organizationId ? { organizationId } : "skip"
   )
 
   // Transform Convex data to match our interface
@@ -177,33 +184,92 @@ export function ToolExecutionPanel() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
+      {/* Header with Tabs */}
       <div
-        className="flex items-center gap-2 p-3 border-b-2"
+        className="border-b-2"
         style={{
           borderColor: 'var(--win95-border-dark)',
           background: 'var(--win95-title-bg)'
         }}
       >
-        <Wrench className="w-4 h-4" style={{ color: 'var(--win95-text)' }} />
-        <span className="text-sm font-semibold" style={{ color: 'var(--win95-text)' }}>
-          {t("ui.ai_assistant.tools.title")}
-        </span>
+        <div className="flex items-center gap-2 p-3 border-b" style={{ borderColor: 'var(--win95-border-light)' }}>
+          <Wrench className="w-4 h-4" style={{ color: 'var(--win95-text)' }} />
+          <span className="text-sm font-semibold" style={{ color: 'var(--win95-text)' }}>
+            {t("ui.ai_assistant.tools.title")}
+          </span>
+        </div>
+
+        {/* Tab Buttons */}
+        <div className="flex">
+          <button
+            onClick={() => setActiveTab("tools")}
+            className="flex-1 px-3 py-2 text-xs font-medium transition-colors"
+            style={{
+              background: activeTab === "tools" ? 'var(--win95-bg)' : 'transparent',
+              color: activeTab === "tools" ? 'var(--win95-text)' : 'var(--win95-text-muted)',
+              borderBottom: activeTab === "tools" ? '2px solid var(--win95-highlight)' : '2px solid transparent'
+            }}
+          >
+            Tool Executions ({executions.length})
+          </button>
+          <button
+            onClick={() => setActiveTab("work")}
+            className="flex-1 px-3 py-2 text-xs font-medium transition-colors"
+            style={{
+              background: activeTab === "work" ? 'var(--win95-bg)' : 'transparent',
+              color: activeTab === "work" ? 'var(--win95-text)' : 'var(--win95-text-muted)',
+              borderBottom: activeTab === "work" ? '2px solid var(--win95-highlight)' : '2px solid transparent'
+            }}
+          >
+            Work Items ({workItems?.length || 0})
+          </button>
+        </div>
       </div>
 
-      {/* Executions List */}
+      {/* Content */}
       <div className="flex-1 overflow-y-auto p-2">
-        {executions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <Wrench className="w-8 h-8 mb-2" style={{ color: 'var(--win95-text-muted)' }} />
-            <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
-              {t("ui.ai_assistant.tools.empty")}
-            </p>
-          </div>
+        {activeTab === "tools" ? (
+          executions.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center">
+              <Wrench className="w-8 h-8 mb-2" style={{ color: 'var(--win95-text-muted)' }} />
+              <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+                {t("ui.ai_assistant.tools.empty")}
+              </p>
+            </div>
+          ) : (
+            executions.map((execution) => (
+              <ToolExecutionItem key={execution.id} execution={execution} />
+            ))
+          )
         ) : (
-          executions.map((execution) => (
-            <ToolExecutionItem key={execution.id} execution={execution} />
-          ))
+          !workItems || workItems.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center">
+              <Loader2 className="w-8 h-8 mb-2" style={{ color: 'var(--win95-text-muted)' }} />
+              <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+                No active work items
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {workItems.map((item: any) => (
+                <div
+                  key={item.id}
+                  className="p-2 border rounded"
+                  style={{
+                    borderColor: 'var(--win95-border-light)',
+                    background: 'var(--win95-bg)'
+                  }}
+                >
+                  <p className="text-xs font-medium mb-1" style={{ color: 'var(--win95-text)' }}>
+                    {item.name}
+                  </p>
+                  <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+                    {item.progress.completed}/{item.progress.total} completed
+                  </p>
+                </div>
+              ))}
+            </div>
+          )
         )}
       </div>
 
@@ -215,7 +281,10 @@ export function ToolExecutionPanel() {
           color: 'var(--win95-text-muted)'
         }}
       >
-        {executions.filter(e => e.status === 'running').length} {t("ui.ai_assistant.tools.active")}
+        {activeTab === "tools"
+          ? `${executions.filter(e => e.status === 'running').length} ${t("ui.ai_assistant.tools.active")}`
+          : `${workItems?.length || 0} active work items`
+        }
       </div>
     </div>
   )
