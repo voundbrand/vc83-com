@@ -1,14 +1,24 @@
-# Deployment Note: Microsoft OAuth Error Translations
+# Deployment Note: Microsoft OAuth Fixes
 
-## Action Required After Deployment
+## Actions Required After Deployment
 
-After deploying the latest changes to production, you need to seed the new error message translations.
+After deploying the latest changes to production, you need to:
 
-### Run This Command in Production:
+### 1. Seed Error Message Translations:
 
 ```bash
 npx convex run translations/seedManage_07_Integrations:seed --prod
 ```
+
+### 2. Cleanup Duplicate OAuth Connections (IMPORTANT!):
+
+```bash
+npx convex run migrations/cleanupDuplicateOAuthConnections:cleanup --prod
+```
+
+This will remove duplicate connection records that were created when you clicked
+"Reconnect Account" multiple times. It keeps the newest connection and deletes
+old error connections.
 
 This will add the new error message translations in all 6 supported languages:
 - English (en)
