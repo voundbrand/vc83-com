@@ -5,6 +5,16 @@ import { RetroButton } from "@/components/retro-button";
 import { AlertCircle, Info } from "lucide-react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
+// Helper function to convert scope name to translation key
+function getScopeTranslationKey(scope: string, field: 'name' | 'description'): string {
+  // Convert scope like "Mail.Read" to "ui.manage.integrations.scopes.mail.read.name"
+  const normalized = scope
+    .toLowerCase()
+    .replace(/\./g, '.');
+
+  return `ui.manage.integrations.scopes.${normalized}.${field}`;
+}
+
 // Import scope data from backend (names will be translated in component)
 const SCOPE_CATEGORIES = [
   { id: "mail", translationKey: "integrations.scopes.categories.mail.name", icon: "📧" },
@@ -213,7 +223,7 @@ export function MicrosoftScopeSelector({
         <div className="flex items-start gap-2">
           <Info className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: 'var(--win95-highlight)' }} />
           <div className="text-sm" style={{ color: 'var(--win95-text)' }}>
-            <strong>{t("integrations.scopes.info.title")}</strong> {t("integrations.scopes.info.description")}
+            <strong>{t("ui.manage.integrations.scopes.info.title")}</strong> {t("ui.manage.integrations.scopes.info.description")}
           </div>
         </div>
       </div>
@@ -230,7 +240,7 @@ export function MicrosoftScopeSelector({
           <div className="flex items-start gap-2">
             <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: 'var(--warning)' }} />
             <div className="text-sm" style={{ color: 'var(--win95-text)' }}>
-              <strong>{t("integrations.scopes.warning.title")}</strong> {t("integrations.scopes.warning.description")}
+              <strong>{t("ui.manage.integrations.scopes.warning.title")}</strong> {t("ui.manage.integrations.scopes.warning.description")}
             </div>
           </div>
         </div>
@@ -239,7 +249,7 @@ export function MicrosoftScopeSelector({
       {/* Presets */}
       <div>
         <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--win95-text)' }}>
-          {t("integrations.scopes.presets.title")}
+          {t("ui.manage.integrations.scopes.presets.title")}
         </label>
         <div className="grid grid-cols-2 gap-2">
           {Object.entries(SCOPE_PRESETS).map(([key, preset]) => (
@@ -250,8 +260,8 @@ export function MicrosoftScopeSelector({
               size="sm"
             >
               <div className="text-left">
-                <div className="font-bold">{t(preset.nameKey)}</div>
-                <div className="text-xs opacity-70">{t(preset.descriptionKey)}</div>
+                <div className="font-bold">{t(`ui.manage.${preset.nameKey}`)}</div>
+                <div className="text-xs opacity-70">{t(`ui.manage.${preset.descriptionKey}`)}</div>
               </div>
             </RetroButton>
           ))}
@@ -261,7 +271,7 @@ export function MicrosoftScopeSelector({
       {/* Category Selection */}
       <div>
         <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--win95-text)' }}>
-          {t("integrations.scopes.categories.title")}
+          {t("ui.manage.integrations.scopes.categories.title")}
         </label>
         <div className="space-y-2">
           {SCOPE_CATEGORIES.map(category => {
@@ -292,9 +302,9 @@ export function MicrosoftScopeSelector({
                   <div className="flex items-center gap-3">
                     <span className="text-2xl">{category.icon}</span>
                     <div>
-                      <div className="font-bold">{t(category.translationKey)}</div>
+                      <div className="font-bold">{t(`ui.manage.${category.translationKey}`)}</div>
                       <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-                        {t("integrations.scopes.category_stats", { selected: stats.selected.toString(), total: stats.total.toString() })}
+                        {t("ui.manage.integrations.scopes.category_stats", { selected: stats.selected.toString(), total: stats.total.toString() })}
                       </div>
                     </div>
                   </div>
@@ -335,7 +345,7 @@ export function MicrosoftScopeSelector({
                         />
                         <div className="flex-1">
                           <div className="font-bold text-sm flex items-center gap-2">
-                            {scope.name}
+                            {t(getScopeTranslationKey(scope.scope, 'name'))}
                             {scope.adminRequired && (
                               <span
                                 className="text-xs px-2 py-0.5 rounded"
@@ -345,12 +355,12 @@ export function MicrosoftScopeSelector({
                                   color: 'var(--warning)'
                                 }}
                               >
-                                {t("integrations.scopes.admin_consent")}
+                                {t("ui.manage.integrations.scopes.admin_consent")}
                               </span>
                             )}
                           </div>
                           <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-                            {scope.description}
+                            {t(getScopeTranslationKey(scope.scope, 'description'))}
                           </div>
                           <div className="text-xs font-mono mt-1" style={{ color: 'var(--neutral-gray)' }}>
                             {scope.scope}
@@ -372,13 +382,13 @@ export function MicrosoftScopeSelector({
         style={{ background: 'var(--win95-bg-light)' }}
       >
         <div className="text-sm" style={{ color: 'var(--win95-text)' }}>
-          {t("integrations.scopes.selected_count", {
+          {t("ui.manage.integrations.scopes.selected_count", {
             count: selectedScopes.length.toString(),
             plural: selectedScopes.length !== 1 ? "s" : ""
           })}
           {selectedScopes.length > 0 && (
             <span className="ml-2" style={{ color: 'var(--neutral-gray)' }}>
-              {t("integrations.scopes.required_additional")}
+              {t("ui.manage.integrations.scopes.required_additional")}
             </span>
           )}
         </div>
@@ -388,7 +398,7 @@ export function MicrosoftScopeSelector({
             variant="secondary"
             size="sm"
           >
-            {t("integrations.scopes.actions.clear_all")}
+            {t("ui.manage.integrations.scopes.actions.clear_all")}
           </RetroButton>
         )}
       </div>

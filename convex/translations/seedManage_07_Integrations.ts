@@ -435,6 +435,683 @@ export const seed = internalMutation({
         }
       },
 
+      // === INDIVIDUAL SCOPE NAMES & DESCRIPTIONS ===
+      // Mail Scopes (5)
+      {
+        key: "ui.manage.integrations.scopes.mail.read.name",
+        values: {
+          en: "Read mail",
+          de: "E-Mails lesen",
+          pl: "Czytaj pocztę",
+          es: "Leer correo",
+          fr: "Lire le courrier",
+          ja: "メールを読む",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.mail.read.description",
+        values: {
+          en: "Read your email",
+          de: "Lese deine E-Mails",
+          pl: "Czytaj swoje e-maile",
+          es: "Lee tu correo electrónico",
+          fr: "Lire vos e-mails",
+          ja: "メールを読む",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.mail.readwrite.name",
+        values: {
+          en: "Read & write mail",
+          de: "E-Mails lesen & schreiben",
+          pl: "Czytaj i pisz pocztę",
+          es: "Leer y escribir correo",
+          fr: "Lire et écrire du courrier",
+          ja: "メールの読み書き",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.mail.readwrite.description",
+        values: {
+          en: "Read, update, create, and delete email",
+          de: "E-Mails lesen, aktualisieren, erstellen und löschen",
+          pl: "Czytaj, aktualizuj, twórz i usuwaj e-maile",
+          es: "Leer, actualizar, crear y eliminar correo",
+          fr: "Lire, mettre à jour, créer et supprimer des e-mails",
+          ja: "メールの読み取り、更新、作成、削除",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.mail.send.name",
+        values: {
+          en: "Send mail",
+          de: "E-Mails senden",
+          pl: "Wysyłaj pocztę",
+          es: "Enviar correo",
+          fr: "Envoyer du courrier",
+          ja: "メールを送信",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.mail.send.description",
+        values: {
+          en: "Send email on your behalf",
+          de: "E-Mails in deinem Namen senden",
+          pl: "Wysyłaj e-maile w twoim imieniu",
+          es: "Enviar correo en tu nombre",
+          fr: "Envoyer des e-mails en votre nom",
+          ja: "あなたの代わりにメールを送信",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.mailboxsettings.read.name",
+        values: {
+          en: "Read mailbox settings",
+          de: "Postfacheinstellungen lesen",
+          pl: "Czytaj ustawienia skrzynki pocztowej",
+          es: "Leer configuración del buzón",
+          fr: "Lire les paramètres de la boîte aux lettres",
+          ja: "メールボックス設定を読む",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.mailboxsettings.read.description",
+        values: {
+          en: "Read your mailbox settings",
+          de: "Lese deine Postfacheinstellungen",
+          pl: "Czytaj ustawienia swojej skrzynki",
+          es: "Lee la configuración de tu buzón",
+          fr: "Lire vos paramètres de boîte aux lettres",
+          ja: "メールボックス設定を読む",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.mailboxsettings.readwrite.name",
+        values: {
+          en: "Manage mailbox settings",
+          de: "Postfacheinstellungen verwalten",
+          pl: "Zarządzaj ustawieniami skrzynki",
+          es: "Gestionar configuración del buzón",
+          fr: "Gérer les paramètres de la boîte aux lettres",
+          ja: "メールボックス設定を管理",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.mailboxsettings.readwrite.description",
+        values: {
+          en: "Update your mailbox settings",
+          de: "Aktualisiere deine Postfacheinstellungen",
+          pl: "Aktualizuj ustawienia skrzynki",
+          es: "Actualiza la configuración de tu buzón",
+          fr: "Mettre à jour vos paramètres de boîte aux lettres",
+          ja: "メールボックス設定を更新",
+        }
+      },
+
+      // Calendar Scopes (4)
+      {
+        key: "ui.manage.integrations.scopes.calendars.read.name",
+        values: {
+          en: "Read calendars",
+          de: "Kalender lesen",
+          pl: "Czytaj kalendarze",
+          es: "Leer calendarios",
+          fr: "Lire les calendriers",
+          ja: "カレンダーを読む",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.calendars.read.description",
+        values: {
+          en: "Read your calendars",
+          de: "Lese deine Kalender",
+          pl: "Czytaj swoje kalendarze",
+          es: "Lee tus calendarios",
+          fr: "Lire vos calendriers",
+          ja: "カレンダーを読む",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.calendars.readwrite.name",
+        values: {
+          en: "Manage calendars",
+          de: "Kalender verwalten",
+          pl: "Zarządzaj kalendarzami",
+          es: "Gestionar calendarios",
+          fr: "Gérer les calendriers",
+          ja: "カレンダーを管理",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.calendars.readwrite.description",
+        values: {
+          en: "Read and write to your calendars",
+          de: "Lese und schreibe in deine Kalender",
+          pl: "Czytaj i pisz do swoich kalendarzy",
+          es: "Lee y escribe en tus calendarios",
+          fr: "Lire et écrire dans vos calendriers",
+          ja: "カレンダーの読み書き",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.calendars.read.shared.name",
+        values: {
+          en: "Read shared calendars",
+          de: "Geteilte Kalender lesen",
+          pl: "Czytaj udostępnione kalendarze",
+          es: "Leer calendarios compartidos",
+          fr: "Lire les calendriers partagés",
+          ja: "共有カレンダーを読む",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.calendars.read.shared.description",
+        values: {
+          en: "Read calendars shared with you",
+          de: "Lese mit dir geteilte Kalender",
+          pl: "Czytaj kalendarze udostępnione tobie",
+          es: "Lee calendarios compartidos contigo",
+          fr: "Lire les calendriers partagés avec vous",
+          ja: "共有されたカレンダーを読む",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.calendars.readwrite.shared.name",
+        values: {
+          en: "Manage shared calendars",
+          de: "Geteilte Kalender verwalten",
+          pl: "Zarządzaj udostępnionymi kalendarzami",
+          es: "Gestionar calendarios compartidos",
+          fr: "Gérer les calendriers partagés",
+          ja: "共有カレンダーを管理",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.calendars.readwrite.shared.description",
+        values: {
+          en: "Read and write to shared calendars",
+          de: "Lese und schreibe in geteilte Kalender",
+          pl: "Czytaj i pisz do udostępnionych kalendarzy",
+          es: "Lee y escribe en calendarios compartidos",
+          fr: "Lire et écrire dans les calendriers partagés",
+          ja: "共有カレンダーの読み書き",
+        }
+      },
+
+      // Contacts Scopes (4)
+      {
+        key: "ui.manage.integrations.scopes.contacts.read.name",
+        values: {
+          en: "Read contacts",
+          de: "Kontakte lesen",
+          pl: "Czytaj kontakty",
+          es: "Leer contactos",
+          fr: "Lire les contacts",
+          ja: "連絡先を読む",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.contacts.read.description",
+        values: {
+          en: "Read your contacts",
+          de: "Lese deine Kontakte",
+          pl: "Czytaj swoje kontakty",
+          es: "Lee tus contactos",
+          fr: "Lire vos contacts",
+          ja: "連絡先を読む",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.contacts.readwrite.name",
+        values: {
+          en: "Manage contacts",
+          de: "Kontakte verwalten",
+          pl: "Zarządzaj kontaktami",
+          es: "Gestionar contactos",
+          fr: "Gérer les contacts",
+          ja: "連絡先を管理",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.contacts.readwrite.description",
+        values: {
+          en: "Read and write to your contacts",
+          de: "Lese und schreibe deine Kontakte",
+          pl: "Czytaj i pisz swoje kontakty",
+          es: "Lee y escribe tus contactos",
+          fr: "Lire et écrire vos contacts",
+          ja: "連絡先の読み書き",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.contacts.read.shared.name",
+        values: {
+          en: "Read shared contacts",
+          de: "Geteilte Kontakte lesen",
+          pl: "Czytaj udostępnione kontakty",
+          es: "Leer contactos compartidos",
+          fr: "Lire les contacts partagés",
+          ja: "共有連絡先を読む",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.contacts.read.shared.description",
+        values: {
+          en: "Read contacts shared with you",
+          de: "Lese mit dir geteilte Kontakte",
+          pl: "Czytaj kontakty udostępnione tobie",
+          es: "Lee contactos compartidos contigo",
+          fr: "Lire les contacts partagés avec vous",
+          ja: "共有された連絡先を読む",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.contacts.readwrite.shared.name",
+        values: {
+          en: "Manage shared contacts",
+          de: "Geteilte Kontakte verwalten",
+          pl: "Zarządzaj udostępnionymi kontaktami",
+          es: "Gestionar contactos compartidos",
+          fr: "Gérer les contacts partagés",
+          ja: "共有連絡先を管理",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.contacts.readwrite.shared.description",
+        values: {
+          en: "Read and write to shared contacts",
+          de: "Lese und schreibe geteilte Kontakte",
+          pl: "Czytaj i pisz udostępnione kontakty",
+          es: "Lee y escribe contactos compartidos",
+          fr: "Lire et écrire les contacts partagés",
+          ja: "共有連絡先の読み書き",
+        }
+      },
+
+      // Files Scopes (4)
+      {
+        key: "ui.manage.integrations.scopes.files.read.name",
+        values: {
+          en: "Read files",
+          de: "Dateien lesen",
+          pl: "Czytaj pliki",
+          es: "Leer archivos",
+          fr: "Lire les fichiers",
+          ja: "ファイルを読む",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.files.read.description",
+        values: {
+          en: "Read your files",
+          de: "Lese deine Dateien",
+          pl: "Czytaj swoje pliki",
+          es: "Lee tus archivos",
+          fr: "Lire vos fichiers",
+          ja: "ファイルを読む",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.files.readwrite.name",
+        values: {
+          en: "Manage files",
+          de: "Dateien verwalten",
+          pl: "Zarządzaj plikami",
+          es: "Gestionar archivos",
+          fr: "Gérer les fichiers",
+          ja: "ファイルを管理",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.files.readwrite.description",
+        values: {
+          en: "Read and write to your files",
+          de: "Lese und schreibe deine Dateien",
+          pl: "Czytaj i pisz swoje pliki",
+          es: "Lee y escribe tus archivos",
+          fr: "Lire et écrire vos fichiers",
+          ja: "ファイルの読み書き",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.files.read.all.name",
+        values: {
+          en: "Read all accessible files",
+          de: "Alle zugänglichen Dateien lesen",
+          pl: "Czytaj wszystkie dostępne pliki",
+          es: "Leer todos los archivos accesibles",
+          fr: "Lire tous les fichiers accessibles",
+          ja: "アクセス可能なすべてのファイルを読む",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.files.read.all.description",
+        values: {
+          en: "Read all files you can access",
+          de: "Lese alle Dateien, auf die du zugreifen kannst",
+          pl: "Czytaj wszystkie pliki, do których masz dostęp",
+          es: "Lee todos los archivos a los que puedes acceder",
+          fr: "Lire tous les fichiers auxquels vous pouvez accéder",
+          ja: "アクセス可能なすべてのファイルを読む",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.files.readwrite.all.name",
+        values: {
+          en: "Manage all accessible files",
+          de: "Alle zugänglichen Dateien verwalten",
+          pl: "Zarządzaj wszystkimi dostępnymi plikami",
+          es: "Gestionar todos los archivos accesibles",
+          fr: "Gérer tous les fichiers accessibles",
+          ja: "アクセス可能なすべてのファイルを管理",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.files.readwrite.all.description",
+        values: {
+          en: "Read and write to all accessible files",
+          de: "Lese und schreibe alle zugänglichen Dateien",
+          pl: "Czytaj i pisz wszystkie dostępne pliki",
+          es: "Lee y escribe todos los archivos accesibles",
+          fr: "Lire et écrire tous les fichiers accessibles",
+          ja: "アクセス可能なすべてのファイルの読み書き",
+        }
+      },
+
+      // Teams Scopes (4)
+      {
+        key: "ui.manage.integrations.scopes.chat.read.name",
+        values: {
+          en: "Read chats",
+          de: "Chats lesen",
+          pl: "Czytaj czaty",
+          es: "Leer chats",
+          fr: "Lire les discussions",
+          ja: "チャットを読む",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.chat.read.description",
+        values: {
+          en: "Read your chat messages",
+          de: "Lese deine Chat-Nachrichten",
+          pl: "Czytaj swoje wiadomości czatu",
+          es: "Lee tus mensajes de chat",
+          fr: "Lire vos messages de discussion",
+          ja: "チャットメッセージを読む",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.chat.readwrite.name",
+        values: {
+          en: "Read & write chats",
+          de: "Chats lesen & schreiben",
+          pl: "Czytaj i pisz czaty",
+          es: "Leer y escribir chats",
+          fr: "Lire et écrire des discussions",
+          ja: "チャットの読み書き",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.chat.readwrite.description",
+        values: {
+          en: "Read and send chat messages",
+          de: "Lese und sende Chat-Nachrichten",
+          pl: "Czytaj i wysyłaj wiadomości czatu",
+          es: "Lee y envía mensajes de chat",
+          fr: "Lire et envoyer des messages de discussion",
+          ja: "チャットメッセージの読み取りと送信",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.chatmessage.send.name",
+        values: {
+          en: "Send chat messages",
+          de: "Chat-Nachrichten senden",
+          pl: "Wysyłaj wiadomości czatu",
+          es: "Enviar mensajes de chat",
+          fr: "Envoyer des messages de discussion",
+          ja: "チャットメッセージを送信",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.chatmessage.send.description",
+        values: {
+          en: "Send messages in chats",
+          de: "Nachrichten in Chats senden",
+          pl: "Wysyłaj wiadomości w czatach",
+          es: "Envía mensajes en chats",
+          fr: "Envoyer des messages dans les discussions",
+          ja: "チャットでメッセージを送信",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.team.readbasic.all.name",
+        values: {
+          en: "Read team info",
+          de: "Team-Infos lesen",
+          pl: "Czytaj informacje o zespole",
+          es: "Leer información del equipo",
+          fr: "Lire les informations de l'équipe",
+          ja: "チーム情報を読む",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.team.readbasic.all.description",
+        values: {
+          en: "Read team names and descriptions",
+          de: "Lese Team-Namen und Beschreibungen",
+          pl: "Czytaj nazwy i opisy zespołów",
+          es: "Lee nombres y descripciones de equipos",
+          fr: "Lire les noms et descriptions des équipes",
+          ja: "チーム名と説明を読む",
+        }
+      },
+
+      // Sites Scopes (2)
+      {
+        key: "ui.manage.integrations.scopes.sites.read.all.name",
+        values: {
+          en: "Read sites",
+          de: "Sites lesen",
+          pl: "Czytaj witryny",
+          es: "Leer sitios",
+          fr: "Lire les sites",
+          ja: "サイトを読む",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.sites.read.all.description",
+        values: {
+          en: "Read documents and lists in all sites",
+          de: "Lese Dokumente und Listen in allen Sites",
+          pl: "Czytaj dokumenty i listy we wszystkich witrynach",
+          es: "Lee documentos y listas en todos los sitios",
+          fr: "Lire les documents et listes dans tous les sites",
+          ja: "すべてのサイトのドキュメントとリストを読む",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.sites.readwrite.all.name",
+        values: {
+          en: "Manage sites",
+          de: "Sites verwalten",
+          pl: "Zarządzaj witrynami",
+          es: "Gestionar sitios",
+          fr: "Gérer les sites",
+          ja: "サイトを管理",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.sites.readwrite.all.description",
+        values: {
+          en: "Edit documents and lists in all sites",
+          de: "Bearbeite Dokumente und Listen in allen Sites",
+          pl: "Edytuj dokumenty i listy we wszystkich witrynach",
+          es: "Edita documentos y listas en todos los sitios",
+          fr: "Modifier les documents et listes dans tous les sites",
+          ja: "すべてのサイトのドキュメントとリストを編集",
+        }
+      },
+
+      // Tasks Scopes (4)
+      {
+        key: "ui.manage.integrations.scopes.tasks.read.name",
+        values: {
+          en: "Read tasks",
+          de: "Aufgaben lesen",
+          pl: "Czytaj zadania",
+          es: "Leer tareas",
+          fr: "Lire les tâches",
+          ja: "タスクを読む",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.tasks.read.description",
+        values: {
+          en: "Read your tasks",
+          de: "Lese deine Aufgaben",
+          pl: "Czytaj swoje zadania",
+          es: "Lee tus tareas",
+          fr: "Lire vos tâches",
+          ja: "タスクを読む",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.tasks.readwrite.name",
+        values: {
+          en: "Manage tasks",
+          de: "Aufgaben verwalten",
+          pl: "Zarządzaj zadaniami",
+          es: "Gestionar tareas",
+          fr: "Gérer les tâches",
+          ja: "タスクを管理",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.tasks.readwrite.description",
+        values: {
+          en: "Read and write to your tasks",
+          de: "Lese und schreibe deine Aufgaben",
+          pl: "Czytaj i pisz swoje zadania",
+          es: "Lee y escribe tus tareas",
+          fr: "Lire et écrire vos tâches",
+          ja: "タスクの読み書き",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.tasks.read.shared.name",
+        values: {
+          en: "Read shared tasks",
+          de: "Geteilte Aufgaben lesen",
+          pl: "Czytaj udostępnione zadania",
+          es: "Leer tareas compartidas",
+          fr: "Lire les tâches partagées",
+          ja: "共有タスクを読む",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.tasks.read.shared.description",
+        values: {
+          en: "Read shared tasks",
+          de: "Lese geteilte Aufgaben",
+          pl: "Czytaj udostępnione zadania",
+          es: "Lee tareas compartidas",
+          fr: "Lire les tâches partagées",
+          ja: "共有タスクを読む",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.tasks.readwrite.shared.name",
+        values: {
+          en: "Manage shared tasks",
+          de: "Geteilte Aufgaben verwalten",
+          pl: "Zarządzaj udostępnionymi zadaniami",
+          es: "Gestionar tareas compartidas",
+          fr: "Gérer les tâches partagées",
+          ja: "共有タスクを管理",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.tasks.readwrite.shared.description",
+        values: {
+          en: "Read and write to shared tasks",
+          de: "Lese und schreibe geteilte Aufgaben",
+          pl: "Czytaj i pisz udostępnione zadania",
+          es: "Lee y escribe tareas compartidas",
+          fr: "Lire et écrire les tâches partagées",
+          ja: "共有タスクの読み書き",
+        }
+      },
+
+      // Notes Scopes (3)
+      {
+        key: "ui.manage.integrations.scopes.notes.read.name",
+        values: {
+          en: "Read notebooks",
+          de: "Notizbücher lesen",
+          pl: "Czytaj notatniki",
+          es: "Leer cuadernos",
+          fr: "Lire les carnets",
+          ja: "ノートブックを読む",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.notes.read.description",
+        values: {
+          en: "Read your OneNote notebooks",
+          de: "Lese deine OneNote-Notizbücher",
+          pl: "Czytaj swoje notatniki OneNote",
+          es: "Lee tus cuadernos de OneNote",
+          fr: "Lire vos carnets OneNote",
+          ja: "OneNoteノートブックを読む",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.notes.create.name",
+        values: {
+          en: "Create pages",
+          de: "Seiten erstellen",
+          pl: "Twórz strony",
+          es: "Crear páginas",
+          fr: "Créer des pages",
+          ja: "ページを作成",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.notes.create.description",
+        values: {
+          en: "Create new OneNote pages",
+          de: "Erstelle neue OneNote-Seiten",
+          pl: "Twórz nowe strony OneNote",
+          es: "Crea nuevas páginas de OneNote",
+          fr: "Créer de nouvelles pages OneNote",
+          ja: "OneNoteページを作成",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.notes.readwrite.name",
+        values: {
+          en: "Manage notebooks",
+          de: "Notizbücher verwalten",
+          pl: "Zarządzaj notatnikami",
+          es: "Gestionar cuadernos",
+          fr: "Gérer les carnets",
+          ja: "ノートブックを管理",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.notes.readwrite.description",
+        values: {
+          en: "Read and write to your notebooks",
+          de: "Lese und schreibe deine Notizbücher",
+          pl: "Czytaj i pisz swoje notatniki",
+          es: "Lee y escribe tus cuadernos",
+          fr: "Lire et écrire vos carnets",
+          ja: "ノートブックの読み書き",
+        }
+      },
+
       // === OTHER INTEGRATIONS ===
       {
         key: "ui.manage.integrations.other.title",
