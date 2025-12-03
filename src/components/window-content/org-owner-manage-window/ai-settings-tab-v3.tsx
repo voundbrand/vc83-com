@@ -659,9 +659,9 @@ export function AISettingsTabV3() {
                         setEnterpriseTier("starter");
                         setShowEnterpriseModal(true);
                       }}
-                      className="w-full px-4 py-2 text-xs font-semibold rounded-md transition-colors bg-primary text-primary-foreground hover:bg-primary/90"
+                      className="retro-button w-full py-2 text-xs font-pixel"
                     >
-                      Contact Sales
+                      {t("ui.store.button.contact_sales")}
                     </button>
                   </div>
 
@@ -712,9 +712,9 @@ export function AISettingsTabV3() {
                         setEnterpriseTier("professional");
                         setShowEnterpriseModal(true);
                       }}
-                      className="w-full px-4 py-2 text-xs font-semibold rounded-md transition-colors bg-primary text-primary-foreground hover:bg-primary/90"
+                      className="retro-button w-full py-2 text-xs font-pixel"
                     >
-                      Contact Sales
+                      {t("ui.store.button.contact_sales")}
                     </button>
                   </div>
 
@@ -765,9 +765,9 @@ export function AISettingsTabV3() {
                         setEnterpriseTier("enterprise");
                         setShowEnterpriseModal(true);
                       }}
-                      className="w-full px-4 py-2 text-xs font-semibold rounded-md transition-colors bg-primary text-primary-foreground hover:bg-primary/90"
+                      className="retro-button w-full py-2 text-xs font-pixel"
                     >
-                      Contact Sales
+                      {t("ui.store.button.contact_sales")}
                     </button>
                   </div>
                 </div>
@@ -1003,10 +1003,10 @@ export function AISettingsTabV3() {
         <button
           onClick={handleSave}
           disabled={isSaving || !organizationId}
-          className="px-4 py-2 text-xs font-semibold rounded-md transition-colors bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          className="retro-button py-2 px-4 text-xs font-pixel disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
         >
           {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-          {isSaving ? "Saving..." : "Save Settings"}
+          {isSaving ? t("ui.manage.ai.saving") : t("ui.manage.ai.save_settings")}
         </button>
       </div>
 
