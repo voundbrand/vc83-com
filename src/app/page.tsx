@@ -169,7 +169,7 @@ export default function HomePage() {
   }
 
   const openAIAssistantWindow = () => {
-    openWindow("ai-assistant", "AI Assistant", <AIChatWindow />, { x: 230, y: 70 }, { width: 700, height: 600 }, 'ui.app.ai_assistant')
+    openWindow("ai-assistant", "AI Assistant", <AIChatWindow />, { x: 230, y: 70 }, { width: 1400, height: 1200 }, 'ui.app.ai_assistant')
   }
 
   const openStoreWindow = () => {
