@@ -2,22 +2,24 @@
 
 import { createContext, useContext, useState, type ReactNode } from "react"
 
-export type LayoutMode = "single" | "three-pane"
+export type LayoutMode = "single" | "three-pane" | "four-pane"
 
 interface LayoutModeContextType {
   mode: LayoutMode
   setMode: (mode: LayoutMode) => void
   switchToSinglePane: () => void
   switchToThreePane: () => void
+  switchToFourPane: () => void
 }
 
 const LayoutModeContext = createContext<LayoutModeContextType | undefined>(undefined)
 
 export function LayoutModeProvider({ children }: { children: ReactNode }) {
-  const [mode, setMode] = useState<LayoutMode>("single")
+  const [mode, setMode] = useState<LayoutMode>("four-pane") // Default to four-pane
 
   const switchToSinglePane = () => setMode("single")
   const switchToThreePane = () => setMode("three-pane")
+  const switchToFourPane = () => setMode("four-pane")
 
   return (
     <LayoutModeContext.Provider
@@ -26,6 +28,7 @@ export function LayoutModeProvider({ children }: { children: ReactNode }) {
         setMode,
         switchToSinglePane,
         switchToThreePane,
+        switchToFourPane,
       }}
     >
       {children}

@@ -5,9 +5,14 @@ import { LayoutModeProvider, useLayoutMode } from "./layout-mode-context"
 import { AIChatProvider } from "@/contexts/ai-chat-context"
 import { SinglePaneLayout } from "./single-pane/single-pane-layout"
 import { ThreePaneLayout } from "./three-pane/three-pane-layout"
+import { FourPaneLayout } from "./four-pane/four-pane-layout"
 
 function AIChatWindowContent() {
   const { mode } = useLayoutMode()
+
+  if (mode === "four-pane") {
+    return <FourPaneLayout />
+  }
 
   if (mode === "three-pane") {
     return <ThreePaneLayout />

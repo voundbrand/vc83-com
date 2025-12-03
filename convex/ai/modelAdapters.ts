@@ -54,10 +54,17 @@ export function formatToolResult(
 
   switch (provider) {
     case "anthropic":
-      // Anthropic format: uses tool_use_id
+      // Anthropic/Bedrock format: uses content array with tool_result type
+      // This format is required by Amazon Bedrock when routing Anthropic models
       return {
-        ...baseMessage,
-        tool_use_id: toolCallId,
+        role: "user" as any, // Anthropic expects "user" role for tool results
+        content: [
+          {
+            type: "tool_result",
+            tool_use_id: toolCallId,
+            content: typeof result === "string" ? result : JSON.stringify(result),
+          }
+        ] as any,
       };
 
     case "openai":
@@ -208,6 +215,24 @@ export function formatToolError(
   toolName: string,
   errorMessage: string
 ): ToolResultMessage {
+  // For Anthropic, we need to format errors specially to match their content array format
+  if (provider === "anthropic") {
+    return {
+      role: "user" as any,
+      content: [
+        {
+          type: "tool_result",
+          tool_use_id: toolCallId,
+          content: JSON.stringify({
+            error: errorMessage,
+            success: false,
+          }),
+          is_error: true,
+        }
+      ] as any,
+    };
+  }
+
   return formatToolResult(provider, toolCallId, toolName, {
     error: errorMessage,
     success: false,
