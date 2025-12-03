@@ -44,6 +44,7 @@ interface ToolExecutionItemProps {
 function ToolExecutionItem({ execution }: ToolExecutionItemProps) {
   const { t } = useNamespaceTranslations("ui.ai_assistant")
   const [isExpanded, setIsExpanded] = useState(false)
+  const [showDebug, setShowDebug] = useState(false)
 
   const statusConfig = {
     running: {
@@ -82,32 +83,67 @@ function ToolExecutionItem({ execution }: ToolExecutionItemProps) {
       }}
     >
       {/* Header */}
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center gap-2 p-2 hover:bg-gray-50 transition-colors"
-      >
-        <div className="flex-shrink-0">
-          {isExpanded ? (
-            <ChevronDown className="w-3 h-3" style={{ color: 'var(--win95-text)' }} />
-          ) : (
-            <ChevronRight className="w-3 h-3" style={{ color: 'var(--win95-text)' }} />
-          )}
-        </div>
-        <StatusIcon
-          className={`w-4 h-4 flex-shrink-0 ${config.animate ? 'animate-spin' : ''}`}
-          style={{ color: config.color }}
-        />
-        <div className="flex-1 text-left min-w-0">
-          <p className="text-xs font-medium truncate" style={{ color: 'var(--win95-text)' }}>
-            {execution.toolName}
-          </p>
-          <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
-            {duration !== null
-              ? `${duration}s`
-              : (t("ui.ai_assistant.tool.running") as string)}
-          </p>
-        </div>
-      </button>
+      <div className="flex items-center gap-2 p-2">
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'var(--win95-hover-light)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'transparent';
+          }}
+          className="flex items-center gap-2 flex-1 rounded transition-colors"
+        >
+          <div className="flex-shrink-0">
+            {isExpanded ? (
+              <ChevronDown className="w-3 h-3" style={{ color: 'var(--win95-text)' }} />
+            ) : (
+              <ChevronRight className="w-3 h-3" style={{ color: 'var(--win95-text)' }} />
+            )}
+          </div>
+          <StatusIcon
+            className={`w-4 h-4 flex-shrink-0 ${config.animate ? 'animate-spin' : ''}`}
+            style={{ color: config.color }}
+          />
+          <div className="flex-1 text-left min-w-0">
+            <p className="text-xs font-medium truncate" style={{ color: 'var(--win95-text)' }}>
+              {execution.toolName}
+            </p>
+            <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+              {duration !== null
+                ? `${duration}s`
+                : (t("ui.ai_assistant.tool.running") as string)}
+            </p>
+          </div>
+        </button>
+
+        {/* Stop Button - Only show for running tools */}
+        {execution.status === 'running' && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              // TODO: Implement actual stop functionality
+              console.warn('Stop tool execution:', execution.id);
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'var(--error)';
+              e.currentTarget.style.color = 'white';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = 'var(--error)';
+            }}
+            className="px-2 py-1 text-xs rounded border transition-colors flex-shrink-0"
+            style={{
+              borderColor: 'var(--error)',
+              color: 'var(--error)'
+            }}
+            title="Stop execution"
+          >
+            Stop
+          </button>
+        )}
+      </div>
 
       {/* Expanded Content */}
       {isExpanded ? (
@@ -166,6 +202,65 @@ function ToolExecutionItem({ execution }: ToolExecutionItemProps) {
               </p>
             </div>
           )}
+
+          {/* Debug Protocol Toggle */}
+          <div className="border-t pt-2" style={{ borderColor: 'var(--win95-border-light)' }}>
+            <button
+              onClick={() => setShowDebug(!showDebug)}
+              className="w-full flex items-center justify-between px-2 py-1 rounded transition-colors text-xs"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'var(--win95-hover-light)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+              }}
+            >
+              <span className="font-semibold" style={{ color: 'var(--win95-text)' }}>
+                Debug Protocol
+              </span>
+              {showDebug ? (
+                <ChevronDown className="w-3 h-3" style={{ color: 'var(--win95-text-muted)' }} />
+              ) : (
+                <ChevronRight className="w-3 h-3" style={{ color: 'var(--win95-text-muted)' }} />
+              )}
+            </button>
+
+            {/* Debug Output */}
+            {showDebug && (
+              <div className="mt-2">
+                <pre
+                  className="text-xs p-2 rounded overflow-x-auto font-mono max-h-64 overflow-y-auto"
+                  style={{
+                    background: 'var(--win95-bg)',
+                    color: 'var(--win95-text)',
+                    borderLeft: '2px solid var(--win95-highlight)'
+                  }}
+                >
+{`[Tool Execution Protocol]
+Tool: ${execution.toolName}
+Status: ${execution.status}
+Started: ${execution.startTime.toISOString()}
+${execution.endTime ? `Ended: ${execution.endTime.toISOString()}` : 'Still running...'}
+
+[Input Parameters]
+${JSON.stringify(execution.input, null, 2)}
+
+${execution.output ? `[Output Data]
+${typeof execution.output === 'string' ? execution.output : JSON.stringify(execution.output, null, 2)}` : ''}
+
+${execution.error ? `[Error Details]
+${execution.error}` : ''}
+
+[Status History]
+- Initialized: ${execution.startTime.toISOString()}
+${execution.status === 'running' ? '- Currently executing...' : ''}
+${execution.endTime ? `- Completed: ${execution.endTime.toISOString()}` : ''}
+${execution.error ? '- Error encountered during execution' : ''}
+`}
+                </pre>
+              </div>
+            )}
+          </div>
         </div>
       ) : null}
     </div>
@@ -337,16 +432,26 @@ export function ToolExecutionPanel({ selectedWorkItem, onSelectWorkItem }: ToolE
   )
 
   // Transform Convex data to match our interface
-  const executions: ToolExecution[] = (toolExecutionsData || []).map((exec: any) => ({
-    id: exec._id,
-    toolName: exec.toolName,
-    status: exec.success ? "success" : exec.error ? "error" : "running",
-    startTime: new Date(exec.executedAt),
-    endTime: exec.completedAt ? new Date(exec.completedAt) : undefined,
-    input: exec.input as Record<string, unknown>,
-    output: exec.output,
-    error: exec.error
-  }))
+  const executions: ToolExecution[] = (toolExecutionsData || []).map((exec: any) => {
+    // Calculate end time from executedAt + durationMs
+    const endTime = exec.durationMs
+      ? new Date(exec.executedAt + exec.durationMs)
+      : undefined;
+
+    return {
+      id: exec._id,
+      toolName: exec.toolName,
+      // FIXED: Check exec.status field (not exec.success)
+      status: exec.status === "success" ? "success" : exec.status === "failed" ? "error" : "running",
+      startTime: new Date(exec.executedAt),
+      endTime,
+      // FIXED: Database stores 'parameters' not 'input'
+      input: exec.parameters as Record<string, unknown>,
+      // FIXED: Database stores 'result' not 'output'
+      output: exec.result,
+      error: exec.error
+    };
+  })
 
   return (
     <div className="flex flex-col h-full">

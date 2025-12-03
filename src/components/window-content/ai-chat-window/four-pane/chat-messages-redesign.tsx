@@ -11,19 +11,13 @@ function UserMessage({ content }: { content: string }) {
   return (
     <div className="flex justify-start">
       <div
-        className="px-4 py-2 rounded border-2 max-w-[75%] text-sm"
+        className="px-2 py-2 max-w-[85%] text-sm"
         style={{
-          borderColor: 'var(--win95-border)',
-          background: 'var(--win95-bg-light)',
           color: 'var(--win95-text)',
-          borderStyle: 'inset'
         }}
       >
-        <div className="flex items-start gap-2">
-          <span className="text-base">👤</span>
-          <div className="flex-1 leading-relaxed whitespace-pre-wrap break-words">
-            {content}
-          </div>
+        <div className="leading-relaxed whitespace-pre-wrap break-words">
+          {content}
         </div>
       </div>
     </div>
@@ -35,19 +29,13 @@ function AssistantMessage({ content }: { content: string }) {
   return (
     <div className="flex justify-end">
       <div
-        className="px-4 py-2 rounded border-2 max-w-[75%] text-sm"
+        className="px-2 py-2 max-w-[85%] text-sm"
         style={{
-          borderColor: 'var(--win95-border)',
-          background: 'var(--win95-selected-bg)',
-          color: 'var(--win95-selected-text)',
-          borderStyle: 'outset'
+          color: 'var(--win95-text)',
         }}
       >
-        <div className="flex items-start gap-2">
-          <div className="flex-1 leading-relaxed whitespace-pre-wrap break-words">
-            {content}
-          </div>
-          <span className="text-base">🤖</span>
+        <div className="leading-relaxed whitespace-pre-wrap break-words">
+          {content}
         </div>
       </div>
     </div>
@@ -59,17 +47,13 @@ function ThinkingIndicator() {
   return (
     <div className="flex justify-end">
       <div
-        className="px-4 py-2 rounded border-2 text-sm flex items-center gap-2"
+        className="px-2 py-2 text-sm flex items-center gap-2"
         style={{
-          borderColor: 'var(--win95-border)',
-          background: 'var(--win95-selected-bg)',
-          color: 'var(--win95-selected-text)',
-          borderStyle: 'outset'
+          color: 'var(--win95-text)',
         }}
       >
-        <Sparkles className="w-4 h-4 animate-pulse" />
+        <Sparkles className="w-4 h-4 animate-pulse" style={{ color: 'var(--win95-highlight)' }} />
         <span className="text-xs italic">Thinking...</span>
-        <span className="text-base">🤖</span>
       </div>
     </div>
   )

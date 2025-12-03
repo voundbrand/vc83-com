@@ -10,7 +10,7 @@ import { Id } from "../../../../convex/_generated/dataModel";
 
 interface ModelSelectorProps {
   selectedModel?: string;
-  onModelChange?: (model: string) => void;
+  onModelChange?: (model: string | undefined) => void;
   disabled?: boolean;
 }
 
@@ -148,33 +148,26 @@ export function ModelSelector({ selectedModel, onModelChange, disabled }: ModelS
         <div
           className="absolute top-full left-0 mt-1 w-80 border-2 rounded shadow-lg z-50 max-h-96 overflow-y-auto"
           style={{
-            backgroundColor: 'var(--win95-bg-light)',
-            borderColor: 'var(--win95-border)',
+            backgroundColor: 'var(--win95-input-bg)',
+            borderColor: 'var(--win95-input-border-dark)',
           }}
         >
           {/* Auto Option */}
           <button
             onClick={() => {
-              onModelChange?.(undefined as any); // Clear selection to use org default
+              onModelChange?.(undefined); // Clear selection to use org default
               setIsOpen(false);
             }}
-            className="w-full px-3 py-2 text-left border-b-2 flex items-center gap-2 transition-colors"
+            className="w-full px-3 py-2 text-left border-b-2 flex items-center gap-2 transition-colors hover-menu-item"
             style={{
-              borderColor: 'var(--win95-border)',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--win95-hover-bg)';
-              e.currentTarget.style.color = 'var(--win95-hover-text)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent';
-              e.currentTarget.style.color = 'var(--win95-text)';
+              borderColor: 'var(--win95-input-border-dark)',
+              color: 'var(--win95-input-text)',
             }}
           >
             <ProviderLogo provider="default" size={16} className="text-primary" />
             <div>
-              <div className="font-bold text-sm">Auto (Default)</div>
-              <div className="text-xs opacity-70">
+              <div className="font-bold text-sm" style={{ color: 'inherit' }}>Auto (Default)</div>
+              <div className="text-xs opacity-70" style={{ color: 'inherit' }}>
                 {orgDefaultModel
                   ? `Use organization default: ${getModelDisplayName(orgDefaultModel)}`
                   : `Use first available: ${currentDisplayName}`
@@ -189,12 +182,15 @@ export function ModelSelector({ selectedModel, onModelChange, disabled }: ModelS
               <div
                 key={provider}
                 className="border-b-2 last:border-b-0"
-                style={{ borderColor: 'var(--win95-border)' }}
+                style={{ borderColor: 'var(--win95-input-border-dark)' }}
               >
                 {/* Provider Header */}
                 <div
                   className="px-3 py-2 flex items-center gap-2"
-                  style={{ backgroundColor: 'var(--win95-bg)' }}
+                  style={{
+                    backgroundColor: 'var(--win95-border)',
+                    color: 'var(--win95-input-text)'
+                  }}
                 >
                   <ProviderBadge provider={provider} showName={true} />
                 </div>
@@ -207,30 +203,28 @@ export function ModelSelector({ selectedModel, onModelChange, disabled }: ModelS
                     <button
                       key={model.id}
                       onClick={() => handleModelSelect(model.id)}
-                      className="w-full px-3 py-2 text-left flex items-center justify-between transition-colors"
+                      className="w-full px-3 py-2 text-left flex items-center justify-between transition-colors hover-menu-item"
                       style={{
-                        backgroundColor: isSelected ? 'var(--win95-selected-bg)' : 'transparent',
-                        color: isSelected ? 'var(--win95-selected-text)' : 'var(--win95-text)',
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isSelected) {
-                          e.currentTarget.style.backgroundColor = 'var(--win95-hover-bg)';
-                          e.currentTarget.style.color = 'var(--win95-hover-text)';
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isSelected) {
-                          e.currentTarget.style.backgroundColor = 'transparent';
-                          e.currentTarget.style.color = 'var(--win95-text)';
-                        }
+                        backgroundColor: isSelected ? 'var(--win95-hover-bg)' : 'transparent',
+                        color: isSelected ? 'var(--win95-hover-text)' : 'var(--win95-input-text)',
                       }}
                     >
                       <div className="flex-1 min-w-0">
-                        <div className="font-bold text-sm truncate">{model.name}</div>
-                        <div className="text-xs font-mono truncate opacity-70">{model.id}</div>
+                        <div
+                          className="font-bold text-sm truncate"
+                          style={{ color: 'inherit' }}
+                        >
+                          {model.name}
+                        </div>
+                        <div
+                          className="text-xs font-mono truncate opacity-70"
+                          style={{ color: 'inherit' }}
+                        >
+                          {model.id}
+                        </div>
                       </div>
                       {isSelected && (
-                        <div style={{ color: 'var(--win95-selected-text)' }}>✓</div>
+                        <div style={{ color: 'var(--win95-hover-text)' }}>✓</div>
                       )}
                     </button>
                   );

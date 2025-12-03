@@ -499,6 +499,21 @@ export default function HomePage() {
                   <ShoppingCartButton onOpenCart={openPlatformCartWindow} />
                 )}
 
+                {/* AI Assistant Button - Quick access to AI chat */}
+                {isSignedIn && isAppAvailable("ai-assistant") && (
+                  <button
+                    className="border-l-2 px-3 py-1 flex items-center gap-2 hover:bg-opacity-80 transition-colors"
+                    style={{
+                      borderColor: 'var(--win95-border)',
+                      background: 'var(--win95-bg-light)'
+                    }}
+                    onClick={openAIAssistantWindow}
+                    title="Open AI Assistant"
+                  >
+                    <span className="text-sm">🤖</span>
+                  </button>
+                )}
+
                 {/* Theme Toggle - Shows for any theme with a light/dark pair */}
                 {hasThemeToggle && (
                   <button
@@ -556,9 +571,24 @@ export default function HomePage() {
               </>
             )}
 
-            {/* Mobile: Theme Toggle and Super Admin Badge */}
+            {/* Mobile: AI Assistant, Theme Toggle and Super Admin Badge */}
             {isMobile && (
               <>
+                {/* AI Assistant Button - Quick access to AI chat */}
+                {isSignedIn && isAppAvailable("ai-assistant") && (
+                  <button
+                    className={`${!hasThemeToggle && !isSuperAdmin ? 'ml-auto' : ''} border-l-2 px-3 py-1 flex items-center gap-2 hover:bg-opacity-80 transition-colors`}
+                    style={{
+                      borderColor: 'var(--win95-border)',
+                      background: 'var(--win95-bg-light)'
+                    }}
+                    onClick={openAIAssistantWindow}
+                    title="Open AI Assistant"
+                  >
+                    <span className="text-sm">🤖</span>
+                  </button>
+                )}
+
                 {/* Theme Toggle - Shows for any theme with a light/dark pair */}
                 {hasThemeToggle && (
                   <button

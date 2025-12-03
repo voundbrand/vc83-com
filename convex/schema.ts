@@ -136,6 +136,7 @@ export default defineSchema({
   aiConversations,        // Chat history for general AI assistant
   aiMessages,             // Individual messages in conversations
   aiToolExecutions,       // Audit trail of tool executions
+  // NOTE: Tool drafts use objects table with status="draft" + AI metadata in customProperties
   organizationAiSettings, // AI configuration per organization (LLM + embeddings)
   aiModels,               // AI model discovery cache (auto-refreshed daily)
   aiAgentTasks,          // Email AI tasks with approval workflow

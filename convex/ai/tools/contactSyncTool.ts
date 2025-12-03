@@ -157,7 +157,11 @@ export const executeSyncContacts: ReturnType<typeof action> = action({
     });
 
     if (!connection) {
-      throw new Error(`No ${args.provider} OAuth connection found. Please connect your account first.`);
+      throw new Error(
+        `No ${args.provider} OAuth connection found. ` +
+        `Please go to Settings > Integrations > Microsoft 365 to connect your account first. ` +
+        `You need an active ${args.provider} connection to sync contacts.`
+      );
     }
 
     // Fetch external contacts

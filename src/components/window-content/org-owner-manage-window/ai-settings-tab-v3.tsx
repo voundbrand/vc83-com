@@ -62,6 +62,13 @@ export function AISettingsTabV3() {
   const [showEnterpriseModal, setShowEnterpriseModal] = useState(false);
   const [enterpriseTier, setEnterpriseTier] = useState<"starter" | "professional" | "enterprise">("starter");
 
+  // Filter states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterProvider, setFilterProvider] = useState<string>("all");
+  const [filterCapability, setFilterCapability] = useState<"all" | "tool_calling" | "multimodal" | "vision">("all");
+  const [showOnlyRecommended, setShowOnlyRecommended] = useState(false);
+  const [showOnlyEnabled, setShowOnlyEnabled] = useState(false);
+
   // Initialize form from settings
   useEffect(() => {
     if (settings) {
@@ -143,9 +150,13 @@ export function AISettingsTabV3() {
   type ModelOption = {
     id: string;
     name: string;
+    provider?: string; // Provider name
     location: string; // Flag emoji for location
     zdr: boolean; // Zero Data Retention
     noTraining: boolean; // No training on data
+    toolCalling?: boolean; // Tool calling capability
+    multimodal?: boolean; // Multimodal capability
+    vision?: boolean; // Vision capability
     description: string;
     recommended?: boolean;
   };
@@ -158,12 +169,16 @@ export function AISettingsTabV3() {
     const models: ModelOption[] = platformModels.map((model) => ({
       id: model.id,
       name: model.name,
+      provider: model.provider,
       location: model.provider === "mistral" ? "🇪🇺" :
                 model.provider === "anthropic" || model.provider === "openai" || model.provider === "google" ? "🇺🇸" :
                 model.provider === "cohere" ? "🇨🇦" : "🌍",
       // Assume ZDR for EU models and open-source models
       zdr: model.provider === "mistral" || model.provider === "meta-llama",
       noTraining: model.provider === "mistral" || model.provider === "anthropic" || model.provider === "meta-llama",
+      toolCalling: model.capabilities.toolCalling,
+      multimodal: model.capabilities.multimodal,
+      vision: model.capabilities.vision,
       description: `${(model.contextLength / 1000).toFixed(0)}K context. ${model.capabilities.toolCalling ? "Tool calling. " : ""}${model.capabilities.vision ? "Vision. " : ""}`,
       recommended: model.isSystemDefault ?? false,
     }));
@@ -178,7 +193,47 @@ export function AISettingsTabV3() {
     return models;
   };
 
-  const availableModels = getAllModelsForTier(tier);
+  // Get all available models based on tier
+  const allAvailableModels = getAllModelsForTier(tier);
+
+  // Get unique providers for filter
+  const providers = useMemo(() => {
+    const uniqueProviders = new Set(allAvailableModels.map((m) => m.provider || "unknown"));
+    return Array.from(uniqueProviders).sort();
+  }, [allAvailableModels]);
+
+  // Filtered models
+  const availableModels = useMemo(() => {
+    return allAvailableModels.filter((model) => {
+      // Provider filter
+      if (filterProvider !== "all" && model.provider !== filterProvider) {
+        return false;
+      }
+
+      // Capability filter
+      if (filterCapability === "tool_calling" && !model.toolCalling) return false;
+      if (filterCapability === "multimodal" && !model.multimodal) return false;
+      if (filterCapability === "vision" && !model.vision) return false;
+
+      // Recommended filter
+      if (showOnlyRecommended && !model.recommended) return false;
+
+      // Enabled filter
+      if (showOnlyEnabled && !isModelEnabled(model.id)) return false;
+
+      // Search query
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        return (
+          model.name.toLowerCase().includes(query) ||
+          model.id.toLowerCase().includes(query) ||
+          (model.provider && model.provider.toLowerCase().includes(query))
+        );
+      }
+
+      return true;
+    });
+  }, [allAvailableModels, filterProvider, filterCapability, showOnlyRecommended, showOnlyEnabled, searchQuery]);
 
   // Count enabled models and privacy features
   const enabledModelCount = enabledModels.length;
@@ -788,6 +843,114 @@ export function AISettingsTabV3() {
               <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
                 {t("ui.manage.ai.enabled_models_description")}
               </p>
+            </div>
+
+            {/* Filters */}
+            <div className="mb-4 p-3 border-2" style={{ borderColor: 'var(--win95-border)', backgroundColor: 'var(--win95-bg)' }}>
+              <div className="mb-2 text-xs" style={{ color: 'var(--win95-text-secondary)' }}>
+                Showing {availableModels.length} of {allAvailableModels.length} models
+              </div>
+              <div className="grid grid-cols-5 gap-3">
+                {/* Search */}
+                <div>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                    Search
+                  </label>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Model name..."
+                    className="w-full px-2 py-1 text-xs"
+                    style={{
+                      backgroundColor: 'var(--win95-input-bg)',
+                      color: 'var(--win95-input-text)',
+                      border: '2px inset',
+                      borderColor: 'var(--win95-input-border-dark)',
+                    }}
+                  />
+                </div>
+
+                {/* Provider Filter */}
+                <div>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                    Provider
+                  </label>
+                  <select
+                    value={filterProvider}
+                    onChange={(e) => setFilterProvider(e.target.value)}
+                    className="w-full px-2 py-1 text-xs"
+                    style={{
+                      backgroundColor: 'var(--win95-input-bg)',
+                      color: 'var(--win95-input-text)',
+                      border: '2px inset',
+                      borderColor: 'var(--win95-input-border-dark)',
+                    }}
+                  >
+                    <option value="all">All Providers</option>
+                    {providers.map((provider) => (
+                      <option key={provider} value={provider}>
+                        {provider.toUpperCase()}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Capability Filter */}
+                <div>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                    Capability
+                  </label>
+                  <select
+                    value={filterCapability}
+                    onChange={(e) => setFilterCapability(e.target.value as any)}
+                    className="w-full px-2 py-1 text-xs"
+                    style={{
+                      backgroundColor: 'var(--win95-input-bg)',
+                      color: 'var(--win95-input-text)',
+                      border: '2px inset',
+                      borderColor: 'var(--win95-input-border-dark)',
+                    }}
+                  >
+                    <option value="all">All Capabilities</option>
+                    <option value="tool_calling">Tool Calling</option>
+                    <option value="multimodal">Multimodal</option>
+                    <option value="vision">Vision</option>
+                  </select>
+                </div>
+
+                {/* Recommended Filter */}
+                <div>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                    Recommended
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showOnlyRecommended}
+                      onChange={(e) => setShowOnlyRecommended(e.target.checked)}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-xs" style={{ color: 'var(--win95-text)' }}>Only show</span>
+                  </label>
+                </div>
+
+                {/* Enabled Filter */}
+                <div>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                    Enabled
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showOnlyEnabled}
+                      onChange={(e) => setShowOnlyEnabled(e.target.checked)}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-xs" style={{ color: 'var(--win95-text)' }}>Only show</span>
+                  </label>
+                </div>
+              </div>
             </div>
 
             <div className="space-y-2">

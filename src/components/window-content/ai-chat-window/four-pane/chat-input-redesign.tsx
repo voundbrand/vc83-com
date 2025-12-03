@@ -5,7 +5,7 @@ import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
 import { useAIChatContext } from "@/contexts/ai-chat-context"
 import { useAIConfig } from "@/hooks/use-ai-config"
 import { useNotification } from "@/hooks/use-notification"
-import { ArrowUp, ChevronDown, Brain, Sparkles, Rocket, Zap } from "lucide-react"
+import { ArrowUp, ChevronDown, Brain, Sparkles, Rocket, Zap, UserCheck, Lightbulb } from "lucide-react"
 import { useQuery } from "convex/react"
 import { api } from "../../../../../convex/_generated/api"
 
@@ -24,7 +24,7 @@ export function ChatInput() {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const { t } = useNamespaceTranslations("ui.ai_assistant")
-  const { chat, currentConversationId, setCurrentConversationId, isSending, setIsSending, organizationId, selectedModel, setSelectedModel } =
+  const { chat, currentConversationId, setCurrentConversationId, isSending, setIsSending, organizationId, selectedModel, setSelectedModel, humanInLoopEnabled, setHumanInLoopEnabled } =
     useAIChatContext()
   const { isAIReady, settings, billing } = useAIConfig()
   const notification = useNotification()
@@ -54,6 +54,14 @@ export function ChatInput() {
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
+
+  // Initialize selectedModel to default when aiSettings loads (if not already set)
+  useEffect(() => {
+    if (!selectedModel && aiSettings?.llm?.defaultModelId) {
+      console.log('[AI Chat] Initializing selectedModel to:', aiSettings.llm.defaultModelId);
+      setSelectedModel(aiSettings.llm.defaultModelId);
+    }
+  }, [aiSettings, selectedModel, setSelectedModel])
 
   // Parse provider from model string
   const getProvider = (model: string) => {
@@ -206,14 +214,80 @@ export function ChatInput() {
           rows={1}
         />
 
-        {/* Model Selector + Send Button Row */}
+        {/* Model Selector + HITL Toggle + Feedback + Send Button Row */}
         <div className="flex gap-2 items-center">
+          {/* Human-in-the-Loop Toggle */}
+          <button
+            type="button"
+            onClick={() => setHumanInLoopEnabled(!humanInLoopEnabled)}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = humanInLoopEnabled
+                ? 'var(--success-bg)'
+                : 'var(--win95-hover-light)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = humanInLoopEnabled
+                ? 'var(--success-bg)'
+                : 'var(--win95-bg)';
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded border transition-all flex-shrink-0"
+            style={{
+              borderColor: humanInLoopEnabled ? 'var(--success)' : 'var(--win95-border)',
+              background: humanInLoopEnabled ? 'var(--success-bg)' : 'var(--win95-bg)',
+              color: humanInLoopEnabled ? 'var(--success)' : 'var(--win95-text-muted)'
+            }}
+            title={humanInLoopEnabled ? "Human-in-the-Loop: Enabled (AI will create drafts for review)" : "Human-in-the-Loop: Disabled (AI will execute immediately)"}
+          >
+            <UserCheck className={`w-4 h-4 transition-transform ${humanInLoopEnabled ? 'scale-110' : ''}`} />
+            <span className="text-xs font-medium hidden sm:inline">
+              {humanInLoopEnabled ? "Review" : "Auto"}
+            </span>
+          </button>
+
+          {/* Feedback Button */}
+          <button
+            type="button"
+            onClick={() => {
+              // Send a message to AI to start feature request flow
+              const featureRequestMessage = "I'd like to request a new feature";
+              setMessage(featureRequestMessage);
+              notification.info(
+                "Feedback",
+                "Type your feature idea and send it. The AI will help you submit it to the dev team!"
+              );
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--win95-hover-light)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--win95-bg)';
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded border transition-all flex-shrink-0"
+            style={{
+              borderColor: 'var(--win95-border)',
+              background: 'var(--win95-bg)',
+              color: 'var(--win95-text-muted)'
+            }}
+            title="Send feedback or request a new feature"
+          >
+            <Lightbulb className="w-4 h-4" />
+            <span className="text-xs font-medium hidden sm:inline">
+              Feedback
+            </span>
+          </button>
+
           {/* Model Selector (Anthropic-style) */}
           <div className="relative flex-1" ref={dropdownRef}>
           <button
             type="button"
             onClick={() => setIsModelSelectorOpen(!isModelSelectorOpen)}
-            className="w-full flex items-center gap-1.5 px-3 py-2 rounded border hover:bg-gray-50 transition-colors text-xs"
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--win95-hover-light)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--win95-bg)';
+            }}
+            className="w-full flex items-center gap-1.5 px-3 py-2 rounded border transition-colors text-xs"
             style={{
               borderColor: 'var(--win95-border)',
               background: 'var(--win95-bg)'
@@ -239,7 +313,15 @@ export function ChatInput() {
               <button
                 type="button"
                 onClick={() => handleModelSelect(aiSettings?.llm?.model || currentModel)}
-                className="w-full px-2 py-2 text-left hover:bg-gray-100 border-b text-xs flex items-center gap-2"
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--win95-hover-bg)';
+                  e.currentTarget.style.color = 'var(--win95-hover-text)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.color = 'var(--win95-text)';
+                }}
+                className="w-full px-2 py-2 text-left border-b text-xs flex items-center gap-2"
                 style={{ borderColor: 'var(--win95-border-light)' }}
               >
                 <Sparkles className="w-3.5 h-3.5 text-purple-600" />
@@ -264,18 +346,20 @@ export function ChatInput() {
                     key={model}
                     type="button"
                     onClick={() => handleModelSelect(model)}
-                    className={`w-full px-2 py-2 text-left hover:bg-gray-100 text-xs flex items-center gap-2 ${
-                      isSelected ? 'bg-purple-50' : ''
-                    }`}
+                    className="w-full px-2 py-2 text-left text-xs flex items-center gap-2 hover-menu-item"
+                    style={{
+                      backgroundColor: isSelected ? 'var(--win95-hover-bg)' : 'transparent',
+                      color: isSelected ? 'var(--win95-hover-text)' : 'var(--win95-text)'
+                    }}
                   >
                     <ModelIcon className={`w-3.5 h-3.5 ${info.color}`} />
                     <div className="flex-1 min-w-0">
-                      <div className="font-semibold truncate" style={{ color: 'var(--win95-text)' }}>
+                      <div className="font-semibold truncate" style={{ color: 'inherit' }}>
                         {displayName}
                       </div>
                     </div>
                     {isSelected && (
-                      <span style={{ color: 'var(--win95-highlight)' }}>✓</span>
+                      <span style={{ color: 'inherit' }}>✓</span>
                     )}
                   </button>
                 )
@@ -288,15 +372,28 @@ export function ChatInput() {
           <button
             type="submit"
             disabled={!message.trim() || isSending}
-            className="flex items-center justify-center p-2.5 rounded border-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:bg-purple-50 flex-shrink-0"
+            onMouseEnter={(e) => {
+              if (message.trim() && !isSending) {
+                e.currentTarget.style.backgroundColor = 'var(--win95-hover-light)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (message.trim() && !isSending) {
+                e.currentTarget.style.backgroundColor = 'var(--win95-bg)';
+              }
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded border transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
             style={{
               borderColor: 'var(--win95-border)',
-              background: message.trim() && !isSending ? 'var(--win95-highlight)' : 'var(--win95-bg)',
-              color: message.trim() && !isSending ? '#ffffff' : 'var(--win95-text-muted)'
+              background: 'var(--win95-bg)',
+              color: 'var(--win95-text-muted)'
             }}
             title="Send message (Enter)"
           >
             <ArrowUp className="w-4 h-4" />
+            <span className="text-xs font-medium hidden sm:inline">
+              Send
+            </span>
           </button>
         </div>
       </div>

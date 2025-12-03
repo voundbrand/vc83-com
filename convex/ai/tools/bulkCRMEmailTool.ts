@@ -162,8 +162,12 @@ export const executeSendBulkCRMEmail = action({
     mode?: string;
     campaignId?: string;
     totalRecipients: number;
-    emails: PersonalizedEmail[];
+    emails?: PersonalizedEmail[];
     message?: string;
+    error?: string;
+    instructions?: string[];
+    requiredScopes?: string[];
+    currentScopes?: string[];
     results?: {
       sent: number;
       failed: number;
@@ -180,6 +184,55 @@ export const executeSendBulkCRMEmail = action({
     }
 
     const organizationId = session.organizationId;
+
+    // CRITICAL: Validate Microsoft OAuth connection and scopes BEFORE attempting to send
+    const sendVia = args.options?.sendVia || "microsoft";
+
+    if (sendVia === "microsoft") {
+      // Check if user has connected their Microsoft account
+      const connection = await ctx.runQuery(api.oauth.microsoft.getUserMicrosoftConnection, {
+        sessionId: args.sessionId
+      });
+
+      if (!connection) {
+        return {
+          success: false,
+          error: "NO_OAUTH_CONNECTION",
+          message: "❌ No Microsoft account connected. You need to connect your Microsoft account to send emails.",
+          instructions: [
+            "1. Click the **Settings** icon (⚙️) in your taskbar",
+            "2. Go to **Integrations** tab",
+            "3. Click **Connect Microsoft Account**",
+            "4. **IMPORTANT**: Grant permission to send emails (scope: Mail.Send)",
+            "5. Once connected, come back here and try again"
+          ],
+          requiredScopes: ["Mail.Send"],
+          totalRecipients: 0
+        };
+      }
+
+      // Verify connection has Mail.Send scope
+      if (!connection.scopes.includes("Mail.Send")) {
+        return {
+          success: false,
+          error: "INSUFFICIENT_SCOPES",
+          message: "❌ Your Microsoft connection doesn't have permission to send emails.",
+          instructions: [
+            `Your current permissions: ${connection.scopes.join(", ")}`,
+            "",
+            "To fix this:",
+            "1. Go to **Settings** → **Integrations**",
+            "2. Click **Disconnect** next to your Microsoft account",
+            "3. Click **Connect Microsoft Account** again",
+            "4. **IMPORTANT**: When Microsoft asks for permissions, make sure to check the box for 'Send mail as you'",
+            "5. Try sending emails again"
+          ],
+          currentScopes: connection.scopes,
+          requiredScopes: ["Mail.Send"],
+          totalRecipients: 0
+        };
+      }
+    }
 
     // Get recipients based on target criteria
     const recipients = await getRecipients(ctx, args.sessionId, organizationId, args.target);
@@ -206,31 +259,41 @@ export const executeSendBulkCRMEmail = action({
       emails.push(personalizedEmail);
     }
 
-    // If preview mode (or requireApproval is true), return emails for review
-    const mode = args.mode || (args.options?.requireApproval !== false ? "preview" : "execute");
+    // CRITICAL: Force preview mode first if not specified
+    const mode = args.mode || "preview";
+
+    // If user tries to execute without previewing first, block it
+    if (mode === "execute" && args.options?.requireApproval !== false) {
+      return {
+        success: false,
+        error: "PREVIEW_REQUIRED",
+        message: "⚠️ For safety, you must preview emails before sending.",
+        instructions: [
+          "Please run in **preview mode** first to see what will be sent:",
+          "",
+          "After reviewing the preview, you can approve and send."
+        ],
+        totalRecipients: 0
+      };
+    }
 
     if (mode === "preview") {
-      // Create campaign record
-      const campaignId = await ctx.runMutation(api.ai.campaigns.createCampaign, {
-        organizationId: organizationId as Id<"organizations">,
-        userId: session.userId,
-        name: `Bulk Email - ${new Date().toISOString().split('T')[0]}`,
-        status: "draft",
-        targetType: args.target.type,
-        targetCriteria: args.target,
-        subject: args.content.subject || "Email Campaign",
-        bodyTemplate: args.content.body || "",
-        aiTone: args.content.aiTone,
-        totalRecipients: recipients.length
-      });
-
       return {
         success: true,
         mode: "preview",
-        campaignId,
         totalRecipients: recipients.length,
-        emails,
-        message: `Generated ${emails.length} personalized emails. Review and approve to send.`
+        emails: emails.slice(0, 5), // Show first 5 as sample
+        message: `📧 Email preview ready! You're about to send ${recipients.length} personalized emails.`,
+        instructions: [
+          "Review the preview above carefully:",
+          `  • ${recipients.length} recipients will receive this email`,
+          `  • Sending via: ${sendVia === "microsoft" ? "Your Microsoft account" : "Organization email"}`,
+          "",
+          "Sample previews show the first 5 recipients.",
+          "",
+          "If this looks good, tell me 'approve' or 'send now' to proceed.",
+          "If not, tell me 'cancel' or ask me to adjust the content."
+        ]
       };
     }
 

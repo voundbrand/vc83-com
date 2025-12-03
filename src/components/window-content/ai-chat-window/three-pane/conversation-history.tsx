@@ -103,38 +103,41 @@ export function ConversationHistory() {
           <div className="p-1">
             {filteredConversations.map((conv) => {
               const isActive = currentConversationId === conv._id
-              // Calculate message count from messages array (will be added via query)
-              const messageCount = 0 // TODO: Add messageCount to conversation schema or calculate from messages
+              // Calculate message count from messages array
+              const messageCount = chat.messages?.filter(msg => msg.conversationId === conv._id).length || 0
 
               return (
                 <button
                   key={conv._id}
                   onClick={() => handleSelectConversation(conv._id)}
                   className={`w-full text-left p-2 mb-1 rounded transition-colors ${
-                    isActive ? 'border-2' : ''
+                    isActive ? 'border-l-2' : ''
                   }`}
                   style={isActive ? {
-                    borderColor: 'var(--win95-border-active)',
-                    background: 'var(--win95-selected-bg)'
-                  } : {}}
+                    borderColor: 'var(--win95-highlight)',
+                    background: 'var(--win95-bg-light)',
+                    color: 'var(--win95-text)'
+                  } : {
+                    color: 'var(--win95-text)'
+                  }}
                   onMouseEnter={(e) => {
                     if (!isActive) {
-                      e.currentTarget.style.background = 'var(--win95-hover-bg)'
+                      e.currentTarget.style.background = 'var(--win95-hover-light)';
                     }
                   }}
                   onMouseLeave={(e) => {
                     if (!isActive) {
-                      e.currentTarget.style.background = 'transparent'
+                      e.currentTarget.style.background = 'transparent';
                     }
                   }}
                 >
                   <div className="flex items-start gap-2">
-                    <MessageSquare className="w-3 h-3 mt-0.5 flex-shrink-0" style={{ color: 'var(--win95-text)' }} />
+                    <MessageSquare className="w-3 h-3 mt-0.5 flex-shrink-0" style={{ color: 'currentColor' }} />
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium truncate" style={{ color: 'var(--win95-text)' }}>
+                      <p className="text-xs font-medium truncate" style={{ color: 'currentColor' }}>
                         {conv.title}
                       </p>
-                      <div className="flex items-center gap-2 mt-1 text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+                      <div className="flex items-center gap-2 mt-1 text-xs opacity-70">
                         <span>{messageCount} {t("ui.ai_assistant.history.messages")}</span>
                         <span>•</span>
                         <span>{formatRelativeTime(new Date(conv.createdAt))}</span>

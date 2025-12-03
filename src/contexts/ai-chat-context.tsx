@@ -23,6 +23,10 @@ interface AIChatContextType {
   // Model Selection
   selectedModel: string | undefined
   setSelectedModel: (model: string | undefined) => void
+
+  // Human-in-the-Loop Mode
+  humanInLoopEnabled: boolean
+  setHumanInLoopEnabled: (enabled: boolean) => void
 }
 
 const AIChatContext = createContext<AIChatContextType | undefined>(undefined)
@@ -33,6 +37,7 @@ export function AIChatProvider({ children }: { children: ReactNode }) {
   >(undefined)
   const [isSending, setIsSending] = useState(false)
   const [selectedModel, setSelectedModel] = useState<string | undefined>(undefined)
+  const [humanInLoopEnabled, setHumanInLoopEnabled] = useState(false)
 
   const chat = useAIChat(currentConversationId, selectedModel)
 
@@ -51,6 +56,8 @@ export function AIChatProvider({ children }: { children: ReactNode }) {
         setIsSending,
         selectedModel,
         setSelectedModel,
+        humanInLoopEnabled,
+        setHumanInLoopEnabled,
       }}
     >
       {children}
