@@ -143,7 +143,21 @@ export function MicrosoftScopeSelector({
   };
 
   const applyPreset = (presetKey: keyof typeof SCOPE_PRESETS) => {
-    onChange(SCOPE_PRESETS[presetKey].scopes);
+    const presetScopes = SCOPE_PRESETS[presetKey].scopes;
+    onChange(presetScopes);
+
+    // Auto-expand categories that contain the selected scopes
+    const categoriesToExpand = new Set<string>();
+    presetScopes.forEach(scope => {
+      // Find which category this scope belongs to
+      Object.entries(SCOPES_BY_CATEGORY).forEach(([categoryId, categoryScopes]) => {
+        if (categoryScopes.some(s => s.scope === scope)) {
+          categoriesToExpand.add(categoryId);
+        }
+      });
+    });
+
+    setExpandedCategories(categoriesToExpand);
   };
 
   const getCategoryStats = (category: string) => {
