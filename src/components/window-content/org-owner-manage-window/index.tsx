@@ -25,9 +25,13 @@ import { IntegrationsTab } from "../settings-window/integrations-tab";
 
 type TabType = "organization" | "users" | "ai" | "integrations" | "roles" | "domains" | "security";
 
-export function ManageWindow() {
+interface ManageWindowProps {
+  initialTab?: TabType;
+}
+
+export function ManageWindow({ initialTab = "organization" }: ManageWindowProps) {
   const { t } = useNamespaceTranslations("ui.manage");
-  const [activeTab, setActiveTab] = useState<TabType>("organization");
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
   const [isEditingOrg, setIsEditingOrg] = useState(false); // Start in view mode to load saved settings
   const [isSavingOrg, setIsSavingOrg] = useState(false);
 

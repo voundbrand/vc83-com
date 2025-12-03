@@ -223,6 +223,7 @@ export function IntegrationsTab() {
   const isLoading = connection === undefined;
   const isConnected = connection && connection.status === "active";
   const hasError = connection && (connection.status === "error" || connection.status === "expired");
+  const hasConnection = connection !== undefined && connection !== null;
 
   return (
     <>
@@ -255,7 +256,7 @@ export function IntegrationsTab() {
               {t("ui.manage.integrations.status.loading")}
             </p>
           </div>
-        ) : isConnected ? (
+        ) : hasConnection ? (
           <div
             className="p-4 border-2 rounded space-y-4"
             style={{
@@ -264,12 +265,14 @@ export function IntegrationsTab() {
             }}
           >
             {/* Connection Status */}
-            <div className="flex items-center gap-2">
-              <CheckCircle2 size={16} style={{ color: "var(--win95-highlight)" }} />
-              <span className="text-xs font-bold" style={{ color: "var(--win95-highlight)" }}>
-                {t("ui.manage.integrations.status.connected")}
-              </span>
-            </div>
+            {isConnected && (
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={16} style={{ color: "var(--win95-highlight)" }} />
+                <span className="text-xs font-bold" style={{ color: "var(--win95-highlight)" }}>
+                  {t("ui.manage.integrations.status.connected")}
+                </span>
+              </div>
+            )}
 
             {/* Connection Error Warning */}
             {hasError && connection.lastSyncError && (

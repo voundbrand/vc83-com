@@ -194,6 +194,32 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile, isSignedIn])
 
+  // Handle return from OAuth callbacks (Microsoft, etc.)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const windowParam = params.get('window');
+    const tabParam = params.get('tab');
+
+    // Handle manage window with specific tab (e.g., from OAuth callback)
+    if (windowParam === 'manage' && tabParam === 'integrations' && isSignedIn) {
+      // Import ManageWindow component dynamically
+      import('@/components/window-content/org-owner-manage-window').then((module) => {
+        const ManageWindow = module.ManageWindow;
+        openWindow(
+          "manage",
+          "Manage",
+          <ManageWindow initialTab="integrations" />,
+          { x: 200, y: 50 },
+          { width: 1200, height: 700 }
+        );
+      });
+
+      // Don't clean up URL yet - IntegrationsTab needs the success/error params
+      // It will clean them up after showing the notification
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSignedIn]);
+
   // Handle return from Stripe onboarding
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
