@@ -354,7 +354,7 @@ export function AISettingsTabV3() {
   if (!user) {
     return (
       <div className="p-4 text-xs" style={{ color: 'var(--error)' }}>
-        Not authenticated
+        {t("ui.manage.ai.not_authenticated")}
       </div>
     );
   }
@@ -371,12 +371,22 @@ export function AISettingsTabV3() {
     );
   };
 
-  // Format price for display
+  // Format price for display (from cents)
   const formatPrice = (cents: number) => {
     const euros = cents / 100;
     return new Intl.NumberFormat("de-DE", {
       style: "currency",
       currency: "EUR",
+    }).format(euros);
+  };
+
+  // Format large price (whole euros, for Private LLM tiers)
+  const formatLargePrice = (euros: number) => {
+    return new Intl.NumberFormat("de-DE", {
+      style: "currency",
+      currency: "EUR",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
     }).format(euros);
   };
 
@@ -407,20 +417,20 @@ export function AISettingsTabV3() {
               <CheckCircle2 size={20} className="flex-shrink-0 mt-0.5" />
               <div className="flex-1">
                 <h3 className="font-bold text-sm mb-1">
-                  {subscriptionStatus.tier === "standard" && "Standard Plan Active"}
-                  {subscriptionStatus.tier === "privacy-enhanced" && "Privacy-Enhanced Plan Active"}
-                  {subscriptionStatus.tier === "private-llm" && "Private LLM Plan Active"}
+                  {subscriptionStatus.tier === "standard" && t("ui.manage.ai.plan_active.standard")}
+                  {subscriptionStatus.tier === "privacy-enhanced" && t("ui.manage.ai.plan_active.privacy_enhanced")}
+                  {subscriptionStatus.tier === "private-llm" && t("ui.manage.ai.plan_active.private_llm")}
                 </h3>
                 <p className="text-xs">
-                  {formatPrice(subscriptionStatus.priceInCents)}/month •{" "}
-                  {formatTokens(subscriptionStatus.includedTokensUsed)}/{formatTokens(subscriptionStatus.includedTokensTotal)} tokens used
+                  {formatPrice(subscriptionStatus.priceInCents)}/{t("ui.manage.ai.price.per_month")} •{" "}
+                  {formatTokens(subscriptionStatus.includedTokensUsed)}/{formatTokens(subscriptionStatus.includedTokensTotal)} {t("ui.manage.ai.tokens_used")}
                 </p>
                 <button
                   onClick={handleOpenStore}
                   className="mt-2 px-4 py-2 text-xs font-semibold rounded-md transition-colors bg-white/20 text-white hover:bg-white/30 flex items-center gap-1"
                 >
                   <ShoppingCart size={12} />
-                  Browse Store
+                  {t("ui.manage.ai.browse_store")}
                 </button>
               </div>
             </div>
@@ -435,16 +445,16 @@ export function AISettingsTabV3() {
             >
               <XCircle size={20} className="flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <h3 className="font-bold text-sm mb-1">Subscribe to Activate AI Features</h3>
+                <h3 className="font-bold text-sm mb-1">{t("ui.manage.ai.subscribe_to_activate")}</h3>
                 <p className="text-xs mb-2">
-                  Choose a plan to enable AI-powered features for your organization.
+                  {t("ui.manage.ai.choose_plan_description")}
                 </p>
                 <button
                   onClick={handleOpenStore}
                   className="px-4 py-2 text-xs font-semibold rounded-md transition-colors bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-2"
                 >
                   <ShoppingCart size={14} />
-                  Open Store
+                  {t("ui.manage.ai.open_store")}
                 </button>
               </div>
             </div>
@@ -463,9 +473,9 @@ export function AISettingsTabV3() {
       >
         <Brain size={20} className="flex-shrink-0 mt-0.5" />
         <div className="flex-1">
-          <h3 className="font-bold text-sm mb-1">AI Configuration</h3>
+          <h3 className="font-bold text-sm mb-1">{t("ui.manage.ai.configuration_title")}</h3>
           <p className="text-xs">
-            Configure AI features for your organization. Choose your privacy tier and preferred models.
+            {t("ui.manage.ai.configuration_description")}
           </p>
         </div>
       </div>
@@ -487,10 +497,10 @@ export function AISettingsTabV3() {
           />
           <div>
             <span className="font-bold text-sm" style={{ color: 'var(--win95-text)' }}>
-              Enable AI Features
+              {t("ui.manage.ai.enable_features")}
             </span>
             <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-              Turn on AI-powered features for your organization
+              {t("ui.manage.ai.enable_features_description")}
             </p>
           </div>
         </label>
@@ -507,7 +517,7 @@ export function AISettingsTabV3() {
             }}
           >
             <h3 className="font-bold text-sm mb-4" style={{ color: 'var(--win95-text)' }}>
-              Data Privacy Level
+              {t("ui.manage.ai.data_privacy_level")}
             </h3>
 
             <div className="space-y-4">
@@ -532,19 +542,19 @@ export function AISettingsTabV3() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="font-bold text-sm" style={{ color: 'var(--win95-text)' }}>
-                      Standard
+                      {t("ui.manage.ai.tier.standard.name")}
                     </span>
                     <span className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-                      €49/month incl. VAT
+                      {formatPrice(4900)}/{t("ui.manage.ai.price.per_month")} {t("ui.manage.ai.price.incl_vat")}
                     </span>
                   </div>
                   <p className="text-xs mb-2" style={{ color: 'var(--neutral-gray)' }}>
-                    All models available. Data may be processed globally.
+                    {t("ui.manage.ai.tier.standard.description")}
                   </p>
                   <ul className="text-xs space-y-1" style={{ color: 'var(--neutral-gray)' }}>
-                    <li>✓ All AI models</li>
-                    <li>✓ 500,000 tokens/month included</li>
-                    <li>✓ Global routing</li>
+                    <li>✓ {t("ui.manage.ai.tier.feature.all_models")}</li>
+                    <li>✓ {t("ui.manage.ai.tier.feature.tokens_included")}</li>
+                    <li>✓ {t("ui.manage.ai.tier.feature.global_routing")}</li>
                   </ul>
                 </div>
               </label>
@@ -569,7 +579,7 @@ export function AISettingsTabV3() {
                   <div className="flex items-center gap-2 mb-1">
                     <Lock size={14} />
                     <span className="font-bold text-sm" style={{ color: 'var(--win95-text)' }}>
-                      Privacy-Enhanced
+                      {t("ui.manage.ai.tier.privacy_enhanced.name")}
                     </span>
                     <span
                       className="px-2 py-0.5 text-xs font-bold"
@@ -578,11 +588,11 @@ export function AISettingsTabV3() {
                         color: 'white',
                       }}
                     >
-                      RECOMMENDED
+                      {t("ui.manage.ai.tier.recommended")}
                     </span>
                   </div>
                   <span className="text-xs block mb-2" style={{ color: 'var(--neutral-gray)' }}>
-                    €49/month incl. VAT
+                    {formatPrice(4900)}/{t("ui.manage.ai.price.per_month")} {t("ui.manage.ai.price.incl_vat")}
                   </span>
                   <div className="flex gap-1.5 mb-2">
                     <PrivacyBadge type="eu" size="sm" />
@@ -590,12 +600,12 @@ export function AISettingsTabV3() {
                     <PrivacyBadge type="no-training" size="sm" />
                   </div>
                   <p className="text-xs mb-2" style={{ color: 'var(--neutral-gray)' }}>
-                    Zero Data Retention. EU providers prioritized.
+                    {t("ui.manage.ai.tier.privacy_enhanced.description")}
                   </p>
                   <ul className="text-xs space-y-1" style={{ color: 'var(--neutral-gray)' }}>
-                    <li>✓ GDPR-optimized</li>
-                    <li>✓ No training on your data</li>
-                    <li>✓ 500,000 tokens/month included</li>
+                    <li>✓ {t("ui.manage.ai.tier.feature.gdpr_optimized")}</li>
+                    <li>✓ {t("ui.manage.ai.tier.feature.no_training")}</li>
+                    <li>✓ {t("ui.manage.ai.tier.feature.tokens_included")}</li>
                   </ul>
                 </div>
               </label>
@@ -604,10 +614,10 @@ export function AISettingsTabV3() {
               {/* Private LLM Tiers Section Header */}
               <div>
                 <h4 className="text-xs font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
-                  Private LLM Hosting
+                  {t("ui.manage.ai.private_llm.hosting_title")}
                 </h4>
                 <p className="text-xs mb-3" style={{ color: 'var(--neutral-gray)' }}>
-                  Self-hosted AI infrastructure. Data never leaves your servers.
+                  {t("ui.manage.ai.private_llm.hosting_description")}
                 </p>
 
                 {/* Private LLM Tiers Row */}
@@ -622,35 +632,35 @@ export function AISettingsTabV3() {
                   >
                 <div className="text-center mb-3">
                   <h3 className="text-sm font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
-                    Private LLM
+                    {t("ui.manage.ai.private_llm.name")}
                   </h3>
                   <p className="text-xs font-bold mb-1" style={{ color: 'var(--neutral-gray)' }}>
-                    Starter
+                    {t("ui.manage.ai.private_llm.tier.starter")}
                   </p>
                   <p className="text-xl font-bold mb-1" style={{ color: 'var(--primary)' }}>
-                    €2,999
+                    {formatLargePrice(2999)}
                   </p>
                   <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-                    per month
+                    {t("ui.manage.ai.price.per_month")}
                   </p>
                 </div>
 
                 <ul className="text-xs space-y-1 mb-3" style={{ color: 'var(--win95-text)' }}>
                   <li className="flex items-start gap-1">
                     <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
-                    <span>Self-hosted AI</span>
+                    <span>{t("ui.manage.ai.private_llm.feature.self_hosted")}</span>
                   </li>
                   <li className="flex items-start gap-1">
                     <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
-                    <span>~50K requests/month</span>
+                    <span>{t("ui.manage.ai.private_llm.feature.requests_50k")}</span>
                   </li>
                   <li className="flex items-start gap-1">
                     <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
-                    <span>Scale-to-zero compute</span>
+                    <span>{t("ui.manage.ai.private_llm.feature.scale_to_zero")}</span>
                   </li>
                   <li className="flex items-start gap-1">
                     <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
-                    <span>Full data sovereignty</span>
+                    <span>{t("ui.manage.ai.private_llm.feature.data_sovereignty")}</span>
                   </li>
                 </ul>
 
@@ -675,16 +685,16 @@ export function AISettingsTabV3() {
                   >
                 <div className="text-center mb-3">
                   <h3 className="text-sm font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
-                    Private LLM
+                    {t("ui.manage.ai.private_llm.name")}
                   </h3>
                   <p className="text-xs font-bold mb-1" style={{ color: 'var(--neutral-gray)' }}>
-                    Professional
+                    {t("ui.manage.ai.private_llm.tier.professional")}
                   </p>
                   <p className="text-xl font-bold mb-1" style={{ color: 'var(--primary)' }}>
-                    €7,199
+                    {formatLargePrice(7199)}
                   </p>
                   <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-                    per month
+                    {t("ui.manage.ai.price.per_month")}
                   </p>
                 </div>
 
@@ -703,7 +713,7 @@ export function AISettingsTabV3() {
                   </li>
                   <li className="flex items-start gap-1">
                     <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
-                    <span>Priority support</span>
+                    <span>{t("ui.manage.ai.private_llm.feature.priority_support")}</span>
                   </li>
                 </ul>
 
@@ -728,16 +738,16 @@ export function AISettingsTabV3() {
                   >
                 <div className="text-center mb-3">
                   <h3 className="text-sm font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
-                    Private LLM
+                    {t("ui.manage.ai.private_llm.name")}
                   </h3>
                   <p className="text-xs font-bold mb-1" style={{ color: 'var(--neutral-gray)' }}>
-                    Enterprise
+                    {t("ui.manage.ai.private_llm.tier.enterprise")}
                   </p>
                   <p className="text-xl font-bold mb-1" style={{ color: 'var(--primary)' }}>
-                    €14,999
+                    {formatLargePrice(14999)}
                   </p>
                   <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-                    per month
+                    {t("ui.manage.ai.price.per_month")}
                   </p>
                 </div>
 
@@ -748,7 +758,7 @@ export function AISettingsTabV3() {
                   </li>
                   <li className="flex items-start gap-1">
                     <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
-                    <span>Unlimited requests</span>
+                    <span>{t("ui.manage.ai.private_llm.feature.unlimited_requests")}</span>
                   </li>
                   <li className="flex items-start gap-1">
                     <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
@@ -756,7 +766,7 @@ export function AISettingsTabV3() {
                   </li>
                   <li className="flex items-start gap-1">
                     <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
-                    <span>Custom SLA</span>
+                    <span>{t("ui.manage.ai.private_llm.feature.custom_sla")}</span>
                   </li>
                 </ul>
 
@@ -787,10 +797,9 @@ export function AISettingsTabV3() {
                 <div className="flex gap-2">
                   <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-bold mb-1">Privacy-Enhanced Mode Active</p>
+                    <p className="font-bold mb-1">{t("ui.manage.ai.privacy_mode_active")}</p>
                     <p>
-                      Only GDPR-compliant models are available. OpenAI and Google models are filtered out.
-                      EU-native providers (Mistral) and ZDR-compliant models (Claude) are prioritized.
+                      {t("ui.manage.ai.privacy_mode_description")}
                     </p>
                   </div>
                 </div>
@@ -808,10 +817,10 @@ export function AISettingsTabV3() {
           >
             <div className="mb-4">
               <h3 className="font-bold text-sm mb-1" style={{ color: 'var(--win95-text)' }}>
-                Enabled Models
+                {t("ui.manage.ai.enabled_models")}
               </h3>
               <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-                Select which models your organization can use. These will appear in AI chat for all users.
+                {t("ui.manage.ai.enabled_models_description")}
               </p>
             </div>
 

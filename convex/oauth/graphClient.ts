@@ -97,6 +97,35 @@ async function makeRequest(
 
   if (!response.ok) {
     const errorText = await response.text();
+
+    // Handle 403 Access Denied - likely revoked consent or expired refresh token
+    if (response.status === 403) {
+      // Mark connection as requiring re-authorization
+      await ctx.runMutation(internal.oauth.microsoft.updateConnectionStatus, {
+        connectionId: connection._id,
+        status: "error",
+        error: "Access denied. Please reconnect your Microsoft account to restore access.",
+      });
+
+      throw new Error(
+        "Microsoft access denied. Your account permissions may have been revoked or expired. " +
+        "Please disconnect and reconnect your Microsoft account in Settings > Integrations."
+      );
+    }
+
+    // Handle 401 Unauthorized - token issue
+    if (response.status === 401) {
+      await ctx.runMutation(internal.oauth.microsoft.updateConnectionStatus, {
+        connectionId: connection._id,
+        status: "expired",
+        error: "Authentication expired. Please reconnect your account.",
+      });
+
+      throw new Error(
+        "Microsoft authentication expired. Please reconnect your Microsoft account in Settings > Integrations."
+      );
+    }
+
     throw new Error(`Graph API request failed: ${response.status} ${errorText}`);
   }
 

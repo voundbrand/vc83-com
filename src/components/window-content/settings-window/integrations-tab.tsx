@@ -181,6 +181,7 @@ export function IntegrationsTab() {
 
   const isLoading = connection === undefined;
   const isConnected = connection && connection.status === "active";
+  const hasError = connection && (connection.status === "error" || connection.status === "expired");
 
   return (
     <>
@@ -228,6 +229,27 @@ export function IntegrationsTab() {
                 {t("ui.manage.integrations.status.connected")}
               </span>
             </div>
+
+            {/* Connection Error Warning */}
+            {hasError && connection.lastSyncError && (
+              <div
+                className="p-3 border-2 rounded flex items-start gap-2"
+                style={{
+                  borderColor: "var(--retro-red)",
+                  background: "rgba(255, 0, 0, 0.05)",
+                }}
+              >
+                <span className="text-base">⚠️</span>
+                <div className="flex-1">
+                  <p className="text-xs font-bold mb-1" style={{ color: "var(--retro-red)" }}>
+                    Connection Error
+                  </p>
+                  <p className="text-xs" style={{ color: "var(--win95-text)" }}>
+                    {connection.lastSyncError}
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Connected Account Info */}
             <div className="space-y-2">
@@ -296,31 +318,60 @@ export function IntegrationsTab() {
 
             {/* Action Buttons */}
             <div className="flex gap-2">
-              <RetroButton
-                variant="secondary"
-                onClick={handleDisconnect}
-                className="flex-1"
-              >
-                {t("ui.manage.integrations.actions.disconnect")}
-              </RetroButton>
-              <RetroButton
-                variant="secondary"
-                onClick={handleSyncNow}
-                disabled={isSyncing || !emailSyncStatus?.syncEnabled}
-                className="flex-1"
-              >
-                {isSyncing ? (
-                  <>
-                    <Loader2 size={14} className="mr-1 animate-spin" />
-                    {t("ui.manage.integrations.actions.syncing")}
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw size={14} className="mr-1" />
-                    {t("ui.manage.integrations.actions.sync_now")}
-                  </>
-                )}
-              </RetroButton>
+              {hasError ? (
+                <>
+                  <RetroButton
+                    variant="secondary"
+                    onClick={handleDisconnect}
+                    className="flex-1"
+                  >
+                    {t("ui.manage.integrations.actions.disconnect")}
+                  </RetroButton>
+                  <RetroButton
+                    variant="primary"
+                    onClick={handleConnect}
+                    disabled={isConnecting}
+                    className="flex-1"
+                  >
+                    {isConnecting ? (
+                      <>
+                        <Loader2 size={14} className="mr-1 animate-spin" />
+                        Reconnecting...
+                      </>
+                    ) : (
+                      "Reconnect Account"
+                    )}
+                  </RetroButton>
+                </>
+              ) : (
+                <>
+                  <RetroButton
+                    variant="secondary"
+                    onClick={handleDisconnect}
+                    className="flex-1"
+                  >
+                    {t("ui.manage.integrations.actions.disconnect")}
+                  </RetroButton>
+                  <RetroButton
+                    variant="secondary"
+                    onClick={handleSyncNow}
+                    disabled={isSyncing || !emailSyncStatus?.syncEnabled}
+                    className="flex-1"
+                  >
+                    {isSyncing ? (
+                      <>
+                        <Loader2 size={14} className="mr-1 animate-spin" />
+                        {t("ui.manage.integrations.actions.syncing")}
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw size={14} className="mr-1" />
+                        {t("ui.manage.integrations.actions.sync_now")}
+                      </>
+                    )}
+                  </RetroButton>
+                </>
+              )}
             </div>
           </div>
         ) : (

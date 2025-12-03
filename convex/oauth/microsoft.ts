@@ -407,15 +407,34 @@ export const refreshMicrosoftToken = internalAction({
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
+      let errorDetails;
+
+      try {
+        errorDetails = JSON.parse(errorText);
+      } catch {
+        errorDetails = { error_description: errorText };
+      }
+
+      // Common refresh token errors
+      const errorCode = errorDetails.error;
+      let userMessage = "Token refresh failed. Please reconnect your Microsoft account.";
+
+      if (errorCode === "invalid_grant") {
+        userMessage = "Your Microsoft account authorization has expired or been revoked. Please reconnect your account.";
+      } else if (errorCode === "interaction_required") {
+        userMessage = "Additional authentication is required. Please reconnect your Microsoft account.";
+      } else if (errorCode === "consent_required") {
+        userMessage = "Permission consent is required. Please reconnect your Microsoft account.";
+      }
 
       // Update connection status to error
       await ctx.runMutation(internal.oauth.microsoft.updateConnectionStatus, {
         connectionId: args.connectionId,
         status: "error",
-        error: `Token refresh failed: ${errorText}`,
+        error: userMessage,
       });
 
-      throw new Error(`Token refresh failed: ${errorText}`);
+      throw new Error(userMessage);
     }
 
     const tokenData = await tokenResponse.json();
