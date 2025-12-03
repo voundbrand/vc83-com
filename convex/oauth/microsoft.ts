@@ -22,7 +22,9 @@ const INITIAL_SCOPES = [
   "email",
   "offline_access",
   "User.Read",
-  "Mail.Read", // Added for email sync
+  "Mail.Read", // For email sending
+  "Mail.Send", // For sending emails via Microsoft Graph
+  "Contacts.Read", // For contact sync from Microsoft
 ];
 
 // Future scopes for Phase 3+

@@ -180,11 +180,11 @@ Current Context:
             round: toolCallRounds,
           });
 
-          // Add tool result to messages
+          // Add tool result to messages (Anthropic format)
           messages.push({
             role: "tool" as const,
+            tool_use_id: toolCall.id,
             content: JSON.stringify(result),
-            name: toolCall.function.name,
           } as any);
         } catch (error: any) {
           console.error(`[AI Chat] Tool execution failed: ${toolCall.function.name}`, error);
@@ -213,11 +213,11 @@ Current Context:
             round: toolCallRounds,
           });
 
-          // Add tool error to messages
+          // Add tool error to messages (Anthropic format)
           messages.push({
             role: "tool" as const,
+            tool_use_id: toolCall.id,
             content: JSON.stringify({ error: error.message }),
-            name: toolCall.function.name,
           } as any);
         }
       }
