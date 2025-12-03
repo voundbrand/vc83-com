@@ -9,6 +9,12 @@ import { v } from "convex/values";
 import { api } from "../_generated/api";
 import { OpenRouterClient } from "./openrouter";
 import { getToolSchemas, executeTool } from "./tools/registry";
+import {
+  detectProvider,
+  formatToolResult,
+  formatToolError,
+  getProviderConfig,
+} from "./modelAdapters";
 
 export const sendMessage = action({
   args: {
@@ -78,6 +84,12 @@ export const sendMessage = action({
     const client: OpenRouterClient = new OpenRouterClient(apiKey);
     const model: string = settings.llm.model || "anthropic/claude-3-5-sonnet";
 
+    // Detect provider and get configuration
+    const provider = detectProvider(model);
+    const providerConfig = getProviderConfig(provider);
+
+    console.log(`[AI Chat] Using model: ${model}, provider: ${provider}`);
+
     // 6. Prepare messages for AI
     const systemPrompt = `You are an AI assistant for l4yercak3, a platform for managing forms, events, contacts, and more.
 
@@ -122,10 +134,10 @@ Current Context:
       throw new Error("Invalid response from OpenRouter: no choices returned");
     }
 
-    // 8. Handle tool calls (with maximum 3 rounds to prevent infinite loops)
+    // 8. Handle tool calls (with provider-specific max rounds to prevent infinite loops)
     const toolCalls: any[] = [];
     let toolCallRounds = 0;
-    const maxToolCallRounds = 3;
+    const maxToolCallRounds = providerConfig.maxToolCallRounds;
 
     while (response.choices[0].message.tool_calls && toolCallRounds < maxToolCallRounds) {
       toolCallRounds++;
@@ -180,12 +192,14 @@ Current Context:
             round: toolCallRounds,
           });
 
-          // Add tool result to messages (Anthropic format)
-          messages.push({
-            role: "tool" as const,
-            tool_use_id: toolCall.id,
-            content: JSON.stringify(result),
-          } as any);
+          // Add tool result to messages (provider-specific format)
+          const toolResultMessage = formatToolResult(
+            provider,
+            toolCall.id,
+            toolCall.function.name,
+            result
+          );
+          messages.push(toolResultMessage as any);
         } catch (error: any) {
           console.error(`[AI Chat] Tool execution failed: ${toolCall.function.name}`, error);
 
@@ -213,12 +227,14 @@ Current Context:
             round: toolCallRounds,
           });
 
-          // Add tool error to messages (Anthropic format)
-          messages.push({
-            role: "tool" as const,
-            tool_use_id: toolCall.id,
-            content: JSON.stringify({ error: error.message }),
-          } as any);
+          // Add tool error to messages (provider-specific format)
+          const toolErrorMessage = formatToolError(
+            provider,
+            toolCall.id,
+            toolCall.function.name,
+            error.message
+          );
+          messages.push(toolErrorMessage as any);
         }
       }
 
