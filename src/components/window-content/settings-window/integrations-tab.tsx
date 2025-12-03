@@ -36,6 +36,24 @@ export function IntegrationsTab() {
   const updateSyncSettings = useMutation(api.emails.updateSyncSettings);
   const syncEmails = useAction(api.emails.syncEmailsFromMicrosoft);
 
+  // Track previous connection status to detect changes
+  const [prevConnectionStatus, setPrevConnectionStatus] = useState<string | null>(null);
+
+  // Monitor connection status changes
+  useEffect(() => {
+    if (!connection) return;
+
+    // If connection changed from active to error/expired, notify user
+    if (prevConnectionStatus === "active" && (connection.status === "error" || connection.status === "expired")) {
+      notification.error(
+        t("ui.manage.integrations.errors.connection_issue_title"),
+        connection.lastSyncError || t("ui.manage.integrations.errors.connection_expired")
+      );
+    }
+
+    setPrevConnectionStatus(connection.status);
+  }, [connection?.status, connection?.lastSyncError, notification, t, prevConnectionStatus]);
+
   // Check URL params for OAuth callback messages
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -170,9 +188,32 @@ export function IntegrationsTab() {
       );
     } catch (error) {
       console.error("Failed to sync emails:", error);
+
+      // Extract user-friendly error message
+      let errorMessage = t("ui.manage.integrations.errors.sync_generic");
+
+      if (error instanceof Error) {
+        const msg = error.message.toLowerCase();
+
+        // Check for common Microsoft OAuth errors
+        if (msg.includes("access denied") || msg.includes("403")) {
+          errorMessage = t("ui.manage.integrations.errors.permissions_expired");
+        } else if (msg.includes("unauthorized") || msg.includes("401")) {
+          errorMessage = t("ui.manage.integrations.errors.session_expired");
+        } else if (msg.includes("expired") || msg.includes("revoked")) {
+          errorMessage = t("ui.manage.integrations.errors.authorization_expired");
+        } else if (msg.includes("reconnect")) {
+          // If message already suggests reconnecting, use it
+          errorMessage = error.message;
+        } else {
+          // For other errors, show a generic message without technical details
+          errorMessage = t("ui.manage.integrations.errors.sync_unavailable");
+        }
+      }
+
       notification.error(
-        "Sync Failed",
-        error instanceof Error ? error.message : "Failed to sync emails"
+        t("ui.manage.integrations.errors.sync_failed_title"),
+        errorMessage
       );
     } finally {
       setIsSyncing(false);
@@ -242,7 +283,7 @@ export function IntegrationsTab() {
                 <span className="text-base">⚠️</span>
                 <div className="flex-1">
                   <p className="text-xs font-bold mb-1" style={{ color: "var(--retro-red)" }}>
-                    Connection Error
+                    {t("ui.manage.integrations.errors.connection_error")}
                   </p>
                   <p className="text-xs" style={{ color: "var(--win95-text)" }}>
                     {connection.lastSyncError}
@@ -336,10 +377,10 @@ export function IntegrationsTab() {
                     {isConnecting ? (
                       <>
                         <Loader2 size={14} className="mr-1 animate-spin" />
-                        Reconnecting...
+                        {t("ui.manage.integrations.actions.reconnecting")}
                       </>
                     ) : (
-                      "Reconnect Account"
+                      t("ui.manage.integrations.actions.reconnect")
                     )}
                   </RetroButton>
                 </>

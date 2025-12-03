@@ -312,6 +312,129 @@ export const seed = internalMutation({
         }
       },
 
+      // === ERROR MESSAGES ===
+      {
+        key: "ui.manage.integrations.errors.connection_issue_title",
+        values: {
+          en: "Microsoft Connection Issue",
+          de: "Microsoft-Verbindungsproblem",
+          pl: "Problem z połączeniem Microsoft",
+          es: "Problema de conexión con Microsoft",
+          fr: "Problème de connexion Microsoft",
+          ja: "Microsoft接続の問題",
+        }
+      },
+      {
+        key: "ui.manage.integrations.errors.connection_expired",
+        values: {
+          en: "Your Microsoft account connection has expired. Please reconnect your account to continue syncing emails.",
+          de: "Deine Microsoft-Kontoverbindung ist abgelaufen. Bitte verbinde dein Konto erneut, um E-Mails weiter zu synchronisieren.",
+          pl: "Twoje połączenie z kontem Microsoft wygasło. Połącz ponownie swoje konto, aby kontynuować synchronizację e-maili.",
+          es: "Tu conexión con la cuenta de Microsoft ha expirado. Vuelve a conectar tu cuenta para continuar sincronizando correos electrónicos.",
+          fr: "Votre connexion au compte Microsoft a expiré. Veuillez reconnecter votre compte pour continuer à synchroniser les e-mails.",
+          ja: "Microsoftアカウントの接続が期限切れです。メールの同期を続けるには、アカウントを再接続してください。",
+        }
+      },
+      {
+        key: "ui.manage.integrations.errors.sync_failed_title",
+        values: {
+          en: "Email Sync Failed",
+          de: "E-Mail-Synchronisierung fehlgeschlagen",
+          pl: "Synchronizacja e-mail nie powiodła się",
+          es: "Error al sincronizar correo electrónico",
+          fr: "Échec de la synchronisation des e-mails",
+          ja: "メール同期に失敗しました",
+        }
+      },
+      {
+        key: "ui.manage.integrations.errors.permissions_expired",
+        values: {
+          en: "Your Microsoft account permissions have expired. Please reconnect your account below.",
+          de: "Deine Microsoft-Kontoberechtigungen sind abgelaufen. Bitte verbinde dein Konto unten erneut.",
+          pl: "Twoje uprawnienia konta Microsoft wygasły. Połącz ponownie swoje konto poniżej.",
+          es: "Tus permisos de cuenta de Microsoft han expirado. Vuelve a conectar tu cuenta a continuación.",
+          fr: "Vos autorisations de compte Microsoft ont expiré. Veuillez reconnecter votre compte ci-dessous.",
+          ja: "Microsoftアカウントの権限が期限切れです。以下でアカウントを再接続してください。",
+        }
+      },
+      {
+        key: "ui.manage.integrations.errors.session_expired",
+        values: {
+          en: "Your Microsoft session has expired. Please reconnect your account below.",
+          de: "Deine Microsoft-Sitzung ist abgelaufen. Bitte verbinde dein Konto unten erneut.",
+          pl: "Twoja sesja Microsoft wygasła. Połącz ponownie swoje konto poniżej.",
+          es: "Tu sesión de Microsoft ha expirado. Vuelve a conectar tu cuenta a continuación.",
+          fr: "Votre session Microsoft a expiré. Veuillez reconnecter votre compte ci-dessous.",
+          ja: "Microsoftセッションが期限切れです。以下でアカウントを再接続してください。",
+        }
+      },
+      {
+        key: "ui.manage.integrations.errors.authorization_expired",
+        values: {
+          en: "Your Microsoft authorization has expired. Please reconnect your account below.",
+          de: "Deine Microsoft-Autorisierung ist abgelaufen. Bitte verbinde dein Konto unten erneut.",
+          pl: "Twoja autoryzacja Microsoft wygasła. Połącz ponownie swoje konto poniżej.",
+          es: "Tu autorización de Microsoft ha expirado. Vuelve a conectar tu cuenta a continuación.",
+          fr: "Votre autorisation Microsoft a expiré. Veuillez reconnecter votre compte ci-dessous.",
+          ja: "Microsoftの認証が期限切れです。以下でアカウントを再接続してください。",
+        }
+      },
+      {
+        key: "ui.manage.integrations.errors.sync_unavailable",
+        values: {
+          en: "Unable to sync emails at this time. Please check your connection and try again.",
+          de: "E-Mails können derzeit nicht synchronisiert werden. Bitte überprüfe deine Verbindung und versuche es erneut.",
+          pl: "Nie można zsynchronizować e-maili w tej chwili. Sprawdź połączenie i spróbuj ponownie.",
+          es: "No se pueden sincronizar correos electrónicos en este momento. Verifica tu conexión e inténtalo de nuevo.",
+          fr: "Impossible de synchroniser les e-mails pour le moment. Veuillez vérifier votre connexion et réessayer.",
+          ja: "現在メールを同期できません。接続を確認してもう一度お試しください。",
+        }
+      },
+      {
+        key: "ui.manage.integrations.errors.sync_generic",
+        values: {
+          en: "Failed to sync emails. Please try again.",
+          de: "E-Mail-Synchronisierung fehlgeschlagen. Bitte versuche es erneut.",
+          pl: "Nie udało się zsynchronizować e-maili. Spróbuj ponownie.",
+          es: "Error al sincronizar correos. Inténtalo de nuevo.",
+          fr: "Échec de la synchronisation des e-mails. Veuillez réessayer.",
+          ja: "メールの同期に失敗しました。もう一度お試しください。",
+        }
+      },
+      {
+        key: "ui.manage.integrations.actions.reconnect",
+        values: {
+          en: "Reconnect Account",
+          de: "Konto erneut verbinden",
+          pl: "Połącz ponownie konto",
+          es: "Reconectar cuenta",
+          fr: "Reconnecter le compte",
+          ja: "アカウントを再接続",
+        }
+      },
+      {
+        key: "ui.manage.integrations.actions.reconnecting",
+        values: {
+          en: "Reconnecting...",
+          de: "Erneute Verbindung...",
+          pl: "Ponowne łączenie...",
+          es: "Reconectando...",
+          fr: "Reconnexion...",
+          ja: "再接続中...",
+        }
+      },
+      {
+        key: "ui.manage.integrations.errors.connection_error",
+        values: {
+          en: "Connection Error",
+          de: "Verbindungsfehler",
+          pl: "Błąd połączenia",
+          es: "Error de conexión",
+          fr: "Erreur de connexion",
+          ja: "接続エラー",
+        }
+      },
+
       // === OTHER INTEGRATIONS ===
       {
         key: "ui.manage.integrations.other.title",
