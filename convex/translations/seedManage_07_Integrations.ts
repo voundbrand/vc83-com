@@ -491,6 +491,312 @@ export const seed = internalMutation({
           ja: "近日公開",
         }
       },
+
+      // === MICROSOFT SCOPE SELECTOR ===
+      // Info & Warnings
+      {
+        key: "ui.manage.integrations.scopes.info.title",
+        values: {
+          en: "Permission Scopes:",
+          de: "Berechtigungsbereiche:",
+          pl: "Zakresy uprawnień:",
+          es: "Ámbitos de permisos:",
+          fr: "Portées de permissions:",
+          ja: "権限スコープ:",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.info.description",
+        values: {
+          en: "Select which Microsoft data you want to sync. You can always add or remove permissions later.",
+          de: "Wähle, welche Microsoft-Daten du synchronisieren möchtest. Du kannst Berechtigungen später jederzeit hinzufügen oder entfernen.",
+          pl: "Wybierz, które dane Microsoft chcesz synchronizować. Zawsze możesz później dodać lub usunąć uprawnienia.",
+          es: "Selecciona qué datos de Microsoft deseas sincronizar. Siempre puedes agregar o eliminar permisos más tarde.",
+          fr: "Sélectionnez les données Microsoft que vous souhaitez synchroniser. Vous pouvez toujours ajouter ou supprimer des autorisations plus tard.",
+          ja: "同期するMicrosoftデータを選択してください。後でいつでも権限を追加または削除できます。",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.warning.title",
+        values: {
+          en: "Reconnection Required:",
+          de: "Erneute Verbindung erforderlich:",
+          pl: "Wymagane ponowne połączenie:",
+          es: "Reconexión requerida:",
+          fr: "Reconnexion requise:",
+          ja: "再接続が必要:",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.warning.description",
+        values: {
+          en: "Changing permissions requires reconnecting your Microsoft account.",
+          de: "Das Ändern von Berechtigungen erfordert eine erneute Verbindung deines Microsoft-Kontos.",
+          pl: "Zmiana uprawnień wymaga ponownego połączenia konta Microsoft.",
+          es: "Cambiar permisos requiere reconectar tu cuenta de Microsoft.",
+          fr: "La modification des autorisations nécessite de reconnecter votre compte Microsoft.",
+          ja: "権限を変更するには、Microsoftアカウントを再接続する必要があります。",
+        }
+      },
+
+      // Presets
+      {
+        key: "ui.manage.integrations.scopes.presets.title",
+        values: {
+          en: "Quick Presets",
+          de: "Schnellvorlagen",
+          pl: "Szybkie ustawienia",
+          es: "Ajustes rápidos",
+          fr: "Préréglages rapides",
+          ja: "クイックプリセット",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.presets.minimal.name",
+        values: {
+          en: "Minimal",
+          de: "Minimal",
+          pl: "Minimalne",
+          es: "Mínimo",
+          fr: "Minimal",
+          ja: "最小限",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.presets.minimal.description",
+        values: {
+          en: "Only required permissions",
+          de: "Nur erforderliche Berechtigungen",
+          pl: "Tylko wymagane uprawnienia",
+          es: "Solo permisos requeridos",
+          fr: "Uniquement les autorisations requises",
+          ja: "必要な権限のみ",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.presets.email.name",
+        values: {
+          en: "Email",
+          de: "E-Mail",
+          pl: "E-mail",
+          es: "Correo",
+          fr: "E-mail",
+          ja: "メール",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.presets.email.description",
+        values: {
+          en: "Read and send emails",
+          de: "E-Mails lesen und senden",
+          pl: "Czytaj i wysyłaj e-maile",
+          es: "Leer y enviar correos",
+          fr: "Lire et envoyer des e-mails",
+          ja: "メールの読み取りと送信",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.presets.crm.name",
+        values: {
+          en: "CRM Suite",
+          de: "CRM-Suite",
+          pl: "Pakiet CRM",
+          es: "Suite CRM",
+          fr: "Suite CRM",
+          ja: "CRMスイート",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.presets.crm.description",
+        values: {
+          en: "Email, calendar, contacts",
+          de: "E-Mail, Kalender, Kontakte",
+          pl: "E-mail, kalendarz, kontakty",
+          es: "Correo, calendario, contactos",
+          fr: "E-mail, calendrier, contacts",
+          ja: "メール、カレンダー、連絡先",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.presets.productivity.name",
+        values: {
+          en: "Full Productivity",
+          de: "Volle Produktivität",
+          pl: "Pełna produktywność",
+          es: "Productividad completa",
+          fr: "Productivité complète",
+          ja: "完全な生産性",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.presets.productivity.description",
+        values: {
+          en: "All 30 permissions (complete access)",
+          de: "Alle 30 Berechtigungen (vollständiger Zugriff)",
+          pl: "Wszystkie 30 uprawnień (pełny dostęp)",
+          es: "Los 30 permisos (acceso completo)",
+          fr: "Les 30 autorisations (accès complet)",
+          ja: "全30権限（完全アクセス）",
+        }
+      },
+
+      // Categories
+      {
+        key: "ui.manage.integrations.scopes.categories.title",
+        values: {
+          en: "Permission Categories",
+          de: "Berechtigungskategorien",
+          pl: "Kategorie uprawnień",
+          es: "Categorías de permisos",
+          fr: "Catégories de permissions",
+          ja: "権限カテゴリ",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.categories.mail.name",
+        values: {
+          en: "Email & Messages",
+          de: "E-Mail & Nachrichten",
+          pl: "E-mail i wiadomości",
+          es: "Correo y mensajes",
+          fr: "E-mail et messages",
+          ja: "メールとメッセージ",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.categories.calendar.name",
+        values: {
+          en: "Calendar & Events",
+          de: "Kalender & Ereignisse",
+          pl: "Kalendarz i wydarzenia",
+          es: "Calendario y eventos",
+          fr: "Calendrier et événements",
+          ja: "カレンダーとイベント",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.categories.contacts.name",
+        values: {
+          en: "Contacts & People",
+          de: "Kontakte & Personen",
+          pl: "Kontakty i osoby",
+          es: "Contactos y personas",
+          fr: "Contacts et personnes",
+          ja: "連絡先と人々",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.categories.files.name",
+        values: {
+          en: "Files & OneDrive",
+          de: "Dateien & OneDrive",
+          pl: "Pliki i OneDrive",
+          es: "Archivos y OneDrive",
+          fr: "Fichiers et OneDrive",
+          ja: "ファイルとOneDrive",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.categories.teams.name",
+        values: {
+          en: "Teams & Chat",
+          de: "Teams & Chat",
+          pl: "Teams i czat",
+          es: "Teams y chat",
+          fr: "Teams et chat",
+          ja: "Teamsとチャット",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.categories.sites.name",
+        values: {
+          en: "SharePoint Sites",
+          de: "SharePoint-Sites",
+          pl: "Witryny SharePoint",
+          es: "Sitios de SharePoint",
+          fr: "Sites SharePoint",
+          ja: "SharePointサイト",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.categories.tasks.name",
+        values: {
+          en: "Tasks & To-Do",
+          de: "Aufgaben & To-Do",
+          pl: "Zadania i lista zadań",
+          es: "Tareas y lista de tareas",
+          fr: "Tâches et to-do",
+          ja: "タスクとTo-Do",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.categories.notes.name",
+        values: {
+          en: "OneNote",
+          de: "OneNote",
+          pl: "OneNote",
+          es: "OneNote",
+          fr: "OneNote",
+          ja: "OneNote",
+        }
+      },
+
+      // Actions
+      {
+        key: "ui.manage.integrations.scopes.actions.clear_all",
+        values: {
+          en: "Clear All",
+          de: "Alle löschen",
+          pl: "Wyczyść wszystko",
+          es: "Limpiar todo",
+          fr: "Tout effacer",
+          ja: "すべてクリア",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.selected_count",
+        values: {
+          en: "{count} permission{plural} selected",
+          de: "{count} Berechtigung{plural} ausgewählt",
+          pl: "{count} uprawnienie{plural} wybrane",
+          es: "{count} permiso{plural} seleccionado{plural}",
+          fr: "{count} autorisation{plural} sélectionnée{plural}",
+          ja: "{count}個の権限が選択されています",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.required_additional",
+        values: {
+          en: "(+ 5 required)",
+          de: "(+ 5 erforderlich)",
+          pl: "(+ 5 wymaganych)",
+          es: "(+ 5 requeridos)",
+          fr: "(+ 5 requis)",
+          ja: "(+5つ必須)",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.admin_consent",
+        values: {
+          en: "Admin Consent",
+          de: "Admin-Zustimmung",
+          pl: "Zgoda administratora",
+          es: "Consentimiento del administrador",
+          fr: "Consentement administrateur",
+          ja: "管理者の同意",
+        }
+      },
+      {
+        key: "ui.manage.integrations.scopes.category_stats",
+        values: {
+          en: "{selected} of {total} selected",
+          de: "{selected} von {total} ausgewählt",
+          pl: "{selected} z {total} wybrano",
+          es: "{selected} de {total} seleccionados",
+          fr: "{selected} sur {total} sélectionnées",
+          ja: "{total}個中{selected}個選択",
+        }
+      },
     ];
 
     // Get all unique translation keys
