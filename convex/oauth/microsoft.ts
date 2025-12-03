@@ -15,24 +15,8 @@ const MICROSOFT_AUTH_URL = "https://login.microsoftonline.com/common/oauth2/v2.0
 const MICROSOFT_TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
 const MICROSOFT_GRAPH_URL = "https://graph.microsoft.com/v1.0";
 
-// Phase 1 scopes (basic profile + offline access)
-const INITIAL_SCOPES = [
-  "openid",
-  "profile",
-  "email",
-  "offline_access",
-  "User.Read",
-  "Mail.Read", // For email sending
-  "Mail.Send", // For sending emails via Microsoft Graph
-  "Contacts.Read", // For contact sync from Microsoft
-];
-
-// Future scopes for Phase 3+
-// const EXTENDED_SCOPES = [
-//   "Calendars.Read",
-//   "Files.Read.All",
-//   "Sites.Read.All"
-// ];
+// Note: Scopes are now dynamically selected by the user via microsoftScopes.ts
+// and passed through the requestedScopes parameter to initiateMicrosoftOAuth
 
 /**
  * Generate Microsoft OAuth authorization URL
@@ -42,6 +26,7 @@ export const initiateMicrosoftOAuth = mutation({
   args: {
     sessionId: v.string(),
     connectionType: v.union(v.literal("personal"), v.literal("organizational")),
+    requestedScopes: v.optional(v.array(v.string())), // User-selected scopes
   },
   handler: async (ctx, args) => {
     // Get current user from session
@@ -100,13 +85,22 @@ export const initiateMicrosoftOAuth = mutation({
       redirectUri,
     });
 
+    // Build scope string from required + requested scopes
+    const { getRequiredScopes } = await import("./microsoftScopes");
+    const requiredScopes = getRequiredScopes();
+    const requestedScopes = args.requestedScopes || [];
+    const allScopes = [...new Set([...requiredScopes, ...requestedScopes])];
+    const scopeString = allScopes.join(" ");
+
+    console.log("OAuth Scopes:", { requiredScopes, requestedScopes, allScopes });
+
     // Build OAuth URL
     const params = new URLSearchParams({
       client_id: process.env.MICROSOFT_CLIENT_ID || "",
       response_type: "code",
       redirect_uri: redirectUri,
       response_mode: "query",
-      scope: INITIAL_SCOPES.join(" "),
+      scope: scopeString,
       state,
     });
 
@@ -211,7 +205,7 @@ export const handleMicrosoftCallback = action({
       accessToken: encryptedAccessToken,
       refreshToken: encryptedRefreshToken,
       tokenExpiresAt,
-      scopes: INITIAL_SCOPES,
+      scopes: tokenData.scope ? tokenData.scope.split(" ") : [], // Use actual granted scopes
     });
 
     // Delete used state token
