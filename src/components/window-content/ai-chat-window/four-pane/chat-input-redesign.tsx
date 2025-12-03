@@ -187,15 +187,15 @@ export function ChatInput() {
         background: 'var(--win95-bg-light)'
       }}
     >
-      <div className="flex gap-2 items-end">
-        {/* Textarea */}
+      <div className="space-y-2">
+        {/* Textarea - Full Width */}
         <textarea
           ref={textareaRef}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={t("ui.ai_assistant.input.placeholder")}
-          className="flex-1 px-3 py-2 border-2 resize-none overflow-hidden min-h-[40px] max-h-[120px]"
+          className="w-full px-3 py-2 border-2 resize-none overflow-hidden min-h-[40px] max-h-[120px]"
           style={{
             borderColor: 'var(--win95-input-border-dark)',
             background: 'var(--win95-input-bg)',
@@ -207,16 +207,17 @@ export function ChatInput() {
           rows={1}
         />
 
-        {/* Model Selector (Anthropic-style) */}
-        <div className="relative" ref={dropdownRef}>
+        {/* Model Selector + Send Button Row */}
+        <div className="flex gap-2 items-center">
+          {/* Model Selector (Anthropic-style) */}
+          <div className="relative flex-1" ref={dropdownRef}>
           <button
             type="button"
             onClick={() => setIsModelSelectorOpen(!isModelSelectorOpen)}
-            className="flex items-center gap-1.5 px-2 py-2 rounded border hover:bg-gray-50 transition-colors text-xs"
+            className="w-full flex items-center gap-1.5 px-3 py-2 rounded border hover:bg-gray-50 transition-colors text-xs"
             style={{
               borderColor: 'var(--win95-border)',
-              background: 'var(--win95-bg)',
-              minWidth: '120px'
+              background: 'var(--win95-bg)'
             }}
           >
             <ProviderIcon className={`w-3.5 h-3.5 ${providerInfo.color}`} />
@@ -282,22 +283,23 @@ export function ChatInput() {
               })}
             </div>
           )}
-        </div>
+          </div>
 
-        {/* Send Button - Up Arrow Icon */}
-        <button
-          type="submit"
-          disabled={!message.trim() || isSending}
-          className="flex items-center justify-center p-2.5 rounded border-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:bg-purple-50"
-          style={{
-            borderColor: 'var(--win95-border)',
-            background: message.trim() && !isSending ? 'var(--win95-highlight)' : 'var(--win95-bg)',
-            color: message.trim() && !isSending ? '#ffffff' : 'var(--win95-text-muted)'
-          }}
-          title="Send message (Enter)"
-        >
-          <ArrowUp className="w-4 h-4" />
-        </button>
+          {/* Send Button - Up Arrow Icon */}
+          <button
+            type="submit"
+            disabled={!message.trim() || isSending}
+            className="flex items-center justify-center p-2.5 rounded border-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:bg-purple-50 flex-shrink-0"
+            style={{
+              borderColor: 'var(--win95-border)',
+              background: message.trim() && !isSending ? 'var(--win95-highlight)' : 'var(--win95-bg)',
+              color: message.trim() && !isSending ? '#ffffff' : 'var(--win95-text-muted)'
+            }}
+            title="Send message (Enter)"
+          >
+            <ArrowUp className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Quick commands hint */}

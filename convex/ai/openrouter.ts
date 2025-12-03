@@ -23,7 +23,7 @@ export class OpenRouterClient {
     model: string;
     messages: Array<{
       role: "system" | "user" | "assistant" | "tool";
-      content: string;
+      content: string | null;
       name?: string;
       tool_calls?: any;
     }>;
@@ -37,9 +37,9 @@ export class OpenRouterClient {
       throw new Error("Messages array cannot be empty");
     }
 
-    // Ensure all messages have content (except assistant messages with tool_calls)
+    // Ensure all messages have content (except assistant messages with tool_calls or null content)
     for (const msg of params.messages) {
-      if (msg.role !== "assistant" && (!msg.content || msg.content.trim() === "")) {
+      if (msg.role !== "assistant" && (!msg.content || (typeof msg.content === 'string' && msg.content.trim() === ""))) {
         throw new Error(`Message with role '${msg.role}' must have non-empty content`);
       }
     }
