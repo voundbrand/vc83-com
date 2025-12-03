@@ -34,29 +34,45 @@ const SCOPE_PRESETS = {
   },
   productivity: {
     name: "Full Productivity",
-    description: "All productivity features (recommended)",
+    description: "All 30 permissions (complete access)",
     scopes: [
-      // Email - Full access
+      // 📧 Email & Messages (5 scopes)
+      "Mail.Read",
       "Mail.ReadWrite",
       "Mail.Send",
+      "MailboxSettings.Read",
       "MailboxSettings.ReadWrite",
-      // Calendar - Full access including shared
+      // 📅 Calendar & Events (4 scopes)
+      "Calendars.Read",
       "Calendars.ReadWrite",
+      "Calendars.Read.Shared",
       "Calendars.ReadWrite.Shared",
-      // Contacts - Full access including shared
+      // 👤 Contacts & People (4 scopes)
+      "Contacts.Read",
       "Contacts.ReadWrite",
+      "Contacts.Read.Shared",
       "Contacts.ReadWrite.Shared",
-      // Files - Full access
+      // 📁 Files & OneDrive (4 scopes)
+      "Files.Read",
+      "Files.ReadWrite",
+      "Files.Read.All",
       "Files.ReadWrite.All",
-      // Teams - Chat access (no admin scopes)
+      // 💬 Teams & Chat (4 scopes)
+      "Chat.Read",
       "Chat.ReadWrite",
       "ChatMessage.Send",
-      // SharePoint
+      "Team.ReadBasic.All",
+      // 🌐 SharePoint Sites (2 scopes)
+      "Sites.Read.All",
       "Sites.ReadWrite.All",
-      // Tasks - Full access including shared
+      // ✅ Tasks & To-Do (4 scopes)
+      "Tasks.Read",
       "Tasks.ReadWrite",
+      "Tasks.Read.Shared",
       "Tasks.ReadWrite.Shared",
-      // OneNote
+      // 📝 OneNote (3 scopes)
+      "Notes.Read",
+      "Notes.Create",
       "Notes.ReadWrite",
     ],
   },
