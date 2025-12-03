@@ -1,147 +1,107 @@
-# Seed Scripts Guide
+# AI Chat Testing Scripts
 
-This directory contains scripts for seeding your Convex database with initial data.
+Quick command-line testing for AI chat functionality without using the UI.
 
-## 🚀 Quick Start - Seed Everything
+## Setup
 
-**Run this single command to seed your entire database:**
+1. **Get your test IDs** from the Convex dashboard:
+   ```bash
+   # Go to https://dashboard.convex.dev
+   # → Select your project
+   # → Data tab
+   # → Find your user ID in 'users' table
+   # → Find your org ID in 'organizations' table
+   ```
 
+2. **Add to `.env.local`**:
+   ```bash
+   TEST_ORG_ID=your_org_id_here
+   TEST_USER_ID=your_user_id_here
+   ```
+
+## Usage
+
+### Test AI Chat
 ```bash
-./scripts/seed-all.sh
+# Simple message
+npx tsx scripts/test-ai-chat.ts "Hello, how are you?"
+
+# Test with different model
+TEST_MODEL=openai/gpt-4o npx tsx scripts/test-ai-chat.ts "What's the weather?"
+
+# Test tool calling
+npx tsx scripts/test-ai-chat.ts "What forms do we have?"
+npx tsx scripts/test-ai-chat.ts "Search for contacts named John"
 ```
 
-This master script will:
-1. ✅ Check your environment configuration
-2. ✅ Seed RBAC system (roles & permissions)
-3. ✅ Create super admin user
-4. ✅ Seed ontology data
-5. ✅ Seed all UI translations (~1,200 strings)
-6. ✅ Optionally create organization managers
+### Output Example
+```
+🤖 AI Chat CLI Test
+==================
+Message: What forms do we have?
+Model: anthropic/claude-3-5-sonnet
 
-**Total time:** ~2-3 minutes
+📤 Sending message to AI...
 
----
+✅ Response received!
+==================
 
-## Environment Setup
+🤖 Assistant: Here are the forms in your organization...
 
-All scripts now properly use environment variables from `.env.local`. **No hardcoded URLs!**
+🔧 Tool Calls:
+==============
 
-### Switching Between Environments
+📍 list_forms (round 1)
+   Arguments: {}
+   ✅ Result: { "forms": [...] }
 
-**For Development:**
-```bash
-./scripts/switch-env.sh dev
+📊 Usage:
+=========
+Tokens: 1234
+Cost: $0.004567
+Conversation ID: j57abc...
 ```
 
-**For Production:**
-```bash
-./scripts/switch-env.sh prod
-```
+## Benefits
 
-**IMPORTANT:** Always check which environment you're using before running seed scripts!
+✅ **Fast iteration** - No UI, no production deploy
+✅ **Direct testing** - Test AI and tools immediately
+✅ **Debug output** - See exactly what's happening
+✅ **Model switching** - Test different models easily
+✅ **Works in dev** - Use with `npx convex dev`
 
-
-
-## Manual Seeding (Optional)
-
-If you prefer to run individual scripts instead of the master script, follow this order:
-
-### 1. Seed RBAC System (Foundation)
-```bash
-npx tsx scripts/seed-rbac.ts
-```
-Creates all roles and permissions. Must run first.
-
-### 2. Seed Super Admin User
-```bash
-npx tsx scripts/seed-super-admin.ts
-```
-Creates the super admin user with global privileges and their organization.
-
-### 3. Seed Ontology Data (Required)
-```bash
-npx convex run seedOntologyData:seedAll
-```
-Seeds system translations, organization profiles, and settings.
-
-### 4. Seed UI Translations (Required)
-**⚠️ IMPORTANT:** After running `seedOntologyData:seedAll`, you must seed the UI translations or you'll see translation keys instead of text!
+## Development Workflow
 
 ```bash
-# Welcome Window
-npx convex run translations/seedWelcomeTranslations:seed
+# Terminal 1: Run Convex dev server
+npx convex dev
 
-# Manage Window (all parts required)
-npx convex run translations/seedManage_01_MainWindow:seed
-npx convex run translations/seedManage_02_Organization:seed
-npx convex run translations/seedManage_03_Users:seed
-npx convex run translations/seedManage_04_RolesPermissions:seed
-npx convex run translations/seedManage_03b_DeleteAccount:seed
-
-# Other UI elements
-npx convex run translations/seedAddressTranslations:seed
-npx convex run translations/seedProfileTranslations:seed
+# Terminal 2: Test your changes
+npx tsx scripts/test-ai-chat.ts "test message"
 ```
 
-**Quick seed all UI translations (recommended):**
-```bash
-npx convex run translations/seedWelcomeTranslations:seed && \
-npx convex run translations/seedManage_01_MainWindow:seed && \
-npx convex run translations/seedManage_02_Organization:seed && \
-npx convex run translations/seedManage_03_Users:seed && \
-npx convex run translations/seedManage_04_RolesPermissions:seed && \
-npx convex run translations/seedManage_03b_DeleteAccount:seed && \
-npx convex run translations/seedAddressTranslations:seed && \
-npx convex run translations/seedProfileTranslations:seed
-```
+## Environment Variables
 
-This seeds ~1,200 translations across all UI components.
+- `NEXT_PUBLIC_CONVEX_URL` - Your Convex deployment URL (auto-loaded from .env.local)
+- `TEST_ORG_ID` - Your organization ID for testing
+- `TEST_USER_ID` - Your user ID for testing
+- `TEST_MODEL` - Override default model (optional)
 
-### 5. Seed Organization Manager (Optional)
-```bash
-npx tsx scripts/seed-org-manager.ts
-```
-Creates additional organization manager users.
+## Testing Tool Execution
 
-## Testing Connection
-
-Test your Convex connection before seeding:
+The script shows detailed tool execution info:
 
 ```bash
-npx tsx scripts/test-connection.ts
+# Test contact sync (will show tool call even if it needs Microsoft auth)
+npx tsx scripts/test-ai-chat.ts "sync my Microsoft contacts"
+
+# Test bulk email (will show what parameters AI extracted)
+npx tsx scripts/test-ai-chat.ts "send an email to all contacts in segment 'VIP'"
 ```
 
-## Script Features
+## Tips
 
-All seed scripts now:
-- ✅ Load environment variables from `.env.local`
-- ✅ Validate `NEXT_PUBLIC_CONVEX_URL` exists before running
-- ✅ Exit with clear error message if environment is not configured
-- ✅ No hardcoded URLs or fallbacks
-- ✅ Safe to run multiple times (idempotent where possible)
-
-## Safety Notes
-
-⚠️ **Always verify your environment before running seeds on production!**
-
-```bash
-# Quick check
-echo "Current environment: $(grep NEXT_PUBLIC_CONVEX_URL .env.local | cut -d'=' -f2)"
-```
-
-- Development: `https://aromatic-akita-723.convex.cloud`
-- Production: `https://agreeable-lion-828.convex.cloud`
-
-## Troubleshooting
-
-**Error: "NEXT_PUBLIC_CONVEX_URL not found"**
-- Make sure `.env.local` exists
-- Copy from `.env.dev` or `.env.prod` depending on target environment
-
-**Error: "User already exists"**
-- Normal if you've already seeded this environment
-- Scripts are mostly idempotent and will skip existing data
-
-**Error: "Role not found"**
-- Run `seed-rbac.ts` first before other scripts
-- RBAC must be seeded before creating users
+- Start with simple messages to verify the fix works
+- Then test tool calling to see the full workflow
+- Check the tool result format in the output
+- If you get auth errors for Microsoft tools, that's expected in CLI - we're just testing the message flow

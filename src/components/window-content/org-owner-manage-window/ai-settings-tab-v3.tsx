@@ -4,7 +4,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Save, Loader2, Brain, AlertTriangle, Lock, CreditCard, CheckCircle2, XCircle, ShoppingCart, Check } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { PrivacyBadge } from "@/components/ai-billing/privacy-badge";
@@ -33,6 +33,9 @@ export function AISettingsTabV3() {
     api.ai.billing.getSubscriptionStatus,
     organizationId ? { organizationId } : "skip"
   );
+
+  // Get platform-enabled models
+  const platformModels = useQuery(api.ai.platformModels.getEnabledModels);
 
   const upsertSettings = useMutation(api.ai.settings.upsertAISettings);
 
@@ -72,11 +75,12 @@ export function AISettingsTabV3() {
         setEnabledModels(settings.llm.enabledModels);
         setDefaultModelId(settings.llm.defaultModelId || settings.llm.enabledModels.find(m => m.isDefault)?.modelId || "");
       } else {
-        // If no models saved, auto-select all models for current tier
+        // If no models saved, auto-select system defaults only
         const models = getAllModelsForTier(settings.tier || "standard");
-        const enabledModels = models.map((m, index) => ({
+        const systemDefaultModels = models.filter(m => m.recommended);
+        const enabledModels = systemDefaultModels.map((m, index) => ({
           modelId: m.id,
-          isDefault: index === 0, // First model is default
+          isDefault: index === 0, // First system default is the default
           enabledAt: Date.now()
         }));
         setEnabledModels(enabledModels);
@@ -89,10 +93,24 @@ export function AISettingsTabV3() {
         setUseBYOK(true);
         setOpenrouterApiKey(settings.llm.openrouterApiKey);
       }
+    } else if (platformModels && enabledModels.length === 0) {
+      // NEW: No settings exist yet, auto-select system defaults
+      // This happens when a new organization first opens AI Settings
+      const systemDefaults = platformModels.filter(m => m.isSystemDefault);
+      if (systemDefaults.length > 0) {
+        const newModels = systemDefaults.map((m, index) => ({
+          modelId: m.id,
+          isDefault: index === 0, // First system default is the default
+          enabledAt: Date.now()
+        }));
+        setEnabledModels(newModels);
+        setDefaultModelId(newModels[0].modelId);
+        setEnabled(true); // Auto-enable AI features
+      }
     }
-  }, [settings]);
+  }, [settings, platformModels]);
 
-  // Auto-select POPULAR models when tier changes (smart defaults)
+  // Auto-select system default models when tier changes
   useEffect(() => {
     const allModels = getAllModelsForTier(tier);
     const allModelIds = allModels.map(m => m.id);
@@ -101,41 +119,15 @@ export function AISettingsTabV3() {
     const hasIncompatibleModels = enabledModels.some(m => !allModelIds.includes(m.modelId));
 
     if (enabledModels.length === 0 || hasIncompatibleModels) {
-      // Define popular models to pre-select (6-7 models per tier)
-      let popularModelIds: string[];
+      // Get system defaults (models marked as recommended by super admin)
+      const systemDefaultModels = allModels.filter(m => m.recommended);
 
-      if (tier === "standard") {
-        // Standard tier: Most popular models across providers
-        popularModelIds = [
-          "anthropic/claude-sonnet-4",      // RECOMMENDED - Best overall
-          "openai/gpt-4o",                  // OpenAI flagship
-          "mistral/mistral-large",          // EU option
-          "anthropic/claude-3.5-sonnet",    // Fast Claude
-          "openai/gpt-3.5-turbo",           // Budget-friendly
-          "google/gemini-pro",              // Google's best
-          "meta-llama/llama-3.1-70b"        // Open source
-        ];
-      } else if (tier === "privacy-enhanced") {
-        // Privacy-Enhanced tier: GDPR-compliant popular models
-        popularModelIds = [
-          "mistral/mistral-large",          // RECOMMENDED - EU, ZDR
-          "anthropic/claude-sonnet-4",      // ZDR compliant
-          "anthropic/claude-3.5-sonnet",    // Fast ZDR option
-          "mistral/mistral-medium",         // Balanced EU option
-          "meta-llama/llama-3.1-70b"        // Open source
-        ];
-      } else {
-        popularModelIds = [];
-      }
-
-      // Only select models that exist in the tier
-      const newModels = allModels
-        .filter(m => popularModelIds.includes(m.id))
-        .map((m, index) => ({
-          modelId: m.id,
-          isDefault: index === 0, // First popular model is default
-          enabledAt: Date.now()
-        }));
+      // Auto-select system defaults
+      const newModels = systemDefaultModels.map((m, index) => ({
+        modelId: m.id,
+        isDefault: index === 0, // First system default is the default
+        enabledAt: Date.now()
+      }));
 
       // Set first model as the default
       if (newModels.length > 0) {
@@ -158,97 +150,71 @@ export function AISettingsTabV3() {
     recommended?: boolean;
   };
 
-  // Get all available models for a tier
+  // Get all available models from platform-enabled models
   const getAllModelsForTier = (tierValue: typeof tier): ModelOption[] => {
-    if (tierValue === "standard") {
-      // Standard tier: Comprehensive list of all major models
-      return [
-        // Mistral (EU - France)
-        { id: "mistral/mistral-large", name: "Mistral Large", location: "🇪🇺", zdr: true, noTraining: true, description: "Most capable Mistral model. 128k context." },
-        { id: "mistral/mistral-medium", name: "Mistral Medium", location: "🇪🇺", zdr: true, noTraining: true, description: "Balanced performance. 32k context." },
-        { id: "mistral/mistral-small", name: "Mistral Small", location: "🇪🇺", zdr: true, noTraining: true, description: "Fast and efficient. 32k context." },
+    if (!platformModels) return [];
 
-        // Anthropic Claude (US - with ZDR option)
-        { id: "anthropic/claude-sonnet-4", name: "Claude Sonnet 4", location: "🇺🇸", zdr: true, noTraining: true, description: "Latest Claude. 200k context.", recommended: true },
-        { id: "anthropic/claude-opus", name: "Claude Opus", location: "🇺🇸", zdr: true, noTraining: true, description: "Most powerful Claude. 200k context." },
-        { id: "anthropic/claude-3.5-sonnet", name: "Claude 3.5 Sonnet", location: "🇺🇸", zdr: true, noTraining: true, description: "Fast and capable. 200k context." },
+    // Convert platform models to ModelOption format
+    const models: ModelOption[] = platformModels.map((model) => ({
+      id: model.id,
+      name: model.name,
+      location: model.provider === "mistral" ? "🇪🇺" :
+                model.provider === "anthropic" || model.provider === "openai" || model.provider === "google" ? "🇺🇸" :
+                model.provider === "cohere" ? "🇨🇦" : "🌍",
+      // Assume ZDR for EU models and open-source models
+      zdr: model.provider === "mistral" || model.provider === "meta-llama",
+      noTraining: model.provider === "mistral" || model.provider === "anthropic" || model.provider === "meta-llama",
+      description: `${(model.contextLength / 1000).toFixed(0)}K context. ${model.capabilities.toolCalling ? "Tool calling. " : ""}${model.capabilities.vision ? "Vision. " : ""}`,
+      recommended: model.isSystemDefault ?? false,
+    }));
 
-        // OpenAI (US)
-        { id: "openai/gpt-4o", name: "GPT-4o", location: "🇺🇸", zdr: false, noTraining: false, description: "Multimodal flagship. 128k context." },
-        { id: "openai/gpt-4-turbo", name: "GPT-4 Turbo", location: "🇺🇸", zdr: false, noTraining: false, description: "Fast GPT-4. 128k context." },
-        { id: "openai/gpt-4", name: "GPT-4", location: "🇺🇸", zdr: false, noTraining: false, description: "Original GPT-4. 8k context." },
-        { id: "openai/gpt-3.5-turbo", name: "GPT-3.5 Turbo", location: "🇺🇸", zdr: false, noTraining: false, description: "Fast and affordable. 16k context." },
-
-        // Google (US)
-        { id: "google/gemini-pro", name: "Gemini Pro", location: "🇺🇸", zdr: false, noTraining: false, description: "Google's best model. 32k context." },
-        { id: "google/gemini-pro-vision", name: "Gemini Pro Vision", location: "🇺🇸", zdr: false, noTraining: false, description: "Multimodal Gemini. 32k context." },
-
-        // Meta (Open Source - varies by hosting)
-        { id: "meta-llama/llama-3.1-70b", name: "Llama 3.1 70B", location: "🌍", zdr: true, noTraining: true, description: "Open source. 128k context." },
-        { id: "meta-llama/llama-3.1-8b", name: "Llama 3.1 8B", location: "🌍", zdr: true, noTraining: true, description: "Fast open source. 128k context." },
-
-        // Cohere (Canada)
-        { id: "cohere/command-r-plus", name: "Command R+", location: "🇨🇦", zdr: false, noTraining: false, description: "Enterprise RAG model. 128k context." },
-        { id: "cohere/command-r", name: "Command R", location: "🇨🇦", zdr: false, noTraining: false, description: "Efficient RAG model. 128k context." },
-      ];
-    } else if (tierValue === "privacy-enhanced") {
-      // Privacy-Enhanced tier: Only GDPR-compliant models
-      return [
-        {
-          id: "mistral/mistral-large",
-          name: "Mistral Large",
-          location: "🇪🇺",
-          zdr: true,
-          noTraining: true,
-          description: "Most capable Mistral model. 128k context.",
-          recommended: true
-        },
-        {
-          id: "mistral/mistral-medium",
-          name: "Mistral Medium",
-          location: "🇪🇺",
-          zdr: true,
-          noTraining: true,
-          description: "Balanced performance. 32k context."
-        },
-        {
-          id: "mistral/mistral-small",
-          name: "Mistral Small",
-          location: "🇪🇺",
-          zdr: true,
-          noTraining: true,
-          description: "Fast and efficient. 32k context."
-        },
-        {
-          id: "anthropic/claude-sonnet-4",
-          name: "Claude Sonnet 4",
-          location: "🇺🇸",
-          zdr: true,
-          noTraining: true,
-          description: "Latest Claude with ZDR. 200k context."
-        },
-        {
-          id: "anthropic/claude-3.5-sonnet",
-          name: "Claude 3.5 Sonnet",
-          location: "🇺🇸",
-          zdr: true,
-          noTraining: true,
-          description: "Fast Claude with ZDR. 200k context."
-        },
-        {
-          id: "meta-llama/llama-3.1-70b",
-          name: "Llama 3.1 70B",
-          location: "🌍",
-          zdr: true,
-          noTraining: true,
-          description: "Open source. 128k context."
-        },
-      ];
+    // Filter based on tier
+    if (tierValue === "privacy-enhanced") {
+      // Only EU-based or ZDR-enabled models
+      return models.filter(m => m.zdr && m.noTraining);
     }
-    return [];
+
+    // Standard tier: all platform-enabled models
+    return models;
   };
 
   const availableModels = getAllModelsForTier(tier);
+
+  // Count enabled models and privacy features
+  const enabledModelCount = enabledModels.length;
+  const privacyStats = useMemo(() => {
+    const locations = new Set<string>();
+    let zdrCount = 0;
+    let noTrainingCount = 0;
+
+    for (const model of enabledModels) {
+      const modelId = model.modelId;
+      // Determine provider from model ID
+      const provider = modelId.split("/")[0];
+
+      // Map to locations
+      if (provider === "mistral") locations.add("eu");
+      else if (["anthropic", "openai", "google"].includes(provider)) locations.add("us");
+      else if (provider === "cohere") locations.add("ca");
+      else if (provider === "meta-llama") locations.add("global");
+      else locations.add("global");
+
+      // Count privacy features
+      if (["mistral", "anthropic", "meta-llama"].includes(provider)) {
+        zdrCount++;
+        noTrainingCount++;
+      }
+    }
+
+    return {
+      hasEU: locations.has("eu"),
+      hasUS: locations.has("us"),
+      hasCA: locations.has("ca"),
+      hasGlobal: locations.has("global"),
+      zdrCount,
+      noTrainingCount,
+    };
+  }, [enabledModels]);
 
   // Helper functions for model management
   const isModelEnabled = (modelId: string) => enabledModels.some(m => m.modelId === modelId);
@@ -834,7 +800,7 @@ export function AISettingsTabV3() {
                     key={model.id}
                     className="p-3 border-2"
                     style={{
-                      borderColor: enabled ? 'var(--primary)' : 'var(--win95-border)',
+                      borderColor: isDefault ? 'var(--primary)' : 'var(--win95-border)',
                       backgroundColor: enabled ? 'var(--win95-bg-light)' : 'transparent'
                     }}
                   >
@@ -893,7 +859,7 @@ export function AISettingsTabV3() {
                         {enabled && !isDefault && (
                           <button
                             onClick={() => setAsDefaultModel(model.id)}
-                            className="text-xs px-3 py-1.5 font-semibold rounded-md transition-colors bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                            className="retro-button py-1.5 px-3 text-xs font-pixel"
                           >
                             Set as Default
                           </button>
@@ -925,15 +891,33 @@ export function AISettingsTabV3() {
               borderColor: 'var(--win95-border)',
               color: 'var(--neutral-gray)'
             }}>
-              <p className="font-bold mb-2" style={{ color: 'var(--win95-text)' }}>Privacy Indicators:</p>
+              <p className="font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
+                {t("ui.manage.ai.privacy_indicators")}
+              </p>
               <ul className="space-y-1">
-                <li><strong>Location:</strong> 🇪🇺 EU • 🇺🇸 US • 🇨🇦 Canada • 🌍 Global (varies by hosting)</li>
-                <li><strong>🛡️ Zero Data Retention:</strong> Data deleted immediately after processing</li>
-                <li><strong>🚫 No Training:</strong> Provider does not train AI on your data</li>
+                <li>
+                  <strong>{t("ui.manage.ai.location")}:</strong> {
+                    [
+                      privacyStats.hasEU && "🇪🇺 EU",
+                      privacyStats.hasUS && "🇺🇸 US",
+                      privacyStats.hasCA && "🇨🇦 Canada",
+                      privacyStats.hasGlobal && "🌍 Global"
+                    ].filter(Boolean).join(" • ") || t("ui.manage.ai.location_none")
+                  }
+                </li>
+                {privacyStats.zdrCount > 0 && (
+                  <li>
+                    <strong>🛡️ {t("ui.manage.ai.zero_data_retention")}:</strong> {t("ui.manage.ai.zero_data_retention_desc", { count: privacyStats.zdrCount })}
+                  </li>
+                )}
+                {privacyStats.noTrainingCount > 0 && (
+                  <li>
+                    <strong>🚫 {t("ui.manage.ai.no_training")}:</strong> {t("ui.manage.ai.no_training_desc", { count: privacyStats.noTrainingCount })}
+                  </li>
+                )}
               </ul>
               <p className="mt-2 text-xs" style={{ color: 'var(--win95-text)' }}>
-                <strong>Smart Defaults:</strong> We automatically pre-select {tier === "standard" ? "7 popular models" : "5 GDPR-compliant models"} to get you started.
-                You can enable additional models or disable any you don't want to offer to your team.
+                <strong>{t("ui.manage.ai.smart_defaults")}:</strong> {t("ui.manage.ai.smart_defaults_desc", { count: enabledModelCount })}
               </p>
             </div>
           </div>

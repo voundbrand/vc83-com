@@ -52,73 +52,14 @@ export function formatToolResult(
     content: JSON.stringify(result),
   };
 
-  switch (provider) {
-    case "anthropic":
-      // Anthropic/Bedrock format: uses content array with tool_result type
-      // This format is required by Amazon Bedrock when routing Anthropic models
-      return {
-        role: "user" as any, // Anthropic expects "user" role for tool results
-        content: [
-          {
-            type: "tool_result",
-            tool_use_id: toolCallId,
-            content: typeof result === "string" ? result : JSON.stringify(result),
-          }
-        ] as any,
-      };
-
-    case "openai":
-    case "openrouter":
-      // OpenAI format: uses tool_call_id
-      return {
-        ...baseMessage,
-        tool_call_id: toolCallId,
-        name: toolName,
-      };
-
-    case "google":
-      // Google format: similar to OpenAI
-      return {
-        ...baseMessage,
-        tool_call_id: toolCallId,
-        name: toolName,
-      };
-
-    case "meta":
-    case "meta-llama":
-      // Meta/Llama format: similar to OpenAI
-      return {
-        ...baseMessage,
-        tool_call_id: toolCallId,
-        name: toolName,
-      };
-
-    case "mistral":
-    case "mistralai":
-      // Mistral format: similar to OpenAI
-      return {
-        ...baseMessage,
-        tool_call_id: toolCallId,
-        name: toolName,
-      };
-
-    case "cohere":
-      // Cohere format
-      return {
-        ...baseMessage,
-        tool_call_id: toolCallId,
-        name: toolName,
-      };
-
-    default:
-      // Default to OpenAI-style format (most common)
-      console.warn(`[Model Adapter] Unknown provider: ${provider}, using OpenAI format`);
-      return {
-        ...baseMessage,
-        tool_call_id: toolCallId,
-        name: toolName,
-      };
-  }
+  // ALL providers through OpenRouter use OpenAI-compatible format
+  // Even Anthropic models routed through Bedrock accept tool_call_id
+  // (OpenRouter handles the translation internally)
+  return {
+    ...baseMessage,
+    tool_call_id: toolCallId,
+    name: toolName,
+  };
 }
 
 /**
@@ -215,24 +156,7 @@ export function formatToolError(
   toolName: string,
   errorMessage: string
 ): ToolResultMessage {
-  // For Anthropic, we need to format errors specially to match their content array format
-  if (provider === "anthropic") {
-    return {
-      role: "user" as any,
-      content: [
-        {
-          type: "tool_result",
-          tool_use_id: toolCallId,
-          content: JSON.stringify({
-            error: errorMessage,
-            success: false,
-          }),
-          is_error: true,
-        }
-      ] as any,
-    };
-  }
-
+  // Use provider-specific format via formatToolResult
   return formatToolResult(provider, toolCallId, toolName, {
     error: errorMessage,
     success: false,

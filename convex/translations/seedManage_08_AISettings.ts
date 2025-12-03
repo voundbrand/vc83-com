@@ -1215,6 +1215,107 @@ export const seed = internalMutation({
           ja: "Google（Gemini）",
         }
       },
+
+      // === PRIVACY INDICATORS (DYNAMIC) ===
+      {
+        key: "ui.manage.ai.privacy_indicators",
+        values: {
+          en: "Privacy Indicators",
+          de: "Datenschutzindikatoren",
+          pl: "Wskaźniki prywatności",
+          es: "Indicadores de privacidad",
+          fr: "Indicateurs de confidentialité",
+          ja: "プライバシー指標",
+        }
+      },
+      {
+        key: "ui.manage.ai.location",
+        values: {
+          en: "Location",
+          de: "Standort",
+          pl: "Lokalizacja",
+          es: "Ubicación",
+          fr: "Emplacement",
+          ja: "場所",
+        }
+      },
+      {
+        key: "ui.manage.ai.location_none",
+        values: {
+          en: "None",
+          de: "Keine",
+          pl: "Brak",
+          es: "Ninguna",
+          fr: "Aucun",
+          ja: "なし",
+        }
+      },
+      {
+        key: "ui.manage.ai.zero_data_retention",
+        values: {
+          en: "Zero Data Retention",
+          de: "Keine Datenspeicherung",
+          pl: "Zerowa retencja danych",
+          es: "Retención cero de datos",
+          fr: "Rétention zéro des données",
+          ja: "データ保持ゼロ",
+        }
+      },
+      {
+        key: "ui.manage.ai.zero_data_retention_desc",
+        values: {
+          en: "{count} model(s) - Data deleted immediately after processing",
+          de: "{count} Modell(e) - Daten werden sofort nach der Verarbeitung gelöscht",
+          pl: "{count} model(i) - Dane usuwane natychmiast po przetworzeniu",
+          es: "{count} modelo(s) - Datos eliminados inmediatamente después del procesamiento",
+          fr: "{count} modèle(s) - Données supprimées immédiatement après traitement",
+          ja: "{count}モデル - 処理後すぐにデータ削除",
+        }
+      },
+      {
+        key: "ui.manage.ai.no_training",
+        values: {
+          en: "No Training",
+          de: "Kein Training",
+          pl: "Brak treningu",
+          es: "Sin entrenamiento",
+          fr: "Pas d'entraînement",
+          ja: "トレーニングなし",
+        }
+      },
+      {
+        key: "ui.manage.ai.no_training_desc",
+        values: {
+          en: "{count} model(s) - Provider does not train AI on your data",
+          de: "{count} Modell(e) - Anbieter trainiert KI nicht mit Ihren Daten",
+          pl: "{count} model(i) - Dostawca nie trenuje AI na Twoich danych",
+          es: "{count} modelo(s) - El proveedor no entrena IA con sus datos",
+          fr: "{count} modèle(s) - Le fournisseur n'entraîne pas l'IA sur vos données",
+          ja: "{count}モデル - プロバイダーはあなたのデータでAIをトレーニングしません",
+        }
+      },
+      {
+        key: "ui.manage.ai.smart_defaults",
+        values: {
+          en: "Smart Defaults",
+          de: "Intelligente Standardwerte",
+          pl: "Inteligentne ustawienia domyślne",
+          es: "Valores predeterminados inteligentes",
+          fr: "Valeurs par défaut intelligentes",
+          ja: "スマートデフォルト",
+        }
+      },
+      {
+        key: "ui.manage.ai.smart_defaults_desc",
+        values: {
+          en: "We automatically pre-select {count} popular models to get you started. You can enable additional models or disable any you don't want to offer to your team.",
+          de: "Wir wählen automatisch {count} beliebte Modelle aus, um Ihnen den Einstieg zu erleichtern. Sie können weitere Modelle aktivieren oder beliebige deaktivieren, die Sie Ihrem Team nicht anbieten möchten.",
+          pl: "Automatycznie wybieramy {count} popularnych modeli, aby ułatwić Ci start. Możesz włączyć dodatkowe modele lub wyłączyć te, których nie chcesz oferować swojemu zespołowi.",
+          es: "Preseleccionamos automáticamente {count} modelos populares para comenzar. Puede habilitar modelos adicionales o deshabilitar cualquiera que no desee ofrecer a su equipo.",
+          fr: "Nous présélectionnons automatiquement {count} modèles populaires pour vous aider à démarrer. Vous pouvez activer des modèles supplémentaires ou désactiver ceux que vous ne souhaitez pas proposer à votre équipe.",
+          ja: "開始するために{count}個の人気モデルを自動的に事前選択します。追加のモデルを有効にしたり、チームに提供したくないモデルを無効にすることができます。",
+        }
+      },
     ];
 
     // Get all unique translation keys

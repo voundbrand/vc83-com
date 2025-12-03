@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
-import { ChevronDown, Sparkles, Zap, Brain, Rocket } from "lucide-react";
+import { ChevronDown } from "lucide-react";
+import { ProviderLogo, ProviderBadge } from "@/components/ai/provider-logo";
+import { useAuth } from "@/hooks/use-auth";
+import { Id } from "../../../../convex/_generated/dataModel";
 
 interface ModelSelectorProps {
   selectedModel?: string;
@@ -11,22 +14,47 @@ interface ModelSelectorProps {
   disabled?: boolean;
 }
 
-// Provider icons and colors
-const PROVIDER_INFO: Record<string, { icon: React.ReactNode; color: string; badge?: string }> = {
-  anthropic: { icon: <Brain className="w-4 h-4" />, color: "text-purple-600", badge: "Claude" },
-  openai: { icon: <Sparkles className="w-4 h-4" />, color: "text-green-600", badge: "GPT" },
-  google: { icon: <Rocket className="w-4 h-4" />, color: "text-blue-600", badge: "Gemini" },
-  meta: { icon: <Zap className="w-4 h-4" />, color: "text-orange-600", badge: "Llama" },
-  mistral: { icon: <Sparkles className="w-4 h-4" />, color: "text-red-600", badge: "Mistral" },
-};
+// Provider info is now handled by ProviderLogo component
 
 export function ModelSelector({ selectedModel, onModelChange, disabled }: ModelSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
 
-  // Get available models from AI settings (Note: requires organizationId)
-  // For now, we'll use defaults until we pass organizationId prop
-  const aiSettings = null; // TODO: Pass organizationId and use api.ai.settings.getAISettings
+  // Get organization's AI settings to see which models are enabled for THIS org
+  const organizationId = user?.defaultOrgId as Id<"organizations"> | undefined;
+  const aiSettings = useQuery(
+    api.ai.settings.getAISettings,
+    organizationId ? { organizationId } : "skip"
+  );
+
+  // Get all platform-enabled models (as fallback)
+  const allPlatformModels = useQuery(api.ai.platformModels.getEnabledModelsByProvider);
+
+  // Filter to show only the organization's enabled models
+  const platformModels = useMemo(() => {
+    if (!aiSettings?.llm.enabledModels || aiSettings.llm.enabledModels.length === 0) {
+      // No org-specific models configured, use all platform-enabled models
+      return allPlatformModels;
+    }
+
+    if (!allPlatformModels) return null;
+
+    // Get the list of model IDs enabled for this organization
+    const enabledModelIds = new Set(aiSettings.llm.enabledModels.map(m => m.modelId));
+
+    // Filter platform models to only include org-enabled ones
+    const filtered: Record<string, typeof allPlatformModels[string]> = {};
+
+    for (const [provider, models] of Object.entries(allPlatformModels)) {
+      const orgModels = models.filter(m => enabledModelIds.has(m.modelId));
+      if (orgModels.length > 0) {
+        filtered[provider] = orgModels;
+      }
+    }
+
+    return filtered;
+  }, [aiSettings, allPlatformModels]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -51,28 +79,28 @@ export function ModelSelector({ selectedModel, onModelChange, disabled }: ModelS
     return parts[1] || model;
   };
 
-  // Current model (use from settings or prop)
-  const currentModel = selectedModel || (aiSettings ? (aiSettings as any).llm.model : "anthropic/claude-3-5-sonnet");
+  // Get organization's default model, or first available model as fallback
+  const orgDefaultModel = aiSettings?.llm.defaultModelId;
+  const firstAvailableModel = platformModels
+    ? Object.values(platformModels).flat()[0]?.modelId
+    : null;
+
+  // Current model: Use explicitly selected model, or org default, or first available
+  const currentModel = selectedModel || orgDefaultModel || firstAvailableModel || "no-models-available";
   const currentProvider = getProvider(currentModel);
   const currentDisplayName = getModelDisplayName(currentModel);
-  const providerInfo = PROVIDER_INFO[currentProvider] || PROVIDER_INFO.anthropic;
 
-  // Available models (from settings or defaults)
-  const availableModels = (aiSettings ? (aiSettings as any).llm.enabledModels : null) || [
-    "anthropic/claude-3-5-sonnet",
-    "anthropic/claude-3-opus",
-    "openai/gpt-4o",
-    "openai/gpt-4-turbo",
-    "google/gemini-pro-1.5",
-  ];
+  // Build model list from platform-enabled models
+  const modelsByProvider: Record<string, Array<{ id: string; name: string }>> = {};
 
-  // Group models by provider
-  const modelsByProvider = availableModels.reduce((acc: Record<string, string[]>, model: string) => {
-    const provider = getProvider(model);
-    if (!acc[provider]) acc[provider] = [];
-    acc[provider].push(model);
-    return acc;
-  }, {} as Record<string, string[]>);
+  if (platformModels) {
+    for (const [provider, models] of Object.entries(platformModels)) {
+      modelsByProvider[provider] = models.map((m) => ({
+        id: m.modelId,
+        name: m.name,
+      }));
+    }
+  }
 
   const handleModelSelect = (model: string) => {
     onModelChange?.(model);
@@ -86,96 +114,123 @@ export function ModelSelector({ selectedModel, onModelChange, disabled }: ModelS
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
         className={`
-          flex items-center gap-2 px-3 py-2 rounded
-          border-2 border-gray-300 bg-white
-          hover:bg-gray-50 hover:border-purple-600
-          transition-colors
+          flex items-center gap-2 px-3 py-2 rounded border-2
           ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
         `}
+        style={{
+          backgroundColor: 'var(--win95-bg-light)',
+          borderColor: 'var(--win95-border)',
+          color: 'var(--win95-text)',
+        }}
       >
-        {/* Provider Icon */}
-        <div className={providerInfo.color}>
-          {providerInfo.icon}
-        </div>
+        {/* Provider Logo */}
+        <ProviderLogo provider={currentProvider} size={16} />
 
         {/* Model Name */}
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-sm font-bold truncate">
+          <span className="text-sm font-bold truncate" style={{ color: 'var(--win95-text)' }}>
             {!selectedModel && "Auto"}
           </span>
-          <span className="text-xs text-gray-600 truncate">
+          <span className="text-xs truncate" style={{ color: 'var(--win95-text-secondary)' }}>
             ({currentDisplayName})
           </span>
         </div>
 
         {/* Provider Badge */}
-        {providerInfo.badge && (
-          <span className={`text-xs px-1.5 py-0.5 rounded ${providerInfo.color} bg-opacity-10`}>
-            {providerInfo.badge}
-          </span>
-        )}
+        <ProviderBadge provider={currentProvider} showName={false} />
 
         {/* Dropdown Arrow */}
-        <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+        <ChevronDown className="w-4 h-4 transition-transform" style={{ color: 'var(--win95-text-secondary)' }} />
       </button>
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute top-full left-0 mt-1 w-80 bg-white border-2 border-gray-300 rounded shadow-lg z-50 max-h-96 overflow-y-auto">
+        <div
+          className="absolute top-full left-0 mt-1 w-80 border-2 rounded shadow-lg z-50 max-h-96 overflow-y-auto"
+          style={{
+            backgroundColor: 'var(--win95-bg-light)',
+            borderColor: 'var(--win95-border)',
+          }}
+        >
           {/* Auto Option */}
           <button
-            onClick={() => handleModelSelect(currentModel)}
-            className="w-full px-3 py-2 text-left hover:bg-purple-50 border-b-2 border-gray-200 flex items-center gap-2"
+            onClick={() => {
+              onModelChange?.(undefined as any); // Clear selection to use org default
+              setIsOpen(false);
+            }}
+            className="w-full px-3 py-2 text-left border-b-2 flex items-center gap-2 transition-colors"
+            style={{
+              borderColor: 'var(--win95-border)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--win95-hover-bg)';
+              e.currentTarget.style.color = 'var(--win95-hover-text)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+              e.currentTarget.style.color = 'var(--win95-text)';
+            }}
           >
-            <Sparkles className="w-4 h-4 text-purple-600" />
+            <ProviderLogo provider="default" size={16} className="text-primary" />
             <div>
               <div className="font-bold text-sm">Auto (Default)</div>
-              <div className="text-xs text-gray-600">
-                Use organization default: {currentDisplayName}
+              <div className="text-xs opacity-70">
+                {orgDefaultModel
+                  ? `Use organization default: ${getModelDisplayName(orgDefaultModel)}`
+                  : `Use first available: ${currentDisplayName}`
+                }
               </div>
             </div>
           </button>
 
           {/* Models by Provider */}
           {Object.entries(modelsByProvider).map(([provider, models]) => {
-            const info = PROVIDER_INFO[provider] || PROVIDER_INFO.anthropic;
-
             return (
-              <div key={provider} className="border-b-2 border-gray-200 last:border-b-0">
+              <div
+                key={provider}
+                className="border-b-2 last:border-b-0"
+                style={{ borderColor: 'var(--win95-border)' }}
+              >
                 {/* Provider Header */}
-                <div className="px-3 py-2 bg-gray-100 flex items-center gap-2">
-                  <div className={info.color}>
-                    {info.icon}
-                  </div>
-                  <span className="text-xs font-bold uppercase">{provider}</span>
-                  {info.badge && (
-                    <span className={`text-xs px-1.5 py-0.5 rounded ${info.color} bg-opacity-10`}>
-                      {info.badge}
-                    </span>
-                  )}
+                <div
+                  className="px-3 py-2 flex items-center gap-2"
+                  style={{ backgroundColor: 'var(--win95-bg)' }}
+                >
+                  <ProviderBadge provider={provider} showName={true} />
                 </div>
 
                 {/* Provider Models */}
-                {(models as string[]).map((model: string) => {
-                  const displayName = getModelDisplayName(model);
-                  const isSelected = model === selectedModel;
+                {models.map((model) => {
+                  const isSelected = model.id === selectedModel;
 
                   return (
                     <button
-                      key={model}
-                      onClick={() => handleModelSelect(model)}
-                      className={`
-                        w-full px-3 py-2 text-left hover:bg-purple-50
-                        flex items-center justify-between
-                        ${isSelected ? "bg-purple-100" : ""}
-                      `}
+                      key={model.id}
+                      onClick={() => handleModelSelect(model.id)}
+                      className="w-full px-3 py-2 text-left flex items-center justify-between transition-colors"
+                      style={{
+                        backgroundColor: isSelected ? 'var(--win95-selected-bg)' : 'transparent',
+                        color: isSelected ? 'var(--win95-selected-text)' : 'var(--win95-text)',
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isSelected) {
+                          e.currentTarget.style.backgroundColor = 'var(--win95-hover-bg)';
+                          e.currentTarget.style.color = 'var(--win95-hover-text)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isSelected) {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                          e.currentTarget.style.color = 'var(--win95-text)';
+                        }
+                      }}
                     >
                       <div className="flex-1 min-w-0">
-                        <div className="font-bold text-sm truncate">{displayName}</div>
-                        <div className="text-xs text-gray-600 font-mono truncate">{model}</div>
+                        <div className="font-bold text-sm truncate">{model.name}</div>
+                        <div className="text-xs font-mono truncate opacity-70">{model.id}</div>
                       </div>
                       {isSelected && (
-                        <div className="text-purple-600">✓</div>
+                        <div style={{ color: 'var(--win95-selected-text)' }}>✓</div>
                       )}
                     </button>
                   );
@@ -185,9 +240,12 @@ export function ModelSelector({ selectedModel, onModelChange, disabled }: ModelS
           })}
 
           {/* No Models Message */}
-          {availableModels.length === 0 && (
-            <div className="px-3 py-4 text-center text-gray-500 text-sm">
-              No models available. Configure AI settings.
+          {Object.keys(modelsByProvider).length === 0 && (
+            <div
+              className="px-3 py-4 text-center text-sm"
+              style={{ color: 'var(--win95-text-secondary)' }}
+            >
+              No models available. Super admin must enable models.
             </div>
           )}
         </div>

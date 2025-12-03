@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, Plus, Grid3x3, FileText, Package } from "lucide-react";
+import { Building2, Plus, Grid3x3, FileText, Package, Cpu } from "lucide-react";
 import { SystemOrganizationsTab } from "./system-organizations-tab";
 import { OrganizationsListTab } from "./organizations-list-tab";
 import { AppAvailabilityTab } from "./app-availability-tab";
 import { TemplatesTab } from "./templates-tab";
 import { TemplateSetsTab } from "./template-sets-tab";
+import { PlatformAiModelsTab } from "./platform-ai-models-tab";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 /**
@@ -17,9 +18,10 @@ import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
  * - Create: Create new organizations (super admin only)
  * - App Availability: Manage which apps are available to which orgs (super admin only)
  * - Templates: Manage which templates are available to which orgs (super admin only)
+ * - Platform AI Models: Manage which AI models are available platform-wide (super admin only)
  */
 
-type TabType = "list" | "create" | "template-sets" | "app-availability" | "templates";
+type TabType = "list" | "create" | "template-sets" | "app-availability" | "templates" | "platform-ai-models";
 
 export function OrganizationsWindow() {
   const { t } = useNamespaceTranslations("ui.organizations");
@@ -88,7 +90,7 @@ export function OrganizationsWindow() {
           Templates
         </button>
         <button
-          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2"
+          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
           style={{
             borderColor: 'var(--win95-border)',
             background: activeTab === "template-sets" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
@@ -99,6 +101,18 @@ export function OrganizationsWindow() {
           <Package size={14} />
           Template Sets
         </button>
+        <button
+          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2"
+          style={{
+            borderColor: 'var(--win95-border)',
+            background: activeTab === "platform-ai-models" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+            color: activeTab === "platform-ai-models" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+          }}
+          onClick={() => setActiveTab("platform-ai-models")}
+        >
+          <Cpu size={14} />
+          Platform AI Models
+        </button>
       </div>
 
       {/* Tab Content */}
@@ -108,6 +122,7 @@ export function OrganizationsWindow() {
         {activeTab === "template-sets" && <TemplateSetsTab />}
         {activeTab === "app-availability" && <AppAvailabilityTab />}
         {activeTab === "templates" && <TemplatesTab />}
+        {activeTab === "platform-ai-models" && <PlatformAiModelsTab />}
       </div>
     </div>
   );

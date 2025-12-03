@@ -52,4 +52,24 @@ crons.daily(
   internal.transactionInvoicing.cleanupExpiredPdfCache
 );
 
+/**
+ * Refresh AI Models from OpenRouter
+ *
+ * Runs daily at 4 AM UTC to discover new AI models available through OpenRouter.
+ * Keeps our model cache up-to-date with latest releases.
+ *
+ * What it does:
+ * 1. Fetches all models from OpenRouter API
+ * 2. Updates cached pricing and capabilities
+ * 3. Ensures UI always shows current model availability
+ */
+crons.daily(
+  "Refresh AI models from OpenRouter",
+  {
+    hourUTC: 4, // 4 AM UTC (after other cleanup jobs)
+    minuteUTC: 0,
+  },
+  internal.ai.modelDiscovery.fetchAvailableModels
+);
+
 export default crons;

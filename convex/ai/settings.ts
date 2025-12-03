@@ -75,28 +75,52 @@ export const upsertAISettings = mutation({
     monthlyBudgetUsd: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    // Auto-populate system defaults if no models provided
+    let llmConfig = args.llm;
+    if (!llmConfig.enabledModels || llmConfig.enabledModels.length === 0) {
+      // Get system default models (models marked by super admin as recommended)
+      const systemDefaults = await ctx.db
+        .query("aiModels")
+        .withIndex("by_system_default", (q) => q.eq("isSystemDefault", true))
+        .collect();
+
+      // Auto-enable system defaults
+      if (systemDefaults.length > 0) {
+        const now = Date.now();
+        llmConfig = {
+          ...llmConfig,
+          enabledModels: systemDefaults.map((model, index) => ({
+            modelId: model.modelId,
+            isDefault: index === 0, // First system default is the default
+            enabledAt: now,
+          })),
+          defaultModelId: systemDefaults[0].modelId,
+        };
+      }
+    }
+
     // Validate multi-select configuration if provided
-    if (args.llm.enabledModels) {
+    if (llmConfig.enabledModels) {
       // Ensure at least one model is enabled
-      if (args.llm.enabledModels.length === 0) {
+      if (llmConfig.enabledModels.length === 0) {
         throw new Error("At least one model must be enabled");
       }
 
       // Ensure exactly one model is marked as default
-      const defaultModels = args.llm.enabledModels.filter(m => m.isDefault);
+      const defaultModels = llmConfig.enabledModels.filter(m => m.isDefault);
       if (defaultModels.length !== 1) {
         throw new Error("Exactly one model must be set as default");
       }
 
       // Ensure defaultModelId matches the default model
       const defaultModel = defaultModels[0];
-      if (args.llm.defaultModelId && args.llm.defaultModelId !== defaultModel.modelId) {
+      if (llmConfig.defaultModelId && llmConfig.defaultModelId !== defaultModel.modelId) {
         throw new Error("defaultModelId must match the model marked as default");
       }
 
       // If defaultModelId not provided, set it
-      if (!args.llm.defaultModelId) {
-        args.llm.defaultModelId = defaultModel.modelId;
+      if (!llmConfig.defaultModelId) {
+        llmConfig.defaultModelId = defaultModel.modelId;
       }
     }
 
@@ -112,7 +136,7 @@ export const upsertAISettings = mutation({
         enabled: args.enabled,
         billingMode: args.billingMode,
         tier: args.tier,
-        llm: args.llm,
+        llm: llmConfig,
         embedding: args.embedding,
         monthlyBudgetUsd: args.monthlyBudgetUsd,
         updatedAt: now,
@@ -125,7 +149,7 @@ export const upsertAISettings = mutation({
       enabled: args.enabled,
       billingMode: args.billingMode,
       tier: args.tier,
-      llm: args.llm,
+      llm: llmConfig,
       embedding: args.embedding,
       monthlyBudgetUsd: args.monthlyBudgetUsd,
       currentMonthSpend: 0,

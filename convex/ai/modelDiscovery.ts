@@ -113,8 +113,9 @@ export const fetchAvailableModels = internalAction({
 /**
  * CACHE MODELS IN DATABASE (Internal)
  *
- * Stores fetched models in the objects table for quick retrieval.
- * We use the ontology system to store this as a system-level object.
+ * Stores fetched models in BOTH:
+ * 1. objects table - for legacy compatibility and quick cache retrieval
+ * 2. aiModels table - for platform model management UI
  */
 export const cacheModels = internalMutation({
   args: {
@@ -132,7 +133,9 @@ export const cacheModels = internalMutation({
       throw new Error("System organization not found");
     }
 
-    // Check if cache already exists
+    // ============================================================================
+    // PART 1: Update legacy objects table cache (for backward compatibility)
+    // ============================================================================
     const existingCache = await ctx.db
       .query("objects")
       .withIndex("by_org_type", (q) =>
@@ -143,7 +146,6 @@ export const cacheModels = internalMutation({
     const expiresAt = fetchedAt + (60 * 60 * 1000); // Cache for 1 hour
 
     if (existingCache) {
-      // Update existing cache
       await ctx.db.patch(existingCache._id, {
         customProperties: {
           models,
@@ -152,9 +154,7 @@ export const cacheModels = internalMutation({
         },
         updatedAt: Date.now(),
       });
-      console.log("✅ Updated model cache");
     } else {
-      // Create new cache
       await ctx.db.insert("objects", {
         organizationId: systemOrg._id,
         type: "ai_model_cache",
@@ -170,8 +170,92 @@ export const cacheModels = internalMutation({
         createdAt: Date.now(),
         updatedAt: Date.now(),
       });
-      console.log("✅ Created model cache");
     }
+
+    // ============================================================================
+    // PART 2: Populate aiModels table (for platform model management UI)
+    // ============================================================================
+    console.log(`📦 Updating aiModels table with ${models.length} models...`);
+
+    const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+    let newCount = 0;
+    let updatedCount = 0;
+
+    for (const model of models as OpenRouterModel[]) {
+      // Extract provider from model ID (e.g., "anthropic/claude-3-5-sonnet" -> "anthropic")
+      const provider = model.id.split("/")[0];
+
+      // Check if model already exists
+      const existing = await ctx.db
+        .query("aiModels")
+        .withIndex("by_model_id", (q) => q.eq("modelId", model.id))
+        .first();
+
+      // Determine capabilities
+      const isMultimodal = model.architecture?.modality === "multimodal" ||
+                          model.architecture?.modality === "image" ||
+                          model.id.includes("vision") ||
+                          model.id.includes("multimodal");
+
+      const hasVision = isMultimodal ||
+                       model.id.includes("vision") ||
+                       model.id.includes("gpt-4o") ||
+                       model.id.includes("gemini");
+
+      // Most modern models support tool calling, but some don't
+      const supportsToolCalling = !model.id.includes("instruct") &&
+                                  !model.id.includes("base") &&
+                                  !model.id.includes("embed");
+
+      // Parse pricing (OpenRouter returns strings like "0.000003")
+      const promptPerMToken = parseFloat(model.pricing.prompt) * 1_000_000;
+      const completionPerMToken = parseFloat(model.pricing.completion) * 1_000_000;
+
+      if (existing) {
+        // Update existing model
+        await ctx.db.patch(existing._id, {
+          name: model.name,
+          pricing: {
+            promptPerMToken,
+            completionPerMToken,
+          },
+          contextLength: model.context_length,
+          capabilities: {
+            toolCalling: supportsToolCalling,
+            multimodal: isMultimodal,
+            vision: hasVision,
+          },
+          lastSeenAt: fetchedAt,
+          isNew: model.created > sevenDaysAgo,
+          // Keep existing isPlatformEnabled value
+        });
+        updatedCount++;
+      } else {
+        // Insert new model (disabled by default)
+        await ctx.db.insert("aiModels", {
+          modelId: model.id,
+          name: model.name,
+          provider,
+          pricing: {
+            promptPerMToken,
+            completionPerMToken,
+          },
+          contextLength: model.context_length,
+          capabilities: {
+            toolCalling: supportsToolCalling,
+            multimodal: isMultimodal,
+            vision: hasVision,
+          },
+          discoveredAt: fetchedAt,
+          lastSeenAt: fetchedAt,
+          isNew: model.created > sevenDaysAgo,
+          isPlatformEnabled: false, // Disabled by default - super admin must enable
+        });
+        newCount++;
+      }
+    }
+
+    console.log(`✅ Updated model cache: ${newCount} new, ${updatedCount} updated`);
   },
 });
 

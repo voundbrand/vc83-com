@@ -101,13 +101,22 @@ Available Tools:
 - search_contacts: Find contacts by name, email, or company
 - list_forms: Get list of forms
 - list_events: Get list of events
+- sync_contacts: Sync contacts from Microsoft/Google
+- send_bulk_crm_email: Send personalized bulk emails
 
 Guidelines:
 1. Be helpful, concise, and action-oriented
-2. Use tools to accomplish user tasks
-3. Confirm before destructive actions (sending emails, deleting data)
-4. Provide clear next steps with actionable buttons
-5. If unsure, ask clarifying questions
+2. ONLY use tools when the user explicitly asks for an action (creating, searching, listing, etc.)
+3. For simple greetings or questions, respond conversationally WITHOUT using tools
+4. Confirm before destructive actions (sending emails, deleting data)
+5. Provide clear next steps with actionable buttons
+6. If unsure, ask clarifying questions
+
+Examples:
+- "Hello" → Just greet the user (NO TOOLS)
+- "What can you do?" → Explain capabilities (NO TOOLS)
+- "List my forms" → Use list_forms tool
+- "Search for John" → Use search_contacts tool
 
 Current Context:
 - Organization: ${args.organizationId}
@@ -146,15 +155,41 @@ Current Context:
       console.log(`[AI Chat] Tool call round ${toolCallRounds}`);
 
       // Add assistant message with tool calls first
+      // IMPORTANT: Ensure all tool_calls have an arguments field
+      // Anthropic sometimes omits it when no parameters are provided
+      // But OpenRouter/Bedrock expects it to always be present
+      const toolCallsWithArgs = response.choices[0].message.tool_calls.map((tc: any) => ({
+        ...tc,
+        function: {
+          ...tc.function,
+          arguments: tc.function.arguments || "{}"  // Add empty args if missing
+        }
+      }));
+
       messages.push({
         role: "assistant" as const,
         content: response.choices[0].message.content || "",
-        tool_calls: response.choices[0].message.tool_calls,
+        tool_calls: toolCallsWithArgs,
       });
 
       // Execute each tool call
       for (const toolCall of response.choices[0].message.tool_calls) {
         const startTime = Date.now();
+
+        // Parse tool arguments safely (do this ONCE outside try/catch)
+        let parsedArgs = {};
+        try {
+          const argsString = toolCall.function.arguments || "{}";
+          // Handle case where AI sends "undefined" or empty string
+          if (argsString === "undefined" || argsString === "" || argsString === "null") {
+            parsedArgs = {};
+          } else {
+            parsedArgs = JSON.parse(argsString);
+          }
+        } catch (parseError) {
+          console.error(`[AI Chat] Failed to parse tool arguments for ${toolCall.function.name}:`, toolCall.function.arguments);
+          parsedArgs = {}; // Use empty object if parsing fails
+        }
 
         try {
           // Execute tool
@@ -165,18 +200,18 @@ Current Context:
               userId: args.userId,
             },
             toolCall.function.name,
-            JSON.parse(toolCall.function.arguments)
+            parsedArgs
           );
 
           const durationMs = Date.now() - startTime;
 
-          // Log execution
+          // Log execution (use parsedArgs, not re-parse!)
           await ctx.runMutation(api.ai.conversations.logToolExecution, {
             conversationId,
             organizationId: args.organizationId,
             userId: args.userId,
             toolName: toolCall.function.name,
-            parameters: JSON.parse(toolCall.function.arguments),
+            parameters: parsedArgs,
             result,
             status: "success",
             tokensUsed: response.usage?.total_tokens || 0,
@@ -188,10 +223,9 @@ Current Context:
           toolCalls.push({
             id: toolCall.id,
             name: toolCall.function.name,
-            arguments: JSON.parse(toolCall.function.arguments),
+            arguments: parsedArgs,
             result,
             status: "success",
-            round: toolCallRounds,
           });
 
           // Add tool result to messages (provider-specific format)
@@ -205,13 +239,13 @@ Current Context:
         } catch (error: any) {
           console.error(`[AI Chat] Tool execution failed: ${toolCall.function.name}`, error);
 
-          // Log failed execution
+          // Log failed execution (use parsedArgs, not re-parse!)
           await ctx.runMutation(api.ai.conversations.logToolExecution, {
             conversationId,
             organizationId: args.organizationId,
             userId: args.userId,
             toolName: toolCall.function.name,
-            parameters: JSON.parse(toolCall.function.arguments),
+            parameters: parsedArgs,
             error: error.message,
             status: "failed",
             tokensUsed: response.usage?.total_tokens || 0,
@@ -223,10 +257,9 @@ Current Context:
           toolCalls.push({
             id: toolCall.id,
             name: toolCall.function.name,
-            arguments: JSON.parse(toolCall.function.arguments),
+            arguments: parsedArgs,
             error: error.message,
             status: "failed",
-            round: toolCallRounds,
           });
 
           // Add tool error to messages (provider-specific format)

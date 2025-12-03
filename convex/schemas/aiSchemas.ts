@@ -290,3 +290,67 @@ export const aiAgentMemory = defineTable({
     dimensions: 1024,
     filterFields: ["organizationId"],
   });
+
+// ============================================================================
+// AI MODEL DISCOVERY (Auto-Discovery System)
+// ============================================================================
+
+/**
+ * AI Models Cache
+ *
+ * Cached model information from OpenRouter API.
+ * Refreshed daily via cron job to keep model list up-to-date.
+ */
+export const aiModels = defineTable({
+  // Model identification
+  modelId: v.string(),                       // "anthropic/claude-3-5-sonnet"
+  name: v.string(),                          // "Claude 3.5 Sonnet"
+  provider: v.string(),                      // "anthropic"
+
+  // Pricing (dollars per million tokens)
+  pricing: v.object({
+    promptPerMToken: v.number(),             // Input cost
+    completionPerMToken: v.number(),         // Output cost
+  }),
+
+  // Model capabilities
+  contextLength: v.number(),                 // 200000
+  capabilities: v.object({
+    toolCalling: v.boolean(),                // Supports function calling
+    multimodal: v.boolean(),                 // Supports images/video
+    vision: v.boolean(),                     // Supports vision
+  }),
+
+  // Discovery tracking
+  discoveredAt: v.number(),                  // When first discovered
+  lastSeenAt: v.number(),                    // Last seen in OpenRouter API
+  isNew: v.boolean(),                        // New in last 7 days
+
+  // Platform availability (super admin controlled)
+  isPlatformEnabled: v.optional(v.boolean()), // Whether this model is available platform-wide
+  isSystemDefault: v.optional(v.boolean()),   // Whether this model is a system default (recommended)
+
+  // Validation tracking (for testing tool calling before enabling)
+  validationStatus: v.optional(v.union(
+    v.literal("not_tested"),
+    v.literal("validated"),
+    v.literal("failed")
+  )),
+  testResults: v.optional(v.object({
+    basicChat: v.boolean(),
+    toolCalling: v.boolean(),
+    complexParams: v.boolean(),
+    multiTurn: v.boolean(),
+    edgeCases: v.boolean(),
+    timestamp: v.number(),
+  })),
+  testedBy: v.optional(v.id("users")),
+  testedAt: v.optional(v.number()),
+  notes: v.optional(v.string()),
+})
+  .index("by_model_id", ["modelId"])
+  .index("by_provider", ["provider"])
+  .index("by_new", ["isNew"])
+  .index("by_platform_enabled", ["isPlatformEnabled"])
+  .index("by_system_default", ["isSystemDefault"])
+  .index("by_validation_status", ["validationStatus"]);

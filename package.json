@@ -15,7 +15,8 @@
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
     "test:permissions": "vitest run tests/unit/permissions",
-    "test:roles": "vitest run tests/unit/roles"
+    "test:roles": "vitest run tests/unit/roles",
+    "test:model": "npx tsx scripts/test-model-validation.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

@@ -67,20 +67,19 @@ export function ChatInput() {
   }
 
   // Current model (use from settings or selection)
-  const currentModel = selectedModel || (aiSettings?.llm?.model) || "anthropic/claude-3-5-sonnet"
-  const currentProvider = getProvider(currentModel)
-  const currentDisplayName = getModelDisplayName(currentModel)
-  const providerInfo = PROVIDER_INFO[currentProvider] || PROVIDER_INFO.anthropic
-  const ProviderIcon = providerInfo.icon
+  // Use org's default model, or first enabled model, or null if no models enabled
+  const defaultModelId = aiSettings?.llm?.defaultModelId || aiSettings?.llm?.enabledModels?.[0]?.modelId;
+  const currentModel = selectedModel || defaultModelId || "";
+  const currentProvider = currentModel ? getProvider(currentModel) : "anthropic";
+  const currentDisplayName = currentModel ? getModelDisplayName(currentModel) : "No model";
+  const providerInfo = PROVIDER_INFO[currentProvider] || PROVIDER_INFO.anthropic;
+  const ProviderIcon = providerInfo.icon;
 
   // Available models - extract model IDs from enabled models array
+  // Only use organization's enabled models, never hardcoded fallbacks
   const availableModels = (aiSettings?.llm?.enabledModels?.map((m) =>
     typeof m === "string" ? m : m.modelId
-  )) || [
-    "anthropic/claude-3-5-sonnet",
-    "anthropic/claude-3-opus",
-    "openai/gpt-4o",
-  ]
+  )) || []
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

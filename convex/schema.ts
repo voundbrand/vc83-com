@@ -55,7 +55,8 @@ import {
   aiToolExecutions,
   organizationAiSettings,
   aiAgentTasks,
-  aiAgentMemory
+  aiAgentMemory,
+  aiModels
 } from "./schemas/aiSchemas";
 
 // 💳 AI BILLING SCHEMAS v3.1 (VAT-inclusive pricing, EUR only)
@@ -136,6 +137,7 @@ export default defineSchema({
   aiMessages,             // Individual messages in conversations
   aiToolExecutions,       // Audit trail of tool executions
   organizationAiSettings, // AI configuration per organization (LLM + embeddings)
+  aiModels,               // AI model discovery cache (auto-refreshed daily)
   aiAgentTasks,          // Email AI tasks with approval workflow
   aiAgentMemory,         // Email templates and preferences with vector search
 
