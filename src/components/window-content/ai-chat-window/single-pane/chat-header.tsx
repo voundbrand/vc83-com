@@ -5,12 +5,15 @@ import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
 import { MessageSquare, LayoutGrid, Sparkles } from "lucide-react"
 import { useShoppingCart } from "@/contexts/shopping-cart-context"
 import { useWindowManager } from "@/hooks/use-window-manager"
+import { ModelSelector } from "../model-selector"
+import { useAIChatContext } from "@/contexts/ai-chat-context"
 
 export function ChatHeader() {
   const { mode, switchToThreePane, switchToSinglePane } = useLayoutMode()
   const { t } = useNamespaceTranslations("ui.ai_assistant")
   const { addItem } = useShoppingCart()
   const { openWindow } = useWindowManager()
+  const { selectedModel, setSelectedModel } = useAIChatContext()
 
   // Handle adding AI subscription to cart
   const handleSubscribe = () => {
@@ -60,6 +63,14 @@ export function ChatHeader() {
           style={{ background: 'var(--success)' }}
           title={t("ui.ai_assistant.header.online")}
         />
+
+        {/* Model Selector */}
+        <div className="ml-2">
+          <ModelSelector
+            selectedModel={selectedModel}
+            onModelChange={setSelectedModel}
+          />
+        </div>
       </div>
 
       <div className="flex items-center gap-2">

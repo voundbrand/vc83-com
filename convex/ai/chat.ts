@@ -22,6 +22,7 @@ export const sendMessage = action({
     message: v.string(),
     organizationId: v.id("organizations"),
     userId: v.id("users"),
+    selectedModel: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<{
     conversationId: any;
@@ -82,13 +83,14 @@ export const sendMessage = action({
     }
 
     const client: OpenRouterClient = new OpenRouterClient(apiKey);
-    const model: string = settings.llm.model || "anthropic/claude-3-5-sonnet";
+    // Use selectedModel if provided, otherwise fall back to settings
+    const model: string = args.selectedModel || settings.llm.model || "anthropic/claude-3-5-sonnet";
 
     // Detect provider and get configuration
     const provider = detectProvider(model);
     const providerConfig = getProviderConfig(provider);
 
-    console.log(`[AI Chat] Using model: ${model}, provider: ${provider}`);
+    console.log(`[AI Chat] Using model: ${model}, provider: ${provider}, selectedModel: ${args.selectedModel}`);
 
     // 6. Prepare messages for AI
     const systemPrompt = `You are an AI assistant for l4yercak3, a platform for managing forms, events, contacts, and more.

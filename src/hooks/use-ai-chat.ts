@@ -32,7 +32,7 @@ export interface Conversation {
   messages: Message[]
 }
 
-export function useAIChat(conversationId?: Id<"aiConversations">) {
+export function useAIChat(conversationId?: Id<"aiConversations">, selectedModel?: string) {
   const { user } = useAuth()
   const organization = user?.currentOrganization
   const [isLoading, setIsLoading] = useState(false)
@@ -75,6 +75,7 @@ export function useAIChat(conversationId?: Id<"aiConversations">) {
           message,
           organizationId: organization.id as Id<"organizations">,
           userId: user.id as Id<"users">,
+          selectedModel,
         })
 
         return result
@@ -86,7 +87,7 @@ export function useAIChat(conversationId?: Id<"aiConversations">) {
         setIsLoading(false)
       }
     },
-    [user, organization, sendMessageAction]
+    [user, organization, sendMessageAction, selectedModel]
   )
 
   /**

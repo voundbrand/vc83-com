@@ -9,12 +9,14 @@ import { useNotification } from "@/hooks/use-notification";
 import { useRetroConfirm } from "@/components/retro-confirm-dialog";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { Loader2, CheckCircle2, RefreshCw } from "lucide-react";
+import { MicrosoftScopeSelector } from "./microsoft-scope-selector";
 
 export function IntegrationsTab() {
   const { t } = useNamespaceTranslations("ui.manage");
   const { user, sessionId } = useAuth();
   const [isConnecting, setIsConnecting] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [selectedScopes, setSelectedScopes] = useState<string[]>([]);
   const notification = useNotification();
   const confirmDialog = useRetroConfirm();
 
@@ -99,6 +101,7 @@ export function IntegrationsTab() {
       const result = await initiateMicrosoftOAuth({
         sessionId,
         connectionType: "personal",
+        requestedScopes: selectedScopes,
       });
 
       // Redirect to Microsoft OAuth page
@@ -455,6 +458,12 @@ export function IntegrationsTab() {
                 <span>{t("ui.manage.integrations.features.secure_oauth")}</span>
               </div>
             </div>
+
+            {/* Microsoft Scope Selector */}
+            <MicrosoftScopeSelector
+              selectedScopes={selectedScopes}
+              onChange={setSelectedScopes}
+            />
 
             {/* Connect Button */}
             <RetroButton

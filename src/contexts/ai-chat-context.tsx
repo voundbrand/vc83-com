@@ -19,6 +19,10 @@ interface AIChatContextType {
   // UI State
   isSending: boolean
   setIsSending: (sending: boolean) => void
+
+  // Model Selection
+  selectedModel: string | undefined
+  setSelectedModel: (model: string | undefined) => void
 }
 
 const AIChatContext = createContext<AIChatContextType | undefined>(undefined)
@@ -28,8 +32,9 @@ export function AIChatProvider({ children }: { children: ReactNode }) {
     Id<"aiConversations"> | undefined
   >(undefined)
   const [isSending, setIsSending] = useState(false)
+  const [selectedModel, setSelectedModel] = useState<string | undefined>(undefined)
 
-  const chat = useAIChat(currentConversationId)
+  const chat = useAIChat(currentConversationId, selectedModel)
 
   // Get current user's organization ID
   const { user } = useAuth()
@@ -44,6 +49,8 @@ export function AIChatProvider({ children }: { children: ReactNode }) {
         chat,
         isSending,
         setIsSending,
+        selectedModel,
+        setSelectedModel,
       }}
     >
       {children}
