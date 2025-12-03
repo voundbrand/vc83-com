@@ -21,6 +21,7 @@ import { type ReactNode, useState } from "react"
 import { useQuery, useMutation, useAction } from "convex/react"
 import { api } from "../../../../../convex/_generated/api"
 import { Id } from "../../../../../convex/_generated/dataModel"
+import { RetroButton } from "@/components/retro-button"
 
 interface WorkItem {
   id: Id<"contactSyncs"> | Id<"emailCampaigns">;
@@ -115,27 +116,19 @@ function ActionButtons({
     <div className="p-3 border-t" style={{ borderColor: 'var(--win95-border-light)' }}>
       {error && (
         <div
-          className="mb-2 p-2 rounded text-xs"
-          style={{
-            background: 'var(--error-bg)',
-            color: 'var(--error)',
-          }}
+          className="retro-error mb-2"
         >
           {error}
         </div>
       )}
 
       <div className="flex gap-2">
-        {/* Approve Button */}
-        <button
+        {/* Approve Button - Uses primary variant for emphasis */}
+        <RetroButton
           onClick={handleApprove}
           disabled={isApproving || isCancelling}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{
-            background: isApproving ? 'var(--success-bg)' : 'var(--success)',
-            color: 'white',
-            border: '2px solid var(--success)',
-          }}
+          variant="primary"
+          className="flex-1 flex items-center justify-center gap-2 text-sm"
         >
           {isApproving ? (
             <>
@@ -148,18 +141,14 @@ function ActionButtons({
               <span>Approve</span>
             </>
           )}
-        </button>
+        </RetroButton>
 
-        {/* Cancel Button */}
-        <button
+        {/* Cancel Button - Uses outline variant for secondary action */}
+        <RetroButton
           onClick={handleCancel}
           disabled={isApproving || isCancelling}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{
-            background: isCancelling ? 'var(--error-bg)' : 'transparent',
-            color: isCancelling ? 'var(--error)' : 'var(--win95-text)',
-            border: '2px solid var(--win95-border-dark)',
-          }}
+          variant="outline"
+          className="flex-1 flex items-center justify-center gap-2 text-sm"
         >
           {isCancelling ? (
             <>
@@ -172,7 +161,7 @@ function ActionButtons({
               <span>Cancel</span>
             </>
           )}
-        </button>
+        </RetroButton>
       </div>
 
       <p className="text-xs mt-2 text-center" style={{ color: 'var(--win95-text-muted)' }}>

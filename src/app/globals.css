@@ -9,6 +9,7 @@
   --win95-bg: #f0f0f0;
   --win95-bg-light: #ffffff;
   --win95-border: #d0d0d0;
+  --win95-border-dark: #a0a0a0;
   --win95-border-light: #e8e8e8;
   --win95-text: #1f2937; /* gray-800 */
   --win95-text-secondary: #6b7280; /* gray-500 */
@@ -65,6 +66,10 @@
   --audio-player-text: #00ff00; /* Green terminal text */
   --audio-player-track-bg: #1a1a1a;
   --audio-player-progress: #00ff00;
+
+  /* Win95 Additional Colors */
+  --win95-text-muted: #6b7280;
+  --win95-title-bg: #d0d0d0;
 
   /* Semantic Colors */
   --neutral-gray: #6b7280;
@@ -165,6 +170,7 @@
   --win95-bg: #3d3d3d;
   --win95-bg-light: #4d4d4d;
   --win95-border: #1d1d1d;
+  --win95-border-dark: #2d2d2d;
   --win95-border-light: #5d5d5d;
   --win95-text: #e0e0e0;
   --win95-text-secondary: #9ca3af; /* gray-400 in dark mode */
@@ -221,6 +227,10 @@
   --audio-player-text: #00ff00;
   --audio-player-track-bg: #1a1a1a;
   --audio-player-progress: #00ff00;
+
+  /* Win95 Additional Colors - Dark Mode */
+  --win95-text-muted: #9ca3af;
+  --win95-title-bg: #2d2d2d;
 
   /* Semantic Colors - Dark Mode */
   --error: #ef4444;
