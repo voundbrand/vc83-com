@@ -661,7 +661,7 @@ export function AISettingsTabV3() {
                       }}
                       className="retro-button w-full py-2 text-xs font-pixel"
                     >
-                      {t("ui.store.button.contact_sales")}
+                      {t("ui.manage.ai.contact_sales")}
                     </button>
                   </div>
 
@@ -714,7 +714,7 @@ export function AISettingsTabV3() {
                       }}
                       className="retro-button w-full py-2 text-xs font-pixel"
                     >
-                      {t("ui.store.button.contact_sales")}
+                      {t("ui.manage.ai.contact_sales")}
                     </button>
                   </div>
 
@@ -767,7 +767,7 @@ export function AISettingsTabV3() {
                       }}
                       className="retro-button w-full py-2 text-xs font-pixel"
                     >
-                      {t("ui.store.button.contact_sales")}
+                      {t("ui.manage.ai.contact_sales")}
                     </button>
                   </div>
                 </div>

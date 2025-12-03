@@ -578,6 +578,17 @@ export const seed = internalMutation({
 
       // === BUTTONS ===
       {
+        key: "ui.manage.ai.contact_sales",
+        values: {
+          en: "Contact Sales",
+          de: "Vertrieb kontaktieren",
+          pl: "Skontaktuj się ze sprzedażą",
+          es: "Contactar Ventas",
+          fr: "Contacter les ventes",
+          ja: "営業に連絡",
+        }
+      },
+      {
         key: "ui.manage.ai.save_settings",
         values: {
           en: "Save AI Settings",
