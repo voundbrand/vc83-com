@@ -1,7 +1,7 @@
 "use client"
 
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
-import { Wrench, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronRight, Users, Mail, ExternalLink } from "lucide-react"
+import { Wrench, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronRight, Users, Mail, ExternalLink, AlertTriangle } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { useAIChatContext } from "@/contexts/ai-chat-context"
 import { useQuery } from "convex/react"
@@ -455,6 +455,75 @@ function WorkItemCard({ item, isSelected, onSelect }: WorkItemCardProps) {
   );
 }
 
+interface ActionItemTileProps {
+  actionButton: {
+    label: string;
+    action: string;
+    variant: string;
+  };
+  message: string;
+}
+
+function ActionItemTile({ actionButton, message }: ActionItemTileProps) {
+  const { openWindow } = useWindowManager()
+
+  const handleClick = () => {
+    if (actionButton.action === 'open_settings_integrations') {
+      import('@/components/window-content/settings-window').then((module) => {
+        openWindow(
+          'settings',
+          'Settings',
+          <module.SettingsWindow />,
+          { x: 200, y: 150 },
+          { width: 900, height: 600 },
+          'ui.windows.settings.title',
+          '⚙️'
+        )
+      })
+    }
+  }
+
+  return (
+    <div
+      className="w-full p-3 border rounded mb-2"
+      style={{
+        borderColor: 'var(--warning)',
+        background: 'var(--warning-bg)',
+        borderWidth: '2px'
+      }}
+    >
+      <div className="flex items-start gap-2">
+        {/* Icon */}
+        <div className="flex-shrink-0 mt-0.5">
+          <AlertTriangle className="w-4 h-4" style={{ color: 'var(--warning)' }} />
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          {/* Title */}
+          <p className="text-xs font-semibold mb-1" style={{ color: 'var(--warning)' }}>
+            Action Required
+          </p>
+
+          {/* Message */}
+          <p className="text-xs mb-2" style={{ color: 'var(--win95-text)' }}>
+            {message}
+          </p>
+
+          {/* Action Button */}
+          <RetroButton
+            onClick={handleClick}
+            variant={actionButton.variant === "warning" ? "primary" : actionButton.variant as "primary" | "secondary" | "outline"}
+            className="text-xs"
+          >
+            {actionButton.label}
+          </RetroButton>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ToolExecutionPanel({ selectedWorkItem, onSelectWorkItem }: ToolExecutionPanelProps) {
   const { t } = useNamespaceTranslations("ui.ai_assistant")
   const { currentConversationId, organizationId } = useAIChatContext()
@@ -492,6 +561,15 @@ export function ToolExecutionPanel({ selectedWorkItem, onSelectWorkItem }: ToolE
       error: exec.error
     };
   })
+
+  // Extract action items from failed executions with actionButton
+  const actionItems = executions
+    .filter(exec => exec.status === 'error' && exec.output && typeof exec.output === 'object' && 'actionButton' in exec.output)
+    .map(exec => ({
+      id: exec.id,
+      actionButton: (exec.output as any).actionButton,
+      message: (exec.output as any).message || exec.error || 'Action required'
+    }))
 
   return (
     <div className="flex flex-col h-full">
@@ -542,17 +620,29 @@ export function ToolExecutionPanel({ selectedWorkItem, onSelectWorkItem }: ToolE
         >
           <div className="flex items-center justify-between mb-2 px-1">
             <p className="text-xs font-semibold" style={{ color: 'var(--win95-text)' }}>
-              Work Items ({workItems?.length || 0})
+              Work Items ({(actionItems?.length || 0) + (workItems?.length || 0)})
             </p>
           </div>
 
+          {/* Action Items - Show first */}
+          {actionItems.map((actionItem) => (
+            <ActionItemTile
+              key={actionItem.id}
+              actionButton={actionItem.actionButton}
+              message={actionItem.message}
+            />
+          ))}
+
+          {/* Regular Work Items */}
           {!workItems || workItems.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-6 text-center">
-              <Users className="w-6 h-6 mb-2" style={{ color: 'var(--win95-text-muted)' }} />
-              <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
-                No active work items
-              </p>
-            </div>
+            actionItems.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-6 text-center">
+                <Users className="w-6 h-6 mb-2" style={{ color: 'var(--win95-text-muted)' }} />
+                <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+                  No active work items
+                </p>
+              </div>
+            )
           ) : (
             workItems.map((item) => (
               <WorkItemCard
