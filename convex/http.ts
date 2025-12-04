@@ -353,7 +353,6 @@ import { getForm, getPublicForm, submitPublicForm } from "./api/v1/forms";
 import { triggerWorkflow } from "./api/v1/workflows";
 import { getTransaction } from "./api/v1/transactions";
 import { getTicketPdf } from "./api/v1/tickets";
-import { getInvoice } from "./api/v1/invoices";
 import {
   getCheckoutConfig,
   createCheckoutSession,
@@ -374,6 +373,28 @@ import {
   getEvents as getUserEvents,
   updateCurrentUser,
 } from "./api/v1/users";
+import {
+  createProject,
+  listProjects,
+  getProject,
+  updateProject,
+  deleteProject,
+  listMilestones,
+  listTasks,
+  listTeamMembers,
+  listComments,
+  getActivityLog,
+} from "./api/v1/projects";
+import {
+  createInvoice,
+  listInvoices,
+  getInvoice,
+  updateInvoice,
+  deleteInvoice,
+  sealInvoice,
+  sendInvoice,
+  getInvoicePdf,
+} from "./api/v1/invoices";
 
 /**
  * Layer 1: READ APIs (Before Checkout)
@@ -660,13 +681,6 @@ http.route({
   handler: getTicketPdf,
 });
 
-// GET /api/v1/invoices/:invoiceId
-http.route({
-  path: "/api/v1/invoices/:invoiceId",
-  method: "GET",
-  handler: getInvoice,
-});
-
 /**
  * Layer 5: CRM APIs (Contact Management)
  */
@@ -750,7 +764,141 @@ http.route({
 });
 
 /**
- * Layer 7: BOOKINGS API (Event Registration)
+ * Layer 7: PROJECTS API (Project Management)
+ */
+
+// POST /api/v1/projects - Create project
+http.route({
+  path: "/api/v1/projects",
+  method: "POST",
+  handler: createProject,
+});
+
+// GET /api/v1/projects - List projects
+http.route({
+  path: "/api/v1/projects",
+  method: "GET",
+  handler: listProjects,
+});
+
+// GET /api/v1/projects/:projectId - Get project details
+http.route({
+  path: "/api/v1/projects/:projectId",
+  method: "GET",
+  handler: getProject,
+});
+
+// PATCH /api/v1/projects/:projectId - Update project
+http.route({
+  path: "/api/v1/projects/:projectId",
+  method: "PATCH",
+  handler: updateProject,
+});
+
+// DELETE /api/v1/projects/:projectId - Delete project
+http.route({
+  path: "/api/v1/projects/:projectId",
+  method: "DELETE",
+  handler: deleteProject,
+});
+
+// GET /api/v1/projects/:projectId/milestones - List milestones
+http.route({
+  path: "/api/v1/projects/:projectId/milestones",
+  method: "GET",
+  handler: listMilestones,
+});
+
+// GET /api/v1/projects/:projectId/tasks - List tasks
+http.route({
+  path: "/api/v1/projects/:projectId/tasks",
+  method: "GET",
+  handler: listTasks,
+});
+
+// GET /api/v1/projects/:projectId/team - List team members
+http.route({
+  path: "/api/v1/projects/:projectId/team",
+  method: "GET",
+  handler: listTeamMembers,
+});
+
+// GET /api/v1/projects/:projectId/comments - List comments
+http.route({
+  path: "/api/v1/projects/:projectId/comments",
+  method: "GET",
+  handler: listComments,
+});
+
+// GET /api/v1/projects/:projectId/activity - Get activity log
+http.route({
+  path: "/api/v1/projects/:projectId/activity",
+  method: "GET",
+  handler: getActivityLog,
+});
+
+/**
+ * Layer 7.5: INVOICES API
+ */
+
+// POST /api/v1/invoices - Create draft invoice
+http.route({
+  path: "/api/v1/invoices",
+  method: "POST",
+  handler: createInvoice,
+});
+
+// GET /api/v1/invoices - List invoices
+http.route({
+  path: "/api/v1/invoices",
+  method: "GET",
+  handler: listInvoices,
+});
+
+// GET /api/v1/invoices/:invoiceId - Get invoice details
+http.route({
+  path: "/api/v1/invoices/:invoiceId",
+  method: "GET",
+  handler: getInvoice,
+});
+
+// PATCH /api/v1/invoices/:invoiceId - Update draft invoice
+http.route({
+  path: "/api/v1/invoices/:invoiceId",
+  method: "PATCH",
+  handler: updateInvoice,
+});
+
+// DELETE /api/v1/invoices/:invoiceId - Delete draft invoice
+http.route({
+  path: "/api/v1/invoices/:invoiceId",
+  method: "DELETE",
+  handler: deleteInvoice,
+});
+
+// POST /api/v1/invoices/:invoiceId/seal - Seal draft invoice
+http.route({
+  path: "/api/v1/invoices/:invoiceId/seal",
+  method: "POST",
+  handler: sealInvoice,
+});
+
+// POST /api/v1/invoices/:invoiceId/send - Send invoice
+http.route({
+  path: "/api/v1/invoices/:invoiceId/send",
+  method: "POST",
+  handler: sendInvoice,
+});
+
+// GET /api/v1/invoices/:invoiceId/pdf - Get invoice PDF
+http.route({
+  path: "/api/v1/invoices/:invoiceId/pdf",
+  method: "GET",
+  handler: getInvoicePdf,
+});
+
+/**
+ * Layer 8: BOOKINGS API (Event Registration)
  */
 
 // OPTIONS /api/v1/bookings/create - CORS preflight

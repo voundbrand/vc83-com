@@ -28,6 +28,7 @@ import { WorkflowsWindow } from "@/components/window-content/workflows-window"
 import { TemplatesWindow } from "@/components/window-content/templates-window"
 import { AIChatWindow } from "@/components/window-content/ai-chat-window"
 import { StoreWindow } from "@/components/window-content/store-window"
+import { ProjectsWindow } from "@/components/window-content/projects-window"
 import { WindowsMenu } from "@/components/windows-menu"
 import { useIsMobile } from "@/hooks/use-media-query"
 import { useAuth, useOrganizations, useCurrentOrganization, useIsSuperAdmin, useAccountDeletionStatus } from "@/hooks/use-auth"
@@ -176,6 +177,10 @@ export default function HomePage() {
     openWindow("store", "l4yercak3 Store", <StoreWindow />, { x: 150, y: 80 }, { width: 900, height: 650 }, 'ui.start_menu.store', '🏪')
   }
 
+  const openProjectsWindow = () => {
+    openWindow("projects", "Projects", <ProjectsWindow />, { x: 240, y: 75 }, { width: 1000, height: 700 }, 'ui.app.projects')
+  }
+
   const handleLogout = () => {
     signOut()
   }
@@ -293,6 +298,7 @@ export default function HomePage() {
       'crm': isAppAvailable("crm"),
       'app_invoicing': isAppAvailable("app_invoicing"),
       'workflows': isAppAvailable("workflows"),
+      'projects': isAppAvailable("projects"),
     }
   });
 
@@ -341,6 +347,10 @@ export default function HomePage() {
     // Invoicing app - B2B/B2C invoice management
     ...(isAppAvailable("app_invoicing") ? [
       { label: t('ui.app.invoicing'), icon: "🧾", onClick: requireAuth(openInvoicingWindow) }
+    ] : []),
+    // Projects app - project management
+    ...(isAppAvailable("projects") ? [
+      { label: "Projects", icon: "💼", onClick: requireAuth(openProjectsWindow) }
     ] : []),
     // Workflows app - Multi-object behavior orchestration
     ...(isAppAvailable("workflows") ? [

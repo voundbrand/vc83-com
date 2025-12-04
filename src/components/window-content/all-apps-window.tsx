@@ -18,6 +18,7 @@ import { FormsWindow } from "@/components/window-content/forms-window";
 import { CRMWindow } from "@/components/window-content/crm-window";
 import { InvoicingWindow } from "@/components/window-content/invoicing-window";
 import { WorkflowsWindow } from "@/components/window-content/workflows-window";
+import { ProjectsWindow } from "@/components/window-content/projects-window";
 
 /**
  * All Apps Window
@@ -48,6 +49,7 @@ export function AllAppsWindow() {
       'crm': 'ui.app.crm',
       'app_invoicing': 'ui.app.invoicing',
       'workflows': 'ui.app.workflows',
+      'projects': 'ui.app.projects',
     };
 
     const translationKey = translationKeyMap[appCode];
@@ -118,6 +120,11 @@ export function AllAppsWindow() {
         component: <WorkflowsWindow />,
         width: 1200,
         height: 750
+      },
+      'projects': {
+        component: <ProjectsWindow />,
+        width: 1000,
+        height: 700
       },
     };
 
