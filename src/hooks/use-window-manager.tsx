@@ -1,6 +1,7 @@
 "use client"
 
-import { createContext, useContext, useState, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, type ReactNode, Suspense } from "react"
+import { getWindowFactory, type WindowConfig } from "./window-registry"
 
 interface Window {
   id: string
@@ -16,11 +17,31 @@ interface Window {
   isMinimized?: boolean
   savedPosition?: { x: number; y: number }
   savedSize?: { width: number; height: number }
+  props?: Record<string, unknown> // Store props for restoration
 }
+
+// Serializable window state (without ReactNode component)
+interface SerializableWindowState {
+  id: string
+  title: string
+  titleKey?: string
+  icon?: string
+  isOpen: boolean
+  position: { x: number; y: number }
+  size: { width: number; height: number }
+  zIndex: number
+  isMaximized?: boolean
+  isMinimized?: boolean
+  savedPosition?: { x: number; y: number }
+  savedSize?: { width: number; height: number }
+  props?: Record<string, unknown>
+}
+
+const WINDOW_STATE_KEY = "vc83_window_state"
 
 interface WindowManagerContextType {
   windows: Window[]
-  openWindow: (id: string, title: string, component: ReactNode, position?: { x: number; y: number }, size?: { width: number; height: number }, titleKey?: string, icon?: string) => void
+  openWindow: (id: string, title: string, component: ReactNode, position?: { x: number; y: number }, size?: { width: number; height: number }, titleKey?: string, icon?: string, props?: Record<string, unknown>) => void
   closeWindow: (id: string) => void
   closeAllWindows: () => void
   focusWindow: (id: string) => void
@@ -38,8 +59,91 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
   const [windows, setWindows] = useState<Window[]>([])
   const [nextZIndex, setNextZIndex] = useState(100)
   const [cascadeOffset, setCascadeOffset] = useState({ x: 100, y: 100 })
+  const [isRestored, setIsRestored] = useState(false)
 
-  const openWindow = (id: string, title: string, component: ReactNode, position?: { x: number; y: number }, size?: { width: number; height: number }, titleKey?: string, icon?: string) => {
+  // Restore windows from sessionStorage on mount
+  useEffect(() => {
+    if (typeof window === "undefined" || isRestored) return
+
+    try {
+      const savedState = sessionStorage.getItem(WINDOW_STATE_KEY)
+      if (!savedState) {
+        setIsRestored(true)
+        return
+      }
+
+      const parsed: {
+        windows: SerializableWindowState[]
+        nextZIndex: number
+        cascadeOffset: { x: number; y: number }
+      } = JSON.parse(savedState)
+
+      // Restore windows by recreating components from registry
+      const restoredWindows: Window[] = []
+      for (const savedWindow of parsed.windows) {
+        const factory = getWindowFactory(savedWindow.id)
+        if (factory) {
+          const component = (
+            <Suspense fallback={<div>Loading...</div>}>
+              {factory.createComponent(savedWindow.props)}
+            </Suspense>
+          )
+          restoredWindows.push({
+            ...savedWindow,
+            component
+          })
+        }
+      }
+
+      if (restoredWindows.length > 0) {
+        setWindows(restoredWindows)
+        setNextZIndex(parsed.nextZIndex)
+        setCascadeOffset(parsed.cascadeOffset)
+      }
+    } catch (error) {
+      console.error("Failed to restore window state:", error)
+      // Clear invalid state
+      sessionStorage.removeItem(WINDOW_STATE_KEY)
+    } finally {
+      setIsRestored(true)
+    }
+  }, [isRestored])
+
+  // Save windows to sessionStorage whenever they change
+  useEffect(() => {
+    if (typeof window === "undefined" || !isRestored) return
+
+    try {
+      // Convert windows to serializable format
+      const serializableWindows: SerializableWindowState[] = windows.map(w => ({
+        id: w.id,
+        title: w.title,
+        titleKey: w.titleKey,
+        icon: w.icon,
+        isOpen: w.isOpen,
+        position: w.position,
+        size: w.size,
+        zIndex: w.zIndex,
+        isMaximized: w.isMaximized,
+        isMinimized: w.isMinimized,
+        savedPosition: w.savedPosition,
+        savedSize: w.savedSize,
+        props: w.props
+      }))
+
+      const state = {
+        windows: serializableWindows,
+        nextZIndex,
+        cascadeOffset
+      }
+
+      sessionStorage.setItem(WINDOW_STATE_KEY, JSON.stringify(state))
+    } catch (error) {
+      console.error("Failed to save window state:", error)
+    }
+  }, [windows, nextZIndex, cascadeOffset, isRestored])
+
+  const openWindow = (id: string, title: string, component: ReactNode, position?: { x: number; y: number }, size?: { width: number; height: number }, titleKey?: string, icon?: string, props?: Record<string, unknown>) => {
     setWindows((prev) => {
       const existing = prev.find((w) => w.id === id)
       if (existing) {
@@ -81,6 +185,7 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
           zIndex: nextZIndex,
           isMaximized: false,
           isMinimized: false,
+          props, // Store props for restoration
         },
       ]
     })
