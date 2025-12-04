@@ -168,6 +168,11 @@ export const executeSendBulkCRMEmail = action({
     instructions?: string[];
     requiredScopes?: string[];
     currentScopes?: string[];
+    actionButton?: {
+      label: string;
+      action: string;
+      variant: string;
+    };
     results?: {
       sent: number;
       failed: number;
@@ -207,7 +212,12 @@ export const executeSendBulkCRMEmail = action({
             "5. Once connected, come back here and try again"
           ],
           requiredScopes: ["Mail.Send"],
-          totalRecipients: 0
+          totalRecipients: 0,
+          actionButton: {
+            label: "Open Settings → Integrations",
+            action: "open_settings_integrations",
+            variant: "primary"
+          }
         };
       }
 
@@ -229,7 +239,12 @@ export const executeSendBulkCRMEmail = action({
           ],
           currentScopes: connection.scopes,
           requiredScopes: ["Mail.Send"],
-          totalRecipients: 0
+          totalRecipients: 0,
+          actionButton: {
+            label: "Reconnect Microsoft Account",
+            action: "open_settings_integrations",
+            variant: "warning"
+          }
         };
       }
     }

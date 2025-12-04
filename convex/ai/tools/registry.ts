@@ -120,7 +120,12 @@ const syncContactsTool: AITool = {
           `5. Once connected, come back here and try again`
         ],
         requiredScopes: ["Contacts.Read", "Contacts.ReadWrite"],
-        helpUrl: "https://docs.l4yercak3.com/integrations/microsoft-contacts"
+        helpUrl: "https://docs.l4yercak3.com/integrations/microsoft-contacts",
+        actionButton: {
+          label: "Open Settings → Integrations",
+          action: "open_settings_integrations",
+          variant: "primary"
+        }
       };
     }
 
@@ -147,7 +152,12 @@ const syncContactsTool: AITool = {
         ],
         currentScopes: connection.scopes,
         requiredScopes,
-        helpUrl: "https://docs.l4yercak3.com/integrations/microsoft-contacts#scopes"
+        helpUrl: "https://docs.l4yercak3.com/integrations/microsoft-contacts#scopes",
+        actionButton: {
+          label: "Reconnect Microsoft Account",
+          action: "open_settings_integrations",
+          variant: "warning"
+        }
       };
     }
 

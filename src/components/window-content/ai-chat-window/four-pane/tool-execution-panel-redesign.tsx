@@ -1,12 +1,14 @@
 "use client"
 
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
-import { Wrench, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronRight, Users, Mail } from "lucide-react"
+import { Wrench, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronRight, Users, Mail, ExternalLink } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { useAIChatContext } from "@/contexts/ai-chat-context"
 import { useQuery } from "convex/react"
 import { api } from "../../../../../convex/_generated/api"
 import type { Id } from "../../../../../convex/_generated/dataModel"
+import { useWindowManager } from "@/hooks/use-window-manager"
+import { RetroButton } from "@/components/retro-button"
 
 interface ToolExecution {
   id: string
@@ -45,6 +47,32 @@ function ToolExecutionItem({ execution }: ToolExecutionItemProps) {
   const { t } = useNamespaceTranslations("ui.ai_assistant")
   const [isExpanded, setIsExpanded] = useState(false)
   const [showDebug, setShowDebug] = useState(false)
+  const { openWindow } = useWindowManager()
+
+  // Extract action button from output if it exists
+  const actionButton = execution.output && typeof execution.output === 'object' && 'actionButton' in execution.output
+    ? (execution.output as any).actionButton
+    : null
+
+  // Handle action button click
+  const handleActionClick = () => {
+    if (!actionButton) return
+
+    if (actionButton.action === 'open_settings_integrations') {
+      // Dynamically import the SettingsWindow component
+      import('@/components/window-content/settings-window').then((module) => {
+        openWindow(
+          'settings',
+          'Settings',
+          <module.SettingsWindow />,
+          { x: 200, y: 150 },
+          { width: 900, height: 600 },
+          'ui.windows.settings.title',
+          '⚙️'
+        )
+      })
+    }
+  }
 
   const statusConfig = {
     running: {
@@ -151,7 +179,6 @@ function ToolExecutionItem({ execution }: ToolExecutionItemProps) {
           className="px-2 pb-2 space-y-2 border-t"
           style={{ borderColor: 'var(--win95-border-light)' }}
         >
-          {/* @ts-expect-error - Translation hook return type needs refinement */}
           {/* Input */}
           <div>
             <p className="text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
@@ -200,6 +227,19 @@ function ToolExecutionItem({ execution }: ToolExecutionItemProps) {
               }}>
                 {execution.error}
               </p>
+            </div>
+          )}
+
+          {/* Action Button - Show if present in output */}
+          {actionButton && (
+            <div className="pt-2">
+              <RetroButton
+                onClick={handleActionClick}
+                variant={actionButton.variant || 'primary'}
+                className="text-xs"
+              >
+                {actionButton.label}
+              </RetroButton>
             </div>
           )}
 
