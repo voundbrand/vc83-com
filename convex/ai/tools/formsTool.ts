@@ -85,7 +85,8 @@ interface FormStatistics {
 
 export const executeManageForms = action({
   args: {
-    sessionId: v.string(),
+    sessionId: v.optional(v.string()),
+    organizationId: v.optional(v.id("organizations")),
     action: v.string(),
     formId: v.optional(v.string()),
     formType: v.optional(v.string()),
@@ -99,39 +100,55 @@ export const executeManageForms = action({
     message?: string;
     error?: string;
   }> => {
-    // Get user session and organization
-    const session = await ctx.runQuery(internal.stripeConnect.validateSession, {
-      sessionId: args.sessionId
-    });
+    // Get organization ID either from session or directly
+    let organizationId: Id<"organizations">;
+    let sessionId: string | undefined = args.sessionId;
 
-    if (!session || !session.organizationId) {
-      throw new Error("User must belong to an organization");
+    if (args.organizationId) {
+      // Direct organizationId provided (e.g., from AI tools)
+      organizationId = args.organizationId;
+    } else if (args.sessionId) {
+      // Get from session (e.g., from web frontend)
+      const session = await ctx.runQuery(internal.stripeConnect.validateSession, {
+        sessionId: args.sessionId
+      });
+
+      if (!session || !session.organizationId) {
+        throw new Error("Invalid session or user must belong to an organization");
+      }
+
+      organizationId = session.organizationId;
+    } else {
+      throw new Error("Either sessionId or organizationId must be provided");
     }
 
-    const organizationId = session.organizationId;
+    // Use a placeholder sessionId for internal calls if needed
+    if (!sessionId) {
+      sessionId = "ai-internal-session";
+    }
 
     try {
       switch (args.action) {
         case "list":
-          return await listForms(ctx, args.sessionId, organizationId, args.formType, args.status);
+          return await listForms(ctx, sessionId, organizationId, args.formType, args.status);
 
         case "statistics":
           if (!args.formId) {
             throw new Error("formId is required for statistics action");
           }
-          return await getFormStatistics(ctx, args.sessionId, args.formId, args.includeRatings);
+          return await getFormStatistics(ctx, sessionId, args.formId, args.includeRatings);
 
         case "responses":
           if (!args.formId) {
             throw new Error("formId is required for responses action");
           }
-          return await getFormResponsesData(ctx, args.sessionId, args.formId);
+          return await getFormResponsesData(ctx, sessionId, args.formId);
 
         case "duplicate":
           if (!args.formId) {
             throw new Error("formId is required for duplicate action");
           }
-          return await duplicateForm(ctx, args.sessionId, args.formId);
+          return await duplicateForm(ctx, sessionId, args.formId);
 
         default:
           return {

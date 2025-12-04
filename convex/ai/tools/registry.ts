@@ -800,6 +800,7 @@ const manageFormsTool: AITool = {
   execute: async (ctx, args) => {
     const result = await ctx.runAction(api.ai.tools.formsTool.executeManageForms, {
       sessionId: ctx.sessionId,
+      organizationId: ctx.organizationId,
       action: args.action,
       formId: args.formId,
       formType: args.formType,
