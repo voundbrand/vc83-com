@@ -87,7 +87,7 @@ export default function HomePage() {
   }
 
   const openSettingsWindow = () => {
-    openWindow("settings", "Settings", <ControlPanelWindow />, { x: 200, y: 100 }, { width: 700, height: 550 }, 'ui.start_menu.settings', '⚙️')
+    openWindow("control-panel", "Settings", <ControlPanelWindow />, { x: 200, y: 100 }, { width: 700, height: 550 }, 'ui.start_menu.settings', '⚙️')
   }
 
   const openLoginWindow = () => {
