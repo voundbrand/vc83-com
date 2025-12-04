@@ -188,9 +188,9 @@ export function TemplatesTab({ onUseTemplate }: TemplatesTabProps) {
                   }}
                   className="flex-1 px-3 py-2 text-xs font-semibold rounded flex items-center justify-center gap-2 transition-opacity border-2"
                   style={{
-                    backgroundColor: colorVar,
-                    color: "var(--win95-titlebar-text)",
-                    borderColor: colorVar,
+                    backgroundColor: "var(--win95-highlight)",
+                    color: "white",
+                    borderColor: "var(--win95-highlight)",
                   }}
                 >
                   <FileText size={14} />
@@ -198,11 +198,11 @@ export function TemplatesTab({ onUseTemplate }: TemplatesTabProps) {
                 </button>
                 <button
                   disabled
-                  className="px-3 py-2 text-xs font-semibold rounded opacity-50 cursor-not-allowed"
+                  className="px-3 py-2 text-xs font-semibold rounded opacity-50 cursor-not-allowed border-2"
                   style={{
-                    backgroundColor: "var(--win95-bg)",
+                    backgroundColor: "var(--win95-button-face)",
                     color: "var(--win95-text)",
-                    border: "2px solid var(--win95-border)",
+                    borderColor: "var(--win95-border)",
                   }}
                   title={t("ui.forms.templates.buttons.preview_hint")}
                 >

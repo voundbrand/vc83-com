@@ -186,7 +186,7 @@ export const themes: Theme[] = [
       win95Text: "#0f172a", // Slate 900 for text
       win95Highlight: "#0f172a", // Slate 900 for accents
       win95HoverBg: "#f1f5f9", // Very subtle light gray hover
-      win95HoverText: "#0f172a", // Keep text dark on hover
+      win95HoverText: "#ffffff", // White text on dark highlight background
       foreground: "#0f172a",
     },
   },
@@ -202,7 +202,7 @@ export const themes: Theme[] = [
       win95Text: "#fafafa", // Neutral 50 for text
       win95Highlight: "#fafafa", // Neutral 50 for accents
       win95HoverBg: "#262626", // Subtle dark gray hover
-      win95HoverText: "#ffffff", // Pure white text on hover
+      win95HoverText: "#0a0a0a", // Dark text on light highlight background
       foreground: "#fafafa",
     },
   },

@@ -1438,7 +1438,7 @@ async function checkIsOrgOwnerOrSuperAdmin(
   }
 
   // Check org owner role
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const membership = await ctx.db
     .query("organizationMembers")
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

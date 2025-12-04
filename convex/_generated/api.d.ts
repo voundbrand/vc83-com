@@ -35,6 +35,7 @@ import type * as ai_resetAISettings from "../ai/resetAISettings.js";
 import type * as ai_settings from "../ai/settings.js";
 import type * as ai_tools_bulkCRMEmailTool from "../ai/tools/bulkCRMEmailTool.js";
 import type * as ai_tools_contactSyncTool from "../ai/tools/contactSyncTool.js";
+import type * as ai_tools_formsTool from "../ai/tools/formsTool.js";
 import type * as ai_tools_internalToolMutations from "../ai/tools/internalToolMutations.js";
 import type * as ai_tools_registry from "../ai/tools/registry.js";
 import type * as ai_workItemActions from "../ai/workItemActions.js";
@@ -395,6 +396,7 @@ declare const fullApi: ApiFromModules<{
   "ai/settings": typeof ai_settings;
   "ai/tools/bulkCRMEmailTool": typeof ai_tools_bulkCRMEmailTool;
   "ai/tools/contactSyncTool": typeof ai_tools_contactSyncTool;
+  "ai/tools/formsTool": typeof ai_tools_formsTool;
   "ai/tools/internalToolMutations": typeof ai_tools_internalToolMutations;
   "ai/tools/registry": typeof ai_tools_registry;
   "ai/workItemActions": typeof ai_workItemActions;

@@ -188,20 +188,20 @@ export function TemplatesTab() {
                 onClick={() => handlePreview(template.id)}
                 className="flex-1 px-3 py-2 text-xs font-semibold rounded flex items-center justify-center gap-2 hover:opacity-90 transition-opacity border-2"
                 style={{
-                  backgroundColor: template.colorVar,
-                  color: "var(--win95-titlebar-text)",
-                  borderColor: template.colorVar,
+                  backgroundColor: "var(--win95-highlight)",
+                  color: "white",
+                  borderColor: "var(--win95-highlight)",
                 }}
               >
                 <Eye size={14} />
                 {t("ui.invoicing_window.templates.buttons.preview")}
               </button>
               <button
-                className="px-3 py-2 text-xs font-semibold rounded opacity-50 cursor-not-allowed"
+                className="px-3 py-2 text-xs font-semibold rounded opacity-50 cursor-not-allowed border-2"
                 style={{
-                  backgroundColor: "var(--win95-bg)",
+                  backgroundColor: "var(--win95-button-face)",
                   color: "var(--win95-text)",
-                  border: "2px solid var(--win95-border)",
+                  borderColor: "var(--win95-border)",
                 }}
                 disabled
                 title={t("ui.invoicing_window.templates.buttons.use_hint")}

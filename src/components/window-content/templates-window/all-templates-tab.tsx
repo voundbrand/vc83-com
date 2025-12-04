@@ -138,9 +138,9 @@ export function AllTemplatesTab({ onEditTemplate, onCreateTemplate, onViewSchema
   const getTabButtonStyle = (tab: TabType) => ({
     borderColor: 'var(--win95-border)',
     borderWidth: '2px',
-    borderStyle: 'solid',
-    background: activeTab === tab ? 'var(--win95-highlight)' : 'var(--win95-bg-light)',
-    color: activeTab === tab ? 'white' : 'var(--win95-text)',
+    borderStyle: 'solid' as const,
+    background: activeTab === tab ? 'var(--win95-highlight)' : 'var(--win95-button-face)',
+    color: activeTab === tab ? 'var(--win95-hover-text)' : 'var(--win95-text)',
   });
 
   const categoryOptions: Array<{ value: CategoryFilter; label: string; icon?: string }> = [
@@ -194,8 +194,8 @@ export function AllTemplatesTab({ onEditTemplate, onCreateTemplate, onViewSchema
               borderColor: 'var(--win95-border)',
               borderWidth: '2px',
               borderStyle: 'solid',
-              background: filterType === "all" ? 'var(--win95-highlight)' : 'var(--win95-bg-light)',
-              color: filterType === "all" ? 'white' : 'var(--win95-text)',
+              background: filterType === "all" ? 'var(--win95-highlight)' : 'var(--win95-button-face)',
+              color: filterType === "all" ? 'var(--win95-hover-text)' : 'var(--win95-text)',
             }}
           >
             All
@@ -207,8 +207,8 @@ export function AllTemplatesTab({ onEditTemplate, onCreateTemplate, onViewSchema
               borderColor: 'var(--win95-border)',
               borderWidth: '2px',
               borderStyle: 'solid',
-              background: filterType === "email" ? 'var(--win95-highlight)' : 'var(--win95-bg-light)',
-              color: filterType === "email" ? 'white' : 'var(--win95-text)',
+              background: filterType === "email" ? 'var(--win95-highlight)' : 'var(--win95-button-face)',
+              color: filterType === "email" ? 'var(--win95-hover-text)' : 'var(--win95-text)',
             }}
           >
             Email
@@ -220,8 +220,8 @@ export function AllTemplatesTab({ onEditTemplate, onCreateTemplate, onViewSchema
               borderColor: 'var(--win95-border)',
               borderWidth: '2px',
               borderStyle: 'solid',
-              background: filterType === "pdf" ? 'var(--win95-highlight)' : 'var(--win95-bg-light)',
-              color: filterType === "pdf" ? 'white' : 'var(--win95-text)',
+              background: filterType === "pdf" ? 'var(--win95-highlight)' : 'var(--win95-button-face)',
+              color: filterType === "pdf" ? 'var(--win95-hover-text)' : 'var(--win95-text)',
             }}
           >
             PDF
@@ -268,17 +268,12 @@ export function AllTemplatesTab({ onEditTemplate, onCreateTemplate, onViewSchema
                 borderColor: categoryFilter !== "all" ? 'var(--win95-highlight)' : 'var(--win95-border)',
                 borderWidth: '2px',
                 borderStyle: 'solid',
-                background: categoryFilter !== "all" ? 'rgba(107, 70, 193, 0.1)' : 'var(--win95-bg-light)',
-                color: 'var(--win95-text)',
+                background: categoryFilter !== "all" ? 'var(--win95-highlight)' : 'var(--win95-button-face)',
+                color: categoryFilter !== "all" ? 'var(--win95-hover-text)' : 'var(--win95-text)',
               }}
             >
               <Tag size={12} />
               {categoryOptions.find(o => o.value === categoryFilter)?.label}
-              {categoryFilter !== "all" && (
-                <span className="ml-1 px-1.5 py-0.5 text-xs rounded" style={{ background: 'var(--win95-highlight)', color: 'white' }}>
-                  ✓
-                </span>
-              )}
               <ChevronDown size={12} />
             </button>
 
@@ -339,17 +334,12 @@ export function AllTemplatesTab({ onEditTemplate, onCreateTemplate, onViewSchema
                 borderColor: propertyFilter !== "all" ? 'var(--win95-highlight)' : 'var(--win95-border)',
                 borderWidth: '2px',
                 borderStyle: 'solid',
-                background: propertyFilter !== "all" ? 'rgba(107, 70, 193, 0.1)' : 'var(--win95-bg-light)',
-                color: 'var(--win95-text)',
+                background: propertyFilter !== "all" ? 'var(--win95-highlight)' : 'var(--win95-button-face)',
+                color: propertyFilter !== "all" ? 'var(--win95-hover-text)' : 'var(--win95-text)',
               }}
             >
               <Shield size={12} />
               {propertyOptions.find(o => o.value === propertyFilter)?.label}
-              {propertyFilter !== "all" && (
-                <span className="ml-1 px-1.5 py-0.5 text-xs rounded" style={{ background: 'var(--win95-highlight)', color: 'white' }}>
-                  ✓
-                </span>
-              )}
               <ChevronDown size={12} />
             </button>
 
@@ -420,19 +410,14 @@ export function AllTemplatesTab({ onEditTemplate, onCreateTemplate, onViewSchema
                   borderColor: templateSetFilter !== "all" ? 'var(--win95-highlight)' : 'var(--win95-border)',
                   borderWidth: '2px',
                   borderStyle: 'solid',
-                  background: templateSetFilter !== "all" ? 'rgba(107, 70, 193, 0.1)' : 'var(--win95-bg-light)',
-                  color: 'var(--win95-text)',
+                  background: templateSetFilter !== "all" ? 'var(--win95-highlight)' : 'var(--win95-button-face)',
+                  color: templateSetFilter !== "all" ? 'var(--win95-hover-text)' : 'var(--win95-text)',
                 }}
               >
                 <Layers size={12} />
                 {templateSetFilter === "all"
                   ? "All Template Sets"
                   : templateSets.find(s => s._id === templateSetFilter)?.name || "Template Set"}
-                {templateSetFilter !== "all" && (
-                  <span className="ml-1 px-1.5 py-0.5 text-xs rounded" style={{ background: 'var(--win95-highlight)', color: 'white' }}>
-                    ✓
-                  </span>
-                )}
                 <ChevronDown size={12} />
               </button>
 
