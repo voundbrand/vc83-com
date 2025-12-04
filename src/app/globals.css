@@ -540,14 +540,14 @@
 
 [data-window-style="shadcn"] .retro-button-primary {
   border-radius: 8px;
-  background: var(--win95-highlight);
-  color: var(--win95-bg);
-  border: 1px solid transparent;
+  background: var(--win95-bg);
+  color: var(--win95-text-muted);
+  border: 1px solid var(--win95-border);
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
 }
 
 [data-window-style="shadcn"] .retro-button-primary:hover {
-  background: var(--win95-text);
+  background: var(--win95-hover-light);
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
