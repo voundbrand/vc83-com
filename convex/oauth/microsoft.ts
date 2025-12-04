@@ -477,14 +477,20 @@ export const verifyState = internalQuery({
   } | null> => {
     const stateRecord = await ctx.db
       .query("oauthStates")
-      .filter((q) => q.eq(q.field("state"), args.state))
+      .withIndex("by_state", (q) => q.eq("state", args.state))
       .first();
 
     if (!stateRecord) {
+      console.error("State token not found in database:", args.state);
       return null;
     }
 
     if (stateRecord.expiresAt < Date.now()) {
+      console.error("State token expired:", {
+        state: args.state,
+        expiresAt: new Date(stateRecord.expiresAt).toISOString(),
+        now: new Date(Date.now()).toISOString()
+      });
       return null;
     }
 
@@ -577,7 +583,7 @@ export const deleteState = internalMutation({
   handler: async (ctx, args) => {
     const stateRecord = await ctx.db
       .query("oauthStates")
-      .filter((q) => q.eq(q.field("state"), args.state))
+      .withIndex("by_state", (q) => q.eq("state", args.state))
       .first();
 
     if (stateRecord) {

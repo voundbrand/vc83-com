@@ -426,20 +426,22 @@ interface ActionItemTileProps {
 }
 
 function ActionItemTile({ actionButton, message }: ActionItemTileProps) {
-  const { openWindow } = useWindowManager()
+  const { closeWindow, openWindow } = useWindowManager()
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation()
     if (actionButton.action === 'open_settings_integrations') {
-      import('@/components/window-content/settings-window').then((module) => {
+      // Close window if it exists to reset state, then open with integrations tab
+      closeWindow('manage')
+
+      // Open Manage window with Integrations tab
+      import('@/components/window-content/org-owner-manage-window').then((module) => {
         openWindow(
-          'settings',
-          'Settings',
-          <module.SettingsWindow />,
-          { x: 200, y: 150 },
-          { width: 900, height: 600 },
-          'ui.windows.settings.title',
-          '⚙️'
+          'manage',
+          'Manage',
+          <module.ManageWindow initialTab="integrations" />,
+          { x: 200, y: 50 },
+          { width: 1200, height: 700 }
         )
       })
     }
