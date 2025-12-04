@@ -75,6 +75,54 @@ const PlatformCartWindow = lazy(() =>
   import("@/components/window-content/platform-cart-window").then(m => ({ default: m.PlatformCartWindow }))
 );
 
+const MediaLibraryWindow = lazy(() =>
+  import("@/components/window-content/media-library-window").then(m => ({ default: m.MediaLibraryWindow }))
+);
+
+const PaymentsWindow = lazy(() =>
+  import("@/components/window-content/payments-window").then(m => ({ default: m.PaymentsWindow }))
+);
+
+const ProductsWindow = lazy(() =>
+  import("@/components/window-content/products-window").then(m => ({ default: m.ProductsWindow }))
+);
+
+const TicketsWindow = lazy(() =>
+  import("@/components/window-content/tickets-window").then(m => ({ default: m.TicketsWindow }))
+);
+
+const CertificatesWindow = lazy(() =>
+  import("@/components/window-content/certificates-window").then(m => ({ default: m.CertificatesWindow }))
+);
+
+const EventsWindow = lazy(() =>
+  import("@/components/window-content/events-window").then(m => ({ default: m.EventsWindow }))
+);
+
+const CheckoutWindow = lazy(() =>
+  import("@/components/window-content/checkout-window").then(m => ({ default: m.CheckoutWindow }))
+);
+
+const FormsWindow = lazy(() =>
+  import("@/components/window-content/forms-window").then(m => ({ default: m.FormsWindow }))
+);
+
+const WebPublishingWindow = lazy(() =>
+  import("@/components/window-content/web-publishing-window").then(m => ({ default: m.WebPublishingWindow }))
+);
+
+const InvoicingWindow = lazy(() =>
+  import("@/components/window-content/invoicing-window").then(m => ({ default: m.InvoicingWindow }))
+);
+
+const WorkflowsWindow = lazy(() =>
+  import("@/components/window-content/workflows-window").then(m => ({ default: m.WorkflowsWindow }))
+);
+
+const TemplatesWindow = lazy(() =>
+  import("@/components/window-content/templates-window").then(m => ({ default: m.TemplatesWindow }))
+);
+
 /**
  * Registry of all available windows
  */
@@ -219,6 +267,138 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
       icon: "🛒",
       position: { x: 200, y: 150 },
       size: { width: 800, height: 600 }
+    }
+  },
+
+  "media-library": {
+    createComponent: () => <MediaLibraryWindow />,
+    defaultConfig: {
+      title: "Media Library",
+      titleKey: "ui.windows.media_library.title",
+      icon: "📁",
+      position: { x: 150, y: 100 },
+      size: { width: 1200, height: 700 }
+    }
+  },
+
+  "payments": {
+    createComponent: () => <PaymentsWindow />,
+    defaultConfig: {
+      title: "Payments",
+      titleKey: "ui.windows.payments.title",
+      icon: "💳",
+      position: { x: 150, y: 100 },
+      size: { width: 1100, height: 700 }
+    }
+  },
+
+  "products": {
+    createComponent: () => <ProductsWindow />,
+    defaultConfig: {
+      title: "Products",
+      titleKey: "ui.windows.products.title",
+      icon: "📦",
+      position: { x: 150, y: 100 },
+      size: { width: 1200, height: 700 }
+    }
+  },
+
+  "tickets": {
+    createComponent: (props) => <TicketsWindow {...(props as any)} />,
+    defaultConfig: {
+      title: "Tickets",
+      titleKey: "ui.windows.tickets.title",
+      icon: "🎫",
+      position: { x: 150, y: 100 },
+      size: { width: 1000, height: 700 }
+    }
+  },
+
+  "certificates": {
+    createComponent: () => <CertificatesWindow />,
+    defaultConfig: {
+      title: "Certificates",
+      titleKey: "ui.windows.certificates.title",
+      icon: "🎓",
+      position: { x: 150, y: 100 },
+      size: { width: 900, height: 600 }
+    }
+  },
+
+  "events": {
+    createComponent: () => <EventsWindow />,
+    defaultConfig: {
+      title: "Events",
+      titleKey: "ui.windows.events.title",
+      icon: "📅",
+      position: { x: 150, y: 100 },
+      size: { width: 1200, height: 700 }
+    }
+  },
+
+  "checkout": {
+    createComponent: () => <CheckoutWindow />,
+    defaultConfig: {
+      title: "Checkout",
+      titleKey: "ui.windows.checkout.title",
+      icon: "💰",
+      position: { x: 200, y: 150 },
+      size: { width: 800, height: 600 }
+    }
+  },
+
+  "forms": {
+    createComponent: () => <FormsWindow />,
+    defaultConfig: {
+      title: "Forms",
+      titleKey: "ui.windows.forms.title",
+      icon: "📝",
+      position: { x: 150, y: 100 },
+      size: { width: 1100, height: 700 }
+    }
+  },
+
+  "web-publishing": {
+    createComponent: () => <WebPublishingWindow />,
+    defaultConfig: {
+      title: "Web Publishing",
+      titleKey: "ui.windows.web_publishing.title",
+      icon: "🌐",
+      position: { x: 150, y: 100 },
+      size: { width: 1100, height: 700 }
+    }
+  },
+
+  "invoicing": {
+    createComponent: () => <InvoicingWindow />,
+    defaultConfig: {
+      title: "Invoicing",
+      titleKey: "ui.windows.invoicing.title",
+      icon: "📄",
+      position: { x: 150, y: 100 },
+      size: { width: 1100, height: 700 }
+    }
+  },
+
+  "workflows": {
+    createComponent: () => <WorkflowsWindow />,
+    defaultConfig: {
+      title: "Workflows",
+      titleKey: "ui.windows.workflows.title",
+      icon: "⚙️",
+      position: { x: 150, y: 100 },
+      size: { width: 1000, height: 700 }
+    }
+  },
+
+  "templates": {
+    createComponent: () => <TemplatesWindow />,
+    defaultConfig: {
+      title: "Templates",
+      titleKey: "ui.windows.templates.title",
+      icon: "📋",
+      position: { x: 150, y: 100 },
+      size: { width: 1100, height: 700 }
     }
   }
 };
