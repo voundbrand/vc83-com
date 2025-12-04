@@ -401,6 +401,12 @@ Remember: You're not just answering questions - you're helping users accomplish 
 
           const durationMs = Date.now() - startTime;
 
+          // Determine status based on result.success field
+          // Tools can return { success: false, error: "...", actionButton: {...} } for OAuth errors
+          const executionStatus = result && typeof result === 'object' && 'success' in result && result.success === false
+            ? "failed"
+            : "success";
+
           // Log execution (use parsedArgs, not re-parse!)
           await ctx.runMutation(api.ai.conversations.logToolExecution, {
             conversationId,
@@ -409,7 +415,7 @@ Remember: You're not just answering questions - you're helping users accomplish 
             toolName: toolCall.function.name,
             parameters: parsedArgs,
             result,
-            status: "success",
+            status: executionStatus,
             tokensUsed: response.usage?.total_tokens || 0,
             costUsd: client.calculateCost(response.usage || { prompt_tokens: 0, completion_tokens: 0 }, model),
             executedAt: Date.now(),
