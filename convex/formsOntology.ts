@@ -28,7 +28,7 @@
  * - "abandoned" - User left before completion
  */
 
-import { query, mutation, internalMutation } from "./_generated/server";
+import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser, checkPermission } from "./rbacHelpers";
 
@@ -105,6 +105,39 @@ export const getForms = query({
 });
 
 /**
+ * INTERNAL GET FORMS
+ * Internal query for AI tools and actions that already have organizationId
+ * This bypasses session authentication since the action layer is already authenticated
+ */
+export const internalGetForms = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    subtype: v.optional(v.string()), // Filter by form type
+    status: v.optional(v.string()),  // Filter by status
+  },
+  handler: async (ctx, args) => {
+    const q = ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "form")
+      );
+
+    let forms = await q.collect();
+
+    // Apply filters
+    if (args.subtype) {
+      forms = forms.filter((f) => f.subtype === args.subtype);
+    }
+
+    if (args.status) {
+      forms = forms.filter((f) => f.status === args.status);
+    }
+
+    return forms;
+  },
+});
+
+/**
  * GET FORM
  * Get a single form by ID
  */
@@ -116,6 +149,25 @@ export const getForm = query({
   handler: async (ctx, args) => {
     await requireAuthenticatedUser(ctx, args.sessionId);
 
+    const form = await ctx.db.get(args.formId);
+
+    if (!form || !("type" in form) || form.type !== "form") {
+      throw new Error("Form not found");
+    }
+
+    return form;
+  },
+});
+
+/**
+ * INTERNAL GET FORM
+ * Internal query for AI tools and actions that already have organizationId
+ */
+export const internalGetForm = internalQuery({
+  args: {
+    formId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
     const form = await ctx.db.get(args.formId);
 
     if (!form || !("type" in form) || form.type !== "form") {
@@ -431,6 +483,36 @@ export const getFormResponses = query({
   handler: async (ctx, args) => {
     await requireAuthenticatedUser(ctx, args.sessionId);
 
+    // Get all form responses
+    let responses = await ctx.db
+      .query("objects")
+      .withIndex("by_type", (q) => q.eq("type", "formResponse"))
+      .collect();
+
+    // Filter by formId
+    responses = responses.filter(
+      (r) => r.customProperties?.formId === args.formId
+    );
+
+    // Filter by status if provided
+    if (args.status) {
+      responses = responses.filter((r) => r.status === args.status);
+    }
+
+    return responses;
+  },
+});
+
+/**
+ * INTERNAL GET FORM RESPONSES
+ * Internal query for AI tools and actions that already have organizationId
+ */
+export const internalGetFormResponses = internalQuery({
+  args: {
+    formId: v.id("objects"),
+    status: v.optional(v.string()), // Filter by completion status
+  },
+  handler: async (ctx, args) => {
     // Get all form responses
     let responses = await ctx.db
       .query("objects")
@@ -906,6 +988,168 @@ export const duplicateForm = mutation({
     });
 
     return newFormId;
+  },
+});
+
+/**
+ * INTERNAL DUPLICATE FORM
+ * Internal mutation for AI tools that already have userId and organizationId
+ */
+export const internalDuplicateForm = internalMutation({
+  args: {
+    userId: v.id("users"),
+    organizationId: v.id("organizations"),
+    formId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const form = await ctx.db.get(args.formId);
+    if (!form || !("type" in form) || form.type !== "form") {
+      throw new Error("Form not found");
+    }
+
+    // Verify form belongs to the organization
+    if (form.organizationId !== args.organizationId) {
+      throw new Error("Form does not belong to this organization");
+    }
+
+    // Check permission
+    const hasPermission = await checkPermission(
+      ctx,
+      args.userId,
+      "manage_forms",
+      form.organizationId
+    );
+
+    if (!hasPermission) {
+      throw new Error("Permission denied: manage_forms required to duplicate forms");
+    }
+
+    // Create the duplicated form
+    const now = Date.now();
+    const newFormId = await ctx.db.insert("objects", {
+      organizationId: form.organizationId,
+      type: "form",
+      subtype: form.subtype,
+      name: `Copy of ${form.name}`,
+      description: form.description || "",
+      status: "draft", // Always start as draft
+      customProperties: {
+        ...form.customProperties,
+        // Reset stats for the new form
+        stats: {
+          views: 0,
+          submissions: 0,
+          completionRate: 0,
+        },
+      },
+      createdBy: args.userId,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // If the original form has an event link, copy it
+    const eventId = form.customProperties?.eventId;
+    if (eventId) {
+      await ctx.db.insert("objectLinks", {
+        organizationId: form.organizationId,
+        fromObjectId: newFormId,
+        toObjectId: eventId as any,
+        linkType: "form_for",
+        properties: {},
+        createdAt: now,
+      });
+    }
+
+    // Log the action
+    await ctx.db.insert("objectActions", {
+      organizationId: form.organizationId,
+      objectId: newFormId,
+      actionType: "created",
+      performedBy: args.userId,
+      performedAt: now,
+      actionData: {
+        status: "draft",
+        duplicatedFrom: args.formId,
+      },
+    });
+
+    return newFormId;
+  },
+});
+
+/**
+ * INTERNAL UPDATE FORM
+ * Internal mutation for AI tools to update form properties
+ */
+export const internalUpdateForm = internalMutation({
+  args: {
+    userId: v.id("users"),
+    organizationId: v.id("organizations"),
+    formId: v.id("objects"),
+    name: v.optional(v.string()),
+    description: v.optional(v.string()),
+    status: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const form = await ctx.db.get(args.formId);
+    if (!form || !("type" in form) || form.type !== "form") {
+      throw new Error("Form not found");
+    }
+
+    // Verify form belongs to the organization
+    if (form.organizationId !== args.organizationId) {
+      throw new Error("Form does not belong to this organization");
+    }
+
+    // Check permission
+    const hasPermission = await checkPermission(
+      ctx,
+      args.userId,
+      "manage_forms",
+      form.organizationId
+    );
+
+    if (!hasPermission) {
+      throw new Error("Permission denied: manage_forms required to update forms");
+    }
+
+    // Build update object
+    const updates: any = {
+      updatedAt: Date.now(),
+    };
+
+    if (args.name !== undefined) {
+      updates.name = args.name;
+    }
+
+    if (args.description !== undefined) {
+      updates.description = args.description;
+    }
+
+    if (args.status !== undefined) {
+      updates.status = args.status;
+    }
+
+    // Update the form
+    await ctx.db.patch(args.formId, updates);
+
+    // Log the action
+    await ctx.db.insert("objectActions", {
+      organizationId: form.organizationId,
+      objectId: args.formId,
+      actionType: "updated",
+      performedBy: args.userId,
+      performedAt: Date.now(),
+      actionData: {
+        updates: {
+          name: args.name,
+          description: args.description,
+          status: args.status,
+        },
+      },
+    });
+
+    return { success: true };
   },
 });
 

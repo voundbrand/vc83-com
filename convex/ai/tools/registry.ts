@@ -794,18 +794,21 @@ const getFormResponsesTool: AITool = {
  */
 const manageFormsTool: AITool = {
   name: "manage_forms",
-  description: "Comprehensive forms management: list forms, get statistics (including highest/lowest rated questions), view responses, and duplicate forms. Use this for all forms-related queries.",
+  description: "Comprehensive forms management: list forms, get statistics (including highest/lowest rated questions), view responses, duplicate forms, and update form properties (rename, change description/status). Use this for all forms-related queries.",
   status: "ready",
   parameters: formsToolDefinition.function.parameters,
   execute: async (ctx, args) => {
     const result = await ctx.runAction(api.ai.tools.formsTool.executeManageForms, {
       sessionId: ctx.sessionId,
       organizationId: ctx.organizationId,
+      userId: ctx.userId,
       action: args.action,
       formId: args.formId,
       formType: args.formType,
       status: args.status,
-      includeRatings: args.includeRatings
+      includeRatings: args.includeRatings,
+      name: args.name,
+      description: args.description
     });
 
     return result;

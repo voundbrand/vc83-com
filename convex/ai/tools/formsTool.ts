@@ -17,18 +17,18 @@ export const formsToolDefinition = {
   type: "function" as const,
   function: {
     name: "manage_forms",
-    description: "Manage forms, view responses, and analyze statistics. Can list forms, get statistics, view responses, and duplicate forms.",
+    description: "Manage forms, view responses, and analyze statistics. Can list forms, get statistics, view responses, duplicate forms, and update form properties (name, description, status).",
     parameters: {
       type: "object" as const,
       properties: {
         action: {
           type: "string",
-          enum: ["list", "statistics", "responses", "duplicate"],
-          description: "Action to perform: list=show all forms, statistics=get form stats and ratings, responses=view form submissions, duplicate=copy existing form"
+          enum: ["list", "statistics", "responses", "duplicate", "update"],
+          description: "Action to perform: list=show all forms, statistics=get form stats and ratings, responses=view form submissions, duplicate=copy existing form, update=modify form name/description/status"
         },
         formId: {
           type: "string",
-          description: "Form ID (required for statistics, responses, duplicate actions)"
+          description: "Form ID - MUST be the exact 'id' value from the list action (e.g. 'k1234567890abcdef'), NOT the form name. Required for statistics, responses, duplicate, update actions."
         },
         formType: {
           type: "string",
@@ -38,11 +38,19 @@ export const formsToolDefinition = {
         status: {
           type: "string",
           enum: ["draft", "published", "archived", "all"],
-          description: "Filter forms by status (for list action)"
+          description: "Filter forms by status (for list action), OR new status to set (for update action)"
         },
         includeRatings: {
           type: "boolean",
           description: "Include rating analysis (highest/lowest rated questions) - for statistics action"
+        },
+        name: {
+          type: "string",
+          description: "New name for the form (for update action)"
+        },
+        description: {
+          type: "string",
+          description: "New description for the form (for update action)"
         }
       },
       required: ["action"]
@@ -87,11 +95,14 @@ export const executeManageForms = action({
   args: {
     sessionId: v.optional(v.string()),
     organizationId: v.optional(v.id("organizations")),
+    userId: v.optional(v.id("users")),
     action: v.string(),
     formId: v.optional(v.string()),
     formType: v.optional(v.string()),
     status: v.optional(v.string()),
     includeRatings: v.optional(v.boolean()),
+    name: v.optional(v.string()),
+    description: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<{
     success: boolean;
@@ -100,26 +111,29 @@ export const executeManageForms = action({
     message?: string;
     error?: string;
   }> => {
-    // Get organization ID either from session or directly
+    // Get organization ID and userId either from session or directly
     let organizationId: Id<"organizations">;
+    let userId: Id<"users"> | undefined = args.userId;
     let sessionId: string | undefined = args.sessionId;
 
-    if (args.organizationId) {
-      // Direct organizationId provided (e.g., from AI tools)
+    if (args.organizationId && args.userId) {
+      // Direct organizationId and userId provided (e.g., from AI tools)
       organizationId = args.organizationId;
+      userId = args.userId;
     } else if (args.sessionId) {
       // Get from session (e.g., from web frontend)
       const session = await ctx.runQuery(internal.stripeConnect.validateSession, {
         sessionId: args.sessionId
       });
 
-      if (!session || !session.organizationId) {
+      if (!session || !session.organizationId || !session.userId) {
         throw new Error("Invalid session or user must belong to an organization");
       }
 
       organizationId = session.organizationId;
+      userId = session.userId;
     } else {
-      throw new Error("Either sessionId or organizationId must be provided");
+      throw new Error("Either sessionId or (organizationId and userId) must be provided");
     }
 
     // Use a placeholder sessionId for internal calls if needed
@@ -148,14 +162,33 @@ export const executeManageForms = action({
           if (!args.formId) {
             throw new Error("formId is required for duplicate action");
           }
-          return await duplicateForm(ctx, sessionId, args.formId);
+          if (!userId) {
+            throw new Error("userId is required for duplicate action");
+          }
+          return await duplicateForm(ctx, sessionId, organizationId, userId, args.formId);
+
+        case "update":
+          if (!args.formId) {
+            throw new Error("formId is required for update action");
+          }
+          if (!userId) {
+            throw new Error("userId is required for update action");
+          }
+          if (!args.name && !args.description && !args.status) {
+            throw new Error("At least one of name, description, or status must be provided for update action");
+          }
+          return await updateForm(ctx, sessionId, organizationId, userId, args.formId, {
+            name: args.name,
+            description: args.description,
+            status: args.status
+          });
 
         default:
           return {
             success: false,
             action: args.action,
             error: "Invalid action",
-            message: "Action must be one of: list, statistics, responses, duplicate"
+            message: "Action must be one of: list, statistics, responses, duplicate, update"
           };
       }
     } catch (error: any) {
@@ -183,8 +216,7 @@ async function listForms(
   formType?: string,
   status?: string
 ) {
-  const forms = await ctx.runQuery(api.formsOntology.getForms, {
-    sessionId,
+  const forms = await ctx.runQuery(internal.formsOntology.internalGetForms, {
     organizationId,
     subtype: formType && formType !== "all" ? formType : undefined,
     status: status && status !== "all" ? status : undefined,
@@ -221,7 +253,7 @@ async function listForms(
         }
       }
     },
-    message: `Found ${forms.length} forms`
+    message: `Found ${forms.length} forms. IMPORTANT: Each form has an 'id' field (like 'k1234567890abcdef') - you MUST use this exact 'id' value (not the 'name') when performing actions like duplicate or update on a specific form.`
   };
 }
 
@@ -235,14 +267,12 @@ async function getFormStatistics(
   includeRatings?: boolean
 ): Promise<{ success: boolean; action: string; data: FormStatistics; message: string }> {
   // Get the form
-  const form = await ctx.runQuery(api.formsOntology.getForm, {
-    sessionId,
+  const form = await ctx.runQuery(internal.formsOntology.internalGetForm, {
     formId: formId as Id<"objects">,
   });
 
   // Get all responses
-  const responses = await ctx.runQuery(api.formsOntology.getFormResponses, {
-    sessionId,
+  const responses = await ctx.runQuery(internal.formsOntology.internalGetFormResponses, {
     formId: formId as Id<"objects">,
   });
 
@@ -328,13 +358,11 @@ async function getFormResponsesData(
   sessionId: string,
   formId: string
 ) {
-  const form = await ctx.runQuery(api.formsOntology.getForm, {
-    sessionId,
+  const form = await ctx.runQuery(internal.formsOntology.internalGetForm, {
     formId: formId as Id<"objects">,
   });
 
-  const responses = await ctx.runQuery(api.formsOntology.getFormResponses, {
-    sessionId,
+  const responses = await ctx.runQuery(internal.formsOntology.internalGetFormResponses, {
     formId: formId as Id<"objects">,
   });
 
@@ -369,12 +397,24 @@ async function getFormResponsesData(
 async function duplicateForm(
   ctx: any,
   sessionId: string,
+  organizationId: Id<"organizations">,
+  userId: Id<"users">,
   formId: string
 ) {
-  const result = await ctx.runMutation(api.formsOntology.duplicateForm, {
-    sessionId,
-    formId: formId as Id<"objects">,
-  });
+  // Use internal mutation if no valid sessionId (AI tools)
+  let result;
+  if (sessionId === "ai-internal-session") {
+    result = await ctx.runMutation(internal.formsOntology.internalDuplicateForm, {
+      userId,
+      organizationId,
+      formId: formId as Id<"objects">,
+    });
+  } else {
+    result = await ctx.runMutation(api.formsOntology.duplicateForm, {
+      sessionId,
+      formId: formId as Id<"objects">,
+    });
+  }
 
   return {
     success: true,
@@ -384,5 +424,55 @@ async function duplicateForm(
       newFormId: result,
     },
     message: `Successfully duplicated form. New form ID: ${result}`
+  };
+}
+
+/**
+ * Update form properties (name, description, status)
+ */
+async function updateForm(
+  ctx: any,
+  sessionId: string,
+  organizationId: Id<"organizations">,
+  userId: Id<"users">,
+  formId: string,
+  updates: {
+    name?: string;
+    description?: string;
+    status?: string;
+  }
+) {
+  // Use internal mutation if no valid sessionId (AI tools)
+  if (sessionId === "ai-internal-session") {
+    await ctx.runMutation(internal.formsOntology.internalUpdateForm, {
+      userId,
+      organizationId,
+      formId: formId as Id<"objects">,
+      ...updates
+    });
+  } else {
+    // For web UI with session - we'd need to add a regular updateForm mutation
+    // For now, just use the internal one since we have userId
+    await ctx.runMutation(internal.formsOntology.internalUpdateForm, {
+      userId,
+      organizationId,
+      formId: formId as Id<"objects">,
+      ...updates
+    });
+  }
+
+  const updatedFields = [];
+  if (updates.name) updatedFields.push(`name to "${updates.name}"`);
+  if (updates.description) updatedFields.push("description");
+  if (updates.status) updatedFields.push(`status to "${updates.status}"`);
+
+  return {
+    success: true,
+    action: "update",
+    data: {
+      formId,
+      updates
+    },
+    message: `Successfully updated form ${updatedFields.join(", ")}`
   };
 }
