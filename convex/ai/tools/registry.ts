@@ -90,6 +90,95 @@ const requestFeatureTool: AITool = {
 };
 
 /**
+ * 0. OAUTH CONNECTION CHECK TOOL
+ */
+
+const checkOAuthConnectionTool: AITool = {
+  name: "check_oauth_connection",
+  description: "Check if user has connected their Microsoft/Google OAuth account. CRITICAL: Always call this tool FIRST before suggesting OAuth-related actions like syncing contacts or sending emails. Returns connection status, available scopes, and connected email.",
+  status: "ready",
+  parameters: {
+    type: "object" as const,
+    properties: {
+      provider: {
+        type: "string",
+        enum: ["microsoft", "google"],
+        description: "OAuth provider to check"
+      }
+    },
+    required: ["provider"]
+  },
+  execute: async (ctx, args) => {
+    const provider = args.provider || "microsoft";
+
+    // Only support Microsoft for now
+    if (provider !== "microsoft") {
+      return {
+        success: false,
+        error: "UNSUPPORTED_PROVIDER",
+        message: `Provider ${provider} not yet supported. Only Microsoft is available.`,
+        isConnected: false
+      };
+    }
+
+    // Check if user has connected their Microsoft account
+    const connection = await ctx.runQuery(api.oauth.microsoft.getUserMicrosoftConnection, {
+      sessionId: ctx.sessionId
+    });
+
+    if (!connection) {
+      return {
+        success: true,
+        isConnected: false,
+        provider: "microsoft",
+        message: "❌ No Microsoft account connected",
+        requiresConnection: true,
+        instructions: [
+          "To connect your Microsoft account:",
+          "1. Open **Settings** (⚙️ icon in taskbar)",
+          "2. Go to **Integrations** tab",
+          "3. Click **Connect Microsoft Account**",
+          "4. Select which permissions you need",
+          "5. Grant access in Microsoft's authorization page"
+        ],
+        actionButton: {
+          label: "Open Settings → Integrations",
+          action: "open_settings_integrations",
+          variant: "primary"
+        }
+      };
+    }
+
+    // User is connected!
+    return {
+      success: true,
+      isConnected: true,
+      provider: "microsoft",
+      connectedEmail: connection.providerEmail,
+      status: connection.status,
+      scopes: connection.scopes,
+      connectedAt: connection.connectedAt,
+      lastSyncAt: connection.lastSyncAt,
+      message: `✅ Microsoft account connected: ${connection.providerEmail}`,
+      availableFeatures: {
+        canSyncContacts: connection.scopes.some((s: string) =>
+          s === "Contacts.Read" || s === "Contacts.ReadWrite"
+        ),
+        canSendEmail: connection.scopes.some((s: string) =>
+          s === "Mail.Send"
+        ),
+        canReadEmail: connection.scopes.some((s: string) =>
+          s === "Mail.Read" || s === "Mail.ReadWrite"
+        ),
+        canAccessCalendar: connection.scopes.some((s: string) =>
+          s === "Calendars.Read" || s === "Calendars.ReadWrite"
+        )
+      }
+    };
+  }
+};
+
+/**
  * 1. CRM TOOLS
  */
 
@@ -1459,6 +1548,9 @@ const configureAIModelsTool: AITool = {
 export const TOOL_REGISTRY: Record<string, AITool> = {
   // Meta Tools
   request_feature: requestFeatureTool,
+
+  // OAuth Connection Check
+  check_oauth_connection: checkOAuthConnectionTool,
 
   // CRM
   sync_contacts: syncContactsTool,
