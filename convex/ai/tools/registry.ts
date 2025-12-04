@@ -11,6 +11,7 @@
 
 import { bulkCRMEmailToolDefinition } from "./bulkCRMEmailTool";
 import { contactSyncToolDefinition } from "./contactSyncTool";
+import { formsToolDefinition } from "./formsTool";
 import { api } from "../../_generated/api";
 import { internal } from "../../_generated/api";
 
@@ -785,6 +786,28 @@ const getFormResponsesTool: AITool = {
         "Click **Export** to download as CSV"
       ]
     };
+  }
+};
+
+/**
+ * NEW: Comprehensive Forms Management Tool
+ */
+const manageFormsTool: AITool = {
+  name: "manage_forms",
+  description: "Comprehensive forms management: list forms, get statistics (including highest/lowest rated questions), view responses, and duplicate forms. Use this for all forms-related queries.",
+  status: "ready",
+  parameters: formsToolDefinition.function.parameters,
+  execute: async (ctx, args) => {
+    const result = await ctx.runAction(api.ai.tools.formsTool.executeManageForms, {
+      sessionId: ctx.sessionId,
+      action: args.action,
+      formId: args.formId,
+      formType: args.formType,
+      status: args.status,
+      includeRatings: args.includeRatings
+    });
+
+    return result;
   }
 };
 
@@ -1571,6 +1594,7 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
   list_forms: listFormsTool,
   publish_form: publishFormTool,
   get_form_responses: getFormResponsesTool,
+  manage_forms: manageFormsTool,
 
   // Products
   create_product: createProductTool,
