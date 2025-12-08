@@ -139,8 +139,16 @@ export const getUserOrganizations = query({
     // Get session and validate
     const session = await ctx.db.get(args.sessionId as Id<"sessions">);
 
-    if (!session || session.expiresAt <= Date.now()) {
-      throw new Error("Ungültige oder abgelaufene Sitzung");
+    if (!session) {
+      // Session doesn't exist - return null instead of throwing
+      // This allows the frontend to handle it gracefully (redirect to login)
+      return null;
+    }
+
+    if (session.expiresAt <= Date.now()) {
+      // Session expired - return null instead of throwing
+      // This allows the frontend to clear localStorage and redirect to login
+      return null;
     }
 
     // Get all organization memberships for this user
