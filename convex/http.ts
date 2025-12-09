@@ -788,10 +788,88 @@ http.route({
 });
 
 // GET /api/v1/crm/contacts/:contactId - Get contact details
+// Uses pathPrefix to handle dynamic contactId parameter
 http.route({
-  path: "/api/v1/crm/contacts/:contactId",
+  pathPrefix: "/api/v1/crm/contacts/",
   method: "GET",
-  handler: getContact,
+  handler: httpAction(async (ctx, request) => {
+    try {
+      const url = new URL(request.url);
+      const pathname = url.pathname;
+
+      // Extract contactId from path
+      const afterPrefix = pathname.substring("/api/v1/crm/contacts/".length);
+      const contactId = afterPrefix.split("/")[0];
+
+      // If no contactId, this is the list endpoint (handled above)
+      if (!contactId) {
+        return new Response(
+          JSON.stringify({ error: "Contact ID required" }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      // Verify API key
+      const authHeader = request.headers.get("Authorization");
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return new Response(
+          JSON.stringify({ error: "Missing or invalid Authorization header" }),
+          { status: 401, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      const apiKey = authHeader.substring(7);
+      const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
+        apiKey,
+      });
+
+      if (!authContext) {
+        return new Response(
+          JSON.stringify({ error: "Invalid API key" }),
+          { status: 401, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      const { organizationId } = authContext;
+
+      // Update API key usage tracking
+      await ctx.runMutation(internal.api.auth.updateApiKeyUsage, { apiKey });
+
+      // Query contact
+      const contact = await ctx.runQuery(
+        internal.api.v1.crmInternal.getContactInternal,
+        {
+          organizationId,
+          contactId,
+        }
+      );
+
+      if (!contact) {
+        return new Response(
+          JSON.stringify({ error: "Contact not found" }),
+          { status: 404, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      // Return response
+      return new Response(
+        JSON.stringify(contact),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "X-Organization-Id": organizationId,
+          },
+        }
+      );
+    } catch (error) {
+      console.error("API /crm/contacts/:id error:", error);
+      return new Response(
+        JSON.stringify({ error: "Internal server error" }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
+    }
+  }),
 });
 
 /**
