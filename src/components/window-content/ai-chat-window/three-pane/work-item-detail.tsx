@@ -15,17 +15,19 @@ import {
   Briefcase,
   Check,
   X,
-  Loader2
+  Loader2,
+  FileText
 } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { useQuery, useMutation, useAction } from "convex/react"
 import { api } from "../../../../../convex/_generated/api"
 import { Id } from "../../../../../convex/_generated/dataModel"
 import { RetroButton } from "@/components/retro-button"
+import { AIWorkItemDetail } from "./ai-work-item-detail"
 
 interface WorkItem {
-  id: Id<"contactSyncs"> | Id<"emailCampaigns">;
-  type: "contact_sync" | "email_campaign";
+  id: Id<"contactSyncs"> | Id<"emailCampaigns"> | Id<"aiWorkItems">;
+  type: "contact_sync" | "email_campaign" | `ai_${string}`;
   name: string;
   status: string;
   createdAt: number;
@@ -514,6 +516,18 @@ function EmailCampaignDetail({
 export function WorkItemDetail({ item, onActionComplete }: WorkItemDetailProps): ReactNode {
   const { t } = useNamespaceTranslations("ui.ai_assistant");
 
+  // Check if this is an AI work item (starts with "ai_")
+  const isAIWorkItem = item.type.startsWith("ai_")
+
+  // Get icon based on type
+  const getIcon = () => {
+    if (item.type === "contact_sync") return Users
+    if (item.type === "email_campaign") return Mail
+    return FileText
+  }
+
+  const Icon = getIcon()
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -524,11 +538,7 @@ export function WorkItemDetail({ item, onActionComplete }: WorkItemDetailProps):
           background: 'var(--win95-title-bg)'
         }}
       >
-        {item.type === "contact_sync" ? (
-          <Users className="w-4 h-4" style={{ color: 'var(--win95-text)' }} />
-        ) : (
-          <Mail className="w-4 h-4" style={{ color: 'var(--win95-text)' }} />
-        )}
+        <Icon className="w-4 h-4" style={{ color: 'var(--win95-text)' }} />
         <span className="text-sm font-semibold" style={{ color: 'var(--win95-text)' }}>
           Details
         </span>
@@ -536,7 +546,9 @@ export function WorkItemDetail({ item, onActionComplete }: WorkItemDetailProps):
 
       {/* Detail Content */}
       <div className="flex-1 overflow-hidden">
-        {item.type === "contact_sync" ? (
+        {isAIWorkItem ? (
+          <AIWorkItemDetail itemId={item.id as Id<"aiWorkItems">} />
+        ) : item.type === "contact_sync" ? (
           <ContactSyncDetail
             syncId={item.id as Id<"contactSyncs">}
             onActionComplete={onActionComplete}

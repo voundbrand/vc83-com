@@ -326,7 +326,7 @@ export const generateTicketPDFFromTicket = action({
             };
 
             if (domainConfigId) {
-                const domainConfig = await ctx.runMutation(internal.domainConfigOntology.getDomainConfigInternal, {
+                const domainConfig = await ctx.runQuery(internal.domainConfigOntology.getDomainConfigInternal, {
                     configId: domainConfigId,
                 });
 

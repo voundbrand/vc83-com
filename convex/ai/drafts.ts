@@ -3,11 +3,14 @@
  *
  * Query and manage AI-generated draft objects stored in the objects ontology.
  * Drafts have status="draft" and AI metadata in customProperties.
+ *
+ * Also handles execution of approved tool calls.
  */
 
-import { query, mutation } from "../_generated/server";
+import { query, mutation, action, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser } from "../rbacHelpers";
+import { api, internal } from "../_generated/api";
 
 /**
  * Get all pending AI drafts for the current user's organization
@@ -382,3 +385,292 @@ export const deleteDraft = mutation({
     };
   },
 });
+
+// ============================================================================
+// TOOL EXECUTION APPROVAL SYSTEM
+// ============================================================================
+
+/**
+ * Execute an approved tool call
+ *
+ * This action is scheduled by approveToolExecution mutation.
+ * It executes the tool and updates the execution record.
+ */
+export const executeApprovedTool = action({
+  args: {
+    executionId: v.id("aiToolExecutions"),
+  },
+  handler: async (ctx, args) => {
+    const startTime = Date.now();
+
+    try {
+      // 1. Get the execution record
+      const execution: any = await ctx.runQuery(api.ai.conversations.getToolExecution, {
+        executionId: args.executionId,
+      });
+
+      if (!execution) {
+        throw new Error("Execution not found");
+      }
+
+      if (execution.status !== "approved") {
+        throw new Error(`Execution not in approved state (current: ${execution.status})`);
+      }
+
+      console.log("[Tool Approval] Executing tool:", execution.toolName);
+
+      // 2. Mark as executing
+      await ctx.runMutation(internal.ai.drafts.updateExecutionStatus, {
+        executionId: args.executionId,
+        status: "executing",
+      });
+
+      // 3. Execute the tool via the registry
+      const { executeTool } = await import("./tools/registry");
+
+      const result = await executeTool(
+        {
+          ...ctx,
+          organizationId: execution.organizationId,
+          userId: execution.userId,
+          conversationId: execution.conversationId,
+        },
+        execution.toolName,
+        execution.parameters
+      );
+
+      const durationMs = Date.now() - startTime;
+
+      // 4. Determine success/failure
+      const success = result && typeof result === 'object' && 'success' in result
+        ? result.success !== false
+        : true;
+
+      // 5. Update execution with result
+      await ctx.runMutation(internal.ai.drafts.updateExecutionStatus, {
+        executionId: args.executionId,
+        status: success ? "success" : "failed",
+        result,
+        durationMs,
+      });
+
+      // 6. REMOVED: Don't add tool results to chat
+      // Tool results should ONLY appear in the Tool Execution panel, not in main chat
+      // The user can see the result by clicking the execution in the Tool Execution panel
+
+      // 7. For failures, optionally trigger AI auto-recovery (commented out for now)
+      // TODO: Consider if we want AI to auto-suggest fixes for failed executions
+      if (!success && result && typeof result === 'object' && 'error' in result) {
+        console.log("[Tool Approval] Tool failed:", result.error);
+        // Could trigger AI recovery here if desired
+      } else if (success) {
+        console.log("[Tool Approval] Tool succeeded");
+
+        console.log("[Tool Approval] Success fed back to AI conversation");
+
+        // Create work items for successful tool executions
+        const workItems = extractWorkItemsFromResult(execution.toolName, result, execution.parameters);
+        for (const item of workItems) {
+          try {
+            await ctx.runMutation(api.ai.workItems.createAIWorkItem, {
+              conversationId: execution.conversationId,
+              organizationId: execution.organizationId,
+              userId: execution.userId,
+              type: item.type,
+              name: item.name,
+              status: "completed",
+              results: item.data,
+              progress: {
+                total: 1,
+                completed: 1,
+                failed: 0,
+              },
+            });
+            console.log(`[Tool Approval] Created work item: ${item.name} (${item.type})`);
+          } catch (error) {
+            console.error("[Tool Approval] Failed to create work item:", error);
+            // Don't fail the whole flow if work item creation fails
+          }
+        }
+
+        // 7. Trigger AI to continue and propose next steps
+        // Build a continuation prompt that tells the AI about the success
+        try {
+          const continuationPrompt = `✅ Tool executed successfully! Here are the results:
+
+**Tool:** ${execution.toolName}
+**Result:** ${typeof result === 'object' ? JSON.stringify(result, null, 2) : result}
+
+Now that I have this information, let me continue with the task. What should I do next?`;
+
+          await ctx.runAction(api.ai.chat.sendMessage, {
+            conversationId: execution.conversationId,
+            message: continuationPrompt,
+            organizationId: execution.organizationId,
+            userId: execution.userId,
+            isAutoRecovery: false, // This will create proposals for next steps
+          });
+          console.log("[Tool Approval] AI triggered to continue after success");
+        } catch (aiError) {
+          console.error("[Tool Approval] Failed to trigger AI continuation:", aiError);
+          // Don't fail the whole flow if AI trigger fails
+        }
+      }
+
+      console.log("[Tool Approval] Tool execution completed:", execution.toolName, success ? "✅" : "❌");
+
+      return {
+        success,
+        executionId: args.executionId,
+        result,
+      };
+    } catch (error: any) {
+      const durationMs = Date.now() - startTime;
+
+      console.error("[Tool Approval] Tool execution failed:", error);
+
+      // Mark as failed
+      await ctx.runMutation(internal.ai.drafts.updateExecutionStatus, {
+        executionId: args.executionId,
+        status: "failed",
+        error: error.message,
+        durationMs,
+      });
+
+      return {
+        success: false,
+        executionId: args.executionId,
+        error: error.message,
+      };
+    }
+  },
+});
+
+/**
+ * Internal mutation to update execution status
+ * (used by executeApprovedTool action)
+ */
+export const updateExecutionStatus = internalMutation({
+  args: {
+    executionId: v.id("aiToolExecutions"),
+    status: v.union(
+      v.literal("executing"),
+      v.literal("success"),
+      v.literal("failed")
+    ),
+    result: v.optional(v.any()),
+    error: v.optional(v.string()),
+    durationMs: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const updates: any = {
+      status: args.status,
+    };
+
+    if (args.result !== undefined) {
+      updates.result = args.result;
+      updates.output = args.result; // Alias for compatibility
+      updates.success = true;
+    }
+
+    if (args.error !== undefined) {
+      updates.error = args.error;
+      updates.success = false;
+    }
+
+    if (args.durationMs !== undefined) {
+      updates.durationMs = args.durationMs;
+    }
+
+    if (args.status === "success" || args.status === "failed") {
+      updates.completedAt = Date.now();
+    }
+
+    await ctx.db.patch(args.executionId, updates);
+
+    return { success: true };
+  },
+});
+
+// ============================================================================
+// WORK ITEM EXTRACTION HELPERS
+// ============================================================================
+
+/**
+ * Extract work items from tool execution results
+ * Maps tool execution results to work item records for UI tracking
+ */
+function extractWorkItemsFromResult(
+  toolName: string,
+  result: any,
+  parameters: any
+): Array<{ type: string; name: string; data: any }> {
+  const items: Array<{ type: string; name: string; data: any }> = [];
+
+  if (!result || typeof result !== 'object') {
+    return items;
+  }
+
+  // Handle manage_projects tool
+  if (toolName === "manage_projects") {
+    const action = parameters?.action || result?.action;
+
+    if (action === "create_project" && result.success && result.data) {
+      items.push({
+        type: "project",
+        name: result.data.name || "New Project",
+        data: result.data,
+      });
+    }
+
+    if (action === "create_milestone" && result.success && result.data) {
+      items.push({
+        type: "milestone",
+        name: result.data.name || "New Milestone",
+        data: result.data,
+      });
+    }
+
+    // Handle multiple milestones created at once
+    if (result.data?.milestones && Array.isArray(result.data.milestones)) {
+      result.data.milestones.forEach((milestone: any) => {
+        items.push({
+          type: "milestone",
+          name: milestone.name || "New Milestone",
+          data: milestone,
+        });
+      });
+    }
+
+    if (action === "create_task" && result.success && result.data) {
+      items.push({
+        type: "task",
+        name: result.data.name || "New Task",
+        data: result.data,
+      });
+    }
+  }
+
+  // Handle CRM tools
+  if (toolName === "manage_crm") {
+    const action = parameters?.action || result?.action;
+
+    if (action === "create_contact" && result.success && result.data) {
+      items.push({
+        type: "contact",
+        name: result.data.name || result.data.email || "New Contact",
+        data: result.data,
+      });
+    }
+
+    if (action === "create_organization" && result.success && result.data) {
+      items.push({
+        type: "organization",
+        name: result.data.name || "New Organization",
+        data: result.data,
+      });
+    }
+  }
+
+  return items;
+}

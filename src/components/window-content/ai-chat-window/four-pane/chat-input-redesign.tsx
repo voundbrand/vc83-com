@@ -5,7 +5,7 @@ import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
 import { useAIChatContext } from "@/contexts/ai-chat-context"
 import { useAIConfig } from "@/hooks/use-ai-config"
 import { useNotification } from "@/hooks/use-notification"
-import { ArrowUp, ChevronDown, Brain, Sparkles, Rocket, Zap, UserCheck, Lightbulb } from "lucide-react"
+import { ArrowUp, ChevronDown, Brain, Sparkles, Rocket, Zap, UserCheck, Lightbulb, StopCircle } from "lucide-react"
 import { useQuery } from "convex/react"
 import { api } from "../../../../../convex/_generated/api"
 
@@ -24,8 +24,20 @@ export function ChatInput() {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const { t } = useNamespaceTranslations("ui.ai_assistant")
-  const { chat, currentConversationId, setCurrentConversationId, isSending, setIsSending, organizationId, selectedModel, setSelectedModel, humanInLoopEnabled, setHumanInLoopEnabled } =
-    useAIChatContext()
+  const {
+    chat,
+    currentConversationId,
+    setCurrentConversationId,
+    isSending,
+    setIsSending,
+    organizationId,
+    selectedModel,
+    setSelectedModel,
+    humanInLoopEnabled,
+    setHumanInLoopEnabled,
+    abortController,
+    stopCurrentRequest,
+  } = useAIChatContext()
   const { isAIReady, settings, billing } = useAIConfig()
   const notification = useNotification()
 
@@ -42,6 +54,20 @@ export function ChatInput() {
       textareaRef.current.style.height = textareaRef.current.scrollHeight + "px"
     }
   }, [message])
+
+  // Global ESC key handler to stop AI processing
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isSending) {
+        e.preventDefault()
+        stopCurrentRequest()
+        notification.info("Request Stopped", "AI processing has been cancelled")
+      }
+    }
+
+    window.addEventListener("keydown", handleEscape)
+    return () => window.removeEventListener("keydown", handleEscape)
+  }, [isSending, stopCurrentRequest, notification])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -130,6 +156,9 @@ export function ChatInput() {
     setMessage("")
     setIsSending(true)
 
+    // Create new abort controller for this request
+    abortController.current = new AbortController()
+
     try {
       const result = await chat.sendMessage(messageToSend, currentConversationId)
 
@@ -138,6 +167,12 @@ export function ChatInput() {
         setCurrentConversationId(result.conversationId)
       }
     } catch (error) {
+      // Check if request was aborted
+      if (error instanceof Error && error.name === "AbortError") {
+        console.log("🛑 [AI Chat] Request was aborted by user")
+        return // Don't show error notification for user-initiated stops
+      }
+
       console.error("Failed to send message:", error)
 
       // Parse error message for user-friendly feedback
@@ -169,6 +204,7 @@ export function ChatInput() {
       setMessage(messageToSend)
     } finally {
       setIsSending(false)
+      abortController.current = null
     }
   }
 
@@ -202,7 +238,8 @@ export function ChatInput() {
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={t("ui.ai_assistant.input.placeholder")}
-          className="w-full px-3 py-2 border-2 resize-none overflow-hidden min-h-[40px] max-h-[120px]"
+          disabled={isSending}
+          className="w-full px-3 py-2 border-2 resize-none overflow-hidden min-h-[40px] max-h-[120px] disabled:opacity-60"
           style={{
             borderColor: 'var(--win95-input-border-dark)',
             background: 'var(--win95-input-bg)',
@@ -368,39 +405,75 @@ export function ChatInput() {
           )}
           </div>
 
-          {/* Send Button - Up Arrow Icon */}
-          <button
-            type="submit"
-            disabled={!message.trim() || isSending}
-            onMouseEnter={(e) => {
-              if (message.trim() && !isSending) {
-                e.currentTarget.style.backgroundColor = 'var(--win95-hover-light)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (message.trim() && !isSending) {
-                e.currentTarget.style.backgroundColor = 'var(--win95-bg)';
-              }
-            }}
-            className="flex items-center gap-1.5 px-3 py-2 rounded border transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
-            style={{
-              borderColor: 'var(--win95-border)',
-              background: 'var(--win95-bg)',
-              color: 'var(--win95-text-muted)'
-            }}
-            title="Send message (Enter)"
-          >
-            <ArrowUp className="w-4 h-4" />
-            <span className="text-xs font-medium hidden sm:inline">
-              Send
-            </span>
-          </button>
+          {/* Send/Stop Button */}
+          {isSending ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault()
+                stopCurrentRequest()
+                notification.info("Request Stopped", "AI processing has been cancelled")
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--error-hover)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--error)';
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 rounded border transition-all flex-shrink-0"
+              style={{
+                borderColor: 'var(--error)',
+                background: 'var(--error)',
+                color: 'white'
+              }}
+              title="Stop AI processing (or press ESC)"
+            >
+              <StopCircle className="w-4 h-4" />
+              <span className="text-xs font-medium hidden sm:inline">
+                Stop
+              </span>
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={!message.trim()}
+              onMouseEnter={(e) => {
+                if (message.trim()) {
+                  e.currentTarget.style.backgroundColor = 'var(--win95-hover-light)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (message.trim()) {
+                  e.currentTarget.style.backgroundColor = 'var(--win95-bg)';
+                }
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 rounded border transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+              style={{
+                borderColor: 'var(--win95-border)',
+                background: 'var(--win95-bg)',
+                color: 'var(--win95-text-muted)'
+              }}
+              title="Send message (Enter)"
+            >
+              <ArrowUp className="w-4 h-4" />
+              <span className="text-xs font-medium hidden sm:inline">
+                Send
+              </span>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Quick commands hint */}
+      {/* Quick commands hint / Processing status */}
       <div className="mt-2 text-[10px]" style={{ color: 'var(--neutral-gray)' }}>
-        {t("ui.ai_assistant.input.quick_commands")}
+        {isSending ? (
+          <span className="flex items-center gap-1">
+            <span className="animate-pulse">⏳ Processing...</span>
+            <span className="opacity-60">• Press ESC or click Stop to cancel</span>
+          </span>
+        ) : (
+          t("ui.ai_assistant.input.quick_commands")
+        )}
       </div>
     </form>
   )

@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react"
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
 import { useAIChatContext } from "@/contexts/ai-chat-context"
 import { SystemMessage } from "../single-pane/message-types/system-message"
-import { Sparkles } from "lucide-react"
+import { Sparkles, Wrench, CheckCircle2, XCircle, AlertTriangle } from "lucide-react"
 
 // User Message Component - LEFT SIDE (flipped from original)
 function UserMessage({ content }: { content: string }) {
@@ -26,6 +26,42 @@ function UserMessage({ content }: { content: string }) {
 
 // Assistant Message Component - RIGHT SIDE (flipped from original)
 function AssistantMessage({ content }: { content: string }) {
+  // Check if this is a tool result message (special formatting)
+  const isToolResult = content.startsWith("[Tool Result]")
+
+  if (isToolResult) {
+    // Parse tool result for special display
+    const isError = content.includes("failed") || content.includes("Error:")
+    const isSuccess = content.includes("successfully")
+
+    return (
+      <div className="flex justify-center my-2">
+        <div
+          className="px-3 py-2 max-w-[90%] text-xs rounded border"
+          style={{
+            borderColor: isError ? 'var(--error)' : isSuccess ? 'var(--success)' : 'var(--info)',
+            background: isError ? 'var(--error-bg)' : isSuccess ? 'var(--success-bg)' : 'var(--info-bg)',
+            color: 'var(--win95-text)',
+          }}
+        >
+          <div className="flex items-start gap-2">
+            {isError ? (
+              <XCircle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--error)' }} />
+            ) : isSuccess ? (
+              <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
+            ) : (
+              <Wrench className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--info)' }} />
+            )}
+            <div className="leading-relaxed whitespace-pre-wrap break-words flex-1">
+              {content.replace("[Tool Result] ", "")}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Regular assistant message
   return (
     <div className="flex justify-end">
       <div
@@ -36,6 +72,39 @@ function AssistantMessage({ content }: { content: string }) {
       >
         <div className="leading-relaxed whitespace-pre-wrap break-words">
           {content}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Tool Message Component - Shows tool execution results in chat
+function ToolMessage({ content }: { content: string }) {
+  // Parse if this is an error or success
+  const isError = content.includes("failed") || content.includes("Error:")
+  const isSuccess = content.includes("successfully")
+
+  return (
+    <div className="flex justify-center my-2">
+      <div
+        className="px-3 py-2 max-w-[90%] text-xs rounded border"
+        style={{
+          borderColor: isError ? 'var(--error)' : isSuccess ? 'var(--success)' : 'var(--info)',
+          background: isError ? 'var(--error-bg)' : isSuccess ? 'var(--success-bg)' : 'var(--info-bg)',
+          color: 'var(--win95-text)',
+        }}
+      >
+        <div className="flex items-start gap-2">
+          {isError ? (
+            <XCircle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--error)' }} />
+          ) : isSuccess ? (
+            <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
+          ) : (
+            <Wrench className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--info)' }} />
+          )}
+          <div className="leading-relaxed whitespace-pre-wrap break-words flex-1">
+            {content}
+          </div>
         </div>
       </div>
     </div>
@@ -114,6 +183,9 @@ export function ChatMessages() {
         }
         if (message.role === "assistant") {
           return <AssistantMessage key={message._id} content={message.content} />
+        }
+        if (message.role === "tool") {
+          return <ToolMessage key={message._id} content={message.content} />
         }
         return null
       })}

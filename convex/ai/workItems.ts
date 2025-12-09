@@ -1,13 +1,13 @@
 /**
  * Work Items Queries
  *
- * Real-time queries for contact syncs and email campaigns
+ * Real-time queries for contact syncs, email campaigns, and AI-created work items
  * Powers the three-pane UI work item display
  */
 
-import { query, internalQuery } from "../_generated/server";
+import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
-import { Id } from "../_generated/dataModel";
+import { requireAuthenticatedUser } from "../rbacHelpers";
 
 // ============================================================================
 // CONTACT SYNC QUERIES
@@ -159,7 +159,7 @@ export const getEmailCampaignItems = query({
 
 /**
  * Get all active work items for an organization
- * Combines contact syncs and email campaigns into a unified view
+ * Combines contact syncs, email campaigns, and AI work items into a unified view
  */
 export const getActiveWorkItems = query({
   args: {
@@ -191,6 +191,20 @@ export const getActiveWorkItems = query({
       )
       .take(20);
 
+    // Get active AI work items (preview, approved, executing, completed)
+    const aiWorkItems = await ctx.db
+      .query("aiWorkItems")
+      .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+      .filter((q) =>
+        q.or(
+          q.eq(q.field("status"), "preview"),
+          q.eq(q.field("status"), "approved"),
+          q.eq(q.field("status"), "executing"),
+          q.eq(q.field("status"), "completed")
+        )
+      )
+      .take(20);
+
     // Transform to unified work item format
     const workItems = [
       ...activeSyncs.map((sync) => ({
@@ -217,9 +231,198 @@ export const getActiveWorkItems = query({
           failed: campaign.failed,
         },
       })),
+      ...aiWorkItems.map((item) => ({
+        id: item._id,
+        type: `ai_${item.type}` as const, // "ai_project" | "ai_milestone" | "ai_task" | etc.
+        name: item.name,
+        status: item.status,
+        createdAt: item.createdAt,
+        progress: item.progress || {
+          total: 1,
+          completed: item.status === "completed" ? 1 : 0,
+          failed: item.status === "failed" ? 1 : 0,
+        },
+      })),
     ];
 
     // Sort by creation date (newest first)
     return workItems.sort((a, b) => b.createdAt - a.createdAt);
+  },
+});
+
+// ============================================================================
+// AI WORK ITEMS MANAGEMENT
+// ============================================================================
+
+/**
+ * Get work items for a specific conversation
+ */
+export const getAIWorkItemsForConversation = query({
+  args: {
+    conversationId: v.id("aiConversations"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("aiWorkItems")
+      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
+      .order("desc")
+      .collect();
+  },
+});
+
+/**
+ * Get a single AI work item by ID
+ */
+export const getAIWorkItem = query({
+  args: {
+    workItemId: v.id("aiWorkItems"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.workItemId);
+  },
+});
+
+/**
+ * Create a work item after successful tool execution
+ * Called internally from executeApprovedTool action
+ */
+export const createAIWorkItem = mutation({
+  args: {
+    conversationId: v.id("aiConversations"),
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+    type: v.string(), // "project" | "milestone" | "task" | "contact" | "organization"
+    name: v.string(),
+    status: v.string(),
+    previewData: v.optional(v.array(v.any())),
+    results: v.optional(v.any()),
+    progress: v.optional(v.object({
+      total: v.number(),
+      completed: v.number(),
+      failed: v.number(),
+    })),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+
+    // Validate status against the union type in schema
+    const validStatuses = ["preview", "approved", "executing", "completed", "failed", "cancelled"];
+    const status = validStatuses.includes(args.status) ? args.status : "completed";
+
+    return await ctx.db.insert("aiWorkItems", {
+      organizationId: args.organizationId,
+      userId: args.userId,
+      conversationId: args.conversationId,
+      type: args.type,
+      name: args.name,
+      status: status as "preview" | "approved" | "executing" | "completed" | "failed" | "cancelled",
+      previewData: args.previewData,
+      results: args.results,
+      progress: args.progress || {
+        total: 1,
+        completed: 1,
+        failed: 0,
+      },
+      createdAt: now,
+      completedAt: status === "completed" ? now : undefined,
+    });
+  },
+});
+
+/**
+ * Update a work item's data
+ */
+export const updateAIWorkItem = mutation({
+  args: {
+    sessionId: v.string(),
+    workItemId: v.id("aiWorkItems"),
+    updates: v.object({
+      name: v.optional(v.string()),
+      status: v.optional(v.string()),
+      results: v.optional(v.any()),
+      progress: v.optional(v.object({
+        total: v.number(),
+        completed: v.number(),
+        failed: v.number(),
+      })),
+    }),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const workItem = await ctx.db.get(args.workItemId);
+    if (!workItem) {
+      throw new Error("Work item not found");
+    }
+
+    // Verify user has access to this work item
+    const membership = await ctx.db
+      .query("organizationMembers")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+
+    if (!membership || workItem.organizationId !== membership.organizationId) {
+      throw new Error("Access denied");
+    }
+
+    // Build update object
+    const updateData: any = {};
+
+    if (args.updates.name !== undefined) {
+      updateData.name = args.updates.name;
+    }
+
+    if (args.updates.status !== undefined) {
+      updateData.status = args.updates.status;
+      if (args.updates.status === "completed") {
+        updateData.completedAt = Date.now();
+      }
+    }
+
+    if (args.updates.results !== undefined) {
+      updateData.results = args.updates.results;
+    }
+
+    if (args.updates.progress !== undefined) {
+      updateData.progress = args.updates.progress;
+    }
+
+    // Update the work item
+    await ctx.db.patch(args.workItemId, updateData);
+
+    return { success: true, workItemId: args.workItemId };
+  },
+});
+
+/**
+ * Delete a work item
+ */
+export const deleteAIWorkItem = mutation({
+  args: {
+    sessionId: v.string(),
+    workItemId: v.id("aiWorkItems"),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const workItem = await ctx.db.get(args.workItemId);
+    if (!workItem) {
+      throw new Error("Work item not found");
+    }
+
+    // Verify user has access
+    const membership = await ctx.db
+      .query("organizationMembers")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+
+    if (!membership || workItem.organizationId !== membership.organizationId) {
+      throw new Error("Access denied");
+    }
+
+    // Delete the work item
+    await ctx.db.delete(args.workItemId);
+
+    return { success: true, workItemId: args.workItemId };
   },
 });

@@ -149,6 +149,86 @@ http.route({
 });
 
 /**
+ * STRIPE INVOICE WEBHOOK ENDPOINT
+ *
+ * Handles Stripe webhooks for B2B invoicing.
+ * Separate from AI subscriptions and Connect webhooks.
+ *
+ * Events handled:
+ * - invoice.created - Invoice created in Stripe
+ * - invoice.finalized - Invoice finalized (sealed)
+ * - invoice.paid - Payment received
+ * - invoice.payment_failed - Payment failed
+ * - invoice.payment_action_required - Action required
+ * - invoice.voided - Invoice voided
+ * - invoice.marked_uncollectible - Marked uncollectible
+ */
+http.route({
+  path: "/stripe-invoice-webhooks",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    console.log("[Invoice Webhooks] 🔔 Received webhook request");
+
+    try {
+      const body = await request.text();
+      const signature = request.headers.get("stripe-signature");
+
+      if (!signature) {
+        console.error("[Invoice Webhooks] ❌ No signature provided");
+        return new Response("Missing signature", { status: 400 });
+      }
+
+      // Verify webhook signature
+      const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+      if (!webhookSecret) {
+        console.error("[Invoice Webhooks] ❌ STRIPE_WEBHOOK_SECRET not configured");
+        return new Response("Webhook secret not configured", { status: 500 });
+      }
+
+      // Import Stripe for signature verification
+      const Stripe = (await import("stripe")).default;
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
+        apiVersion: "2025-10-29.clover",
+      });
+
+      // Verify signature
+      let event: any;
+      try {
+        event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+        console.log(`[Invoice Webhooks] ✅ Signature verified for event: ${event.type}`);
+      } catch (error) {
+        console.error("[Invoice Webhooks] ❌ Signature verification failed:", error);
+        return new Response("Invalid signature", { status: 400 });
+      }
+
+      // Parse event
+      console.log(`[Invoice Webhooks] 📦 Processing: ${event.type} (${event.id})`);
+
+      // Schedule async processing
+      await ctx.runAction(internal.api.v1.stripeInvoiceWebhooks.processStripeInvoiceWebhook, {
+        eventType: event.type,
+        eventId: event.id,
+        invoiceData: event.data.object,
+        created: event.created,
+      });
+
+      console.log(`[Invoice Webhooks] ✅ Event queued for processing`);
+
+      // Respond immediately (< 5 seconds required by Stripe)
+      return new Response(JSON.stringify({ received: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (error) {
+      console.error("[Invoice Webhooks] ❌ Processing error:", error);
+      console.error("[Invoice Webhooks] Stack:", (error as Error).stack);
+      return new Response("Internal server error", { status: 500 });
+    }
+  }),
+});
+
+/**
  * AI SUBSCRIPTION WEBHOOK ENDPOINT
  *
  * Handles Stripe webhooks for AI subscription billing.
@@ -394,6 +474,7 @@ import {
   sealInvoice,
   sendInvoice,
   getInvoicePdf,
+  syncInvoiceToStripe,
 } from "./api/v1/invoices";
 
 /**
@@ -895,6 +976,98 @@ http.route({
   path: "/api/v1/invoices/:invoiceId/pdf",
   method: "GET",
   handler: getInvoicePdf,
+});
+
+// POST /api/v1/invoices/:invoiceId/sync-stripe - Sync invoice to Stripe (optional)
+http.route({
+  path: "/api/v1/invoices/:invoiceId/sync-stripe",
+  method: "POST",
+  handler: syncInvoiceToStripe,
+});
+
+// GET /api/v1/invoices/client/:crmOrganizationId - Get client's invoices
+http.route({
+  pathPrefix: "/api/v1/invoices/client/",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    try {
+      // 1. Verify API key
+      const authHeader = request.headers.get("Authorization");
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return new Response(
+          JSON.stringify({ error: "Missing or invalid Authorization header" }),
+          { status: 401, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      const apiKey = authHeader.substring(7);
+      const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
+        apiKey,
+      });
+
+      if (!authContext) {
+        return new Response(
+          JSON.stringify({ error: "Invalid API key" }),
+          { status: 401, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      const { organizationId } = authContext;
+
+      // 2. Update API key usage tracking
+      await ctx.runMutation(internal.api.auth.updateApiKeyUsage, { apiKey });
+
+      // 3. Extract CRM organization ID from URL
+      const url = new URL(request.url);
+      const pathParts = url.pathname.split("/");
+      const crmOrganizationId = pathParts[pathParts.length - 1];
+
+      if (!crmOrganizationId) {
+        return new Response(
+          JSON.stringify({ error: "CRM organization ID required" }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      // 4. Parse query parameters
+      const status = url.searchParams.get("status") || undefined;
+      const limit = Math.min(
+        parseInt(url.searchParams.get("limit") || "50"),
+        200
+      );
+      const offset = parseInt(url.searchParams.get("offset") || "0");
+
+      // 5. Query invoices for client
+      const result = await ctx.runQuery(
+        internal.api.v1.invoicesInternal.getInvoicesForClientInternal,
+        {
+          organizationId,
+          crmOrganizationId: crmOrganizationId as any,
+          status,
+          limit,
+          offset,
+        }
+      );
+
+      // 6. Return response
+      return new Response(
+        JSON.stringify({ success: true, ...result }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "X-Organization-Id": organizationId,
+          },
+        }
+      );
+    } catch (error) {
+      console.error("API /invoices/client/:id error:", error);
+      return new Response(
+        JSON.stringify({ error: "Internal server error" }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
+    }
+  }),
 });
 
 /**

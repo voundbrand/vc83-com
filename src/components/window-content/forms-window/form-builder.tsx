@@ -690,7 +690,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                   {t("ui.forms.section_select_theme")} <span style={{ color: "var(--error)" }}>{t("ui.forms.required_indicator")}</span>
                 </span>
                 {selectedThemeId && (
-                  <span className="text-xs px-2 py-0.5 rounded" style={{ background: "var(--win95-highlight)", color: "white" }}>
+                  <span className="text-xs px-2 py-0.5 rounded" style={{ background: "var(--win95-highlight)", color: "var(--win95-titlebar-text)" }}>
                     {availableThemes.find((t) => t._id === selectedThemeId)?.name}
                   </span>
                 )}
@@ -783,7 +783,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                 <Database size={16} />
                 <span className="text-sm font-bold">{t("ui.forms.section_link_event")}</span>
                 {selectedEventId && (
-                  <span className="text-xs px-2 py-0.5 rounded" style={{ background: "var(--win95-highlight)", color: "white" }}>
+                  <span className="text-xs px-2 py-0.5 rounded" style={{ background: "var(--win95-highlight)", color: "var(--win95-titlebar-text)" }}>
                     {availableEvents?.find((e) => e._id === selectedEventId)?.name}
                   </span>
                 )}

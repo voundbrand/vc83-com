@@ -32,6 +32,7 @@ import {
   oauthConnections,
   oauthStates
 } from "./schemas/coreSchemas";
+// NOTE: apiKeyDomains table removed - now using unified domain configurations in objects table
 import { apps, appInstallations, snapshots, snapshotLoads, purchases, appAvailabilities } from "./schemas/appStoreSchemas";
 // import { app_podcasting } from "./schemas/appDataSchemas"; // Not yet used
 import { auditLogs, workflowExecutionLogs } from "./schemas/utilitySchemas";
@@ -56,7 +57,8 @@ import {
   organizationAiSettings,
   aiAgentTasks,
   aiAgentMemory,
-  aiModels
+  aiModels,
+  aiWorkItems
 } from "./schemas/aiSchemas";
 
 // 💳 AI BILLING SCHEMAS v3.1 (VAT-inclusive pricing, EUR only)
@@ -95,6 +97,7 @@ export default defineSchema({
   passkeys,
   passkeysChallenges,
   apiKeys,
+  // Domain configurations (including API access, email, branding) stored in objects table
   userPreferences,
   organizationMedia,
   oauthConnections,
@@ -139,6 +142,7 @@ export default defineSchema({
   // NOTE: Tool drafts use objects table with status="draft" + AI metadata in customProperties
   organizationAiSettings, // AI configuration per organization (LLM + embeddings)
   aiModels,               // AI model discovery cache (auto-refreshed daily)
+  aiWorkItems,            // Work items for human-in-the-loop approval workflow
   aiAgentTasks,          // Email AI tasks with approval workflow
   aiAgentMemory,         // Email templates and preferences with vector search
 

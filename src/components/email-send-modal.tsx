@@ -428,7 +428,7 @@ export function EmailSendModal({
         {/* Email Preview */}
         {emailAction === "preview" && emailPreviewHtml && (
           <div className="mb-4 border-2" style={{ borderColor: "var(--win95-border)", background: "white", maxHeight: "400px", overflow: "auto" }}>
-            <div className="p-2 text-xs font-bold" style={{ background: "var(--win95-highlight)", color: "white" }}>
+            <div className="p-2 text-xs font-bold" style={{ background: "var(--win95-highlight)", color: "var(--win95-titlebar-text)" }}>
               📧 Email Preview
             </div>
             <iframe
@@ -448,7 +448,7 @@ export function EmailSendModal({
         {/* PDF Preview */}
         {emailAction === "previewPdf" && pdfPreviewUrl && (
           <div className="mb-4 border-2" style={{ borderColor: "var(--win95-border)", background: "white", maxHeight: "500px", overflow: "auto" }}>
-            <div className="p-2 text-xs font-bold" style={{ background: "var(--win95-highlight)", color: "white" }}>
+            <div className="p-2 text-xs font-bold" style={{ background: "var(--win95-highlight)", color: "var(--win95-titlebar-text)" }}>
               📄 PDF Preview
             </div>
             <iframe
@@ -557,12 +557,7 @@ export function EmailSendModal({
               }
             }}
             disabled={isSendingEmail}
-            className="px-4 py-2 border-2 flex items-center justify-center gap-2 hover:bg-opacity-90 disabled:opacity-50 transition-colors"
-            style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-highlight)",
-              color: "white",
-            }}
+            className="retro-button-primary px-4 py-2 flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {isSendingEmail && emailAction === "test" ? (
               <Loader2 size={16} className="animate-spin" />
@@ -579,7 +574,7 @@ export function EmailSendModal({
             style={{
               borderColor: "var(--win95-border)",
               background: "var(--success)",
-              color: "white",
+              color: "var(--win95-titlebar-text)",
             }}
           >
             {isSendingEmail && emailAction === "send" ? (

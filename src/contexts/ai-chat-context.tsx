@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, type ReactNode } from "react"
+import { createContext, useContext, useState, useRef, type ReactNode } from "react"
 import { Id } from "../../convex/_generated/dataModel"
 import { useAIChat } from "@/hooks/use-ai-chat"
 import { useAuth } from "@/hooks/use-auth"
@@ -27,6 +27,10 @@ interface AIChatContextType {
   // Human-in-the-Loop Mode
   humanInLoopEnabled: boolean
   setHumanInLoopEnabled: (enabled: boolean) => void
+
+  // Abort control
+  abortController: React.MutableRefObject<AbortController | null>
+  stopCurrentRequest: () => void
 }
 
 const AIChatContext = createContext<AIChatContextType | undefined>(undefined)
@@ -39,11 +43,23 @@ export function AIChatProvider({ children }: { children: ReactNode }) {
   const [selectedModel, setSelectedModel] = useState<string | undefined>(undefined)
   const [humanInLoopEnabled, setHumanInLoopEnabled] = useState(false)
 
+  // Abort controller for cancelling in-flight requests
+  const abortController = useRef<AbortController | null>(null)
+
   const chat = useAIChat(currentConversationId, selectedModel)
 
   // Get current user's organization ID
   const { user } = useAuth()
   const organizationId = user?.currentOrganization?.id as Id<"organizations"> | undefined
+
+  const stopCurrentRequest = () => {
+    if (abortController.current) {
+      console.log("🛑 [AI Chat] User stopped the request")
+      abortController.current.abort()
+      abortController.current = null
+      setIsSending(false)
+    }
+  }
 
   return (
     <AIChatContext.Provider
@@ -58,6 +74,8 @@ export function AIChatProvider({ children }: { children: ReactNode }) {
         setSelectedModel,
         humanInLoopEnabled,
         setHumanInLoopEnabled,
+        abortController,
+        stopCurrentRequest,
       }}
     >
       {children}

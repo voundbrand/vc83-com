@@ -56,6 +56,7 @@ export function useAIChat(conversationId?: Id<"aiConversations">, selectedModel?
   const createConversationMutation = useMutation(api.ai.conversations.createConversation)
   const updateConversationMutation = useMutation(api.ai.conversations.updateConversation)
   const archiveConversationMutation = useMutation(api.ai.conversations.archiveConversation)
+  const clearMessagesMutation = useMutation(api.ai.conversations.clearConversationMessages)
 
   /**
    * Send a message to the AI
@@ -151,6 +152,22 @@ export function useAIChat(conversationId?: Id<"aiConversations">, selectedModel?
     [archiveConversationMutation]
   )
 
+  /**
+   * Clear all messages from a conversation (for debugging/recovery)
+   */
+  const clearMessages = useCallback(
+    async (conversationId: Id<"aiConversations">) => {
+      try {
+        await clearMessagesMutation({ conversationId })
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : "Failed to clear messages"
+        setError(errorMessage)
+        throw err
+      }
+    },
+    [clearMessagesMutation]
+  )
+
   return {
     // Data
     conversation,
@@ -162,6 +179,7 @@ export function useAIChat(conversationId?: Id<"aiConversations">, selectedModel?
     createConversation,
     updateConversation,
     archiveConversation,
+    clearMessages,
 
     // State
     isLoading,

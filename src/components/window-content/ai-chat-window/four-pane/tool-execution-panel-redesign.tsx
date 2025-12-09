@@ -1,10 +1,10 @@
 "use client"
 
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
-import { Wrench, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronRight, Users, Mail, ExternalLink, AlertTriangle, Settings } from "lucide-react"
-import { type ReactNode, useState } from "react"
+import { Wrench, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronRight, Users, Mail, AlertTriangle, Settings, GripHorizontal, X, Minimize2, Maximize2, Clock, SlidersHorizontal } from "lucide-react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useAIChatContext } from "@/contexts/ai-chat-context"
-import { useQuery } from "convex/react"
+import { useQuery, useMutation } from "convex/react"
 import { api } from "../../../../../convex/_generated/api"
 import type { Id } from "../../../../../convex/_generated/dataModel"
 import { useWindowManager } from "@/hooks/use-window-manager"
@@ -12,17 +12,19 @@ import { useWindowManager } from "@/hooks/use-window-manager"
 interface ToolExecution {
   id: string
   toolName: string
-  status: "running" | "success" | "error"
+  status: "proposed" | "approved" | "executing" | "running" | "success" | "error" | "rejected" | "cancelled"
   startTime: Date
   endTime?: Date
   input: Record<string, unknown>
   output?: unknown
   error?: string
+  isMinimized?: boolean
+  proposalMessage?: string
 }
 
 interface WorkItem {
-  id: Id<"contactSyncs"> | Id<"emailCampaigns">;
-  type: "contact_sync" | "email_campaign";
+  id: Id<"contactSyncs"> | Id<"emailCampaigns"> | Id<"aiWorkItems">;
+  type: "contact_sync" | "email_campaign" | `ai_${string}`;
   name: string;
   status: string;
   createdAt: number;
@@ -36,35 +38,80 @@ interface WorkItem {
 interface ToolExecutionPanelProps {
   selectedWorkItem: WorkItem | null;
   onSelectWorkItem: (item: WorkItem | null) => void;
+  selectedToolExecution: ToolExecution | null;
+  onSelectToolExecution: (execution: ToolExecution | null) => void;
+  onOpenSettings?: () => void;
 }
 
 interface ToolExecutionItemProps {
   execution: ToolExecution
+  isSelected?: boolean
+  onSelect?: (execution: ToolExecution) => void
+  onMinimize?: (id: string, minimized: boolean) => void
+  onCancel?: (id: string) => void
 }
 
-function ToolExecutionItem({ execution }: ToolExecutionItemProps) {
+function ToolExecutionItem({ execution, isSelected, onSelect, onMinimize, onCancel }: ToolExecutionItemProps) {
   const { t } = useNamespaceTranslations("ui.ai_assistant")
   const [isExpanded, setIsExpanded] = useState(false)
   const [showDebug, setShowDebug] = useState(false)
 
   const statusConfig = {
+    proposed: {
+      icon: Clock,
+      color: 'var(--warning)',
+      bgColor: 'var(--warning-bg)',
+      animate: false,
+      label: "⏳ Pending Approval"
+    },
+    approved: {
+      icon: CheckCircle2,
+      color: 'var(--success)',
+      bgColor: 'var(--success-bg)',
+      animate: false,
+      label: "✅ Approved"
+    },
+    executing: {
+      icon: Loader2,
+      color: 'var(--info)',
+      bgColor: 'var(--info-bg)',
+      animate: true,
+      label: "⚡ Executing..."
+    },
     running: {
       icon: Loader2,
       color: 'var(--win95-text-muted)',
       bgColor: 'transparent',
-      animate: true
+      animate: true,
+      label: "Running..."
     },
     success: {
       icon: CheckCircle2,
       color: 'var(--success)',
       bgColor: 'var(--success-bg)',
-      animate: false
+      animate: false,
+      label: "✅ Success"
     },
     error: {
       icon: XCircle,
       color: 'var(--error)',
       bgColor: 'var(--error-bg)',
-      animate: false
+      animate: false,
+      label: "❌ Failed"
+    },
+    rejected: {
+      icon: XCircle,
+      color: 'var(--win95-text-muted)',
+      bgColor: 'var(--win95-bg-light)',
+      animate: false,
+      label: "🚫 Rejected"
+    },
+    cancelled: {
+      icon: X,
+      color: 'var(--win95-text-muted)',
+      bgColor: 'var(--win95-bg-light)',
+      animate: false,
+      label: "❌ Cancelled"
     }
   }
 
@@ -75,13 +122,43 @@ function ToolExecutionItem({ execution }: ToolExecutionItemProps) {
     ? Math.round((execution.endTime.getTime() - execution.startTime.getTime()) / 1000)
     : null
 
+  // If minimized, show tiny tile
+  if (execution.isMinimized) {
+    return (
+      <div
+        className="border rounded mb-1 cursor-pointer transition-all hover:border-gray-400"
+        style={{
+          borderColor: 'var(--win95-border-light)',
+          background: 'var(--win95-bg-light)',
+          height: '24px',
+          opacity: 0.6
+        }}
+        onClick={() => onMinimize?.(execution.id, false)}
+        title={`${execution.toolName} - Click to restore`}
+      >
+        <div className="flex items-center gap-1 px-2 py-0.5 h-full">
+          <StatusIcon
+            className={`w-3 h-3 flex-shrink-0 ${config.animate ? 'animate-spin' : ''}`}
+            style={{ color: config.color }}
+          />
+          <p className="text-xs truncate flex-1" style={{ color: 'var(--win95-text-muted)' }}>
+            {execution.toolName}
+          </p>
+          <Maximize2 className="w-3 h-3 flex-shrink-0" style={{ color: 'var(--win95-text-muted)' }} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
-      className="border rounded mb-2"
+      className="border rounded mb-2 cursor-pointer transition-all"
       style={{
-        borderColor: 'var(--win95-border-light)',
-        background: config.bgColor
+        borderColor: isSelected ? 'var(--win95-highlight)' : 'var(--win95-border-light)',
+        background: isSelected ? 'var(--win95-highlight-subtle)' : config.bgColor,
+        borderWidth: isSelected ? '2px' : '1px'
       }}
+      onClick={() => onSelect?.(execution)}
     >
       {/* Header */}
       <div className="flex items-center gap-2 p-2">
@@ -111,20 +188,19 @@ function ToolExecutionItem({ execution }: ToolExecutionItemProps) {
               {execution.toolName}
             </p>
             <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
-              {duration !== null
+              {config.label} • {duration !== null
                 ? `${duration}s`
                 : (t("ui.ai_assistant.tool.running") as string)}
             </p>
           </div>
         </button>
 
-        {/* Stop Button - Only show for running tools */}
-        {execution.status === 'running' && (
+        {/* Cancel Button - Only show for proposed tools */}
+        {execution.status === 'proposed' && (
           <button
             onClick={(e) => {
               e.stopPropagation();
-              // TODO: Implement actual stop functionality
-              console.warn('Stop tool execution:', execution.id);
+              onCancel?.(execution.id);
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.background = 'var(--error)';
@@ -132,18 +208,32 @@ function ToolExecutionItem({ execution }: ToolExecutionItemProps) {
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.background = 'transparent';
-              e.currentTarget.style.color = 'var(--error)';
+              e.currentTarget.style.color = 'var(--win95-text-muted)';
             }}
-            className="px-2 py-1 text-xs rounded border transition-colors flex-shrink-0"
-            style={{
-              borderColor: 'var(--error)',
-              color: 'var(--error)'
-            }}
-            title="Stop execution"
+            className="p-1 rounded transition-colors flex-shrink-0"
+            title="Cancel (dismiss without feedback)"
           >
-            Stop
+            <X className="w-3 h-3" />
           </button>
         )}
+
+        {/* Minimize Button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onMinimize?.(execution.id, true);
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'var(--win95-hover-light)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'transparent';
+          }}
+          className="p-1 rounded transition-colors flex-shrink-0"
+          title="Minimize"
+        >
+          <Minimize2 className="w-3 h-3" style={{ color: 'var(--win95-text-muted)' }} />
+        </button>
       </div>
 
       {/* Expanded Content */}
@@ -495,9 +585,149 @@ function ActionItemTile({ actionButton, message }: ActionItemTileProps) {
   );
 }
 
-export function ToolExecutionPanel({ selectedWorkItem, onSelectWorkItem }: ToolExecutionPanelProps) {
+interface ResizableDividerProps {
+  onDrag: (deltaY: number) => void;
+}
+
+function ResizableDivider({ onDrag }: ResizableDividerProps) {
+  const [isDragging, setIsDragging] = useState(false);
+  const startYRef = useRef<number>(0);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+    startYRef.current = e.clientY;
+  }, []);
+
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const deltaY = e.clientY - startYRef.current;
+      startYRef.current = e.clientY;
+      onDrag(deltaY);
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging, onDrag]);
+
+  return (
+    <div
+      className="group relative cursor-row-resize select-none"
+      onMouseDown={handleMouseDown}
+      style={{
+        height: '8px',
+        borderTop: '1px solid var(--win95-border-light)',
+        borderBottom: '1px solid var(--win95-border-light)',
+        background: isDragging ? 'var(--win95-highlight)' : 'var(--win95-bg)',
+        transition: isDragging ? 'none' : 'background-color 0.15s'
+      }}
+    >
+      {/* Visual grip indicator */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <GripHorizontal
+          className="w-4 h-4 transition-opacity"
+          style={{
+            color: isDragging ? 'white' : 'var(--win95-text-muted)',
+            opacity: isDragging ? 1 : 0.4
+          }}
+        />
+      </div>
+
+      {/* Hover effect overlay */}
+      <div
+        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
+        style={{
+          background: 'var(--win95-highlight)',
+          opacity: isDragging ? 0 : 0.2
+        }}
+      />
+    </div>
+  );
+}
+
+export function ToolExecutionPanel({ selectedWorkItem, onSelectWorkItem, selectedToolExecution, onSelectToolExecution, onOpenSettings }: ToolExecutionPanelProps) {
   const { t } = useNamespaceTranslations("ui.ai_assistant")
   const { currentConversationId, organizationId } = useAIChatContext()
+
+  // Minimize mutation
+  const minimizeExecution = useMutation(api.ai.conversations.minimizeToolExecution)
+
+  const handleMinimize = async (executionId: string, isMinimized: boolean) => {
+    try {
+      await minimizeExecution({
+        executionId: executionId as Id<"aiToolExecutions">,
+        isMinimized,
+      })
+    } catch (error) {
+      console.error("[Tool Execution] Failed to toggle minimize:", error)
+    }
+  }
+
+  // Cancel mutation
+  const cancelExecution = useMutation(api.ai.conversations.cancelToolExecution)
+
+  const handleCancel = async (executionId: string) => {
+    try {
+      await cancelExecution({
+        executionId: executionId as Id<"aiToolExecutions">,
+      })
+    } catch (error) {
+      console.error("[Tool Execution] Failed to cancel:", error)
+    }
+  }
+
+  // Resizable divider state
+  const STORAGE_KEY = 'ai-chat-tool-execution-split';
+  const DEFAULT_TOP_HEIGHT = 50; // Default 50% for top panel
+  const MIN_HEIGHT = 20; // Minimum 20% for each panel
+  const MAX_HEIGHT = 80; // Maximum 80% for each panel
+
+  const [topPanelHeight, setTopPanelHeight] = useState<number>(() => {
+    // Try to load from localStorage
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = parseInt(saved, 10);
+        if (!isNaN(parsed) && parsed >= MIN_HEIGHT && parsed <= MAX_HEIGHT) {
+          return parsed;
+        }
+      }
+    }
+    return DEFAULT_TOP_HEIGHT;
+  });
+
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const handleDividerDrag = useCallback((deltaY: number) => {
+    if (!containerRef.current) return;
+
+    const containerHeight = containerRef.current.clientHeight;
+    const deltaPercent = (deltaY / containerHeight) * 100;
+
+    setTopPanelHeight((prev) => {
+      const newHeight = prev + deltaPercent;
+      // Clamp between min and max
+      const clampedHeight = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, newHeight));
+
+      // Save to localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(STORAGE_KEY, clampedHeight.toString());
+      }
+
+      return clampedHeight;
+    });
+  }, []);
 
   // Get tool executions for the current conversation
   const toolExecutionsData = useQuery(
@@ -518,18 +748,27 @@ export function ToolExecutionPanel({ selectedWorkItem, onSelectWorkItem }: ToolE
       ? new Date(exec.executedAt + exec.durationMs)
       : undefined;
 
+    // Map database status to UI status
+    let uiStatus: ToolExecution["status"];
+    if (exec.status === "proposed") uiStatus = "proposed";
+    else if (exec.status === "approved") uiStatus = "approved";
+    else if (exec.status === "executing") uiStatus = "executing";
+    else if (exec.status === "success") uiStatus = "success";
+    else if (exec.status === "failed") uiStatus = "error";
+    else if (exec.status === "rejected") uiStatus = "rejected";
+    else uiStatus = "running"; // fallback
+
     return {
       id: exec._id,
       toolName: exec.toolName,
-      // FIXED: Check exec.status field (not exec.success)
-      status: exec.status === "success" ? "success" : exec.status === "failed" ? "error" : "running",
+      status: uiStatus,
       startTime: new Date(exec.executedAt),
       endTime,
-      // FIXED: Database stores 'parameters' not 'input'
       input: exec.parameters as Record<string, unknown>,
-      // FIXED: Database stores 'result' not 'output'
       output: exec.result,
-      error: exec.error
+      error: exec.error,
+      isMinimized: exec.isMinimized || false,
+      proposalMessage: exec.proposalMessage,
     };
   })
 
@@ -542,11 +781,13 @@ export function ToolExecutionPanel({ selectedWorkItem, onSelectWorkItem }: ToolE
       message: (exec.output as any).message || exec.error || 'Action required'
     }))
 
+  const bottomPanelHeight = 100 - topPanelHeight;
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
       <div
-        className="border-b-2 p-3"
+        className="border-b-2 p-3 flex-shrink-0"
         style={{
           borderColor: 'var(--win95-border-dark)',
           background: 'var(--win95-title-bg)'
@@ -560,70 +801,124 @@ export function ToolExecutionPanel({ selectedWorkItem, onSelectWorkItem }: ToolE
         </div>
       </div>
 
-      {/* Content - No Tabs! */}
-      <div className="flex-1 overflow-y-auto">
-        {/* Tool Executions Section */}
-        <div className="p-2">
-          <div className="flex items-center justify-between mb-2 px-1">
-            <p className="text-xs font-semibold" style={{ color: 'var(--win95-text)' }}>
-              Tool Execution ({executions.length})
-            </p>
-          </div>
-
-          {executions.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-6 text-center">
-              <Wrench className="w-6 h-6 mb-2" style={{ color: 'var(--win95-text-muted)' }} />
-              <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
-                {t("ui.ai_assistant.tools.empty") as string}
-              </p>
-            </div>
-          ) : (
-            executions.map((execution) => (
-              <ToolExecutionItem key={execution.id} execution={execution} />
-            ))
-          )}
-        </div>
-
-        {/* Work Items Section - Below Tool Execution */}
+      {/* Resizable Content Container */}
+      <div ref={containerRef} className="flex-1 flex flex-col overflow-hidden">
+        {/* Tool Executions Section - Top Panel */}
         <div
-          className="border-t-2 p-2"
-          style={{ borderColor: 'var(--win95-border-light)' }}
+          className="flex flex-col overflow-hidden"
+          style={{ height: `${topPanelHeight}%` }}
         >
-          <div className="flex items-center justify-between mb-2 px-1">
-            <p className="text-xs font-semibold" style={{ color: 'var(--win95-text)' }}>
-              Work Items ({(actionItems?.length || 0) + (workItems?.length || 0)})
-            </p>
-          </div>
+          <div className="flex-1 overflow-y-auto p-2">
+            <div className="flex items-center justify-between mb-2 px-1">
+              <p className="text-xs font-semibold" style={{ color: 'var(--win95-text)' }}>
+                Tool Execution ({executions.length})
+              </p>
+              {/* Settings Button */}
+              <button
+                onClick={() => onOpenSettings?.()}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'var(--win95-hover-light)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                }}
+                className="p-1 rounded transition-colors"
+                title="AI Settings"
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" style={{ color: 'var(--win95-text-muted)' }} />
+              </button>
+            </div>
 
-          {/* Action Items - Show first */}
-          {actionItems.map((actionItem) => (
-            <ActionItemTile
-              key={actionItem.id}
-              actionButton={actionItem.actionButton}
-              message={actionItem.message}
-            />
-          ))}
-
-          {/* Regular Work Items */}
-          {!workItems || workItems.length === 0 ? (
-            actionItems.length === 0 && (
+            {executions.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-6 text-center">
-                <Users className="w-6 h-6 mb-2" style={{ color: 'var(--win95-text-muted)' }} />
+                <Wrench className="w-6 h-6 mb-2" style={{ color: 'var(--win95-text-muted)' }} />
                 <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
-                  No active work items
+                  {t("ui.ai_assistant.tools.empty") as string}
                 </p>
               </div>
-            )
-          ) : (
-            workItems.map((item) => (
-              <WorkItemCard
-                key={item.id}
-                item={item}
-                isSelected={selectedWorkItem?.id === item.id}
-                onSelect={onSelectWorkItem}
+            ) : (
+              <>
+                {/* Regular (non-minimized) executions */}
+                {executions.filter(e => !e.isMinimized).map((execution) => (
+                  <ToolExecutionItem
+                    key={execution.id}
+                    execution={execution}
+                    isSelected={selectedToolExecution?.id === execution.id}
+                    onSelect={(exec) => {
+                      onSelectToolExecution(exec)
+                      onSelectWorkItem(null) // Clear work item selection
+                    }}
+                    onMinimize={handleMinimize}
+                    onCancel={handleCancel}
+                  />
+                ))}
+
+                {/* Minimized executions section */}
+                {executions.filter(e => e.isMinimized).length > 0 && (
+                  <div className="mt-2 pt-2 border-t" style={{ borderColor: 'var(--win95-border-light)' }}>
+                    <p className="text-xs mb-1 px-1" style={{ color: 'var(--win95-text-muted)' }}>
+                      Minimized ({executions.filter(e => e.isMinimized).length})
+                    </p>
+                    {executions.filter(e => e.isMinimized).map((execution) => (
+                      <ToolExecutionItem
+                        key={execution.id}
+                        execution={execution}
+                        onMinimize={handleMinimize}
+                        onCancel={handleCancel}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Resizable Divider */}
+        <ResizableDivider onDrag={handleDividerDrag} />
+
+        {/* Work Items Section - Bottom Panel */}
+        <div
+          className="flex flex-col overflow-hidden"
+          style={{ height: `${bottomPanelHeight}%` }}
+        >
+          <div className="flex-1 overflow-y-auto p-2">
+            <div className="flex items-center justify-between mb-2 px-1">
+              <p className="text-xs font-semibold" style={{ color: 'var(--win95-text)' }}>
+                Work Items ({(actionItems?.length || 0) + (workItems?.length || 0)})
+              </p>
+            </div>
+
+            {/* Action Items - Show first */}
+            {actionItems.map((actionItem) => (
+              <ActionItemTile
+                key={actionItem.id}
+                actionButton={actionItem.actionButton}
+                message={actionItem.message}
               />
-            ))
-          )}
+            ))}
+
+            {/* Regular Work Items */}
+            {!workItems || workItems.length === 0 ? (
+              actionItems.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-6 text-center">
+                  <Users className="w-6 h-6 mb-2" style={{ color: 'var(--win95-text-muted)' }} />
+                  <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+                    No active work items
+                  </p>
+                </div>
+              )
+            ) : (
+              workItems.map((item) => (
+                <WorkItemCard
+                  key={item.id}
+                  item={item}
+                  isSelected={selectedWorkItem?.id === item.id}
+                  onSelect={onSelectWorkItem}
+                />
+              ))
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -34,6 +34,7 @@
 import { query, mutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser } from "./rbacHelpers";
+import { checkResourceLimit } from "./licensing/helpers";
 
 // ============================================================================
 // CRM CONTACT OPERATIONS
@@ -150,6 +151,10 @@ export const createContact = mutation({
       .first();
 
     if (!session) throw new Error("Invalid session");
+
+    // CHECK LICENSE LIMIT: Enforce contact limit for organization's tier
+    // Free: 100, Starter: 1,000, Pro: 5,000, Agency: 10,000, Enterprise: Unlimited
+    await checkResourceLimit(ctx, args.organizationId, "crm_contact", "maxContacts");
 
     const contactId = await ctx.db.insert("objects", {
       organizationId: args.organizationId,

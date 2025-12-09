@@ -633,8 +633,7 @@ export function TestModePanel({
               <button
                 onClick={handleRun}
                 disabled={isExecuting || !!parseError}
-                className="retro-button w-full py-2 flex items-center justify-center gap-2 font-bold disabled:opacity-50"
-                style={{ background: "var(--win95-highlight)", color: "white" }}
+                className="retro-button-primary w-full py-2 flex items-center justify-center gap-2 font-bold disabled:opacity-50"
               >
                 {isExecuting ? (
                   <>

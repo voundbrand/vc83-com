@@ -12,8 +12,8 @@ import { useAIChatContext } from "@/contexts/ai-chat-context"
 import { Id } from "../../../../../convex/_generated/dataModel"
 
 interface WorkItem {
-  id: Id<"contactSyncs"> | Id<"emailCampaigns">;
-  type: "contact_sync" | "email_campaign";
+  id: Id<"contactSyncs"> | Id<"emailCampaigns"> | Id<"aiWorkItems">;
+  type: "contact_sync" | "email_campaign" | `ai_${string}`;
   name: string;
   status: string;
   createdAt: number;

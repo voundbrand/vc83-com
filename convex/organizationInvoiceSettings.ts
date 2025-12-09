@@ -51,6 +51,7 @@ export const getInvoiceSettings = query({
       _id: legalSettings._id,
       organizationId: legalSettings.organizationId,
       invoicingEnabled: legalSettings.customProperties?.invoicingEnabled ?? false,
+      useStripeInvoices: legalSettings.customProperties?.useStripeInvoices ?? false, // NEW: Optional Stripe integration
       collectionMethod: legalSettings.customProperties?.invoiceSettings?.collectionMethod ?? "send_invoice",
       paymentTerms: legalSettings.customProperties?.invoiceSettings?.paymentTerms ?? "net_30",
       autoAdvance: legalSettings.customProperties?.invoiceSettings?.autoAdvance ?? true,
@@ -88,6 +89,7 @@ export const getPublicInvoiceSettings = query({
     // Return only public-safe invoice settings
     return {
       invoicingEnabled: legalSettings.customProperties?.invoicingEnabled ?? false,
+      useStripeInvoices: legalSettings.customProperties?.useStripeInvoices ?? false, // NEW: Optional Stripe integration
       collectionMethod: legalSettings.customProperties?.invoiceSettings?.collectionMethod ?? "send_invoice",
       paymentTerms: legalSettings.customProperties?.invoiceSettings?.paymentTerms ?? "net_30",
       daysUntilDue: legalSettings.customProperties?.invoiceSettings?.daysUntilDue ?? 30,
@@ -104,6 +106,7 @@ export const updateInvoiceSettings = mutation({
     sessionId: v.string(),
     organizationId: v.id("organizations"),
     invoicingEnabled: v.optional(v.boolean()),
+    useStripeInvoices: v.optional(v.boolean()), // NEW: Enable/disable Stripe integration
     collectionMethod: v.optional(v.union(v.literal("charge_automatically"), v.literal("send_invoice"))),
     paymentTerms: v.optional(v.union(
       v.literal("net_30"),
@@ -151,6 +154,7 @@ export const updateInvoiceSettings = mutation({
       customProperties: {
         ...legalSettings.customProperties,
         invoicingEnabled: args.invoicingEnabled ?? legalSettings.customProperties?.invoicingEnabled ?? false,
+        useStripeInvoices: args.useStripeInvoices ?? legalSettings.customProperties?.useStripeInvoices ?? false, // NEW
         invoiceSettings: updatedInvoiceSettings,
       },
       updatedAt: Date.now(),

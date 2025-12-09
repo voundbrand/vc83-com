@@ -12,8 +12,8 @@ import { ChatFooter } from "../single-pane/chat-footer"
 import type { Id } from "../../../../../convex/_generated/dataModel"
 
 interface WorkItem {
-  id: Id<"contactSyncs"> | Id<"emailCampaigns">;
-  type: "contact_sync" | "email_campaign";
+  id: Id<"contactSyncs"> | Id<"emailCampaigns"> | Id<"aiWorkItems">;
+  type: "contact_sync" | "email_campaign" | `ai_${string}`;
   name: string;
   status: string;
   createdAt: number;
@@ -24,8 +24,33 @@ interface WorkItem {
   };
 }
 
+interface ToolExecution {
+  id: string
+  toolName: string
+  status: "proposed" | "approved" | "executing" | "running" | "success" | "error" | "rejected" | "cancelled"
+  startTime: Date
+  endTime?: Date
+  input: Record<string, unknown>
+  output?: unknown
+  error?: string
+  isMinimized?: boolean
+  proposalMessage?: string
+}
+
 export function FourPaneLayout() {
   const [selectedWorkItem, setSelectedWorkItem] = useState<WorkItem | null>(null)
+  const [selectedToolExecution, setSelectedToolExecution] = useState<ToolExecution | null>(null)
+  const [showSettings, setShowSettings] = useState(false)
+
+  const handleOpenSettings = () => {
+    setShowSettings(true)
+    setSelectedWorkItem(null) // Clear work item selection when opening settings
+    setSelectedToolExecution(null) // Clear tool execution selection
+  }
+
+  const handleCloseSettings = () => {
+    setShowSettings(false)
+  }
 
   return (
     <div className="h-full" style={{ background: 'var(--win95-bg)' }}>
@@ -95,7 +120,22 @@ export function FourPaneLayout() {
           >
             <ToolExecutionPanel
               selectedWorkItem={selectedWorkItem}
-              onSelectWorkItem={setSelectedWorkItem}
+              onSelectWorkItem={(item) => {
+                setSelectedWorkItem(item)
+                if (item) {
+                  setShowSettings(false) // Close settings when selecting work item
+                  setSelectedToolExecution(null) // Clear tool execution selection
+                }
+              }}
+              selectedToolExecution={selectedToolExecution}
+              onSelectToolExecution={(exec) => {
+                setSelectedToolExecution(exec)
+                if (exec) {
+                  setShowSettings(false) // Close settings when selecting tool execution
+                  setSelectedWorkItem(null) // Clear work item selection
+                }
+              }}
+              onOpenSettings={handleOpenSettings}
             />
           </div>
         </Panel>
@@ -124,6 +164,10 @@ export function FourPaneLayout() {
             <DetailView
               selectedWorkItem={selectedWorkItem}
               onClearSelection={() => setSelectedWorkItem(null)}
+              selectedToolExecution={selectedToolExecution}
+              onClearToolExecution={() => setSelectedToolExecution(null)}
+              showSettings={showSettings}
+              onCloseSettings={handleCloseSettings}
             />
           </div>
         </Panel>

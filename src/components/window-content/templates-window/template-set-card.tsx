@@ -133,7 +133,7 @@ export function TemplateSetCard({
                     Email Templates
                   </span>
                 </div>
-                <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ backgroundColor: "var(--win95-highlight)", color: "white" }}>
+                <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ backgroundColor: "var(--win95-highlight)", color: "var(--win95-titlebar-text)" }}>
                   {templateSet.totalEmailTemplates}
                 </span>
               </div>
@@ -153,7 +153,7 @@ export function TemplateSetCard({
                     PDF Templates
                   </span>
                 </div>
-                <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ backgroundColor: "var(--win95-highlight)", color: "white" }}>
+                <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ backgroundColor: "var(--win95-highlight)", color: "var(--win95-titlebar-text)" }}>
                   {templateSet.totalPdfTemplates}
                 </span>
               </div>

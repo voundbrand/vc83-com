@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { useWindowManager } from "@/hooks/use-window-manager";
 import { InvoicingWindow } from "@/components/window-content/invoicing-window";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+import { useNotification } from "@/hooks/use-notification";
 import {
   FileText,
   CheckCircle2,
@@ -14,7 +15,8 @@ import {
   CreditCard,
   Building2,
   Settings,
-  CircleDot
+  CircleDot,
+  Loader2
 } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 
@@ -31,8 +33,10 @@ export function InvoicingSection() {
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
   const [isEnabling, setIsEnabling] = useState(false);
+  const [isTogglingStripe, setIsTogglingStripe] = useState(false);
   const { openWindow } = useWindowManager();
   const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.payments.invoicing");
+  const notification = useNotification();
 
   // Check if invoice payment is available
   const invoiceAvailability = useQuery(
@@ -67,6 +71,20 @@ export function InvoicingSection() {
       : "skip"
   );
 
+  // Get invoice settings (includes useStripeInvoices toggle)
+  const invoiceSettings = useQuery(
+    api.organizationInvoiceSettings.getInvoiceSettings,
+    sessionId && currentOrg
+      ? {
+          sessionId,
+          organizationId: currentOrg.id as Id<"organizations">,
+        }
+      : "skip"
+  );
+
+  // Mutation to update invoice settings
+  const updateInvoiceSettings = useMutation(api.organizationInvoiceSettings.updateInvoiceSettings);
+
   const handleEnableInvoicing = async () => {
     if (!sessionId || !currentOrg) return;
 
@@ -80,12 +98,42 @@ export function InvoicingSection() {
     }
   };
 
-  // Check Stripe Invoice settings
+  const handleToggleStripeInvoices = async () => {
+    if (!sessionId || !currentOrg) return;
+
+    setIsTogglingStripe(true);
+    try {
+      const newValue = !invoiceSettings?.useStripeInvoices;
+
+      await updateInvoiceSettings({
+        sessionId,
+        organizationId: currentOrg.id as Id<"organizations">,
+        useStripeInvoices: newValue,
+      });
+
+      notification.success(
+        newValue ? "Stripe Invoices Enabled" : "Stripe Invoices Disabled",
+        newValue
+          ? "Invoices will now be synced to Stripe for payment collection"
+          : "Invoices will only be generated as PDFs"
+      );
+    } catch (error) {
+      console.error("Failed to toggle Stripe invoices:", error);
+      notification.error(
+        "Update Failed",
+        error instanceof Error ? error.message : "Failed to update Stripe invoice settings"
+      );
+    } finally {
+      setIsTogglingStripe(false);
+    }
+  };
+
+  // Check Stripe Invoice settings - use backend useStripeInvoices setting
   const stripeProvider = organization?.paymentProviders?.find(
     (p) => p.providerCode === "stripe" || p.providerCode === "stripe-connect"
   );
-  // Check if Stripe Invoice is enabled (stored in metadata)
-  const hasStripeInvoiceEnabled = Boolean(stripeProvider?.metadata?.stripeInvoiceEnabled);
+  const hasStripeConnected = Boolean(stripeProvider && stripeProvider.status === "active");
+  const hasStripeInvoiceEnabled = Boolean(invoiceSettings?.useStripeInvoices);
 
   // Setup checklist
   const setupItems = translationsLoading ? [] : [
@@ -242,40 +290,81 @@ export function InvoicingSection() {
           borderColor: "var(--win95-border)",
         }}
       >
-        <div className="flex items-start gap-3 mb-3">
+        <div className="flex items-start gap-3">
           <CreditCard size={20} style={{ color: "var(--win95-highlight)" }} className="mt-0.5 flex-shrink-0" />
           <div className="flex-1 min-w-0">
             <h4 className="text-sm font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-              {t("ui.payments.invoicing.status.enabled.title")}
+              Stripe Invoice Integration
             </h4>
-            <p className="text-xs mb-2" style={{ color: "var(--neutral-gray)" }}>
-              {t("ui.payments.invoicing.status.enabled.description")}
+            <p className="text-xs mb-3" style={{ color: "var(--neutral-gray)" }}>
+              Sync invoices to Stripe for professional payment collection with online credit card payments.
             </p>
-            <div className="flex items-center gap-2">
-              <div
-                className="px-2 py-1 rounded text-xs font-semibold border-2"
-                style={{
-                  background: hasStripeInvoiceEnabled ? "var(--success)" : "var(--win95-bg)",
-                  borderColor: hasStripeInvoiceEnabled ? "var(--success)" : "var(--win95-border)",
-                  color: hasStripeInvoiceEnabled ? "white" : "var(--neutral-gray)"
-                }}
-              >
-                {hasStripeInvoiceEnabled ? `✓ ${t("ui.payments.invoicing.config.enabled")}` : `○ ${t("ui.payments.invoicing.not_setup.title")}`}
+
+            {!hasStripeConnected ? (
+              <div className="flex items-center gap-2 p-2 rounded" style={{ background: "var(--win95-bg)", border: "1px solid var(--win95-border)" }}>
+                <AlertCircle size={16} style={{ color: "var(--warning)" }} />
+                <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                  Connect Stripe first in the "Stripe Connect" tab to enable invoice sync
+                </p>
               </div>
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  // TODO: Navigate to Stripe settings tab
-                  alert("Navigate to Stripe settings to enable Stripe Invoice integration");
-                }}
-                className="text-xs font-semibold hover:underline flex items-center gap-1"
-                style={{ color: "var(--win95-highlight)" }}
-              >
-                <Settings size={12} />
-                Configure in Stripe Settings
-              </a>
-            </div>
+            ) : (
+              <div className="space-y-3">
+                {/* Toggle Switch */}
+                <div className="flex items-center justify-between p-3 rounded" style={{ background: "var(--win95-bg)", border: "1px solid var(--win95-border)" }}>
+                  <div className="flex-1">
+                    <p className="text-xs font-semibold mb-1" style={{ color: "var(--win95-text)" }}>
+                      Use Stripe for Invoices
+                    </p>
+                    <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                      {hasStripeInvoiceEnabled
+                        ? "Invoices will be synced to Stripe with payment buttons"
+                        : "Invoices will only be generated as PDFs"}
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleToggleStripeInvoices}
+                    disabled={isTogglingStripe}
+                    className="relative inline-flex items-center h-6 rounded-full w-11 transition-colors focus:outline-none ml-3"
+                    style={{
+                      background: hasStripeInvoiceEnabled ? "var(--success)" : "var(--neutral-gray)",
+                      opacity: isTogglingStripe ? 0.5 : 1,
+                      cursor: isTogglingStripe ? "not-allowed" : "pointer"
+                    }}
+                  >
+                    {isTogglingStripe ? (
+                      <Loader2 size={16} className="animate-spin mx-auto" style={{ color: "white" }} />
+                    ) : (
+                      <span
+                        className="inline-block w-4 h-4 transform bg-white rounded-full transition-transform"
+                        style={{
+                          transform: hasStripeInvoiceEnabled ? "translateX(1.5rem)" : "translateX(0.25rem)"
+                        }}
+                      />
+                    )}
+                  </button>
+                </div>
+
+                {/* Status Badge */}
+                <div className="flex items-center gap-2">
+                  <div
+                    className="px-2 py-1 rounded text-xs font-semibold"
+                    style={{
+                      background: hasStripeInvoiceEnabled ? "var(--success)" : "var(--win95-bg)",
+                      color: hasStripeInvoiceEnabled ? "white" : "var(--neutral-gray)",
+                      border: "1px solid",
+                      borderColor: hasStripeInvoiceEnabled ? "var(--success)" : "var(--win95-border)"
+                    }}
+                  >
+                    {hasStripeInvoiceEnabled ? "✓ Enabled" : "○ Disabled"}
+                  </div>
+                  {hasStripeInvoiceEnabled && (
+                    <p className="text-xs" style={{ color: "var(--success)" }}>
+                      New invoices will sync to Stripe automatically
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

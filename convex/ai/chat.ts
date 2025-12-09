@@ -24,6 +24,7 @@ export const sendMessage = action({
     organizationId: v.id("organizations"),
     userId: v.id("users"),
     selectedModel: v.optional(v.string()),
+    isAutoRecovery: v.optional(v.boolean()), // Flag to bypass proposals for auto-recovery
   },
   handler: async (ctx, args): Promise<{
     conversationId: any;
@@ -95,6 +96,17 @@ export const sendMessage = action({
 
     // 6. Prepare messages for AI with enhanced reasoning capabilities
     const systemPrompt = `You are an AI assistant for l4yercak3, a comprehensive platform for managing events, forms, contacts, products, payments, and more. You are the PRIMARY INTERFACE for users - help them accomplish tasks through conversation.
+
+**CRITICAL: When Tools Fail**
+If a tool execution fails:
+1. READ THE ERROR MESSAGE CAREFULLY - it tells you exactly what went wrong
+2. LEARN from the error - don't repeat the same mistake
+3. PROPOSE A DIFFERENT APPROACH - use different tools or parameters
+4. EXPLAIN your reasoning - tell the user what you learned and what you'll try next
+
+**Example Error Recovery:**
+❌ Failed: "contactId is a platform user ID, not a CRM contact ID"
+✅ Correct response: "I see the issue - I used a user ID instead of a contact ID. Let me search for the contact in the CRM first, then link them using the correct ID."
 
 ## Your Core Capabilities
 
@@ -331,14 +343,42 @@ Would you like me to walk you through any of these steps in detail?"
 
 Remember: You're not just answering questions - you're helping users accomplish their goals. Be their guide, their tutor, and their automation assistant all in one.`;
 
+    // Build messages array, filtering out incomplete tool calling sequences
+    // (assistant messages with tool_calls but no corresponding tool results)
     const messages: any[] = [
       { role: "system" as const, content: systemPrompt },
-      ...conversation.messages.map((m: any) => ({
-        role: m.role,
-        content: m.content,
-        tool_calls: m.toolCalls,
-      })),
     ];
+
+    for (let i = 0; i < conversation.messages.length; i++) {
+      const msg = conversation.messages[i];
+      const nextMsg = conversation.messages[i + 1];
+
+      // If this is an assistant message with tool_calls, check if next message is a tool result
+      if (msg.role === "assistant" && msg.toolCalls && msg.toolCalls.length > 0) {
+        // Check if the next message is a tool result (starts with [Tool Result])
+        const hasToolResult = nextMsg && nextMsg.role === "assistant" && nextMsg.content?.startsWith("[Tool Result]");
+
+        if (!hasToolResult) {
+          // This is a proposal without execution - don't include tool_calls
+          console.log(`[AI Chat] Filtering out incomplete tool call from history (message ${i})`);
+          messages.push({
+            role: msg.role,
+            content: msg.content,
+            // OMIT tool_calls to prevent OpenRouter 400 error
+          });
+          continue;
+        }
+      }
+
+      // Normal message - include as-is
+      messages.push({
+        role: msg.role,
+        content: msg.content,
+        tool_calls: msg.toolCalls,
+      });
+    }
+
+    console.log(`[AI Chat] Built ${messages.length} messages for OpenRouter (${conversation.messages.length} in DB)`);
 
     // 7. Call OpenRouter with tools
     let response: any = await client.chatCompletion({
@@ -358,6 +398,7 @@ Remember: You're not just answering questions - you're helping users accomplish 
     const toolCalls: any[] = [];
     let toolCallRounds = 0;
     const maxToolCallRounds = providerConfig.maxToolCallRounds;
+    let hasProposedTools = false; // Track if any tools were proposed (not executed)
 
     while (response.choices[0].message.tool_calls && toolCallRounds < maxToolCallRounds) {
       toolCallRounds++;
@@ -400,58 +441,94 @@ Remember: You're not just answering questions - you're helping users accomplish 
           parsedArgs = {}; // Use empty object if parsing fails
         }
 
+        // CRITICAL DECISION: Should this tool be proposed or executed immediately?
+        // For MVP Phase 2, ALL tools require approval
+        // EXCEPT for auto-recovery attempts (which bypass approval)
+        const shouldPropose = !args.isAutoRecovery; // Auto-recovery executes immediately
+
         try {
-          // Execute tool
-          const result = await executeTool(
-            {
-              ...ctx,
+
+          let result: any;
+
+          if (shouldPropose) {
+            // Create a proposal instead of executing
+            const executionId = await ctx.runMutation(api.ai.conversations.proposeToolExecution, {
+              conversationId,
               organizationId: args.organizationId,
               userId: args.userId,
-              conversationId, // Pass conversationId for feature requests
-            },
-            toolCall.function.name,
-            parsedArgs
-          );
+              toolName: toolCall.function.name,
+              parameters: parsedArgs,
+              proposalMessage: `AI wants to execute: ${toolCall.function.name}`,
+            });
+
+            result = {
+              status: "pending_approval",
+              executionId,
+              message: `I've created a proposal for your review. Please approve it in the Tool Execution panel.`,
+            };
+
+            hasProposedTools = true; // Mark that we have proposals pending
+            console.log("[AI Chat] Tool proposed for approval:", toolCall.function.name, executionId);
+          } else {
+            // Execute tool immediately
+            result = await executeTool(
+              {
+                ...ctx,
+                organizationId: args.organizationId,
+                userId: args.userId,
+                conversationId, // Pass conversationId for feature requests
+              },
+              toolCall.function.name,
+              parsedArgs
+            );
+          }
 
           const durationMs = Date.now() - startTime;
 
-          // Determine status based on result.success field
-          // Tools can return { success: false, error: "...", actionButton: {...} } for OAuth errors
-          const executionStatus = result && typeof result === 'object' && 'success' in result && result.success === false
-            ? "failed"
-            : "success";
+          // If this was a proposal, don't log it as executed yet
+          // The logging already happened in proposeToolExecution
+          if (!shouldPropose) {
+            // Determine status based on result.success field
+            // Tools can return { success: false, error: "...", actionButton: {...} } for OAuth errors
+            const executionStatus = result && typeof result === 'object' && 'success' in result && result.success === false
+              ? "failed"
+              : "success";
 
-          // Log execution (use parsedArgs, not re-parse!)
-          await ctx.runMutation(api.ai.conversations.logToolExecution, {
-            conversationId,
-            organizationId: args.organizationId,
-            userId: args.userId,
-            toolName: toolCall.function.name,
-            parameters: parsedArgs,
-            result,
-            status: executionStatus,
-            tokensUsed: response.usage?.total_tokens || 0,
-            costUsd: client.calculateCost(response.usage || { prompt_tokens: 0, completion_tokens: 0 }, model),
-            executedAt: Date.now(),
-            durationMs,
-          });
+            // Log execution (use parsedArgs, not re-parse!)
+            await ctx.runMutation(api.ai.conversations.logToolExecution, {
+              conversationId,
+              organizationId: args.organizationId,
+              userId: args.userId,
+              toolName: toolCall.function.name,
+              parameters: parsedArgs,
+              result,
+              status: executionStatus,
+              tokensUsed: response.usage?.total_tokens || 0,
+              costUsd: client.calculateCost(response.usage || { prompt_tokens: 0, completion_tokens: 0 }, model),
+              executedAt: Date.now(),
+              durationMs,
+            });
+          }
 
           toolCalls.push({
             id: toolCall.id,
             name: toolCall.function.name,
             arguments: parsedArgs,
             result,
-            status: "success",
+            status: shouldPropose ? "pending_approval" : "success",
           });
 
-          // Add tool result to messages (provider-specific format)
-          const toolResultMessage = formatToolResult(
-            provider,
-            toolCall.id,
-            toolCall.function.name,
-            result
-          );
-          messages.push(toolResultMessage as any);
+          // Add tool result to messages ONLY if tool was actually executed
+          // (Not when it's just proposed for approval)
+          if (!shouldPropose) {
+            const toolResultMessage = formatToolResult(
+              provider,
+              toolCall.id,
+              toolCall.function.name,
+              result
+            );
+            messages.push(toolResultMessage as any);
+          }
         } catch (error: any) {
           console.error(`[AI Chat] Tool execution failed: ${toolCall.function.name}`, error);
 
@@ -491,13 +568,17 @@ Remember: You're not just answering questions - you're helping users accomplish 
             ? getFeatureRequestMessage(toolCall.function.name, userLanguage)
             : error.message;
 
-          const toolErrorMessage = formatToolError(
-            provider,
-            toolCall.id,
-            toolCall.function.name,
-            userFriendlyError
-          );
-          messages.push(toolErrorMessage as any);
+          // Add tool error to messages ONLY if tool was actually executed
+          // (Proposals should never error since they don't execute)
+          if (!shouldPropose) {
+            const toolErrorMessage = formatToolError(
+              provider,
+              toolCall.id,
+              toolCall.function.name,
+              userFriendlyError
+            );
+            messages.push(toolErrorMessage as any);
+          }
 
           // 🚨 SEND FEATURE REQUEST EMAIL TO DEV TEAM
           // This helps prioritize which tools to build next based on actual user needs
@@ -533,6 +614,14 @@ Remember: You're not just answering questions - you're helping users accomplish 
         }
       }
 
+      // CRITICAL: If any tools were proposed (not executed), break out of the loop
+      // We can't continue the conversation because we don't have tool results yet
+      // The user must approve the proposals first, then executeApprovedTool will feed results back
+      if (hasProposedTools) {
+        console.log("[AI Chat] Breaking tool loop - waiting for user approval");
+        break;
+      }
+
       // Get next response after tool execution (without tools to force final answer)
       response = await client.chatCompletion({
         model,
@@ -559,17 +648,35 @@ Remember: You're not just answering questions - you're helping users accomplish 
       throw new Error("No message in final response from OpenRouter");
     }
 
-    const messageContent = finalMessage.content || (toolCalls.length > 0
-      ? `Executed ${toolCalls.length} tool(s): ${toolCalls.map(t => t.name).join(", ")}`
-      : "I'm here to help, but I didn't generate a response.");
+    // CRITICAL: If tools were proposed (not executed), create a user-friendly message
+    // but DON'T include toolCalls in the saved message (they'll break future conversations)
+    const executedToolCalls = toolCalls.filter(tc => tc.status !== "pending_approval");
+    const proposedToolCount = toolCalls.length - executedToolCalls.length;
 
-    await ctx.runMutation(api.ai.conversations.addMessage, {
-      conversationId,
-      role: "assistant",
-      content: messageContent,
-      timestamp: Date.now(),
-      toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
-    });
+    // IMPORTANT: Don't add assistant messages to chat when tools are proposed
+    // The proposals should ONLY appear in the Tool Execution panel, not in the main chat
+    if (proposedToolCount === 0) {
+      // No proposals - this is a normal response or executed tool results
+      let messageContent = finalMessage.content;
+      if (!messageContent) {
+        if (executedToolCalls.length > 0) {
+          messageContent = `Executed ${executedToolCalls.length} tool(s): ${executedToolCalls.map(t => t.name).join(", ")}`;
+        } else {
+          messageContent = "I'm here to help, but I didn't generate a response.";
+        }
+      }
+
+      await ctx.runMutation(api.ai.conversations.addMessage, {
+        conversationId,
+        role: "assistant",
+        content: messageContent,
+        timestamp: Date.now(),
+        // ONLY save toolCalls if they were actually executed (not just proposed)
+        // This prevents breaking the conversation when loading history
+        toolCalls: executedToolCalls.length > 0 ? executedToolCalls : undefined,
+      });
+    }
+    // If proposedToolCount > 0, don't add any chat message - the proposals are in the Tool Execution panel
 
     // 10. Update monthly spend
     const cost = client.calculateCost(
@@ -581,9 +688,14 @@ Remember: You're not just answering questions - you're helping users accomplish 
       costUsd: cost,
     });
 
+    // Return message only if we saved one (i.e., no proposals)
+    const returnMessage = proposedToolCount > 0
+      ? "" // No message for proposals - they appear in Tool Execution panel only
+      : (finalMessage.content || `Executed ${executedToolCalls.length} tool(s)`);
+
     return {
       conversationId,
-      message: messageContent,
+      message: returnMessage,
       toolCalls,
       usage: response.usage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
       cost,

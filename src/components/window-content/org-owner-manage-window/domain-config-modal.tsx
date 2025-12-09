@@ -160,6 +160,12 @@ export function DomainConfigModal({
           sessionId,
           organizationId,
           domainName: formData.domainName,
+          capabilities: {
+            email: !!email,
+            branding: true,
+            webPublishing: !!webPublishing,
+            api: false, // API capability managed separately in Security & API tab
+          },
           branding,
           email,
           webPublishing,

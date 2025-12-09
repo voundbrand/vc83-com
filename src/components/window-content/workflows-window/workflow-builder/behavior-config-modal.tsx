@@ -402,8 +402,7 @@ export function BehaviorConfigModal({
             </button>
             <button
               onClick={handleSave}
-              className="retro-button px-4 py-2 text-xs"
-              style={{ background: 'var(--win95-highlight)', color: 'white' }}
+              className="retro-button-primary px-4 py-2 text-xs"
             >
               {t("behaviorConfigModal.footer.save")}
             </button>

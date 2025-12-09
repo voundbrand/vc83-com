@@ -827,16 +827,18 @@ body {
 
   .retro-button-primary {
     background: var(--win95-highlight);
-    color: var(--win95-titlebar-text);
+    color: var(--win95-titlebar-text) !important; /* Always use titlebar text color (white in light, white in dark) */
     border-color: var(--win95-highlight) var(--win95-active-border) var(--win95-active-border) var(--win95-highlight);
   }
 
   .retro-button-primary:hover {
     background: var(--win95-selected-bg);
+    color: var(--win95-titlebar-text) !important;
   }
 
   .retro-button-primary:active {
     border-color: var(--win95-active-border) var(--win95-highlight) var(--win95-highlight) var(--win95-active-border);
+    color: var(--win95-titlebar-text) !important;
   }
 
   /* Glass light theme - ensure dark text on light buttons */
@@ -1162,10 +1164,16 @@ body {
     background: var(--desktop-icon-active-bg);
   }
 
-  /* Menu Hover State */
+  /* Menu Hover State - Proper dark mode support */
   .hover-menu-item:hover {
     background: var(--win95-hover-bg) !important;
     color: var(--win95-hover-text) !important;
+  }
+
+  /* Ensure text stays readable in dark mode */
+  .dark .hover-menu-item:hover {
+    background: var(--win95-hover-bg) !important;
+    color: #ffffff !important; /* Always white text on dark hover */
   }
 
   /* Glass theme hover - use glass effect instead of solid color */

@@ -366,7 +366,7 @@ export function TemplatesList({
                       {isDefault && (
                         <span
                           className="px-2 py-0.5 text-xs font-bold flex items-center gap-1"
-                          style={{ backgroundColor: "var(--win95-highlight)", color: "white" }}
+                          style={{ backgroundColor: "var(--win95-highlight)", color: "var(--win95-titlebar-text)" }}
                           title="Default template for this category"
                         >
                           <Star size={10} fill="white" />

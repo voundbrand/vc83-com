@@ -138,7 +138,7 @@ export function CheckoutEmbed({
     .map((product) => ({
       _id: product._id,
       name: product.name,
-      description: product.description || "",
+      description: (product as { description?: string }).description || "",
       price: Number((product.customProperties as Record<string, unknown>)?.price || 0),
       currency: String((product.customProperties as Record<string, unknown>)?.currency || "eur"),
       subtype: product.subtype,

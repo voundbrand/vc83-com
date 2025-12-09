@@ -72,4 +72,28 @@ crons.daily(
   internal.ai.modelDiscovery.fetchAvailableModels
 );
 
+/**
+ * Verify API Key Domain Badges (Phase 2: Badge Enforcement)
+ *
+ * Runs daily at 5 AM UTC to verify badge presence on free tier domains.
+ * Enforces "Powered by l4yercak3" badge requirement for free tier API usage.
+ *
+ * What it does:
+ * 1. Gets all domains requiring badge verification (free tier, active, due for check)
+ * 2. Makes HTTP request to /.well-known/l4yercak3-verify on each domain
+ * 3. Verifies badge presence via badge_visible field
+ * 4. Suspends domains missing badge after 3 failed checks (grace period)
+ * 5. Logs verification results for monitoring
+ *
+ * Free tier customers must display badge or upgrade to remove requirement.
+ */
+crons.daily(
+  "Verify API key domain badges",
+  {
+    hourUTC: 5, // 5 AM UTC (after model refresh)
+    minuteUTC: 0,
+  },
+  internal.licensing.badgeVerification.verifyAllBadgesInternal
+);
+
 export default crons;

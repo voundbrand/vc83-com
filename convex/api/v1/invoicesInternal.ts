@@ -563,3 +563,180 @@ export const getInvoicePdfInternal = internalQuery({
     };
   },
 });
+
+/**
+ * GET INVOICES FOR CLIENT (INTERNAL)
+ *
+ * Get all invoices for a specific CRM organization (client).
+ * Used by freelancer portals to show billing section to clients.
+ */
+export const getInvoicesForClientInternal = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    crmOrganizationId: v.id("objects"),
+    status: v.optional(v.string()),
+    limit: v.number(),
+    offset: v.number(),
+  },
+  handler: async (ctx, args) => {
+    // 1. Query all invoices for organization
+    const query = ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "invoice")
+      );
+
+    const allInvoices = await query.collect();
+
+    // 2. Filter by CRM organization (client)
+    let filteredInvoices = allInvoices.filter(
+      (inv) => inv.customProperties?.crmOrganizationId === args.crmOrganizationId
+    );
+
+    // 3. Apply status filter if provided
+    if (args.status) {
+      filteredInvoices = filteredInvoices.filter(
+        (inv) => inv.customProperties?.paymentStatus === args.status
+      );
+    }
+
+    // 4. Sort by invoice date descending (newest first)
+    filteredInvoices.sort((a, b) => {
+      const aDate = a.customProperties?.invoiceDate || a.createdAt;
+      const bDate = b.customProperties?.invoiceDate || b.createdAt;
+      return bDate - aDate;
+    });
+
+    // 5. Apply pagination
+    const total = filteredInvoices.length;
+    const paginatedInvoices = filteredInvoices.slice(
+      args.offset,
+      args.offset + args.limit
+    );
+
+    // 6. Format response - include Stripe URLs if available
+    const invoices = paginatedInvoices.map((invoice) => ({
+      id: invoice._id,
+      invoiceNumber: invoice.customProperties?.invoiceNumber,
+      invoiceDate: invoice.customProperties?.invoiceDate,
+      dueDate: invoice.customProperties?.dueDate,
+      status: invoice.customProperties?.paymentStatus,
+      totalInCents: invoice.customProperties?.totalInCents,
+      currency: invoice.customProperties?.currency || "usd",
+      // PDF URLs (your system or Stripe)
+      pdfUrl: invoice.customProperties?.pdfUrl,
+      stripeHostedUrl: invoice.customProperties?.stripeHostedUrl,
+      stripePdfUrl: invoice.customProperties?.stripePdfUrl,
+      // Stripe sync status (for debugging)
+      useStripeInvoices: invoice.customProperties?.useStripeInvoices || false,
+      stripeSyncStatus: invoice.customProperties?.stripeSyncStatus,
+    }));
+
+    return {
+      invoices,
+      total,
+      limit: args.limit,
+      offset: args.offset,
+    };
+  },
+});
+
+/**
+ * FIND INVOICE BY STRIPE ID (INTERNAL)
+ *
+ * Find an invoice by its Stripe invoice ID.
+ * Used by webhooks to locate the correct invoice.
+ */
+export const findInvoiceByStripeId = internalQuery({
+  args: {
+    stripeInvoiceId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Search for invoice with matching Stripe ID
+    const invoices = await ctx.db
+      .query("objects")
+      .filter((q) => q.eq(q.field("type"), "invoice"))
+      .collect();
+
+    const matchingInvoice = invoices.find(
+      (inv) => inv.customProperties?.stripeInvoiceId === args.stripeInvoiceId
+    );
+
+    return matchingInvoice || null;
+  },
+});
+
+/**
+ * UPDATE INVOICE STRIPE STATUS (INTERNAL)
+ *
+ * Update invoice with Stripe-related status changes.
+ * Called by webhook handlers.
+ */
+export const updateInvoiceStripeStatus = internalMutation({
+  args: {
+    invoiceId: v.id("objects"),
+    status: v.optional(v.string()),
+    stripeStatus: v.optional(v.string()),
+    stripeHostedUrl: v.optional(v.string()),
+    stripePdfUrl: v.optional(v.string()),
+    stripeInvoiceId: v.optional(v.string()),
+    paidAt: v.optional(v.number()),
+    amountPaidInCents: v.optional(v.number()),
+    paymentFailureReason: v.optional(v.string()),
+    actionRequired: v.optional(v.boolean()),
+    voidedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const invoice = await ctx.db.get(args.invoiceId);
+
+    if (!invoice || invoice.type !== "invoice") {
+      throw new Error("Invoice not found");
+    }
+
+    // Build update object
+    const updates: Record<string, unknown> = {
+      ...invoice.customProperties,
+      updatedAt: Date.now(),
+    };
+
+    // Update status fields
+    if (args.status !== undefined) {
+      updates.paymentStatus = args.status;
+    }
+    if (args.stripeStatus !== undefined) {
+      updates.stripeStatus = args.stripeStatus;
+    }
+    if (args.stripeHostedUrl !== undefined) {
+      updates.stripeHostedUrl = args.stripeHostedUrl;
+    }
+    if (args.stripePdfUrl !== undefined) {
+      updates.stripePdfUrl = args.stripePdfUrl;
+    }
+    if (args.stripeInvoiceId !== undefined) {
+      updates.stripeInvoiceId = args.stripeInvoiceId;
+    }
+    if (args.paidAt !== undefined) {
+      updates.paidAt = args.paidAt;
+    }
+    if (args.amountPaidInCents !== undefined) {
+      updates.amountPaidInCents = args.amountPaidInCents;
+    }
+    if (args.paymentFailureReason !== undefined) {
+      updates.paymentFailureReason = args.paymentFailureReason;
+    }
+    if (args.actionRequired !== undefined) {
+      updates.actionRequired = args.actionRequired;
+    }
+    if (args.voidedAt !== undefined) {
+      updates.voidedAt = args.voidedAt;
+    }
+
+    // Apply updates
+    await ctx.db.patch(args.invoiceId, {
+      customProperties: updates,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});

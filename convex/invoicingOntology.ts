@@ -18,6 +18,7 @@ import { mutation, query, internalMutation, internalQuery, internalAction } from
 import { Id } from "./_generated/dataModel";
 import { api, internal } from "./_generated/api";
 import { requireAuthenticatedUser, checkPermission } from "./rbacHelpers";
+import { getLicenseInternal } from "./licensing/helpers";
 
 // ============================================================================
 // APP REGISTRATION CONSTANTS
@@ -1310,6 +1311,43 @@ export const sealInvoice = mutation({
 
     if (!invoice.customProperties?.isDraft) {
       throw new Error("Rechnung ist bereits versiegelt");
+    }
+
+    // CHECK LICENSE LIMIT: Enforce monthly invoice limit for organization's tier
+    // Free: 10/month, Starter: 100/month, Pro: 500/month, Agency: 2,000/month
+    const license = await getLicenseInternal(ctx, invoice.organizationId);
+    const limit = license.limits.maxInvoicesPerMonth;
+
+    if (limit !== -1) {
+      // Count sealed invoices created this month
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+
+      const sealedThisMonth = await ctx.db
+        .query("objects")
+        .withIndex("by_org_type", (q) =>
+          q.eq("organizationId", invoice.organizationId).eq("type", "invoice")
+        )
+        .filter((q) =>
+          q.and(
+            q.eq(q.field("customProperties.isDraft"), false),
+            q.gte(q.field("createdAt"), monthStart)
+          )
+        )
+        .collect();
+
+      if (sealedThisMonth.length >= limit) {
+        throw new Error(
+          `You've reached your monthly invoice limit (${limit}). ` +
+            `Upgrade to ${
+              license.planTier === "free"
+                ? "Starter (€199/month) for 100 invoices/month"
+                : license.planTier === "starter"
+                ? "Professional (€399/month) for 500 invoices/month"
+                : "a higher tier"
+            } or wait until next month.`
+        );
+      }
     }
 
     // 2. Generate final invoice number

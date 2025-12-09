@@ -44,7 +44,7 @@ export const sendEmail = internalAction({
     }
 
     // 2. Load domain config directly from database (avoid circular imports)
-    const domainConfig = await ctx.runMutation(internal.domainConfigOntology.getDomainConfigInternal, {
+    const domainConfig = await ctx.runQuery(internal.domainConfigOntology.getDomainConfigInternal, {
       configId: args.domainConfigId,
     });
 

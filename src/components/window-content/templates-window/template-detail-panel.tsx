@@ -247,7 +247,7 @@ export function TemplateDetailPanel({
                 value={
                   <span
                     className="px-2 py-0.5 text-xs font-bold capitalize"
-                    style={{ backgroundColor: "var(--win95-highlight)", color: "white" }}
+                    style={{ backgroundColor: "var(--win95-highlight)", color: "var(--win95-titlebar-text)" }}
                   >
                     {category}
                   </span>
@@ -275,9 +275,9 @@ export function TemplateDetailPanel({
                 value={
                   <span
                     className="px-2 py-0.5 text-xs font-bold flex items-center gap-1 inline-flex"
-                    style={{ backgroundColor: "var(--win95-highlight)", color: "white" }}
+                    style={{ backgroundColor: "var(--win95-highlight)", color: "var(--win95-titlebar-text)" }}
                   >
-                    <Star size={10} fill="white" />
+                    <Star size={10} fill="currentColor" />
                     Default for "{category}" category
                   </span>
                 }
@@ -363,7 +363,7 @@ export function TemplateDetailPanel({
                       {set.isDefault && (
                         <span
                           className="px-1 py-0.5 text-[10px] font-bold"
-                          style={{ backgroundColor: "var(--win95-highlight)", color: "white" }}
+                          style={{ backgroundColor: "var(--win95-highlight)", color: "var(--win95-titlebar-text)" }}
                         >
                           DEFAULT
                         </span>

@@ -5,13 +5,21 @@ import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
 import { useAIChatContext } from "@/contexts/ai-chat-context"
 import { useAIConfig } from "@/hooks/use-ai-config"
 import { useNotification } from "@/hooks/use-notification"
+import { StopCircle } from "lucide-react"
 
 export function ChatInput() {
   const [message, setMessage] = useState("")
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { t } = useNamespaceTranslations("ui.ai_assistant")
-  const { chat, currentConversationId, setCurrentConversationId, isSending, setIsSending } =
-    useAIChatContext()
+  const {
+    chat,
+    currentConversationId,
+    setCurrentConversationId,
+    isSending,
+    setIsSending,
+    abortController,
+    stopCurrentRequest,
+  } = useAIChatContext()
   const { isAIReady, settings, billing } = useAIConfig()
   const notification = useNotification()
 
@@ -22,6 +30,20 @@ export function ChatInput() {
       textareaRef.current.style.height = textareaRef.current.scrollHeight + "px"
     }
   }, [message])
+
+  // Global ESC key handler to stop AI processing
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isSending) {
+        e.preventDefault()
+        stopCurrentRequest()
+        notification.info("Request Stopped", "AI processing has been cancelled")
+      }
+    }
+
+    window.addEventListener("keydown", handleEscape)
+    return () => window.removeEventListener("keydown", handleEscape)
+  }, [isSending, stopCurrentRequest, notification])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -64,6 +86,9 @@ export function ChatInput() {
     setMessage("")
     setIsSending(true)
 
+    // Create new abort controller for this request
+    abortController.current = new AbortController()
+
     try {
       const result = await chat.sendMessage(messageToSend, currentConversationId)
 
@@ -72,6 +97,12 @@ export function ChatInput() {
         setCurrentConversationId(result.conversationId)
       }
     } catch (error) {
+      // Check if request was aborted
+      if (error instanceof Error && error.name === "AbortError") {
+        console.log("🛑 [AI Chat] Request was aborted by user")
+        return // Don't show error notification for user-initiated stops
+      }
+
       console.error("Failed to send message:", error)
 
       // Parse error message for user-friendly feedback
@@ -103,6 +134,7 @@ export function ChatInput() {
       setMessage(messageToSend)
     } finally {
       setIsSending(false)
+      abortController.current = null
     }
   }
 
@@ -130,7 +162,8 @@ export function ChatInput() {
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={t("ui.ai_assistant.input.placeholder")}
-          className="flex-1 px-3 py-2 border-2 resize-none overflow-hidden min-h-[40px] max-h-[120px]"
+          disabled={isSending}
+          className="flex-1 px-3 py-2 border-2 resize-none overflow-hidden min-h-[40px] max-h-[120px] disabled:opacity-60"
           style={{
             borderColor: 'var(--win95-input-border-dark)',
             background: 'var(--win95-input-bg)',
@@ -141,17 +174,44 @@ export function ChatInput() {
           }}
           rows={1}
         />
-        <button
-          type="submit"
-          disabled={!message.trim() || isSending}
-          className="retro-button px-4 py-2 font-pixel text-xs whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isSending ? "⏳" : "📤"} {t("ui.ai_assistant.input.send_button")}
-        </button>
+        {isSending ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault()
+              stopCurrentRequest()
+              notification.info("Request Stopped", "AI processing has been cancelled")
+            }}
+            className="retro-button px-4 py-2 font-pixel text-xs whitespace-nowrap flex items-center gap-2"
+            style={{
+              background: 'var(--error)',
+              color: 'white'
+            }}
+            title="Stop AI processing (or press ESC)"
+          >
+            <StopCircle size={14} />
+            Stop
+          </button>
+        ) : (
+          <button
+            type="submit"
+            disabled={!message.trim()}
+            className="retro-button px-4 py-2 font-pixel text-xs whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            📤 {t("ui.ai_assistant.input.send_button")}
+          </button>
+        )}
       </div>
 
       <div className="mt-2 text-[10px]" style={{ color: 'var(--neutral-gray)' }}>
-        {t("ui.ai_assistant.input.quick_commands")}
+        {isSending ? (
+          <span className="flex items-center gap-1">
+            <span className="animate-pulse">⏳ Processing...</span>
+            <span className="opacity-60">• Press ESC or click Stop to cancel</span>
+          </span>
+        ) : (
+          t("ui.ai_assistant.input.quick_commands")
+        )}
       </div>
     </form>
   )

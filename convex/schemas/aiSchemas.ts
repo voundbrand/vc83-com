@@ -76,7 +76,7 @@ export const aiMessages = defineTable({
 /**
  * AI Tool Executions
  *
- * Audit trail of all tool executions
+ * Audit trail of all tool executions with human-in-the-loop approval
  */
 export const aiToolExecutions = defineTable({
   conversationId: v.id("aiConversations"),
@@ -88,13 +88,37 @@ export const aiToolExecutions = defineTable({
   parameters: v.any(),
   result: v.optional(v.any()),
   error: v.optional(v.string()),
-  status: v.union(v.literal("success"), v.literal("failed")),
+
+  // Execution state (expanded for approval workflow)
+  status: v.union(
+    v.literal("proposed"),    // AI wants to execute, waiting for approval
+    v.literal("approved"),    // User approved, ready to execute
+    v.literal("executing"),   // Currently running
+    v.literal("success"),     // Successfully completed
+    v.literal("failed"),      // Execution failed
+    v.literal("rejected"),    // User rejected the proposal
+    v.literal("cancelled")    // User dismissed/cancelled the proposal (no feedback to AI)
+  ),
+
+  // Human-in-the-loop approval fields
+  proposalMessage: v.optional(v.string()),  // AI's explanation of what it wants to do
+  userResponse: v.optional(v.union(
+    v.literal("approve"),
+    v.literal("approve_always"),  // User said "don't ask again"
+    v.literal("reject"),
+    v.literal("custom"),
+    v.literal("cancel")  // User dismissed without feedback to AI
+  )),
+  customInstruction: v.optional(v.string()),  // If user provided custom instruction
 
   // New fields for getToolExecutions query compatibility
   input: v.optional(v.any()),  // Alias for parameters
   output: v.optional(v.any()), // Alias for result
   success: v.optional(v.boolean()), // Derived from status
   completedAt: v.optional(v.number()), // When execution finished
+
+  // UI state (minimization)
+  isMinimized: v.optional(v.boolean()),  // Whether this item is minimized in the UI
 
   // Usage tracking
   tokensUsed: v.number(),
@@ -104,7 +128,9 @@ export const aiToolExecutions = defineTable({
 })
   .index("by_organization", ["organizationId"])
   .index("by_org_time", ["organizationId", "executedAt"])
-  .index("by_conversation", ["conversationId"]);
+  .index("by_conversation", ["conversationId"])
+  .index("by_status", ["status"])
+  .index("by_conversation_status", ["conversationId", "status"]);
 
 /**
  * Organization AI Settings v3.0
@@ -177,6 +203,24 @@ export const organizationAiSettings = defineTable({
     requireOnPremise: v.boolean(),
     complianceRequirements: v.optional(v.array(v.string())),
   })),
+
+  // Human-in-the-Loop Settings
+  humanInLoopEnabled: v.optional(v.boolean()),  // Require approval for all tool executions
+
+  // Auto-Recovery Settings (for tool execution failures)
+  autoRecovery: v.optional(v.object({
+    enabled: v.boolean(),              // Enable/disable auto-recovery
+    maxRetries: v.number(),            // Max retry attempts before giving up (1-5)
+    retryDelay: v.optional(v.number()), // Delay between retries (ms) - future use
+    requireApprovalPerRetry: v.boolean(), // User must approve each retry
+  })),
+
+  // Tool Approval Mode
+  toolApprovalMode: v.optional(v.union(
+    v.literal("all"),         // Require approval for all tools (safest)
+    v.literal("dangerous"),   // Require approval only for dangerous tools (future)
+    v.literal("none")         // No approval required (future)
+  )),
 
   createdAt: v.number(),
   updatedAt: v.number(),
@@ -354,3 +398,48 @@ export const aiModels = defineTable({
   .index("by_platform_enabled", ["isPlatformEnabled"])
   .index("by_system_default", ["isSystemDefault"])
   .index("by_validation_status", ["validationStatus"]);
+
+/**
+ * AI Work Items
+ *
+ * Tracking records for AI operations that need human-in-the-loop approval.
+ * Powers the work items UI pane for preview/approve workflow.
+ */
+export const aiWorkItems = defineTable({
+  organizationId: v.id("organizations"),
+  userId: v.id("users"),
+  conversationId: v.id("aiConversations"),
+
+  // Work item identity
+  type: v.string(),                      // "crm_create_organization" | "project_create" | etc.
+  name: v.string(),                      // User-friendly name
+  status: v.union(
+    v.literal("preview"),                // Waiting for approval
+    v.literal("approved"),               // User approved
+    v.literal("executing"),              // Currently running
+    v.literal("completed"),              // Done
+    v.literal("failed"),                 // Error occurred
+    v.literal("cancelled")               // User cancelled
+  ),
+
+  // Preview data (what will happen)
+  previewData: v.optional(v.array(v.any())),
+
+  // Execution results (what actually happened)
+  results: v.optional(v.any()),
+
+  // Progress tracking
+  progress: v.optional(v.object({
+    total: v.number(),
+    completed: v.number(),
+    failed: v.number(),
+  })),
+
+  // Metadata
+  createdAt: v.number(),
+  completedAt: v.optional(v.number()),
+})
+  .index("by_organization", ["organizationId"])
+  .index("by_conversation", ["conversationId"])
+  .index("by_status", ["status"])
+  .index("by_org_status", ["organizationId", "status"]);

@@ -12,6 +12,8 @@
 import { bulkCRMEmailToolDefinition } from "./bulkCRMEmailTool";
 import { contactSyncToolDefinition } from "./contactSyncTool";
 import { formsToolDefinition } from "./formsTool";
+import { projectsToolDefinition } from "./projectsTool";
+import { crmToolDefinition } from "./crmTool";
 import { api } from "../../_generated/api";
 import { internal } from "../../_generated/api";
 
@@ -182,6 +184,49 @@ const checkOAuthConnectionTool: AITool = {
 /**
  * 1. CRM TOOLS
  */
+
+const manageCRMTool: AITool = {
+  name: "manage_crm",
+  description: "Universal CRM management tool: search/create companies (organizations), search/create contacts (people), link contacts to companies. CRITICAL: ALWAYS search before creating to avoid duplicates. This is the foundation for ALL business relationships - use it before creating projects, sending invoices, managing events, etc.",
+  status: "ready",
+  parameters: crmToolDefinition.function.parameters,
+  execute: async (ctx, args) => {
+    const result = await ctx.runAction(api.ai.tools.crmTool.executeManageCRM, {
+      sessionId: ctx.sessionId,
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      conversationId: ctx.conversationId, // Pass conversationId for work items
+      action: args.action,
+      mode: args.mode,
+      workItemId: args.workItemId,
+      // Organization fields
+      organizationId_crm: args.organizationId,
+      organizationName: args.organizationName,
+      organizationType: args.organizationType,
+      website: args.website,
+      industry: args.industry,
+      companySize: args.companySize,
+      address: args.address,
+      taxId: args.taxId,
+      // Contact fields
+      contactId: args.contactId,
+      firstName: args.firstName,
+      lastName: args.lastName,
+      email: args.email,
+      phone: args.phone,
+      jobTitle: args.jobTitle,
+      contactType: args.contactType,
+      notes: args.notes,
+      tags: args.tags,
+      // Search
+      searchQuery: args.searchQuery,
+      filterType: args.filterType,
+      limit: args.limit,
+    });
+
+    return result;
+  }
+};
 
 const syncContactsTool: AITool = {
   name: "sync_contacts",
@@ -652,6 +697,58 @@ const registerAttendeeTool: AITool = {
         "Click **Register**"
       ]
     };
+  }
+};
+
+/**
+ * 2B. PROJECTS TOOLS
+ */
+
+const manageProjectsTool: AITool = {
+  name: "manage_projects",
+  description: "Comprehensive project management: create projects, add milestones, create/assign tasks, update status, list projects/tasks. Use this for ALL project management operations including creating client projects, tracking tasks, managing milestones, and assigning work to team members.",
+  status: "ready",
+  parameters: projectsToolDefinition.function.parameters,
+  execute: async (ctx, args) => {
+    const result = await ctx.runAction(api.ai.tools.projectsTool.executeManageProjects, {
+      sessionId: ctx.sessionId,
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      conversationId: ctx.conversationId, // Pass conversationId for work items
+      action: args.action,
+      mode: args.mode,
+      workItemId: args.workItemId,
+      // Project fields
+      projectId: args.projectId,
+      projectName: args.projectName,
+      projectDescription: args.projectDescription,
+      projectType: args.projectType,
+      startDate: args.startDate,
+      targetEndDate: args.targetEndDate,
+      budget: args.budget,
+      priority: args.priority,
+      status: args.status,
+      clientOrgId: args.clientOrgId,
+      // Milestone fields
+      milestoneId: args.milestoneId,
+      milestoneName: args.milestoneName,
+      milestoneDescription: args.milestoneDescription,
+      milestoneDueDate: args.milestoneDueDate,
+      // Task fields
+      taskId: args.taskId,
+      taskName: args.taskName,
+      taskDescription: args.taskDescription,
+      taskDueDate: args.taskDueDate,
+      taskPriority: args.taskPriority,
+      assigneeId: args.assigneeId,
+      assigneeEmail: args.assigneeEmail,
+      // Filters
+      filterStatus: args.filterStatus,
+      filterPriority: args.filterPriority,
+      limit: args.limit,
+    });
+
+    return result;
   }
 };
 
@@ -1580,6 +1677,7 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
   check_oauth_connection: checkOAuthConnectionTool,
 
   // CRM
+  manage_crm: manageCRMTool,
   sync_contacts: syncContactsTool,
   send_bulk_crm_email: sendBulkCRMEmailTool,
   create_contact: createContactTool,
@@ -1592,6 +1690,9 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
   list_events: listEventsTool,
   update_event: updateEventTool,
   register_attendee: registerAttendeeTool,
+
+  // Projects
+  manage_projects: manageProjectsTool,
 
   // Forms
   create_form: createFormTool,

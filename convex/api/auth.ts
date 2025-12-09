@@ -14,6 +14,8 @@
 import { v } from "convex/values";
 import { query, mutation, internalQuery, internalMutation } from "../_generated/server";
 import { Id } from "../_generated/dataModel";
+import { getLicenseInternal } from "../licensing/helpers";
+import { internal } from "../_generated/api";
 
 /**
  * API key format: org_{orgId}_{random32chars}
@@ -84,6 +86,31 @@ export const generateApiKey = mutation({
     const user = await ctx.db.get(userId);
     if (!user) {
       throw new Error("User not found");
+    }
+
+    // CHECK LICENSE LIMIT: Enforce API key limit for organization's tier
+    // Free: 1, Starter: 1, Pro: 3, Agency: 5, Enterprise: Unlimited
+    const license = await getLicenseInternal(ctx, args.organizationId);
+    const limit = license.limits.maxApiKeys;
+
+    if (limit !== -1) {
+      // Count existing active API keys
+      const existingKeys = await ctx.db
+        .query("apiKeys")
+        .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+        .filter((q) => q.eq(q.field("status"), "active"))
+        .collect();
+
+      if (existingKeys.length >= limit) {
+        throw new Error(
+          `You've reached your API key limit (${limit}). ` +
+            `Upgrade to ${
+              license.planTier === "free" || license.planTier === "starter"
+                ? "Professional (€399/month) for 3 API keys"
+                : "a higher tier"
+            }.`
+        );
+      }
     }
 
     // Generate API key
@@ -225,6 +252,34 @@ export const updateApiKeyUsage = internalMutation({
     await ctx.db.patch(apiKeyRecord._id, {
       lastUsed: Date.now(),
       requestCount: (apiKeyRecord.requestCount ?? 0) + 1,
+    });
+  },
+});
+
+/**
+ * VERIFY API REQUEST WITH DOMAIN VALIDATION (Phase 2: Badge Enforcement)
+ *
+ * Enhanced API key verification that uses the unified domain configuration system.
+ * This enforces:
+ * 1. API key is valid and active
+ * 2. Request origin matches a registered domain configuration
+ * 3. Domain is verified (ownership confirmed)
+ * 4. Domain has API capability enabled
+ * 5. Domain is not suspended (badge present if required)
+ *
+ * NOTE: This function now delegates to the unified domain config system.
+ * The actual implementation is in domainConfigOntology.ts
+ */
+export const verifyApiRequestWithDomain = internalQuery({
+  args: {
+    apiKey: v.string(),
+    origin: v.string(),
+  },
+  handler: async (ctx, args): Promise<any> => {
+    // Delegate to the unified domain configuration system
+    return await ctx.runQuery(internal.domainConfigOntology.verifyApiRequestWithDomain, {
+      apiKey: args.apiKey,
+      origin: args.origin,
     });
   },
 });

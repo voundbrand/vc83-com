@@ -295,7 +295,7 @@ export function WorkflowBuilder({
             <button
               onClick={() => setShowTestMode(!showTestMode)}
               className="retro-button flex items-center gap-1 px-2 py-1 text-xs"
-              style={{ background: showTestMode ? "var(--win95-highlight)" : undefined, color: showTestMode ? "white" : undefined }}
+              style={{ background: showTestMode ? "var(--win95-highlight)" : undefined, color: showTestMode ? "var(--win95-titlebar-text)" : undefined }}
               title="Test Workflow with Sample Data"
             >
               <Play className="h-3 w-3" />

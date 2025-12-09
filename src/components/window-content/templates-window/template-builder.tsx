@@ -123,7 +123,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
             <h2 className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
               {template.name}
               {isEmailTemplate && (
-                <span className="ml-2 text-xs px-2 py-0.5 rounded" style={{ background: 'var(--win95-highlight)', color: 'white' }}>
+                <span className="ml-2 text-xs px-2 py-0.5 rounded" style={{ background: 'var(--win95-highlight)', color: 'var(--win95-titlebar-text)' }}>
                   Email
                 </span>
               )}

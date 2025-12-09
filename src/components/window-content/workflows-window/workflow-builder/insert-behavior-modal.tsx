@@ -161,8 +161,7 @@ export function InsertBehaviorModal({
             <button
               onClick={handleInsert}
               disabled={!selectedType}
-              className="retro-button px-4 py-2 text-xs font-bold disabled:opacity-50"
-              style={{ background: "var(--win95-highlight)", color: "white" }}
+              className="retro-button-primary px-4 py-2 text-xs font-bold disabled:opacity-50"
             >
               Insert Behavior
             </button>

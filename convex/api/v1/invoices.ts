@@ -886,3 +886,234 @@ export const getInvoicePdf = httpAction(async (ctx, request) => {
     );
   }
 });
+
+/**
+ * SYNC INVOICE TO STRIPE
+ * Syncs an invoice to Stripe (optional - only if Stripe invoicing is enabled)
+ *
+ * POST /api/v1/invoices/:invoiceId/sync-stripe
+ *
+ * Request Body:
+ * {
+ *   sendImmediately?: boolean  // If true, finalizes and sends invoice immediately
+ * }
+ *
+ * Response:
+ * {
+ *   success: true,
+ *   stripeInvoiceId?: string,
+ *   stripeHostedUrl?: string,  // URL for client to view/pay invoice
+ *   message: string
+ * }
+ *
+ * Use Case: Freelancer creates invoice, then triggers Stripe sync when ready to send
+ */
+export const syncInvoiceToStripe = httpAction(async (ctx, request) => {
+  try {
+    // 1. Verify API key
+    const authHeader = request.headers.get("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return new Response(
+        JSON.stringify({ error: "Missing or invalid Authorization header" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const apiKey = authHeader.substring(7);
+    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
+      apiKey,
+    });
+
+    if (!authContext) {
+      return new Response(
+        JSON.stringify({ error: "Invalid API key" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const { organizationId, userId } = authContext;
+
+    // 2. Update API key usage tracking
+    await ctx.runMutation(internal.api.auth.updateApiKeyUsage, { apiKey });
+
+    // 3. Extract invoice ID from URL
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split("/");
+    const invoiceId = pathParts[pathParts.length - 2]; // /invoices/:id/sync-stripe
+
+    if (!invoiceId) {
+      return new Response(
+        JSON.stringify({ error: "Invoice ID required" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // 4. Parse request body
+    const body = await request.json();
+    const sendImmediately = body.sendImmediately === true;
+
+    // 5. Check if Stripe invoicing is available for this organization
+    const stripeCheck = await ctx.runQuery(
+      internal.stripeInvoices.checkStripeInvoicingAvailable,
+      { organizationId }
+    );
+
+    if (!stripeCheck.available) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: stripeCheck.reason || "Stripe invoicing not available",
+          hint: !stripeCheck.hasStripeConnect
+            ? "Connect your Stripe account first"
+            : !stripeCheck.invoicingEnabled
+            ? "Enable invoicing in settings"
+            : "Enable Stripe invoicing in settings",
+        }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // 6. Sync invoice to Stripe
+    const result = await ctx.runAction(
+      internal.stripeInvoices.syncInvoiceToStripe,
+      {
+        invoiceId: invoiceId as any, // Type cast for Convex ID
+        sendImmediately,
+      }
+    );
+
+    // 7. Return response
+    return new Response(
+      JSON.stringify(result),
+      {
+        status: result.success ? 200 : 400,
+        headers: {
+          "Content-Type": "application/json",
+          "X-Organization-Id": organizationId,
+        },
+      }
+    );
+  } catch (error) {
+    console.error("API /invoices/:id/sync-stripe error:", error);
+    return new Response(
+      JSON.stringify({
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : String(error),
+      }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
+});
+
+/**
+ * GET INVOICES FOR CRM ORGANIZATION
+ * Lists all invoices for a specific CRM organization (client)
+ *
+ * GET /api/v1/invoices/client/:crmOrganizationId
+ *
+ * Query Parameters:
+ * - status: Filter by payment status
+ * - limit: Number of results (default: 50)
+ * - offset: Pagination offset
+ *
+ * Response:
+ * {
+ *   invoices: Array<{
+ *     id: string,
+ *     invoiceNumber: string,
+ *     invoiceDate: number,
+ *     dueDate: number,
+ *     status: string,
+ *     totalInCents: number,
+ *     currency: string,
+ *     pdfUrl?: string,         // Your PDF
+ *     stripeHostedUrl?: string, // Stripe hosted page (if synced)
+ *     stripePdfUrl?: string     // Stripe PDF (if synced)
+ *   }>,
+ *   total: number
+ * }
+ *
+ * Use Case: Client logs into freelancer portal, sees their invoices in billing section
+ */
+export const getInvoicesForClient = httpAction(async (ctx, request) => {
+  try {
+    // 1. Verify API key
+    const authHeader = request.headers.get("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return new Response(
+        JSON.stringify({ error: "Missing or invalid Authorization header" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const apiKey = authHeader.substring(7);
+    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
+      apiKey,
+    });
+
+    if (!authContext) {
+      return new Response(
+        JSON.stringify({ error: "Invalid API key" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const { organizationId } = authContext;
+
+    // 2. Update API key usage tracking
+    await ctx.runMutation(internal.api.auth.updateApiKeyUsage, { apiKey });
+
+    // 3. Extract CRM organization ID from URL
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split("/");
+    const crmOrganizationId = pathParts[pathParts.length - 1];
+
+    if (!crmOrganizationId) {
+      return new Response(
+        JSON.stringify({ error: "CRM Organization ID required" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // 4. Parse query parameters
+    const status = url.searchParams.get("status") || undefined;
+    const limit = Math.min(
+      parseInt(url.searchParams.get("limit") || "50"),
+      200
+    );
+    const offset = parseInt(url.searchParams.get("offset") || "0");
+
+    // 5. Query invoices for this client
+    const result = await ctx.runQuery(
+      internal.api.v1.invoicesInternal.getInvoicesForClientInternal,
+      {
+        organizationId,
+        crmOrganizationId: crmOrganizationId as any,
+        status,
+        limit,
+        offset,
+      }
+    );
+
+    // 6. Return response
+    return new Response(
+      JSON.stringify(result),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "X-Organization-Id": organizationId,
+        },
+      }
+    );
+  } catch (error) {
+    console.error("API /invoices/client/:id error:", error);
+    return new Response(
+      JSON.stringify({
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : String(error),
+      }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
+});

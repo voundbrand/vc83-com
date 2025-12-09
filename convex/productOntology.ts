@@ -60,6 +60,7 @@
 import { query, mutation } from "./_generated/server";
 import { internalQuery } from "./_generated/server";
 import { v } from "convex/values";
+import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser } from "./rbacHelpers";
 
 /**
@@ -789,10 +790,17 @@ export const getProductsByIds = query({
 
           // Only process if eventId is a valid Id type
           if (typeof eventId === 'string' && eventId.startsWith('j')) {
-            const event = await ctx.db.get(eventId as unknown as Parameters<typeof ctx.db.get>[0]);
+            const eventRecord = await ctx.db.get(eventId as unknown as Parameters<typeof ctx.db.get>[0]);
 
             // Type guard to check if this is an event object
-            if (event && 'type' in event && event.type === "event") {
+            if (eventRecord && 'type' in eventRecord && eventRecord.type === "event") {
+              // Type assertion: we've verified this is from the objects table
+              const event = eventRecord as typeof eventRecord & {
+                _id: Id<"objects">;
+                type: "event";
+                customProperties?: Record<string, unknown>;
+              };
+
               // Fetch ALL sponsors from objectLinks (sponsored_by relationship)
               const eventSponsors: Array<{ name: string; level?: string }> = [];
 

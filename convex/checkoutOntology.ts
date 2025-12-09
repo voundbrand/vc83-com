@@ -20,6 +20,7 @@
 
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser, checkPermission } from "./rbacHelpers";
 
 // ============================================================================
@@ -678,12 +679,20 @@ export const getPublicCheckoutProducts = query({
       linkedProductIds.map(async (productId) => {
         try {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const product = await ctx.db.get(productId as any);
-          if (!product || !("type" in product) || product.type !== "product") return null;
+          const productRecord = await ctx.db.get(productId as any);
+          if (!productRecord || !("type" in productRecord) || productRecord.type !== "product") return null;
+
+          // Type assertion: we've verified this is from the objects table
+          const product = productRecord as typeof productRecord & {
+            _id: Id<"objects">;
+            type: "product";
+            subtype: string;
+            customProperties?: Record<string, unknown>;
+          };
 
           // For products with forms, fetch the form data
           let formData = null;
-          const formId = (product.customProperties as Record<string, unknown>)?.formId as string | undefined;
+          const formId = product.customProperties?.formId as string | undefined;
 
         if (formId) {
           console.log("🔍 [getPublicCheckoutProducts] Product has formId:", formId);

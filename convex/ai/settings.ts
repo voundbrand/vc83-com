@@ -25,6 +25,58 @@ export const getAISettings = query({
 });
 
 /**
+ * Update human-in-the-loop and auto-recovery settings
+ */
+export const updateToolExecutionSettings = mutation({
+  args: {
+    organizationId: v.id("organizations"),
+    humanInLoopEnabled: v.optional(v.boolean()),
+    toolApprovalMode: v.optional(v.union(
+      v.literal("all"),
+      v.literal("dangerous"),
+      v.literal("none")
+    )),
+    autoRecovery: v.optional(v.object({
+      enabled: v.boolean(),
+      maxRetries: v.number(),
+      retryDelay: v.optional(v.number()),
+      requireApprovalPerRetry: v.boolean(),
+    })),
+  },
+  handler: async (ctx, args) => {
+    const settings = await ctx.db
+      .query("organizationAiSettings")
+      .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+      .first();
+
+    if (!settings) {
+      throw new Error("AI settings not found for this organization");
+    }
+
+    // Build update object with only provided fields
+    const updates: any = {
+      updatedAt: Date.now(),
+    };
+
+    if (args.humanInLoopEnabled !== undefined) {
+      updates.humanInLoopEnabled = args.humanInLoopEnabled;
+    }
+
+    if (args.toolApprovalMode !== undefined) {
+      updates.toolApprovalMode = args.toolApprovalMode;
+    }
+
+    if (args.autoRecovery !== undefined) {
+      updates.autoRecovery = args.autoRecovery;
+    }
+
+    await ctx.db.patch(settings._id, updates);
+
+    return { success: true };
+  },
+});
+
+/**
  * Create or update AI settings for an organization
  *
  * Supports both legacy (single model) and new (multi-select) formats
