@@ -8,10 +8,12 @@
 import { v } from "convex/values";
 import { internalQuery, internalMutation } from "../../_generated/server";
 import { Id } from "../../_generated/dataModel";
+import { addressesValidator } from "../../crmOntology";
 
 /**
  * HELPER: Find or create CRM organization
  * Handles organization deduplication by name
+ * Supports both old address format and new addresses array
  */
 async function findOrCreateOrganization(
   ctx: any,
@@ -20,7 +22,20 @@ async function findOrCreateOrganization(
     name: string;
     website?: string;
     industry?: string;
+    // BACKWARD COMPATIBLE: Support old single address
     address?: any;
+    // NEW: Support multiple addresses
+    addresses?: Array<{
+      type: "billing" | "shipping" | "mailing" | "physical" | "warehouse" | "other";
+      isPrimary: boolean;
+      label?: string;
+      street?: string;
+      street2?: string;
+      city?: string;
+      state?: string;
+      postalCode?: string;
+      country?: string;
+    }>;
     taxId?: string;
     billingEmail?: string;
     phone?: string;
@@ -39,6 +54,18 @@ async function findOrCreateOrganization(
     (org: any) => org.name.toLowerCase() === args.name.toLowerCase()
   );
 
+  // Handle addresses: convert old address format to new format if needed
+  let addressesToStore = args.addresses;
+  if (!addressesToStore && args.address) {
+    // Backward compatibility: convert single address to addresses array
+    addressesToStore = [{
+      type: "mailing" as const,
+      isPrimary: true,
+      label: "Primary Address",
+      ...args.address,
+    }];
+  }
+
   if (existingOrg) {
     // Update existing organization with new information (merge data)
     const updatedProperties = {
@@ -47,6 +74,7 @@ async function findOrCreateOrganization(
       ...(args.website && { website: args.website }),
       ...(args.industry && { industry: args.industry }),
       ...(args.address && { address: args.address }),
+      ...(addressesToStore && { addresses: addressesToStore }),
       ...(args.taxId && { taxId: args.taxId }),
       ...(args.billingEmail && { billingEmail: args.billingEmail }),
       ...(args.phone && { phone: args.phone }),
@@ -71,7 +99,10 @@ async function findOrCreateOrganization(
     customProperties: {
       website: args.website,
       industry: args.industry,
+      // Keep old address for backward compatibility
       address: args.address,
+      // Add new addresses array
+      addresses: addressesToStore,
       taxId: args.taxId,
       billingEmail: args.billingEmail,
       phone: args.phone,
@@ -127,7 +158,10 @@ export const createContactFromEventInternal = internalMutation({
       name: v.string(),
       website: v.optional(v.string()),
       industry: v.optional(v.string()),
+      // BACKWARD COMPATIBLE: Support old single address
       address: v.optional(v.any()),
+      // NEW: Support multiple addresses
+      addresses: v.optional(addressesValidator),
       taxId: v.optional(v.string()),
       billingEmail: v.optional(v.string()),
       phone: v.optional(v.string()),
@@ -276,6 +310,7 @@ export const createContactFromEventInternal = internalMutation({
         website: args.organizationInfo?.website,
         industry: args.organizationInfo?.industry,
         address: args.organizationInfo?.address,
+        addresses: args.organizationInfo?.addresses,
         taxId: args.organizationInfo?.taxId,
         billingEmail: args.organizationInfo?.billingEmail,
         phone: args.organizationInfo?.phone,
@@ -401,7 +436,10 @@ export const createContactInternal = internalMutation({
       name: v.string(),
       website: v.optional(v.string()),
       industry: v.optional(v.string()),
+      // BACKWARD COMPATIBLE: Support old single address
       address: v.optional(v.any()),
+      // NEW: Support multiple addresses
+      addresses: v.optional(addressesValidator),
       taxId: v.optional(v.string()),
       billingEmail: v.optional(v.string()),
       phone: v.optional(v.string()),
@@ -531,6 +569,7 @@ export const createContactInternal = internalMutation({
         website: args.organizationInfo?.website,
         industry: args.organizationInfo?.industry,
         address: args.organizationInfo?.address,
+        addresses: args.organizationInfo?.addresses,
         taxId: args.organizationInfo?.taxId,
         billingEmail: args.organizationInfo?.billingEmail,
         phone: args.organizationInfo?.phone,

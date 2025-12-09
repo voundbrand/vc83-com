@@ -29,12 +29,54 @@
  * - Add fields via customProperties as needed
  * - Use objectLinks for relationships (contact → organization)
  * - Use objectActions for audit trail
+ *
+ * ADDRESS SUPPORT:
+ * - Support multiple addresses per contact/organization
+ * - Address types: billing, shipping, mailing, physical, warehouse, other
+ * - One primary address per type
+ * - Backward compatible with single address field
  */
 
 import { query, mutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser } from "./rbacHelpers";
 import { checkResourceLimit } from "./licensing/helpers";
+
+// ============================================================================
+// ADDRESS VALIDATORS
+// ============================================================================
+
+/**
+ * Address type enum
+ */
+export const addressTypes = ["billing", "shipping", "mailing", "physical", "warehouse", "other"] as const;
+
+/**
+ * Single address validator
+ */
+export const addressValidator = v.object({
+  type: v.union(
+    v.literal("billing"),
+    v.literal("shipping"),
+    v.literal("mailing"),
+    v.literal("physical"),
+    v.literal("warehouse"),
+    v.literal("other")
+  ),
+  isPrimary: v.boolean(),
+  label: v.optional(v.string()), // e.g., "Corporate HQ", "Warehouse 1"
+  street: v.optional(v.string()),
+  street2: v.optional(v.string()), // Additional address line
+  city: v.optional(v.string()),
+  state: v.optional(v.string()),
+  postalCode: v.optional(v.string()),
+  country: v.optional(v.string()),
+});
+
+/**
+ * Addresses array validator
+ */
+export const addressesValidator = v.array(addressValidator);
 
 // ============================================================================
 // CRM CONTACT OPERATIONS
@@ -131,6 +173,7 @@ export const createContact = mutation({
     phone: v.optional(v.string()),
     jobTitle: v.optional(v.string()),
     company: v.optional(v.string()),
+    // BACKWARD COMPATIBLE: Support old single address field
     address: v.optional(v.object({
       street: v.optional(v.string()),
       city: v.optional(v.string()),
@@ -138,6 +181,8 @@ export const createContact = mutation({
       postalCode: v.optional(v.string()),
       country: v.optional(v.string()),
     })),
+    // NEW: Support multiple addresses
+    addresses: v.optional(addressesValidator),
     source: v.optional(v.string()), // "manual" | "checkout" | "event" | "import"
     sourceRef: v.optional(v.string()), // Reference to source (checkout ID, event ID, etc.)
     tags: v.optional(v.array(v.string())),
@@ -156,6 +201,18 @@ export const createContact = mutation({
     // Free: 100, Starter: 1,000, Pro: 5,000, Agency: 10,000, Enterprise: Unlimited
     await checkResourceLimit(ctx, args.organizationId, "crm_contact", "maxContacts");
 
+    // Handle addresses: convert old address format to new format if needed
+    let addresses = args.addresses;
+    if (!addresses && args.address) {
+      // Backward compatibility: convert single address to addresses array
+      addresses = [{
+        type: "mailing" as const,
+        isPrimary: true,
+        label: "Primary Address",
+        ...args.address,
+      }];
+    }
+
     const contactId = await ctx.db.insert("objects", {
       organizationId: args.organizationId,
       type: "crm_contact",
@@ -170,7 +227,10 @@ export const createContact = mutation({
         phone: args.phone,
         jobTitle: args.jobTitle,
         company: args.company,
+        // Keep old address for backward compatibility
         address: args.address,
+        // Add new addresses array
+        addresses: addresses,
         source: args.source || "manual",
         sourceRef: args.sourceRef,
         tags: args.tags || [],
@@ -214,7 +274,10 @@ export const updateContact = mutation({
       phone: v.optional(v.string()),
       jobTitle: v.optional(v.string()),
       company: v.optional(v.string()),
+      // BACKWARD COMPATIBLE: Support old single address field
       address: v.optional(v.any()),
+      // NEW: Support multiple addresses
+      addresses: v.optional(addressesValidator),
       status: v.optional(v.string()),
       subtype: v.optional(v.string()), // Lifecycle stage: "lead" | "prospect" | "customer" | "partner"
       tags: v.optional(v.array(v.string())),
@@ -434,6 +497,7 @@ export const createCrmOrganization = mutation({
     website: v.optional(v.string()),
     industry: v.optional(v.string()),
     size: v.optional(v.string()), // "1-10" | "11-50" | "51-200" | "201-500" | "501+"
+    // BACKWARD COMPATIBLE: Support old single address field
     address: v.optional(v.object({
       street: v.optional(v.string()),
       city: v.optional(v.string()),
@@ -441,13 +505,15 @@ export const createCrmOrganization = mutation({
       postalCode: v.optional(v.string()),
       country: v.optional(v.string()),
     })),
+    // NEW: Support multiple addresses
+    addresses: v.optional(addressesValidator),
     // Basic contact info
     taxId: v.optional(v.string()),
     billingEmail: v.optional(v.string()),
     phone: v.optional(v.string()),
     tags: v.optional(v.array(v.string())),
     notes: v.optional(v.string()),
-    // B2B Billing fields
+    // B2B Billing fields (DEPRECATED - use addresses array with type="billing")
     billingAddress: v.optional(v.object({
       street: v.optional(v.string()),
       city: v.optional(v.string()),
@@ -478,6 +544,30 @@ export const createCrmOrganization = mutation({
 
     if (!session) throw new Error("Invalid session");
 
+    // Handle addresses: convert old address/billingAddress format to new format if needed
+    let addresses = args.addresses;
+    if (!addresses) {
+      addresses = [];
+      // Convert old address field to mailing address
+      if (args.address) {
+        addresses.push({
+          type: "mailing" as const,
+          isPrimary: true,
+          label: "Primary Address",
+          ...args.address,
+        });
+      }
+      // Convert old billingAddress field to billing address
+      if (args.billingAddress) {
+        addresses.push({
+          type: "billing" as const,
+          isPrimary: true,
+          label: "Billing Address",
+          ...args.billingAddress,
+        });
+      }
+    }
+
     const orgId = await ctx.db.insert("objects", {
       organizationId: args.organizationId,
       type: "crm_organization",
@@ -490,7 +580,11 @@ export const createCrmOrganization = mutation({
         website: args.website,
         industry: args.industry,
         size: args.size,
+        // Keep old fields for backward compatibility
         address: args.address,
+        billingAddress: args.billingAddress,
+        // Add new addresses array
+        addresses: addresses,
         phone: args.phone,
         tags: args.tags || [],
         notes: args.notes,
@@ -498,7 +592,6 @@ export const createCrmOrganization = mutation({
         taxId: args.taxId,
         billingEmail: args.billingEmail,
         // B2B Billing
-        billingAddress: args.billingAddress,
         legalEntityType: args.legalEntityType,
         registrationNumber: args.registrationNumber,
         vatNumber: args.vatNumber,
@@ -549,7 +642,10 @@ export const updateCrmOrganization = mutation({
       website: v.optional(v.string()),
       industry: v.optional(v.string()),
       size: v.optional(v.string()),
+      // BACKWARD COMPATIBLE: Support old single address field
       address: v.optional(v.any()),
+      // NEW: Support multiple addresses
+      addresses: v.optional(addressesValidator),
       phone: v.optional(v.string()),
       status: v.optional(v.string()),
       tags: v.optional(v.array(v.string())),
@@ -557,7 +653,7 @@ export const updateCrmOrganization = mutation({
       // Basic billing
       taxId: v.optional(v.string()),
       billingEmail: v.optional(v.string()),
-      // B2B Billing fields
+      // B2B Billing fields (DEPRECATED - use addresses array)
       billingAddress: v.optional(v.any()),
       legalEntityType: v.optional(v.string()),
       registrationNumber: v.optional(v.string()),

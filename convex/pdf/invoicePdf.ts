@@ -480,19 +480,82 @@ export const generateInvoicePDF = action({
 
             if (isCRMBilling && buyerCrmOrg) {
                 // Use CRM organization billing data
-                const crmBillingAddress = buyerCrmOrg.customProperties?.billingAddress as {
+                // NEW: Try to get billing address from addresses array first
+                let crmBillingAddress: {
                     line1?: string;
                     line2?: string;
+                    street?: string;
+                    street2?: string;
                     city?: string;
                     state?: string;
                     postalCode?: string;
                     country?: string;
                 } | undefined;
 
+                // Check for new addresses array format with type="billing"
+                const addresses = buyerCrmOrg.customProperties?.addresses as Array<{
+                    type: string;
+                    isPrimary: boolean;
+                    street?: string;
+                    street2?: string;
+                    city?: string;
+                    state?: string;
+                    postalCode?: string;
+                    country?: string;
+                }> | undefined;
+
+                if (addresses && addresses.length > 0) {
+                    // Find primary billing address
+                    const billingAddr = addresses.find(addr => addr.type === "billing" && addr.isPrimary)
+                        || addresses.find(addr => addr.type === "billing"); // Fallback to any billing address
+
+                    if (billingAddr) {
+                        crmBillingAddress = {
+                            street: billingAddr.street,
+                            street2: billingAddr.street2,
+                            city: billingAddr.city,
+                            state: billingAddr.state,
+                            postalCode: billingAddr.postalCode,
+                            country: billingAddr.country,
+                        };
+                        console.log("📄 [generateInvoicePDF] Using NEW addresses array format (billing address)");
+                    } else {
+                        // No billing address, try primary mailing address as fallback
+                        const mailingAddr = addresses.find(addr => addr.type === "mailing" && addr.isPrimary)
+                            || addresses[0]; // Ultimate fallback: first address
+
+                        if (mailingAddr) {
+                            crmBillingAddress = {
+                                street: mailingAddr.street,
+                                street2: mailingAddr.street2,
+                                city: mailingAddr.city,
+                                state: mailingAddr.state,
+                                postalCode: mailingAddr.postalCode,
+                                country: mailingAddr.country,
+                            };
+                            console.log("📄 [generateInvoicePDF] No billing address found, using mailing/primary address as fallback");
+                        }
+                    }
+                } else {
+                    // Fallback to old billingAddress format (backward compatibility)
+                    crmBillingAddress = buyerCrmOrg.customProperties?.billingAddress as {
+                        line1?: string;
+                        line2?: string;
+                        city?: string;
+                        state?: string;
+                        postalCode?: string;
+                        country?: string;
+                    } | undefined;
+                    console.log("📄 [generateInvoicePDF] Using OLD billingAddress format (backward compatibility)");
+                }
+
                 billTo = {
                     company_name: buyerCrmOrg.name,
                     vat_number: buyerCrmOrg.customProperties?.vatNumber as string | undefined,
-                    address: [crmBillingAddress?.line1, crmBillingAddress?.line2].filter(Boolean).join(", "),
+                    address: [
+                        crmBillingAddress?.line1 || crmBillingAddress?.street,
+                        crmBillingAddress?.line2 || crmBillingAddress?.street2
+                    ].filter(Boolean).join(", "),
                     city: crmBillingAddress?.city,
                     state: crmBillingAddress?.state,
                     zip_code: crmBillingAddress?.postalCode,
