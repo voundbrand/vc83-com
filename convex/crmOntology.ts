@@ -41,6 +41,7 @@ import { query, mutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser } from "./rbacHelpers";
 import { checkResourceLimit } from "./licensing/helpers";
+import { internal } from "./_generated/api";
 
 // ============================================================================
 // ADDRESS VALIDATORS
@@ -161,6 +162,10 @@ export const getContactInternal = internalQuery({
 /**
  * CREATE CONTACT
  * Create a new CRM contact
+ *
+ * NOTE: When implementing bulk contact import/export features, add:
+ * - checkFeatureAccess(ctx, organizationId, "contactImportExportEnabled")
+ * This requires Starter+ tier.
  */
 export const createContact = mutation({
   args: {
@@ -544,6 +549,10 @@ export const createCrmOrganization = mutation({
 
     if (!session) throw new Error("Invalid session");
 
+    // CHECK LICENSE LIMIT: Enforce CRM organization limit for organization's tier
+    // Free: 10, Starter: 50, Pro: 200, Agency: 500, Enterprise: Unlimited
+    await checkResourceLimit(ctx, args.organizationId, "crm_organization", "maxOrganizations");
+
     // Handle addresses: convert old address/billingAddress format to new format if needed
     let addresses = args.addresses;
     if (!addresses) {
@@ -891,5 +900,164 @@ export const getContactOrganizations = query({
     );
 
     return organizations;
+  },
+});
+
+// ============================================================================
+// PORTAL INVITATION CONVENIENCE METHODS
+// ============================================================================
+
+/**
+ * INVITE CONTACT TO PORTAL
+ *
+ * Convenience method to invite a CRM contact to an external portal.
+ * Wrapper around portalInvitations.createPortalInvitation.
+ *
+ * Example:
+ * - Invite freelancer to project portal
+ * - Invite client to dashboard
+ * - Invite vendor to supplier portal
+ */
+export const inviteContactToPortal = mutation({
+  args: {
+    sessionId: v.string(),
+    contactId: v.id("objects"),
+    portalType: v.union(
+      v.literal("freelancer_portal"),
+      v.literal("client_portal"),
+      v.literal("vendor_portal"),
+      v.literal("custom_portal")
+    ),
+    portalUrl: v.string(),
+    authMethod: v.optional(v.union(
+      v.literal("oauth"),
+      v.literal("magic_link"),
+      v.literal("both")
+    )),
+    expiresInDays: v.optional(v.number()),
+    customMessage: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db
+      .query("sessions")
+      .filter((q) => q.eq(q.field("_id"), args.sessionId))
+      .first();
+
+    if (!session) throw new Error("Invalid session");
+
+    // Get contact to verify it exists and get organizationId
+    const contact = await ctx.db.get(args.contactId);
+    if (!contact || contact.type !== "crm_contact") {
+      throw new Error("Contact not found");
+    }
+
+    // Generate unique invitation token
+    const invitationToken = crypto.randomUUID();
+
+    // Calculate expiration
+    const expiresInMs = (args.expiresInDays || 7) * 24 * 60 * 60 * 1000;
+    const expiresAt = Date.now() + expiresInMs;
+
+    const contactEmail = contact.customProperties?.email as string;
+    if (!contactEmail) {
+      throw new Error("Contact must have an email address");
+    }
+
+    // Create portal_invitation object
+    const invitationId = await ctx.db.insert("objects", {
+      organizationId: contact.organizationId,
+      type: "portal_invitation",
+      subtype: args.portalType,
+      name: `Portal Invitation - ${contact.name}`,
+      description: `Invitation to ${args.portalType} for ${contact.name}`,
+      status: "pending",
+      customProperties: {
+        contactId: args.contactId,
+        contactEmail: contactEmail,
+        portalType: args.portalType,
+        portalUrl: args.portalUrl,
+        authMethod: args.authMethod || "both",
+        invitationToken: invitationToken,
+        expiresAt: expiresAt,
+        customMessage: args.customMessage,
+        permissions: [],
+        sentAt: Date.now(),
+        acceptedAt: null,
+        lastAccessedAt: null,
+        accessCount: 0,
+      },
+      createdBy: session.userId,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    // Link invitation to contact
+    await ctx.db.insert("objectLinks", {
+      organizationId: contact.organizationId,
+      fromObjectId: invitationId,
+      toObjectId: args.contactId,
+      linkType: "invites",
+      properties: {
+        portalType: args.portalType,
+        invitedAt: Date.now(),
+      },
+      createdBy: session.userId,
+      createdAt: Date.now(),
+    });
+
+    // Schedule invitation email
+    await ctx.scheduler.runAfter(0, internal.portalInvitations.sendInvitationEmail, {
+      invitationId,
+      contactEmail,
+      portalUrl: args.portalUrl,
+      authMethod: args.authMethod || "both",
+      invitationToken,
+      customMessage: args.customMessage,
+      organizationId: contact.organizationId,
+    });
+
+    return {
+      invitationId,
+      invitationToken,
+      expiresAt,
+    };
+  },
+});
+
+/**
+ * GET CONTACT PORTAL ACCESS
+ *
+ * Returns all portal invitations for a contact (active, pending, expired).
+ */
+export const getContactPortalAccess = query({
+  args: {
+    sessionId: v.string(),
+    contactId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    // Get all portal invitations linked to this contact
+    const links = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_to_object", (q) => q.eq("toObjectId", args.contactId))
+      .filter((q) => q.eq(q.field("linkType"), "invites"))
+      .collect();
+
+    // Fetch invitation objects
+    const invitations = await Promise.all(
+      links.map(async (link) => {
+        const invitation = await ctx.db.get(link.fromObjectId);
+        if (invitation && invitation.type === "portal_invitation") {
+          return {
+            ...invitation,
+            linkId: link._id,
+          };
+        }
+        return null;
+      })
+    );
+
+    return invitations.filter((inv) => inv !== null);
   },
 });

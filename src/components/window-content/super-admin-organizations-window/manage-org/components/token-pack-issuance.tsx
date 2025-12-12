@@ -276,14 +276,10 @@ export function TokenPackIssuance({
         <button
           onClick={handleIssue}
           disabled={isIssuing || !reason.trim()}
-          className="w-full px-4 py-2.5 text-sm font-bold border-2 flex items-center justify-center gap-2"
+          className="beveled-button w-full px-4 py-2.5 text-sm font-bold flex items-center justify-center gap-2"
           style={{
             background: isIssuing || !reason.trim() ? "var(--win95-bg-light)" : "var(--success)",
             color: isIssuing || !reason.trim() ? "var(--neutral-gray)" : "white",
-            borderTopColor: "var(--win95-button-light)",
-            borderLeftColor: "var(--win95-button-light)",
-            borderBottomColor: "var(--win95-button-dark)",
-            borderRightColor: "var(--win95-button-dark)",
             cursor: isIssuing || !reason.trim() ? "not-allowed" : "pointer",
           }}
         >

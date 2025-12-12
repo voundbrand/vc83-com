@@ -63,6 +63,13 @@ export const testWorkflow = action({
         throw new Error("Workflow not found");
       }
 
+      // CHECK FEATURE ACCESS: Test mode requires Starter+
+      const { internal } = await import("../_generated/api");
+      await ctx.runQuery(internal.licensing.helpers.checkFeatureAccessInternal, {
+        organizationId: workflow.organizationId,
+        featureFlag: "testModeEnabled",
+      });
+
       const customProps = workflow.customProperties as {
         behaviors?: Array<BehaviorConfig & { id: string }>;
         execution?: { triggerOn: string };

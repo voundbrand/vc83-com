@@ -33,6 +33,8 @@ export const getApiSettings = query({
       .filter(q => q.eq(q.field("subtype"), "api"))
       .first();
 
+    // API keys are initialized to enabled during onboarding (per tierConfigs.ts)
+    // Super admins can explicitly disable them via toggleApiKeys mutation
     return {
       apiKeysEnabled: apiSettings?.customProperties?.apiKeysEnabled ?? false,
     };
@@ -75,6 +77,7 @@ export const getAllApiSettings = query({
         .filter(q => q.eq(q.field("subtype"), "api"))
         .first();
 
+      // API keys are initialized during onboarding, fallback to false if not set
       settingsMap.set(org._id, apiSettings?.customProperties?.apiKeysEnabled ?? false);
     }
 

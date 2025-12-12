@@ -57,7 +57,7 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
         className
       )}
       style={{
-        zIndex: 10001,
+        zIndex: 50000,
         position: 'fixed',
         bottom: 'calc(var(--taskbar-height) - 14px)',
         left: '4px',
@@ -120,7 +120,7 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
                   <div
                     className="absolute left-full bottom-0 ml-1 retro-window window-corners dark:retro-window-dark shadow-lg"
                     style={{
-                      zIndex: 10002,
+                      zIndex: 50001,
                       background: 'var(--win95-bg)',
                     }}
                   >

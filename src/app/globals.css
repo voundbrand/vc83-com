@@ -17,6 +17,8 @@
 
   /* Primary color */
   --primary: #000080;
+  --primary-gradient-end: #6366f1; /* Indigo for gradient effects */
+  --win95-gradient-end: #4040a0; /* End of titlebar gradient */
 
   /* Hover States */
   --win95-hover-bg: #000080; /* Windows 95 menu hover blue */
@@ -35,8 +37,15 @@
   --win95-button-darkest: #000000; /* Button deep shadow */
   --win95-button-hover: #d0d0d0; /* Button hover state */
 
+  /* Button Radius - Changes based on window style (default: Windows 95 = 0) */
+  --button-radius: 0px;
+  --button-radius-sm: 0px;
+
+  /* Primary Button Gradient (for CTAs and important actions) */
+  --win95-button-primary-gradient: linear-gradient(135deg, var(--win95-highlight) 0%, var(--primary-gradient-end) 100%);
+
   /* Titlebar & Window Elements */
-  --win95-titlebar: linear-gradient(180deg, #000080 0%, #1084d0 100%);
+  --win95-titlebar: linear-gradient(90deg, var(--win95-highlight) 0%, var(--win95-gradient-end) 100%);
   --win95-titlebar-inactive: linear-gradient(180deg, #808080 0%, #a0a0a0 100%);
   --win95-titlebar-text: #ffffff;
   --win95-window-icon-bg: #c0c0c0;
@@ -114,7 +123,7 @@
   /* Modal/Dialog Styles */
   --modal-overlay-bg: rgba(0, 0, 0, 0.5);
   --modal-bg: #f0f0f0;
-  --modal-header-bg: linear-gradient(180deg, #000080 0%, #1084d0 100%);
+  --modal-header-bg: linear-gradient(90deg, var(--win95-highlight) 0%, var(--win95-gradient-end) 100%);
   --modal-header-text: #ffffff;
   --modal-border: #000000;
   --modal-shadow: 4px 4px 8px rgba(0, 0, 0, 0.3);
@@ -165,145 +174,153 @@
 }
 
 .dark {
-  --background: #2d2d2d;
-  --foreground: #e0e0e0;
-  --win95-bg: #3d3d3d;
-  --win95-bg-light: #4d4d4d;
-  --win95-border: #1d1d1d;
-  --win95-border-dark: #2d2d2d;
-  --win95-border-light: #5d5d5d;
-  --win95-text: #e0e0e0;
-  --win95-text-secondary: #9ca3af; /* gray-400 in dark mode */
-  --win95-highlight: #4169e1;
+  /* Much darker backgrounds - near black */
+  --background: #121212;
+  --foreground: #b0b0b0;
+  --win95-bg: #1a1a1a;
+  --win95-bg-light: #222222;
+  --win95-border: #0a0a0a;
+  --win95-border-dark: #000000;
+  --win95-border-light: #2a2a2a;
+  --win95-text: #b0b0b0;
+  --win95-text-secondary: #707070;
+  --win95-highlight: #2a3f5f; /* Muted dark blue */
 
-  /* Primary color - dark mode */
-  --primary: #4169e1;
+  /* Primary color - dark mode (much more subtle) */
+  --primary: #2a3f5f;
+  --primary-gradient-end: #3d4f6f; /* Very subtle gradient */
 
-  /* Hover States - Dark Mode */
-  --win95-hover-bg: #4169e1;
-  --win95-hover-text: #ffffff;
-  --win95-hover-light: #4d4d4d;
+  /* Hover States - Dark Mode (subtle) */
+  --win95-hover-bg: #2a3f5f;
+  --win95-hover-text: #c0c0c0;
+  --win95-hover-light: #252525;
 
   /* Active/Selected States - Dark Mode */
-  --win95-selected-bg: #4169e1;
-  --win95-selected-text: #ffffff;
-  --win95-active-border: #5d5d5d;
+  --win95-selected-bg: #2a3f5f;
+  --win95-selected-text: #c0c0c0;
+  --win95-active-border: #2a2a2a;
 
   /* Button States - Dark Mode */
-  --win95-button-face: #3d3d3d;
-  --win95-button-light: #5d5d5d;
-  --win95-button-dark: #2d2d2d;
-  --win95-button-darkest: #1d1d1d;
-  --win95-button-hover: #4d4d4d;
+  --win95-button-face: #1a1a1a;
+  --win95-button-light: #2a2a2a;
+  --win95-button-dark: #0f0f0f;
+  --win95-button-darkest: #000000;
+  --win95-button-hover: #252525;
 
-  /* Titlebar & Window Elements - Dark Mode */
-  --win95-titlebar: linear-gradient(180deg, #4169e1 0%, #3159d1 100%);
-  --win95-titlebar-inactive: linear-gradient(180deg, #3d3d3d 0%, #2d2d2d 100%);
-  --win95-titlebar-text: #ffffff;
-  --win95-window-icon-bg: #4d4d4d;
-  --win95-window-icon-border: #2d2d2d;
+  /* Primary Button Gradient - Dark Mode (subtle) */
+  --win95-button-primary-gradient: linear-gradient(135deg, var(--win95-highlight) 0%, var(--primary-gradient-end) 100%);
+
+  /* Titlebar & Window Elements - Dark Mode (subtle gradient) */
+  --win95-titlebar: linear-gradient(90deg, #1f2937 0%, #2a3f5f 100%);
+  --win95-titlebar-inactive: linear-gradient(180deg, #1a1a1a 0%, #121212 100%);
+  --win95-titlebar-text: #a0a0a0;
+  --win95-window-icon-bg: #222222;
+  --win95-window-icon-border: #0f0f0f;
+
+  /* Window gradient end for headers (matching subtle theme) */
+  --win95-gradient-end: #3d4f6f;
 
   /* Input & Form Elements - Dark Mode */
-  --win95-input-bg: #2d2d2d;
-  --win95-input-text: #e0e0e0;
-  --win95-input-border-dark: #1d1d1d;
-  --win95-input-border-light: #5d5d5d;
-  --win95-input-placeholder: #808080;
-  --win95-input-focus-outline: #4169e1;
+  --win95-input-bg: #121212;
+  --win95-input-text: #b0b0b0;
+  --win95-input-border-dark: #000000;
+  --win95-input-border-light: #2a2a2a;
+  --win95-input-placeholder: #505050;
+  --win95-input-focus-outline: #3d4f6f;
 
   /* Scrollbar - Dark Mode */
-  --win95-scrollbar-track: #2d2d2d;
-  --win95-scrollbar-thumb: #5d5d5d;
-  --win95-scrollbar-button: #3d3d3d;
+  --win95-scrollbar-track: #121212;
+  --win95-scrollbar-thumb: #2a2a2a;
+  --win95-scrollbar-button: #1a1a1a;
 
   /* Desktop Elements - Dark Mode */
-  --desktop-icon-text: #e0e0e0;
-  --desktop-icon-hover-bg: rgba(255, 255, 255, 0.1);
-  --desktop-icon-active-bg: rgba(65, 105, 225, 0.3);
-  --desktop-grid-overlay: rgba(255, 255, 255, 0.05);
+  --desktop-icon-text: #909090;
+  --desktop-icon-hover-bg: rgba(255, 255, 255, 0.05);
+  --desktop-icon-active-bg: rgba(42, 63, 95, 0.3);
+  --desktop-grid-overlay: rgba(255, 255, 255, 0.02);
 
   /* Audio Player (Retro Terminal Style) - Dark Mode */
   --audio-player-bg: #000000;
-  --audio-player-text: #00ff00;
-  --audio-player-track-bg: #1a1a1a;
-  --audio-player-progress: #00ff00;
+  --audio-player-text: #00aa00; /* Slightly dimmer green */
+  --audio-player-track-bg: #0a0a0a;
+  --audio-player-progress: #00aa00;
 
   /* Win95 Additional Colors - Dark Mode */
-  --win95-text-muted: #9ca3af;
-  --win95-title-bg: #2d2d2d;
+  --win95-text-muted: #606060;
+  --win95-title-bg: #1a1a1a;
 
-  /* Semantic Colors - Dark Mode */
-  --error: #ef4444;
-  --error-bg: rgba(127, 29, 29, 0.5); /* Dark red background for error messages */
-  --success: #10b981;
-  --success-bg: rgba(20, 83, 45, 0.5); /* Dark green background for success messages */
-  --warning: #f59e0b;
-  --warning-bg: rgba(120, 53, 15, 0.5); /* Dark yellow background for warning messages */
-  --info: #3b82f6;
-  --info-bg: rgba(30, 58, 138, 0.5); /* Dark blue background for info messages */
+  /* Semantic Colors - Dark Mode (more muted) */
+  --error: #a03030;
+  --error-bg: rgba(80, 20, 20, 0.5);
+  --success: #0a7050;
+  --success-bg: rgba(10, 50, 30, 0.5);
+  --warning: #a07020;
+  --warning-bg: rgba(80, 40, 10, 0.5);
+  --info: #2a5090;
+  --info-bg: rgba(20, 40, 80, 0.5);
 
-  /* CRM Pipeline Stage Colors (Dark Mode) */
-  --stage-lead-bg: rgba(254, 243, 199, 0.15);
-  --stage-lead-border: rgba(250, 204, 21, 0.4);
-  --stage-prospect-bg: rgba(219, 234, 254, 0.15);
-  --stage-prospect-border: rgba(147, 197, 253, 0.4);
-  --stage-customer-bg: rgba(220, 252, 231, 0.15);
-  --stage-customer-border: rgba(134, 239, 172, 0.4);
-  --stage-partner-bg: rgba(224, 231, 255, 0.15);
-  --stage-partner-border: rgba(199, 210, 254, 0.4);
+  /* CRM Pipeline Stage Colors (Dark Mode - very subtle) */
+  --stage-lead-bg: rgba(254, 243, 199, 0.05);
+  --stage-lead-border: rgba(250, 204, 21, 0.2);
+  --stage-prospect-bg: rgba(219, 234, 254, 0.05);
+  --stage-prospect-border: rgba(147, 197, 253, 0.2);
+  --stage-customer-bg: rgba(220, 252, 231, 0.05);
+  --stage-customer-border: rgba(134, 239, 172, 0.2);
+  --stage-partner-bg: rgba(224, 231, 255, 0.05);
+  --stage-partner-border: rgba(199, 210, 254, 0.2);
 
   /* Table Styles - Dark Mode */
-  --table-header-bg: #2d2d2d;
-  --table-header-text: #e0e0e0;
-  --table-row-even-bg: #3d3d3d;
-  --table-row-odd-bg: #4d4d4d;
-  --table-row-hover-bg: #5d5d5d;
-  --table-border: #1d1d1d;
-  --table-sort-arrow: #9ca3af;
+  --table-header-bg: #1a1a1a;
+  --table-header-text: #909090;
+  --table-row-even-bg: #151515;
+  --table-row-odd-bg: #1a1a1a;
+  --table-row-hover-bg: #222222;
+  --table-border: #0a0a0a;
+  --table-sort-arrow: #606060;
 
   /* Modal/Dialog Styles - Dark Mode */
-  --modal-overlay-bg: rgba(0, 0, 0, 0.7);
-  --modal-bg: #3d3d3d;
-  --modal-header-bg: linear-gradient(180deg, #1e40af 0%, #2563eb 100%);
-  --modal-header-text: #ffffff;
-  --modal-border: #1d1d1d;
-  --modal-shadow: 4px 4px 8px rgba(0, 0, 0, 0.5);
+  --modal-overlay-bg: rgba(0, 0, 0, 0.85);
+  --modal-bg: #1a1a1a;
+  --modal-header-bg: linear-gradient(90deg, #1f2937 0%, #2a3f5f 100%);
+  --modal-header-text: #a0a0a0;
+  --modal-border: #0a0a0a;
+  --modal-shadow: 4px 4px 12px rgba(0, 0, 0, 0.7);
 
-  /* Status Badge Colors - Dark Mode (same as light for consistency) */
-  --badge-super-admin-bg: #7c3aed;
-  --badge-super-admin-text: #ffffff;
-  --badge-org-owner-bg: #dc2626;
-  --badge-org-owner-text: #ffffff;
-  --badge-manager-bg: #2563eb;
-  --badge-manager-text: #ffffff;
-  --badge-employee-bg: #16a34a;
-  --badge-employee-text: #ffffff;
-  --badge-viewer-bg: #6b7280;
-  --badge-viewer-text: #ffffff;
-  --badge-pending-bg: #fbbf24;
-  --badge-pending-text: #000000;
-  --badge-active-bg: #34d399;
-  --badge-active-text: #000000;
-  --badge-inactive-bg: #f87171;
-  --badge-inactive-text: #000000;
+  /* Status Badge Colors - Dark Mode (muted versions) */
+  --badge-super-admin-bg: #4a2a7d;
+  --badge-super-admin-text: #c0c0c0;
+  --badge-org-owner-bg: #7d2a2a;
+  --badge-org-owner-text: #c0c0c0;
+  --badge-manager-bg: #1a3a6d;
+  --badge-manager-text: #c0c0c0;
+  --badge-employee-bg: #1a5a3a;
+  --badge-employee-text: #c0c0c0;
+  --badge-viewer-bg: #3a3a3a;
+  --badge-viewer-text: #a0a0a0;
+  --badge-pending-bg: #6d5a1a;
+  --badge-pending-text: #c0c0c0;
+  --badge-active-bg: #1a5a3a;
+  --badge-active-text: #c0c0c0;
+  --badge-inactive-bg: #5a2a2a;
+  --badge-inactive-text: #c0c0c0;
 
-  /* Notification Colors - Dark Mode */
-  --notification-success-bg: #14532d;
-  --notification-success-border: #22c55e;
-  --notification-success-text: #d1fae5;
-  --notification-error-bg: #7f1d1d;
-  --notification-error-border: #ef4444;
-  --notification-error-text: #fee2e2;
-  --notification-info-bg: #581c87;
-  --notification-info-border: #a855f7;
-  --notification-info-text: #e9d5ff;
+  /* Notification Colors - Dark Mode (muted) */
+  --notification-success-bg: #0a2a1a;
+  --notification-success-border: #1a5a3a;
+  --notification-success-text: #70a090;
+  --notification-error-bg: #2a0a0a;
+  --notification-error-border: #5a2a2a;
+  --notification-error-text: #a07070;
+  --notification-info-bg: #1a1a3a;
+  --notification-info-border: #3a3a6a;
+  --notification-info-text: #8080a0;
 
   /* Glass/Blur Effects - Dark Mode */
-  --glass-bg: rgba(30, 30, 30, 0.7);
-  --glass-bg-light: rgba(45, 45, 45, 0.85);
-  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-bg: rgba(10, 10, 10, 0.85);
+  --glass-bg-light: rgba(20, 20, 20, 0.9);
+  --glass-border: rgba(255, 255, 255, 0.05);
   --glass-blur: 20px;
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 
   /* Z-index Layers (same for dark mode) */
   --z-index-modal: 9000;
@@ -330,7 +347,29 @@
   border-top-right-radius: 0px;
 }
 
+/* Windows Style - Clean Modern Border (matching modal design) */
+[data-window-style="windows"] .retro-window,
+[data-window-style="windows"] .retro-window-dark {
+  border: 4px solid var(--win95-border);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+}
+
+/* Windows Style - Titlebar padding to match content */
+[data-window-style="windows"] .retro-titlebar {
+  padding: 6px 12px;
+}
+
+/* Windows Style Dark Mode - Use theme colors, just ensure white titlebar text */
+.dark[data-window-style="windows"] .retro-titlebar span {
+  color: #ffffff !important;
+}
+
 /* Shadcn UI Style - Modern, Clean Design */
+[data-window-style="shadcn"] {
+  --button-radius: 8px;
+  --button-radius-sm: 6px;
+}
+
 [data-window-style="shadcn"] .window-corners {
   border-radius: 12px;
 }
@@ -344,6 +383,8 @@
 [data-window-style="mac"] {
   --win95-selected-bg: #007aff; /* Mac blue */
   --win95-selected-text: #ffffff;
+  --button-radius: 6px;
+  --button-radius-sm: 4px;
 }
 
 /* Mac - Input fields with proper contrast */
@@ -389,8 +430,52 @@
   border-radius: 6px;
 }
 
+/* ==========================================================================
+   MAC OS X STYLE - TITLEBAR
+   Light: Light gradient, dark text
+   Dark: Dark gradient, white text
+   ========================================================================== */
+[data-window-style="mac"] .retro-titlebar {
+  background: linear-gradient(180deg, #e8e8e8 0%, #d0d0d0 100%);
+  border-bottom: 1px solid #b0b0b0;
+}
+
+[data-window-style="mac"] .retro-titlebar span {
+  color: #1f2937 !important;
+}
+
+/* Mac Style Dark Mode - Use theme colors, just ensure white titlebar text */
+.dark[data-window-style="mac"] .retro-titlebar span {
+  color: #ffffff !important;
+}
+
+/* ==========================================================================
+   MAC OS X STYLE - PRIMARY BUTTON
+   Light: Light background, dark text
+   Dark: Dark background, light text
+   ========================================================================== */
 [data-window-style="mac"] .retro-button-primary {
   border-radius: 6px;
+  background: linear-gradient(180deg, #f5f5f5 0%, #e0e0e0 100%) !important;
+  color: #1f2937 !important;
+  border: 1px solid #c0c0c0 !important;
+}
+
+[data-window-style="mac"] .retro-button-primary:hover {
+  background: linear-gradient(180deg, #ffffff 0%, #f0f0f0 100%) !important;
+  color: #1f2937 !important;
+}
+
+/* Mac Dark - primary button uses theme highlight color */
+.dark[data-window-style="mac"] .retro-button-primary {
+  background: var(--win95-highlight) !important;
+  color: #ffffff !important;
+  border: 1px solid var(--win95-border) !important;
+}
+
+.dark[data-window-style="mac"] .retro-button-primary:hover {
+  background: var(--win95-hover-bg) !important;
+  color: #ffffff !important;
 }
 
 [data-window-style="mac"] .retro-button-small {
@@ -505,18 +590,32 @@
   overflow: visible;
 }
 
+/* ==========================================================================
+   SHADCN STYLE - TITLEBAR
+   Light: White titlebar, black text
+   Dark: Dark titlebar, white text
+   ========================================================================== */
 [data-window-style="shadcn"] .retro-titlebar {
   border-top-left-radius: 12px;
   border-top-right-radius: 12px;
-  background: var(--win95-bg-light);
+  background: #ffffff;
   border-bottom: 1px solid var(--win95-border);
   padding: 12px 16px;
   font-weight: 600;
 }
 
-/* Shadcn titlebar text uses theme text color, not white */
+/* Shadcn Light - black titlebar text */
 [data-window-style="shadcn"] .retro-titlebar span {
-  color: var(--win95-text) !important;
+  color: #1f2937 !important;
+}
+
+/* Shadcn Style Dark Mode - Dark titlebar background with white text */
+.dark[data-window-style="shadcn"] .retro-titlebar {
+  background: var(--win95-titlebar);
+}
+
+.dark[data-window-style="shadcn"] .retro-titlebar span {
+  color: #ffffff !important;
 }
 
 [data-window-style="shadcn"] .retro-button {
@@ -538,17 +637,35 @@
   box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
 
+/* ==========================================================================
+   SHADCN STYLE - PRIMARY BUTTON
+   Light: White/light background, black text
+   Dark: Dark background, white text
+   ========================================================================== */
 [data-window-style="shadcn"] .retro-button-primary {
   border-radius: 8px;
-  background: var(--win95-bg);
-  color: var(--win95-text-muted);
-  border: 1px solid var(--win95-border);
+  background: #ffffff !important;
+  color: #1f2937 !important;
+  border: 1px solid var(--win95-border) !important;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
 }
 
 [data-window-style="shadcn"] .retro-button-primary:hover {
-  background: var(--win95-hover-light);
+  background: #f3f4f6 !important;
+  color: #1f2937 !important;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+/* Shadcn Dark - primary button uses theme highlight color */
+.dark[data-window-style="shadcn"] .retro-button-primary {
+  background: var(--win95-highlight) !important;
+  color: #ffffff !important;
+  border: 1px solid var(--win95-border) !important;
+}
+
+.dark[data-window-style="shadcn"] .retro-button-primary:hover {
+  background: var(--win95-hover-bg) !important;
+  color: #ffffff !important;
 }
 
 [data-window-style="shadcn"] .retro-button-small {
@@ -678,7 +795,12 @@
 }
 
 [data-window-style="shadcn"] .retro-control-button:hover {
-  background: var(--win95-bg);
+  background: rgba(0, 0, 0, 0.1);
+}
+
+/* Shadcn Dark Mode - subtle hover for control buttons */
+.dark[data-window-style="shadcn"] .retro-control-button:hover {
+  background: rgba(255, 255, 255, 0.05);
 }
 
 [data-window-style="shadcn"] .retro-close-btn:hover {
@@ -811,7 +933,95 @@ body {
     padding: 4px 12px;
     font-weight: 600;
     font-size: 0.875rem;
-    border-radius: 0px;
+    border-radius: var(--button-radius);
+  }
+
+  /* Beveled button utility class - Win95 style borders with adaptive radius */
+  .beveled-button {
+    border: 2px solid;
+    border-top-color: var(--win95-button-light);
+    border-left-color: var(--win95-button-light);
+    border-bottom-color: var(--win95-button-dark);
+    border-right-color: var(--win95-button-dark);
+    border-radius: var(--button-radius);
+  }
+
+  .beveled-button-sm {
+    border-radius: var(--button-radius-sm);
+  }
+
+  /* ==========================================================================
+     SHADCN STYLE - BEVELED BUTTON OVERRIDES
+     Modern flat border style with rounded corners
+     ========================================================================== */
+  [data-window-style="shadcn"] .beveled-button {
+    border: 1px solid var(--win95-border) !important;
+    border-radius: 8px;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  }
+
+  /* Shadcn Light - dark text ONLY for primary-colored buttons (override inline white) */
+  /* Targets buttons with backgroundColor containing "primary" or using win95-button-face */
+  [data-window-style="shadcn"] .beveled-button[style*="primary"],
+  [data-window-style="shadcn"] .beveled-button[style*="win95-button-face"],
+  [data-window-style="shadcn"] .beveled-button[style*="win95-bg"] {
+    color: #1f2937 !important;
+  }
+
+  /* Shadcn Dark - white text for primary buttons */
+  .dark[data-window-style="shadcn"] .beveled-button[style*="primary"],
+  .dark[data-window-style="shadcn"] .beveled-button[style*="win95-button-face"],
+  .dark[data-window-style="shadcn"] .beveled-button[style*="win95-bg"] {
+    color: #ffffff !important;
+  }
+
+  /* Shadcn - Keep white text for error/danger buttons (red backgrounds need contrast) */
+  [data-window-style="shadcn"] .beveled-button[style*="error"],
+  [data-window-style="shadcn"] .beveled-button[style*="success"],
+  [data-window-style="shadcn"] .beveled-button[style*="info"] {
+    color: #ffffff !important;
+  }
+
+  /* ==========================================================================
+     MAC OS X STYLE - BEVELED BUTTON OVERRIDES
+     Subtle border with rounded corners
+     ========================================================================== */
+  [data-window-style="mac"] .beveled-button {
+    border: 1px solid var(--win95-border) !important;
+    border-radius: 6px;
+  }
+
+  /* Mac Light - dark text ONLY for primary-colored buttons (override inline white) */
+  [data-window-style="mac"] .beveled-button[style*="primary"],
+  [data-window-style="mac"] .beveled-button[style*="win95-button-face"],
+  [data-window-style="mac"] .beveled-button[style*="win95-bg"] {
+    color: #1f2937 !important;
+  }
+
+  /* Mac Dark - white text for primary buttons */
+  .dark[data-window-style="mac"] .beveled-button[style*="primary"],
+  .dark[data-window-style="mac"] .beveled-button[style*="win95-button-face"],
+  .dark[data-window-style="mac"] .beveled-button[style*="win95-bg"] {
+    color: #ffffff !important;
+  }
+
+  /* Mac - Keep white text for error/danger buttons (red backgrounds need contrast) */
+  [data-window-style="mac"] .beveled-button[style*="error"],
+  [data-window-style="mac"] .beveled-button[style*="success"],
+  [data-window-style="mac"] .beveled-button[style*="info"] {
+    color: #ffffff !important;
+  }
+
+  /* Primary beveled button with gradient */
+  .beveled-button-primary {
+    border: 2px solid;
+    border-top-color: var(--win95-button-light);
+    border-left-color: var(--win95-button-light);
+    border-bottom-color: var(--win95-button-dark);
+    border-right-color: var(--win95-button-dark);
+    border-radius: var(--button-radius);
+    background: linear-gradient(135deg, var(--win95-highlight) 0%, var(--win95-gradient-end) 100%);
+    color: white;
   }
 
   .retro-button:hover {
@@ -827,18 +1037,18 @@ body {
 
   .retro-button-primary {
     background: var(--win95-highlight);
-    color: var(--win95-titlebar-text) !important; /* Always use titlebar text color (white in light, white in dark) */
+    color: var(--win95-hover-text) !important; /* Use hover text color (white) for button text */
     border-color: var(--win95-highlight) var(--win95-active-border) var(--win95-active-border) var(--win95-highlight);
   }
 
   .retro-button-primary:hover {
-    background: var(--win95-selected-bg);
-    color: var(--win95-titlebar-text) !important;
+    background: var(--win95-hover-bg);
+    color: var(--win95-hover-text) !important;
   }
 
   .retro-button-primary:active {
     border-color: var(--win95-active-border) var(--win95-highlight) var(--win95-highlight) var(--win95-active-border);
-    color: var(--win95-titlebar-text) !important;
+    color: var(--win95-hover-text) !important;
   }
 
   /* Glass light theme - ensure dark text on light buttons */
@@ -1079,28 +1289,29 @@ body {
     color: #5a0000;
   }
 
-  /* Windows 95 Style - Square Buttons with Icons */
+  /* Windows 95 Style - Clean Control Buttons (Modern Modal Style) */
   [data-window-style="windows"] .retro-control-button {
-    width: 24px;
-    height: 22px;
-    border: 1px solid;
-    border-color: var(--win95-button-light) var(--win95-button-darkest) var(--win95-button-darkest) var(--win95-button-light);
-    background: var(--win95-button-face);
-    border-radius: 0;
+    width: 28px;
+    height: 24px;
+    border: none;
+    background: transparent;
+    border-radius: 4px;
     font-size: 14px;
-    color: var(--win95-text);
-    box-shadow: inset 1px 1px 0 var(--win95-bg-light), inset -1px -1px 0 var(--win95-button-dark);
+    color: var(--win95-titlebar-text);
+    transition: background 0.15s ease;
   }
 
   [data-window-style="windows"] .retro-control-button:hover {
-    background: var(--win95-button-hover);
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  [data-window-style="windows"] .retro-close-btn:hover {
+    background: #dc2626;
+    color: white;
   }
 
   [data-window-style="windows"] .retro-control-button:active {
-    border-color: var(--win95-button-darkest) var(--win95-button-light) var(--win95-button-light) var(--win95-button-darkest);
-    box-shadow: inset -1px -1px 0 var(--win95-bg-light), inset 1px 1px 0 var(--win95-button-dark);
-    padding-top: 1px;
-    padding-left: 1px;
+    transform: scale(0.95);
   }
 
   .retro-control-button:active {
@@ -1114,28 +1325,24 @@ body {
     font-weight: bold;
   }
 
-  /* Minimize button - underscore visible and better positioned */
+  /* Minimize button - underscore at bottom of button */
   [data-window-style="windows"] .retro-minimize-btn .window-btn-icon {
     font-size: 18px;
     font-weight: 700;
-    letter-spacing: -4px;
-    padding-bottom: 9px;
-    padding-right: 4px;
+    padding-bottom: 8px;
   }
 
-  /* Maximize button - larger bolder square */
+  /* Maximize button - square icon centered */
   [data-window-style="windows"] .retro-maximize-btn .window-btn-icon {
-    font-size: 23px;
-    font-weight: 900;
-    -webkit-text-stroke: 0.5px currentColor;
+    font-size: 24px;
+    font-weight: 400;
     padding-bottom: 6px;
   }
 
-  /* Close button - smaller X */
+  /* Close button - X centered */
   [data-window-style="windows"] .retro-close-btn .window-btn-icon {
     font-size: 14px;
-    font-weight: 900;
-    padding-top: 2px;
+    font-weight: 600;
   }
 
   /* Panel/Group Box */

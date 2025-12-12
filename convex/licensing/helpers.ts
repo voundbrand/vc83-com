@@ -281,6 +281,27 @@ export async function checkFeatureAccess(
 }
 
 /**
+ * CHECK FEATURE ACCESS (Public Query)
+ *
+ * Public query version of checkFeatureAccess that can be called from actions.
+ * Throws error if feature not available.
+ */
+export const checkFeatureAccessQuery = query({
+  args: {
+    organizationId: v.id("organizations"),
+    featureName: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await checkFeatureAccess(
+      ctx,
+      args.organizationId,
+      args.featureName as keyof TierConfig["features"]
+    );
+    return { success: true };
+  },
+});
+
+/**
  * GET RESOURCE COUNT (Query)
  *
  * Public query to get current resource count for usage dashboards.
@@ -538,6 +559,138 @@ export const getLicenseInternalQuery = internalQuery({
 });
 
 /**
+ * INTERNAL QUERY: Check Feature Access (for actions)
+ *
+ * Similar to checkFeatureAccess but can be called from actions.
+ * Throws if feature is not enabled.
+ */
+export const checkFeatureAccessInternal = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    featureFlag: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const license = await getLicenseInternal(ctx, args.organizationId);
+    const featureKey = args.featureFlag as keyof TierConfig["features"];
+    const hasAccess = license.features[featureKey];
+
+    if (!hasAccess) {
+      throw new Error(
+        `This feature requires ${getFeatureRequiredTier(featureKey)}. ` +
+          `Current tier: ${license.planTier}. Upgrade to unlock this feature.`
+      );
+    }
+  },
+});
+
+/**
+ * CHECK SYSTEM TEMPLATE ACCESS (Internal Helper)
+ *
+ * Checks if an organization can access/deploy system templates.
+ * System templates are pre-built templates like Freelancer Portal that
+ * organizations can deploy to their own infrastructure.
+ *
+ * Free tier: 1 system template (Freelancer Portal)
+ * Paid tiers: Unlimited system templates
+ *
+ * @param ctx - Query/Mutation context
+ * @param organizationId - Organization ID
+ * @returns Object with canAccess, currentCount, limit, remaining
+ * @throws Error if limit exceeded
+ */
+export async function checkSystemTemplateAccess(
+  ctx: QueryCtx,
+  organizationId: Id<"organizations">
+): Promise<{
+  canAccess: boolean;
+  templateSetsEnabled: boolean;
+  currentCount: number;
+  limit: number;
+  remaining: number;
+  isUnlimited: boolean;
+}> {
+  // Get license
+  const license = await getLicenseInternal(ctx, organizationId);
+
+  // Check if template sets feature is enabled
+  const templateSetsEnabled = license.features.templateSetsEnabled;
+
+  if (!templateSetsEnabled) {
+    return {
+      canAccess: false,
+      templateSetsEnabled: false,
+      currentCount: 0,
+      limit: 0,
+      remaining: 0,
+      isUnlimited: false,
+    };
+  }
+
+  // Get limit (-1 means unlimited)
+  const limit = license.limits.maxSystemTemplates;
+
+  // If unlimited, skip counting
+  if (limit === -1) {
+    return {
+      canAccess: true,
+      templateSetsEnabled: true,
+      currentCount: 0,
+      limit: -1,
+      remaining: -1,
+      isUnlimited: true,
+    };
+  }
+
+  // Count deployed system templates
+  const deployedTemplates = await ctx.db
+    .query("objects")
+    .withIndex("by_org_type", (q) =>
+      q.eq("organizationId", organizationId).eq("type", "deployed_system_template")
+    )
+    .collect();
+
+  const currentCount = deployedTemplates.length;
+  const remaining = limit - currentCount;
+
+  return {
+    canAccess: remaining > 0,
+    templateSetsEnabled: true,
+    currentCount,
+    limit,
+    remaining,
+    isUnlimited: false,
+  };
+}
+
+/**
+ * CHECK SYSTEM TEMPLATE ACCESS (Public Query)
+ *
+ * Public query version for UI to check template access before showing deploy options.
+ */
+export const checkSystemTemplateAccessQuery = query({
+  args: {
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    return await checkSystemTemplateAccess(ctx, args.organizationId);
+  },
+});
+
+/**
+ * INTERNAL QUERY: Check System Template Access
+ *
+ * For use in mutations and actions that need to verify template access.
+ */
+export const checkSystemTemplateAccessInternal = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    return await checkSystemTemplateAccess(ctx, args.organizationId);
+  },
+});
+
+/**
  * HELPER FUNCTIONS
  */
 
@@ -577,3 +730,153 @@ function getFeatureRequiredTier(featureKey: keyof TierConfig["features"]): strin
 
   return featureTierMap[featureKey] || "a higher tier";
 }
+
+/**
+ * GET DETAILED USAGE COUNTS (Query)
+ *
+ * Returns detailed counts for all resource types not covered by getAllUsageStats.
+ * Used by the license overview UI to show accurate current usage.
+ */
+export const getDetailedUsageCounts = query({
+  args: {
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    // Helper to count resources by type
+    const countByType = async (type: string) => {
+      const resources = await ctx.db
+        .query("objects")
+        .withIndex("by_org_type", (q) =>
+          q.eq("organizationId", args.organizationId).eq("type", type)
+        )
+        .collect();
+      return resources.length;
+    };
+
+    // Helper to count monthly resources
+    const countMonthlyByType = async (type: string) => {
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+      const resources = await ctx.db
+        .query("objects")
+        .withIndex("by_org_type", (q) =>
+          q.eq("organizationId", args.organizationId).eq("type", type)
+        )
+        .filter((q) => q.gte(q.field("createdAt"), monthStart))
+        .collect();
+      return resources.length;
+    };
+
+    // Count users (organization members)
+    const usersCount = await ctx.db
+      .query("organizationMembers")
+      .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+      .collect()
+      .then((members) => members.length);
+
+    // Count API keys
+    const apiKeysCount = await ctx.db
+      .query("apiKeys")
+      .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+      .filter((q) => q.eq(q.field("status"), "active"))
+      .collect()
+      .then((keys) => keys.length);
+
+    // Count sub-organizations (not implemented yet - organizations don't have parent field)
+    const subOrganizationsCount = 0;
+
+    // Count custom domains
+    const customDomainsCount = await countByType("domain_config");
+
+    // Count pipelines
+    const pipelinesCount = await countByType("crm_pipeline");
+
+    // Count emails sent this month
+    const emailsThisMonthCount = await countMonthlyByType("email_campaign");
+
+    // Count milestones
+    const milestonesCount = await countByType("project_milestone");
+
+    // Count tasks
+    const tasksCount = await countByType("project_task");
+
+    // Count attendees
+    const attendeesCount = await countByType("event_attendee");
+
+    // Count sponsors
+    const sponsorsCount = await countByType("event_sponsor");
+
+    // Count product addons
+    const addonsCount = await countByType("product_addon");
+
+    // Count checkout instances
+    const checkoutInstancesCount = await countByType("checkout_instance");
+
+    // Count form responses
+    const formResponsesCount = await countByType("form_response");
+
+    // Count workflow behaviors
+    const behaviorsCount = await countByType("workflow_behavior");
+
+    // Count custom templates
+    const customTemplatesCount = await countByType("custom_template");
+
+    // Count languages
+    const languagesCount = await countByType("translation_language");
+
+    // Count websites configured for API keys
+    const websitesCount = await countByType("api_key_website");
+
+    // Count OAuth applications
+    const oauthAppsCount = await ctx.db
+      .query("oauthApplications")
+      .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+      .collect()
+      .then((apps) => apps.length);
+
+    // Count third-party integrations
+    const integrationsCount = await ctx.db
+      .query("oauthConnections")
+      .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+      .collect()
+      .then((conns) => conns.length);
+
+    // Count webhooks
+    const webhooksCount = await countByType("webhook");
+
+    // Get storage usage (in GB)
+    const storageData = await ctx.db
+      .query("organizationStorage")
+      .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+      .first();
+    const storageUsedGB = storageData ? Math.round((storageData.totalSizeBytes / (1024 * 1024 * 1024)) * 100) / 100 : 0;
+
+    // Get per-user storage (average)
+    const perUserStorageUsedGB = usersCount > 0 ? Math.round((storageUsedGB / usersCount) * 100) / 100 : 0;
+
+    return {
+      usersCount,
+      apiKeysCount,
+      subOrganizationsCount,
+      customDomainsCount,
+      pipelinesCount,
+      emailsThisMonthCount,
+      milestonesCount,
+      tasksCount,
+      attendeesCount,
+      sponsorsCount,
+      addonsCount,
+      checkoutInstancesCount,
+      formResponsesCount,
+      behaviorsCount,
+      customTemplatesCount,
+      storageUsedGB,
+      perUserStorageUsedGB,
+      languagesCount,
+      websitesCount,
+      oauthAppsCount,
+      integrationsCount,
+      webhooksCount,
+    };
+  },
+});

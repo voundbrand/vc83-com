@@ -90,6 +90,34 @@ export function InvoicingWindow() {
     );
   }
 
+  // Check if user has access to invoicing for this organization
+  if (invoices === null && sessionId && currentOrg) {
+    return (
+      <div className="flex flex-col h-full" style={{ background: "var(--win95-bg)" }}>
+        <div className="flex items-center justify-center h-full">
+          <div className="max-w-md mx-auto p-6">
+            <div className="border-2 p-4" style={{ borderColor: "var(--error)", background: "var(--error-bg)" }}>
+              <div className="flex items-start gap-3">
+                <AlertCircle size={24} style={{ color: "var(--error)" }} className="flex-shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-bold text-sm mb-2" style={{ color: "var(--error)" }}>
+                    {t("ui.invoicing_window.access_denied") || "Access Denied"}
+                  </h4>
+                  <p className="text-xs mb-2" style={{ color: "var(--win95-text)" }}>
+                    {t("ui.invoicing_window.no_permission") || "You don't have permission to view invoicing for this organization."}
+                  </p>
+                  <p className="text-xs" style={{ color: "var(--win95-text-secondary)" }}>
+                    {t("ui.invoicing_window.contact_admin") || "Please contact your organization administrator if you need access to invoicing management."}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full" style={{ background: 'var(--win95-bg)' }}>
       {/* Header */}
@@ -369,7 +397,7 @@ export function InvoicingWindow() {
         }}
       >
         <span>
-          {invoices !== undefined
+          {invoices !== undefined && invoices !== null
             ? t("ui.invoicing_window.footer.invoice_count", {
                 count: invoices.length,
                 plural: invoices.length !== 1 ? "s" : ""

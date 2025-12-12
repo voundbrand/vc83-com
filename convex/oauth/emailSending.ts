@@ -157,6 +157,7 @@ export const sendEmailViaMicrosoft = internalAction({
 export const sendBulkEmailsViaMicrosoft = internalAction({
   args: {
     connectionId: v.id("oauthConnections"),
+    organizationId: v.id("organizations"), // Added for tier check
     emails: v.array(v.object({
       to: v.string(),
       subject: v.string(),
@@ -170,6 +171,12 @@ export const sendBulkEmailsViaMicrosoft = internalAction({
     totalFailed: number;
     failures: Array<{ email: string; error: string }>;
   }> => {
+    // CHECK FEATURE ACCESS: Bulk email requires Starter+
+    const { internal: internalApi } = await import("../_generated/api");
+    await ctx.runQuery(internalApi.licensing.helpers.checkFeatureAccessInternal, {
+      organizationId: args.organizationId,
+      featureFlag: "bulkEmailEnabled",
+    });
     const results = {
       totalSent: 0,
       totalFailed: 0,

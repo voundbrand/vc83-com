@@ -54,7 +54,7 @@ export async function getBackendTranslations(
 
   // Build map of translations
   const translationMap = new Map(
-    translations.map(t => [t.name, t.value as string])
+    translations.map((t: any) => [t.name, t.value as string])
   );
 
   // Get English fallbacks if needed
@@ -65,7 +65,7 @@ export async function getBackendTranslations(
   for (const key of keys) {
     const value = translationMap.get(key);
 
-    if (value) {
+    if (value !== undefined && typeof value === "string") {
       results[key] = value;
     } else if (normalizedLocale !== "en") {
       // Load English fallbacks if not already loaded
@@ -79,7 +79,7 @@ export async function getBackendTranslations(
         );
 
         fallbackMap = new Map(
-          fallbackTranslations.map(t => [t.name, t.value as string])
+          fallbackTranslations.map((t: any) => [t.name, t.value as string])
         );
       }
 
@@ -140,7 +140,7 @@ export async function getBackendTranslationsByNamespace(
   );
 
   // Filter by namespace
-  const translations = allTranslations.filter(t => t.name.startsWith(namespace + "."));
+  const translations = allTranslations.filter((t: any) => t.name.startsWith(namespace + "."));
 
   // Build results object
   const results: Record<string, string> = {};

@@ -10,9 +10,10 @@ interface RetroButtonProps {
   size?: "sm" | "md" | "lg"
   className?: string
   disabled?: boolean
+  title?: string
 }
 
-export function RetroButton({ children, onClick, variant = "primary", size = "md", className, disabled = false }: RetroButtonProps) {
+export function RetroButton({ children, onClick, variant = "primary", size = "md", className, disabled = false, title }: RetroButtonProps) {
   const baseClasses = "retro-button font-pixel"
 
   const variantClasses = {
@@ -28,13 +29,14 @@ export function RetroButton({ children, onClick, variant = "primary", size = "md
   }
 
   return (
-    <button 
-      onClick={onClick} 
+    <button
+      onClick={onClick}
       disabled={disabled}
+      title={title}
       className={cn(
-        baseClasses, 
-        variantClasses[variant], 
-        sizeClasses[size], 
+        baseClasses,
+        variantClasses[variant],
+        sizeClasses[size],
         disabled && "opacity-50 cursor-not-allowed",
         className
       )}

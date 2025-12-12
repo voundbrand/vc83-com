@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+import { Id } from "../../../convex/_generated/dataModel";
 
 /**
  * PLATFORM CHECKOUT WINDOW
@@ -33,7 +34,9 @@ export function PlatformCartWindow() {
   const { t } = useNamespaceTranslations("ui.cart");
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const createCheckout = useAction(api.stripe.aiCheckout.createAICheckoutSession);
+  const createAICheckout = useAction(api.stripe.aiCheckout.createAICheckoutSession);
+  const createPlatformCheckout = useAction(api.stripe.platformCheckout.createPlatformCheckoutSession);
+  const createTokenPackCheckout = useAction(api.stripe.platformCheckout.createTokenPackCheckoutSession);
 
   // Format price
   const formatPrice = (cents: number, currency: string) => {
@@ -52,28 +55,85 @@ export function PlatformCartWindow() {
     try {
       // Group items by type and process accordingly
       const aiSubscriptions = items.filter(item => item.type === "ai-subscription");
+      const platformPlans = items.filter(item => item.type === "platform-plan");
+      const tokenPacks = items.filter(item => item.type === "token-pack");
 
-      if (aiSubscriptions.length > 0) {
-        // Process AI subscription checkout
-        const subscription = aiSubscriptions[0]; // Take first subscription
-        const tier = subscription.metadata?.tier as "standard" | "privacy-enhanced";
+      const baseUrls = {
+        successUrl: `${window.location.origin}?checkout=success`,
+        cancelUrl: `${window.location.origin}?checkout=cancel`,
+      };
 
-        const result = await createCheckout({
-          organizationId: user.defaultOrgId,
-          organizationName: user.currentOrganization?.name || user.email,
-          email: user.email,
+      const commonParams = {
+        organizationId: user.defaultOrgId as Id<"organizations">,
+        organizationName: user.currentOrganization?.name || user.email,
+        email: user.email,
+        isB2B: true,
+      };
+
+      // Process platform tier subscriptions first (Starter, Professional, Agency, Enterprise)
+      if (platformPlans.length > 0) {
+        const plan = platformPlans[0];
+        const tier = plan.metadata?.tier as "starter" | "professional" | "agency" | "enterprise";
+        const billingPeriod = (plan.metadata?.billingPeriod || "annual") as "monthly" | "annual";
+
+        if (!tier) {
+          alert("Invalid plan selected. Please try again.");
+          return;
+        }
+
+        const result = await createPlatformCheckout({
+          ...commonParams,
           tier,
-          successUrl: `${window.location.origin}?checkout=success`,
-          cancelUrl: `${window.location.origin}?checkout=cancel`,
-          isB2B: true, // Always enable B2B - Stripe will show business/personal toggle in their UI
+          billingPeriod,
+          ...baseUrls,
         });
 
-        // Redirect to Stripe Checkout
         window.location.href = result.checkoutUrl;
+        return;
       }
 
-      // TODO: Handle other platform services (token packs, add-ons, etc.)
-      // NOTE: This does NOT handle org-to-customer sales (events, products, tickets)
+      // Process AI subscription checkout
+      if (aiSubscriptions.length > 0) {
+        const subscription = aiSubscriptions[0];
+        const tier = subscription.metadata?.tier as "standard" | "privacy-enhanced";
+
+        const result = await createAICheckout({
+          ...commonParams,
+          tier,
+          ...baseUrls,
+        });
+
+        window.location.href = result.checkoutUrl;
+        return;
+      }
+
+      // Process token pack purchases
+      if (tokenPacks.length > 0) {
+        const pack = tokenPacks[0];
+        const tier = pack.metadata?.tier as "starter" | "standard" | "professional" | "enterprise";
+        // Extract token count from description (e.g., "1,000,000 AI tokens" -> 1000000)
+        const tokensMatch = pack.description?.match(/[\d,]+/);
+        const tokens = tokensMatch ? parseInt(tokensMatch[0].replace(/,/g, ""), 10) : 0;
+
+        if (!tier) {
+          alert("Invalid token pack selected. Please try again.");
+          return;
+        }
+
+        const result = await createTokenPackCheckout({
+          ...commonParams,
+          tier,
+          packName: pack.name,
+          tokens,
+          ...baseUrls,
+        });
+
+        window.location.href = result.checkoutUrl;
+        return;
+      }
+
+      // No processable items found
+      alert("No items in cart to checkout. Please add items first.");
     } catch (error) {
       console.error("Checkout error:", error);
       alert(t("ui.cart.error.checkout_failed"));

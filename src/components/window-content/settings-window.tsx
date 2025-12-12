@@ -7,7 +7,7 @@ import { useWindowManager } from "@/hooks/use-window-manager";
 import { useTheme, themes } from "@/contexts/theme-context";
 import { useTranslation } from "@/contexts/translation-context";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
-import { useIsSuperAdmin, useAuth, useCurrentOrganization } from "@/hooks/use-auth";
+import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import MediaLibraryWindow from "@/components/window-content/media-library-window";
@@ -16,7 +16,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 type TabType = "appearance" | "wallpaper" | "region";
 
 export function SettingsWindow() {
-  const { closeWindow, openWindow } = useWindowManager();
+  const { closeWindow } = useWindowManager();
   const { currentTheme, setTheme, windowStyle, setWindowStyle } = useTheme();
   const { locale, availableLocales, setLocale } = useTranslation(); // For locale management only
   const { t } = useNamespaceTranslations("ui.settings"); // For translations
@@ -281,10 +281,10 @@ export function SettingsWindow() {
                 }}
                 onClick={() => !theme.comingSoon && setSelectedThemeId(theme.id)}
               >
-                {/* Color Swatches */}
-                <div className="flex gap-1">
+                {/* Color Swatches - 5 colors for complete theme representation */}
+                <div className="flex gap-0.5">
                   <div
-                    className="w-6 h-6 border-2 rounded"
+                    className="w-5 h-5 border rounded-sm"
                     style={{
                       backgroundColor: theme.colors.background,
                       borderColor: 'var(--win95-border)',
@@ -293,7 +293,7 @@ export function SettingsWindow() {
                     title="Desktop Background"
                   />
                   <div
-                    className="w-6 h-6 border-2 rounded"
+                    className="w-5 h-5 border rounded-sm"
                     style={{
                       backgroundColor: theme.colors.win95Bg,
                       borderColor: 'var(--win95-border)',
@@ -302,13 +302,31 @@ export function SettingsWindow() {
                     title="Window Background"
                   />
                   <div
-                    className="w-6 h-6 border-2 rounded"
+                    className="w-5 h-5 border rounded-sm"
+                    style={{
+                      backgroundColor: theme.colors.win95Border,
+                      borderColor: 'var(--win95-border)',
+                      opacity: theme.comingSoon ? 0.5 : 1
+                    }}
+                    title="Border Color"
+                  />
+                  <div
+                    className="w-5 h-5 border rounded-sm"
+                    style={{
+                      backgroundColor: theme.colors.win95Text,
+                      borderColor: 'var(--win95-border)',
+                      opacity: theme.comingSoon ? 0.5 : 1
+                    }}
+                    title="Text Color"
+                  />
+                  <div
+                    className="w-5 h-5 border rounded-sm"
                     style={{
                       backgroundColor: theme.colors.win95Highlight,
                       borderColor: 'var(--win95-border)',
                       opacity: theme.comingSoon ? 0.5 : 1
                     }}
-                    title="Highlight Color"
+                    title="Accent Color"
                   />
                 </div>
 
@@ -329,43 +347,184 @@ export function SettingsWindow() {
           </div>
         </div>
 
-        {/* Preview Section */}
+        {/* Preview Section - Comprehensive UI Preview */}
         <div>
           <h3 className="text-xs font-bold mb-3 uppercase tracking-wide" style={{ color: 'var(--win95-text)' }}>
             {t('ui.settings.appearance.preview')}
           </h3>
+
+          {/* Desktop Preview Container */}
           <div
             className="border-2 rounded p-4"
             style={{
-              backgroundColor: themes.find((t) => t.id === selectedThemeId)?.colors.background,
-              borderColor: 'var(--win95-border)'
+              background: themes.find((t) => t.id === selectedThemeId)?.colors.background,
+              borderColor: 'var(--win95-border)',
+              minHeight: '280px'
             }}
           >
+            {/* Mini Window Preview */}
             <div
-              className="p-3 rounded shadow-md border-2"
+              className="shadow-lg"
               style={{
                 backgroundColor: themes.find((t) => t.id === selectedThemeId)?.colors.win95Bg,
+                borderWidth: windowStyle === 'shadcn' ? '1px' : '4px',
+                borderStyle: 'solid',
                 borderColor: themes.find((t) => t.id === selectedThemeId)?.colors.win95Border,
+                borderRadius: windowStyle === 'shadcn' ? '12px' : windowStyle === 'mac' ? '8px' : '0px',
+                overflow: 'hidden'
               }}
             >
+              {/* Titlebar */}
               <div
-                className="p-1 text-xs font-bold mb-2"
+                className="px-3 py-2 flex items-center justify-between"
                 style={{
-                  backgroundColor: themes.find((t) => t.id === selectedThemeId)?.colors.win95Highlight,
-                  color: "#ffffff",
+                  background: windowStyle === 'shadcn'
+                    ? (selectedThemeId.includes('dark') ? '#1f2937' : '#ffffff')
+                    : windowStyle === 'mac'
+                    ? (selectedThemeId.includes('dark')
+                        ? 'linear-gradient(180deg, #4a4a4a 0%, #3a3a3a 100%)'
+                        : 'linear-gradient(180deg, #e8e8e8 0%, #d0d0d0 100%)')
+                    : `linear-gradient(90deg, ${themes.find((t) => t.id === selectedThemeId)?.colors.win95Highlight} 0%, ${themes.find((t) => t.id === selectedThemeId)?.colors.win95GradientEnd} 100%)`,
+                  borderBottom: windowStyle === 'shadcn' || windowStyle === 'mac'
+                    ? `1px solid ${themes.find((t) => t.id === selectedThemeId)?.colors.win95Border}`
+                    : 'none',
+                  borderTopLeftRadius: windowStyle === 'shadcn' ? '12px' : windowStyle === 'mac' ? '8px' : '0px',
+                  borderTopRightRadius: windowStyle === 'shadcn' ? '12px' : windowStyle === 'mac' ? '8px' : '0px',
                 }}
               >
-                {t('ui.settings.appearance.preview_window')}
+                {/* Window Title */}
+                <span
+                  className="text-xs font-bold"
+                  style={{
+                    color: windowStyle === 'windows'
+                      ? '#ffffff'
+                      : (selectedThemeId.includes('dark') ? '#ffffff' : '#1f2937')
+                  }}
+                >
+                  Preview Window
+                </span>
+
+                {/* Control Buttons */}
+                <div className="flex gap-1">
+                  {windowStyle === 'mac' ? (
+                    <>
+                      {/* Mac style traffic lights */}
+                      <div className="w-3 h-3 rounded-full" style={{ background: 'linear-gradient(135deg, #00ca56 0%, #00a846 100%)' }} />
+                      <div className="w-3 h-3 rounded-full" style={{ background: 'linear-gradient(135deg, #ffbd2e 0%, #ffaa00 100%)' }} />
+                      <div className="w-3 h-3 rounded-full" style={{ background: 'linear-gradient(135deg, #ff5f56 0%, #ff3b30 100%)' }} />
+                    </>
+                  ) : windowStyle === 'shadcn' ? (
+                    <>
+                      {/* Shadcn style buttons */}
+                      <div
+                        className="w-6 h-6 rounded flex items-center justify-center text-xs"
+                        style={{
+                          color: selectedThemeId.includes('dark') ? '#ffffff' : '#1f2937',
+                          background: 'transparent'
+                        }}
+                      >_</div>
+                      <div
+                        className="w-6 h-6 rounded flex items-center justify-center text-xs"
+                        style={{
+                          color: selectedThemeId.includes('dark') ? '#ffffff' : '#1f2937',
+                          background: 'transparent'
+                        }}
+                      >□</div>
+                      <div
+                        className="w-6 h-6 rounded flex items-center justify-center text-xs"
+                        style={{ color: '#ef4444' }}
+                      >✕</div>
+                    </>
+                  ) : (
+                    <>
+                      {/* Windows 95 style buttons */}
+                      <div className="w-5 h-4 rounded flex items-center justify-center text-xs text-white">_</div>
+                      <div className="w-5 h-4 rounded flex items-center justify-center text-xs text-white">□</div>
+                      <div className="w-5 h-4 rounded flex items-center justify-center text-xs text-white">✕</div>
+                    </>
+                  )}
+                </div>
               </div>
-              <p
-                className="text-xs"
-                style={{
-                  color: themes.find((t) => t.id === selectedThemeId)?.colors.win95Text,
-                }}
-              >
-                {t('ui.settings.appearance.preview_text')}
-              </p>
+
+              {/* Window Content */}
+              <div className="p-4 space-y-3">
+                {/* Sample Text */}
+                <p
+                  className="text-xs"
+                  style={{ color: themes.find((t) => t.id === selectedThemeId)?.colors.win95Text }}
+                >
+                  This is how your windows will look with this theme.
+                </p>
+
+                {/* Sample Input */}
+                <input
+                  type="text"
+                  placeholder="Sample input field"
+                  className="w-full px-2 py-1 text-xs"
+                  style={{
+                    background: selectedThemeId.includes('dark') ? '#2d2d2d' : '#ffffff',
+                    color: themes.find((t) => t.id === selectedThemeId)?.colors.win95Text,
+                    border: `1px solid ${themes.find((t) => t.id === selectedThemeId)?.colors.win95Border}`,
+                    borderRadius: windowStyle === 'shadcn' ? '6px' : windowStyle === 'mac' ? '4px' : '0px',
+                  }}
+                  readOnly
+                />
+
+                {/* Sample Buttons */}
+                <div className="flex gap-2">
+                  {/* Primary Button */}
+                  <button
+                    className="px-3 py-1 text-xs font-bold"
+                    style={{
+                      background: windowStyle === 'shadcn'
+                        ? (selectedThemeId.includes('dark') ? '#374151' : '#ffffff')
+                        : windowStyle === 'mac'
+                        ? (selectedThemeId.includes('dark')
+                            ? 'linear-gradient(180deg, #4a4a4a 0%, #3a3a3a 100%)'
+                            : 'linear-gradient(180deg, #f5f5f5 0%, #e0e0e0 100%)')
+                        : `linear-gradient(135deg, ${themes.find((t) => t.id === selectedThemeId)?.colors.win95Highlight} 0%, ${themes.find((t) => t.id === selectedThemeId)?.colors.win95GradientEnd} 100%)`,
+                      color: windowStyle === 'windows'
+                        ? '#ffffff'
+                        : (selectedThemeId.includes('dark') ? '#ffffff' : '#1f2937'),
+                      border: `1px solid ${themes.find((t) => t.id === selectedThemeId)?.colors.win95Border}`,
+                      borderRadius: windowStyle === 'shadcn' ? '6px' : windowStyle === 'mac' ? '4px' : '0px',
+                    }}
+                  >
+                    Primary
+                  </button>
+
+                  {/* Secondary Button */}
+                  <button
+                    className="px-3 py-1 text-xs font-bold"
+                    style={{
+                      background: themes.find((t) => t.id === selectedThemeId)?.colors.win95Bg,
+                      color: themes.find((t) => t.id === selectedThemeId)?.colors.win95Text,
+                      border: `1px solid ${themes.find((t) => t.id === selectedThemeId)?.colors.win95Border}`,
+                      borderRadius: windowStyle === 'shadcn' ? '6px' : windowStyle === 'mac' ? '4px' : '0px',
+                    }}
+                  >
+                    Secondary
+                  </button>
+                </div>
+
+                {/* Highlight Color Indicator */}
+                <div className="flex items-center gap-2 pt-2 border-t" style={{ borderColor: themes.find((t) => t.id === selectedThemeId)?.colors.win95Border }}>
+                  <div
+                    className="w-4 h-4 rounded"
+                    style={{ background: themes.find((t) => t.id === selectedThemeId)?.colors.win95Highlight }}
+                  />
+                  <span className="text-xs" style={{ color: themes.find((t) => t.id === selectedThemeId)?.colors.win95Text }}>
+                    Accent Color
+                  </span>
+                </div>
+              </div>
             </div>
+          </div>
+
+          {/* Legend */}
+          <div className="mt-3 flex flex-wrap gap-4 text-xs" style={{ color: 'var(--neutral-gray)' }}>
+            <span>🪟 Window Style: <strong style={{ color: 'var(--win95-text)' }}>{windowStyle === 'windows' ? 'Windows 95' : windowStyle === 'mac' ? 'Mac OS X' : 'Shadcn UI'}</strong></span>
+            <span>🎨 Theme: <strong style={{ color: 'var(--win95-text)' }}>{themes.find((t) => t.id === selectedThemeId)?.name}</strong></span>
           </div>
             </div>
           </>

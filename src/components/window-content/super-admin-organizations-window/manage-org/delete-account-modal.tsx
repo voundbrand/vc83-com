@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, AlertTriangle, Trash2 } from "lucide-react";
+import { X, Clock, Trash2 } from "lucide-react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 interface DeleteAccountModalProps {
@@ -60,14 +60,15 @@ export function DeleteAccountModal({
           boxShadow: "var(--modal-shadow)",
         }}
       >
+        {/* Header - Orange/Warning color for soft delete */}
         <div
           className="flex items-center justify-between px-2 py-1"
           style={{
-            background: "var(--error)",
+            background: "#D97706", // Warning orange
           }}
         >
           <div className="flex items-center gap-2">
-            <AlertTriangle size={16} style={{ color: "white" }} />
+            <Clock size={16} style={{ color: "white" }} />
             <span className="text-sm font-bold" style={{ color: "white" }}>
               {t("ui.manage.delete_account.title")}
             </span>
@@ -86,18 +87,18 @@ export function DeleteAccountModal({
         </div>
 
         <div className="p-6 space-y-4">
-          {/* Critical Warning Banner */}
+          {/* Grace Period Info Banner */}
           <div
             className="p-4 rounded"
             style={{
-              backgroundColor: "var(--error)",
-              color: "white",
+              backgroundColor: "#FEF3C7", // Yellow/amber light
+              color: "#92400E", // Amber dark text
               border: "2px solid",
-              borderColor: "var(--error)",
+              borderColor: "#D97706",
             }}
           >
             <div className="flex items-start gap-3">
-              <AlertTriangle size={24} className="flex-shrink-0 mt-0.5" />
+              <Clock size={24} className="flex-shrink-0 mt-0.5" />
               <div>
                 <h3 className="font-bold text-lg mb-2">
                   {t("ui.manage.delete_account.warning_title")}
@@ -191,15 +192,10 @@ export function DeleteAccountModal({
             <button
               onClick={onClose}
               disabled={isDeleting}
-              className="px-4 py-2 text-sm font-semibold"
+              className="beveled-button px-4 py-2 text-sm font-semibold"
               style={{
                 backgroundColor: "var(--win95-button-face)",
                 color: "var(--win95-text)",
-                border: "2px solid",
-                borderTopColor: "var(--win95-button-light)",
-                borderLeftColor: "var(--win95-button-light)",
-                borderBottomColor: "var(--win95-button-dark)",
-                borderRightColor: "var(--win95-button-dark)",
               }}
             >
               {t("ui.manage.delete_account.cancel")}
@@ -207,19 +203,14 @@ export function DeleteAccountModal({
             <button
               onClick={handleDelete}
               disabled={!isConfirmValid || isDeleting}
-              className="px-4 py-2 text-sm font-semibold disabled:opacity-50 flex items-center gap-2"
+              className="beveled-button px-4 py-2 text-sm font-semibold disabled:opacity-50 flex items-center gap-2"
               style={{
-                backgroundColor: "var(--error)",
+                backgroundColor: "#D97706", // Warning orange instead of error red
                 color: "white",
-                border: "2px solid",
-                borderTopColor: "var(--win95-button-light)",
-                borderLeftColor: "var(--win95-button-light)",
-                borderBottomColor: "var(--win95-button-dark)",
-                borderRightColor: "var(--win95-button-dark)",
               }}
             >
-              <Trash2 size={14} />
-              {isDeleting ? t("ui.manage.delete_account.deleting") : t("ui.manage.delete_account.confirm_button")}
+              <Clock size={14} />
+              {isDeleting ? t("ui.manage.delete_account.deleting") : "Schedule Deletion"}
             </button>
           </div>
         </div>

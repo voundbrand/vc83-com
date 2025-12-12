@@ -18,7 +18,7 @@ import { mutation, query, internalMutation, internalQuery, internalAction } from
 import { Id } from "./_generated/dataModel";
 import { api, internal } from "./_generated/api";
 import { requireAuthenticatedUser, checkPermission } from "./rbacHelpers";
-import { getLicenseInternal } from "./licensing/helpers";
+import { getLicenseInternal, checkMonthlyResourceLimit, checkFeatureAccess } from "./licensing/helpers";
 
 // ============================================================================
 // APP REGISTRATION CONSTANTS
@@ -113,7 +113,8 @@ export const listInvoices = query({
     const hasPermission = await checkPermission(ctx, userId, "view_financials", args.organizationId);
     console.log(`📋 [listInvoices] Permission check for user ${userId}:`, { hasPermission, orgId: args.organizationId });
     if (!hasPermission) {
-      throw new Error("Nicht autorisiert: Keine Berechtigung zum Anzeigen von Rechnungen");
+      // Return null instead of throwing to allow graceful error handling in UI
+      return null;
     }
 
     // Query invoices for this organization
@@ -412,6 +413,13 @@ export const createConsolidatedInvoice = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // CHECK LICENSE LIMITS: Enforce monthly invoice limit and consolidated invoicing feature
+    // Monthly limit: Free: 10, Starter: 100, Pro: 500, Agency: 2000, Enterprise: Unlimited
+    await checkMonthlyResourceLimit(ctx, args.organizationId, "invoice", "maxInvoicesPerMonth");
+
+    // Check if consolidated invoicing is enabled (Starter+)
+    await checkFeatureAccess(ctx, args.organizationId, "consolidatedInvoicingEnabled");
+
     // NO AUTHENTICATION REQUIRED - Public checkout flow
     // Get system user for tracking (used for createdBy fields)
     const systemUser = await ctx.db
@@ -770,6 +778,20 @@ export const createInvoiceRule = mutation({
       throw new Error("Nicht autorisiert: Keine Berechtigung zum Erstellen von Rechnungsregeln");
     }
 
+    // ⚡ PROFESSIONAL TIER: Automated Invoice Generation
+    // Professional+ can create automated invoice rules with auto-generation
+    if (args.triggerType !== "manual") {
+      const { checkFeatureAccess } = await import("./licensing/helpers");
+      await checkFeatureAccess(ctx, args.organizationId, "automatedGenerationEnabled");
+    }
+
+    // ⚡ PROFESSIONAL TIER: Email Delivery
+    // Professional+ can auto-send invoices via email
+    if (args.autoSendInvoice) {
+      const { checkFeatureAccess } = await import("./licensing/helpers");
+      await checkFeatureAccess(ctx, args.organizationId, "emailDeliveryEnabled");
+    }
+
     const now = Date.now();
 
     const ruleId = await ctx.db.insert("objects", {
@@ -1030,6 +1052,10 @@ export const createDraftInvoiceFromTransactions = mutation({
       throw new Error("Nicht autorisiert: Keine Berechtigung zum Erstellen von Rechnungen");
     }
 
+    // CHECK LICENSE LIMITS: Enforce monthly invoice limit
+    // Monthly limit: Free: 10, Starter: 100, Pro: 500, Agency: 2000, Enterprise: Unlimited
+    await checkMonthlyResourceLimit(ctx, args.organizationId, "invoice", "maxInvoicesPerMonth");
+
     // 1. Fetch all transactions and validate
     const transactions = await Promise.all(
       args.transactionIds.map(id => ctx.db.get(id))
@@ -1180,7 +1206,9 @@ export const createDraftInvoice = mutation({
   args: {
     sessionId: v.string(),
     organizationId: v.id("organizations"),
-    crmOrganizationId: v.id("objects"),
+    // Either organization OR contact (one required)
+    crmOrganizationId: v.optional(v.id("objects")),
+    crmContactId: v.optional(v.id("objects")),
     billToName: v.string(),
     billToEmail: v.string(),
     billToVatNumber: v.optional(v.string()),
@@ -1215,26 +1243,55 @@ export const createDraftInvoice = mutation({
       throw new Error("Not authorized: No permission to create invoices");
     }
 
+    // CHECK LICENSE LIMITS: Enforce monthly invoice limit
+    // Monthly limit: Free: 10, Starter: 100, Pro: 500, Agency: 2000, Enterprise: Unlimited
+    await checkMonthlyResourceLimit(ctx, args.organizationId, "invoice", "maxInvoicesPerMonth");
+
+    // CHECK FEATURE ACCESS: Multi-currency requires Professional+
+    if (args.currency && args.currency.toUpperCase() !== "EUR") {
+      await checkFeatureAccess(ctx, args.organizationId, "multiCurrencyEnabled");
+    }
+
+    // Validate: Must provide either organization OR contact
+    if (!args.crmOrganizationId && !args.crmContactId) {
+      throw new Error("Must provide either crmOrganizationId or crmContactId");
+    }
+    if (args.crmOrganizationId && args.crmContactId) {
+      throw new Error("Cannot provide both crmOrganizationId and crmContactId");
+    }
+
+    // Determine invoice type: B2B or B2C
+    const isB2B = !!args.crmOrganizationId;
+    const invoiceSubtype: InvoiceType = isB2B ? "b2b_single" : "b2c_single";
+
     // Generate draft invoice number
     const year = new Date().getFullYear();
     const timestamp = Date.now().toString().slice(-6);
     const draftInvoiceNumber = `DRAFT-${year}-${timestamp}`;
 
-    // Create billTo object
-    const billTo = {
-      type: "organization" as const,
-      organizationId: args.crmOrganizationId,
-      name: args.billToName,
-      vatNumber: args.billToVatNumber || "",
-      billingEmail: args.billToEmail,
-      billingAddress: args.billToAddress,
-    };
+    // Create billTo object based on customer type
+    const billTo = isB2B
+      ? {
+          type: "organization" as const,
+          organizationId: args.crmOrganizationId!,
+          name: args.billToName,
+          vatNumber: args.billToVatNumber || "",
+          billingEmail: args.billToEmail,
+          billingAddress: args.billToAddress,
+        }
+      : {
+          type: "individual" as const,
+          contactId: args.crmContactId!,
+          name: args.billToName,
+          email: args.billToEmail,
+          billingAddress: args.billToAddress,
+        };
 
     // Create draft invoice
     const now = Date.now();
     const invoiceId = await ctx.db.insert("objects", {
       type: "invoice",
-      subtype: "b2b_single",
+      subtype: invoiceSubtype,
       name: `Invoice ${draftInvoiceNumber}`,
       status: "draft",
       organizationId: args.organizationId,
@@ -1250,7 +1307,9 @@ export const createDraftInvoice = mutation({
 
         // Bill To
         billTo,
-        crmOrganizationId: args.crmOrganizationId,
+        // Store appropriate CRM reference
+        ...(args.crmOrganizationId && { crmOrganizationId: args.crmOrganizationId }),
+        ...(args.crmContactId && { crmContactId: args.crmContactId }),
 
         // Line Items
         lineItems: args.lineItems,
@@ -1269,6 +1328,8 @@ export const createDraftInvoice = mutation({
         source: "manual",
       },
     });
+
+    console.log(`✅ [createDraftInvoice] Created ${invoiceSubtype} invoice ${draftInvoiceNumber} for ${isB2B ? 'organization' : 'contact'}`);
 
     return {
       invoiceId,

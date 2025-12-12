@@ -22,6 +22,7 @@ import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser, checkPermission } from "./rbacHelpers";
+import { checkResourceLimit, checkFeatureAccess } from "./licensing/helpers";
 
 // ============================================================================
 // CHECKOUT_INSTANCE OPERATIONS
@@ -144,6 +145,10 @@ export const createCheckoutInstance = mutation({
     if (!hasPermission) {
       throw new Error("Permission denied: manage_operations required to create checkouts");
     }
+
+    // CHECK LICENSE LIMIT: Enforce checkout instance limit for organization's tier
+    // Free: 1, Starter: 5, Pro: 20, Agency: 100, Enterprise: Unlimited
+    await checkResourceLimit(ctx, args.organizationId, "checkout_instance", "maxCheckoutInstances");
 
     // Get template to determine subtype
     const systemOrg = await ctx.db
@@ -279,6 +284,16 @@ export const updateCheckoutInstance = mutation({
       throw new Error("Checkout instance not found");
     }
 
+    // CHECK FEATURE ACCESS: Custom branding requires Professional+
+    if (args.configuration?.customBranding) {
+      await checkFeatureAccess(ctx, instance.organizationId, "customBrandingEnabled");
+    }
+
+    // CHECK FEATURE ACCESS: Template set overrides require Professional+
+    if (args.configuration?.templateSetId) {
+      await checkFeatureAccess(ctx, instance.organizationId, "templateSetOverridesEnabled");
+    }
+
     // Check permission
     const hasPermission = await checkPermission(
       ctx,
@@ -301,6 +316,32 @@ export const updateCheckoutInstance = mutation({
     if (args.status !== undefined) updates.status = args.status;
 
     if (args.configuration) {
+      // CHECK FEATURE ACCESS: Payment providers require Starter tier or higher
+      const providers = args.configuration.paymentProviders || (args.configuration.paymentProvider ? [args.configuration.paymentProvider] : []);
+
+      for (const provider of providers) {
+        if (provider === "stripe-connect") {
+          await checkFeatureAccess(ctx, instance.organizationId, "stripeConnectEnabled");
+        } else if (provider === "invoice") {
+          await checkFeatureAccess(ctx, instance.organizationId, "invoicePaymentEnabled");
+        } else if (provider === "manual") {
+          await checkFeatureAccess(ctx, instance.organizationId, "manualPaymentEnabled");
+        }
+      }
+
+      // CHECK FEATURE ACCESS: Multi-language checkout requires Starter tier or higher
+      if (args.configuration.defaultLanguage && args.configuration.defaultLanguage !== "en") {
+        await checkFeatureAccess(ctx, instance.organizationId, "multiLanguageEnabled");
+      }
+
+      // CHECK FEATURE ACCESS: Stripe Tax requires Starter tier or higher (checking settings object)
+      if (args.configuration.settings && typeof args.configuration.settings === "object") {
+        const settings = args.configuration.settings as { stripeTaxEnabled?: boolean };
+        if (settings.stripeTaxEnabled === true) {
+          await checkFeatureAccess(ctx, instance.organizationId, "stripeTaxEnabled");
+        }
+      }
+
       const customProperties: Record<string, unknown> = {
         ...(instance.customProperties || {}),
         ...args.configuration,
@@ -773,9 +814,9 @@ export const getPublicCheckoutProducts = query({
         // DEBUG: Log product structure
         console.log("📦 [Product Structure]:", {
           id: product._id,
-          name: product.name,
-          type: product.type,
-          subtype: product.subtype,
+          name: 'name' in product ? product.name : undefined,
+          type: 'type' in product ? product.type : undefined,
+          subtype: 'subtype' in product ? product.subtype : undefined,
           hasSubtype: 'subtype' in product,
           eventName: eventData?.name,
           eventLocation: eventProps?.location,

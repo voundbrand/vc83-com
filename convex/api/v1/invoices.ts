@@ -13,83 +13,50 @@
  * - POST /api/v1/invoices/:invoiceId/seal - Seal draft invoice
  * - POST /api/v1/invoices/:invoiceId/send - Send invoice
  * - GET /api/v1/invoices/:invoiceId/pdf - Get invoice PDF
+ * - POST /api/v1/invoices/:invoiceId/sync-stripe - Sync to Stripe
+ * - GET /api/v1/invoices/client/:crmOrganizationId - Get client invoices
  *
- * Security: API key required in Authorization header
+ * Security: Dual authentication support
+ * - API keys (full access, backward compatible)
+ * - OAuth tokens (scope-based access control)
  * Scope: Returns only invoices for the authenticated organization
  */
 
 import { httpAction } from "../../_generated/server";
 import { internal } from "../../_generated/api";
+import { authenticateRequest, requireScopes, getEffectiveOrganizationId } from "../../middleware/auth";
 
 /**
  * CREATE INVOICE
  * Creates a new draft invoice
  *
  * POST /api/v1/invoices
- *
- * Request Body:
- * {
- *   crmOrganizationId: string,         // CRM organization to bill
- *   billToName: string,
- *   billToEmail: string,
- *   billToVatNumber?: string,
- *   billToAddress?: {
- *     street?: string,
- *     city?: string,
- *     state?: string,
- *     postalCode?: string,
- *     country?: string
- *   },
- *   lineItems: Array<{
- *     description: string,
- *     quantity: number,
- *     unitPriceInCents: number,
- *     totalPriceInCents: number
- *   }>,
- *   subtotalInCents: number,
- *   taxInCents: number,
- *   totalInCents: number,
- *   currency: string,
- *   invoiceDate: number,              // Unix timestamp
- *   dueDate: number,                   // Unix timestamp
- *   paymentTerms?: string,             // "net30", "net60", etc.
- *   notes?: string
- * }
- *
- * Response:
- * {
- *   success: true,
- *   invoiceId: string,
- *   message: string
- * }
+ * Required Scope: invoices:write
  */
 export const createInvoice = httpAction(async (ctx, request) => {
   try {
-    // 1. Verify API key
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // 1. Universal authentication (API key or OAuth)
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
       return new Response(
-        JSON.stringify({ error: "Missing or invalid Authorization header" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const apiKey = authHeader.substring(7);
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
-      apiKey,
-    });
+    const authContext = authResult.context;
 
-    if (!authContext) {
+    // 2. Require invoices:write scope for OAuth tokens
+    const scopeCheck = requireScopes(authContext, ["invoices:write"]);
+    if (!scopeCheck.success) {
       return new Response(
-        JSON.stringify({ error: "Invalid API key" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const { organizationId, userId } = authContext;
-
-    // 2. Update API key usage tracking
-    await ctx.runMutation(internal.api.auth.updateApiKeyUsage, { apiKey });
+    const organizationId = getEffectiveOrganizationId(authContext);
+    const userId = authContext.userId;
 
     // 3. Parse request body
     const body = await request.json();
@@ -155,6 +122,7 @@ export const createInvoice = httpAction(async (ctx, request) => {
         headers: {
           "Content-Type": "application/json",
           "X-Organization-Id": organizationId,
+          "X-Auth-Type": authContext.authMethod,
         },
       }
     );
@@ -175,66 +143,31 @@ export const createInvoice = httpAction(async (ctx, request) => {
  * Lists invoices for an organization
  *
  * GET /api/v1/invoices
- *
- * Query Parameters:
- * - status: Filter by payment status (draft, sent, paid, overdue, cancelled, awaiting_employer_payment)
- * - type: Filter by invoice type (b2b_consolidated, b2b_single, b2c_single)
- * - isDraft: Filter by draft status (true/false)
- * - limit: Number of results (default: 50, max: 200)
- * - offset: Pagination offset (default: 0)
- *
- * Response:
- * {
- *   invoices: Array<{
- *     id: string,
- *     organizationId: string,
- *     invoiceNumber: string,
- *     invoiceDate: number,
- *     dueDate: number,
- *     type: string,
- *     status: string,
- *     isDraft: boolean,
- *     billTo: object,
- *     subtotalInCents: number,
- *     taxInCents: number,
- *     totalInCents: number,
- *     currency: string,
- *     paidAt: number,
- *     createdAt: number,
- *     updatedAt: number
- *   }>,
- *   total: number,
- *   limit: number,
- *   offset: number
- * }
+ * Required Scope: invoices:read
  */
 export const listInvoices = httpAction(async (ctx, request) => {
   try {
-    // 1. Verify API key
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // 1. Universal authentication (API key or OAuth)
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
       return new Response(
-        JSON.stringify({ error: "Missing or invalid Authorization header" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const apiKey = authHeader.substring(7);
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
-      apiKey,
-    });
+    const authContext = authResult.context;
 
-    if (!authContext) {
+    // 2. Require invoices:read scope for OAuth tokens
+    const scopeCheck = requireScopes(authContext, ["invoices:read"]);
+    if (!scopeCheck.success) {
       return new Response(
-        JSON.stringify({ error: "Invalid API key" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const { organizationId } = authContext;
-
-    // 2. Update API key usage tracking
-    await ctx.runMutation(internal.api.auth.updateApiKeyUsage, { apiKey });
+    const organizationId = getEffectiveOrganizationId(authContext);
 
     // 3. Parse query parameters
     const url = new URL(request.url);
@@ -269,6 +202,7 @@ export const listInvoices = httpAction(async (ctx, request) => {
         headers: {
           "Content-Type": "application/json",
           "X-Organization-Id": organizationId,
+          "X-Auth-Type": authContext.authMethod,
         },
       }
     );
@@ -286,64 +220,31 @@ export const listInvoices = httpAction(async (ctx, request) => {
  * Gets a specific invoice by ID
  *
  * GET /api/v1/invoices/:invoiceId
- *
- * Response:
- * {
- *   id: string,
- *   organizationId: string,
- *   invoiceNumber: string,
- *   invoiceDate: number,
- *   dueDate: number,
- *   type: string,
- *   status: string,
- *   isDraft: boolean,
- *   billTo: object,
- *   lineItems: Array<object>,
- *   subtotalInCents: number,
- *   taxInCents: number,
- *   totalInCents: number,
- *   currency: string,
- *   paymentTerms: string,
- *   notes: string,
- *   pdfUrl: string,
- *   sentAt: number,
- *   sentTo: Array<string>,
- *   paidAt: number,
- *   paymentMethod: string,
- *   transactionId: string,
- *   customProperties: object,
- *   createdBy: string,
- *   createdAt: number,
- *   updatedAt: number
- * }
+ * Required Scope: invoices:read
  */
 export const getInvoice = httpAction(async (ctx, request) => {
   try {
-    // 1. Verify API key
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // 1. Universal authentication (API key or OAuth)
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
       return new Response(
-        JSON.stringify({ error: "Missing or invalid Authorization header" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const apiKey = authHeader.substring(7);
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
-      apiKey,
-    });
+    const authContext = authResult.context;
 
-    if (!authContext) {
+    // 2. Require invoices:read scope for OAuth tokens
+    const scopeCheck = requireScopes(authContext, ["invoices:read"]);
+    if (!scopeCheck.success) {
       return new Response(
-        JSON.stringify({ error: "Invalid API key" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const { organizationId } = authContext;
-
-    // 2. Update API key usage tracking
-    await ctx.runMutation(internal.api.auth.updateApiKeyUsage, { apiKey });
+    const organizationId = getEffectiveOrganizationId(authContext);
 
     // 3. Extract invoice ID from URL
     const url = new URL(request.url);
@@ -381,6 +282,7 @@ export const getInvoice = httpAction(async (ctx, request) => {
         headers: {
           "Content-Type": "application/json",
           "X-Organization-Id": organizationId,
+          "X-Auth-Type": authContext.authMethod,
         },
       }
     );
@@ -398,53 +300,32 @@ export const getInvoice = httpAction(async (ctx, request) => {
  * Updates an existing draft invoice
  *
  * PATCH /api/v1/invoices/:invoiceId
- *
- * Request Body: (all fields optional)
- * {
- *   lineItems?: Array<object>,
- *   subtotalInCents?: number,
- *   taxInCents?: number,
- *   totalInCents?: number,
- *   invoiceDate?: number,
- *   dueDate?: number,
- *   paymentTerms?: string,
- *   notes?: string
- * }
- *
- * Response:
- * {
- *   success: true,
- *   invoiceId: string,
- *   message: string
- * }
+ * Required Scope: invoices:write
  */
 export const updateInvoice = httpAction(async (ctx, request) => {
   try {
-    // 1. Verify API key
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // 1. Universal authentication (API key or OAuth)
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
       return new Response(
-        JSON.stringify({ error: "Missing or invalid Authorization header" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const apiKey = authHeader.substring(7);
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
-      apiKey,
-    });
+    const authContext = authResult.context;
 
-    if (!authContext) {
+    // 2. Require invoices:write scope for OAuth tokens
+    const scopeCheck = requireScopes(authContext, ["invoices:write"]);
+    if (!scopeCheck.success) {
       return new Response(
-        JSON.stringify({ error: "Invalid API key" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const { organizationId, userId } = authContext;
-
-    // 2. Update API key usage tracking
-    await ctx.runMutation(internal.api.auth.updateApiKeyUsage, { apiKey });
+    const organizationId = getEffectiveOrganizationId(authContext);
+    const userId = authContext.userId;
 
     // 3. Extract invoice ID from URL
     const url = new URL(request.url);
@@ -501,6 +382,7 @@ export const updateInvoice = httpAction(async (ctx, request) => {
         headers: {
           "Content-Type": "application/json",
           "X-Organization-Id": organizationId,
+          "X-Auth-Type": authContext.authMethod,
         },
       }
     );
@@ -521,40 +403,32 @@ export const updateInvoice = httpAction(async (ctx, request) => {
  * Permanently deletes a draft invoice
  *
  * DELETE /api/v1/invoices/:invoiceId
- *
- * Response:
- * {
- *   success: true,
- *   message: string
- * }
+ * Required Scope: invoices:write
  */
 export const deleteInvoice = httpAction(async (ctx, request) => {
   try {
-    // 1. Verify API key
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // 1. Universal authentication (API key or OAuth)
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
       return new Response(
-        JSON.stringify({ error: "Missing or invalid Authorization header" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const apiKey = authHeader.substring(7);
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
-      apiKey,
-    });
+    const authContext = authResult.context;
 
-    if (!authContext) {
+    // 2. Require invoices:write scope for OAuth tokens
+    const scopeCheck = requireScopes(authContext, ["invoices:write"]);
+    if (!scopeCheck.success) {
       return new Response(
-        JSON.stringify({ error: "Invalid API key" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const { organizationId, userId } = authContext;
-
-    // 2. Update API key usage tracking
-    await ctx.runMutation(internal.api.auth.updateApiKeyUsage, { apiKey });
+    const organizationId = getEffectiveOrganizationId(authContext);
+    const userId = authContext.userId;
 
     // 3. Extract invoice ID from URL
     const url = new URL(request.url);
@@ -589,6 +463,7 @@ export const deleteInvoice = httpAction(async (ctx, request) => {
         headers: {
           "Content-Type": "application/json",
           "X-Organization-Id": organizationId,
+          "X-Auth-Type": authContext.authMethod,
         },
       }
     );
@@ -609,41 +484,32 @@ export const deleteInvoice = httpAction(async (ctx, request) => {
  * Converts a draft invoice to a final sealed invoice
  *
  * POST /api/v1/invoices/:invoiceId/seal
- *
- * Response:
- * {
- *   success: true,
- *   invoiceNumber: string,
- *   message: string
- * }
+ * Required Scope: invoices:write
  */
 export const sealInvoice = httpAction(async (ctx, request) => {
   try {
-    // 1. Verify API key
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // 1. Universal authentication (API key or OAuth)
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
       return new Response(
-        JSON.stringify({ error: "Missing or invalid Authorization header" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const apiKey = authHeader.substring(7);
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
-      apiKey,
-    });
+    const authContext = authResult.context;
 
-    if (!authContext) {
+    // 2. Require invoices:write scope for OAuth tokens
+    const scopeCheck = requireScopes(authContext, ["invoices:write"]);
+    if (!scopeCheck.success) {
       return new Response(
-        JSON.stringify({ error: "Invalid API key" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const { organizationId, userId } = authContext;
-
-    // 2. Update API key usage tracking
-    await ctx.runMutation(internal.api.auth.updateApiKeyUsage, { apiKey });
+    const organizationId = getEffectiveOrganizationId(authContext);
+    const userId = authContext.userId;
 
     // 3. Extract invoice ID from URL
     const url = new URL(request.url);
@@ -679,6 +545,7 @@ export const sealInvoice = httpAction(async (ctx, request) => {
         headers: {
           "Content-Type": "application/json",
           "X-Organization-Id": organizationId,
+          "X-Auth-Type": authContext.authMethod,
         },
       }
     );
@@ -699,45 +566,36 @@ export const sealInvoice = httpAction(async (ctx, request) => {
  * Marks invoice as sent and records recipients
  *
  * POST /api/v1/invoices/:invoiceId/send
- *
- * Request Body:
- * {
- *   sentTo: Array<string>    // Email addresses
- * }
- *
- * Response:
- * {
- *   success: true,
- *   message: string
- * }
+ * Required Scope: invoices:send or invoices:write
  */
 export const sendInvoice = httpAction(async (ctx, request) => {
   try {
-    // 1. Verify API key
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // 1. Universal authentication (API key or OAuth)
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
       return new Response(
-        JSON.stringify({ error: "Missing or invalid Authorization header" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const apiKey = authHeader.substring(7);
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
-      apiKey,
-    });
+    const authContext = authResult.context;
 
-    if (!authContext) {
-      return new Response(
-        JSON.stringify({ error: "Invalid API key" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
-      );
+    // 2. Require invoices:send or invoices:write scope for OAuth tokens
+    const scopeCheck = requireScopes(authContext, ["invoices:send"]);
+    if (!scopeCheck.success) {
+      // Fall back to invoices:write
+      const writeCheck = requireScopes(authContext, ["invoices:write"]);
+      if (!writeCheck.success) {
+        return new Response(
+          JSON.stringify({ error: "Missing required scope: invoices:send or invoices:write" }),
+          { status: 403, headers: { "Content-Type": "application/json" } }
+        );
+      }
     }
 
-    const { organizationId, userId } = authContext;
-
-    // 2. Update API key usage tracking
-    await ctx.runMutation(internal.api.auth.updateApiKeyUsage, { apiKey });
+    const organizationId = getEffectiveOrganizationId(authContext);
+    const userId = authContext.userId;
 
     // 3. Extract invoice ID from URL
     const url = new URL(request.url);
@@ -784,6 +642,7 @@ export const sendInvoice = httpAction(async (ctx, request) => {
         headers: {
           "Content-Type": "application/json",
           "X-Organization-Id": organizationId,
+          "X-Auth-Type": authContext.authMethod,
         },
       }
     );
@@ -804,40 +663,31 @@ export const sendInvoice = httpAction(async (ctx, request) => {
  * Returns the PDF URL for an invoice
  *
  * GET /api/v1/invoices/:invoiceId/pdf
- *
- * Response:
- * {
- *   pdfUrl: string,
- *   invoiceNumber: string
- * }
+ * Required Scope: invoices:read
  */
 export const getInvoicePdf = httpAction(async (ctx, request) => {
   try {
-    // 1. Verify API key
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // 1. Universal authentication (API key or OAuth)
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
       return new Response(
-        JSON.stringify({ error: "Missing or invalid Authorization header" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const apiKey = authHeader.substring(7);
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
-      apiKey,
-    });
+    const authContext = authResult.context;
 
-    if (!authContext) {
+    // 2. Require invoices:read scope for OAuth tokens
+    const scopeCheck = requireScopes(authContext, ["invoices:read"]);
+    if (!scopeCheck.success) {
       return new Response(
-        JSON.stringify({ error: "Invalid API key" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const { organizationId } = authContext;
-
-    // 2. Update API key usage tracking
-    await ctx.runMutation(internal.api.auth.updateApiKeyUsage, { apiKey });
+    const organizationId = getEffectiveOrganizationId(authContext);
 
     // 3. Extract invoice ID from URL
     const url = new URL(request.url);
@@ -875,6 +725,7 @@ export const getInvoicePdf = httpAction(async (ctx, request) => {
         headers: {
           "Content-Type": "application/json",
           "X-Organization-Id": organizationId,
+          "X-Auth-Type": authContext.authMethod,
         },
       }
     );
@@ -892,49 +743,31 @@ export const getInvoicePdf = httpAction(async (ctx, request) => {
  * Syncs an invoice to Stripe (optional - only if Stripe invoicing is enabled)
  *
  * POST /api/v1/invoices/:invoiceId/sync-stripe
- *
- * Request Body:
- * {
- *   sendImmediately?: boolean  // If true, finalizes and sends invoice immediately
- * }
- *
- * Response:
- * {
- *   success: true,
- *   stripeInvoiceId?: string,
- *   stripeHostedUrl?: string,  // URL for client to view/pay invoice
- *   message: string
- * }
- *
- * Use Case: Freelancer creates invoice, then triggers Stripe sync when ready to send
+ * Required Scope: invoices:write
  */
 export const syncInvoiceToStripe = httpAction(async (ctx, request) => {
   try {
-    // 1. Verify API key
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // 1. Universal authentication (API key or OAuth)
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
       return new Response(
-        JSON.stringify({ error: "Missing or invalid Authorization header" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const apiKey = authHeader.substring(7);
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
-      apiKey,
-    });
+    const authContext = authResult.context;
 
-    if (!authContext) {
+    // 2. Require invoices:write scope for OAuth tokens
+    const scopeCheck = requireScopes(authContext, ["invoices:write"]);
+    if (!scopeCheck.success) {
       return new Response(
-        JSON.stringify({ error: "Invalid API key" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const { organizationId, userId } = authContext;
-
-    // 2. Update API key usage tracking
-    await ctx.runMutation(internal.api.auth.updateApiKeyUsage, { apiKey });
+    const organizationId = getEffectiveOrganizationId(authContext);
 
     // 3. Extract invoice ID from URL
     const url = new URL(request.url);
@@ -990,6 +823,7 @@ export const syncInvoiceToStripe = httpAction(async (ctx, request) => {
         headers: {
           "Content-Type": "application/json",
           "X-Organization-Id": organizationId,
+          "X-Auth-Type": authContext.authMethod,
         },
       }
     );
@@ -1010,58 +844,31 @@ export const syncInvoiceToStripe = httpAction(async (ctx, request) => {
  * Lists all invoices for a specific CRM organization (client)
  *
  * GET /api/v1/invoices/client/:crmOrganizationId
- *
- * Query Parameters:
- * - status: Filter by payment status
- * - limit: Number of results (default: 50)
- * - offset: Pagination offset
- *
- * Response:
- * {
- *   invoices: Array<{
- *     id: string,
- *     invoiceNumber: string,
- *     invoiceDate: number,
- *     dueDate: number,
- *     status: string,
- *     totalInCents: number,
- *     currency: string,
- *     pdfUrl?: string,         // Your PDF
- *     stripeHostedUrl?: string, // Stripe hosted page (if synced)
- *     stripePdfUrl?: string     // Stripe PDF (if synced)
- *   }>,
- *   total: number
- * }
- *
- * Use Case: Client logs into freelancer portal, sees their invoices in billing section
+ * Required Scope: invoices:read
  */
 export const getInvoicesForClient = httpAction(async (ctx, request) => {
   try {
-    // 1. Verify API key
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // 1. Universal authentication (API key or OAuth)
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
       return new Response(
-        JSON.stringify({ error: "Missing or invalid Authorization header" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const apiKey = authHeader.substring(7);
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
-      apiKey,
-    });
+    const authContext = authResult.context;
 
-    if (!authContext) {
+    // 2. Require invoices:read scope for OAuth tokens
+    const scopeCheck = requireScopes(authContext, ["invoices:read"]);
+    if (!scopeCheck.success) {
       return new Response(
-        JSON.stringify({ error: "Invalid API key" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const { organizationId } = authContext;
-
-    // 2. Update API key usage tracking
-    await ctx.runMutation(internal.api.auth.updateApiKeyUsage, { apiKey });
+    const organizationId = getEffectiveOrganizationId(authContext);
 
     // 3. Extract CRM organization ID from URL
     const url = new URL(request.url);
@@ -1103,6 +910,7 @@ export const getInvoicesForClient = httpAction(async (ctx, request) => {
         headers: {
           "Content-Type": "application/json",
           "X-Organization-Id": organizationId,
+          "X-Auth-Type": authContext.authMethod,
         },
       }
     );

@@ -1,6 +1,7 @@
 import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { Id, Doc } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
 
 /**
  * RBAC (Role-Based Access Control) System
@@ -505,7 +506,16 @@ export const ROLE_PERMISSION_MAPPINGS: Record<string, string[]> = {
     'manage_forms',
     'manage_workflows',
     'test_workflows',
-    'view_*', // All view permissions (includes view_roles, view_permissions, view_workflows)
+    // Publishing & Templates - org owners have full control
+    'create_published_pages',
+    'edit_published_pages',
+    'publish_pages',
+    'delete_published_pages',
+    'create_templates',
+    'edit_templates',
+    'apply_templates',
+    'delete_templates',
+    'view_*', // All view permissions (includes view_roles, view_permissions, view_workflows, view_templates, view_published_pages)
   ],
 
   'business_manager': [
@@ -523,7 +533,12 @@ export const ROLE_PERMISSION_MAPPINGS: Record<string, string[]> = {
     'manage_forms',
     'manage_workflows',
     'test_workflows',
-    'view_*', // All view permissions (already includes view_roles, view_permissions, view_workflows)
+    // Publishing & Templates - business managers can create and edit
+    'create_published_pages',
+    'edit_published_pages',
+    'publish_pages',
+    'apply_templates',
+    'view_*', // All view permissions (already includes view_roles, view_permissions, view_workflows, view_templates, view_published_pages)
   ],
 
   'employee': [
@@ -1499,6 +1514,20 @@ export const assignRoleToOrganization = mutation({
     assignedBy: v.id("users"),
   },
   handler: async (ctx, { userId, organizationId, roleId, assignedBy }) => {
+    // Get the role to check if it's a custom role
+    const role = await ctx.db.get(roleId);
+    if (!role) {
+      throw new Error("Role not found");
+    }
+
+    // ⚡ PROFESSIONAL TIER: Custom Roles (RBAC)
+    // Professional+ can assign custom roles (non-base roles)
+    const isCustomRole = !BASE_ROLES.some(baseRole => baseRole.name === role.name);
+    if (isCustomRole) {
+      const { checkFeatureAccess } = await import("./licensing/helpers");
+      await checkFeatureAccess(ctx, organizationId, "customRolesEnabled");
+    }
+
     // Check if membership exists
     const existing = await ctx.db
       .query("organizationMembers")

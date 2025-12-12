@@ -87,13 +87,9 @@ export function ConfirmationModal({
           </div>
           <button
             onClick={onClose}
-            className="w-5 h-5 flex items-center justify-center border hover:opacity-80"
+            className="beveled-button w-5 h-5 flex items-center justify-center hover:opacity-80"
             style={{
               background: "var(--win95-button-face)",
-              borderTopColor: "var(--win95-button-light)",
-              borderLeftColor: "var(--win95-button-light)",
-              borderBottomColor: "var(--win95-button-dark)",
-              borderRightColor: "var(--win95-button-dark)",
             }}
           >
             <X size={12} style={{ color: "var(--win95-text)" }} />
@@ -119,14 +115,10 @@ export function ConfirmationModal({
           <button
             onClick={onClose}
             disabled={isLoading}
-            className="px-4 py-1.5 text-xs font-semibold min-w-[80px] border-2 hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+            className="beveled-button px-4 py-1.5 text-xs font-semibold min-w-[80px] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
               background: "var(--win95-button-face)",
               color: "var(--win95-text)",
-              borderTopColor: "var(--win95-button-light)",
-              borderLeftColor: "var(--win95-button-light)",
-              borderBottomColor: "var(--win95-button-dark)",
-              borderRightColor: "var(--win95-button-dark)",
             }}
           >
             {cancelText}
@@ -134,14 +126,10 @@ export function ConfirmationModal({
           <button
             onClick={onConfirm}
             disabled={isLoading}
-            className="px-4 py-1.5 text-xs font-semibold min-w-[80px] border-2 hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+            className="beveled-button px-4 py-1.5 text-xs font-semibold min-w-[80px] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
             style={{
               background: variant === "danger" ? "var(--error)" : "var(--primary)",
               color: "white",
-              borderTopColor: "var(--win95-button-light)",
-              borderLeftColor: "var(--win95-button-light)",
-              borderBottomColor: "var(--win95-button-dark)",
-              borderRightColor: "var(--win95-button-dark)",
             }}
           >
             {isLoading && <Loader2 size={12} className="animate-spin" />}

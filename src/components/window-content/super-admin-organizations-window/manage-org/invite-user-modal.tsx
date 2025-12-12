@@ -317,15 +317,10 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
                   type="button"
                   onClick={onClose}
                   disabled={isSubmitting}
-                  className="px-4 py-1.5 text-sm font-semibold"
+                  className="beveled-button px-4 py-1.5 text-sm font-semibold"
                   style={{
                     backgroundColor: "var(--win95-button-face)",
                     color: "var(--win95-text)",
-                    border: "2px solid",
-                    borderTopColor: "var(--win95-button-light)",
-                    borderLeftColor: "var(--win95-button-light)",
-                    borderBottomColor: "var(--win95-button-dark)",
-                    borderRightColor: "var(--win95-button-dark)",
                   }}
                 >
                   {t("ui.manage.org.cancel")}
@@ -333,15 +328,10 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
                 <button
                   type="submit"
                   disabled={isSubmitting || !email || !selectedRole}
-                  className="px-4 py-1.5 text-sm font-semibold disabled:opacity-50"
+                  className="beveled-button px-4 py-1.5 text-sm font-semibold disabled:opacity-50"
                   style={{
                     backgroundColor: "var(--primary)",
                     color: "white",
-                    border: "2px solid",
-                    borderTopColor: "var(--win95-button-light)",
-                    borderLeftColor: "var(--win95-button-light)",
-                    borderBottomColor: "var(--win95-button-dark)",
-                    borderRightColor: "var(--win95-button-dark)",
                   }}
                 >
                   {isSubmitting ? t("ui.manage.invite.inviting") : t("ui.manage.invite.send_invitation")}

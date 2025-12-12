@@ -2,6 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser, getUserContext, checkPermission } from "./rbacHelpers";
 import { PERMISSION_ERRORS } from "./permissionErrors";
+import { checkFeatureAccess } from "./licensing/helpers";
 
 /**
  * TEMPLATE ONTOLOGY
@@ -291,6 +292,12 @@ export const createCustomTemplate = mutation({
     // Validate organization membership
     if (!userContext.isGlobal && userContext.organizationId !== args.organizationId) {
       throw new Error("Cannot create template for another organization");
+    }
+
+    // ⚡ PROFESSIONAL TIER: Advanced Editor
+    // Professional+ can use the advanced template editor with custom CSS/JS
+    if (args.customCss) {
+      await checkFeatureAccess(ctx, args.organizationId, "advancedEditorEnabled");
     }
 
     // Check code uniqueness within org

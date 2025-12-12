@@ -213,10 +213,12 @@ export const seedSystemApps = mutation({
       complianceAppId = await ctx.db.insert("apps", {
         code: "compliance",
         name: "Compliance",
-        description: "Convert legal markdown documents to beautiful PDFs using your existing PDF generation infrastructure",
-        icon: "📄",
+        description: "GDPR compliance tools: data export, account deletion, and document conversion",
+        icon: "🛡️",
         category: "administration",
-        plans: ["business", "enterprise"],
+        // Account deletion is a GDPR right - available to ALL tiers
+        // Other features (PDF conversion) may be tier-gated in the UI
+        plans: ["free", "starter", "pro", "personal", "business", "enterprise"],
         creatorOrgId: systemOrg._id,
         dataScope: "installer-owned",
         status: "active",
@@ -1167,10 +1169,12 @@ export const registerComplianceApp = mutation({
     const appId = await ctx.db.insert("apps", {
       code: "compliance",
       name: "Compliance",
-      description: "Convert legal markdown documents to beautiful PDFs using your existing PDF generation infrastructure",
-      icon: "📄",
+      description: "GDPR compliance tools: data export, account deletion, and document conversion",
+      icon: "🛡️",
       category: "administration",
-      plans: ["business", "enterprise"],
+      // Account deletion is a GDPR right - available to ALL tiers
+      // Other features (PDF conversion) may be tier-gated in the UI
+      plans: ["free", "starter", "pro", "personal", "business", "enterprise"],
       creatorOrgId: systemOrg._id,
       dataScope: "installer-owned",
       status: "active",
@@ -1396,5 +1400,158 @@ export const enableAllAppsForOrg = mutation({
     }
 
     return results;
+  },
+});
+
+/**
+ * Backfill missing app availabilities for an organization
+ *
+ * This function ensures an organization has appAvailabilities for ALL active apps.
+ * Useful for:
+ * - Organizations created before new apps were added
+ * - After account restoration
+ * - Fixing missing app visibility issues
+ *
+ * @param sessionId - User session (org owner or super admin)
+ * @param organizationId - Organization to backfill
+ * @returns Object with added count and existing count
+ */
+export const backfillAppAvailabilities = mutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, { sessionId, organizationId }) => {
+    const { userId } = await requireAuthenticatedUser(ctx, sessionId);
+    const userContext = await getUserContext(ctx, userId, organizationId);
+
+    // Allow super admins or org owners
+    if (!userContext.isGlobal && userContext.roleName !== "org_owner" && userContext.roleName !== "super_admin") {
+      throw new Error("Permission denied: requires org owner or super admin access");
+    }
+
+    // Get all active and approved apps
+    const activeApps = await ctx.db
+      .query("apps")
+      .filter((q) =>
+        q.or(
+          q.eq(q.field("status"), "active"),
+          q.eq(q.field("status"), "approved")
+        )
+      )
+      .collect();
+
+    let addedCount = 0;
+    let existingCount = 0;
+
+    for (const app of activeApps) {
+      // Check if availability already exists
+      const existingAvailability = await ctx.db
+        .query("appAvailabilities")
+        .withIndex("by_org_app", (q) =>
+          q.eq("organizationId", organizationId).eq("appId", app._id)
+        )
+        .first();
+
+      if (existingAvailability) {
+        existingCount++;
+        // Ensure it's enabled if it exists but was disabled
+        if (!existingAvailability.isAvailable) {
+          await ctx.db.patch(existingAvailability._id, {
+            isAvailable: true,
+            approvedBy: userId,
+            approvedAt: Date.now(),
+          });
+          console.log(`[Backfill] Re-enabled app ${app.code} for org ${organizationId}`);
+        }
+      } else {
+        // Create new appAvailability
+        await ctx.db.insert("appAvailabilities", {
+          appId: app._id,
+          organizationId,
+          isAvailable: true,
+          approvedBy: userId,
+          approvedAt: Date.now(),
+        });
+        addedCount++;
+        console.log(`[Backfill] Added app ${app.code} for org ${organizationId}`);
+      }
+
+      // Also ensure appInstallation exists
+      const existingInstallation = await ctx.db
+        .query("appInstallations")
+        .withIndex("by_org_and_app", (q) =>
+          q.eq("organizationId", organizationId).eq("appId", app._id)
+        )
+        .first();
+
+      if (!existingInstallation) {
+        await ctx.db.insert("appInstallations", {
+          organizationId,
+          appId: app._id,
+          status: "active",
+          permissions: {
+            read: true,
+            write: true,
+            admin: false,
+          },
+          isVisible: true,
+          usageCount: 0,
+          installedAt: Date.now(),
+          installedBy: userId,
+          updatedAt: Date.now(),
+        });
+        console.log(`[Backfill] Created installation for app ${app.code}`);
+      } else if (existingInstallation.status !== "active") {
+        // Reactivate if suspended
+        await ctx.db.patch(existingInstallation._id, {
+          status: "active",
+          isVisible: true,
+          updatedAt: Date.now(),
+        });
+        console.log(`[Backfill] Reactivated installation for app ${app.code}`);
+      }
+    }
+
+    console.log(`[Backfill] Complete for org ${organizationId}: ${addedCount} added, ${existingCount} existing`);
+
+    return {
+      success: true,
+      addedCount,
+      existingCount,
+      totalApps: activeApps.length,
+    };
+  },
+});
+
+/**
+ * Update existing Compliance app to include all tiers
+ *
+ * Migration function to update the Compliance app's plans field
+ * to include all tiers (GDPR requirement - account deletion must be accessible to all).
+ */
+export const updateComplianceAppPlans = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const complianceApp = await ctx.db
+      .query("apps")
+      .withIndex("by_code", (q) => q.eq("code", "compliance"))
+      .first();
+
+    if (!complianceApp) {
+      console.log("[Migration] Compliance app not found - will be created with correct plans on next seed");
+      return { success: false, message: "Compliance app not found" };
+    }
+
+    // Update to include all tiers
+    await ctx.db.patch(complianceApp._id, {
+      plans: ["free", "starter", "pro", "personal", "business", "enterprise"],
+      description: "GDPR compliance tools: data export, account deletion, and document conversion",
+      icon: "🛡️",
+      updatedAt: Date.now(),
+    });
+
+    console.log("[Migration] Updated Compliance app to include all tiers");
+    return { success: true, message: "Compliance app updated to include all tiers" };
   },
 });

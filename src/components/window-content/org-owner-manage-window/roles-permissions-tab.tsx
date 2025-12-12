@@ -108,45 +108,30 @@ export function RolesPermissionsTab() {
         <div className="flex gap-1">
           <button
             onClick={() => setViewMode("roles")}
-            className="px-3 py-1 text-xs font-semibold"
+            className="beveled-button px-3 py-1 text-xs font-semibold"
             style={{
               backgroundColor: viewMode === "roles" ? "var(--primary)" : "var(--win95-button-face)",
               color: viewMode === "roles" ? "white" : "var(--win95-text)",
-              border: "2px solid",
-              borderTopColor: "var(--win95-button-light)",
-              borderLeftColor: "var(--win95-button-light)",
-              borderBottomColor: "var(--win95-button-dark)",
-              borderRightColor: "var(--win95-button-dark)",
             }}
           >
             {t("ui.manage.roles_perms.by_role")}
           </button>
           <button
             onClick={() => setViewMode("permissions")}
-            className="px-3 py-1 text-xs font-semibold"
+            className="beveled-button px-3 py-1 text-xs font-semibold"
             style={{
               backgroundColor: viewMode === "permissions" ? "var(--primary)" : "var(--win95-button-face)",
               color: viewMode === "permissions" ? "white" : "var(--win95-text)",
-              border: "2px solid",
-              borderTopColor: "var(--win95-button-light)",
-              borderLeftColor: "var(--win95-button-light)",
-              borderBottomColor: "var(--win95-button-dark)",
-              borderRightColor: "var(--win95-button-dark)",
             }}
           >
             {t("ui.manage.roles_perms.by_permission")}
           </button>
           <button
             onClick={() => setViewMode("matrix")}
-            className="px-3 py-1 text-xs font-semibold"
+            className="beveled-button px-3 py-1 text-xs font-semibold"
             style={{
               backgroundColor: viewMode === "matrix" ? "var(--primary)" : "var(--win95-button-face)",
               color: viewMode === "matrix" ? "white" : "var(--win95-text)",
-              border: "2px solid",
-              borderTopColor: "var(--win95-button-light)",
-              borderLeftColor: "var(--win95-button-light)",
-              borderBottomColor: "var(--win95-button-dark)",
-              borderRightColor: "var(--win95-button-dark)",
             }}
           >
             {t("ui.manage.roles_perms.matrix")}

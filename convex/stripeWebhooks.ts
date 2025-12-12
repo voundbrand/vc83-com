@@ -67,7 +67,7 @@ export const processWebhook = internalAction({
 
         if (org) {
           // Get existing config to preserve isTestMode setting
-          const existingProvider = org.paymentProviders?.find(p => p.providerCode === "stripe-connect");
+          const existingProvider = org.paymentProviders?.find((p: any) => p.providerCode === "stripe-connect");
           const isTestMode = existingProvider?.isTestMode ?? false;
 
           await ctx.runMutation(
@@ -263,8 +263,8 @@ export const verifyWebhookSignature = internalAction({
       // Get Stripe provider
       const provider = getProviderByCode("stripe-connect");
 
-      // Verify signature using provider
-      const isValid = provider.verifyWebhookSignature(args.payload, args.signature);
+      // Verify signature using provider (async required in Convex runtime)
+      const isValid = await provider.verifyWebhookSignature(args.payload, args.signature);
 
       return { valid: isValid };
     } catch (error) {

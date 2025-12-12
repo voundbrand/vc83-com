@@ -7,12 +7,13 @@ import type { Id } from "../../../../convex/_generated/dataModel";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
-import { Loader2, FileText, Mail, File } from "lucide-react";
+import { Loader2, FileText, Mail, File, Globe } from "lucide-react";
 import { TemplateBuilder } from "./template-builder";
 import { AllTemplatesTab } from "./all-templates-tab";
 import { EmailTemplatesTab } from "./email-templates-tab";
 import { PdfTemplatesTab } from "./pdf-templates-tab";
 import { TemplateSetsTab } from "./template-sets-tab";
+import { WebAppsTab } from "./web-apps-tab";
 
 /**
  * Templates Window
@@ -31,7 +32,7 @@ import { TemplateSetsTab } from "./template-sets-tab";
  * - Template Sets: Bundled template collections (v2.0)
  */
 
-type TabType = "all" | "email" | "pdf" | "sets";
+type TabType = "all" | "email" | "pdf" | "web" | "sets";
 
 export function TemplatesWindow() {
   const { sessionId } = useAuth();
@@ -149,6 +150,18 @@ export function TemplatesWindow() {
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
           style={{
             borderColor: 'var(--win95-border)',
+            background: activeTab === "web" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+            color: activeTab === "web" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+          }}
+          onClick={() => setActiveTab("web")}
+        >
+          <Globe size={14} />
+          Web Apps
+        </button>
+        <button
+          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
+          style={{
+            borderColor: 'var(--win95-border)',
             background: activeTab === "sets" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
             color: activeTab === "sets" ? 'var(--win95-text)' : 'var(--neutral-gray)'
           }}
@@ -183,6 +196,13 @@ export function TemplatesWindow() {
           />
         )}
 
+        {activeTab === "web" && (
+          <WebAppsTab
+            onEditTemplate={handleEditTemplate}
+            onViewSchema={handleEditSchema}
+          />
+        )}
+
         {activeTab === "sets" && (
           <TemplateSetsTab />
         )}
@@ -201,6 +221,7 @@ export function TemplatesWindow() {
           {activeTab === "all" && "All Templates"}
           {activeTab === "email" && "Email Library"}
           {activeTab === "pdf" && "PDF Library"}
+          {activeTab === "web" && "Web Apps"}
           {activeTab === "sets" && "Template Sets"}
         </span>
         <span>{currentOrg?.name || ""}</span>

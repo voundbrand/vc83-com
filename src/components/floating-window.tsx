@@ -27,7 +27,7 @@ export function FloatingWindow({
 }: FloatingWindowProps) {
   const { windows, closeWindow, focusWindow, resizeWindow, moveWindow, maximizeWindow, minimizeWindow, restoreWindow } = useWindowManager()
   const windowState = windows.find(w => w.id === id)
-  const { t } = useMultipleNamespaces(["ui.start_menu", "ui.app"])
+  const { t } = useMultipleNamespaces(["ui.start_menu", "ui.app", "ui.windows"])
   const [isDragging, setIsDragging] = useState(false)
   const [isResizing, setIsResizing] = useState(false)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
@@ -146,7 +146,7 @@ export function FloatingWindow({
         transition: isDragging || isResizing ? "none" : "opacity 0.2s",
         display: windowState?.isMinimized ? 'none' : 'flex',
       }}
-      onClick={() => focusWindow(id)}
+      onMouseDownCapture={() => focusWindow(id)}
     >
       {/* Title Bar */}
       <div

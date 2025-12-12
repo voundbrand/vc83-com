@@ -759,3 +759,310 @@ export const getContactInternal = internalQuery({
     };
   },
 });
+
+/**
+ * BULK IMPORT CONTACTS (INTERNAL)
+ *
+ * Imports multiple CRM contacts at once.
+ * Handles deduplication by email - existing contacts are updated.
+ * Requires Starter+ tier (contactImportExportEnabled feature).
+ *
+ * @param contacts - Array of contacts to import (max 1000 per batch)
+ * @returns Import results with created/updated counts
+ */
+export const bulkImportContactsInternal = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    contacts: v.array(v.object({
+      firstName: v.string(),
+      lastName: v.string(),
+      email: v.string(),
+      phone: v.optional(v.string()),
+      company: v.optional(v.string()),
+      jobTitle: v.optional(v.string()),
+      subtype: v.optional(v.string()), // "customer" | "lead" | "prospect"
+      source: v.optional(v.string()),
+      tags: v.optional(v.array(v.string())),
+      notes: v.optional(v.string()),
+      customFields: v.optional(v.any()),
+    })),
+    performedBy: v.optional(v.id("users")),
+  },
+  handler: async (ctx, args) => {
+    const results = {
+      total: args.contacts.length,
+      created: 0,
+      updated: 0,
+      failed: 0,
+      errors: [] as Array<{ email: string; error: string }>,
+    };
+
+    // Get existing contacts for deduplication
+    const existingContacts = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "crm_contact")
+      )
+      .collect();
+
+    // Build email -> contact map for fast lookup
+    const emailToContact = new Map<string, typeof existingContacts[0]>();
+    for (const contact of existingContacts) {
+      const email = contact.customProperties?.email as string | undefined;
+      if (email) {
+        emailToContact.set(email.toLowerCase(), contact);
+      }
+    }
+
+    // Process each contact
+    for (const contactData of args.contacts) {
+      try {
+        // Validate required fields
+        if (!contactData.email || !contactData.firstName || !contactData.lastName) {
+          results.failed++;
+          results.errors.push({
+            email: contactData.email || "unknown",
+            error: "Missing required fields: firstName, lastName, email",
+          });
+          continue;
+        }
+
+        const emailLower = contactData.email.toLowerCase();
+        const existingContact = emailToContact.get(emailLower);
+
+        if (existingContact) {
+          // Update existing contact
+          const existingTags = (existingContact.customProperties?.tags as string[]) || [];
+          const newTags = contactData.tags || [];
+          const mergedTags = Array.from(new Set([...existingTags, ...newTags]));
+
+          const updatedProperties = {
+            ...existingContact.customProperties,
+            firstName: contactData.firstName,
+            lastName: contactData.lastName,
+            phone: contactData.phone || existingContact.customProperties?.phone,
+            company: contactData.company || existingContact.customProperties?.company,
+            jobTitle: contactData.jobTitle || existingContact.customProperties?.jobTitle,
+            notes: contactData.notes || existingContact.customProperties?.notes,
+            tags: mergedTags,
+            ...contactData.customFields,
+            lastBulkImport: Date.now(),
+          };
+
+          await ctx.db.patch(existingContact._id, {
+            name: `${contactData.firstName} ${contactData.lastName}`,
+            subtype: contactData.subtype || existingContact.subtype,
+            customProperties: updatedProperties,
+            updatedAt: Date.now(),
+          });
+
+          results.updated++;
+        } else {
+          // Create new contact
+          const contactId = await ctx.db.insert("objects", {
+            organizationId: args.organizationId,
+            type: "crm_contact",
+            subtype: contactData.subtype || "lead",
+            name: `${contactData.firstName} ${contactData.lastName}`,
+            description: contactData.jobTitle || "Contact",
+            status: "active",
+            customProperties: {
+              firstName: contactData.firstName,
+              lastName: contactData.lastName,
+              email: contactData.email,
+              phone: contactData.phone,
+              company: contactData.company,
+              jobTitle: contactData.jobTitle,
+              source: contactData.source || "bulk-import",
+              tags: contactData.tags || ["bulk-imported"],
+              notes: contactData.notes,
+              ...contactData.customFields,
+              importedAt: Date.now(),
+            },
+            createdBy: args.performedBy,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          });
+
+          // Add to map for subsequent deduplication within same batch
+          const newContact = await ctx.db.get(contactId);
+          if (newContact) {
+            emailToContact.set(emailLower, newContact);
+          }
+
+          results.created++;
+        }
+      } catch (error) {
+        results.failed++;
+        results.errors.push({
+          email: contactData.email,
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+    }
+
+    // Log bulk import action (only if performedBy is provided)
+    if (args.performedBy) {
+      await ctx.db.insert("objectActions", {
+        organizationId: args.organizationId,
+        objectId: args.organizationId as unknown as Id<"objects">, // Log against org
+        actionType: "bulk_import",
+        actionData: {
+          source: "api",
+          totalContacts: results.total,
+          created: results.created,
+          updated: results.updated,
+          failed: results.failed,
+        },
+        performedBy: args.performedBy,
+        performedAt: Date.now(),
+      });
+    }
+
+    return results;
+  },
+});
+
+/**
+ * EXPORT CONTACTS (INTERNAL)
+ *
+ * Exports all CRM contacts for an organization.
+ * Requires Starter+ tier (contactImportExportEnabled feature).
+ *
+ * @param filters - Optional filters for export
+ * @param format - Export format: "json" or "csv"
+ * @returns Array of contacts in requested format
+ */
+export const exportContactsInternal = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    subtype: v.optional(v.string()),
+    status: v.optional(v.string()),
+    source: v.optional(v.string()),
+    tags: v.optional(v.array(v.string())),
+    createdAfter: v.optional(v.number()),
+    createdBefore: v.optional(v.number()),
+    format: v.optional(v.union(v.literal("json"), v.literal("csv"))),
+  },
+  handler: async (ctx, args) => {
+    // 1. Query all contacts for organization
+    const allContacts = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "crm_contact")
+      )
+      .collect();
+
+    // 2. Apply filters
+    let filteredContacts = allContacts;
+
+    if (args.subtype) {
+      filteredContacts = filteredContacts.filter(
+        (c) => c.subtype === args.subtype
+      );
+    }
+
+    if (args.status) {
+      filteredContacts = filteredContacts.filter(
+        (c) => c.status === args.status
+      );
+    }
+
+    if (args.source) {
+      filteredContacts = filteredContacts.filter(
+        (c) => c.customProperties?.source === args.source
+      );
+    }
+
+    if (args.tags && args.tags.length > 0) {
+      filteredContacts = filteredContacts.filter((c) => {
+        const contactTags = (c.customProperties?.tags as string[]) || [];
+        return args.tags!.some((tag) => contactTags.includes(tag));
+      });
+    }
+
+    if (args.createdAfter) {
+      filteredContacts = filteredContacts.filter(
+        (c) => c.createdAt >= args.createdAfter!
+      );
+    }
+
+    if (args.createdBefore) {
+      filteredContacts = filteredContacts.filter(
+        (c) => c.createdAt <= args.createdBefore!
+      );
+    }
+
+    // 3. Sort by creation date (newest first)
+    filteredContacts.sort((a, b) => b.createdAt - a.createdAt);
+
+    // 4. Format contacts for export
+    const contacts = filteredContacts.map((contact) => ({
+      id: contact._id,
+      firstName: contact.customProperties?.firstName || "",
+      lastName: contact.customProperties?.lastName || "",
+      email: contact.customProperties?.email || "",
+      phone: contact.customProperties?.phone || "",
+      company: contact.customProperties?.company || "",
+      jobTitle: contact.customProperties?.jobTitle || "",
+      subtype: contact.subtype || "",
+      status: contact.status || "",
+      source: contact.customProperties?.source || "",
+      tags: (contact.customProperties?.tags as string[]) || [],
+      notes: contact.customProperties?.notes || "",
+      createdAt: contact.createdAt,
+      updatedAt: contact.updatedAt,
+    }));
+
+    // 5. Return based on format
+    if (args.format === "csv") {
+      // Convert to CSV format
+      const headers = [
+        "id",
+        "firstName",
+        "lastName",
+        "email",
+        "phone",
+        "company",
+        "jobTitle",
+        "subtype",
+        "status",
+        "source",
+        "tags",
+        "notes",
+        "createdAt",
+        "updatedAt",
+      ];
+
+      const csvRows = [headers.join(",")];
+
+      for (const contact of contacts) {
+        const row = headers.map((header) => {
+          const value = contact[header as keyof typeof contact];
+          if (Array.isArray(value)) {
+            return `"${value.join(";")}"`;
+          }
+          if (typeof value === "string") {
+            // Escape quotes and wrap in quotes
+            return `"${value.replace(/"/g, '""')}"`;
+          }
+          return String(value ?? "");
+        });
+        csvRows.push(row.join(","));
+      }
+
+      return {
+        format: "csv" as const,
+        total: contacts.length,
+        data: csvRows.join("\n"),
+      };
+    }
+
+    // Default: JSON format
+    return {
+      format: "json" as const,
+      total: contacts.length,
+      contacts,
+    };
+  },
+});

@@ -189,15 +189,10 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
               <button
                 onClick={handleRequestInvoicing}
                 disabled={isRequesting}
-                className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                className="beveled-button inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{
                   backgroundColor: "var(--primary)",
                   color: "white",
-                  border: "2px solid",
-                  borderTopColor: "var(--win95-button-light)",
-                  borderLeftColor: "var(--win95-button-light)",
-                  borderBottomColor: "var(--win95-button-dark)",
-                  borderRightColor: "var(--win95-button-dark)",
                 }}
               >
                 {isRequesting ? (
@@ -217,15 +212,10 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
                 href={`https://dashboard.stripe.com/${orgStripeAccountId}/invoices`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold"
+                className="beveled-button inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold"
                 style={{
                   backgroundColor: "var(--win95-bg)",
                   color: "var(--win95-text)",
-                  border: "2px solid",
-                  borderTopColor: "var(--win95-button-light)",
-                  borderLeftColor: "var(--win95-button-light)",
-                  borderBottomColor: "var(--win95-button-dark)",
-                  borderRightColor: "var(--win95-button-dark)",
                   textDecoration: "none",
                 }}
               >
@@ -384,15 +374,10 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
             href={`https://dashboard.stripe.com/${orgStripeAccountId}/invoices`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 px-4 py-2 text-xs font-semibold flex items-center justify-center gap-2"
+            className="beveled-button flex-1 px-4 py-2 text-xs font-semibold flex items-center justify-center gap-2"
             style={{
               backgroundColor: "var(--primary)",
               color: "white",
-              border: "2px solid",
-              borderTopColor: "var(--win95-button-light)",
-              borderLeftColor: "var(--win95-button-light)",
-              borderBottomColor: "var(--win95-button-dark)",
-              borderRightColor: "var(--win95-button-dark)",
               textDecoration: "none",
             }}
           >
@@ -404,15 +389,10 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
             href={`https://dashboard.stripe.com/${orgStripeAccountId}/invoices/create`}
             target="_blank"
             rel="noopener noreferrer"
-            className="px-4 py-2 text-xs font-semibold flex items-center gap-2"
+            className="beveled-button px-4 py-2 text-xs font-semibold flex items-center gap-2"
             style={{
               backgroundColor: "var(--win95-button-face)",
               color: "var(--win95-text)",
-              border: "2px solid",
-              borderTopColor: "var(--win95-button-light)",
-              borderLeftColor: "var(--win95-button-light)",
-              borderBottomColor: "var(--win95-button-dark)",
-              borderRightColor: "var(--win95-button-dark)",
               textDecoration: "none",
             }}
           >

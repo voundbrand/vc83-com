@@ -20,6 +20,7 @@ import { Id } from "../../convex/_generated/dataModel";
 export type CartItemType =
   | "ai-subscription"      // Platform AI service subscription
   | "token-pack"           // Additional AI tokens
+  | "platform-plan"        // Platform subscription plans (Free, Starter, Pro, Agency, Enterprise)
   | "platform-addon"       // Future: analytics, storage, etc.
   | "platform-service";    // Other platform services
 

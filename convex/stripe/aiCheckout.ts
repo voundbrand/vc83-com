@@ -111,28 +111,37 @@ export const createAICheckoutSession = action({
   handler: async (ctx, args) => {
     const stripe = getStripe();
 
-    // Get or create Stripe customer
-    // Get or create Stripe customer
+    // Get organization
     const org = await ctx.runQuery(api.organizations.get, { id: args.organizationId });
+
+    // Query for stored billing details if none provided in args
+    const storedBilling = await ctx.runQuery(internal.stripe.platformCheckout.getOrganizationBillingDetails, {
+      organizationId: args.organizationId,
+    });
+
+    // Use provided billing address, or fall back to stored billing details
+    const effectiveBillingAddress = args.billingAddress || storedBilling?.billingAddress;
+    const effectiveBillingName = args.companyName || storedBilling?.billingName || args.organizationName;
+    const effectiveBillingEmail = storedBilling?.billingEmail || args.email;
 
     // Prepare customer data with B2B support
     const customerData: Stripe.CustomerCreateParams = {
-      name: args.companyName || args.organizationName,
-      email: args.email,
+      name: effectiveBillingName,
+      email: effectiveBillingEmail,
       metadata: {
         organizationId: args.organizationId,
         platform: "l4yercak3",
         isB2B: args.isB2B ? "true" : "false",
       },
-      // Add billing address if provided
-      ...(args.billingAddress && {
+      // Add billing address (from args or stored)
+      ...(effectiveBillingAddress && {
         address: {
-          line1: args.billingAddress.line1,
-          line2: args.billingAddress.line2,
-          city: args.billingAddress.city,
-          state: args.billingAddress.state,
-          postal_code: args.billingAddress.postalCode,
-          country: args.billingAddress.country,
+          line1: effectiveBillingAddress.line1,
+          line2: effectiveBillingAddress.line2,
+          city: effectiveBillingAddress.city,
+          state: effectiveBillingAddress.state,
+          postal_code: effectiveBillingAddress.postalCode,
+          country: effectiveBillingAddress.country,
         },
       }),
       // Add tax ID if provided (for B2B)
@@ -151,18 +160,19 @@ export const createAICheckoutSession = action({
         const customer = await stripe.customers.retrieve(org.stripeCustomerId);
         if (!customer.deleted) {
           customerId = org.stripeCustomerId;
-          // Update customer with new B2B information if provided
-          if (args.isB2B || args.billingAddress) {
+          // Update customer with billing information (from args or stored)
+          if (args.isB2B || effectiveBillingAddress) {
             await stripe.customers.update(customerId, {
-              ...(args.companyName && { name: args.companyName }),
-              ...(args.billingAddress && {
+              name: effectiveBillingName,
+              email: effectiveBillingEmail,
+              ...(effectiveBillingAddress && {
                 address: {
-                  line1: args.billingAddress.line1,
-                  line2: args.billingAddress.line2,
-                  city: args.billingAddress.city,
-                  state: args.billingAddress.state,
-                  postal_code: args.billingAddress.postalCode,
-                  country: args.billingAddress.country,
+                  line1: effectiveBillingAddress.line1,
+                  line2: effectiveBillingAddress.line2,
+                  city: effectiveBillingAddress.city,
+                  state: effectiveBillingAddress.state,
+                  postal_code: effectiveBillingAddress.postalCode,
+                  country: effectiveBillingAddress.country,
                 },
               }),
               metadata: {
@@ -170,6 +180,9 @@ export const createAICheckoutSession = action({
                 isB2B: args.isB2B ? "true" : "false",
               },
             });
+            if (effectiveBillingAddress) {
+              console.log(`[AI Checkout] Pre-filled billing address for customer ${customerId}`);
+            }
           }
         } else {
           throw new Error("Customer deleted");
@@ -193,13 +206,13 @@ export const createAICheckoutSession = action({
       });
     }
 
-    // Determine price ID based on tier
+    // Determine price ID from environment variables based on tier
     const priceId = args.tier === "standard"
       ? process.env.STRIPE_AI_STANDARD_PRICE_ID
       : process.env.STRIPE_AI_PRIVACY_ENHANCED_PRICE_ID;
 
     if (!priceId) {
-      throw new Error(`Price ID not configured for tier: ${args.tier}`);
+      throw new Error(`Price ID not configured for tier: ${args.tier}. Please set STRIPE_AI_STANDARD_PRICE_ID or STRIPE_AI_PRIVACY_ENHANCED_PRICE_ID environment variable.`);
     }
 
     // Prepare checkout session parameters

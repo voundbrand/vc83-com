@@ -56,8 +56,8 @@ http.route({
         return new Response("Payment provider not configured", { status: 500 });
       }
 
-      // 3. Verify webhook signature using provider
-      const isValidSignature = provider.verifyWebhookSignature(body, signature);
+      // 3. Verify webhook signature using provider (async required in Convex runtime)
+      const isValidSignature = await provider.verifyWebhookSignature(body, signature);
 
       if (!isValidSignature) {
         console.error("Webhook signature verification failed");
@@ -116,8 +116,8 @@ http.route({
         return new Response("Payment provider not configured", { status: 500 });
       }
 
-      // Verify signature using provider
-      const isValidSignature = provider.verifyWebhookSignature(body, signature);
+      // Verify signature using provider (async required in Convex runtime)
+      const isValidSignature = await provider.verifyWebhookSignature(body, signature);
 
       if (!isValidSignature) {
         console.error("Connect webhook signature verification failed");
@@ -192,10 +192,10 @@ http.route({
         apiVersion: "2025-10-29.clover",
       });
 
-      // Verify signature
+      // Verify signature - MUST use async version in Convex runtime
       let event: any;
       try {
-        event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+        event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret);
         console.log(`[Invoice Webhooks] ✅ Signature verified for event: ${event.type}`);
       } catch (error) {
         console.error("[Invoice Webhooks] ❌ Signature verification failed:", error);
@@ -286,10 +286,10 @@ http.route({
         apiVersion: "2025-10-29.clover",
       });
 
-      // Verify signature
+      // Verify signature - MUST use async version in Convex runtime
       let event: any;
       try {
-        event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+        event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret);
         console.log(`[AI Webhooks] ✅ Signature verified for event: ${event.type}`);
       } catch (error) {
         console.error("[AI Webhooks] ❌ Signature verification failed:", error);
@@ -360,8 +360,8 @@ http.route({
         return new Response(`Provider ${providerCode} not configured`, { status: 404 });
       }
 
-      // Verify signature
-      const isValidSignature = provider.verifyWebhookSignature(body, signature);
+      // Verify signature (async required in Convex runtime)
+      const isValidSignature = await provider.verifyWebhookSignature(body, signature);
 
       if (!isValidSignature) {
         console.error(`${providerCode} webhook signature verification failed`);
@@ -443,6 +443,8 @@ import {
   createContact,
   listContacts,
   getContact,
+  bulkImportContacts,
+  exportContacts,
 } from "./api/v1/crm";
 import { createBooking } from "./api/v1/bookings";
 import {
@@ -787,6 +789,20 @@ http.route({
   handler: listContacts,
 });
 
+// POST /api/v1/crm/contacts/bulk - Bulk import contacts (Starter+ only)
+http.route({
+  path: "/api/v1/crm/contacts/bulk",
+  method: "POST",
+  handler: bulkImportContacts,
+});
+
+// GET /api/v1/crm/contacts/export - Export contacts (Starter+ only)
+http.route({
+  path: "/api/v1/crm/contacts/export",
+  method: "GET",
+  handler: exportContacts,
+});
+
 // GET /api/v1/crm/contacts/:contactId - Get contact details
 // Uses pathPrefix to handle dynamic contactId parameter
 http.route({
@@ -833,7 +849,7 @@ http.route({
       const { organizationId } = authContext;
 
       // Update API key usage tracking
-      await ctx.runMutation(internal.api.auth.updateApiKeyUsage, { apiKey });
+      // TODO: Implement async usage tracking - await ctx.scheduler.runAfter(0, internal.apiKeys.trackUsage, { apiKeyId, ipAddress });
 
       // Query contact
       const contact = await ctx.runQuery(
@@ -1093,7 +1109,7 @@ http.route({
       const { organizationId } = authContext;
 
       // 2. Update API key usage tracking
-      await ctx.runMutation(internal.api.auth.updateApiKeyUsage, { apiKey });
+      // TODO: Implement async usage tracking - await ctx.scheduler.runAfter(0, internal.apiKeys.trackUsage, { apiKeyId, ipAddress });
 
       // 3. Extract CRM organization ID from URL
       const url = new URL(request.url);
@@ -1255,6 +1271,138 @@ http.route({
         },
       }
     );
+  }),
+});
+
+/**
+ * ==========================================
+ * OAUTH 2.0 ENDPOINTS
+ * ==========================================
+ *
+ * OAuth 2.0 Authorization Code flow with PKCE support.
+ * Allows third-party apps (Zapier, Make, etc.) to access VC83 APIs.
+ */
+
+// Import OAuth handlers
+import { authorize, authorizePost, token, revoke } from "./oauth/endpoints";
+
+// GET /oauth/authorize - Show consent screen
+http.route({
+  path: "/oauth/authorize",
+  method: "GET",
+  handler: authorize,
+});
+
+// POST /oauth/authorize - Handle user approval/denial
+http.route({
+  path: "/oauth/authorize",
+  method: "POST",
+  handler: authorizePost,
+});
+
+// POST /oauth/token - Exchange authorization code for access token
+http.route({
+  path: "/oauth/token",
+  method: "POST",
+  handler: token,
+});
+
+// POST /oauth/revoke - Revoke access or refresh token
+http.route({
+  path: "/oauth/revoke",
+  method: "POST",
+  handler: revoke,
+});
+
+/**
+ * SELF-SERVICE SIGNUP ENDPOINT
+ *
+ * Allows users to create free accounts with auto-organization creation.
+ * Part of Starter Conversion Path: Template → Create account → Use platform → Upgrade
+ */
+http.route({
+  path: "/api/signup",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    try {
+      // Parse request body
+      const body = await request.json();
+      const { email, password, firstName, lastName, organizationName } = body;
+
+      // Validate required fields
+      if (!email || !password || !firstName || !lastName) {
+        return new Response(
+          JSON.stringify({
+            error: "Missing required fields: email, password, firstName, lastName",
+          }),
+          {
+            status: 400,
+            headers: {
+              "Content-Type": "application/json",
+              ...getCorsHeaders(request.headers.get("origin")),
+            },
+          }
+        );
+      }
+
+      // Call signup action
+      const result = await ctx.runAction(api.onboarding.signupFreeAccount, {
+        email,
+        password,
+        firstName,
+        lastName,
+        organizationName,
+      });
+
+      // Return success with session and API key
+      return new Response(
+        JSON.stringify(result),
+        {
+          status: 201,
+          headers: {
+            "Content-Type": "application/json",
+            ...getCorsHeaders(request.headers.get("origin")),
+          },
+        }
+      );
+    } catch (error: any) {
+      console.error("Signup error:", error);
+
+      // Handle specific error codes
+      const errorMessage = error.data?.code === "EMAIL_EXISTS"
+        ? "An account with this email already exists"
+        : error.data?.code === "WEAK_PASSWORD"
+        ? "Password must be at least 8 characters long"
+        : error.data?.code === "INVALID_EMAIL"
+        ? "Invalid email format"
+        : error.data?.code === "DISPOSABLE_EMAIL"
+        ? "Please use a permanent email address"
+        : error.message || "Signup failed";
+
+      return new Response(
+        JSON.stringify({
+          error: errorMessage,
+          code: error.data?.code,
+        }),
+        {
+          status: error.data?.code === "EMAIL_EXISTS" ? 409 : 400,
+          headers: {
+            "Content-Type": "application/json",
+            ...getCorsHeaders(request.headers.get("origin")),
+          },
+        }
+      );
+    }
+  }),
+});
+
+// OPTIONS /api/signup - CORS preflight
+http.route({
+  path: "/api/signup",
+  method: "OPTIONS",
+  handler: httpAction(async (ctx, request) => {
+    const origin = request.headers.get("origin");
+    return handleOptionsRequest(origin);
   }),
 });
 

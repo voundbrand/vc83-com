@@ -1,4 +1,4 @@
-import { action, query, internalMutation, internalQuery } from "./_generated/server";
+import { action, query, mutation, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
@@ -71,12 +71,14 @@ export const getById = query({
     const hasAccess = await checkPermission(ctx, userId, "view_organization", args.organizationId);
 
     if (!hasAccess) {
-      throw new Error("Nicht autorisiert: Du hast keinen Zugriff auf diese Organisation");
+      // Return null instead of throwing to allow graceful error handling in UI
+      return null;
     }
 
     const organization = await ctx.db.get(args.organizationId);
     if (!organization) {
-      throw new Error("Organisation nicht gefunden");
+      // Return null instead of throwing to allow graceful error handling in UI
+      return null;
     }
 
     // Get user context to check super admin status
@@ -1144,6 +1146,130 @@ export const updateStripeCustomer = internalMutation({
       stripeCustomerId: args.stripeCustomerId,
     });
     return { success: true };
+  },
+});
+
+/**
+ * SUPER ADMIN: Clear Stripe subscription data for organization
+ *
+ * Clears the stripeSubscriptionId field. Use when:
+ * - Subscription was deleted in Stripe dashboard
+ * - Need to reset subscription state for testing
+ * - Fixing orphaned subscription references
+ *
+ * @permission super_admin only
+ */
+export const clearStripeSubscriptionInternal = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    clearCustomerId: v.optional(v.boolean()), // Also clear customer ID if needed
+    resetPlan: v.optional(v.boolean()), // Reset plan to "free"
+  },
+  handler: async (ctx, args) => {
+    const org = await ctx.db.get(args.organizationId);
+    if (!org) {
+      throw new Error("Organization not found");
+    }
+
+    const updates: Record<string, unknown> = {
+      stripeSubscriptionId: undefined,
+    };
+
+    if (args.clearCustomerId) {
+      updates.stripeCustomerId = undefined;
+    }
+
+    if (args.resetPlan) {
+      updates.plan = "free";
+    }
+
+    await ctx.db.patch(args.organizationId, updates);
+
+    return {
+      success: true,
+      cleared: {
+        subscriptionId: true,
+        customerId: args.clearCustomerId || false,
+        planReset: args.resetPlan || false,
+      },
+    };
+  },
+});
+
+/**
+ * SUPER ADMIN: Clear Stripe subscription data for organization (public wrapper)
+ *
+ * Clears the stripeSubscriptionId field. Use when:
+ * - Subscription was deleted in Stripe dashboard
+ * - Need to reset subscription state for testing
+ * - Fixing orphaned subscription references
+ *
+ * @permission super_admin only
+ */
+export const clearStripeSubscription = mutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    clearCustomerId: v.optional(v.boolean()),
+    resetPlan: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    // 1. Authenticate user
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    // 2. Verify super admin status
+    const userContext = await getUserContext(ctx, userId);
+    if (!userContext.isGlobal || userContext.roleName !== "super_admin") {
+      throw new Error("Not authorized: Only super admins can clear Stripe subscription data");
+    }
+
+    // 3. Get organization
+    const org = await ctx.db.get(args.organizationId);
+    if (!org) {
+      throw new Error("Organization not found");
+    }
+
+    // 4. Clear subscription data
+    const updates: Record<string, unknown> = {
+      stripeSubscriptionId: undefined,
+      updatedAt: Date.now(),
+    };
+
+    if (args.clearCustomerId) {
+      updates.stripeCustomerId = undefined;
+    }
+
+    if (args.resetPlan) {
+      updates.plan = "free";
+    }
+
+    await ctx.db.patch(args.organizationId, updates);
+
+    // 5. Log audit event
+    await ctx.runMutation(internal.rbac.logAudit, {
+      userId,
+      organizationId: args.organizationId,
+      action: "clear_stripe_subscription",
+      resource: "organizations",
+      success: true,
+      metadata: {
+        organizationName: org.name,
+        clearedSubscriptionId: !!org.stripeSubscriptionId,
+        clearedCustomerId: args.clearCustomerId || false,
+        planReset: args.resetPlan || false,
+        previousPlan: org.plan,
+      },
+    });
+
+    return {
+      success: true,
+      message: `Stripe subscription data cleared for ${org.name}`,
+      cleared: {
+        subscriptionId: !!org.stripeSubscriptionId,
+        customerId: args.clearCustomerId || false,
+        planReset: args.resetPlan || false,
+      },
+    };
   },
 });
 

@@ -5,8 +5,9 @@ import { SettingsWindow } from "./settings-window";
 import { ManageWindow } from "./org-owner-manage-window";
 import { TranslationsWindow } from "./translations-window";
 import { OrganizationsWindow } from "./super-admin-organizations-window";
+import { IntegrationsWindow } from "./integrations-window";
 import { usePermissions } from "@/contexts/permission-context";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 interface ControlPanelItem {
@@ -14,12 +15,14 @@ interface ControlPanelItem {
   icon: string;
   label: string;
   onClick: () => void;
+  description?: string;
 }
 
 export function ControlPanelWindow() {
   const { openWindow } = useWindowManager();
   const { isSuperAdmin } = usePermissions();
-  const { canPerform } = useAuth();
+  const { canPerform, isSignedIn } = useAuth();
+  const currentOrg = useCurrentOrganization();
   const { t } = useNamespaceTranslations("ui.controlpanel");
 
   const openDesktopSettings = () => {
@@ -39,6 +42,18 @@ export function ControlPanelWindow() {
       <ManageWindow />,
       { x: 200, y: 50 },
       { width: 1200, height: 700 }
+    );
+  };
+
+  const openIntegrationsWindow = () => {
+    openWindow(
+      "integrations",
+      "Integrations & API",
+      <IntegrationsWindow />,
+      { x: 150, y: 100 },
+      { width: 900, height: 650 },
+      "ui.windows.integrations.title",
+      "🔗"
     );
   };
 
@@ -62,6 +77,18 @@ export function ControlPanelWindow() {
     );
   };
 
+  const openTutorialsWindow = () => {
+    openWindow(
+      "tutorials-docs",
+      "Tutorials & Docs",
+      undefined, // Component will be loaded from registry
+      { x: 150, y: 80 },
+      { width: 1000, height: 700 },
+      undefined,
+      "📚"
+    );
+  };
+
   // Base items that everyone sees
   const baseItems: ControlPanelItem[] = [
     {
@@ -69,19 +96,40 @@ export function ControlPanelWindow() {
       icon: "🖥️",
       label: t('ui.controlpanel.item.desktop'),
       onClick: openDesktopSettings,
+      description: "Appearance, wallpaper, and region settings",
+    },
+    {
+      id: "tutorials",
+      icon: "📚",
+      label: "Tutorials & Docs",
+      onClick: openTutorialsWindow,
+      description: "Step-by-step guides and documentation to help you master l4yercak3",
     },
   ];
 
   // Conditionally add items based on permissions
   const controlPanelItems: ControlPanelItem[] = [...baseItems];
 
-  // Manage - requires manage_users or manage_organization
-  if (canPerform('manage_users') || canPerform('manage_organization')) {
+  // Manage - requires being signed in with an organization
+  // Free users who own their organization should see this
+  if (isSignedIn && currentOrg && (canPerform('manage_users') || canPerform('manage_organization') || currentOrg.isOwner)) {
     controlPanelItems.push({
       id: "manage",
       icon: "🏢",
       label: t('ui.controlpanel.item.manage'),
       onClick: openManageWindow,
+      description: "Organization settings, users, and security",
+    });
+  }
+
+  // Integrations & API - available to all signed-in users with an organization
+  if (isSignedIn && currentOrg) {
+    controlPanelItems.push({
+      id: "integrations",
+      icon: "🔗",
+      label: "Integrations & API",
+      onClick: openIntegrationsWindow,
+      description: "Connect third-party services and manage API keys",
     });
   }
 
@@ -92,6 +140,7 @@ export function ControlPanelWindow() {
       icon: "🌐",
       label: t('ui.controlpanel.item.translations'),
       onClick: openTranslations,
+      description: "Manage platform translations",
     });
   }
 
@@ -102,6 +151,7 @@ export function ControlPanelWindow() {
       icon: "🏢",
       label: t('ui.controlpanel.item.system_organizations'),
       onClick: openOrganizations,
+      description: "Manage all organizations in the system",
     });
   }
 
@@ -127,7 +177,7 @@ export function ControlPanelWindow() {
               key={item.id}
               onClick={item.onClick}
               className="flex flex-col items-center gap-2 p-4 rounded transition-colors group"
-              style={{ 
+              style={{
                 background: 'transparent',
               }}
               onMouseEnter={(e) => {
@@ -136,6 +186,7 @@ export function ControlPanelWindow() {
               onMouseLeave={(e) => {
                 e.currentTarget.style.background = 'transparent';
               }}
+              title={item.description}
             >
               <div className="text-4xl">{item.icon}</div>
               <span className="text-xs text-center font-medium" style={{ color: 'var(--win95-text)' }}>
@@ -144,6 +195,24 @@ export function ControlPanelWindow() {
             </button>
           ))}
         </div>
+
+        {/* Help text for users without an organization */}
+        {isSignedIn && !currentOrg && (
+          <div
+            className="mt-6 p-4 border-2 rounded"
+            style={{
+              borderColor: 'var(--win95-highlight)',
+              background: 'var(--win95-bg-light)',
+            }}
+          >
+            <p className="text-xs" style={{ color: 'var(--win95-text)' }}>
+              <strong>Looking for more options?</strong>
+            </p>
+            <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
+              Create or join an organization to access Integrations, API Keys, and organization management features.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

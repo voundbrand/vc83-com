@@ -36,15 +36,6 @@ import {
 import { apps, appInstallations, snapshots, snapshotLoads, purchases, appAvailabilities } from "./schemas/appStoreSchemas";
 // import { app_podcasting } from "./schemas/appDataSchemas"; // Not yet used
 import { auditLogs, workflowExecutionLogs } from "./schemas/utilitySchemas";
-// ❌ OLD TRANSLATION SCHEMAS - Replaced by ontology
-// import {
-//   systemTranslations,
-//   appTranslations,
-//   contentTranslations,
-//   translationNamespaces,
-//   translationKeys,
-//   supportedLocales
-// } from "./schemas/translationSchemas";
 
 // ✅ NEW ONTOLOGY SCHEMAS
 import { objects, objectLinks, objectActions } from "./schemas/ontologySchemas";
@@ -79,6 +70,33 @@ import { organizationStorage, userStorageQuotas } from "./schemas/storageSchemas
 
 // 📧 CONTACT SYNC & BULK EMAIL SCHEMAS (AI-powered external contact integration)
 import { contactSyncs, emailCampaigns } from "./schemas/contactSyncSchemas";
+
+// 🔐 OAUTH 2.0 SCHEMAS (OAuth authentication for third-party integrations)
+import {
+  oauthApplications,
+  oauthAuthorizationCodes,
+  oauthRefreshTokens,
+  oauthRevokedTokens,
+  oauthTokenUsage
+} from "./schemas/oauthSchemas";
+
+// 🚦 RATE LIMITING SCHEMAS (Token bucket rate limiting for API abuse prevention)
+import { rateLimitSchemas } from "./schemas/rateLimitSchemas";
+
+// 🛡️ SECURITY SCHEMAS (Anomaly detection and security event monitoring)
+import { securitySchemas } from "./schemas/securitySchemas";
+
+// 📊 GROWTH TRACKING SCHEMAS (Launch metrics and KPI tracking)
+import {
+  dailyGrowthMetrics,
+  signupEvents,
+  weeklyScorecard,
+  salesNotifications,
+  celebrationMilestones
+} from "./schemas/growthTrackingSchemas";
+
+// 📧 EMAIL QUEUE SCHEMA (Email delivery tracking)
+import { emailQueue } from "./schemas/emailQueueSchemas";
 
 /**
  * MAIN SCHEMA EXPORT
@@ -164,6 +182,29 @@ export default defineSchema({
   // 📧 CONTACT SYNC & BULK EMAIL: AI-powered external contact integration
   contactSyncs,          // Audit trail for contact synchronization (Microsoft/Google → CRM)
   emailCampaigns,        // Bulk email campaigns to CRM contacts/organizations
+
+  // 🔐 OAUTH 2.0: Third-party authentication and authorization
+  oauthApplications,         // OAuth apps registered by organizations (Zapier, Make, etc.)
+  oauthAuthorizationCodes,   // Temporary authorization codes (10 min lifetime)
+  oauthRefreshTokens,        // Long-lived refresh tokens (30 days)
+  oauthRevokedTokens,        // Revocation list for access tokens
+  oauthTokenUsage,           // Token usage analytics (optional, for monitoring)
+
+  // 🚦 RATE LIMITING: Token bucket rate limiting for API abuse prevention
+  ...rateLimitSchemas,       // rateLimitBuckets, rateLimitViolations
+
+  // 🛡️ SECURITY: Anomaly detection and security event monitoring
+  ...securitySchemas,        // securityEvents, usageMetadata, failedAuthAttempts
+
+  // 📊 GROWTH TRACKING: Launch metrics and KPI tracking
+  dailyGrowthMetrics,        // Daily metrics (automated + manual)
+  signupEvents,              // Signup event tracking
+  weeklyScorecard,           // Weekly scorecard snapshots
+  salesNotifications,        // Sales team notifications
+  celebrationMilestones,     // Milestone achievements
+
+  // 📧 EMAIL QUEUE: Email delivery tracking
+  emailQueue,                // Outbound email queue
 
   // ❌ OLD TRANSLATIONS - Replaced by ontology
   // systemTranslations,

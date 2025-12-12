@@ -21,6 +21,7 @@ export interface Theme {
     win95BorderLight: string;
     win95Text: string;
     win95Highlight: string;
+    win95GradientEnd: string; // Secondary color for gradients (titlebar, buttons)
     // Hover colors for menus and interactive elements
     win95HoverBg: string;
     win95HoverText: string;
@@ -41,6 +42,7 @@ export const themes: Theme[] = [
       win95BorderLight: "#e8e8e8",
       win95Text: "#1f2937", // gray-800
       win95Highlight: "#000080",
+      win95GradientEnd: "#4169e1", // Royal blue gradient end
       win95HoverBg: "#000080", // Classic Windows 95 blue
       win95HoverText: "#ffffff", // White text on blue
       foreground: "#1f2937",
@@ -57,6 +59,7 @@ export const themes: Theme[] = [
       win95BorderLight: "#5d5d5d",
       win95Text: "#ffffff", // Pure white for better contrast
       win95Highlight: "#4169e1",
+      win95GradientEnd: "#6366f1", // Indigo gradient end
       win95HoverBg: "#4169e1", // Royal blue hover
       win95HoverText: "#ffffff", // White text
       foreground: "#ffffff", // Pure white for better contrast
@@ -73,6 +76,7 @@ export const themes: Theme[] = [
       win95BorderLight: "#e8e8e8",
       win95Text: "#1f2937",
       win95Highlight: "#6B46C1",
+      win95GradientEnd: "#9333EA", // Vivid purple gradient end
       win95HoverBg: "#6B46C1", // Purple hover
       win95HoverText: "#ffffff", // White text
       foreground: "#1f2937",
@@ -89,6 +93,7 @@ export const themes: Theme[] = [
       win95BorderLight: "#e8e8e8",
       win95Text: "#1f2937",
       win95Highlight: "#0000AA",
+      win95GradientEnd: "#3B82F6", // Bright blue gradient end
       win95HoverBg: "#0000AA", // Blue hover
       win95HoverText: "#ffffff", // White text
       foreground: "#1f2937",
@@ -105,6 +110,7 @@ export const themes: Theme[] = [
       win95BorderLight: "#5d5d5d",
       win95Text: "#ffffff", // White text for dark mode
       win95Highlight: "#9F7AEA", // Lighter purple for dark mode (better visibility)
+      win95GradientEnd: "#C084FC", // Fuchsia gradient end
       win95HoverBg: "#9F7AEA", // Light purple hover
       win95HoverText: "#ffffff", // White text
       foreground: "#ffffff",
@@ -121,6 +127,7 @@ export const themes: Theme[] = [
       win95BorderLight: "#e8e8e8",
       win95Text: "#1f2937",
       win95Highlight: "#059669", // Emerald green accent
+      win95GradientEnd: "#10B981", // Lighter emerald gradient end
       win95HoverBg: "#059669", // Green hover
       win95HoverText: "#ffffff", // White text
       foreground: "#1f2937",
@@ -137,6 +144,7 @@ export const themes: Theme[] = [
       win95BorderLight: "#5d5d5d",
       win95Text: "#ffffff", // White text for dark mode
       win95Highlight: "#10b981", // Lighter green for dark mode (better visibility)
+      win95GradientEnd: "#34D399", // Light emerald gradient end
       win95HoverBg: "#10b981", // Light green hover
       win95HoverText: "#ffffff", // White text
       foreground: "#ffffff",
@@ -153,6 +161,7 @@ export const themes: Theme[] = [
       win95BorderLight: "rgba(255, 255, 255, 0.3)",
       win95Text: "#1f2937", // Dark text for light backgrounds
       win95Highlight: "#667eea", // Purple accent
+      win95GradientEnd: "#764ba2", // Deep purple gradient end
       win95HoverBg: "rgba(102, 126, 234, 0.2)", // Purple tint hover (handled by CSS for glass)
       win95HoverText: "#1f2937", // Dark text
       foreground: "#1f2937",
@@ -163,13 +172,14 @@ export const themes: Theme[] = [
     name: "Modern Glass Dark",
     colors: {
       background: "linear-gradient(135deg, #1e3a8a 0%, #312e81 100%)", // Deep blue gradient wallpaper
-      win95Bg: "rgba(30, 30, 30, 0.7)", // Translucent dark with blur
-      win95BgLight: "rgba(45, 45, 45, 0.85)",
-      win95Border: "rgba(255, 255, 255, 0.1)",
-      win95BorderLight: "rgba(255, 255, 255, 0.15)",
+      win95Bg: "rgba(30, 30, 30, 0.95)", // Less transparent dark with blur
+      win95BgLight: "rgba(45, 45, 45, 0.9)",
+      win95Border: "rgba(255, 255, 255, 0.15)",
+      win95BorderLight: "rgba(255, 255, 255, 0.2)",
       win95Text: "#ffffff", // White text for dark mode
       win95Highlight: "#60a5fa", // Light blue accent
-      win95HoverBg: "rgba(96, 165, 250, 0.15)", // Blue tint hover (handled by CSS for glass)
+      win95GradientEnd: "#818cf8", // Indigo gradient end
+      win95HoverBg: "rgba(96, 165, 250, 0.2)", // Blue tint hover (handled by CSS for glass)
       win95HoverText: "#ffffff", // White text
       foreground: "#ffffff",
     },
@@ -185,6 +195,7 @@ export const themes: Theme[] = [
       win95BorderLight: "#f1f5f9", // Even lighter border
       win95Text: "#0f172a", // Slate 900 for text
       win95Highlight: "#0f172a", // Slate 900 for accents
+      win95GradientEnd: "#334155", // Slate 700 gradient end
       win95HoverBg: "#f1f5f9", // Very subtle light gray hover
       win95HoverText: "#ffffff", // White text on dark highlight background
       foreground: "#0f172a",
@@ -194,16 +205,17 @@ export const themes: Theme[] = [
     id: "clean-dark",
     name: "Clean Dark",
     colors: {
-      background: "#0a0a0a", // Near-black background
-      win95Bg: "#171717", // Neutral 900 windows (true dark gray)
-      win95BgLight: "#262626", // Neutral 800 for sections
-      win95Border: "#2a2a2a", // Much darker border (toned down from #404040)
-      win95BorderLight: "#333333", // Subtle lighter border (toned down from #525252)
-      win95Text: "#fafafa", // Neutral 50 for text
-      win95Highlight: "#fafafa", // Neutral 50 for accents
-      win95HoverBg: "#262626", // Subtle dark gray hover
-      win95HoverText: "#0a0a0a", // Dark text on light highlight background
-      foreground: "#fafafa",
+      background: "#0a0a0a", // Near-black background (original)
+      win95Bg: "#171717", // Neutral 900 windows (original)
+      win95BgLight: "#262626", // Neutral 800 for sections (original)
+      win95Border: "#2a2a2a", // Border (original)
+      win95BorderLight: "#333333", // Lighter border (original)
+      win95Text: "#fafafa", // Bright white text
+      win95Highlight: "#2a3f5f", // Muted dark blue (fixes bright header issue)
+      win95GradientEnd: "#3d4f6f", // Subtle blue-gray gradient end
+      win95HoverBg: "#262626", // Subtle dark gray hover (original)
+      win95HoverText: "#ffffff", // White text on hover
+      foreground: "#fafafa", // Bright white text
     },
   },
   // Coming Soon Themes
@@ -219,6 +231,7 @@ export const themes: Theme[] = [
       win95BorderLight: "#BFDBFE",
       win95Text: "#1E3A8A",
       win95Highlight: "#2563EB",
+      win95GradientEnd: "#3B82F6",
       win95HoverBg: "#2563EB",
       win95HoverText: "#ffffff",
       foreground: "#1E3A8A",
@@ -236,6 +249,7 @@ export const themes: Theme[] = [
       win95BorderLight: "#A7F3D0",
       win95Text: "#064E3B",
       win95Highlight: "#059669",
+      win95GradientEnd: "#10B981",
       win95HoverBg: "#059669",
       win95HoverText: "#ffffff",
       foreground: "#064E3B",
@@ -253,6 +267,7 @@ export const themes: Theme[] = [
       win95BorderLight: "#FED7AA",
       win95Text: "#7C2D12",
       win95Highlight: "#EA580C",
+      win95GradientEnd: "#F97316",
       win95HoverBg: "#EA580C",
       win95HoverText: "#ffffff",
       foreground: "#7C2D12",
@@ -270,6 +285,7 @@ export const themes: Theme[] = [
       win95BorderLight: "#FBCFE8",
       win95Text: "#831843",
       win95Highlight: "#DB2777",
+      win95GradientEnd: "#EC4899",
       win95HoverBg: "#DB2777",
       win95HoverText: "#ffffff",
       foreground: "#831843",
@@ -433,15 +449,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     root.style.setProperty("--win95-border-light", currentTheme.colors.win95BorderLight);
     root.style.setProperty("--win95-text", currentTheme.colors.win95Text);
     root.style.setProperty("--win95-highlight", currentTheme.colors.win95Highlight);
+    root.style.setProperty("--win95-gradient-end", currentTheme.colors.win95GradientEnd);
     root.style.setProperty("--win95-hover-bg", currentTheme.colors.win95HoverBg);
     root.style.setProperty("--win95-hover-text", currentTheme.colors.win95HoverText);
 
-    // Update titlebar gradient to match theme highlight color
+    // Update titlebar gradient to match theme highlight and gradient end colors
     // BUT: For glass themes, keep titlebar transparent (handled by CSS)
     const glassThemes = ["glass-light", "glass-dark"];
     if (!glassThemes.includes(currentTheme.id)) {
       const highlightColor = currentTheme.colors.win95Highlight;
-      const titlebarGradient = `linear-gradient(180deg, ${highlightColor} 0%, ${adjustBrightness(highlightColor, 1.2)} 100%)`;
+      const gradientEndColor = currentTheme.colors.win95GradientEnd;
+      const titlebarGradient = `linear-gradient(90deg, ${highlightColor} 0%, ${gradientEndColor} 100%)`;
       root.style.setProperty("--win95-titlebar", titlebarGradient);
       root.style.setProperty("--modal-header-bg", titlebarGradient);
     } else {

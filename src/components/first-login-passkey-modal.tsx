@@ -104,7 +104,7 @@ export function FirstLoginPasskeyModal({
           className="px-3 py-2 flex items-center justify-between"
           style={{
             backgroundColor: 'var(--win95-highlight)',
-            color: 'white',
+            color: 'var(--win95-titlebar-text)',
           }}
         >
           <span className="text-sm font-bold flex items-center gap-2">
@@ -147,14 +147,10 @@ export function FirstLoginPasskeyModal({
             <button
               onClick={handleSetup}
               disabled={isSettingUp}
-              className="w-full px-4 py-2 text-sm font-bold text-white disabled:opacity-50 flex items-center justify-center gap-2"
+              className="beveled-button w-full px-4 py-2 text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2"
               style={{
                 backgroundColor: 'var(--win95-highlight)',
-                border: '2px solid',
-                borderTopColor: 'var(--win95-button-light)',
-                borderLeftColor: 'var(--win95-button-light)',
-                borderBottomColor: 'var(--win95-button-dark)',
-                borderRightColor: 'var(--win95-button-dark)',
+                color: 'var(--win95-titlebar-text)',
               }}
             >
               {isSettingUp ? (
@@ -173,15 +169,10 @@ export function FirstLoginPasskeyModal({
             <button
               onClick={handleSkip}
               disabled={isSettingUp}
-              className="w-full px-4 py-2 text-sm font-bold"
+              className="beveled-button w-full px-4 py-2 text-sm font-bold"
               style={{
                 backgroundColor: 'var(--win95-button-face)',
                 color: 'var(--win95-text)',
-                border: '2px solid',
-                borderTopColor: 'var(--win95-button-light)',
-                borderLeftColor: 'var(--win95-button-light)',
-                borderBottomColor: 'var(--win95-button-dark)',
-                borderRightColor: 'var(--win95-button-dark)',
               }}
             >
               Maybe later

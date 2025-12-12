@@ -359,9 +359,10 @@ export const signOut = mutation({
         success: true,
         metadata: {},
       });
+      // Only delete if the session exists
+      await ctx.db.delete(args.sessionId as Id<"sessions">);
     }
-
-    await ctx.db.delete(args.sessionId as Id<"sessions">);
+    // If session doesn't exist (already deleted, e.g., from account deletion), just return success
     return { success: true };
   },
 });

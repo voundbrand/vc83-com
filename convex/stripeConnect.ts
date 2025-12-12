@@ -26,6 +26,7 @@ import {
   updateOrgProviderConfig,
   getOrgProviderConfig,
 } from "./paymentProviders";
+import { checkFeatureAccess } from "./licensing/helpers";
 
 // =========================================
 // QUERIES
@@ -140,6 +141,9 @@ export const startOnboarding = mutation({
 
     const org = await ctx.db.get(organizationId);
     if (!org) throw new Error("Organization not found");
+
+    // CHECK FEATURE ACCESS: Stripe Connect requires Starter tier or higher
+    await checkFeatureAccess(ctx, organizationId, "stripeConnectEnabled");
 
     // Check if already connected
     const existingConfig = getOrgProviderConfig(org, "stripe-connect");
@@ -838,7 +842,7 @@ export const requestInvoicingCapability = internalAction({
     }
 
     const stripeProvider = org.paymentProviders?.find(
-      (p) => p.providerCode === "stripe-connect"
+      (p: any) => p.providerCode === "stripe-connect"
     );
 
     if (!stripeProvider?.accountId) {

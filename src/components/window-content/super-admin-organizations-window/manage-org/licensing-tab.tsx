@@ -15,11 +15,14 @@ import {
   Users,
   Zap,
   Crown,
-  Settings
+  Settings,
+  CreditCard,
+  Trash2,
 } from "lucide-react";
 import { ManualSubscriptionGrant } from "./components/manual-subscription-grant";
 import { TokenPackIssuance } from "./components/token-pack-issuance";
 import { ManualGrantsHistory } from "./components/manual-grants-history";
+import { LicenseOverview } from "../../../licensing/license-overview";
 
 interface LicensingTabProps {
   organizationId: Id<"organizations">;
@@ -62,8 +65,15 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
     customLimits: {} as Record<string, number>,
   });
 
+  // Stripe subscription management state
+  const [clearCustomerId, setClearCustomerId] = useState(false);
+  const [resetPlanToFree, setResetPlanToFree] = useState(false);
+  const [isClearingSubscription, setIsClearingSubscription] = useState(false);
+  const [clearSubscriptionStatus, setClearSubscriptionStatus] = useState<string | null>(null);
+
   // Mutations
   const setAppAvailability = useMutation(api.appAvailability.setAppAvailability);
+  const clearStripeSubscription = useMutation(api.organizations.clearStripeSubscription);
 
   // Initialize quota overrides when org loads
   useState(() => {
@@ -102,6 +112,40 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
     }
   };
 
+  const handleClearStripeSubscription = async () => {
+    if (!sessionId || !organizationId) return;
+
+    // Confirm action
+    const confirmMessage = `Are you sure you want to clear Stripe subscription data?\n\n${
+      clearCustomerId ? "• Customer ID will also be cleared\n" : ""
+    }${resetPlanToFree ? "• Plan will be reset to FREE\n" : ""}\n\nThis should only be done if the subscription was already deleted in Stripe.`;
+
+    if (!confirm(confirmMessage)) return;
+
+    setIsClearingSubscription(true);
+    setClearSubscriptionStatus(null);
+
+    try {
+      const result = await clearStripeSubscription({
+        sessionId,
+        organizationId,
+        clearCustomerId,
+        resetPlan: resetPlanToFree,
+      });
+
+      setClearSubscriptionStatus(`✓ ${result.message}`);
+      // Reset checkboxes
+      setClearCustomerId(false);
+      setResetPlanToFree(false);
+      setTimeout(() => setClearSubscriptionStatus(null), 5000);
+    } catch (error) {
+      console.error("Failed to clear subscription:", error);
+      setClearSubscriptionStatus(`✗ Failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+    } finally {
+      setIsClearingSubscription(false);
+    }
+  };
+
   const handleToggleApp = async (appId: Id<"apps">, currentlyAvailable: boolean) => {
     if (!sessionId) return;
 
@@ -133,6 +177,9 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
 
   return (
     <div className="space-y-6">
+      {/* License Overview - NEW Phase 1 Component */}
+      <LicenseOverview organizationId={organizationId} />
+
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
@@ -226,6 +273,130 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
         sessionId={sessionId}
       />
 
+      {/* Stripe Subscription Management */}
+      <div
+        className="border-2 p-4"
+        style={{
+          borderColor: "var(--error)",
+          background: "rgba(239, 68, 68, 0.05)",
+        }}
+      >
+        <h4 className="text-sm font-bold mb-3 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+          <CreditCard size={14} />
+          Stripe Subscription Management
+          <span
+            className="ml-2 px-1.5 py-0.5 text-[10px] font-bold"
+            style={{ background: "var(--error)", color: "white" }}
+          >
+            DANGER ZONE
+          </span>
+        </h4>
+
+        {/* Current Stripe Data Display */}
+        <div className="space-y-2 text-xs mb-4 p-3 border" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}>
+          <div className="flex justify-between">
+            <span style={{ color: "var(--neutral-gray)" }}>Stripe Customer ID:</span>
+            <span className="font-mono" style={{ color: organization.stripeCustomerId ? "var(--win95-text)" : "var(--neutral-gray)" }}>
+              {organization.stripeCustomerId || "Not set"}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span style={{ color: "var(--neutral-gray)" }}>Stripe Subscription ID:</span>
+            <span className="font-mono" style={{ color: organization.stripeSubscriptionId ? "var(--success)" : "var(--neutral-gray)" }}>
+              {organization.stripeSubscriptionId || "No active subscription"}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span style={{ color: "var(--neutral-gray)" }}>Current Plan:</span>
+            <span
+              className="font-bold px-2 py-0.5"
+              style={{
+                background: organization.plan === "free" ? "var(--neutral-gray)" : "var(--win95-highlight)",
+                color: "white",
+              }}
+            >
+              {organization.plan?.toUpperCase() || "FREE"}
+            </span>
+          </div>
+        </div>
+
+        {/* Warning */}
+        <div className="flex items-start gap-2 mb-4 p-2" style={{ background: "rgba(239, 68, 68, 0.1)" }}>
+          <AlertCircle size={16} className="flex-shrink-0 mt-0.5" style={{ color: "var(--error)" }} />
+          <p className="text-xs" style={{ color: "var(--win95-text)" }}>
+            <strong>Warning:</strong> Only clear subscription data if you&apos;ve already deleted the subscription in the Stripe Dashboard.
+            This operation syncs Convex with Stripe&apos;s state.
+          </p>
+        </div>
+
+        {/* Options */}
+        <div className="space-y-2 mb-4">
+          <label className="flex items-center gap-2 text-xs cursor-pointer">
+            <input
+              type="checkbox"
+              checked={clearCustomerId}
+              onChange={(e) => setClearCustomerId(e.target.checked)}
+              className="w-4 h-4"
+            />
+            <span style={{ color: "var(--win95-text)" }}>Also clear Customer ID (use if recreating customer)</span>
+          </label>
+          <label className="flex items-center gap-2 text-xs cursor-pointer">
+            <input
+              type="checkbox"
+              checked={resetPlanToFree}
+              onChange={(e) => setResetPlanToFree(e.target.checked)}
+              className="w-4 h-4"
+            />
+            <span style={{ color: "var(--win95-text)" }}>Reset plan to FREE</span>
+          </label>
+        </div>
+
+        {/* Status Message */}
+        {clearSubscriptionStatus && (
+          <div
+            className="mb-4 p-2 text-xs flex items-center gap-2"
+            style={{
+              background: clearSubscriptionStatus.startsWith("✓") ? "var(--success)" : "var(--error)",
+              color: "white",
+            }}
+          >
+            {clearSubscriptionStatus.startsWith("✓") ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
+            {clearSubscriptionStatus}
+          </div>
+        )}
+
+        {/* Clear Button */}
+        <button
+          onClick={handleClearStripeSubscription}
+          disabled={isClearingSubscription || !organization.stripeSubscriptionId}
+          className="beveled-button px-4 py-2 text-xs font-bold flex items-center gap-2"
+          style={{
+            background: organization.stripeSubscriptionId ? "var(--error)" : "var(--neutral-gray)",
+            color: "white",
+            opacity: isClearingSubscription || !organization.stripeSubscriptionId ? 0.5 : 1,
+            cursor: organization.stripeSubscriptionId ? "pointer" : "not-allowed",
+          }}
+        >
+          {isClearingSubscription ? (
+            <>
+              <Loader2 size={14} className="animate-spin" />
+              Clearing...
+            </>
+          ) : (
+            <>
+              <Trash2 size={14} />
+              Clear Subscription Data
+            </>
+          )}
+        </button>
+
+        {!organization.stripeSubscriptionId && (
+          <p className="text-xs mt-2" style={{ color: "var(--neutral-gray)" }}>
+            No subscription ID to clear.
+          </p>
+        )}
+      </div>
+
       {/* Quota Overrides */}
       <div
         className="border-2 p-4"
@@ -242,14 +413,10 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
           <button
             onClick={handleSaveQuotas}
             disabled={isSaving}
-            className="px-3 py-1.5 text-xs font-bold flex items-center gap-1 border-2"
+            className="beveled-button px-3 py-1.5 text-xs font-bold flex items-center gap-1"
             style={{
               background: "var(--success)",
               color: "white",
-              borderTopColor: "var(--win95-button-light)",
-              borderLeftColor: "var(--win95-button-light)",
-              borderBottomColor: "var(--win95-button-dark)",
-              borderRightColor: "var(--win95-button-dark)",
               opacity: isSaving ? 0.5 : 1,
             }}
           >

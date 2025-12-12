@@ -610,15 +610,10 @@ export function TransactionDetailModal({
             )}
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm font-semibold"
+              className="beveled-button px-4 py-2 text-sm font-semibold"
               style={{
                 backgroundColor: "var(--win95-button-face)",
                 color: "var(--win95-text)",
-                border: "2px solid",
-                borderTopColor: "var(--win95-button-light)",
-                borderLeftColor: "var(--win95-button-light)",
-                borderBottomColor: "var(--win95-button-dark)",
-                borderRightColor: "var(--win95-button-dark)",
               }}
             >
               Close

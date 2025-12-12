@@ -255,14 +255,10 @@ export function ManualGrantsHistory({
             <button
               onClick={handleMarkInvoiced}
               disabled={isMarking || !invoiceId.trim()}
-              className="px-4 py-2 text-sm font-bold border-2 flex items-center gap-2"
+              className="beveled-button px-4 py-2 text-sm font-bold flex items-center gap-2"
               style={{
                 background: isMarking || !invoiceId.trim() ? "var(--win95-bg-light)" : "var(--success)",
                 color: isMarking || !invoiceId.trim() ? "var(--neutral-gray)" : "white",
-                borderTopColor: "var(--win95-button-light)",
-                borderLeftColor: "var(--win95-button-light)",
-                borderBottomColor: "var(--win95-button-dark)",
-                borderRightColor: "var(--win95-button-dark)",
                 cursor: isMarking || !invoiceId.trim() ? "not-allowed" : "pointer",
               }}
             >

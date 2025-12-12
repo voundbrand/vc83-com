@@ -289,15 +289,10 @@ export function StripeSection({ organizationId, organization }: StripeSectionPro
           <button
             onClick={handleStartOnboarding}
             disabled={isOnboarding}
-            className="px-6 py-3 text-sm font-bold flex items-center gap-2"
+            className="beveled-button px-6 py-3 text-sm font-bold flex items-center gap-2"
             style={{
               backgroundColor: "var(--primary)",
               color: "white",
-              border: "2px solid",
-              borderTopColor: "var(--win95-button-light)",
-              borderLeftColor: "var(--win95-button-light)",
-              borderBottomColor: "var(--win95-button-dark)",
-              borderRightColor: "var(--win95-button-dark)",
             }}
           >
             {isOnboarding ? (

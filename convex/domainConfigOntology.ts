@@ -137,6 +137,10 @@ export const createDomainConfig = mutation({
     const license = await getLicenseInternal(ctx, args.organizationId);
     const maxDomains = license.limits.maxCustomDomains;
 
+    // 3b. CHECK FEATURE ACCESS: Custom domains require Professional+
+    const { checkFeatureAccess } = await import("./licensing/helpers");
+    await checkFeatureAccess(ctx, args.organizationId, "customDomainsEnabled");
+
     // 4. Count existing active domains
     const existingDomains = await ctx.db
       .query("objects")
@@ -656,11 +660,22 @@ export const verifyApiRequestWithDomain = internalQuery({
     origin: v.string(),
   },
   handler: async (ctx, args) => {
-    // 1. Verify API key exists and is active
-    const apiKeyRecord = await ctx.db
+    // 1. Verify API key exists and is active (hashed keys only)
+    if (!args.apiKey.startsWith("sk_live_") && !args.apiKey.startsWith("sk_test_")) {
+      return {
+        valid: false,
+        error: "Invalid API key format",
+        errorCode: "INVALID_API_KEY",
+      };
+    }
+
+    const keyPrefix = args.apiKey.substring(0, 12);
+    const possibleKeys = await ctx.db
       .query("apiKeys")
-      .withIndex("by_key", (q) => q.eq("key", args.apiKey))
-      .first();
+      .withIndex("by_key_prefix", (q) => q.eq("keyPrefix", keyPrefix))
+      .collect();
+
+    const apiKeyRecord = possibleKeys.find(k => k.status === "active");
 
     if (!apiKeyRecord) {
       return {

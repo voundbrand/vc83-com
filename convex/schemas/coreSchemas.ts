@@ -47,12 +47,12 @@ export const organizations = defineTable({
   slug: v.string(),                    // URL-friendly identifier
   businessName: v.string(),            // Legal business name
 
-  // Plan & status
+  // Plan & status (tier names matching licensing system)
   plan: v.union(
     v.literal("free"),
-    v.literal("pro"),
-    v.literal("personal"),
-    v.literal("business"),
+    v.literal("starter"),
+    v.literal("professional"),
+    v.literal("agency"),
     v.literal("enterprise")
   ),
   isPersonalWorkspace: v.boolean(),
@@ -61,6 +61,7 @@ export const organizations = defineTable({
   // Stripe Customer ID (for platform billing only - NOT Connect)
   // This is for when l4yercak3 charges the organization for subscriptions/usage
   stripeCustomerId: v.optional(v.string()),           // Stripe customer ID (cus_...)
+  stripeSubscriptionId: v.optional(v.string()),       // Active subscription ID (sub_...)
 
   // Multi-Provider Payment Integration
   paymentProviders: v.optional(v.array(v.object({
@@ -138,15 +139,31 @@ export const sessions = defineTable({
   .index("by_email_org", ["email", "organizationId"]); // Fast lookup by email within org context
 
 // Frontend customer sessions (separate table for clean separation)
+// Used by external portals (freelancer portals, client dashboards, etc.)
 export const frontendSessions = defineTable({
-  frontendUserId: v.id("objects"), // Frontend customer user (REQUIRED)
-  email: v.string(),
+  sessionId: v.string(), // Unique session identifier (UUID)
+  frontendUserId: v.id("objects"), // Frontend customer user (REQUIRED) - maps to CRM contact
+  contactEmail: v.string(), // Contact email (for quick lookup)
   organizationId: v.id("organizations"), // Customer's organization (from API key)
+
+  // Portal context
+  portalType: v.optional(v.string()), // "freelancer_portal", "client_portal", etc.
+  portalUrl: v.optional(v.string()), // URL of the deployed portal
+  invitationId: v.optional(v.id("objects")), // Link to portal_invitation object
+
+  // Session timing
   createdAt: v.number(),
   expiresAt: v.number(),
+  lastActivityAt: v.optional(v.number()), // Track last activity for auto-logout
+
+  // Security tracking
+  userAgent: v.optional(v.string()),
+  ipAddress: v.optional(v.string()),
 })
   .index("by_frontend_user", ["frontendUserId"])
-  .index("by_email_org", ["email", "organizationId"]); // Fast lookup by email within org context
+  .index("by_session_id", ["sessionId"])
+  .index("by_email_org", ["contactEmail", "organizationId"]) // Fast lookup by email within org context
+  .index("by_expiry", ["expiresAt"]); // For cleanup of expired sessions
 
 // Passkeys (WebAuthn) - Multi-factor authentication
 export const passkeys = defineTable({
@@ -193,15 +210,30 @@ export const passkeysChallenges = defineTable({
   .index("by_user_type", ["userId", "type"])
   .index("by_expiry", ["expiresAt"]);
 
-// API Keys - Enterprise API authentication
+// API Keys - Enterprise API authentication (Stripe security model)
 export const apiKeys = defineTable({
-  // Key format: org_{organizationId}_{random32chars}
-  key: v.string(),                    // Full API key
-  name: v.string(),                   // Human-readable name ("Medical Network Integration")
+  // Key storage (NEVER store plaintext!)
+  // Format: sk_live_{32_random_bytes} or sk_test_{32_random_bytes}
+  keyHash: v.string(),                 // Hashed key (bcrypt)
+  keyPrefix: v.string(),               // First 12 chars (e.g., "sk_live_4f3a") for identification
+
+  name: v.string(),                    // Human-readable name ("Freelancer Portal Template")
 
   // Ownership
   organizationId: v.id("organizations"),
-  createdBy: v.id("users"),           // User who generated the key
+  createdBy: v.id("users"),            // User who generated the key
+
+  // Security: Scoped Permissions (following Stripe/GitHub model)
+  scopes: v.array(v.string()),         // ["contacts:read", "contacts:write", "invoices:read"]
+                                       // Use ["*"] for full access (dangerous!)
+  type: v.union(                       // API key type
+    v.literal("simple"),               // Simple long-lived key (95% of users)
+    v.literal("oauth")                 // OAuth application key (5% of users)
+  ),
+
+  // Security: Domain Restrictions (like CORS)
+  allowedDomains: v.optional(v.array(v.string())), // ["https://my-app.com", "http://localhost:3000"]
+  allowedIPs: v.optional(v.array(v.string())),     // Optional IP whitelist (rare use case)
 
   // Status
   status: v.union(
@@ -211,7 +243,12 @@ export const apiKeys = defineTable({
 
   // Usage tracking
   lastUsed: v.optional(v.number()),
+  lastUsedFrom: v.optional(v.string()), // IP address or domain
   requestCount: v.optional(v.number()), // Total requests made with this key
+
+  // Expiration & Rotation
+  expiresAt: v.optional(v.number()),              // Optional expiration (default: never)
+  rotationWarningShownAt: v.optional(v.number()), // After 90 days, remind user to rotate
 
   // Revocation
   revokedAt: v.optional(v.number()),
@@ -221,10 +258,11 @@ export const apiKeys = defineTable({
   // Metadata
   createdAt: v.number(),
 })
-  .index("by_key", ["key"])                    // Fast lookup for API authentication
+  .index("by_key_prefix", ["keyPrefix"])        // Fast lookup for hashed keys
   .index("by_organization", ["organizationId"]) // List organization's keys
   .index("by_organization_status", ["organizationId", "status"]) // Active keys only
-  .index("by_status", ["status"]);             // All active keys
+  .index("by_status", ["status"])               // All active keys
+  .index("by_last_used", ["lastUsed"]);         // Find inactive keys for cleanup
 
 // Role-Based Access Control (RBAC) Tables
 export const roles = defineTable({

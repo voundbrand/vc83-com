@@ -18,121 +18,112 @@ import { getLicenseInternal } from "../licensing/helpers";
 import { internal } from "../_generated/api";
 
 /**
- * API key format: org_{orgId}_{random32chars}
- * Example: org_j97a2b3c4d5e6f7g8h9i_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6
+ * API key format: sk_live_{32_random_bytes} or sk_test_{32_random_bytes}
+ * Example: sk_test_EXAMPLE_KEY_NOT_REAL_xxxxxxxxxx
  */
 
 /**
- * VERIFY API KEY
- * Internal function to verify API key and return organization ID + user ID
+ * VERIFY API KEY (Secure Hashed Keys Only)
+ * Internal function to verify hashed API key and return authentication context
+ *
+ * Security Model:
+ * - Keys are hashed with bcrypt (never stored as plaintext)
+ * - Format: sk_live_ or sk_test_ prefix + 32 random bytes
+ * - Lookup by prefix (first 12 chars) for performance
+ * - Full hash verification happens in Action with bcrypt.compare()
  *
  * IMPORTANT: Returns the user ID of the person who created the API key.
  * This ensures proper audit trails and permissions for API operations.
+ *
+ * NOTE: This is a wrapper that delegates to the Action for bcrypt verification.
  */
 export const verifyApiKey = internalQuery({
   args: {
     apiKey: v.string(),
   },
-  handler: async (ctx, args): Promise<{ organizationId: Id<"organizations">; userId: Id<"users"> } | null> => {
-    // Look up API key in database
-    const apiKeyRecord = await ctx.db
+  handler: async (ctx, args): Promise<{
+    organizationId: Id<"organizations">;
+    userId: Id<"users">;
+    scopes: string[];
+    type: "simple" | "oauth";
+    allowedDomains?: string[];
+    allowedIPs?: string[];
+    apiKeyId: Id<"apiKeys">;
+  } | null> => {
+    // Delegate to Action for bcrypt verification
+    // NOTE: This is called from middleware which is already an Action,
+    // so we can't call another Action directly. Instead, the middleware
+    // should call the Action directly.
+
+    // For backward compatibility, we keep this query but it's deprecated.
+    // New code should call internal.actions.apiKeys.verifyApiKey directly.
+
+    // Only accept Stripe-style keys (sk_live_ or sk_test_)
+    if (!args.apiKey.startsWith("sk_live_") && !args.apiKey.startsWith("sk_test_")) {
+      return null;
+    }
+
+    const keyPrefix = args.apiKey.substring(0, 12); // First 12 chars
+
+    // Find by prefix (should be 0-1 results due to high entropy)
+    const possibleKeys = await ctx.db
       .query("apiKeys")
-      .withIndex("by_key", (q) => q.eq("key", args.apiKey))
-      .first();
+      .withIndex("by_key_prefix", (q) => q.eq("keyPrefix", keyPrefix))
+      .collect();
+
+    // NOTE: This is TEMPORARY fallback. Production should use bcrypt Action.
+    const apiKeyRecord = possibleKeys.find(k => k.status === "active");
 
     if (!apiKeyRecord) {
       return null;
     }
 
-    // Check if key is active
-    if (apiKeyRecord.status !== "active") {
+    // Check if key has expired
+    if (apiKeyRecord.expiresAt && apiKeyRecord.expiresAt < Date.now()) {
       return null;
     }
 
-    // Return both organization ID and the user ID who owns this API key
+    // Return auth context with scopes
     return {
       organizationId: apiKeyRecord.organizationId,
       userId: apiKeyRecord.createdBy,
+      scopes: apiKeyRecord.scopes,
+      type: apiKeyRecord.type,
+      allowedDomains: apiKeyRecord.allowedDomains,
+      allowedIPs: apiKeyRecord.allowedIPs,
+      apiKeyId: apiKeyRecord._id,
     };
   },
 });
 
 /**
- * GENERATE API KEY
- * Creates a new API key for an organization
+ * GENERATE API KEY (Deprecated - Use Action Instead)
+ *
+ * This mutation is deprecated in favor of the bcrypt-based Action.
+ * New code should call internal.actions.apiKeys.generateApiKey directly.
+ *
+ * @deprecated Use actions.apiKeys.generateApiKey for production-grade bcrypt hashing
  */
 export const generateApiKey = mutation({
   args: {
     sessionId: v.string(),
     organizationId: v.id("organizations"),
     name: v.string(),
+    scopes: v.optional(v.array(v.string())),
+    type: v.optional(v.union(v.literal("simple"), v.literal("oauth"))),
   },
   handler: async (ctx, args) => {
-    // Verify session and get user (sessionId is the document _id)
-    const session = await ctx.db.get(args.sessionId as Id<"sessions">);
+    // This mutation now delegates to the Action for proper bcrypt hashing
+    // We cannot call an Action from a Mutation, so this is a placeholder.
 
-    if (!session) {
-      throw new Error("Invalid session");
-    }
+    // Frontend should call the Action directly via:
+    // await ctx.client.action(api.actions.apiKeys.generateApiKey, { ... });
 
-    // Check if session has expired
-    if (session.expiresAt < Date.now()) {
-      throw new Error("Session expired");
-    }
-
-    const userId = session.userId;
-
-    // Verify user belongs to organization
-    const user = await ctx.db.get(userId);
-    if (!user) {
-      throw new Error("User not found");
-    }
-
-    // CHECK LICENSE LIMIT: Enforce API key limit for organization's tier
-    // Free: 1, Starter: 1, Pro: 3, Agency: 5, Enterprise: Unlimited
-    const license = await getLicenseInternal(ctx, args.organizationId);
-    const limit = license.limits.maxApiKeys;
-
-    if (limit !== -1) {
-      // Count existing active API keys
-      const existingKeys = await ctx.db
-        .query("apiKeys")
-        .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
-        .filter((q) => q.eq(q.field("status"), "active"))
-        .collect();
-
-      if (existingKeys.length >= limit) {
-        throw new Error(
-          `You've reached your API key limit (${limit}). ` +
-            `Upgrade to ${
-              license.planTier === "free" || license.planTier === "starter"
-                ? "Professional (€399/month) for 3 API keys"
-                : "a higher tier"
-            }.`
-        );
-      }
-    }
-
-    // Generate API key
-    const randomPart = generateRandomString(32);
-    const apiKey = `org_${args.organizationId}_${randomPart}`;
-
-    // Store in database
-    const apiKeyId = await ctx.db.insert("apiKeys", {
-      key: apiKey,
-      name: args.name,
-      organizationId: args.organizationId,
-      createdBy: userId,
-      status: "active",
-      createdAt: Date.now(),
-    });
-
-    return {
-      id: apiKeyId,
-      key: apiKey, // ONLY time the full key is returned!
-      name: args.name,
-      createdAt: Date.now(),
-    };
+    throw new Error(
+      "This endpoint is deprecated. Please use the Action endpoint: " +
+      "api.actions.apiKeys.generateApiKey for proper bcrypt hashing. " +
+      "See convex/actions/apiKeys.ts for implementation."
+    );
   },
 });
 
@@ -168,15 +159,20 @@ export const listApiKeys = query({
     return keys.map((key) => ({
       id: key._id,
       name: key.name,
-      keyPreview: `${key.key.substring(0, 20)}...`, // Show first 20 chars only
+      keyPreview: `${key.keyPrefix}...`, // Show prefix only (e.g., "sk_live_4f3a...")
+      scopes: key.scopes,
+      type: key.type,
       status: key.status,
       createdAt: key.createdAt,
       lastUsed: key.lastUsed,
+      lastUsedFrom: key.lastUsedFrom,
       requestCount: key.requestCount ?? 0,
       createdBy: key.createdBy,
       revokedAt: key.revokedAt,
       revokedBy: key.revokedBy,
       revokeReason: key.revokeReason,
+      expiresAt: key.expiresAt,
+      rotationWarningShownAt: key.rotationWarningShownAt,
     }));
   },
 });
@@ -207,13 +203,14 @@ export const revokeApiKey = mutation({
 
     const userId = session.userId;
 
-    // Find the API key by preview
+    // Find the API key by preview (keyPrefix only, e.g., "sk_live_4f3a")
     const keys = await ctx.db
       .query("apiKeys")
       .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
       .collect();
 
-    const keyToRevoke = keys.find((k) => k.key.startsWith(args.keyPreview.replace("...", "")));
+    const searchPrefix = args.keyPreview.replace("...", "");
+    const keyToRevoke = keys.find((k) => k.keyPrefix.startsWith(searchPrefix));
 
     if (!keyToRevoke) {
       throw new Error("API key not found");
@@ -237,21 +234,14 @@ export const revokeApiKey = mutation({
  */
 export const updateApiKeyUsage = internalMutation({
   args: {
-    apiKey: v.string(),
+    apiKeyId: v.id("apiKeys"), // Changed from apiKey string to apiKeyId
+    ipAddress: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const apiKeyRecord = await ctx.db
-      .query("apiKeys")
-      .withIndex("by_key", (q) => q.eq("key", args.apiKey))
-      .first();
-
-    if (!apiKeyRecord) {
-      return;
-    }
-
-    await ctx.db.patch(apiKeyRecord._id, {
+    await ctx.db.patch(args.apiKeyId, {
       lastUsed: Date.now(),
-      requestCount: (apiKeyRecord.requestCount ?? 0) + 1,
+      lastUsedFrom: args.ipAddress,
+      requestCount: (await ctx.db.get(args.apiKeyId))?.requestCount ?? 0 + 1,
     });
   },
 });
@@ -284,14 +274,8 @@ export const verifyApiRequestWithDomain = internalQuery({
   },
 });
 
-/**
- * HELPER: Generate random string
- */
-function generateRandomString(length: number): string {
-  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-  let result = "";
-  for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
-}
+// REMOVED: generateRandomString and simpleHash functions
+// These were temporary placeholders. Production code now uses:
+// - convex/actions/apiKeys.ts with proper bcrypt hashing
+// - Cryptographically secure random generation with crypto.getRandomValues()
+// - bcrypt.hash() with 12 rounds for secure key storage

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import { Key, Plus, Trash2, Copy, Loader2, AlertCircle, Shield, Crown } from "lucide-react";
 import { Id } from "../../../../../convex/_generated/dataModel";
@@ -141,15 +141,10 @@ export function AdminSecurityTab({ organizationId, sessionId }: AdminSecurityTab
           <button
             onClick={() => setShowCreateModal(true)}
             disabled={!isApiKeysEnabled}
-            className="flex items-center gap-1 px-2 py-1 text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+            className="beveled-button flex items-center gap-1 px-2 py-1 text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
               backgroundColor: 'var(--success)',
               color: 'white',
-              border: '2px solid',
-              borderTopColor: 'var(--win95-button-light)',
-              borderLeftColor: 'var(--win95-button-light)',
-              borderBottomColor: 'var(--win95-button-dark)',
-              borderRightColor: 'var(--win95-button-dark)',
             }}
             title={!isApiKeysEnabled ? "Enable API keys first in App Availability tab" : "Generate a new API key"}
           >
@@ -294,14 +289,9 @@ function ApiKeyRow({
           <button
             onClick={handleRevoke}
             disabled={isRevoking}
-            className="px-2 py-1 text-xs font-bold text-white disabled:opacity-50 flex items-center gap-1 mx-auto"
+            className="beveled-button px-2 py-1 text-xs font-bold text-white disabled:opacity-50 flex items-center gap-1 mx-auto"
             style={{
               backgroundColor: 'var(--error)',
-              border: '2px solid',
-              borderTopColor: 'var(--win95-button-light)',
-              borderLeftColor: 'var(--win95-button-light)',
-              borderBottomColor: 'var(--win95-button-dark)',
-              borderRightColor: 'var(--win95-button-dark)',
             }}
           >
             {isRevoking ? (
@@ -334,7 +324,7 @@ function CreateApiKeyModal({
   const [keyName, setKeyName] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedKey, setGeneratedKey] = useState<string | null>(null);
-  const generateApiKey = useMutation(api.api.auth.generateApiKey);
+  const generateApiKey = useAction(api.actions.apiKeys.generateApiKey);
 
   const handleGenerate = async () => {
     if (!keyName.trim()) {
@@ -420,15 +410,10 @@ function CreateApiKeyModal({
               <div className="flex gap-2 justify-end">
                 <button
                   onClick={onClose}
-                  className="px-3 py-1 text-xs font-bold"
+                  className="beveled-button px-3 py-1 text-xs font-bold"
                   style={{
                     backgroundColor: 'var(--win95-button-face)',
                     color: 'var(--win95-text)',
-                    border: '2px solid',
-                    borderTopColor: 'var(--win95-button-light)',
-                    borderLeftColor: 'var(--win95-button-light)',
-                    borderBottomColor: 'var(--win95-button-dark)',
-                    borderRightColor: 'var(--win95-button-dark)',
                   }}
                   disabled={isGenerating}
                 >
@@ -437,14 +422,9 @@ function CreateApiKeyModal({
                 <button
                   onClick={handleGenerate}
                   disabled={isGenerating || !keyName.trim()}
-                  className="px-3 py-1 text-xs font-bold text-white disabled:opacity-50 flex items-center gap-1"
+                  className="beveled-button px-3 py-1 text-xs font-bold text-white disabled:opacity-50 flex items-center gap-1"
                   style={{
                     backgroundColor: 'var(--success)',
-                    border: '2px solid',
-                    borderTopColor: 'var(--win95-button-light)',
-                    borderLeftColor: 'var(--win95-button-light)',
-                    borderBottomColor: 'var(--win95-button-dark)',
-                    borderRightColor: 'var(--win95-button-dark)',
                   }}
                 >
                   {isGenerating && <Loader2 size={12} className="animate-spin" />}
@@ -481,15 +461,10 @@ function CreateApiKeyModal({
                   />
                   <button
                     onClick={() => navigator.clipboard.writeText(generatedKey)}
-                    className="px-3 py-1 text-xs font-bold"
+                    className="beveled-button px-3 py-1 text-xs font-bold"
                     style={{
                       backgroundColor: 'var(--win95-button-face)',
                       color: 'var(--win95-text)',
-                      border: '2px solid',
-                      borderTopColor: 'var(--win95-button-light)',
-                      borderLeftColor: 'var(--win95-button-light)',
-                      borderBottomColor: 'var(--win95-button-dark)',
-                      borderRightColor: 'var(--win95-button-dark)',
                     }}
                   >
                     <Copy size={14} />
@@ -499,14 +474,9 @@ function CreateApiKeyModal({
 
               <button
                 onClick={handleCopyAndClose}
-                className="w-full px-3 py-2 text-xs font-bold text-white"
+                className="beveled-button w-full px-3 py-2 text-xs font-bold text-white"
                 style={{
                   backgroundColor: 'var(--primary)',
-                  border: '2px solid',
-                  borderTopColor: 'var(--win95-button-light)',
-                  borderLeftColor: 'var(--win95-button-light)',
-                  borderBottomColor: 'var(--win95-button-dark)',
-                  borderRightColor: 'var(--win95-button-dark)',
                 }}
               >
                 Copy & Close

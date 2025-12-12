@@ -62,6 +62,7 @@ import { internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser } from "./rbacHelpers";
+import { checkResourceLimit, checkFeatureAccess } from "./licensing/helpers";
 
 /**
  * GET PRODUCTS
@@ -324,6 +325,10 @@ export const createProduct = mutation({
   handler: async (ctx, args) => {
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
+    // CHECK LICENSE LIMIT: Enforce product limit for organization's tier
+    // Free: 5, Starter: 50, Pro: 200, Agency: Unlimited, Enterprise: Unlimited
+    await checkResourceLimit(ctx, args.organizationId, "product", "maxProducts");
+
     // Validate subtype
     const validSubtypes = ["ticket", "physical", "digital"];
     if (!validSubtypes.includes(args.subtype)) {
@@ -448,6 +453,11 @@ export const updateProduct = mutation({
       // ⚠️ CRITICAL FIX: When args.customProperties is provided, it should COMPLETELY
       // replace the nested properties, not merge them. This is especially important
       // for arrays like 'addons' where deletions need to persist.
+      // CHECK FEATURE ACCESS: Inventory tracking requires Starter tier or higher
+      if (args.inventory !== undefined && args.inventory !== null) {
+        await checkFeatureAccess(ctx, product.organizationId, "inventoryTrackingEnabled");
+      }
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const updatedCustomProperties: Record<string, any> = {
         ...currentProps,
@@ -467,6 +477,8 @@ export const updateProduct = mutation({
 
       // Handle invoiceConfig updates
       if (args.invoiceConfig !== undefined) {
+        // CHECK FEATURE ACCESS: B2B invoicing requires Starter tier or higher
+        await checkFeatureAccess(ctx, product.organizationId, "b2bInvoicingEnabled");
         updatedCustomProperties.invoiceConfig = args.invoiceConfig;
       }
 

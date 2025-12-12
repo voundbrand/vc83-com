@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, User, Shield, Save, AlertCircle, Mail, Trash2 } from "lucide-react";
+import { X, User, Shield, Save, AlertCircle, Mail, Trash2, Clock } from "lucide-react";
 import { useMutation, useQuery, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
@@ -421,8 +421,8 @@ export function UserEditModal({
 
               {/* Danger Zone - Only shown when editing self */}
               {isEditingSelf && (
-                <div className="mt-8 pt-6 border-t-2" style={{ borderColor: currentUser?.scheduledDeletionDate ? "var(--warning)" : "var(--error)" }}>
-                  <h4 className="text-sm font-bold mb-2 flex items-center gap-2" style={{ color: currentUser?.scheduledDeletionDate ? "var(--warning)" : "var(--error)" }}>
+                <div className="mt-8 pt-6 border-t-2" style={{ borderColor: currentUser?.scheduledDeletionDate ? "var(--warning)" : "#D97706" }}>
+                  <h4 className="text-sm font-bold mb-2 flex items-center gap-2" style={{ color: currentUser?.scheduledDeletionDate ? "var(--warning)" : "#D97706" }}>
                     <AlertCircle size={16} />
                     {currentUser?.scheduledDeletionDate ? "Account Restoration" : t("ui.manage.delete_account.danger_zone")}
                   </h4>
@@ -450,15 +450,10 @@ export function UserEditModal({
                         type="button"
                         onClick={handleRestoreAccount}
                         disabled={isSubmitting}
-                        className="px-4 py-2 text-sm font-semibold flex items-center gap-2 disabled:opacity-50"
+                        className="beveled-button px-4 py-2 text-sm font-semibold flex items-center gap-2 disabled:opacity-50"
                         style={{
                           backgroundColor: "var(--success)",
                           color: "white",
-                          border: "2px solid",
-                          borderTopColor: "var(--win95-button-light)",
-                          borderLeftColor: "var(--win95-button-light)",
-                          borderBottomColor: "var(--win95-button-dark)",
-                          borderRightColor: "var(--win95-button-dark)",
                         }}
                       >
                         <svg
@@ -488,18 +483,13 @@ export function UserEditModal({
                       <button
                         type="button"
                         onClick={() => setShowDeleteAccountModal(true)}
-                        className="px-4 py-2 text-sm font-semibold flex items-center gap-2"
+                        className="beveled-button px-4 py-2 text-sm font-semibold flex items-center gap-2"
                         style={{
-                          backgroundColor: "var(--error)",
+                          backgroundColor: "#D97706", // Warning orange for soft delete
                           color: "white",
-                          border: "2px solid",
-                      borderTopColor: "var(--win95-button-light)",
-                      borderLeftColor: "var(--win95-button-light)",
-                      borderBottomColor: "var(--win95-button-dark)",
-                      borderRightColor: "var(--win95-button-dark)",
-                    }}
-                  >
-                    <Trash2 size={14} />
+                        }}
+                      >
+                    <Clock size={14} />
                     {t("ui.manage.delete_account.button_text")}
                   </button>
                     </>
@@ -514,15 +504,10 @@ export function UserEditModal({
                       type="button"
                       onClick={handleResendInvitation}
                       disabled={isResending}
-                      className="px-4 py-1.5 text-sm font-semibold flex items-center gap-2 disabled:opacity-50"
+                      className="beveled-button px-4 py-1.5 text-sm font-semibold flex items-center gap-2 disabled:opacity-50"
                       style={{
                         backgroundColor: "var(--win95-highlight)",
                         color: "white",
-                        border: "2px solid",
-                        borderTopColor: "var(--win95-button-light)",
-                        borderLeftColor: "var(--win95-button-light)",
-                        borderBottomColor: "var(--win95-button-dark)",
-                        borderRightColor: "var(--win95-button-dark)",
                       }}
                     >
                       <Mail size={14} />
@@ -536,15 +521,10 @@ export function UserEditModal({
                     type="button"
                     onClick={onClose}
                     disabled={isSubmitting}
-                    className="px-4 py-1.5 text-sm font-semibold"
+                    className="beveled-button px-4 py-1.5 text-sm font-semibold"
                     style={{
                       backgroundColor: "var(--win95-button-face)",
                       color: "var(--win95-text)",
-                      border: "2px solid",
-                      borderTopColor: "var(--win95-button-light)",
-                      borderLeftColor: "var(--win95-button-light)",
-                      borderBottomColor: "var(--win95-button-dark)",
-                      borderRightColor: "var(--win95-button-dark)",
                     }}
                   >
                     Cancel
@@ -552,15 +532,10 @@ export function UserEditModal({
                   <button
                     type="submit"
                     disabled={isSubmitting || (!canEditProfile && !canEditRole)}
-                    className="px-4 py-1.5 text-sm font-semibold disabled:opacity-50 flex items-center gap-2"
+                    className="beveled-button px-4 py-1.5 text-sm font-semibold disabled:opacity-50 flex items-center gap-2"
                     style={{
                       backgroundColor: "var(--primary)",
                       color: "white",
-                      border: "2px solid",
-                      borderTopColor: "var(--win95-button-light)",
-                      borderLeftColor: "var(--win95-button-light)",
-                      borderBottomColor: "var(--win95-button-dark)",
-                      borderRightColor: "var(--win95-button-dark)",
                     }}
                   >
                     <Save size={14} />

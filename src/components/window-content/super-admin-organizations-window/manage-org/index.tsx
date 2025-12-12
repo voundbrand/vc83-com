@@ -325,15 +325,10 @@ export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
                       <button
                         onClick={handleCancelEdit}
                         disabled={isSavingOrg}
-                        className="px-3 py-1 text-xs font-semibold flex items-center gap-1"
+                        className="beveled-button px-3 py-1 text-xs font-semibold flex items-center gap-1"
                         style={{
                           backgroundColor: "var(--win95-button-face)",
                           color: "var(--win95-text)",
-                          border: "2px solid",
-                          borderTopColor: "var(--win95-button-light)",
-                          borderLeftColor: "var(--win95-button-light)",
-                          borderBottomColor: "var(--win95-button-dark)",
-                          borderRightColor: "var(--win95-button-dark)",
                         }}
                       >
                         <X size={12} />
@@ -430,15 +425,10 @@ export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
                           }
                         }}
                         disabled={isSavingOrg}
-                        className="px-3 py-1 text-xs font-semibold flex items-center gap-1"
+                        className="beveled-button px-3 py-1 text-xs font-semibold flex items-center gap-1"
                         style={{
                           backgroundColor: "var(--success)",
                           color: "white",
-                          border: "2px solid",
-                          borderTopColor: "var(--win95-button-light)",
-                          borderLeftColor: "var(--win95-button-light)",
-                          borderBottomColor: "var(--win95-button-dark)",
-                          borderRightColor: "var(--win95-button-dark)",
                         }}
                       >
                         <Save size={12} />
@@ -448,15 +438,10 @@ export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
                   ) : (
                     <button
                       onClick={() => setIsEditingOrg(true)}
-                      className="px-3 py-1 text-xs font-semibold flex items-center gap-1"
+                      className="beveled-button px-3 py-1 text-xs font-semibold flex items-center gap-1"
                       style={{
                         backgroundColor: "var(--primary)",
                         color: "white",
-                        border: "2px solid",
-                        borderTopColor: "var(--win95-button-light)",
-                        borderLeftColor: "var(--win95-button-light)",
-                        borderBottomColor: "var(--win95-button-dark)",
-                        borderRightColor: "var(--win95-button-dark)",
                       }}
                     >
                       <Edit2 size={12} />
@@ -489,15 +474,10 @@ export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
                     setEditingAddress(undefined);
                     setIsAddressModalOpen(true);
                   }}
-                  className="px-3 py-1.5 text-xs font-semibold flex items-center gap-1"
+                  className="beveled-button px-3 py-1.5 text-xs font-semibold flex items-center gap-1"
                   style={{
                     backgroundColor: "var(--success)",
                     color: "white",
-                    border: "2px solid",
-                    borderTopColor: "var(--win95-button-light)",
-                    borderLeftColor: "var(--win95-button-light)",
-                    borderBottomColor: "var(--win95-button-dark)",
-                    borderRightColor: "var(--win95-button-dark)",
                   }}
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -514,15 +494,10 @@ export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
                       setEditingAddress(undefined);
                       setIsAddressModalOpen(true);
                     }}
-                    className="mt-4 px-4 py-2 text-sm font-semibold"
+                    className="beveled-button mt-4 px-4 py-2 text-sm font-semibold"
                     style={{
                       backgroundColor: "var(--primary)",
                       color: "white",
-                      border: "2px solid",
-                      borderTopColor: "var(--win95-button-light)",
-                      borderLeftColor: "var(--win95-button-light)",
-                      borderBottomColor: "var(--win95-button-dark)",
-                      borderRightColor: "var(--win95-button-dark)",
                     }}
                   >
                     {t("ui.manage.org.add_first_address")}

@@ -123,6 +123,42 @@ const TemplatesWindow = lazy(() =>
   import("@/components/window-content/templates-window").then(m => ({ default: m.TemplatesWindow }))
 );
 
+const IntegrationsWindow = lazy(() =>
+  import("@/components/window-content/integrations-window").then(m => ({ default: m.IntegrationsWindow }))
+);
+
+const OAuthTutorialWindow = lazy(() =>
+  import("@/components/window-content/oauth-tutorial-window").then(m => ({ default: m.OAuthTutorialWindow }))
+);
+
+const TutorialsDocsWindow = lazy(() =>
+  import("@/components/window-content/tutorials-docs-window").then(m => ({ default: m.TutorialsDocsWindow }))
+);
+
+const TutorialWindow = lazy(() =>
+  import("@/components/window-content/tutorial-window").then(m => ({ default: m.TutorialWindow }))
+);
+
+const LoginWindow = lazy(() =>
+  import("@/components/window-content/login-window").then(m => ({ default: m.LoginWindow }))
+);
+
+const ProjectsWindow = lazy(() =>
+  import("@/components/window-content/projects-window").then(m => ({ default: m.ProjectsWindow }))
+);
+
+const CheckoutSuccessWindow = lazy(() =>
+  import("@/components/window-content/checkout-success-window").then(m => ({ default: m.CheckoutSuccessWindow }))
+);
+
+const CheckoutFailedWindow = lazy(() =>
+  import("@/components/window-content/checkout-failed-window").then(m => ({ default: m.CheckoutFailedWindow }))
+);
+
+const OnboardingWelcomeScreen = lazy(() =>
+  import("@/components/onboarding-welcome-screen").then(m => ({ default: m.OnboardingWelcomeScreen }))
+);
+
 /**
  * Registry of all available windows
  */
@@ -399,6 +435,130 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
       icon: "📋",
       position: { x: 150, y: 100 },
       size: { width: 1100, height: 700 }
+    }
+  },
+
+  "integrations": {
+    createComponent: () => <IntegrationsWindow />,
+    defaultConfig: {
+      title: "Integrations & API",
+      titleKey: "ui.windows.integrations.title",
+      icon: "🔗",
+      position: { x: 150, y: 100 },
+      size: { width: 900, height: 650 }
+    }
+  },
+
+  "oauth-tutorial": {
+    createComponent: (props) => <OAuthTutorialWindow {...(props as any)} />,
+    defaultConfig: {
+      title: "OAuth Setup Tutorial",
+      titleKey: "ui.windows.oauth_tutorial.title",
+      icon: "🔐",
+      position: { x: 200, y: 100 },
+      size: { width: 700, height: 600 }
+    }
+  },
+
+  "tutorials-docs": {
+    createComponent: () => <TutorialsDocsWindow />,
+    defaultConfig: {
+      title: "Tutorials & Docs",
+      titleKey: "ui.windows.tutorials_docs.title",
+      icon: "📚",
+      position: { x: 150, y: 80 },
+      size: { width: 1000, height: 700 }
+    }
+  },
+
+  "login": {
+    createComponent: () => <LoginWindow />,
+    defaultConfig: {
+      title: "User Account",
+      titleKey: "ui.app.user_account",
+      icon: "👤",
+      position: { x: 250, y: 60 },
+      size: { width: 450, height: 720 }
+    }
+  },
+
+  "projects": {
+    createComponent: () => <ProjectsWindow />,
+    defaultConfig: {
+      title: "Projects",
+      titleKey: "ui.app.projects",
+      icon: "💼",
+      position: { x: 240, y: 75 },
+      size: { width: 1000, height: 700 }
+    }
+  },
+
+  "checkout-app": {
+    createComponent: () => <CheckoutWindow />,
+    defaultConfig: {
+      title: "Checkout Manager",
+      titleKey: "ui.app.checkout",
+      icon: "🛒",
+      position: { x: 200, y: 50 },
+      size: { width: 900, height: 650 }
+    }
+  },
+
+  "platform-cart": {
+    createComponent: () => <PlatformCartWindow />,
+    defaultConfig: {
+      title: "Cart",
+      icon: "🛒",
+      position: { x: 1000, y: 100 },
+      size: { width: 380, height: 500 }
+    }
+  },
+
+  "checkout-success": {
+    createComponent: () => <CheckoutSuccessWindow />,
+    defaultConfig: {
+      title: "Order Complete",
+      titleKey: "ui.app.checkout",
+      icon: "✅",
+      position: { x: 400, y: 100 },
+      size: { width: 600, height: 650 }
+    }
+  },
+
+  "checkout-failed": {
+    createComponent: (props) => <CheckoutFailedWindow {...(props as any)} />,
+    defaultConfig: {
+      title: "Checkout Failed",
+      icon: "❌",
+      position: { x: 400, y: 100 },
+      size: { width: 600, height: 600 }
+    }
+  },
+
+  "onboarding-welcome": {
+    createComponent: (props) => <OnboardingWelcomeScreen {...(props as any)} />,
+    defaultConfig: {
+      title: "Welcome",
+      titleKey: "ui.windows.onboarding_welcome.title",
+      icon: "👋",
+      position: { x: 250, y: 100 },
+      size: { width: 900, height: 700 }
+    }
+  },
+
+  "tutorial-welcome": {
+    createComponent: (props) => {
+      // Note: onAction and onClose callbacks cannot be serialized in sessionStorage
+      // They will be lost on page refresh. Tutorial should be re-triggered on refresh.
+      const onAction = (props as any)?.onAction;
+      const onClose = (props as any)?.onClose || (() => {});
+      return <TutorialWindow tutorialId="welcome" onClose={onClose} onAction={onAction} />;
+    },
+    defaultConfig: {
+      title: "Tutorial",
+      icon: "🎂",
+      position: { x: 250, y: 80 },
+      size: { width: 800, height: 650 }
     }
   }
 };

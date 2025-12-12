@@ -165,30 +165,20 @@ export function RolesPermissionsEditTab() {
         <div className="flex gap-1">
           <button
             onClick={() => setViewMode("roles")}
-            className="px-3 py-1 text-xs font-semibold"
+            className="beveled-button px-3 py-1 text-xs font-semibold"
             style={{
               backgroundColor: viewMode === "roles" ? "var(--primary)" : "var(--win95-button-face)",
               color: viewMode === "roles" ? "white" : "var(--win95-text)",
-              border: "2px solid",
-              borderTopColor: "var(--win95-button-light)",
-              borderLeftColor: "var(--win95-button-light)",
-              borderBottomColor: "var(--win95-button-dark)",
-              borderRightColor: "var(--win95-button-dark)",
             }}
           >
             By Role
           </button>
           <button
             onClick={() => setViewMode("matrix")}
-            className="px-3 py-1 text-xs font-semibold"
+            className="beveled-button px-3 py-1 text-xs font-semibold"
             style={{
               backgroundColor: viewMode === "matrix" ? "var(--primary)" : "var(--win95-button-face)",
               color: viewMode === "matrix" ? "white" : "var(--win95-text)",
-              border: "2px solid",
-              borderTopColor: "var(--win95-button-light)",
-              borderLeftColor: "var(--win95-button-light)",
-              borderBottomColor: "var(--win95-button-dark)",
-              borderRightColor: "var(--win95-button-dark)",
             }}
           >
             Matrix View
@@ -279,15 +269,10 @@ export function RolesPermissionsEditTab() {
                       <PermissionGuard permission="manage_roles" mode="hide">
                         <button
                           onClick={() => setEditingRole(isEditing ? null : role._id)}
-                          className="px-2 py-1 text-xs flex items-center gap-1"
+                          className="beveled-button px-2 py-1 text-xs flex items-center gap-1"
                           style={{
                             backgroundColor: isEditing ? "var(--warning)" : "var(--primary)",
                             color: "white",
-                            border: "2px solid",
-                            borderTopColor: "var(--win95-button-light)",
-                            borderLeftColor: "var(--win95-button-light)",
-                            borderBottomColor: "var(--win95-button-dark)",
-                            borderRightColor: "var(--win95-button-dark)",
                           }}
                         >
                           {isEditing ? <X size={12} /> : <EditIcon size={12} />}

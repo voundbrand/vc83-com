@@ -111,15 +111,10 @@ export function PasskeyEncouragementBanner({ sessionId, onPasskeySetup }: Passke
             <button
               onClick={handleSetup}
               disabled={isSettingUp}
-              className="px-3 py-1.5 text-xs font-bold disabled:opacity-50"
+              className="beveled-button px-3 py-1.5 text-xs font-bold disabled:opacity-50"
               style={{
-                backgroundColor: 'white',
-                color: 'var(--info)',
-                border: '2px solid',
-                borderTopColor: 'var(--win95-button-light)',
-                borderLeftColor: 'var(--win95-button-light)',
-                borderBottomColor: 'var(--win95-button-dark)',
-                borderRightColor: 'var(--win95-button-dark)',
+                backgroundColor: 'var(--win95-bg-light)',
+                color: 'var(--win95-text)',
               }}
             >
               {isSettingUp ? t("ui.login.passkey_banner.button_setting_up") : t("ui.login.passkey_banner.button_setup")}

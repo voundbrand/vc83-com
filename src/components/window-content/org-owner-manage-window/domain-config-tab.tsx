@@ -93,15 +93,10 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
               setEditingConfig(undefined);
               setShowModal(true);
             }}
-            className="px-3 py-1.5 text-xs font-semibold flex items-center gap-1"
+            className="beveled-button px-3 py-1.5 text-xs font-semibold flex items-center gap-1"
             style={{
               backgroundColor: "var(--success)",
               color: "white",
-              border: "2px solid",
-              borderTopColor: "var(--win95-button-light)",
-              borderLeftColor: "var(--win95-button-light)",
-              borderBottomColor: "var(--win95-button-dark)",
-              borderRightColor: "var(--win95-button-dark)",
             }}
           >
             <Plus size={12} />
@@ -160,15 +155,10 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
                 setEditingConfig(undefined);
                 setShowModal(true);
               }}
-              className="mt-4 px-4 py-2 text-sm font-semibold"
+              className="beveled-button mt-4 px-4 py-2 text-sm font-semibold"
               style={{
                 backgroundColor: "var(--win95-highlight)",
                 color: "white",
-                border: "2px solid",
-                borderTopColor: "var(--win95-button-light)",
-                borderLeftColor: "var(--win95-button-light)",
-                borderBottomColor: "var(--win95-button-dark)",
-                borderRightColor: "var(--win95-button-dark)",
               }}
             >
               {t("ui.manage.domains.empty.action")}
@@ -263,14 +253,9 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
                           setEditingConfig(config);
                           setShowModal(true);
                         }}
-                        className="p-2 text-xs"
+                        className="beveled-button p-2 text-xs"
                         style={{
                           backgroundColor: "var(--win95-button-face)",
-                          border: "2px solid",
-                          borderTopColor: "var(--win95-button-light)",
-                          borderLeftColor: "var(--win95-button-light)",
-                          borderBottomColor: "var(--win95-button-dark)",
-                          borderRightColor: "var(--win95-button-dark)",
                         }}
                         title="Edit"
                       >
@@ -278,15 +263,10 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
                       </button>
                       <button
                         onClick={() => handleDelete(config)}
-                        className="p-2 text-xs"
+                        className="beveled-button p-2 text-xs"
                         style={{
                           backgroundColor: "var(--error)",
                           color: "white",
-                          border: "2px solid",
-                          borderTopColor: "var(--win95-button-light)",
-                          borderLeftColor: "var(--win95-button-light)",
-                          borderBottomColor: "var(--win95-button-dark)",
-                          borderRightColor: "var(--win95-button-dark)",
                         }}
                         title="Delete"
                       >

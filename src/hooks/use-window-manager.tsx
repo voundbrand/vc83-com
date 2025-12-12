@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode, Suspense } from "react"
+import { createContext, useContext, useState, useEffect, useRef, type ReactNode, Suspense } from "react"
 import { getWindowFactory, type WindowConfig } from "./window-registry"
 
 interface Window {
@@ -55,9 +55,15 @@ interface WindowManagerContextType {
 
 const WindowManagerContext = createContext<WindowManagerContextType | undefined>(undefined)
 
+// Maximum z-index for windows to ensure Start Menu (z-index: 50000) stays on top
+const MAX_WINDOW_Z_INDEX = 10000
+
 export function WindowManagerProvider({ children }: { children: ReactNode }) {
   const [windows, setWindows] = useState<Window[]>([])
   const [nextZIndex, setNextZIndex] = useState(100)
+  // Use a ref for synchronous z-index tracking to avoid stale closure issues
+  // This ensures each focusWindow call gets a unique z-index even before React re-renders
+  const nextZIndexRef = useRef(100)
   const [cascadeOffset, setCascadeOffset] = useState({ x: 100, y: 100 })
   const [isRestored, setIsRestored] = useState(false)
 
@@ -96,8 +102,19 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
       }
 
       if (restoredWindows.length > 0) {
-        setWindows(restoredWindows)
-        setNextZIndex(parsed.nextZIndex)
+        // Cap nextZIndex to prevent it from exceeding Start Menu z-index (50000)
+        // This can happen over many sessions as the counter accumulates
+        const cappedNextZIndex = Math.min(parsed.nextZIndex, MAX_WINDOW_Z_INDEX)
+
+        // Normalize window z-indices if they exceed the cap
+        const normalizedWindows = restoredWindows.map(w => ({
+          ...w,
+          zIndex: Math.min(w.zIndex, MAX_WINDOW_Z_INDEX - 1)
+        }))
+
+        setWindows(normalizedWindows)
+        setNextZIndex(cappedNextZIndex)
+        nextZIndexRef.current = cappedNextZIndex // Sync the ref
         setCascadeOffset(parsed.cascadeOffset)
       }
     } catch (error) {
@@ -115,21 +132,24 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
 
     try {
       // Convert windows to serializable format
-      const serializableWindows: SerializableWindowState[] = windows.map(w => ({
-        id: w.id,
-        title: w.title,
-        titleKey: w.titleKey,
-        icon: w.icon,
-        isOpen: w.isOpen,
-        position: w.position,
-        size: w.size,
-        zIndex: w.zIndex,
-        isMaximized: w.isMaximized,
-        isMinimized: w.isMinimized,
-        savedPosition: w.savedPosition,
-        savedSize: w.savedSize,
-        props: w.props
-      }))
+      // Filter out tutorial windows (they have callbacks that can't be serialized)
+      const serializableWindows: SerializableWindowState[] = windows
+        .filter(w => !w.id.startsWith('tutorial-')) // Tutorial windows have non-serializable callbacks
+        .map(w => ({
+          id: w.id,
+          title: w.title,
+          titleKey: w.titleKey,
+          icon: w.icon,
+          isOpen: w.isOpen,
+          position: w.position,
+          size: w.size,
+          zIndex: w.zIndex,
+          isMaximized: w.isMaximized,
+          isMinimized: w.isMinimized,
+          savedPosition: w.savedPosition,
+          savedSize: w.savedSize,
+          props: w.props
+        }))
 
       const state = {
         windows: serializableWindows,
@@ -144,11 +164,15 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
   }, [windows, nextZIndex, cascadeOffset, isRestored])
 
   const openWindow = (id: string, title: string, component: ReactNode, position?: { x: number; y: number }, size?: { width: number; height: number }, titleKey?: string, icon?: string, props?: Record<string, unknown>) => {
+    // Get the current z-index synchronously from the ref to avoid stale closure issues
+    const currentZIndex = nextZIndexRef.current
+    nextZIndexRef.current = Math.min(nextZIndexRef.current + 1, MAX_WINDOW_Z_INDEX)
+
     setWindows((prev) => {
       const existing = prev.find((w) => w.id === id)
       if (existing) {
         // Focus existing window
-        return prev.map((w) => (w.id === id ? { ...w, isOpen: true, zIndex: nextZIndex } : w))
+        return prev.map((w) => (w.id === id ? { ...w, isOpen: true, zIndex: currentZIndex } : w))
       }
 
       // Calculate position with cascade effect
@@ -182,14 +206,14 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
           isOpen: true,
           position: windowPosition,
           size: size || { width: 800, height: 500 },
-          zIndex: nextZIndex,
+          zIndex: currentZIndex,
           isMaximized: false,
           isMinimized: false,
           props, // Store props for restoration
         },
       ]
     })
-    setNextZIndex((prev) => prev + 1)
+    setNextZIndex(nextZIndexRef.current) // Sync state with ref
   }
 
   const closeWindow = (id: string) => {
@@ -203,8 +227,12 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
   }
 
   const focusWindow = (id: string) => {
-    setWindows((prev) => prev.map((w) => (w.id === id ? { ...w, zIndex: nextZIndex } : w)))
-    setNextZIndex((prev) => prev + 1)
+    // Get the current z-index synchronously from the ref to avoid stale closure issues
+    const currentZIndex = nextZIndexRef.current
+    nextZIndexRef.current = Math.min(nextZIndexRef.current + 1, MAX_WINDOW_Z_INDEX)
+
+    setWindows((prev) => prev.map((w) => (w.id === id ? { ...w, zIndex: currentZIndex } : w)))
+    setNextZIndex(nextZIndexRef.current) // Sync state with ref
   }
 
   const isWindowOpen = (id: string) => {
@@ -263,6 +291,10 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
   }
 
   const restoreWindow = (id: string) => {
+    // Get the current z-index synchronously from the ref to avoid stale closure issues
+    const currentZIndex = nextZIndexRef.current
+    nextZIndexRef.current = Math.min(nextZIndexRef.current + 1, MAX_WINDOW_Z_INDEX)
+
     setWindows((prev) => prev.map((w) => {
       if (w.id === id) {
         return {
@@ -271,12 +303,12 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
           isMinimized: false,
           position: w.savedPosition || w.position || { x: 100, y: 100 },
           size: w.savedSize || w.size || { width: 800, height: 500 },
-          zIndex: nextZIndex
+          zIndex: currentZIndex
         }
       }
       return w
     }))
-    setNextZIndex((prev) => prev + 1)
+    setNextZIndex(nextZIndexRef.current) // Sync state with ref
   }
 
   return (

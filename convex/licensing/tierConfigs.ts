@@ -23,6 +23,9 @@ export interface TierLimits {
   maxSubOrganizations: number;
   maxCustomDomains: number;
 
+  // System Templates (Freelancer Portal, etc.)
+  maxSystemTemplates: number;
+
   // CRM
   maxContacts: number;
   maxOrganizations: number;
@@ -74,8 +77,10 @@ export interface TierLimits {
   // Translations
   maxLanguages: number;
 
-  // API
+  // API & OAuth
   maxWebsitesPerKey: number;
+  maxCustomOAuthApps: number; // Custom apps (user's website, mobile app, etc.)
+  maxThirdPartyIntegrations: number; // Zapier, Make.com, n8n, etc.
   rateLimitPerMinute: number;
   rateLimitPerDay: number;
   maxWebhooks: number;
@@ -135,6 +140,7 @@ export interface TierFeatures {
   seoToolsEnabled: boolean;
   contentRulesEnabled: boolean;
   pageAnalyticsEnabled: boolean;
+  vercelDeploymentEnabled: boolean;
 
   // Workflows
   workflowTemplatesEnabled: boolean;
@@ -165,8 +171,9 @@ export interface TierFeatures {
   customRolesEnabled: boolean;
   ssoEnabled: boolean;
 
-  // API
+  // API & OAuth
   apiKeysEnabled: boolean;
+  oauthEnabled: boolean;
   apiWebhooksEnabled: boolean;
 
   // AI
@@ -214,7 +221,10 @@ export const FREE_TIER: TierConfig = {
     maxUsers: 1,
     maxApiKeys: 1,
     maxSubOrganizations: 0,
-    maxCustomDomains: 0,
+    maxCustomDomains: 1, // For connecting external Freelancer Portal website
+
+    // System Templates (Free users get 1 for Freelancer Portal)
+    maxSystemTemplates: 1,
 
     // CRM
     maxContacts: 100,
@@ -267,8 +277,10 @@ export const FREE_TIER: TierConfig = {
     // Translations
     maxLanguages: 1,
 
-    // API
+    // API & OAuth
     maxWebsitesPerKey: 1,
+    maxCustomOAuthApps: 1,
+    maxThirdPartyIntegrations: 2, // Allow OAuth + Vercel for deployment
     rateLimitPerMinute: 30,
     rateLimitPerDay: 1000,
     maxWebhooks: 0,
@@ -281,7 +293,7 @@ export const FREE_TIER: TierConfig = {
     // Core
     badgeRequired: true,
     subOrgsEnabled: false,
-    customDomainsEnabled: false,
+    customDomainsEnabled: true, // For connecting external Freelancer Portal website
     whiteLabelEnabled: false,
     whiteLabelLevel: "none",
 
@@ -328,14 +340,15 @@ export const FREE_TIER: TierConfig = {
     seoToolsEnabled: false,
     contentRulesEnabled: false,
     pageAnalyticsEnabled: false,
+    vercelDeploymentEnabled: true, // Free tier can deploy to Vercel
 
     // Workflows
     workflowTemplatesEnabled: false,
     advancedConditionsEnabled: false,
     testModeEnabled: false,
 
-    // Templates
-    templateSetsEnabled: false,
+    // Templates (enabled for Free to allow system template access)
+    templateSetsEnabled: true,
     templateVersioningEnabled: false,
     advancedEditorEnabled: false,
     templateSharingEnabled: false,
@@ -358,8 +371,9 @@ export const FREE_TIER: TierConfig = {
     customRolesEnabled: false,
     ssoEnabled: false,
 
-    // API
+    // API & OAuth
     apiKeysEnabled: true,
+    oauthEnabled: true,
     apiWebhooksEnabled: false,
 
     // AI
@@ -392,6 +406,9 @@ export const STARTER_TIER: TierConfig = {
     maxApiKeys: 1,
     maxSubOrganizations: 0,
     maxCustomDomains: 0,
+
+    // System Templates (unlimited for paid tiers)
+    maxSystemTemplates: -1,
 
     // CRM
     maxContacts: 1000,
@@ -444,8 +461,10 @@ export const STARTER_TIER: TierConfig = {
     // Translations
     maxLanguages: 2,
 
-    // API
+    // API & OAuth
     maxWebsitesPerKey: 1,
+    maxCustomOAuthApps: 2,
+    maxThirdPartyIntegrations: 5,
     rateLimitPerMinute: 60,
     rateLimitPerDay: 5000,
     maxWebhooks: 5,
@@ -505,6 +524,7 @@ export const STARTER_TIER: TierConfig = {
     seoToolsEnabled: false,
     contentRulesEnabled: false,
     pageAnalyticsEnabled: false,
+    vercelDeploymentEnabled: true,
 
     // Workflows
     workflowTemplatesEnabled: true,
@@ -535,8 +555,9 @@ export const STARTER_TIER: TierConfig = {
     customRolesEnabled: false,
     ssoEnabled: false,
 
-    // API
+    // API & OAuth
     apiKeysEnabled: true,
+    oauthEnabled: true,
     apiWebhooksEnabled: true,
 
     // AI
@@ -569,6 +590,9 @@ export const PROFESSIONAL_TIER: TierConfig = {
     maxApiKeys: 3,
     maxSubOrganizations: 0,
     maxCustomDomains: 1,
+
+    // System Templates (unlimited for paid tiers)
+    maxSystemTemplates: -1,
 
     // CRM
     maxContacts: 5000,
@@ -621,8 +645,10 @@ export const PROFESSIONAL_TIER: TierConfig = {
     // Translations
     maxLanguages: 6,
 
-    // API
+    // API & OAuth
     maxWebsitesPerKey: 3,
+    maxCustomOAuthApps: 3,
+    maxThirdPartyIntegrations: UNLIMITED,
     rateLimitPerMinute: 120,
     rateLimitPerDay: 25000,
     maxWebhooks: 20,
@@ -682,6 +708,7 @@ export const PROFESSIONAL_TIER: TierConfig = {
     seoToolsEnabled: true,
     contentRulesEnabled: true,
     pageAnalyticsEnabled: true,
+    vercelDeploymentEnabled: true,
 
     // Workflows
     workflowTemplatesEnabled: true,
@@ -712,8 +739,9 @@ export const PROFESSIONAL_TIER: TierConfig = {
     customRolesEnabled: true,
     ssoEnabled: false,
 
-    // API
+    // API & OAuth
     apiKeysEnabled: true,
+    oauthEnabled: true,
     apiWebhooksEnabled: true,
 
     // AI
@@ -746,6 +774,9 @@ export const AGENCY_TIER: TierConfig = {
     maxApiKeys: 5, // + 1 per sub-org
     maxSubOrganizations: 2, // included, +€79/each additional, max 20
     maxCustomDomains: 5,
+
+    // System Templates (unlimited for paid tiers)
+    maxSystemTemplates: -1,
 
     // CRM
     maxContacts: 10000, // + 2000 per sub-org
@@ -798,8 +829,10 @@ export const AGENCY_TIER: TierConfig = {
     // Translations
     maxLanguages: 6,
 
-    // API
+    // API & OAuth
     maxWebsitesPerKey: 5,
+    maxCustomOAuthApps: 5, // + 1 per sub-org
+    maxThirdPartyIntegrations: UNLIMITED,
     rateLimitPerMinute: 300,
     rateLimitPerDay: 100000,
     maxWebhooks: 50,
@@ -859,6 +892,7 @@ export const AGENCY_TIER: TierConfig = {
     seoToolsEnabled: true,
     contentRulesEnabled: true,
     pageAnalyticsEnabled: true,
+    vercelDeploymentEnabled: true,
 
     // Workflows
     workflowTemplatesEnabled: true,
@@ -889,8 +923,9 @@ export const AGENCY_TIER: TierConfig = {
     customRolesEnabled: true,
     ssoEnabled: false,
 
-    // API
+    // API & OAuth
     apiKeysEnabled: true,
+    oauthEnabled: true,
     apiWebhooksEnabled: true,
 
     // AI
@@ -923,6 +958,9 @@ export const ENTERPRISE_TIER: TierConfig = {
     maxApiKeys: UNLIMITED,
     maxSubOrganizations: UNLIMITED,
     maxCustomDomains: UNLIMITED,
+
+    // System Templates (unlimited for Enterprise)
+    maxSystemTemplates: UNLIMITED,
 
     // CRM
     maxContacts: UNLIMITED,
@@ -975,8 +1013,10 @@ export const ENTERPRISE_TIER: TierConfig = {
     // Translations
     maxLanguages: UNLIMITED,
 
-    // API
+    // API & OAuth
     maxWebsitesPerKey: UNLIMITED,
+    maxCustomOAuthApps: UNLIMITED,
+    maxThirdPartyIntegrations: UNLIMITED,
     rateLimitPerMinute: UNLIMITED,
     rateLimitPerDay: UNLIMITED,
     maxWebhooks: UNLIMITED,
@@ -1036,6 +1076,7 @@ export const ENTERPRISE_TIER: TierConfig = {
     seoToolsEnabled: true,
     contentRulesEnabled: true,
     pageAnalyticsEnabled: true,
+    vercelDeploymentEnabled: true,
 
     // Workflows
     workflowTemplatesEnabled: true,
@@ -1066,8 +1107,9 @@ export const ENTERPRISE_TIER: TierConfig = {
     customRolesEnabled: true,
     ssoEnabled: true,
 
-    // API
+    // API & OAuth
     apiKeysEnabled: true,
+    oauthEnabled: true,
     apiWebhooksEnabled: true,
 
     // AI

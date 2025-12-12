@@ -8,7 +8,7 @@
  * PDFs are stored in the organizationMedia table for access in the Media Library.
  */
 
-import { mutation, action, query, internalMutation } from "./_generated/server";
+import { mutation, action, query, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
 
@@ -577,6 +577,525 @@ function escapeHtml(text: string): string {
   };
   return text.replace(/[&<>"']/g, (char) => map[char]);
 }
+
+// ===========================================
+// GDPR DATA EXPORT & PERMANENT DELETION
+// ===========================================
+
+/**
+ * Export all user data for GDPR compliance
+ *
+ * Gathers ALL user data across the platform:
+ * - User profile information
+ * - Organization memberships
+ * - CRM contacts & organizations
+ * - Invoices & transactions
+ * - Media files
+ * - Workflows
+ * - Projects
+ * - And more...
+ *
+ * Returns data as a JSON structure that can be downloaded
+ */
+export const exportUserData = action({
+  args: {
+    sessionId: v.string(),
+  },
+  handler: async (ctx, args): Promise<{
+    success: boolean;
+    exportData: {
+      exportedAt: string;
+      userId: string;
+      email: string;
+      profile: Record<string, unknown>;
+      organizations: Array<Record<string, unknown>>;
+      crmContacts: Array<Record<string, unknown>>;
+      crmOrganizations: Array<Record<string, unknown>>;
+      invoices: Array<Record<string, unknown>>;
+      transactions: Array<Record<string, unknown>>;
+      media: Array<Record<string, unknown>>;
+      workflows: Array<Record<string, unknown>>;
+      projects: Array<Record<string, unknown>>;
+      templates: Array<Record<string, unknown>>;
+      events: Array<Record<string, unknown>>;
+      forms: Array<Record<string, unknown>>;
+      auditLogs: Array<Record<string, unknown>>;
+    };
+  }> => {
+    // Verify session
+    const session = await ctx.runQuery(internal.auth.getSessionById, {
+      sessionId: args.sessionId,
+    });
+
+    if (!session || !session.userId) {
+      throw new Error("Invalid session");
+    }
+
+    const userId = session.userId;
+
+    // Gather all user data using internal query
+    const exportData = await ctx.runQuery(internal.compliance.gatherUserDataForExport, {
+      userId,
+    });
+
+    // Log audit event
+    await ctx.runMutation(internal.rbac.logAudit, {
+      userId,
+      organizationId: undefined,
+      action: "export_user_data",
+      resource: "compliance",
+      success: true,
+      metadata: { dataExported: true, exportedAt: new Date().toISOString() },
+    });
+
+    return {
+      success: true,
+      exportData,
+    };
+  },
+});
+
+/**
+ * Internal query to gather all user data for export
+ */
+export const gatherUserDataForExport = internalQuery({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Get user's organizations
+    const memberships = await ctx.db
+      .query("organizationMembers")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    const organizationIds = memberships.map((m) => m.organizationId);
+
+    // Gather data from each organization
+    const organizations = [];
+    const allCrmContacts = [];
+    const allCrmOrganizations = [];
+    const allInvoices = [];
+    const allTransactions = [];
+    const allMedia = [];
+    const allWorkflows = [];
+    const allProjects = [];
+    const allTemplates = [];
+    const allEvents = [];
+    const allForms = [];
+
+    for (const orgId of organizationIds) {
+      const org = await ctx.db.get(orgId);
+      if (!org) continue;
+
+      const role = memberships.find((m) => m.organizationId === orgId);
+      const roleData = role ? await ctx.db.get(role.role) : null;
+
+      organizations.push({
+        id: org._id,
+        name: org.name,
+        slug: org.slug,
+        role: roleData?.name || "unknown",
+        joinedAt: role?.joinedAt,
+      });
+
+      // CRM Contacts (objects with type="crm_contact")
+      const contacts = await ctx.db
+        .query("objects")
+        .withIndex("by_org_type", (q) =>
+          q.eq("organizationId", orgId).eq("type", "crm_contact")
+        )
+        .collect();
+      allCrmContacts.push(...contacts.map((c) => ({
+        id: c._id,
+        name: c.name,
+        description: c.description,
+        status: c.status,
+        customProperties: c.customProperties,
+        createdAt: c.createdAt,
+        organizationName: org.name,
+      })));
+
+      // CRM Organizations (objects with type="crm_organization")
+      const crmOrgs = await ctx.db
+        .query("objects")
+        .withIndex("by_org_type", (q) =>
+          q.eq("organizationId", orgId).eq("type", "crm_organization")
+        )
+        .collect();
+      allCrmOrganizations.push(...crmOrgs.map((o) => ({
+        id: o._id,
+        name: o.name,
+        description: o.description,
+        status: o.status,
+        customProperties: o.customProperties,
+        createdAt: o.createdAt,
+        organizationName: org.name,
+      })));
+
+      // Invoices (objects with type="invoice")
+      const invoices = await ctx.db
+        .query("objects")
+        .withIndex("by_org_type", (q) =>
+          q.eq("organizationId", orgId).eq("type", "invoice")
+        )
+        .collect();
+      allInvoices.push(...invoices.map((i) => ({
+        id: i._id,
+        name: i.name,
+        description: i.description,
+        status: i.status,
+        customProperties: i.customProperties,
+        createdAt: i.createdAt,
+        organizationName: org.name,
+      })));
+
+      // Transactions (objects with type="transaction")
+      const transactions = await ctx.db
+        .query("objects")
+        .withIndex("by_org_type", (q) =>
+          q.eq("organizationId", orgId).eq("type", "transaction")
+        )
+        .collect();
+      allTransactions.push(...transactions.map((t) => ({
+        id: t._id,
+        name: t.name,
+        description: t.description,
+        status: t.status,
+        customProperties: t.customProperties,
+        createdAt: t.createdAt,
+        organizationName: org.name,
+      })));
+
+      // Media (organizationMedia table - not in objects)
+      const media = await ctx.db
+        .query("organizationMedia")
+        .withIndex("by_organization", (q) => q.eq("organizationId", orgId))
+        .collect();
+      allMedia.push(...media.map((m) => ({
+        id: m._id,
+        filename: m.filename,
+        category: m.category,
+        description: m.description,
+        createdAt: m.createdAt,
+        organizationName: org.name,
+      })));
+
+      // Workflows (objects with type="workflow")
+      const workflows = await ctx.db
+        .query("objects")
+        .withIndex("by_org_type", (q) =>
+          q.eq("organizationId", orgId).eq("type", "workflow")
+        )
+        .collect();
+      allWorkflows.push(...workflows.map((w) => ({
+        id: w._id,
+        name: w.name,
+        description: w.description,
+        status: w.status,
+        customProperties: w.customProperties,
+        createdAt: w.createdAt,
+        organizationName: org.name,
+      })));
+
+      // Projects (objects with type="project")
+      const projects = await ctx.db
+        .query("objects")
+        .withIndex("by_org_type", (q) =>
+          q.eq("organizationId", orgId).eq("type", "project")
+        )
+        .collect();
+      allProjects.push(...projects.map((p) => ({
+        id: p._id,
+        name: p.name,
+        description: p.description,
+        status: p.status,
+        customProperties: p.customProperties,
+        createdAt: p.createdAt,
+        organizationName: org.name,
+      })));
+
+      // Templates (objects with type="template")
+      const templates = await ctx.db
+        .query("objects")
+        .withIndex("by_org_type", (q) =>
+          q.eq("organizationId", orgId).eq("type", "template")
+        )
+        .collect();
+      allTemplates.push(...templates.map((t) => ({
+        id: t._id,
+        name: t.name,
+        description: t.description,
+        status: t.status,
+        customProperties: t.customProperties,
+        createdAt: t.createdAt,
+        organizationName: org.name,
+      })));
+
+      // Events (objects with type="event")
+      const events = await ctx.db
+        .query("objects")
+        .withIndex("by_org_type", (q) =>
+          q.eq("organizationId", orgId).eq("type", "event")
+        )
+        .collect();
+      allEvents.push(...events.map((e) => ({
+        id: e._id,
+        name: e.name,
+        description: e.description,
+        status: e.status,
+        customProperties: e.customProperties,
+        createdAt: e.createdAt,
+        organizationName: org.name,
+      })));
+
+      // Forms (objects with type="form")
+      const forms = await ctx.db
+        .query("objects")
+        .withIndex("by_org_type", (q) =>
+          q.eq("organizationId", orgId).eq("type", "form")
+        )
+        .collect();
+      allForms.push(...forms.map((f) => ({
+        id: f._id,
+        name: f.name,
+        description: f.description,
+        status: f.status,
+        customProperties: f.customProperties,
+        createdAt: f.createdAt,
+        organizationName: org.name,
+      })));
+    }
+
+    // Get audit logs for this user
+    const auditLogs = await ctx.db
+      .query("auditLogs")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .order("desc")
+      .take(1000); // Limit to last 1000 entries
+
+    return {
+      exportedAt: new Date().toISOString(),
+      userId: args.userId,
+      email: user.email,
+      profile: {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+        isActive: user.isActive,
+      },
+      organizations,
+      crmContacts: allCrmContacts,
+      crmOrganizations: allCrmOrganizations,
+      invoices: allInvoices,
+      transactions: allTransactions,
+      media: allMedia,
+      workflows: allWorkflows,
+      projects: allProjects,
+      templates: allTemplates,
+      events: allEvents,
+      forms: allForms,
+      auditLogs: auditLogs.map((log) => ({
+        action: log.action,
+        resource: log.resource,
+        success: log.success,
+        createdAt: log.createdAt,
+        metadata: log.metadata,
+      })),
+    };
+  },
+});
+
+/**
+ * Permanently delete account IMMEDIATELY (bypasses grace period)
+ *
+ * Requirements before calling:
+ * 1. User must have exported their data
+ * 2. User must confirm they have their data
+ * 3. User must type confirmation text
+ *
+ * This action:
+ * 1. Archives all owned organizations
+ * 2. Removes from all organizations
+ * 3. Deletes user password
+ * 4. Deletes all sessions
+ * 5. Sets isActive = false immediately
+ */
+export const permanentlyDeleteAccountImmediate = action({
+  args: {
+    sessionId: v.string(),
+    confirmationText: v.string(), // Must be "PERMANENTLY DELETE"
+    dataExportConfirmed: v.boolean(), // Must be true
+  },
+  handler: async (ctx, args): Promise<{ success: boolean }> => {
+    // Validate confirmation
+    if (args.confirmationText !== "PERMANENTLY DELETE") {
+      throw new Error("Invalid confirmation text. Please type 'PERMANENTLY DELETE' exactly.");
+    }
+
+    if (!args.dataExportConfirmed) {
+      throw new Error("You must confirm that you have exported your data before permanent deletion.");
+    }
+
+    // Verify session
+    const session = await ctx.runQuery(internal.auth.getSessionById, {
+      sessionId: args.sessionId,
+    });
+
+    if (!session || !session.userId) {
+      throw new Error("Invalid session");
+    }
+
+    const userId = session.userId;
+
+    // Get user email for audit log
+    const user = await ctx.runQuery(internal.compliance.getUserForDeletion, {
+      userId,
+    });
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Execute immediate permanent deletion
+    await ctx.runMutation(internal.compliance.executeImmediateDeletion, {
+      userId,
+    });
+
+    // Log audit event (before deleting session)
+    await ctx.runMutation(internal.rbac.logAudit, {
+      userId,
+      organizationId: undefined,
+      action: "permanent_delete_account_immediate",
+      resource: "compliance",
+      success: true,
+      metadata: {
+        email: user.email,
+        deletedAt: new Date().toISOString(),
+        bypassedGracePeriod: true,
+        dataExportConfirmed: true,
+      },
+    });
+
+    // Delete all sessions for this user
+    await ctx.runMutation(internal.compliance.deleteAllUserSessions, {
+      userId,
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Internal query to get user for deletion
+ */
+export const getUserForDeletion = internalQuery({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.userId);
+  },
+});
+
+/**
+ * Internal mutation to execute immediate permanent deletion
+ */
+export const executeImmediateDeletion = internalMutation({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    console.log(`[COMPLIANCE] Executing immediate permanent deletion for: ${user.email}`);
+
+    // 1. Archive all organizations owned by this user
+    const memberships = await ctx.db
+      .query("organizationMembers")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    for (const membership of memberships) {
+      const org = await ctx.db.get(membership.organizationId);
+      if (!org) continue;
+
+      const role = await ctx.db.get(membership.role);
+      if (role?.name === "org_owner" || role?.name === "enterprise_owner") {
+        // Archive the organization
+        await ctx.db.patch(membership.organizationId, {
+          isActive: false,
+          updatedAt: Date.now(),
+        });
+        console.log(`[COMPLIANCE] Archived organization: ${org.name}`);
+      }
+    }
+
+    // 2. Remove from all organizations
+    for (const membership of memberships) {
+      await ctx.db.delete(membership._id);
+      console.log(`[COMPLIANCE] Removed membership: ${membership._id}`);
+    }
+
+    // 3. Delete user password
+    const userPassword = await ctx.db
+      .query("userPasswords")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .first();
+
+    if (userPassword) {
+      await ctx.db.delete(userPassword._id);
+      console.log(`[COMPLIANCE] Deleted user password`);
+    }
+
+    // 4. Delete passkeys
+    const passkeys = await ctx.db
+      .query("passkeys")
+      .withIndex("by_user_active", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    for (const passkey of passkeys) {
+      await ctx.db.delete(passkey._id);
+      console.log(`[COMPLIANCE] Deleted passkey: ${passkey._id}`);
+    }
+
+    // 5. DELETE the user record entirely (true hard delete)
+    await ctx.db.delete(args.userId);
+
+    console.log(`[COMPLIANCE] ✅ User record DELETED from database: ${user.email}`);
+  },
+});
+
+/**
+ * Internal mutation to delete all user sessions
+ */
+export const deleteAllUserSessions = internalMutation({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const sessions = await ctx.db
+      .query("sessions")
+      .filter((q) => q.eq(q.field("userId"), args.userId))
+      .collect();
+
+    for (const session of sessions) {
+      await ctx.db.delete(session._id);
+    }
+
+    console.log(`[COMPLIANCE] Deleted ${sessions.length} sessions for user`);
+  },
+});
 
 /**
  * Get CSS for professional legal document styling

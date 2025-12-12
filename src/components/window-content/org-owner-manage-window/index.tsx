@@ -236,9 +236,27 @@ export function ManageWindow({ initialTab = "organization" }: ManageWindowProps)
 
           {/* Organization Info */}
           <div className="text-right">
-            <p className="text-xs font-semibold" style={{ color: 'var(--win95-text)' }}>
-              {currentOrganization?.name}
-            </p>
+            <div className="flex items-center justify-end gap-2">
+              <p className="text-xs font-semibold" style={{ color: 'var(--win95-text)' }}>
+                {currentOrganization?.name}
+              </p>
+              {/* Plan Badge */}
+              {organization?.plan && (
+                <span
+                  className="inline-flex items-center px-2 py-0.5 text-[10px] font-bold uppercase"
+                  style={{
+                    background: organization.plan === 'free'
+                      ? 'var(--win95-bg-light)'
+                      : 'linear-gradient(135deg, var(--win95-highlight) 0%, var(--win95-gradient-end) 100%)',
+                    color: organization.plan === 'free' ? 'var(--neutral-gray)' : 'white',
+                    border: organization.plan === 'free' ? '1px solid var(--win95-border)' : 'none',
+                    borderRadius: '2px',
+                  }}
+                >
+                  {organization.plan}
+                </span>
+              )}
+            </div>
             <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
               {t("ui.manage.your_role")}: {formatRoleName(currentOrganization?.role.name || "", t)}
             </p>

@@ -78,13 +78,9 @@ export function SubscriptionModal({
             <button
               onClick={onClose}
               disabled={isProcessing}
-              className="w-6 h-6 flex items-center justify-center border-2"
+              className="beveled-button w-6 h-6 flex items-center justify-center"
               style={{
                 backgroundColor: "var(--win95-button-face)",
-                borderTopColor: "var(--win95-button-light)",
-                borderLeftColor: "var(--win95-button-light)",
-                borderBottomColor: "var(--win95-button-dark)",
-                borderRightColor: "var(--win95-button-dark)",
               }}
             >
               <X size={14} />
@@ -301,15 +297,10 @@ export function SubscriptionModal({
 
                 <button
                   onClick={() => handleEnterpriseClick("starter")}
-                  className="w-full px-3 py-2 text-xs font-bold"
+                  className="beveled-button w-full px-3 py-2 text-xs font-bold"
                   style={{
                     backgroundColor: "var(--primary)",
                     color: "white",
-                    border: "2px solid",
-                    borderTopColor: "var(--win95-button-light)",
-                    borderLeftColor: "var(--win95-button-light)",
-                    borderBottomColor: "var(--win95-button-dark)",
-                    borderRightColor: "var(--win95-button-dark)",
                   }}
                 >
                   Contact Sales
@@ -360,15 +351,10 @@ export function SubscriptionModal({
 
                 <button
                   onClick={() => handleEnterpriseClick("professional")}
-                  className="w-full px-3 py-2 text-xs font-bold"
+                  className="beveled-button w-full px-3 py-2 text-xs font-bold"
                   style={{
                     backgroundColor: "var(--primary)",
                     color: "white",
-                    border: "2px solid",
-                    borderTopColor: "var(--win95-button-light)",
-                    borderLeftColor: "var(--win95-button-light)",
-                    borderBottomColor: "var(--win95-button-dark)",
-                    borderRightColor: "var(--win95-button-dark)",
                   }}
                 >
                   Contact Sales
@@ -419,15 +405,10 @@ export function SubscriptionModal({
 
                 <button
                   onClick={() => handleEnterpriseClick("enterprise")}
-                  className="w-full px-3 py-2 text-xs font-bold"
+                  className="beveled-button w-full px-3 py-2 text-xs font-bold"
                   style={{
                     backgroundColor: "var(--primary)",
                     color: "white",
-                    border: "2px solid",
-                    borderTopColor: "var(--win95-button-light)",
-                    borderLeftColor: "var(--win95-button-light)",
-                    borderBottomColor: "var(--win95-button-dark)",
-                    borderRightColor: "var(--win95-button-dark)",
                   }}
                 >
                   Contact Sales
@@ -472,15 +453,10 @@ export function SubscriptionModal({
               <button
                 onClick={onClose}
                 disabled={isProcessing}
-                className="px-4 py-2 text-sm font-bold"
+                className="beveled-button px-4 py-2 text-sm font-bold"
                 style={{
                   backgroundColor: "var(--win95-button-face)",
                   color: "var(--win95-text)",
-                  border: "2px solid",
-                  borderTopColor: "var(--win95-button-light)",
-                  borderLeftColor: "var(--win95-button-light)",
-                  borderBottomColor: "var(--win95-button-dark)",
-                  borderRightColor: "var(--win95-button-dark)",
                 }}
               >
                 Cancel
@@ -488,15 +464,10 @@ export function SubscriptionModal({
               <button
                 onClick={handleSubscribe}
                 disabled={!selectedTier || isProcessing}
-                className="px-4 py-2 text-sm font-bold flex items-center gap-2"
+                className="beveled-button px-4 py-2 text-sm font-bold flex items-center gap-2"
                 style={{
                   backgroundColor: "var(--primary)",
                   color: "white",
-                  border: "2px solid",
-                  borderTopColor: "var(--win95-button-light)",
-                  borderLeftColor: "var(--win95-button-light)",
-                  borderBottomColor: "var(--win95-button-dark)",
-                  borderRightColor: "var(--win95-button-dark)",
                   opacity: !selectedTier || isProcessing ? 0.5 : 1,
                   cursor: !selectedTier || isProcessing ? "not-allowed" : "pointer",
                 }}

@@ -12,6 +12,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser, checkPermission } from "./rbacHelpers";
+import { checkFeatureAccess } from "./licensing/helpers";
 
 /**
  * GET AVAILABLE WORKFLOW TEMPLATES FOR ORGANIZATION
@@ -513,6 +514,9 @@ export const createWorkflowFromTemplate = mutation({
     }
 
     console.log("✅ [Backend] Permission check passed");
+
+    // CHECK FEATURE ACCESS: Workflow templates require Starter tier or higher
+    await checkFeatureAccess(ctx, args.organizationId, "workflowTemplatesEnabled");
 
     // Get the template
     const template = await ctx.db.get(args.templateId);

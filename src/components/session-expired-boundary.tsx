@@ -12,9 +12,13 @@ interface State {
 }
 
 /**
- * Global Error Boundary to catch session expiry errors
- * Handles errors like "Sitzung abgelaufen: Bitte melde dich erneut an"
- * or "Session expired: Please sign in again"
+ * Global Error Boundary to catch session expiry and invalid session errors
+ * Handles errors like:
+ * - "Sitzung abgelaufen: Bitte melde dich erneut an" (Session expired)
+ * - "Session expired: Please sign in again"
+ * - "Invalid session" / "Ungültige Sitzung"
+ * - "Sitzung nicht gefunden" (Session not found)
+ * - "Invalid or expired session"
  */
 export class SessionExpiredBoundary extends Component<Props, State> {
   constructor(props: Props) {
@@ -22,28 +26,52 @@ export class SessionExpiredBoundary extends Component<Props, State> {
     this.state = { hasError: false, error: null };
   }
 
-  static getDerivedStateFromError(error: Error): State {
-    // Check if error message indicates session expiry
-    const errorMessage = error.message.toLowerCase();
-    const isSessionExpired =
-      errorMessage.includes("session expired") ||
-      errorMessage.includes("sitzung abgelaufen") ||
-      errorMessage.includes("please sign in") ||
-      errorMessage.includes("bitte melde dich") ||
-      errorMessage.includes("not authenticated") ||
-      errorMessage.includes("authentication required");
+  /**
+   * Check if an error indicates an invalid or expired session
+   */
+  static isSessionError(errorMessage: string): boolean {
+    const lowerMessage = errorMessage.toLowerCase();
+    return (
+      // English patterns
+      lowerMessage.includes("session expired") ||
+      lowerMessage.includes("invalid session") ||
+      lowerMessage.includes("session not found") ||
+      lowerMessage.includes("please sign in") ||
+      lowerMessage.includes("not authenticated") ||
+      lowerMessage.includes("authentication required") ||
+      lowerMessage.includes("invalid or expired") ||
+      // German patterns
+      lowerMessage.includes("sitzung abgelaufen") ||
+      lowerMessage.includes("ungültige sitzung") ||
+      lowerMessage.includes("sitzung nicht gefunden") ||
+      lowerMessage.includes("bitte melde dich")
+    );
+  }
 
-    if (isSessionExpired) {
-      // Redirect to home page where user can sign in
-      if (typeof window !== "undefined") {
-        // Store current path to potentially redirect back after login
-        const currentPath = window.location.pathname;
-        if (currentPath !== "/") {
-          sessionStorage.setItem("redirectAfterLogin", currentPath);
-        }
-        // Redirect to home page
-        window.location.href = "/";
+  /**
+   * Clear the invalid session from localStorage and redirect to login
+   */
+  static handleInvalidSession(): void {
+    if (typeof window !== "undefined") {
+      // Clear the invalid session ID from localStorage
+      localStorage.removeItem("convex_session_id");
+
+      // Store current path to potentially redirect back after login
+      const currentPath = window.location.pathname;
+      if (currentPath !== "/") {
+        sessionStorage.setItem("redirectAfterLogin", currentPath);
       }
+
+      // Redirect to home page where user can sign in
+      window.location.href = "/";
+    }
+  }
+
+  static getDerivedStateFromError(error: Error): State {
+    const isSessionError = SessionExpiredBoundary.isSessionError(error.message);
+
+    if (isSessionError) {
+      SessionExpiredBoundary.handleInvalidSession();
     }
 
     return { hasError: true, error };
@@ -56,11 +84,9 @@ export class SessionExpiredBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       const errorMessage = this.state.error?.message || "";
-      const isSessionExpired =
-        errorMessage.toLowerCase().includes("session expired") ||
-        errorMessage.toLowerCase().includes("sitzung abgelaufen");
+      const isSessionError = SessionExpiredBoundary.isSessionError(errorMessage);
 
-      if (isSessionExpired) {
+      if (isSessionError) {
         // Show a brief message while redirecting
         return (
           <div
@@ -100,13 +126,13 @@ export class SessionExpiredBoundary extends Component<Props, State> {
                 className="text-lg font-bold mb-3"
                 style={{ color: "var(--win95-highlight)" }}
               >
-                Session Expired
+                Session Invalid
               </h2>
               <p className="text-sm mb-4" style={{ color: "var(--win95-text)" }}>
-                Your session has expired. Redirecting to sign in page...
+                Your session is no longer valid. Redirecting to sign in page...
               </p>
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                Ihre Sitzung ist abgelaufen. Weiterleitung zur Anmeldeseite...
+                Ihre Sitzung ist nicht mehr gültig. Weiterleitung zur Anmeldeseite...
               </p>
             </div>
           </div>

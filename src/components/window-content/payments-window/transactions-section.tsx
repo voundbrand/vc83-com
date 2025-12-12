@@ -362,15 +362,10 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
 
         {/* Export Button */}
         <button
-          className="px-4 py-2 text-sm font-semibold flex items-center gap-2 whitespace-nowrap"
+          className="beveled-button px-4 py-2 text-sm font-semibold flex items-center gap-2 whitespace-nowrap"
           style={{
             backgroundColor: "var(--win95-button-face)",
             color: "var(--win95-text)",
-            border: "2px solid",
-            borderTopColor: "var(--win95-button-light)",
-            borderLeftColor: "var(--win95-button-light)",
-            borderBottomColor: "var(--win95-button-dark)",
-            borderRightColor: "var(--win95-button-dark)",
           }}
         >
           <Download size={14} />

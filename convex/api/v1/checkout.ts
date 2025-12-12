@@ -217,9 +217,7 @@ export const createCheckoutSession = httpAction(async (ctx, request) => {
     );
 
     // 4. Update API key usage
-    await ctx.runMutation(internal.api.auth.updateApiKeyUsage, {
-      apiKey,
-    });
+    // TODO: Implement async usage tracking - await ctx.scheduler.runAfter(0, internal.apiKeys.trackUsage, { apiKeyId, ipAddress });
 
     // 5. Return session details
     return new Response(JSON.stringify(session), {
@@ -315,9 +313,7 @@ export const confirmPayment = httpAction(async (ctx, request) => {
     );
 
     // 4. Update API key usage
-    await ctx.runMutation(internal.api.auth.updateApiKeyUsage, {
-      apiKey,
-    });
+    // TODO: Implement async usage tracking - await ctx.scheduler.runAfter(0, internal.apiKeys.trackUsage, { apiKeyId, ipAddress });
 
     // 5. Return fulfillment result
     return new Response(JSON.stringify(result), {

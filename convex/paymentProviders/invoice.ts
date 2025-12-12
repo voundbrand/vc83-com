@@ -529,7 +529,7 @@ export class InvoicePaymentProvider implements IPaymentProvider {
     };
   }
 
-  verifyWebhookSignature(): boolean {
+  async verifyWebhookSignature(): Promise<boolean> {
     return false; // No webhook signature verification needed
   }
 }

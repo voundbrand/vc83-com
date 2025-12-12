@@ -210,7 +210,7 @@ export function TemplateSelector({
                 <div className="mt-1 font-mono text-xs opacity-75">
                   Code: {(selected as any).templateCode} | v{(selected as any).version}
                   {(selected as any).isSchemaTemplate && (
-                    <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ background: 'rgba(99, 102, 241, 0.2)', color: '#6366f1' }}>
+                    <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ background: 'color-mix(in srgb, var(--win95-gradient-end) 20%, transparent)', color: 'var(--win95-gradient-end)' }}>
                       Schema-driven
                     </span>
                   )}

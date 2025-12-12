@@ -76,6 +76,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     sessionId ? { sessionId } : { sessionId: undefined }
   );
 
+  // Proactively clear invalid sessions
+  // If we have a sessionId but the query returns null, the session is invalid
+  useEffect(() => {
+    if (sessionId && userQuery === null) {
+      console.log("[Auth] Session invalid, clearing localStorage");
+      localStorage.removeItem("convex_session_id");
+      setSessionId(null);
+    }
+  }, [sessionId, userQuery]);
+
   const signInAction = useAction(api.auth.signIn);
   const setupPasswordAction = useAction(api.auth.setupPassword);
   const signOutMutation = useMutation(api.auth.signOut);
@@ -128,7 +138,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (sessionId) {
       // Close all windows before signing out to prevent permission issues
       closeAllWindows();
-      await signOutMutation({ sessionId });
+      try {
+        await signOutMutation({ sessionId });
+      } catch (error) {
+        // Session may already be deleted (e.g., from account deletion)
+        // Log but don't throw - we still need to clean up localStorage
+        console.log("[Auth] signOut mutation error (session may be deleted):", error);
+      }
+      // Always clear localStorage and session state, regardless of mutation result
       localStorage.removeItem("convex_session_id");
       setSessionId(null);
     }

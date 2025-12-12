@@ -424,15 +424,10 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
           <button
             onClick={handleStartOnboarding}
             disabled={isOnboarding}
-            className="px-6 py-3 text-sm font-bold flex items-center gap-2"
+            className="beveled-button px-6 py-3 text-sm font-bold flex items-center gap-2"
             style={{
               backgroundColor: "var(--primary)",
               color: "white",
-              border: "2px solid",
-              borderTopColor: "var(--win95-button-light)",
-              borderLeftColor: "var(--win95-button-light)",
-              borderBottomColor: "var(--win95-button-dark)",
-              borderRightColor: "var(--win95-button-dark)",
             }}
           >
             {isOnboarding ? (
@@ -501,15 +496,10 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
           <button
             onClick={handleRefreshStatus}
             disabled={isRefreshing}
-            className="px-3 py-1 text-xs font-semibold flex items-center gap-2 disabled:opacity-50"
+            className="beveled-button px-3 py-1 text-xs font-semibold flex items-center gap-2 disabled:opacity-50"
             style={{
               backgroundColor: "var(--win95-button-face)",
               color: "var(--win95-text)",
-              border: "2px solid",
-              borderTopColor: "var(--win95-button-light)",
-              borderLeftColor: "var(--win95-button-light)",
-              borderBottomColor: "var(--win95-button-dark)",
-              borderRightColor: "var(--win95-button-dark)",
             }}
           >
             {isRefreshing ? (
@@ -576,15 +566,10 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
             <button
               onClick={handleStartOnboarding}
               disabled={isOnboarding}
-              className="mt-3 px-4 py-2 text-xs font-semibold flex items-center gap-2"
+              className="beveled-button mt-3 px-4 py-2 text-xs font-semibold flex items-center gap-2"
               style={{
                 backgroundColor: "var(--win95-button-face)",
                 color: "var(--win95-text)",
-                border: "2px solid",
-                borderTopColor: "var(--win95-button-light)",
-                borderLeftColor: "var(--win95-button-light)",
-                borderBottomColor: "var(--win95-button-dark)",
-                borderRightColor: "var(--win95-button-dark)",
               }}
             >
               {isOnboarding ? (
@@ -616,15 +601,10 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
             href={`https://dashboard.stripe.com/${testMode ? "test/" : ""}connect/accounts/${stripeConnectId}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="px-4 py-2 text-xs font-semibold flex items-center justify-center gap-2"
+            className="beveled-button px-4 py-2 text-xs font-semibold flex items-center justify-center gap-2"
             style={{
               backgroundColor: "var(--primary)",
               color: "white",
-              border: "2px solid",
-              borderTopColor: "var(--win95-button-light)",
-              borderLeftColor: "var(--win95-button-light)",
-              borderBottomColor: "var(--win95-button-dark)",
-              borderRightColor: "var(--win95-button-dark)",
             }}
           >
             <ExternalLink size={14} />
@@ -634,15 +614,10 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
           <button
             onClick={handleDisconnect}
             disabled={isDisconnecting}
-            className="px-4 py-2 text-xs font-semibold flex items-center justify-center gap-2"
+            className="beveled-button px-4 py-2 text-xs font-semibold flex items-center justify-center gap-2"
             style={{
               backgroundColor: "var(--error)",
               color: "white",
-              border: "2px solid",
-              borderTopColor: "var(--win95-button-light)",
-              borderLeftColor: "var(--win95-button-light)",
-              borderBottomColor: "var(--win95-button-dark)",
-              borderRightColor: "var(--win95-button-dark)",
               opacity: isDisconnecting ? 0.6 : 1,
               cursor: isDisconnecting ? "not-allowed" : "pointer",
             }}
@@ -727,15 +702,10 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
                   // TODO: Open organization tax settings modal or navigate to settings
                   alert(t("ui.payments.stripe_connect.tax_config_coming_soon"));
                 }}
-                className="w-full px-4 py-2 text-xs font-semibold flex items-center justify-center gap-2"
+                className="beveled-button w-full px-4 py-2 text-xs font-semibold flex items-center justify-center gap-2"
                 style={{
                   backgroundColor: "var(--primary)",
                   color: "white",
-                  border: "2px solid",
-                  borderTopColor: "var(--win95-button-light)",
-                  borderLeftColor: "var(--win95-button-light)",
-                  borderBottomColor: "var(--win95-button-dark)",
-                  borderRightColor: "var(--win95-button-dark)",
                 }}
               >
                 <Receipt size={14} />

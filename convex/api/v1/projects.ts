@@ -16,69 +16,47 @@
  * - GET /api/v1/projects/:projectId/comments - List comments
  * - GET /api/v1/projects/:projectId/activity - Get activity log
  *
- * Security: API key required in Authorization header
+ * Security: Dual authentication support
+ * - API keys (full access, backward compatible)
+ * - OAuth tokens (scope-based access control)
  * Scope: Returns only projects for the authenticated organization
  */
 
 import { httpAction } from "../../_generated/server";
 import { internal } from "../../_generated/api";
+import { authenticateRequest, requireScopes, getEffectiveOrganizationId } from "../../middleware/auth";
 
 /**
  * CREATE PROJECT
  * Creates a new project
  *
  * POST /api/v1/projects
- *
- * Request Body:
- * {
- *   subtype: "client_project" | "internal" | "campaign" | "product_development" | "other",
- *   name: string,
- *   description?: string,
- *   startDate?: number,           // Unix timestamp
- *   targetEndDate?: number,        // Unix timestamp
- *   budget?: {
- *     amount: number,
- *     currency: string
- *   },
- *   priority?: "low" | "medium" | "high" | "critical",
- *   clientOrgId?: string,          // CRM organization ID
- *   customProperties?: object
- * }
- *
- * Response:
- * {
- *   success: true,
- *   projectId: string,
- *   message: string
- * }
+ * Required Scope: projects:write
  */
 export const createProject = httpAction(async (ctx, request) => {
   try {
-    // 1. Verify API key
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // 1. Universal authentication (API key or OAuth)
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
       return new Response(
-        JSON.stringify({ error: "Missing or invalid Authorization header" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const apiKey = authHeader.substring(7);
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
-      apiKey,
-    });
+    const authContext = authResult.context;
 
-    if (!authContext) {
+    // 2. Require projects:write scope for OAuth tokens
+    const scopeCheck = requireScopes(authContext, ["projects:write"]);
+    if (!scopeCheck.success) {
       return new Response(
-        JSON.stringify({ error: "Invalid API key" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const { organizationId, userId } = authContext;
-
-    // 2. Update API key usage tracking
-    await ctx.runMutation(internal.api.auth.updateApiKeyUsage, { apiKey });
+    const organizationId = getEffectiveOrganizationId(authContext);
+    const userId = authContext.userId;
 
     // 3. Parse request body
     const body = await request.json();
@@ -134,6 +112,7 @@ export const createProject = httpAction(async (ctx, request) => {
         headers: {
           "Content-Type": "application/json",
           "X-Organization-Id": organizationId,
+          "X-Auth-Type": authContext.authMethod,
         },
       }
     );
@@ -154,64 +133,31 @@ export const createProject = httpAction(async (ctx, request) => {
  * Lists projects for an organization
  *
  * GET /api/v1/projects
- *
- * Query Parameters:
- * - subtype: Filter by project type (client_project, internal, campaign, etc.)
- * - status: Filter by status (draft, planning, active, on_hold, completed, cancelled)
- * - priority: Filter by priority (low, medium, high, critical)
- * - limit: Number of results (default: 50, max: 200)
- * - offset: Pagination offset (default: 0)
- *
- * Response:
- * {
- *   projects: Array<{
- *     id: string,
- *     name: string,
- *     description: string,
- *     subtype: string,
- *     status: string,
- *     projectCode: string,
- *     startDate: number,
- *     targetEndDate: number,
- *     budget: { amount: number, currency: string },
- *     priority: string,
- *     progress: number,
- *     clientOrgId: string,
- *     createdAt: number,
- *     updatedAt: number
- *   }>,
- *   total: number,
- *   limit: number,
- *   offset: number
- * }
+ * Required Scope: projects:read
  */
 export const listProjects = httpAction(async (ctx, request) => {
   try {
-    // 1. Verify API key
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // 1. Universal authentication (API key or OAuth)
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
       return new Response(
-        JSON.stringify({ error: "Missing or invalid Authorization header" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const apiKey = authHeader.substring(7);
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
-      apiKey,
-    });
+    const authContext = authResult.context;
 
-    if (!authContext) {
+    // 2. Require projects:read scope for OAuth tokens
+    const scopeCheck = requireScopes(authContext, ["projects:read"]);
+    if (!scopeCheck.success) {
       return new Response(
-        JSON.stringify({ error: "Invalid API key" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const { organizationId } = authContext;
-
-    // 2. Update API key usage tracking
-    await ctx.runMutation(internal.api.auth.updateApiKeyUsage, { apiKey });
+    const organizationId = getEffectiveOrganizationId(authContext);
 
     // 3. Parse query parameters
     const url = new URL(request.url);
@@ -245,6 +191,7 @@ export const listProjects = httpAction(async (ctx, request) => {
         headers: {
           "Content-Type": "application/json",
           "X-Organization-Id": organizationId,
+          "X-Auth-Type": authContext.authMethod,
         },
       }
     );
@@ -262,56 +209,31 @@ export const listProjects = httpAction(async (ctx, request) => {
  * Gets a specific project by ID
  *
  * GET /api/v1/projects/:projectId
- *
- * Response:
- * {
- *   id: string,
- *   organizationId: string,
- *   name: string,
- *   description: string,
- *   subtype: string,
- *   status: string,
- *   projectCode: string,
- *   startDate: number,
- *   targetEndDate: number,
- *   budget: { amount: number, currency: string },
- *   priority: string,
- *   progress: number,
- *   clientOrgId: string,
- *   detailedDescription: string,
- *   customProperties: object,
- *   createdBy: string,
- *   createdAt: number,
- *   updatedAt: number
- * }
+ * Required Scope: projects:read
  */
 export const getProject = httpAction(async (ctx, request) => {
   try {
-    // 1. Verify API key
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // 1. Universal authentication (API key or OAuth)
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
       return new Response(
-        JSON.stringify({ error: "Missing or invalid Authorization header" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const apiKey = authHeader.substring(7);
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
-      apiKey,
-    });
+    const authContext = authResult.context;
 
-    if (!authContext) {
+    // 2. Require projects:read scope for OAuth tokens
+    const scopeCheck = requireScopes(authContext, ["projects:read"]);
+    if (!scopeCheck.success) {
       return new Response(
-        JSON.stringify({ error: "Invalid API key" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const { organizationId } = authContext;
-
-    // 2. Update API key usage tracking
-    await ctx.runMutation(internal.api.auth.updateApiKeyUsage, { apiKey });
+    const organizationId = getEffectiveOrganizationId(authContext);
 
     // 3. Extract project ID from URL
     const url = new URL(request.url);
@@ -349,6 +271,7 @@ export const getProject = httpAction(async (ctx, request) => {
         headers: {
           "Content-Type": "application/json",
           "X-Organization-Id": organizationId,
+          "X-Auth-Type": authContext.authMethod,
         },
       }
     );
@@ -366,56 +289,32 @@ export const getProject = httpAction(async (ctx, request) => {
  * Updates an existing project
  *
  * PATCH /api/v1/projects/:projectId
- *
- * Request Body: (all fields optional)
- * {
- *   subtype?: string,
- *   name?: string,
- *   description?: string,
- *   startDate?: number,
- *   targetEndDate?: number,
- *   budget?: { amount: number, currency: string },
- *   priority?: string,
- *   progress?: number,
- *   status?: string,
- *   clientOrgId?: string,
- *   customProperties?: object
- * }
- *
- * Response:
- * {
- *   success: true,
- *   projectId: string,
- *   message: string
- * }
+ * Required Scope: projects:write
  */
 export const updateProject = httpAction(async (ctx, request) => {
   try {
-    // 1. Verify API key
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // 1. Universal authentication (API key or OAuth)
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
       return new Response(
-        JSON.stringify({ error: "Missing or invalid Authorization header" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const apiKey = authHeader.substring(7);
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
-      apiKey,
-    });
+    const authContext = authResult.context;
 
-    if (!authContext) {
+    // 2. Require projects:write scope for OAuth tokens
+    const scopeCheck = requireScopes(authContext, ["projects:write"]);
+    if (!scopeCheck.success) {
       return new Response(
-        JSON.stringify({ error: "Invalid API key" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const { organizationId, userId } = authContext;
-
-    // 2. Update API key usage tracking
-    await ctx.runMutation(internal.api.auth.updateApiKeyUsage, { apiKey });
+    const organizationId = getEffectiveOrganizationId(authContext);
+    const userId = authContext.userId;
 
     // 3. Extract project ID from URL
     const url = new URL(request.url);
@@ -478,6 +377,7 @@ export const updateProject = httpAction(async (ctx, request) => {
         headers: {
           "Content-Type": "application/json",
           "X-Organization-Id": organizationId,
+          "X-Auth-Type": authContext.authMethod,
         },
       }
     );
@@ -498,40 +398,32 @@ export const updateProject = httpAction(async (ctx, request) => {
  * Permanently deletes a draft project
  *
  * DELETE /api/v1/projects/:projectId
- *
- * Response:
- * {
- *   success: true,
- *   message: string
- * }
+ * Required Scope: projects:write
  */
 export const deleteProject = httpAction(async (ctx, request) => {
   try {
-    // 1. Verify API key
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // 1. Universal authentication (API key or OAuth)
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
       return new Response(
-        JSON.stringify({ error: "Missing or invalid Authorization header" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const apiKey = authHeader.substring(7);
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
-      apiKey,
-    });
+    const authContext = authResult.context;
 
-    if (!authContext) {
+    // 2. Require projects:write scope for OAuth tokens
+    const scopeCheck = requireScopes(authContext, ["projects:write"]);
+    if (!scopeCheck.success) {
       return new Response(
-        JSON.stringify({ error: "Invalid API key" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const { organizationId, userId } = authContext;
-
-    // 2. Update API key usage tracking
-    await ctx.runMutation(internal.api.auth.updateApiKeyUsage, { apiKey });
+    const organizationId = getEffectiveOrganizationId(authContext);
+    const userId = authContext.userId;
 
     // 3. Extract project ID from URL
     const url = new URL(request.url);
@@ -566,6 +458,7 @@ export const deleteProject = httpAction(async (ctx, request) => {
         headers: {
           "Content-Type": "application/json",
           "X-Organization-Id": organizationId,
+          "X-Auth-Type": authContext.authMethod,
         },
       }
     );
@@ -586,49 +479,31 @@ export const deleteProject = httpAction(async (ctx, request) => {
  * Gets all milestones for a project
  *
  * GET /api/v1/projects/:projectId/milestones
- *
- * Response:
- * {
- *   milestones: Array<{
- *     id: string,
- *     name: string,
- *     description: string,
- *     status: string,
- *     dueDate: number,
- *     projectId: string,
- *     createdAt: number,
- *     updatedAt: number
- *   }>,
- *   total: number
- * }
+ * Required Scope: projects:read
  */
 export const listMilestones = httpAction(async (ctx, request) => {
   try {
-    // 1. Verify API key
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // 1. Universal authentication (API key or OAuth)
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
       return new Response(
-        JSON.stringify({ error: "Missing or invalid Authorization header" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const apiKey = authHeader.substring(7);
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
-      apiKey,
-    });
+    const authContext = authResult.context;
 
-    if (!authContext) {
+    // 2. Require projects:read scope for OAuth tokens
+    const scopeCheck = requireScopes(authContext, ["projects:read"]);
+    if (!scopeCheck.success) {
       return new Response(
-        JSON.stringify({ error: "Invalid API key" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const { organizationId } = authContext;
-
-    // 2. Update API key usage tracking
-    await ctx.runMutation(internal.api.auth.updateApiKeyUsage, { apiKey });
+    const organizationId = getEffectiveOrganizationId(authContext);
 
     // 3. Extract project ID from URL
     const url = new URL(request.url);
@@ -662,6 +537,7 @@ export const listMilestones = httpAction(async (ctx, request) => {
         headers: {
           "Content-Type": "application/json",
           "X-Organization-Id": organizationId,
+          "X-Auth-Type": authContext.authMethod,
         },
       }
     );
@@ -679,55 +555,31 @@ export const listMilestones = httpAction(async (ctx, request) => {
  * Gets all tasks for a project or milestone
  *
  * GET /api/v1/projects/:projectId/tasks
- *
- * Query Parameters:
- * - milestoneId: Optional milestone ID to filter tasks
- *
- * Response:
- * {
- *   tasks: Array<{
- *     id: string,
- *     name: string,
- *     description: string,
- *     status: string,
- *     projectId: string,
- *     milestoneId: string,
- *     assigneeId: string,
- *     dueDate: number,
- *     priority: string,
- *     createdAt: number,
- *     updatedAt: number
- *   }>,
- *   total: number
- * }
+ * Required Scope: projects:read
  */
 export const listTasks = httpAction(async (ctx, request) => {
   try {
-    // 1. Verify API key
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // 1. Universal authentication (API key or OAuth)
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
       return new Response(
-        JSON.stringify({ error: "Missing or invalid Authorization header" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const apiKey = authHeader.substring(7);
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
-      apiKey,
-    });
+    const authContext = authResult.context;
 
-    if (!authContext) {
+    // 2. Require projects:read scope for OAuth tokens
+    const scopeCheck = requireScopes(authContext, ["projects:read"]);
+    if (!scopeCheck.success) {
       return new Response(
-        JSON.stringify({ error: "Invalid API key" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const { organizationId } = authContext;
-
-    // 2. Update API key usage tracking
-    await ctx.runMutation(internal.api.auth.updateApiKeyUsage, { apiKey });
+    const organizationId = getEffectiveOrganizationId(authContext);
 
     // 3. Extract project ID from URL and milestone ID from query
     const url = new URL(request.url);
@@ -763,6 +615,7 @@ export const listTasks = httpAction(async (ctx, request) => {
         headers: {
           "Content-Type": "application/json",
           "X-Organization-Id": organizationId,
+          "X-Auth-Type": authContext.authMethod,
         },
       }
     );
@@ -780,46 +633,31 @@ export const listTasks = httpAction(async (ctx, request) => {
  * Gets all team members for a project
  *
  * GET /api/v1/projects/:projectId/team
- *
- * Response:
- * {
- *   teamMembers: Array<{
- *     userId: string,
- *     name: string,
- *     email: string,
- *     role: string,
- *     addedAt: number
- *   }>,
- *   total: number
- * }
+ * Required Scope: projects:read
  */
 export const listTeamMembers = httpAction(async (ctx, request) => {
   try {
-    // 1. Verify API key
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // 1. Universal authentication (API key or OAuth)
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
       return new Response(
-        JSON.stringify({ error: "Missing or invalid Authorization header" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const apiKey = authHeader.substring(7);
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
-      apiKey,
-    });
+    const authContext = authResult.context;
 
-    if (!authContext) {
+    // 2. Require projects:read scope for OAuth tokens
+    const scopeCheck = requireScopes(authContext, ["projects:read"]);
+    if (!scopeCheck.success) {
       return new Response(
-        JSON.stringify({ error: "Invalid API key" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const { organizationId } = authContext;
-
-    // 2. Update API key usage tracking
-    await ctx.runMutation(internal.api.auth.updateApiKeyUsage, { apiKey });
+    const organizationId = getEffectiveOrganizationId(authContext);
 
     // 3. Extract project ID from URL
     const url = new URL(request.url);
@@ -853,6 +691,7 @@ export const listTeamMembers = httpAction(async (ctx, request) => {
         headers: {
           "Content-Type": "application/json",
           "X-Organization-Id": organizationId,
+          "X-Auth-Type": authContext.authMethod,
         },
       }
     );
@@ -870,55 +709,31 @@ export const listTeamMembers = httpAction(async (ctx, request) => {
  * Gets all comments for a project
  *
  * GET /api/v1/projects/:projectId/comments
- *
- * Response:
- * {
- *   comments: Array<{
- *     id: string,
- *     content: string,
- *     authorName: string,
- *     authorId: string,
- *     parentCommentId: string,
- *     replies: Array<{
- *       id: string,
- *       content: string,
- *       authorName: string,
- *       authorId: string,
- *       createdAt: number
- *     }>,
- *     createdAt: number,
- *     updatedAt: number
- *   }>,
- *   total: number
- * }
+ * Required Scope: projects:read
  */
 export const listComments = httpAction(async (ctx, request) => {
   try {
-    // 1. Verify API key
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // 1. Universal authentication (API key or OAuth)
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
       return new Response(
-        JSON.stringify({ error: "Missing or invalid Authorization header" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const apiKey = authHeader.substring(7);
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
-      apiKey,
-    });
+    const authContext = authResult.context;
 
-    if (!authContext) {
+    // 2. Require projects:read scope for OAuth tokens
+    const scopeCheck = requireScopes(authContext, ["projects:read"]);
+    if (!scopeCheck.success) {
       return new Response(
-        JSON.stringify({ error: "Invalid API key" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const { organizationId } = authContext;
-
-    // 2. Update API key usage tracking
-    await ctx.runMutation(internal.api.auth.updateApiKeyUsage, { apiKey });
+    const organizationId = getEffectiveOrganizationId(authContext);
 
     // 3. Extract project ID from URL
     const url = new URL(request.url);
@@ -952,6 +767,7 @@ export const listComments = httpAction(async (ctx, request) => {
         headers: {
           "Content-Type": "application/json",
           "X-Organization-Id": organizationId,
+          "X-Auth-Type": authContext.authMethod,
         },
       }
     );
@@ -969,50 +785,31 @@ export const listComments = httpAction(async (ctx, request) => {
  * Gets activity log for a project
  *
  * GET /api/v1/projects/:projectId/activity
- *
- * Query Parameters:
- * - limit: Number of activities to return (default: 100)
- *
- * Response:
- * {
- *   activities: Array<{
- *     id: string,
- *     actionType: string,
- *     actionData: object,
- *     performerName: string,
- *     performedBy: string,
- *     performedAt: number
- *   }>,
- *   total: number
- * }
+ * Required Scope: projects:read
  */
 export const getActivityLog = httpAction(async (ctx, request) => {
   try {
-    // 1. Verify API key
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // 1. Universal authentication (API key or OAuth)
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
       return new Response(
-        JSON.stringify({ error: "Missing or invalid Authorization header" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const apiKey = authHeader.substring(7);
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
-      apiKey,
-    });
+    const authContext = authResult.context;
 
-    if (!authContext) {
+    // 2. Require projects:read scope for OAuth tokens
+    const scopeCheck = requireScopes(authContext, ["projects:read"]);
+    if (!scopeCheck.success) {
       return new Response(
-        JSON.stringify({ error: "Invalid API key" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const { organizationId } = authContext;
-
-    // 2. Update API key usage tracking
-    await ctx.runMutation(internal.api.auth.updateApiKeyUsage, { apiKey });
+    const organizationId = getEffectiveOrganizationId(authContext);
 
     // 3. Extract project ID from URL
     const url = new URL(request.url);
@@ -1048,6 +845,7 @@ export const getActivityLog = httpAction(async (ctx, request) => {
         headers: {
           "Content-Type": "application/json",
           "X-Organization-Id": organizationId,
+          "X-Auth-Type": authContext.authMethod,
         },
       }
     );

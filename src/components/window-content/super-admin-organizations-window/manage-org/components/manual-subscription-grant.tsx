@@ -282,14 +282,10 @@ export function ManualSubscriptionGrant({
         <button
           onClick={handleGrant}
           disabled={isGranting || !notes.trim()}
-          className="w-full px-4 py-2.5 text-sm font-bold border-2 flex items-center justify-center gap-2"
+          className="beveled-button w-full px-4 py-2.5 text-sm font-bold flex items-center justify-center gap-2"
           style={{
             background: isGranting || !notes.trim() ? "var(--win95-bg-light)" : tier === "none" ? "var(--error)" : "var(--success)",
             color: isGranting || !notes.trim() ? "var(--neutral-gray)" : "white",
-            borderTopColor: "var(--win95-button-light)",
-            borderLeftColor: "var(--win95-button-light)",
-            borderBottomColor: "var(--win95-button-dark)",
-            borderRightColor: "var(--win95-button-dark)",
             cursor: isGranting || !notes.trim() ? "not-allowed" : "pointer",
           }}
         >

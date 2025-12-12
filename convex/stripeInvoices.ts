@@ -194,7 +194,7 @@ export const syncInvoiceToStripe = internalAction({
     });
 
     const stripeProvider = org.paymentProviders?.find(
-      (p) => p.providerCode === "stripe-connect"
+      (p: any) => p.providerCode === "stripe-connect"
     );
 
     if (!stripeProvider?.accountId) {

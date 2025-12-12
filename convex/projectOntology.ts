@@ -39,6 +39,7 @@ import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser } from "./rbacHelpers";
+import { checkResourceLimit, checkFeatureAccess } from "./licensing/helpers";
 
 /**
  * GET PROJECTS
@@ -128,6 +129,10 @@ export const createProject = mutation({
   },
   handler: async (ctx, args) => {
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    // CHECK LICENSE LIMIT: Enforce project limit for organization's tier
+    // Free: 3, Starter: 20, Pro: Unlimited, Agency: Unlimited, Enterprise: Unlimited
+    await checkResourceLimit(ctx, args.organizationId, "project", "maxProjects");
 
     // Validate subtype
     const validSubtypes = ["client_project", "internal", "campaign", "product_development", "other"];
@@ -269,6 +274,11 @@ export const updateProject = mutation({
       args.customProperties
     ) {
       const currentProps = project.customProperties || {};
+
+      // CHECK FEATURE ACCESS: Budget tracking requires Starter tier or higher
+      if (args.budget !== undefined) {
+        await checkFeatureAccess(ctx, project.organizationId, "budgetTrackingEnabled");
+      }
 
       // Validate dates if both are provided
       const newStartDate = args.startDate ?? currentProps.startDate;

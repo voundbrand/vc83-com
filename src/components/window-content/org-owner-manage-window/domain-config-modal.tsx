@@ -672,15 +672,10 @@ export function DomainConfigModal({
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="px-4 py-2 text-xs font-semibold"
+              className="beveled-button px-4 py-2 text-xs font-semibold"
               style={{
                 backgroundColor: "var(--win95-button-face)",
                 color: "var(--win95-text)",
-                border: "2px solid",
-                borderTopColor: "var(--win95-button-light)",
-                borderLeftColor: "var(--win95-button-light)",
-                borderBottomColor: "var(--win95-button-dark)",
-                borderRightColor: "var(--win95-button-dark)",
               }}
             >
               {t("ui.manage.domains.modal.actions.cancel")}
@@ -688,15 +683,10 @@ export function DomainConfigModal({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2 text-xs font-semibold flex items-center gap-2"
+              className="beveled-button px-4 py-2 text-xs font-semibold flex items-center gap-2"
               style={{
                 backgroundColor: "var(--success)",
                 color: "white",
-                border: "2px solid",
-                borderTopColor: "var(--win95-button-light)",
-                borderLeftColor: "var(--win95-button-light)",
-                borderBottomColor: "var(--win95-button-dark)",
-                borderRightColor: "var(--win95-button-dark)",
               }}
             >
               {isSubmitting ? (

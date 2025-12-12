@@ -62,6 +62,32 @@ export function WorkflowList({
     );
   }
 
+  // Check if user has access to workflows
+  if (workflows === null) {
+    return (
+      <div className="flex h-full items-center justify-center p-8">
+        <div className="max-w-md">
+          <div className="border-2 p-4" style={{ borderColor: "var(--error)", background: "var(--error-bg)" }}>
+            <div className="flex items-start gap-3">
+              <Zap size={24} style={{ color: "var(--error)" }} className="flex-shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-bold text-sm mb-2" style={{ color: "var(--error)" }}>
+                  {t("ui.workflows.access_denied") || "Access Denied"}
+                </h4>
+                <p className="text-xs mb-2" style={{ color: "var(--win95-text)" }}>
+                  {t("ui.workflows.no_permission") || "You don't have permission to view workflows for this organization."}
+                </p>
+                <p className="text-xs" style={{ color: "var(--win95-text-secondary)" }}>
+                  {t("ui.workflows.contact_admin") || "Please contact your organization administrator if you need access to workflow management."}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (workflows.length === 0) {
     return (
       <div className="flex h-full items-center justify-center p-8">

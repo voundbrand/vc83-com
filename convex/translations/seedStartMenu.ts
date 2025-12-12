@@ -114,6 +114,17 @@ export const seed = internalMutation({
 
       // === WINDOW/APP TITLES ===
       {
+        key: "ui.windows.onboarding_welcome.title",
+        values: {
+          en: "Welcome",
+          de: "Willkommen",
+          pl: "Witaj",
+          es: "Bienvenido",
+          fr: "Bienvenue",
+          ja: "ようこそ",
+        }
+      },
+      {
         key: "ui.app.all_applications",
         values: {
           en: "All Applications",

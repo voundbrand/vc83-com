@@ -31,6 +31,7 @@
 import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser, checkPermission } from "./rbacHelpers";
+import { checkResourceLimit, checkFeatureAccess } from "./licensing/helpers";
 
 /**
  * FIELD TYPE DEFINITIONS
@@ -220,6 +221,10 @@ export const createForm = mutation({
   handler: async (ctx, args) => {
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
+    // CHECK LICENSE LIMIT: Enforce form limit for organization's tier
+    // Free: 3, Starter: 20, Pro: 100, Agency: Unlimited, Enterprise: Unlimited
+    await checkResourceLimit(ctx, args.organizationId, "form", "maxForms");
+
     // Validate event exists if provided
     if (args.eventId) {
       const event = await ctx.db.get(args.eventId);
@@ -348,6 +353,32 @@ export const updateForm = mutation({
     }
 
     if (args.formSchema !== undefined) {
+      // CHECK FEATURE ACCESS: Multi-step forms, conditional logic, and file uploads require Starter tier
+      const schema = args.formSchema;
+
+      // Check multi-step forms (displayMode != "all")
+      if (schema?.settings?.displayMode && schema.settings.displayMode !== "all") {
+        await checkFeatureAccess(ctx, form.organizationId, "multiStepFormsEnabled");
+      }
+
+      // Check conditional logic (any field has conditions)
+      if (schema?.fields && Array.isArray(schema.fields)) {
+        const hasConditionalLogic = schema.fields.some((field: { conditionalLogic?: unknown }) =>
+          field.conditionalLogic !== undefined && field.conditionalLogic !== null
+        );
+        if (hasConditionalLogic) {
+          await checkFeatureAccess(ctx, form.organizationId, "conditionalLogicEnabled");
+        }
+
+        // Check file uploads (any field is type "file")
+        const hasFileUploads = schema.fields.some((field: { type?: string }) =>
+          field.type === "file"
+        );
+        if (hasFileUploads) {
+          await checkFeatureAccess(ctx, form.organizationId, "fileUploadsEnabled");
+        }
+      }
+
       updates.customProperties = {
         ...form.customProperties,
         formSchema: args.formSchema,
@@ -590,12 +621,26 @@ export const createFormResponse = mutation({
       completionRate: 0,
     };
 
+    // ⚡ PROFESSIONAL TIER: Form Analytics
+    // Professional+ can track detailed form analytics (views, submissions, completion rates)
+    const hasFormAnalytics = form.customProperties?.enableAnalytics === true;
+    if (hasFormAnalytics) {
+      // Check if they have access to analytics
+      try {
+        await checkFeatureAccess(ctx, args.organizationId, "formAnalyticsEnabled");
+      } catch {
+        // If they don't have access, analytics won't be detailed
+        // Basic submission counting still works for all tiers
+      }
+    }
+
     await ctx.db.patch(args.formId, {
       customProperties: {
         ...form.customProperties,
         stats: {
           ...currentStats,
           submissions: currentStats.submissions + 1,
+          lastSubmittedAt: now,
         },
       },
       updatedAt: Date.now(),

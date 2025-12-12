@@ -1,6 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser, getUserContext, checkPermission } from "./rbacHelpers";
+import { checkFeatureAccess } from "./licensing/helpers";
 
 /**
  * PUBLISHING ONTOLOGY v2 - TEMPLATE + THEME ARCHITECTURE
@@ -123,6 +124,12 @@ export const createPublishedPage = mutation({
     // Get organization for public URL
     const org = await ctx.db.get(args.organizationId);
     if (!org) throw new Error("Organization not found");
+
+    // ⚡ PROFESSIONAL TIER: SEO Tools
+    // Professional+ can use advanced SEO features (meta keywords, OG images)
+    if (args.metaKeywords || args.ogImage) {
+      await checkFeatureAccess(ctx, args.organizationId, "seoToolsEnabled");
+    }
 
     // Check if this is an external page
     const isExternal = args.templateContent?.isExternal === true;
@@ -415,6 +422,10 @@ export const updateContentRules = mutation({
       throw new Error("Cannot edit published page for another organization");
     }
 
+    // ⚡ PROFESSIONAL TIER: Content Rules
+    // Professional+ can use advanced content filtering rules
+    await checkFeatureAccess(ctx, page.organizationId, "contentRulesEnabled");
+
     // Update content rules
     const updatedProperties = {
       ...page.customProperties,
@@ -482,6 +493,12 @@ export const updatePublishedPage = mutation({
     // Validate organization membership
     if (!userContext.isGlobal && userContext.organizationId !== page.organizationId) {
       throw new Error("Cannot edit published page for another organization");
+    }
+
+    // ⚡ PROFESSIONAL TIER: SEO Tools
+    // Professional+ can use advanced SEO features (meta keywords, OG images)
+    if (args.metaKeywords !== undefined || args.ogImage !== undefined) {
+      await checkFeatureAccess(ctx, page.organizationId, "seoToolsEnabled");
     }
 
     // Build updates object (only include provided fields)
@@ -686,6 +703,153 @@ export const archivePublishedPage = mutation({
     });
 
     return { success: true };
+  },
+});
+
+/**
+ * Update deployment information for a published page
+ *
+ * This is a dedicated mutation for managing Vercel deployment metadata
+ * with validation and analytics tracking.
+ */
+export const updateDeploymentInfo = mutation({
+  args: {
+    sessionId: v.string(),
+    pageId: v.id("objects"),
+    githubRepo: v.optional(v.string()),
+    vercelDeployButton: v.optional(v.string()),
+    deployedUrl: v.optional(v.string()),
+    deploymentStatus: v.optional(v.union(
+      v.literal("not_deployed"),
+      v.literal("deploying"),
+      v.literal("deployed"),
+      v.literal("failed")
+    )),
+    deploymentError: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const page = await ctx.db.get(args.pageId);
+    if (!page) throw new Error("Published page not found");
+
+    const userContext = await getUserContext(ctx, userId, page.organizationId);
+
+    // Check permission
+    const hasPermission = await checkPermission(
+      ctx,
+      userId,
+      "edit_published_pages",
+      page.organizationId
+    );
+    if (!hasPermission) {
+      throw new Error("Permission denied: edit_published_pages required");
+    }
+
+    // Validate organization membership
+    if (!userContext.isGlobal && userContext.organizationId !== page.organizationId) {
+      throw new Error("Cannot edit published page for another organization");
+    }
+
+    // Validate GitHub repo URL format
+    if (args.githubRepo !== undefined && args.githubRepo !== "") {
+      if (!args.githubRepo.startsWith('https://github.com/')) {
+        throw new Error("GitHub repository URL must start with 'https://github.com/'");
+      }
+    }
+
+    // Validate Vercel deploy button URL format
+    if (args.vercelDeployButton !== undefined && args.vercelDeployButton !== "") {
+      if (!args.vercelDeployButton.startsWith('https://vercel.com/new/clone')) {
+        throw new Error("Vercel deploy button URL must start with 'https://vercel.com/new/clone'");
+      }
+    }
+
+    // Validate deployed URL format (if provided)
+    if (args.deployedUrl !== undefined && args.deployedUrl !== "" && args.deployedUrl !== null) {
+      try {
+        new URL(args.deployedUrl);
+      } catch (e) {
+        throw new Error("Deployed URL must be a valid URL");
+      }
+    }
+
+    // Get current deployment data
+    const currentDeployment = (page.customProperties?.deployment as any) || {};
+    const deploymentAttempts = currentDeployment.deploymentAttempts || 0;
+    const deploymentErrors = currentDeployment.deploymentErrors || [];
+
+    // Build updated deployment object
+    const updatedDeployment: Record<string, any> = {
+      ...currentDeployment,
+      platform: currentDeployment.platform || "vercel",
+    };
+
+    // Update fields if provided
+    if (args.githubRepo !== undefined) {
+      updatedDeployment.githubRepo = args.githubRepo;
+    }
+    if (args.vercelDeployButton !== undefined) {
+      updatedDeployment.vercelDeployButton = args.vercelDeployButton;
+    }
+    if (args.deployedUrl !== undefined) {
+      updatedDeployment.deployedUrl = args.deployedUrl;
+    }
+    if (args.deploymentStatus !== undefined) {
+      updatedDeployment.status = args.deploymentStatus;
+
+      // Track deployment attempts
+      if (args.deploymentStatus === "deploying") {
+        updatedDeployment.deploymentAttempts = deploymentAttempts + 1;
+        updatedDeployment.lastDeploymentAttempt = Date.now();
+      }
+
+      // Track successful deployment
+      if (args.deploymentStatus === "deployed") {
+        updatedDeployment.deployedAt = Date.now();
+      }
+
+      // Track deployment errors
+      if (args.deploymentStatus === "failed" && args.deploymentError) {
+        updatedDeployment.deploymentErrors = [
+          ...deploymentErrors.slice(-4), // Keep last 5 errors
+          {
+            timestamp: Date.now(),
+            error: args.deploymentError,
+          }
+        ];
+      }
+    }
+
+    // Update page
+    const updatedProperties = {
+      ...page.customProperties,
+      deployment: updatedDeployment,
+    };
+
+    await ctx.db.patch(args.pageId, {
+      customProperties: updatedProperties,
+      updatedAt: Date.now(),
+    });
+
+    // Audit log
+    await ctx.db.insert("objectActions", {
+      organizationId: page.organizationId,
+      objectId: args.pageId,
+      actionType: "deployment_updated",
+      actionData: {
+        before: currentDeployment,
+        after: updatedDeployment,
+        updatedFields: Object.keys(args).filter(k => k !== "sessionId" && k !== "pageId" && args[k as keyof typeof args] !== undefined),
+      },
+      performedBy: userId,
+      performedAt: Date.now(),
+    });
+
+    return {
+      success: true,
+      deployment: updatedDeployment,
+    };
   },
 });
 

@@ -10,12 +10,15 @@
  * - GET /api/v1/crm/contacts - List contacts
  * - GET /api/v1/crm/contacts/:contactId - Get contact details
  *
- * Security: API key required in Authorization header
+ * Security: Dual authentication support
+ * - API keys (full access, backward compatible)
+ * - OAuth tokens (scope-based access control)
  * Scope: Returns only contacts for the authenticated organization
  */
 
 import { httpAction } from "../../_generated/server";
 import { internal } from "../../_generated/api";
+import { authenticateRequest, requireScopes, getEffectiveOrganizationId } from "../../middleware/auth";
 
 /**
  * CREATE CONTACT FROM EVENT
@@ -63,31 +66,28 @@ import { internal } from "../../_generated/api";
  */
 export const createContactFromEvent = httpAction(async (ctx, request) => {
   try {
-    // 1. Verify API key
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // 1. Universal authentication (API key or OAuth)
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
       return new Response(
-        JSON.stringify({ error: "Missing or invalid Authorization header" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const apiKey = authHeader.substring(7);
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
-      apiKey,
-    });
+    const authContext = authResult.context;
 
-    if (!authContext) {
+    // 2. Require contacts:write scope for OAuth tokens
+    const scopeCheck = requireScopes(authContext, ["contacts:write"]);
+    if (!scopeCheck.success) {
       return new Response(
-        JSON.stringify({ error: "Invalid API key" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const { organizationId, userId } = authContext;
-
-    // 2. Update API key usage tracking
-    await ctx.runMutation(internal.api.auth.updateApiKeyUsage, { apiKey });
+    const organizationId = getEffectiveOrganizationId(authContext);
+    const userId = authContext.userId;
 
     // 3. Parse request body
     const body = await request.json();
@@ -103,11 +103,11 @@ export const createContactFromEvent = httpAction(async (ctx, request) => {
       );
     }
 
-    // 4. Create/find event and create contact
+    // 3. Create/find event and create contact
     const result = await ctx.runMutation(
       internal.api.v1.crmInternal.createContactFromEventInternal,
       {
-        organizationId,
+        organizationId: authContext.organizationId, // Use main org ID for event creation
         eventId: eventId || undefined,
         eventName,
         eventDate,
@@ -132,14 +132,14 @@ export const createContactFromEvent = httpAction(async (ctx, request) => {
       }
     );
 
-    // 5. Return success
+    // 4. Return success
     return new Response(
       JSON.stringify({
         success: true,
         contactId: result.contactId,
         eventId: result.eventId,
         crmOrganizationId: result.crmOrganizationId,
-        organizationId: result.organizationId,
+        organizationId: authContext.organizationId,
         isNewContact: result.isNewContact,
         message: result.isNewContact
           ? "Contact created successfully"
@@ -208,31 +208,28 @@ export const createContactFromEvent = httpAction(async (ctx, request) => {
  */
 export const createContact = httpAction(async (ctx, request) => {
   try {
-    // 1. Verify API key
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // 1. Universal authentication (API key or OAuth)
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
       return new Response(
-        JSON.stringify({ error: "Missing or invalid Authorization header" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const apiKey = authHeader.substring(7);
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
-      apiKey,
-    });
+    const authContext = authResult.context;
 
-    if (!authContext) {
+    // 2. Require contacts:write scope for OAuth tokens
+    const scopeCheck = requireScopes(authContext, ["contacts:write"]);
+    if (!scopeCheck.success) {
       return new Response(
-        JSON.stringify({ error: "Invalid API key" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const { organizationId, userId } = authContext;
-
-    // 2. Update API key usage tracking
-    await ctx.runMutation(internal.api.auth.updateApiKeyUsage, { apiKey });
+    const organizationId = getEffectiveOrganizationId(authContext);
+    const userId = authContext.userId;
 
     // 3. Parse request body
     const body = await request.json();
@@ -262,11 +259,11 @@ export const createContact = httpAction(async (ctx, request) => {
       );
     }
 
-    // 4. Create contact
+    // 3. Create contact
     const result = await ctx.runMutation(
       internal.api.v1.crmInternal.createContactInternal,
       {
-        organizationId,
+        organizationId: authContext.organizationId, // Use main org ID
         subtype,
         firstName,
         lastName,
@@ -292,7 +289,7 @@ export const createContact = httpAction(async (ctx, request) => {
       }
     );
 
-    // 5. Return success
+    // 4. Return success
     return new Response(
       JSON.stringify({
         success: true,
@@ -307,7 +304,7 @@ export const createContact = httpAction(async (ctx, request) => {
         status: 200,
         headers: {
           "Content-Type": "application/json",
-          "X-Organization-Id": organizationId,
+          "X-Organization-Id": authContext.organizationId,
           "X-CRM-Organization-Id": result.crmOrganizationId || "",
         },
       }
@@ -360,31 +357,27 @@ export const createContact = httpAction(async (ctx, request) => {
  */
 export const listContacts = httpAction(async (ctx, request) => {
   try {
-    // 1. Verify API key
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // 1. Universal authentication (API key or OAuth)
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
       return new Response(
-        JSON.stringify({ error: "Missing or invalid Authorization header" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const apiKey = authHeader.substring(7);
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
-      apiKey,
-    });
+    const authContext = authResult.context;
 
-    if (!authContext) {
+    // 2. Require contacts:read scope for OAuth tokens
+    const scopeCheck = requireScopes(authContext, ["contacts:read"]);
+    if (!scopeCheck.success) {
       return new Response(
-        JSON.stringify({ error: "Invalid API key" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const { organizationId } = authContext;
-
-    // 2. Update API key usage tracking
-    await ctx.runMutation(internal.api.auth.updateApiKeyUsage, { apiKey });
+    const organizationId = getEffectiveOrganizationId(authContext);
 
     // 3. Parse query parameters
     const url = new URL(request.url);
@@ -397,11 +390,11 @@ export const listContacts = httpAction(async (ctx, request) => {
     );
     const offset = parseInt(url.searchParams.get("offset") || "0");
 
-    // 4. Query contacts
+    // 3. Query contacts
     const result = await ctx.runQuery(
       internal.api.v1.crmInternal.listContactsInternal,
       {
-        organizationId,
+        organizationId: authContext.organizationId, // Use main org ID
         subtype,
         status,
         source,
@@ -410,14 +403,14 @@ export const listContacts = httpAction(async (ctx, request) => {
       }
     );
 
-    // 5. Return response
+    // 4. Return response
     return new Response(
       JSON.stringify(result),
       {
         status: 200,
         headers: {
           "Content-Type": "application/json",
-          "X-Organization-Id": organizationId,
+          "X-Organization-Id": authContext.organizationId,
         },
       }
     );
@@ -459,31 +452,27 @@ export const listContacts = httpAction(async (ctx, request) => {
  */
 export const getContact = httpAction(async (ctx, request) => {
   try {
-    // 1. Verify API key
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // 1. Universal authentication (API key or OAuth)
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
       return new Response(
-        JSON.stringify({ error: "Missing or invalid Authorization header" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const apiKey = authHeader.substring(7);
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
-      apiKey,
-    });
+    const authContext = authResult.context;
 
-    if (!authContext) {
+    // 2. Require contacts:read scope for OAuth tokens
+    const scopeCheck = requireScopes(authContext, ["contacts:read"]);
+    if (!scopeCheck.success) {
       return new Response(
-        JSON.stringify({ error: "Invalid API key" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const { organizationId } = authContext;
-
-    // 2. Update API key usage tracking
-    await ctx.runMutation(internal.api.auth.updateApiKeyUsage, { apiKey });
+    const organizationId = getEffectiveOrganizationId(authContext);
 
     // 3. Extract contact ID from URL
     const url = new URL(request.url);
@@ -497,11 +486,11 @@ export const getContact = httpAction(async (ctx, request) => {
       );
     }
 
-    // 4. Query contact
+    // 3. Query contact
     const contact = await ctx.runQuery(
       internal.api.v1.crmInternal.getContactInternal,
       {
-        organizationId,
+        organizationId: authContext.organizationId, // Use main org ID
         contactId,
       }
     );
@@ -513,19 +502,302 @@ export const getContact = httpAction(async (ctx, request) => {
       );
     }
 
-    // 5. Return response
+    // 4. Return response
     return new Response(
       JSON.stringify(contact),
       {
         status: 200,
         headers: {
           "Content-Type": "application/json",
-          "X-Organization-Id": organizationId,
+          "X-Organization-Id": authContext.organizationId,
         },
       }
     );
   } catch (error) {
     console.error("API /crm/contacts/:id error:", error);
+    return new Response(
+      JSON.stringify({ error: "Internal server error" }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
+});
+
+/**
+ * BULK IMPORT CONTACTS
+ * Imports multiple CRM contacts at once
+ *
+ * POST /api/v1/crm/contacts/bulk
+ *
+ * Request Body:
+ * {
+ *   contacts: Array<{
+ *     firstName: string,
+ *     lastName: string,
+ *     email: string,
+ *     phone?: string,
+ *     company?: string,
+ *     jobTitle?: string,
+ *     subtype?: "customer" | "lead" | "prospect",
+ *     source?: string,
+ *     tags?: string[],
+ *     notes?: string,
+ *     customFields?: object
+ *   }>
+ * }
+ *
+ * Response:
+ * {
+ *   success: true,
+ *   total: number,
+ *   created: number,
+ *   updated: number,
+ *   failed: number,
+ *   errors: Array<{ email: string, error: string }>
+ * }
+ *
+ * Note: Requires Starter+ tier (contactImportExportEnabled feature)
+ * Max 1000 contacts per request
+ */
+export const bulkImportContacts = httpAction(async (ctx, request) => {
+  try {
+    // 1. Universal authentication (API key or OAuth)
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
+      return new Response(
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const authContext = authResult.context;
+
+    // 2. Require contacts:write scope for OAuth tokens
+    const scopeCheck = requireScopes(authContext, ["contacts:write"]);
+    if (!scopeCheck.success) {
+      return new Response(
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // 3. Check feature access (Starter+ only)
+    try {
+      await ctx.runQuery(internal.licensing.helpers.checkFeatureAccessInternal, {
+        organizationId: authContext.organizationId,
+        featureFlag: "contactImportExportEnabled",
+      });
+    } catch (error) {
+      return new Response(
+        JSON.stringify({
+          error: "Bulk import requires Starter tier or higher. Please upgrade your plan.",
+          code: "FEATURE_NOT_AVAILABLE",
+        }),
+        { status: 403, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // 4. Parse request body
+    const body = await request.json();
+    const { contacts } = body;
+
+    // Validate contacts array
+    if (!Array.isArray(contacts)) {
+      return new Response(
+        JSON.stringify({ error: "contacts must be an array" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (contacts.length === 0) {
+      return new Response(
+        JSON.stringify({ error: "contacts array cannot be empty" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (contacts.length > 1000) {
+      return new Response(
+        JSON.stringify({
+          error: "Maximum 1000 contacts per request. Split into multiple requests.",
+        }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // 5. Run bulk import
+    const result = await ctx.runMutation(
+      internal.api.v1.crmInternal.bulkImportContactsInternal,
+      {
+        organizationId: authContext.organizationId,
+        contacts,
+        performedBy: authContext.userId,
+      }
+    );
+
+    // 6. Return response
+    return new Response(
+      JSON.stringify({
+        success: true,
+        ...result,
+      }),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "X-Organization-Id": authContext.organizationId,
+        },
+      }
+    );
+  } catch (error) {
+    console.error("API /crm/contacts/bulk error:", error);
+    return new Response(
+      JSON.stringify({ error: "Internal server error" }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
+});
+
+/**
+ * EXPORT CONTACTS
+ * Exports CRM contacts in JSON or CSV format
+ *
+ * GET /api/v1/crm/contacts/export
+ *
+ * Query Parameters:
+ * - format: "json" | "csv" (default: "json")
+ * - subtype: Filter by contact type (customer, lead, prospect)
+ * - status: Filter by status (active, inactive, unsubscribed, archived)
+ * - source: Filter by source
+ * - tags: Comma-separated list of tags to filter by
+ * - createdAfter: Unix timestamp - only contacts created after this time
+ * - createdBefore: Unix timestamp - only contacts created before this time
+ *
+ * Response (JSON format):
+ * {
+ *   format: "json",
+ *   total: number,
+ *   contacts: Array<{
+ *     id: string,
+ *     firstName: string,
+ *     lastName: string,
+ *     email: string,
+ *     phone: string,
+ *     company: string,
+ *     jobTitle: string,
+ *     subtype: string,
+ *     status: string,
+ *     source: string,
+ *     tags: string[],
+ *     notes: string,
+ *     createdAt: number,
+ *     updatedAt: number
+ *   }>
+ * }
+ *
+ * Response (CSV format):
+ * {
+ *   format: "csv",
+ *   total: number,
+ *   data: string (CSV content)
+ * }
+ *
+ * Note: Requires Starter+ tier (contactImportExportEnabled feature)
+ */
+export const exportContacts = httpAction(async (ctx, request) => {
+  try {
+    // 1. Universal authentication (API key or OAuth)
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
+      return new Response(
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const authContext = authResult.context;
+
+    // 2. Require contacts:read scope for OAuth tokens
+    const scopeCheck = requireScopes(authContext, ["contacts:read"]);
+    if (!scopeCheck.success) {
+      return new Response(
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // 3. Check feature access (Starter+ only)
+    try {
+      await ctx.runQuery(internal.licensing.helpers.checkFeatureAccessInternal, {
+        organizationId: authContext.organizationId,
+        featureFlag: "contactImportExportEnabled",
+      });
+    } catch (error) {
+      return new Response(
+        JSON.stringify({
+          error: "Contact export requires Starter tier or higher. Please upgrade your plan.",
+          code: "FEATURE_NOT_AVAILABLE",
+        }),
+        { status: 403, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // 4. Parse query parameters
+    const url = new URL(request.url);
+    const format = (url.searchParams.get("format") as "json" | "csv") || "json";
+    const subtype = url.searchParams.get("subtype") || undefined;
+    const status = url.searchParams.get("status") || undefined;
+    const source = url.searchParams.get("source") || undefined;
+    const tagsParam = url.searchParams.get("tags");
+    const tags = tagsParam ? tagsParam.split(",").map((t) => t.trim()) : undefined;
+    const createdAfter = url.searchParams.get("createdAfter")
+      ? parseInt(url.searchParams.get("createdAfter")!)
+      : undefined;
+    const createdBefore = url.searchParams.get("createdBefore")
+      ? parseInt(url.searchParams.get("createdBefore")!)
+      : undefined;
+
+    // 5. Run export query
+    const result = await ctx.runQuery(
+      internal.api.v1.crmInternal.exportContactsInternal,
+      {
+        organizationId: authContext.organizationId,
+        subtype,
+        status,
+        source,
+        tags,
+        createdAfter,
+        createdBefore,
+        format,
+      }
+    );
+
+    // 6. Return response based on format
+    if (format === "csv") {
+      return new Response(result.data, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/csv; charset=utf-8",
+          "Content-Disposition": `attachment; filename="contacts-export-${Date.now()}.csv"`,
+          "X-Organization-Id": authContext.organizationId,
+          "X-Total-Count": String(result.total),
+        },
+      });
+    }
+
+    // JSON format
+    return new Response(
+      JSON.stringify(result),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "X-Organization-Id": authContext.organizationId,
+          "X-Total-Count": String(result.total),
+        },
+      }
+    );
+  } catch (error) {
+    console.error("API /crm/contacts/export error:", error);
     return new Response(
       JSON.stringify({ error: "Internal server error" }),
       { status: 500, headers: { "Content-Type": "application/json" } }

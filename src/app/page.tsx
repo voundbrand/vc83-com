@@ -19,6 +19,7 @@ import { EventsWindow } from "@/components/window-content/events-window"
 import { CheckoutWindow } from "@/components/window-content/checkout-window"
 import { PlatformCartWindow } from "@/components/window-content/platform-cart-window"
 import { CheckoutSuccessWindow } from "@/components/window-content/checkout-success-window"
+import { CheckoutFailedWindow } from "@/components/window-content/checkout-failed-window"
 import { FormsWindow } from "@/components/window-content/forms-window"
 import { AllAppsWindow } from "@/components/window-content/all-apps-window"
 import { ShoppingCartButton } from "@/components/shopping-cart-button"
@@ -30,6 +31,11 @@ import { AIChatWindow } from "@/components/window-content/ai-chat-window"
 import { StoreWindow } from "@/components/window-content/store-window"
 import { ProjectsWindow } from "@/components/window-content/projects-window"
 import { WindowsMenu } from "@/components/windows-menu"
+import { TutorialWindow } from "@/components/window-content/tutorial-window"
+import { TutorialsDocsWindow } from "@/components/window-content/tutorials-docs-window"
+import { IntegrationsWindow } from "@/components/window-content/integrations-window"
+import { ComplianceWindow } from "@/components/window-content/compliance-window"
+import { OnboardingWelcomeScreen } from "@/components/onboarding-welcome-screen"
 import { useIsMobile } from "@/hooks/use-media-query"
 import { useAuth, useOrganizations, useCurrentOrganization, useIsSuperAdmin, useAccountDeletionStatus } from "@/hooks/use-auth"
 import { useAvailableApps } from "@/hooks/use-app-availability"
@@ -46,7 +52,7 @@ export default function HomePage() {
   const [showStartMenu, setShowStartMenu] = useState(false)
   const { windows, openWindow, restoreWindow, focusWindow } = useWindowManager()
   const isMobile = useIsMobile()
-  const { isSignedIn, signOut, switchOrganization } = useAuth()
+  const { isSignedIn, signOut, switchOrganization, sessionId } = useAuth()
   const organizations = useOrganizations()
   const currentOrg = useCurrentOrganization()
   const isSuperAdmin = useIsSuperAdmin()
@@ -82,6 +88,13 @@ export default function HomePage() {
     ? (brandingSettings.customProperties as { desktopBackground?: string })?.desktopBackground
     : undefined
 
+  // Check if user has seen the welcome tutorial
+  // IMPORTANT: Only query if BOTH isSignedIn AND currentOrg are ready
+  const tutorialProgress = useQuery(
+    api.tutorialOntology.getTutorialProgress,
+    isSignedIn && currentOrg && sessionId ? { tutorialId: "welcome", sessionId } : "skip"
+  )
+
   const openWelcomeWindow = () => {
     openWindow("welcome", "l4yercak3.exe", <WelcomeWindow />, { x: 100, y: 100 }, { width: 650, height: 500 }, 'ui.app.l4yercak3_exe', '🎂')
   }
@@ -91,7 +104,7 @@ export default function HomePage() {
   }
 
   const openLoginWindow = () => {
-    openWindow("login", "User Account", <LoginWindow />, { x: 250, y: 100 }, { width: 450, height: 620 }, 'ui.app.user_account', '👤')
+    openWindow("login", "User Account", <LoginWindow />, { x: 250, y: 60 }, { width: 450, height: 720 }, 'ui.app.user_account', '👤')
   }
 
   // const openLayerDocsWindow = () => {
@@ -145,6 +158,13 @@ export default function HomePage() {
     openWindow("checkout-success", "Order Complete", <CheckoutSuccessWindow />, { x: centerX, y: centerY }, { width: 600, height: 650 }, 'ui.app.checkout')
   }
 
+  const openCheckoutFailedWindow = (reason?: string) => {
+    // Center the failed window on screen
+    const centerX = typeof window !== 'undefined' ? (window.innerWidth - 600) / 2 : 400;
+    const centerY = typeof window !== 'undefined' ? (window.innerHeight - 600) / 2 : 100;
+    openWindow("checkout-failed", "Checkout Failed", <CheckoutFailedWindow reason={reason} />, { x: centerX, y: centerY }, { width: 600, height: 600 })
+  }
+
   const openFormsWindow = () => {
     openWindow("forms", "Forms", <FormsWindow />, { x: 180, y: 60 }, { width: 950, height: 650 }, 'ui.app.forms')
   }
@@ -181,23 +201,132 @@ export default function HomePage() {
     openWindow("projects", "Projects", <ProjectsWindow />, { x: 240, y: 75 }, { width: 1000, height: 700 }, 'ui.app.projects')
   }
 
+  const openComplianceWindow = () => {
+    openWindow("compliance", "Compliance", <ComplianceWindow />, { x: 150, y: 100 }, { width: 900, height: 600 }, 'ui.app.compliance', '⚖️')
+  }
+
+  const openIntegrationsWindow = (initialPanel?: "api-keys" | "microsoft") => {
+    console.log('[HomePage] Opening Integrations window with panel:', initialPanel);
+    openWindow(
+      "integrations",
+      "Integrations & API",
+      <IntegrationsWindow initialPanel={initialPanel} />,
+      { x: 150, y: 100 },
+      { width: 900, height: 650 },
+      'ui.windows.integrations.title',
+      '🔗'
+    );
+  };
+
+  const openTutorialWindow = (tutorialId: string) => {
+    // Define action handler
+    const handleTutorialAction = (action: string) => {
+      console.log('[HomePage] Tutorial action received:', action);
+      if (action === "view_api_keys") {
+        console.log('[HomePage] Handling view_api_keys action');
+        openIntegrationsWindow("api-keys");
+        // Bring the integrations window to front
+        setTimeout(() => focusWindow("integrations"), 50);
+      } else if (action === "view_templates") {
+        openTemplatesWindow();
+        setTimeout(() => focusWindow("templates"), 50);
+      } else if (action === "open_crm") {
+        openCRMWindow();
+        setTimeout(() => focusWindow("crm"), 50);
+      } else if (action === "open_projects") {
+        openProjectsWindow();
+        setTimeout(() => focusWindow("projects"), 50);
+      } else if (action === "open_invoicing") {
+        openInvoicingWindow();
+        setTimeout(() => focusWindow("invoicing"), 50);
+      }
+    };
+
+    // Pass component via registry, callbacks via props (won't persist but will work in current session)
+    openWindow(
+      `tutorial-${tutorialId}`,
+      "Tutorial",
+      <TutorialWindow
+        tutorialId={tutorialId}
+        onClose={() => {}}
+        onAction={handleTutorialAction}
+      />,
+      { x: 250, y: 80 },
+      { width: 800, height: 650 },
+      undefined,
+      "🎂",
+      {
+        tutorialId,
+        onAction: handleTutorialAction,
+        onClose: () => {}
+      }
+    );
+  };
+
+  const openTutorialsDocsWindow = (initialItem?: string) => {
+    openWindow(
+      "tutorials-docs",
+      "Tutorials & Docs",
+      <TutorialsDocsWindow initialSection="tutorials" initialItem={initialItem} />,
+      { x: 100, y: 60 },
+      { width: 1000, height: 700 },
+      'ui.windows.tutorials_docs.title',
+      "📚"
+    );
+  };
+
   const handleLogout = () => {
     signOut()
   }
 
-  // Open welcome/login window on mount based on auth status
+  // Track if we've already opened a window on mount
+  const [hasOpenedInitialWindow, setHasOpenedInitialWindow] = useState(false);
+
+  // Open welcome/login window or tutorial on mount based on auth status
   useEffect(() => {
-    if (!isMobile) {
-      if (isSignedIn) {
-        // Authenticated: Show welcome window
-        openWelcomeWindow()
-      } else {
-        // Not authenticated: Show login window immediately
-        openLoginWindow()
-      }
+    // Only run once
+    if (hasOpenedInitialWindow || isMobile) {
+      return;
+    }
+
+    // Not signed in: Show login immediately
+    if (!isSignedIn) {
+      openLoginWindow();
+      setHasOpenedInitialWindow(true);
+      return;
+    }
+
+    // Signed in but no organization yet: Wait for org to load
+    if (!currentOrg) {
+      return;
+    }
+
+    // Signed in with org: Wait for tutorial progress query to complete
+    // tutorialProgress will be undefined while loading
+    if (tutorialProgress === undefined) {
+      return; // Still loading, wait
+    }
+
+    // Now we know: isSignedIn=true, currentOrg exists, tutorialProgress loaded
+    if (tutorialProgress === null) {
+      // First time user - show new onboarding welcome screen
+      openWindow(
+        "onboarding-welcome",
+        "Welcome",
+        <OnboardingWelcomeScreen />,
+        { x: 250, y: 100 },
+        { width: 900, height: 700 },
+        "ui.windows.onboarding_welcome.title",
+        "👋"
+      );
+      setHasOpenedInitialWindow(true);
+    } else {
+      // Returning user (progress exists) - show welcome window
+      openWelcomeWindow();
+      setHasOpenedInitialWindow(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMobile, isSignedIn])
+  }, [isMobile, isSignedIn, currentOrg, tutorialProgress, hasOpenedInitialWindow])
 
   // Handle return from OAuth callbacks (Microsoft, etc.)
   useEffect(() => {
@@ -240,20 +369,58 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSignedIn])
 
-  // Handle checkout success redirect
+  // Handle checkout success/failure redirect
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const checkoutParam = params.get('checkout');
+    const reasonParam = params.get('reason');
 
     if (checkoutParam === 'success') {
       // Open the checkout success window with confetti
       openCheckoutSuccessWindow();
+      // Prevent initial window effect from opening another window
+      setHasOpenedInitialWindow(true);
+
+      // Clean up the URL (remove query params)
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (checkoutParam === 'cancel' || checkoutParam === 'failed') {
+      // Open the checkout failed window with reason
+      // Possible reasons: cancel, payment_failed, expired, error
+      openCheckoutFailedWindow(reasonParam || checkoutParam);
+      // Prevent initial window effect from opening another window
+      setHasOpenedInitialWindow(true);
 
       // Clean up the URL (remove query params)
       window.history.replaceState({}, '', window.location.pathname);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Handle onboarding after signup - show new welcome screen
+  useEffect(() => {
+    // Check for onboarding flag from signup
+    const showOnboarding = localStorage.getItem("show_onboarding_tutorial");
+
+    if (showOnboarding === "true" && isSignedIn && currentOrg) {
+      // Clear the flag immediately to prevent re-triggering
+      localStorage.removeItem("show_onboarding_tutorial");
+
+      // Open new onboarding welcome screen instead of tutorial
+      openWindow(
+        "onboarding-welcome",
+        "Welcome",
+        <OnboardingWelcomeScreen />,
+        { x: 250, y: 100 },
+        { width: 900, height: 700 },
+        "ui.windows.onboarding_welcome.title",
+        "👋"
+      );
+
+      // Prevent other initial windows from opening
+      setHasOpenedInitialWindow(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSignedIn, currentOrg])
 
   // Build organization submenu items dynamically with truncation
   const truncateOrgName = (name: string, maxLength: number = 20) => {
@@ -302,67 +469,41 @@ export default function HomePage() {
     }
   });
 
-  // Build Programs submenu dynamically based on app availability
+  // Build Programs submenu - show ALL apps with auth-gating on click
   const programsSubmenu = [
-    // All Apps - always show for authenticated users
+    // All Apps - always show
     { label: t('ui.app.all_applications'), icon: "📱", onClick: requireAuth(openAllAppsWindow) },
-    // AI Assistant - check availability via app availability system
-    ...(isAppAvailable("ai-assistant") ? [
-      { label: t('ui.app.ai_assistant'), icon: "🤖", onClick: requireAuth(openAIAssistantWindow) }
-    ] : []),
+    // AI Assistant
+    { label: t('ui.app.ai_assistant'), icon: "🤖", onClick: requireAuth(openAIAssistantWindow) },
     // { label: "L4YER.docs", icon: "📝", onClick: requireAuth(openLayerDocsWindow) }, // Hidden for now
-    ...(isAppAvailable("media-library") ? [
-      { label: t('ui.app.media_library'), icon: "📁", onClick: requireAuth(openMediaLibraryWindow) }
-    ] : []),
-    ...(isAppAvailable("payments") ? [
-      { label: t('ui.app.payments'), icon: "💰", onClick: requireAuth(openPaymentsWindow) }
-    ] : []),
-    ...(isAppAvailable("products") ? [
-      { label: t('ui.app.products'), icon: "🎟️", onClick: requireAuth(openProductsWindow) }
-    ] : []),
-    ...(isAppAvailable("tickets") ? [
-      { label: t('ui.app.tickets'), icon: "🎫", onClick: requireAuth(openTicketsWindow) }
-    ] : []),
-    ...(isAppAvailable("certificates") ? [
-      { label: t('ui.app.certificates'), icon: "📜", onClick: requireAuth(openCertificatesWindow) }
-    ] : []),
-    ...(isAppAvailable("events") ? [
-      { label: t('ui.app.events'), icon: "📅", onClick: requireAuth(openEventsWindow) }
-    ] : []),
+    // Media Library
+    { label: t('ui.app.media_library'), icon: "📁", onClick: requireAuth(openMediaLibraryWindow) },
+    // Payments
+    { label: t('ui.app.payments'), icon: "💰", onClick: requireAuth(openPaymentsWindow) },
+    // Products
+    { label: t('ui.app.products'), icon: "🎟️", onClick: requireAuth(openProductsWindow) },
+    // Tickets
+    { label: t('ui.app.tickets'), icon: "🎫", onClick: requireAuth(openTicketsWindow) },
+    // Certificates
+    { label: t('ui.app.certificates'), icon: "📜", onClick: requireAuth(openCertificatesWindow) },
+    // Events
+    { label: t('ui.app.events'), icon: "📅", onClick: requireAuth(openEventsWindow) },
     // Checkout app - Manage checkout pages for products and events
-    ...(isAppAvailable("checkout") ? [
-      { label: t('ui.app.checkout'), icon: "🛒", onClick: requireAuth(openCheckoutAppWindow) }
-    ] : []),
-    ...(isAppAvailable("forms") ? [
-      { label: t('ui.app.forms'), icon: "📋", onClick: requireAuth(openFormsWindow) }
-    ] : []),
-    // Web Publishing app - enabled via app availability
-    ...(isAppAvailable("web-publishing") ? [
-      { label: t('ui.app.web_publishing'), icon: "🌐", onClick: requireAuth(openWebPublishingWindow) }
-    ] : []),
+    { label: t('ui.app.checkout'), icon: "🛒", onClick: requireAuth(openCheckoutAppWindow) },
+    // Forms
+    { label: t('ui.app.forms'), icon: "📋", onClick: requireAuth(openFormsWindow) },
+    // Web Publishing app
+    { label: t('ui.app.web_publishing'), icon: "🌐", onClick: requireAuth(openWebPublishingWindow) },
     // CRM app - customer relationship management
-    ...(isAppAvailable("crm") ? [
-      { label: t('ui.app.crm'), icon: "👥", onClick: requireAuth(openCRMWindow) }
-    ] : []),
+    { label: t('ui.app.crm'), icon: "👥", onClick: requireAuth(openCRMWindow) },
     // Invoicing app - B2B/B2C invoice management
-    ...(isAppAvailable("app_invoicing") ? [
-      { label: t('ui.app.invoicing'), icon: "🧾", onClick: requireAuth(openInvoicingWindow) }
-    ] : []),
+    { label: t('ui.app.invoicing'), icon: "🧾", onClick: requireAuth(openInvoicingWindow) },
     // Projects app - project management
-    ...(isAppAvailable("projects") ? [
-      { label: "Projects", icon: "💼", onClick: requireAuth(openProjectsWindow) }
-    ] : []),
+    { label: "Projects", icon: "💼", onClick: requireAuth(openProjectsWindow) },
     // Workflows app - Multi-object behavior orchestration
-    ...(isAppAvailable("workflows") ? [
-      { label: t('ui.app.workflows'), icon: "⚡", onClick: requireAuth(openWorkflowsWindow) }
-    ] : []),
-    // Compliance app - Always show, but grayed out if not available
-    {
-      label: t('ui.app.compliance') || "Compliance",
-      icon: "⚖️",
-      disabled: !isAppAvailable("compliance"),
-      onClick: isAppAvailable("compliance") ? requireAuth(() => console.log("Compliance - Coming soon")) : undefined
-    },
+    { label: t('ui.app.workflows'), icon: "⚡", onClick: requireAuth(openWorkflowsWindow) },
+    // Compliance app - Data export and permanent deletion
+    { label: t('ui.app.compliance') || "Compliance", icon: "⚖️", onClick: requireAuth(openComplianceWindow) },
     // Templates app - Browse and preview all templates
     { label: t('ui.app.templates'), icon: "📄", onClick: requireAuth(openTemplatesWindow) },
     //{ label: "l4yercak3 Podcast", icon: "🎙️", onClick: requireAuth(openEpisodesWindow) },
@@ -384,8 +525,8 @@ export default function HomePage() {
       submenu: orgMenuItems
     }] : []),
 
-    // Store menu item - platform services and subscriptions
-    { label: t('ui.start_menu.store'), icon: "🏪", onClick: requireAuth(openStoreWindow) },
+    // Store menu item - platform services and subscriptions (allow browsing without login)
+    { label: t('ui.start_menu.store'), icon: "🏪", onClick: openStoreWindow },
 
     { label: t('ui.start_menu.settings'), icon: "⚙️", onClick: requireAuth(openSettingsWindow) },
 
@@ -448,11 +589,6 @@ export default function HomePage() {
               >
                 <span className="font-pixel" style={{ color: 'var(--win95-text)' }}>🍰 START</span>
               </button>
-              <StartMenu 
-                items={startMenuItems}
-                isOpen={showStartMenu}
-                onClose={() => setShowStartMenu(false)}
-              />
             </div>
 
             {/* Desktop: Taskbar Buttons for Open/Minimized Windows */}
@@ -633,6 +769,13 @@ export default function HomePage() {
           </div>
         </div>
       </footer>
+
+      {/* Start Menu - Rendered outside footer for proper z-index stacking */}
+      <StartMenu
+        items={startMenuItems}
+        isOpen={showStartMenu}
+        onClose={() => setShowStartMenu(false)}
+      />
       </ClientOnly>
     </div>
   )

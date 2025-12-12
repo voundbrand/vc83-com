@@ -107,15 +107,10 @@ export function UserManagementTable({ organizationId }: UserManagementTableProps
             <PermissionButton
               permission="manage_users"
               onClick={() => setShowInviteModal(true)}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold"
+              className="beveled-button flex items-center gap-2 px-3 py-1.5 text-sm font-semibold"
               style={{
                 backgroundColor: "var(--primary)",
                 color: "white",
-                border: "2px solid",
-                borderTopColor: "var(--win95-button-light)",
-                borderLeftColor: "var(--win95-button-light)",
-                borderBottomColor: "var(--win95-button-dark)",
-                borderRightColor: "var(--win95-button-dark)",
               }}
             >
               <UserPlus size={16} />

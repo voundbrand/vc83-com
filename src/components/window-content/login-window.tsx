@@ -9,12 +9,14 @@ import { PasskeyEncouragementBanner } from "@/components/passkey-encouragement-b
 import { FirstLoginPasskeyModal } from "@/components/first-login-passkey-modal";
 
 export function LoginWindow() {
-  const [mode, setMode] = useState<"check" | "signin" | "setup">("check");
+  const [mode, setMode] = useState<"check" | "signin" | "setup" | "signup">("check");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [organizationName, setOrganizationName] = useState("");
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [welcomeUser, setWelcomeUser] = useState<string | null>(null);
@@ -25,6 +27,7 @@ export function LoginWindow() {
   const [showFirstLoginModal, setShowFirstLoginModal] = useState(false);
   const [isFirstLogin, setIsFirstLogin] = useState(false);
   const [showPasskeySetupPrompt, setShowPasskeySetupPrompt] = useState(false);
+  const [signupSuccess, setSignupSuccess] = useState<{apiKey: string; apiKeyPrefix: string; organization: any; sessionId: string} | null>(null);
 
   const { user, isSignedIn, signIn, setupPassword, checkNeedsPasswordSetup, signOut, sessionId } = useAuth();
   const { t } = useNamespaceTranslations("ui.login");
@@ -191,6 +194,192 @@ export function LoginWindow() {
     }
   };
 
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (password !== confirmPassword) {
+      setError(t('ui.login.error_passwords_mismatch'));
+      return;
+    }
+
+    if (!agreedToTerms) {
+      setError(t('ui.login.error_terms_required') || "You must agree to the terms to continue");
+      return;
+    }
+
+    setError("");
+    setLoading(true);
+
+    try {
+      // Call signup mutation via Convex HTTP endpoint (.convex.site)
+      const apiUrl = process.env.NEXT_PUBLIC_API_ENDPOINT_URL;
+      if (!apiUrl) {
+        throw new Error("API endpoint URL not configured. Please check NEXT_PUBLIC_API_ENDPOINT_URL.");
+      }
+
+      console.log("Signing up with API URL:", apiUrl);
+
+      const response = await fetch(`${apiUrl}/api/signup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          password,
+          firstName,
+          lastName,
+          organizationName: organizationName || undefined,
+        }),
+      });
+
+      // Parse response body once
+      const responseText = await response.text();
+      console.log("Response status:", response.status);
+      console.log("Response text:", responseText);
+
+      let result;
+
+      try {
+        result = JSON.parse(responseText);
+      } catch {
+        console.error("Failed to parse JSON response:", responseText);
+        throw new Error(`Server returned invalid JSON. Status: ${response.status}. Response: ${responseText.substring(0, 200)}`);
+      }
+
+      if (!response.ok) {
+        throw new Error(result.error || `Signup failed with status ${response.status}`);
+      }
+
+      // Store session ID
+      localStorage.setItem("convex_session_id", result.sessionId);
+
+      // Show onboarding with API key
+      setSignupSuccess({
+        apiKey: result.apiKey,
+        apiKeyPrefix: result.apiKeyPrefix,
+        organization: result.organization,
+        sessionId: result.sessionId,
+      });
+
+      // Clear form
+      setPassword("");
+      setConfirmPassword("");
+      setFirstName("");
+      setLastName("");
+      setOrganizationName("");
+      setAgreedToTerms(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Signup failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetForm = () => {
+    setEmail("");
+    setPassword("");
+    setConfirmPassword("");
+    setFirstName("");
+    setLastName("");
+    setOrganizationName("");
+    setAgreedToTerms(false);
+    setError("");
+    setShowPassword(false);
+    setShowConfirmPassword(false);
+    setPasswordMatch(null);
+  };
+
+  // Show onboarding window after successful signup
+  if (signupSuccess) {
+    return (
+      <div className="h-full flex flex-col retro-bg p-6">
+        <div className="text-center mb-6">
+          <div className="text-6xl mb-4">🎉</div>
+          <h2 className="font-pixel text-xl retro-text mb-2">
+            Welcome to l4yercak3!
+          </h2>
+          <p className="text-sm retro-text-secondary">
+            Your account is ready. Here's your API key to connect external tools.
+          </p>
+        </div>
+
+        <div className="retro-note mb-4" style={{background: 'var(--info-bg)', borderColor: 'var(--info)'}}>
+          <strong>What's this for?</strong> Use this API key to connect your apps, scripts, or integrations to l4yercak3. It authenticates your requests to our API.
+        </div>
+
+        <div className="mb-6">
+          <label className="block text-xs font-pixel mb-2 retro-text">
+            Your API Key
+          </label>
+          <div className="p-3 font-mono text-sm break-all" style={{background: 'var(--win95-button-face)', border: '2px inset var(--win95-border)'}}>
+            {signupSuccess.apiKey}
+          </div>
+        </div>
+
+        <div className="flex gap-2 mb-4">
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(signupSuccess.apiKey);
+              // Could add a toast notification here
+            }}
+            className="flex-1 retro-button py-2"
+          >
+            <span className="font-pixel text-xs">
+              📋 Copy to Clipboard
+            </span>
+          </button>
+
+          <button
+            onClick={() => {
+              const apiEndpointUrl = process.env.NEXT_PUBLIC_API_ENDPOINT_URL || 'https://agreeable-lion-828.convex.site';
+              const envContent = `# L4YERCAK3 API Configuration
+L4YERCAK3_API_KEY=${signupSuccess.apiKey}
+L4YERCAK3_API_URL=${apiEndpointUrl}
+`;
+              const blob = new Blob([envContent], { type: "text/plain" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = ".env.local";
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+            className="flex-1 retro-button py-2"
+          >
+            <span className="font-pixel text-xs">
+              💾 Download .env File
+            </span>
+          </button>
+        </div>
+
+        <div className="text-xs retro-text-secondary mb-4 text-center">
+          You can always view and manage your API keys later in <strong>Settings → Integrations</strong>
+        </div>
+
+        <div className="retro-note mb-6">
+          <h3 className="font-pixel text-sm mb-2">Account Details:</h3>
+          <div className="text-xs space-y-1">
+            <p>Organization: <strong>{signupSuccess.organization.name}</strong></p>
+            <p>Plan: <strong>Free</strong></p>
+            <p>API Keys: <strong>1/1 used</strong></p>
+            <p>Contacts: <strong>0/100 available</strong></p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => {
+            // Set flag to show onboarding tutorial after page reload
+            localStorage.setItem("show_onboarding_tutorial", "true");
+            // Reload page to trigger auth context update
+            window.location.reload();
+          }}
+          className="w-full retro-button py-3"
+        >
+          <span className="font-pixel">Continue to Dashboard →</span>
+        </button>
+      </div>
+    );
+  }
+
   if (isSignedIn && user) {
     return (
       <div className="h-full flex flex-col p-6 retro-bg">
@@ -299,11 +488,193 @@ export function LoginWindow() {
               </button>
             </div>
 
+            <div className="mt-4 text-center">
+              <p className="text-xs retro-text-secondary mb-2">
+                Don't have an account?
+              </p>
+              <button
+                onClick={() => setMode("signup")}
+                className="retro-button-small"
+              >
+                <span className="font-pixel text-xs">Create Free Account →</span>
+              </button>
+            </div>
+
             <div className="mt-6 retro-note">
               <p className="text-xs">
-                <strong>{t('ui.login.note_title')}</strong> {t('ui.login.note_invitation_only')}
+                <strong>Note:</strong> Invited users can sign in above. Free accounts get 100 contacts, 1 API key, and 250MB storage.
               </p>
             </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Signup mode (self-service account creation)
+  if (mode === "signup") {
+    return (
+      <div className="h-full flex flex-col retro-bg">
+        <div className="flex-1 flex items-center justify-center p-6 overflow-y-auto">
+          <div className="w-full max-w-sm">
+            <form onSubmit={handleSignup} className="space-y-4">
+              <div className="text-center mb-6">
+                <div className="text-4xl mb-2">🎂</div>
+                <h2 className="font-pixel text-lg retro-text">
+                  Start Building with l4yercak3
+                </h2>
+                <p className="text-xs mt-2 retro-text-secondary">
+                  100 contacts • 1 API key • Free forever
+                </p>
+              </div>
+
+              {error && (
+                <div className="retro-error">
+                  {error}
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-pixel mb-1 retro-text">
+                    First Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    className="w-full retro-input"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-pixel mb-1 retro-text">
+                    Last Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    className="w-full retro-input"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-pixel mb-1 retro-text">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full retro-input"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-pixel mb-1 retro-text">
+                  Password
+                </label>
+                <div className="retro-input-wrapper">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    value={password}
+                    onChange={(e) => handlePasswordChange(e.target.value)}
+                    className="w-full retro-input"
+                    placeholder="Min. 8 characters"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="retro-eye-toggle"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-pixel mb-1 retro-text">
+                  Confirm Password
+                </label>
+                <div className="retro-input-wrapper">
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => handleConfirmPasswordChange(e.target.value)}
+                    className="w-full retro-input"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="retro-eye-toggle"
+                    aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                  >
+                    {showConfirmPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
+                {passwordMatch !== null && (
+                  <p className={passwordMatch ? "retro-validation-success" : "retro-validation-error"}>
+                    {passwordMatch ? "Passwords match ✓" : "Passwords don't match ✗"}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-pixel mb-1 retro-text">
+                  Organization Name (optional)
+                </label>
+                <input
+                  type="text"
+                  value={organizationName}
+                  onChange={(e) => setOrganizationName(e.target.value)}
+                  className="w-full retro-input"
+                  placeholder={`${firstName || 'Your'}'s Organization`}
+                />
+              </div>
+
+              <div className="retro-note">
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={agreedToTerms}
+                    onChange={(e) => setAgreedToTerms(e.target.checked)}
+                    className="mt-1"
+                  />
+                  <span className="text-xs">
+                    I agree to the <a href="/terms" target="_blank" className="underline">Terms of Service</a> and <a href="/privacy" target="_blank" className="underline">Privacy Policy</a>
+                  </span>
+                </label>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading || !agreedToTerms || !passwordMatch}
+                className="w-full retro-button py-2"
+              >
+                <span className="font-pixel text-xs">
+                  {loading ? "Creating Account..." : "Create Free Account"}
+                </span>
+              </button>
+            </form>
+
+            <button
+              onClick={() => {
+                setMode("check");
+                resetForm();
+              }}
+              className="mt-4 retro-button-small"
+            >
+              <span>←</span>
+              <span className="font-pixel">Back</span>
+            </button>
           </div>
         </div>
       </div>
@@ -318,7 +689,7 @@ export function LoginWindow() {
           <div className="w-full max-w-sm">
             <form onSubmit={handleSetupPassword} className="space-y-4">
               <div className="text-center mb-6">
-                <div className="text-4xl mb-2">🎉</div>
+                <div className="text-4xl mb-2">🎂</div>
                 <h2 className="font-pixel text-lg retro-text">
                   {t('ui.login.title_welcome')}
                 </h2>
@@ -502,13 +873,9 @@ export function LoginWindow() {
                     </div>
                     <button
                       onClick={() => setShowPasskeySetupPrompt(false)}
-                      className="w-5 h-5 flex items-center justify-center border hover:opacity-80"
+                      className="beveled-button w-5 h-5 flex items-center justify-center hover:opacity-80"
                       style={{
                         background: "var(--win95-button-face)",
-                        borderTopColor: "var(--win95-button-light)",
-                        borderLeftColor: "var(--win95-button-light)",
-                        borderBottomColor: "var(--win95-button-dark)",
-                        borderRightColor: "var(--win95-button-dark)",
                       }}
                     >
                       <span className="text-xs" style={{ color: "var(--win95-text)" }}>✕</span>
@@ -530,14 +897,10 @@ export function LoginWindow() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => setShowPasskeySetupPrompt(false)}
-                        className="flex-1 px-4 py-2 text-xs font-bold border-2"
+                        className="beveled-button flex-1 px-4 py-2 text-xs font-bold"
                         style={{
                           background: "var(--win95-highlight)",
                           color: "white",
-                          borderTopColor: "var(--win95-button-light)",
-                          borderLeftColor: "var(--win95-button-light)",
-                          borderBottomColor: "var(--win95-button-dark)",
-                          borderRightColor: "var(--win95-button-dark)",
                         }}
                       >
                         <span className="font-pixel">{t('ui.login.passkey_setup_required.button_use_password')}</span>

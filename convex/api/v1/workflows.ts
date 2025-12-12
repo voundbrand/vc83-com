@@ -7,17 +7,23 @@
  *
  * Endpoint: POST /api/v1/workflows/trigger
  *
- * Security: API key required in Authorization header
+ * Security: Dual authentication support
+ * - API keys (full access, backward compatible)
+ * - OAuth tokens (scope-based access control)
  * Scope: Executes workflows for the authenticated organization only
  */
 
 import { httpAction } from "../../_generated/server";
 import { internal } from "../../_generated/api";
 import { getCorsHeaders } from "./corsHeaders";
+import { authenticateRequest, requireScopes, getEffectiveOrganizationId } from "../../middleware/auth";
 
 /**
  * TRIGGER WORKFLOW
  * Executes a workflow with provided input data
+ *
+ * POST /api/v1/workflows/trigger
+ * Required Scope: workflows:trigger or workflows:write
  *
  * Request Body:
  * {
@@ -45,13 +51,13 @@ export const triggerWorkflow = httpAction(async (ctx, request) => {
     const origin = request.headers.get("origin");
     const corsHeaders = getCorsHeaders(origin);
 
-    // 1. Verify API key
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // 1. Universal authentication (API key or OAuth)
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
       return new Response(
-        JSON.stringify({ error: "Missing or invalid Authorization header" }),
+        JSON.stringify({ error: authResult.error }),
         {
-          status: 401,
+          status: authResult.status,
           headers: {
             "Content-Type": "application/json",
             ...corsHeaders,
@@ -60,27 +66,31 @@ export const triggerWorkflow = httpAction(async (ctx, request) => {
       );
     }
 
-    const apiKey = authHeader.substring(7);
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
-      apiKey,
-    });
+    const authContext = authResult.context;
 
-    if (!authContext) {
-      return new Response(
-        JSON.stringify({ error: "Invalid API key" }),
-        {
-          status: 401,
-          headers: {
-            "Content-Type": "application/json",
-            ...corsHeaders,
+    // 2. Require workflows:trigger or workflows:write scope for OAuth tokens
+    const scopeCheck = requireScopes(authContext, ["workflows:trigger"]);
+    if (!scopeCheck.success) {
+      // Fall back to workflows:write
+      const writeCheck = requireScopes(authContext, ["workflows:write"]);
+      if (!writeCheck.success) {
+        return new Response(
+          JSON.stringify({ error: "Missing required scope: workflows:trigger or workflows:write" }),
+          {
+            status: 403,
+            headers: {
+              "Content-Type": "application/json",
+              ...corsHeaders,
+            }
           }
-        }
-      );
+        );
+      }
     }
 
-    const { organizationId, userId } = authContext;
+    const organizationId = getEffectiveOrganizationId(authContext);
+    const userId = authContext.userId;
 
-    // 2. Parse request body
+    // 3. Parse request body
     const body = await request.json();
 
     if (!body.trigger) {
@@ -109,7 +119,7 @@ export const triggerWorkflow = httpAction(async (ctx, request) => {
       );
     }
 
-    // 3. Execute workflow (now an action, not a mutation)
+    // 4. Execute workflow (now an action, not a mutation)
     const result = await ctx.runAction(
       internal.api.v1.workflowsInternal.executeWorkflowInternal,
       {
@@ -118,14 +128,9 @@ export const triggerWorkflow = httpAction(async (ctx, request) => {
         trigger: body.trigger,
         inputData: body.inputData,
         webhookUrl: body.webhookUrl,
-        apiKey, // For tracking usage
+        apiKey: authContext.authMethod === "api_key" ? "api_key_auth" : "oauth_token_auth", // For tracking usage
       }
     );
-
-    // 4. Update API key usage tracking
-    await ctx.runMutation(internal.api.auth.updateApiKeyUsage, {
-      apiKey,
-    });
 
     // 5. Return response
     return new Response(JSON.stringify(result), {
@@ -133,6 +138,7 @@ export const triggerWorkflow = httpAction(async (ctx, request) => {
       headers: {
         "Content-Type": "application/json",
         "X-Organization-Id": organizationId,
+        "X-Auth-Type": authContext.authMethod,
         ...corsHeaders,
       },
     });

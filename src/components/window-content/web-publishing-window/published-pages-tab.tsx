@@ -3,13 +3,14 @@
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
-import { FileText, ExternalLink, Eye, EyeOff, Trash2, Loader2, AlertCircle, Edit, Settings2, Archive } from "lucide-react";
+import { FileText, ExternalLink, Eye, EyeOff, Trash2, Loader2, AlertCircle, Edit, Settings2, Archive, Download } from "lucide-react";
 import { useState } from "react";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { ContentRulesModal } from "./content-rules-modal";
 import { useNotification } from "@/hooks/use-notification";
 import { useRetroConfirm } from "@/components/retro-confirm-dialog";
+import { VercelDeploymentModal } from "./vercel-deployment-modal";
 
 interface PublishedPagesTabProps {
   onEditPage: (page: {
@@ -234,6 +235,7 @@ function PageCard({
   const confirmDialog = useRetroConfirm();
   const [isLoading, setIsLoading] = useState(false);
   const [showContentRules, setShowContentRules] = useState(false);
+  const [showDeploymentModal, setShowDeploymentModal] = useState(false);
 
   const publishPage = useMutation(api.publishingOntology.setPublishingStatus);
   const archivePage = useMutation(api.publishingOntology.archivePublishedPage);
@@ -426,6 +428,29 @@ function PageCard({
 
         {/* Right: Action buttons */}
         <div className="flex items-center gap-1">
+          {/* Deploy to Vercel button (only for external_app subtype) */}
+          {page.subtype === "external_app" && (
+            <button
+              className="px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors"
+              style={{
+                borderColor: 'var(--win95-border)',
+                background: 'var(--win95-bg-light)',
+                color: 'var(--win95-highlight)'
+              }}
+              title="Deploy to Vercel"
+              disabled={isLoading}
+              onClick={() => setShowDeploymentModal(true)}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'var(--win95-hover-light)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'var(--win95-bg-light)';
+              }}
+            >
+              <Download size={12} />
+            </button>
+          )}
+
           {/* Content Rules button */}
           <button
             className="px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors"
@@ -557,6 +582,18 @@ function PageCard({
           </button>
         </div>
       </div>
+
+      {/* Deployment Modal */}
+      {showDeploymentModal && (
+        <VercelDeploymentModal
+          page={page}
+          onClose={() => setShowDeploymentModal(false)}
+          onEditPage={() => {
+            setShowDeploymentModal(false);
+            onEditPage(page);
+          }}
+        />
+      )}
 
       {/* Content Rules Modal */}
       {showContentRules && (

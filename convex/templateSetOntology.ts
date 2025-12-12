@@ -50,6 +50,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser, getUserContext, checkPermission } from "./rbacHelpers";
+import { checkFeatureAccess } from "./licensing/helpers";
 
 /**
  * CREATE TEMPLATE SET (v2.0 - Flexible Composition)
@@ -96,6 +97,10 @@ export const createTemplateSet = mutation({
     if (!hasPermission) {
       throw new Error("Permission denied: create_templates required");
     }
+
+    // ⚡ PROFESSIONAL TIER: Template Sets
+    // Professional+ can create custom template sets
+    await checkFeatureAccess(ctx, args.organizationId, "templateSetsEnabled");
 
     // Determine version and validate
     let version = "2.0";

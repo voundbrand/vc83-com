@@ -130,15 +130,10 @@ export function StripeTaxSection({ organizationId, organization }: StripeTaxSect
                 // TODO: Open tax settings window or navigate to it
                 alert("Navigate to Organization Settings > Tax to enable tax collection");
               }}
-              className="mt-3 px-3 py-1.5 text-xs font-semibold"
+              className="beveled-button mt-3 px-3 py-1.5 text-xs font-semibold"
               style={{
                 backgroundColor: "var(--primary)",
                 color: "white",
-                border: "2px solid",
-                borderTopColor: "var(--win95-button-light)",
-                borderLeftColor: "var(--win95-button-light)",
-                borderBottomColor: "var(--win95-button-dark)",
-                borderRightColor: "var(--win95-button-dark)",
               }}
             >
               Enable Tax Collection
@@ -275,15 +270,10 @@ export function StripeTaxSection({ organizationId, organization }: StripeTaxSect
           <button
             onClick={handleSyncWithStripe}
             disabled={isSyncing}
-            className="flex-1 px-4 py-2 text-xs font-semibold flex items-center justify-center gap-2"
+            className="beveled-button flex-1 px-4 py-2 text-xs font-semibold flex items-center justify-center gap-2"
             style={{
               backgroundColor: "var(--primary)",
               color: "white",
-              border: "2px solid",
-              borderTopColor: "var(--win95-button-light)",
-              borderLeftColor: "var(--win95-button-light)",
-              borderBottomColor: "var(--win95-button-dark)",
-              borderRightColor: "var(--win95-button-dark)",
               opacity: isSyncing ? 0.6 : 1,
               cursor: isSyncing ? "not-allowed" : "pointer",
             }}
@@ -305,15 +295,10 @@ export function StripeTaxSection({ organizationId, organization }: StripeTaxSect
             href={`https://dashboard.stripe.com/${isTestMode ? "test/" : ""}settings/tax`}
             target="_blank"
             rel="noopener noreferrer"
-            className="px-4 py-2 text-xs font-semibold flex items-center gap-2"
+            className="beveled-button px-4 py-2 text-xs font-semibold flex items-center gap-2"
             style={{
               backgroundColor: "var(--win95-button-face)",
               color: "var(--win95-text)",
-              border: "2px solid",
-              borderTopColor: "var(--win95-button-light)",
-              borderLeftColor: "var(--win95-button-light)",
-              borderBottomColor: "var(--win95-button-dark)",
-              borderRightColor: "var(--win95-button-dark)",
             }}
           >
             <ExternalLink size={14} />

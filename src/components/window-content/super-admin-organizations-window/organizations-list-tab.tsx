@@ -3,10 +3,10 @@
 import { useQuery, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
-import { Building2, Trash2, Users, Calendar, Loader2, AlertCircle, Archive, Settings } from "lucide-react";
+import { Building2, Trash2, Users, Calendar, Loader2, AlertCircle, Archive, Settings, Globe } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { ConfirmationModal } from "@/components/confirmation-modal";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useWindowManager } from "@/hooks/use-window-manager";
 import { AdminManageWindow } from "./manage-org";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
@@ -15,6 +15,8 @@ import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
  * Organizations List Tab
  *
  * Lists all organizations the user has access to and allows deletion
+ * Super admins see ALL organizations (even ones they're not members of)
+ * Regular users see only organizations they are members of
  */
 export function OrganizationsListTab() {
   const { sessionId, switchOrganization, isSuperAdmin } = useAuth();
@@ -32,11 +34,30 @@ export function OrganizationsListTab() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [orgToDelete, setOrgToDelete] = useState<{ id: Id<"organizations">; name: string } | null>(null);
 
-  // Query user's organizations
-  const organizations = useQuery(
+  // Query user's organizations (for regular users)
+  const userOrganizations = useQuery(
     api.organizations.getUserOrganizations,
-    sessionId ? { sessionId } : "skip"
+    sessionId && !isSuperAdmin ? { sessionId } : "skip"
   );
+
+  // Query ALL organizations (for super admins)
+  const allOrganizations = useQuery(
+    api.organizations.listAll,
+    sessionId && isSuperAdmin ? { sessionId } : "skip"
+  );
+
+  // Normalize the data format - super admin query returns different structure
+  const organizations = useMemo(() => {
+    if (isSuperAdmin && allOrganizations) {
+      // Transform listAll format to match getUserOrganizations format
+      return allOrganizations.map(org => ({
+        organization: org,
+        role: "super_admin" as const,
+        joinedAt: org.createdAt,
+      }));
+    }
+    return userOrganizations;
+  }, [isSuperAdmin, allOrganizations, userOrganizations]);
 
   // Actions
   const archiveOrganization = useAction(api.organizations.deleteOrganization); // This soft-deletes
@@ -203,11 +224,15 @@ export function OrganizationsListTab() {
   return (
     <div className="p-4">
       <div className="mb-4">
-        <h3 className="text-sm font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+        <h3 className="text-sm font-bold mb-1 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+          {isSuperAdmin && <Globe size={14} style={{ color: "var(--primary)" }} />}
           {t('ui.organizations.list.title')}
         </h3>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-          {t('ui.organizations.list.subtitle')} ({organizations.length})
+          {isSuperAdmin
+            ? `Viewing all ${organizations.length} organizations in the system`
+            : `${t('ui.organizations.list.subtitle')} (${organizations.length})`
+          }
         </p>
         <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
           {t('ui.organizations.list.inactive_note')}
@@ -260,13 +285,23 @@ export function OrganizationsListTab() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 mt-2 text-xs">
+                  <div className="grid grid-cols-3 gap-3 mt-2 text-xs">
                     <div className="flex items-center gap-1.5">
                       <Users size={12} style={{ color: "var(--neutral-gray)" }} />
                       <span style={{ color: "var(--win95-text)" }}>
                         {t('ui.organizations.role.label')} <span className="font-semibold">{formatRole(role, t)}</span>
                       </span>
                     </div>
+
+                    {/* Show member count for super admin view */}
+                    {isSuperAdmin && 'memberCount' in org && (
+                      <div className="flex items-center gap-1.5">
+                        <Users size={12} style={{ color: "var(--primary)" }} />
+                        <span style={{ color: "var(--win95-text)" }}>
+                          <span className="font-semibold">{(org as { memberCount: number }).memberCount}</span> {(org as { memberCount: number }).memberCount === 1 ? 'member' : 'members'}
+                        </span>
+                      </div>
+                    )}
 
                     {joinedAt && (
                       <div className="flex items-center gap-1.5">
@@ -297,15 +332,10 @@ export function OrganizationsListTab() {
                   {isSuperAdmin && (
                     <button
                       onClick={() => handleManageClick(org._id, org.name)}
-                      className="px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+                      className="beveled-button px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 hover:opacity-80 transition-opacity"
                       style={{
                         backgroundColor: "var(--primary)",
                         color: "white",
-                        border: "2px solid",
-                        borderTopColor: "var(--win95-button-light)",
-                        borderLeftColor: "var(--win95-button-light)",
-                        borderBottomColor: "var(--win95-button-dark)",
-                        borderRightColor: "var(--win95-button-dark)",
                       }}
                     >
                       <Settings size={11} />
@@ -319,15 +349,10 @@ export function OrganizationsListTab() {
                         // Active org: Show "Archive" button (soft delete)
                         <button
                           onClick={() => handleArchiveClick(org._id, org.name)}
-                          className="px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+                          className="beveled-button px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 hover:opacity-80 transition-opacity"
                           style={{
                             backgroundColor: "var(--warning)",
                             color: "white",
-                            border: "2px solid",
-                            borderTopColor: "var(--win95-button-light)",
-                            borderLeftColor: "var(--win95-button-light)",
-                            borderBottomColor: "var(--win95-button-dark)",
-                            borderRightColor: "var(--win95-button-dark)",
                           }}
                         >
                           <Archive size={11} />
@@ -339,15 +364,10 @@ export function OrganizationsListTab() {
                           {role === "super_admin" && (
                             <button
                               onClick={() => handleRestoreClick(org._id, org.name)}
-                              className="px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+                              className="beveled-button px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 hover:opacity-80 transition-opacity"
                               style={{
                                 backgroundColor: "var(--success)",
                                 color: "white",
-                                border: "2px solid",
-                                borderTopColor: "var(--win95-button-light)",
-                                borderLeftColor: "var(--win95-button-light)",
-                                borderBottomColor: "var(--win95-button-dark)",
-                                borderRightColor: "var(--win95-button-dark)",
                               }}
                             >
                               <Archive size={11} />
@@ -356,15 +376,10 @@ export function OrganizationsListTab() {
                           )}
                           <button
                             onClick={() => handleDeleteClick(org._id, org.name)}
-                            className="px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+                            className="beveled-button px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 hover:opacity-80 transition-opacity"
                             style={{
                               backgroundColor: "var(--error)",
                               color: "white",
-                              border: "2px solid",
-                              borderTopColor: "var(--win95-button-light)",
-                              borderLeftColor: "var(--win95-button-light)",
-                              borderBottomColor: "var(--win95-button-dark)",
-                              borderRightColor: "var(--win95-button-dark)",
                             }}
                           >
                             <Trash2 size={11} />

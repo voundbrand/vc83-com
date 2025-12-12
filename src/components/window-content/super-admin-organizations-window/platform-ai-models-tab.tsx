@@ -281,15 +281,10 @@ export function PlatformAiModelsTab() {
         <button
           onClick={handleManualRefresh}
           disabled={isRefreshing}
-          className="px-4 py-2 text-sm font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="beveled-button px-4 py-2 text-sm font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           style={{
             backgroundColor: "var(--primary)",
             color: "white",
-            border: "2px solid",
-            borderTopColor: "var(--win95-button-light)",
-            borderLeftColor: "var(--win95-button-light)",
-            borderBottomColor: "var(--win95-button-dark)",
-            borderRightColor: "var(--win95-button-dark)",
           }}
         >
           <RefreshCw size={16} className={isRefreshing ? "animate-spin" : ""} />
@@ -353,15 +348,10 @@ export function PlatformAiModelsTab() {
             <button
               onClick={handleSelectAll}
               disabled={filteredModels.length === 0}
-              className="px-3 py-1 text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+              className="beveled-button px-3 py-1 text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
                 backgroundColor: "var(--primary)",
                 color: "white",
-                border: "2px solid",
-                borderTopColor: "var(--win95-button-light)",
-                borderLeftColor: "var(--win95-button-light)",
-                borderBottomColor: "var(--win95-button-dark)",
-                borderRightColor: "var(--win95-button-dark)",
                 cursor: filteredModels.length === 0 ? "not-allowed" : "pointer",
               }}
             >
@@ -370,15 +360,10 @@ export function PlatformAiModelsTab() {
             <button
               onClick={handleDeselectAll}
               disabled={selectedModels.size === 0}
-              className="px-3 py-1 text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+              className="beveled-button px-3 py-1 text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
                 backgroundColor: "var(--neutral-gray)",
                 color: "white",
-                border: "2px solid",
-                borderTopColor: "var(--win95-button-light)",
-                borderLeftColor: "var(--win95-button-light)",
-                borderBottomColor: "var(--win95-button-dark)",
-                borderRightColor: "var(--win95-button-dark)",
                 cursor: selectedModels.size === 0 ? "not-allowed" : "pointer",
               }}
             >
@@ -533,15 +518,10 @@ export function PlatformAiModelsTab() {
           </span>
           <button
             onClick={handleBatchEnable}
-            className="px-4 py-1 text-xs font-semibold flex items-center gap-2"
+            className="beveled-button px-4 py-1 text-xs font-semibold flex items-center gap-2"
             style={{
               backgroundColor: "var(--primary)",
               color: "white",
-              border: "2px solid",
-              borderTopColor: "var(--win95-button-light)",
-              borderLeftColor: "var(--win95-button-light)",
-              borderBottomColor: "var(--win95-button-dark)",
-              borderRightColor: "var(--win95-button-dark)",
             }}
           >
             <CheckCircle size={14} />
@@ -658,15 +638,10 @@ export function PlatformAiModelsTab() {
                   {/* Enable/Disable Button */}
                   <button
                     onClick={() => handleToggleModel(model.modelId, model.isPlatformEnabled)}
-                    className="px-4 py-2 text-xs font-semibold flex items-center gap-2"
+                    className="beveled-button px-4 py-2 text-xs font-semibold flex items-center gap-2"
                     style={{
                       backgroundColor: model.isPlatformEnabled ? "var(--success)" : "var(--neutral-gray)",
                       color: "white",
-                      border: "2px solid",
-                      borderTopColor: "var(--win95-button-light)",
-                      borderLeftColor: "var(--win95-button-light)",
-                      borderBottomColor: "var(--win95-button-dark)",
-                      borderRightColor: "var(--win95-button-dark)",
                     }}
                   >
                     {model.isPlatformEnabled ? (
@@ -686,7 +661,7 @@ export function PlatformAiModelsTab() {
                   {model.isPlatformEnabled && (
                     <button
                       onClick={() => handleToggleSystemDefault(model.modelId, model.isSystemDefault)}
-                      className="px-4 py-2 text-xs font-semibold flex items-center gap-2"
+                      className="beveled-button px-4 py-2 text-xs font-semibold flex items-center gap-2"
                       title={
                         model.isSystemDefault
                           ? "Remove from system defaults (won't auto-select for new orgs)"
@@ -695,11 +670,6 @@ export function PlatformAiModelsTab() {
                       style={{
                         backgroundColor: model.isSystemDefault ? "var(--warning)" : "var(--win95-bg)",
                         color: model.isSystemDefault ? "white" : "var(--win95-text)",
-                        border: "2px solid",
-                        borderTopColor: "var(--win95-button-light)",
-                        borderLeftColor: "var(--win95-button-light)",
-                        borderBottomColor: "var(--win95-button-dark)",
-                        borderRightColor: "var(--win95-button-dark)",
                         cursor: "pointer",
                       }}
                     >

@@ -520,9 +520,10 @@ export class StripeConnectProvider implements IPaymentProvider {
    * @param signature - Stripe-Signature header value
    * @returns True if signature is valid
    */
-  verifyWebhookSignature(payload: string, signature: string): boolean {
+  async verifyWebhookSignature(payload: string, signature: string): Promise<boolean> {
     try {
-      this.stripe.webhooks.constructEvent(
+      // MUST use async version in Convex runtime (SubtleCryptoProvider requires async)
+      await this.stripe.webhooks.constructEventAsync(
         payload,
         signature,
         this.webhookSecret

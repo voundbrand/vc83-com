@@ -19,6 +19,7 @@ import { requireAuthenticatedUser, requirePermission, checkPermission } from "..
 import { Id } from "../_generated/dataModel";
 import { validateWorkflowConfig, validateObjectReferences } from "./workflowValidation";
 import { api, internal } from "../_generated/api";
+import { checkFeatureAccess } from "../licensing/helpers";
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -127,7 +128,8 @@ export const listWorkflows = query({
     );
 
     if (!hasPermission) {
-      throw new Error("Permission denied: view_workflows required");
+      // Return null instead of throwing to allow graceful error handling in UI
+      return null;
     }
 
     // Query workflows
@@ -185,7 +187,8 @@ export const getWorkflow = query({
     );
 
     if (!hasPermission) {
-      throw new Error("Permission denied: view_workflows required");
+      // Return null instead of throwing to allow graceful error handling in UI
+      return null;
     }
 
     return workflow;
@@ -214,7 +217,8 @@ export const getWorkflowsByTrigger = query({
     );
 
     if (!hasPermission) {
-      throw new Error("Permission denied: view_workflows required");
+      // Return null instead of throwing to allow graceful error handling in UI
+      return null;
     }
 
     // Query active workflows
@@ -324,6 +328,15 @@ export const createWorkflow = mutation({
     await requirePermission(ctx, userId, "manage_workflows", {
       organizationId: args.organizationId,
     });
+
+    // Check license limits using the licensing helper
+    const { checkResourceLimit } = await import("../licensing/helpers");
+    await checkResourceLimit(
+      ctx,
+      args.organizationId,
+      "workflow",
+      "maxWorkflows"
+    );
 
     // Validate object references exist (if objects are provided)
     if (args.workflow.objects && args.workflow.objects.length > 0) {
@@ -467,6 +480,15 @@ export const updateWorkflow = mutation({
       const behaviorErrors = validateWorkflowConfig(args.updates.behaviors);
       if (behaviorErrors.length > 0) {
         throw new Error(`Invalid behavior configurations: ${behaviorErrors.join(", ")}`);
+      }
+
+      // CHECK FEATURE ACCESS: Advanced conditions require Starter tier or higher
+      const hasAdvancedConditions = args.updates.behaviors.some((behavior) => {
+        const config = behavior.config as { conditions?: unknown[] };
+        return config.conditions && Array.isArray(config.conditions) && config.conditions.length > 0;
+      });
+      if (hasAdvancedConditions) {
+        await checkFeatureAccess(ctx, workflow.organizationId, "advancedConditionsEnabled");
       }
     }
 

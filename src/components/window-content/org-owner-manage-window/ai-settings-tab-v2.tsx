@@ -1187,15 +1187,10 @@ export function AISettingsTab() {
         <button
           onClick={handleSave}
           disabled={isSaving || !organizationId}
-          className="px-4 py-2 text-xs font-bold flex items-center gap-2"
+          className="beveled-button px-4 py-2 text-xs font-bold flex items-center gap-2"
           style={{
             backgroundColor: 'var(--primary)',
             color: 'white',
-            border: '2px solid',
-            borderTopColor: 'var(--win95-button-light)',
-            borderLeftColor: 'var(--win95-button-light)',
-            borderBottomColor: 'var(--win95-button-dark)',
-            borderRightColor: 'var(--win95-button-dark)',
             opacity: isSaving ? 0.6 : 1,
             cursor: isSaving ? 'wait' : 'pointer'
           }}

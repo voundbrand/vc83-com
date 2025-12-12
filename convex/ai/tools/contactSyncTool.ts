@@ -233,6 +233,14 @@ export const executeSyncContacts: ReturnType<typeof action> = action({
 
     // Execute mode - actually sync contacts
     if (args.mode === "execute") {
+      // ⚡ PROFESSIONAL TIER: Contact Sync
+      // Professional+ can sync contacts from external providers
+      // Note: checkFeatureAccess requires QueryCtx, so we use runQuery here
+      await ctx.runQuery(api.licensing.helpers.checkFeatureAccessQuery, {
+        organizationId: organizationId as Id<"organizations">,
+        featureName: "contactSyncEnabled",
+      });
+
       const results = {
         created: 0,
         updated: 0,

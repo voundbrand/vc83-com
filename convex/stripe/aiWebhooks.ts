@@ -61,19 +61,66 @@ export const processAIWebhook = internalAction({
     try {
       switch (args.eventType) {
         case "checkout.session.completed":
-          await handleCheckoutCompleted(ctx, data);
+          // Route based on checkout type in metadata
+          const checkoutType = data.metadata?.type;
+          if (checkoutType === "platform-tier" || checkoutType === "token-pack") {
+            // Route to platform webhook handler for platform checkouts
+            console.log(`[AI Webhooks] Routing ${checkoutType} checkout to platform handler`);
+            await ctx.runAction(internal.stripe.platformWebhooks.processPlatformWebhook, {
+              eventType: args.eventType,
+              eventId: args.eventId,
+              eventData: args.eventData,
+              created: args.created,
+            });
+          } else {
+            // AI subscription checkout
+            await handleCheckoutCompleted(ctx, data);
+          }
           break;
 
         case "customer.subscription.created":
-          await handleSubscriptionCreated(ctx, data);
+          // Route based on subscription type in metadata
+          if (data.metadata?.type === "platform-tier" || data.metadata?.type === "token-pack") {
+            console.log(`[AI Webhooks] Routing ${data.metadata.type} subscription.created to platform handler`);
+            await ctx.runAction(internal.stripe.platformWebhooks.processPlatformWebhook, {
+              eventType: args.eventType,
+              eventId: args.eventId,
+              eventData: args.eventData,
+              created: args.created,
+            });
+          } else {
+            await handleSubscriptionCreated(ctx, data);
+          }
           break;
 
         case "customer.subscription.updated":
-          await handleSubscriptionUpdated(ctx, data);
+          // Route based on subscription type in metadata
+          if (data.metadata?.type === "platform-tier" || data.metadata?.type === "token-pack") {
+            console.log(`[AI Webhooks] Routing ${data.metadata.type} subscription.updated to platform handler`);
+            await ctx.runAction(internal.stripe.platformWebhooks.processPlatformWebhook, {
+              eventType: args.eventType,
+              eventId: args.eventId,
+              eventData: args.eventData,
+              created: args.created,
+            });
+          } else {
+            await handleSubscriptionUpdated(ctx, data);
+          }
           break;
 
         case "customer.subscription.deleted":
-          await handleSubscriptionDeleted(ctx, data);
+          // Route based on subscription type in metadata
+          if (data.metadata?.type === "platform-tier" || data.metadata?.type === "token-pack") {
+            console.log(`[AI Webhooks] Routing ${data.metadata.type} subscription.deleted to platform handler`);
+            await ctx.runAction(internal.stripe.platformWebhooks.processPlatformWebhook, {
+              eventType: args.eventType,
+              eventId: args.eventId,
+              eventData: args.eventData,
+              created: args.created,
+            });
+          } else {
+            await handleSubscriptionDeleted(ctx, data);
+          }
           break;
 
         case "invoice.payment_succeeded":

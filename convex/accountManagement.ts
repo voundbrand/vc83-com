@@ -255,6 +255,9 @@ export const restoreAccount = action({
 
 /**
  * Internal mutation to restore account
+ *
+ * Clears the scheduled deletion date and ensures all app availabilities
+ * are restored for the user's organizations.
  */
 export const internalRestoreAccount = internalMutation({
   args: {
@@ -272,9 +275,126 @@ export const internalRestoreAccount = internalMutation({
       updatedAt: Date.now(),
     });
 
+    // Restore app availabilities for all user's organizations
+    // This ensures apps are visible after restoration
+    const memberships = await ctx.db
+      .query("organizationMembers")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    for (const membership of memberships) {
+      // Ensure organization is active
+      const org = await ctx.db.get(membership.organizationId);
+      if (org && !org.isActive) {
+        await ctx.db.patch(membership.organizationId, {
+          isActive: true,
+          updatedAt: Date.now(),
+        });
+        console.log(`[Restore] Reactivated organization: ${org.name}`);
+      }
+
+      // Backfill app availabilities for each org
+      await backfillOrgAppsInternal(ctx, membership.organizationId, args.userId);
+    }
+
     console.log(`Account restored: ${user.email}`);
   },
 });
+
+/**
+ * Internal helper to backfill app availabilities for an organization
+ *
+ * This is called during account restoration and ensures all active apps
+ * have appAvailabilities and appInstallations records.
+ */
+async function backfillOrgAppsInternal(
+  ctx: any,
+  organizationId: any,
+  userId: any
+): Promise<void> {
+  // Get all active and approved apps
+  const activeApps = await ctx.db
+    .query("apps")
+    .filter((q: any) =>
+      q.or(
+        q.eq(q.field("status"), "active"),
+        q.eq(q.field("status"), "approved")
+      )
+    )
+    .collect();
+
+  let addedCount = 0;
+  let reactivatedCount = 0;
+
+  for (const app of activeApps) {
+    // Check if availability already exists
+    const existingAvailability = await ctx.db
+      .query("appAvailabilities")
+      .withIndex("by_org_app", (q: any) =>
+        q.eq("organizationId", organizationId).eq("appId", app._id)
+      )
+      .first();
+
+    if (existingAvailability) {
+      // Ensure it's enabled
+      if (!existingAvailability.isAvailable) {
+        await ctx.db.patch(existingAvailability._id, {
+          isAvailable: true,
+          approvedBy: userId,
+          approvedAt: Date.now(),
+        });
+        reactivatedCount++;
+      }
+    } else {
+      // Create new appAvailability
+      await ctx.db.insert("appAvailabilities", {
+        appId: app._id,
+        organizationId,
+        isAvailable: true,
+        approvedBy: userId,
+        approvedAt: Date.now(),
+      });
+      addedCount++;
+    }
+
+    // Also ensure appInstallation exists
+    const existingInstallation = await ctx.db
+      .query("appInstallations")
+      .withIndex("by_org_and_app", (q: any) =>
+        q.eq("organizationId", organizationId).eq("appId", app._id)
+      )
+      .first();
+
+    if (!existingInstallation) {
+      await ctx.db.insert("appInstallations", {
+        organizationId,
+        appId: app._id,
+        status: "active",
+        permissions: {
+          read: true,
+          write: true,
+          admin: false,
+        },
+        isVisible: true,
+        usageCount: 0,
+        installedAt: Date.now(),
+        installedBy: userId,
+        updatedAt: Date.now(),
+      });
+    } else if (existingInstallation.status !== "active") {
+      // Reactivate if suspended
+      await ctx.db.patch(existingInstallation._id, {
+        status: "active",
+        isVisible: true,
+        updatedAt: Date.now(),
+      });
+    }
+  }
+
+  if (addedCount > 0 || reactivatedCount > 0) {
+    console.log(`[Restore] Backfilled apps for org ${organizationId}: ${addedCount} added, ${reactivatedCount} reactivated`);
+  }
+}
 
 /**
  * Permanently Delete Expired Accounts (Scheduled Job)

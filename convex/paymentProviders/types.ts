@@ -195,7 +195,7 @@ export interface IPaymentProvider {
    * @param signature - Webhook signature header
    * @returns True if signature is valid
    */
-  verifyWebhookSignature(payload: string, signature: string): boolean;
+  verifyWebhookSignature(payload: string, signature: string): Promise<boolean>;
 }
 
 // =========================================

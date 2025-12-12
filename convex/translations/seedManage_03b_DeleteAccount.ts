@@ -59,23 +59,23 @@ export const seed = internalMutation({
       {
         key: "ui.manage.delete_account.warning_title",
         values: {
-          en: "⚠️ This action cannot be undone!",
-          de: "⚠️ Diese Aktion kann nicht rückgängig gemacht werden!",
-          pl: "⚠️ Ta akcja nie może być cofnięta!",
-          es: "⚠️ ¡Esta acción no se puede deshacer!",
-          fr: "⚠️ Cette action ne peut pas être annulée !",
-          ja: "⚠️ この操作は元に戻せません！",
+          en: "⚠️ Account Deletion Request",
+          de: "⚠️ Kontolöschung angefordert",
+          pl: "⚠️ Żądanie usunięcia konta",
+          es: "⚠️ Solicitud de eliminación de cuenta",
+          fr: "⚠️ Demande de suppression de compte",
+          ja: "⚠️ アカウント削除リクエスト",
         }
       },
       {
         key: "ui.manage.delete_account.warning_message",
         values: {
-          en: "You are about to permanently delete your account. This is a serious and irreversible action.",
-          de: "Sie sind dabei, Ihr Konto dauerhaft zu löschen. Dies ist eine ernsthafte und unwiderrufliche Aktion.",
-          pl: "Zamierzasz trwale usunąć swoje konto. To poważna i nieodwracalna akcja.",
-          es: "Estás a punto de eliminar permanentemente tu cuenta. Esta es una acción seria e irreversible.",
-          fr: "Vous êtes sur le point de supprimer définitivement votre compte. Il s'agit d'une action sérieuse et irréversible.",
-          ja: "アカウントを完全に削除しようとしています。これは深刻で元に戻せないアクションです。",
+          en: "Your account will be scheduled for deletion. You have 2 weeks to change your mind and restore your account before it is permanently deleted.",
+          de: "Ihr Konto wird zur Löschung vorgemerkt. Sie haben 2 Wochen Zeit, Ihre Meinung zu ändern und Ihr Konto wiederherzustellen, bevor es dauerhaft gelöscht wird.",
+          pl: "Twoje konto zostanie zaplanowane do usunięcia. Masz 2 tygodnie na zmianę decyzji i przywrócenie konta przed jego trwałym usunięciem.",
+          es: "Tu cuenta será programada para eliminación. Tienes 2 semanas para cambiar de opinión y restaurar tu cuenta antes de que se elimine permanentemente.",
+          fr: "Votre compte sera programmé pour suppression. Vous avez 2 semaines pour changer d'avis et restaurer votre compte avant qu'il ne soit définitivement supprimé.",
+          ja: "アカウントは削除予定として登録されます。完全に削除される前に、2週間以内であれば復元できます。",
         }
       },
       {
@@ -202,12 +202,12 @@ export const seed = internalMutation({
       {
         key: "ui.manage.delete_account.button_description",
         values: {
-          en: "Permanently delete your account and all associated data. This cannot be undone.",
-          de: "Löschen Sie Ihr Konto und alle zugehörigen Daten dauerhaft. Dies kann nicht rückgängig gemacht werden.",
-          pl: "Trwale usuń swoje konto i wszystkie powiązane dane. Nie można tego cofnąć.",
-          es: "Elimina permanentemente tu cuenta y todos los datos asociados. Esto no se puede deshacer.",
-          fr: "Supprimez définitivement votre compte et toutes les données associées. Cela ne peut pas être annulé.",
-          ja: "アカウントと関連するすべてのデータを完全に削除します。これは元に戻せません。",
+          en: "Schedule your account for deletion. You will have 2 weeks to restore your account. For immediate permanent deletion, use the Compliance app to export your data first.",
+          de: "Planen Sie die Löschung Ihres Kontos. Sie haben 2 Wochen Zeit zur Wiederherstellung. Für sofortige dauerhafte Löschung nutzen Sie die Compliance-App zum Datenexport.",
+          pl: "Zaplanuj usunięcie konta. Będziesz mieć 2 tygodnie na przywrócenie. Dla natychmiastowego usunięcia użyj aplikacji Compliance do eksportu danych.",
+          es: "Programa la eliminación de tu cuenta. Tendrás 2 semanas para restaurarla. Para eliminación inmediata, usa la app Cumplimiento para exportar datos.",
+          fr: "Programmez la suppression de votre compte. Vous aurez 2 semaines pour le restaurer. Pour suppression immédiate, utilisez l'app Conformité pour exporter vos données.",
+          ja: "アカウントの削除をスケジュールします。2週間以内であれば復元可能。即時削除にはコンプライアンスアプリでデータをエクスポートしてください。",
         }
       },
     ];

@@ -127,9 +127,9 @@ export const generateRegistrationChallenge = action({
       attestationType: "none",
 
       // Exclude existing credentials (prevent duplicate registrations)
-      excludeCredentials: existingPasskeys.map((passkey) => ({
+      excludeCredentials: existingPasskeys.map((passkey: any) => ({
         id: passkey.credentialId,
-        type: "public-key",
+        type: "public-key" as const,
         transports: passkey.transports as ("ble" | "cable" | "hybrid" | "internal" | "nfc" | "smart-card" | "usb")[] | undefined,
       })),
 
@@ -301,9 +301,9 @@ export const generateAuthenticationChallenge = action({
     // Generate authentication options
     const options = await generateAuthenticationOptions({
       rpID: rpId,
-      allowCredentials: passkeys.map((passkey) => ({
+      allowCredentials: passkeys.map((passkey: any) => ({
         id: passkey.credentialId,
-        type: "public-key",
+        type: "public-key" as const,
         transports: passkey.transports as ("ble" | "cable" | "hybrid" | "internal" | "nfc" | "smart-card" | "usb")[] | undefined,
       })),
       userVerification: "preferred",

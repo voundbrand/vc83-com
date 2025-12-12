@@ -29,6 +29,7 @@ import { query, mutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser } from "./rbacHelpers";
+import { checkResourceLimit, checkFeatureAccess } from "./licensing/helpers";
 
 /**
  * GET EVENTS
@@ -105,6 +106,10 @@ export const createEvent = mutation({
   },
   handler: async (ctx, args) => {
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    // CHECK LICENSE LIMIT: Enforce event limit for organization's tier
+    // Free: 3, Starter: 20, Pro: 100, Agency: Unlimited, Enterprise: Unlimited
+    await checkResourceLimit(ctx, args.organizationId, "event", "maxEvents");
 
     // Validate subtype
     const validSubtypes = ["conference", "workshop", "concert", "meetup", "seminar"];
@@ -771,6 +776,10 @@ export const linkMediaToEvent = mutation({
       throw new Error("Event not found");
     }
 
+    // CHECK FEATURE ACCESS: Media gallery requires Starter+
+    const { checkFeatureAccess } = await import("./licensing/helpers");
+    await checkFeatureAccess(ctx, event.organizationId, "mediaGalleryEnabled");
+
     // Validate media exists
     const media = await ctx.db.get(args.mediaId);
     if (!media) {
@@ -1057,6 +1066,7 @@ export const updateEventMedia = mutation({
       })),
       primaryImageId: v.optional(v.string()),
       showVideoFirst: v.optional(v.boolean()),
+      enableAnalytics: v.optional(v.boolean()), // ⚡ Professional+ feature: track media views/clicks
     }),
   },
   handler: async (ctx, args) => {
@@ -1066,6 +1076,15 @@ export const updateEventMedia = mutation({
 
     if (!event || !("type" in event) || event.type !== "event") {
       throw new Error("Event not found");
+    }
+
+    // CHECK FEATURE ACCESS: Media gallery requires Starter+
+    await checkFeatureAccess(ctx, event.organizationId, "mediaGalleryEnabled");
+
+    // ⚡ PROFESSIONAL TIER: Event Analytics
+    // Professional+ can enable analytics tracking on event media (views, interactions)
+    if (args.media.enableAnalytics) {
+      await checkFeatureAccess(ctx, event.organizationId, "eventAnalyticsEnabled");
     }
 
     const currentProps = event.customProperties || {};

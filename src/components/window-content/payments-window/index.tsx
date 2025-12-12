@@ -82,6 +82,34 @@ export function PaymentsWindow() {
     );
   }
 
+  // Check if user has access to the organization
+  if (organization === null && organizationId && sessionId) {
+    return (
+      <div className="flex flex-col h-full" style={{ background: "var(--win95-bg)" }}>
+        <div className="flex items-center justify-center h-full">
+          <div className="max-w-md mx-auto p-6">
+            <div className="border-2 p-4" style={{ borderColor: "var(--error)", background: "var(--error-bg)" }}>
+              <div className="flex items-start gap-3">
+                <AlertCircle size={24} style={{ color: "var(--error)" }} className="flex-shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-bold text-sm mb-2" style={{ color: "var(--error)" }}>
+                    {t("ui.payments.access_denied") || "Access Denied"}
+                  </h4>
+                  <p className="text-xs mb-2" style={{ color: "var(--win95-text)" }}>
+                    {t("ui.payments.no_permission") || "You don't have permission to view payment settings for this organization."}
+                  </p>
+                  <p className="text-xs" style={{ color: "var(--win95-text-secondary)" }}>
+                    {t("ui.payments.contact_admin") || "Please contact your organization administrator if you need access to payment management."}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full" style={{ background: "var(--win95-bg)" }}>
       {/* Header */}
