@@ -2,6 +2,11 @@
 
 import React from "react";
 import { ArrowLeft, Cloud, ExternalLink, CheckCircle2, AlertCircle } from "lucide-react";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "@convex/_generated/api";
+import { useAuth } from "@/hooks/use-auth";
+import { Id } from "@convex/_generated/dataModel";
+import { useNotification } from "@/hooks/use-notification";
 
 interface VercelSettingsProps {
   onBack: () => void;
@@ -14,8 +19,23 @@ interface VercelSettingsProps {
  * Free tier users have access to this integration.
  */
 export function VercelSettings({ onBack }: VercelSettingsProps) {
-  // TODO: Query connection status from backend
-  const isConnected = false;
+  const { sessionId, user } = useAuth();
+  const notification = useNotification();
+  const currentOrg = user?.defaultOrgId;
+
+  // Query connection status from backend
+  const connections = useQuery(
+    api.oauth.vercel.getVercelConnections,
+    sessionId && currentOrg
+      ? { sessionId, organizationId: currentOrg as Id<"organizations"> }
+      : "skip"
+  );
+
+  const initiateOAuth = useMutation(api.oauth.vercel.initiateVercelOAuth);
+  const disconnectVercel = useMutation(api.oauth.vercel.disconnectVercel);
+
+  const isConnected = connections && connections.length > 0;
+  const activeConnection = isConnected ? connections[0] : null;
 
   return (
     <div className="h-full flex flex-col">
@@ -70,7 +90,7 @@ export function VercelSettings({ onBack }: VercelSettingsProps) {
               </h4>
               <p className="text-xs" style={{ color: isConnected ? '#065F46' : '#92400E' }}>
                 {isConnected
-                  ? 'Your Vercel account is connected and ready for deployments.'
+                  ? `Connected as ${activeConnection?.providerEmail || 'Vercel User'} - Ready for deployments.`
                   : 'Connect your Vercel account to deploy your web apps.'}
               </p>
             </div>
@@ -190,9 +210,27 @@ export function VercelSettings({ onBack }: VercelSettingsProps) {
         {/* Action Button */}
         {!isConnected && (
           <button
-            onClick={() => {
-              // TODO: Implement Vercel OAuth flow
-              alert('Vercel OAuth integration coming soon!');
+            onClick={async () => {
+              if (!sessionId) {
+                notification.error("Session Error", "Please log in again");
+                return;
+              }
+
+              try {
+                notification.info("Connecting to Vercel", "Redirecting to Vercel authorization...");
+                const result = await initiateOAuth({
+                  sessionId,
+                  connectionType: "organizational",
+                });
+                // Redirect to Vercel OAuth
+                window.location.href = result.authUrl;
+              } catch (error) {
+                console.error("Error initiating Vercel OAuth:", error);
+                notification.error(
+                  "Connection Failed",
+                  error instanceof Error ? error.message : "Failed to connect to Vercel"
+                );
+              }
             }}
             className="beveled-button-primary w-full px-4 py-3 text-sm font-bold flex items-center justify-center gap-2"
           >
@@ -218,10 +256,23 @@ export function VercelSettings({ onBack }: VercelSettingsProps) {
               Open Vercel Dashboard
             </button>
             <button
-              onClick={() => {
-                // TODO: Implement disconnect
+              onClick={async () => {
+                if (!sessionId || !activeConnection) return;
+
                 if (confirm('Disconnect Vercel? This will affect your deployment workflows.')) {
-                  alert('Disconnect functionality coming soon!');
+                  try {
+                    await disconnectVercel({
+                      sessionId,
+                      connectionId: activeConnection._id,
+                    });
+                    notification.success("Disconnected", "Vercel account has been disconnected");
+                  } catch (error) {
+                    console.error("Error disconnecting Vercel:", error);
+                    notification.error(
+                      "Disconnect Failed",
+                      error instanceof Error ? error.message : "Failed to disconnect Vercel"
+                    );
+                  }
                 }
               }}
               className="beveled-button w-full px-4 py-2 text-sm font-bold"
