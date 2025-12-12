@@ -17,12 +17,12 @@ const VERCEL_API_URL = "https://api.vercel.com";
 
 // Vercel OAuth scopes for deployment
 // See: https://vercel.com/docs/integrations/vercel-api-integrations#scopes
+// Note: Vercel uses singular scope names (deployment, project, user, team)
 const VERCEL_DEPLOYMENT_SCOPES = [
-  "deployments:write",  // Create and manage deployments
-  "projects:read",      // Read project information
-  "projects:write",     // Create and update projects
-  "user:read",          // Read user profile information
-  "teams:read",         // Read team information (for organization deployments)
+  "deployment",  // Read and write deployments
+  "project",     // Read and write projects
+  "user",        // Read user profile information
+  "team",        // Read team information (for organization deployments)
 ];
 
 /**
