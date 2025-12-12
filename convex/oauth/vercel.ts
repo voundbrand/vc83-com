@@ -11,7 +11,9 @@ import { Id } from "../_generated/dataModel";
 import { api, internal } from "../_generated/api";
 
 // Vercel OAuth endpoints
-const VERCEL_AUTH_URL = "https://vercel.com/oauth/authorize";
+// Note: Marketplace integrations use /integrations/{slug}/new instead of /oauth/authorize
+const VERCEL_INTEGRATION_SLUG = process.env.VERCEL_INTEGRATION_SLUG || "l4yercak3";
+const VERCEL_AUTH_URL = `https://vercel.com/integrations/${VERCEL_INTEGRATION_SLUG}/new`;
 const VERCEL_TOKEN_URL = "https://api.vercel.com/v2/oauth/access_token";
 const VERCEL_API_URL = "https://api.vercel.com";
 
@@ -91,20 +93,19 @@ export const initiateVercelOAuth = mutation({
       redirectUri,
     });
 
-    // Build scope string
-    const scopeString = VERCEL_DEPLOYMENT_SCOPES.join(" ");
-
-    console.log("Vercel OAuth Scopes:", { scopes: VERCEL_DEPLOYMENT_SCOPES });
-
-    // Build OAuth URL
+    // Vercel marketplace integrations only need state parameter
+    // redirect_uri, scopes, and client_id are configured in Vercel dashboard
     const params = new URLSearchParams({
-      client_id: process.env.VERCEL_OAUTH_CLIENT_ID || "",
-      redirect_uri: redirectUri,
       state: state,
-      scope: scopeString,
     });
 
     const authUrl = `${VERCEL_AUTH_URL}?${params.toString()}`;
+
+    console.log("Vercel OAuth URL:", {
+      integrationSlug: VERCEL_INTEGRATION_SLUG,
+      hasState: !!state,
+      redirectUri,
+    });
 
     console.log("Vercel OAuth URL generated:", {
       hasState: !!state,

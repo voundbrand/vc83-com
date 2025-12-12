@@ -16,16 +16,18 @@ import { useWindowManager } from "@/hooks/use-window-manager";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
 // Built-in integration definitions
-// Access is checked dynamically using license.limits.maxThirdPartyIntegrations
+// Access is checked dynamically using license features and limits
 // Single source of truth: convex/licensing/tierConfigs.ts
 //
 // LICENSING MODEL:
-// - Platform Integrations (Microsoft, Google, Slack, Zapier, Make) ALL count against maxThirdPartyIntegrations
+// - Deployment Integrations (GitHub, Vercel) use deploymentIntegrationsEnabled feature
+//   - All tiers: Enabled (including Free)
+// - Platform Integrations (Microsoft, Google, Slack, Zapier, Make, n8n) use maxThirdPartyIntegrations limit
 //   - Free: 0 (no platform integrations)
 //   - Starter: 5 (pick any 5 from the list)
 //   - Professional+: Unlimited
 // - Custom OAuth Apps (user-created for external websites) are SEPARATE via maxCustomOAuthApps
-//   - Free: 1, Starter: 2, Professional: 3
+//   - Free: 0, Starter: 2, Professional: 3
 const BUILT_IN_INTEGRATIONS = [
   {
     id: "github",
@@ -35,8 +37,8 @@ const BUILT_IN_INTEGRATIONS = [
     iconColor: "#181717",
     status: "available" as const,
     type: "builtin" as const,
-    // Deployment integrations use maxThirdPartyIntegrations limit (Free: 2 for GitHub + Vercel)
-    accessCheck: { type: "limit" as const, key: "maxThirdPartyIntegrations" },
+    // Deployment integrations use deploymentIntegrationsEnabled feature (available on Free tier)
+    accessCheck: { type: "feature" as const, key: "deploymentIntegrationsEnabled" },
   },
   {
     id: "vercel",
@@ -46,8 +48,8 @@ const BUILT_IN_INTEGRATIONS = [
     iconColor: "#000000",
     status: "available" as const,
     type: "builtin" as const,
-    // Deployment integrations use maxThirdPartyIntegrations limit (Free: 2 for GitHub + Vercel)
-    accessCheck: { type: "limit" as const, key: "maxThirdPartyIntegrations" },
+    // Deployment integrations use deploymentIntegrationsEnabled feature (available on Free tier)
+    accessCheck: { type: "feature" as const, key: "deploymentIntegrationsEnabled" },
   },
   {
     id: "microsoft",
@@ -57,7 +59,7 @@ const BUILT_IN_INTEGRATIONS = [
     iconColor: "#00a4ef",
     status: "available" as const,
     type: "builtin" as const,
-    // ALL platform integrations use maxThirdPartyIntegrations limit
+    // Platform integrations use maxThirdPartyIntegrations limit (Free: 0, Starter+: available)
     accessCheck: { type: "limit" as const, key: "maxThirdPartyIntegrations" },
   },
   {
@@ -68,7 +70,7 @@ const BUILT_IN_INTEGRATIONS = [
     iconColor: "#4285f4",
     status: "coming_soon" as const,
     type: "builtin" as const,
-    // ALL platform integrations use maxThirdPartyIntegrations limit
+    // Platform integrations use maxThirdPartyIntegrations limit (Free: 0, Starter+: available)
     accessCheck: { type: "limit" as const, key: "maxThirdPartyIntegrations" },
   },
   {
@@ -79,7 +81,7 @@ const BUILT_IN_INTEGRATIONS = [
     iconColor: "#4a154b",
     status: "coming_soon" as const,
     type: "builtin" as const,
-    // ALL platform integrations use maxThirdPartyIntegrations limit
+    // Platform integrations use maxThirdPartyIntegrations limit (Free: 0, Starter+: available)
     accessCheck: { type: "limit" as const, key: "maxThirdPartyIntegrations" },
   },
   {
@@ -88,9 +90,9 @@ const BUILT_IN_INTEGRATIONS = [
     description: "Connect to 5,000+ apps",
     icon: "fas fa-bolt",
     iconColor: "#ff4a00",
-    status: "available" as const,
+    status: "coming_soon" as const,
     type: "verified" as const,
-    // ALL platform integrations use maxThirdPartyIntegrations limit
+    // Platform integrations use maxThirdPartyIntegrations limit (Free: 0, Starter+: available)
     accessCheck: { type: "limit" as const, key: "maxThirdPartyIntegrations" },
   },
   {
@@ -99,9 +101,20 @@ const BUILT_IN_INTEGRATIONS = [
     description: "Advanced workflow automation",
     icon: "fas fa-cogs",
     iconColor: "#6f42c1",
-    status: "available" as const,
+    status: "coming_soon" as const,
     type: "verified" as const,
-    // ALL platform integrations use maxThirdPartyIntegrations limit
+    // Platform integrations use maxThirdPartyIntegrations limit (Free: 0, Starter+: available)
+    accessCheck: { type: "limit" as const, key: "maxThirdPartyIntegrations" },
+  },
+  {
+    id: "n8n",
+    name: "n8n",
+    description: "Open-source workflow automation",
+    icon: "fas fa-project-diagram",
+    iconColor: "#ea4b71",
+    status: "coming_soon" as const,
+    type: "verified" as const,
+    // Platform integrations use maxThirdPartyIntegrations limit (Free: 0, Starter+: available)
     accessCheck: { type: "limit" as const, key: "maxThirdPartyIntegrations" },
   },
   {
@@ -684,8 +697,7 @@ export function IntegrationsWindow({ initialPanel = null }: IntegrationsWindowPr
   // Determine tier-based access
   const planTier = license?.planTier || "free";
   const isFreeTier = planTier === "free";
-  const maxCustomOAuthApps = license?.limits?.maxCustomOAuthApps ?? 1;
-  const maxThirdPartyIntegrations = license?.limits?.maxThirdPartyIntegrations ?? 0;
+  const maxCustomOAuthApps = license?.limits?.maxCustomOAuthApps ?? 0; // Free: 0, Starter: 2, Pro: 3
   const currentCustomAppsCount = customApps?.length ?? 0;
 
   // Determine if user can take action (authenticated + has org)

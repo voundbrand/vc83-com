@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Lock } from "lucide-react";
+import { Lock, Check } from "lucide-react";
 
 interface IntegrationCardProps {
   name: string;
@@ -24,16 +24,24 @@ export function IntegrationCard({
 }: IntegrationCardProps) {
   const isDisabled = status === "coming_soon";
   const isLocked = status === "locked";
+  const isConnected = status === "connected";
 
   const getStatusBadge = () => {
     switch (status) {
       case "connected":
         return (
+          // Green checkmark badge in top-right for connected integrations
           <div
-            className="absolute top-2 right-2 w-3 h-3 rounded-full"
-            style={{ background: "#10b981" }}
+            className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center"
+            style={{
+              background: "#10b981",
+              border: "2px solid #059669", // Darker green outline
+              boxShadow: "0 1px 3px rgba(0, 0, 0, 0.2)",
+            }}
             title="Connected"
-          />
+          >
+            <Check size={12} color="white" strokeWidth={3} />
+          </div>
         );
       case "coming_soon":
         return (
@@ -62,6 +70,25 @@ export function IntegrationCard({
     }
   };
 
+  // Determine card background based on status
+  const getCardBackground = () => {
+    if (isConnected) {
+      // Light green overlay for connected integrations
+      return 'linear-gradient(180deg, rgba(16, 185, 129, 0.08) 0%, rgba(16, 185, 129, 0.15) 100%)';
+    }
+    if (isLocked) {
+      return 'linear-gradient(180deg, var(--win95-bg-light) 0%, rgba(245, 158, 11, 0.05) 100%)';
+    }
+    return 'var(--win95-bg-light)';
+  };
+
+  // Determine border color based on status
+  const getBorderColor = () => {
+    if (isConnected) return '#10b981'; // Green border for connected
+    if (isLocked) return 'var(--warning)';
+    return 'var(--win95-border)';
+  };
+
   return (
     <button
       onClick={onClick} // Allow click even when locked (to show upgrade prompt)
@@ -72,20 +99,24 @@ export function IntegrationCard({
         ${isDisabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}
       `}
       style={{
-        background: isLocked
-          ? 'linear-gradient(180deg, var(--win95-bg-light) 0%, rgba(245, 158, 11, 0.05) 100%)'
-          : 'var(--win95-bg-light)',
-        borderColor: isLocked ? 'var(--warning)' : 'var(--win95-border)',
+        background: getCardBackground(),
+        borderColor: getBorderColor(),
         opacity: isLocked ? 0.85 : 1,
       }}
       onMouseEnter={(e) => {
         if (!isDisabled) {
-          e.currentTarget.style.borderColor = isLocked ? '#d97706' : 'var(--win95-highlight)';
+          if (isConnected) {
+            e.currentTarget.style.borderColor = '#059669'; // Darker green on hover
+          } else if (isLocked) {
+            e.currentTarget.style.borderColor = '#d97706';
+          } else {
+            e.currentTarget.style.borderColor = 'var(--win95-highlight)';
+          }
           e.currentTarget.style.transform = 'translateY(-2px)';
         }
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = isLocked ? 'var(--warning)' : 'var(--win95-border)';
+        e.currentTarget.style.borderColor = getBorderColor();
         e.currentTarget.style.transform = 'translateY(0)';
       }}
       title={isLocked ? `${description} - Requires ${requiredTier}` : description}

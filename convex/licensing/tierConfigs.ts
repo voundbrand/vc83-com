@@ -175,6 +175,7 @@ export interface TierFeatures {
   apiKeysEnabled: boolean;
   oauthEnabled: boolean;
   apiWebhooksEnabled: boolean;
+  deploymentIntegrationsEnabled: boolean; // GitHub + Vercel for deployment (separate from platform integrations)
 
   // AI
   aiEnabled: boolean;
@@ -279,8 +280,8 @@ export const FREE_TIER: TierConfig = {
 
     // API & OAuth
     maxWebsitesPerKey: 1,
-    maxCustomOAuthApps: 1,
-    maxThirdPartyIntegrations: 2, // Allow OAuth + Vercel for deployment
+    maxCustomOAuthApps: 0, // No custom OAuth apps on Free tier
+    maxThirdPartyIntegrations: 0, // No platform integrations (Microsoft, Google, Slack, Zapier, Make)
     rateLimitPerMinute: 30,
     rateLimitPerDay: 1000,
     maxWebhooks: 0,
@@ -375,6 +376,7 @@ export const FREE_TIER: TierConfig = {
     apiKeysEnabled: true,
     oauthEnabled: true,
     apiWebhooksEnabled: false,
+    deploymentIntegrationsEnabled: true, // GitHub + Vercel for deployment (Free tier)
 
     // AI
     aiEnabled: false,
@@ -559,6 +561,7 @@ export const STARTER_TIER: TierConfig = {
     apiKeysEnabled: true,
     oauthEnabled: true,
     apiWebhooksEnabled: true,
+    deploymentIntegrationsEnabled: true, // GitHub + Vercel for deployment
 
     // AI
     aiEnabled: true,
@@ -743,6 +746,7 @@ export const PROFESSIONAL_TIER: TierConfig = {
     apiKeysEnabled: true,
     oauthEnabled: true,
     apiWebhooksEnabled: true,
+    deploymentIntegrationsEnabled: true, // GitHub + Vercel for deployment
 
     // AI
     aiEnabled: true,
@@ -927,6 +931,7 @@ export const AGENCY_TIER: TierConfig = {
     apiKeysEnabled: true,
     oauthEnabled: true,
     apiWebhooksEnabled: true,
+    deploymentIntegrationsEnabled: true, // GitHub + Vercel for deployment
 
     // AI
     aiEnabled: true,
@@ -1111,6 +1116,7 @@ export const ENTERPRISE_TIER: TierConfig = {
     apiKeysEnabled: true,
     oauthEnabled: true,
     apiWebhooksEnabled: true,
+    deploymentIntegrationsEnabled: true, // GitHub + Vercel for deployment
 
     // AI
     aiEnabled: true,
