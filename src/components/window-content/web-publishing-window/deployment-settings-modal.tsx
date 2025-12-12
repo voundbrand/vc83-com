@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Save, Loader2, Github, ExternalLink } from "lucide-react";
+import { X, Save, Loader2, Github, ExternalLink, RefreshCw } from "lucide-react";
 import { RetroButton } from "@/components/retro-button";
 import { useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
@@ -36,6 +36,7 @@ export function DeploymentSettingsModal({ page, onClose, onSaved }: DeploymentSe
   const { sessionId } = useAuth();
   const notification = useNotification();
   const [isSaving, setIsSaving] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const deployment = page.customProperties?.deployment || {};
 
@@ -47,43 +48,80 @@ export function DeploymentSettingsModal({ page, onClose, onSaved }: DeploymentSe
 
   // Validation errors
   const [githubError, setGithubError] = useState("");
-  const [vercelError, setVercelError] = useState("");
 
   const updateDeployment = useMutation(api.publishingOntology.updateDeploymentInfo);
+  const autoGenerateVercelUrl = useMutation(api.publishingOntology.autoGenerateVercelDeployUrl);
+
+  // Auto-generate Vercel deploy URL from GitHub repo
+  const handleGenerateVercelUrl = async () => {
+    if (!sessionId || !githubRepo) {
+      notification.error("Validation Error", "Please enter a GitHub repository URL first", false);
+      return;
+    }
+
+    // Validate GitHub URL format
+    if (!githubRepo.startsWith('https://github.com/')) {
+      setGithubError("GitHub URL must start with 'https://github.com/'");
+      return;
+    }
+
+    setIsGenerating(true);
+    setGithubError("");
+
+    try {
+      const result = await autoGenerateVercelUrl({
+        sessionId,
+        pageId: page._id,
+        githubRepo,
+      });
+
+      setVercelDeployButton(result.vercelDeployButton);
+      notification.success("Generated", "Vercel deploy URL generated automatically");
+    } catch (error) {
+      console.error("Failed to generate Vercel URL:", error);
+      notification.error(
+        "Generation Failed",
+        error instanceof Error ? error.message : "Failed to generate Vercel deploy URL",
+        false
+      );
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!sessionId) return;
 
-    // Validate inputs
-    let hasErrors = false;
-
+    // Validate GitHub URL
     if (githubRepo && !githubRepo.startsWith('https://github.com/')) {
       setGithubError("GitHub URL must start with 'https://github.com/'");
-      hasErrors = true;
+      return;
     } else {
       setGithubError("");
     }
 
-    if (vercelDeployButton && !vercelDeployButton.startsWith('https://vercel.com/new/clone')) {
-      setVercelError("Vercel deploy URL must start with 'https://vercel.com/new/clone'");
-      hasErrors = true;
-    } else {
-      setVercelError("");
-    }
-
-    if (hasErrors) return;
-
     setIsSaving(true);
 
     try {
-      await updateDeployment({
-        sessionId,
-        pageId: page._id,
-        githubRepo,
-        vercelDeployButton,
-      });
+      // If GitHub repo changed but Vercel URL is empty, auto-generate it
+      if (githubRepo && !vercelDeployButton) {
+        const result = await autoGenerateVercelUrl({
+          sessionId,
+          pageId: page._id,
+          githubRepo,
+        });
+        setVercelDeployButton(result.vercelDeployButton);
+        notification.success("Saved", "Deployment settings updated with auto-generated Vercel URL");
+      } else {
+        await updateDeployment({
+          sessionId,
+          pageId: page._id,
+          githubRepo,
+          vercelDeployButton,
+        });
+        notification.success("Saved", "Deployment settings updated successfully");
+      }
 
-      notification.success("Saved", "Deployment settings updated successfully");
       onSaved?.();
       onClose();
     } catch (error) {
@@ -100,8 +138,8 @@ export function DeploymentSettingsModal({ page, onClose, onSaved }: DeploymentSe
 
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center z-50"
-      style={{ background: 'rgba(0, 0, 0, 0.5)' }}
+      className="fixed inset-0 flex items-center justify-center z-[60]"
+      style={{ background: 'rgba(0, 0, 0, 0.6)' }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -179,56 +217,61 @@ export function DeploymentSettingsModal({ page, onClose, onSaved }: DeploymentSe
             </p>
           </div>
 
-          {/* Vercel Deploy Button URL */}
+          {/* Vercel Deploy Button URL (Auto-generated from GitHub) */}
           <div className="mb-4">
-            <label className="block text-xs font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
-              <ExternalLink size={14} className="inline mr-1" />
-              Vercel Deploy Button URL
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+                <ExternalLink size={14} className="inline mr-1" />
+                Vercel Deploy Button URL
+              </label>
+              <button
+                onClick={handleGenerateVercelUrl}
+                disabled={!githubRepo || isGenerating}
+                className="px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors disabled:opacity-50"
+                style={{
+                  borderColor: 'var(--win95-border)',
+                  background: 'var(--win95-bg)',
+                  color: 'var(--win95-highlight)'
+                }}
+                title="Auto-generate from GitHub repo URL"
+                onMouseEnter={(e) => {
+                  if (githubRepo && !isGenerating) {
+                    e.currentTarget.style.background = 'var(--win95-hover-light)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'var(--win95-bg)';
+                }}
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 size={12} className="animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw size={12} />
+                    Auto-Generate
+                  </>
+                )}
+              </button>
+            </div>
             <input
               type="text"
               value={vercelDeployButton}
-              onChange={(e) => setVercelDeployButton(e.target.value)}
-              placeholder="https://vercel.com/new/clone?repository-url=..."
-              className="w-full px-3 py-2 text-sm border-2"
+              readOnly
+              placeholder="Click 'Auto-Generate' after entering GitHub URL"
+              className="w-full px-3 py-2 text-sm border-2 cursor-not-allowed"
               style={{
-                borderColor: vercelError ? 'var(--error)' : 'var(--win95-border)',
-                background: 'var(--win95-bg-light)',
-                color: 'var(--win95-text)'
+                borderColor: 'var(--win95-border)',
+                background: '#F9FAFB',
+                color: 'var(--neutral-gray)'
               }}
+              title="This URL is auto-generated from your GitHub repository"
             />
-            {vercelError && (
-              <p className="text-xs mt-1" style={{ color: 'var(--error)' }}>
-                {vercelError}
-              </p>
-            )}
             <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-              Vercel one-click deploy URL with pre-configured environment variables
+              ✨ Automatically generated from GitHub repo with environment variables
             </p>
-          </div>
-
-          {/* Helper: Generate Vercel URL */}
-          <div
-            className="mb-6 p-3 border-2"
-            style={{
-              borderColor: 'var(--win95-border)',
-              background: '#EEF2FF'
-            }}
-          >
-            <p className="text-xs font-bold mb-2" style={{ color: '#4338CA' }}>
-              💡 Tip: Generate Vercel Deploy Button
-            </p>
-            <p className="text-xs mb-2" style={{ color: '#4338CA' }}>
-              Use this format for the Vercel deploy button:
-            </p>
-            <code className="block text-xs p-2 border" style={{
-              background: 'white',
-              borderColor: 'var(--win95-border)',
-              color: 'var(--win95-text)',
-              overflowX: 'auto'
-            }}>
-              https://vercel.com/new/clone?repository-url=YOUR_GITHUB_URL&env=ENV_VAR_1,ENV_VAR_2
-            </code>
           </div>
 
           {/* Action Buttons */}

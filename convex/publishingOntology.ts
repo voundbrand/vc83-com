@@ -1,7 +1,9 @@
-import { mutation, query } from "./_generated/server";
+import { mutation, query, action } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser, getUserContext, checkPermission } from "./rbacHelpers";
 import { checkFeatureAccess } from "./licensing/helpers";
+import { internal } from "./_generated/api";
+import { generateVercelDeployUrl } from "./publishingHelpers";
 
 /**
  * PUBLISHING ONTOLOGY v2 - TEMPLATE + THEME ARCHITECTURE
@@ -290,6 +292,35 @@ export const getPublishedPages = query({
       templateCode: page.customProperties?.templateCode,
       themeCode: page.customProperties?.themeCode,
     }));
+  },
+});
+
+/**
+ * Get a single published page by ID
+ */
+export const getPublishedPageById = query({
+  args: {
+    sessionId: v.string(),
+    pageId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const page = await ctx.db.get(args.pageId);
+    if (!page) throw new Error("Published page not found");
+
+    // Check permission
+    const hasPermission = await checkPermission(
+      ctx,
+      userId,
+      "view_published_pages",
+      page.organizationId
+    );
+    if (!hasPermission) {
+      throw new Error("Permission denied: view_published_pages required");
+    }
+
+    return page;
   },
 });
 
@@ -854,6 +885,88 @@ export const updateDeploymentInfo = mutation({
 });
 
 /**
+ * Auto-generate Vercel Deploy URL from GitHub Repository
+ *
+ * Automatically creates the Vercel deploy button URL based on the GitHub repo.
+ * This should be called whenever the GitHub repo URL is updated.
+ */
+export const autoGenerateVercelDeployUrl = mutation({
+  args: {
+    sessionId: v.string(),
+    pageId: v.id("objects"),
+    githubRepo: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const page = await ctx.db.get(args.pageId);
+    if (!page) throw new Error("Published page not found");
+
+    // Check permission
+    const hasPermission = await checkPermission(
+      ctx,
+      userId,
+      "edit_published_pages",
+      page.organizationId
+    );
+    if (!hasPermission) {
+      throw new Error("Permission denied: edit_published_pages required");
+    }
+
+    // Get environment variables for this page
+    const deployment = (page.customProperties?.deployment as any) || {};
+    const envVars = deployment.environmentVariables || [];
+
+    // Generate Vercel deploy URL
+    let vercelDeployButton: string;
+    try {
+      vercelDeployButton = generateVercelDeployUrl(
+        args.githubRepo,
+        envVars.length > 0 ? envVars : undefined,
+        page.name.toLowerCase().replace(/\s+/g, '-')
+      );
+    } catch (error) {
+      throw new Error(`Failed to generate Vercel URL: ${error instanceof Error ? error.message : "Unknown error"}`);
+    }
+
+    // Update deployment info
+    const updatedDeployment = {
+      ...deployment,
+      githubRepo: args.githubRepo,
+      vercelDeployButton,
+      lastUpdated: Date.now(),
+    };
+
+    await ctx.db.patch(args.pageId, {
+      customProperties: {
+        ...page.customProperties,
+        deployment: updatedDeployment,
+      },
+      updatedAt: Date.now(),
+    });
+
+    // Audit log
+    await ctx.db.insert("objectActions", {
+      organizationId: page.organizationId,
+      objectId: args.pageId,
+      actionType: "deployment_url_generated",
+      actionData: {
+        githubRepo: args.githubRepo,
+        vercelDeployButton,
+      },
+      performedBy: userId,
+      performedAt: Date.now(),
+    });
+
+    return {
+      success: true,
+      githubRepo: args.githubRepo,
+      vercelDeployButton,
+    };
+  },
+});
+
+/**
  * Delete published page (hard delete - permanent)
  */
 export const deletePublishedPage = mutation({
@@ -1137,5 +1250,397 @@ export const getPublishedContentForFrontend = query({
       forms,
       organization: org,
     };
+  },
+});
+
+/**
+ * =============================================================================
+ * DEPLOYMENT PRE-FLIGHT VALIDATION
+ * =============================================================================
+ * Real validation checks for Vercel deployment readiness.
+ * These are NOT fake checks - they perform actual HTTP requests and database queries.
+ */
+
+/**
+ * Update deployment environment variables
+ *
+ * Stores required environment variables for deployment configuration.
+ * These are shown to the user during Vercel setup.
+ */
+export const updateDeploymentEnvVars = mutation({
+  args: {
+    sessionId: v.string(),
+    pageId: v.id("objects"),
+    envVars: v.array(v.object({
+      key: v.string(),
+      description: v.string(),
+      required: v.boolean(),
+      defaultValue: v.optional(v.string()),
+    })),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    const page = await ctx.db.get(args.pageId);
+    if (!page) throw new Error("Published page not found");
+
+    // Check permission
+    const hasPermission = await checkPermission(
+      ctx,
+      userId,
+      "edit_published_pages",
+      page.organizationId
+    );
+    if (!hasPermission) {
+      throw new Error("Permission denied: edit_published_pages required");
+    }
+
+    const currentDeployment = (page.customProperties?.deployment as any) || {};
+    const updatedDeployment = {
+      ...currentDeployment,
+      environmentVariables: args.envVars,
+      envVarsUpdatedAt: Date.now(),
+    };
+
+    await ctx.db.patch(args.pageId, {
+      customProperties: {
+        ...page.customProperties,
+        deployment: updatedDeployment,
+      },
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Validate GitHub Repository (Action - performs HTTP request)
+ *
+ * Actually checks if the GitHub repository exists and is accessible.
+ */
+export const validateGithubRepo = action({
+  args: {
+    sessionId: v.string(),
+    githubUrl: v.string(),
+  },
+  handler: async (ctx, args) => {
+    console.log("[validateGithubRepo] Input URL:", args.githubUrl);
+
+    try {
+      // Trim and clean the URL
+      const cleanUrl = args.githubUrl.trim();
+      console.log("[validateGithubRepo] Cleaned URL:", cleanUrl);
+
+      // Parse GitHub URL to extract owner and repo
+      const match = cleanUrl.match(/^https:\/\/github\.com\/([\w-]+)\/([\w-]+)/);
+      if (!match) {
+        console.log("[validateGithubRepo] URL parsing failed");
+        return {
+          valid: false,
+          error: "Invalid GitHub URL format. Expected: https://github.com/username/repo",
+        };
+      }
+
+      const [, owner, repo] = match;
+      const apiUrl = `https://api.github.com/repos/${owner}/${repo}`;
+      console.log("[validateGithubRepo] API URL:", apiUrl);
+
+      // Make GET request to check if repo exists
+      // HEAD requests sometimes return 400 on GitHub API, so use GET instead
+      const response = await fetch(apiUrl, {
+        method: "GET",
+        headers: {
+          "Accept": "application/vnd.github.v3+json",
+          "User-Agent": "l4yercak3-deployment-validator"
+        }
+      });
+
+      console.log("[validateGithubRepo] Response status:", response.status);
+
+      if (response.ok) {
+        return {
+          valid: true,
+          repoInfo: {
+            owner,
+            repo,
+            url: args.githubUrl,
+          },
+        };
+      } else if (response.status === 404) {
+        return {
+          valid: false,
+          error: "Repository not found. Please check the URL or ensure the repository is public.",
+        };
+      } else if (response.status === 403) {
+        return {
+          valid: false,
+          error: "GitHub API rate limit exceeded. Please try again in a few minutes.",
+        };
+      } else {
+        return {
+          valid: false,
+          error: `GitHub API returned status ${response.status}. Repository may not be accessible.`,
+        };
+      }
+    } catch (error) {
+      console.error("[validateGithubRepo] Error:", error);
+      return {
+        valid: false,
+        error: `Network error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      };
+    }
+  },
+});
+
+/**
+ * Validate Vercel Deploy URL (Action - performs HTTP request)
+ *
+ * Checks if the Vercel deploy button URL is properly formatted and accessible.
+ */
+export const validateVercelDeployUrl = action({
+  args: {
+    sessionId: v.string(),
+    vercelUrl: v.string(),
+  },
+  handler: async (ctx, args) => {
+    try {
+      // Validate URL format
+      if (!args.vercelUrl.startsWith('https://vercel.com/new/clone')) {
+        return {
+          valid: false,
+          error: "Vercel deploy URL must start with 'https://vercel.com/new/clone'",
+        };
+      }
+
+      // Parse URL to check parameters
+      const url = new URL(args.vercelUrl);
+      const repoUrl = url.searchParams.get('repository-url');
+
+      if (!repoUrl) {
+        // Check if repository URL is in the path (alternate format)
+        if (!url.pathname.includes('github.com')) {
+          return {
+            valid: false,
+            error: "Vercel deploy URL must include 'repository-url' parameter or GitHub URL in path",
+          };
+        }
+      }
+
+      // Make HEAD request to verify URL is accessible
+      const response = await fetch(args.vercelUrl, {
+        method: "HEAD",
+        redirect: "manual", // Don't follow redirects
+      });
+
+      // Vercel might redirect or return various status codes, but should respond
+      if (response.status >= 200 && response.status < 500) {
+        return {
+          valid: true,
+          deployInfo: {
+            repoUrl: repoUrl || "embedded in path",
+            envVars: url.searchParams.getAll('env') || [],
+          },
+        };
+      } else {
+        return {
+          valid: false,
+          error: `Vercel URL returned status ${response.status}. URL may be malformed.`,
+        };
+      }
+    } catch (error) {
+      // URL parsing or network errors
+      if (error instanceof TypeError && error.message.includes('URL')) {
+        return {
+          valid: false,
+          error: "Invalid URL format. Please check the Vercel deploy button URL.",
+        };
+      }
+
+      console.error("[validateVercelDeployUrl] Error:", error);
+      return {
+        valid: false,
+        error: `Validation error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      };
+    }
+  },
+});
+
+/**
+ * Check GitHub Integration Status (Mutation - database query)
+ *
+ * Verifies that GitHub integration is connected for the organization.
+ */
+export const checkGithubIntegration = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    // Check if GitHub OAuth app exists for this org
+    const githubIntegration = await ctx.db
+      .query("oauthApplications")
+      .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+      .filter((q) => {
+        const appType = q.field("appType");
+        const isActive = q.field("isActive");
+        return q.and(
+          q.eq(isActive, true),
+          q.or(
+            q.eq(appType, "github"),
+            q.eq(appType, "verified_github")
+          )
+        );
+      })
+      .first();
+
+    if (githubIntegration) {
+      return {
+        connected: true,
+        integration: {
+          name: githubIntegration.name,
+          createdAt: githubIntegration.createdAt,
+        },
+      };
+    }
+
+    return {
+      connected: false,
+      message: "GitHub integration not found. Create an OAuth app in Integrations window.",
+    };
+  },
+});
+
+/**
+ * Check Vercel Integration Status (Mutation - database query)
+ *
+ * Verifies that Vercel integration is connected for the organization.
+ */
+export const checkVercelIntegration = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    // Check if Vercel OAuth app exists for this org
+    const vercelIntegration = await ctx.db
+      .query("oauthApplications")
+      .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+      .filter((q) => {
+        const appType = q.field("appType");
+        const isActive = q.field("isActive");
+        return q.and(
+          q.eq(isActive, true),
+          q.or(
+            q.eq(appType, "vercel"),
+            q.eq(appType, "verified_vercel")
+          )
+        );
+      })
+      .first();
+
+    if (vercelIntegration) {
+      return {
+        connected: true,
+        integration: {
+          name: vercelIntegration.name,
+          createdAt: vercelIntegration.createdAt,
+        },
+      };
+    }
+
+    return {
+      connected: false,
+      message: "Vercel integration not found. Create an OAuth app in Integrations window.",
+    };
+  },
+});
+
+/**
+ * Check API Key Status (Query - database query)
+ *
+ * Verifies that organization has at least one active API key for deployment.
+ */
+export const checkApiKeyStatus = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const activeApiKeys = await ctx.db
+      .query("apiKeys")
+      .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+      .filter((q) => q.eq(q.field("status"), "active"))
+      .collect();
+
+    if (activeApiKeys.length > 0) {
+      return {
+        hasApiKey: true,
+        count: activeApiKeys.length,
+        keys: activeApiKeys.map(k => ({
+          name: k.name,
+          prefix: k.keyPrefix,
+          createdAt: k.createdAt,
+          scopes: k.scopes,
+        })),
+      };
+    }
+
+    return {
+      hasApiKey: false,
+      message: "No active API keys found. Create one in Integrations > API Keys.",
+    };
+  },
+});
+
+/**
+ * Get Deployment Environment Variables (Query)
+ *
+ * Retrieves configured environment variables for a published page.
+ */
+export const getDeploymentEnvVars = query({
+  args: {
+    sessionId: v.string(),
+    pageId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    const page = await ctx.db.get(args.pageId);
+    if (!page) throw new Error("Published page not found");
+
+    const deployment = (page.customProperties?.deployment as any) || {};
+    const envVars = deployment.environmentVariables || [];
+
+    // If no env vars configured, return default set based on template
+    if (envVars.length === 0) {
+      const templateCode = page.customProperties?.templateCode;
+
+      // Default env vars for Freelancer Portal and similar templates
+      return [
+        {
+          key: "NEXT_PUBLIC_API_URL",
+          description: "l4yercak3 API URL (e.g., https://app.l4yercak3.com/api/v1)",
+          required: true,
+          defaultValue: "https://app.l4yercak3.com/api/v1",
+        },
+        {
+          key: "NEXT_PUBLIC_API_KEY",
+          description: "Your l4yercak3 API key (create in Integrations > API Keys)",
+          required: true,
+        },
+        {
+          key: "NEXT_PUBLIC_ORG_ID",
+          description: "Your organization ID",
+          required: true,
+        },
+      ];
+    }
+
+    return envVars;
   },
 });

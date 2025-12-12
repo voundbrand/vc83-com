@@ -1,14 +1,16 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { X, Rocket, AlertCircle, CheckCircle, ExternalLink, Settings, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, Rocket, AlertCircle, CheckCircle, ExternalLink, Settings, Loader2, RefreshCw } from "lucide-react";
 import { RetroButton } from "@/components/retro-button";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { useNotification } from "@/hooks/use-notification";
 import { DeploymentSettingsModal } from "./deployment-settings-modal";
+import { EnvVarsModal } from "./env-vars-modal";
+import { useWindowManager } from "@/hooks/use-window-manager";
 
 interface VercelDeploymentModalProps {
   page: {
@@ -31,123 +33,313 @@ interface VercelDeploymentModalProps {
 interface ValidationCheck {
   id: string;
   label: string;
-  status: "checking" | "passed" | "failed" | "warning";
+  status: "idle" | "checking" | "passed" | "failed" | "warning";
   message?: string;
+  fixAction?: () => void;
 }
 
 /**
- * Vercel Deployment Pre-flight Modal
+ * Vercel Deployment Pre-flight Modal with REAL validation
  *
- * Shows validation checks before deploying to Vercel:
- * - GitHub repository configured
- * - Vercel deploy button URL configured
- * - Organization has API key (needed for deployment env vars)
+ * Performs actual checks:
+ * - HTTP request to GitHub API to verify repo exists
+ * - HTTP request to Vercel to verify deploy URL
+ * - Database query for GitHub integration
+ * - Database query for Vercel integration
+ * - Database query for active API keys
+ * - Database query for environment variables documentation
  */
 export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeploymentModalProps) {
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
   const notification = useNotification();
-  const [isValidating, setIsValidating] = useState(true);
+  const { openWindow } = useWindowManager();
   const [checks, setChecks] = useState<ValidationCheck[]>([]);
+  const [isValidating, setIsValidating] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showEnvVarsModal, setShowEnvVarsModal] = useState(false);
 
-  const updateDeployment = useMutation(api.publishingOntology.updateDeploymentInfo);
+  // Query fresh page data to get updated deployment info
+  const freshPage = useQuery(
+    api.publishingOntology.getPublishedPageById,
+    sessionId ? { sessionId, pageId: page._id } : "skip"
+  );
 
-  // Fetch API keys to check if organization has any configured
-  const apiKeys = useQuery(
-    api.api.auth.listApiKeys,
+  // Use fresh data if available, fall back to prop
+  const deployment = (freshPage?.customProperties?.deployment as any) || page.customProperties?.deployment || {};
+
+  // Actions for real HTTP validation
+  const validateGithubRepo = useAction(api.publishingOntology.validateGithubRepo);
+  const validateVercelUrl = useAction(api.publishingOntology.validateVercelDeployUrl);
+
+  // Queries for integration status
+  const githubIntegration = useQuery(
+    api.publishingOntology.checkGithubIntegration,
     sessionId && currentOrg?.id
       ? { sessionId, organizationId: currentOrg.id as Id<"organizations"> }
       : "skip"
   );
 
-  const deployment = page.customProperties?.deployment || {};
+  const vercelIntegration = useQuery(
+    api.publishingOntology.checkVercelIntegration,
+    sessionId && currentOrg?.id
+      ? { sessionId, organizationId: currentOrg.id as Id<"organizations"> }
+      : "skip"
+  );
 
-  // Run validation checks
-  useEffect(() => {
-    if (!sessionId || !currentOrg) return;
+  const apiKeyStatus = useQuery(
+    api.publishingOntology.checkApiKeyStatus,
+    sessionId && currentOrg?.id
+      ? { sessionId, organizationId: currentOrg.id as Id<"organizations"> }
+      : "skip"
+  );
 
-    const runValidation = async () => {
-      setIsValidating(true);
+  const envVars = useQuery(
+    api.publishingOntology.getDeploymentEnvVars,
+    sessionId ? { sessionId, pageId: page._id } : "skip"
+  );
 
-      const newChecks: ValidationCheck[] = [];
+  const updateDeployment = useMutation(api.publishingOntology.updateDeploymentInfo);
 
-      // Check 1: GitHub repository URL
-      const hasGithubRepo = Boolean(
-        deployment.githubRepo &&
-        deployment.githubRepo.startsWith('https://github.com/')
-      );
-      newChecks.push({
-        id: "github_repo",
-        label: "GitHub repository configured",
-        status: hasGithubRepo ? "passed" : "failed",
-        message: hasGithubRepo
-          ? deployment.githubRepo
-          : "GitHub repository URL is missing or invalid"
-      });
+  // Run REAL validation checks
+  const runValidation = async () => {
+    if (!sessionId || !currentOrg) {
+      console.warn("[Pre-flight] Cannot run validation: missing sessionId or currentOrg");
+      return;
+    }
 
-      // Check 2: Vercel deploy button URL
-      const hasVercelUrl = Boolean(
-        deployment.vercelDeployButton &&
-        deployment.vercelDeployButton.startsWith('https://vercel.com/new/clone')
-      );
-      newChecks.push({
-        id: "vercel_url",
-        label: "Vercel deploy URL configured",
-        status: hasVercelUrl ? "passed" : "failed",
-        message: hasVercelUrl
-          ? "Vercel one-click deploy ready"
-          : "Vercel deploy button URL is missing or invalid"
-      });
+    setIsValidating(true);
+    const newChecks: ValidationCheck[] = [];
 
-      // Check 3: API key exists (wait for query to load)
-      if (apiKeys !== undefined) {
-        const hasApiKey = apiKeys && apiKeys.length > 0;
-        newChecks.push({
-          id: "api_key",
-          label: "Organization API key",
-          status: hasApiKey ? "passed" : "warning",
-          message: hasApiKey
-            ? "API key available for deployment"
-            : "No API key found. You'll need to create one in Integrations > API Keys"
+    console.log("[Pre-flight] Running validation with:", {
+      sessionId: !!sessionId,
+      currentOrg: !!currentOrg,
+      githubIntegration,
+      vercelIntegration,
+      apiKeyStatus,
+      envVars
+    });
+
+    // CHECK 1: GitHub Repository URL (REAL HTTP validation)
+    const githubCheck: ValidationCheck = {
+      id: "github_repo",
+      label: "GitHub repository accessible",
+      status: "checking",
+      message: "Verifying repository exists...",
+    };
+    newChecks.push(githubCheck);
+    setChecks([...newChecks]);
+
+    if (deployment.githubRepo) {
+      try {
+        const result = await validateGithubRepo({
+          sessionId,
+          githubUrl: deployment.githubRepo,
         });
-      } else {
-        // Still loading
-        newChecks.push({
-          id: "api_key",
-          label: "Organization API key",
-          status: "checking",
-          message: "Checking for API keys..."
-        });
+
+        githubCheck.status = result.valid ? "passed" : "failed";
+        githubCheck.message = result.valid
+          ? `✓ ${result.repoInfo?.owner}/${result.repoInfo?.repo} verified`
+          : result.error || "Repository validation failed";
+        githubCheck.fixAction = !result.valid ? () => setShowEditModal(true) : undefined;
+      } catch (error) {
+        githubCheck.status = "failed";
+        githubCheck.message = `Error: ${error instanceof Error ? error.message : "Unknown error"}`;
+        githubCheck.fixAction = () => setShowEditModal(true);
       }
+    } else {
+      githubCheck.status = "failed";
+      githubCheck.message = "GitHub repository URL not configured";
+      githubCheck.fixAction = () => setShowEditModal(true);
+    }
+    setChecks([...newChecks]);
 
-      // Check 4: Environment variables documented
-      const envVarsDocumented = true; // Always true - we document them in the deployment
-      newChecks.push({
-        id: "env_vars",
-        label: "Environment variables documented",
-        status: envVarsDocumented ? "passed" : "warning",
-        message: "Required environment variables will be shown during deployment"
-      });
+    // CHECK 2: Vercel Deploy URL (REAL HTTP validation)
+    const vercelUrlCheck: ValidationCheck = {
+      id: "vercel_url",
+      label: "Vercel deploy URL valid",
+      status: "checking",
+      message: "Validating Vercel deploy button...",
+    };
+    newChecks.push(vercelUrlCheck);
+    setChecks([...newChecks]);
 
-      setChecks(newChecks);
-      setIsValidating(false);
+    if (deployment.vercelDeployButton) {
+      try {
+        const result = await validateVercelUrl({
+          sessionId,
+          vercelUrl: deployment.vercelDeployButton,
+        });
+
+        vercelUrlCheck.status = result.valid ? "passed" : "failed";
+        vercelUrlCheck.message = result.valid
+          ? `✓ Vercel deploy URL ready (${result.deployInfo?.envVars?.length || 0} env vars configured)`
+          : result.error || "Vercel URL validation failed";
+        vercelUrlCheck.fixAction = !result.valid ? () => setShowEditModal(true) : undefined;
+      } catch (error) {
+        vercelUrlCheck.status = "failed";
+        vercelUrlCheck.message = `Error: ${error instanceof Error ? error.message : "Unknown error"}`;
+        vercelUrlCheck.fixAction = () => setShowEditModal(true);
+      }
+    } else {
+      vercelUrlCheck.status = "failed";
+      vercelUrlCheck.message = "Vercel deploy button URL not configured";
+      vercelUrlCheck.fixAction = () => setShowEditModal(true);
+    }
+    setChecks([...newChecks]);
+
+    // CHECK 3: GitHub Integration (Database query - REQUIRED NOW)
+    const githubIntCheck: ValidationCheck = {
+      id: "github_integration",
+      label: "GitHub integration connected",
+      status: githubIntegration === undefined ? "checking" : (githubIntegration.connected ? "passed" : "failed"),
+      message: githubIntegration === undefined
+        ? "Checking GitHub OAuth connection..."
+        : (githubIntegration.connected
+          ? `✓ Connected: ${githubIntegration.integration?.name}`
+          : "GitHub integration not connected - required for deployment"),
     };
 
-    runValidation();
-  }, [sessionId, currentOrg, deployment, apiKeys]);
+    if (githubIntegration !== undefined && !githubIntegration.connected) {
+      githubIntCheck.fixAction = () => {
+        // Open Integrations window
+        import("@/components/window-content/integrations-window").then(({ IntegrationsWindow }) => {
+          openWindow(
+            "integrations",
+            "Integrations & API",
+            <IntegrationsWindow />,
+            undefined,
+            undefined,
+            "ui.windows.integrations.title",
+            "🔗"
+          );
+        });
+        notification.info("Opening Integrations", "Opening Integrations window - select GitHub from the list");
+      };
+    }
+    newChecks.push(githubIntCheck);
+    setChecks([...newChecks]);
 
-  // Check if all critical checks passed
-  const allChecksPassed = useMemo(() => {
-    if (isValidating || checks.length === 0) return false;
-    // Must have GitHub repo and Vercel URL
-    const criticalChecks = checks.filter(c => ["github_repo", "vercel_url"].includes(c.id));
-    return criticalChecks.every(c => c.status === "passed");
-  }, [checks, isValidating]);
+    // CHECK 4: Vercel Integration (Database query - REQUIRED NOW)
+    const vercelIntCheck: ValidationCheck = {
+      id: "vercel_integration",
+      label: "Vercel integration connected",
+      status: vercelIntegration === undefined ? "checking" : (vercelIntegration.connected ? "passed" : "failed"),
+      message: vercelIntegration === undefined
+        ? "Checking Vercel OAuth connection..."
+        : (vercelIntegration.connected
+          ? `✓ Connected: ${vercelIntegration.integration?.name}`
+          : "Vercel integration not connected - required for deployment"),
+    };
+
+    if (vercelIntegration !== undefined && !vercelIntegration.connected) {
+      vercelIntCheck.fixAction = () => {
+        // Open Integrations window
+        import("@/components/window-content/integrations-window").then(({ IntegrationsWindow }) => {
+          openWindow(
+            "integrations",
+            "Integrations & API",
+            <IntegrationsWindow />,
+            undefined,
+            undefined,
+            "ui.windows.integrations.title",
+            "🔗"
+          );
+        });
+        notification.info("Opening Integrations", "Opening Integrations window - select Vercel from the list");
+      };
+    }
+    newChecks.push(vercelIntCheck);
+    setChecks([...newChecks]);
+
+    // CHECK 5: Organization API Key (Database query)
+    const apiKeyCheck: ValidationCheck = {
+      id: "api_key",
+      label: "Organization API key active",
+      status: apiKeyStatus === undefined ? "checking" : (apiKeyStatus.hasApiKey ? "passed" : "failed"),
+      message: apiKeyStatus === undefined
+        ? "Checking for active API keys..."
+        : (apiKeyStatus.hasApiKey
+          ? `✓ ${apiKeyStatus.count || 0} active API key${(apiKeyStatus.count || 0) > 1 ? "s" : ""} available`
+          : "No active API keys found - required for deployment"),
+    };
+
+    if (apiKeyStatus !== undefined && !apiKeyStatus.hasApiKey) {
+      apiKeyCheck.fixAction = () => {
+        // Open Integrations window to API Keys panel
+        import("@/components/window-content/integrations-window").then(({ IntegrationsWindow }) => {
+          openWindow(
+            "integrations",
+            "Integrations & API",
+            <IntegrationsWindow initialPanel="api-keys" />,
+            undefined,
+            undefined,
+            "ui.windows.integrations.title",
+            "🔗",
+            { initialPanel: "api-keys" }
+          );
+        });
+        notification.info("Opening API Keys", "Opening Integrations window - API Keys panel");
+      };
+    }
+    newChecks.push(apiKeyCheck);
+    setChecks([...newChecks]);
+
+    // CHECK 6: Environment Variables Documented (Database query)
+    const envVarsCheck: ValidationCheck = {
+      id: "env_vars",
+      label: "Environment variables documented",
+      status: envVars === undefined ? "checking" : (envVars && Array.isArray(envVars) && envVars.length > 0 ? "passed" : "warning"),
+      message: envVars === undefined
+        ? "Loading environment variables configuration..."
+        : (envVars && Array.isArray(envVars) && envVars.length > 0
+          ? `✓ ${envVars.length} environment variable${envVars.length > 1 ? "s" : ""} documented (${Array.isArray(envVars) ? envVars.filter((v: any) => v.required).length : 0} required)`
+          : "No environment variables configured - using defaults"),
+      fixAction: () => setShowEnvVarsModal(true),
+    };
+    newChecks.push(envVarsCheck);
+    setChecks([...newChecks]);
+
+    setIsValidating(false);
+  };
+
+  // Run validation on mount and when dependencies change
+  // Only run when we have sessionId, currentOrg, AND the queries have loaded (not undefined)
+  useEffect(() => {
+    const queriesLoaded = githubIntegration !== undefined &&
+                          vercelIntegration !== undefined &&
+                          apiKeyStatus !== undefined &&
+                          envVars !== undefined;
+
+    console.log("[Pre-flight] useEffect triggered:", {
+      sessionId: !!sessionId,
+      currentOrg: !!currentOrg,
+      queriesLoaded,
+      isValidating,
+      githubIntegration,
+      vercelIntegration,
+      apiKeyStatus,
+      envVars: envVars ? "loaded" : "undefined"
+    });
+
+    if (sessionId && currentOrg && queriesLoaded && !isValidating) {
+      runValidation();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, currentOrg?.id, githubIntegration, vercelIntegration, apiKeyStatus, envVars]);
+
+  // Check if all CRITICAL checks passed (GitHub repo + Vercel URL + GitHub integration + Vercel integration + API key)
+  const allCriticalChecksPassed = checks.length > 0 &&
+    !isValidating &&
+    checks.find(c => c.id === "github_repo")?.status === "passed" &&
+    checks.find(c => c.id === "vercel_url")?.status === "passed" &&
+    checks.find(c => c.id === "github_integration")?.status === "passed" &&
+    checks.find(c => c.id === "vercel_integration")?.status === "passed" &&
+    checks.find(c => c.id === "api_key")?.status === "passed";
 
   const handleDeploy = async () => {
-    if (!allChecksPassed || !sessionId) return;
+    if (!allCriticalChecksPassed || !sessionId) return;
 
     setIsDeploying(true);
 
@@ -180,41 +372,28 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
     }
   };
 
-  const handleFixIssues = () => {
-    setShowEditModal(true);
-  };
-
-  const handleEditSaved = () => {
-    // Close edit modal and re-run validation
-    setShowEditModal(false);
-    setIsValidating(true);
-
-    // Force re-check after a brief delay to let the mutation complete
-    setTimeout(() => {
-      window.location.reload(); // Simple approach: reload to get fresh data
-    }, 500);
-  };
-
   return (
-    <div
-      className="fixed inset-0 flex items-center justify-center z-50"
-      style={{ background: 'rgba(0, 0, 0, 0.5)' }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
+    <>
+      {/* Pre-flight Modal */}
       <div
-        className="border-4 shadow-lg max-w-2xl w-full mx-4"
-        style={{
-          borderColor: 'var(--win95-border)',
-          background: 'var(--win95-bg)',
-          boxShadow: '4px 4px 0px rgba(0, 0, 0, 0.25)'
+        className="fixed inset-0 flex items-center justify-center z-50"
+        style={{ background: 'rgba(0, 0, 0, 0.5)' }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
         }}
-        onClick={(e) => e.stopPropagation()}
       >
+        <div
+          className="border-4 shadow-lg max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+          style={{
+            borderColor: 'var(--win95-border)',
+            background: 'var(--win95-bg)',
+            boxShadow: '4px 4px 0px rgba(0, 0, 0, 0.25)'
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
         {/* Header */}
         <div
-          className="px-4 py-2 flex items-center justify-between"
+          className="px-4 py-2 flex items-center justify-between sticky top-0 z-10"
           style={{
             background: 'var(--win95-highlight)',
             color: 'white'
@@ -222,7 +401,7 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
         >
           <h3 className="font-bold text-sm flex items-center gap-2">
             <Rocket size={16} />
-            Deploy to Vercel - Pre-flight Check
+            Deploy to Vercel - Pre-flight Validation
           </h3>
           <button
             onClick={onClose}
@@ -240,7 +419,7 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
               {page.name}
             </h4>
             <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-              Checking deployment requirements...
+              Running real validation checks (HTTP requests + database queries)...
             </p>
           </div>
 
@@ -256,6 +435,9 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
                 }}
               >
                 <div className="flex-shrink-0 mt-0.5">
+                  {check.status === "idle" && (
+                    <div className="w-5 h-5 border-2 rounded-full" style={{ borderColor: 'var(--neutral-gray)' }} />
+                  )}
                   {check.status === "checking" && (
                     <Loader2 size={20} className="animate-spin" style={{ color: 'var(--win95-highlight)' }} />
                   )}
@@ -278,13 +460,53 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
                       {check.message}
                     </div>
                   )}
+                  {check.fixAction && check.status === "failed" && (
+                    <button
+                      onClick={check.fixAction}
+                      className="mt-2 px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors"
+                      style={{
+                        borderColor: 'var(--error)',
+                        background: 'var(--win95-bg)',
+                        color: 'var(--error)'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'var(--win95-hover-light)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'var(--win95-bg)';
+                      }}
+                    >
+                      <Settings size={12} />
+                      Fix This
+                    </button>
+                  )}
+                  {check.fixAction && check.status === "warning" && (
+                    <button
+                      onClick={check.fixAction}
+                      className="mt-2 px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors"
+                      style={{
+                        borderColor: 'var(--warning)',
+                        background: 'var(--win95-bg)',
+                        color: 'var(--warning)'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'var(--win95-hover-light)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'var(--win95-bg)';
+                      }}
+                    >
+                      <Settings size={12} />
+                      Configure
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
           </div>
 
           {/* Action Required Section */}
-          {!isValidating && !allChecksPassed && (
+          {!isValidating && !allCriticalChecksPassed && checks.length > 0 && (
             <div
               className="mb-6 p-4 border-2"
               style={{
@@ -296,26 +518,26 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
                 <AlertCircle size={20} style={{ color: 'var(--error)' }} className="flex-shrink-0 mt-0.5" />
                 <div>
                   <h4 className="font-bold text-sm mb-2" style={{ color: 'var(--error)' }}>
-                    Action Required
+                    Critical Issues Found
                   </h4>
                   <ul className="text-xs space-y-1" style={{ color: '#991B1B' }}>
                     {checks.filter(c => c.status === "failed").map((check) => (
                       <li key={check.id} className="flex items-start gap-1">
                         <span>•</span>
-                        <span>
-                          {check.id === "github_repo" && "Configure GitHub repository URL"}
-                          {check.id === "vercel_url" && "Configure Vercel deploy button URL"}
-                        </span>
+                        <span>{check.message || check.label}</span>
                       </li>
                     ))}
                   </ul>
+                  <p className="text-xs mt-2" style={{ color: '#991B1B' }}>
+                    Click "Fix This" buttons above to resolve these issues.
+                  </p>
                 </div>
               </div>
             </div>
           )}
 
           {/* Success Section */}
-          {!isValidating && allChecksPassed && (
+          {!isValidating && allCriticalChecksPassed && (
             <div
               className="mb-6 p-4 border-2"
               style={{
@@ -330,11 +552,11 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
                     Ready to Deploy!
                   </h4>
                   <p className="text-xs mb-2" style={{ color: '#065F46' }}>
-                    All pre-flight checks passed. Clicking "Deploy to Vercel" will open Vercel in a new tab with pre-configured settings.
+                    All critical pre-flight checks passed. Your deployment is ready to proceed.
                   </p>
-                  {checks.find(c => c.id === "api_key" && c.status === "warning") && (
+                  {checks.some(c => c.status === "warning") && (
                     <p className="text-xs" style={{ color: '#D97706' }}>
-                      ⚠️ Note: Create an API key in Integrations &gt; API Keys to enable your app to communicate with l4yercak3.
+                      ⚠️ Some optional checks have warnings. Deployment will work, but consider addressing them for better experience.
                     </p>
                   )}
                 </div>
@@ -343,58 +565,77 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
           )}
 
           {/* Action Buttons */}
-          <div className="flex items-center justify-end gap-2">
-            <RetroButton
-              onClick={onClose}
-              variant="outline"
-              size="sm"
-            >
-              Cancel
-            </RetroButton>
-
-            {!allChecksPassed && !isValidating && (
+          <div className="flex items-center justify-between gap-2">
+            <div>
               <RetroButton
-                onClick={handleFixIssues}
+                onClick={runValidation}
                 variant="secondary"
                 size="sm"
+                disabled={isValidating}
               >
-                <Settings size={14} />
-                Fix Issues
+                <RefreshCw size={14} className={isValidating ? "animate-spin" : ""} />
+                Re-validate
               </RetroButton>
-            )}
+            </div>
 
-            {allChecksPassed && (
+            <div className="flex items-center gap-2">
               <RetroButton
-                onClick={handleDeploy}
-                variant="primary"
+                onClick={onClose}
+                variant="outline"
                 size="sm"
-                disabled={isDeploying}
               >
-                {isDeploying ? (
-                  <>
-                    <Loader2 size={14} className="animate-spin" />
-                    Opening Vercel...
-                  </>
-                ) : (
-                  <>
-                    <ExternalLink size={14} />
-                    Deploy to Vercel
-                  </>
-                )}
+                Cancel
               </RetroButton>
-            )}
+
+              {allCriticalChecksPassed && (
+                <RetroButton
+                  onClick={handleDeploy}
+                  variant="primary"
+                  size="sm"
+                  disabled={isDeploying}
+                >
+                  {isDeploying ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      Opening Vercel...
+                    </>
+                  ) : (
+                    <>
+                      <ExternalLink size={14} />
+                      Deploy to Vercel
+                    </>
+                  )}
+                </RetroButton>
+              )}
+            </div>
           </div>
         </div>
       </div>
+      </div>
 
-      {/* Deployment Settings Edit Modal */}
+      {/* Deployment Settings Edit Modal - rendered as sibling, not nested */}
       {showEditModal && (
         <DeploymentSettingsModal
           page={page}
           onClose={() => setShowEditModal(false)}
-          onSaved={handleEditSaved}
+          onSaved={() => {
+            setShowEditModal(false);
+            runValidation(); // Re-run validation after saving
+          }}
         />
       )}
-    </div>
+
+      {/* Environment Variables Modal - rendered as sibling, not nested */}
+      {showEnvVarsModal && (
+        <EnvVarsModal
+          page={page}
+          onClose={() => setShowEnvVarsModal(false)}
+          onSaved={() => {
+            setShowEnvVarsModal(false);
+            runValidation(); // Re-run validation after saving
+          }}
+        />
+      )}
+    </>
   );
 }

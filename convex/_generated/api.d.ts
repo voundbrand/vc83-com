@@ -221,6 +221,7 @@ import type * as productOntology from "../productOntology.js";
 import type * as projectAnalytics from "../projectAnalytics.js";
 import type * as projectOntology from "../projectOntology.js";
 import type * as publishingFreelancerPortal from "../publishingFreelancerPortal.js";
+import type * as publishingHelpers from "../publishingHelpers.js";
 import type * as publishingOntology from "../publishingOntology.js";
 import type * as purchaseOntology from "../purchaseOntology.js";
 import type * as rbac from "../rbac.js";
@@ -643,6 +644,7 @@ declare const fullApi: ApiFromModules<{
   projectAnalytics: typeof projectAnalytics;
   projectOntology: typeof projectOntology;
   publishingFreelancerPortal: typeof publishingFreelancerPortal;
+  publishingHelpers: typeof publishingHelpers;
   publishingOntology: typeof publishingOntology;
   purchaseOntology: typeof purchaseOntology;
   rbac: typeof rbac;
