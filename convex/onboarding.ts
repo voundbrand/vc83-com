@@ -136,7 +136,7 @@ export const signupFreeAccount = action({
     }
 
     // 9. Send welcome email (async, don't wait)
-    ctx.scheduler.runAfter(0, internal.actions.welcomeEmail.sendWelcomeEmail, {
+    await ctx.scheduler.runAfter(0, internal.actions.welcomeEmail.sendWelcomeEmail, {
       email,
       firstName: args.firstName,
       organizationName: result.organization.name,
@@ -144,7 +144,7 @@ export const signupFreeAccount = action({
     });
 
     // 10. Send sales notification (async, don't wait)
-    ctx.scheduler.runAfter(0, internal.actions.salesNotificationEmail.sendSalesNotification, {
+    await ctx.scheduler.runAfter(0, internal.actions.salesNotificationEmail.sendSalesNotification, {
       eventType: "free_signup",
       user: {
         email,

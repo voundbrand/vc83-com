@@ -41,6 +41,30 @@ export const seed = internalMutation({
     ];
 
     const translations = [
+      // === WINDOW TITLES ===
+      {
+        key: "ui.windows.onboarding_welcome.title",
+        values: {
+          en: "Welcome",
+          de: "Willkommen",
+          pl: "Witaj",
+          es: "Bienvenido",
+          fr: "Bienvenue",
+          ja: "ようこそ",
+        }
+      },
+      {
+        key: "ui.windows.web_publishing.title",
+        values: {
+          en: "Web Publishing",
+          de: "Web-Publishing",
+          pl: "Publikowanie stron",
+          es: "Publicación web",
+          fr: "Publication web",
+          ja: "Webパブリッシング",
+        }
+      },
+
       // === HEADER ===
       {
         key: "ui.onboarding.welcome.header_title",

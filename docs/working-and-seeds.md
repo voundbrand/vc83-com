@@ -8,8 +8,7 @@ We need to make sure the following ui in our app is using our theme system corre
 
 
 # SEEDS TO RUN ON PROD
-
-
+npx convex run translations/seedOnboarding:seed
 
 
 
