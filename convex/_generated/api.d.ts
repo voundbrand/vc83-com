@@ -182,6 +182,7 @@ import type * as oauth_queries from "../oauth/queries.js";
 import type * as oauth_quotas from "../oauth/quotas.js";
 import type * as oauth_scopes from "../oauth/scopes.js";
 import type * as oauth_tokens from "../oauth/tokens.js";
+import type * as oauth_vercel from "../oauth/vercel.js";
 import type * as oauth_verifiedIntegrations from "../oauth/verifiedIntegrations.js";
 import type * as onboarding from "../onboarding.js";
 import type * as ontologyHelpers from "../ontologyHelpers.js";
@@ -605,6 +606,7 @@ declare const fullApi: ApiFromModules<{
   "oauth/quotas": typeof oauth_quotas;
   "oauth/scopes": typeof oauth_scopes;
   "oauth/tokens": typeof oauth_tokens;
+  "oauth/vercel": typeof oauth_vercel;
   "oauth/verifiedIntegrations": typeof oauth_verifiedIntegrations;
   onboarding: typeof onboarding;
   ontologyHelpers: typeof ontologyHelpers;

@@ -397,6 +397,7 @@ export const oauthConnections = defineTable({
     v.literal("salesforce"),
     v.literal("dropbox"),
     v.literal("github"),
+    v.literal("vercel"),
     v.literal("okta")
     // Add more providers as needed - no DB migration required!
   ),
@@ -466,6 +467,7 @@ export const oauthStates = defineTable({
     v.literal("salesforce"),
     v.literal("dropbox"),
     v.literal("github"),
+    v.literal("vercel"),
     v.literal("okta")
   ),
   connectionType: v.union(
