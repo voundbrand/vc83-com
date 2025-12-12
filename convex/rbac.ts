@@ -273,6 +273,13 @@ export const BASE_PERMISSIONS = [
     category: PERMISSION_CATEGORIES.APP_MANAGEMENT,
     description: 'Installierte Apps und ihre Konfigurationen anzeigen'
   },
+  {
+    name: 'manage_integrations',
+    resource: 'oauth',
+    action: 'manage',
+    category: PERMISSION_CATEGORIES.APP_MANAGEMENT,
+    description: 'OAuth-Verbindungen, API-Schlüssel und Webhooks verwalten'
+  },
 
   // Translation Management - Simple permissions
   {
@@ -496,6 +503,7 @@ export const ROLE_PERMISSION_MAPPINGS: Record<string, string[]> = {
     'manage_permissions',
     'manage_financials',
     'manage_operations',
+    'manage_integrations', // OAuth connections, API keys, webhooks
     'create_invoice',
     'approve_invoice',
     'create_report',
