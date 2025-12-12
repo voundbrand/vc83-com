@@ -48,7 +48,7 @@
     "json-logic-js": "^2.0.5",
     "jspdf": "^3.0.3",
     "lucide-react": "^0.544.0",
-    "next": "15.5.7",
+    "next": "15.5.9",
     "next-intl": "^4.3.11",
     "openai": "^6.9.1",
     "posthog-js": "^1.285.1",
