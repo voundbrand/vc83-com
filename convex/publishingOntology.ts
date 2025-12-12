@@ -1466,7 +1466,7 @@ export const validateVercelDeployUrl = action({
 });
 
 /**
- * Check GitHub Integration Status (Mutation - database query)
+ * Check GitHub Integration Status (Query - database query)
  *
  * Verifies that GitHub integration is connected for the organization.
  */
@@ -1478,44 +1478,42 @@ export const checkGithubIntegration = query({
   handler: async (ctx, args) => {
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
-    // Check if GitHub OAuth app exists for this org
-    const githubIntegration = await ctx.db
-      .query("oauthApplications")
+    // Check if GitHub OAuth connection exists for this org
+    const githubConnection = await ctx.db
+      .query("oauthConnections")
       .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
       .filter((q) => {
-        const appType = q.field("appType");
-        const isActive = q.field("isActive");
+        const provider = q.field("provider");
+        const status = q.field("status");
         return q.and(
-          q.eq(isActive, true),
-          q.or(
-            q.eq(appType, "github"),
-            q.eq(appType, "verified_github")
-          )
+          q.eq(status, "active"),
+          q.eq(provider, "github")
         );
       })
       .first();
 
-    if (githubIntegration) {
+    if (githubConnection) {
       return {
         connected: true,
         integration: {
-          name: githubIntegration.name,
-          createdAt: githubIntegration.createdAt,
+          name: githubConnection.providerEmail || "GitHub",
+          createdAt: githubConnection._creationTime,
         },
       };
     }
 
     return {
       connected: false,
-      message: "GitHub integration not found. Create an OAuth app in Integrations window.",
+      message: "GitHub integration not found. Connect GitHub in Integrations window.",
     };
   },
 });
 
 /**
- * Check Vercel Integration Status (Mutation - database query)
+ * Check Vercel Integration Status (Query - database query)
  *
  * Verifies that Vercel integration is connected for the organization.
+ * Note: Vercel uses OAuth applications, not connections like GitHub.
  */
 export const checkVercelIntegration = query({
   args: {
@@ -1525,36 +1523,33 @@ export const checkVercelIntegration = query({
   handler: async (ctx, args) => {
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
-    // Check if Vercel OAuth app exists for this org
-    const vercelIntegration = await ctx.db
-      .query("oauthApplications")
+    // Check if Vercel OAuth connection exists for this org
+    const vercelConnection = await ctx.db
+      .query("oauthConnections")
       .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
       .filter((q) => {
-        const appType = q.field("appType");
-        const isActive = q.field("isActive");
+        const provider = q.field("provider");
+        const status = q.field("status");
         return q.and(
-          q.eq(isActive, true),
-          q.or(
-            q.eq(appType, "vercel"),
-            q.eq(appType, "verified_vercel")
-          )
+          q.eq(status, "active"),
+          q.eq(provider, "vercel")
         );
       })
       .first();
 
-    if (vercelIntegration) {
+    if (vercelConnection) {
       return {
         connected: true,
         integration: {
-          name: vercelIntegration.name,
-          createdAt: vercelIntegration.createdAt,
+          name: vercelConnection.providerEmail || "Vercel",
+          createdAt: vercelConnection._creationTime,
         },
       };
     }
 
     return {
       connected: false,
-      message: "Vercel integration not found. Create an OAuth app in Integrations window.",
+      message: "Vercel integration not found. Connect Vercel in Integrations window.",
     };
   },
 });

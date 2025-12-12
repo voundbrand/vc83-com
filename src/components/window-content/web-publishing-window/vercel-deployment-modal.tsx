@@ -425,32 +425,51 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
 
           {/* Validation Checks */}
           <div className="space-y-3 mb-6">
-            {checks.map((check) => (
-              <div
-                key={check.id}
-                className="flex items-start gap-3 p-3 border-2"
-                style={{
-                  borderColor: 'var(--win95-border)',
-                  background: 'var(--win95-bg-light)'
-                }}
-              >
-                <div className="flex-shrink-0 mt-0.5">
-                  {check.status === "idle" && (
-                    <div className="w-5 h-5 border-2 rounded-full" style={{ borderColor: 'var(--neutral-gray)' }} />
+            {checks.map((check) => {
+              // Determine if this is an integration check that passed
+              const isIntegrationConnected =
+                check.status === "passed" &&
+                (check.id === "github_integration" || check.id === "vercel_integration" || check.id === "api_key");
+
+              return (
+                <div
+                  key={check.id}
+                  className="flex items-start gap-3 p-3 border-2 relative overflow-hidden"
+                  style={{
+                    borderColor: isIntegrationConnected ? '#22c55e' : 'var(--win95-border)',
+                    background: isIntegrationConnected
+                      ? 'linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(34, 197, 94, 0.05) 100%)'
+                      : 'var(--win95-bg-light)',
+                    boxShadow: isIntegrationConnected ? '0 0 10px rgba(34, 197, 94, 0.2)' : 'none'
+                  }}
+                >
+                  {/* Green checkmark overlay for connected integrations */}
+                  {isIntegrationConnected && (
+                    <div
+                      className="absolute top-2 right-2 bg-green-500 rounded-full p-1"
+                      style={{ boxShadow: '0 2px 4px rgba(34, 197, 94, 0.3)' }}
+                    >
+                      <CheckCircle size={16} style={{ color: 'white' }} />
+                    </div>
                   )}
-                  {check.status === "checking" && (
-                    <Loader2 size={20} className="animate-spin" style={{ color: 'var(--win95-highlight)' }} />
-                  )}
-                  {check.status === "passed" && (
-                    <CheckCircle size={20} style={{ color: 'var(--success)' }} />
-                  )}
-                  {check.status === "failed" && (
-                    <AlertCircle size={20} style={{ color: 'var(--error)' }} />
-                  )}
-                  {check.status === "warning" && (
-                    <AlertCircle size={20} style={{ color: 'var(--warning)' }} />
-                  )}
-                </div>
+
+                  <div className="flex-shrink-0 mt-0.5">
+                    {check.status === "idle" && (
+                      <div className="w-5 h-5 border-2 rounded-full" style={{ borderColor: 'var(--neutral-gray)' }} />
+                    )}
+                    {check.status === "checking" && (
+                      <Loader2 size={20} className="animate-spin" style={{ color: 'var(--win95-highlight)' }} />
+                    )}
+                    {check.status === "passed" && (
+                      <CheckCircle size={20} style={{ color: '#22c55e', fontWeight: 'bold' }} />
+                    )}
+                    {check.status === "failed" && (
+                      <AlertCircle size={20} style={{ color: 'var(--error)' }} />
+                    )}
+                    {check.status === "warning" && (
+                      <AlertCircle size={20} style={{ color: 'var(--warning)' }} />
+                    )}
+                  </div>
                 <div className="flex-1">
                   <div className="font-bold text-xs mb-1" style={{ color: 'var(--win95-text)' }}>
                     {check.label}
@@ -502,7 +521,8 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Action Required Section */}

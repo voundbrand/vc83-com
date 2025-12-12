@@ -116,7 +116,7 @@ export default function HomePage() {
   }
 
   const openWebPublishingWindow = () => {
-    openWindow("web-publishing", "Web Publishing", <WebPublishingWindow />, { x: 110, y: 55 }, { width: 900, height: 600 }, 'ui.app.web_publishing')
+    openWindow("web-publishing", "Web Publishing", <WebPublishingWindow />, { x: 110, y: 55 }, { width: 900, height: 600 }, 'ui.windows.web_publishing.title')
   }
 
   const openMediaLibraryWindow = () => {
