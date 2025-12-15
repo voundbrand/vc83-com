@@ -99,6 +99,7 @@ import type * as crons from "../crons.js";
 import type * as cryptoActions from "../cryptoActions.js";
 import type * as debugCrmContact from "../debugCrmContact.js";
 import type * as debugProduction from "../debugProduction.js";
+import type * as deploymentOntology from "../deploymentOntology.js";
 import type * as domainConfigOntology from "../domainConfigOntology.js";
 import type * as emailDelivery from "../emailDelivery.js";
 import type * as emailQueue from "../emailQueue.js";
@@ -110,7 +111,6 @@ import type * as emailTemplateResolver from "../emailTemplateResolver.js";
 import type * as emails from "../emails.js";
 import type * as eventOntology from "../eventOntology.js";
 import type * as files from "../files.js";
-import type * as fixInvoiceTemplateSubtype from "../fixInvoiceTemplateSubtype.js";
 import type * as formTemplateAvailability from "../formTemplateAvailability.js";
 import type * as formsOntology from "../formsOntology.js";
 import type * as frontendUserQueries from "../frontendUserQueries.js";
@@ -192,6 +192,7 @@ import type * as organizationInvoiceSettings from "../organizationInvoiceSetting
 import type * as organizationMedia from "../organizationMedia.js";
 import type * as organizationMutations from "../organizationMutations.js";
 import type * as organizationOntology from "../organizationOntology.js";
+import type * as organizationPaymentSettings from "../organizationPaymentSettings.js";
 import type * as organizationTaxSettings from "../organizationTaxSettings.js";
 import type * as organizations from "../organizations.js";
 import type * as pageAnalytics from "../pageAnalytics.js";
@@ -265,7 +266,9 @@ import type * as seedInvoiceEmailTemplateV2 from "../seedInvoiceEmailTemplateV2.
 import type * as seedNewsletterTemplate from "../seedNewsletterTemplate.js";
 import type * as seedOntologyData from "../seedOntologyData.js";
 import type * as seedPdfTemplates from "../seedPdfTemplates.js";
+import type * as seedSalesNotificationTemplate from "../seedSalesNotificationTemplate.js";
 import type * as seedSystemDefaultTemplateSet from "../seedSystemDefaultTemplateSet.js";
+import type * as seedSystemDomainConfig from "../seedSystemDomainConfig.js";
 import type * as seedTemplateSet from "../seedTemplateSet.js";
 import type * as seedTemplates from "../seedTemplates.js";
 import type * as seedTicketPdfTemplate from "../seedTicketPdfTemplate.js";
@@ -334,6 +337,7 @@ import type * as translations_seedCheckout_02_PaymentForm from "../translations/
 import type * as translations_seedCheckout_03_Confirmation from "../translations/seedCheckout_03_Confirmation.js";
 import type * as translations_seedCheckout_04_InvoiceEnforcement from "../translations/seedCheckout_04_InvoiceEnforcement.js";
 import type * as translations_seedCheckout_05_RegistrationForm from "../translations/seedCheckout_05_RegistrationForm.js";
+import type * as translations_seedCommonMonths from "../translations/seedCommonMonths.js";
 import type * as translations_seedCompliance from "../translations/seedCompliance.js";
 import type * as translations_seedContactModal from "../translations/seedContactModal.js";
 import type * as translations_seedControlPanel from "../translations/seedControlPanel.js";
@@ -523,6 +527,7 @@ declare const fullApi: ApiFromModules<{
   cryptoActions: typeof cryptoActions;
   debugCrmContact: typeof debugCrmContact;
   debugProduction: typeof debugProduction;
+  deploymentOntology: typeof deploymentOntology;
   domainConfigOntology: typeof domainConfigOntology;
   emailDelivery: typeof emailDelivery;
   emailQueue: typeof emailQueue;
@@ -534,7 +539,6 @@ declare const fullApi: ApiFromModules<{
   emails: typeof emails;
   eventOntology: typeof eventOntology;
   files: typeof files;
-  fixInvoiceTemplateSubtype: typeof fixInvoiceTemplateSubtype;
   formTemplateAvailability: typeof formTemplateAvailability;
   formsOntology: typeof formsOntology;
   frontendUserQueries: typeof frontendUserQueries;
@@ -616,6 +620,7 @@ declare const fullApi: ApiFromModules<{
   organizationMedia: typeof organizationMedia;
   organizationMutations: typeof organizationMutations;
   organizationOntology: typeof organizationOntology;
+  organizationPaymentSettings: typeof organizationPaymentSettings;
   organizationTaxSettings: typeof organizationTaxSettings;
   organizations: typeof organizations;
   pageAnalytics: typeof pageAnalytics;
@@ -689,7 +694,9 @@ declare const fullApi: ApiFromModules<{
   seedNewsletterTemplate: typeof seedNewsletterTemplate;
   seedOntologyData: typeof seedOntologyData;
   seedPdfTemplates: typeof seedPdfTemplates;
+  seedSalesNotificationTemplate: typeof seedSalesNotificationTemplate;
   seedSystemDefaultTemplateSet: typeof seedSystemDefaultTemplateSet;
+  seedSystemDomainConfig: typeof seedSystemDomainConfig;
   seedTemplateSet: typeof seedTemplateSet;
   seedTemplates: typeof seedTemplates;
   seedTicketPdfTemplate: typeof seedTicketPdfTemplate;
@@ -758,6 +765,7 @@ declare const fullApi: ApiFromModules<{
   "translations/seedCheckout_03_Confirmation": typeof translations_seedCheckout_03_Confirmation;
   "translations/seedCheckout_04_InvoiceEnforcement": typeof translations_seedCheckout_04_InvoiceEnforcement;
   "translations/seedCheckout_05_RegistrationForm": typeof translations_seedCheckout_05_RegistrationForm;
+  "translations/seedCommonMonths": typeof translations_seedCommonMonths;
   "translations/seedCompliance": typeof translations_seedCompliance;
   "translations/seedContactModal": typeof translations_seedContactModal;
   "translations/seedControlPanel": typeof translations_seedControlPanel;

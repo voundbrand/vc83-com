@@ -1,9 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Globe, FileText, Plus, Settings, BarChart3 } from "lucide-react";
+import { Globe, FileText, Plus, Settings, BarChart3, Rocket, History } from "lucide-react";
 import { PublishedPagesTab } from "./published-pages-tab";
 import { CreatePageTab } from "./create-page-tab";
+import { DeploymentSettingsTab } from "./deployment-settings-tab";
+import { DeploymentDeployTab } from "./deployment-deploy-tab";
+import { DeploymentHistoryTab } from "./deployment-history-tab";
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import type { Id } from "../../../../convex/_generated/dataModel";
@@ -17,11 +20,13 @@ import type { Id } from "../../../../convex/_generated/dataModel";
  * Tabs:
  * - Published Pages: List of org's published pages (draft, published, unpublished)
  * - Create/Edit Page: Same UI for creating new or editing existing pages
- * - Settings: Domain configuration, SEO defaults (future)
+ * - Deployment Settings: Configure GitHub and deployment targets (per-page)
+ * - Deploy: Execute deployment with pre-flight checks (per-page)
+ * - Deployment History: View deployment timeline (per-page)
  * - Analytics: Page views, conversions (future)
  */
 
-type TabType = "pages" | "create" | "settings" | "analytics";
+type TabType = "pages" | "create" | "deployment-settings" | "deployment-deploy" | "deployment-history" | "analytics";
 
 interface EditMode {
   pageId: Id<"objects">;
@@ -39,9 +44,15 @@ interface EditMode {
   };
 }
 
+interface SelectedPage {
+  _id: Id<"objects">;
+  name: string;
+}
+
 export function WebPublishingWindow() {
   const [activeTab, setActiveTab] = useState<TabType>("pages");
   const [editMode, setEditMode] = useState<EditMode | null>(null);
+  const [selectedPage, setSelectedPage] = useState<SelectedPage | null>(null);
   const { t } = useNamespaceTranslations("ui.web_publishing");
 
   // Check app availability - returns guard component if unavailable/loading, null if available
@@ -68,6 +79,7 @@ export function WebPublishingWindow() {
 
       {/* Tabs */}
       <div className="flex border-b-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+        {/* Pages Tab */}
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
           style={{
@@ -75,11 +87,16 @@ export function WebPublishingWindow() {
             background: activeTab === "pages" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
             color: activeTab === "pages" ? 'var(--win95-text)' : 'var(--neutral-gray)'
           }}
-          onClick={() => setActiveTab("pages")}
+          onClick={() => {
+            setActiveTab("pages");
+            setSelectedPage(null);
+          }}
         >
           <FileText size={14} />
           {t("ui.web_publishing.tab.published_pages")}
         </button>
+
+        {/* Create Page Tab */}
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
           style={{
@@ -88,26 +105,61 @@ export function WebPublishingWindow() {
             color: activeTab === "create" ? 'var(--win95-text)' : 'var(--neutral-gray)'
           }}
           onClick={() => {
-            setEditMode(null); // Clear edit mode when creating new page
+            setEditMode(null);
+            setSelectedPage(null);
             setActiveTab("create");
           }}
         >
           <Plus size={14} />
           {t("ui.web_publishing.tab.create_page")}
         </button>
-        <button
-          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2 opacity-50 cursor-not-allowed"
-          style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-bg)',
-            color: 'var(--neutral-gray)'
-          }}
-          disabled
-          title={t("ui.web_publishing.tab.coming_soon")}
-        >
-          <Settings size={14} />
-          {t("ui.web_publishing.tab.settings")}
-        </button>
+
+        {/* Deployment Tabs (only show when page is selected) */}
+        {selectedPage && (
+          <>
+            <button
+              className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
+              style={{
+                borderColor: 'var(--win95-border)',
+                background: activeTab === "deployment-settings" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+                color: activeTab === "deployment-settings" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+              }}
+              onClick={() => setActiveTab("deployment-settings")}
+              title={`Deployment settings for ${selectedPage.name}`}
+            >
+              <Settings size={14} />
+              Settings
+            </button>
+            <button
+              className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
+              style={{
+                borderColor: 'var(--win95-border)',
+                background: activeTab === "deployment-deploy" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+                color: activeTab === "deployment-deploy" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+              }}
+              onClick={() => setActiveTab("deployment-deploy")}
+              title={`Deploy ${selectedPage.name}`}
+            >
+              <Rocket size={14} />
+              Deploy
+            </button>
+            <button
+              className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
+              style={{
+                borderColor: 'var(--win95-border)',
+                background: activeTab === "deployment-history" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+                color: activeTab === "deployment-history" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+              }}
+              onClick={() => setActiveTab("deployment-history")}
+              title={`Deployment history for ${selectedPage.name}`}
+            >
+              <History size={14} />
+              History
+            </button>
+          </>
+        )}
+
+        {/* Analytics Tab (future) */}
         <button
           className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2 opacity-50 cursor-not-allowed"
           style={{
@@ -125,6 +177,7 @@ export function WebPublishingWindow() {
 
       {/* Tab Content */}
       <div className="flex-1 overflow-y-auto">
+        {/* Pages List */}
         {activeTab === "pages" && (
           <PublishedPagesTab
             onEditPage={(page) => {
@@ -134,18 +187,48 @@ export function WebPublishingWindow() {
               });
               setActiveTab("create");
             }}
+            onSelectPage={(page) => {
+              setSelectedPage({
+                _id: page._id,
+                name: page.name,
+              });
+              setActiveTab("deployment-settings");
+            }}
           />
         )}
+
+        {/* Create/Edit Page */}
         {activeTab === "create" && (
           <CreatePageTab
             editMode={editMode}
           />
         )}
-        {activeTab === "settings" && (
-          <div className="p-4 text-xs" style={{ color: 'var(--neutral-gray)' }}>
-            {t("ui.web_publishing.tab.coming_soon")}...
-          </div>
+
+        {/* Deployment Settings */}
+        {activeTab === "deployment-settings" && selectedPage && (
+          <DeploymentSettingsTab
+            pageId={selectedPage._id}
+            pageName={selectedPage.name}
+          />
         )}
+
+        {/* Deployment Deploy */}
+        {activeTab === "deployment-deploy" && selectedPage && (
+          <DeploymentDeployTab
+            pageId={selectedPage._id}
+            pageName={selectedPage.name}
+          />
+        )}
+
+        {/* Deployment History */}
+        {activeTab === "deployment-history" && selectedPage && (
+          <DeploymentHistoryTab
+            pageId={selectedPage._id}
+            pageName={selectedPage.name}
+          />
+        )}
+
+        {/* Analytics (future) */}
         {activeTab === "analytics" && (
           <div className="p-4 text-xs" style={{ color: 'var(--neutral-gray)' }}>
             {t("ui.web_publishing.tab.coming_soon")}...
