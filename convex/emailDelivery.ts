@@ -218,22 +218,62 @@ export const sendSalesNotificationEmail = internalAction({
       return { success: false, error: "Organization not found" };
     }
 
-    // Get domain config (use default if not found)
+    // Get domain config (use org default, then system fallback)
     const domainConfigs = await ctx.runQuery(internal.domainConfigOntology.listDomainConfigsForOrg, {
       organizationId,
     });
-    const domainConfig = domainConfigs?.[0];
+    let domainConfig = domainConfigs?.find((d: { status: string }) => d.status === "active");
+
+    // Try system fallback if no org domain config
+    if (!domainConfig) {
+      console.log("📧 [sendSalesNotificationEmail] No org domain config, trying system fallback...");
+
+      const systemOrg = await ctx.runQuery(internal.helpers.backendTranslationQueries.getSystemOrganization, {});
+      if (systemOrg) {
+        const systemDomainConfigs = await ctx.runQuery(internal.domainConfigOntology.listDomainConfigsForOrg, {
+          organizationId: systemOrg._id,
+        });
+        domainConfig = systemDomainConfigs?.find((d: { status: string }) => d.status === "active");
+        if (domainConfig) {
+          console.log("✅ [sendSalesNotificationEmail] Using SYSTEM fallback domain config");
+        }
+      }
+    }
 
     if (!domainConfig) {
-      console.error("❌ No domain configuration found");
+      console.error("❌ No domain configuration found (org or system)");
       return { success: false, error: "No domain configuration found" };
     }
 
-    // 5. Format currency amounts
-    const subtotal = sessionProps.subtotal || 0;
-    const taxAmount = sessionProps.taxAmount || 0;
-    const totalAmount = sessionProps.totalAmount || 0;
+    // 5. Format currency amounts - using behaviorContext.taxCalculation as source of truth
+    // This is the same data source used by confirmation step and invoice creation
+    const behaviorContext = sessionProps.behaviorContext as {
+      taxCalculation?: {
+        subtotal: number;
+        taxAmount: number;
+        total: number;
+        taxRate: number;
+        isTaxable: boolean;
+        taxBehavior: string;
+        lineItems?: Array<{
+          subtotal: number;
+          taxAmount: number;
+          taxRate: number;
+          taxable: boolean;
+        }>;
+      };
+    } | undefined;
+
+    const taxCalculation = behaviorContext?.taxCalculation;
+    const subtotal = taxCalculation?.subtotal || sessionProps.subtotal || 0;
+    const taxAmount = taxCalculation?.taxAmount || sessionProps.taxAmount || 0;
+    const totalAmount = taxCalculation?.total || sessionProps.totalAmount || 0;
     const currency = sessionProps.currency || "EUR";
+
+    // Calculate effective tax rate same way confirmation step does (types.ts line 240-242)
+    const effectiveTaxRate = subtotal > 0
+      ? (taxAmount / subtotal) * 100
+      : (taxCalculation?.taxRate || 19);
 
     const formatCurrency = (amountInCents: number) => {
       return new Intl.NumberFormat('de-DE', {
@@ -325,7 +365,7 @@ export const sendSalesNotificationEmail = internalAction({
               <td style="padding: 12px; text-align: right; font-weight: 600;">${formatCurrency(subtotal)}</td>
             </tr>
             <tr>
-              <td colspan="2" style="padding: 12px; text-align: right; font-weight: 600; color: #6b7280;">Tax:</td>
+              <td colspan="2" style="padding: 12px; text-align: right; font-weight: 600; color: #6b7280;">Tax (${effectiveTaxRate.toFixed(1)}%):</td>
               <td style="padding: 12px; text-align: right; font-weight: 600;">${formatCurrency(taxAmount)}</td>
             </tr>
             <tr style="background-color: #f9fafb;">
