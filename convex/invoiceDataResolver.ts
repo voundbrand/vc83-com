@@ -375,6 +375,8 @@ export async function resolveInvoiceEmailData(
   // ALWAYS try to load fresh CRM data first (like PDF does), fall back to stale billing address only on error
   // Strategy: Load organization for billing, contact for greeting
   let loadedFromCRM = false;
+  let crmBillingAddress: typeof billingAddress = {};
+  let recipientVatNumber: string | undefined;
 
   // STEP 1: If B2B invoice (has organization), load organization for billing details
   if (crmOrganizationId && options?.sessionId) {
@@ -389,6 +391,25 @@ export async function resolveInvoiceEmailData(
         const orgProps = buyerCrmOrg.customProperties as any;
         recipientEmail = orgProps?.billingEmail || orgProps?.primaryEmail || invoiceProps.recipientEmail || "";
         recipientName = buyerCrmOrg.name; // Temporary fallback, will try to get contact person next
+        recipientVatNumber = orgProps?.vatNumber;
+
+        // Extract billing address from CRM organization
+        // Priority: billingAddress (explicit) > address (general) > empty
+        const orgBillingAddr = orgProps?.billingAddress || orgProps?.address || {};
+        if (orgBillingAddr && (orgBillingAddr.street || orgBillingAddr.city)) {
+          crmBillingAddress = {
+            line1: orgBillingAddr.street,
+            line2: orgBillingAddr.street2,
+            city: orgBillingAddr.city,
+            state: orgBillingAddr.state,
+            postalCode: orgBillingAddr.postalCode,
+            country: orgBillingAddr.country,
+            companyName: buyerCrmOrg.name,
+            taxId: orgProps?.vatNumber || orgProps?.taxId,
+          };
+          console.log(`✅ [RESOLVER] Extracted billing address from CRM org:`, crmBillingAddress);
+        }
+
         loadedFromCRM = true;
         console.log(`✅ [RESOLVER] Loaded B2B CRM org for billing: ${recipientCompanyName}`);
       }
@@ -421,6 +442,22 @@ export async function resolveInvoiceEmailData(
           recipientEmail = contactProps?.email || billingAddress.email || invoiceProps.recipientEmail || "";
         }
 
+        // For B2C invoices (no crmOrganizationId), try to get address from contact
+        if (!crmOrganizationId && !crmBillingAddress.line1) {
+          const contactAddr = contactProps?.address || contactProps?.billingAddress || {};
+          if (contactAddr && (contactAddr.street || contactAddr.city || contactAddr.line1)) {
+            crmBillingAddress = {
+              line1: contactAddr.line1 || contactAddr.street,
+              line2: contactAddr.line2 || contactAddr.street2,
+              city: contactAddr.city,
+              state: contactAddr.state,
+              postalCode: contactAddr.postalCode,
+              country: contactAddr.country,
+            };
+            console.log(`✅ [RESOLVER] Extracted billing address from CRM contact:`, crmBillingAddress);
+          }
+        }
+
         loadedFromCRM = true;
         console.log(`✅ [RESOLVER] Using CRM contact for greeting: ${recipientName}`);
       }
@@ -439,6 +476,11 @@ export async function resolveInvoiceEmailData(
     recipientCompanyName = billingAddress.companyName;
     recipientEmail = billingAddress.email || invoiceProps.recipientEmail || "";
   }
+
+  // Use CRM address if available, otherwise fall back to stale billing address
+  const finalBillingAddress = crmBillingAddress.line1 || crmBillingAddress.city
+    ? crmBillingAddress
+    : billingAddress;
 
   // ==========================================================================
   // STEP 9: BUILD SENDER INFO (from org + domain)
@@ -471,20 +513,20 @@ export async function resolveInvoiceEmailData(
     invoiceType: invoiceProps.invoiceType || "b2b_single",
     isDraft: invoiceProps.isDraft || false,
 
-    // Recipient
+    // Recipient (uses CRM address if available, falls back to stale billing address)
     recipient: {
       name: recipientName,
       email: recipientEmail,
-      companyName: billingAddress.companyName,
+      companyName: recipientCompanyName || finalBillingAddress.companyName,
       address: {
-        line1: billingAddress.line1,
-        line2: billingAddress.line2,
-        city: billingAddress.city,
-        postalCode: billingAddress.postalCode,
-        state: billingAddress.state,
-        country: billingAddress.country,
+        line1: finalBillingAddress.line1,
+        line2: finalBillingAddress.line2,
+        city: finalBillingAddress.city,
+        postalCode: finalBillingAddress.postalCode,
+        state: finalBillingAddress.state,
+        country: finalBillingAddress.country,
       },
-      taxId: billingAddress.taxId,
+      taxId: recipientVatNumber || finalBillingAddress.taxId,
     },
 
     // Sender

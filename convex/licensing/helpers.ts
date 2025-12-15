@@ -717,15 +717,28 @@ function getNextTier(
 function getFeatureRequiredTier(featureKey: keyof TierConfig["features"]): string {
   // Map features to minimum required tier
   const featureTierMap: Partial<Record<keyof TierConfig["features"], string>> = {
+    // Starter tier features
     aiEnabled: "Starter (€199/month)",
+    stripeConnectEnabled: "Starter (€199/month)",
+    invoicePaymentEnabled: "Starter (€199/month)",
+    manualPaymentEnabled: "Starter (€199/month)",
+    multiLanguageEnabled: "Starter (€199/month)",
+    stripeTaxEnabled: "Starter (€199/month)",
+
+    // Professional tier features
     customDomainsEnabled: "Professional (€399/month)",
-    subOrgsEnabled: "Agency (€599/month)",
-    ssoEnabled: "Enterprise (€1,500+/month)",
     whiteLabelEnabled: "Professional (€399/month)",
     contactSyncEnabled: "Professional (€399/month)",
     advancedReportsEnabled: "Professional (€399/month)",
     customRolesEnabled: "Professional (€399/month)",
+    templateSetOverridesEnabled: "Professional (€399/month)",
+
+    // Agency tier features
+    subOrgsEnabled: "Agency (€599/month)",
     templateSharingEnabled: "Agency (€599/month)",
+
+    // Enterprise tier features
+    ssoEnabled: "Enterprise (€1,500+/month)",
   };
 
   return featureTierMap[featureKey] || "a higher tier";

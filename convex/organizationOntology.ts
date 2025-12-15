@@ -704,3 +704,164 @@ export const createOrgProfile = internalMutation({
     });
   },
 });
+
+/**
+ * GET CURRENT INVOICE COUNTER (Read-only)
+ * Returns the current invoice counter based on settings
+ * Shows what the next invoice number WILL be (not what has been used)
+ */
+export const getCurrentInvoiceCounter = query({
+  args: {
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    const settingsObj = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", q =>
+        q.eq("organizationId", args.organizationId)
+         .eq("type", "organization_settings")
+      )
+      .filter(q => q.eq(q.field("subtype"), "invoicing"))
+      .first();
+
+    if (settingsObj) {
+      const props = settingsObj.customProperties as {
+        prefix?: string;
+        nextNumber?: number;
+        defaultTerms?: string;
+      };
+      return {
+        nextNumber: props.nextNumber || 1,
+        prefix: props.prefix || "INV",
+      };
+    }
+
+    // No settings exist - check existing invoices to derive next number
+    const existingInvoices = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", q =>
+        q.eq("organizationId", args.organizationId)
+         .eq("type", "invoice")
+      )
+      .collect();
+
+    if (existingInvoices.length === 0) {
+      return {
+        nextNumber: 1,
+        prefix: "INV",
+      };
+    }
+
+    // Extract all invoice numbers and find the highest sequential number
+    let highestNumber = 0;
+    let detectedPrefix = "INV";
+
+    for (const invoice of existingInvoices) {
+      const invoiceNumber = invoice.customProperties?.invoiceNumber as string;
+      if (invoiceNumber) {
+        // Extract the last number from invoice number (e.g., "INV-2025-0004" → 4)
+        const match = invoiceNumber.match(/(\d+)$/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > highestNumber) {
+            highestNumber = num;
+            // Extract prefix (everything before the last number)
+            const prefixMatch = invoiceNumber.match(/^(.+?)-\d+$/);
+            if (prefixMatch) {
+              // Strip trailing hyphens from detected prefix to avoid double hyphens
+              detectedPrefix = prefixMatch[1].replace(/-+$/, '');
+            }
+          }
+        }
+      }
+    }
+
+    return {
+      nextNumber: highestNumber + 1,
+      prefix: detectedPrefix,
+    };
+  },
+});
+
+/**
+ * GET AND INCREMENT INVOICE NUMBER (ATOMIC) - Internal
+ * Gets the next invoice number and increments it atomically
+ * This ensures sequential, gap-free invoice numbering for Stripe compatibility and legal compliance
+ *
+ * This is an internal mutation called from actions (like invoice PDF generation)
+ */
+export const getAndIncrementInvoiceNumber = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    // Get current invoicing settings
+    const settingsObj = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", q =>
+        q.eq("organizationId", args.organizationId)
+         .eq("type", "organization_settings")
+      )
+      .filter(q => q.eq(q.field("subtype"), "invoicing"))
+      .first();
+
+    let currentNumber: number;
+    let prefix: string;
+
+    if (settingsObj) {
+      const props = settingsObj.customProperties as {
+        prefix?: string;
+        nextNumber?: number;
+        defaultTerms?: string;
+      };
+      currentNumber = props.nextNumber || 1;
+      prefix = props.prefix || "INV";
+
+      // Atomically increment the counter
+      await ctx.db.patch(settingsObj._id, {
+        customProperties: {
+          ...settingsObj.customProperties,
+          nextNumber: currentNumber + 1,
+        },
+        updatedAt: Date.now(),
+      });
+    } else {
+      // Create invoicing settings if they don't exist
+      const org = await ctx.db.get(args.organizationId);
+      if (!org) throw new Error("Organization not found");
+
+      currentNumber = 1;
+      prefix = "INV";
+
+      // Get first user for createdBy field (system requirement)
+      const firstUser = await ctx.db.query("users").first();
+      if (!firstUser) throw new Error("No users found in database");
+
+      await ctx.db.insert("objects", {
+        organizationId: args.organizationId,
+        type: "organization_settings",
+        subtype: "invoicing",
+        name: `${org.slug}-settings-invoicing`,
+        status: "active",
+        customProperties: {
+          prefix,
+          nextNumber: 2, // Next invoice will be 2
+          defaultTerms: "net_30", // Must match UI dropdown values (lowercase with underscore)
+        },
+        createdBy: firstUser._id,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+    }
+
+    // Return the invoice number that was just allocated
+    // Format: PREFIX-NUMBER (e.g., INV-0001 or INV-2025-0001 if user includes year in prefix)
+    // Strip trailing hyphens from prefix to avoid double hyphens (handles legacy data)
+    const cleanPrefix = prefix.replace(/-+$/, '');
+    return {
+      invoiceNumber: `${cleanPrefix}-${String(currentNumber).padStart(4, '0')}`,
+      prefix,
+      number: currentNumber,
+    };
+  },
+});

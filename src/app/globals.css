@@ -388,6 +388,7 @@
 }
 
 /* Mac - Input fields with proper contrast */
+/* NOTE: These styles do NOT apply inside .behavior-driven-checkout (see reset below) */
 [data-window-style="mac"] input,
 [data-window-style="mac"] textarea,
 [data-window-style="mac"] select {
@@ -1051,6 +1052,24 @@ body {
     color: var(--win95-hover-text) !important;
   }
 
+  /* ==========================================================================
+     LIGHT THEME PRIMARY BUTTON TEXT FIX
+     Mac and Shadcn styles use light backgrounds in light mode, so text must be dark
+     ========================================================================== */
+  [data-window-style="mac"]:not(.dark) .retro-button-primary,
+  [data-window-style="mac"]:not(.dark) .retro-button-primary *,
+  [data-window-style="shadcn"]:not(.dark) .retro-button-primary,
+  [data-window-style="shadcn"]:not(.dark) .retro-button-primary * {
+    color: #1f2937 !important;
+  }
+
+  [data-window-style="mac"]:not(.dark) .retro-button-primary:hover,
+  [data-window-style="mac"]:not(.dark) .retro-button-primary:hover *,
+  [data-window-style="shadcn"]:not(.dark) .retro-button-primary:hover,
+  [data-window-style="shadcn"]:not(.dark) .retro-button-primary:hover * {
+    color: #1f2937 !important;
+  }
+
   /* Glass light theme - ensure dark text on light buttons */
   .glass-theme:not(.dark) .retro-button {
     color: #1f2937 !important; /* Dark text for light glass theme buttons */
@@ -1586,4 +1605,55 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ==========================================================================
+   CHECKOUT ISOLATION STYLES
+   These reset admin window styles for public checkout forms.
+   The checkout UI should NOT inherit the backend admin theme.
+   ========================================================================== */
+.behavior-driven-checkout input,
+.behavior-driven-checkout textarea,
+.behavior-driven-checkout select,
+.checkout-isolation input,
+.checkout-isolation textarea,
+.checkout-isolation select {
+  /* Reset admin styling - use the component's own Tailwind classes */
+  background-color: revert !important;
+  color: revert !important;
+  border: revert !important;
+  border-radius: revert !important;
+  box-shadow: revert !important;
+}
+
+.behavior-driven-checkout input:focus,
+.behavior-driven-checkout textarea:focus,
+.behavior-driven-checkout select:focus,
+.checkout-isolation input:focus,
+.checkout-isolation textarea:focus,
+.checkout-isolation select:focus {
+  outline: revert !important;
+  outline-offset: revert !important;
+  border-color: revert !important;
+}
+
+.behavior-driven-checkout input:disabled,
+.behavior-driven-checkout textarea:disabled,
+.behavior-driven-checkout select:disabled,
+.checkout-isolation input:disabled,
+.checkout-isolation textarea:disabled,
+.checkout-isolation select:disabled {
+  background-color: revert !important;
+  color: revert !important;
+  opacity: revert !important;
+}
+
+/* Checkout buttons should use their own styling, not admin retro-button styles */
+.behavior-driven-checkout button:not(.retro-button),
+.checkout-isolation button:not(.retro-button) {
+  border: revert !important;
+  border-color: revert !important;
+  background: revert !important;
+  box-shadow: revert !important;
+  color: revert !important;
 }

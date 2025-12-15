@@ -15,6 +15,69 @@ import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { TemplateSelector } from "@/components/template-selector";
 import { TemplateSetSelector } from "@/components/template-set-selector";
 import { EmailSelector } from "@/components/email-selector";
+import { parseLimitError, useUpgradeModal } from "@/components/ui/upgrade-prompt";
+
+/**
+ * Helper: Check which features are required for the checkout configuration
+ * Returns the first missing feature that requires an upgrade, or null if all features are available
+ */
+function getRequiredFeatureForCheckout(
+  config: {
+    paymentProviders?: string[];
+    defaultLanguage?: string;
+    templateSetId?: unknown;
+    customBranding?: unknown;
+    settings?: { stripeTaxEnabled?: boolean };
+  },
+  license: {
+    features: {
+      stripeConnectEnabled?: boolean;
+      invoicePaymentEnabled?: boolean;
+      manualPaymentEnabled?: boolean;
+      multiLanguageEnabled?: boolean;
+      templateSetOverridesEnabled?: boolean;
+      customBrandingEnabled?: boolean;
+      stripeTaxEnabled?: boolean;
+    };
+  } | null | undefined
+): { feature: string; friendlyName: string; requiredTier: string } | null {
+  if (!license) return null;
+
+  const { features } = license;
+
+  // Check payment providers
+  if (config.paymentProviders?.includes("stripe-connect") && !features.stripeConnectEnabled) {
+    return { feature: "stripeConnectEnabled", friendlyName: "Stripe Connect", requiredTier: "Starter (€199/month)" };
+  }
+  if (config.paymentProviders?.includes("invoice") && !features.invoicePaymentEnabled) {
+    return { feature: "invoicePaymentEnabled", friendlyName: "Invoice Payment", requiredTier: "Starter (€199/month)" };
+  }
+  if (config.paymentProviders?.includes("manual") && !features.manualPaymentEnabled) {
+    return { feature: "manualPaymentEnabled", friendlyName: "Manual Payment", requiredTier: "Starter (€199/month)" };
+  }
+
+  // Check multi-language
+  if (config.defaultLanguage && config.defaultLanguage !== "en" && !features.multiLanguageEnabled) {
+    return { feature: "multiLanguageEnabled", friendlyName: "Multi-Language Support", requiredTier: "Starter (€199/month)" };
+  }
+
+  // Check template set overrides
+  if (config.templateSetId && !features.templateSetOverridesEnabled) {
+    return { feature: "templateSetOverridesEnabled", friendlyName: "Custom Template Sets", requiredTier: "Professional (€399/month)" };
+  }
+
+  // Check custom branding
+  if (config.customBranding && !features.customBrandingEnabled) {
+    return { feature: "customBrandingEnabled", friendlyName: "Custom Branding", requiredTier: "Professional (€399/month)" };
+  }
+
+  // Check Stripe Tax
+  if (config.settings?.stripeTaxEnabled && !features.stripeTaxEnabled) {
+    return { feature: "stripeTaxEnabled", friendlyName: "Stripe Tax", requiredTier: "Starter (€199/month)" };
+  }
+
+  return null; // All features available
+}
 
 /**
  * Create Checkout Tab
@@ -39,6 +102,7 @@ export function CreateCheckoutTab({
   const currentOrg = useCurrentOrganization();
   const notification = useNotification();
   const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.checkout_window");
+  const { showFeatureLockedModal } = useUpgradeModal();
 
   // Step management
   const [step, setStep] = useState<"template" | "editor">(
@@ -108,9 +172,27 @@ export function CreateCheckoutTab({
       : "skip"
   );
 
+  // PRE-CHECK: Fetch organization license to check feature access BEFORE mutations
+  // This prevents server-side errors by validating features on the frontend
+  const organizationLicense = useQuery(
+    api.licensing.helpers.getLicense,
+    currentOrg?.id
+      ? { organizationId: currentOrg.id as Id<"organizations"> }
+      : "skip"
+  );
+
   // Check if invoice payment is available (dynamic check based on Invoicing app availability)
   const invoiceAvailability = useQuery(
     api.paymentProviders.invoiceAvailability.checkInvoicePaymentAvailability,
+    sessionId && currentOrg?.id
+      ? { sessionId, organizationId: currentOrg.id as Id<"organizations"> }
+      : "skip"
+  );
+
+  // SINGLE SOURCE OF TRUTH: Get organization's enabled payment providers
+  // This determines the DEFAULT selection when creating a new checkout
+  const orgPaymentSettings = useQuery(
+    api.organizationPaymentSettings.getPaymentSettings,
     sessionId && currentOrg?.id
       ? { sessionId, organizationId: currentOrg.id as Id<"organizations"> }
       : "skip"
@@ -194,6 +276,20 @@ export function CreateCheckoutTab({
     }
   }, [selectedTemplateCode, editingInstanceId]);
 
+  // SINGLE SOURCE OF TRUTH: Default payment providers from organization settings
+  // When creating a new checkout, auto-select the org's enabled providers
+  useEffect(() => {
+    if (
+      !editingInstanceId && // Only for new checkouts
+      orgPaymentSettings?.enabledPaymentProviders &&
+      orgPaymentSettings.enabledPaymentProviders.length > 0 &&
+      selectedPaymentProviders.length === 0 // Only if not already selected
+    ) {
+      console.log("💳 [CreateCheckout] Setting default payment providers from org settings:", orgPaymentSettings.enabledPaymentProviders);
+      setSelectedPaymentProviders(orgPaymentSettings.enabledPaymentProviders);
+    }
+  }, [editingInstanceId, orgPaymentSettings, selectedPaymentProviders.length]);
+
   // Auto-generate slug from checkout name (always updates slug)
   const handleNameChange = (value: string) => {
     setCheckoutName(value);
@@ -231,6 +327,27 @@ export function CreateCheckoutTab({
     // Get theme CODE from selected theme ID
     const selectedTheme = availableThemes?.find(t => t._id === selectedThemeId);
     const themeCode = (selectedTheme?.customProperties as Record<string, unknown>)?.code as string || "";
+
+    // PRE-CHECK: Validate feature access BEFORE calling mutation
+    // This prevents server-side errors and provides a better user experience
+    const checkoutConfig = {
+      paymentProviders: selectedPaymentProviders,
+      defaultLanguage,
+      templateSetId,
+      customBranding: configuration.customBranding,
+      settings: configuration.settings as { stripeTaxEnabled?: boolean } | undefined,
+    };
+
+    const missingFeature = getRequiredFeatureForCheckout(checkoutConfig, organizationLicense);
+    if (missingFeature) {
+      // Show upgrade modal proactively - no server error will be thrown
+      showFeatureLockedModal(
+        missingFeature.friendlyName,
+        `This checkout configuration requires ${missingFeature.friendlyName}, which is available on ${missingFeature.requiredTier}. Upgrade your plan to unlock this feature.`,
+        missingFeature.requiredTier
+      );
+      return; // Don't call mutation - user needs to upgrade first
+    }
 
     try {
       if (editingInstanceId) {
@@ -299,7 +416,22 @@ export function CreateCheckoutTab({
       notification.success(successTitle, successMessage);
       onSaveComplete();
     } catch (error) {
+      // FALLBACK: Handle any errors that slip through the pre-check
+      // This can happen if the license changes between frontend check and backend execution
       console.error("Failed to save checkout:", error);
+
+      // Check if this is a tier/licensing error (fallback for edge cases)
+      const tierError = parseLimitError(error);
+      if (tierError) {
+        showFeatureLockedModal(
+          "Checkout Configuration",
+          "This checkout configuration requires features from a higher tier. Upgrade your plan to unlock advanced payment options, multi-language support, and more.",
+          tierError.upgradeTier
+        );
+        return;
+      }
+
+      // Generic error handling for non-tier errors
       const errorTitle = translationsLoading ? "Save Failed" : t("ui.checkout_window.create.notifications.save_failed_title");
       const errorMessage = translationsLoading ? "Could not save checkout. Please check your configuration and try again." : t("ui.checkout_window.create.notifications.save_failed_message");
       notification.error(errorTitle, errorMessage);
@@ -778,6 +910,18 @@ export function CreateCheckoutTab({
             <p className="text-xs mb-3" style={{ color: 'var(--neutral-gray)' }}>
               {translationsLoading ? "Select payment providers to offer during checkout. Customers will choose their preferred method." : t("ui.checkout_window.create.payment_providers_description")}
             </p>
+
+            {/* Source of Truth Indicator */}
+            {!editingInstanceId && orgPaymentSettings?.enabledPaymentProviders && orgPaymentSettings.enabledPaymentProviders.length > 0 && (
+              <div className="mb-3 p-2 rounded text-xs" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                <span className="font-bold" style={{ color: 'var(--success)' }}>
+                  ✓ Defaulting to organization settings
+                </span>
+                <span className="ml-1" style={{ color: 'var(--neutral-gray)' }}>
+                  (configured in Payments → Providers)
+                </span>
+              </div>
+            )}
 
             {!availablePaymentProviders || availablePaymentProviders.length === 0 ? (
               <div className="border-2 p-4" style={{ borderColor: 'var(--error)', background: 'rgba(239, 68, 68, 0.1)' }}>

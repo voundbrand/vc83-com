@@ -12,7 +12,8 @@
  * Run: npx convex run translations/seedManage_02_Organization:seed
  */
 
-import { internalMutation } from "../_generated/server";
+import { internalMutation, mutation } from "../_generated/server";
+import { internal } from "../_generated/api";
 import { getExistingTranslationKeys, insertTranslationIfNew } from "./_translationHelpers";
 
 export const seed = internalMutation({
@@ -560,6 +561,17 @@ export const seed = internalMutation({
           es: "Zona horaria",
           fr: "Fuseau horaire",
           ja: "タイムゾーン",
+        }
+      },
+      {
+        key: "ui.manage.org.date_format",
+        values: {
+          en: "Date Format",
+          de: "Datumsformat",
+          pl: "Format daty",
+          es: "Formato de fecha",
+          fr: "Format de date",
+          ja: "日付形式",
         }
       },
       {
@@ -1268,4 +1280,9 @@ export const seed = internalMutation({
     console.log(`✅ Seeded ${count} Organization Tab translations`);
     return { success: true, count };
   }
+});
+
+// Public export for CLI access
+export default mutation(async (ctx): Promise<{ success: boolean; count: number }> => {
+  return await ctx.runMutation(internal.translations.seedManage_02_Organization.seed, {});
 });

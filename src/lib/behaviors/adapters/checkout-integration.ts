@@ -40,7 +40,7 @@ export interface CheckoutBehaviorContext {
   formResponses?: Array<{
     productId: Id<"objects">;
     ticketNumber: number;
-    formId: string;
+    formId?: string; // Optional - only set when ticket has a custom form
     responses: Record<string, unknown>;
     addedCosts: number;
     submittedAt: number;
@@ -69,18 +69,21 @@ export interface CheckoutBehaviorContext {
 export function toBehaviorContext(
   checkoutContext: CheckoutBehaviorContext
 ): BehaviorContext {
-  // Create input sources from form responses
+  // Create input sources from form responses (only for tickets with custom forms)
   const inputs: InputSource[] = [];
   if (checkoutContext.formResponses) {
     for (const formResponse of checkoutContext.formResponses) {
-      inputs.push(
-        createInputSourceFromForm(
-          formResponse.formId,
-          formResponse.responses,
-          formResponse.productId,
-          formResponse.ticketNumber
-        )
-      );
+      // Only create input source if there's a custom form (formId is only set for custom forms)
+      if (formResponse.formId) {
+        inputs.push(
+          createInputSourceFromForm(
+            formResponse.formId,
+            formResponse.responses,
+            formResponse.productId,
+            formResponse.ticketNumber
+          )
+        );
+      }
     }
   }
 

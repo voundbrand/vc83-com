@@ -25,6 +25,7 @@ import { StatusUpdateEmailTemplate, STATUS_UPDATE_EMAIL_METADATA } from "./statu
 import { InvoiceB2BEmailTemplate, INVOICE_B2B_EMAIL_METADATA } from "./invoice-b2b/index";
 import { InvoiceB2CEmailTemplate, INVOICE_B2C_EMAIL_METADATA } from "./invoice-b2c/index";
 import { ReceiptEmailTemplate, RECEIPT_EMAIL_METADATA } from "./receipt/index";
+import { SalesNotificationTemplate, SALES_NOTIFICATION_EMAIL_METADATA } from "./sales-notification/index";
 import { LuxuryConfirmationTemplate } from "./luxury-confirmation/index";
 import { ModernMinimalTemplate } from "./modern-minimal/index";
 import { VIPExclusiveTemplate } from "./vip-exclusive/index";
@@ -120,6 +121,13 @@ export const EMAIL_TEMPLATE_REGISTRY: Record<string, EmailTemplateRegistryEntry>
     code: "email_status_update",
     component: StatusUpdateEmailTemplate,
     metadata: STATUS_UPDATE_EMAIL_METADATA,
+  },
+
+  // System/Internal (1)
+  email_sales_notification: {
+    code: "email_sales_notification",
+    component: SalesNotificationTemplate as unknown as EmailTemplateComponent,
+    metadata: SALES_NOTIFICATION_EMAIL_METADATA,
   },
 
   // Premium Templates (3) - Luxury ticket confirmation templates
@@ -253,6 +261,13 @@ export const EVENT_EMAIL_TEMPLATES = [
 export const SUPPORT_EMAIL_TEMPLATES = [
   EMAIL_TEMPLATE_REGISTRY.email_support_response,
   EMAIL_TEMPLATE_REGISTRY.email_status_update,
+];
+
+/**
+ * System/Internal Email Templates
+ */
+export const SYSTEM_EMAIL_TEMPLATES = [
+  EMAIL_TEMPLATE_REGISTRY.email_sales_notification,
 ];
 
 /**
@@ -414,6 +429,17 @@ export function findTemplatesByUseCase(useCase: string): string[] {
     return ["email_status_update"];
   }
 
+  // Sales/Internal notification
+  if (
+    lowerUseCase.includes("sales notification") ||
+    lowerUseCase.includes("internal notification") ||
+    lowerUseCase.includes("new sale") ||
+    lowerUseCase.includes("reservation notification") ||
+    (lowerUseCase.includes("sales") && lowerUseCase.includes("team"))
+  ) {
+    return ["email_sales_notification"];
+  }
+
   // Default: return generic transaction as fallback
   return ["email_transaction_generic"];
 }
@@ -428,6 +454,7 @@ export const EMAIL_TEMPLATE_STATS = {
     marketing: MARKETING_EMAIL_TEMPLATES.length,
     event: EVENT_EMAIL_TEMPLATES.length,
     support: SUPPORT_EMAIL_TEMPLATES.length,
+    system: SYSTEM_EMAIL_TEMPLATES.length,
   },
   supportedLanguages: ["en", "de", "es", "fr"],
   totalSectionTypes: 11, // hero, body, cta, eventDetails, orderDetails, accountDetails, attachmentInfo, shippingInfo, leadMagnetInfo, supportInfo, invoiceDetails

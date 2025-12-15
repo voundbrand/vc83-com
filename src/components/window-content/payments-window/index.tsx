@@ -5,16 +5,17 @@ import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { StripeConnectSection } from "./stripe-connect-section";
 import { InvoicingSection } from "./invoicing-section";
+import { ProvidersTab } from "./providers-tab";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
-import { CreditCard, Loader2, AlertCircle, Building2, FileText } from "lucide-react";
+import { CreditCard, Loader2, AlertCircle, Building2, FileText, LayoutGrid } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 
-type TabType = "stripe" | "invoicing";
+type TabType = "providers" | "stripe" | "invoicing";
 
 export function PaymentsWindow() {
-  const [activeTab, setActiveTab] = useState<TabType>("stripe");
+  const [activeTab, setActiveTab] = useState<TabType>("providers");
   const { user, isLoading, sessionId } = useAuth();
   const currentOrganization = useCurrentOrganization();
   const organizationId = currentOrganization?.id || user?.defaultOrgId;
@@ -148,6 +149,18 @@ export function PaymentsWindow() {
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
           style={{
             borderColor: "var(--win95-border)",
+            background: activeTab === "providers" ? "var(--win95-bg-light)" : "var(--win95-bg)",
+            color: activeTab === "providers" ? "var(--win95-text)" : "var(--neutral-gray)",
+          }}
+          onClick={() => setActiveTab("providers")}
+        >
+          <LayoutGrid size={14} />
+          Providers
+        </button>
+        <button
+          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
+          style={{
+            borderColor: "var(--win95-border)",
             background: activeTab === "stripe" ? "var(--win95-bg-light)" : "var(--win95-bg)",
             color: activeTab === "stripe" ? "var(--win95-text)" : "var(--neutral-gray)",
           }}
@@ -166,12 +179,16 @@ export function PaymentsWindow() {
           onClick={() => setActiveTab("invoicing")}
         >
           <FileText size={14} />
-          {t("ui.payments.tab_invoicing")}
+          Invoicing (+Stripe)
         </button>
       </div>
 
       {/* Tab Content */}
       <div className="flex-1 overflow-y-auto">
+        {activeTab === "providers" && (
+          <ProvidersTab onSelectProvider={(tabId) => setActiveTab(tabId)} />
+        )}
+
         {activeTab === "stripe" && (
           <div className="p-4">
             <StripeConnectSection organizationId={organizationId as Id<"organizations">} organization={organization} />

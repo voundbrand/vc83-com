@@ -94,12 +94,12 @@ export const seed = internalMutation({
       {
         key: "ui.checkout_template.behavior_driven.registration_form.labels.ticket_number",
         values: {
-          en: "Ticket #",
-          de: "Ticket Nr.",
-          pl: "Bilet nr",
-          es: "Entrada #",
-          fr: "Billet n°",
-          ja: "チケット番号",
+          en: "Ticket #{number}",
+          de: "Ticket Nr. {number}",
+          pl: "Bilet nr {number}",
+          es: "Entrada #{number}",
+          fr: "Billet n°{number}",
+          ja: "チケット {number}",
         }
       },
 
@@ -161,6 +161,139 @@ export const seed = internalMutation({
           es: "Por favor, complete todos los formularios de registro",
           fr: "Veuillez compléter tous les formulaires d'inscription",
           ja: "すべての登録フォームに記入してください",
+        }
+      },
+
+      // Attendee Name Section (always shown for each ticket)
+      {
+        key: "ui.checkout_template.behavior_driven.registration_form.fields.attendee_name.section_label",
+        values: {
+          en: "Attendee Information",
+          de: "Teilnehmerinformationen",
+          pl: "Informacje o uczestniku",
+          es: "Información del asistente",
+          fr: "Informations sur le participant",
+          ja: "参加者情報",
+        }
+      },
+      {
+        key: "ui.checkout_template.behavior_driven.registration_form.fields.attendee_name.help",
+        values: {
+          en: "This name will appear on the ticket",
+          de: "Dieser Name erscheint auf dem Ticket",
+          pl: "Ta nazwa pojawi się na bilecie",
+          es: "Este nombre aparecerá en la entrada",
+          fr: "Ce nom apparaîtra sur le billet",
+          ja: "この名前がチケットに表示されます",
+        }
+      },
+
+      // First Name Field
+      {
+        key: "ui.checkout_template.behavior_driven.registration_form.fields.first_name.label",
+        values: {
+          en: "First Name",
+          de: "Vorname",
+          pl: "Imię",
+          es: "Nombre",
+          fr: "Prénom",
+          ja: "名",
+        }
+      },
+      {
+        key: "ui.checkout_template.behavior_driven.registration_form.fields.first_name.placeholder",
+        values: {
+          en: "First name",
+          de: "Vorname",
+          pl: "Imię",
+          es: "Nombre",
+          fr: "Prénom",
+          ja: "名",
+        }
+      },
+
+      // Last Name Field
+      {
+        key: "ui.checkout_template.behavior_driven.registration_form.fields.last_name.label",
+        values: {
+          en: "Last Name",
+          de: "Nachname",
+          pl: "Nazwisko",
+          es: "Apellido",
+          fr: "Nom de famille",
+          ja: "姓",
+        }
+      },
+      {
+        key: "ui.checkout_template.behavior_driven.registration_form.fields.last_name.placeholder",
+        values: {
+          en: "Last name",
+          de: "Nachname",
+          pl: "Nazwisko",
+          es: "Apellido",
+          fr: "Nom de famille",
+          ja: "姓",
+        }
+      },
+
+      // Errors
+      {
+        key: "ui.checkout_template.behavior_driven.registration_form.errors.attendee_name_required",
+        values: {
+          en: "Please enter first and last name for each ticket",
+          de: "Bitte geben Sie Vor- und Nachname für jedes Ticket ein",
+          pl: "Proszę podać imię i nazwisko dla każdego biletu",
+          es: "Por favor, introduzca nombre y apellido para cada entrada",
+          fr: "Veuillez entrer le prénom et le nom pour chaque billet",
+          ja: "各チケットの名前と姓を入力してください",
+        }
+      },
+      {
+        key: "ui.checkout_template.behavior_driven.registration_form.errors.complete_all",
+        values: {
+          en: "Please complete all required fields",
+          de: "Bitte füllen Sie alle erforderlichen Felder aus",
+          pl: "Proszę wypełnić wszystkie wymagane pola",
+          es: "Por favor, complete todos los campos obligatorios",
+          fr: "Veuillez remplir tous les champs obligatoires",
+          ja: "すべての必須フィールドに入力してください",
+        }
+      },
+
+      // Additional labels used in code
+      {
+        key: "ui.checkout_template.behavior_driven.registration_form.labels.ticket_singular",
+        values: {
+          en: "ticket",
+          de: "Ticket",
+          pl: "bilet",
+          es: "entrada",
+          fr: "billet",
+          ja: "チケット",
+        }
+      },
+      {
+        key: "ui.checkout_template.behavior_driven.registration_form.labels.ticket_plural",
+        values: {
+          en: "tickets",
+          de: "Tickets",
+          pl: "bilety",
+          es: "entradas",
+          fr: "billets",
+          ja: "チケット",
+        }
+      },
+
+      // Form controls
+      {
+        key: "ui.checkout_template.behavior_driven.registration_form.controls.select_placeholder",
+        values: {
+          en: "Select an option...",
+          de: "Option auswählen...",
+          pl: "Wybierz opcję...",
+          es: "Seleccione una opción...",
+          fr: "Sélectionner une option...",
+          ja: "オプションを選択...",
         }
       },
     ];

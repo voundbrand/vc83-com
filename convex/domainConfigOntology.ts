@@ -898,19 +898,31 @@ export const updateBadgeStatusInternal = internalMutation({
 
 /**
  * INTERNAL: List domain configs for an organization (for use from actions)
+ * Supports both new type (domain_config) and legacy type (configuration/domain)
  */
 export const listDomainConfigsForOrg = internalQuery({
   args: {
     organizationId: v.id("organizations"),
   },
   handler: async (ctx, args) => {
-    return await ctx.db
+    // Try new type first (domain_config)
+    const newTypeConfigs = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "domain_config")
+      )
+      .collect();
+
+    // Also check legacy type (configuration/domain)
+    const legacyConfigs = await ctx.db
       .query("objects")
       .withIndex("by_org_type", (q) =>
         q.eq("organizationId", args.organizationId).eq("type", "configuration")
       )
       .filter((q) => q.eq(q.field("subtype"), "domain"))
       .collect();
+
+    return [...newTypeConfigs, ...legacyConfigs];
   },
 });
 

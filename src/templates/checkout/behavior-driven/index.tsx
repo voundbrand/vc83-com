@@ -61,6 +61,15 @@ export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
     }
   );
 
+  // Load organization payment settings (enabled providers) - SINGLE SOURCE OF TRUTH
+  // This determines which payment providers are available by default for all checkouts
+  const orgPaymentSettings = useQuery(
+    api.organizationPaymentSettings.getPublicPaymentSettings,
+    {
+      organizationId: config.organizationId,
+    }
+  );
+
   // Debug: Log workflow loading
   useEffect(() => {
     console.log("🔍 [Workflow Query] organizationId:", config.organizationId);
@@ -160,8 +169,10 @@ export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
       console.log("🛒 [BehaviorCheckout] Session ID:", checkoutSessionId);
       console.log("⚡ [Workflows] Loaded workflows:", workflows?.length || 0);
       console.log("🧠 [Workflows] Extracted behaviors:", workflowBehaviors?.length || 0);
+      console.log("💳 [PaymentSettings] Org enabled providers:", orgPaymentSettings?.enabledPaymentProviders);
+      console.log("💳 [PaymentSettings] Config providers:", config.paymentProviders);
     }
-  }, [currentStep, checkoutData, checkoutSessionId, workflows, workflowBehaviors, config.debugMode]);
+  }, [currentStep, checkoutData, checkoutSessionId, workflows, workflowBehaviors, orgPaymentSettings, config.debugMode, config.paymentProviders]);
 
   /**
    * Execute behaviors based on current checkout state
@@ -292,6 +303,20 @@ export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
               behaviorTypes: behaviorContext?.allResults?.map(r => r.type),
             });
 
+            // 🔍 DEBUG: Trace space-stripping bug - log B2B fields before session update
+            if (currentStep === "customer-info") {
+              console.log("🔍 [BehaviorCheckout DEBUG] B2B fields BEFORE updateCheckoutSession:", {
+                companyName_raw: updatedData.customerInfo?.companyName,
+                companyName_has_space: updatedData.customerInfo?.companyName?.includes(" "),
+                companyName_length: updatedData.customerInfo?.companyName?.length,
+                billingLine1_raw: updatedData.customerInfo?.billingAddress?.line1,
+                billingLine1_has_space: updatedData.customerInfo?.billingAddress?.line1?.includes(" "),
+                customerName_raw: updatedData.customerInfo?.name,
+                customerName_has_space: updatedData.customerInfo?.name?.includes(" "),
+                transactionType: updatedData.customerInfo?.transactionType,
+              });
+            }
+
             await updateCheckoutSession({
               checkoutSessionId,
               updates: {
@@ -318,12 +343,12 @@ export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
                 formResponses: updatedData.formResponses?.map(fr => ({
                   productId: fr.productId,
                   ticketNumber: fr.ticketNumber,
-                  formId: fr.formId,
+                  // Only include formId if it exists (backend expects valid ID or undefined)
+                  ...(fr.formId ? { formId: fr.formId } : {}),
                   responses: fr.responses,
                   addedCosts: fr.addedCosts,
                   submittedAt: fr.submittedAt,
                 })),
-                totalAmount: updatedData.totalPrice || 0,
                 stepProgress: [currentStep],
                 // ✅ CRITICAL: Store behavior results so backend can access them!
                 behaviorContext: behaviorContext,
@@ -517,6 +542,13 @@ export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
       theme: config.theme,
       workflowBehaviors,
       checkoutSessionId, // Pass checkoutSessionId for payment step
+      // Payment Provider Hierarchy (SINGLE SOURCE OF TRUTH):
+      // 1. Checkout Instance Override (config.paymentProviders) - if explicitly set
+      // 2. Organization Default (orgPaymentSettings.enabledPaymentProviders) - set in Payments → Providers
+      // 3. Fallback to stripe only if nothing configured
+      paymentProviders: config.paymentProviders
+        || (orgPaymentSettings?.enabledPaymentProviders?.length ? orgPaymentSettings.enabledPaymentProviders : undefined)
+        || ["stripe"],
       onComplete: handleStepComplete,
       onBack: currentStep !== "product-selection" && config.allowBackNavigation ? handleBack : undefined,
     };

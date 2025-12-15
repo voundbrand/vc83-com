@@ -80,6 +80,8 @@ function BehaviorDrivenCheckoutAdapter({
   const executeBehaviorsOnStepChange = (configuration?.executeBehaviorsOnStepChange as boolean) ?? true;
   const behaviorExecutionTiming = (configuration?.behaviorExecutionTiming as "eager" | "lazy") || "eager";
   const debugMode = (configuration?.debugMode as boolean) ?? false;
+  // 🔧 FIX: Extract paymentProviders from checkout configuration
+  const paymentProviders = (configuration?.paymentProviders as string[]) || ["stripe"];
 
   console.log("🧠 [BehaviorDrivenCheckoutAdapter] Configuration:", {
     checkoutInstanceId,
@@ -88,6 +90,7 @@ function BehaviorDrivenCheckoutAdapter({
     executeBehaviorsOnStepChange,
     behaviorExecutionTiming,
     debugMode,
+    paymentProviders, // 🔍 DEBUG: Log configured payment providers
     fullConfig: configuration,
   });
 
@@ -106,6 +109,7 @@ function BehaviorDrivenCheckoutAdapter({
     executeBehaviorsOnStepChange,
     behaviorExecutionTiming,
     debugMode,
+    paymentProviders, // 🔧 FIX: Pass configured payment providers to checkout
     onComplete: (data) => {
       console.log("🎉 Checkout completed:", data);
       // Template handles actual checkout completion

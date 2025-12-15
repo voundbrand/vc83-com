@@ -80,6 +80,15 @@ export const createCRMOrganization = internalMutation({
     useSeparateBillingAddress: v.optional(v.boolean()),
   },
   handler: async (ctx, args): Promise<Id<"objects">> => {
+    // 🔍 DEBUG: Log incoming values to trace space-stripping issue
+    console.log("🔍 [createCRMOrganization DEBUG] Input values:", {
+      companyName_raw: args.companyName,
+      companyName_has_space: args.companyName.includes(" "),
+      companyName_length: args.companyName.length,
+      billingLine1_raw: args.billingAddress?.line1,
+      billingLine1_has_space: args.billingAddress?.line1?.includes(" "),
+    });
+
     // Get or create system user for internal operations
     const systemUser = await getOrCreateSystemUser(ctx);
     const userId = systemUser._id;
@@ -169,6 +178,13 @@ export const createCRMOrganization = internalMutation({
       },
       performedBy: userId,
       performedAt: Date.now(),
+    });
+
+    // 🔍 DEBUG: Confirm what was stored
+    console.log("✅ [createCRMOrganization DEBUG] Created org:", {
+      orgId,
+      storedName: args.companyName,
+      storedName_has_space: args.companyName.includes(" "),
     });
 
     return orgId;

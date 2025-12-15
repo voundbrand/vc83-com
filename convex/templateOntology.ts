@@ -1308,6 +1308,63 @@ export const duplicateTemplate = mutation({
 });
 
 /**
+ * GET TEMPLATES FOR ORGANIZATION
+ *
+ * Returns all templates (email, PDF, etc.) for a specific organization.
+ * Used by template sets UI to look up template names for copied templates.
+ * Does NOT filter by availability - shows all templates belonging to the org.
+ */
+export const getTemplatesForOrg = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    await getUserContext(ctx, userId, args.organizationId);
+
+    // Check permission
+    const hasPermission = await checkPermission(
+      ctx,
+      userId,
+      "view_templates",
+      args.organizationId
+    );
+    if (!hasPermission) {
+      throw new Error(PERMISSION_ERRORS.view_templates);
+    }
+
+    // Get ALL templates for this organization (email and PDF)
+    const orgTemplates = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "template")
+      )
+      .collect();
+
+    // Filter out page templates (they're used for a different system)
+    // Return email and PDF templates with name, code, subtype info
+    const templates = orgTemplates
+      .filter((t) => {
+        const subtype = t.subtype;
+        if (!subtype || subtype === "page") return false;
+        return true;
+      })
+      .map((t) => ({
+        _id: t._id,
+        name: t.name,
+        code: t.customProperties?.code,
+        subtype: t.subtype,
+        category: t.customProperties?.category,
+        status: t.status,
+        hasSchema: !!t.customProperties?.emailTemplateSchema,
+      }));
+
+    return templates;
+  },
+});
+
+/**
  * Set Default Template
  *
  * Sets a template as the default for its category.

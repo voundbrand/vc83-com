@@ -276,7 +276,7 @@ export const getPortalInvitations = query({
   handler: async (ctx, args) => {
     await requireAuthenticatedUser(ctx, args.sessionId);
 
-    let query = ctx.db
+    const query = ctx.db
       .query("objects")
       .withIndex("by_org_type", (q) =>
         q.eq("organizationId", args.organizationId).eq("type", "portal_invitation")

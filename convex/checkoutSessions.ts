@@ -638,6 +638,7 @@ export const completeCheckoutAndFulfill = action({
     sessionId: v.string(),
     checkoutSessionId: v.id("objects"),
     paymentIntentId: v.string(),
+    paymentMethod: v.optional(v.union(v.literal("stripe"), v.literal("invoice"), v.literal("free"))),
   },
   handler: async (ctx, args): Promise<{
     success: boolean;
@@ -707,7 +708,7 @@ export const completeCheckoutAndFulfill = action({
     const formResponses = session.customProperties?.formResponses as Array<{
       productId: Id<"objects">;
       ticketNumber: number;
-      formId: string;
+      formId?: string; // Optional - only set when ticket has a custom form
       responses: Record<string, unknown>;
       addedCosts: number;
       submittedAt: number;
@@ -765,15 +766,19 @@ export const completeCheckoutAndFulfill = action({
       throw new Error("Organization not found");
     }
 
-    const connectedAccountId = getConnectedAccountId(org, "stripe-connect");
-    if (!connectedAccountId) {
-      throw new Error("Organization has not connected Stripe");
-    }
-
     let paymentResult: { success: boolean; paymentId: string; amount: number; currency: string };
 
-    // 3. Verify payment based on payment method
-    if (args.paymentIntentId === 'free' || args.paymentIntentId.startsWith('free_')) {
+    // 3. Determine payment method - use explicit parameter or fall back to legacy detection
+    const paymentMethod = args.paymentMethod || (
+      args.paymentIntentId === 'free' || args.paymentIntentId.startsWith('free_') ? 'free' :
+      args.paymentIntentId.startsWith('inv_') || args.paymentIntentId === 'invoice' ? 'invoice' :
+      'stripe'
+    );
+
+    console.log("💳 [completeCheckoutAndFulfill] Payment method:", paymentMethod, "PaymentIntentId:", args.paymentIntentId);
+
+    // 4. Verify payment based on payment method
+    if (paymentMethod === 'free') {
       // FREE PAYMENT: No payment required (free events)
       console.log("✅ [completeCheckoutAndFulfill] Free registration - no payment verification needed");
       paymentResult = {
@@ -783,8 +788,8 @@ export const completeCheckoutAndFulfill = action({
         currency: session.customProperties?.currency as string || 'EUR',
       };
 
-    } else if (args.paymentIntentId.startsWith('inv_') || args.paymentIntentId === 'invoice') {
-      // INVOICE PAYMENT: Pay later (B2B or B2C)
+    } else if (paymentMethod === 'invoice') {
+      // INVOICE PAYMENT: Pay later (B2B or B2C) - no Stripe connection required
       console.log("✅ [completeCheckoutAndFulfill] Invoice payment - no immediate payment verification");
       paymentResult = {
         success: true,
@@ -794,7 +799,12 @@ export const completeCheckoutAndFulfill = action({
       };
 
     } else {
-      // STRIPE PAYMENT: Verify payment with Stripe
+      // STRIPE PAYMENT: Verify payment with Stripe - requires Stripe connection
+      const connectedAccountId = getConnectedAccountId(org, "stripe-connect");
+      if (!connectedAccountId) {
+        throw new Error("Organization has not connected Stripe");
+      }
+
       console.log("💳 [completeCheckoutAndFulfill] Stripe payment - verifying with provider");
       const provider = getProviderByCode("stripe-connect");
       paymentResult = await provider.verifyCheckoutPayment(args.paymentIntentId, connectedAccountId);
@@ -933,23 +943,27 @@ export const completeCheckoutAndFulfill = action({
       // Don't fail the whole checkout if CRM creation fails
     }
 
-    // 5. Create form responses for audit trail (if forms were used)
+    // 5. Create form responses for audit trail (only for tickets WITH custom forms)
     if (formResponses && formResponses.length > 0) {
       for (const formResp of formResponses) {
-        await ctx.runMutation(api.formsOntology.createFormResponse, {
-          sessionId: args.sessionId,
-          organizationId,
-          formId: formResp.formId as Id<"objects">,
-          responses: formResp.responses,
-          calculatedPricing: {
-            addedCosts: formResp.addedCosts,
-          },
-          metadata: {
-            checkoutSessionId: args.checkoutSessionId,
-            ticketNumber: formResp.ticketNumber,
-            submittedAt: formResp.submittedAt,
-          },
-        });
+        // Only create form response if a custom form was actually used
+        // (formId is only set when ticket has a custom form configured)
+        if (formResp.formId) {
+          await ctx.runMutation(api.formsOntology.createFormResponse, {
+            sessionId: args.sessionId,
+            organizationId,
+            formId: formResp.formId as Id<"objects">,
+            responses: formResp.responses,
+            calculatedPricing: {
+              addedCosts: formResp.addedCosts,
+            },
+            metadata: {
+              checkoutSessionId: args.checkoutSessionId,
+              ticketNumber: formResp.ticketNumber,
+              submittedAt: formResp.submittedAt,
+            },
+          });
+        }
       }
     }
 
@@ -1110,6 +1124,7 @@ export const completeCheckoutAndFulfill = action({
       crmContactId,
       crmOrganizationId, // Pass B2B organization ID
       userId: frontendUserId, // ✅ Pass dormant user ID
+      paymentMethod, // ✅ Store payment method so invoice creation knows if it's pay-later
     });
 
     // 6.5. CREATE TRANSACTIONS AND LINK TO TICKETS

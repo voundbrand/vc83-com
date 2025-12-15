@@ -9,6 +9,7 @@ import { TranslationProvider } from "@/contexts/translation-context";
 import { MediaSelectionProvider } from "@/contexts/media-selection-context";
 import { PostHogProvider } from "@/components/providers/posthog-provider";
 import { ShoppingCartProvider } from "@/contexts/shopping-cart-context";
+import { UpgradeModalProvider } from "@/components/ui/upgrade-prompt";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -19,11 +20,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
             <PermissionProvider>
               <TranslationProvider>
                 <ThemeProvider>
-                  <MediaSelectionProvider>
-                    <ShoppingCartProvider>
-                      {children}
-                    </ShoppingCartProvider>
-                  </MediaSelectionProvider>
+                  <UpgradeModalProvider>
+                    <MediaSelectionProvider>
+                      <ShoppingCartProvider>
+                        {children}
+                      </ShoppingCartProvider>
+                    </MediaSelectionProvider>
+                  </UpgradeModalProvider>
                 </ThemeProvider>
               </TranslationProvider>
             </PermissionProvider>

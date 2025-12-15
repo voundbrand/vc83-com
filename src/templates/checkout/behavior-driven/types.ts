@@ -41,7 +41,7 @@ export interface CheckoutData {
   formResponses?: Array<{
     productId: Id<"objects">;
     ticketNumber: number;
-    formId: string;
+    formId?: string; // Optional - only set when ticket has a custom form
     responses: Record<string, unknown>;
     addedCosts: number;
     submittedAt: number;
@@ -128,6 +128,9 @@ export interface BehaviorDrivenCheckoutConfig {
   showProgressBar?: boolean;
   enableAutoSave?: boolean;
   debugMode?: boolean;
+
+  // Payment providers configuration (from checkout instance)
+  paymentProviders?: string[]; // e.g., ["stripe", "invoice"]
 
   // Behavior options
   executeBehaviorsOnStepChange?: boolean;

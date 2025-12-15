@@ -381,7 +381,7 @@ export const updatePublicCheckoutSession = mutation({
           v.object({
             productId: v.id("objects"),
             ticketNumber: v.number(),
-            formId: v.string(),
+            formId: v.optional(v.string()), // Optional - only set when ticket has a custom form
             responses: v.any(),
             addedCosts: v.number(),
             submittedAt: v.number(),
@@ -420,6 +420,19 @@ export const updatePublicCheckoutSession = mutation({
     }),
   },
   handler: async (ctx, args) => {
+    // 🔍 DEBUG: Log B2B fields to trace space-stripping bug
+    if (args.updates.companyName || args.updates.billingLine1) {
+      console.log("🔍 [updatePublicCheckoutSession DEBUG] B2B fields received:", {
+        companyName_raw: args.updates.companyName,
+        companyName_has_space: args.updates.companyName?.includes(" "),
+        companyName_length: args.updates.companyName?.length,
+        billingLine1_raw: args.updates.billingLine1,
+        billingLine1_has_space: args.updates.billingLine1?.includes(" "),
+        customerName_raw: args.updates.customerName,
+        customerName_has_space: args.updates.customerName?.includes(" "),
+      });
+    }
+
     // Get or create system user for tracking actions
     const systemUser = await getOrCreateSystemUser(ctx);
 
@@ -513,7 +526,7 @@ export const updateCheckoutSession = mutation({
           v.object({
             productId: v.id("objects"),
             ticketNumber: v.number(),
-            formId: v.string(),
+            formId: v.optional(v.string()), // Optional - only set when ticket has a custom form
             responses: v.any(),
             addedCosts: v.number(),
             submittedAt: v.number(),
@@ -603,6 +616,7 @@ export const completeCheckoutSessionInternal = internalMutation({
     crmContactId: v.optional(v.id("objects")),
     crmOrganizationId: v.optional(v.id("objects")), // B2B organization
     userId: v.optional(v.union(v.id("users"), v.id("objects"))), // Platform user or frontend_user
+    paymentMethod: v.optional(v.union(v.literal("stripe"), v.literal("invoice"), v.literal("free"))), // Payment method used
   },
   handler: async (ctx, args) => {
     // Get session
@@ -623,6 +637,7 @@ export const completeCheckoutSessionInternal = internalMutation({
       customProperties: {
         ...(session.customProperties || {}),
         paymentIntentId: args.paymentIntentId,
+        paymentMethod: args.paymentMethod || "stripe", // Store payment method for invoice creation
         paymentStatus: "succeeded",
         completedAt: Date.now(),
         purchasedItemIds: args.purchasedItemIds || [],

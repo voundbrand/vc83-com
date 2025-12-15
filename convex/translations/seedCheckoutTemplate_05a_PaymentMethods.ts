@@ -99,6 +99,17 @@ export const seed = internalMutation({
         }
       },
       {
+        key: "ui.checkout_template.behavior_driven.payment.invoice.subtitle",
+        values: {
+          en: "Receive an invoice and pay later",
+          de: "Rechnung erhalten und später bezahlen",
+          pl: "Otrzymaj fakturę i zapłać później",
+          es: "Recibe una factura y paga más tarde",
+          fr: "Recevez une facture et payez plus tard",
+          ja: "請求書を受け取り、後でお支払いください",
+        }
+      },
+      {
         key: "ui.checkout_template.behavior_driven.payment.invoice.creating",
         values: {
           en: "Creating Invoice...",

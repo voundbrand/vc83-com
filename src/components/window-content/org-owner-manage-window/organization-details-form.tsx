@@ -80,6 +80,7 @@ export interface FormData {
       language: string;
       currency: string;
       timezone: string;
+      dateFormat: string;
     };
     invoicing: {
       prefix: string;
@@ -233,6 +234,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
         language: localeSettings?.customProperties?.language || "en",
         currency: localeSettings?.customProperties?.currency || "EUR",
         timezone: localeSettings?.customProperties?.timezone || "America/New_York",
+        dateFormat: localeSettings?.customProperties?.dateFormat || "DD.MM.YYYY",
       },
       invoicing: {
         prefix: invoicingSettings?.customProperties?.prefix || "INV-",
@@ -302,6 +304,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
             language: localeSettings?.customProperties?.language || "en",
             currency: localeSettings?.customProperties?.currency || "EUR",
             timezone: localeSettings?.customProperties?.timezone || "America/New_York",
+            dateFormat: localeSettings?.customProperties?.dateFormat || "DD.MM.YYYY",
           },
           invoicing: {
             prefix: invoicingSettings?.customProperties?.prefix || "INV-",
@@ -1174,7 +1177,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
               <Languages className="w-3.5 h-3.5" />
               {t("ui.manage.org.locale_regional")}
             </p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <label className="block text-xs mb-1" style={{ color: 'var(--neutral-gray)' }}>
                   {t("ui.manage.org.language")}
@@ -1255,86 +1258,63 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                   ))}
                 </select>
               </div>
-            </div>
-          </div>
-
-          {/* Invoicing */}
-          <div>
-            <p className="text-xs font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
-              <Receipt className="w-3.5 h-3.5" />
-              {t("ui.manage.org.invoicing_settings")}
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-xs mb-1" style={{ color: 'var(--neutral-gray)' }}>
-                  {t("ui.manage.org.invoice_prefix")}
-                </label>
-                <input
-                  type="text"
-                  value={formData.settings.invoicing.prefix}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    settings: {
-                      ...formData.settings,
-                      invoicing: { ...formData.settings.invoicing, prefix: e.target.value }
-                    }
-                  })}
-                  readOnly={!isEditing}
-                  disabled={!canEdit || !isEditing}
-                  placeholder="INV-"
-                  className="w-full px-2 py-1 text-sm font-mono"
-                  style={inputStyles}
-                />
-              </div>
 
               <div>
                 <label className="block text-xs mb-1" style={{ color: 'var(--neutral-gray)' }}>
-                  {t("ui.manage.org.next_invoice_number")}
-                </label>
-                <input
-                  type="number"
-                  value={formData.settings.invoicing.nextNumber}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    settings: {
-                      ...formData.settings,
-                      invoicing: { ...formData.settings.invoicing, nextNumber: parseInt(e.target.value) }
-                    }
-                  })}
-                  readOnly={!isEditing}
-                  disabled={!canEdit || !isEditing}
-                  min="1"
-                  className="w-full px-2 py-1 text-sm"
-                  style={inputStyles}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs mb-1" style={{ color: 'var(--neutral-gray)' }}>
-                  {t("ui.manage.org.default_payment_terms")}
+                  {t("ui.manage.org.date_format")}
                 </label>
                 <select
-                  value={formData.settings.invoicing.defaultTerms}
+                  value={formData.settings.locale.dateFormat}
                   onChange={(e) => setFormData({
                     ...formData,
                     settings: {
                       ...formData.settings,
-                      invoicing: { ...formData.settings.invoicing, defaultTerms: e.target.value }
+                      locale: { ...formData.settings.locale, dateFormat: e.target.value }
                     }
                   })}
                   disabled={!canEdit || !isEditing}
                   className="w-full px-2 py-1 text-sm"
                   style={inputStyles}
                 >
-                  <option value="Due on receipt">Due on receipt</option>
-                  <option value="Net 7">Net 7</option>
-                  <option value="Net 15">Net 15</option>
-                  <option value="Net 30">Net 30</option>
-                  <option value="Net 60">Net 60</option>
-                  <option value="Net 90">Net 90</option>
+                  {(() => {
+                    // Localized month name examples based on selected language
+                    const monthExamples: Record<string, string> = {
+                      en: "December",
+                      de: "Dezember",
+                      fr: "décembre",
+                      es: "diciembre",
+                      pl: "grudzień",
+                      ja: "12月",
+                    };
+                    const lang = formData.settings.locale.language || "en";
+                    const month = monthExamples[lang] || monthExamples.en;
+
+                    return (
+                      <>
+                        <option value="DD.MM.YYYY">DD.MM.YYYY (31.12.2025)</option>
+                        <option value="DD/MM/YYYY">DD/MM/YYYY (31/12/2025)</option>
+                        <option value="MM/DD/YYYY">MM/DD/YYYY (12/31/2025)</option>
+                        <option value="YYYY-MM-DD">YYYY-MM-DD (2025-12-31)</option>
+                        <option value="DD MMMM YYYY">DD MMMM YYYY (31 {month} 2025)</option>
+                        <option value="MMMM DD, YYYY">MMMM DD, YYYY ({month} 31, 2025)</option>
+                        <option value="DD. MMMM YYYY">DD. MMMM YYYY (31. {month} 2025)</option>
+                      </>
+                    );
+                  })()}
                 </select>
               </div>
             </div>
+          </div>
+
+          {/* Invoicing Settings Note - Settings moved to Payments window */}
+          <div className="p-3 rounded" style={{ background: 'rgba(99, 91, 255, 0.05)', border: '1px solid rgba(99, 91, 255, 0.2)' }}>
+            <p className="text-xs flex items-center gap-2" style={{ color: 'var(--win95-highlight)' }}>
+              <Receipt className="w-3.5 h-3.5" />
+              <span>
+                {t("ui.manage.org.invoicing_settings")}: Configure invoice numbering and payment terms in{" "}
+                <strong>Payments → Invoicing</strong>
+              </span>
+            </p>
           </div>
         </div>
       </OrganizationSection>

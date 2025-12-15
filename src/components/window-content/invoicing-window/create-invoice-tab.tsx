@@ -56,6 +56,7 @@ export function CreateInvoiceTab() {
     new Date().toISOString().split("T")[0]
   );
   const [paymentTermsOverride, setPaymentTermsOverride] = useState<string>("");
+  const [customDueDate, setCustomDueDate] = useState<string>("");
   const [lineItems, setLineItems] = useState<LineItem[]>([
     { description: "", quantity: 1, unitPriceInCents: 0, totalPriceInCents: 0 },
   ]);
@@ -211,19 +212,29 @@ export function CreateInvoiceTab() {
     try {
       const { subtotalInCents, taxInCents, totalInCents } = calculateTotals();
 
-      // Determine payment terms
-      const paymentTerms = paymentTermsOverride || (customerType === "b2b" && b2bData?.paymentTerms) || "net30";
+      // Determine payment terms (use "custom" internally for custom due dates)
+      const paymentTerms = paymentTermsOverride === "custom"
+        ? "custom" // Custom due date selected
+        : paymentTermsOverride || (customerType === "b2b" && b2bData?.paymentTerms) || "net30";
 
-      // Calculate due date based on payment terms
+      // Calculate due date based on payment terms or custom selection
       const invoiceDateMs = new Date(invoiceDate).getTime();
-      const termsDays = {
-        due_on_receipt: 0,
-        net15: 15,
-        net30: 30,
-        net60: 60,
-        net90: 90,
-      }[paymentTerms] || 30;
-      const dueDateMs = invoiceDateMs + termsDays * 24 * 60 * 60 * 1000;
+      let dueDateMs: number;
+
+      if (paymentTermsOverride === "custom" && customDueDate) {
+        // Use manually selected due date
+        dueDateMs = new Date(customDueDate).getTime();
+      } else {
+        // Calculate from payment terms
+        const termsDays = {
+          due_on_receipt: 0,
+          net15: 15,
+          net30: 30,
+          net60: 60,
+          net90: 90,
+        }[paymentTerms] || 30;
+        dueDateMs = invoiceDateMs + termsDays * 24 * 60 * 60 * 1000;
+      }
 
       // Prepare billing info based on customer type
       let billToName: string;
@@ -306,6 +317,7 @@ export function CreateInvoiceTab() {
       setLineItems([{ description: "", quantity: 1, unitPriceInCents: 0, totalPriceInCents: 0 }]);
       setNotes("");
       setPaymentTermsOverride("");
+      setCustomDueDate("");
     } catch (error) {
       console.error("Failed to create invoice:", error);
       alert(`${t("ui.invoicing_window.create.errors.failed")}: ${error instanceof Error ? error.message : "Unknown error"}`);
@@ -604,7 +616,18 @@ export function CreateInvoiceTab() {
             </label>
             <select
               value={paymentTermsOverride}
-              onChange={(e) => setPaymentTermsOverride(e.target.value)}
+              onChange={(e) => {
+                setPaymentTermsOverride(e.target.value);
+                // Reset custom due date if switching away from custom
+                if (e.target.value !== "custom") {
+                  setCustomDueDate("");
+                } else if (!customDueDate) {
+                  // Default custom due date to 30 days from invoice date
+                  const defaultDue = new Date(invoiceDate);
+                  defaultDue.setDate(defaultDue.getDate() + 30);
+                  setCustomDueDate(defaultDue.toISOString().split("T")[0]);
+                }
+              }}
               className="w-full px-3 py-2 text-sm border-2 rounded"
               style={{
                 background: "var(--win95-bg)",
@@ -618,9 +641,35 @@ export function CreateInvoiceTab() {
               <option value="net30">{t("ui.invoicing_window.create.net30")}</option>
               <option value="net60">{t("ui.invoicing_window.create.net60")}</option>
               <option value="net90">{t("ui.invoicing_window.create.net90")}</option>
+              <option value="custom">Custom Due Date</option>
             </select>
           </div>
         </div>
+
+        {/* Custom Due Date Picker (shown when "custom" is selected) */}
+        {paymentTermsOverride === "custom" && (
+          <div className="mt-3">
+            <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+              <Calendar size={14} className="inline mr-2" />
+              Due Date
+            </label>
+            <input
+              type="date"
+              value={customDueDate}
+              onChange={(e) => setCustomDueDate(e.target.value)}
+              min={invoiceDate} // Due date cannot be before invoice date
+              className="w-full px-3 py-2 text-sm border-2 rounded"
+              style={{
+                background: "var(--win95-bg)",
+                borderColor: "var(--win95-border)",
+                color: "var(--win95-text)",
+              }}
+            />
+            <p className="text-[10px] mt-1" style={{ color: "var(--neutral-gray)" }}>
+              Select the exact due date for this invoice
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Line Items */}

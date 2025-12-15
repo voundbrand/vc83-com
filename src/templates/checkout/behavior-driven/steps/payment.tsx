@@ -25,6 +25,7 @@ import { ProcessingModal } from "@/components/processing-modal";
 
 export interface PaymentStepProps extends StepProps {
   checkoutSessionId: string | null;
+  paymentProviders?: string[]; // Configured payment providers from checkout instance
 }
 
 export function PaymentStep({
@@ -32,6 +33,7 @@ export function PaymentStep({
   sessionId = "public",
   checkoutData,
   checkoutSessionId,
+  paymentProviders = ["stripe"], // Default to Stripe if not configured
   onComplete,
   onBack
 }: PaymentStepProps) {
@@ -58,10 +60,27 @@ export function PaymentStep({
   const createPaymentIntent = useAction(api.checkoutSessions.createPaymentIntentForSession);
   const completeCheckout = useAction(api.checkoutSessions.completeCheckoutAndFulfill);
 
-  // Check if invoice checkout via behaviors
+  // Check if invoice checkout via behaviors OR checkout configuration
   const behaviorResults = checkoutData.behaviorResults;
   const invoiceInfo = behaviorResults ? getInvoiceMappingFromResults(behaviorResults) : null;
-  const isInvoiceCheckout = invoiceInfo?.shouldInvoice || false;
+  const isInvoiceBehaviorDetected = invoiceInfo?.shouldInvoice || false;
+
+  // 🔧 FIX: Show invoice option if EITHER:
+  // 1. Behaviors detected employer billing (automatic invoice)
+  // 2. OR "invoice" is in configured payment providers (manual configuration)
+  const isInvoiceConfigured = paymentProviders.includes("invoice");
+  const isStripeConfigured = paymentProviders.includes("stripe");
+  const showInvoiceOption = isInvoiceBehaviorDetected || isInvoiceConfigured;
+  const showStripeOption = isStripeConfigured;
+
+  console.log("💳 [PaymentStep] Payment providers:", {
+    configured: paymentProviders,
+    isInvoiceConfigured,
+    isStripeConfigured,
+    isInvoiceBehaviorDetected,
+    showInvoiceOption,
+    showStripeOption,
+  });
 
   // Calculate correct total including all costs (products + form addons + behavior addons)
   const selectedProducts = checkoutData.selectedProducts || [];
@@ -185,7 +204,8 @@ export function PaymentStep({
 
   /**
    * Handle Invoice Payment
-   * Creates invoice + tickets through backend
+   * Uses the same flow as Stripe: initiate → completeCheckout → onComplete
+   * This ensures emails, CRM, transactions are all handled consistently
    */
   const handleInvoicePayment = async () => {
     // Validate we have a checkout session
@@ -199,34 +219,49 @@ export function PaymentStep({
     setError(null);
 
     try {
-      // Initiate invoice payment (creates invoice + tickets)
-      const result = await initiateInvoice({
+      console.log("📋 [Payment] Starting invoice payment flow...");
+
+      // Step 1: Initiate invoice payment (validates and returns invoice reference)
+      const invoiceResult = await initiateInvoice({
         sessionId,
         checkoutSessionId: checkoutSessionId as Id<"objects">,
         organizationId,
       });
 
-      if (!result.success) {
-        setError(result.error || "Failed to create invoice");
+      if (!invoiceResult.success) {
+        setError(invoiceResult.error || "Failed to initiate invoice");
         return;
       }
 
-      // Complete checkout flow
+      console.log("✅ [Payment] Invoice initiated, calling completeCheckout...");
+
+      // Step 2: Complete checkout (same as Stripe!) - creates tickets, CRM, transactions, sends emails
+      const paymentIntentId = invoiceResult.invoiceId || `invoice_${Date.now()}`;
+
+      const result = await completeCheckout({
+        sessionId,
+        checkoutSessionId: checkoutSessionId as Id<"objects">,
+        paymentIntentId,
+        paymentMethod: "invoice", // Explicit payment method - no prefix detection needed
+      });
+
+      console.log("✅ [Payment] completeCheckout result:", result);
+
+      // Step 3: Complete checkout flow (notify parent component)
       onComplete({
         selectedPaymentProvider: "invoice",
         paymentResult: {
-          success: true,
-          transactionId: result.invoiceId || "invoice_pending",
-          receiptUrl: result.pdfUrl || undefined,
-          purchasedItemIds: checkoutData.selectedProducts?.map((sp) => sp.productId as string) || [],
+          success: result.success,
+          transactionId: paymentIntentId,
+          receiptUrl: invoiceResult.pdfUrl || undefined,
+          purchasedItemIds: result.purchasedItemIds,
           checkoutSessionId: checkoutSessionId,
         },
       });
     } catch (err) {
-      console.error("Failed to create invoice:", err);
+      console.error("Invoice payment error:", err);
       setError(err instanceof Error ? err.message : "Failed to create invoice");
     } finally {
-      // Always reset processing state, even on success
       setIsProcessing(false);
     }
   };
@@ -288,6 +323,7 @@ export function PaymentStep({
         sessionId,
         checkoutSessionId: checkoutSessionId as Id<"objects">,
         paymentIntentId,
+        paymentMethod: "stripe", // Explicit payment method
       });
 
       console.log("✅ [Payment] completeCheckout result:", result);
@@ -342,8 +378,8 @@ export function PaymentStep({
       {/* Payment Method Selection - Show only if no method selected */}
       {!selectedMethod && (
         <div className="space-y-4 mb-6">
-          {/* Invoice Payment (B2B) - Only show if behavior detected employer */}
-          {isInvoiceCheckout && invoiceInfo && (
+          {/* Invoice Payment - Show if behavior detected employer OR configured in checkout */}
+          {showInvoiceOption && (
             <button
               type="button"
               onClick={() => handlePayment("invoice")}
@@ -363,35 +399,42 @@ export function PaymentStep({
                       : t('ui.checkout_template.behavior_driven.payment.invoice.title')}
                   </h3>
                   <p className="text-sm text-blue-700 mt-1">
-                    {t('ui.checkout_template.behavior_driven.payment.invoice.sent_to')} <strong>{invoiceInfo.employerOrgId || "your employer"}</strong>
+                    {isInvoiceBehaviorDetected && invoiceInfo
+                      ? <>{t('ui.checkout_template.behavior_driven.payment.invoice.sent_to')} <strong>{invoiceInfo.employerOrgId || "your employer"}</strong></>
+                      : t('ui.checkout_template.behavior_driven.payment.invoice.subtitle')
+                    }
                   </p>
-                  <p className="text-xs text-blue-600 mt-2">
-                    {t('ui.checkout_template.behavior_driven.payment.invoice.payment_terms')} {invoiceInfo.paymentTerms
-                      ? t('ui.checkout_template.behavior_driven.payment.invoice.net_days', { terms: invoiceInfo.paymentTerms.replace("net", "Net ") })
-                      : t('ui.checkout_template.behavior_driven.payment.invoice.net_days_default')}
-                  </p>
+                  {isInvoiceBehaviorDetected && invoiceInfo && (
+                    <p className="text-xs text-blue-600 mt-2">
+                      {t('ui.checkout_template.behavior_driven.payment.invoice.payment_terms')} {invoiceInfo.paymentTerms
+                        ? t('ui.checkout_template.behavior_driven.payment.invoice.net_days', { terms: invoiceInfo.paymentTerms.replace("net", "Net ") })
+                        : t('ui.checkout_template.behavior_driven.payment.invoice.net_days_default')}
+                    </p>
+                  )}
                 </div>
               </div>
             </button>
           )}
 
-          {/* Credit Card Payment (Stripe) */}
-          <button
-            type="button"
-            onClick={() => handlePayment("stripe")}
-            disabled={isProcessing}
-            className="w-full p-6 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <div className="flex items-center gap-4">
-              <CreditCard size={32} className="text-purple-600" />
-              <div className="flex-1">
-                <h3 className="text-lg font-bold text-gray-900">{t('ui.checkout_template.behavior_driven.payment.credit_card.title')}</h3>
-                <p className="text-sm text-gray-600 mt-1">
-                  {t('ui.checkout_template.behavior_driven.payment.credit_card.subtitle')}
-                </p>
+          {/* Credit Card Payment (Stripe) - Only show if configured */}
+          {showStripeOption && (
+            <button
+              type="button"
+              onClick={() => handlePayment("stripe")}
+              disabled={isProcessing}
+              className="w-full p-6 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <div className="flex items-center gap-4">
+                <CreditCard size={32} className="text-purple-600" />
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-gray-900">{t('ui.checkout_template.behavior_driven.payment.credit_card.title')}</h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {t('ui.checkout_template.behavior_driven.payment.credit_card.subtitle')}
+                  </p>
+                </div>
               </div>
-            </div>
-          </button>
+            </button>
+          )}
         </div>
       )}
 

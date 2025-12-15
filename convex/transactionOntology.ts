@@ -475,6 +475,7 @@ export const createTransactionInternal = internalMutation({
       totalPriceInCents: v.number(),
       taxRatePercent: v.number(),
       taxAmountInCents: v.number(),
+      taxBehavior: v.optional(v.union(v.literal("inclusive"), v.literal("exclusive"), v.literal("automatic"))),
       ticketId: v.optional(v.id("objects")),
       eventId: v.optional(v.id("objects")),
       eventName: v.optional(v.string()),
@@ -1074,7 +1075,26 @@ export const getTransactionStatsNew = query({
     // Calculate stats
     for (const tx of transactions) {
       const props = tx.customProperties || {};
-      const amount = (props.totalPriceInCents as number) || 0;
+
+      // Calculate amount - handle NEW format (totalInCents aggregate), lineItems array, or LEGACY format
+      let amount = 0;
+
+      // FIRST: Check for NEW aggregate total (fastest and most accurate)
+      if (props.totalInCents) {
+        amount = props.totalInCents as number;
+      }
+      // SECOND: Check for lineItems array and sum them
+      else {
+        const lineItems = props.lineItems;
+        if (lineItems && Array.isArray(lineItems) && lineItems.length > 0) {
+          amount = (lineItems as Array<{ totalPriceInCents: number }>)
+            .reduce((sum, item) => sum + (item.totalPriceInCents || 0), 0);
+        } else {
+          // LEGACY format: direct field
+          amount = (props.totalPriceInCents as number) || 0;
+        }
+      }
+
       const paymentStatus = props.paymentStatus as string;
       const invoicingStatus = props.invoicingStatus as string;
       const payerType = props.payerType as string;

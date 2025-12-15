@@ -707,8 +707,8 @@ function getTemplateType(template: any): string {
   if (template.subtype === "email") return "email";
   if (template.subtype === "form") return "form";
   if (template.subtype === "page") return "page";
+  if (template.subtype === "checkout") return "checkout"; // Fixed: was checking category instead of subtype
   if (template.category === "workflow") return "workflow";
-  if (template.category === "checkout") return "checkout";
   return "other";
 }
 

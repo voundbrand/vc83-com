@@ -45,8 +45,35 @@ export const INVOICE_APP_DEFINITION = {
 
 export type InvoiceType = "b2b_consolidated" | "b2b_single" | "b2c_single";
 export type InvoiceStatus = "draft" | "sent" | "paid" | "overdue" | "cancelled" | "awaiting_employer_payment";
-export type PaymentTerms = "due_on_receipt" | "net7" | "net15" | "net30" | "net60" | "net90";
+export type PaymentTerms = "due_on_receipt" | "dueonreceipt" | "net7" | "net15" | "net30" | "net60" | "net90";
 export type ConsolidationTrigger = "manual" | "automatic_on_event_end" | "fixed_date";
+
+/**
+ * SINGLE SOURCE OF TRUTH: Normalize payment terms from various formats
+ *
+ * Handles legacy formats stored in the database:
+ * - "Net 30" (capitalized with space) → "net30"
+ * - "net_30" (underscore) → "net30"
+ * - "net30" (already correct) → "net30"
+ * - "due_on_receipt" → "dueonreceipt"
+ *
+ * This ensures consistent payment terms regardless of how they were stored.
+ */
+export function normalizePaymentTerms(terms: string | undefined): PaymentTerms {
+  if (!terms) return "net30"; // Default
+
+  // Normalize: lowercase, remove spaces, remove underscores
+  const normalized = terms.toLowerCase().replace(/\s+/g, "").replace(/_/g, "");
+
+  // Validate and return
+  const validTerms: PaymentTerms[] = ["dueonreceipt", "net7", "net15", "net30", "net60", "net90"];
+  if (validTerms.includes(normalized as PaymentTerms)) {
+    return normalized as PaymentTerms;
+  }
+
+  // Fallback for unknown values
+  return "net30";
+}
 
 /**
  * Invoice line item type
@@ -496,14 +523,39 @@ export const createConsolidatedInvoice = mutation({
       });
     }
 
-    // Generate invoice number if not provided
-    const invoiceNumber = args.invoiceNumber || await generateInvoiceNumber(ctx, args.organizationId, "INV");
+    // Get organization's invoice settings (SINGLE SOURCE OF TRUTH)
+    const invoiceSettings = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "organization_settings")
+      )
+      .filter((q) => q.eq(q.field("subtype"), "invoicing"))
+      .first();
+
+    const invoiceSettingsProps = invoiceSettings?.customProperties as {
+      prefix?: string;
+      nextNumber?: number;
+      defaultTerms?: string;
+    } | undefined;
+
+    // Use org settings as defaults, allow override from args
+    const invoicePrefix = invoiceSettingsProps?.prefix || "INV";
+    // Use single source of truth for payment terms normalization
+    const defaultPaymentTerms = normalizePaymentTerms(invoiceSettingsProps?.defaultTerms);
+
+    // Generate invoice number if not provided (using atomic increment for gap-free numbering)
+    const invoiceNumber: string = args.invoiceNumber || (await ctx.runMutation(internal.organizationOntology.getAndIncrementInvoiceNumber, {
+      organizationId: args.organizationId,
+    })).invoiceNumber;
+
+    // Use provided payment terms or fall back to org default
+    const effectivePaymentTerms = args.paymentTerms || defaultPaymentTerms;
 
     // Calculate due date
     const invoiceDate = Date.now();
     let dueDate = args.dueDate;
-    if (!dueDate && args.paymentTerms) {
-      dueDate = calculateDueDate(invoiceDate, args.paymentTerms);
+    if (!dueDate && effectivePaymentTerms) {
+      dueDate = calculateDueDate(invoiceDate, effectivePaymentTerms);
     }
 
     // Extract billing info from CRM organization
@@ -536,7 +588,7 @@ export const createConsolidatedInvoice = mutation({
         totalInCents: totalInCents,
         currency: "EUR",
         paymentStatus: "awaiting_employer_payment",
-        paymentTerms: args.paymentTerms || "net30",
+        paymentTerms: effectivePaymentTerms,
         isEmployerInvoiced: true,
         isConsolidated: true,
         consolidatedTicketIds: args.ticketIds,
@@ -944,7 +996,8 @@ function calculateDueDate(invoiceDate: number, terms: PaymentTerms): number {
   const date = new Date(invoiceDate);
 
   switch (terms) {
-    case "due_on_receipt":
+    case "dueonreceipt":
+    case "due_on_receipt": // Legacy support
       return invoiceDate;
     case "net7":
       date.setDate(date.getDate() + 7);
@@ -983,6 +1036,32 @@ export const getInvoiceByIdInternal = internalQuery({
     if (!invoice || invoice.type !== "invoice") {
       throw new Error("Invoice not found");
     }
+
+    return invoice;
+  },
+});
+
+/**
+ * Get invoice by checkout session ID (internal)
+ * Used by PDF generation to fetch the actual invoice data
+ */
+export const getInvoiceByCheckoutSessionInternal = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    checkoutSessionId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    // Query for invoice with this checkoutSessionId using indexed query
+    const invoice = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", q =>
+        q.eq("organizationId", args.organizationId)
+         .eq("type", "invoice")
+      )
+      .filter((q) =>
+        q.eq(q.field("customProperties.checkoutSessionId"), args.checkoutSessionId)
+      )
+      .first();
 
     return invoice;
   },
@@ -1120,14 +1199,33 @@ export const createDraftInvoiceFromTransactions = mutation({
       billingContact: (crmOrg.customProperties?.billingContact || "") as string,
     };
 
-    // 5. Generate draft invoice number
+    // 5. Get organization's invoice settings (SINGLE SOURCE OF TRUTH)
+    const invoiceSettings = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "organization_settings")
+      )
+      .filter((q) => q.eq(q.field("subtype"), "invoicing"))
+      .first();
+
+    const invoiceSettingsProps = invoiceSettings?.customProperties as {
+      prefix?: string;
+      nextNumber?: number;
+      defaultTerms?: string;
+    } | undefined;
+
+    // Use single source of truth for payment terms normalization
+    const defaultPaymentTerms = normalizePaymentTerms(invoiceSettingsProps?.defaultTerms);
+
+    // 6. Generate draft invoice number
     const year = new Date().getFullYear();
     const timestamp = Date.now().toString().slice(-6);
     const draftInvoiceNumber = `DRAFT-${year}-${timestamp}`;
 
-    // 6. Calculate due date
-    const paymentTerms = args.paymentTerms || "net30";
-    const paymentTermsDays = paymentTerms === "due_on_receipt" ? 0 : parseInt(paymentTerms.replace("net", ""));
+    // 7. Calculate due date using org default or provided payment terms
+    // Normalize args.paymentTerms if provided, otherwise use already-normalized defaultPaymentTerms
+    const paymentTerms = args.paymentTerms ? normalizePaymentTerms(args.paymentTerms) : defaultPaymentTerms;
+    const paymentTermsDays = paymentTerms === "dueonreceipt" ? 0 : parseInt(paymentTerms.replace("net", ""));
     const invoiceDate = Date.now();
     const dueDate = invoiceDate + (paymentTermsDays * 24 * 60 * 60 * 1000);
 
@@ -1264,6 +1362,24 @@ export const createDraftInvoice = mutation({
     const isB2B = !!args.crmOrganizationId;
     const invoiceSubtype: InvoiceType = isB2B ? "b2b_single" : "b2c_single";
 
+    // Get organization's invoice settings (SINGLE SOURCE OF TRUTH)
+    const invoiceSettings = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "organization_settings")
+      )
+      .filter((q) => q.eq(q.field("subtype"), "invoicing"))
+      .first();
+
+    const invoiceSettingsProps = invoiceSettings?.customProperties as {
+      prefix?: string;
+      nextNumber?: number;
+      defaultTerms?: string;
+    } | undefined;
+
+    // Use single source of truth for payment terms normalization
+    const defaultPaymentTerms = normalizePaymentTerms(invoiceSettingsProps?.defaultTerms);
+
     // Generate draft invoice number
     const year = new Date().getFullYear();
     const timestamp = Date.now().toString().slice(-6);
@@ -1303,7 +1419,7 @@ export const createDraftInvoice = mutation({
         invoiceNumber: draftInvoiceNumber,
         invoiceDate: args.invoiceDate,
         dueDate: args.dueDate,
-        paymentTerms: args.paymentTerms || "net30",
+        paymentTerms: args.paymentTerms || defaultPaymentTerms,
 
         // Bill To
         billTo,
@@ -1718,6 +1834,7 @@ export const createSimpleInvoiceFromCheckout = internalMutation({
     totalInCents: v.number(),
     currency: v.string(),
     isEmployerBilled: v.optional(v.boolean()), // If true, skip PDF, invoice employer later
+    isPayLater: v.optional(v.boolean()), // If true, payment is pending (invoice payment method)
     crmContactId: v.optional(v.id("objects")), // CRM contact ID from auto-create
     crmOrganizationId: v.optional(v.id("objects")), // CRM organization ID (B2B only)
   },
@@ -1823,23 +1940,60 @@ export const createSimpleInvoiceFromCheckout = internalMutation({
       currency = txProps.currency || args.currency;
     }
 
-    // 5. Generate invoice number using organization's prefix setting
-    // Get organization's invoice prefix from customProperties (stored as object)
-    const organization = await ctx.db
-      .query("organizations")
-      .filter(q => q.eq(q.field("_id"), organizationId))
+    // 5. Get organization's invoice settings (SINGLE SOURCE OF TRUTH)
+    // These settings are configured in Payments → Invoice Settings
+    const invoiceSettings = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", organizationId).eq("type", "organization_settings")
+      )
+      .filter((q) => q.eq(q.field("subtype"), "invoicing"))
       .first();
 
-    // Access customProperties for invoice prefix
-    const orgData = organization as any;
-    const invoicePrefix = (orgData?.customProperties?.invoicePrefix as string) || "INV";
-    const invoiceNumber = await generateInvoiceNumber(ctx, organizationId, invoicePrefix);
+    // Extract invoice settings from organization_settings (subtype: "invoicing")
+    const invoiceSettingsProps = invoiceSettings?.customProperties as {
+      prefix?: string;
+      nextNumber?: number;
+      defaultTerms?: string;
+    } | undefined;
+
+    // Use org settings as source of truth with sensible defaults
+    const invoicePrefix = invoiceSettingsProps?.prefix || "INV";
+    // Use single source of truth for payment terms normalization
+    const orgPaymentTerms = normalizePaymentTerms(invoiceSettingsProps?.defaultTerms);
+
+    // Generate invoice number using atomic increment for gap-free numbering
+    const invoiceNumber: string = (await ctx.runMutation(internal.organizationOntology.getAndIncrementInvoiceNumber, {
+      organizationId,
+    })).invoiceNumber;
+
+    // Calculate days until due based on payment terms (already normalized via normalizePaymentTerms)
+    const orgDaysUntilDue = (() => {
+      switch (orgPaymentTerms) {
+        case "dueonreceipt": return 0;
+        case "net7": return 7;
+        case "net15": return 15;
+        case "net30": return 30;
+        case "net60": return 60;
+        case "net90": return 90;
+        default: return 30; // Default to 30 days
+      }
+    })();
+
+    // orgPaymentTerms is already normalized (e.g., "net30", "dueonreceipt")
+    const normalizedPaymentTerms = orgPaymentTerms;
 
     // 6. Determine invoice type and status
     const invoiceType: InvoiceType = args.transactionType === "B2C" ? "b2c_single" : "b2b_single";
+    // Payment status logic:
+    // - isEmployerBilled: Employer will pay later (consolidated invoice)
+    // - isPayLater: Direct invoice payment (customer pays via invoice)
+    // - Otherwise: Already paid via Stripe
     const paymentStatus: InvoiceStatus = args.isEmployerBilled
       ? "awaiting_employer_payment"
-      : "paid"; // Already paid via Stripe
+      : args.isPayLater
+        ? "sent" // Invoice sent, awaiting payment
+        : "paid"; // Already paid via Stripe
 
     // 7. Build billTo information - prioritize CRM organization data for B2B
     let billTo;
@@ -1918,7 +2072,10 @@ export const createSimpleInvoiceFromCheckout = internalMutation({
         // === CORE INVOICE DATA ===
         invoiceNumber,
         invoiceDate: now,
-        dueDate: now, // Already paid (or employer will pay later)
+        // Due date: Use org settings for pay-later, immediate for paid/employer billed
+        dueDate: args.isPayLater
+          ? now + orgDaysUntilDue * 24 * 60 * 60 * 1000 // Days from org settings
+          : now, // Already paid or employer will pay later
 
         // === CUSTOMER INFO ===
         billTo,
@@ -1934,7 +2091,8 @@ export const createSimpleInvoiceFromCheckout = internalMutation({
 
         // === PAYMENT STATUS ===
         paymentStatus,
-        paymentTerms: "due_on_receipt" as const,
+        // Payment terms: Use org settings for pay-later, dueonreceipt for already paid
+        paymentTerms: args.isPayLater ? normalizedPaymentTerms : "dueonreceipt",
         ...(paymentStatus === "paid" && { paidAt: now }),
 
         // === LINKS ===

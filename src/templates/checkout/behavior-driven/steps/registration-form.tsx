@@ -5,6 +5,10 @@
  *
  * Dynamic form based on product configuration.
  * Supports conditional logic, sections, and all field types.
+ *
+ * IMPORTANT: This step ALWAYS collects attendee name for each ticket,
+ * even when no custom form is configured. This ensures multi-ticket
+ * purchases always have per-attendee identification.
  */
 
 import { useState, useMemo, useEffect, useRef } from "react";
@@ -12,7 +16,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 import { StepProps } from "../types";
-import { FileText, ArrowLeft } from "lucide-react";
+import { FileText, ArrowLeft, User } from "lucide-react";
 import { executeCheckoutBehaviors, getAddonsFromResults } from "@/lib/behaviors/adapters/checkout-integration";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
@@ -118,10 +122,21 @@ export function RegistrationFormStep({
     formId ? { formId: formId as Id<"objects"> } : "skip"
   );
 
-  // Track responses per ticket
+  // Track responses per ticket (includes attendeeName for all tickets)
   const [responses, setResponses] = useState<Record<number, Record<string, unknown>>>({});
 
-  // Calculate how many tickets need forms
+  // Calculate total ticket count across all products
+  // Every ticket needs at least an attendee name, regardless of custom form
+  const totalTicketCount = useMemo(() => {
+    return selectedProducts.reduce((sum, sp) => sum + sp.quantity, 0);
+  }, [selectedProducts]);
+
+  // Generate ticket numbers [1, 2, 3, ...] for all tickets
+  const allTickets = useMemo(() => {
+    return Array.from({ length: totalTicketCount }, (_, i) => i + 1);
+  }, [totalTicketCount]);
+
+  // Calculate which tickets have custom forms (legacy support)
   const ticketsNeedingForms = useMemo(() => {
     return selectedProducts
       .filter((sp) => {
@@ -131,60 +146,84 @@ export function RegistrationFormStep({
       .flatMap((sp) => Array.from({ length: sp.quantity }, (_, i) => i + 1));
   }, [selectedProducts, products]);
 
+  // Check if ticket has a custom form
+  const ticketHasCustomForm = (ticketNum: number) => ticketsNeedingForms.includes(ticketNum);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate all tickets have responses
-    const allComplete = ticketsNeedingForms.every((ticketNum) => {
+    // Validate ALL tickets have first name and last name
+    const allHaveNames = allTickets.every((ticketNum) => {
       const ticketResponses = responses[ticketNum];
-      return ticketResponses && Object.keys(ticketResponses).length > 0;
+      const firstName = ticketResponses?.firstName as string | undefined;
+      const lastName = ticketResponses?.lastName as string | undefined;
+      return firstName && firstName.trim().length > 0 && lastName && lastName.trim().length > 0;
     });
 
-    if (!allComplete) {
+    if (!allHaveNames) {
+      alert(t("ui.checkout_template.behavior_driven.registration_form.errors.attendee_name_required") ||
+        "Please enter first and last name for each ticket");
+      return;
+    }
+
+    // For tickets with custom forms, validate form responses
+    const formsComplete = ticketsNeedingForms.every((ticketNum) => {
+      const ticketResponses = responses[ticketNum];
+      // Check that at least one form field (besides firstName/lastName) has a value
+      const formFields = Object.keys(ticketResponses || {}).filter(k => !['firstName', 'lastName', 'attendeeName'].includes(k));
+      return formFields.length > 0;
+    });
+
+    if (ticketsNeedingForms.length > 0 && !formsComplete) {
       alert(t("ui.checkout_template.behavior_driven.registration_form.errors.complete_all"));
       return;
     }
 
-    // Calculate add-on costs by executing behaviors for each form submission
+    // Build form responses for ALL tickets (even those without custom forms)
     const formResponsesWithCosts = await Promise.all(
-      ticketsNeedingForms.map(async (ticketNum) => {
-        const ticketResponses = responses[ticketNum];
+      allTickets.map(async (ticketNum) => {
+        const ticketResponses = responses[ticketNum] || {};
+        const hasCustomForm = ticketHasCustomForm(ticketNum);
 
-        // Execute behaviors for this specific form response to calculate addons
-        const behaviorResult = await executeCheckoutBehaviors(
-          {
-            organizationId,
-            sessionId,
-            selectedProducts,
-            linkedProducts: products.map(p => ({
-              _id: p._id,
-              type: "product",
-              subtype: p.subtype,
-              name: p.name,
-              customProperties: p.customProperties,
-            })),
-            formResponses: [{
-              productId: selectedProducts[0].productId,
-              ticketNumber: ticketNum,
-              formId: formId!,
-              responses: ticketResponses,
-              addedCosts: 0, // Will be calculated
-              submittedAt: Date.now(),
-            }],
-          },
-          workflowBehaviors
-        );
+        // Only execute behaviors for tickets with custom forms
+        let addedCosts = 0;
+        if (hasCustomForm && formId) {
+          // Execute behaviors for this specific form response to calculate addons
+          const behaviorResult = await executeCheckoutBehaviors(
+            {
+              organizationId,
+              sessionId,
+              selectedProducts,
+              linkedProducts: products.map(p => ({
+                _id: p._id,
+                type: "product",
+                subtype: p.subtype,
+                name: p.name,
+                customProperties: p.customProperties,
+              })),
+              formResponses: [{
+                productId: selectedProducts[0].productId,
+                ticketNumber: ticketNum,
+                formId: formId,
+                responses: ticketResponses,
+                addedCosts: 0,
+                submittedAt: Date.now(),
+              }],
+            },
+            workflowBehaviors
+          );
 
-        // Extract add-on costs from behavior results
-        const addons = getAddonsFromResults(behaviorResult);
-        const addedCosts = addons?.totalAddonCost || 0;
-
-        console.log(`🎟️ [RegistrationForm] Ticket ${ticketNum} add-ons:`, { addons, addedCosts });
+          // Extract add-on costs from behavior results
+          const addons = getAddonsFromResults(behaviorResult);
+          addedCosts = addons?.totalAddonCost || 0;
+          console.log(`🎟️ [RegistrationForm] Ticket ${ticketNum} add-ons:`, { addons, addedCosts });
+        }
 
         return {
           productId: selectedProducts[0].productId,
           ticketNumber: ticketNum,
-          formId: formId!,
+          // Only include formId if ticket has a custom form (backend expects valid ID or undefined)
+          ...(hasCustomForm && formId ? { formId } : {}),
           responses: ticketResponses,
           addedCosts,
           submittedAt: Date.now(),
@@ -208,19 +247,24 @@ export function RegistrationFormStep({
   // Track if we've already skipped this step to prevent infinite loops
   const hasSkipped = useRef(false);
 
-  // Skip this step if no form is needed (use effect to avoid setState during render)
+  // Skip this step ONLY if:
+  // 1. Single ticket (buyer name = attendee name, collected in customer-info step)
+  // 2. AND no custom form is configured
+  // For multiple tickets, we ALWAYS need to collect attendee names
   useEffect(() => {
-    if (!formId && !hasSkipped.current) {
+    if (totalTicketCount <= 1 && !formId && !hasSkipped.current) {
       hasSkipped.current = true;
       onComplete({});
     }
-  }, [formId, onComplete]);
+  }, [totalTicketCount, formId, onComplete]);
 
-  if (!formId) {
+  // Only return null if we're skipping (single ticket, no form)
+  if (totalTicketCount <= 1 && !formId) {
     return null;
   }
 
-  if (!form) {
+  // Show loading only if we have a custom form that's still loading
+  if (formId && !form) {
     return <div className="p-6">{t("ui.checkout_template.behavior_driven.registration_form.messages.loading")}</div>;
   }
 
@@ -446,8 +490,8 @@ export function RegistrationFormStep({
         </h2>
         <p className="text-gray-600">
           {t("ui.checkout_template.behavior_driven.registration_form.headers.subtitle", {
-            count: ticketsNeedingForms.length,
-            label: ticketsNeedingForms.length === 1
+            count: allTickets.length,
+            label: allTickets.length === 1
               ? t("ui.checkout_template.behavior_driven.registration_form.labels.ticket_singular")
               : t("ui.checkout_template.behavior_driven.registration_form.labels.ticket_plural")
           })}
@@ -455,35 +499,84 @@ export function RegistrationFormStep({
       </div>
 
       <form onSubmit={handleSubmit}>
-        {/* Form for each ticket */}
-        {ticketsNeedingForms.map((ticketNum) => {
+        {/* Form for EACH ticket - always collect attendee name */}
+        {allTickets.map((ticketNum) => {
           const visibleSections = getVisibleSections(ticketNum);
+          const hasCustomForm = ticketHasCustomForm(ticketNum);
 
           return (
             <div key={ticketNum} className="bg-white border-2 border-gray-300 rounded-lg p-6 mb-6">
               <h3 className="text-xl font-bold mb-4">{t("ui.checkout_template.behavior_driven.registration_form.labels.ticket_number", { number: ticketNum })}</h3>
 
-              {/* Render sections if form has sections */}
-              {formSchema?.sections && visibleSections.length > 0 ? (
-                visibleSections.map((section) => (
-                  <div key={section.id} className="mb-6">
-                    {/* Section Header */}
-                    {section.title && (
-                      <div className="mb-4">
-                        <h4 className="text-lg font-bold">{section.title}</h4>
-                        {section.description && (
-                          <p className="text-sm text-gray-600 mt-1">{section.description}</p>
-                        )}
-                      </div>
-                    )}
+              {/* ALWAYS show attendee name fields - required for all tickets */}
+              <div className="mb-6">
+                <label className="block text-sm font-bold mb-2">
+                  <User size={16} className="inline mr-2" />
+                  {t("ui.checkout_template.behavior_driven.registration_form.fields.attendee_name.section_label") || "Attendee Information"}
+                </label>
+                <p className="text-sm text-gray-600 mb-4">
+                  {t("ui.checkout_template.behavior_driven.registration_form.fields.attendee_name.help") || "This name will appear on the ticket"}
+                </p>
 
-                    {/* Section Fields */}
-                    {section.fields.map((field) => renderField(field, ticketNum))}
+                {/* First Name and Last Name side by side */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      {t("ui.checkout_template.behavior_driven.registration_form.fields.first_name.label") || "First Name"}
+                      <span className="text-red-600 ml-1">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={(responses[ticketNum]?.firstName as string) || ""}
+                      onChange={(e) => updateResponse(ticketNum, "firstName", e.target.value)}
+                      placeholder={t("ui.checkout_template.behavior_driven.registration_form.fields.first_name.placeholder") || "First name"}
+                      required
+                      className="w-full px-4 py-3 border-2 border-gray-300 rounded focus:border-purple-500 focus:outline-none text-lg"
+                    />
                   </div>
-                ))
-              ) : (
-                // Legacy: Flat fields array (no sections)
-                formSchema?.fields?.map((field) => renderField(field, ticketNum))
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      {t("ui.checkout_template.behavior_driven.registration_form.fields.last_name.label") || "Last Name"}
+                      <span className="text-red-600 ml-1">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={(responses[ticketNum]?.lastName as string) || ""}
+                      onChange={(e) => updateResponse(ticketNum, "lastName", e.target.value)}
+                      placeholder={t("ui.checkout_template.behavior_driven.registration_form.fields.last_name.placeholder") || "Last name"}
+                      required
+                      className="w-full px-4 py-3 border-2 border-gray-300 rounded focus:border-purple-500 focus:outline-none text-lg"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Custom form fields (if configured) */}
+              {hasCustomForm && formSchema && (
+                <>
+                  {/* Render sections if form has sections */}
+                  {formSchema.sections && visibleSections.length > 0 ? (
+                    visibleSections.map((section) => (
+                      <div key={section.id} className="mb-6">
+                        {/* Section Header */}
+                        {section.title && (
+                          <div className="mb-4">
+                            <h4 className="text-lg font-bold">{section.title}</h4>
+                            {section.description && (
+                              <p className="text-sm text-gray-600 mt-1">{section.description}</p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Section Fields */}
+                        {section.fields.map((field) => renderField(field, ticketNum))}
+                      </div>
+                    ))
+                  ) : (
+                    // Legacy: Flat fields array (no sections)
+                    formSchema.fields?.map((field) => renderField(field, ticketNum))
+                  )}
+                </>
               )}
             </div>
           );

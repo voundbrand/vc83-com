@@ -182,3 +182,19 @@ export function SalesNotificationTemplate(props: EmailTemplateProps): EmailTempl
     previewText: `${t.title}: ${fullName} - ${event.name}`,
   };
 }
+
+/**
+ * Sales Notification Email Metadata
+ * For registration in the email template registry
+ */
+export const SALES_NOTIFICATION_EMAIL_METADATA = {
+  code: "email_sales_notification",
+  name: "Internal Sales Notification",
+  description: "Internal notification sent to sales team when a new ticket/reservation is created",
+  category: "system" as const,
+  suggestedSections: ["hero", "body", "orderDetails", "cta"] as const,
+  previewImageUrl: "",
+  supportedLanguages: ["en", "de", "es", "fr"],
+  author: "System",
+  version: "1.0.0",
+};

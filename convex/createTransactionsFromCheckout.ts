@@ -22,7 +22,7 @@
 
 import { internalAction } from "./_generated/server";
 import { v } from "convex/values";
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { createTransactionsForPurchase, linkTransactionsToTickets } from "./transactionHelpers";
 
@@ -175,7 +175,16 @@ export const createTransactionsFromCheckout = internalAction({
     const taxRatePercent = (session.customProperties?.taxRatePercent as number) || 19;
     const currency = (session.customProperties?.currency as string) || "EUR";
 
-    console.log(`✓ Tax info: ${taxRatePercent}% in ${currency}`);
+    // Fetch organization's tax settings to determine tax behavior (inclusive vs exclusive)
+    const taxSettings = await ctx.runQuery(api.organizationTaxSettings.getPublicTaxSettings, {
+      organizationId: session.organizationId,
+    });
+
+    // Tax behavior: "inclusive" = prices include tax, "exclusive" = tax added on top
+    // Default to "inclusive" for EU/DE where prices typically include VAT
+    const taxBehavior = (taxSettings?.defaultTaxBehavior as "inclusive" | "exclusive") || "inclusive";
+
+    console.log(`✓ Tax info: ${taxRatePercent}% in ${currency} (${taxBehavior})`);
 
     const transactionIds = await createTransactionsForPurchase(ctx, {
       organizationId: session.organizationId,
@@ -195,6 +204,7 @@ export const createTransactionsFromCheckout = internalAction({
       taxInfo: {
         taxRatePercent,
         currency,
+        taxBehavior, // Pass the organization's tax behavior setting
       },
     });
 
@@ -250,6 +260,8 @@ export const createTransactionsFromCheckout = internalAction({
       const currency = session.customProperties?.currency as string || "EUR";
 
       // Create invoice record with CRM links
+      // isPayLater = true when payment method is "invoice" (pay later via bank transfer)
+      // This ensures invoice status is "sent" (awaiting payment) instead of "paid"
       const invoiceResult = await ctx.runMutation(internal.invoicingOntology.createSimpleInvoiceFromCheckout, {
         checkoutSessionId: args.checkoutSessionId,
         transactionIds, // ✅ NOW these exist!
@@ -259,6 +271,7 @@ export const createTransactionsFromCheckout = internalAction({
         totalInCents,
         currency,
         isEmployerBilled,
+        isPayLater: paymentMethod === "invoice", // ✅ Invoice payment method = awaiting payment
         crmContactId: sessionCrmContactId,
         crmOrganizationId: sessionCrmOrganizationId,
       });

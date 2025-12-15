@@ -9,8 +9,12 @@ We need to make sure the following ui in our app is using our theme system corre
 
 # SEEDS TO RUN ON PROD
 npx convex run translations/seedOnboarding:seed
-
-
+npx convex run seedEmailTemplates:seedEmailTemplates
+npx convex run translations/seedCheckoutTemplate_05a_PaymentMethods:seed
+npx convex run translations/seedCommonMonths:default
+npx convex run translations/seedManage_02_Organization:default 
+npx convex run translations/seedCheckoutTemplate_02_RegistrationForm:seed
+npx convex run seedSystemDomainConfig:seedSystemDomainConfig
 
 
 

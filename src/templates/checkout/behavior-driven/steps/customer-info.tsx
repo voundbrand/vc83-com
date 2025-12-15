@@ -92,6 +92,18 @@ export function CustomerInfoStep({ checkoutData, onComplete, onBack }: StepProps
     e.preventDefault();
 
     if (validate()) {
+      // DEBUG: Log raw values before any processing to diagnose space-stripping bug
+      console.log("🔍 [CustomerInfo DEBUG] Raw input values:", {
+        name_raw: name,
+        name_trimmed: name.trim(),
+        name_length: name.length,
+        name_includes_space: name.includes(" "),
+        companyName_raw: companyName,
+        companyName_includes_space: companyName.includes(" "),
+        line1_raw: line1,
+        line1_includes_space: line1.includes(" "),
+      });
+
       onComplete({
         customerInfo: {
           email: email.trim(),

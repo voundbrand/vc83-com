@@ -16,7 +16,7 @@ import { useState } from "react";
 import { useTranslation } from "@/contexts/translation-context";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
-export function ConfirmationStep({ checkoutData, products }: StepProps) {
+export function ConfirmationStep({ checkoutData, products, organizationId }: StepProps) {
   const { locale } = useTranslation(); // For locale management only
   const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.checkout_template.behavior_driven");
   const [isDownloadingTickets, setIsDownloadingTickets] = useState(false);
@@ -45,6 +45,16 @@ export function ConfirmationStep({ checkoutData, products }: StepProps) {
 
   // Get add-ons from behavior results
   const addonsInfo = behaviorResults ? getAddonsFromResults(behaviorResults) : null;
+
+  // Get organization contact info for support email
+  const organizationContact = useQuery(
+    api.organizationOntology.getOrganizationContact,
+    organizationId ? { organizationId } : "skip"
+  );
+
+  // Get support email from organization contact (contactEmail or supportEmail)
+  const supportEmail = organizationContact?.customProperties?.contactEmail as string | undefined ||
+                      organizationContact?.customProperties?.supportEmail as string | undefined;
 
   const formatPrice = (amount: number, currency: string) => {
     // Use locale based on currency for correct thousand/decimal separators
@@ -311,15 +321,17 @@ export function ConfirmationStep({ checkoutData, products }: StepProps) {
 
       {/* Behavior Results Summary - Hidden in production */}
 
-      {/* Support Info */}
-      <div className="text-center">
-        <p className="text-sm text-gray-600">
-          {t('ui.checkout_template.behavior_driven.confirmation.support.text')}{" "}
-          <a href="mailto:support@example.com" className="text-purple-600 hover:underline">
-            support@example.com
-          </a>
-        </p>
-      </div>
+      {/* Support Info - Only show if organization has a contact email */}
+      {supportEmail && (
+        <div className="text-center">
+          <p className="text-sm text-gray-600">
+            {t('ui.checkout_template.behavior_driven.confirmation.support.text')}{" "}
+            <a href={`mailto:${supportEmail}`} className="text-purple-600 hover:underline">
+              {supportEmail}
+            </a>
+          </p>
+        </div>
+      )}
     </div>
   );
 }

@@ -9,25 +9,34 @@ import { InvoicingWindow } from "@/components/window-content/invoicing-window";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useNotification } from "@/hooks/use-notification";
 import {
-  FileText,
   CheckCircle2,
   AlertCircle,
   CreditCard,
   Building2,
   Settings,
   CircleDot,
-  Loader2
+  Loader2,
+  Info,
+  Zap,
+  Mail,
+  Bell,
+  RefreshCw,
+  Link2,
+  Clock,
 } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 
 /**
  * Invoicing Section for Payment Management
  *
- * Shows:
- * 1. Invoice payment status and setup checklist
- * 2. Quick statistics (invoices sent, paid, pending)
- * 3. Stripe Invoice integration toggle
- * 4. Link to full Invoicing Window
+ * This tab focuses on STRIPE INVOICING INTEGRATION:
+ * - Connect your internal invoicing system to Stripe
+ * - Enable online payment collection via Stripe-hosted payment pages
+ * - Automatic payment status sync via webhooks
+ * - Payment reminders and dunning (future)
+ *
+ * Internal invoice settings (prefix, numbering, payment terms) are managed
+ * in the Invoicing Window → Settings tab
  */
 export function InvoicingSection() {
   const { sessionId } = useAuth();
@@ -128,6 +137,26 @@ export function InvoicingSection() {
     }
   };
 
+  const handleOpenInvoicingApp = () => {
+    openWindow(
+      "invoicing",
+      "B2B/B2C Invoicing",
+      <InvoicingWindow />,
+      { x: 120, y: 80 },
+      { width: 900, height: 600 }
+    );
+  };
+
+  const handleOpenInvoicingSettings = () => {
+    openWindow(
+      "invoicing",
+      "B2B/B2C Invoicing",
+      <InvoicingWindow initialTab="settings" />,
+      { x: 120, y: 80 },
+      { width: 900, height: 600 }
+    );
+  };
+
   // Check Stripe Invoice settings - use backend useStripeInvoices setting
   const stripeProvider = organization?.paymentProviders?.find(
     (p) => p.providerCode === "stripe" || p.providerCode === "stripe-connect"
@@ -146,14 +175,14 @@ export function InvoicingSection() {
     {
       label: t("ui.payments.invoicing.requirements.business_profile"),
       status: invoiceAvailability?.crmOrganizationsCount ?? 0 > 0 ? "complete" : "optional",
-      description: `${invoiceAvailability?.crmOrganizationsCount ?? 0} employer organizations in CRM (will be created during checkout)`,
+      description: `${invoiceAvailability?.crmOrganizationsCount ?? 0} employer organizations in CRM`,
     },
     {
-      label: t("ui.payments.invoicing.config.stripe_mode"),
+      label: "Stripe Invoicing Connected",
       status: hasStripeInvoiceEnabled ? "complete" : "optional",
       description: hasStripeInvoiceEnabled
-        ? t("ui.payments.invoicing.status.enabled.description")
-        : t("ui.payments.invoicing.not_setup.description"),
+        ? "Online payment collection enabled"
+        : "Optional: Enable for online payments",
     },
   ];
 
@@ -167,15 +196,85 @@ export function InvoicingSection() {
 
   return (
     <div className="p-4 space-y-6">
-      {/* Header */}
+      {/* Header with explanation */}
       <div>
         <h3 className="text-sm font-bold mb-2 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
-          <FileText size={16} />
-          {t("ui.payments.invoicing.manage.title")}
+          <CreditCard size={16} />
+          Stripe Invoicing Integration
         </h3>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-          {t("ui.payments.invoicing.manage.description")}
+          Connect your invoicing system to Stripe for online payment collection. When enabled, invoices are synced to Stripe where customers can pay via credit card, bank transfer, and more.
         </p>
+      </div>
+
+      {/* Internal Settings Note */}
+      <div
+        className="p-3 rounded border-2 flex items-start gap-3"
+        style={{
+          borderColor: "var(--win95-highlight)",
+          background: "rgba(99, 91, 255, 0.05)",
+        }}
+      >
+        <Info size={16} className="flex-shrink-0 mt-0.5" style={{ color: "var(--win95-highlight)" }} />
+        <div className="flex-1">
+          <p className="text-xs font-semibold mb-1" style={{ color: "var(--win95-highlight)" }}>
+            Internal Invoice Settings
+          </p>
+          <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+            Invoice numbering, prefix, and default payment terms are configured in the{" "}
+            <button
+              onClick={handleOpenInvoicingSettings}
+              className="font-bold hover:underline"
+              style={{ color: "var(--win95-highlight)" }}
+            >
+              Invoicing App → Settings
+            </button>
+          </p>
+        </div>
+      </div>
+
+      {/* How It Works Section */}
+      <div
+        className="p-4 rounded border-2"
+        style={{
+          background: "var(--win95-bg-light)",
+          borderColor: "var(--win95-border)",
+        }}
+      >
+        <h4 className="text-xs font-bold mb-3 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+          <Zap size={14} />
+          How Stripe Invoicing Works
+        </h4>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex items-start gap-2">
+            <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0" style={{ background: "var(--win95-highlight)", color: "white" }}>1</div>
+            <div>
+              <p className="text-xs font-semibold" style={{ color: "var(--win95-text)" }}>Invoice Created</p>
+              <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>Create invoice in your system (checkout or manual)</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0" style={{ background: "var(--win95-highlight)", color: "white" }}>2</div>
+            <div>
+              <p className="text-xs font-semibold" style={{ color: "var(--win95-text)" }}>Synced to Stripe</p>
+              <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>Invoice is automatically created in Stripe</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0" style={{ background: "var(--win95-highlight)", color: "white" }}>3</div>
+            <div>
+              <p className="text-xs font-semibold" style={{ color: "var(--win95-text)" }}>Customer Pays Online</p>
+              <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>Customer receives payment link (card, bank transfer)</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0" style={{ background: "var(--win95-highlight)", color: "white" }}>4</div>
+            <div>
+              <p className="text-xs font-semibold" style={{ color: "var(--win95-text)" }}>Status Synced Back</p>
+              <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>Payment status updates automatically via webhooks</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Status Card */}
@@ -192,14 +291,14 @@ export function InvoicingSection() {
               <>
                 <CheckCircle2 size={20} style={{ color: "var(--success)" }} />
                 <span className="text-sm font-bold" style={{ color: "var(--success)" }}>
-                  {t("ui.payments.invoicing.status.enabled.title")}
+                  Invoicing Available
                 </span>
               </>
             ) : (
               <>
                 <AlertCircle size={20} style={{ color: "var(--warning)" }} />
                 <span className="text-sm font-bold" style={{ color: "var(--warning)" }}>
-                  {t("ui.payments.invoicing.not_setup.title")}
+                  Invoicing Not Enabled
                 </span>
               </>
             )}
@@ -209,7 +308,7 @@ export function InvoicingSection() {
         {/* Setup Checklist */}
         <div className="space-y-2 mb-4">
           <p className="text-xs font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-            {t("ui.payments.invoicing.requirements.title")}
+            Setup Checklist:
           </p>
           {setupItems.map((item, index) => (
             <div key={index} className="flex items-start gap-2">
@@ -236,7 +335,7 @@ export function InvoicingSection() {
                     className="text-xs font-semibold mt-1 hover:underline"
                     style={{ color: "var(--win95-highlight)" }}
                   >
-                    {isEnabling ? t("ui.payments.invoicing.buttons.enabling") : item.action}
+                    {isEnabling ? "Enabling..." : item.action}
                   </button>
                 )}
               </div>
@@ -282,29 +381,29 @@ export function InvoicingSection() {
         )}
       </div>
 
-      {/* Stripe Invoice Integration */}
+      {/* Stripe Invoice Integration Toggle */}
       <div
         className="p-4 rounded border-2"
         style={{
           background: "var(--win95-bg-light)",
-          borderColor: "var(--win95-border)",
+          borderColor: hasStripeInvoiceEnabled ? "var(--success)" : "var(--win95-border)",
         }}
       >
         <div className="flex items-start gap-3">
-          <CreditCard size={20} style={{ color: "var(--win95-highlight)" }} className="mt-0.5 flex-shrink-0" />
+          <CreditCard size={20} style={{ color: hasStripeInvoiceEnabled ? "var(--success)" : "var(--win95-highlight)" }} className="mt-0.5 flex-shrink-0" />
           <div className="flex-1 min-w-0">
             <h4 className="text-sm font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-              Stripe Invoice Integration
+              Enable Stripe Invoicing
             </h4>
             <p className="text-xs mb-3" style={{ color: "var(--neutral-gray)" }}>
-              Sync invoices to Stripe for professional payment collection with online credit card payments.
+              When enabled, invoices are synced to Stripe for online payment collection. Customers receive a Stripe-hosted payment page to pay via credit card, bank transfer, or other methods.
             </p>
 
             {!hasStripeConnected ? (
               <div className="flex items-center gap-2 p-2 rounded" style={{ background: "var(--win95-bg)", border: "1px solid var(--win95-border)" }}>
                 <AlertCircle size={16} style={{ color: "var(--warning)" }} />
                 <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                  Connect Stripe first in the "Stripe Connect" tab to enable invoice sync
+                  Connect Stripe first in the "Stripe Connect" tab to enable Stripe Invoicing
                 </p>
               </div>
             ) : (
@@ -313,12 +412,12 @@ export function InvoicingSection() {
                 <div className="flex items-center justify-between p-3 rounded" style={{ background: "var(--win95-bg)", border: "1px solid var(--win95-border)" }}>
                   <div className="flex-1">
                     <p className="text-xs font-semibold mb-1" style={{ color: "var(--win95-text)" }}>
-                      Use Stripe for Invoices
+                      Sync Invoices to Stripe
                     </p>
                     <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                       {hasStripeInvoiceEnabled
-                        ? "Invoices will be synced to Stripe with payment buttons"
-                        : "Invoices will only be generated as PDFs"}
+                        ? "Invoices are synced to Stripe with payment links"
+                        : "Invoices are internal-only (PDF generation only)"}
                     </p>
                   </div>
                   <button
@@ -355,13 +454,8 @@ export function InvoicingSection() {
                       borderColor: hasStripeInvoiceEnabled ? "var(--success)" : "var(--win95-border)"
                     }}
                   >
-                    {hasStripeInvoiceEnabled ? "✓ Enabled" : "○ Disabled"}
+                    {hasStripeInvoiceEnabled ? "✓ Stripe Invoicing Active" : "○ Internal Only"}
                   </div>
-                  {hasStripeInvoiceEnabled && (
-                    <p className="text-xs" style={{ color: "var(--success)" }}>
-                      New invoices will sync to Stripe automatically
-                    </p>
-                  )}
                 </div>
               </div>
             )}
@@ -369,18 +463,57 @@ export function InvoicingSection() {
         </div>
       </div>
 
+      {/* Future Features Section (Coming Soon) */}
+      {hasStripeInvoiceEnabled && (
+        <div
+          className="p-4 rounded border-2"
+          style={{
+            background: "var(--win95-bg-light)",
+            borderColor: "var(--win95-border)",
+            opacity: 0.7,
+          }}
+        >
+          <h4 className="text-xs font-bold mb-3 flex items-center gap-2" style={{ color: "var(--neutral-gray)" }}>
+            <Clock size={14} />
+            Coming Soon: Advanced Stripe Invoicing
+          </h4>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex items-start gap-2 p-2 rounded" style={{ background: "var(--win95-bg)" }}>
+              <Mail size={14} className="flex-shrink-0 mt-0.5" style={{ color: "var(--neutral-gray)" }} />
+              <div>
+                <p className="text-xs font-semibold" style={{ color: "var(--neutral-gray)" }}>Auto-Send via Stripe</p>
+                <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>Automatically send invoices through Stripe's email system</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2 p-2 rounded" style={{ background: "var(--win95-bg)" }}>
+              <Bell size={14} className="flex-shrink-0 mt-0.5" style={{ color: "var(--neutral-gray)" }} />
+              <div>
+                <p className="text-xs font-semibold" style={{ color: "var(--neutral-gray)" }}>Payment Reminders</p>
+                <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>Automatic reminder emails for overdue invoices</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2 p-2 rounded" style={{ background: "var(--win95-bg)" }}>
+              <RefreshCw size={14} className="flex-shrink-0 mt-0.5" style={{ color: "var(--neutral-gray)" }} />
+              <div>
+                <p className="text-xs font-semibold" style={{ color: "var(--neutral-gray)" }}>Smart Retry (Dunning)</p>
+                <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>Automatic retry of failed payment attempts</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2 p-2 rounded" style={{ background: "var(--win95-bg)" }}>
+              <Link2 size={14} className="flex-shrink-0 mt-0.5" style={{ color: "var(--neutral-gray)" }} />
+              <div>
+                <p className="text-xs font-semibold" style={{ color: "var(--neutral-gray)" }}>Customer Portal</p>
+                <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>Self-service portal for invoice history & payment methods</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Actions */}
       <div className="flex gap-2">
         <button
-          onClick={() => {
-            openWindow(
-              "invoicing",
-              "B2B/B2C Invoicing",
-              <InvoicingWindow />,
-              { x: 120, y: 80 },
-              { width: 900, height: 600 }
-            );
-          }}
+          onClick={handleOpenInvoicingApp}
           className="flex-1 px-4 py-2 text-sm font-bold rounded hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
           style={{
             background: "var(--win95-highlight)",
@@ -389,21 +522,47 @@ export function InvoicingSection() {
           }}
         >
           <Building2 size={16} />
-          {t("ui.payments.invoicing.manage.title")}
+          Open Invoicing App
+        </button>
+        <button
+          onClick={handleOpenInvoicingSettings}
+          className="px-4 py-2 text-sm font-bold rounded hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+          style={{
+            background: "var(--win95-bg)",
+            color: "var(--win95-text)",
+            border: "2px solid var(--win95-border)",
+          }}
+        >
+          <Settings size={16} />
+          Settings
         </button>
       </div>
 
-      {/* Help Text */}
-      <div className="text-xs space-y-1" style={{ color: "var(--neutral-gray)" }}>
-        <p>
-          <strong>{t("ui.payments.invoicing.how_to.title")}</strong>
+      {/* Without Stripe vs With Stripe comparison */}
+      <div className="text-xs space-y-2" style={{ color: "var(--neutral-gray)" }}>
+        <p className="font-bold" style={{ color: "var(--win95-text)" }}>
+          Internal vs Stripe Invoicing:
         </p>
-        <ul className="list-disc list-inside space-y-0.5 ml-2">
-          <li>{t("ui.payments.invoicing.features.branding")}</li>
-          <li>{t("ui.payments.invoicing.features.auto_send")}</li>
-          <li>{t("ui.payments.invoicing.features.online_payment")}</li>
-          <li>{t("ui.payments.invoicing.features.tracking")}</li>
-        </ul>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="p-2 rounded" style={{ background: "var(--win95-bg)", border: "1px solid var(--win95-border)" }}>
+            <p className="font-semibold mb-1" style={{ color: "var(--win95-text)" }}>Without Stripe</p>
+            <ul className="space-y-0.5 text-[10px]">
+              <li>• PDF invoice generation</li>
+              <li>• Manual payment tracking</li>
+              <li>• Email invoices yourself</li>
+              <li>• Accept bank transfers manually</li>
+            </ul>
+          </div>
+          <div className="p-2 rounded" style={{ background: "rgba(16, 185, 129, 0.05)", border: "1px solid var(--success)" }}>
+            <p className="font-semibold mb-1" style={{ color: "var(--success)" }}>With Stripe</p>
+            <ul className="space-y-0.5 text-[10px]">
+              <li>• Hosted payment page</li>
+              <li>• Card & bank payments</li>
+              <li>• Automatic status sync</li>
+              <li>• Payment reminders (coming)</li>
+            </ul>
+          </div>
+        </div>
       </div>
     </div>
   );

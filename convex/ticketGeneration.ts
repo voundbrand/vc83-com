@@ -686,11 +686,51 @@ export const sendOrderConfirmationEmail = internalAction({
       });
 
       // 7. Get domain configuration for email sending
-      const domainConfigId = session.customProperties?.domainConfigId as Id<"objects"> | undefined;
+      // First try session, then org default, then skip email (non-critical)
+      let domainConfigId = session.customProperties?.domainConfigId as Id<"objects"> | undefined;
 
       if (!domainConfigId) {
-        console.error("❌ [sendOrderConfirmationEmail] No domain config ID found in session");
-        throw new Error("No domain configuration found for email sending");
+        console.log("📧 [sendOrderConfirmationEmail] No domain config in session, looking for org default...");
+
+        // Try to find organization's default domain config
+        const orgDomainConfigs = await ctx.runQuery(internal.domainConfigOntology.listDomainConfigsForOrg, {
+          organizationId: session.organizationId,
+        });
+
+        // Find first active domain config
+        const activeDomain = orgDomainConfigs?.find((d: { status: string }) => d.status === "active");
+        if (activeDomain) {
+          domainConfigId = activeDomain._id;
+          console.log(`✅ [sendOrderConfirmationEmail] Using org default domain config: ${domainConfigId}`);
+        } else {
+          // Try system fallback domain config
+          console.log("📧 [sendOrderConfirmationEmail] No org domain config, trying system fallback...");
+
+          const systemOrg = await ctx.runQuery(internal.helpers.backendTranslationQueries.getSystemOrganization, {});
+
+          if (systemOrg) {
+            const systemDomainConfigs = await ctx.runQuery(internal.domainConfigOntology.listDomainConfigsForOrg, {
+              organizationId: systemOrg._id,
+            });
+
+            const systemActiveDomain = systemDomainConfigs?.find((d: { status: string }) => d.status === "active");
+            if (systemActiveDomain) {
+              domainConfigId = systemActiveDomain._id;
+              console.log(`✅ [sendOrderConfirmationEmail] Using SYSTEM fallback domain config: ${domainConfigId}`);
+            }
+          }
+
+          // If still no domain config, skip email
+          if (!domainConfigId) {
+            console.warn("⚠️ [sendOrderConfirmationEmail] No domain configuration found (org or system) - skipping email");
+            return {
+              success: false,
+              emailId: "skipped",
+              attempts: 0,
+              error: "No domain configuration - email skipped"
+            };
+          }
+        }
       }
 
       // 8. Send email using emailDelivery service (respects domain configuration)
@@ -704,7 +744,12 @@ export const sendOrderConfirmationEmail = internalAction({
         to: args.recipientEmail,
         subject: emailSubject,
         html: emailHtml,
-        attachments,
+        // Strip extra fields (like downloadUrl) that validator doesn't accept
+        attachments: attachments.map(({ filename, content, contentType }) => ({
+          filename,
+          content,
+          contentType,
+        })),
       });
 
       console.log("✓ Order confirmation email sent:", result);

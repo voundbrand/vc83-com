@@ -295,7 +295,7 @@ export const getProjectForPortal = query({
 
     // 4. Verify access (contact must be client on this project)
     const contactProps = contact.customProperties as Record<string, unknown> | undefined;
-    let crmOrgId = contactProps?.crmOrganizationId;
+    const crmOrgId = contactProps?.crmOrganizationId;
     const hasAccess = (
       projectProps?.clientOrgId === crmOrgId ||
       projectProps?.clientContactId === contact._id

@@ -39,16 +39,21 @@ export function DeploymentHistoryTab({ pageId, pageName }: DeploymentHistoryTabP
     config && sessionId ? { sessionId, configId: config._id } : "skip"
   );
 
-  // Fetch deployment history (for all targets)
-  const allHistory = targets?.map((target: any) => ({
-    targetId: target._id,
-    targetName: target.projectId,
-    targetProvider: target.provider,
-    history: useQuery(
-      api.deploymentOntology.getDeploymentHistory,
-      sessionId ? { sessionId, targetId: target._id } : "skip"
-    ) || []
-  })) || [];
+  // Fetch deployment history for first target only (to avoid hooks in loop)
+  // In a real implementation, you'd want to fetch all histories or use a single query
+  const firstTarget = targets && targets.length > 0 ? (targets[0] as any) : null;
+  const deploymentHistory = useQuery(
+    api.deploymentOntology.getDeploymentHistory,
+    firstTarget && sessionId ? { sessionId, targetId: firstTarget._id } : "skip"
+  );
+
+  // Combine target info with history
+  const allHistory = firstTarget && deploymentHistory ? [{
+    targetId: firstTarget._id,
+    targetName: firstTarget.projectId,
+    targetProvider: firstTarget.provider,
+    history: deploymentHistory || []
+  }] : [];
 
   if (!sessionId) {
     return (

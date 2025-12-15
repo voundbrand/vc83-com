@@ -95,6 +95,8 @@ export async function createTransactionsForPurchase(
     taxInfo?: {
       taxRatePercent: number;
       currency: string;
+      // Tax behavior: "inclusive" means prices already include tax, "exclusive" means tax is added on top
+      taxBehavior?: "inclusive" | "exclusive";
     };
   }
 ): Promise<Id<"objects">[]> {
@@ -143,8 +145,31 @@ export async function createTransactionsForPurchase(
       }
 
       // 3. Calculate tax for this line item
+      // Check organization's tax behavior setting
       const taxRatePercent = params.taxInfo?.taxRatePercent || 19;
-      const taxAmountInCents = Math.round((item.totalPrice * taxRatePercent) / 100);
+      const taxBehavior = params.taxInfo?.taxBehavior || "inclusive"; // Default to inclusive for EU/DE
+
+      let unitPriceInCents: number;
+      let totalPriceInCents: number;
+      let taxAmountInCents: number;
+
+      if (taxBehavior === "inclusive") {
+        // Prices ALREADY include tax - extract tax from price
+        // Formula: tax = gross * rate / (100 + rate)
+        totalPriceInCents = item.totalPrice; // This IS the gross (tax-included) price
+        taxAmountInCents = Math.round((item.totalPrice * taxRatePercent) / (100 + taxRatePercent));
+        unitPriceInCents = Math.round((item.pricePerUnit * 100) / (100 + taxRatePercent)); // Net price per unit
+
+        console.log(`   Tax behavior: INCLUSIVE - Price €${(item.totalPrice / 100).toFixed(2)} includes €${(taxAmountInCents / 100).toFixed(2)} tax`);
+      } else {
+        // Prices are NET (excluding tax) - add tax on top
+        // Formula: tax = net * rate / 100
+        taxAmountInCents = Math.round((item.totalPrice * taxRatePercent) / 100);
+        totalPriceInCents = item.totalPrice + taxAmountInCents; // Add tax to get gross
+        unitPriceInCents = item.pricePerUnit; // Already net
+
+        console.log(`   Tax behavior: EXCLUSIVE - Price €${(item.totalPrice / 100).toFixed(2)} + €${(taxAmountInCents / 100).toFixed(2)} tax`);
+      }
 
       // 4. Build line item
       return {
@@ -153,10 +178,11 @@ export async function createTransactionsForPurchase(
         productDescription: product.description,
         productSubtype: product.subtype,
         quantity: item.quantity,
-        unitPriceInCents: item.pricePerUnit,  // Net price per unit (excluding tax)
-        totalPriceInCents: item.totalPrice + taxAmountInCents,  // Gross total (including tax)
+        unitPriceInCents, // Net price per unit (excluding tax)
+        totalPriceInCents, // Gross total (including tax)
         taxRatePercent,
         taxAmountInCents,
+        taxBehavior, // Store for reference
         ticketId: item.ticketId,
         eventId,
         eventName,

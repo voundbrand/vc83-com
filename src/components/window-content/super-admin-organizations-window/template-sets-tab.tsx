@@ -33,16 +33,33 @@ export function TemplateSetsTab() {
       : "skip"
   );
 
-  // Fetch ALL schema-driven templates using audit system
+  // Fetch ALL schema-driven templates using audit system (system templates)
   const auditData = useQuery(
     api.auditTemplates.auditAllTemplates,
     sessionId ? {} : "skip"
   );
 
-  // Get only schema-driven templates (all types)
-  const allSchemaTemplates = [
+  // Fetch organization-specific templates (including copies from system)
+  // For super-admin, we use systemOrgId to fetch system org's templates
+  const orgTemplates = useQuery(
+    api.templateOntology.getTemplatesForOrg,
+    sessionId && systemOrgId
+      ? { sessionId, organizationId: systemOrgId }
+      : "skip"
+  );
+
+  // Get only schema-driven templates (all types) - combine system + org templates
+  const systemSchemaTemplates = [
     ...(auditData?.templates.schemaEmail || []),
     ...(auditData?.templates.pdf.filter((t: any) => t.hasSchema) || []),
+  ];
+
+  // Merge organization templates with system templates, dedupe by ID
+  const allSchemaTemplates = [
+    ...systemSchemaTemplates,
+    ...(orgTemplates || []).filter((orgT: any) =>
+      !systemSchemaTemplates.some((sysT: any) => sysT._id === orgT._id)
+    ),
   ];
 
   if (!sessionId || !isSuperAdmin) {
@@ -71,7 +88,7 @@ export function TemplateSetsTab() {
     );
   }
 
-  if (!systemOrgId || templateSets === undefined || auditData === undefined) {
+  if (!systemOrgId || templateSets === undefined || auditData === undefined || orgTemplates === undefined) {
     return (
       <div className="flex items-center justify-center p-8">
         <Loader2 size={32} className="animate-spin" style={{ color: "var(--win95-highlight)" }} />

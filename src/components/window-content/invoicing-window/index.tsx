@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
-import { FileText, CreditCard, Palette, X, Download, Mail, Edit, Lock, Calendar, User, History, Plus, RefreshCw, Loader2, AlertCircle } from "lucide-react";
+import { FileText, CreditCard, Palette, X, Download, Mail, Edit, Lock, Calendar, User, History, Plus, RefreshCw, Loader2, AlertCircle, Settings } from "lucide-react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { type Id, type Doc } from "../../../../convex/_generated/dataModel";
@@ -15,6 +15,7 @@ import { EmailSendModal, type EmailSendConfig, type EmailSendResult } from "@/co
 import { TemplatesTab } from "./templates-tab";
 import { TransactionsSection } from "../payments-window/transactions-section";
 import { CreateInvoiceTab } from "./create-invoice-tab";
+import { InvoiceSettingsTab } from "./invoice-settings-tab";
 
 /**
  * Invoicing Window
@@ -33,13 +34,17 @@ import { CreateInvoiceTab } from "./create-invoice-tab";
  * - Templates: View and preview invoice PDF templates
  */
 
-type TabType = "create" | "invoices" | "transactions" | "templates";
+type TabType = "create" | "invoices" | "transactions" | "templates" | "settings";
 type InvoiceSubTab = "draft" | "sealed";
 
-export function InvoicingWindow() {
+interface InvoicingWindowProps {
+  initialTab?: TabType;
+}
+
+export function InvoicingWindow({ initialTab = "create" }: InvoicingWindowProps) {
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
-  const [activeTab, setActiveTab] = useState<TabType>("create");
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
   const [invoiceSubTab, setInvoiceSubTab] = useState<InvoiceSubTab>("draft");
   const [selectedInvoice, setSelectedInvoice] = useState<Doc<"objects"> | null>(null);
   const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.invoicing_window");
@@ -170,7 +175,7 @@ export function InvoicingWindow() {
           {t("ui.invoicing_window.tabs.transactions")}
         </button>
         <button
-          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2"
+          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
           style={{
             borderColor: 'var(--win95-border)',
             background: activeTab === "templates" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
@@ -180,6 +185,18 @@ export function InvoicingWindow() {
         >
           <Palette size={14} />
           {t("ui.invoicing_window.tabs.templates")}
+        </button>
+        <button
+          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2"
+          style={{
+            borderColor: 'var(--win95-border)',
+            background: activeTab === "settings" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+            color: activeTab === "settings" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+          }}
+          onClick={() => setActiveTab("settings")}
+        >
+          <Settings size={14} />
+          Settings
         </button>
       </div>
 
@@ -385,6 +402,8 @@ export function InvoicingWindow() {
         )}
 
         {activeTab === "templates" && <TemplatesTab />}
+
+        {activeTab === "settings" && <InvoiceSettingsTab />}
       </div>
 
       {/* Footer - Status Bar */}

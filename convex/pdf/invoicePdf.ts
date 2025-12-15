@@ -69,6 +69,21 @@ export const generateInvoicePDF = action({
                 throw new Error("Checkout session not found");
             }
 
+            // 1.5. Get invoice object (if it exists) to use its actual invoice number, due date, and payment terms
+            // Query invoice by checkoutSessionId (using indexed query for performance)
+            const invoice = await ctx.runQuery(internal.invoicingOntology.getInvoiceByCheckoutSessionInternal, {
+                organizationId: session.organizationId,
+                checkoutSessionId: args.checkoutSessionId,
+            }) as Doc<"objects"> | null;
+
+            console.log("📄 [generateInvoicePDF] Invoice lookup:", {
+                checkoutSessionId: args.checkoutSessionId,
+                invoiceFound: !!invoice,
+                invoiceNumber: invoice?.customProperties?.invoiceNumber,
+                dueDate: invoice?.customProperties?.dueDate,
+                paymentTerms: invoice?.customProperties?.paymentTerms,
+            });
+
             // 2. Get seller organization info
             const organizationId = session.organizationId;
 
@@ -101,6 +116,7 @@ export const generateInvoicePDF = action({
 
             const invoiceCurrency = (localeSettings?.customProperties?.currency as string) || "eur";
             const invoiceLocale = (localeSettings?.customProperties?.locale as string) || "de-DE";
+            const dateFormat = (localeSettings?.customProperties?.dateFormat as string) || "DD.MM.YYYY";
 
             // Get tax settings for origin address
             const taxSettings = await ctx.runQuery(
@@ -732,27 +748,98 @@ export const generateInvoicePDF = action({
                 "pdf.invoice.forQuestions",
                 "pdf.invoice.contactUs",
                 "pdf.invoice.thankYou",
+                // Month names for localized date formatting
+                "common.months.january",
+                "common.months.february",
+                "common.months.march",
+                "common.months.april",
+                "common.months.may",
+                "common.months.june",
+                "common.months.july",
+                "common.months.august",
+                "common.months.september",
+                "common.months.october",
+                "common.months.november",
+                "common.months.december",
             ];
 
             const translations = await getBackendTranslations(ctx, invoiceLanguage, translationKeys);
 
-            // 10. Generate invoice number using organization's prefix (used for both data and filename)
-            // Access customProperties for invoice prefix (organization is typed as any for flexibility)
-            const orgData = organization as any;
-            const invoicePrefix = (orgData?.customProperties?.invoicePrefix as string) || "INV";
-            const invoiceNumber = `${invoicePrefix}-${session._id.substring(0, 12)}`;
+            // Helper function to format dates based on org settings and language
+            const formatInvoiceDate = (date: Date): string => {
+                const day = date.getDate().toString().padStart(2, '0');
+                const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                const year = date.getFullYear().toString();
+
+                // Get localized month name from translations
+                const monthKeys = [
+                    "common.months.january", "common.months.february", "common.months.march",
+                    "common.months.april", "common.months.may", "common.months.june",
+                    "common.months.july", "common.months.august", "common.months.september",
+                    "common.months.october", "common.months.november", "common.months.december"
+                ];
+                const fallbackMonths = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+                const localizedMonthName = translations[monthKeys[date.getMonth()]] || fallbackMonths[date.getMonth()];
+
+                switch (dateFormat) {
+                    case 'DD.MM.YYYY':
+                        return `${day}.${month}.${year}`;
+                    case 'DD/MM/YYYY':
+                        return `${day}/${month}/${year}`;
+                    case 'MM/DD/YYYY':
+                        return `${month}/${day}/${year}`;
+                    case 'YYYY-MM-DD':
+                        return `${year}-${month}-${day}`;
+                    case 'DD MMMM YYYY':
+                        return `${parseInt(day)} ${localizedMonthName} ${year}`;
+                    case 'MMMM DD, YYYY':
+                        return `${localizedMonthName} ${parseInt(day)}, ${year}`;
+                    case 'DD. MMMM YYYY':
+                        return `${parseInt(day)}. ${localizedMonthName} ${year}`;
+                    default:
+                        return `${day}.${month}.${year}`;
+                }
+            };
+
+            // 10. Get invoice number from the invoice object (or generate if invoice doesn't exist yet)
+            let invoiceNumber: string;
+            let invoiceDueDate: number;
+            let invoicePaymentTerms: string;
+
+            if (invoice) {
+                // Use the invoice's actual data (invoice was already created)
+                invoiceNumber = invoice.customProperties?.invoiceNumber as string;
+                invoiceDueDate = invoice.customProperties?.dueDate as number;
+                invoicePaymentTerms = invoice.customProperties?.paymentTerms as string || "net30";
+
+                console.log("📄 [generateInvoicePDF] Using existing invoice data:", {
+                    invoiceNumber,
+                    dueDate: new Date(invoiceDueDate).toISOString(),
+                    paymentTerms: invoicePaymentTerms,
+                });
+            } else {
+                // Fallback: Generate invoice number (shouldn't happen in normal flow)
+                console.warn("⚠️ [generateInvoicePDF] No invoice found, generating invoice number as fallback");
+                const invoiceNumberData = await ctx.runMutation(internal.organizationOntology.getAndIncrementInvoiceNumber, {
+                    organizationId: session.organizationId,
+                });
+                invoiceNumber = invoiceNumberData.invoiceNumber;
+                invoiceDueDate = session.createdAt + 30 * 24 * 60 * 60 * 1000; // Default to 30 days
+                invoicePaymentTerms = "net30";
+            }
 
             // 11. Prepare invoice template data
             const invoiceData = {
-                // Organization info (with cascading fallback: organization → contact → default)
+                // Organization info (use real settings only - no fake placeholders)
                 organization_name: businessName,
                 organization_address: organizationAddress,
                 organization_phone: ((sellerOrg as any)?.customProperties?.phone as string) ||
                     (sellerContact?.customProperties?.contactPhone as string) ||
-                    "+49 (0) 123 456 789", // Fallback
+                    undefined, // No phone set - leave empty on invoice
                 organization_email: ((sellerOrg as any)?.customProperties?.email as string) ||
                     (sellerContact?.customProperties?.contactEmail as string) ||
-                    ("info@" + (organization?.slug || "company") + ".com"), // Fallback
+                    (sellerContact?.customProperties?.billingEmail as string) ||
+                    undefined, // No email set - leave empty on invoice
                 organization_website: (sellerContact?.customProperties?.website as string) || undefined,
                 logo_url: brandLogoUrl,
                 tax_id: sellerLegal?.customProperties?.taxId as string | undefined,
@@ -765,16 +852,10 @@ export const generateInvoicePDF = action({
 
                 // Invoice details
                 invoice_number: invoiceNumber,
-                invoice_date: new Date(session.createdAt).toLocaleDateString("en-US", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                }),
-                due_date: new Date(session.createdAt + 30 * 24 * 60 * 60 * 1000).toLocaleDateString("en-US", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                }),
+                invoice_date: formatInvoiceDate(new Date(session.createdAt)),
+                due_date: formatInvoiceDate(new Date(invoiceDueDate)),
+                payment_terms: invoicePaymentTerms, // Pass payment terms to template
+                payment_method: (session.customProperties?.paymentMethod as string) || undefined, // Payment method (invoice, stripe, free)
 
                 // Translations (from database)
                 t_invoice: translations["pdf.invoice.title"],

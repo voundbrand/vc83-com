@@ -5,11 +5,12 @@
  * This set is stored in the system organization and serves as the ultimate fallback.
  *
  * v2.0 Features:
- * - ONLY schema-driven templates (6 templates: 4 email + 2 PDF)
+ * - ONLY schema-driven templates (7 templates: 5 email + 2 PDF)
  * - Event Confirmation Email (REQUIRED)
  * - Transaction Receipt Email (Optional)
  * - Newsletter Email (Optional)
  * - Invoice Email (Optional)
+ * - Sales Notification Email (Optional) - Internal team notification
  * - B2B Invoice PDF (Optional)
  * - Ticket PDF (Optional)
  * - AI-ready with full schema support
@@ -100,6 +101,9 @@ export const seedSystemDefaultTemplateSet = internalMutation({
       t.customProperties?.code === "ticket_professional_v1" ||
       t.customProperties?.templateCode === "ticket_professional_v1"
     );
+    const salesNotificationTemplate = systemTemplates.find((t) =>
+      t.customProperties?.code === "email_sales_notification"
+    );
 
     // Verify we have the required templates
     if (!eventConfirmationTemplate) {
@@ -132,8 +136,13 @@ export const seedSystemDefaultTemplateSet = internalMutation({
         "Ticket PDF template not found. Run: npx convex run seedTicketPdfTemplate:seedTicketPdfTemplate"
       );
     }
+    if (!salesNotificationTemplate) {
+      throw new Error(
+        "Sales Notification template not found. Run: npx convex run seedSalesNotificationTemplate:seedSalesNotificationTemplate"
+      );
+    }
 
-    console.log(`✅ Found all 6 schema-driven templates`);
+    console.log(`✅ Found all 7 schema-driven templates`);
 
     // Build clean template array with only schema-driven templates (v2.0)
     const templatesList: Array<{
@@ -184,6 +193,13 @@ export const seedSystemDefaultTemplateSet = internalMutation({
         isRequired: false,
         displayOrder: 6,
       },
+      // Sales Notification Email - Optional (internal team notification)
+      {
+        templateId: salesNotificationTemplate._id,
+        templateType: "sales_notification",
+        isRequired: false,
+        displayOrder: 7,
+      },
     ];
 
     console.log(`✅ Built template set with ${templatesList.length} schema-driven templates`);
@@ -196,7 +212,7 @@ export const seedSystemDefaultTemplateSet = internalMutation({
       isSystemDefault: true,
       tags: ["system", "default", "schema-driven", "v2.0", "ai-ready"],
       previewImageUrl: "",
-      totalEmailTemplates: 4, // event, receipt, newsletter, invoice email
+      totalEmailTemplates: 5, // event, receipt, newsletter, invoice email, sales notification
       totalPdfTemplates: 2, // b2b invoice, ticket
 
       // Core template IDs
@@ -206,6 +222,7 @@ export const seedSystemDefaultTemplateSet = internalMutation({
       invoiceEmailTemplateId: invoiceEmailTemplate._id,
       invoiceTemplateId: invoiceB2BPdfTemplate._id,
       ticketTemplateId: ticketPdfTemplate._id,
+      salesNotificationTemplateId: salesNotificationTemplate._id,
     };
 
     let setId: any;
@@ -215,7 +232,7 @@ export const seedSystemDefaultTemplateSet = internalMutation({
       // Update existing set
       await ctx.db.patch(existingSystemDefault._id, {
         name: "System Default Template Set (v2.0 - Schema-Driven)",
-        description: `Clean, schema-driven template system with 6 AI-ready templates (4 email + 2 PDF). Includes Event Confirmation (required), Transaction Receipt, Newsletter, Invoice Email, B2B Invoice PDF, and Ticket PDF. All templates use schema architecture for AI editing and maximum flexibility. Supports 4+ languages (EN, DE, ES, FR). Ultimate fallback for all organizations.`,
+        description: `Clean, schema-driven template system with 7 AI-ready templates (5 email + 2 PDF). Includes Event Confirmation (required), Transaction Receipt, Newsletter, Invoice Email, Sales Notification (internal), B2B Invoice PDF, and Ticket PDF. All templates use schema architecture for AI editing and maximum flexibility. Supports 4+ languages (EN, DE, ES, FR). Ultimate fallback for all organizations.`,
         status: "active",
         customProperties: customProps,
         updatedAt: Date.now(),
@@ -229,7 +246,7 @@ export const seedSystemDefaultTemplateSet = internalMutation({
         organizationId: systemOrg._id,
         type: "template_set",
         name: "System Default Template Set (v2.0 - Schema-Driven)",
-        description: `Clean, schema-driven template system with 6 AI-ready templates (4 email + 2 PDF). Includes Event Confirmation (required), Transaction Receipt, Newsletter, Invoice Email, B2B Invoice PDF, and Ticket PDF. All templates use schema architecture for AI editing and maximum flexibility. Supports 4+ languages (EN, DE, ES, FR). Ultimate fallback for all organizations.`,
+        description: `Clean, schema-driven template system with 7 AI-ready templates (5 email + 2 PDF). Includes Event Confirmation (required), Transaction Receipt, Newsletter, Invoice Email, Sales Notification (internal), B2B Invoice PDF, and Ticket PDF. All templates use schema architecture for AI editing and maximum flexibility. Supports 4+ languages (EN, DE, ES, FR). Ultimate fallback for all organizations.`,
         status: "active",
         customProperties: customProps,
         createdBy: firstUser._id,
@@ -281,12 +298,13 @@ export const seedSystemDefaultTemplateSet = internalMutation({
     console.log(`      💳 Transaction Receipt: ${transactionReceiptTemplate.name}`);
     console.log(`      📧 Newsletter: ${newsletterTemplate.name}`);
     console.log(`      📄 Invoice Email: ${invoiceEmailTemplate.name}`);
+    console.log(`      🔔 Sales Notification: ${salesNotificationTemplate.name}`);
     console.log(`      💰 B2B Invoice PDF: ${invoiceB2BPdfTemplate.name}`);
     console.log(`      🎫 Ticket PDF: ${ticketPdfTemplate.name}`);
 
     console.log("\n✅ System default template set seeding complete!");
     console.log("   All organizations will now fall back to this schema-driven set.");
-    console.log("   🚀 All 6 templates are AI-ready with full schema support!");
+    console.log("   🚀 All 7 templates are AI-ready with full schema support!");
 
     return {
       message: `System default template set ${action} successfully (Schema-Driven v2.0)`,
@@ -296,8 +314,8 @@ export const seedSystemDefaultTemplateSet = internalMutation({
       templateCount: templatesList.length,
       breakdown: {
         requiredTemplates: 1, // event confirmation
-        optionalTemplates: 5, // receipt, newsletter, invoice email, invoice PDF, ticket PDF
-        emailTemplates: 4,
+        optionalTemplates: 6, // receipt, newsletter, invoice email, sales notification, invoice PDF, ticket PDF
+        emailTemplates: 5, // event, receipt, newsletter, invoice, sales notification
         pdfTemplates: 2, // invoice + ticket
         allSchemaDriven: true,
       },

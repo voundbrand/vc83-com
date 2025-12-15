@@ -346,7 +346,7 @@ export function UpgradeModal({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center"
+      className="fixed inset-0 z-[20000] flex items-center justify-center"
       style={{ background: "rgba(0, 0, 0, 0.5)" }}
       onClick={onClose}
     >
@@ -639,9 +639,22 @@ export function parseLimitError(error: unknown): {
   upgradeTier: string;
   message: string;
 } | null {
-  if (!(error instanceof Error)) return null;
+  // Extract message from various error types (including Convex errors)
+  let message: string | undefined;
 
-  const message = error.message;
+  if (error instanceof Error) {
+    message = error.message;
+  } else if (typeof error === "string") {
+    message = error;
+  } else if (error && typeof error === "object") {
+    // Handle Convex errors and other object-based errors
+    const errorObj = error as Record<string, unknown>;
+    message = (errorObj.message as string) ||
+              (errorObj.data as Record<string, unknown>)?.message as string ||
+              String(error);
+  }
+
+  if (!message) return null;
 
   // Check if it's a feature access error
   // Format: "This feature requires Professional (€399/month). Current tier: free. Upgrade to unlock this feature."
