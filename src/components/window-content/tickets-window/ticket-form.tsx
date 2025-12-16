@@ -5,7 +5,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
-import { Loader2, Save, X } from "lucide-react";
+import { Loader2, Save, X, Tag } from "lucide-react";
 
 interface TicketFormProps {
   sessionId: string;
@@ -28,6 +28,7 @@ export function TicketForm({
     eventId: "",
     holderName: "",
     holderEmail: "",
+    crmContactId: "",
   });
   const [saving, setSaving] = useState(false);
 
@@ -49,6 +50,13 @@ export function TicketForm({
     organizationId,
   });
 
+  // Get CRM contacts for the dropdown
+  const crmContacts = useQuery(api.crmOntology.getContacts, {
+    sessionId,
+    organizationId,
+    subtype: "customer",
+  });
+
   const createTicket = useMutation(api.ticketOntology.createTicket);
   const updateTicket = useMutation(api.ticketOntology.updateTicket);
 
@@ -60,6 +68,7 @@ export function TicketForm({
         eventId: (existingTicket.customProperties?.eventId as string) || "",
         holderName: (existingTicket.customProperties?.holderName as string) || "",
         holderEmail: (existingTicket.customProperties?.holderEmail as string) || "",
+        crmContactId: (existingTicket.customProperties?.crmContactId as string) || "",
       });
     }
   }, [existingTicket]);
@@ -77,6 +86,9 @@ export function TicketForm({
           holderName: formData.holderName,
           holderEmail: formData.holderEmail,
           eventId: formData.eventId ? (formData.eventId as Id<"objects">) : undefined,
+          customProperties: formData.crmContactId
+            ? { crmContactId: formData.crmContactId as Id<"objects"> }
+            : { crmContactId: null },
         });
       } else {
         // Create new ticket
@@ -87,6 +99,9 @@ export function TicketForm({
           eventId: formData.eventId ? (formData.eventId as Id<"objects">) : undefined,
           holderName: formData.holderName,
           holderEmail: formData.holderEmail,
+          customProperties: formData.crmContactId
+            ? { crmContactId: formData.crmContactId as Id<"objects"> }
+            : undefined,
         });
       }
 
@@ -115,8 +130,34 @@ export function TicketForm({
     );
   }
 
+  // Get the product name for display when editing
+  const currentProduct = formData.productId
+    ? products?.find((p) => p._id === formData.productId)
+    : null;
+
   return (
     <form onSubmit={handleSubmit} className="p-6 space-y-4">
+      {/* Product Display (read-only when editing) */}
+      {ticketId && currentProduct && (
+        <div
+          className="p-3 border-2 rounded flex items-center gap-3"
+          style={{
+            background: "var(--win95-input-bg)",
+            borderColor: "var(--win95-border)",
+          }}
+        >
+          <Tag size={18} style={{ color: "var(--win95-highlight)" }} />
+          <div>
+            <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+              Product
+            </p>
+            <p className="text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
+              {currentProduct.name}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Product Selection (only for new tickets) */}
       {!ticketId && (
         <div>
@@ -217,6 +258,37 @@ export function TicketForm({
         />
         <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
           {t("ui.tickets.form.holder_email_help")}
+        </p>
+      </div>
+
+      {/* CRM Contact Link (optional) */}
+      <div>
+        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+          Link to CRM Contact
+        </label>
+        <select
+          value={formData.crmContactId}
+          onChange={(e) => setFormData({ ...formData, crmContactId: e.target.value })}
+          className="w-full px-3 py-2 text-sm border-2"
+          style={{
+            borderColor: "var(--win95-border)",
+            background: "var(--win95-input-bg)",
+            color: "var(--win95-input-text)",
+          }}
+        >
+          <option value="">-- No CRM Contact --</option>
+          {crmContacts?.map((contact) => {
+            const contactProps = contact.customProperties as Record<string, unknown> | undefined;
+            const email = contactProps?.email as string | undefined;
+            return (
+              <option key={contact._id} value={contact._id}>
+                {contact.name}{email ? ` (${email})` : ""}
+              </option>
+            );
+          })}
+        </select>
+        <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+          Optionally link this ticket to a CRM contact for tracking
         </p>
       </div>
 

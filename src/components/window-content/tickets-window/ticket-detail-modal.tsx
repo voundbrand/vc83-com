@@ -1,7 +1,7 @@
 "use client";
 
 import { Doc, Id } from "../../../../convex/_generated/dataModel";
-import { X, Download, Printer, User, Mail, Phone, Calendar, Loader2, Send, RefreshCw } from "lucide-react";
+import { X, Download, Printer, User, Mail, Phone, Calendar, Loader2, Send, RefreshCw, UserCheck, Tag } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useNotification } from "@/hooks/use-notification";
@@ -81,6 +81,24 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
   // PDF generation actions
   const generateTicketPDF = useAction(api.pdfGeneration.generateTicketPDF);
   const regenerateTicketPDF = useAction(api.pdfGeneration.regenerateTicketPDF);
+
+  // Get linked CRM contact if exists
+  const crmContactId = ticket.customProperties?.crmContactId as Id<"objects"> | undefined;
+  const linkedContact = useQuery(
+    api.crmOntology.getContact,
+    crmContactId && userSessionId
+      ? { sessionId: userSessionId, contactId: crmContactId }
+      : "skip"
+  );
+
+  // Get the product for this ticket
+  const productId = ticket.customProperties?.productId as Id<"objects"> | undefined;
+  const ticketProduct = useQuery(
+    api.productOntology.getProduct,
+    productId && userSessionId && currentOrgId
+      ? { sessionId: userSessionId, productId }
+      : "skip"
+  );
 
   // Email actions
   const previewTicketEmail = useAction(api.ticketEmailService.previewTicketEmail);
@@ -534,6 +552,34 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
 
           {/* Second Column - Ticket Holder Info */}
           <div className="space-y-4">
+            {/* Product Info */}
+            {ticketProduct && (
+              <div
+                className="border-2 p-4"
+                style={{
+                  borderColor: "var(--win95-border)",
+                  background: "var(--win95-input-bg)",
+                }}
+              >
+                <h3 className="font-bold text-sm mb-3" style={{ color: "var(--win95-highlight)" }}>
+                  Product
+                </h3>
+                <div className="flex items-start gap-2">
+                  <Tag size={16} className="mt-0.5" style={{ color: "var(--win95-highlight)" }} />
+                  <div>
+                    <p className="text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
+                      {ticketProduct.name}
+                    </p>
+                    {ticketProduct.description && (
+                      <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+                        {ticketProduct.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div
               className="border-2 p-4"
               style={{
@@ -604,6 +650,33 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                       <p className="text-sm" style={{ color: "var(--win95-text)" }}>
                         {formatDate(customProps.purchaseDate)}
                       </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Linked CRM Contact */}
+                {linkedContact && (
+                  <div className="flex items-start gap-2 pt-2 border-t" style={{ borderColor: "var(--win95-border)" }}>
+                    <UserCheck
+                      size={16}
+                      className="mt-0.5"
+                      style={{ color: "var(--success)" }}
+                    />
+                    <div>
+                      <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                        CRM Contact
+                      </p>
+                      <p className="text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
+                        {linkedContact.name}
+                      </p>
+                      {(() => {
+                        const contactEmail = (linkedContact.customProperties as Record<string, unknown> | undefined)?.email;
+                        return contactEmail ? (
+                          <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                            {String(contactEmail)}
+                          </p>
+                        ) : null;
+                      })()}
                     </div>
                   </div>
                 )}
