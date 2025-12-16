@@ -69,6 +69,14 @@ export default mutation(async ({ db }) => {
     { key: "pdf.invoice.forQuestions", value: "For questions, contact" },
     { key: "pdf.invoice.contactUs", value: "or call" },
     { key: "pdf.invoice.thankYou", value: "Thank you for your business!" },
+    // Payment terms translations
+    { key: "pdf.invoice.paymentTerms.due_on_receipt", value: "Due upon receipt" },
+    { key: "pdf.invoice.paymentTerms.dueonreceipt", value: "Due upon receipt" },
+    { key: "pdf.invoice.paymentTerms.net7", value: "Net 7 – Payment due within 7 days" },
+    { key: "pdf.invoice.paymentTerms.net15", value: "Net 15 – Payment due within 15 days" },
+    { key: "pdf.invoice.paymentTerms.net30", value: "Net 30 – Payment due within 30 days" },
+    { key: "pdf.invoice.paymentTerms.net60", value: "Net 60 – Payment due within 60 days" },
+    { key: "pdf.invoice.paymentTerms.net90", value: "Net 90 – Payment due within 90 days" },
   ];
 
   for (const t of englishInvoiceTranslations) {
@@ -114,6 +122,14 @@ export default mutation(async ({ db }) => {
     { key: "pdf.invoice.forQuestions", value: "Bei Fragen kontaktieren Sie" },
     { key: "pdf.invoice.contactUs", value: "oder rufen Sie an" },
     { key: "pdf.invoice.thankYou", value: "Vielen Dank für Ihre Bestellung!" },
+    // Payment terms translations
+    { key: "pdf.invoice.paymentTerms.due_on_receipt", value: "Zahlbar bei Erhalt" },
+    { key: "pdf.invoice.paymentTerms.dueonreceipt", value: "Zahlbar bei Erhalt" },
+    { key: "pdf.invoice.paymentTerms.net7", value: "Netto 7 – Zahlung innerhalb von 7 Tagen" },
+    { key: "pdf.invoice.paymentTerms.net15", value: "Netto 15 – Zahlung innerhalb von 15 Tagen" },
+    { key: "pdf.invoice.paymentTerms.net30", value: "Netto 30 – Zahlung innerhalb von 30 Tagen" },
+    { key: "pdf.invoice.paymentTerms.net60", value: "Netto 60 – Zahlung innerhalb von 60 Tagen" },
+    { key: "pdf.invoice.paymentTerms.net90", value: "Netto 90 – Zahlung innerhalb von 90 Tagen" },
   ];
 
   for (const t of germanInvoiceTranslations) {
@@ -125,6 +141,218 @@ export default mutation(async ({ db }) => {
       t.key,
       t.value,
       "de",
+      category
+    );
+    if (inserted) insertedCount++;
+  }
+
+  // ============================================================================
+  // SPANISH TRANSLATIONS (Invoice)
+  // ============================================================================
+
+  const spanishInvoiceTranslations = [
+    { key: "pdf.invoice.title", value: "Factura" },
+    { key: "pdf.invoice.number", value: "Factura #" },
+    { key: "pdf.invoice.date", value: "Fecha" },
+    { key: "pdf.invoice.dueDate", value: "Fecha de Vencimiento" },
+    { key: "pdf.invoice.from", value: "De" },
+    { key: "pdf.invoice.billTo", value: "Facturar a" },
+    { key: "pdf.invoice.attention", value: "Atención:" },
+    { key: "pdf.invoice.vat", value: "NIF/CIF" },
+    { key: "pdf.invoice.itemDescription", value: "Descripción" },
+    { key: "pdf.invoice.quantity", value: "Cant." },
+    { key: "pdf.invoice.unitPrice", value: "Precio Unitario" },
+    { key: "pdf.invoice.net", value: "Neto" },
+    { key: "pdf.invoice.gross", value: "Bruto" },
+    { key: "pdf.invoice.total", value: "Total" },
+    { key: "pdf.invoice.subtotal", value: "Subtotal" },
+    { key: "pdf.invoice.tax", value: "IVA" },
+    { key: "pdf.invoice.paymentTerms", value: "Condiciones de Pago" },
+    { key: "pdf.invoice.terms", value: "Condiciones:" },
+    { key: "pdf.invoice.method", value: "Método:" },
+    { key: "pdf.invoice.paymentDue", value: "Pago vence el" },
+    { key: "pdf.invoice.latePayment", value: "Pueden aplicarse recargos por pago tardío." },
+    { key: "pdf.invoice.forQuestions", value: "Para consultas, contacte" },
+    { key: "pdf.invoice.contactUs", value: "o llame al" },
+    { key: "pdf.invoice.thankYou", value: "¡Gracias por su compra!" },
+    // Payment terms translations
+    { key: "pdf.invoice.paymentTerms.due_on_receipt", value: "Pago al recibo" },
+    { key: "pdf.invoice.paymentTerms.dueonreceipt", value: "Pago al recibo" },
+    { key: "pdf.invoice.paymentTerms.net7", value: "Neto 7 – Pago en 7 días" },
+    { key: "pdf.invoice.paymentTerms.net15", value: "Neto 15 – Pago en 15 días" },
+    { key: "pdf.invoice.paymentTerms.net30", value: "Neto 30 – Pago en 30 días" },
+    { key: "pdf.invoice.paymentTerms.net60", value: "Neto 60 – Pago en 60 días" },
+    { key: "pdf.invoice.paymentTerms.net90", value: "Neto 90 – Pago en 90 días" },
+  ];
+
+  for (const t of spanishInvoiceTranslations) {
+    const inserted = await insertTranslationIfNew(
+      db,
+      existingKeys,
+      systemOrg._id,
+      systemUser._id,
+      t.key,
+      t.value,
+      "es",
+      category
+    );
+    if (inserted) insertedCount++;
+  }
+
+  // ============================================================================
+  // FRENCH TRANSLATIONS (Invoice)
+  // ============================================================================
+
+  const frenchInvoiceTranslations = [
+    { key: "pdf.invoice.title", value: "Facture" },
+    { key: "pdf.invoice.number", value: "Facture n°" },
+    { key: "pdf.invoice.date", value: "Date" },
+    { key: "pdf.invoice.dueDate", value: "Date d'échéance" },
+    { key: "pdf.invoice.from", value: "De" },
+    { key: "pdf.invoice.billTo", value: "Facturer à" },
+    { key: "pdf.invoice.attention", value: "À l'attention de :" },
+    { key: "pdf.invoice.vat", value: "N° TVA" },
+    { key: "pdf.invoice.itemDescription", value: "Description" },
+    { key: "pdf.invoice.quantity", value: "Qté" },
+    { key: "pdf.invoice.unitPrice", value: "Prix Unitaire" },
+    { key: "pdf.invoice.net", value: "HT" },
+    { key: "pdf.invoice.gross", value: "TTC" },
+    { key: "pdf.invoice.total", value: "Total" },
+    { key: "pdf.invoice.subtotal", value: "Sous-total" },
+    { key: "pdf.invoice.tax", value: "TVA" },
+    { key: "pdf.invoice.paymentTerms", value: "Conditions de Paiement" },
+    { key: "pdf.invoice.terms", value: "Conditions :" },
+    { key: "pdf.invoice.method", value: "Méthode :" },
+    { key: "pdf.invoice.paymentDue", value: "Paiement dû le" },
+    { key: "pdf.invoice.latePayment", value: "Des frais de retard peuvent s'appliquer." },
+    { key: "pdf.invoice.forQuestions", value: "Pour toute question, contactez" },
+    { key: "pdf.invoice.contactUs", value: "ou appelez le" },
+    { key: "pdf.invoice.thankYou", value: "Merci pour votre confiance !" },
+    // Payment terms translations
+    { key: "pdf.invoice.paymentTerms.due_on_receipt", value: "Payable à réception" },
+    { key: "pdf.invoice.paymentTerms.dueonreceipt", value: "Payable à réception" },
+    { key: "pdf.invoice.paymentTerms.net7", value: "Net 7 – Paiement sous 7 jours" },
+    { key: "pdf.invoice.paymentTerms.net15", value: "Net 15 – Paiement sous 15 jours" },
+    { key: "pdf.invoice.paymentTerms.net30", value: "Net 30 – Paiement sous 30 jours" },
+    { key: "pdf.invoice.paymentTerms.net60", value: "Net 60 – Paiement sous 60 jours" },
+    { key: "pdf.invoice.paymentTerms.net90", value: "Net 90 – Paiement sous 90 jours" },
+  ];
+
+  for (const t of frenchInvoiceTranslations) {
+    const inserted = await insertTranslationIfNew(
+      db,
+      existingKeys,
+      systemOrg._id,
+      systemUser._id,
+      t.key,
+      t.value,
+      "fr",
+      category
+    );
+    if (inserted) insertedCount++;
+  }
+
+  // ============================================================================
+  // POLISH TRANSLATIONS (Invoice)
+  // ============================================================================
+
+  const polishInvoiceTranslations = [
+    { key: "pdf.invoice.title", value: "Faktura" },
+    { key: "pdf.invoice.number", value: "Faktura nr" },
+    { key: "pdf.invoice.date", value: "Data" },
+    { key: "pdf.invoice.dueDate", value: "Termin płatności" },
+    { key: "pdf.invoice.from", value: "Od" },
+    { key: "pdf.invoice.billTo", value: "Nabywca" },
+    { key: "pdf.invoice.attention", value: "Do wiadomości:" },
+    { key: "pdf.invoice.vat", value: "NIP" },
+    { key: "pdf.invoice.itemDescription", value: "Opis" },
+    { key: "pdf.invoice.quantity", value: "Ilość" },
+    { key: "pdf.invoice.unitPrice", value: "Cena jedn." },
+    { key: "pdf.invoice.net", value: "Netto" },
+    { key: "pdf.invoice.gross", value: "Brutto" },
+    { key: "pdf.invoice.total", value: "Razem" },
+    { key: "pdf.invoice.subtotal", value: "Suma częściowa" },
+    { key: "pdf.invoice.tax", value: "VAT" },
+    { key: "pdf.invoice.paymentTerms", value: "Warunki Płatności" },
+    { key: "pdf.invoice.terms", value: "Warunki:" },
+    { key: "pdf.invoice.method", value: "Metoda:" },
+    { key: "pdf.invoice.paymentDue", value: "Płatność do" },
+    { key: "pdf.invoice.latePayment", value: "Mogą być naliczane odsetki za opóźnienie." },
+    { key: "pdf.invoice.forQuestions", value: "W razie pytań prosimy o kontakt" },
+    { key: "pdf.invoice.contactUs", value: "lub zadzwoń" },
+    { key: "pdf.invoice.thankYou", value: "Dziękujemy za zakupy!" },
+    // Payment terms translations
+    { key: "pdf.invoice.paymentTerms.due_on_receipt", value: "Płatne przy odbiorze" },
+    { key: "pdf.invoice.paymentTerms.dueonreceipt", value: "Płatne przy odbiorze" },
+    { key: "pdf.invoice.paymentTerms.net7", value: "Netto 7 – Płatność w ciągu 7 dni" },
+    { key: "pdf.invoice.paymentTerms.net15", value: "Netto 15 – Płatność w ciągu 15 dni" },
+    { key: "pdf.invoice.paymentTerms.net30", value: "Netto 30 – Płatność w ciągu 30 dni" },
+    { key: "pdf.invoice.paymentTerms.net60", value: "Netto 60 – Płatność w ciągu 60 dni" },
+    { key: "pdf.invoice.paymentTerms.net90", value: "Netto 90 – Płatność w ciągu 90 dni" },
+  ];
+
+  for (const t of polishInvoiceTranslations) {
+    const inserted = await insertTranslationIfNew(
+      db,
+      existingKeys,
+      systemOrg._id,
+      systemUser._id,
+      t.key,
+      t.value,
+      "pl",
+      category
+    );
+    if (inserted) insertedCount++;
+  }
+
+  // ============================================================================
+  // JAPANESE TRANSLATIONS (Invoice)
+  // ============================================================================
+
+  const japaneseInvoiceTranslations = [
+    { key: "pdf.invoice.title", value: "請求書" },
+    { key: "pdf.invoice.number", value: "請求書番号" },
+    { key: "pdf.invoice.date", value: "発行日" },
+    { key: "pdf.invoice.dueDate", value: "支払期限" },
+    { key: "pdf.invoice.from", value: "発行者" },
+    { key: "pdf.invoice.billTo", value: "請求先" },
+    { key: "pdf.invoice.attention", value: "担当者:" },
+    { key: "pdf.invoice.vat", value: "登録番号" },
+    { key: "pdf.invoice.itemDescription", value: "品目" },
+    { key: "pdf.invoice.quantity", value: "数量" },
+    { key: "pdf.invoice.unitPrice", value: "単価" },
+    { key: "pdf.invoice.net", value: "税抜" },
+    { key: "pdf.invoice.gross", value: "税込" },
+    { key: "pdf.invoice.total", value: "合計" },
+    { key: "pdf.invoice.subtotal", value: "小計" },
+    { key: "pdf.invoice.tax", value: "消費税" },
+    { key: "pdf.invoice.paymentTerms", value: "支払条件" },
+    { key: "pdf.invoice.terms", value: "条件:" },
+    { key: "pdf.invoice.method", value: "方法:" },
+    { key: "pdf.invoice.paymentDue", value: "お支払い期限" },
+    { key: "pdf.invoice.latePayment", value: "遅延の場合、延滞料金が発生する場合があります。" },
+    { key: "pdf.invoice.forQuestions", value: "ご不明な点は、こちらまでお問い合わせください" },
+    { key: "pdf.invoice.contactUs", value: "または電話" },
+    { key: "pdf.invoice.thankYou", value: "ご利用ありがとうございます！" },
+    // Payment terms translations
+    { key: "pdf.invoice.paymentTerms.due_on_receipt", value: "受領時払い" },
+    { key: "pdf.invoice.paymentTerms.dueonreceipt", value: "受領時払い" },
+    { key: "pdf.invoice.paymentTerms.net7", value: "7日以内のお支払い" },
+    { key: "pdf.invoice.paymentTerms.net15", value: "15日以内のお支払い" },
+    { key: "pdf.invoice.paymentTerms.net30", value: "30日以内のお支払い" },
+    { key: "pdf.invoice.paymentTerms.net60", value: "60日以内のお支払い" },
+    { key: "pdf.invoice.paymentTerms.net90", value: "90日以内のお支払い" },
+  ];
+
+  for (const t of japaneseInvoiceTranslations) {
+    const inserted = await insertTranslationIfNew(
+      db,
+      existingKeys,
+      systemOrg._id,
+      systemUser._id,
+      t.key,
+      t.value,
+      "ja",
       category
     );
     if (inserted) insertedCount++;

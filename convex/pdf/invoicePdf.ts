@@ -748,6 +748,14 @@ export const generateInvoicePDF = action({
                 "pdf.invoice.forQuestions",
                 "pdf.invoice.contactUs",
                 "pdf.invoice.thankYou",
+                // Payment terms translations
+                "pdf.invoice.paymentTerms.due_on_receipt",
+                "pdf.invoice.paymentTerms.dueonreceipt",
+                "pdf.invoice.paymentTerms.net7",
+                "pdf.invoice.paymentTerms.net15",
+                "pdf.invoice.paymentTerms.net30",
+                "pdf.invoice.paymentTerms.net60",
+                "pdf.invoice.paymentTerms.net90",
                 // Month names for localized date formatting
                 "common.months.january",
                 "common.months.february",
@@ -828,6 +836,10 @@ export const generateInvoicePDF = action({
                 invoicePaymentTerms = "net30";
             }
 
+            // Translate payment terms to human-readable text
+            const paymentTermsTranslationKey = `pdf.invoice.paymentTerms.${invoicePaymentTerms}`;
+            const translatedPaymentTerms = translations[paymentTermsTranslationKey] || invoicePaymentTerms;
+
             // 11. Prepare invoice template data
             const invoiceData = {
                 // Organization info (use real settings only - no fake placeholders)
@@ -854,7 +866,7 @@ export const generateInvoicePDF = action({
                 invoice_number: invoiceNumber,
                 invoice_date: formatInvoiceDate(new Date(session.createdAt)),
                 due_date: formatInvoiceDate(new Date(invoiceDueDate)),
-                payment_terms: invoicePaymentTerms, // Pass payment terms to template
+                payment_terms: translatedPaymentTerms, // Pass translated payment terms to template
                 payment_method: (session.customProperties?.paymentMethod as string) || undefined, // Payment method (invoice, stripe, free)
 
                 // Translations (from database)
