@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Globe, FileText, Plus, Settings, BarChart3, Rocket, History } from "lucide-react";
+import { Globe, FileText, Plus, BarChart3, Rocket, Settings } from "lucide-react";
 import { PublishedPagesTab } from "./published-pages-tab";
 import { CreatePageTab } from "./create-page-tab";
+import { DeploymentsTab } from "./deployments-tab";
 import { DeploymentSettingsTab } from "./deployment-settings-tab";
-import { DeploymentDeployTab } from "./deployment-deploy-tab";
-import { DeploymentHistoryTab } from "./deployment-history-tab";
+import { VercelDeploymentModal } from "./vercel-deployment-modal";
+import { EnvVarsModal } from "./env-vars-modal";
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import type { Id } from "../../../../convex/_generated/dataModel";
@@ -20,13 +21,12 @@ import type { Id } from "../../../../convex/_generated/dataModel";
  * Tabs:
  * - Published Pages: List of org's published pages (draft, published, unpublished)
  * - Create/Edit Page: Same UI for creating new or editing existing pages
- * - Deployment Settings: Configure GitHub and deployment targets (per-page)
- * - Deploy: Execute deployment with pre-flight checks (per-page)
- * - Deployment History: View deployment timeline (per-page)
+ * - Deployments: List of deployments for selected page
+ * - Settings: Contextual settings for selected deployment
  * - Analytics: Page views, conversions (future)
  */
 
-type TabType = "pages" | "create" | "deployment-settings" | "deployment-deploy" | "deployment-history" | "analytics";
+type TabType = "pages" | "create" | "deployments" | "settings" | "analytics";
 
 interface EditMode {
   pageId: Id<"objects">;
@@ -53,6 +53,9 @@ export function WebPublishingWindow() {
   const [activeTab, setActiveTab] = useState<TabType>("pages");
   const [editMode, setEditMode] = useState<EditMode | null>(null);
   const [selectedPage, setSelectedPage] = useState<SelectedPage | null>(null);
+  const [selectedDeployment, setSelectedDeployment] = useState<any | null>(null);
+  const [showDeployModal, setShowDeployModal] = useState(false);
+  const [showEnvVarsModal, setShowEnvVarsModal] = useState(false);
   const { t } = useNamespaceTranslations("ui.web_publishing");
 
   // Check app availability - returns guard component if unavailable/loading, null if available
@@ -87,10 +90,7 @@ export function WebPublishingWindow() {
             background: activeTab === "pages" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
             color: activeTab === "pages" ? 'var(--win95-text)' : 'var(--neutral-gray)'
           }}
-          onClick={() => {
-            setActiveTab("pages");
-            setSelectedPage(null);
-          }}
+          onClick={() => setActiveTab("pages")}
         >
           <FileText size={14} />
           {t("ui.web_publishing.tab.published_pages")}
@@ -106,7 +106,6 @@ export function WebPublishingWindow() {
           }}
           onClick={() => {
             setEditMode(null);
-            setSelectedPage(null);
             setActiveTab("create");
           }}
         >
@@ -121,41 +120,30 @@ export function WebPublishingWindow() {
               className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
               style={{
                 borderColor: 'var(--win95-border)',
-                background: activeTab === "deployment-settings" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-                color: activeTab === "deployment-settings" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+                background: activeTab === "deployments" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+                color: activeTab === "deployments" ? 'var(--win95-text)' : 'var(--neutral-gray)'
               }}
-              onClick={() => setActiveTab("deployment-settings")}
-              title={`Deployment settings for ${selectedPage.name}`}
-            >
-              <Settings size={14} />
-              Settings
-            </button>
-            <button
-              className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
-              style={{
-                borderColor: 'var(--win95-border)',
-                background: activeTab === "deployment-deploy" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-                color: activeTab === "deployment-deploy" ? 'var(--win95-text)' : 'var(--neutral-gray)'
-              }}
-              onClick={() => setActiveTab("deployment-deploy")}
-              title={`Deploy ${selectedPage.name}`}
+              onClick={() => setActiveTab("deployments")}
+              title={`Deployments for ${selectedPage.name}`}
             >
               <Rocket size={14} />
-              Deploy
+              Deployments
             </button>
-            <button
-              className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
-              style={{
-                borderColor: 'var(--win95-border)',
-                background: activeTab === "deployment-history" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-                color: activeTab === "deployment-history" ? 'var(--win95-text)' : 'var(--neutral-gray)'
-              }}
-              onClick={() => setActiveTab("deployment-history")}
-              title={`Deployment history for ${selectedPage.name}`}
-            >
-              <History size={14} />
-              History
-            </button>
+            {selectedDeployment && (
+              <button
+                className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
+                style={{
+                  borderColor: 'var(--win95-border)',
+                  background: activeTab === "settings" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+                  color: activeTab === "settings" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+                }}
+                onClick={() => setActiveTab("settings")}
+                title={`Settings for ${selectedDeployment.name}`}
+              >
+                <Settings size={14} />
+                Settings
+              </button>
+            )}
           </>
         )}
 
@@ -187,12 +175,10 @@ export function WebPublishingWindow() {
               });
               setActiveTab("create");
             }}
-            onSelectPage={(page) => {
-              setSelectedPage({
-                _id: page._id,
-                name: page.name,
-              });
-              setActiveTab("deployment-settings");
+            onSelectPageForDeployment={(page) => {
+              setSelectedPage(page);
+              setSelectedDeployment(null);
+              setActiveTab("deployments");
             }}
           />
         )}
@@ -204,27 +190,29 @@ export function WebPublishingWindow() {
           />
         )}
 
+        {/* Deployments List */}
+        {activeTab === "deployments" && selectedPage && (
+          <DeploymentsTab
+            pageId={selectedPage._id}
+            pageName={selectedPage.name}
+            selectedDeploymentId={selectedDeployment?.id}
+            onSelectDeployment={(deployment) => {
+              setSelectedDeployment(deployment);
+              setActiveTab("settings");
+            }}
+            onAddDeployment={() => {
+              setShowDeployModal(true);
+            }}
+          />
+        )}
+
         {/* Deployment Settings */}
-        {activeTab === "deployment-settings" && selectedPage && (
+        {activeTab === "settings" && selectedPage && selectedDeployment && (
           <DeploymentSettingsTab
             pageId={selectedPage._id}
             pageName={selectedPage.name}
-          />
-        )}
-
-        {/* Deployment Deploy */}
-        {activeTab === "deployment-deploy" && selectedPage && (
-          <DeploymentDeployTab
-            pageId={selectedPage._id}
-            pageName={selectedPage.name}
-          />
-        )}
-
-        {/* Deployment History */}
-        {activeTab === "deployment-history" && selectedPage && (
-          <DeploymentHistoryTab
-            pageId={selectedPage._id}
-            pageName={selectedPage.name}
+            deployment={selectedDeployment}
+            onOpenEnvVarsModal={() => setShowEnvVarsModal(true)}
           />
         )}
 
@@ -235,6 +223,35 @@ export function WebPublishingWindow() {
           </div>
         )}
       </div>
+
+      {/* Vercel Deployment Modal */}
+      {showDeployModal && selectedPage && (
+        <VercelDeploymentModal
+          page={{
+            _id: selectedPage._id,
+            name: selectedPage.name,
+          }}
+          onClose={() => setShowDeployModal(false)}
+          onEditPage={() => {
+            setShowDeployModal(false);
+            // Could open settings modal here
+          }}
+        />
+      )}
+
+      {/* Env Vars Modal */}
+      {showEnvVarsModal && selectedPage && (
+        <EnvVarsModal
+          page={{
+            _id: selectedPage._id,
+            name: selectedPage.name,
+          }}
+          onClose={() => setShowEnvVarsModal(false)}
+          onSaved={() => {
+            setShowEnvVarsModal(false);
+          }}
+        />
+      )}
     </div>
   );
 }

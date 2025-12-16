@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Rocket, AlertCircle, CheckCircle, ExternalLink, Settings, Loader2, RefreshCw } from "lucide-react";
+import { X, Rocket, AlertCircle, CheckCircle, ExternalLink, Settings, Loader2, RefreshCw, Copy, Key, Plus, Trash2 } from "lucide-react";
 import { RetroButton } from "@/components/retro-button";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
@@ -525,6 +525,111 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
             })}
           </div>
 
+          {/* Environment Variables Section */}
+          <div
+            className="mb-6 p-4 border-2"
+            style={{
+              borderColor: 'var(--win95-border)',
+              background: 'var(--win95-bg-light)'
+            }}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
+                <Key size={16} />
+                Environment Variables ({envVars && Array.isArray(envVars) ? envVars.length : 0})
+              </h4>
+              <RetroButton
+                onClick={() => setShowEnvVarsModal(true)}
+                variant="secondary"
+                size="sm"
+                className="flex items-center gap-2 whitespace-nowrap"
+              >
+                <Plus size={14} />
+                Add Variable
+              </RetroButton>
+            </div>
+
+            {!envVars || (Array.isArray(envVars) && envVars.length === 0) ? (
+              <div className="text-center py-4">
+                <p className="text-xs mb-2" style={{ color: 'var(--neutral-gray)' }}>
+                  No environment variables configured yet.
+                </p>
+                <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
+                  Add variables that your app needs (API keys, database URLs, etc.)
+                </p>
+              </div>
+            ) : (
+              <>
+                <p className="text-xs mb-3" style={{ color: 'var(--neutral-gray)' }}>
+                  Copy these values and paste them into Vercel during deployment:
+                </p>
+                <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                  {Array.isArray(envVars) && envVars.map((envVar: any) => (
+                    <div
+                      key={envVar._id}
+                      className="flex items-center justify-between p-2 border-2"
+                      style={{
+                        borderColor: 'var(--win95-border)',
+                        background: 'white'
+                      }}
+                    >
+                      <div className="flex-1 font-mono text-xs overflow-hidden">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-bold" style={{ color: 'var(--win95-text)' }}>
+                            {envVar.key}
+                          </span>
+                          {envVar.required && (
+                            <span
+                              className="px-1.5 py-0.5 text-xs font-bold"
+                              style={{
+                                background: 'var(--error)',
+                                color: 'white'
+                              }}
+                            >
+                              REQUIRED
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs truncate" style={{ color: 'var(--neutral-gray)' }}>
+                          {envVar.value ? (envVar.value.length > 50 ? envVar.value.substring(0, 50) + '...' : envVar.value) : '(not set)'}
+                        </div>
+                        {envVar.description && (
+                          <div className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
+                            {envVar.description}
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (envVar.value) {
+                            navigator.clipboard.writeText(envVar.value);
+                            notification.success("Copied", `${envVar.key} copied to clipboard`);
+                          }
+                        }}
+                        className="px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors ml-2"
+                        style={{
+                          borderColor: 'var(--win95-border)',
+                          background: 'var(--win95-bg-light)',
+                          color: 'var(--info)'
+                        }}
+                        title={`Copy ${envVar.key}`}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'var(--win95-hover-light)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'var(--win95-bg-light)';
+                        }}
+                      >
+                        <Copy size={12} />
+                        Copy
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
           {/* Action Required Section */}
           {!isValidating && !allCriticalChecksPassed && checks.length > 0 && (
             <div
@@ -592,6 +697,7 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
                 variant="secondary"
                 size="sm"
                 disabled={isValidating}
+                className="flex items-center gap-2 whitespace-nowrap"
               >
                 <RefreshCw size={14} className={isValidating ? "animate-spin" : ""} />
                 Re-validate
@@ -613,6 +719,7 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
                   variant="primary"
                   size="sm"
                   disabled={isDeploying}
+                  className="flex items-center gap-2 whitespace-nowrap"
                 >
                   {isDeploying ? (
                     <>

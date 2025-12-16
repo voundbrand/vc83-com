@@ -99,7 +99,6 @@ import type * as crons from "../crons.js";
 import type * as cryptoActions from "../cryptoActions.js";
 import type * as debugCrmContact from "../debugCrmContact.js";
 import type * as debugProduction from "../debugProduction.js";
-import type * as deploymentOntology from "../deploymentOntology.js";
 import type * as domainConfigOntology from "../domainConfigOntology.js";
 import type * as emailDelivery from "../emailDelivery.js";
 import type * as emailQueue from "../emailQueue.js";
@@ -527,7 +526,6 @@ declare const fullApi: ApiFromModules<{
   cryptoActions: typeof cryptoActions;
   debugCrmContact: typeof debugCrmContact;
   debugProduction: typeof debugProduction;
-  deploymentOntology: typeof deploymentOntology;
   domainConfigOntology: typeof domainConfigOntology;
   emailDelivery: typeof emailDelivery;
   emailQueue: typeof emailQueue;

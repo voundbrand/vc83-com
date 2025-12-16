@@ -26,10 +26,7 @@ interface PublishedPagesTabProps {
       templateContent?: Record<string, unknown>;
     };
   }) => void;
-  onSelectPage?: (page: {
-    _id: Id<"objects">;
-    name: string;
-  }) => void;
+  onSelectPageForDeployment?: (page: { _id: Id<"objects">; name: string }) => void;
 }
 
 /**
@@ -40,7 +37,7 @@ interface PublishedPagesTabProps {
  */
 type PageSubTab = "drafts" | "published";
 
-export function PublishedPagesTab({ onEditPage, onSelectPage }: PublishedPagesTabProps) {
+export function PublishedPagesTab({ onEditPage, onSelectPageForDeployment }: PublishedPagesTabProps) {
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
   const { t } = useNamespaceTranslations("ui.web_publishing");
@@ -212,7 +209,7 @@ export function PublishedPagesTab({ onEditPage, onSelectPage }: PublishedPagesTa
             {/* Pages list */}
             <div className="space-y-2">
               {currentPages.map((page) => (
-                <PageCard key={page._id} page={page} onEditPage={onEditPage} onSelectPage={onSelectPage} />
+                <PageCard key={page._id} page={page} onEditPage={onEditPage} onSelectPageForDeployment={onSelectPageForDeployment} />
               ))}
             </div>
           </div>
@@ -228,14 +225,14 @@ export function PublishedPagesTab({ onEditPage, onSelectPage }: PublishedPagesTa
 function PageCard({
   page,
   onEditPage,
-  onSelectPage,
+  onSelectPageForDeployment,
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   page: any;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onEditPage: (page: any) => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onSelectPage?: (page: any) => void;
+  onSelectPageForDeployment?: (page: any) => void;
 }) {
   const { sessionId } = useAuth();
   const { t } = useNamespaceTranslations("ui.web_publishing");
@@ -437,8 +434,8 @@ function PageCard({
 
         {/* Right: Action buttons */}
         <div className="flex items-center gap-1">
-          {/* Configure Deployment button (only for external_app subtype) */}
-          {page.subtype === "external_app" && onSelectPage && (
+          {/* Manage Deployments button (only for external_app subtype) */}
+          {page.subtype === "external_app" && onSelectPageForDeployment && (
             <button
               className="px-2 py-1.5 text-xs border-2 flex items-center gap-1 transition-colors whitespace-nowrap h-[28px]"
               style={{
@@ -446,9 +443,9 @@ function PageCard({
                 background: 'var(--win95-bg-light)',
                 color: 'var(--win95-highlight)'
               }}
-              title="Configure deployment settings"
+              title="Manage deployments"
               disabled={isLoading}
-              onClick={() => onSelectPage(page)}
+              onClick={() => onSelectPageForDeployment({ _id: page._id, name: page.name })}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = 'var(--win95-hover-light)';
               }}
@@ -457,7 +454,7 @@ function PageCard({
               }}
             >
               <ExternalLink size={12} />
-              Configure Deployment
+              Deployments
             </button>
           )}
 
