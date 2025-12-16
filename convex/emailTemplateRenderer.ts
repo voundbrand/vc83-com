@@ -86,12 +86,12 @@ export const resolveEmailTemplateCode = action({
     }
 
     // 4. Check domain-level template (from domain config)
-    // For now, default to luxury-confirmation
+    // For now, default to modern-minimal
     // TODO: Add domain config template resolution
 
     // 5. Default fallback
-    console.log(`✅ Using fallback email template: luxury-confirmation`);
-    return "luxury-confirmation";
+    console.log(`✅ Using fallback email template: modern-minimal`);
+    return "modern-minimal";
   },
 });
 

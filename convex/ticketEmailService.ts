@@ -86,7 +86,7 @@ export const sendTicketConfirmationEmail = action({
       emailSettings = {
         senderEmail: "tickets@mail.l4yercak3.com",
         replyToEmail: "support@l4yercak3.com",
-        defaultTemplateCode: "luxury-confirmation",
+        defaultTemplateCode: "modern-minimal",
       };
     }
 
