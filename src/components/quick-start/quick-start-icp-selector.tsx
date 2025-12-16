@@ -1,6 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
+import { useMutation } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import { useAuth } from "@/hooks/use-auth";
 import { ICPCard } from "./icp-card";
 import { QuickStartProgressComponent } from "./quick-start-progress";
 import { ICP_DEFINITIONS } from "./icp-definitions";
@@ -19,6 +22,9 @@ export function QuickStartICPSelector({
   onComplete,
   completedICPs = [],
 }: QuickStartICPSelectorProps) {
+  const { sessionId } = useAuth();
+  const applyQuickStart = useMutation(api.manualOnboarding.applyQuickStart);
+
   const [selectedICP, setSelectedICP] = useState<ICPId | null>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [progress, setProgress] = useState<QuickStartProgress | null>(null);
@@ -32,32 +38,110 @@ export function QuickStartICPSelector({
   };
 
   const handleConfirm = async () => {
-    if (!selectedICP) return;
+    if (!selectedICP || !sessionId) return;
 
     setShowConfirmation(false);
+
+    // Define provisioning steps
+    const stepNames = [
+      "Validating configuration",
+      "Installing apps",
+      "Provisioning templates",
+      "Configuring settings",
+      "Finalizing setup",
+    ];
 
     // Initialize progress tracking
     const initialProgress: QuickStartProgress = {
       icpId: selectedICP,
       status: "provisioning",
       progress: 0,
-      steps: [
-        { name: "Validating configuration", status: "in_progress" },
-        { name: "Installing apps", status: "pending" },
-        { name: "Provisioning templates", status: "pending" },
-        { name: "Configuring settings", status: "pending" },
-        { name: "Finalizing setup", status: "pending" },
-      ],
+      steps: stepNames.map((name, idx) => ({
+        name,
+        status: idx === 0 ? "in_progress" : "pending",
+      })),
     };
 
     setProgress(initialProgress);
 
-    // Simulate provisioning steps (replace with actual backend call)
-    await simulateProvisioning(selectedICP, (updatedProgress) => {
-      setProgress(updatedProgress);
-    });
+    try {
+      // Step 1: Validating configuration
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      setProgress({
+        ...initialProgress,
+        progress: 20,
+        steps: stepNames.map((name, idx) => ({
+          name,
+          status: idx === 0 ? "completed" : idx === 1 ? "in_progress" : "pending",
+          message: idx === 0 ? "Done" : idx === 1 ? "Processing..." : undefined,
+        })),
+      });
 
-    onComplete?.(selectedICP);
+      // Step 2: Call real backend mutation
+      console.log("[Quick Start] Calling applyQuickStart mutation...");
+      const result = await applyQuickStart({ sessionId });
+      console.log("[Quick Start] Backend result:", result);
+
+      // Step 3: Update progress - Apps installed
+      setProgress({
+        icpId: selectedICP,
+        status: "provisioning",
+        progress: 60,
+        steps: stepNames.map((name, idx) => ({
+          name,
+          status: idx <= 1 ? "completed" : idx === 2 ? "in_progress" : "pending",
+          message: idx <= 1 ? "Done" : idx === 2 ? "Processing..." : undefined,
+        })),
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Step 4: Update progress - Templates provisioned
+      setProgress({
+        icpId: selectedICP,
+        status: "provisioning",
+        progress: 80,
+        steps: stepNames.map((name, idx) => ({
+          name,
+          status: idx <= 2 ? "completed" : idx === 3 ? "in_progress" : "pending",
+          message: idx <= 2 ? "Done" : idx === 3 ? "Processing..." : undefined,
+        })),
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Step 5: Complete
+      setProgress({
+        icpId: selectedICP,
+        status: "completed",
+        progress: 100,
+        steps: stepNames.map((name) => ({
+          name,
+          status: "completed",
+          message: "Done",
+        })),
+      });
+
+      console.log("[Quick Start] ✅ Provisioning complete:", {
+        appsProvisioned: result.appsProvisioned,
+        templatesProvisioned: result.templatesProvisioned,
+        alreadyInstalled: result.alreadyInstalled,
+      });
+
+      onComplete?.(selectedICP);
+    } catch (error) {
+      console.error("[Quick Start] ❌ Provisioning failed:", error);
+      setProgress({
+        icpId: selectedICP,
+        status: "error",
+        progress: 0,
+        error: error instanceof Error ? error.message : "Provisioning failed",
+        steps: stepNames.map((name) => ({
+          name,
+          status: "error",
+        })),
+      });
+    }
   };
 
   const handleCancel = () => {
@@ -210,51 +294,3 @@ export function QuickStartICPSelector({
   );
 }
 
-/**
- * Simulate provisioning steps (replace with actual backend call)
- */
-async function simulateProvisioning(
-  icpId: ICPId,
-  onProgress: (progress: QuickStartProgress) => void
-) {
-  const steps = [
-    "Validating configuration",
-    "Installing apps",
-    "Provisioning templates",
-    "Configuring settings",
-    "Finalizing setup",
-  ];
-
-  for (let i = 0; i < steps.length; i++) {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    const isLastStep = i === steps.length - 1;
-
-    const progress: QuickStartProgress = {
-      icpId,
-      status: isLastStep ? "completed" : "provisioning",
-      progress: ((i + 1) / steps.length) * 100,
-      steps: steps.map((name, idx) => ({
-        name,
-        status:
-          idx < i
-            ? "completed"
-            : idx === i
-            ? isLastStep
-              ? "completed" // Mark last step as completed, not in_progress
-              : "in_progress"
-            : "pending",
-        message:
-          idx === i
-            ? isLastStep
-              ? "Done"
-              : `Processing ${name.toLowerCase()}...`
-            : idx < i
-            ? "Done"
-            : undefined,
-      })),
-    };
-
-    onProgress(progress);
-  }
-}
