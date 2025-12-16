@@ -9,7 +9,7 @@ interface OrganizationSwitcherWindowProps {
 }
 
 export function OrganizationSwitcherWindow({ onClose }: OrganizationSwitcherWindowProps) {
-  const { t } = useNamespaceTranslations("ui");
+  const { t } = useNamespaceTranslations("ui.start_menu");
   const organizations = useOrganizations();
   const currentOrg = useCurrentOrganization();
   const { switchOrganization } = useAuth();
