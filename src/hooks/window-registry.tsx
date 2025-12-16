@@ -159,8 +159,8 @@ const OnboardingWelcomeScreen = lazy(() =>
   import("@/components/onboarding-welcome-screen").then(m => ({ default: m.OnboardingWelcomeScreen }))
 );
 
-const QuickStartSimple = lazy(() =>
-  import("@/components/quick-start").then(m => ({ default: m.QuickStartSimple }))
+const QuickStartICPSelector = lazy(() =>
+  import("@/components/quick-start").then(m => ({ default: m.QuickStartICPSelector }))
 );
 
 /**
@@ -567,12 +567,20 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
   },
 
   "quick-start": {
-    createComponent: () => <QuickStartSimple />,
+    createComponent: () => (
+      <div className="p-6">
+        <QuickStartICPSelector
+          onComplete={(icpId) => {
+            console.log("Quick Start completed:", icpId);
+          }}
+        />
+      </div>
+    ),
     defaultConfig: {
       title: "Quick Start",
       icon: "🚀",
       position: { x: 200, y: 100 },
-      size: { width: 600, height: 650 }
+      size: { width: 900, height: 700 }
     }
   }
 };
