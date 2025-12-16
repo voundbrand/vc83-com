@@ -123,8 +123,8 @@ export default mutation(async ({ db }) => {
     { key: "pdf.invoice.contactUs", value: "oder rufen Sie an" },
     { key: "pdf.invoice.thankYou", value: "Vielen Dank für Ihre Bestellung!" },
     // Payment terms translations
-    { key: "pdf.invoice.paymentTerms.due_on_receipt", value: "Zahlbar bei Erhalt" },
-    { key: "pdf.invoice.paymentTerms.dueonreceipt", value: "Zahlbar bei Erhalt" },
+    { key: "pdf.invoice.paymentTerms.due_on_receipt", value: "Sofort fällig" },
+    { key: "pdf.invoice.paymentTerms.dueonreceipt", value: "Sofort fällig" },
     { key: "pdf.invoice.paymentTerms.net7", value: "Netto 7 – Zahlung innerhalb von 7 Tagen" },
     { key: "pdf.invoice.paymentTerms.net15", value: "Netto 15 – Zahlung innerhalb von 15 Tagen" },
     { key: "pdf.invoice.paymentTerms.net30", value: "Netto 30 – Zahlung innerhalb von 30 Tagen" },
