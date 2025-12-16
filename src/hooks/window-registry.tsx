@@ -159,8 +159,8 @@ const OnboardingWelcomeScreen = lazy(() =>
   import("@/components/onboarding-welcome-screen").then(m => ({ default: m.OnboardingWelcomeScreen }))
 );
 
-const QuickStartICPSelector = lazy(() =>
-  import("@/components/quick-start").then(m => ({ default: m.QuickStartICPSelector }))
+const QuickStartSimple = lazy(() =>
+  import("@/components/quick-start").then(m => ({ default: m.QuickStartSimple }))
 );
 
 /**
@@ -567,26 +567,12 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
   },
 
   "quick-start": {
-    createComponent: () => (
-      <div className="p-6">
-        <h2 className="text-lg font-bold mb-4" style={{ color: 'var(--win95-text)' }}>
-          Configure Your Workspace
-        </h2>
-        <p className="text-sm mb-6" style={{ color: 'var(--neutral-gray)' }}>
-          Choose a profile to automatically configure apps and templates for your use case.
-        </p>
-        <QuickStartICPSelector
-          onComplete={(icpId) => {
-            console.log("Quick Start completed:", icpId);
-          }}
-        />
-      </div>
-    ),
+    createComponent: () => <QuickStartSimple />,
     defaultConfig: {
       title: "Quick Start",
       icon: "🚀",
       position: { x: 200, y: 100 },
-      size: { width: 900, height: 700 }
+      size: { width: 600, height: 650 }
     }
   }
 };
