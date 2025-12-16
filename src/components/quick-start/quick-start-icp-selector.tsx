@@ -23,6 +23,9 @@ export function QuickStartICPSelector({
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [progress, setProgress] = useState<QuickStartProgress | null>(null);
 
+  // Debug: Log render
+  console.log("QuickStartICPSelector rendering", { completedICPs, ICP_DEFINITIONS });
+
   const handleSelectICP = (icpId: string) => {
     setSelectedICP(icpId as ICPId);
     setShowConfirmation(true);
