@@ -35,6 +35,7 @@ import { TutorialWindow } from "@/components/window-content/tutorial-window"
 import { TutorialsDocsWindow } from "@/components/window-content/tutorials-docs-window"
 import { IntegrationsWindow } from "@/components/window-content/integrations-window"
 import { ComplianceWindow } from "@/components/window-content/compliance-window"
+import { OrganizationSwitcherWindow } from "@/components/window-content/organization-switcher-window"
 import { OnboardingWelcomeScreen } from "@/components/onboarding-welcome-screen"
 import { useIsMobile } from "@/hooks/use-media-query"
 import { useAuth, useOrganizations, useCurrentOrganization, useIsSuperAdmin, useAccountDeletionStatus } from "@/hooks/use-auth"
@@ -52,7 +53,7 @@ export default function HomePage() {
   const [showStartMenu, setShowStartMenu] = useState(false)
   const { windows, openWindow, restoreWindow, focusWindow } = useWindowManager()
   const isMobile = useIsMobile()
-  const { isSignedIn, signOut, switchOrganization, sessionId } = useAuth()
+  const { isSignedIn, signOut, sessionId } = useAuth()
   const organizations = useOrganizations()
   const currentOrg = useCurrentOrganization()
   const isSuperAdmin = useIsSuperAdmin()
@@ -203,6 +204,12 @@ export default function HomePage() {
 
   const openComplianceWindow = () => {
     openWindow("compliance", "Compliance", <ComplianceWindow />, { x: 150, y: 100 }, { width: 900, height: 600 }, 'ui.app.compliance', '⚖️')
+  }
+
+  const openOrganizationSwitcherWindow = () => {
+    const centerX = typeof window !== 'undefined' ? (window.innerWidth - 400) / 2 : 300;
+    const centerY = typeof window !== 'undefined' ? (window.innerHeight - 400) / 2 : 150;
+    openWindow("organization-switcher", "Switch Organization", <OrganizationSwitcherWindow />, { x: centerX, y: centerY }, { width: 400, height: 400 }, 'ui.start_menu.organizations', '🏢')
   }
 
   const openIntegrationsWindow = (initialPanel?: "api-keys" | "microsoft") => {
@@ -431,13 +438,6 @@ export default function HomePage() {
   // Filter to only show active organizations in the start menu
   const activeOrganizations = organizations.filter(org => org.isActive);
 
-  const orgMenuItems = activeOrganizations.map(org => ({
-    label: truncateOrgName(org.name), // Truncate long names
-    fullLabel: org.name, // Keep full name for title attribute
-    icon: currentOrg?.id === org.id ? "✓" : "🏢",
-    onClick: () => switchOrganization(org.id)
-  }))
-
   // Helper to require authentication for actions
   const requireAuth = (action: () => void) => {
     return () => {
@@ -518,11 +518,11 @@ export default function HomePage() {
     },
     //{ label: "Documents", icon: "📄", onClick: requireAuth(() => console.log("Documents - Coming soon")) },
 
-    // Organizations menu BEFORE Settings - only show if user has active organizations
+    // Organizations - opens window to show current org and switch
     ...(isSignedIn && activeOrganizations.length > 0 ? [{
-      label: t('ui.start_menu.organizations'),
+      label: currentOrg ? `${truncateOrgName(currentOrg.name, 15)}` : t('ui.start_menu.organizations'),
       icon: "🏢",
-      submenu: orgMenuItems
+      onClick: openOrganizationSwitcherWindow
     }] : []),
 
     // Store menu item - platform services and subscriptions (allow browsing without login)
