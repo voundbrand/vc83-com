@@ -147,6 +147,7 @@ import type * as licensing_badgeVerification from "../licensing/badgeVerificatio
 import type * as licensing_helpers from "../licensing/helpers.js";
 import type * as licensing_superAdmin from "../licensing/superAdmin.js";
 import type * as licensing_tierConfigs from "../licensing/tierConfigs.js";
+import type * as manualOnboarding from "../manualOnboarding.js";
 import type * as mediaFolderOntology from "../mediaFolderOntology.js";
 import type * as middleware_anomalyDetection from "../middleware/anomalyDetection.js";
 import type * as middleware_anomalyDetectionDb from "../middleware/anomalyDetectionDb.js";
@@ -574,6 +575,7 @@ declare const fullApi: ApiFromModules<{
   "licensing/helpers": typeof licensing_helpers;
   "licensing/superAdmin": typeof licensing_superAdmin;
   "licensing/tierConfigs": typeof licensing_tierConfigs;
+  manualOnboarding: typeof manualOnboarding;
   mediaFolderOntology: typeof mediaFolderOntology;
   "middleware/anomalyDetection": typeof middleware_anomalyDetection;
   "middleware/anomalyDetectionDb": typeof middleware_anomalyDetectionDb;

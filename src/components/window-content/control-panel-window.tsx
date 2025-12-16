@@ -6,6 +6,7 @@ import { ManageWindow } from "./org-owner-manage-window";
 import { TranslationsWindow } from "./translations-window";
 import { OrganizationsWindow } from "./super-admin-organizations-window";
 import { IntegrationsWindow } from "./integrations-window";
+import { QuickStartICPSelector } from "@/components/quick-start";
 import { usePermissions } from "@/contexts/permission-context";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
@@ -89,6 +90,30 @@ export function ControlPanelWindow() {
     );
   };
 
+  const openQuickStartWindow = () => {
+    openWindow(
+      "quick-start",
+      "Quick Start",
+      <div className="p-6">
+        <h2 className="text-lg font-bold mb-4" style={{ color: 'var(--win95-text)' }}>
+          Configure Your Workspace
+        </h2>
+        <p className="text-sm mb-6" style={{ color: 'var(--neutral-gray)' }}>
+          Choose a profile to automatically configure apps and templates for your use case.
+        </p>
+        <QuickStartICPSelector
+          onComplete={(icpId) => {
+            console.log("Quick Start completed:", icpId);
+          }}
+        />
+      </div>,
+      { x: 200, y: 100 },
+      { width: 900, height: 700 },
+      undefined,
+      "🚀"
+    );
+  };
+
   // Base items that everyone sees
   const baseItems: ControlPanelItem[] = [
     {
@@ -97,6 +122,13 @@ export function ControlPanelWindow() {
       label: t('ui.controlpanel.item.desktop'),
       onClick: openDesktopSettings,
       description: "Appearance, wallpaper, and region settings",
+    },
+    {
+      id: "quick-start",
+      icon: "🚀",
+      label: "Quick Start",
+      onClick: openQuickStartWindow,
+      description: "Configure your workspace for your use case",
     },
     {
       id: "tutorials",

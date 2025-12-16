@@ -27,6 +27,9 @@ export const users = defineTable({
   invitedBy: v.optional(v.id("users")),
   invitedAt: v.optional(v.number()),
 
+  // Quick Start onboarding tracking
+  completedICPs: v.optional(v.array(v.string())), // ICP IDs user has completed ["ai-agency", "freelancer", etc.]
+
   // Account deletion (grace period)
   scheduledDeletionDate: v.optional(v.number()), // 2-week grace period before permanent deletion
 

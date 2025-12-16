@@ -528,6 +528,7 @@ export default function HomePage() {
     // Store menu item - platform services and subscriptions (allow browsing without login)
     { label: t('ui.start_menu.store'), icon: "🏪", onClick: openStoreWindow },
 
+    { label: "Quick Start", icon: "🚀", onClick: requireAuth(() => openWindow("quick-start", "Quick Start", undefined, { x: 200, y: 100 }, { width: 900, height: 700 }, undefined, "🚀")) },
     { label: t('ui.start_menu.settings'), icon: "⚙️", onClick: requireAuth(openSettingsWindow) },
 
     {
