@@ -8,7 +8,7 @@
  */
 
 import { mutation } from "../_generated/server";
-import { insertTranslationIfNew } from "./_translationHelpers";
+import { upsertTranslation } from "./_translationHelpers";
 
 export default mutation(async ({ db }) => {
   // Get system organization
@@ -36,9 +36,9 @@ export default mutation(async ({ db }) => {
     throw new Error("No users found in database - please create at least one user first");
   }
 
-  const existingKeys = new Set<string>();
   const category = "pdf_templates";
   let insertedCount = 0;
+  let updatedCount = 0;
 
   // ============================================================================
   // ENGLISH TRANSLATIONS (Invoice)
@@ -80,9 +80,8 @@ export default mutation(async ({ db }) => {
   ];
 
   for (const t of englishInvoiceTranslations) {
-    const inserted = await insertTranslationIfNew(
+    const result = await upsertTranslation(
       db,
-      existingKeys,
       systemOrg._id,
       systemUser._id,
       t.key,
@@ -90,7 +89,8 @@ export default mutation(async ({ db }) => {
       "en",
       category
     );
-    if (inserted) insertedCount++;
+    if (result.inserted) insertedCount++;
+    if (result.updated) updatedCount++;
   }
 
   // ============================================================================
@@ -133,9 +133,8 @@ export default mutation(async ({ db }) => {
   ];
 
   for (const t of germanInvoiceTranslations) {
-    const inserted = await insertTranslationIfNew(
+    const result = await upsertTranslation(
       db,
-      existingKeys,
       systemOrg._id,
       systemUser._id,
       t.key,
@@ -143,7 +142,8 @@ export default mutation(async ({ db }) => {
       "de",
       category
     );
-    if (inserted) insertedCount++;
+    if (result.inserted) insertedCount++;
+    if (result.updated) updatedCount++;
   }
 
   // ============================================================================
@@ -186,9 +186,8 @@ export default mutation(async ({ db }) => {
   ];
 
   for (const t of spanishInvoiceTranslations) {
-    const inserted = await insertTranslationIfNew(
+    const result = await upsertTranslation(
       db,
-      existingKeys,
       systemOrg._id,
       systemUser._id,
       t.key,
@@ -196,7 +195,8 @@ export default mutation(async ({ db }) => {
       "es",
       category
     );
-    if (inserted) insertedCount++;
+    if (result.inserted) insertedCount++;
+    if (result.updated) updatedCount++;
   }
 
   // ============================================================================
@@ -239,9 +239,8 @@ export default mutation(async ({ db }) => {
   ];
 
   for (const t of frenchInvoiceTranslations) {
-    const inserted = await insertTranslationIfNew(
+    const result = await upsertTranslation(
       db,
-      existingKeys,
       systemOrg._id,
       systemUser._id,
       t.key,
@@ -249,7 +248,8 @@ export default mutation(async ({ db }) => {
       "fr",
       category
     );
-    if (inserted) insertedCount++;
+    if (result.inserted) insertedCount++;
+    if (result.updated) updatedCount++;
   }
 
   // ============================================================================
@@ -292,9 +292,8 @@ export default mutation(async ({ db }) => {
   ];
 
   for (const t of polishInvoiceTranslations) {
-    const inserted = await insertTranslationIfNew(
+    const result = await upsertTranslation(
       db,
-      existingKeys,
       systemOrg._id,
       systemUser._id,
       t.key,
@@ -302,7 +301,8 @@ export default mutation(async ({ db }) => {
       "pl",
       category
     );
-    if (inserted) insertedCount++;
+    if (result.inserted) insertedCount++;
+    if (result.updated) updatedCount++;
   }
 
   // ============================================================================
@@ -345,9 +345,8 @@ export default mutation(async ({ db }) => {
   ];
 
   for (const t of japaneseInvoiceTranslations) {
-    const inserted = await insertTranslationIfNew(
+    const result = await upsertTranslation(
       db,
-      existingKeys,
       systemOrg._id,
       systemUser._id,
       t.key,
@@ -355,7 +354,8 @@ export default mutation(async ({ db }) => {
       "ja",
       category
     );
-    if (inserted) insertedCount++;
+    if (result.inserted) insertedCount++;
+    if (result.updated) updatedCount++;
   }
 
   // ============================================================================
@@ -422,9 +422,8 @@ export default mutation(async ({ db }) => {
   ];
 
   for (const t of englishTicketTranslations) {
-    const inserted = await insertTranslationIfNew(
+    const result = await upsertTranslation(
       db,
-      existingKeys,
       systemOrg._id,
       systemUser._id,
       t.key,
@@ -432,7 +431,8 @@ export default mutation(async ({ db }) => {
       "en",
       category
     );
-    if (inserted) insertedCount++;
+    if (result.inserted) insertedCount++;
+    if (result.updated) updatedCount++;
   }
 
   // ============================================================================
@@ -499,9 +499,8 @@ export default mutation(async ({ db }) => {
   ];
 
   for (const t of germanTicketTranslations) {
-    const inserted = await insertTranslationIfNew(
+    const result = await upsertTranslation(
       db,
-      existingKeys,
       systemOrg._id,
       systemUser._id,
       t.key,
@@ -509,7 +508,8 @@ export default mutation(async ({ db }) => {
       "de",
       category
     );
-    if (inserted) insertedCount++;
+    if (result.inserted) insertedCount++;
+    if (result.updated) updatedCount++;
   }
 
   // ============================================================================
@@ -576,9 +576,8 @@ export default mutation(async ({ db }) => {
   ];
 
   for (const t of spanishTicketTranslations) {
-    const inserted = await insertTranslationIfNew(
+    const result = await upsertTranslation(
       db,
-      existingKeys,
       systemOrg._id,
       systemUser._id,
       t.key,
@@ -586,7 +585,8 @@ export default mutation(async ({ db }) => {
       "es",
       category
     );
-    if (inserted) insertedCount++;
+    if (result.inserted) insertedCount++;
+    if (result.updated) updatedCount++;
   }
 
   // ============================================================================
@@ -653,9 +653,8 @@ export default mutation(async ({ db }) => {
   ];
 
   for (const t of frenchTicketTranslations) {
-    const inserted = await insertTranslationIfNew(
+    const result = await upsertTranslation(
       db,
-      existingKeys,
       systemOrg._id,
       systemUser._id,
       t.key,
@@ -663,7 +662,8 @@ export default mutation(async ({ db }) => {
       "fr",
       category
     );
-    if (inserted) insertedCount++;
+    if (result.inserted) insertedCount++;
+    if (result.updated) updatedCount++;
   }
 
   // ============================================================================
@@ -730,9 +730,8 @@ export default mutation(async ({ db }) => {
   ];
 
   for (const t of polishTicketTranslations) {
-    const inserted = await insertTranslationIfNew(
+    const result = await upsertTranslation(
       db,
-      existingKeys,
       systemOrg._id,
       systemUser._id,
       t.key,
@@ -740,7 +739,8 @@ export default mutation(async ({ db }) => {
       "pl",
       category
     );
-    if (inserted) insertedCount++;
+    if (result.inserted) insertedCount++;
+    if (result.updated) updatedCount++;
   }
 
   // ============================================================================
@@ -807,9 +807,8 @@ export default mutation(async ({ db }) => {
   ];
 
   for (const t of japaneseTicketTranslations) {
-    const inserted = await insertTranslationIfNew(
+    const result = await upsertTranslation(
       db,
-      existingKeys,
       systemOrg._id,
       systemUser._id,
       t.key,
@@ -817,9 +816,10 @@ export default mutation(async ({ db }) => {
       "ja",
       category
     );
-    if (inserted) insertedCount++;
+    if (result.inserted) insertedCount++;
+    if (result.updated) updatedCount++;
   }
 
-  console.log(`✅ PDF template translations seeded: ${insertedCount} new translations`);
-  return { success: true, inserted: insertedCount };
+  console.log(`✅ PDF template translations seeded: ${insertedCount} new, ${updatedCount} updated`);
+  return { success: true, inserted: insertedCount, updated: updatedCount };
 });
