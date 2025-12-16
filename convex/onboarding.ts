@@ -490,9 +490,22 @@ async function assignAllAppsToOrgInternal(
   organizationId: any,
   userId: any
 ): Promise<void> {
-  // Get all active and approved apps
+  // Get system organization to ensure we only assign system-owned apps
+  const systemOrg = await ctx.db
+    .query("organizations")
+    .withIndex("by_slug", (q: any) => q.eq("slug", "system"))
+    .first();
+
+  if (!systemOrg) {
+    console.warn("[Onboarding] System organization not found - skipping app assignment");
+    return;
+  }
+
+  // Get all active and approved apps created by the SYSTEM organization
+  // IMPORTANT: This prevents cross-org pollution of apps
   const activeApps = await ctx.db
     .query("apps")
+    .withIndex("by_creator", (q: any) => q.eq("creatorOrgId", systemOrg._id))
     .filter((q: any) =>
       q.or(
         q.eq(q.field("status"), "active"),
@@ -501,7 +514,7 @@ async function assignAllAppsToOrgInternal(
     )
     .collect();
 
-  console.log(`[Onboarding] Assigning ${activeApps.length} apps to org ${organizationId}`);
+  console.log(`[Onboarding] Assigning ${activeApps.length} system apps to org ${organizationId}`);
 
   for (const app of activeApps) {
     // Check if availability already exists (shouldn't for new orgs, but be safe)

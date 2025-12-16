@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Settings, Github, ExternalLink, Key, Copy, Plus, History, Save } from "lucide-react";
+import { Settings, Github, ExternalLink, Key, Copy, Plus, History, Save, Edit2, Sparkles } from "lucide-react";
 import { RetroButton } from "@/components/retro-button";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import type { Id } from "../../../../convex/_generated/dataModel";
@@ -35,6 +35,7 @@ export function DeploymentSettingsTab({
   const notification = useNotification();
   const [githubRepo, setGithubRepo] = useState(deployment?.githubRepo || "");
   const [isSaving, setIsSaving] = useState(false);
+  const [isAutoDetecting, setIsAutoDetecting] = useState(false);
 
   // Query page data
   const page = useQuery(
@@ -48,8 +49,10 @@ export function DeploymentSettingsTab({
     sessionId ? { sessionId, pageId } : "skip"
   );
 
-  // Mutation to update deployment settings
+  // Mutations and Actions
   const updateDeployment = useMutation(api.publishingOntology.updateDeploymentInfo);
+  const updateEnvVars = useMutation(api.publishingOntology.updateDeploymentEnvVars);
+  const autoDetectEnvVars = useAction(api.publishingOntology.autoDetectEnvVarsFromGithub);
 
   const handleSave = async () => {
     if (!sessionId) return;
@@ -72,6 +75,50 @@ export function DeploymentSettingsTab({
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
     notification.success("Copied", `${label} copied to clipboard`);
+  };
+
+  const handleAutoDetectEnvVars = async () => {
+    if (!sessionId || !githubRepo) {
+      notification.error("Missing Info", "Please enter a GitHub repository URL first", false);
+      return;
+    }
+
+    setIsAutoDetecting(true);
+    try {
+      const result = await autoDetectEnvVars({
+        sessionId,
+        githubUrl: githubRepo,
+      });
+
+      if (result.success && result.envVars.length > 0) {
+        // Update the environment variables
+        await updateEnvVars({
+          sessionId,
+          pageId,
+          envVars: result.envVars,
+        });
+
+        notification.success(
+          "Auto-Detected!",
+          `Found ${result.envVars.length} environment variables from ${result.foundFile}`
+        );
+      } else {
+        notification.error(
+          "No Variables Found",
+          result.error || "Could not find .env.example in repository",
+          false
+        );
+      }
+    } catch (error) {
+      console.error("Failed to auto-detect env vars:", error);
+      notification.error(
+        "Detection Failed",
+        error instanceof Error ? error.message : "Unknown error",
+        false
+      );
+    } finally {
+      setIsAutoDetecting(false);
+    }
   };
 
   if (!sessionId) {
@@ -232,15 +279,28 @@ export function DeploymentSettingsTab({
             <Key size={16} />
             Environment Variables ({envVars && Array.isArray(envVars) ? envVars.length : 0})
           </h4>
-          <RetroButton
-            onClick={onOpenEnvVarsModal}
-            variant="secondary"
-            size="sm"
-            className="flex items-center gap-2 whitespace-nowrap"
-          >
-            <Plus size={14} />
-            Add Variable
-          </RetroButton>
+          <div className="flex items-center gap-2">
+            <RetroButton
+              onClick={handleAutoDetectEnvVars}
+              variant="outline"
+              size="sm"
+              disabled={!githubRepo || isAutoDetecting}
+              className="flex items-center gap-2 whitespace-nowrap"
+              title="Auto-detect environment variables from .env.example in GitHub repo"
+            >
+              <Sparkles size={14} />
+              {isAutoDetecting ? "Detecting..." : "Auto-Detect"}
+            </RetroButton>
+            <RetroButton
+              onClick={onOpenEnvVarsModal}
+              variant="secondary"
+              size="sm"
+              className="flex items-center gap-2 whitespace-nowrap"
+            >
+              <Plus size={14} />
+              Add Variable
+            </RetroButton>
+          </div>
         </div>
 
         {!envVars || (Array.isArray(envVars) && envVars.length === 0) ? (
@@ -286,29 +346,50 @@ export function DeploymentSettingsTab({
                     </div>
                   )}
                 </div>
-                <button
-                  onClick={() => {
-                    if (envVar.value) {
-                      copyToClipboard(envVar.value, envVar.key);
-                    }
-                  }}
-                  className="px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors ml-2"
-                  style={{
-                    borderColor: 'var(--win95-border)',
-                    background: 'var(--win95-bg-light)',
-                    color: 'var(--info)'
-                  }}
-                  title={`Copy ${envVar.key}`}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'var(--win95-hover-light)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'var(--win95-bg-light)';
-                  }}
-                >
-                  <Copy size={12} />
-                  Copy
-                </button>
+                <div className="flex items-center gap-2 ml-2">
+                  <button
+                    onClick={onOpenEnvVarsModal}
+                    className="px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors"
+                    style={{
+                      borderColor: 'var(--win95-border)',
+                      background: 'var(--win95-bg-light)',
+                      color: 'var(--win95-highlight)'
+                    }}
+                    title="Edit environment variables"
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'var(--win95-hover-light)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'var(--win95-bg-light)';
+                    }}
+                  >
+                    <Edit2 size={12} />
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (envVar.value) {
+                        copyToClipboard(envVar.value, envVar.key);
+                      }
+                    }}
+                    className="px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors"
+                    style={{
+                      borderColor: 'var(--win95-border)',
+                      background: 'var(--win95-bg-light)',
+                      color: 'var(--info)'
+                    }}
+                    title={`Copy ${envVar.key}`}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'var(--win95-hover-light)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'var(--win95-bg-light)';
+                    }}
+                  >
+                    <Copy size={12} />
+                    Copy
+                  </button>
+                </div>
               </div>
             ))}
           </div>

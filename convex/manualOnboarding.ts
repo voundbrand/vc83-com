@@ -47,9 +47,21 @@ export const applyQuickStart = mutation({
       alreadyInstalled: [] as string[],
     };
 
-    // 3. ASSIGN ALL APPS (exactly like onboarding.ts:assignAllAppsToOrgInternal)
+    // 3. Get system organization (used for apps and templates)
+    const systemOrg = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", "system"))
+      .first();
+
+    if (!systemOrg) {
+      throw new Error("System organization not found - cannot provision apps or templates");
+    }
+
+    // 4. ASSIGN ALL APPS (exactly like onboarding.ts:assignAllAppsToOrgInternal)
+    // IMPORTANT: Only get apps created by the SYSTEM organization to prevent cross-org pollution
     const activeApps = await ctx.db
       .query("apps")
+      .withIndex("by_creator", (q) => q.eq("creatorOrgId", systemOrg._id))
       .filter((q) =>
         q.or(
           q.eq(q.field("status"), "active"),
@@ -109,25 +121,15 @@ export const applyQuickStart = mutation({
       }
     }
 
-    // 4. PROVISION FREELANCER PORTAL TEMPLATE (exactly like onboarding.ts:provisionStarterTemplatesInternal)
+    // 6. PROVISION FREELANCER PORTAL TEMPLATE (exactly like onboarding.ts:provisionStarterTemplatesInternal)
+    // Get organization details
+    const org = await ctx.db.get(organizationId);
+    if (!org) {
+      throw new Error("Organization not found");
+    }
 
-    // Get system organization
-    const systemOrg = await ctx.db
-      .query("organizations")
-      .withIndex("by_slug", (q) => q.eq("slug", "system"))
-      .first();
-
-    if (!systemOrg) {
-      console.warn("[Quick Start] System organization not found - skipping template provisioning");
-    } else {
-      // Get organization details
-      const org = await ctx.db.get(organizationId);
-      if (!org) {
-        throw new Error("Organization not found");
-      }
-
-      // Get system templates (web_app subtype)
-      const systemTemplates = await ctx.db
+    // Get system templates (web_app subtype)
+    const systemTemplates = await ctx.db
         .query("objects")
         .withIndex("by_org_type", (q) =>
           q.eq("organizationId", systemOrg._id).eq("type", "template")
@@ -135,8 +137,8 @@ export const applyQuickStart = mutation({
         .filter((q) => q.eq(q.field("subtype"), "web_app"))
         .collect();
 
-      // Freelancer Portal configuration (from onboarding.ts lines 627-646)
-      const starterConfig = {
+    // Freelancer Portal configuration (from onboarding.ts lines 627-646)
+    const starterConfig = {
         name: "Freelancer Portal",
         templateCode: "freelancer_portal_v1",
         slug: "/portal",
@@ -277,9 +279,8 @@ export const applyQuickStart = mutation({
           results.templatesProvisioned.push(`${starterConfig.name} (published page)`);
         }
       }
-    }
 
-    // 5. Update user's completed ICPs
+    // 7. Update user's completed ICPs
     const currentCompletedICPs = (user as any).completedICPs || [];
     if (!currentCompletedICPs.includes("default")) {
       await ctx.db.patch(userId, {
@@ -287,7 +288,7 @@ export const applyQuickStart = mutation({
       } as any);
     }
 
-    // 6. Audit log
+    // 8. Audit log
     await ctx.db.insert("auditLogs", {
       organizationId,
       userId,

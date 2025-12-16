@@ -1594,6 +1594,170 @@ export const checkApiKeyStatus = query({
 });
 
 /**
+ * Auto-Detect Environment Variables from GitHub Repository (Action)
+ *
+ * Fetches .env.example or .env.template from a GitHub repo and parses env vars.
+ * This allows automatic pre-filling of environment variables based on the template repo.
+ */
+export const autoDetectEnvVarsFromGithub = action({
+  args: {
+    sessionId: v.string(),
+    githubUrl: v.string(),
+  },
+  handler: async (ctx, args) => {
+    console.log("[autoDetectEnvVarsFromGithub] Analyzing:", args.githubUrl);
+
+    try {
+      // Parse GitHub URL to extract owner and repo
+      const match = args.githubUrl.match(/^https:\/\/github\.com\/([\w-]+)\/([\w-]+)/);
+      if (!match) {
+        return {
+          success: false,
+          error: "Invalid GitHub URL format",
+          envVars: [],
+        };
+      }
+
+      const [, owner, repo] = match;
+
+      // Try to fetch .env.example first (most common)
+      const envFiles = [
+        ".env.example",
+        ".env.template",
+        ".env.sample",
+        "env.example",
+      ];
+
+      let envFileContent: string | null = null;
+      let foundFile: string | null = null;
+
+      for (const envFile of envFiles) {
+        try {
+          const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/main/${envFile}`;
+          console.log(`[autoDetectEnvVarsFromGithub] Trying: ${rawUrl}`);
+
+          const response = await fetch(rawUrl, {
+            method: "GET",
+            headers: {
+              "Accept": "text/plain",
+              "User-Agent": "l4yercak3-env-detector"
+            }
+          });
+
+          if (response.ok) {
+            envFileContent = await response.text();
+            foundFile = envFile;
+            console.log(`[autoDetectEnvVarsFromGithub] Found ${envFile}: ${envFileContent.length} bytes`);
+            break;
+          }
+        } catch (e) {
+          console.log(`[autoDetectEnvVarsFromGithub] ${envFile} not found, trying next...`);
+        }
+      }
+
+      // If no .env file found, try master branch
+      if (!envFileContent) {
+        for (const envFile of envFiles) {
+          try {
+            const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/master/${envFile}`;
+            console.log(`[autoDetectEnvVarsFromGithub] Trying master: ${rawUrl}`);
+
+            const response = await fetch(rawUrl, {
+              method: "GET",
+              headers: {
+                "Accept": "text/plain",
+                "User-Agent": "l4yercak3-env-detector"
+              }
+            });
+
+            if (response.ok) {
+              envFileContent = await response.text();
+              foundFile = envFile;
+              console.log(`[autoDetectEnvVarsFromGithub] Found ${envFile} in master: ${envFileContent.length} bytes`);
+              break;
+            }
+          } catch (e) {
+            console.log(`[autoDetectEnvVarsFromGithub] ${envFile} not found in master`);
+          }
+        }
+      }
+
+      if (!envFileContent) {
+        return {
+          success: false,
+          error: "No .env.example file found in repository (tried main and master branches)",
+          envVars: [],
+        };
+      }
+
+      // Parse the .env file
+      const lines = envFileContent.split('\n');
+      const envVars: Array<{
+        key: string;
+        description: string;
+        required: boolean;
+        defaultValue?: string;
+      }> = [];
+
+      let currentComment = "";
+
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+
+        // Skip empty lines
+        if (!trimmedLine) {
+          currentComment = "";
+          continue;
+        }
+
+        // Capture comments (descriptions)
+        if (trimmedLine.startsWith('#')) {
+          const comment = trimmedLine.substring(1).trim();
+          if (comment) {
+            currentComment = currentComment ? `${currentComment} ${comment}` : comment;
+          }
+          continue;
+        }
+
+        // Parse env var line: KEY=value or KEY=
+        const envMatch = trimmedLine.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
+        if (envMatch) {
+          const [, key, value] = envMatch;
+
+          // Determine if it has a default value (not empty, not a placeholder)
+          const hasDefaultValue = value && !value.match(/^(your_|YOUR_|<|>|\$|""|'')/);
+
+          envVars.push({
+            key: key.trim(),
+            description: currentComment || `Environment variable for ${key}`,
+            required: !hasDefaultValue, // If no default, it's required
+            defaultValue: hasDefaultValue ? value.trim().replace(/^["']|["']$/g, '') : undefined,
+          });
+
+          currentComment = ""; // Reset comment for next variable
+        }
+      }
+
+      console.log(`[autoDetectEnvVarsFromGithub] Parsed ${envVars.length} environment variables`);
+
+      return {
+        success: true,
+        foundFile,
+        envVars,
+      };
+
+    } catch (error) {
+      console.error("[autoDetectEnvVarsFromGithub] Error:", error);
+      return {
+        success: false,
+        error: `Failed to analyze repository: ${error instanceof Error ? error.message : "Unknown error"}`,
+        envVars: [],
+      };
+    }
+  },
+});
+
+/**
  * Get Deployment Environment Variables (Query)
  *
  * Retrieves configured environment variables for a published page.
