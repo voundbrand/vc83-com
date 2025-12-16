@@ -10,6 +10,7 @@
 import type { EmailTemplateOutput, EmailLanguage } from "../types";
 import type { GenericEmailProps, InvoiceDetailsSection } from "../generic-types";
 import { GenericEmailTemplate } from "../generic/index";
+import { getTranslations } from "../translations";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
 /**
@@ -83,6 +84,7 @@ export interface InvoiceB2CTemplateProps {
 
 export function InvoiceB2CEmailTemplate(props: InvoiceB2CTemplateProps): EmailTemplateOutput {
   const invoice = props.invoice;
+  const t = getTranslations(props.language);
 
   // Format dates
   const invoiceDate = new Date(invoice.invoiceDate).toLocaleDateString(props.language === 'de' ? 'de-DE' : 'en-US', {
@@ -136,8 +138,10 @@ export function InvoiceB2CEmailTemplate(props: InvoiceB2CTemplateProps): EmailTe
     total: invoice.totalInCents / 100,
     amountDue: invoice.totalInCents / 100,
     billingAddress,
-    paymentTerms: invoice.paymentTerms || "Due on receipt",
+    paymentTerms: invoice.paymentTerms || t.dueOnReceipt,
     notes: invoice.notes,
+    // Pass language for translations
+    language: props.language,
   };
 
   // Extract recipient first name (simple split on space)

@@ -95,6 +95,38 @@ export interface EmailTranslationKeys {
   exclusiveEventNote: string; // "This is a curated, exclusive event..."
   lookForward: string; // "We look forward to your visit"
   presentAtEntrance: string; // "Please present this ticket at the entrance"
+
+  // Invoice specific translations
+  invoice: string; // "Invoice"
+  invoiceNumber: string; // "Invoice #"
+  invoiceDate: string; // "Invoice Date"
+  dueDate: string; // "Due Date"
+  poNumber: string; // "PO Number"
+  from: string; // "From"
+  billTo: string; // "Bill To"
+  description: string; // "Description"
+  unitPrice: string; // "Unit Price"
+  amountPaid: string; // "Amount Paid"
+  amountDue: string; // "Amount Due"
+  taxId: string; // "Tax ID"
+  paymentTerms: string; // "Payment Terms"
+  paymentMethods: string; // "Payment Methods"
+  notes: string; // "Notes"
+  dueOnReceipt: string; // "Due on receipt"
+
+  // Invoice status translations
+  statusDraft: string; // "Draft"
+  statusSent: string; // "Sent"
+  statusPaid: string; // "Paid"
+  statusOverdue: string; // "Overdue"
+  statusCancelled: string; // "Cancelled"
+
+  // Payment term key translations (for database keys like "dueonreceipt", "net30")
+  paymentTermNet7: string; // "Net 7 days"
+  paymentTermNet15: string; // "Net 15 days"
+  paymentTermNet30: string; // "Net 30 days"
+  paymentTermNet60: string; // "Net 60 days"
+  paymentTermNet90: string; // "Net 90 days"
 }
 
 /**
@@ -185,6 +217,38 @@ export const EN_TRANSLATIONS: EmailTranslationKeys = {
   exclusiveEventNote: "This is a curated, exclusive event. Please treat the details confidentially. Entry is only possible with a valid ticket.",
   lookForward: "We look forward to your visit",
   presentAtEntrance: "Please present this ticket (digital or printed) at the event entrance",
+
+  // Invoice specific translations
+  invoice: "Invoice",
+  invoiceNumber: "Invoice #",
+  invoiceDate: "Invoice Date",
+  dueDate: "Due Date",
+  poNumber: "PO Number",
+  from: "From",
+  billTo: "Bill To",
+  description: "Description",
+  unitPrice: "Unit Price",
+  amountPaid: "Amount Paid",
+  amountDue: "Amount Due",
+  taxId: "Tax ID",
+  paymentTerms: "Payment Terms",
+  paymentMethods: "Payment Methods",
+  notes: "Notes",
+  dueOnReceipt: "Due on receipt",
+
+  // Invoice status translations
+  statusDraft: "Draft",
+  statusSent: "Sent",
+  statusPaid: "Paid",
+  statusOverdue: "Overdue",
+  statusCancelled: "Cancelled",
+
+  // Payment term key translations
+  paymentTermNet7: "Net 7 days",
+  paymentTermNet15: "Net 15 days",
+  paymentTermNet30: "Net 30 days",
+  paymentTermNet60: "Net 60 days",
+  paymentTermNet90: "Net 90 days",
 };
 
 /**
@@ -275,6 +339,38 @@ export const DE_TRANSLATIONS: EmailTranslationKeys = {
   exclusiveEventNote: "Dies ist eine kuratierte, exklusive Veranstaltung. Bitte behandle die Details vertraulich. Der Zutritt ist nur mit gültigem Ticket möglich.",
   lookForward: "Wir freuen uns auf deinen Besuch",
   presentAtEntrance: "Bitte zeige dieses Ticket (digital oder gedruckt) am Veranstaltungseingang vor",
+
+  // Invoice specific translations
+  invoice: "Rechnung",
+  invoiceNumber: "Rechnung Nr.",
+  invoiceDate: "Rechnungsdatum",
+  dueDate: "Fälligkeitsdatum",
+  poNumber: "Bestellnummer",
+  from: "Von",
+  billTo: "Rechnungsempfänger",
+  description: "Beschreibung",
+  unitPrice: "Stückpreis",
+  amountPaid: "Bezahlter Betrag",
+  amountDue: "Fälliger Betrag",
+  taxId: "Steuer-ID",
+  paymentTerms: "Zahlungsbedingungen",
+  paymentMethods: "Zahlungsmethoden",
+  notes: "Anmerkungen",
+  dueOnReceipt: "Sofort fällig",
+
+  // Invoice status translations
+  statusDraft: "Entwurf",
+  statusSent: "Versendet",
+  statusPaid: "Bezahlt",
+  statusOverdue: "Überfällig",
+  statusCancelled: "Storniert",
+
+  // Payment term key translations
+  paymentTermNet7: "Netto 7 Tage",
+  paymentTermNet15: "Netto 15 Tage",
+  paymentTermNet30: "Netto 30 Tage",
+  paymentTermNet60: "Netto 60 Tage",
+  paymentTermNet90: "Netto 90 Tage",
 };
 
 /**
@@ -365,6 +461,38 @@ export const ES_TRANSLATIONS: EmailTranslationKeys = {
   exclusiveEventNote: "Este es un evento curado y exclusivo. Por favor trata los detalles de manera confidencial. La entrada solo es posible con un boleto válido.",
   lookForward: "Esperamos tu visita",
   presentAtEntrance: "Por favor presenta este boleto (digital o impreso) en la entrada del evento",
+
+  // Invoice specific translations
+  invoice: "Factura",
+  invoiceNumber: "Factura #",
+  invoiceDate: "Fecha de Factura",
+  dueDate: "Fecha de Vencimiento",
+  poNumber: "Número de Orden",
+  from: "De",
+  billTo: "Facturar a",
+  description: "Descripción",
+  unitPrice: "Precio Unitario",
+  amountPaid: "Monto Pagado",
+  amountDue: "Monto Adeudado",
+  taxId: "ID Fiscal",
+  paymentTerms: "Términos de Pago",
+  paymentMethods: "Métodos de Pago",
+  notes: "Notas",
+  dueOnReceipt: "A la recepción",
+
+  // Invoice status translations
+  statusDraft: "Borrador",
+  statusSent: "Enviada",
+  statusPaid: "Pagada",
+  statusOverdue: "Vencida",
+  statusCancelled: "Cancelada",
+
+  // Payment term key translations
+  paymentTermNet7: "Neto 7 días",
+  paymentTermNet15: "Neto 15 días",
+  paymentTermNet30: "Neto 30 días",
+  paymentTermNet60: "Neto 60 días",
+  paymentTermNet90: "Neto 90 días",
 };
 
 /**
@@ -455,6 +583,38 @@ export const FR_TRANSLATIONS: EmailTranslationKeys = {
   exclusiveEventNote: "Il s'agit d'un événement exclusif et organisé. Veuillez traiter les détails de manière confidentielle. L'entrée n'est possible qu'avec un billet valide.",
   lookForward: "Nous avons hâte de vous voir",
   presentAtEntrance: "Veuillez présenter ce billet (numérique ou imprimé) à l'entrée de l'événement",
+
+  // Invoice specific translations
+  invoice: "Facture",
+  invoiceNumber: "Facture N°",
+  invoiceDate: "Date de Facture",
+  dueDate: "Date d'Échéance",
+  poNumber: "N° de Commande",
+  from: "De",
+  billTo: "Facturer à",
+  description: "Description",
+  unitPrice: "Prix Unitaire",
+  amountPaid: "Montant Payé",
+  amountDue: "Montant Dû",
+  taxId: "N° TVA",
+  paymentTerms: "Conditions de Paiement",
+  paymentMethods: "Moyens de Paiement",
+  notes: "Notes",
+  dueOnReceipt: "À réception",
+
+  // Invoice status translations
+  statusDraft: "Brouillon",
+  statusSent: "Envoyée",
+  statusPaid: "Payée",
+  statusOverdue: "En retard",
+  statusCancelled: "Annulée",
+
+  // Payment term key translations
+  paymentTermNet7: "Net 7 jours",
+  paymentTermNet15: "Net 15 jours",
+  paymentTermNet30: "Net 30 jours",
+  paymentTermNet60: "Net 60 jours",
+  paymentTermNet90: "Net 90 jours",
 };
 
 /**
@@ -481,4 +641,32 @@ export function replaceVariables(str: string, variables: Record<string, string |
     result = result.replace(new RegExp(`{{${key}}}`, 'g'), String(variables[key]));
   });
   return result;
+}
+
+/**
+ * Translate payment term keys to human-readable text
+ * Handles database keys like "dueonreceipt", "due_on_receipt", "net30", "net_30", etc.
+ */
+export function translatePaymentTerms(paymentTermKey: string | undefined, language: SupportedLanguage): string {
+  const t = getTranslations(language);
+
+  if (!paymentTermKey) {
+    return t.dueOnReceipt;
+  }
+
+  // Normalize the key: lowercase, remove underscores
+  const normalizedKey = paymentTermKey.toLowerCase().replace(/_/g, '');
+
+  // Map normalized keys to translations
+  const paymentTermMap: Record<string, string> = {
+    'dueonreceipt': t.dueOnReceipt,
+    'net7': t.paymentTermNet7,
+    'net15': t.paymentTermNet15,
+    'net30': t.paymentTermNet30,
+    'net60': t.paymentTermNet60,
+    'net90': t.paymentTermNet90,
+  };
+
+  // Return translated value if key is recognized, otherwise return original
+  return paymentTermMap[normalizedKey] || paymentTermKey;
 }

@@ -19,6 +19,7 @@ import type {
   SupportInfoSection,
   InvoiceDetailsSection,
 } from "./generic-types";
+import { getTranslations, translatePaymentTerms, type SupportedLanguage } from "./translations";
 
 /**
  * Render Hero Section
@@ -444,6 +445,19 @@ export function renderSupportInfoSection(section: SupportInfoSection, primaryCol
  * Render Invoice Details Section
  */
 export function renderInvoiceDetailsSection(section: InvoiceDetailsSection, primaryColor: string): string {
+  // Get translations based on language (default to English)
+  const lang: SupportedLanguage = section.language || 'en';
+  const t = getTranslations(lang);
+
+  // Status translations and colors
+  const statusLabels: Record<string, string> = {
+    draft: t.statusDraft,
+    sent: t.statusSent,
+    paid: t.statusPaid,
+    overdue: t.statusOverdue,
+    cancelled: t.statusCancelled,
+  };
+
   const statusColors = {
     draft: { color: '#64748b', bg: '#f1f5f9' },
     sent: { color: '#3b82f6', bg: '#dbeafe' },
@@ -453,6 +467,7 @@ export function renderInvoiceDetailsSection(section: InvoiceDetailsSection, prim
   };
 
   const status = statusColors[section.status];
+  const statusLabel = statusLabels[section.status] || section.status;
 
   // Use organization's currency and locale if provided, otherwise default to USD/en-US
   const currency = section.currency || 'USD';
@@ -471,12 +486,12 @@ export function renderInvoiceDetailsSection(section: InvoiceDetailsSection, prim
       <!-- Invoice Header -->
       <div style="display: flex; justify-content: space-between; margin-bottom: 30px; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px;">
         <div>
-          <p style="margin: 0 0 8px 0; font-size: 13px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Invoice</p>
+          <p style="margin: 0 0 8px 0; font-size: 13px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">${t.invoice}</p>
           <p style="margin: 0; font-size: 24px; color: ${primaryColor}; font-weight: 700;">${section.invoiceNumber}</p>
         </div>
         <div style="text-align: right;">
           <span style="display: inline-block; padding: 8px 16px; background: ${status.bg}; color: ${status.color}; font-size: 13px; font-weight: 600; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
-            ${section.status}
+            ${statusLabel}
           </span>
         </div>
       </div>
@@ -485,22 +500,22 @@ export function renderInvoiceDetailsSection(section: InvoiceDetailsSection, prim
         <!-- B2B: Company Information -->
         <div style="display: flex; justify-content: space-between; margin-bottom: 30px;">
           <div style="width: 48%;">
-            <p style="margin: 0 0 8px 0; font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">From</p>
+            <p style="margin: 0 0 8px 0; font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">${t.from}</p>
             <p style="margin: 0; font-size: 16px; color: #0f172a; font-weight: 600;">${section.sellerCompany.name}</p>
             ${section.sellerCompany.address ? `<p style="margin: 4px 0 0 0; font-size: 14px; color: #64748b;">${section.sellerCompany.address}</p>` : ''}
-            ${section.sellerCompany.taxId ? `<p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b;">Tax ID: ${section.sellerCompany.taxId}</p>` : ''}
+            ${section.sellerCompany.taxId ? `<p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b;">${t.taxId}: ${section.sellerCompany.taxId}</p>` : ''}
           </div>
           <div style="width: 48%; text-align: right;">
-            <p style="margin: 0 0 8px 0; font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Bill To</p>
+            <p style="margin: 0 0 8px 0; font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">${t.billTo}</p>
             <p style="margin: 0; font-size: 16px; color: #0f172a; font-weight: 600;">${section.buyerCompany.name}</p>
             ${section.buyerCompany.address ? `<p style="margin: 4px 0 0 0; font-size: 14px; color: #64748b;">${section.buyerCompany.address}</p>` : ''}
-            ${section.buyerCompany.taxId ? `<p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b;">Tax ID: ${section.buyerCompany.taxId}</p>` : ''}
+            ${section.buyerCompany.taxId ? `<p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b;">${t.taxId}: ${section.buyerCompany.taxId}</p>` : ''}
           </div>
         </div>
       ` : section.billingAddress ? `
         <!-- B2C: Billing Address -->
         <div style="margin-bottom: 30px;">
-          <p style="margin: 0 0 8px 0; font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Bill To</p>
+          <p style="margin: 0 0 8px 0; font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">${t.billTo}</p>
           <p style="margin: 0; font-size: 15px; color: #0f172a; line-height: 1.6;">
             ${section.billingAddress.name}<br>
             ${section.billingAddress.street}<br>
@@ -514,16 +529,16 @@ export function renderInvoiceDetailsSection(section: InvoiceDetailsSection, prim
       <div style="margin-bottom: 30px;">
         <table style="width: 100%; border-collapse: collapse;">
           <tr>
-            <td style="padding: 8px 0; font-size: 13px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; width: 40%;">Invoice Date</td>
+            <td style="padding: 8px 0; font-size: 13px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; width: 40%;">${t.invoiceDate}</td>
             <td style="padding: 8px 0; font-size: 15px; color: #0f172a; text-align: right;">${section.invoiceDate}</td>
           </tr>
           <tr>
-            <td style="padding: 8px 0; font-size: 13px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Due Date</td>
+            <td style="padding: 8px 0; font-size: 13px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">${t.dueDate}</td>
             <td style="padding: 8px 0; font-size: 15px; color: #0f172a; text-align: right; font-weight: 600;">${section.dueDate}</td>
           </tr>
           ${section.purchaseOrderNumber ? `
           <tr>
-            <td style="padding: 8px 0; font-size: 13px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">PO Number</td>
+            <td style="padding: 8px 0; font-size: 13px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">${t.poNumber}</td>
             <td style="padding: 8px 0; font-size: 15px; color: #0f172a; text-align: right;">${section.purchaseOrderNumber}</td>
           </tr>
           ` : ''}
@@ -534,10 +549,10 @@ export function renderInvoiceDetailsSection(section: InvoiceDetailsSection, prim
       <table style="width: 100%; border-collapse: collapse; margin: 30px 0; background: #ffffff; border-radius: 8px; overflow: hidden;">
         <thead>
           <tr style="background: linear-gradient(135deg, ${primaryColor} 0%, ${adjustBrightness(primaryColor, -10)} 100%);">
-            <th style="padding: 14px; text-align: left; font-size: 12px; color: #ffffff; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Description</th>
-            <th style="padding: 14px; text-align: center; font-size: 12px; color: #ffffff; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Qty</th>
-            <th style="padding: 14px; text-align: right; font-size: 12px; color: #ffffff; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Unit Price</th>
-            <th style="padding: 14px; text-align: right; font-size: 12px; color: #ffffff; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Total</th>
+            <th style="padding: 14px; text-align: left; font-size: 12px; color: #ffffff; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">${t.description}</th>
+            <th style="padding: 14px; text-align: center; font-size: 12px; color: #ffffff; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">${t.quantity}</th>
+            <th style="padding: 14px; text-align: right; font-size: 12px; color: #ffffff; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">${t.unitPrice}</th>
+            <th style="padding: 14px; text-align: right; font-size: 12px; color: #ffffff; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">${t.total}</th>
           </tr>
         </thead>
         <tbody>
@@ -556,25 +571,25 @@ export function renderInvoiceDetailsSection(section: InvoiceDetailsSection, prim
       <div style="background: #ffffff; border-radius: 8px; padding: 25px; margin: 30px 0;">
         <table style="width: 100%; border-collapse: collapse;">
           <tr>
-            <td style="padding: 10px 0; font-size: 15px; color: #64748b; text-align: right;">Subtotal:</td>
+            <td style="padding: 10px 0; font-size: 15px; color: #64748b; text-align: right;">${t.subtotal}:</td>
             <td style="padding: 10px 0 10px 30px; font-size: 15px; color: #0f172a; text-align: right; font-weight: 500; width: 30%;">${formatCurrency(section.subtotal)}</td>
           </tr>
           <tr>
-            <td style="padding: 10px 0; font-size: 15px; color: #64748b; text-align: right;">Tax:</td>
+            <td style="padding: 10px 0; font-size: 15px; color: #64748b; text-align: right;">${t.tax}:</td>
             <td style="padding: 10px 0 10px 30px; font-size: 15px; color: #0f172a; text-align: right; font-weight: 500;">${formatCurrency(section.taxTotal)}</td>
           </tr>
           <tr style="border-top: 2px solid #e2e8f0;">
-            <td style="padding: 14px 0; font-size: 17px; color: #0f172a; text-align: right; font-weight: 600;">Total:</td>
+            <td style="padding: 14px 0; font-size: 17px; color: #0f172a; text-align: right; font-weight: 600;">${t.total}:</td>
             <td style="padding: 14px 0 14px 30px; font-size: 22px; color: ${primaryColor}; text-align: right; font-weight: 700;">${formatCurrency(section.total)}</td>
           </tr>
           ${section.amountPaid !== undefined && section.amountPaid > 0 ? `
           <tr>
-            <td style="padding: 10px 0; font-size: 15px; color: #64748b; text-align: right;">Amount Paid:</td>
+            <td style="padding: 10px 0; font-size: 15px; color: #64748b; text-align: right;">${t.amountPaid}:</td>
             <td style="padding: 10px 0 10px 30px; font-size: 15px; color: #10b981; text-align: right; font-weight: 500;">-${formatCurrency(section.amountPaid)}</td>
           </tr>
           ` : ''}
           <tr style="border-top: 2px solid #e2e8f0;">
-            <td style="padding: 14px 0; font-size: 18px; color: #0f172a; text-align: right; font-weight: 700;">Amount Due:</td>
+            <td style="padding: 14px 0; font-size: 18px; color: #0f172a; text-align: right; font-weight: 700;">${t.amountDue}:</td>
             <td style="padding: 14px 0 14px 30px; font-size: 24px; color: ${section.status === 'paid' ? '#10b981' : '#ef4444'}; text-align: right; font-weight: 700;">${formatCurrency(section.amountDue)}</td>
           </tr>
         </table>
@@ -585,12 +600,12 @@ export function renderInvoiceDetailsSection(section: InvoiceDetailsSection, prim
         <div style="margin: 30px 0; padding: 25px; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 2px solid #86efac; border-radius: 8px;">
           ${section.paymentTerms ? `
             <p style="margin: 0 0 12px 0; font-size: 14px; color: #166534;">
-              <strong style="color: #15803d;">Payment Terms:</strong> ${section.paymentTerms}
+              <strong style="color: #15803d;">${t.paymentTerms}:</strong> ${translatePaymentTerms(section.paymentTerms, lang)}
             </p>
           ` : ''}
           ${section.paymentMethods && section.paymentMethods.length > 0 ? `
             <div style="margin-top: 15px;">
-              <p style="margin: 0 0 10px 0; font-size: 13px; color: #166534; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Payment Methods:</p>
+              <p style="margin: 0 0 10px 0; font-size: 13px; color: #166534; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">${t.paymentMethods}:</p>
               ${section.paymentMethods.map(method => `
                 <p style="margin: 5px 0; font-size: 14px; color: #166534;">
                   <strong>${method.type.replace('_', ' ').toUpperCase()}:</strong> ${method.instructions}
@@ -604,7 +619,7 @@ export function renderInvoiceDetailsSection(section: InvoiceDetailsSection, prim
       ${section.notes ? `
         <!-- Notes -->
         <div style="margin: 25px 0; padding: 20px; background: #fef3c7; border-radius: 8px; border-left: 4px solid #f59e0b;">
-          <p style="margin: 0 0 8px 0; font-size: 13px; color: #92400e; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Notes</p>
+          <p style="margin: 0 0 8px 0; font-size: 13px; color: #92400e; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">${t.notes}</p>
           <p style="margin: 0; font-size: 14px; color: #78350f; line-height: 1.6;">
             ${section.notes}
           </p>

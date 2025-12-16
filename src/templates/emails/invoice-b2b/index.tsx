@@ -221,6 +221,8 @@ export function InvoiceB2BEmailTemplate(props: InvoiceB2BTemplateProps): EmailTe
     // Pass currency and locale to the renderer
     currency: currency,
     locale: locale,
+    // Pass language for translations
+    language: lang,
   };
 
   // Extract recipient first name (simple split on space)

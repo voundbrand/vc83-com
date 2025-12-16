@@ -237,6 +237,9 @@ export interface InvoiceDetailsSection {
   // Currency and locale settings (from organization)
   currency?: string;
   locale?: string;
+
+  // Language for translations
+  language?: "en" | "de" | "es" | "fr";
 }
 
 /**
