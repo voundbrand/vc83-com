@@ -120,7 +120,18 @@ http.route({
       const isValidSignature = await provider.verifyWebhookSignature(body, signature);
 
       if (!isValidSignature) {
-        console.error("Connect webhook signature verification failed");
+        console.error("Connect webhook signature verification failed", {
+          hasSignature: !!signature,
+          bodyLength: body.length,
+          eventType: (() => {
+            try {
+              const event = JSON.parse(body);
+              return event.type;
+            } catch {
+              return "unknown";
+            }
+          })(),
+        });
         return new Response("Invalid signature", { status: 400 });
       }
 

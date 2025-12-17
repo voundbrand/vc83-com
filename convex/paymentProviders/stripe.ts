@@ -530,7 +530,16 @@ export class StripeConnectProvider implements IPaymentProvider {
       );
       return true;
     } catch (error) {
-      console.error("Webhook signature verification failed:", error);
+      // Log detailed error for debugging
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error("Webhook signature verification failed:", {
+        error: errorMessage,
+        errorType: error instanceof Error ? error.constructor.name : typeof error,
+        webhookSecretConfigured: !!this.webhookSecret,
+        webhookSecretPrefix: this.webhookSecret ? this.webhookSecret.substring(0, 10) + "..." : "not set",
+        signatureHeader: signature ? signature.substring(0, 50) + "..." : "missing",
+        payloadLength: payload.length,
+      });
       return false;
     }
   }
