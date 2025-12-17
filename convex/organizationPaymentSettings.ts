@@ -56,7 +56,11 @@ export const getPaymentSettings = query({
     if (org?.paymentProviders && org.paymentProviders.length > 0) {
       const enabledProviders = org.paymentProviders
         .filter((p: any) => p.status === "active")
-        .map((p: any) => p.providerCode as string)
+        .map((p: any) => {
+          const code = p.providerCode as string;
+          // Normalize: "stripe-connect" -> "stripe" for checkout compatibility
+          return code === "stripe-connect" ? "stripe" : code;
+        })
         .filter(Boolean);
 
       if (enabledProviders.length > 0) {
@@ -80,9 +84,11 @@ export const getPaymentSettings = query({
 
     if (providerConfigs.length > 0) {
       // Return provider codes from active provider configs
-      const enabledProviders = providerConfigs.map(
-        (config) => config.customProperties?.providerCode as string
-      ).filter(Boolean);
+      const enabledProviders = providerConfigs.map((config) => {
+        const code = config.customProperties?.providerCode as string;
+        // Normalize: "stripe-connect" -> "stripe" for checkout compatibility
+        return code === "stripe-connect" ? "stripe" : code;
+      }).filter(Boolean);
 
       return {
         _id: null,
@@ -129,7 +135,11 @@ export const getPublicPaymentSettings = query({
     if (org?.paymentProviders && org.paymentProviders.length > 0) {
       const enabledProviders = org.paymentProviders
         .filter((p: any) => p.status === "active")
-        .map((p: any) => p.providerCode as string)
+        .map((p: any) => {
+          const code = p.providerCode as string;
+          // Normalize: "stripe-connect" -> "stripe" for checkout compatibility
+          return code === "stripe-connect" ? "stripe" : code;
+        })
         .filter(Boolean);
 
       if (enabledProviders.length > 0) {
@@ -151,9 +161,11 @@ export const getPublicPaymentSettings = query({
 
     if (providerConfigs.length > 0) {
       // Return provider codes from active provider configs
-      const enabledProviders = providerConfigs.map(
-        (config) => config.customProperties?.providerCode as string
-      ).filter(Boolean);
+      const enabledProviders = providerConfigs.map((config) => {
+        const code = config.customProperties?.providerCode as string;
+        // Normalize: "stripe-connect" -> "stripe" for checkout compatibility
+        return code === "stripe-connect" ? "stripe" : code;
+      }).filter(Boolean);
 
       return {
         enabledPaymentProviders: enabledProviders,
