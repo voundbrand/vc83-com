@@ -10,7 +10,7 @@
  * - Call checkFeatureAccess() before allowing premium features
  */
 
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { query, internalQuery, mutation } from "../_generated/server";
 import type { QueryCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
@@ -291,10 +291,14 @@ export async function checkFeatureAccess(
   const hasAccess = license.features[featureKey];
 
   if (!hasAccess) {
-    throw new Error(
-      `This feature requires ${getFeatureRequiredTier(featureKey)}. ` +
-        `Current tier: ${license.planTier}. Upgrade to unlock this feature.`
-    );
+    // Throw ConvexError with FEATURE_LOCKED code so frontend can show upgrade modal
+    throw new ConvexError({
+      code: "FEATURE_LOCKED",
+      message: `This feature requires ${getFeatureRequiredTier(featureKey)}. Current tier: ${license.planTier}. Upgrade to unlock this feature.`,
+      requiredTier: getFeatureRequiredTier(featureKey),
+      currentTier: license.planTier,
+      featureKey,
+    });
   }
 }
 

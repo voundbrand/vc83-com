@@ -6,6 +6,7 @@ import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { useNotification } from "@/hooks/use-notification";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+import { useUpgradeModal } from "@/components/ui/upgrade-prompt";
 import { Id, Doc } from "../../../../convex/_generated/dataModel";
 import {
   ExternalLink,
@@ -33,6 +34,7 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
   const { sessionId } = useAuth();
   const posthog = usePostHog();
   const notification = useNotification();
+  const { showFeatureLockedModal } = useUpgradeModal();
   const { t } = useNamespaceTranslations("ui.payments");
   const [isOnboarding, setIsOnboarding] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
@@ -166,9 +168,20 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
       } else {
         throw new Error("No onboarding URL returned");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to start onboarding:", error);
-      alert("Failed to start Stripe Connect onboarding. Please try again.");
+
+      // Check if this is a FEATURE_LOCKED error
+      if (error?.data?.code === "FEATURE_LOCKED") {
+        showFeatureLockedModal(
+          "Stripe Connect",
+          "Accept payments directly through Stripe with automatic payouts and invoicing capabilities.",
+          error.data.requiredTier || "Starter (€199/month)"
+        );
+      } else {
+        alert("Failed to start Stripe Connect onboarding. Please try again.");
+      }
+
       setIsOnboarding(false);
     }
   };
