@@ -974,29 +974,33 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
         </div>
       </OrganizationSection>
 
-      {/* Plan & Features (Read-only) */}
+      {/* Plan & Features - NOW IN LICENSING TAB */}
+      {/*
+        NOTE: Plan/tier information has been moved to the dedicated Licensing Tab.
+        This provides full license details, limits, features, and super admin controls.
+        The organization_license object is the single source of truth for all licensing.
+      */}
       <OrganizationSection
         title={t("ui.manage.org.section.plan_features")}
         icon={<Shield className="w-4 h-4" />}
         collapsible={true}
         defaultCollapsed={true}
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
-              {t("ui.manage.org.current_plan")}
-            </label>
-            <div
-              className="px-2 py-1 text-sm font-semibold uppercase"
-              style={{
-                backgroundColor: 'var(--win95-bg)',
-                color: 'var(--primary)',
-                border: '2px inset',
-                borderColor: 'var(--win95-input-border-dark)'
-              }}
-            >
-              {organization.plan}
-            </div>
+        <div className="grid grid-cols-1 gap-4">
+          <div
+            className="px-4 py-3 text-sm"
+            style={{
+              backgroundColor: '#FFF9E5',
+              color: '#7C6400',
+              border: '2px solid #FFEB99',
+              borderRadius: '4px'
+            }}
+          >
+            <p className="font-semibold mb-2">📊 Licensing Information Moved</p>
+            <p className="text-xs">
+              Plan tier, limits, and features are now managed in the <strong>Licensing Tab</strong>.
+              Use the Licensing tab to view current plan, change tiers, toggle features, and manage license settings.
+            </p>
           </div>
 
           <div>

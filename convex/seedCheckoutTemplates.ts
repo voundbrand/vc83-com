@@ -30,7 +30,7 @@ export const seedCheckoutTemplates = mutation({
         slug: "system",
         isActive: true,
         businessName: "System",
-        plan: "enterprise",
+        // NOTE: Plan/tier managed in organization_license object
         isPersonalWorkspace: false,
         createdAt: Date.now(),
         updatedAt: Date.now(),

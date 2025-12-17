@@ -81,7 +81,14 @@ export function StoreWindow() {
       ? { organizationId: currentOrganization.id as Id<"organizations">, sessionId }
       : "skip"
   );
-  const currentPlan = organization?.plan || "free";
+
+  // Get license for plan tier
+  const license = useQuery(
+    api.licensing.helpers.getLicense,
+    currentOrganization?.id ? { organizationId: currentOrganization.id as Id<"organizations"> } : "skip"
+  );
+
+  const currentPlan = license?.planTier || "free";
   const hasActiveSubscription = !!organization?.stripeSubscriptionId;
 
   // Subscription management actions

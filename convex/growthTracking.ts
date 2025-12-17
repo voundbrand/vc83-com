@@ -17,7 +17,7 @@ export const recordSignupEvent = internalMutation({
     userId: v.id("users"),
     organizationId: v.id("organizations"),
     email: v.string(),
-    plan: v.string(),
+    planTier: v.string(), // Changed from 'plan' to 'planTier'
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -30,7 +30,7 @@ export const recordSignupEvent = internalMutation({
       email: args.email,
       signupDate: today,
       signupTimestamp: now,
-      plan: args.plan,
+      plan: args.planTier, // Store as 'plan' in DB for now (can migrate schema later)
       createdAt: now,
     });
 

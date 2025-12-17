@@ -17,6 +17,7 @@ import {
 } from "./helpers";
 import { OAUTH_SCOPES } from "./scopes";
 import { detectOAuthAppType, identifyIntegrationFromUri } from "./verifiedIntegrations";
+import { getLicenseInternal } from "../licensing/helpers";
 
 /**
  * Create a new OAuth application
@@ -109,14 +110,14 @@ export const createOAuthApplication = mutation({
       ? identifyIntegrationFromUri(args.redirectUris[0])
       : null;
 
-    // Get organization to check tier
-    const organization = await ctx.db.get(args.organizationId);
-    if (!organization) {
-      throw new ConvexError({
-        code: "NOT_FOUND",
-        message: "Organization not found",
-      });
-    }
+    // Get organization license (single source of truth for plan/limits)
+    const license = await getLicenseInternal(ctx, args.organizationId);
+
+    // Get OAuth-specific limits from license
+    const planLimits = {
+      maxCustomOAuthApps: license.limits.maxCustomOAuthApps || 1,
+      maxThirdPartyIntegrations: license.limits.maxThirdPartyIntegrations || 0,
+    };
 
     // Count existing applications by type
     const existingApps = await ctx.db
@@ -126,30 +127,20 @@ export const createOAuthApplication = mutation({
       )
       .collect();
 
-    // Enforce quotas based on plan and app type
-    // Map organization plans to OAuth app limits (using new tier names)
-    const planLimits = {
-      maxCustomOAuthApps: organization.plan === "free" ? 1 :
-                          organization.plan === "starter" ? 2 :
-                          organization.plan === "professional" ? 5 :
-                          organization.plan === "agency" ? 10 : 999,
-      maxThirdPartyIntegrations: organization.plan === "free" ? 0 :
-                                 organization.plan === "starter" ? 5 :
-                                 organization.plan === "professional" ? 20 : 999,
-    };
-
+    // Enforce quotas based on license limits
     if (appType === "custom") {
       if (existingApps.length >= planLimits.maxCustomOAuthApps) {
         throw new ConvexError({
           code: "LIMIT_REACHED",
-          message: `You've reached the limit of ${planLimits.maxCustomOAuthApps} custom OAuth applications for the ${organization.plan} plan. Upgrade to add more custom integrations.`,
+          message: `You've reached the limit of ${planLimits.maxCustomOAuthApps} custom OAuth applications for the ${license.planTier} plan. Upgrade to add more custom integrations.`,
         });
       }
     } else {
       if (existingApps.length >= planLimits.maxThirdPartyIntegrations) {
+        const upgradeMsg = license.planTier === "professional" ? "unlimited" : "more";
         throw new ConvexError({
           code: "LIMIT_REACHED",
-          message: `You've reached the limit of ${planLimits.maxThirdPartyIntegrations} third-party integrations for the ${organization.plan} plan. Upgrade for ${organization.plan === "professional" ? "unlimited" : "more"} integrations.`,
+          message: `You've reached the limit of ${planLimits.maxThirdPartyIntegrations} third-party integrations for the ${license.planTier} plan. Upgrade for ${upgradeMsg} integrations.`,
         });
       }
     }

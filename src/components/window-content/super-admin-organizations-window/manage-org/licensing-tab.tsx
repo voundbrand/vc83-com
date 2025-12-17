@@ -310,17 +310,16 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
               {organization.stripeSubscriptionId || "No active subscription"}
             </span>
           </div>
-          <div className="flex justify-between">
-            <span style={{ color: "var(--neutral-gray)" }}>Current Plan:</span>
-            <span
-              className="font-bold px-2 py-0.5"
-              style={{
-                background: organization.plan === "free" ? "var(--neutral-gray)" : "var(--win95-highlight)",
-                color: "white",
-              }}
-            >
-              {organization.plan?.toUpperCase() || "FREE"}
-            </span>
+          <div className="px-4 py-2" style={{
+            backgroundColor: '#FFF9E5',
+            color: '#7C6400',
+            border: '2px solid #FFEB99',
+            borderRadius: '4px'
+          }}>
+            <p className="text-xs font-semibold mb-1">📊 Plan tier managed in License Overview below</p>
+            <p className="text-xs">
+              Use the License Overview section to view and change the organization's plan tier.
+            </p>
           </div>
         </div>
 

@@ -8,6 +8,7 @@
 import { v } from "convex/values";
 import { query } from "../_generated/server";
 import { ConvexError } from "convex/values";
+import { getLicenseInternal } from "../licensing/helpers";
 
 /**
  * Get OAuth App Quota Usage for Organization
@@ -46,24 +47,14 @@ export const getOAuthQuotas = query({
       });
     }
 
-    // Get organization plan
-    const organization = await ctx.db.get(args.organizationId);
-    if (!organization) {
-      throw new ConvexError({
-        code: "NOT_FOUND",
-        message: "Organization not found",
-      });
-    }
+    // Get organization license (single source of truth for plan/limits)
+    const license = await getLicenseInternal(ctx, args.organizationId);
 
-    // Get plan limits based on organization plan (using new tier names)
+    // Get OAuth-specific limits from license
+    // If license has custom limits, use them; otherwise use tier defaults
     const limits = {
-      maxCustomOAuthApps: organization.plan === "free" ? 1 :
-                          organization.plan === "starter" ? 2 :
-                          organization.plan === "professional" ? 5 :
-                          organization.plan === "agency" ? 10 : 999,
-      maxThirdPartyIntegrations: organization.plan === "free" ? 0 :
-                                 organization.plan === "starter" ? 5 :
-                                 organization.plan === "professional" ? 20 : 999,
+      maxCustomOAuthApps: license.limits.maxCustomOAuthApps || 1,
+      maxThirdPartyIntegrations: license.limits.maxThirdPartyIntegrations || 0,
     };
 
     // Count current usage by app type
@@ -82,7 +73,7 @@ export const getOAuthQuotas = query({
       Math.floor((thirdPartyApps.length / limits.maxThirdPartyIntegrations) * 100);
 
     return {
-      plan: organization.plan,
+      plan: license.planTier,
       custom: {
         used: customApps.length,
         limit: limits.maxCustomOAuthApps,
@@ -138,21 +129,13 @@ export const canCreateOAuthApp = query({
       return { canCreate: false, reason: "Not a member of this organization" };
     }
 
-    // Get organization plan
-    const organization = await ctx.db.get(args.organizationId);
-    if (!organization) {
-      return { canCreate: false, reason: "Organization not found" };
-    }
+    // Get organization license (single source of truth for plan/limits)
+    const license = await getLicenseInternal(ctx, args.organizationId);
 
-    // Get plan limits (using new tier names)
+    // Get OAuth-specific limits from license
     const limits = {
-      maxCustomOAuthApps: organization.plan === "free" ? 1 :
-                          organization.plan === "starter" ? 2 :
-                          organization.plan === "professional" ? 5 :
-                          organization.plan === "agency" ? 10 : 999,
-      maxThirdPartyIntegrations: organization.plan === "free" ? 0 :
-                                 organization.plan === "starter" ? 5 :
-                                 organization.plan === "professional" ? 20 : 999,
+      maxCustomOAuthApps: license.limits.maxCustomOAuthApps || 1,
+      maxThirdPartyIntegrations: license.limits.maxThirdPartyIntegrations || 0,
     };
 
     // Count existing apps of this type
@@ -170,13 +153,18 @@ export const canCreateOAuthApp = query({
 
     const canCreate = existingApps.length < limit;
 
+    // Generate upgrade message based on current tier
+    const upgradeTier = license.planTier === "free" ? "Starter" :
+                       license.planTier === "starter" ? "Professional" :
+                       license.planTier === "professional" ? "Agency" : "Enterprise";
+
     return {
       canCreate,
       used: existingApps.length,
       limit,
       unlimited: limit === 999,
       reason: canCreate ? null :
-        `Limit reached (${existingApps.length}/${limit} ${args.appType} apps). Upgrade to ${organization.plan === "free" ? "Starter" : organization.plan === "starter" ? "Professional" : organization.plan === "professional" ? "Agency" : "Enterprise"} plan.`,
+        `Limit reached (${existingApps.length}/${limit} ${args.appType} apps). Upgrade to ${upgradeTier} plan.`,
     };
   },
 });

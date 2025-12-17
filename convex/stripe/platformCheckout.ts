@@ -489,7 +489,9 @@ export const managePlatformSubscription = action({
       };
     }
 
-    const currentTier = org.plan || "free";
+    // Get current plan tier from license (single source of truth)
+    const license = await ctx.runQuery(api.licensing.helpers.getLicense, { organizationId: args.organizationId });
+    const currentTier = license.planTier || "free";
     const currentTierOrder = TIER_ORDER[currentTier] ?? 0;
     const newTierOrder = TIER_ORDER[args.newTier] ?? 0;
 
@@ -776,10 +778,13 @@ export const getSubscriptionStatus = action({
 
     const org = await ctx.runQuery(api.organizations.get, { id: args.organizationId });
 
+    // Get current plan tier from license (single source of truth)
+    const license = await ctx.runQuery(api.licensing.helpers.getLicense, { organizationId: args.organizationId });
+
     if (!org?.stripeSubscriptionId) {
       return {
         hasSubscription: false,
-        currentTier: org?.plan || "free",
+        currentTier: license?.planTier || "free",
         cancelAtPeriodEnd: false,
       };
     }
@@ -812,7 +817,7 @@ export const getSubscriptionStatus = action({
             if (pendingTier) break;
           }
 
-          if (pendingTier && pendingTier !== org.plan) {
+          if (pendingTier && pendingTier !== license.planTier) {
             pendingDowngrade = {
               newTier: pendingTier,
               effectiveDate: nextPhase.start_date * 1000,
@@ -823,7 +828,7 @@ export const getSubscriptionStatus = action({
 
       return {
         hasSubscription: true,
-        currentTier: org.plan || "free",
+        currentTier: license.planTier || "free",
         billingPeriod: subscription.items.data[0].price.recurring?.interval === "year" ? "annual" : "monthly",
         currentPeriodEnd: subscription.current_period_end * 1000,
         cancelAtPeriodEnd: subscription.cancel_at_period_end,
@@ -833,7 +838,7 @@ export const getSubscriptionStatus = action({
       console.error("[Platform Subscription] Error getting status:", error);
       return {
         hasSubscription: false,
-        currentTier: org?.plan || "free",
+        currentTier: license?.planTier || "free",
         cancelAtPeriodEnd: false,
       };
     }

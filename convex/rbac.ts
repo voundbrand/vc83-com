@@ -1869,7 +1869,7 @@ export const createTestOrganization = mutation({
       name: args.name,
       slug: args.slug,
       businessName: args.name,
-      plan: "free",
+      // NOTE: Plan/tier managed in organization_license object
       isPersonalWorkspace: false,
       isActive: true,
       createdAt: now,

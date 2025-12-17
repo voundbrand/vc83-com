@@ -39,7 +39,7 @@ export const sendSalesNotification = internalAction({
     }),
     organization: v.object({
       name: v.string(),
-      plan: v.string(),
+      planTier: v.string(), // Changed from 'plan' to 'planTier' to match license system
     }),
     metadata: v.optional(v.any()),
   },
@@ -78,7 +78,7 @@ export const sendSalesNotification = internalAction({
 function generateSalesNotificationEmail(args: {
   eventType: string;
   user: { email: string; firstName: string; lastName: string };
-  organization: { name: string; plan: string };
+  organization: { name: string; planTier: string };
   metadata?: any;
 }) {
   const { eventType, user, organization, metadata } = args;
@@ -167,7 +167,7 @@ function generateSalesNotificationEmail(args: {
         <p><strong>Name:</strong> ${user.firstName} ${user.lastName}</p>
         <p><strong>Email:</strong> ${user.email}</p>
         <p><strong>Organization:</strong> ${organization.name}</p>
-        <p><strong>Plan:</strong> ${organization.plan}</p>
+        <p><strong>Plan:</strong> ${organization.planTier}</p>
         <p><strong>Time:</strong> ${new Date().toLocaleString('en-US', { timeZone: 'Europe/Berlin' })}</p>
       </div>
 
@@ -194,7 +194,7 @@ function generateSalesNotificationEmail(args: {
     case "platform_tier_upgrade":
     case "starter_upgrade":
       // Use dynamic pricing from Stripe
-      const tierName = organization.plan.charAt(0).toUpperCase() + organization.plan.slice(1);
+      const tierName = organization.planTier.charAt(0).toUpperCase() + organization.planTier.slice(1);
       const isGenericUpgrade = eventType === "platform_tier_upgrade";
 
       // Get actual amount from Stripe checkout (in cents)

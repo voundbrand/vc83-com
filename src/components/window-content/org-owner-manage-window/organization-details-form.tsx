@@ -1326,22 +1326,20 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
         collapsible={true}
         defaultCollapsed={true}
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
-              {t("ui.manage.org.current_plan")}
-            </label>
-            <div
-              className="px-2 py-1 text-sm font-semibold uppercase"
-              style={{
-                backgroundColor: 'var(--win95-bg)',
-                color: 'var(--primary)',
-                border: '2px inset',
-                borderColor: 'var(--win95-input-border-dark)'
-              }}
-            >
-              {organization.plan}
-            </div>
+        <div className="grid grid-cols-1 gap-4">
+          <div
+            className="px-4 py-3 text-sm"
+            style={{
+              backgroundColor: '#FFF9E5',
+              color: '#7C6400',
+              border: '2px solid #FFEB99',
+              borderRadius: '4px'
+            }}
+          >
+            <p className="font-semibold mb-2">📊 Plan information available in header</p>
+            <p className="text-xs">
+              Your current plan tier is displayed in the organization badge at the top of this window.
+            </p>
           </div>
 
           <div>

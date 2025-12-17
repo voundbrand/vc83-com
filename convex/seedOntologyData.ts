@@ -23,7 +23,7 @@ export const seedAll = internalMutation({
         name: "System",
         slug: "system",
         businessName: "System Organization",
-        plan: "enterprise",
+        // NOTE: Plan/tier managed in organization_license object
         isPersonalWorkspace: false,
         isActive: true,
         createdAt: Date.now(),

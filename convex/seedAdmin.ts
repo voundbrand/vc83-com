@@ -55,7 +55,7 @@ export const createSuperAdminUser = mutation({
         name: args.organizationName,
         businessName: args.organizationName,
         slug: args.organizationSlug,
-        plan: "enterprise" as const, // Super admin gets enterprise plan
+        // NOTE: Plan/tier managed in organization_license object (set to enterprise separately)
         isActive: true,
         isPersonalWorkspace: false,
         createdAt: now,

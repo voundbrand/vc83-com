@@ -47,7 +47,7 @@ export const seedSystemApps = mutation({
         name: "System",
         slug: "system",
         businessName: "l4yercak3 System",
-        plan: "enterprise",
+        // NOTE: Plan/tier managed in organization_license object
         isPersonalWorkspace: false,
         isActive: true,
         createdAt: Date.now(),

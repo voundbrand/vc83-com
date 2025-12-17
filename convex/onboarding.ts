@@ -49,7 +49,7 @@ export const signupFreeAccount = action({
     success: boolean;
     sessionId: any;
     user: { id: any; email: string; firstName: string; lastName: string };
-    organization: { id: any; name: string; slug: string; plan: "free" };
+    organization: { id: any; name: string; slug: string };
     apiKeyPrefix: string;
     apiKey: string;
   }> => {
@@ -111,7 +111,7 @@ export const signupFreeAccount = action({
       success: boolean;
       sessionId: any;
       user: { id: any; email: string; firstName: string; lastName: string };
-      organization: { id: any; name: string; slug: string; plan: "free" };
+      organization: { id: any; name: string; slug: string };
       apiKeyPrefix: string;
     } = await ctx.runMutation(internal.onboarding.createFreeAccountInternal, {
       email,
@@ -153,7 +153,7 @@ export const signupFreeAccount = action({
       },
       organization: {
         name: result.organization.name,
-        plan: "free",
+        planTier: "free", // New users always start on free tier
       },
     });
 
@@ -267,7 +267,7 @@ export const createFreeAccountInternal = internalMutation({
       name: orgName,
       slug: orgSlug,
       businessName: orgName,
-      plan: "free",
+      // NOTE: Plan/tier is managed in organization_license object (created separately)
       isPersonalWorkspace: true,
       isActive: true,
       email: args.email,
@@ -392,7 +392,7 @@ export const createFreeAccountInternal = internalMutation({
       userId,
       organizationId,
       email: args.email,
-      plan: "free",
+      planTier: "free",
     });
 
     // 14. Assign all apps to the new organization (teaser model)
@@ -417,7 +417,6 @@ export const createFreeAccountInternal = internalMutation({
         id: organizationId,
         name: orgName,
         slug: orgSlug,
-        plan: "free" as const,
       },
       apiKeyPrefix: args.apiKeyPrefix,
     };

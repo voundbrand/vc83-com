@@ -1163,13 +1163,16 @@ export const updateStripeCustomer = internalMutation({
  * - Need to reset subscription state for testing
  * - Fixing orphaned subscription references
  *
+ * NOTE: Plan/tier is managed through organization_license object.
+ * Use changePlanTier from convex/licensing/superAdmin.ts to change plans.
+ *
  * @permission super_admin only
  */
 export const clearStripeSubscriptionInternal = internalMutation({
   args: {
     organizationId: v.id("organizations"),
     clearCustomerId: v.optional(v.boolean()), // Also clear customer ID if needed
-    resetPlan: v.optional(v.boolean()), // Reset plan to "free"
+    resetPlan: v.optional(v.boolean()), // DEPRECATED: Use changePlanTier from licensing/superAdmin.ts instead
   },
   handler: async (ctx, args) => {
     const org = await ctx.db.get(args.organizationId);
@@ -1185,9 +1188,8 @@ export const clearStripeSubscriptionInternal = internalMutation({
       updates.stripeCustomerId = undefined;
     }
 
-    if (args.resetPlan) {
-      updates.plan = "free";
-    }
+    // NOTE: args.resetPlan is deprecated - plan is now in organization_license object
+    // If you need to reset the plan, use changePlanTier from convex/licensing/superAdmin.ts
 
     await ctx.db.patch(args.organizationId, updates);
 
@@ -1196,7 +1198,7 @@ export const clearStripeSubscriptionInternal = internalMutation({
       cleared: {
         subscriptionId: true,
         customerId: args.clearCustomerId || false,
-        planReset: args.resetPlan || false,
+        planReset: false, // Always false now - plan is managed separately
       },
     };
   },
@@ -1245,9 +1247,8 @@ export const clearStripeSubscription = mutation({
       updates.stripeCustomerId = undefined;
     }
 
-    if (args.resetPlan) {
-      updates.plan = "free";
-    }
+    // NOTE: args.resetPlan is deprecated - plan is now in organization_license object
+    // If you need to reset the plan, use changePlanTier from convex/licensing/superAdmin.ts
 
     await ctx.db.patch(args.organizationId, updates);
 
@@ -1262,8 +1263,7 @@ export const clearStripeSubscription = mutation({
         organizationName: org.name,
         clearedSubscriptionId: !!org.stripeSubscriptionId,
         clearedCustomerId: args.clearCustomerId || false,
-        planReset: args.resetPlan || false,
-        previousPlan: org.plan,
+        planReset: false, // Always false now - plan is managed separately in organization_license
       },
     });
 

@@ -72,6 +72,11 @@ export function ManageWindow({ initialTab = "organization" }: ManageWindowProps)
     organizationId && sessionId ? { organizationId: organizationId as Id<"organizations">, sessionId } : "skip"
   );
 
+  // Get organization license (for plan tier)
+  const license = useQuery(api.licensing.helpers.getLicense,
+    organizationId ? { organizationId: organizationId as Id<"organizations"> } : "skip"
+  );
+
   // Get organization addresses (from ontology)
   const addresses = useQuery(api.organizationOntology.getOrganizationAddresses,
     organizationId ? { organizationId: organizationId as Id<"organizations"> } : "skip"
@@ -241,19 +246,19 @@ export function ManageWindow({ initialTab = "organization" }: ManageWindowProps)
                 {currentOrganization?.name}
               </p>
               {/* Plan Badge */}
-              {organization?.plan && (
+              {license?.planTier && (
                 <span
                   className="inline-flex items-center px-2 py-0.5 text-[10px] font-bold uppercase"
                   style={{
-                    background: organization.plan === 'free'
+                    background: license.planTier === 'free'
                       ? 'var(--win95-bg-light)'
                       : 'linear-gradient(135deg, var(--win95-highlight) 0%, var(--win95-gradient-end) 100%)',
-                    color: organization.plan === 'free' ? 'var(--neutral-gray)' : 'white',
-                    border: organization.plan === 'free' ? '1px solid var(--win95-border)' : 'none',
+                    color: license.planTier === 'free' ? 'var(--neutral-gray)' : 'white',
+                    border: license.planTier === 'free' ? '1px solid var(--win95-border)' : 'none',
                     borderRadius: '2px',
                   }}
                 >
-                  {organization.plan}
+                  {license.planTier}
                 </span>
               )}
             </div>
