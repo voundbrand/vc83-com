@@ -120,6 +120,14 @@ export function ProvidersTab({ onSelectProvider }: ProvidersTabProps) {
       : "skip"
   );
 
+  // Query payment provider configs from objects table (single source of truth!)
+  const availableProviders = useQuery(
+    api.paymentProviders.helpers.getAvailableProviders,
+    organizationId
+      ? { organizationId: organizationId as Id<"organizations"> }
+      : "skip"
+  );
+
   // Get payment settings (enabled providers for checkouts)
   const paymentSettings = useQuery(
     api.organizationPaymentSettings.getPaymentSettings,
@@ -186,11 +194,11 @@ export function ProvidersTab({ onSelectProvider }: ProvidersTabProps) {
 
     switch (providerId) {
       case "stripe":
-        // Check if Stripe Connect is connected via paymentProviders array
-        const stripeProvider = organization?.paymentProviders?.find(
-          (p: { providerCode: string; status: string }) => p.providerCode === "stripe-connect"
+        // Check if Stripe Connect is connected via objects table (single source of truth!)
+        const stripeProvider = availableProviders?.find(
+          (p) => p.providerCode === "stripe-connect"
         );
-        if (stripeProvider?.status === "active") {
+        if (stripeProvider) {
           return "connected";
         }
         return "available";
