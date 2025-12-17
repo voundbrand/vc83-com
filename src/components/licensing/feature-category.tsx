@@ -13,17 +13,41 @@ interface FeatureCategoryProps {
   title: string;
   features: FeatureItem[];
   defaultExpanded?: boolean;
+  editable?: boolean;
+  onToggle?: (featureKey: string, currentValue: boolean) => void;
 }
 
 export function FeatureCategory({
   title,
   features,
   defaultExpanded = false,
+  editable = false,
+  onToggle,
 }: FeatureCategoryProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
 
-  const renderFeatureValue = (value: boolean | string) => {
+  const renderFeatureValue = (feature: FeatureItem) => {
+    const value = feature.value;
+
     if (typeof value === "boolean") {
+      // If editable, make it a clickable button
+      if (editable && onToggle) {
+        return (
+          <button
+            onClick={() => onToggle(feature.key, value)}
+            className="px-2 py-1 text-xs font-bold flex items-center gap-1 cursor-pointer hover:opacity-80 transition-opacity"
+            style={{
+              background: value ? "var(--success)" : "var(--error)",
+              color: "white",
+            }}
+          >
+            {value ? <CheckCircle size={12} /> : <XCircle size={12} />}
+            {value ? "ENABLED" : "DISABLED"}
+          </button>
+        );
+      }
+
+      // Read-only display
       return value ? (
         <span
           className="px-2 py-1 text-xs font-bold flex items-center gap-1"
@@ -115,7 +139,7 @@ export function FeatureCategory({
               <span className="text-xs" style={{ color: "var(--win95-text)" }}>
                 {feature.label}
               </span>
-              {renderFeatureValue(feature.value)}
+              {renderFeatureValue(feature)}
             </div>
           ))}
         </div>

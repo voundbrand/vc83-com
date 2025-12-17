@@ -178,7 +178,11 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
   return (
     <div className="space-y-6">
       {/* License Overview - NEW Phase 1 Component */}
-      <LicenseOverview organizationId={organizationId} />
+      <LicenseOverview
+        organizationId={organizationId}
+        sessionId={sessionId}
+        editable={true}
+      />
 
       {/* Header */}
       <div className="flex items-start justify-between">

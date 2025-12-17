@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import { Loader2 } from "lucide-react";
@@ -10,9 +10,11 @@ import { FeatureCategory } from "./feature-category";
 
 interface LicenseOverviewProps {
   organizationId: Id<"organizations">;
+  sessionId?: string;
+  editable?: boolean;
 }
 
-export function LicenseOverview({ organizationId }: LicenseOverviewProps) {
+export function LicenseOverview({ organizationId, sessionId, editable = false }: LicenseOverviewProps) {
   const license = useQuery(
     api.licensing.helpers.getLicense,
     organizationId ? { organizationId } : "skip"
@@ -27,6 +29,24 @@ export function LicenseOverview({ organizationId }: LicenseOverviewProps) {
     api.licensing.helpers.getDetailedUsageCounts,
     organizationId ? { organizationId } : "skip"
   );
+
+  const toggleFeature = useMutation(api.licensing.helpers.toggleFeature);
+
+  const handleToggleFeature = async (featureKey: string, currentValue: boolean) => {
+    if (!editable || !sessionId) return;
+
+    try {
+      await toggleFeature({
+        sessionId,
+        organizationId,
+        featureKey,
+        enabled: !currentValue,
+      });
+    } catch (error) {
+      console.error("Failed to toggle feature:", error);
+      alert("Failed to toggle feature: " + (error instanceof Error ? error.message : "Unknown error"));
+    }
+  };
 
   if (!license) {
     return (
@@ -822,6 +842,8 @@ export function LicenseOverview({ organizationId }: LicenseOverviewProps) {
               title={category.title}
               features={category.features}
               defaultExpanded={index === 0} // Expand first category by default
+              editable={editable}
+              onToggle={handleToggleFeature}
             />
           ))}
         </div>

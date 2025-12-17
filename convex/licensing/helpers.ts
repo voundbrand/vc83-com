@@ -11,10 +11,11 @@
  */
 
 import { v } from "convex/values";
-import { query, internalQuery } from "../_generated/server";
+import { query, internalQuery, mutation } from "../_generated/server";
 import type { QueryCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { TIER_CONFIGS, type TierConfig } from "./tierConfigs";
+import { requireAuthenticatedUser, getUserContext } from "../rbacHelpers";
 
 /**
  * GET ORGANIZATION LICENSE
@@ -94,10 +95,11 @@ export async function getLicenseInternal(
     ...(customProps.manualOverride?.customLimits || {}),
   };
 
-  // Merge features: tier defaults → custom features
+  // Merge features: tier defaults → custom features → feature overrides (super admin)
   const features = {
     ...tierConfig.features,
     ...(customProps.features || {}),
+    ...(customProps.featureOverrides || {}), // Super admin overrides take precedence
   };
 
   return {
@@ -891,5 +893,70 @@ export const getDetailedUsageCounts = query({
       integrationsCount,
       webhooksCount,
     };
+  },
+});
+
+/**
+ * TOGGLE FEATURE (SUPER ADMIN ONLY)
+ *
+ * Allows super admins to manually override feature flags for an organization.
+ * Creates or updates the organization_license object with feature overrides.
+ */
+export const toggleFeature = mutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    featureKey: v.string(),
+    enabled: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    // Require super admin
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    const userContext = await getUserContext(ctx, userId);
+
+    // Check if user is super admin
+    if (!userContext.isGlobal || userContext.roleName !== "super_admin") {
+      throw new Error("Permission denied: Only super admins can toggle features");
+    }
+
+    // Get existing license object
+    const licenseObject = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "organization_license")
+      )
+      .first();
+
+    if (licenseObject) {
+      // Update existing license
+      const currentOverrides = licenseObject.customProperties?.featureOverrides || {};
+      await ctx.db.patch(licenseObject._id, {
+        customProperties: {
+          ...licenseObject.customProperties,
+          featureOverrides: {
+            ...currentOverrides,
+            [args.featureKey]: args.enabled,
+          },
+        },
+      });
+    } else {
+      // Create new license object with override
+      await ctx.db.insert("objects", {
+        type: "organization_license",
+        organizationId: args.organizationId,
+        name: "Organization License",
+        description: "License configuration with manual overrides",
+        status: "active",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        customProperties: {
+          featureOverrides: {
+            [args.featureKey]: args.enabled,
+          },
+        },
+      });
+    }
+
+    return { success: true };
   },
 });
