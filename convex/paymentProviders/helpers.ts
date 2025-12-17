@@ -125,6 +125,49 @@ export async function updateOrgProviderConfig(
     paymentProviders: updatedProviders,
     updatedAt: Date.now(),
   });
+
+  // ALSO create/update the corresponding payment_provider_config object
+  // This ensures webhooks can find the org and the UI stays in sync
+  const existingObject = await ctx.db
+    .query("objects")
+    .withIndex("by_org_type", (q) =>
+      q.eq("organizationId", organizationId).eq("type", "payment_provider_config")
+    )
+    .filter((q) => q.eq(q.field("customProperties.providerCode"), config.providerCode))
+    .first();
+
+  const objectData = {
+    type: "payment_provider_config" as const,
+    organizationId,
+    name: config.providerCode,
+    description: `Payment provider: ${config.providerCode}`,
+    status: config.status as "active" | "pending" | "restricted" | "disabled",
+    customProperties: {
+      providerCode: config.providerCode,
+      accountId: config.accountId,
+      isDefault: config.isDefault,
+      isTestMode: config.isTestMode,
+      connectedAt: config.connectedAt,
+      lastStatusCheck: config.lastStatusCheck,
+      metadata: config.metadata,
+      supportsB2B: true, // All providers support B2B
+      supportsB2C: true, // All providers support B2C
+    },
+    updatedAt: Date.now(),
+  };
+
+  if (existingObject) {
+    // Update existing object
+    await ctx.db.patch(existingObject._id, objectData);
+  } else {
+    // Create new object
+    // Note: createdBy should ideally be the user ID, but we don't have it in this context
+    // We'll leave it undefined for system-created objects
+    await ctx.db.insert("objects", {
+      ...objectData,
+      createdAt: Date.now(),
+    });
+  }
 }
 
 /**
@@ -152,6 +195,19 @@ export async function removeOrgProviderConfig(
     paymentProviders: updatedProviders,
     updatedAt: Date.now(),
   });
+
+  // ALSO delete the corresponding payment_provider_config object
+  const existingObject = await ctx.db
+    .query("objects")
+    .withIndex("by_org_type", (q) =>
+      q.eq("organizationId", organizationId).eq("type", "payment_provider_config")
+    )
+    .filter((q) => q.eq(q.field("customProperties.providerCode"), providerCode))
+    .first();
+
+  if (existingObject) {
+    await ctx.db.delete(existingObject._id);
+  }
 }
 
 /**
