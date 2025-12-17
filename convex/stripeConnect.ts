@@ -379,7 +379,7 @@ export const disconnectStripeConnect = mutation({
     const org = await ctx.db.get(organizationId);
     if (!org) throw new Error("Organization not found");
 
-    // Remove Stripe Connect provider from array
+    // Remove from org array (backward compatibility)
     const updatedProviders = (org.paymentProviders || []).filter(
       (p) => p.providerCode !== "stripe-connect"
     );
@@ -388,6 +388,19 @@ export const disconnectStripeConnect = mutation({
       paymentProviders: updatedProviders,
       updatedAt: Date.now(),
     });
+
+    // ALSO delete the payment_provider_config object (single source of truth!)
+    const providerObject = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", organizationId).eq("type", "payment_provider_config")
+      )
+      .filter((q) => q.eq(q.field("customProperties.providerCode"), "stripe-connect"))
+      .first();
+
+    if (providerObject) {
+      await ctx.db.delete(providerObject._id);
+    }
 
     return { success: true };
   },

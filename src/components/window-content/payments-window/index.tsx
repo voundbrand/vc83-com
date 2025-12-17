@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery } from "convex/react";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { StripeConnectSection } from "./stripe-connect-section";
 import { InvoicingSection } from "./invoicing-section";
@@ -20,6 +20,36 @@ export function PaymentsWindow() {
   const currentOrganization = useCurrentOrganization();
   const organizationId = currentOrganization?.id || user?.defaultOrgId;
   const { t } = useNamespaceTranslations("ui.payments");
+  const handleOAuthCallback = useMutation(api.stripeConnect.handleOAuthCallback);
+
+  // Handle Stripe OAuth callback immediately when component mounts
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    const state = urlParams.get('state');
+
+    if (code && state && sessionId && organizationId) {
+      console.log('[PaymentsWindow] Processing Stripe OAuth callback immediately...');
+
+      // Clean up URL
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, '', cleanUrl);
+
+      // Process OAuth callback
+      handleOAuthCallback({
+        sessionId,
+        organizationId: state as Id<"organizations">,
+        code,
+        state,
+        isTestMode: false, // Default to live mode
+      }).then(() => {
+        console.log('[PaymentsWindow] OAuth callback processed - switching to providers tab');
+        setActiveTab("providers"); // Show providers list so they can see the connected status
+      }).catch((error) => {
+        console.error('[PaymentsWindow] OAuth callback failed:', error);
+      });
+    }
+  }, [sessionId, organizationId, handleOAuthCallback]);
 
   // Get organization data to check Stripe status (MUST be before any conditional returns)
   const organization = useQuery(
