@@ -36,10 +36,11 @@ import { EnterpriseContactModal } from "@/components/ai-billing/enterprise-conta
 // Tier hierarchy for upgrade/downgrade comparison
 const TIER_ORDER: Record<string, number> = {
   free: 0,
-  starter: 1,
-  professional: 2,
-  agency: 3,
-  enterprise: 4,
+  community: 1,
+  starter: 2,
+  professional: 3,
+  agency: 4,
+  enterprise: 5,
 };
 
 /**
@@ -431,6 +432,27 @@ function PlatformPlansTab({
       highlight: false,
     },
     {
+      id: "community",
+      name: "Community",
+      monthlyPrice: 900, // €9/mo
+      annualPrice: 9000, // €90/yr (≈€7.50/mo - save ~17%)
+      description: "Course + Templates + Calls",
+      icon: <Users className="w-5 h-5" />,
+      features: [
+        "All Free tier features",
+        "Foundations Course",
+        "Templates Library",
+        "Weekly Live Calls",
+        "Private Skool Group",
+        "Early Access Features",
+      ],
+      cta: "Start 14-Day Trial",
+      highlight: false,
+      badge: "🎓 With Community",
+      trialBadge: "14-DAY FREE TRIAL",
+      savingsPercent: 17,
+    },
+    {
       id: "starter",
       name: "Starter",
       monthlyPrice: 19900, // €199/mo
@@ -631,6 +653,18 @@ function PlatformPlansTab({
                 }}
               >
                 Current Plan
+              </div>
+            )}
+
+            {/* Trial Badge for Community/Paid Tiers */}
+            {plan.trialBadge && plan.id !== currentPlan && (
+              <div
+                className="absolute top-0 left-0 px-2 py-1 text-[10px] font-bold text-white rounded-br"
+                style={{
+                  background: "var(--success)",
+                }}
+              >
+                {plan.trialBadge}
               </div>
             )}
 

@@ -689,7 +689,13 @@ export const createOrganization = action({
       });
     }
 
-    // 11. Log success audit
+    // 11. Assign all apps to new organization (automatic app availability)
+    await ctx.runMutation(internal.onboarding.assignAllAppsToOrg, {
+      organizationId,
+      userId,
+    });
+
+    // 12. Log success audit
     await ctx.runMutation(internal.rbac.logAudit, {
       userId,
       organizationId,

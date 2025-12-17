@@ -2,7 +2,7 @@
  * STRIPE PLATFORM TIER CHECKOUT
  *
  * Handles Stripe Checkout session creation for platform tier subscriptions.
- * (Free, Starter, Professional, Agency, Enterprise)
+ * (Free, Community, Starter, Professional, Agency, Enterprise)
  *
  * This is separate from AI subscription billing (aiCheckout.ts).
  * Platform tiers control feature limits, not AI token usage.
@@ -36,12 +36,14 @@ const getStripe = () => {
 const TIER_PRICE_IDS = {
   monthly: {
     free: process.env.STRIPE_FREE_MO_PRICE_ID,
+    community: process.env.STRIPE_COMMUNITY_MO_PRICE_ID,
     starter: process.env.STRIPE_STARTER_MO_PRICE_ID,
     professional: process.env.STRIPE_PROFESSIONAL_MO_PRICE_ID,
     agency: process.env.STRIPE_AGENCY_MO_PRICE_ID,
     enterprise: process.env.STRIPE_ENTERPRISE_MO_PRICE_ID,
   } as Record<string, string | undefined>,
   annual: {
+    community: process.env.STRIPE_COMMUNITY_YR_PRICE_ID,
     starter: process.env.STRIPE_STARTER_YR_PRICE_ID,
     professional: process.env.STRIPE_PROFESSIONAL_YR_PRICE_ID,
     agency: process.env.STRIPE_AGENCY_YR_PRICE_ID,
@@ -61,6 +63,7 @@ export const createPlatformCheckoutSession = action({
     organizationName: v.string(),
     email: v.string(),
     tier: v.union(
+      v.literal("community"),
       v.literal("starter"),
       v.literal("professional"),
       v.literal("agency"),
@@ -178,6 +181,8 @@ export const createPlatformCheckoutSession = action({
         address: "auto",
         name: "auto",
       },
+      // Allow customers to reuse existing payment methods
+      payment_method_collection: "if_required",
       automatic_tax: {
         enabled: true,
       },
@@ -345,6 +350,8 @@ export const createTokenPackCheckoutSession = action({
         address: "auto",
         name: "auto",
       },
+      // Allow customers to reuse existing payment methods
+      payment_method_collection: "if_required",
       automatic_tax: {
         enabled: true,
       },
@@ -432,10 +439,11 @@ export const getOrganizationBillingDetails = internalQuery({
  */
 const TIER_ORDER: Record<string, number> = {
   free: 0,
-  starter: 1,
-  professional: 2,
-  agency: 3,
-  enterprise: 4,
+  community: 1,
+  starter: 2,
+  professional: 3,
+  agency: 4,
+  enterprise: 5,
 };
 
 /**
@@ -453,6 +461,7 @@ export const managePlatformSubscription = action({
     organizationId: v.id("organizations"),
     newTier: v.union(
       v.literal("free"),
+      v.literal("community"),
       v.literal("starter"),
       v.literal("professional"),
       v.literal("agency"),

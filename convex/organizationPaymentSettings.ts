@@ -43,19 +43,59 @@ export const getPaymentSettings = query({
       )
       .first();
 
-    if (!paymentSettings) {
-      // Return defaults if no settings exist
+    if (paymentSettings) {
       return {
-        _id: null,
-        organizationId: args.organizationId,
-        enabledPaymentProviders: [], // No providers enabled by default
+        _id: paymentSettings._id,
+        organizationId: paymentSettings.organizationId,
+        enabledPaymentProviders: paymentSettings.customProperties?.enabledPaymentProviders ?? [],
       };
     }
 
+    // FALLBACK 1: Check organizations.paymentProviders field (new format)
+    const org = await ctx.db.get(args.organizationId);
+    if (org?.paymentProviders && org.paymentProviders.length > 0) {
+      const enabledProviders = org.paymentProviders
+        .filter((p: any) => p.status === "active")
+        .map((p: any) => p.providerCode as string)
+        .filter(Boolean);
+
+      if (enabledProviders.length > 0) {
+        return {
+          _id: null,
+          organizationId: args.organizationId,
+          enabledPaymentProviders: enabledProviders,
+        };
+      }
+    }
+
+    // FALLBACK 2: Check for payment_provider_config objects (old format)
+    const providerConfigs = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId)
+         .eq("type", "payment_provider_config")
+      )
+      .filter((q) => q.eq(q.field("status"), "active"))
+      .collect();
+
+    if (providerConfigs.length > 0) {
+      // Return provider codes from active provider configs
+      const enabledProviders = providerConfigs.map(
+        (config) => config.customProperties?.providerCode as string
+      ).filter(Boolean);
+
+      return {
+        _id: null,
+        organizationId: args.organizationId,
+        enabledPaymentProviders: enabledProviders,
+      };
+    }
+
+    // Return defaults if no settings exist
     return {
-      _id: paymentSettings._id,
-      organizationId: paymentSettings.organizationId,
-      enabledPaymentProviders: paymentSettings.customProperties?.enabledPaymentProviders ?? [],
+      _id: null,
+      organizationId: args.organizationId,
+      enabledPaymentProviders: [], // No providers enabled by default
     };
   },
 });
@@ -78,15 +118,51 @@ export const getPublicPaymentSettings = query({
       )
       .first();
 
-    if (!paymentSettings) {
-      // Return defaults - empty means "use whatever checkout instance has"
+    if (paymentSettings) {
       return {
-        enabledPaymentProviders: [],
+        enabledPaymentProviders: paymentSettings.customProperties?.enabledPaymentProviders ?? [],
       };
     }
 
+    // FALLBACK 1: Check organizations.paymentProviders field (new format)
+    const org = await ctx.db.get(args.organizationId);
+    if (org?.paymentProviders && org.paymentProviders.length > 0) {
+      const enabledProviders = org.paymentProviders
+        .filter((p: any) => p.status === "active")
+        .map((p: any) => p.providerCode as string)
+        .filter(Boolean);
+
+      if (enabledProviders.length > 0) {
+        return {
+          enabledPaymentProviders: enabledProviders,
+        };
+      }
+    }
+
+    // FALLBACK 2: Check for payment_provider_config objects (old format)
+    const providerConfigs = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId)
+         .eq("type", "payment_provider_config")
+      )
+      .filter((q) => q.eq(q.field("status"), "active"))
+      .collect();
+
+    if (providerConfigs.length > 0) {
+      // Return provider codes from active provider configs
+      const enabledProviders = providerConfigs.map(
+        (config) => config.customProperties?.providerCode as string
+      ).filter(Boolean);
+
+      return {
+        enabledPaymentProviders: enabledProviders,
+      };
+    }
+
+    // No settings and no provider configs - return empty (will use checkout instance defaults)
     return {
-      enabledPaymentProviders: paymentSettings.customProperties?.enabledPaymentProviders ?? [],
+      enabledPaymentProviders: [],
     };
   },
 });

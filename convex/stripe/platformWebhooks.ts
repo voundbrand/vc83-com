@@ -244,6 +244,42 @@ async function handleSubscriptionCreated(ctx: any, subscription: any) {
     amount: items.data[0]?.price?.unit_amount || 0,
     currency: items.data[0]?.price?.currency || "eur",
   });
+
+  // ZAPIER INTEGRATION: Trigger webhook for Community subscription
+  // This enables "Community → Skool" automation via Zapier
+  if (tier === "community") {
+    try {
+      // Get organization and user details for webhook payload
+      const org = await ctx.runQuery(internal.stripe.platformWebhooks.getOrganizationInternal, {
+        organizationId,
+      });
+
+      if (org) {
+        // Get primary user from organization
+        const members = await ctx.runQuery(internal.stripe.platformWebhooks.getOrganizationMembers, {
+          organizationId,
+        });
+
+        const primaryMember = members.find((m: any) => m.isActive);
+        if (primaryMember && primaryMember.user) {
+          // Trigger Zapier webhook
+          await ctx.runAction(internal.zapier.triggers.triggerCommunitySubscriptionCreated, {
+            organizationId,
+            userId: primaryMember.user._id,
+            email: primaryMember.user.email,
+            firstName: primaryMember.user.firstName || "",
+            lastName: primaryMember.user.lastName || "",
+            stripeSubscriptionId: id,
+          });
+
+          console.log(`[Platform Webhooks] ✓ Triggered Zapier webhook for Community subscription`);
+        }
+      }
+    } catch (error) {
+      // Don't fail subscription creation if webhook trigger fails
+      console.error(`[Platform Webhooks] Failed to trigger Zapier webhook:`, error);
+    }
+  }
 }
 
 /**
@@ -644,5 +680,35 @@ export const syncPlatformBillingDetails = internalMutation({
       success: true,
       createdAt: now,
     });
+  },
+});
+
+/**
+ * INTERNAL QUERY: Get organization members with user details
+ *
+ * Used by Zapier integration to get user details for webhook payloads
+ */
+export const getOrganizationMembers = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    const members = await ctx.db
+      .query("organizationMembers")
+      .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+      .collect();
+
+    // Fetch user details for each member
+    const membersWithUsers = await Promise.all(
+      members.map(async (member) => {
+        const user = await ctx.db.get(member.userId);
+        return {
+          ...member,
+          user,
+        };
+      })
+    );
+
+    return membersWithUsers;
   },
 });

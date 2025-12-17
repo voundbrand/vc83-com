@@ -490,6 +490,8 @@ async function assignAllAppsToOrgInternal(
   organizationId: any,
   userId: any
 ): Promise<void> {
+  console.log(`[Onboarding/AppAvailability] 🚀 Starting app assignment for org ${organizationId}`);
+
   // Get system organization to ensure we only assign system-owned apps
   const systemOrg = await ctx.db
     .query("organizations")
@@ -497,9 +499,12 @@ async function assignAllAppsToOrgInternal(
     .first();
 
   if (!systemOrg) {
-    console.warn("[Onboarding] System organization not found - skipping app assignment");
-    return;
+    const errorMsg = "[Onboarding/AppAvailability] ❌ CRITICAL ERROR: System organization not found! Run: npm run seed:all before creating accounts.";
+    console.error(errorMsg);
+    throw new Error(errorMsg);
   }
+
+  console.log(`[Onboarding/AppAvailability] ✅ Found system org: ${systemOrg._id} (slug: ${systemOrg.slug})`);
 
   // Get all active and approved apps created by the SYSTEM organization
   // IMPORTANT: This prevents cross-org pollution of apps
@@ -514,9 +519,25 @@ async function assignAllAppsToOrgInternal(
     )
     .collect();
 
-  console.log(`[Onboarding] Assigning ${activeApps.length} system apps to org ${organizationId}`);
+  if (activeApps.length === 0) {
+    const errorMsg = "[Onboarding/AppAvailability] ❌ CRITICAL ERROR: No system apps found! Run: npx convex run seedApps:registerWebPublishingApp before creating accounts.";
+    console.error(errorMsg);
+    throw new Error(errorMsg);
+  }
+
+  console.log(`[Onboarding/AppAvailability] 📦 Found ${activeApps.length} system apps to assign:`);
+  activeApps.forEach((app: any, index: number) => {
+    console.log(`[Onboarding/AppAvailability]   ${index + 1}. ${app.name || app.code} (${app._id}) - status: ${app.status}`);
+  });
+
+  let availabilityCount = 0;
+  let installationCount = 0;
+  let skippedAvailabilityCount = 0;
+  let skippedInstallationCount = 0;
 
   for (const app of activeApps) {
+    console.log(`[Onboarding/AppAvailability] 🔄 Processing app: ${app.name || app.code} (${app._id})`);
+
     // Check if availability already exists (shouldn't for new orgs, but be safe)
     const existingAvailability = await ctx.db
       .query("appAvailabilities")
@@ -527,13 +548,18 @@ async function assignAllAppsToOrgInternal(
 
     if (!existingAvailability) {
       // Create appAvailability record
-      await ctx.db.insert("appAvailabilities", {
+      const availabilityId = await ctx.db.insert("appAvailabilities", {
         appId: app._id,
         organizationId,
         isAvailable: true,
         approvedBy: userId,
         approvedAt: Date.now(),
       });
+      availabilityCount++;
+      console.log(`[Onboarding/AppAvailability]   ✅ Created appAvailability: ${availabilityId} (isAvailable: true)`);
+    } else {
+      skippedAvailabilityCount++;
+      console.log(`[Onboarding/AppAvailability]   ⏭️  Skipped appAvailability (already exists: ${existingAvailability._id}, isAvailable: ${existingAvailability.isAvailable})`);
     }
 
     // Check if installation already exists
@@ -546,7 +572,7 @@ async function assignAllAppsToOrgInternal(
 
     if (!existingInstallation) {
       // Create appInstallation record
-      await ctx.db.insert("appInstallations", {
+      const installationId = await ctx.db.insert("appInstallations", {
         organizationId,
         appId: app._id,
         status: "active",
@@ -561,10 +587,20 @@ async function assignAllAppsToOrgInternal(
         installedBy: userId,
         updatedAt: Date.now(),
       });
+      installationCount++;
+      console.log(`[Onboarding/AppAvailability]   ✅ Created appInstallation: ${installationId} (status: active, isVisible: true)`);
+    } else {
+      skippedInstallationCount++;
+      console.log(`[Onboarding/AppAvailability]   ⏭️  Skipped appInstallation (already exists: ${existingInstallation._id}, status: ${existingInstallation.status})`);
     }
   }
 
-  console.log(`[Onboarding] Successfully assigned ${activeApps.length} apps to org ${organizationId}`);
+  console.log(`[Onboarding/AppAvailability] 🎉 SUMMARY for org ${organizationId}:`);
+  console.log(`[Onboarding/AppAvailability]   - Total apps processed: ${activeApps.length}`);
+  console.log(`[Onboarding/AppAvailability]   - AppAvailabilities created: ${availabilityCount}`);
+  console.log(`[Onboarding/AppAvailability]   - AppAvailabilities skipped: ${skippedAvailabilityCount}`);
+  console.log(`[Onboarding/AppAvailability]   - AppInstallations created: ${installationCount}`);
+  console.log(`[Onboarding/AppAvailability]   - AppInstallations skipped: ${skippedInstallationCount}`);
 }
 
 /**
@@ -623,8 +659,9 @@ async function provisionStarterTemplatesInternal(
     .first();
 
   if (!systemOrg) {
-    console.warn("[Onboarding] System organization not found - skipping template provisioning");
-    return;
+    const errorMsg = "[Onboarding] CRITICAL ERROR: System organization not found! Run: npm run seed:all before creating accounts.";
+    console.error(errorMsg);
+    throw new Error(errorMsg);
   }
 
   // 2. Get organization details for metadata

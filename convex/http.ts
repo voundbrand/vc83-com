@@ -1276,6 +1276,141 @@ http.route({
 
 /**
  * ==========================================
+ * ZAPIER WEBHOOK ENDPOINTS
+ * ==========================================
+ *
+ * REST Hook subscription management for Zapier integrations.
+ * Allows Zapier to subscribe/unsubscribe to platform events.
+ */
+
+// POST /api/v1/webhooks/subscribe - Subscribe to webhook
+http.route({
+  path: "/api/v1/webhooks/subscribe",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    try {
+      // Parse request body
+      const body = await request.json();
+      const { event, target_url } = body;
+
+      // Validate required fields
+      if (!event || !target_url) {
+        return new Response(
+          JSON.stringify({ error: "Missing required fields: event, target_url" }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      // Call Convex mutation to create subscription
+      const result = await ctx.runMutation(api.zapier.webhooks.subscribeWebhook, {
+        event,
+        target_url,
+      });
+
+      return new Response(JSON.stringify(result), {
+        status: 201,
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (error: any) {
+      console.error("[Webhooks API] Subscribe error:", error);
+      return new Response(
+        JSON.stringify({ error: error.message || "Failed to subscribe webhook" }),
+        {
+          status: error.data?.code === "UNAUTHORIZED" ? 401 : 400,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+  }),
+});
+
+// DELETE /api/v1/webhooks/:id - Unsubscribe from webhook
+http.route({
+  pathPrefix: "/api/v1/webhooks/",
+  method: "DELETE",
+  handler: httpAction(async (ctx, request) => {
+    try {
+      const url = new URL(request.url);
+      const pathParts = url.pathname.split("/");
+      const subscriptionId = pathParts[pathParts.length - 1];
+
+      if (!subscriptionId || subscriptionId === "webhooks") {
+        return new Response(
+          JSON.stringify({ error: "Subscription ID required" }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      // Call Convex mutation to delete subscription
+      await ctx.runMutation(api.zapier.webhooks.unsubscribeWebhook, {
+        subscriptionId: subscriptionId as any,
+      });
+
+      return new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (error: any) {
+      console.error("[Webhooks API] Unsubscribe error:", error);
+      return new Response(
+        JSON.stringify({ error: error.message || "Failed to unsubscribe webhook" }),
+        {
+          status: error.data?.code === "UNAUTHORIZED" ? 401 : 404,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+  }),
+});
+
+// GET /api/v1/community/subscriptions - List community subscriptions (for Zapier testing)
+http.route({
+  path: "/api/v1/community/subscriptions",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    try {
+      // This endpoint is for Zapier's "Load Sample Data" feature
+      // Returns example community subscriptions for testing triggers
+
+      // In production, this should query real data
+      // For now, return sample data structure
+      const sampleData = [
+        {
+          id: "sample-1",
+          email: "test@example.com",
+          firstName: "John",
+          lastName: "Doe",
+          stripeSubscriptionId: "sub_sample123",
+          customCourseAccess: ["foundations"],
+          createdAt: Date.now(),
+        },
+      ];
+
+      return new Response(JSON.stringify(sampleData), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (error: any) {
+      console.error("[Community API] List subscriptions error:", error);
+      return new Response(
+        JSON.stringify({ error: "Failed to list subscriptions" }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+  }),
+});
+
+/**
+ * ==========================================
  * OAUTH 2.0 ENDPOINTS
  * ==========================================
  *

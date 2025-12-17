@@ -27,6 +27,7 @@ const PRICE_IDS = {
   // Platform Plans (Monthly)
   platformMonthly: {
     free: process.env.STRIPE_FREE_MO_PRICE_ID,
+    community: process.env.STRIPE_COMMUNITY_MO_PRICE_ID,
     starter: process.env.STRIPE_STARTER_MO_PRICE_ID,
     professional: process.env.STRIPE_PROFESSIONAL_MO_PRICE_ID,
     agency: process.env.STRIPE_AGENCY_MO_PRICE_ID,
@@ -34,6 +35,7 @@ const PRICE_IDS = {
   },
   // Platform Plans (Annual)
   platformAnnual: {
+    community: process.env.STRIPE_COMMUNITY_YR_PRICE_ID,
     starter: process.env.STRIPE_STARTER_YR_PRICE_ID,
     professional: process.env.STRIPE_PROFESSIONAL_YR_PRICE_ID,
     agency: process.env.STRIPE_AGENCY_YR_PRICE_ID,
@@ -115,11 +117,13 @@ export const getAllPrices = action({
     const [
       // Platform Monthly
       freeMonthly,
+      communityMonthly,
       starterMonthly,
       professionalMonthly,
       agencyMonthly,
       enterpriseMonthly,
       // Platform Annual
+      communityAnnual,
       starterAnnual,
       professionalAnnual,
       agencyAnnual,
@@ -139,11 +143,13 @@ export const getAllPrices = action({
     ] = await Promise.all([
       // Platform Monthly
       fetchPrice(stripe, PRICE_IDS.platformMonthly.free),
+      fetchPrice(stripe, PRICE_IDS.platformMonthly.community),
       fetchPrice(stripe, PRICE_IDS.platformMonthly.starter),
       fetchPrice(stripe, PRICE_IDS.platformMonthly.professional),
       fetchPrice(stripe, PRICE_IDS.platformMonthly.agency),
       fetchPrice(stripe, PRICE_IDS.platformMonthly.enterprise),
       // Platform Annual
+      fetchPrice(stripe, PRICE_IDS.platformAnnual.community),
       fetchPrice(stripe, PRICE_IDS.platformAnnual.starter),
       fetchPrice(stripe, PRICE_IDS.platformAnnual.professional),
       fetchPrice(stripe, PRICE_IDS.platformAnnual.agency),
@@ -166,12 +172,14 @@ export const getAllPrices = action({
       platform: {
         monthly: {
           free: freeMonthly,
+          community: communityMonthly,
           starter: starterMonthly,
           professional: professionalMonthly,
           agency: agencyMonthly,
           enterprise: enterpriseMonthly,
         },
         annual: {
+          community: communityAnnual,
           starter: starterAnnual,
           professional: professionalAnnual,
           agency: agencyAnnual,
@@ -211,21 +219,25 @@ export const getPlatformPrices = action({
     const [
       // Monthly
       freeMonthly,
+      communityMonthly,
       starterMonthly,
       professionalMonthly,
       agencyMonthly,
       enterpriseMonthly,
       // Annual
+      communityAnnual,
       starterAnnual,
       professionalAnnual,
       agencyAnnual,
       enterpriseAnnual,
     ] = await Promise.all([
       fetchPrice(stripe, PRICE_IDS.platformMonthly.free),
+      fetchPrice(stripe, PRICE_IDS.platformMonthly.community),
       fetchPrice(stripe, PRICE_IDS.platformMonthly.starter),
       fetchPrice(stripe, PRICE_IDS.platformMonthly.professional),
       fetchPrice(stripe, PRICE_IDS.platformMonthly.agency),
       fetchPrice(stripe, PRICE_IDS.platformMonthly.enterprise),
+      fetchPrice(stripe, PRICE_IDS.platformAnnual.community),
       fetchPrice(stripe, PRICE_IDS.platformAnnual.starter),
       fetchPrice(stripe, PRICE_IDS.platformAnnual.professional),
       fetchPrice(stripe, PRICE_IDS.platformAnnual.agency),
@@ -235,12 +247,14 @@ export const getPlatformPrices = action({
     return {
       monthly: {
         free: freeMonthly,
+        community: communityMonthly,
         starter: starterMonthly,
         professional: professionalMonthly,
         agency: agencyMonthly,
         enterprise: enterpriseMonthly,
       },
       annual: {
+        community: communityAnnual,
         starter: starterAnnual,
         professional: professionalAnnual,
         agency: agencyAnnual,

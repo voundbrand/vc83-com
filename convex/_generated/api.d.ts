@@ -97,8 +97,6 @@ import type * as crmPipeline from "../crmPipeline.js";
 import type * as crmTags from "../crmTags.js";
 import type * as crons from "../crons.js";
 import type * as cryptoActions from "../cryptoActions.js";
-import type * as debugCrmContact from "../debugCrmContact.js";
-import type * as debugProduction from "../debugProduction.js";
 import type * as domainConfigOntology from "../domainConfigOntology.js";
 import type * as emailDelivery from "../emailDelivery.js";
 import type * as emailQueue from "../emailQueue.js";
@@ -431,6 +429,8 @@ import type * as workflows_workflowOntology from "../workflows/workflowOntology.
 import type * as workflows_workflowTemplates from "../workflows/workflowTemplates.js";
 import type * as workflows_workflowTestExecution from "../workflows/workflowTestExecution.js";
 import type * as workflows_workflowValidation from "../workflows/workflowValidation.js";
+import type * as zapier_triggers from "../zapier/triggers.js";
+import type * as zapier_webhooks from "../zapier/webhooks.js";
 
 /**
  * A utility for referencing Convex functions in your app's API.
@@ -525,8 +525,6 @@ declare const fullApi: ApiFromModules<{
   crmTags: typeof crmTags;
   crons: typeof crons;
   cryptoActions: typeof cryptoActions;
-  debugCrmContact: typeof debugCrmContact;
-  debugProduction: typeof debugProduction;
   domainConfigOntology: typeof domainConfigOntology;
   emailDelivery: typeof emailDelivery;
   emailQueue: typeof emailQueue;
@@ -859,6 +857,8 @@ declare const fullApi: ApiFromModules<{
   "workflows/workflowTemplates": typeof workflows_workflowTemplates;
   "workflows/workflowTestExecution": typeof workflows_workflowTestExecution;
   "workflows/workflowValidation": typeof workflows_workflowValidation;
+  "zapier/triggers": typeof zapier_triggers;
+  "zapier/webhooks": typeof zapier_webhooks;
 }>;
 export declare const api: FilterApi<
   typeof fullApi,

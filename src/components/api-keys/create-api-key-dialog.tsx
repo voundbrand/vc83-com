@@ -16,7 +16,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { useMutation } from "convex/react";
+import { useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { ScopeSelector } from "./scope-selector";
 import { Id } from "../../../convex/_generated/dataModel";
@@ -40,8 +40,8 @@ export function CreateApiKeyDialog({
   const [createdKey, setCreatedKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // Use useAction instead of useMutation since generateApiKey is an Action
-  const generateApiKey = useMutation(api.actions.apiKeys.generateApiKey as any);
+  // Use useAction since generateApiKey is an Action
+  const generateApiKey = useAction(api.actions.apiKeys.generateApiKey);
 
   const handleCreate = async () => {
     if (!name.trim()) {
@@ -91,31 +91,34 @@ export function CreateApiKeyDialog({
   // If key is created, show the one-time display
   if (createdKey) {
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6">
+      <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
+        <div className="rounded-lg shadow-xl max-w-2xl w-full p-6" style={{ background: 'var(--win95-bg)' }}>
           <div className="space-y-4">
             {/* Success Header */}
-            <div className="flex items-center gap-3 text-green-600">
+            <div className="flex items-center gap-3" style={{ color: 'var(--success)' }}>
               <div className="text-3xl">✓</div>
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">
+                <h2 className="text-2xl font-bold" style={{ color: 'var(--win95-text)' }}>
                   API Key Created!
                 </h2>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
                   Save this key now - it won't be shown again
                 </p>
               </div>
             </div>
 
             {/* Key Display */}
-            <div className="bg-red-50 border border-red-300 rounded-lg p-4">
+            <div className="border-2 rounded-lg p-4" style={{
+              background: 'var(--win95-bg-light)',
+              borderColor: 'var(--error)'
+            }}>
               <div className="flex items-start gap-3">
-                <div className="text-red-600 text-xl">⚠️</div>
+                <div className="text-xl" style={{ color: 'var(--error)' }}>⚠️</div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-red-900 mb-2">
+                  <h3 className="font-semibold mb-2" style={{ color: 'var(--win95-text)' }}>
                     Save Your API Key Now
                   </h3>
-                  <p className="text-sm text-red-700 mb-3">
+                  <p className="text-sm mb-3" style={{ color: 'var(--neutral-gray)' }}>
                     For security reasons, we can only show you this key once. Copy it
                     now and store it securely.
                   </p>
@@ -126,16 +129,19 @@ export function CreateApiKeyDialog({
                       type="text"
                       value={createdKey}
                       readOnly
-                      className="flex-1 px-3 py-2 border border-red-300 rounded bg-white font-mono text-sm"
+                      className="retro-input flex-1 font-mono text-sm"
                       onClick={(e) => (e.target as HTMLInputElement).select()}
                     />
                     <button
                       onClick={handleCopy}
-                      className={`px-4 py-2 rounded font-semibold transition-colors ${
-                        copied
-                          ? "bg-green-600 text-white"
-                          : "bg-purple-600 text-white hover:bg-purple-700"
-                      }`}
+                      className="retro-button px-4 py-2 rounded font-semibold transition-colors"
+                      style={copied ? {
+                        background: 'var(--success)',
+                        color: 'var(--win95-titlebar-text)'
+                      } : {
+                        background: 'var(--win95-highlight)',
+                        color: 'var(--win95-titlebar-text)'
+                      }}
                     >
                       {copied ? "Copied!" : "Copy"}
                     </button>
@@ -145,14 +151,20 @@ export function CreateApiKeyDialog({
             </div>
 
             {/* Usage Instructions */}
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <h4 className="font-semibold text-gray-900 mb-2">
+            <div className="border-2 rounded-lg p-4" style={{
+              background: 'var(--win95-bg-light)',
+              borderColor: 'var(--win95-border)'
+            }}>
+              <h4 className="font-semibold mb-2" style={{ color: 'var(--win95-text)' }}>
                 Using Your API Key
               </h4>
-              <p className="text-sm text-gray-700 mb-3">
+              <p className="text-sm mb-3" style={{ color: 'var(--neutral-gray)' }}>
                 Include this key in the Authorization header of your API requests:
               </p>
-              <pre className="bg-gray-900 text-green-400 p-3 rounded text-xs overflow-x-auto">
+              <pre className="p-3 rounded text-xs overflow-x-auto" style={{
+                background: 'var(--audio-player-bg)',
+                color: 'var(--audio-player-text)'
+              }}>
                 {`Authorization: Bearer ${createdKey}`}
               </pre>
             </div>
@@ -161,7 +173,11 @@ export function CreateApiKeyDialog({
             <div className="flex justify-end">
               <button
                 onClick={onClose}
-                className="px-6 py-2 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-colors"
+                className="retro-button px-6 py-2 rounded-lg font-semibold transition-colors"
+                style={{
+                  background: 'var(--win95-highlight)',
+                  color: 'var(--win95-titlebar-text)'
+                }}
               >
                 Done - I've Saved My Key
               </button>
@@ -174,22 +190,22 @@ export function CreateApiKeyDialog({
 
   // Otherwise, show the creation form
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
+      <div className="rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" style={{ background: 'var(--win95-bg)' }}>
         <div className="p-6 space-y-6">
           {/* Header */}
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">
+            <h2 className="text-2xl font-bold" style={{ color: 'var(--win95-text)' }}>
               Create API Key
             </h2>
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="text-sm mt-1" style={{ color: 'var(--neutral-gray)' }}>
               Configure permissions and generate a new API key for programmatic access
             </p>
           </div>
 
           {/* Name Input */}
           <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-2">
+            <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--win95-text)' }}>
               API Key Name
             </label>
             <input
@@ -197,17 +213,17 @@ export function CreateApiKeyDialog({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g., Production Server, Mobile App, Analytics Pipeline"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="retro-input w-full"
               disabled={isCreating}
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
               Choose a descriptive name to help identify this key's purpose
             </p>
           </div>
 
           {/* Scope Selection */}
           <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-2">
+            <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--win95-text)' }}>
               Permissions
             </label>
             <ScopeSelector
@@ -218,11 +234,14 @@ export function CreateApiKeyDialog({
           </div>
 
           {/* Security Best Practices */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h4 className="font-semibold text-blue-900 mb-2">
+          <div className="border-2 rounded-lg p-4" style={{
+            background: 'var(--win95-bg-light)',
+            borderColor: 'var(--win95-border)'
+          }}>
+            <h4 className="font-semibold mb-2" style={{ color: 'var(--win95-text)' }}>
               🔒 Security Best Practices
             </h4>
-            <ul className="text-sm text-blue-700 space-y-1">
+            <ul className="text-sm space-y-1" style={{ color: 'var(--neutral-gray)' }}>
               <li>• Use the minimum required permissions (principle of least privilege)</li>
               <li>• Create separate keys for different services or environments</li>
               <li>• Store keys securely (environment variables, secret managers)</li>
@@ -236,14 +255,23 @@ export function CreateApiKeyDialog({
             <button
               onClick={onClose}
               disabled={isCreating}
-              className="px-6 py-2 border border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              className="retro-button px-6 py-2 rounded-lg font-semibold transition-colors disabled:opacity-50"
+              style={{
+                background: 'var(--win95-bg-light)',
+                color: 'var(--win95-text)',
+                borderColor: 'var(--win95-border)'
+              }}
             >
               Cancel
             </button>
             <button
               onClick={handleCreate}
               disabled={isCreating || !name.trim() || selectedScopes.length === 0}
-              className="px-6 py-2 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="retro-button px-6 py-2 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                background: 'var(--win95-highlight)',
+                color: 'var(--win95-titlebar-text)'
+              }}
             >
               {isCreating ? "Creating..." : "Create API Key"}
             </button>

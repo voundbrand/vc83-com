@@ -66,6 +66,30 @@ export const organizations = defineTable({
   stripeCustomerId: v.optional(v.string()),           // Stripe customer ID (cus_...)
   stripeSubscriptionId: v.optional(v.string()),       // Active subscription ID (sub_...)
 
+  // Trial tracking (for platform subscriptions)
+  trialStatus: v.optional(v.union(
+    v.literal("active"),
+    v.literal("ended"),
+    v.literal("converted"),
+    v.literal("canceled")
+  )),
+  trialStartedAt: v.optional(v.number()),
+  trialEndsAt: v.optional(v.number()),
+  trialPlan: v.optional(v.string()),                  // Which plan tier they're trialing
+
+  // Community subscription (separate add-on, not a platform tier)
+  // Community members get Free platform features + access to Skool/courses/calls
+  communitySubscription: v.optional(v.object({
+    active: v.boolean(),
+    stripeSubscriptionId: v.optional(v.string()),
+    stripeCustomerId: v.optional(v.string()),
+    startedAt: v.optional(v.number()),
+    trialEndsAt: v.optional(v.number()),              // Track trial period for community
+    canceledAt: v.optional(v.number()),
+    skoolInviteSent: v.optional(v.boolean()),
+    skoolJoinedAt: v.optional(v.number()),
+  })),
+
   // Multi-Provider Payment Integration
   paymentProviders: v.optional(v.array(v.object({
     providerCode: v.string(),           // e.g., "stripe-connect", "paypal", "square"
@@ -484,3 +508,20 @@ export const oauthStates = defineTable({
 })
   .index("by_state", ["state"])
   .index("by_user", ["userId"]);
+
+// Zapier Webhook Subscriptions - REST hooks for Zapier integrations
+// Multi-tenant: Each subscription is scoped to ONE organization
+export const webhookSubscriptions = defineTable({
+  organizationId: v.id("organizations"),       // Which organization owns this webhook
+  event: v.string(),                           // "community_subscription_created", "new_contact", etc.
+  targetUrl: v.string(),                       // Zapier's webhook URL (e.g., hooks.zapier.com/...)
+  isActive: v.boolean(),                       // Can be disabled without deletion
+  createdAt: v.number(),
+  updatedAt: v.number(),
+  lastDeliveredAt: v.optional(v.number()),     // Last successful delivery
+  deliveryCount: v.number(),                   // Total successful deliveries
+  failureCount: v.number(),                    // Consecutive failures (auto-disable after 10)
+})
+  .index("by_organization", ["organizationId"])
+  .index("by_event", ["event", "isActive"])
+  .index("by_organization_event", ["organizationId", "event"]);

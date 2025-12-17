@@ -30,7 +30,8 @@ import {
   userPreferences,
   organizationMedia,
   oauthConnections,
-  oauthStates
+  oauthStates,
+  webhookSubscriptions
 } from "./schemas/coreSchemas";
 // NOTE: apiKeyDomains table removed - now using unified domain configurations in objects table
 import { apps, appInstallations, snapshots, snapshotLoads, purchases, appAvailabilities } from "./schemas/appStoreSchemas";
@@ -120,6 +121,7 @@ export default defineSchema({
   organizationMedia,
   oauthConnections,
   oauthStates,
+  webhookSubscriptions,
 
   // 🔐 RBAC: Role-Based Access Control
   roles,

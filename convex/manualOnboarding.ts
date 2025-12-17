@@ -59,6 +59,8 @@ export const applyQuickStart = mutation({
 
     // 4. ASSIGN ALL APPS (exactly like onboarding.ts:assignAllAppsToOrgInternal)
     // IMPORTANT: Only get apps created by the SYSTEM organization to prevent cross-org pollution
+    console.log(`[ManualOnboarding/AppAvailability] 🚀 Starting app assignment for org ${organizationId}`);
+
     const activeApps = await ctx.db
       .query("apps")
       .withIndex("by_creator", (q) => q.eq("creatorOrgId", systemOrg._id))
@@ -70,7 +72,14 @@ export const applyQuickStart = mutation({
       )
       .collect();
 
+    console.log(`[ManualOnboarding/AppAvailability] 📦 Found ${activeApps.length} system apps to assign:`);
+    activeApps.forEach((app: any, index: number) => {
+      console.log(`[ManualOnboarding/AppAvailability]   ${index + 1}. ${app.name || app.code} (${app._id}) - status: ${app.status}`);
+    });
+
     for (const app of activeApps) {
+      console.log(`[ManualOnboarding/AppAvailability] 🔄 Processing app: ${app.name || app.code} (${app._id})`);
+
       // Check if availability already exists
       const existingAvailability = await ctx.db
         .query("appAvailabilities")
@@ -80,13 +89,16 @@ export const applyQuickStart = mutation({
         .first();
 
       if (!existingAvailability) {
-        await ctx.db.insert("appAvailabilities", {
+        const availabilityId = await ctx.db.insert("appAvailabilities", {
           appId: app._id,
           organizationId,
           isAvailable: true,
           approvedBy: userId,
           approvedAt: Date.now(),
         });
+        console.log(`[ManualOnboarding/AppAvailability]   ✅ Created appAvailability: ${availabilityId} (isAvailable: true)`);
+      } else {
+        console.log(`[ManualOnboarding/AppAvailability]   ⏭️  Skipped appAvailability (already exists: ${existingAvailability._id}, isAvailable: ${existingAvailability.isAvailable})`);
       }
 
       // Check if installation already exists
@@ -99,9 +111,10 @@ export const applyQuickStart = mutation({
 
       if (existingInstallation) {
         results.alreadyInstalled.push(app.name || app.code);
+        console.log(`[ManualOnboarding/AppAvailability]   ⏭️  Skipped appInstallation (already exists: ${existingInstallation._id}, status: ${existingInstallation.status})`);
       } else {
         // Create appInstallation record
-        await ctx.db.insert("appInstallations", {
+        const installationId = await ctx.db.insert("appInstallations", {
           organizationId,
           appId: app._id,
           status: "active",
@@ -118,8 +131,14 @@ export const applyQuickStart = mutation({
         });
 
         results.appsProvisioned.push(app.name || app.code);
+        console.log(`[ManualOnboarding/AppAvailability]   ✅ Created appInstallation: ${installationId} (status: active, isVisible: true)`);
       }
     }
+
+    console.log(`[ManualOnboarding/AppAvailability] 🎉 SUMMARY for org ${organizationId}:`);
+    console.log(`[ManualOnboarding/AppAvailability]   - Total apps processed: ${activeApps.length}`);
+    console.log(`[ManualOnboarding/AppAvailability]   - Apps provisioned: ${results.appsProvisioned.length}`);
+    console.log(`[ManualOnboarding/AppAvailability]   - Apps already installed: ${results.alreadyInstalled.length}`);
 
     // 6. PROVISION FREELANCER PORTAL TEMPLATE (exactly like onboarding.ts:provisionStarterTemplatesInternal)
     // Get organization details
