@@ -978,3 +978,68 @@ export const toggleFeature = mutation({
     return { success: true };
   },
 });
+
+/**
+ * CHANGE PLAN TIER (SUPER ADMIN ONLY)
+ *
+ * Allows super admins to change the plan tier for an organization.
+ * Creates or updates the organization_license object with the new tier.
+ */
+export const changePlanTier = mutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    planTier: v.union(
+      v.literal("free"),
+      v.literal("starter"),
+      v.literal("professional"),
+      v.literal("agency"),
+      v.literal("enterprise")
+    ),
+  },
+  handler: async (ctx, args) => {
+    // Require super admin
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    const userContext = await getUserContext(ctx, userId);
+
+    // Check if user is super admin
+    if (!userContext.isGlobal || userContext.roleName !== "super_admin") {
+      throw new Error("Permission denied: Only super admins can change plan tiers");
+    }
+
+    // Get existing license object
+    const licenseObject = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "organization_license")
+      )
+      .first();
+
+    if (licenseObject) {
+      // Update existing license
+      await ctx.db.patch(licenseObject._id, {
+        customProperties: {
+          ...licenseObject.customProperties,
+          planTier: args.planTier,
+        },
+        updatedAt: Date.now(),
+      });
+    } else {
+      // Create new license object
+      await ctx.db.insert("objects", {
+        type: "organization_license",
+        organizationId: args.organizationId,
+        name: "Organization License",
+        description: `${args.planTier} tier license`,
+        status: "active",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        customProperties: {
+          planTier: args.planTier,
+        },
+      });
+    }
+
+    return { success: true, planTier: args.planTier };
+  },
+});

@@ -31,6 +31,7 @@ export function LicenseOverview({ organizationId, sessionId, editable = false }:
   );
 
   const toggleFeature = useMutation(api.licensing.helpers.toggleFeature);
+  const changePlanTier = useMutation(api.licensing.helpers.changePlanTier);
 
   const handleToggleFeature = async (featureKey: string, currentValue: boolean) => {
     if (!editable || !sessionId) return;
@@ -45,6 +46,21 @@ export function LicenseOverview({ organizationId, sessionId, editable = false }:
     } catch (error) {
       console.error("Failed to toggle feature:", error);
       alert("Failed to toggle feature: " + (error instanceof Error ? error.message : "Unknown error"));
+    }
+  };
+
+  const handleChangePlanTier = async (newTier: "free" | "starter" | "professional" | "agency" | "enterprise") => {
+    if (!editable || !sessionId) return;
+
+    try {
+      await changePlanTier({
+        sessionId,
+        organizationId,
+        planTier: newTier,
+      });
+    } catch (error) {
+      console.error("Failed to change plan tier:", error);
+      alert("Failed to change plan tier: " + (error instanceof Error ? error.message : "Unknown error"));
     }
   };
 
@@ -784,6 +800,54 @@ export function LicenseOverview({ organizationId, sessionId, editable = false }:
 
   return (
     <div className="space-y-6">
+      {/* Plan Tier Selector (Super Admin Only) */}
+      {editable && sessionId && (
+        <div
+          className="border-2 p-4"
+          style={{
+            borderColor: "var(--win95-border)",
+            background: "var(--win95-bg-light)",
+          }}
+        >
+          <h3
+            className="text-sm font-bold mb-3"
+            style={{ color: "var(--win95-text)" }}
+          >
+            🎯 Plan Tier Selector
+          </h3>
+          <div className="grid grid-cols-5 gap-3">
+            {(["free", "starter", "professional", "agency", "enterprise"] as const).map((tier) => {
+              const isActive = license.planTier === tier;
+              return (
+                <button
+                  key={tier}
+                  onClick={() => handleChangePlanTier(tier)}
+                  className="p-3 border-2 text-center transition-all hover:opacity-80"
+                  style={{
+                    borderColor: isActive ? "var(--win95-highlight)" : "var(--win95-border)",
+                    background: isActive ? "var(--win95-highlight)" : "var(--win95-bg)",
+                    color: isActive ? "white" : "var(--win95-text)",
+                    fontWeight: "bold",
+                  }}
+                >
+                  <div className="text-xs mb-1">
+                    {tier === "free" && "🆓"}
+                    {tier === "starter" && "🚀"}
+                    {tier === "professional" && "💼"}
+                    {tier === "agency" && "🏢"}
+                    {tier === "enterprise" && "👑"}
+                  </div>
+                  <div className="text-xs uppercase">{tier}</div>
+                  {isActive && (
+                    <div className="text-[10px] mt-1">ACTIVE</div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* License Header */}
       <LicenseHeader license={license} />
 
