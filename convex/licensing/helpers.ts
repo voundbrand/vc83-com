@@ -85,8 +85,24 @@ export async function getLicenseInternal(
     [key: string]: unknown;
   };
 
-  const planTier = customProps.planTier;
+  const planTier = customProps.planTier || "free"; // Default to free if not set
   const tierConfig = TIER_CONFIGS[planTier];
+
+  if (!tierConfig) {
+    // Fallback if tier is invalid
+    console.error(`Invalid tier: ${planTier}, falling back to free`);
+    return {
+      exists: false,
+      licenseId: null,
+      planTier: "free" as const,
+      status: "active" as const,
+      ...TIER_CONFIGS.free,
+      currentPeriodStart: null,
+      currentPeriodEnd: null,
+      trialEnd: null,
+      manualOverride: null,
+    };
+  }
 
   // Merge limits: tier defaults → custom limits → manual override limits
   const limits = {
@@ -941,6 +957,7 @@ export const toggleFeature = mutation({
       });
     } else {
       // Create new license object with override
+      // IMPORTANT: Always set planTier when creating a new license
       await ctx.db.insert("objects", {
         type: "organization_license",
         organizationId: args.organizationId,
@@ -950,6 +967,7 @@ export const toggleFeature = mutation({
         createdAt: Date.now(),
         updatedAt: Date.now(),
         customProperties: {
+          planTier: "free", // Default to free tier
           featureOverrides: {
             [args.featureKey]: args.enabled,
           },
