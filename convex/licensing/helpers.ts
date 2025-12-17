@@ -287,6 +287,12 @@ export async function checkFeatureAccess(
   // Get license
   const license = await getLicenseInternal(ctx, organizationId);
 
+  // Debug logging
+  console.log(`[checkFeatureAccess] Checking ${featureKey} for org ${organizationId}`);
+  console.log(`[checkFeatureAccess] Current tier: ${license.planTier}`);
+  console.log(`[checkFeatureAccess] License exists: ${license.exists}`);
+  console.log(`[checkFeatureAccess] Feature ${featureKey}: ${license.features[featureKey]}`);
+
   // Check feature flag
   const hasAccess = license.features[featureKey];
 
