@@ -349,6 +349,12 @@ export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
                   addedCosts: fr.addedCosts,
                   submittedAt: fr.submittedAt,
                 })),
+                // 🔥 CRITICAL FIX: Store pricing totals from tax calculation
+                // Without these, createPaymentIntentForSession fails with "Amount (0 EUR) is below minimum"
+                subtotal: updatedData.taxCalculation?.subtotal || 0,
+                taxAmount: updatedData.taxCalculation?.taxAmount || 0,
+                totalAmount: updatedData.taxCalculation?.total || 0,
+                currency: orgLocaleSettings?.currency || "eur",
                 stepProgress: [currentStep],
                 // ✅ CRITICAL: Store behavior results so backend can access them!
                 behaviorContext: behaviorContext,
