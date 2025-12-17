@@ -25,6 +25,7 @@ import {
   getProviderByCode,
   updateOrgProviderConfig,
   getOrgProviderConfig,
+  getOrgProviderConfigFromObjects,
 } from "./paymentProviders";
 import { checkFeatureAccess } from "./licensing/helpers";
 
@@ -49,11 +50,8 @@ export const getStripeConnectStatus = query({
 
     if (!session) throw new Error("Invalid session");
 
-    const org = await ctx.db.get(organizationId);
-    if (!org) throw new Error("Organization not found");
-
-    // Get provider config
-    const config = getOrgProviderConfig(org, "stripe-connect");
+    // Get provider config from objects table (single source of truth)
+    const config = await getOrgProviderConfigFromObjects(ctx, organizationId, "stripe-connect");
 
     return {
       isConnected: !!config,
@@ -75,7 +73,23 @@ export const findOrgByStripeAccount = internalQuery({
     stripeAccountId: v.string(),
   },
   handler: async (ctx, { stripeAccountId }) => {
-    // Search for organization by Stripe account ID in paymentProviders array
+    // Search objects table for provider config with this account ID (much faster with index!)
+    const providerObject = await ctx.db
+      .query("objects")
+      .withIndex("by_type", (q) => q.eq("type", "payment_provider_config"))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("customProperties.providerCode"), "stripe-connect"),
+          q.eq(q.field("customProperties.accountId"), stripeAccountId)
+        )
+      )
+      .first();
+
+    if (providerObject) {
+      return await ctx.db.get(providerObject.organizationId);
+    }
+
+    // Fallback: Search organizations array for backward compatibility
     const orgs = await ctx.db.query("organizations").collect();
     for (const org of orgs) {
       const config = getOrgProviderConfig(org, "stripe-connect");
@@ -115,6 +129,18 @@ export const getOrganizationInternal = internalQuery({
   },
 });
 
+/**
+ * GET PROVIDER CONFIG FOR REFRESH (helper for actions) - INTERNAL
+ */
+export const getProviderConfigForRefresh = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, { organizationId }) => {
+    return await getOrgProviderConfigFromObjects(ctx, organizationId, "stripe-connect");
+  },
+});
+
 // =========================================
 // MUTATIONS
 // =========================================
@@ -139,14 +165,11 @@ export const startOnboarding = mutation({
 
     if (!session) throw new Error("Invalid session");
 
-    const org = await ctx.db.get(organizationId);
-    if (!org) throw new Error("Organization not found");
-
     // CHECK FEATURE ACCESS: Stripe Connect requires Starter tier or higher
     await checkFeatureAccess(ctx, organizationId, "stripeConnectEnabled");
 
-    // Check if already connected
-    const existingConfig = getOrgProviderConfig(org, "stripe-connect");
+    // Check if already connected (query objects table)
+    const existingConfig = await getOrgProviderConfigFromObjects(ctx, organizationId, "stripe-connect");
     if (existingConfig && existingConfig.status === "active") {
       throw new Error("Organization already has Stripe Connect configured");
     }
@@ -265,10 +288,8 @@ export const refreshAccountStatus = mutation({
 
     if (!session) throw new Error("Invalid session");
 
-    const org = await ctx.db.get(organizationId);
-    if (!org) throw new Error("Organization not found");
-
-    const config = getOrgProviderConfig(org, "stripe-connect");
+    // Get config from objects table
+    const config = await getOrgProviderConfigFromObjects(ctx, organizationId, "stripe-connect");
     if (!config) {
       throw new Error("No Stripe account connected");
     }
@@ -316,11 +337,11 @@ export const refreshAccountStatusSync = action({
     const session = await ctx.runQuery(internal.stripeConnect.getSessionInternal, { sessionId });
     if (!session) throw new Error("Invalid session");
 
-    // Get organization
-    const org = await ctx.runQuery(internal.stripeConnect.getOrganizationInternal, { organizationId });
-    if (!org) throw new Error("Organization not found");
-
-    const config = getOrgProviderConfig(org, "stripe-connect");
+    // Get provider config from objects table
+    const config = await ctx.runQuery(
+      internal.stripeConnect.getProviderConfigForRefresh,
+      { organizationId }
+    );
     if (!config) {
       throw new Error("No Stripe account connected");
     }
@@ -589,8 +610,11 @@ export const createStripeAccountLink = internalAction({
     // Get Stripe provider
     const provider = getProviderByCode("stripe-connect");
 
-    // Check if account already exists
-    const existingConfig = getOrgProviderConfig(org, "stripe-connect");
+    // Check if account already exists (query objects table)
+    const existingConfig = await ctx.runQuery(
+      internal.stripeConnect.getProviderConfigForRefresh,
+      { organizationId: args.organizationId }
+    );
 
     if (existingConfig?.accountId) {
       // Just create new account link for existing account

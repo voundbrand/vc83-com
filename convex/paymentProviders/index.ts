@@ -21,6 +21,7 @@ export {
   getProviderForOrg,
   getProviderByCode,
   getOrgProviderConfig,
+  getOrgProviderConfigFromObjects,
   updateOrgProviderConfig,
   removeOrgProviderConfig,
   getConnectedAccountId,

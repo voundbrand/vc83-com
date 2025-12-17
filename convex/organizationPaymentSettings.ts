@@ -51,28 +51,7 @@ export const getPaymentSettings = query({
       };
     }
 
-    // FALLBACK 1: Check organizations.paymentProviders field (new format)
-    const org = await ctx.db.get(args.organizationId);
-    if (org?.paymentProviders && org.paymentProviders.length > 0) {
-      const enabledProviders = org.paymentProviders
-        .filter((p: any) => p.status === "active")
-        .map((p: any) => {
-          const code = p.providerCode as string;
-          // Normalize: "stripe-connect" -> "stripe" for checkout compatibility
-          return code === "stripe-connect" ? "stripe" : code;
-        })
-        .filter(Boolean);
-
-      if (enabledProviders.length > 0) {
-        return {
-          _id: null,
-          organizationId: args.organizationId,
-          enabledPaymentProviders: enabledProviders,
-        };
-      }
-    }
-
-    // FALLBACK 2: Check for payment_provider_config objects (old format)
+    // PRIORITY 1: Check payment_provider_config objects (SINGLE SOURCE OF TRUTH)
     const providerConfigs = await ctx.db
       .query("objects")
       .withIndex("by_org_type", (q) =>
@@ -95,6 +74,27 @@ export const getPaymentSettings = query({
         organizationId: args.organizationId,
         enabledPaymentProviders: enabledProviders,
       };
+    }
+
+    // FALLBACK: Check organizations.paymentProviders field (backward compatibility)
+    const org = await ctx.db.get(args.organizationId);
+    if (org?.paymentProviders && org.paymentProviders.length > 0) {
+      const enabledProviders = org.paymentProviders
+        .filter((p: any) => p.status === "active")
+        .map((p: any) => {
+          const code = p.providerCode as string;
+          // Normalize: "stripe-connect" -> "stripe" for checkout compatibility
+          return code === "stripe-connect" ? "stripe" : code;
+        })
+        .filter(Boolean);
+
+      if (enabledProviders.length > 0) {
+        return {
+          _id: null,
+          organizationId: args.organizationId,
+          enabledPaymentProviders: enabledProviders,
+        };
+      }
     }
 
     // Return defaults if no settings exist
@@ -130,26 +130,7 @@ export const getPublicPaymentSettings = query({
       };
     }
 
-    // FALLBACK 1: Check organizations.paymentProviders field (new format)
-    const org = await ctx.db.get(args.organizationId);
-    if (org?.paymentProviders && org.paymentProviders.length > 0) {
-      const enabledProviders = org.paymentProviders
-        .filter((p: any) => p.status === "active")
-        .map((p: any) => {
-          const code = p.providerCode as string;
-          // Normalize: "stripe-connect" -> "stripe" for checkout compatibility
-          return code === "stripe-connect" ? "stripe" : code;
-        })
-        .filter(Boolean);
-
-      if (enabledProviders.length > 0) {
-        return {
-          enabledPaymentProviders: enabledProviders,
-        };
-      }
-    }
-
-    // FALLBACK 2: Check for payment_provider_config objects (old format)
+    // PRIORITY 1: Check payment_provider_config objects (SINGLE SOURCE OF TRUTH)
     const providerConfigs = await ctx.db
       .query("objects")
       .withIndex("by_org_type", (q) =>
@@ -170,6 +151,25 @@ export const getPublicPaymentSettings = query({
       return {
         enabledPaymentProviders: enabledProviders,
       };
+    }
+
+    // FALLBACK: Check organizations.paymentProviders field (backward compatibility)
+    const org = await ctx.db.get(args.organizationId);
+    if (org?.paymentProviders && org.paymentProviders.length > 0) {
+      const enabledProviders = org.paymentProviders
+        .filter((p: any) => p.status === "active")
+        .map((p: any) => {
+          const code = p.providerCode as string;
+          // Normalize: "stripe-connect" -> "stripe" for checkout compatibility
+          return code === "stripe-connect" ? "stripe" : code;
+        })
+        .filter(Boolean);
+
+      if (enabledProviders.length > 0) {
+        return {
+          enabledPaymentProviders: enabledProviders,
+        };
+      }
     }
 
     // No settings and no provider configs - return empty (will use checkout instance defaults)

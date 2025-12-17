@@ -46,7 +46,56 @@ export function getProviderByCode(providerCode: string): IPaymentProvider {
 }
 
 /**
- * Get organization's provider config for a specific provider
+ * Get organization's provider config for a specific provider (ASYNC - queries objects table)
+ *
+ * This is the NEW preferred way to get provider config. It queries the objects table
+ * as the single source of truth, with fallback to org.paymentProviders for backward compatibility.
+ *
+ * @param ctx - Query or Mutation context
+ * @param organizationId - Organization ID
+ * @param providerCode - Provider code to look for
+ * @returns Provider config or undefined
+ */
+export async function getOrgProviderConfigFromObjects(
+  ctx: QueryCtx | MutationCtx,
+  organizationId: Id<"organizations">,
+  providerCode: string
+): Promise<OrganizationProviderConfig | undefined> {
+  // Query objects table first (single source of truth)
+  const providerObject = await ctx.db
+    .query("objects")
+    .withIndex("by_org_type", (q) =>
+      q.eq("organizationId", organizationId).eq("type", "payment_provider_config")
+    )
+    .filter((q) => q.eq(q.field("customProperties.providerCode"), providerCode))
+    .first();
+
+  if (providerObject && providerObject.customProperties) {
+    const props = providerObject.customProperties;
+    return {
+      providerCode: props.providerCode as string,
+      accountId: props.accountId as string,
+      status: providerObject.status as "active" | "pending" | "restricted" | "disabled",
+      isDefault: props.isDefault as boolean,
+      isTestMode: props.isTestMode as boolean,
+      connectedAt: props.connectedAt as number,
+      lastStatusCheck: props.lastStatusCheck as number,
+      metadata: props.metadata as Record<string, unknown>,
+    };
+  }
+
+  // Fallback to org.paymentProviders for backward compatibility
+  const org = await ctx.db.get(organizationId);
+  if (!org) return undefined;
+
+  return getOrgProviderConfig(org, providerCode);
+}
+
+/**
+ * Get organization's provider config for a specific provider (SYNC - legacy)
+ *
+ * DEPRECATED: Use getOrgProviderConfigFromObjects instead for new code.
+ * This function only reads from org.paymentProviders array and doesn't query objects table.
  *
  * @param org - Organization document
  * @param providerCode - Provider code to look for
@@ -75,7 +124,7 @@ export function getOrgProviderConfig(
     };
   }
 
-  // New format
+  // New format (from org.paymentProviders array - backward compatibility)
   return org.paymentProviders?.find((p) => p.providerCode === providerCode);
 }
 
