@@ -69,7 +69,7 @@ export function PaymentStep({
   // 1. Behaviors detected employer billing (automatic invoice)
   // 2. OR "invoice" is in configured payment providers (manual configuration)
   const isInvoiceConfigured = paymentProviders.includes("invoice");
-  const isStripeConfigured = paymentProviders.includes("stripe");
+  const isStripeConfigured = paymentProviders.includes("stripe-connect");
   const showInvoiceOption = isInvoiceBehaviorDetected || isInvoiceConfigured;
   const showStripeOption = isStripeConfigured;
 
