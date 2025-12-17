@@ -10,7 +10,7 @@
  * - Cleaner separation of concerns
  */
 
-import { internalAction, internalMutation } from "./_generated/server";
+import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { getProviderByCode } from "./paymentProviders";
@@ -248,6 +248,24 @@ export const logWebhookEvent = internalMutation({
     //   message: args.message,
     //   error: args.error,
     // });
+  },
+});
+
+/**
+ * CHECK IF EVENT WAS ALREADY PROCESSED
+ *
+ * Idempotency check - returns true if we've already processed this event.
+ * This helps handle Stripe CLI retries gracefully.
+ */
+export const checkEventProcessed = internalQuery({
+  args: {
+    eventId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // TODO: Check database for processed events
+    // For now, always return false (no idempotency check)
+    // This will be implemented when webhookLogs table is added
+    return false;
   },
 });
 

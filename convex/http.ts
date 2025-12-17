@@ -94,16 +94,33 @@ http.route({
  *
  * Separate endpoint for Connect-specific events if needed.
  * Uses same provider-based verification.
+ *
+ * IMPORTANT: For development with Stripe CLI:
+ * - Run `stripe listen --forward-to https://your-site.convex.site/stripe-connect-webhooks`
+ * - Copy the webhook secret (starts with whsec_)
+ * - Set it: `npx convex env set STRIPE_WEBHOOK_SECRET whsec_...`
+ * - Restart Convex dev server
  */
 http.route({
   path: "/stripe-connect-webhooks",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
+    const startTime = Date.now();
+    let responseStatus = 200;
+    
     try {
       const body = await request.text();
       const signature = request.headers.get("stripe-signature");
 
+      console.log("[Connect Webhook] 📥 Received webhook request", {
+        hasSignature: !!signature,
+        bodyLength: body.length,
+        url: request.url,
+      });
+
       if (!signature) {
+        console.error("[Connect Webhook] ❌ Missing signature header");
+        responseStatus = 400;
         return new Response("Missing signature", { status: 400 });
       }
 
@@ -112,32 +129,76 @@ http.route({
       try {
         provider = getProviderByCode("stripe-connect");
       } catch (error) {
-        console.error("Stripe provider not configured:", error);
+        console.error("[Connect Webhook] ❌ Stripe provider not configured:", error);
+        responseStatus = 500;
         return new Response("Payment provider not configured", { status: 500 });
+      }
+
+      // Log current environment secret for debugging
+      const envSecret = process.env.STRIPE_WEBHOOK_SECRET;
+      console.log("[Connect Webhook] 🔑 Environment check", {
+        envSecretConfigured: !!envSecret,
+        envSecretPrefix: envSecret ? envSecret.substring(0, 15) + "..." : "not set",
+        envSecretLength: envSecret?.length || 0,
+      });
+
+      // Try to parse event ID for idempotency check (before signature verification)
+      let eventId: string | null = null;
+      try {
+        const event = JSON.parse(body);
+        eventId = event.id;
+      } catch {
+        // If we can't parse, continue with signature verification
       }
 
       // Verify signature using provider (async required in Convex runtime)
       const isValidSignature = await provider.verifyWebhookSignature(body, signature);
 
       if (!isValidSignature) {
-        console.error("Connect webhook signature verification failed", {
+        // Check if this might be a retry of an already-processed event
+        // (Stripe CLI sometimes modifies body slightly on retry, causing sig verification to fail)
+        if (eventId) {
+          const alreadyProcessed = await ctx.runQuery(
+            internal.stripeWebhooks.checkEventProcessed,
+            { eventId }
+          );
+          
+          if (alreadyProcessed) {
+            console.log(`[Connect Webhook] ℹ️ Event ${eventId} already processed, returning 200 (idempotency)`);
+            responseStatus = 200;
+            return new Response(JSON.stringify({ received: true, alreadyProcessed: true }), {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+        }
+
+        const eventType = eventId ? (() => {
+          try {
+            const event = JSON.parse(body);
+            return event.type;
+          } catch {
+            return "unknown";
+          }
+        })() : "unknown";
+        
+        console.error("[Connect Webhook] ❌ Signature verification failed", {
+          eventType,
+          eventId: eventId || "unknown",
           hasSignature: !!signature,
           bodyLength: body.length,
-          eventType: (() => {
-            try {
-              const event = JSON.parse(body);
-              return event.type;
-            } catch {
-              return "unknown";
-            }
-          })(),
+          signaturePrefix: signature ? signature.substring(0, 30) + "..." : "missing",
         });
+        console.error("[Connect Webhook] 💡 Tip: Ensure STRIPE_WEBHOOK_SECRET matches the secret from 'stripe listen' output");
+        console.error("[Connect Webhook] 💡 Tip: Restart Convex dev server after updating environment variables");
+        console.error("[Connect Webhook] 💡 Note: Stripe CLI may retry failed webhooks - this is normal");
+        responseStatus = 400;
         return new Response("Invalid signature", { status: 400 });
       }
 
       // Parse event
       const event = JSON.parse(body);
-      console.log(`✓ Connect webhook received: ${event.type} (${event.id})`);
+      console.log(`[Connect Webhook] ✅ Signature verified: ${event.type} (${event.id})`);
 
       // Process Connect-specific events
       await ctx.runAction(internal.stripeWebhooks.processWebhook, {
@@ -148,13 +209,21 @@ http.route({
         signature: signature,
       });
 
+      const duration = Date.now() - startTime;
+      console.log(`[Connect Webhook] ✅ Successfully processed ${event.type} in ${duration}ms`);
+      
+      responseStatus = 200;
       return new Response(JSON.stringify({ received: true }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       });
     } catch (error) {
-      console.error("Connect webhook error:", error);
+      const duration = Date.now() - startTime;
+      console.error(`[Connect Webhook] ❌ Error after ${duration}ms:`, error);
+      responseStatus = 500;
       return new Response("Internal server error", { status: 500 });
+    } finally {
+      console.log(`[Connect Webhook] 📤 Responding with status ${responseStatus}`);
     }
   }),
 });

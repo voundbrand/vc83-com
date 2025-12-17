@@ -92,10 +92,11 @@ export class StripeConnectProvider implements IPaymentProvider {
       throw new Error("STRIPE_WEBHOOK_SECRET is required");
     }
 
-    this.stripe = new Stripe(secretKey, {
+    this.stripe = new Stripe(secretKey.trim(), {
       apiVersion: "2025-10-29.clover",
     });
-    this.webhookSecret = webhookSecret;
+    // Trim webhook secret to avoid whitespace issues
+    this.webhookSecret = webhookSecret.trim();
   }
 
   // =========================================
@@ -532,14 +533,27 @@ export class StripeConnectProvider implements IPaymentProvider {
     } catch (error) {
       // Log detailed error for debugging
       const errorMessage = error instanceof Error ? error.message : String(error);
+      const currentEnvSecret = process.env.STRIPE_WEBHOOK_SECRET;
       console.error("Webhook signature verification failed:", {
         error: errorMessage,
         errorType: error instanceof Error ? error.constructor.name : typeof error,
         webhookSecretConfigured: !!this.webhookSecret,
         webhookSecretPrefix: this.webhookSecret ? this.webhookSecret.substring(0, 10) + "..." : "not set",
+        webhookSecretLength: this.webhookSecret?.length || 0,
+        envSecretPrefix: currentEnvSecret ? currentEnvSecret.substring(0, 10) + "..." : "not set",
+        envSecretLength: currentEnvSecret?.length || 0,
+        secretsMatch: this.webhookSecret === currentEnvSecret,
         signatureHeader: signature ? signature.substring(0, 50) + "..." : "missing",
         payloadLength: payload.length,
+        payloadPreview: payload.substring(0, 100) + "...",
       });
+      
+      // If secrets don't match, warn about restart needed
+      if (this.webhookSecret !== currentEnvSecret) {
+        console.error("⚠️ WARNING: Provider has cached webhook secret that differs from environment variable!");
+        console.error("💡 Solution: Restart Convex dev server to pick up new environment variable");
+      }
+      
       return false;
     }
   }
