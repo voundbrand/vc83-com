@@ -199,7 +199,8 @@ export function ProvidersTab({ onSelectProvider }: ProvidersTabProps) {
           (p) => p.providerCode === "stripe-connect"
         );
         if (stripeProvider) {
-          return "connected";
+          // Show as connected if active, or needs_setup if disabled/pending/restricted
+          return stripeProvider.status === "active" ? "connected" : "needs_setup";
         }
         return "available";
 
