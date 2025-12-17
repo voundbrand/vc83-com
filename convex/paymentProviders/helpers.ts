@@ -303,18 +303,18 @@ export function hasProviderConnected(
  * Get all available payment providers for an organization
  *
  * Returns providers stored in the "objects" table with type "payment_provider_config"
- * that are active for the given organization.
+ * for the given organization. Includes all statuses (active, disabled, pending, restricted)
+ * so the UI can show appropriate status indicators.
  */
 export const getAvailableProviders = query({
   args: { organizationId: v.id("organizations") },
   handler: async (ctx, { organizationId }) => {
-    // Get all active provider configs for org from objects table
+    // Get all provider configs for org from objects table (not just active!)
     const providerConfigs = await ctx.db
       .query("objects")
       .withIndex("by_org_type", (q) =>
         q.eq("organizationId", organizationId).eq("type", "payment_provider_config")
       )
-      .filter((q) => q.eq(q.field("status"), "active"))
       .collect();
 
     return providerConfigs.map((config) => {
@@ -322,8 +322,10 @@ export const getAvailableProviders = query({
       return {
         providerCode: props.providerCode as string,
         providerName: config.name,
+        status: config.status as "active" | "pending" | "restricted" | "disabled",
         isDefault: props.isDefault as boolean,
         isTestMode: props.isTestMode as boolean,
+        metadata: props.metadata as Record<string, unknown> | undefined,
         capabilities: {
           supportsB2B: props.supportsB2B as boolean,
           supportsB2C: props.supportsB2C as boolean,
