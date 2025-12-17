@@ -76,6 +76,13 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
     if (code && state && sessionId) {
       console.log('Processing Stripe OAuth callback...');
 
+      // Immediately clean up URL to prevent duplicate processing
+      const shouldReopenPayments = localStorage.getItem('stripe_oauth_reopen_payments');
+      const cleanUrl = shouldReopenPayments
+        ? `${window.location.pathname}?openWindow=payments`
+        : window.location.pathname;
+      window.history.replaceState({}, '', cleanUrl);
+
       // Complete OAuth connection
       handleOAuthCallbackMutation({
         sessionId,
@@ -92,16 +99,6 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
           is_test_mode: selectedMode === "test",
           connection_method: "oauth",
         });
-
-        // Check if we should reopen the payments window
-        const shouldReopenPayments = localStorage.getItem('stripe_oauth_reopen_payments');
-
-        // Clean up URL parameters
-        const cleanUrl = shouldReopenPayments
-          ? `${window.location.pathname}?openWindow=payments`
-          : window.location.pathname;
-
-        window.history.replaceState({}, '', cleanUrl);
 
         // Clear the localStorage flag
         localStorage.removeItem('stripe_oauth_reopen_payments');

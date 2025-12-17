@@ -50,9 +50,17 @@ export const organizations = defineTable({
   slug: v.string(),                    // URL-friendly identifier
   businessName: v.string(),            // Legal business name
 
-  // Status
-  // NOTE: Plan/tier is stored in organization_license object (single source of truth)
+  // Plan & status
+  // DEPRECATED: plan field - use organization_license object instead (single source of truth)
+  // Made optional for backward compatibility during migration to organization_license
   // Use getLicenseInternal() from convex/licensing/helpers.ts to check plan/limits/features
+  plan: v.optional(v.union(
+    v.literal("free"),
+    v.literal("starter"),
+    v.literal("professional"),
+    v.literal("agency"),
+    v.literal("enterprise")
+  )),
   isPersonalWorkspace: v.boolean(),
   isActive: v.boolean(),
 

@@ -508,6 +508,9 @@ export const completeOAuthConnection = internalAction({
     isTestMode: v.boolean(),
   },
   handler: async (ctx, args) => {
+    console.log(`[OAuth Complete] Starting OAuth completion for org ${args.organizationId}`);
+    console.log(`[OAuth Complete] Test mode: ${args.isTestMode}`);
+
     // Get Stripe provider
     const provider = getProviderByCode("stripe-connect");
 
@@ -516,31 +519,46 @@ export const completeOAuthConnection = internalAction({
       throw new Error("Provider does not support OAuth connection");
     }
 
-    // Exchange authorization code for account ID
-    const result = await provider.completeOAuthConnection(args.code);
+    try {
+      console.log(`[OAuth Complete] Exchanging authorization code...`);
+      // Exchange authorization code for account ID
+      const result = await provider.completeOAuthConnection(args.code);
+      console.log(`[OAuth Complete] ✓ Got account ID: ${result.accountId}`);
 
-    // Get account status
-    const accountStatus = await provider.getAccountStatus(result.accountId);
+      console.log(`[OAuth Complete] Fetching account status...`);
+      // Get account status
+      const accountStatus = await provider.getAccountStatus(result.accountId);
+      console.log(`[OAuth Complete] ✓ Account status: ${accountStatus.status}`);
 
-    // Save to database
-    await ctx.runMutation(
-      internal.stripeConnect.updateStripeConnectAccountInternal,
-      {
+      console.log(`[OAuth Complete] Saving to database...`);
+      // Save to database
+      await ctx.runMutation(
+        internal.stripeConnect.updateStripeConnectAccountInternal,
+        {
+          organizationId: args.organizationId,
+          stripeAccountId: result.accountId,
+          accountStatus: accountStatus.status,
+          chargesEnabled: accountStatus.chargesEnabled,
+          payoutsEnabled: accountStatus.payoutsEnabled,
+          onboardingCompleted: accountStatus.onboardingCompleted,
+          isTestMode: args.isTestMode,
+        }
+      );
+
+      console.log(
+        `[OAuth Complete] ✓ Completed OAuth connection for org ${args.organizationId}: ${result.accountId}`
+      );
+
+      return { success: true, accountId: result.accountId };
+    } catch (error) {
+      console.error(`[OAuth Complete] ❌ Error completing OAuth:`, error);
+      console.error(`[OAuth Complete] Error details:`, {
         organizationId: args.organizationId,
-        stripeAccountId: result.accountId,
-        accountStatus: accountStatus.status,
-        chargesEnabled: accountStatus.chargesEnabled,
-        payoutsEnabled: accountStatus.payoutsEnabled,
-        onboardingCompleted: accountStatus.onboardingCompleted,
         isTestMode: args.isTestMode,
-      }
-    );
-
-    console.log(
-      `Completed OAuth connection for org ${args.organizationId}: ${result.accountId}`
-    );
-
-    return { success: true, accountId: result.accountId };
+        errorMessage: error instanceof Error ? error.message : String(error)
+      });
+      throw error;
+    }
   },
 });
 
@@ -641,7 +659,26 @@ export const refreshAccountStatusFromStripe = internalAction({
     const provider = getProviderByCode("stripe-connect");
 
     // Get fresh status from Stripe
-    const status = await provider.getAccountStatus(accountId);
+    let status;
+    try {
+      status = await provider.getAccountStatus(accountId);
+    } catch (error) {
+      // If account access was revoked, clear the connection
+      if (error instanceof Error &&
+          (error.message.includes('Application access may have been revoked') ||
+           error.message.includes('does not have access to account'))) {
+        console.log(`[Stripe Connect] Account ${accountId} access revoked, clearing connection...`);
+
+        await ctx.runMutation(internal.stripeConnect.clearStripeConnection, {
+          organizationId,
+        });
+
+        throw new Error(`Stripe account ${accountId} was disconnected. Please reconnect.`);
+      }
+
+      // Re-throw other errors
+      throw error;
+    }
 
     // Update database
     await ctx.runMutation(

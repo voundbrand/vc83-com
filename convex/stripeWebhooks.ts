@@ -82,6 +82,10 @@ export const processWebhook = internalAction({
               isTestMode, // Preserve organization's mode preference
             }
           );
+          console.log(`✓ Updated organization ${org._id} with account ${accountId} status: ${status}`);
+        } else {
+          // This is normal for account.application.authorized - OAuth callback stores the account
+          console.log(`ℹ️ Account ${accountId} not yet in database (OAuth callback will store it)`);
         }
       }
 

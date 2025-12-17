@@ -75,6 +75,13 @@ export function StripeSection({ organizationId, organization }: StripeSectionPro
     const state = urlParams.get('state');
 
     if (code && state && sessionId) {
+      // Immediately clean up URL to prevent duplicate processing
+      const shouldReopenPayments = localStorage.getItem('stripe_oauth_reopen_payments');
+      const cleanUrl = shouldReopenPayments
+        ? `${window.location.pathname}?openWindow=payments`
+        : window.location.pathname;
+      window.history.replaceState({}, '', cleanUrl);
+
       handleOAuthCallbackMutation({
         sessionId,
         organizationId: state as Id<"organizations">,
@@ -82,11 +89,6 @@ export function StripeSection({ organizationId, organization }: StripeSectionPro
         state,
         isTestMode: selectedMode === "test",
       }).then(() => {
-        const shouldReopenPayments = localStorage.getItem('stripe_oauth_reopen_payments');
-        const cleanUrl = shouldReopenPayments
-          ? `${window.location.pathname}?openWindow=payments`
-          : window.location.pathname;
-        window.history.replaceState({}, '', cleanUrl);
         localStorage.removeItem('stripe_oauth_reopen_payments');
 
         setTimeout(() => {
