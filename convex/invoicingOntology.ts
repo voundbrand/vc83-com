@@ -1471,7 +1471,13 @@ export const sealInvoice = mutation({
     sessionId: v.string(),
     invoiceId: v.id("objects"),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{
+    success: boolean;
+    invoiceId: Id<"objects">;
+    invoiceNumber: string;
+    transactionCount: number;
+    isSealed: boolean;
+  }> => {
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
     // 1. Get invoice and validate
@@ -1527,18 +1533,12 @@ export const sealInvoice = mutation({
       }
     }
 
-    // 2. Generate final invoice number
-    const year = new Date().getFullYear();
-    const existingInvoices = await ctx.db
-      .query("objects")
-      .withIndex("by_org_type", (q) =>
-        q.eq("organizationId", invoice.organizationId).eq("type", "invoice")
-      )
-      .filter((q) => q.eq(q.field("customProperties.isDraft"), false))
-      .collect();
-
-    const invoiceCount = existingInvoices.length + 1;
-    const finalInvoiceNumber = `INV-${year}-${String(invoiceCount).padStart(4, "0")}`;
+    // 2. Generate final invoice number (ATOMIC - prevents duplicates)
+    // Use atomic increment instead of counting invoices to prevent race conditions
+    const invoiceNumberData: { invoiceNumber: string } = await ctx.runMutation(internal.organizationOntology.getAndIncrementInvoiceNumber, {
+      organizationId: invoice.organizationId,
+    });
+    const finalInvoiceNumber = invoiceNumberData.invoiceNumber;
 
     // 3. Update invoice to sealed status
     await ctx.db.patch(args.invoiceId, {

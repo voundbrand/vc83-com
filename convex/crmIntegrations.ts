@@ -391,15 +391,27 @@ export const autoCreateContactFromCheckoutInternal = internalMutation({
     }
 
     // 2. Split name into first/last (simple approach)
-    const nameParts = customerName.trim().split(" ");
-    const firstName = nameParts[0] || "";
-    const lastName = nameParts.slice(1).join(" ") || "";
-
-    // 3. Extract additional contact data from form responses (if available)
-    // Get data from first form response (if multiple tickets, use first one)
+    // First try to get firstName/lastName from form responses (more accurate)
     const firstFormResponse = formResponses && formResponses.length > 0 ? formResponses[0] : null;
     const formData = firstFormResponse?.responses || {};
+    
+    // Use form data if available, otherwise parse from customerName
+    let firstName = (formData.firstName as string | undefined) || "";
+    let lastName = (formData.lastName as string | undefined) || "";
+    
+    // If form data doesn't have firstName/lastName, parse from customerName
+    if (!firstName && !lastName) {
+      const nameParts = customerName.trim().split(" ");
+      firstName = nameParts[0] || "";
+      lastName = nameParts.slice(1).join(" ") || "";
+    }
+    
+    // Ensure we have at least something for firstName (fallback to customerName)
+    if (!firstName && !lastName) {
+      firstName = customerName;
+    }
 
+    // 3. Extract additional contact data from form responses (if available)
     const salutation = formData.salutation as string | undefined;
     const title = formData.title as string | undefined;
     const profession = formData.profession as string | undefined; // Fachrichtung
@@ -432,18 +444,29 @@ export const autoCreateContactFromCheckoutInternal = internalMutation({
       if (existingOrg) {
         crmOrganizationId = existingOrg._id;
       } else {
+        // Construct billingAddress from individual session fields (session stores individual fields, not object)
+        const billingLine1 = session.customProperties?.billingLine1 as string | undefined;
+        const billingLine2 = session.customProperties?.billingLine2 as string | undefined;
+        const billingCity = session.customProperties?.billingCity as string | undefined;
+        const billingState = session.customProperties?.billingState as string | undefined;
+        const billingPostalCode = session.customProperties?.billingPostalCode as string | undefined;
+        const billingCountry = session.customProperties?.billingCountry as string | undefined;
+        
+        // Only create billingAddress if we have required fields
+        const billingAddress = (billingLine1 && billingCity && billingPostalCode && billingCountry) ? {
+          line1: billingLine1.trim(), // Ensure proper spacing
+          line2: billingLine2?.trim() || undefined,
+          city: billingCity.trim(),
+          state: billingState?.trim() || undefined,
+          postalCode: billingPostalCode.trim(),
+          country: billingCountry.trim(),
+        } : undefined;
+        
         // Create new organization using EXISTING function
         crmOrganizationId = await ctx.runMutation(internal.crmIntegrations.createCRMOrganization, {
           organizationId,
-          companyName: employerName,
-          billingAddress: session.customProperties?.billingAddress as {
-            line1: string;
-            line2?: string;
-            city: string;
-            state?: string;
-            postalCode: string;
-            country: string;
-          } | undefined,
+          companyName: employerName.trim(), // Ensure proper spacing for company name too
+          billingAddress,
           email: session.customProperties?.customerEmail as string | undefined,
         });
       }
@@ -509,11 +532,14 @@ export const autoCreateContactFromCheckoutInternal = internalMutation({
     }
 
     // 4. Create new contact
+    // Use firstName + lastName for name field to ensure proper spacing
+    const contactFullName = `${firstName} ${lastName}`.trim() || customerName;
+    
     const contactId = await ctx.db.insert("objects", {
       organizationId,
       type: "crm_contact",
       subtype: "customer", // They purchased, so they're a customer
-      name: customerName,
+      name: contactFullName,
       description: `Customer from checkout - ${new Date().toLocaleDateString()}`,
       status: "active",
       customProperties: {

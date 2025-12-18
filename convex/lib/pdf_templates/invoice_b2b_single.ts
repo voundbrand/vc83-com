@@ -51,9 +51,23 @@ export const INVOICE_B2B_SINGLE_HTML = `
             <div class="invoice-meta">
                 <div><strong>{{t_invoiceNumber}}</strong> {{invoice_number}}</div>
                 <div><strong>{{t_date}}</strong> {{invoice_date}}</div>
-                <div><strong>{{t_due}}</strong> {{due_date}}</div>
+                {%if is_paid%}
+                    <div class="paid-badge"><strong>{{t_paid}}</strong> - {{t_paidOn}} {{paid_at}}</div>
+                {%else%}
+                    <div><strong>{{t_due}}</strong> {{due_date}}</div>
+                {%endif%}
             </div>
         </div>
+        
+        {%if is_paid%}
+        <!-- Payment received notice -->
+        <div class="payment-received-notice">
+            <strong>{{t_paymentReceived}}</strong> - {{t_paidOn}} {{paid_at}}
+            {%if payment_method%}
+                <br/>{{t_method}}: {{payment_method}}
+            {%endif%}
+        </div>
+        {%endif%}
 
         <!-- Bill From and Bill To sections side by side -->
         <div class="billing-info">
@@ -132,12 +146,25 @@ export const INVOICE_B2B_SINGLE_HTML = `
 
         <!-- Payment information -->
         <section class="payment-info">
-            <h3>{{t_paymentTerms}}</h3>
-            <p>
-                <strong>{{t_terms}}</strong> {{payment_terms}}<br/>
-                <strong>{{t_method}}</strong> {{payment_method}}
-            </p>
-            <p>{{t_paymentDue}} <strong>{{due_date}}</strong>. {{t_latePayment}}</p>
+            {%if is_paid%}
+                <h3>{{t_paymentReceived}}</h3>
+                <p>
+                    <strong>{{t_status}}</strong> {{t_paid}}<br/>
+                    <strong>{{t_paidOn}}</strong> {{paid_at}}
+                    {%if payment_method%}
+                        <br/><strong>{{t_method}}</strong> {{payment_method}}
+                    {%endif%}
+                </p>
+            {%else%}
+                <h3>{{t_paymentTerms}}</h3>
+                <p>
+                    <strong>{{t_terms}}</strong> {{payment_terms}}<br/>
+                    {%if payment_method%}
+                        <strong>{{t_method}}</strong> {{payment_method}}<br/>
+                    {%endif%}
+                </p>
+                <p>{{t_paymentDue}} <strong>{{due_date}}</strong>. {{t_latePayment}}</p>
+            {%endif%}
             <p>{{t_forQuestions}} {{organization_email}} {{t_contactUs}} {{organization_phone}}.</p>
         </section>
 
@@ -242,6 +269,24 @@ body {
 
 .invoice-meta div {
     margin-bottom: 4px;
+}
+
+.paid-badge {
+    color: #10B981;
+    font-weight: 700;
+    font-size: 11pt;
+}
+
+.payment-received-notice {
+    background-color: #D1FAE5;
+    border: 2px solid #10B981;
+    border-radius: 6px;
+    padding: 16px;
+    margin-bottom: 30px;
+    text-align: center;
+    color: #065F46;
+    font-size: 12pt;
+    font-weight: 600;
 }
 
 /* Billing info (Bill From and Bill To) */

@@ -8,6 +8,7 @@
 import { v } from "convex/values";
 import { internalQuery, internalMutation } from "../../_generated/server";
 import { Id } from "../../_generated/dataModel";
+import { internal } from "../../_generated/api";
 
 /**
  * LIST INVOICES (INTERNAL)
@@ -406,7 +407,11 @@ export const sealInvoiceInternal = internalMutation({
     invoiceId: v.string(),
     performedBy: v.id("users"),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{
+    success: boolean;
+    invoiceId: string;
+    invoiceNumber: string;
+  }> => {
     const invoice = await ctx.db.get(args.invoiceId as Id<"objects">);
 
     if (!invoice || invoice.type !== "invoice") {
@@ -423,18 +428,13 @@ export const sealInvoiceInternal = internalMutation({
       throw new Error("Invoice is already sealed");
     }
 
-    // Generate final invoice number
-    const year = new Date().getFullYear();
-    const existingInvoices = await ctx.db
-      .query("objects")
-      .withIndex("by_org_type", (q) =>
-        q.eq("organizationId", invoice.organizationId).eq("type", "invoice")
-      )
-      .filter((q) => q.eq(q.field("customProperties.isDraft"), false))
-      .collect();
-
-    const invoiceCount = existingInvoices.length + 1;
-    const finalInvoiceNumber = `INV-${year}-${String(invoiceCount).padStart(4, "0")}`;
+    // Generate final invoice number (ATOMIC - prevents duplicates)
+    // Use atomic increment instead of counting invoices to prevent race conditions
+    // Note: internalMutation can call other internalMutations directly via ctx.runMutation
+    const invoiceNumberData: { invoiceNumber: string } = await ctx.runMutation(internal.organizationOntology.getAndIncrementInvoiceNumber, {
+      organizationId: invoice.organizationId,
+    });
+    const finalInvoiceNumber = invoiceNumberData.invoiceNumber;
 
     // Update invoice to sealed status
     await ctx.db.patch(args.invoiceId as Id<"objects">, {
@@ -465,6 +465,7 @@ export const sealInvoiceInternal = internalMutation({
 
     return {
       success: true,
+      invoiceId: args.invoiceId,
       invoiceNumber: finalInvoiceNumber,
     };
   },

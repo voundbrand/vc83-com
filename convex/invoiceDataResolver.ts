@@ -17,6 +17,7 @@ import { api } from "./_generated/api";
 import { internal } from "./_generated/api";
 import { Id, Doc } from "./_generated/dataModel";
 import type { EmailLanguage } from "../src/templates/emails/types";
+import { formatAddressLine, formatAddressBlock } from "./lib/addressFormatter";
 
 /**
  * Fully Resolved Invoice Data
@@ -44,6 +45,11 @@ export interface ResolvedInvoiceData {
       postalCode?: string;
       state?: string;
       country?: string;
+    };
+    // Formatted address fields (country-aware)
+    formattedAddress?: {
+      cityPostalLine?: string; // e.g., "12345 Berlin" (DE) or "New York, NY 10001" (US)
+      fullAddressLines?: string[]; // Array of formatted address lines
     };
     taxId?: string;
   };
@@ -482,6 +488,15 @@ export async function resolveInvoiceEmailData(
     ? crmBillingAddress
     : billingAddress;
 
+  // Format address according to country conventions
+  // Use recipient's country (billing address country) to determine format
+  // German/EU format: postal code BEFORE city (e.g., "12345 Berlin")
+  // US/UK format: city BEFORE postal code (e.g., "New York, NY 10001")
+  const formattedCityPostal = formatAddressLine(finalBillingAddress);
+  const formattedAddressLines = formatAddressBlock(finalBillingAddress, {
+    includeCountry: false, // Country shown separately
+  });
+
   // ==========================================================================
   // STEP 9: BUILD SENDER INFO (from org + domain)
   // ==========================================================================
@@ -525,6 +540,11 @@ export async function resolveInvoiceEmailData(
         postalCode: finalBillingAddress.postalCode,
         state: finalBillingAddress.state,
         country: finalBillingAddress.country,
+      },
+      // Formatted address (country-aware: postal code before city for DE/EU)
+      formattedAddress: {
+        cityPostalLine: formattedCityPostal,
+        fullAddressLines: formattedAddressLines,
       },
       taxId: recipientVatNumber || finalBillingAddress.taxId,
     },

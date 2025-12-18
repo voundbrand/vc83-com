@@ -69,6 +69,11 @@ export default mutation(async ({ db }) => {
     { key: "pdf.invoice.forQuestions", value: "For questions, contact" },
     { key: "pdf.invoice.contactUs", value: "or call" },
     { key: "pdf.invoice.thankYou", value: "Thank you for your business!" },
+    // Payment status translations
+    { key: "pdf.invoice.paid", value: "Paid" },
+    { key: "pdf.invoice.paidOn", value: "Paid on" },
+    { key: "pdf.invoice.paymentReceived", value: "Payment Received" },
+    { key: "pdf.invoice.status", value: "Status" },
     // Payment terms translations
     { key: "pdf.invoice.paymentTerms.due_on_receipt", value: "Due upon receipt" },
     { key: "pdf.invoice.paymentTerms.dueonreceipt", value: "Due upon receipt" },
@@ -122,6 +127,11 @@ export default mutation(async ({ db }) => {
     { key: "pdf.invoice.forQuestions", value: "Bei Fragen kontaktieren Sie" },
     { key: "pdf.invoice.contactUs", value: "oder rufen Sie an" },
     { key: "pdf.invoice.thankYou", value: "Vielen Dank für Ihre Bestellung!" },
+    // Payment status translations
+    { key: "pdf.invoice.paid", value: "Bezahlt" },
+    { key: "pdf.invoice.paidOn", value: "Bezahlt am" },
+    { key: "pdf.invoice.paymentReceived", value: "Zahlung erhalten" },
+    { key: "pdf.invoice.status", value: "Status" },
     // Payment terms translations
     { key: "pdf.invoice.paymentTerms.due_on_receipt", value: "Sofort fällig" },
     { key: "pdf.invoice.paymentTerms.dueonreceipt", value: "Sofort fällig" },
@@ -175,6 +185,11 @@ export default mutation(async ({ db }) => {
     { key: "pdf.invoice.forQuestions", value: "Para consultas, contacte" },
     { key: "pdf.invoice.contactUs", value: "o llame al" },
     { key: "pdf.invoice.thankYou", value: "¡Gracias por su compra!" },
+    // Payment status translations
+    { key: "pdf.invoice.paid", value: "Pagado" },
+    { key: "pdf.invoice.paidOn", value: "Pagado el" },
+    { key: "pdf.invoice.paymentReceived", value: "Pago Recibido" },
+    { key: "pdf.invoice.status", value: "Estado" },
     // Payment terms translations
     { key: "pdf.invoice.paymentTerms.due_on_receipt", value: "Pago al recibo" },
     { key: "pdf.invoice.paymentTerms.dueonreceipt", value: "Pago al recibo" },
@@ -228,6 +243,11 @@ export default mutation(async ({ db }) => {
     { key: "pdf.invoice.forQuestions", value: "Pour toute question, contactez" },
     { key: "pdf.invoice.contactUs", value: "ou appelez le" },
     { key: "pdf.invoice.thankYou", value: "Merci pour votre confiance !" },
+    // Payment status translations
+    { key: "pdf.invoice.paid", value: "Payé" },
+    { key: "pdf.invoice.paidOn", value: "Payé le" },
+    { key: "pdf.invoice.paymentReceived", value: "Paiement Reçu" },
+    { key: "pdf.invoice.status", value: "Statut" },
     // Payment terms translations
     { key: "pdf.invoice.paymentTerms.due_on_receipt", value: "Payable à réception" },
     { key: "pdf.invoice.paymentTerms.dueonreceipt", value: "Payable à réception" },
@@ -281,6 +301,11 @@ export default mutation(async ({ db }) => {
     { key: "pdf.invoice.forQuestions", value: "W razie pytań prosimy o kontakt" },
     { key: "pdf.invoice.contactUs", value: "lub zadzwoń" },
     { key: "pdf.invoice.thankYou", value: "Dziękujemy za zakupy!" },
+    // Payment status translations
+    { key: "pdf.invoice.paid", value: "Opłacone" },
+    { key: "pdf.invoice.paidOn", value: "Opłacone dnia" },
+    { key: "pdf.invoice.paymentReceived", value: "Płatność Otrzymana" },
+    { key: "pdf.invoice.status", value: "Status" },
     // Payment terms translations
     { key: "pdf.invoice.paymentTerms.due_on_receipt", value: "Płatne przy odbiorze" },
     { key: "pdf.invoice.paymentTerms.dueonreceipt", value: "Płatne przy odbiorze" },
@@ -334,6 +359,11 @@ export default mutation(async ({ db }) => {
     { key: "pdf.invoice.forQuestions", value: "ご不明な点は、こちらまでお問い合わせください" },
     { key: "pdf.invoice.contactUs", value: "または電話" },
     { key: "pdf.invoice.thankYou", value: "ご利用ありがとうございます！" },
+    // Payment status translations
+    { key: "pdf.invoice.paid", value: "支払済み" },
+    { key: "pdf.invoice.paidOn", value: "支払日" },
+    { key: "pdf.invoice.paymentReceived", value: "お支払い受領" },
+    { key: "pdf.invoice.status", value: "ステータス" },
     // Payment terms translations
     { key: "pdf.invoice.paymentTerms.due_on_receipt", value: "受領時払い" },
     { key: "pdf.invoice.paymentTerms.dueonreceipt", value: "受領時払い" },

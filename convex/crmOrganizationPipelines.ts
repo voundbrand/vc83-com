@@ -7,7 +7,7 @@
 
 import { query } from "./_generated/server";
 import { v } from "convex/values";
-import { requireAuthenticatedUser } from "./rbacHelpers";
+import { getAuthenticatedUser } from "./rbacHelpers";
 import type { Id } from "./_generated/dataModel";
 
 /**
@@ -24,7 +24,11 @@ export const getOrganizationContactsWithPipelines = query({
     crmOrganizationId: v.id("objects"), // The CRM organization (not platform org)
   },
   handler: async (ctx, args) => {
-    await requireAuthenticatedUser(ctx, args.sessionId);
+    // Handle session expiration gracefully - return null instead of throwing
+    const user = await getAuthenticatedUser(ctx, args.sessionId);
+    if (!user) {
+      return null;
+    }
 
     const crmOrg = await ctx.db.get(args.crmOrganizationId);
     if (!crmOrg || crmOrg.type !== "crm_organization") {
@@ -114,7 +118,11 @@ export const getOrganizationPipelineSummary = query({
     crmOrganizationId: v.id("objects"),
   },
   handler: async (ctx, args) => {
-    await requireAuthenticatedUser(ctx, args.sessionId);
+    // Handle session expiration gracefully - return null instead of throwing
+    const user = await getAuthenticatedUser(ctx, args.sessionId);
+    if (!user) {
+      return null;
+    }
 
     // Get the contacts data using the same handler logic
     const crmOrg = await ctx.db.get(args.crmOrganizationId);

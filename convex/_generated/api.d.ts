@@ -124,6 +124,7 @@ import type * as invoiceDataResolver from "../invoiceDataResolver.js";
 import type * as invoiceEmailService from "../invoiceEmailService.js";
 import type * as invoicingOntology from "../invoicingOntology.js";
 import type * as legalEntityTypes from "../legalEntityTypes.js";
+import type * as lib_addressFormatter from "../lib/addressFormatter.js";
 import type * as lib_apiTemplateClient from "../lib/apiTemplateClient.js";
 import type * as lib_currencyFormatter from "../lib/currencyFormatter.js";
 import type * as lib_generateInvoicePdf from "../lib/generateInvoicePdf.js";
@@ -552,6 +553,7 @@ declare const fullApi: ApiFromModules<{
   invoiceEmailService: typeof invoiceEmailService;
   invoicingOntology: typeof invoicingOntology;
   legalEntityTypes: typeof legalEntityTypes;
+  "lib/addressFormatter": typeof lib_addressFormatter;
   "lib/apiTemplateClient": typeof lib_apiTemplateClient;
   "lib/currencyFormatter": typeof lib_currencyFormatter;
   "lib/generateInvoicePdf": typeof lib_generateInvoicePdf;

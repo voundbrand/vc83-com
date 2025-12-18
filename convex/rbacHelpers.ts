@@ -38,6 +38,47 @@ export interface UserContext extends AuthenticatedUser {
 // ============================================================================
 
 /**
+ * Get authenticated user context (returns null for expired/invalid sessions)
+ *
+ * Use this in queries to handle session expiration gracefully.
+ * Returns null instead of throwing, allowing the frontend to handle it.
+ *
+ * @returns Authenticated user with session details, or null if session is invalid/expired
+ *
+ * @example
+ * const user = await getAuthenticatedUser(ctx, args.sessionId);
+ * if (!user) return null; // Frontend will handle this gracefully
+ */
+export async function getAuthenticatedUser(
+  ctx: QueryCtx | MutationCtx,
+  sessionId: string
+): Promise<AuthenticatedUser | null> {
+  const session = await ctx.db.get(sessionId as Id<"sessions">);
+
+  if (!session) {
+    return null;
+  }
+
+  if (!session.userId) {
+    return null;
+  }
+
+  if (session.expiresAt <= Date.now()) {
+    return null;
+  }
+
+  return {
+    userId: session.userId,
+    session: {
+      _id: session._id,
+      userId: session.userId,
+      email: session.email,
+      expiresAt: session.expiresAt,
+    },
+  };
+}
+
+/**
  * Verify session and extract authenticated user context
  *
  * @throws Error if session is invalid or expired

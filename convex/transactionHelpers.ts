@@ -145,9 +145,18 @@ export async function createTransactionsForPurchase(
       }
 
       // 3. Calculate tax for this line item
-      // Check organization's tax behavior setting
+      // Priority: product taxBehavior > organization defaultTaxBehavior
       const taxRatePercent = params.taxInfo?.taxRatePercent || 19;
-      const taxBehavior = params.taxInfo?.taxBehavior || "inclusive"; // Default to inclusive for EU/DE
+      
+      // Check product's taxBehavior first, then fall back to organization default
+      // Priority: product taxBehavior > organization defaultTaxBehavior
+      const productTaxBehavior = product.customProperties?.taxBehavior as "inclusive" | "exclusive" | "automatic" | undefined;
+      const orgTaxBehavior = params.taxInfo?.taxBehavior || "inclusive"; // Organization default (fallback)
+      // Use product taxBehavior if set, otherwise use organization default
+      // Note: "automatic" will be treated as "exclusive" in the calculation below
+      const taxBehavior = productTaxBehavior || orgTaxBehavior;
+
+      console.log(`   Tax behavior: Product=${productTaxBehavior || "none"}, Org=${orgTaxBehavior}, Using=${taxBehavior}`);
 
       let unitPriceInCents: number;
       let totalPriceInCents: number;
@@ -163,12 +172,14 @@ export async function createTransactionsForPurchase(
         console.log(`   Tax behavior: INCLUSIVE - Price €${(item.totalPrice / 100).toFixed(2)} includes €${(taxAmountInCents / 100).toFixed(2)} tax`);
       } else {
         // Prices are NET (excluding tax) - add tax on top
+        // This handles both "exclusive" and "automatic" (automatic treated as exclusive)
         // Formula: tax = net * rate / 100
         taxAmountInCents = Math.round((item.totalPrice * taxRatePercent) / 100);
         totalPriceInCents = item.totalPrice + taxAmountInCents; // Add tax to get gross
         unitPriceInCents = item.pricePerUnit; // Already net
 
-        console.log(`   Tax behavior: EXCLUSIVE - Price €${(item.totalPrice / 100).toFixed(2)} + €${(taxAmountInCents / 100).toFixed(2)} tax`);
+        const behaviorLabel = taxBehavior === "automatic" ? "AUTOMATIC (treated as exclusive)" : "EXCLUSIVE";
+        console.log(`   Tax behavior: ${behaviorLabel} - Price €${(item.totalPrice / 100).toFixed(2)} + €${(taxAmountInCents / 100).toFixed(2)} tax`);
       }
 
       // 4. Build line item

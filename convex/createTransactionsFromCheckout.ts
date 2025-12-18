@@ -175,16 +175,18 @@ export const createTransactionsFromCheckout = internalAction({
     const taxRatePercent = (session.customProperties?.taxRatePercent as number) || 19;
     const currency = (session.customProperties?.currency as string) || "EUR";
 
-    // Fetch organization's tax settings to determine tax behavior (inclusive vs exclusive)
+    // Fetch organization's tax settings to determine default tax behavior (inclusive vs exclusive)
+    // NOTE: Product-level taxBehavior will override this in transactionHelpers.ts
     const taxSettings = await ctx.runQuery(api.organizationTaxSettings.getPublicTaxSettings, {
       organizationId: session.organizationId,
     });
 
     // Tax behavior: "inclusive" = prices include tax, "exclusive" = tax added on top
+    // This is the organization default - individual products may override this
     // Default to "inclusive" for EU/DE where prices typically include VAT
-    const taxBehavior = (taxSettings?.defaultTaxBehavior as "inclusive" | "exclusive") || "inclusive";
+    const defaultTaxBehavior = (taxSettings?.defaultTaxBehavior as "inclusive" | "exclusive") || "inclusive";
 
-    console.log(`✓ Tax info: ${taxRatePercent}% in ${currency} (${taxBehavior})`);
+    console.log(`✓ Tax info: ${taxRatePercent}% in ${currency} (org default: ${defaultTaxBehavior}, products may override)`);
 
     const transactionIds = await createTransactionsForPurchase(ctx, {
       organizationId: session.organizationId,
@@ -204,7 +206,7 @@ export const createTransactionsFromCheckout = internalAction({
       taxInfo: {
         taxRatePercent,
         currency,
-        taxBehavior, // Pass the organization's tax behavior setting
+        taxBehavior: defaultTaxBehavior, // Organization default - products will override if they have their own taxBehavior
       },
     });
 

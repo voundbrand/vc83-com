@@ -46,9 +46,23 @@ export const INVOICE_TEMPLATE_HTML = `
             <div class="invoice-meta">
                 <div><strong>{{t_invoiceNumber}}</strong> {{invoice_number}}</div>
                 <div><strong>{{t_date}}</strong> {{invoice_date}}</div>
-                <div><strong>{{t_due}}</strong> {{due_date}}</div>
+                {%if is_paid%}
+                    <div class="paid-badge"><strong>{{t_paid}}</strong> - {{t_paidOn}} {{paid_at}}</div>
+                {%else%}
+                    <div><strong>{{t_due}}</strong> {{due_date}}</div>
+                {%endif%}
             </div>
         </div>
+        
+        {%if is_paid%}
+        <!-- Payment received notice -->
+        <div class="payment-received-notice">
+            <strong>{{t_paymentReceived}}</strong> - {{t_paidOn}} {{paid_at}}
+            {%if payment_method%}
+                <br/>{{t_method}}: {{payment_method}}
+            {%endif%}
+        </div>
+        {%endif%}
 
         <!-- Bill to section -->
         <section class="bill-to">
@@ -107,8 +121,19 @@ export const INVOICE_TEMPLATE_HTML = `
 
         <!-- Payment terms and information (hard-coded template info) -->
         <section class="payment-terms">
-            <h3>{{t_paymentTerms}}</h3>
-            <p>{{t_paymentDue}} <strong>{{due_date}}</strong>.</p>
+            {%if is_paid%}
+                <h3>{{t_paymentReceived}}</h3>
+                <p>
+                    <strong>{{t_status}}</strong> {{t_paid}}<br/>
+                    <strong>{{t_paidOn}}</strong> {{paid_at}}
+                    {%if payment_method%}
+                        <br/><strong>{{t_method}}</strong> {{payment_method}}
+                    {%endif%}
+                </p>
+            {%else%}
+                <h3>{{t_paymentTerms}}</h3>
+                <p>{{t_paymentDue}} <strong>{{due_date}}</strong>.</p>
+            {%endif%}
 
             <h3>{{t_thankYou}}</h3>
             <p>{{t_forQuestions}} {{organization_email}} {{t_contactUs}} {{organization_phone}}.</p>
@@ -214,6 +239,24 @@ body {
 
 .invoice-meta div {
     margin-bottom: 4px;
+}
+
+.paid-badge {
+    color: #10B981;
+    font-weight: 700;
+    font-size: 11pt;
+}
+
+.payment-received-notice {
+    background-color: #D1FAE5;
+    border: 2px solid #10B981;
+    border-radius: 6px;
+    padding: 16px;
+    margin-bottom: 30px;
+    text-align: center;
+    color: #065F46;
+    font-size: 12pt;
+    font-weight: 600;
 }
 
 /* Bill to section */

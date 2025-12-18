@@ -748,6 +748,11 @@ export const generateInvoicePDF = action({
                 "pdf.invoice.forQuestions",
                 "pdf.invoice.contactUs",
                 "pdf.invoice.thankYou",
+                // Payment status translations
+                "pdf.invoice.paid",
+                "pdf.invoice.paidOn",
+                "pdf.invoice.paymentReceived",
+                "pdf.invoice.status",
                 // Payment terms translations
                 "pdf.invoice.paymentTerms.due_on_receipt",
                 "pdf.invoice.paymentTerms.dueonreceipt",
@@ -813,17 +818,25 @@ export const generateInvoicePDF = action({
             let invoiceNumber: string;
             let invoiceDueDate: number;
             let invoicePaymentTerms: string;
+            let invoicePaymentStatus: string | undefined;
+            let invoicePaidAt: number | undefined;
+            let invoicePaymentMethod: string | undefined;
 
             if (invoice) {
                 // Use the invoice's actual data (invoice was already created)
                 invoiceNumber = invoice.customProperties?.invoiceNumber as string;
                 invoiceDueDate = invoice.customProperties?.dueDate as number;
                 invoicePaymentTerms = invoice.customProperties?.paymentTerms as string || "net30";
+                invoicePaymentStatus = invoice.status === "paid" ? "paid" : (invoice.customProperties?.paymentStatus as string | undefined);
+                invoicePaidAt = invoice.customProperties?.paidAt as number | undefined;
+                invoicePaymentMethod = invoice.customProperties?.paymentMethod as string | undefined;
 
                 console.log("📄 [generateInvoicePDF] Using existing invoice data:", {
                     invoiceNumber,
                     dueDate: new Date(invoiceDueDate).toISOString(),
                     paymentTerms: invoicePaymentTerms,
+                    paymentStatus: invoicePaymentStatus,
+                    paidAt: invoicePaidAt ? new Date(invoicePaidAt).toISOString() : undefined,
                 });
             } else {
                 // Fallback: Generate invoice number (shouldn't happen in normal flow)
@@ -834,6 +847,9 @@ export const generateInvoicePDF = action({
                 invoiceNumber = invoiceNumberData.invoiceNumber;
                 invoiceDueDate = session.createdAt + 30 * 24 * 60 * 60 * 1000; // Default to 30 days
                 invoicePaymentTerms = "net30";
+                invoicePaymentStatus = undefined;
+                invoicePaidAt = undefined;
+                invoicePaymentMethod = undefined;
             }
 
             // Translate payment terms to human-readable text
@@ -867,7 +883,12 @@ export const generateInvoicePDF = action({
                 invoice_date: formatInvoiceDate(new Date(session.createdAt)),
                 due_date: formatInvoiceDate(new Date(invoiceDueDate)),
                 payment_terms: translatedPaymentTerms, // Pass translated payment terms to template
-                payment_method: (session.customProperties?.paymentMethod as string) || undefined, // Payment method (invoice, stripe, free)
+                payment_method: invoicePaymentMethod || (session.customProperties?.paymentMethod as string) || undefined, // Payment method (invoice, stripe, free)
+                
+                // Payment status (for paid invoices)
+                payment_status: invoicePaymentStatus, // "paid", "sent", "draft", etc.
+                is_paid: invoicePaymentStatus === "paid",
+                paid_at: invoicePaidAt ? formatInvoiceDate(new Date(invoicePaidAt)) : undefined,
 
                 // Translations (from database)
                 t_invoice: translations["pdf.invoice.title"],
@@ -894,6 +915,10 @@ export const generateInvoicePDF = action({
                 t_forQuestions: translations["pdf.invoice.forQuestions"],
                 t_contactUs: translations["pdf.invoice.contactUs"],
                 t_thankYou: translations["pdf.invoice.thankYou"],
+                t_paid: translations["pdf.invoice.paid"] || "Paid",
+                t_paidOn: translations["pdf.invoice.paidOn"] || "Paid on",
+                t_paymentReceived: translations["pdf.invoice.paymentReceived"] || "Payment Received",
+                t_status: translations["pdf.invoice.status"] || "Status",
 
                 // Bill to
                 bill_to: billTo,
