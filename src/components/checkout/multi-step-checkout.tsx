@@ -27,6 +27,7 @@ import { InvoiceEnforcementStep } from "./steps/invoice-enforcement-step";
 import { evaluatePaymentRules, type PaymentRulesResult } from "../../../convex/paymentRulesEngine";
 import styles from "./styles/multi-step.module.css";
 import { usePostHog } from "posthog-js/react";
+import { useTranslation } from "@/contexts/translation-context";
 
 /**
  * Step data flow through checkout process
@@ -143,6 +144,9 @@ export function MultiStepCheckout({
     { organizationId }
   );
 
+  // Get browser-detected language for invoices/PDFs
+  const { locale } = useTranslation();
+
   // Mutations for checkout session management
   const createPublicCheckoutSession = useMutation(api.checkoutSessionOntology.createPublicCheckoutSession);
   const updateCheckoutSession = useMutation(api.checkoutSessionOntology.updatePublicCheckoutSession);
@@ -189,6 +193,7 @@ export function MultiStepCheckout({
       try {
         const result = await createPublicCheckoutSession({
           organizationId,
+          preferredLanguage: locale, // Pass browser-detected language for invoices/PDFs
           // checkoutInstanceId will be added when we implement checkout instances
         });
         setCheckoutSessionId(result.checkoutSessionId);

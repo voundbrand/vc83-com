@@ -241,6 +241,7 @@ export const createPublicCheckoutSession = mutation({
     organizationId: v.id("organizations"),
     checkoutInstanceId: v.optional(v.id("objects")),
     customerEmail: v.optional(v.string()),
+    preferredLanguage: v.optional(v.string()), // Browser-detected language from frontend
   },
   handler: async (ctx, args) => {
     // No authentication required for public checkouts
@@ -249,6 +250,31 @@ export const createPublicCheckoutSession = mutation({
 
     // Get organization currency from locale settings
     const currency = await getOrganizationCurrency(ctx, args.organizationId);
+
+    // Determine default language (cascade priority):
+    // 1. Checkout instance configuration (if set)
+    // 2. Browser-detected language from frontend (preferredLanguage)
+    // 3. Fallback to English
+    let defaultLanguage = "en"; // Fallback
+    let pdfTemplateCode: string | undefined;
+
+    if (args.checkoutInstanceId) {
+      const checkoutInstance = await ctx.db.get(args.checkoutInstanceId);
+      if (checkoutInstance?.customProperties?.configuration) {
+        const config = checkoutInstance.customProperties.configuration as Record<string, unknown>;
+        defaultLanguage = (config.defaultLanguage as string) || defaultLanguage;
+        pdfTemplateCode = config.pdfTemplateCode as string | undefined;
+      }
+    }
+
+    // If no checkout instance language, use browser-detected language
+    if (defaultLanguage === "en" && args.preferredLanguage) {
+      const supportedLanguages = ["en", "de", "pl", "es", "fr", "ja"];
+      const langCode = args.preferredLanguage.split("-")[0].toLowerCase();
+      if (supportedLanguages.includes(langCode)) {
+        defaultLanguage = langCode;
+      }
+    }
 
     // Get default domain config for the organization (for email sending)
     const domainConfigs = await ctx.db
@@ -282,6 +308,8 @@ export const createPublicCheckoutSession = mutation({
         taxAmount: 0,
         totalAmount: 0,
         currency,
+        defaultLanguage, // Store language for invoices/PDFs
+        pdfTemplateCode, // Store PDF template choice
         formResponses: [],
         stepProgress: ["started"],
         startedAt: Date.now(),

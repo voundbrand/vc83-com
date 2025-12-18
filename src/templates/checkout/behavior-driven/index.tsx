@@ -28,7 +28,7 @@ import { ConfirmationStep } from "./steps/confirmation";
 
 export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
   const config = { ...DEFAULT_CONFIG, ...props };
-  const { locale } = useTranslation(); // For locale management only
+  const { locale } = useTranslation(); // For locale management only - browser-detected language
   const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.checkout_template.behavior_driven");
 
   // State
@@ -138,6 +138,7 @@ export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
         const result = await createCheckoutSession({
           organizationId: config.organizationId,
           checkoutInstanceId: config.checkoutInstanceId, // ✅ Link session to instance for sales notifications
+          preferredLanguage: locale, // Pass browser-detected language for invoices/PDFs
         });
 
         setCheckoutSessionId(result.checkoutSessionId);
