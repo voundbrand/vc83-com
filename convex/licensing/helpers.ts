@@ -187,10 +187,17 @@ export async function checkResourceLimit(
 
   // Check if limit exceeded
   if (currentCount >= limit) {
-    throw new Error(
-      `You've reached your ${limitKey} limit (${limit}). ` +
-        `Upgrade to ${getNextTier(license.planTier)} for more capacity.`
-    );
+    // Throw ConvexError with LIMIT_EXCEEDED code so frontend can show upgrade modal
+    throw new ConvexError({
+      code: "LIMIT_EXCEEDED",
+      message: `You've reached your ${limitKey} limit (${limit}). ` +
+        `Upgrade to ${getNextTier(license.planTier)} for more capacity.`,
+      limitKey,
+      currentCount,
+      limit,
+      planTier: license.planTier,
+      nextTier: getNextTier(license.planTier),
+    });
   }
 
   return {
@@ -255,10 +262,93 @@ export async function checkMonthlyResourceLimit(
 
   // Check if limit exceeded
   if (currentCount >= limit) {
-    throw new Error(
-      `You've reached your monthly ${limitKey} limit (${limit}). ` +
-        `Upgrade to ${getNextTier(license.planTier)} or wait until next month.`
-    );
+    // Throw ConvexError with LIMIT_EXCEEDED code so frontend can show upgrade modal
+    throw new ConvexError({
+      code: "LIMIT_EXCEEDED",
+      message: `You've reached your monthly ${limitKey} limit (${limit}). ` +
+        `Upgrade to ${getNextTier(license.planTier)} or wait until next month.`,
+      limitKey,
+      currentCount,
+      limit,
+      planTier: license.planTier,
+      nextTier: getNextTier(license.planTier),
+      isMonthly: true,
+    });
+  }
+
+  return {
+    currentCount,
+    limit,
+    remaining: limit - currentCount,
+  };
+}
+
+/**
+ * CHECK NESTED RESOURCE LIMIT (Internal Helper)
+ *
+ * Checks if creating a new nested resource would exceed the parent's limit.
+ * For example: maxMilestonesPerProject, maxTasksPerProject, maxAttendeesPerEvent, etc.
+ * Counts resources linked to a parent via objectLinks.
+ *
+ * @param ctx - Query/Mutation context
+ * @param organizationId - Organization ID
+ * @param parentId - Parent resource ID (e.g., projectId, eventId, productId, workflowId, formId)
+ * @param linkType - Link type to count (e.g., "has_milestone", "has_task", "registered_for", "sponsored_by")
+ * @param limitKey - Key in limits object (e.g., "maxMilestonesPerProject", "maxTasksPerProject")
+ * @returns Object with currentCount, limit, and remaining
+ * @throws Error if limit exceeded
+ */
+export async function checkNestedResourceLimit(
+  ctx: QueryCtx,
+  organizationId: Id<"organizations">,
+  parentId: Id<"objects">,
+  linkType: string,
+  limitKey: keyof TierConfig["limits"]
+): Promise<{
+  currentCount: number;
+  limit: number;
+  remaining: number;
+}> {
+  // Get license
+  const license = await getLicenseInternal(ctx, organizationId);
+
+  // Get limit (-1 means unlimited)
+  const limit = license.limits[limitKey];
+
+  // If unlimited, skip counting
+  if (limit === -1) {
+    return {
+      currentCount: 0,
+      limit: -1,
+      remaining: -1,
+    };
+  }
+
+  // Count current nested resources via objectLinks
+  const links = await ctx.db
+    .query("objectLinks")
+    .withIndex("by_from_link_type", (q) =>
+      q.eq("fromObjectId", parentId).eq("linkType", linkType)
+    )
+    .collect();
+
+  const currentCount = links.length;
+
+  // Check if limit exceeded
+  if (currentCount >= limit) {
+    // Throw ConvexError with LIMIT_EXCEEDED code so frontend can show upgrade modal
+    throw new ConvexError({
+      code: "LIMIT_EXCEEDED",
+      message: `You've reached your ${limitKey} limit (${limit}). ` +
+        `Upgrade to ${getNextTier(license.planTier)} for more capacity.`,
+      limitKey,
+      currentCount,
+      limit,
+      planTier: license.planTier,
+      nextTier: getNextTier(license.planTier),
+      isNested: true,
+      parentId,
+    });
   }
 
   return {
@@ -862,9 +952,6 @@ export const getDetailedUsageCounts = query({
     // Count custom templates
     const customTemplatesCount = await countByType("custom_template");
 
-    // Count languages
-    const languagesCount = await countByType("translation_language");
-
     // Count websites configured for API keys
     const websitesCount = await countByType("api_key_website");
 
@@ -913,7 +1000,6 @@ export const getDetailedUsageCounts = query({
       customTemplatesCount,
       storageUsedGB,
       perUserStorageUsedGB,
-      languagesCount,
       websitesCount,
       oauthAppsCount,
       integrationsCount,

@@ -19,7 +19,22 @@ import { requireAuthenticatedUser, requirePermission, checkPermission } from "..
 import { Id } from "../_generated/dataModel";
 import { validateWorkflowConfig, validateObjectReferences } from "./workflowValidation";
 import { api, internal } from "../_generated/api";
-import { checkFeatureAccess } from "../licensing/helpers";
+import { checkFeatureAccess, getLicenseInternal } from "../licensing/helpers";
+import { ConvexError } from "convex/values";
+
+// Helper function for tier upgrade path
+function getNextTier(
+  currentTier: "free" | "starter" | "professional" | "agency" | "enterprise"
+): string {
+  const tierUpgradePath: Record<string, string> = {
+    free: "Starter (€199/month)",
+    starter: "Professional (€399/month)",
+    professional: "Agency (€599/month)",
+    agency: "Enterprise (€1,500+/month)",
+    enterprise: "Enterprise (contact sales)",
+  };
+  return tierUpgradePath[currentTier] || "a higher tier";
+}
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -352,6 +367,25 @@ export const createWorkflow = mutation({
       throw new Error(`Invalid behavior configurations: ${behaviorErrors.join(", ")}`);
     }
 
+    // CHECK LICENSE LIMIT: Enforce behavior limit per workflow
+    const behaviorsCount = args.workflow.behaviors.length;
+    const license = await getLicenseInternal(ctx, args.organizationId);
+    const limit = license.limits.maxBehaviorsPerWorkflow;
+
+    if (limit !== -1 && behaviorsCount > limit) {
+      throw new ConvexError({
+        code: "LIMIT_EXCEEDED",
+        message: `You've reached your maxBehaviorsPerWorkflow limit (${limit}). ` +
+          `Upgrade to ${getNextTier(license.planTier)} for more capacity.`,
+        limitKey: "maxBehaviorsPerWorkflow",
+        currentCount: behaviorsCount,
+        limit,
+        planTier: license.planTier,
+        nextTier: getNextTier(license.planTier),
+        isNested: true,
+      });
+    }
+
     // Build behaviors with metadata
     const behaviors: BehaviorDefinition[] = args.workflow.behaviors.map((b) => ({
       id: `bhv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -480,6 +514,25 @@ export const updateWorkflow = mutation({
       const behaviorErrors = validateWorkflowConfig(args.updates.behaviors);
       if (behaviorErrors.length > 0) {
         throw new Error(`Invalid behavior configurations: ${behaviorErrors.join(", ")}`);
+      }
+
+      // CHECK LICENSE LIMIT: Enforce behavior limit per workflow
+      const behaviorsCount = args.updates.behaviors.length;
+      const license = await getLicenseInternal(ctx, workflow.organizationId);
+      const limit = license.limits.maxBehaviorsPerWorkflow;
+
+      if (limit !== -1 && behaviorsCount > limit) {
+        throw new ConvexError({
+          code: "LIMIT_EXCEEDED",
+          message: `You've reached your maxBehaviorsPerWorkflow limit (${limit}). ` +
+            `Upgrade to ${getNextTier(license.planTier)} for more capacity.`,
+          limitKey: "maxBehaviorsPerWorkflow",
+          currentCount: behaviorsCount,
+          limit,
+          planTier: license.planTier,
+          nextTier: getNextTier(license.planTier),
+          isNested: true,
+        });
       }
 
       // CHECK FEATURE ACCESS: Advanced conditions require Starter tier or higher

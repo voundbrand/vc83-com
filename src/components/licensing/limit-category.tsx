@@ -15,12 +15,16 @@ interface LimitCategoryProps {
   title: string;
   limits: LimitItem[];
   defaultExpanded?: boolean;
+  editable?: boolean;
+  onLimitChange?: (limitKey: string, newValue: number) => void;
 }
 
 export function LimitCategory({
   title,
   limits,
   defaultExpanded = false,
+  editable = false,
+  onLimitChange,
 }: LimitCategoryProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
 
@@ -72,6 +76,9 @@ export function LimitCategory({
               label={limit.label}
               current={limit.current ?? 0}
               limit={limit.value}
+              limitKey={limit.key}
+              editable={editable}
+              onLimitChange={onLimitChange}
             />
           ))}
         </div>

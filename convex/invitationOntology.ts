@@ -606,6 +606,39 @@ export const internalAcceptInvitation = internalMutation({
       isNewUser = true;
     }
 
+    // CHECK USER LIMIT: Enforce maxUsers limit for organization's tier
+    const { getLicenseInternal } = await import("./licensing/helpers");
+    const license = await getLicenseInternal(ctx, invitation.organizationId);
+    const maxUsers = license.limits.maxUsers;
+
+    // If not unlimited, check current user count
+    if (maxUsers !== -1) {
+      const currentMembers = await ctx.db
+        .query("organizationMembers")
+        .withIndex("by_organization", (q) => q.eq("organizationId", invitation.organizationId))
+        .filter((q) => q.eq(q.field("isActive"), true))
+        .collect();
+
+      const currentCount = currentMembers.length;
+
+      // Check if limit would be exceeded
+      if (currentCount >= maxUsers) {
+        const tierNames: Record<string, string> = {
+          free: "Starter (€199/month)",
+          starter: "Professional (€399/month)",
+          professional: "Agency (€599/month)",
+          agency: "Enterprise (€1,500+/month)",
+          enterprise: "Enterprise",
+        };
+        const nextTier = tierNames[license.planTier] || "a higher tier";
+
+        throw new Error(
+          `You've reached your user limit (${maxUsers}). ` +
+          `Upgrade to ${nextTier} for more users.`
+        );
+      }
+    }
+
     // Create organization membership
     const now = Date.now();
     await ctx.db.insert("organizationMembers", {

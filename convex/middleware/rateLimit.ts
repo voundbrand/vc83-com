@@ -36,33 +36,35 @@ interface RateLimitConfig {
 /**
  * Plan-based rate limits
  *
- * Follows Stripe/GitHub model where higher tiers get higher limits
+ * Follows Stripe/GitHub model where higher tiers get higher limits.
+ * Uses licensing tier names: free, starter, professional, agency, enterprise
+ * Values align with rateLimitPerMinute and rateLimitPerDay from tier configs.
  */
 export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   free: {
-    tokensPerMinute: 10,
-    burst: 20,
-    dailyLimit: 1000,
-  },
-  personal: {
-    tokensPerMinute: 30,
+    tokensPerMinute: 30, // Matches FREE_TIER.rateLimitPerMinute
     burst: 60,
-    dailyLimit: 5000,
+    dailyLimit: 1000, // Matches FREE_TIER.rateLimitPerDay
   },
-  pro: {
-    tokensPerMinute: 100,
-    burst: 200,
-    dailyLimit: 50000,
+  starter: {
+    tokensPerMinute: 60, // Matches STARTER_TIER.rateLimitPerMinute
+    burst: 120,
+    dailyLimit: 5000, // Matches STARTER_TIER.rateLimitPerDay
   },
-  business: {
-    tokensPerMinute: 500,
-    burst: 1000,
-    dailyLimit: 500000,
+  professional: {
+    tokensPerMinute: 120, // Matches PROFESSIONAL_TIER.rateLimitPerMinute
+    burst: 240,
+    dailyLimit: 25000, // Matches PROFESSIONAL_TIER.rateLimitPerDay
+  },
+  agency: {
+    tokensPerMinute: 300, // Matches AGENCY_TIER.rateLimitPerMinute
+    burst: 600,
+    dailyLimit: 100000, // Matches AGENCY_TIER.rateLimitPerDay
   },
   enterprise: {
-    tokensPerMinute: Infinity,
+    tokensPerMinute: Infinity, // Matches ENTERPRISE_TIER.rateLimitPerMinute (-1 = unlimited)
     burst: Infinity,
-    dailyLimit: -1, // Unlimited
+    dailyLimit: -1, // Unlimited, matches ENTERPRISE_TIER.rateLimitPerDay
   },
 };
 
@@ -270,25 +272,48 @@ export function getRateLimitIdentifier(
 /**
  * GET RATE LIMIT PLAN
  *
- * Determines the rate limit plan for an organization.
+ * Determines the rate limit plan for an organization based on licensing tier.
  * Defaults to "free" if no organization context.
  *
- * @param organizationPlan - Organization's subscription plan
- * @returns Rate limit plan name
+ * Maps licensing tiers (free, starter, professional, agency, enterprise) to rate limit plans.
+ * Also supports legacy plan names for backward compatibility.
+ *
+ * @param organizationPlan - Organization's subscription plan/tier from licensing system
+ * @returns Rate limit plan name matching RATE_LIMITS keys
  */
 export function getRateLimitPlan(organizationPlan?: string): string {
   if (!organizationPlan) {
     return "free";
   }
 
-  // Map organization plans to rate limit plans
-  const planMap: Record<string, string> = {
+  const plan = organizationPlan.toLowerCase();
+
+  // Map licensing tiers to rate limit plans (primary mapping)
+  const tierMap: Record<string, string> = {
     free: "free",
-    personal: "personal",
-    pro: "pro",
-    business: "business",
+    starter: "starter",
+    professional: "professional",
+    agency: "agency",
     enterprise: "enterprise",
   };
 
-  return planMap[organizationPlan.toLowerCase()] || "free";
+  // Legacy plan name mapping (for backward compatibility)
+  const legacyMap: Record<string, string> = {
+    personal: "starter", // Legacy "personal" maps to "starter"
+    pro: "professional", // Legacy "pro" maps to "professional"
+    business: "agency", // Legacy "business" maps to "agency"
+  };
+
+  // Check licensing tier first
+  if (tierMap[plan]) {
+    return tierMap[plan];
+  }
+
+  // Fall back to legacy mapping
+  if (legacyMap[plan]) {
+    return legacyMap[plan];
+  }
+
+  // Default to free
+  return "free";
 }

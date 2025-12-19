@@ -376,11 +376,35 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSignedIn])
 
-  // Handle checkout success/failure redirect
+  // Handle OAuth callback and checkout success/failure redirect
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const sessionToken = params.get('session');
+    const isNewUser = params.get('isNewUser');
     const checkoutParam = params.get('checkout');
     const reasonParam = params.get('reason');
+    const oauthProvider = params.get('oauthProvider');
+
+    // Handle OAuth callback - store session and provider
+    if (sessionToken) {
+      localStorage.setItem("convex_session_id", sessionToken);
+      if (isNewUser === "true") {
+        localStorage.setItem("show_onboarding_tutorial", "true");
+      }
+      if (oauthProvider && ["microsoft", "google", "github"].includes(oauthProvider)) {
+        localStorage.setItem("l4yercak3_last_oauth_provider", oauthProvider);
+      }
+      // Clean up the URL (remove query params)
+      window.history.replaceState({}, '', window.location.pathname);
+      // Reload to ensure auth context picks up the new session
+      window.location.reload();
+      return; // Exit early to prevent other handlers from running
+    }
+
+    // Store OAuth provider for "last used" tracking (if not from session callback)
+    if (oauthProvider && ["microsoft", "google", "github"].includes(oauthProvider)) {
+      localStorage.setItem("l4yercak3_last_oauth_provider", oauthProvider);
+    }
 
     if (checkoutParam === 'success') {
       // Open the checkout success window with confetti
@@ -399,6 +423,12 @@ export default function HomePage() {
 
       // Clean up the URL (remove query params)
       window.history.replaceState({}, '', window.location.pathname);
+    } else if (oauthProvider) {
+      // Clean up OAuth provider from URL after storing
+      const newParams = new URLSearchParams(params);
+      newParams.delete('oauthProvider');
+      const newUrl = window.location.pathname + (newParams.toString() ? `?${newParams.toString()}` : '');
+      window.history.replaceState({}, '', newUrl);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

@@ -59,10 +59,24 @@
 
 import { query, mutation } from "./_generated/server";
 import { internalQuery } from "./_generated/server";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser } from "./rbacHelpers";
-import { checkResourceLimit, checkFeatureAccess } from "./licensing/helpers";
+import { checkResourceLimit, checkFeatureAccess, checkNestedResourceLimit, getLicenseInternal } from "./licensing/helpers";
+
+// Helper function for tier upgrade path (duplicated from helpers.ts for local use)
+function getNextTier(
+  currentTier: "free" | "starter" | "professional" | "agency" | "enterprise"
+): string {
+  const tierUpgradePath: Record<string, string> = {
+    free: "Starter (€199/month)",
+    starter: "Professional (€399/month)",
+    professional: "Agency (€599/month)",
+    agency: "Enterprise (€1,500+/month)",
+    enterprise: "Enterprise (contact sales)",
+  };
+  return tierUpgradePath[currentTier] || "a higher tier";
+}
 
 /**
  * GET PRODUCTS
@@ -472,6 +486,28 @@ export const updateProduct = mutation({
         for (const [key, value] of Object.entries(args.customProperties)) {
           // Always replace the value directly (don't merge arrays)
           updatedCustomProperties[key] = value;
+        }
+
+        // CHECK LICENSE LIMIT: Enforce addon limit per product
+        if (args.customProperties.addons && Array.isArray(args.customProperties.addons)) {
+          const addonsCount = args.customProperties.addons.length;
+          const license = await getLicenseInternal(ctx, product.organizationId);
+          const limit = license.limits.maxAddonsPerProduct;
+
+          if (limit !== -1 && addonsCount > limit) {
+            throw new ConvexError({
+              code: "LIMIT_EXCEEDED",
+              message: `You've reached your maxAddonsPerProduct limit (${limit}). ` +
+                `Upgrade to ${getNextTier(license.planTier)} for more capacity.`,
+              limitKey: "maxAddonsPerProduct",
+              currentCount: addonsCount,
+              limit,
+              planTier: license.planTier,
+              nextTier: getNextTier(license.planTier),
+              isNested: true,
+              parentId: args.productId,
+            });
+          }
         }
       }
 

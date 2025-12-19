@@ -39,7 +39,7 @@ import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser } from "./rbacHelpers";
-import { checkResourceLimit, checkFeatureAccess } from "./licensing/helpers";
+import { checkResourceLimit, checkFeatureAccess, checkNestedResourceLimit } from "./licensing/helpers";
 
 /**
  * GET PROJECTS
@@ -439,6 +439,15 @@ export const createMilestone = mutation({
       throw new Error("Project not found");
     }
 
+    // CHECK LICENSE LIMIT: Enforce milestone limit per project
+    await checkNestedResourceLimit(
+      ctx,
+      project.organizationId,
+      args.projectId,
+      "has_milestone",
+      "maxMilestonesPerProject"
+    );
+
     // Create milestone
     const milestoneId = await ctx.db.insert("objects", {
       organizationId: project.organizationId,
@@ -642,6 +651,15 @@ export const createTask = mutation({
     if (!project || !("type" in project) || project.type !== "project") {
       throw new Error("Project not found");
     }
+
+    // CHECK LICENSE LIMIT: Enforce task limit per project
+    await checkNestedResourceLimit(
+      ctx,
+      project.organizationId,
+      args.projectId,
+      "has_task",
+      "maxTasksPerProject"
+    );
 
     // Create task
     const taskId = await ctx.db.insert("objects", {

@@ -921,6 +921,16 @@ export const createContactFromEvent = internalMutation({
     );
 
     if (existingContact) {
+      // CHECK LICENSE LIMIT: Enforce attendee limit per event
+      const { checkNestedResourceLimit } = await import("./licensing/helpers");
+      await checkNestedResourceLimit(
+        ctx,
+        args.organizationId,
+        args.eventId,
+        "registered_for",
+        "maxAttendeesPerEvent"
+      );
+
       // Contact exists, link to event
       await ctx.db.insert("objectLinks", {
         organizationId: args.organizationId,
@@ -937,7 +947,17 @@ export const createContactFromEvent = internalMutation({
       return existingContact._id;
     }
 
-    // 2. Create new contact
+    // 2. CHECK LICENSE LIMIT: Enforce attendee limit per event
+    const { checkNestedResourceLimit } = await import("./licensing/helpers");
+    await checkNestedResourceLimit(
+      ctx,
+      args.organizationId,
+      args.eventId,
+      "registered_for",
+      "maxAttendeesPerEvent"
+    );
+
+    // 3. Create new contact
     const contactId = await ctx.db.insert("objects", {
       organizationId: args.organizationId,
       type: "crm_contact",
@@ -961,7 +981,7 @@ export const createContactFromEvent = internalMutation({
       updatedAt: Date.now(),
     });
 
-    // 3. Link contact to event
+    // 4. Link contact to event
     await ctx.db.insert("objectLinks", {
       organizationId: args.organizationId,
       fromObjectId: contactId,

@@ -12,6 +12,7 @@ import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser } from "./rbacHelpers";
 import type { Id } from "./_generated/dataModel";
+import { checkResourceLimit } from "./licensing/helpers";
 
 // ============================================================================
 // PIPELINE TEMPLATES (System)
@@ -608,6 +609,9 @@ export const createPipeline = mutation({
       .first();
 
     if (!session) throw new Error("Invalid session");
+
+    // CHECK LICENSE LIMIT: Enforce pipeline limit
+    await checkResourceLimit(ctx, args.organizationId, "crm_pipeline", "maxPipelines");
 
     // Create new pipeline
     const newPipelineId = await ctx.db.insert("objects", {

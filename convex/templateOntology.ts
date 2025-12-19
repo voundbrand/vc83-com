@@ -2,7 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser, getUserContext, checkPermission } from "./rbacHelpers";
 import { PERMISSION_ERRORS } from "./permissionErrors";
-import { checkFeatureAccess } from "./licensing/helpers";
+import { checkFeatureAccess, checkResourceLimit } from "./licensing/helpers";
 
 /**
  * TEMPLATE ONTOLOGY
@@ -299,6 +299,9 @@ export const createCustomTemplate = mutation({
     if (args.customCss) {
       await checkFeatureAccess(ctx, args.organizationId, "advancedEditorEnabled");
     }
+
+    // CHECK LICENSE LIMIT: Enforce custom template limit
+    await checkResourceLimit(ctx, args.organizationId, "template", "maxCustomTemplates");
 
     // Check code uniqueness within org
     const allTemplates = await ctx.db

@@ -512,6 +512,16 @@ export const linkSponsorToEvent = mutation({
       throw new Error("This organization is already a sponsor for this event");
     }
 
+    // CHECK LICENSE LIMIT: Enforce sponsor limit per event
+    const { checkNestedResourceLimit } = await import("./licensing/helpers");
+    await checkNestedResourceLimit(
+      ctx,
+      event.organizationId,
+      args.eventId,
+      "sponsored_by",
+      "maxSponsorsPerEvent"
+    );
+
     // Update CRM organization's sponsor level to stay consistent
     const sponsorLevelValue = args.sponsorLevel ?? "community";
     await ctx.db.patch(args.crmOrganizationId, {

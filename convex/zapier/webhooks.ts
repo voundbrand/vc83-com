@@ -9,6 +9,7 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation, internalQuery } from "../_generated/server";
 import { ConvexError } from "convex/values";
+import { checkResourceLimit } from "../licensing/helpers";
 
 /**
  * SUBSCRIBE TO WEBHOOK
@@ -99,6 +100,9 @@ export const subscribeWebhook = mutation({
         target_url: existing.targetUrl,
       };
     }
+
+    // CHECK LICENSE LIMIT: Enforce webhook limit
+    await checkResourceLimit(ctx, organizationId, "webhook", "maxWebhooks");
 
     // Create new webhook subscription
     const subscriptionId = await ctx.db.insert("webhookSubscriptions", {

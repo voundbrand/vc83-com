@@ -10,9 +10,10 @@
  * Run: npx convex run translations/seedLogin:seed
  */
 
-import { internalMutation } from "../_generated/server";
+import { mutation } from "../_generated/server";
+import { getExistingTranslationKeys, insertTranslationIfNew } from "./_translationHelpers";
 
-export const seed = internalMutation({
+export const seed = mutation({
   handler: async (ctx) => {
     console.log("🌱 Seeding Login Window translations...");
 
@@ -181,6 +182,17 @@ export const seed = internalMutation({
           ja: "ログインに戻る",
         }
       },
+      {
+        key: "ui.login.last_used",
+        values: {
+          en: "Last used",
+          de: "Zuletzt verwendet",
+          pl: "Ostatnio używane",
+          es: "Último usado",
+          fr: "Dernière utilisation",
+          ja: "最後に使用",
+        }
+      },
 
       // === LINKS ===
       {
@@ -321,64 +333,36 @@ export const seed = internalMutation({
       },
     ];
 
-    // Collect all translation keys we want to insert
-    const keysToCheck = new Set<string>();
-    for (const trans of translations) {
-      for (const locale of supportedLocales) {
-        keysToCheck.add(`${trans.key}:${locale.code}`);
-      }
-    }
+    // Get all unique translation keys
+    const allKeys = translations.map(t => t.key);
 
-    // Check existing translations by querying only what we need
-    // Instead of loading all translations, check each key we want to insert
-    const existingKeys = new Set<string>();
+    // Efficiently check which translations already exist
+    const existingKeys = await getExistingTranslationKeys(
+      ctx.db,
+      systemOrg._id,
+      allKeys
+    );
 
-    // Get unique keys we want to seed
-    const keysToSeed = Array.from(new Set(translations.map(t => t.key)));
-
-    // For each key, check if ANY translation exists (paginated to avoid hitting limits)
-    for (const key of keysToSeed) {
-      const existing = await ctx.db
-        .query("objects")
-        .withIndex("by_org_type", q =>
-          q.eq("organizationId", systemOrg._id)
-           .eq("type", "translation")
-        )
-        .filter(q => q.eq(q.field("name"), key))
-        .take(10); // Limit to 10 (should be 6 locales max)
-
-      for (const result of existing) {
-        existingKeys.add(`${result.name}:${result.locale}`);
-      }
-    }
-
-    // Seed translations
+    // Insert only new translations
     let count = 0;
     for (const trans of translations) {
       for (const locale of supportedLocales) {
         const value = trans.values[locale.code as keyof typeof trans.values];
 
         if (value) {
-          const lookupKey = `${trans.key}:${locale.code}`;
+          const inserted = await insertTranslationIfNew(
+            ctx.db,
+            existingKeys,
+            systemOrg._id,
+            systemUser._id,
+            trans.key,
+            value,
+            locale.code,
+            "login",
+            "login-window"
+          );
 
-          // Check if translation already exists using our Set
-          if (!existingKeys.has(lookupKey)) {
-            await ctx.db.insert("objects", {
-              organizationId: systemOrg._id,
-              type: "translation",
-              subtype: "ui",
-              name: trans.key,
-              value: value,
-              locale: locale.code,
-              status: "approved",
-              customProperties: {
-                category: "login",
-                component: "login-window",
-              },
-              createdBy: systemUser._id,
-              createdAt: Date.now(),
-              updatedAt: Date.now(),
-            });
+          if (inserted) {
             count++;
           }
         }

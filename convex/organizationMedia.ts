@@ -8,32 +8,37 @@
 
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import type { QueryCtx } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser, requirePermission } from "./rbacHelpers";
 
 /**
- * Storage quotas by plan (in bytes)
+ * Get storage quota from licensing system (in bytes)
+ * Uses totalStorageGB from tier configs
  */
-const STORAGE_QUOTAS = {
-  free: 100 * 1024 * 1024,       // 100 MB
-  personal: 500 * 1024 * 1024,   // 500 MB
-  pro: 1024 * 1024 * 1024,       // 1 GB
-  business: 5 * 1024 * 1024 * 1024,  // 5 GB
-  enterprise: 20 * 1024 * 1024 * 1024, // 20 GB
-};
-
-/**
- * Get storage quota for organization plan
- */
-function getStorageQuota(plan: string): number {
-  return STORAGE_QUOTAS[plan as keyof typeof STORAGE_QUOTAS] || STORAGE_QUOTAS.free;
+async function getStorageQuotaFromLicense(
+  ctx: QueryCtx,
+  organizationId: Id<"organizations">
+): Promise<number> {
+  const { getLicenseInternal } = await import("./licensing/helpers");
+  const license = await getLicenseInternal(ctx, organizationId);
+  const totalStorageGB = license.limits.totalStorageGB;
+  
+  // -1 means unlimited
+  if (totalStorageGB === -1) {
+    return -1;
+  }
+  
+  // Convert GB to bytes
+  return totalStorageGB * 1024 * 1024 * 1024;
 }
 
 /**
  * Helper function to calculate storage usage (can be called from queries and mutations)
+ * Now uses licensing system for quota limits
  */
 async function calculateStorageUsage(
-  ctx: { db: any },
+  ctx: QueryCtx,
   organizationId: Id<"organizations">
 ) {
   const media = await ctx.db
@@ -44,17 +49,23 @@ async function calculateStorageUsage(
   const totalBytes = media.reduce((sum: number, m: any) => sum + m.sizeBytes, 0);
   const fileCount = media.length;
 
-  // Get organization to check plan
-  const org = await ctx.db.get(organizationId);
-  const quotaBytes = org ? getStorageQuota(org.plan) : STORAGE_QUOTAS.free;
+  // Get quota from licensing system
+  const quotaBytes = await getStorageQuotaFromLicense(ctx, organizationId);
+
+  // Calculate percentages (skip if unlimited)
+  const quotaMB = quotaBytes === -1 ? -1 : parseFloat((quotaBytes / 1024 / 1024).toFixed(2));
+  const percentUsed = quotaBytes === -1 ? 0 : parseFloat(((totalBytes / quotaBytes) * 100).toFixed(2));
 
   return {
     totalBytes,
     totalMB: parseFloat((totalBytes / 1024 / 1024).toFixed(2)),
+    totalGB: parseFloat((totalBytes / 1024 / 1024 / 1024).toFixed(2)),
     fileCount,
     quotaBytes,
-    quotaMB: parseFloat((quotaBytes / 1024 / 1024).toFixed(2)),
-    percentUsed: parseFloat(((totalBytes / quotaBytes) * 100).toFixed(2)),
+    quotaMB,
+    quotaGB: quotaBytes === -1 ? -1 : parseFloat((quotaBytes / 1024 / 1024 / 1024).toFixed(2)),
+    percentUsed,
+    isUnlimited: quotaBytes === -1,
   };
 }
 
@@ -108,12 +119,41 @@ export const generateUploadUrl = mutation({
       organizationId,
     });
 
-    // Check storage quota
-    const usage = await calculateStorageUsage(ctx, organizationId);
-    if (usage.totalBytes + estimatedSizeBytes > usage.quotaBytes) {
+    // CHECK STORAGE LIMITS: Enforce totalStorageGB and maxFileUploadMB from licensing system
+    const { getLicenseInternal } = await import("./licensing/helpers");
+    const license = await getLicenseInternal(ctx, organizationId);
+    
+    // Check maxFileUploadMB limit
+    const maxFileUploadMB = license.limits.maxFileUploadMB;
+    const estimatedSizeMB = estimatedSizeBytes / (1024 * 1024);
+    if (maxFileUploadMB !== -1 && estimatedSizeMB > maxFileUploadMB) {
       throw new Error(
-        `Storage quota exceeded. Using ${usage.totalMB}MB of ${usage.quotaMB}MB.`
+        `File size (${estimatedSizeMB.toFixed(2)}MB) exceeds maximum allowed (${maxFileUploadMB}MB). ` +
+        `Upgrade to a higher tier for larger file uploads.`
       );
+    }
+    
+    // Check total storage quota
+    const usage = await calculateStorageUsage(ctx, organizationId);
+    const totalStorageGB = license.limits.totalStorageGB;
+    
+    if (totalStorageGB !== -1) {
+      const totalStorageBytes = totalStorageGB * 1024 * 1024 * 1024;
+      if (usage.totalBytes + estimatedSizeBytes > totalStorageBytes) {
+        const tierNames: Record<string, string> = {
+          free: "Starter (€199/month)",
+          starter: "Professional (€399/month)",
+          professional: "Agency (€599/month)",
+          agency: "Enterprise (€1,500+/month)",
+          enterprise: "Enterprise",
+        };
+        const nextTier = tierNames[license.planTier] || "a higher tier";
+        
+        throw new Error(
+          `Storage quota exceeded. Using ${usage.totalGB.toFixed(2)}GB of ${totalStorageGB}GB. ` +
+          `Upgrade to ${nextTier} for more storage.`
+        );
+      }
     }
 
     // Generate upload URL
@@ -539,12 +579,30 @@ export const createLayerCakeDocument = mutation({
     // Calculate size in bytes (approximate)
     const sizeBytes = new Blob([args.documentContent]).size;
 
-    // Check storage quota
-    const usage = await calculateStorageUsage(ctx, args.organizationId);
-    if (usage.totalBytes + sizeBytes > usage.quotaBytes) {
-      throw new Error(
-        `Storage quota exceeded. Using ${usage.totalMB}MB of ${usage.quotaMB}MB.`
-      );
+    // CHECK STORAGE LIMITS: Enforce totalStorageGB from licensing system
+    const { getLicenseInternal } = await import("./licensing/helpers");
+    const license = await getLicenseInternal(ctx, args.organizationId);
+    const totalStorageGB = license.limits.totalStorageGB;
+    
+    if (totalStorageGB !== -1) {
+      const usage = await calculateStorageUsage(ctx, args.organizationId);
+      const totalStorageBytes = totalStorageGB * 1024 * 1024 * 1024;
+      
+      if (usage.totalBytes + sizeBytes > totalStorageBytes) {
+        const tierNames: Record<string, string> = {
+          free: "Starter (€199/month)",
+          starter: "Professional (€399/month)",
+          professional: "Agency (€599/month)",
+          agency: "Enterprise (€1,500+/month)",
+          enterprise: "Enterprise",
+        };
+        const nextTier = tierNames[license.planTier] || "a higher tier";
+        
+        throw new Error(
+          `Storage quota exceeded. Using ${usage.totalGB.toFixed(2)}GB of ${totalStorageGB}GB. ` +
+          `Upgrade to ${nextTier} for more storage.`
+        );
+      }
     }
 
     // Create Layer Cake document

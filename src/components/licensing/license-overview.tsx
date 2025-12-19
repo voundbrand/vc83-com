@@ -32,6 +32,7 @@ export function LicenseOverview({ organizationId, sessionId, editable = false }:
 
   const toggleFeature = useMutation(api.licensing.helpers.toggleFeature);
   const changePlanTier = useMutation(api.licensing.helpers.changePlanTier);
+  const updateLicenseLimits = useMutation(api.licensing.superAdmin.updateLicenseLimits);
 
   const handleToggleFeature = async (featureKey: string, currentValue: boolean) => {
     if (!editable || !sessionId) return;
@@ -61,6 +62,24 @@ export function LicenseOverview({ organizationId, sessionId, editable = false }:
     } catch (error) {
       console.error("Failed to change plan tier:", error);
       alert("Failed to change plan tier: " + (error instanceof Error ? error.message : "Unknown error"));
+    }
+  };
+
+  const handleLimitChange = async (limitKey: string, newValue: number) => {
+    if (!editable || !sessionId) return;
+
+    try {
+      await updateLicenseLimits({
+        sessionId,
+        organizationId,
+        customLimits: {
+          [limitKey]: newValue,
+        },
+        reason: `Super admin override: ${limitKey} set to ${newValue === -1 ? "unlimited" : newValue}`,
+      });
+    } catch (error) {
+      console.error("Failed to update limit:", error);
+      alert("Failed to update limit: " + (error instanceof Error ? error.message : "Unknown error"));
     }
   };
 
@@ -321,17 +340,6 @@ export function LicenseOverview({ organizationId, sessionId, editable = false }:
           label: "Maximum Certificates",
           value: license.limits.maxCertificates,
           current: getUsage("certificates"),
-        },
-      ],
-    },
-    {
-      title: "Translations (1 limit)",
-      limits: [
-        {
-          key: "maxLanguages",
-          label: "Maximum Languages",
-          value: license.limits.maxLanguages,
-          current: getDetailedCount("languagesCount"),
         },
       ],
     },
@@ -866,7 +874,7 @@ export function LicenseOverview({ organizationId, sessionId, editable = false }:
               border: "1px solid var(--win95-border)",
             }}
           >
-            87 total limits
+            86 total limits
           </span>
         </h3>
         <div className="space-y-3">
@@ -876,6 +884,8 @@ export function LicenseOverview({ organizationId, sessionId, editable = false }:
               title={category.title}
               limits={category.limits}
               defaultExpanded={index === 0} // Expand first category by default
+              editable={editable}
+              onLimitChange={handleLimitChange}
             />
           ))}
         </div>

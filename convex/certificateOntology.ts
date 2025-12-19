@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser, requirePermission } from "./rbacHelpers";
 import { internal } from "./_generated/api";
+import { checkResourceLimit } from "./licensing/helpers";
 
 /**
  * GET CERTIFICATES
@@ -268,6 +269,9 @@ export const createCertificateInternal = internalMutation({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    // CHECK LICENSE LIMIT: Enforce certificate limit
+    await checkResourceLimit(ctx, args.organizationId, "certificate", "maxCertificates");
+
     // Generate unique certificate number
     const certificateNumber = `${args.pointType.toUpperCase()}-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 

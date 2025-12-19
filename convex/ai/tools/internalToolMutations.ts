@@ -338,6 +338,16 @@ export const internalCreateMilestone = internalMutation({
       throw new Error("Project not found");
     }
 
+    // CHECK LICENSE LIMIT: Enforce milestone limit per project
+    const { checkNestedResourceLimit } = await import("../../licensing/helpers");
+    await checkNestedResourceLimit(
+      ctx,
+      args.organizationId,
+      args.projectId,
+      "has_milestone",
+      "maxMilestonesPerProject"
+    );
+
     const customProperties = {
       projectId: args.projectId,
       dueDate: args.dueDate,
@@ -413,6 +423,22 @@ export const internalCreateTask = internalMutation({
     if (!parent || parent.organizationId !== args.organizationId) {
       throw new Error("Parent project or milestone not found");
     }
+
+    // Determine project ID for limit checking (tasks are limited per project, not per milestone)
+    const projectIdForLimit = args.projectId || (parent.customProperties as any)?.projectId;
+    if (!projectIdForLimit) {
+      throw new Error("Cannot determine project ID for task limit check");
+    }
+
+    // CHECK LICENSE LIMIT: Enforce task limit per project
+    const { checkNestedResourceLimit } = await import("../../licensing/helpers");
+    await checkNestedResourceLimit(
+      ctx,
+      args.organizationId,
+      projectIdForLimit as Id<"objects">,
+      "has_task",
+      "maxTasksPerProject"
+    );
 
     const customProperties = {
       projectId: args.projectId || (parent.customProperties as any)?.projectId,

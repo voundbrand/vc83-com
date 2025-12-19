@@ -1,7 +1,7 @@
 import { mutation, query, action } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser, getUserContext, checkPermission } from "./rbacHelpers";
-import { checkFeatureAccess } from "./licensing/helpers";
+import { checkFeatureAccess, checkResourceLimit } from "./licensing/helpers";
 import { internal } from "./_generated/api";
 import { generateVercelDeployUrl } from "./publishingHelpers";
 
@@ -132,6 +132,9 @@ export const createPublishedPage = mutation({
     if (args.metaKeywords || args.ogImage) {
       await checkFeatureAccess(ctx, args.organizationId, "seoToolsEnabled");
     }
+
+    // CHECK LICENSE LIMIT: Enforce page limit
+    await checkResourceLimit(ctx, args.organizationId, "published_page", "maxPages");
 
     // Check if this is an external page
     const isExternal = args.templateContent?.isExternal === true;

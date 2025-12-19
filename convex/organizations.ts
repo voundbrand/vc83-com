@@ -550,6 +550,39 @@ export const addUserToOrganization = internalMutation({
     invitedBy: v.id("users"),
   },
   handler: async (ctx, args) => {
+    // CHECK USER LIMIT: Enforce maxUsers limit for organization's tier
+    const { getLicenseInternal } = await import("./licensing/helpers");
+    const license = await getLicenseInternal(ctx, args.organizationId);
+    const maxUsers = license.limits.maxUsers;
+
+    // If not unlimited, check current user count
+    if (maxUsers !== -1) {
+      const currentMembers = await ctx.db
+        .query("organizationMembers")
+        .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+        .filter((q) => q.eq(q.field("isActive"), true))
+        .collect();
+
+      const currentCount = currentMembers.length;
+
+      // Check if limit would be exceeded
+      if (currentCount >= maxUsers) {
+        const tierNames: Record<string, string> = {
+          free: "Starter (€199/month)",
+          starter: "Professional (€399/month)",
+          professional: "Agency (€599/month)",
+          agency: "Enterprise (€1,500+/month)",
+          enterprise: "Enterprise",
+        };
+        const nextTier = tierNames[license.planTier] || "a higher tier";
+
+        throw new Error(
+          `You've reached your user limit (${maxUsers}). ` +
+          `Upgrade to ${nextTier} for more users.`
+        );
+      }
+    }
+
     return await ctx.db.insert("organizationMembers", {
       userId: args.userId,
       organizationId: args.organizationId,

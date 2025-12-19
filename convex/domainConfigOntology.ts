@@ -133,42 +133,49 @@ export const createDomainConfig = mutation({
       throw new Error("You don't have permission to manage domains for this organization");
     }
 
-    // 3. Get organization's license
-    const license = await getLicenseInternal(ctx, args.organizationId);
-    const maxDomains = license.limits.maxCustomDomains;
-
     // 3b. CHECK FEATURE ACCESS: Custom domains require Professional+
     const { checkFeatureAccess } = await import("./licensing/helpers");
     await checkFeatureAccess(ctx, args.organizationId, "customDomainsEnabled");
 
-    // 4. Count existing active domains
-    const existingDomains = await ctx.db
-      .query("objects")
-      .withIndex("by_org_type", (q) =>
-        q.eq("organizationId", args.organizationId).eq("type", "configuration")
-      )
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("subtype"), "domain"),
-          q.eq(q.field("status"), "active")
+    // 3c. CHECK DOMAIN LIMIT: Enforce maxCustomDomains limit for organization's tier
+    // Note: Domains are stored as type="configuration" with subtype="domain", so we need custom counting
+    const license = await getLicenseInternal(ctx, args.organizationId);
+    const maxDomains = license.limits.maxCustomDomains;
+
+    // If not unlimited, check current domain count
+    if (maxDomains !== -1) {
+      const existingDomains = await ctx.db
+        .query("objects")
+        .withIndex("by_org_type", (q) =>
+          q.eq("organizationId", args.organizationId).eq("type", "configuration")
         )
-      )
-      .collect();
+        .filter((q) =>
+          q.and(
+            q.eq(q.field("subtype"), "domain"),
+            q.eq(q.field("status"), "active")
+          )
+        )
+        .collect();
 
-    if (maxDomains !== -1 && existingDomains.length >= maxDomains) {
-      const tierNames = {
-        free: "Starter (€199/month)",
-        starter: "Professional (€399/month)",
-        professional: "Agency (€599/month)",
-        agency: "Enterprise",
-        enterprise: "Enterprise",
-      };
-      const nextTier = tierNames[license.planTier as keyof typeof tierNames];
+      const currentCount = existingDomains.length;
 
-      throw new Error(
-        `Domain limit reached (${maxDomains}). ` +
-        `Upgrade to ${nextTier} to add more domains.`
-      );
+      // Check if limit would be exceeded
+      if (currentCount >= maxDomains) {
+        // Use same tier upgrade path as checkResourceLimit
+        const tierNames: Record<string, string> = {
+          free: "Starter (€199/month)",
+          starter: "Professional (€399/month)",
+          professional: "Agency (€599/month)",
+          agency: "Enterprise (€1,500+/month)",
+          enterprise: "Enterprise (contact sales)",
+        };
+        const nextTier = tierNames[license.planTier] || "a higher tier";
+
+        throw new Error(
+          `You've reached your maxCustomDomains limit (${maxDomains}). ` +
+          `Upgrade to ${nextTier} for more capacity.`
+        );
+      }
     }
 
     // 5. Normalize domain
@@ -209,11 +216,63 @@ export const createDomainConfig = mutation({
     // 9. Determine badge requirement (only for free tier with API enabled)
     const badgeRequired = license.features.badgeRequired && (args.capabilities.api === true);
 
+    // 9b. CHECK LICENSE LIMIT: Enforce websites per key limit (if API capability enabled and API key provided)
+    if (args.capabilities.api && args.apiKeyId) {
+      // Count how many domain configs are already linked to this API key
+      // Check both new type (domain_config) and legacy type (configuration/domain)
+      const newTypeConfigs = await ctx.db
+        .query("objects")
+        .withIndex("by_org_type", (q) =>
+          q.eq("organizationId", args.organizationId).eq("type", "domain_config")
+        )
+        .collect();
+
+      const legacyTypeConfigs = await ctx.db
+        .query("objects")
+        .withIndex("by_org_type", (q) =>
+          q.eq("organizationId", args.organizationId).eq("type", "configuration")
+        )
+        .filter((q) => q.eq(q.field("subtype"), "domain"))
+        .collect();
+
+      // Filter in JavaScript to check apiKeyId in customProperties
+      const linkedConfigs = [
+        ...newTypeConfigs.filter((c) => (c.customProperties as any)?.apiKeyId === args.apiKeyId),
+        ...legacyTypeConfigs.filter((c) => (c.customProperties as any)?.apiKeyId === args.apiKeyId),
+      ];
+
+      const websitesCount = linkedConfigs.length;
+      const limit = license.limits.maxWebsitesPerKey;
+
+      if (limit !== -1 && websitesCount >= limit) {
+        const { ConvexError } = await import("convex/values");
+        const tierNames: Record<string, string> = {
+          free: "Starter (€199/month)",
+          starter: "Professional (€399/month)",
+          professional: "Agency (€599/month)",
+          agency: "Enterprise (€1,500+/month)",
+          enterprise: "Enterprise (contact sales)",
+        };
+        const nextTier = tierNames[license.planTier] || "a higher tier";
+        throw new ConvexError({
+          code: "LIMIT_EXCEEDED",
+          message: `You've reached your maxWebsitesPerKey limit (${limit}). ` +
+            `Upgrade to ${nextTier} for more capacity.`,
+          limitKey: "maxWebsitesPerKey",
+          currentCount: websitesCount,
+          limit,
+          planTier: license.planTier,
+          nextTier,
+          isNested: true,
+        });
+      }
+    }
+
     // 10. Create domain configuration
     const configId = await ctx.db.insert("objects", {
       organizationId: args.organizationId,
-      type: "configuration",
-      subtype: "domain",
+      type: "domain_config",
+      subtype: "main",
       name: `${cleanDomain} Configuration`,
       status: isDevelopment ? "active" : "pending", // Pending until verified
       customProperties: {
@@ -236,7 +295,7 @@ export const createDomainConfig = mutation({
         },
 
         // API Access (if enabled)
-        ...(args.capabilities.api && {
+        ...(args.capabilities.api && args.apiKeyId && {
           apiKeyId: args.apiKeyId,
           badgeRequired,
           badgeVerified: false,
@@ -433,6 +492,63 @@ export const updateDomainConfig = mutation({
     if (args.capabilities?.api && !customProperties.capabilities?.api) {
       const license = await getLicenseInternal(ctx, existing.organizationId);
       badgeRequired = license.features.badgeRequired;
+    }
+
+    // 4b. CHECK LICENSE LIMIT: Enforce websites per key limit (if API key is being set/changed)
+    if (args.apiKeyId && args.capabilities?.api) {
+      const apiKeyIdToCheck = args.apiKeyId;
+      // Count how many domain configs are already linked to this API key (excluding current one)
+      const newTypeConfigs = await ctx.db
+        .query("objects")
+        .withIndex("by_org_type", (q) =>
+          q.eq("organizationId", existing.organizationId).eq("type", "domain_config")
+        )
+        .collect();
+
+      const legacyTypeConfigs = await ctx.db
+        .query("objects")
+        .withIndex("by_org_type", (q) =>
+          q.eq("organizationId", existing.organizationId).eq("type", "configuration")
+        )
+        .filter((q) => q.eq(q.field("subtype"), "domain"))
+        .collect();
+
+      // Filter in JavaScript to check apiKeyId in customProperties (excluding current config)
+      const linkedConfigs = [
+        ...newTypeConfigs.filter((c) => 
+          c._id !== args.configId && (c.customProperties as any)?.apiKeyId === apiKeyIdToCheck
+        ),
+        ...legacyTypeConfigs.filter((c) => 
+          c._id !== args.configId && (c.customProperties as any)?.apiKeyId === apiKeyIdToCheck
+        ),
+      ];
+
+      const websitesCount = linkedConfigs.length;
+      const license = await getLicenseInternal(ctx, existing.organizationId);
+      const limit = license.limits.maxWebsitesPerKey;
+
+      if (limit !== -1 && websitesCount >= limit) {
+        const { ConvexError } = await import("convex/values");
+        const tierNames: Record<string, string> = {
+          free: "Starter (€199/month)",
+          starter: "Professional (€399/month)",
+          professional: "Agency (€599/month)",
+          agency: "Enterprise (€1,500+/month)",
+          enterprise: "Enterprise (contact sales)",
+        };
+        const nextTier = tierNames[license.planTier] || "a higher tier";
+        throw new ConvexError({
+          code: "LIMIT_EXCEEDED",
+          message: `You've reached your maxWebsitesPerKey limit (${limit}). ` +
+            `Upgrade to ${nextTier} for more capacity.`,
+          limitKey: "maxWebsitesPerKey",
+          currentCount: websitesCount,
+          limit,
+          planTier: license.planTier,
+          nextTier,
+          isNested: true,
+        });
+      }
     }
 
     // 5. Update configuration

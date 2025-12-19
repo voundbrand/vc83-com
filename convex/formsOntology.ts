@@ -31,7 +31,22 @@
 import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser, checkPermission } from "./rbacHelpers";
-import { checkResourceLimit, checkFeatureAccess } from "./licensing/helpers";
+import { checkResourceLimit, checkFeatureAccess, getLicenseInternal } from "./licensing/helpers";
+import { ConvexError } from "convex/values";
+
+// Helper function for tier upgrade path
+function getNextTier(
+  currentTier: "free" | "starter" | "professional" | "agency" | "enterprise"
+): string {
+  const tierUpgradePath: Record<string, string> = {
+    free: "Starter (€199/month)",
+    starter: "Professional (€399/month)",
+    professional: "Agency (€599/month)",
+    agency: "Enterprise (€1,500+/month)",
+    enterprise: "Enterprise (contact sales)",
+  };
+  return tierUpgradePath[currentTier] || "a higher tier";
+}
 
 /**
  * FIELD TYPE DEFINITIONS
@@ -586,6 +601,37 @@ export const createFormResponse = mutation({
       throw new Error("Form not found");
     }
 
+    // CHECK LICENSE LIMIT: Enforce form response limit per form
+    const existingResponses = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "formResponse")
+      )
+      .filter((q) => {
+        const customProps = q.field("customProperties") as { formId?: string } | undefined;
+        return customProps?.formId === args.formId;
+      })
+      .collect();
+
+    const responsesCount = existingResponses.length;
+    const license = await getLicenseInternal(ctx, args.organizationId);
+    const limit = license.limits.maxResponsesPerForm;
+
+    if (limit !== -1 && responsesCount >= limit) {
+      throw new ConvexError({
+        code: "LIMIT_EXCEEDED",
+        message: `You've reached your maxResponsesPerForm limit (${limit}). ` +
+          `Upgrade to ${getNextTier(license.planTier)} for more capacity.`,
+        limitKey: "maxResponsesPerForm",
+        currentCount: responsesCount,
+        limit,
+        planTier: license.planTier,
+        nextTier: getNextTier(license.planTier),
+        isNested: true,
+        parentId: args.formId,
+      });
+    }
+
     // Generate a name from responses (first + last name if available)
     const firstName = args.responses.first_name || args.responses.firstName || "";
     const lastName = args.responses.last_name || args.responses.lastName || "";
@@ -683,6 +729,37 @@ export const createPublicFormResponse = internalMutation({
     // Only allow submissions to published forms
     if (form.status !== "published") {
       throw new Error("Form is not published");
+    }
+
+    // CHECK LICENSE LIMIT: Enforce form response limit per form
+    const existingResponses = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", form.organizationId).eq("type", "formResponse")
+      )
+      .filter((q) => {
+        const customProps = q.field("customProperties") as { formId?: string } | undefined;
+        return customProps?.formId === args.formId;
+      })
+      .collect();
+
+    const responsesCount = existingResponses.length;
+    const license = await getLicenseInternal(ctx, form.organizationId);
+    const limit = license.limits.maxResponsesPerForm;
+
+    if (limit !== -1 && responsesCount >= limit) {
+      throw new ConvexError({
+        code: "LIMIT_EXCEEDED",
+        message: `You've reached your maxResponsesPerForm limit (${limit}). ` +
+          `Upgrade to ${getNextTier(license.planTier)} for more capacity.`,
+        limitKey: "maxResponsesPerForm",
+        currentCount: responsesCount,
+        limit,
+        planTier: license.planTier,
+        nextTier: getNextTier(license.planTier),
+        isNested: true,
+        parentId: args.formId,
+      });
     }
 
     // Generate a name from responses (first + last name if available)

@@ -111,6 +111,8 @@ export const verifySession = internalQuery({
  * INTERNAL: Check API Key Limit
  *
  * Checks if organization can create more API keys based on license tier.
+ * Standardized to match checkResourceLimit() pattern and error format.
+ * Note: API keys are stored in apiKeys table, not objects table, so we use custom counting.
  */
 export const checkApiKeyLimit = internalQuery({
   args: {
@@ -123,26 +125,86 @@ export const checkApiKeyLimit = internalQuery({
     const license = await getLicenseInternal(ctx, args.organizationId);
     const limit = license.limits.maxApiKeys;
 
+    // If unlimited, return success
     if (limit === -1) {
-      // Unlimited
       return { allowed: true };
     }
 
-    // Count existing active API keys
+    // Count existing active API keys (from apiKeys table, not objects table)
     const existingKeys = await ctx.db
       .query("apiKeys")
       .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
       .filter((q) => q.eq(q.field("status"), "active"))
       .collect();
 
-    if (existingKeys.length >= limit) {
+    const currentCount = existingKeys.length;
+
+    // Check if limit would be exceeded
+    if (currentCount >= limit) {
+      // Use same tier upgrade path as checkResourceLimit
+      const tierNames: Record<string, string> = {
+        free: "Starter (€199/month)",
+        starter: "Professional (€399/month)",
+        professional: "Agency (€599/month)",
+        agency: "Enterprise (€1,500+/month)",
+        enterprise: "Enterprise (contact sales)",
+      };
+      const nextTier = tierNames[license.planTier] || "a higher tier";
+
+      // Return error in same format as checkResourceLimit (will be thrown by caller)
       return {
         allowed: false,
-        error: `You've reached your API key limit (${limit}). Upgrade to ${
-          license.planTier === "free" || license.planTier === "starter"
-            ? "Professional (€399/month) for 3 API keys"
-            : "a higher tier"
-        }.`,
+        error: `You've reached your maxApiKeys limit (${limit}). ` +
+          `Upgrade to ${nextTier} for more capacity.`,
+      };
+    }
+
+    return { allowed: true };
+  },
+});
+
+/**
+ * INTERNAL: Check Websites Per Key Limit
+ *
+ * Checks if updating an API key's allowedDomains would exceed maxWebsitesPerKey limit.
+ */
+export const checkWebsitesPerKeyLimit = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    allowedDomains: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Import license helper
+    const { getLicenseInternal } = await import("./licensing/helpers");
+    const { ConvexError } = await import("convex/values");
+
+    const license = await getLicenseInternal(ctx, args.organizationId);
+    const limit = license.limits.maxWebsitesPerKey;
+
+    // If unlimited, return success
+    if (limit === -1) {
+      return { allowed: true };
+    }
+
+    const domainsCount = args.allowedDomains.length;
+
+    // Check if limit would be exceeded
+    if (domainsCount > limit) {
+      // Use same tier upgrade path as checkResourceLimit
+      const tierNames: Record<string, string> = {
+        free: "Starter (€199/month)",
+        starter: "Professional (€399/month)",
+        professional: "Agency (€599/month)",
+        agency: "Enterprise (€1,500+/month)",
+        enterprise: "Enterprise (contact sales)",
+      };
+      const nextTier = tierNames[license.planTier] || "a higher tier";
+
+      // Return error in same format as checkResourceLimit (will be thrown by caller)
+      return {
+        allowed: false,
+        error: `You've reached your maxWebsitesPerKey limit (${limit}). ` +
+          `Upgrade to ${nextTier} for more capacity.`,
       };
     }
 

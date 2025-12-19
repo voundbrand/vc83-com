@@ -74,9 +74,6 @@ export interface TierLimits {
   // Certificates
   maxCertificates: number;
 
-  // Translations
-  maxLanguages: number;
-
   // API & OAuth
   maxWebsitesPerKey: number;
   maxCustomOAuthApps: number; // Custom apps (user's website, mobile app, etc.)
@@ -275,9 +272,6 @@ export const FREE_TIER: TierConfig = {
     // Certificates
     maxCertificates: 10,
 
-    // Translations
-    maxLanguages: 1,
-
     // API & OAuth
     maxWebsitesPerKey: 1,
     maxCustomOAuthApps: 0, // No custom OAuth apps on Free tier
@@ -459,9 +453,6 @@ export const STARTER_TIER: TierConfig = {
 
     // Certificates
     maxCertificates: 200,
-
-    // Translations
-    maxLanguages: 2,
 
     // API & OAuth
     maxWebsitesPerKey: 1,
@@ -645,9 +636,6 @@ export const PROFESSIONAL_TIER: TierConfig = {
     // Certificates
     maxCertificates: 2000,
 
-    // Translations
-    maxLanguages: 6,
-
     // API & OAuth
     maxWebsitesPerKey: 3,
     maxCustomOAuthApps: 3,
@@ -830,9 +818,6 @@ export const AGENCY_TIER: TierConfig = {
     // Certificates
     maxCertificates: 10000,
 
-    // Translations
-    maxLanguages: 6,
-
     // API & OAuth
     maxWebsitesPerKey: 5,
     maxCustomOAuthApps: 5, // + 1 per sub-org
@@ -1014,9 +999,6 @@ export const ENTERPRISE_TIER: TierConfig = {
 
     // Certificates
     maxCertificates: UNLIMITED,
-
-    // Translations
-    maxLanguages: UNLIMITED,
 
     // API & OAuth
     maxWebsitesPerKey: UNLIMITED,
