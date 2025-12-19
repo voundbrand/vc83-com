@@ -82,8 +82,8 @@ export const initiateGitHubOAuth = mutation({
 
     // DEBUG: Log environment variables (will appear in Convex logs)
     console.log("GitHub OAuth Environment Check:", {
-      hasClientId: !!process.env.GITHUB_OAUTH_CLIENT_ID,
-      clientIdLength: process.env.GITHUB_OAUTH_CLIENT_ID?.length || 0,
+      hasClientId: !!process.env.GITHUB_INTEGRATION_CLIENT_ID,
+      clientIdLength: process.env.GITHUB_INTEGRATION_CLIENT_ID?.length || 0,
       hasAppUrl: !!process.env.NEXT_PUBLIC_APP_URL,
       appUrl: process.env.NEXT_PUBLIC_APP_URL,
       redirectUri,
@@ -96,7 +96,7 @@ export const initiateGitHubOAuth = mutation({
 
     // Build OAuth URL
     const params = new URLSearchParams({
-      client_id: process.env.GITHUB_OAUTH_CLIENT_ID || "",
+      client_id: process.env.GITHUB_INTEGRATION_CLIENT_ID || "",
       redirect_uri: redirectUri,
       scope: scopeString,
       state,
@@ -151,8 +151,8 @@ export const handleGitHubCallback = action({
         "Accept": "application/json", // GitHub returns JSON when this header is present
       },
       body: JSON.stringify({
-        client_id: process.env.GITHUB_OAUTH_CLIENT_ID || "",
-        client_secret: process.env.GITHUB_OAUTH_CLIENT_SECRET || "",
+        client_id: process.env.GITHUB_INTEGRATION_CLIENT_ID || "",
+        client_secret: process.env.GITHUB_INTEGRATION_CLIENT_SECRET || "",
         code: args.code,
       }),
     });

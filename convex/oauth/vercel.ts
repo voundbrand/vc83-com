@@ -86,8 +86,8 @@ export const initiateVercelOAuth = mutation({
 
     // DEBUG: Log environment variables (will appear in Convex logs)
     console.log("Vercel OAuth Environment Check:", {
-      hasClientId: !!process.env.VERCEL_OAUTH_CLIENT_ID,
-      clientIdLength: process.env.VERCEL_OAUTH_CLIENT_ID?.length || 0,
+      hasClientId: !!process.env.VERCEL_INTEGRATION_CLIENT_ID,
+      clientIdLength: process.env.VERCEL_INTEGRATION_CLIENT_ID?.length || 0,
       hasAppUrl: !!process.env.NEXT_PUBLIC_APP_URL,
       appUrl: process.env.NEXT_PUBLIC_APP_URL,
       redirectUri,
@@ -151,8 +151,8 @@ export const exchangeVercelCode = action({
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
-        client_id: process.env.VERCEL_OAUTH_CLIENT_ID || "",
-        client_secret: process.env.VERCEL_OAUTH_CLIENT_SECRET || "",
+        client_id: process.env.VERCEL_INTEGRATION_CLIENT_ID || "",
+        client_secret: process.env.VERCEL_INTEGRATION_CLIENT_SECRET || "",
         code: args.code,
         redirect_uri: args.redirectUri,
       }),
