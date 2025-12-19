@@ -31,6 +31,9 @@ import {
   organizationMedia,
   oauthConnections,
   oauthStates,
+  cliSessions,
+  cliLoginStates,
+  oauthSignupStates,
   webhookSubscriptions
 } from "./schemas/coreSchemas";
 // NOTE: apiKeyDomains table removed - now using unified domain configurations in objects table
@@ -121,6 +124,9 @@ export default defineSchema({
   organizationMedia,
   oauthConnections,
   oauthStates,
+  cliSessions,
+  cliLoginStates,
+  oauthSignupStates,
   webhookSubscriptions,
 
   // 🔐 RBAC: Role-Based Access Control

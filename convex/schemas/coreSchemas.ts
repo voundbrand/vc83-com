@@ -481,6 +481,44 @@ export const oauthConnections = defineTable({
   .index("by_org_and_provider", ["organizationId", "provider"]);        // Find connections by org and provider
 
 // OAuth State Tokens - CSRF protection for OAuth flows
+export const cliSessions = defineTable({
+  // CLI session for authenticated CLI users
+  userId: v.id("users"),
+  email: v.string(),
+  organizationId: v.id("organizations"),
+  cliToken: v.string(),                        // Format: cli_session_{32_random_bytes}
+  createdAt: v.number(),
+  expiresAt: v.number(),                       // 30 days from creation
+  lastUsedAt: v.number(),
+})
+  .index("by_token", ["cliToken"])
+  .index("by_user", ["userId"])
+  .index("by_organization", ["organizationId"]);
+
+export const cliLoginStates = defineTable({
+  // Temporary OAuth state tokens during CLI login flow
+  state: v.string(),                           // UUID for CSRF protection
+  cliToken: v.string(),                        // Pre-generated token to store after OAuth
+  callbackUrl: v.string(),                     // Where to redirect after OAuth
+  provider: v.optional(v.string()),             // OAuth provider: "microsoft", "google", "github", or null (user selects)
+  createdAt: v.number(),
+  expiresAt: v.number(),                      // 10 minutes
+})
+  .index("by_state", ["state"]);
+
+export const oauthSignupStates = defineTable({
+  // Temporary OAuth state tokens during OAuth signup flow (unified for Platform UI and CLI)
+  state: v.string(),                           // UUID for CSRF protection
+  sessionType: v.union(v.literal("platform"), v.literal("cli")), // Platform UI or CLI session
+  callbackUrl: v.string(),                     // Where to redirect after OAuth
+  provider: v.union(v.literal("microsoft"), v.literal("google"), v.literal("github")), // OAuth provider
+  organizationName: v.optional(v.string()),    // Optional organization name for new accounts
+  cliToken: v.optional(v.string()),            // Pre-generated CLI token (only for CLI sessions)
+  createdAt: v.number(),
+  expiresAt: v.number(),                      // 10 minutes
+})
+  .index("by_state", ["state"]);
+
 export const oauthStates = defineTable({
   // State token
   state: v.string(),                           // Random UUID for CSRF protection
@@ -492,6 +530,7 @@ export const oauthStates = defineTable({
   // OAuth flow metadata
   provider: v.union(
     v.literal("microsoft"),
+    v.literal("github"),
     v.literal("google"),
     v.literal("slack"),
     v.literal("salesforce"),
