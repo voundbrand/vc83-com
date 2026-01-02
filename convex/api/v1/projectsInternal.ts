@@ -216,7 +216,7 @@ export const createProjectInternal = internalMutation({
       progress: 0, // Initial progress is 0%
       clientOrgId: args.clientOrgId,
       detailedDescription: "", // Rich HTML (empty initially)
-      ...(args.customProperties || {}),
+      ...((args.customProperties as Record<string, unknown> | undefined) || {}),
     };
 
     // Create project object
@@ -358,7 +358,7 @@ export const updateProjectInternal = internalMutation({
         ...(args.priority !== undefined && { priority: args.priority }),
         ...(args.progress !== undefined && { progress: args.progress }),
         ...(args.clientOrgId !== undefined && { clientOrgId: args.clientOrgId }),
-        ...(args.customProperties || {}),
+        ...((args.customProperties as Record<string, unknown> | undefined) || {}),
       };
     }
 

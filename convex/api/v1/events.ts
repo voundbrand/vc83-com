@@ -12,6 +12,7 @@
 
 import { httpAction } from "../../_generated/server";
 import { internal } from "../../_generated/api";
+import { Id } from "../../_generated/dataModel";
 import { getCorsHeaders } from "./corsHeaders";
 
 /**
@@ -331,7 +332,7 @@ export const getEventById = httpAction(async (ctx, request) => {
     const event = await ctx.runQuery(
       internal.api.v1.eventsInternal.getEventByIdInternal,
       {
-        eventId: eventId as any,
+        eventId: eventId as Id<"objects">,
         organizationId,
       }
     );
@@ -427,7 +428,7 @@ export const getEventProducts = httpAction(async (ctx, request) => {
     const products = await ctx.runQuery(
       internal.api.v1.eventsInternal.getEventProductsInternal,
       {
-        eventId: eventId as any,
+        eventId: eventId as Id<"objects">,
         organizationId,
       }
     );

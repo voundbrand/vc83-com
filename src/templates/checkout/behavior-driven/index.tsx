@@ -263,12 +263,12 @@ export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
         if (checkoutSessionId) {
           try {
             // Helper: Convert Date objects to timestamps recursively
-            const convertDatesToTimestamps = (obj: any): any => {
+            const convertDatesToTimestamps = (obj: unknown): unknown => {
               if (obj === null || obj === undefined) return obj;
               if (obj instanceof Date) return obj.getTime();
               if (Array.isArray(obj)) return obj.map(convertDatesToTimestamps);
               if (typeof obj === 'object') {
-                const converted: any = {};
+                const converted: Record<string, unknown> = {};
                 for (const [key, value] of Object.entries(obj)) {
                   converted[key] = convertDatesToTimestamps(value);
                 }

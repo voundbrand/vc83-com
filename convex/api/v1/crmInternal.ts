@@ -509,7 +509,7 @@ export const createContactInternal = internalMutation({
         // Merge tags
         tags: mergedTags,
         // Merge custom fields
-        ...args.customFields,
+        ...(args.customFields as Record<string, unknown> | undefined || {}),
       };
 
       // Construct full name from updated properties
@@ -557,7 +557,7 @@ export const createContactInternal = internalMutation({
           sourceRef: args.sourceRef,
           tags: args.tags || ["api-created"],
           notes: args.notes,
-          ...args.customFields,
+          ...(args.customFields as Record<string, unknown> | undefined || {}),
         },
         createdBy: args.performedBy,
         createdAt: Date.now(),
@@ -868,7 +868,7 @@ export const bulkImportContactsInternal = internalMutation({
             jobTitle: contactData.jobTitle || existingContact.customProperties?.jobTitle,
             notes: contactData.notes || existingContact.customProperties?.notes,
             tags: mergedTags,
-            ...contactData.customFields,
+            ...((contactData.customFields as Record<string, unknown> | undefined) || {}),
             lastBulkImport: Date.now(),
           };
 
@@ -899,7 +899,7 @@ export const bulkImportContactsInternal = internalMutation({
               source: contactData.source || "bulk-import",
               tags: contactData.tags || ["bulk-imported"],
               notes: contactData.notes,
-              ...contactData.customFields,
+              ...((contactData.customFields as Record<string, unknown> | undefined) || {}),
               importedAt: Date.now(),
             },
             createdBy: args.performedBy,

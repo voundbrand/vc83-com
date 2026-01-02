@@ -156,7 +156,7 @@ export const createCheckoutSessionInternal = internalAction({
       connectedAccountId,
       successUrl: "", // Not needed for API flow
       cancelUrl: "", // Not needed for API flow
-      metadata: args.metadata,
+      metadata: args.metadata as Record<string, unknown> | undefined,
     });
 
     console.log(
@@ -180,7 +180,7 @@ export const createCheckoutSessionInternal = internalAction({
         providerSessionId: session.providerSessionId,
         clientSecret: session.clientSecret || "",
         expiresAt: session.expiresAt,
-        metadata: args.metadata,
+        metadata: args.metadata as Record<string, unknown> | undefined,
       }
     );
 
@@ -253,7 +253,7 @@ export const storeCheckoutSessionInternal = internalMutation({
 
         // Metadata
         source: "api",
-        metadata: args.metadata,
+        metadata: args.metadata as Record<string, unknown> | undefined,
       },
     });
 

@@ -222,7 +222,7 @@ export interface ConnectionParams {
   refreshUrl: string;
 
   /** Additional provider-specific parameters */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -242,7 +242,7 @@ export interface ConnectionResult {
   requiresOnboarding: boolean;
 
   /** Additional provider-specific data */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -268,7 +268,7 @@ export interface AccountStatus {
   disabledReason?: string;
 
   /** Additional provider-specific metadata */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // =========================================
@@ -350,7 +350,7 @@ export interface CheckoutSessionParams {
   connectedAccountId?: string;
 
   /** Additional metadata to store with payment */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -379,7 +379,7 @@ export interface CheckoutSessionResult {
   expiresAt: number;
 
   /** Additional provider-specific data */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -412,7 +412,7 @@ export interface PaymentVerificationResult {
   };
 
   /** Additional metadata from payment */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // =========================================
@@ -451,7 +451,7 @@ export interface InvoiceParams {
   connectedAccountId?: string;
 
   /** Additional metadata */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -497,7 +497,7 @@ export interface InvoiceResult {
   currency: string;
 
   /** Additional provider-specific data */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -535,7 +535,7 @@ export interface ProviderWebhookEvent {
   eventId: string;
 
   /** Event data (provider-specific) */
-  data: any;
+  data: unknown;
 
   /** Webhook signature header */
   signature: string;
@@ -581,7 +581,7 @@ export interface WebhookHandlingResult {
   error?: string;
 
   /** Additional metadata from webhook processing */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // =========================================
@@ -687,7 +687,7 @@ export interface OrganizationProviderConfig {
   lastStatusCheck?: number;
 
   /** Provider-specific metadata */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // =========================================
@@ -702,7 +702,7 @@ export class PaymentProviderError extends Error {
     message: string,
     public providerCode: string,
     public errorCode?: string,
-    public metadata?: Record<string, any>
+    public metadata?: Record<string, unknown>
   ) {
     super(message);
     this.name = "PaymentProviderError";
@@ -717,7 +717,7 @@ export class AccountConnectionError extends PaymentProviderError {
     message: string,
     providerCode: string,
     errorCode?: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ) {
     super(message, providerCode, errorCode, metadata);
     this.name = "AccountConnectionError";
@@ -732,7 +732,7 @@ export class PaymentProcessingError extends PaymentProviderError {
     message: string,
     providerCode: string,
     errorCode?: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ) {
     super(message, providerCode, errorCode, metadata);
     this.name = "PaymentProcessingError";
@@ -747,7 +747,7 @@ export class WebhookVerificationError extends PaymentProviderError {
     message: string,
     providerCode: string,
     errorCode?: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ) {
     super(message, providerCode, errorCode, metadata);
     this.name = "WebhookVerificationError";

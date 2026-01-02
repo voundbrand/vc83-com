@@ -14,9 +14,11 @@
  * Security: Webhook signature verification via Stripe SDK
  */
 
-import { internalAction, internalMutation } from "../../_generated/server";
+import { internalAction, internalMutation, ActionCtx } from "../../_generated/server";
 import { internal } from "../../_generated/api";
 import { v } from "convex/values";
+import { Id } from "../../_generated/dataModel";
+import Stripe from "stripe";
 
 /**
  * PROCESS STRIPE INVOICE WEBHOOK
@@ -41,9 +43,8 @@ export const processStripeInvoiceWebhook = internalAction({
     );
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const invoice = args.invoiceData as any;
-      const stripeInvoiceId = invoice.id as string;
+      const invoice = args.invoiceData as Stripe.Invoice;
+      const stripeInvoiceId = invoice.id;
 
       // Find our invoice by Stripe ID
       const ourInvoice = await ctx.runQuery(
@@ -102,7 +103,8 @@ export const processStripeInvoiceWebhook = internalAction({
         success: true,
       });
 
-      const invoiceNumber = (ourInvoice.customProperties as any)?.invoiceNumber || ourInvoice._id;
+      const customProps = ourInvoice.customProperties as Record<string, unknown> | undefined;
+      const invoiceNumber = (customProps?.invoiceNumber as string | undefined) || ourInvoice._id;
       console.log(
         `✅ Successfully processed ${args.eventType} for invoice ${invoiceNumber}`
       );
@@ -123,7 +125,7 @@ export const processStripeInvoiceWebhook = internalAction({
         eventId: args.eventId,
         eventType: args.eventType,
         invoiceId: null,
-        stripeInvoiceId: args.invoiceData.id,
+        stripeInvoiceId: (args.invoiceData as Stripe.Invoice).id,
         processedAt: Date.now(),
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
@@ -138,20 +140,20 @@ export const processStripeInvoiceWebhook = internalAction({
  * EVENT HANDLERS
  */
 
-async function handleInvoiceCreated(ctx: any, invoiceId: any, stripeInvoice: any) {
+async function handleInvoiceCreated(ctx: ActionCtx, invoiceId: Id<"objects">, stripeInvoice: Stripe.Invoice) {
   console.log(`📝 Invoice created in Stripe: ${stripeInvoice.id}`);
 
   // Update our invoice with Stripe URLs
   await ctx.runMutation(internal.api.v1.invoicesInternal.updateInvoiceStripeStatus, {
     invoiceId,
     stripeStatus: "draft",
-    stripeHostedUrl: stripeInvoice.hosted_invoice_url,
-    stripePdfUrl: stripeInvoice.invoice_pdf,
+    stripeHostedUrl: stripeInvoice.hosted_invoice_url ?? undefined,
+    stripePdfUrl: stripeInvoice.invoice_pdf ?? undefined,
     stripeInvoiceId: stripeInvoice.id,
   });
 }
 
-async function handleInvoiceFinalized(ctx: any, invoiceId: any, stripeInvoice: any) {
+async function handleInvoiceFinalized(ctx: ActionCtx, invoiceId: Id<"objects">, stripeInvoice: Stripe.Invoice) {
   console.log(`✅ Invoice finalized in Stripe: ${stripeInvoice.id}`);
 
   // Update status to sealed and add URLs
@@ -159,12 +161,12 @@ async function handleInvoiceFinalized(ctx: any, invoiceId: any, stripeInvoice: a
     invoiceId,
     status: "sealed",
     stripeStatus: "open",
-    stripeHostedUrl: stripeInvoice.hosted_invoice_url,
-    stripePdfUrl: stripeInvoice.invoice_pdf,
+    stripeHostedUrl: stripeInvoice.hosted_invoice_url ?? undefined,
+    stripePdfUrl: stripeInvoice.invoice_pdf ?? undefined,
   });
 }
 
-async function handleInvoicePaid(ctx: any, invoiceId: any, stripeInvoice: any) {
+async function handleInvoicePaid(ctx: ActionCtx, invoiceId: Id<"objects">, stripeInvoice: Stripe.Invoice) {
   console.log(
     `💰 Invoice paid in Stripe: ${stripeInvoice.id} - Amount: ${stripeInvoice.amount_paid / 100} ${stripeInvoice.currency}`
   );
@@ -183,7 +185,7 @@ async function handleInvoicePaid(ctx: any, invoiceId: any, stripeInvoice: any) {
   // TODO: Trigger payment received email/notification
 }
 
-async function handleInvoicePaymentFailed(ctx: any, invoiceId: any, stripeInvoice: any) {
+async function handleInvoicePaymentFailed(ctx: ActionCtx, invoiceId: Id<"objects">, stripeInvoice: Stripe.Invoice) {
   console.log(`❌ Invoice payment failed: ${stripeInvoice.id}`);
 
   // Update status to indicate payment failure
@@ -196,7 +198,7 @@ async function handleInvoicePaymentFailed(ctx: any, invoiceId: any, stripeInvoic
   // TODO: Trigger payment failed notification
 }
 
-async function handleInvoiceActionRequired(ctx: any, invoiceId: any, stripeInvoice: any) {
+async function handleInvoiceActionRequired(ctx: ActionCtx, invoiceId: Id<"objects">, stripeInvoice: Stripe.Invoice) {
   console.log(`⚠️ Invoice requires action: ${stripeInvoice.id}`);
 
   // Update status to indicate action required
@@ -209,7 +211,7 @@ async function handleInvoiceActionRequired(ctx: any, invoiceId: any, stripeInvoi
   // TODO: Trigger action required notification
 }
 
-async function handleInvoiceVoided(ctx: any, invoiceId: any, stripeInvoice: any) {
+async function handleInvoiceVoided(ctx: ActionCtx, invoiceId: Id<"objects">, stripeInvoice: Stripe.Invoice) {
   console.log(`🚫 Invoice voided: ${stripeInvoice.id}`);
 
   // Update status to voided
@@ -221,7 +223,7 @@ async function handleInvoiceVoided(ctx: any, invoiceId: any, stripeInvoice: any)
   });
 }
 
-async function handleInvoiceUncollectible(ctx: any, invoiceId: any, stripeInvoice: any) {
+async function handleInvoiceUncollectible(ctx: ActionCtx, invoiceId: Id<"objects">, stripeInvoice: Stripe.Invoice) {
   console.log(`💸 Invoice marked uncollectible: ${stripeInvoice.id}`);
 
   // Update status
