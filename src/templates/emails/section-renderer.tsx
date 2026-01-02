@@ -24,7 +24,8 @@ import { getTranslations, translatePaymentTerms, type SupportedLanguage } from "
 /**
  * Render Hero Section
  */
-export function renderHeroSection(section: HeroSection, primaryColor: string): string {
+export function renderHeroSection(section: HeroSection, _primaryColor: string): string {
+  void _primaryColor; // Reserved for future theming
   return `
     <div style="text-align: center; margin-bottom: 40px;">
       ${section.image ? `
@@ -301,7 +302,8 @@ export function renderAttachmentInfoSection(section: AttachmentInfoSection, prim
 /**
  * Render Shipping Info Section
  */
-export function renderShippingInfoSection(section: ShippingInfoSection, primaryColor: string): string {
+export function renderShippingInfoSection(section: ShippingInfoSection, _primaryColor: string): string {
+  void _primaryColor; // Reserved for future theming
   const statusMessages = {
     processing: { text: 'Order Processing', color: '#f59e0b', bg: '#fef3c7' },
     shipped: { text: 'Shipped', color: '#3b82f6', bg: '#dbeafe' },

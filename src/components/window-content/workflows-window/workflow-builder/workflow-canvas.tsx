@@ -64,7 +64,7 @@ export function WorkflowCanvas({
   onUpdateBehavior,
 }: WorkflowCanvasProps) {
   const { t } = useNamespaceTranslations("ui.workflows");
-  const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+  const [, setSelectedNode] = useState<Node | null>(null);
   const [insertModal, setInsertModal] = useState<{
     afterBehaviorId: string;
     beforeBehaviorId: string;

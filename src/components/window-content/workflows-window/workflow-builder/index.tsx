@@ -26,13 +26,6 @@ import { WorkflowHelpModal } from "./workflow-help-modal";
 import { TestModePanel } from "./test-mode-panel";
 
 // Types
-interface WorkflowObject {
-  objectId: Id<"objects">;
-  objectType: string;
-  role: string;
-  config?: Record<string, unknown>;
-}
-
 interface WorkflowBehavior {
   id: string;
   type: string;

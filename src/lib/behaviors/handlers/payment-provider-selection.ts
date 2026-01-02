@@ -114,8 +114,9 @@ export const paymentProviderSelectionHandler: BehaviorHandler<PaymentProviderSel
   apply: (
     config: PaymentProviderSelectionConfig,
     extractedData: unknown,
-    context: Readonly<BehaviorContext>
+    _context: Readonly<BehaviorContext>
   ): BehaviorResult<unknown> => {
+    void _context; // Required by interface but not used in this handler
     const data = extractedData as Record<string, unknown>;
     const {
       customerType,
@@ -224,6 +225,7 @@ export const paymentProviderSelectionHandler: BehaviorHandler<PaymentProviderSel
    * Validate configuration
    */
   validate: (config: PaymentProviderSelectionConfig, _context?: Partial<BehaviorContext>) => {
+    void _context; // Required by interface but not used in this handler
     const errors: Array<{ field: string; message: string; code: string; severity: "error" | "warning" }> = [];
 
     // Must have default providers

@@ -51,7 +51,7 @@ export function ProductSelectionStep({ organizationId, products, checkoutData, o
 
     // Try to find active custom rate for origin address
     const activeRate = taxSettings.customRates?.find(
-      (rate) => rate.active &&
+      (rate: { active: boolean; jurisdiction: string; rate: number }) => rate.active &&
         rate.jurisdiction === `${taxSettings.originAddress.country}-${taxSettings.originAddress.state || ""}`
     );
 

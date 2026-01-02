@@ -321,6 +321,7 @@ export function createMockInvoiceData(templateCode: string): TemplateData {
  * Create mock ticket data for preview
  */
 export function createMockTicketData(_templateCode: string): TemplateData {
+  void _templateCode; // Preserved for future template-specific mock data
   const baseData = {
     // Organization (seller/organizer)
     organization_name: "l4yercak3 Events",

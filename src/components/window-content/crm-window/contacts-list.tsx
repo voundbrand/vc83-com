@@ -244,7 +244,6 @@ export function ContactsList({ selectedId, onSelect, onNavigateToPipelines }: Co
               const props = contact.customProperties || {}
               const fullName = props.fullName || `${props.firstName || ""} ${props.lastName || ""}`.trim() || "Unnamed Contact"
               const email = props.email?.toString() || ""
-              const stage = contact.subtype || "lead" // Read from contact.subtype, not customProperties
               const source = props.source?.toString() || "manual"
               const totalSpent = typeof props.totalSpent === "number" ? props.totalSpent : 0
               const purchaseCount = typeof props.purchaseCount === "number" ? props.purchaseCount : 0

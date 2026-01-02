@@ -140,12 +140,12 @@ export const employerDetectionHandler: BehaviorHandler<
   /**
    * EXTRACT - Get employer identifier from inputs
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   extract: (
     config: EmployerDetectionConfig,
     inputs: InputSource[],
     _context: Readonly<BehaviorContext>
   ): ExtractedEmployerData | null => {
+    void _context; // Required by interface but not used in this handler
     // Find first input that has employer data
     for (const input of inputs) {
       let employerValue: string | null = null;
@@ -214,11 +214,11 @@ export const employerDetectionHandler: BehaviorHandler<
   /**
    * VALIDATE - Check if config is valid
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   validate: (
     config: EmployerDetectionConfig,
     _context?: Partial<BehaviorContext>
   ): ValidationError[] => {
+    void _context; // Required by interface but not used in this handler
     const errors: ValidationError[] = [];
 
     // Check if config has required fields
@@ -246,12 +246,12 @@ export const employerDetectionHandler: BehaviorHandler<
    *
    * Returns actions to fetch CRM organization data
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   apply: (
     config: EmployerDetectionConfig,
     extracted: ExtractedEmployerData,
     _context: Readonly<BehaviorContext>
   ): BehaviorResult<EmployerDetectionResult> => {
+    void _context; // Required by interface but not used in this handler
     const { employerValue, crmOrganizationId } = extracted;
 
     // If not mapped or mapped to null, return null result

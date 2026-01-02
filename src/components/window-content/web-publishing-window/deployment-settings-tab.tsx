@@ -37,8 +37,8 @@ export function DeploymentSettingsTab({
   const [isSaving, setIsSaving] = useState(false);
   const [isAutoDetecting, setIsAutoDetecting] = useState(false);
 
-  // Query page data
-  const page = useQuery(
+  // Query page data (may be needed for future features)
+  useQuery(
     api.publishingOntology.getPublishedPageById,
     sessionId ? { sessionId, pageId } : "skip"
   );

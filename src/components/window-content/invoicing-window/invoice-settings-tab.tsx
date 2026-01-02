@@ -38,7 +38,7 @@ import { Id } from "../../../../convex/_generated/dataModel";
 export function InvoiceSettingsTab() {
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
-  const { t } = useNamespaceTranslations("ui.invoicing_window");
+  useNamespaceTranslations("ui.invoicing_window"); // Hook called for side effects
   const notification = useNotification();
   const { openWindow } = useWindowManager();
 

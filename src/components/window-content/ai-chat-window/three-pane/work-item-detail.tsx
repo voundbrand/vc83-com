@@ -512,7 +512,7 @@ function EmailCampaignDetail({
 
 // Main Detail Component
 export function WorkItemDetail({ item, onActionComplete }: WorkItemDetailProps): ReactNode {
-  const { t } = useNamespaceTranslations("ui.ai_assistant");
+  useNamespaceTranslations("ui.ai_assistant"); // Hook called for side effects
 
   // Check if this is an AI work item (starts with "ai_")
   const isAIWorkItem = item.type.startsWith("ai_")

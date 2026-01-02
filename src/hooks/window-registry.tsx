@@ -5,7 +5,7 @@
  * from sessionStorage after page refresh.
  */
 
-import { lazy, type ComponentType, type ReactNode } from "react";
+import { lazy, type ReactNode } from "react";
 
 export interface WindowConfig {
   id: string;

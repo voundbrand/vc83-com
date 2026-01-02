@@ -19,7 +19,7 @@ import { vipExclusiveTranslations } from "./translations";
  * Follows email best practices with inline styles and table-based layouts.
  */
 export function VIPExclusiveTemplate(props: EmailTemplateProps): EmailTemplateOutput {
-  const { ticket, event, attendee, domain, branding, language } = props;
+  const { event, attendee, domain, branding, language } = props;
 
   const t = vipExclusiveTranslations[language];
   const primaryColor = branding.primaryColor || '#d4af37'; // Luxury gold

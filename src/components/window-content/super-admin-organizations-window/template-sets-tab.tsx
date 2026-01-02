@@ -849,6 +849,7 @@ function EditTemplateSetModal({
   systemOrgId: Id<"organizations">;
   onClose: () => void;
 }) {
+  void systemOrgId; // Preserved for future org-scoped template management
   const props = templateSet.customProperties || {};
   const existingTemplates = props.templates || [];
 

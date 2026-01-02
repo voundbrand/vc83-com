@@ -23,12 +23,14 @@ describe("BehaviorRegistry", () => {
     type: "test_behavior",
     name: "Test Behavior",
     description: "A test behavior for unit tests",
-    extract: (config: Record<string, unknown>, inputs: InputSource[], context: BehaviorContext) => {
+    extract: (config: Record<string, unknown>, inputs: InputSource[], _context: BehaviorContext) => {
+      void _context;
       const formInput = inputs.find((i) => i.type === "form");
       if (!formInput) return null;
       return { value: (formInput.data as Record<string, unknown>).testField };
     },
-    apply: (config: Record<string, unknown>, extracted: Record<string, unknown>, context: BehaviorContext) => {
+    apply: (config: Record<string, unknown>, extracted: Record<string, unknown>, _context: BehaviorContext) => {
+      void _context;
       return {
         success: true,
         data: { processed: extracted.value },

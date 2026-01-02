@@ -858,6 +858,7 @@ function EditTemplateSetModal({
   organizationId: Id<"organizations">;
   onClose: () => void;
 }) {
+  void organizationId; // Preserved for future org-scoped template management
   const props = templateSet.customProperties || {};
   const existingTemplates = props.templates || [];
 

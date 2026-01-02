@@ -127,8 +127,9 @@ export const taxCalculationHandler: BehaviorHandler<TaxCalculationConfig> = {
   apply: (
     config: TaxCalculationConfig,
     extractedData: unknown,
-    context: Readonly<BehaviorContext>
+    _context: Readonly<BehaviorContext>
   ): BehaviorResult<unknown> => {
+    void _context; // Required by interface but not used in this handler
     const data = extractedData as Record<string, unknown>;
     const {
       customerType,
@@ -313,6 +314,7 @@ export const taxCalculationHandler: BehaviorHandler<TaxCalculationConfig> = {
    * Validate tax calculation configuration
    */
   validate: (config: TaxCalculationConfig, _context?: Partial<BehaviorContext>) => {
+    void _context; // Required by interface but not used in this handler
     const errors: string[] = [];
 
     // Validate default tax rate

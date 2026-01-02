@@ -85,9 +85,8 @@ export function ConditionalBehaviorNode({ data }: NodeProps) {
           name: string;
           expression: string;
           color: string;
-        }, index: number) => {
+        }) => {
           const isSuccess = condition.name.toLowerCase() === "success";
-          const isError = condition.name.toLowerCase() === "error";
 
           // Position handles: success on right, error on bottom
           const handlePosition = isSuccess ? Position.Right : Position.Bottom;

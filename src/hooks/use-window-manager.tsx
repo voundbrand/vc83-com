@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, useRef, type ReactNode, Suspense } from "react"
-import { getWindowFactory, type WindowConfig } from "./window-registry"
+import { getWindowFactory } from "./window-registry"
 
 interface Window {
   id: string

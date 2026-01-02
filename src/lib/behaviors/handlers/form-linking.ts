@@ -228,6 +228,7 @@ export const formLinkingHandler: BehaviorHandler<
     config: FormLinkingConfig,
     _context?: Partial<BehaviorContext>
   ): ValidationError[] => {
+    void _context; // Required by interface but not used in this handler
     const errors: ValidationError[] = [];
 
     // Check required fields

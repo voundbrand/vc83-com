@@ -83,7 +83,7 @@ export function CreateApiKeyDialog({
       await navigator.clipboard.writeText(createdKey);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
+    } catch {
       alert("Failed to copy to clipboard");
     }
   };

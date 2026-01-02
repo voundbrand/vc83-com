@@ -39,7 +39,6 @@ interface ContentRulesModalProps {
  * Allows org owners to configure content filtering rules for external frontends.
  * This determines what events, checkouts, and forms are returned by the API.
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function ContentRulesModal({ page, onClose, onSaveRules }: ContentRulesModalProps) {
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
