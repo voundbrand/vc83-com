@@ -176,7 +176,6 @@ export const checkWebsitesPerKeyLimit = internalQuery({
   handler: async (ctx, args) => {
     // Import license helper
     const { getLicenseInternal } = await import("./licensing/helpers");
-    const { ConvexError } = await import("convex/values");
 
     const license = await getLicenseInternal(ctx, args.organizationId);
     const limit = license.limits.maxWebsitesPerKey;

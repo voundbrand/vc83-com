@@ -21,10 +21,10 @@
  * - Webhooks: Keep status in sync
  */
 
-import { action, internalAction, internalMutation, internalQuery, ActionCtx } from "./_generated/server";
+import { internalAction, internalMutation, internalQuery, ActionCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import { Id, Doc } from "./_generated/dataModel";
+import { Doc } from "./_generated/dataModel";
 import Stripe from "stripe";
 import { OrganizationProviderConfig } from "./paymentProviders/types";
 import { BillingAddress } from "./paymentProviders/types";

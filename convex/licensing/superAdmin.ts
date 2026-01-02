@@ -10,7 +10,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { requireAuthenticatedUser, getUserContext } from "../rbacHelpers";
-import { TIER_CONFIGS, type TierConfig } from "./tierConfigs";
+import { TIER_CONFIGS } from "./tierConfigs";
 import type { Id } from "../_generated/dataModel";
 
 /**

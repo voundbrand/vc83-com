@@ -14,7 +14,7 @@ import { fetchAction, fetchQuery, fetchMutation } from "convex/nextjs";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { state, callback, email, password, firstName, lastName, organizationName } = body;
+    const { state, email, password, firstName, lastName, organizationName } = body;
 
     // Validate required fields
     if (!email || !password || !firstName || !lastName) {

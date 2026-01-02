@@ -1,6 +1,6 @@
 "use client";
 
-import { X, Calendar, Mail, Phone, Send, User, Building2, MessageSquare } from "lucide-react";
+import { Calendar, Mail, Phone, Send, User, Building2, MessageSquare } from "lucide-react";
 import { useState } from "react";
 import { useQuery, useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";

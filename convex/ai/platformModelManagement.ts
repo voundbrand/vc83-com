@@ -296,7 +296,7 @@ export const checkSuperAdmin = internalQuery({
         isSuperAdmin: userContext.isGlobal && userContext.roleName === "super_admin",
         userId,
       };
-    } catch (error) {
+    } catch {
       return {
         isSuperAdmin: false,
         userId: undefined,

@@ -25,7 +25,6 @@
 
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { internal } from "./_generated/api";
 
 /**
  * MAGIC LINK LOGIN
@@ -154,7 +153,7 @@ export const oauthLogin = mutation({
     organizationSlug: v.string(),
     redirectUri: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: async (_ctx, _args) => {
     // TODO: Implement OAuth flow integration
     // 1. Verify authorization code
     // 2. Exchange for access token

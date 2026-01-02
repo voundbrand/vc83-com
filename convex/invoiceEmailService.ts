@@ -48,8 +48,6 @@ export const previewInvoiceEmail = action({
       throw new Error("Invoice not found");
     }
 
-    const invoiceProps = invoice.customProperties as any;
-
     // 2. Determine language (default to German)
     const language: EmailLanguage = args.language || 'de';
 
@@ -68,11 +66,7 @@ export const previewInvoiceEmail = action({
       // No domain config - resolver will cascade to organization settings → neutral defaults
       console.log(`📧 No domain config, will use organization settings or neutral defaults`);
       domainProps = null; // Let resolver handle branding cascade
-      emailSettings = {
-        senderEmail: "invoices@mail.l4yercak3.com",
-        replyToEmail: "billing@l4yercak3.com",
-        defaultTemplateCode: "invoice-email-v2", // Default to schema-based B2B template
-      };
+      // emailSettings will be resolved by Smart Data Resolver
     }
 
     // 4. Resolve email template from organization's template set

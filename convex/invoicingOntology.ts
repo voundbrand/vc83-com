@@ -538,8 +538,6 @@ export const createConsolidatedInvoice = mutation({
       defaultTerms?: string;
     } | undefined;
 
-    // Use org settings as defaults, allow override from args
-    const invoicePrefix = invoiceSettingsProps?.prefix || "INV";
     // Use single source of truth for payment terms normalization
     const defaultPaymentTerms = normalizePaymentTerms(invoiceSettingsProps?.defaultTerms);
 
@@ -958,36 +956,6 @@ export const executeInvoiceRule = mutation({
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
-
-/**
- * Generate unique invoice number
- */
-async function generateInvoiceNumber(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ctx: any,
-  organizationId: Id<"organizations">,
-  prefix: string
-): Promise<string> {
-  // Get the latest invoice for this org
-  const latestInvoice = await ctx.db
-    .query("objects")
-    .withIndex("by_org_type", (q: { eq: (field: string, value: Id<"organizations"> | string) => { eq: (field: string, value: string) => unknown } }) =>
-      q.eq("organizationId", organizationId).eq("type", "invoice")
-    )
-    .order("desc")
-    .first();
-
-  let sequence = 1;
-  if (latestInvoice?.customProperties?.invoiceNumber) {
-    const match = (latestInvoice.customProperties.invoiceNumber as string).match(/(\d+)$/);
-    if (match) {
-      sequence = parseInt(match[1], 10) + 1;
-    }
-  }
-
-  const year = new Date().getFullYear();
-  return `${prefix}-${year}-${sequence.toString().padStart(4, "0")}`;
-}
 
 /**
  * Calculate due date based on payment terms
@@ -1957,8 +1925,6 @@ export const createSimpleInvoiceFromCheckout = internalMutation({
       defaultTerms?: string;
     } | undefined;
 
-    // Use org settings as source of truth with sensible defaults
-    const invoicePrefix = invoiceSettingsProps?.prefix || "INV";
     // Use single source of truth for payment terms normalization
     const orgPaymentTerms = normalizePaymentTerms(invoiceSettingsProps?.defaultTerms);
 

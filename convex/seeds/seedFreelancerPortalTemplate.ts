@@ -22,7 +22,7 @@
  */
 
 import { internalMutation } from "../_generated/server";
-import { internal } from "../_generated/api";
+// Note: internal API removed - not currently used
 
 export const seedFreelancerPortalTemplate = internalMutation({
   handler: async (ctx) => {

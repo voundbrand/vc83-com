@@ -12,12 +12,13 @@ import { DatabaseReader, DatabaseWriter } from "../_generated/server";
  * This function is NO LONGER USED - kept for backwards compatibility
  * Use insertTranslationIfNew directly which checks individually
  */
- 
+/* eslint-disable @typescript-eslint/no-unused-vars */
 export async function getExistingTranslationKeys(
   _db: DatabaseReader,
   _systemOrgId: Id<"organizations">,
   _translationKeys: string[]
 ): Promise<Set<string>> {
+/* eslint-enable @typescript-eslint/no-unused-vars */
   // Return empty set - checking is done individually now
   return new Set<string>();
 }
@@ -29,6 +30,7 @@ export async function getExistingTranslationKeys(
  */
 export async function insertTranslationIfNew(
   db: DatabaseWriter,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _existingKeys: Set<string>, // Ignored - kept for backwards compatibility
   systemOrgId: Id<"organizations">,
   systemUserId: Id<"users">,

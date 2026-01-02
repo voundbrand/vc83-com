@@ -36,7 +36,6 @@ import type { Id } from "../../../../convex/_generated/dataModel";
 import { ConfirmationModal } from "@/components/confirmation-modal";
 import {
   getTemplateTypeIcon,
-  getTemplateTypeTranslationKey,
   isValidEmailTemplateType,
   isValidPdfTemplateType
 } from "@/templates/template-types";
@@ -137,7 +136,7 @@ export function TemplatesList({
     }
   };
 
-  const handleDuplicate = async (templateId: string, templateName: string) => {
+  const handleDuplicate = async (templateId: string, _templateName: string) => {
     if (!sessionId || !currentOrg) return;
 
     try {
@@ -193,7 +192,7 @@ export function TemplatesList({
     }
   };
 
-  const handleToggleStatus = async (templateId: string, templateName: string, currentStatus: string) => {
+  const handleToggleStatus = async (templateId: string, templateName: string, _currentStatus: string) => {
     if (!sessionId) return;
 
     try {

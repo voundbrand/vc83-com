@@ -135,7 +135,7 @@ export const createPlatformCheckoutSession = action({
         } else {
           throw new Error("Customer deleted");
         }
-      } catch (error) {
+      } catch {
         // Create new customer if verification fails
         const customer = await stripe.customers.create(customerData);
         customerId = customer.id;
@@ -315,7 +315,7 @@ export const createTokenPackCheckoutSession = action({
         } else {
           throw new Error("Customer deleted");
         }
-      } catch (error) {
+      } catch {
         const customer = await stripe.customers.create(customerData);
         customerId = customer.id;
         await ctx.runMutation(internal.organizations.updateStripeCustomer, {

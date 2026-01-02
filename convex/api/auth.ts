@@ -14,7 +14,6 @@
 import { v } from "convex/values";
 import { query, mutation, internalQuery, internalMutation } from "../_generated/server";
 import { Id } from "../_generated/dataModel";
-import { getLicenseInternal } from "../licensing/helpers";
 import { internal } from "../_generated/api";
 
 /**
@@ -112,7 +111,8 @@ export const generateApiKey = mutation({
     scopes: v.optional(v.array(v.string())),
     type: v.optional(v.union(v.literal("simple"), v.literal("oauth"))),
   },
-  handler: async (ctx, args) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  handler: async (_ctx, _args) => {
     // This mutation now delegates to the Action for proper bcrypt hashing
     // We cannot call an Action from a Mutation, so this is a placeholder.
 

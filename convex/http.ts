@@ -507,7 +507,7 @@ http.route({
  */
 
 // Import API handlers
-import { getEvents, getEventBySlug, getEventById, getEventProducts } from "./api/v1/events";
+import { getEvents, getEventBySlug } from "./api/v1/events";
 import { getProduct } from "./api/v1/products";
 import { getForm, getPublicForm, submitPublicForm } from "./api/v1/forms";
 import { triggerWorkflow } from "./api/v1/workflows";
@@ -522,7 +522,6 @@ import {
   createContactFromEvent,
   createContact,
   listContacts,
-  getContact,
   bulkImportContacts,
   exportContacts,
 } from "./api/v1/crm";
@@ -1453,7 +1452,8 @@ http.route({
 http.route({
   path: "/api/v1/community/subscriptions",
   method: "GET",
-  handler: httpAction(async (ctx, request) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  handler: httpAction(async (_ctx, _request) => {
     try {
       // This endpoint is for Zapier's "Load Sample Data" feature
       // Returns example community subscriptions for testing triggers

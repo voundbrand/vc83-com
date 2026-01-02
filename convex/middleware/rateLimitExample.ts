@@ -16,8 +16,6 @@ import {
   getRateLimitIdentifier,
   getRateLimitPlan,
 } from "./rateLimit";
-import { internal } from "../_generated/api";
-import { Id } from "../_generated/dataModel";
 
 /**
  * EXAMPLE API ENDPOINT WITH RATE LIMITING

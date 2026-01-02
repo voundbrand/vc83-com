@@ -30,7 +30,7 @@ export const seedAllSchemaTemplates = internalMutation({
   args: {
     overwrite: v.optional(v.boolean()), // Set to true to update existing templates
   },
-  handler: async (ctx, args): Promise<{
+  handler: async (ctx, _args): Promise<{
     message: string;
     totalTemplates: number;
     successCount: number;

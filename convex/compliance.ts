@@ -8,7 +8,7 @@
  * PDFs are stored in the organizationMedia table for access in the Media Library.
  */
 
-import { mutation, action, query, internalMutation, internalQuery } from "./_generated/server";
+import { action, query, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
 

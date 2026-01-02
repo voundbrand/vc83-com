@@ -9,7 +9,7 @@
 import { v } from "convex/values";
 import { action, query, mutation, internalMutation, internalQuery, internalAction } from "../../_generated/server";
 import { Id } from "../../_generated/dataModel";
-import { api, internal } from "../../_generated/api";
+import { internal } from "../../_generated/api";
 
 /**
  * Generate CLI session token
@@ -36,7 +36,6 @@ export const getProviderAuthUrl = internalAction({
   },
   handler: async (ctx, args) => {
     const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/cli/callback`;
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
     if (args.provider === "github") {
       const githubAuthUrl = "https://github.com/login/oauth/authorize";
@@ -259,7 +258,6 @@ export const exchangeGitHubCode = internalAction({
     code: v.string(),
   },
   handler: async (ctx, args): Promise<{ email: string; name: { firstName: string; lastName: string } }> => {
-    const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/cli/callback`;
     const tokenResponse = await fetch("https://github.com/login/oauth/access_token", {
       method: "POST",
       headers: {

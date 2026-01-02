@@ -26,7 +26,7 @@
 import { mutation, query, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser } from "./rbacHelpers";
-import { api, internal } from "./_generated/api";
+import { internal } from "./_generated/api";
 
 /**
  * CREATE PORTAL INVITATION

@@ -228,7 +228,6 @@ export const createContact = httpAction(async (ctx, request) => {
       );
     }
 
-    const organizationId = getEffectiveOrganizationId(authContext);
     const userId = authContext.userId;
 
     // 3. Parse request body
@@ -377,8 +376,6 @@ export const listContacts = httpAction(async (ctx, request) => {
       );
     }
 
-    const organizationId = getEffectiveOrganizationId(authContext);
-
     // 3. Parse query parameters
     const url = new URL(request.url);
     const subtype = url.searchParams.get("subtype") || undefined;
@@ -471,8 +468,6 @@ export const getContact = httpAction(async (ctx, request) => {
         { status: scopeCheck.status, headers: { "Content-Type": "application/json" } }
       );
     }
-
-    const organizationId = getEffectiveOrganizationId(authContext);
 
     // 3. Extract contact ID from URL
     const url = new URL(request.url);
@@ -586,7 +581,7 @@ export const bulkImportContacts = httpAction(async (ctx, request) => {
         organizationId: authContext.organizationId,
         featureFlag: "contactImportExportEnabled",
       });
-    } catch (error) {
+    } catch {
       return new Response(
         JSON.stringify({
           error: "Bulk import requires Starter tier or higher. Please upgrade your plan.",
@@ -731,7 +726,7 @@ export const exportContacts = httpAction(async (ctx, request) => {
         organizationId: authContext.organizationId,
         featureFlag: "contactImportExportEnabled",
       });
-    } catch (error) {
+    } catch {
       return new Response(
         JSON.stringify({
           error: "Contact export requires Starter tier or higher. Please upgrade your plan.",

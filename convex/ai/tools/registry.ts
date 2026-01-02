@@ -477,6 +477,7 @@ const updateContactTool: AITool = {
     },
     required: ["contactId", "updates"]
   },
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   execute: async (_ctx, _args) => {
     return {
       success: false,
@@ -653,7 +654,8 @@ const updateEventTool: AITool = {
     },
     required: ["eventId", "updates"]
   },
-  execute: async (ctx, args) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  execute: async (_ctx, _args) => {
     return {
       success: false,
       status: "placeholder",
@@ -842,7 +844,8 @@ const publishFormTool: AITool = {
     },
     required: ["formId"]
   },
-  execute: async (ctx, args) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  execute: async (_ctx, _args) => {
     return {
       success: false,
       status: "placeholder",
@@ -870,7 +873,8 @@ const getFormResponsesTool: AITool = {
     },
     required: ["formId"]
   },
-  execute: async (ctx, args) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  execute: async (_ctx, _args) => {
     return {
       success: false,
       status: "placeholder",
@@ -1286,7 +1290,8 @@ const enableWorkflowTool: AITool = {
     },
     required: ["workflowId"]
   },
-  execute: async (ctx, args) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  execute: async (_ctx, _args) => {
     return {
       success: false,
       status: "placeholder",
@@ -1498,7 +1503,8 @@ const publishPageTool: AITool = {
     },
     required: ["pageId"]
   },
-  execute: async (ctx, args) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  execute: async (_ctx, _args) => {
     return {
       success: false,
       status: "placeholder",

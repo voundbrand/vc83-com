@@ -210,13 +210,7 @@ export function ContentArea({
   organizationId,
   sessionId,
   selectedMediaIds,
-  onSelectMedia,
   onMediaClick,
-  renamingId,
-  newName,
-  onStartRename,
-  onCancelRename,
-  onSaveRename,
 }: ContentAreaProps) {
   // Get media based on context
   const allMedia = useQuery(

@@ -9,17 +9,9 @@ import { useAuth } from "@/hooks/use-auth";
 import {
   ChevronRight,
   ChevronDown,
-  BookOpen,
-  FileText,
   PlayCircle,
   CheckCircle,
-  SkipForward,
-  Key,
-  Globe,
-  Users,
-  CreditCard,
-  Settings,
-  Zap
+  SkipForward
 } from "lucide-react";
 
 interface TutorialsDocsWindowProps {

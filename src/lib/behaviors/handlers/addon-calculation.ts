@@ -188,6 +188,7 @@ export const addonCalculationHandler: BehaviorHandler<
   /**
    * EXTRACT - Calculate add-on quantities from form responses
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   extract: (
     config: AddonCalculationConfig,
     inputs: InputSource[],
@@ -298,6 +299,7 @@ export const addonCalculationHandler: BehaviorHandler<
   /**
    * VALIDATE - Check if config is valid
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   validate: (
     config: AddonCalculationConfig,
     _context?: Partial<BehaviorContext>
@@ -413,6 +415,7 @@ export const addonCalculationHandler: BehaviorHandler<
    *
    * Returns line items to add to cart
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   apply: (
     config: AddonCalculationConfig,
     extracted: ExtractedAddonData,

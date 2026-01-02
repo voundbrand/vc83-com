@@ -165,7 +165,7 @@ async function authenticateApiKey(
         scopes: authContext.scopes, // API keys now have scopes!
       },
     };
-  } catch (error) {
+  } catch {
     return {
       success: false,
       error: "API key verification failed",

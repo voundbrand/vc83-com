@@ -10,7 +10,7 @@
  */
 
 import { internalMutation } from "../_generated/server";
-import { getExistingTranslationKeys, insertTranslationIfNew } from "./_translationHelpers";
+import { insertTranslationIfNew } from "./_translationHelpers";
 
 export const seed = internalMutation({
   handler: async (ctx) => {

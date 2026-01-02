@@ -43,15 +43,6 @@ export interface OpenRouterModel {
 }
 
 /**
- * Cached model data stored in database
- */
-const cachedModels = {
-  data: [] as OpenRouterModel[],
-  lastFetched: 0,
-  expiresAt: 0,
-};
-
-/**
  * FETCH AVAILABLE MODELS FROM OPENROUTER
  *
  * This is an action that calls the OpenRouter API to get the current list

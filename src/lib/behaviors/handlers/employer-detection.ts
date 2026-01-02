@@ -140,6 +140,7 @@ export const employerDetectionHandler: BehaviorHandler<
   /**
    * EXTRACT - Get employer identifier from inputs
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   extract: (
     config: EmployerDetectionConfig,
     inputs: InputSource[],
@@ -213,6 +214,7 @@ export const employerDetectionHandler: BehaviorHandler<
   /**
    * VALIDATE - Check if config is valid
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   validate: (
     config: EmployerDetectionConfig,
     _context?: Partial<BehaviorContext>
@@ -244,6 +246,7 @@ export const employerDetectionHandler: BehaviorHandler<
    *
    * Returns actions to fetch CRM organization data
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   apply: (
     config: EmployerDetectionConfig,
     extracted: ExtractedEmployerData,

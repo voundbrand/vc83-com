@@ -11,7 +11,6 @@
  * - POST /oauth/revoke    - Revoke tokens (Phase 4)
  */
 
-import { httpRouter } from "convex/server";
 import { httpAction } from "../_generated/server";
 import { api } from "../_generated/api";
 
@@ -675,7 +674,7 @@ export const revoke = httpAction(async (ctx, request) => {
 
     // RFC 7009: Always return 200 OK
     return new Response(null, { status: 200 });
-  } catch (error) {
+  } catch {
     // RFC 7009: Always return 200 OK (don't leak information about tokens)
     return new Response(null, { status: 200 });
   }

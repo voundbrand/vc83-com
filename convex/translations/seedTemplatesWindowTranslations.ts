@@ -11,7 +11,7 @@
  */
 
 import { mutation } from "../_generated/server";
-import { getExistingTranslationKeys, insertTranslationIfNew, upsertTranslation } from "./_translationHelpers";
+import { getExistingTranslationKeys, insertTranslationIfNew } from "./_translationHelpers";
 
 export const seed = mutation({
   args: {},

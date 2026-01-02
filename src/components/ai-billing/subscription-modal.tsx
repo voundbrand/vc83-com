@@ -22,7 +22,7 @@ export function SubscriptionModal({
   const [selectedTier, setSelectedTier] = useState<"standard" | "privacy-enhanced" | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showEnterpriseModal, setShowEnterpriseModal] = useState(false);
-  const [enterpriseTier, setEnterpriseTier] = useState<"starter" | "professional" | "enterprise">("starter");
+  const [, setEnterpriseTier] = useState<"starter" | "professional" | "enterprise">("starter");
 
   // B2B checkout state - Stripe handles VAT collection
   const [isB2B, setIsB2B] = useState(false);

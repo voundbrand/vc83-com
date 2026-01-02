@@ -19,7 +19,7 @@ import { NextRequest, NextResponse } from "next/server";
  *
  * Placeholder webhook handler - actual implementation should be in Convex HTTP actions
  */
-export async function POST(req: NextRequest) {
+export async function POST(_req: NextRequest) {
   console.warn("AI Billing webhook received but handler not fully implemented");
   console.warn("Webhook functionality should be moved to Convex HTTP actions");
 

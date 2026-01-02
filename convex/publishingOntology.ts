@@ -2,7 +2,6 @@ import { mutation, query, action } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser, getUserContext, checkPermission } from "./rbacHelpers";
 import { checkFeatureAccess, checkResourceLimit } from "./licensing/helpers";
-import { internal } from "./_generated/api";
 import { generateVercelDeployUrl } from "./publishingHelpers";
 
 /**
@@ -803,7 +802,7 @@ export const updateDeploymentInfo = mutation({
     if (args.deployedUrl !== undefined && args.deployedUrl !== "" && args.deployedUrl !== null) {
       try {
         new URL(args.deployedUrl);
-      } catch (e) {
+      } catch {
         throw new Error("Deployed URL must be a valid URL");
       }
     }
@@ -1479,7 +1478,7 @@ export const checkGithubIntegration = query({
     organizationId: v.id("organizations"),
   },
   handler: async (ctx, args) => {
-    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    await requireAuthenticatedUser(ctx, args.sessionId);
 
     // Check if GitHub OAuth connection exists for this org
     const githubConnection = await ctx.db
@@ -1524,7 +1523,7 @@ export const checkVercelIntegration = query({
     organizationId: v.id("organizations"),
   },
   handler: async (ctx, args) => {
-    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    await requireAuthenticatedUser(ctx, args.sessionId);
 
     // Check if Vercel OAuth connection exists for this org
     const vercelConnection = await ctx.db
@@ -1568,7 +1567,7 @@ export const checkApiKeyStatus = query({
     organizationId: v.id("organizations"),
   },
   handler: async (ctx, args) => {
-    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    await requireAuthenticatedUser(ctx, args.sessionId);
 
     const activeApiKeys = await ctx.db
       .query("apiKeys")

@@ -268,7 +268,8 @@ async function handlePaymentSucceeded(ctx: any, invoice: any) {
     return;
   }
 
-  const { customer, subscription_details } = invoice;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { customer: _customer, subscription_details: _subscriptionDetails } = invoice;
 
   // Get organization ID from subscription metadata
   const subscriptionId = invoice.subscription;
@@ -311,7 +312,8 @@ async function handlePaymentFailed(ctx: any, invoice: any) {
  * Sends confirmation emails to customer and sales team.
  */
 async function handleCheckoutCompleted(ctx: any, session: any) {
-  const { metadata, customer, customer_details, subscription, amount_total, currency } = session;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { metadata, customer: _customer2, customer_details, subscription, amount_total, currency } = session;
 
   const organizationId = metadata?.organizationId as Id<"organizations">;
   const tier = metadata?.tier || "standard";

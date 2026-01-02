@@ -15,9 +15,8 @@
 
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState } from "react";
 import {
-  ALL_SCOPES,
   WILDCARD_SCOPE,
   SCOPE_CATEGORIES,
   getScopesByCategory,

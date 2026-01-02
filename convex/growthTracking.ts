@@ -7,7 +7,6 @@
 
 import { mutation, query, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
-import { internal } from "./_generated/api";
 
 /**
  * INTERNAL: Record Signup Event (Auto-called from onboarding)
@@ -251,7 +250,6 @@ export const getAllDailyMetrics = query({
 export const getDashboardSummary = query({
   args: {},
   handler: async (ctx) => {
-    const now = Date.now();
     const today = new Date().toISOString().split('T')[0];
     const launchDate = "2026-01-06";
 

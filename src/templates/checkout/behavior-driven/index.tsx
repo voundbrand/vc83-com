@@ -29,7 +29,7 @@ import { ConfirmationStep } from "./steps/confirmation";
 export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
   const config = useMemo(() => ({ ...DEFAULT_CONFIG, ...props }), [props]);
   const { locale } = useTranslation(); // For locale management only - browser-detected language
-  const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.checkout_template.behavior_driven");
+  const { t } = useNamespaceTranslations("ui.checkout_template.behavior_driven");
 
   // State
   const [currentStep, setCurrentStep] = useState<CheckoutStep>("product-selection");

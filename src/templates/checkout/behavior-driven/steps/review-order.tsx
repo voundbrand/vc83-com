@@ -13,12 +13,10 @@ import { getInvoiceMappingFromResults, getAddonsFromResults } from "@/lib/behavi
 import { useQuery } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
-import { useTranslation } from "@/contexts/translation-context";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 export function ReviewOrderStep({ checkoutData, products, onComplete, onBack }: StepProps) {
-  const { locale } = useTranslation(); // For locale management only
-  const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.checkout_template.behavior_driven");
+  const { t } = useNamespaceTranslations("ui.checkout_template.behavior_driven");
   const selectedProducts = checkoutData.selectedProducts || [];
   const behaviorResults = checkoutData.behaviorResults;
 

@@ -436,7 +436,7 @@ Remember: You're not just answering questions - you're helping users accomplish 
           } else {
             parsedArgs = JSON.parse(argsString);
           }
-        } catch (parseError) {
+        } catch {
           console.error(`[AI Chat] Failed to parse tool arguments for ${toolCall.function.name}:`, toolCall.function.arguments);
           parsedArgs = {}; // Use empty object if parsing fails
         }

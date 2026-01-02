@@ -239,7 +239,7 @@ export class InvoicePaymentProvider implements IPaymentProvider {
     };
   }
 
-  async sendInvoice(invoiceId: string): Promise<InvoiceSendResult> {
+  async sendInvoice(_invoiceId: string): Promise<InvoiceSendResult> {
     // This is handled by completeCheckoutAndFulfill via sendOrderConfirmationEmail
     return {
       success: true,

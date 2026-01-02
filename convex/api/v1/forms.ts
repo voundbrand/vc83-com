@@ -16,7 +16,7 @@
 import { httpAction } from "../../_generated/server";
 import { internal, api } from "../../_generated/api";
 import { Id } from "../../_generated/dataModel";
-import { getCorsHeaders, handleOptionsRequest } from "./corsHeaders";
+import { getCorsHeaders } from "./corsHeaders";
 
 /**
  * GET FORM

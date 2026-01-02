@@ -495,7 +495,8 @@ async function personalizeEmail(
     aiTone?: string;
     personalization?: any;
   },
-  sessionId: string
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _sessionId: string
 ): Promise<PersonalizedEmail> {
   const firstName = recipient.customProperties?.firstName || recipient.name.split(" ")[0];
   const lastName = recipient.customProperties?.lastName || recipient.name.split(" ").slice(1).join(" ");

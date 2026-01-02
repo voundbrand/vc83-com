@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
           );
         }
       }
-    } catch (e) {
+    } catch {
       // Fall through to platform error handling
     }
     

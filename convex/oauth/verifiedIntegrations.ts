@@ -207,7 +207,7 @@ export function detectOAuthAppType(redirectUris: string[]): OAuthAppType {
             return "third_party";
           }
         }
-      } catch (error) {
+      } catch {
         // Invalid URL - will be caught by redirect URI validation
         continue;
       }

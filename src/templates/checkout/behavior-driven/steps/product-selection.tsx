@@ -17,7 +17,7 @@ import { calculateCheckoutTax, getTaxRateByCode, getDefaultTaxRate as getDefault
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 export function ProductSelectionStep({ organizationId, products, checkoutData, onComplete }: StepProps) {
-  const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.checkout_template.behavior_driven");
+  const { t } = useNamespaceTranslations("ui.checkout_template.behavior_driven");
 
   // Fetch organization tax settings
   const taxSettings = useQuery(api.organizationTaxSettings.getPublicTaxSettings, {

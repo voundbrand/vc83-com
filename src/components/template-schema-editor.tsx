@@ -213,7 +213,7 @@ export function TemplateSchemaEditor({ templateId, onClose }: TemplateSchemaEdit
       await navigator.clipboard.writeText(schemaJson);
       setSuccess("Schema copied to clipboard");
       setTimeout(() => setSuccess(null), 2000);
-    } catch (err) {
+    } catch {
       setError("Failed to copy to clipboard");
     }
   };

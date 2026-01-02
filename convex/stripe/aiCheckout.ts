@@ -27,7 +27,8 @@ const getStripe = () => {
  * Finds existing Stripe customer or creates a new one for the organization.
  * Internal action called by createAICheckoutSession.
  */
-const getOrCreateStripeCustomerInternal = internalAction({
+// Internal action for Stripe customer management - exported for Convex API registration
+export const getOrCreateStripeCustomerInternal = internalAction({
   args: {
     organizationId: v.id("organizations"),
     organizationName: v.string(),
@@ -187,7 +188,7 @@ export const createAICheckoutSession = action({
         } else {
           throw new Error("Customer deleted");
         }
-      } catch (error) {
+      } catch {
         // Create new customer if verification fails
         const customer = await stripe.customers.create(customerData);
         customerId = customer.id;

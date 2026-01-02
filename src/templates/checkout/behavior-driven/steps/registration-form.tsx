@@ -59,7 +59,7 @@ export function RegistrationFormStep({
   onComplete,
   onBack
 }: StepProps) {
-  const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.checkout_template.behavior_driven");
+  const { t } = useNamespaceTranslations("ui.checkout_template.behavior_driven");
   const selectedProducts = useMemo(() => checkoutData.selectedProducts || [], [checkoutData.selectedProducts]);
 
   // ============================================================================

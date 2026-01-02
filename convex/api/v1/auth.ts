@@ -330,7 +330,8 @@ export const getUser = httpAction(async (ctx, request) => {
 /**
  * OPTIONS /api/v1/auth/* - CORS preflight
  */
-export const authOptions = httpAction(async (ctx, request) => {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export const authOptions = httpAction(async (_ctx, _request) => {
   return new Response(null, {
     status: 204,
     headers: {

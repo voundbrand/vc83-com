@@ -187,7 +187,7 @@ export const triggerNewContact = internalAction({
             success: false,
           });
         }
-      } catch (error) {
+      } catch {
         failureCount++;
         await ctx.runMutation(internal.zapier.webhooks.recordDelivery, {
           subscriptionId: subscription._id,

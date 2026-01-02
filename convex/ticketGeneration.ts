@@ -489,7 +489,6 @@ export const sendOrderConfirmationEmail = internalAction({
         sponsors: eventSponsors
       });
       const orderNumber = session._id.substring(0, 12);
-      const currency = (session.customProperties?.currency as string) || "EUR";
       const ticketCount = allTickets.length;
 
       // 🔥 CRITICAL: Get totals from TRANSACTIONS (accurate pricing with tax)

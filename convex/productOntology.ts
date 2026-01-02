@@ -62,7 +62,7 @@ import { internalQuery } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser } from "./rbacHelpers";
-import { checkResourceLimit, checkFeatureAccess, checkNestedResourceLimit, getLicenseInternal } from "./licensing/helpers";
+import { checkResourceLimit, checkFeatureAccess, getLicenseInternal } from "./licensing/helpers";
 
 /**
  * PRODUCT AVAILABILITY VALIDATION

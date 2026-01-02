@@ -371,7 +371,8 @@ async function analyzeContact(
   ctx: any,
   externalContact: ExternalContact,
   existingContacts: any[],
-  provider: string
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _provider: string
 ): Promise<ContactSyncPreview> {
   const primaryEmail = externalContact.emailAddresses?.[0]?.address || "";
   const primaryPhone = externalContact.mobilePhone || externalContact.businessPhones?.[0] || "";
