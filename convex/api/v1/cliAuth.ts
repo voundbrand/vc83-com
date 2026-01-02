@@ -307,8 +307,8 @@ export const exchangeGitHubCode = internalAction({
       });
 
       if (emailsResponse.ok) {
-        const emails = await emailsResponse.json();
-        const primaryEmail = emails.find((e: any) => e.primary);
+        const emails = await emailsResponse.json() as Array<{ email: string; primary?: boolean; verified?: boolean }>;
+        const primaryEmail = emails.find((e) => e.primary);
         email = primaryEmail?.email || emails[0]?.email || `${profile.login}@github.com`;
       } else {
         email = `${profile.login}@github.com`;
@@ -521,7 +521,7 @@ export const refreshCliSession = mutation({
       cliToken: newToken,
       expiresAt: Date.now() + (30 * 24 * 60 * 60 * 1000), // 30 days
       lastUsedAt: Date.now(),
-    } as any);
+    });
 
     return {
       token: newToken,

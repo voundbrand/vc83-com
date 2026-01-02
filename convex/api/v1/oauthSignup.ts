@@ -89,8 +89,8 @@ export const exchangeOAuthCode = internalAction({
         });
 
         if (emailsResponse.ok) {
-          const emails = await emailsResponse.json();
-          const primaryEmail = emails.find((e: any) => e.primary);
+          const emails = await emailsResponse.json() as Array<{ email: string; primary?: boolean; verified?: boolean }>;
+          const primaryEmail = emails.find((e) => e.primary);
           email = primaryEmail?.email || emails[0]?.email || `${profile.login}@github.com`;
         } else {
           email = `${profile.login}@github.com`;

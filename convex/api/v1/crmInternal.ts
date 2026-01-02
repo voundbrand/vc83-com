@@ -6,7 +6,7 @@
  */
 
 import { v } from "convex/values";
-import { internalQuery, internalMutation } from "../../_generated/server";
+import { internalQuery, internalMutation, MutationCtx } from "../../_generated/server";
 import { Id } from "../../_generated/dataModel";
 import { addressesValidator } from "../../crmOntology";
 
@@ -15,15 +15,24 @@ import { addressesValidator } from "../../crmOntology";
  * Handles organization deduplication by name
  * Supports both old address format and new addresses array
  */
+interface AddressData {
+  street?: string;
+  street2?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+}
+
 async function findOrCreateOrganization(
-  ctx: any,
+  ctx: MutationCtx,
   args: {
     organizationId: Id<"organizations">;
     name: string;
     website?: string;
     industry?: string;
     // BACKWARD COMPATIBLE: Support old single address
-    address?: any;
+    address?: AddressData;
     // NEW: Support multiple addresses
     addresses?: Array<{
       type: "billing" | "shipping" | "mailing" | "physical" | "warehouse" | "other";
@@ -45,13 +54,13 @@ async function findOrCreateOrganization(
   // 1. Try to find existing organization by name (case-insensitive match)
   const existingOrgs = await ctx.db
     .query("objects")
-    .withIndex("by_org_type", (q: any) =>
+    .withIndex("by_org_type", (q) =>
       q.eq("organizationId", args.organizationId).eq("type", "crm_organization")
     )
     .collect();
 
   const existingOrg = existingOrgs.find(
-    (org: any) => org.name.toLowerCase() === args.name.toLowerCase()
+    (org) => org.name.toLowerCase() === args.name.toLowerCase()
   );
 
   // Handle addresses: convert old address format to new format if needed
@@ -159,7 +168,14 @@ export const createContactFromEventInternal = internalMutation({
       website: v.optional(v.string()),
       industry: v.optional(v.string()),
       // BACKWARD COMPATIBLE: Support old single address
-      address: v.optional(v.any()),
+      address: v.optional(v.object({
+        street: v.optional(v.string()),
+        street2: v.optional(v.string()),
+        city: v.optional(v.string()),
+        state: v.optional(v.string()),
+        postalCode: v.optional(v.string()),
+        country: v.optional(v.string()),
+      })),
       // NEW: Support multiple addresses
       addresses: v.optional(addressesValidator),
       taxId: v.optional(v.string()),
@@ -437,7 +453,14 @@ export const createContactInternal = internalMutation({
       website: v.optional(v.string()),
       industry: v.optional(v.string()),
       // BACKWARD COMPATIBLE: Support old single address
-      address: v.optional(v.any()),
+      address: v.optional(v.object({
+        street: v.optional(v.string()),
+        street2: v.optional(v.string()),
+        city: v.optional(v.string()),
+        state: v.optional(v.string()),
+        postalCode: v.optional(v.string()),
+        country: v.optional(v.string()),
+      })),
       // NEW: Support multiple addresses
       addresses: v.optional(addressesValidator),
       taxId: v.optional(v.string()),
