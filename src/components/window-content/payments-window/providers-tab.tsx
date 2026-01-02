@@ -219,6 +219,8 @@ export function ProvidersTab({ onSelectProvider }: ProvidersTabProps) {
     }
   };
 
+  // Preserved for future provider card click interactions
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleProviderClick = (provider: typeof PAYMENT_PROVIDERS[0]) => {
     if (provider.status === "coming_soon" || !provider.configTab) {
       return; // Do nothing for coming soon providers

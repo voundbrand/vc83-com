@@ -45,6 +45,8 @@ export function ProjectsWindow() {
     priority?: string;
   }>({});
   const [searchQuery, setSearchQuery] = useState("");
+  // Preserved for future search result display
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [searchResults, setSearchResults] = useState<Project[] | null>(null);
   const [notification, setNotification] = useState<{
     type: "success" | "error";

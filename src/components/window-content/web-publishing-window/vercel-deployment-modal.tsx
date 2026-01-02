@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Rocket, AlertCircle, CheckCircle, ExternalLink, Settings, Loader2, RefreshCw, Copy, Key, Plus, Trash2 } from "lucide-react";
+import { X, Rocket, AlertCircle, CheckCircle, ExternalLink, Settings, Loader2, RefreshCw, Copy, Key, Plus } from "lucide-react";
 import { RetroButton } from "@/components/retro-button";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
@@ -49,6 +49,7 @@ interface ValidationCheck {
  * - Database query for active API keys
  * - Database query for environment variables documentation
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeploymentModalProps) {
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();

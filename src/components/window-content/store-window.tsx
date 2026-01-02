@@ -412,6 +412,7 @@ function PlatformPlansTab({
   isLoadingStatus,
   onCancelPendingChange,
   isCancelingPending,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   t,
 }: PlatformPlansTabProps) {
   // Default to annual billing (better value)

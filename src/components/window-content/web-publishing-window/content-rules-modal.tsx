@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
@@ -39,6 +39,7 @@ interface ContentRulesModalProps {
  * Allows org owners to configure content filtering rules for external frontends.
  * This determines what events, checkouts, and forms are returned by the API.
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function ContentRulesModal({ page, onClose, onSaveRules }: ContentRulesModalProps) {
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();

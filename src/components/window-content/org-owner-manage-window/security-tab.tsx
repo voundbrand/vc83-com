@@ -12,6 +12,7 @@ interface SecurityTabProps {
   sessionId: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function SecurityTab({ organizationId, sessionId }: SecurityTabProps) {
   const [showPasskeySetup, setShowPasskeySetup] = useState(false);
 

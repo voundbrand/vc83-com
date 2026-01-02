@@ -10,6 +10,7 @@ interface ProjectCardProps {
   onView?: (project: unknown) => void;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function ProjectCard({ project, onEdit, onArchive, onView }: ProjectCardProps) {
   const props = project.customProperties || {};
   const projectCode = props.projectCode as string | undefined;

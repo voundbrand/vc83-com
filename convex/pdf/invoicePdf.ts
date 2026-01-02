@@ -174,7 +174,7 @@ export const generateInvoicePDF = action({
                             hasLogo: !!brandLogoUrl
                         });
                     }
-                } catch (error) {
+                } catch {
                     console.warn("⚠️ Could not fetch domain config branding, falling back to organization");
                 }
             }

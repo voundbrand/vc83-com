@@ -8,11 +8,13 @@
 "use client";
 
 import React, { useState } from "react";
-import { Zap, Plus, Settings, Trash2, Package, FileText, CreditCard, Building2, User, ArrowRight } from "lucide-react";
+import { Zap, Plus, Settings, Trash2, Package, FileText, CreditCard, Building2, User } from "lucide-react";
 import { BehaviorConfigModal } from "./behavior-config-modal";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
+// Preserved for future workflow object reference
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface WorkflowObject {
   objectId: Id<"objects">;
   objectType: string;

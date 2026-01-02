@@ -125,6 +125,7 @@ export function PipelineTemplatesTab({ onTemplateCreated }: PipelineTemplatesTab
       {/* Template Cards */}
       <div className="grid grid-cols-1 gap-4">
         {templates.map((template: PipelineTemplate) => {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const isExpanded = expandedTemplate === template._id;
           const isCopying = copying === template._id;
           const categoryColor = template.customProperties?.color || "var(--win95-highlight)";

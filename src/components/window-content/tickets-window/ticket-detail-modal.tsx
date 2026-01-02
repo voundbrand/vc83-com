@@ -298,6 +298,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
     });
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handlePdfPreview = async (config: EmailSendConfig) => {
     // Return the latest PDF URL (including regenerated PDFs)
     if (latestPdfUrl) {
