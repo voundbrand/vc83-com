@@ -11,7 +11,6 @@ import {
   Copy,
   CheckCircle,
   AlertCircle,
-  ExternalLink,
   Key,
   Lock,
   Globe
@@ -44,10 +43,12 @@ interface OAuthCredentials {
  */
 export function OAuthTutorialWindow({
   organizationId,
-  portalUrl,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  portalUrl: _portalUrl,
   onComplete,
   onSkip,
-  onClose,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  onClose: _onClose,
 }: OAuthTutorialWindowProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [oauthCredentials, setOauthCredentials] = useState<OAuthCredentials | null>(null);
@@ -518,7 +519,8 @@ function Step2SaveCredentials({
 /**
  * Step 3: Complete
  */
-function Step3Complete({ portalUrl }: { portalUrl: string }) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function Step3Complete({ portalUrl: _portalUrl }: { portalUrl: string }) {
   return (
     <div className="space-y-4 text-center">
       <div className="flex justify-center">

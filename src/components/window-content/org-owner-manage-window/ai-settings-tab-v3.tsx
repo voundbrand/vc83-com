@@ -5,7 +5,7 @@ import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Save, Loader2, Brain, AlertTriangle, Lock, CreditCard, CheckCircle2, XCircle, ShoppingCart, Check } from "lucide-react";
+import { Save, Loader2, Brain, AlertTriangle, Lock, CheckCircle2, XCircle, ShoppingCart, Check } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { PrivacyBadge } from "@/components/ai-billing/privacy-badge";
 import { useWindowManager } from "@/hooks/use-window-manager";

@@ -4,8 +4,7 @@ import React, { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
-import { PaymentProviderCard } from "./payment-provider-card";
-import { Loader2, CreditCard, ToggleLeft, ToggleRight, Info, Check } from "lucide-react";
+import { Loader2, CreditCard, ToggleLeft, ToggleRight, Check } from "lucide-react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
 /**

@@ -52,21 +52,17 @@ export const previewInvoiceEmail = action({
     const language: EmailLanguage = args.language || 'de';
 
     // 3. Load domain config for branding (or use system defaults)
-    let domainProps: any = null;
-    let emailSettings: any = null;
-
+    // Note: domainProps prepared for future use with advanced branding
     if (args.domainConfigId) {
       // Use custom domain configuration
       const domainConfig = await ctx.runQuery(api.domainConfigOntology.getDomainConfig, {
         configId: args.domainConfigId,
       });
-      domainProps = domainConfig.customProperties as any;
-      emailSettings = domainProps.email;
+      // Note: Domain config loaded for future branding features
+      void domainConfig;
     } else {
       // No domain config - resolver will cascade to organization settings → neutral defaults
       console.log(`📧 No domain config, will use organization settings or neutral defaults`);
-      domainProps = null; // Let resolver handle branding cascade
-      // emailSettings will be resolved by Smart Data Resolver
     }
 
     // 4. Resolve email template from organization's template set

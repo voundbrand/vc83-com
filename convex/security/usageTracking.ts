@@ -211,6 +211,7 @@ export const trackFailedAuthAsync = internalAction({
     const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
     // TODO: Use recentFailures count for security event triggering
     // Currently commented out as createSecurityEvent is not exported
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const _recentFailures = await ctx.runMutation(
       internal.security.usageTracking.getRecentFailedAuthCount,
       {

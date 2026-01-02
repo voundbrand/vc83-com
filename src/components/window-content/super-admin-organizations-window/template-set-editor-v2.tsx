@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
-import { Loader2, Plus, X, CheckCircle, FileText, Mail, Eye, Trash2 } from "lucide-react";
+import { Loader2, Plus, X, CheckCircle, FileText, Mail, Trash2 } from "lucide-react";
 
 interface TemplateSetEditorV2Props {
   sessionId: string;
@@ -25,6 +25,7 @@ interface TemplateSetEditorV2Props {
 export function TemplateSetEditorV2({
   sessionId,
   setId,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   systemOrgId,
   onClose,
 }: TemplateSetEditorV2Props) {

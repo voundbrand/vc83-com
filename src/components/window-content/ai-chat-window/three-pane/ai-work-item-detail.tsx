@@ -2,7 +2,7 @@
 
 import { useQuery } from "convex/react"
 import { api } from "../../../../../convex/_generated/api"
-import { Package, Flag, CheckSquare, User, Building2, Calendar, FileText } from "lucide-react"
+import { Package, Flag, CheckSquare, User, Building2, FileText } from "lucide-react"
 import type { Id } from "../../../../../convex/_generated/dataModel"
 
 interface AIWorkItemDetailProps {

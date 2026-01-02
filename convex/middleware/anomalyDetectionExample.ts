@@ -78,6 +78,7 @@ export const exampleEndpointWithAnomalyDetection = httpAction(
     };
 
     // Response time captured for future anomaly detection integration
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const _responseTimeMs = Date.now() - startTime;
 
     // 3. Schedule anomaly detection (ASYNC - doesn't block response)

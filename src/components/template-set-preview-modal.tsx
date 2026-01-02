@@ -49,7 +49,7 @@ export function TemplateSetPreviewModal({
   onUseSet,
   t,
 }: TemplateSetPreviewModalProps) {
-  const { sessionId } = useAuth();
+  useAuth(); // For authenticated queries
   const [individualTemplatePreview, setIndividualTemplatePreview] = useState<{
     code: string;
     type: "email" | "pdf";

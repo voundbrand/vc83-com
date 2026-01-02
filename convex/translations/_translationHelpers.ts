@@ -30,7 +30,6 @@ export async function getExistingTranslationKeys(
  */
 export async function insertTranslationIfNew(
   db: DatabaseWriter,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _existingKeys: Set<string>, // Ignored - kept for backwards compatibility
   systemOrgId: Id<"organizations">,
   systemUserId: Id<"users">,

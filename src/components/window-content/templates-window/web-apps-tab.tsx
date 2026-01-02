@@ -3,7 +3,7 @@
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
-import { Loader2, Download, ExternalLink, Globe, Key, Code, Settings, AlertCircle } from "lucide-react";
+import { Loader2, Download, ExternalLink, Globe, Code, Settings, AlertCircle } from "lucide-react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { useMemo, useState } from "react";
 import { RetroButton } from "@/components/retro-button";
@@ -13,6 +13,7 @@ interface WebAppsTabProps {
   onViewSchema?: (templateId: string) => void;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function WebAppsTab({ onEditTemplate, onViewSchema }: WebAppsTabProps) {
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();

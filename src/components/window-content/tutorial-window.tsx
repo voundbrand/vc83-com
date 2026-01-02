@@ -5,7 +5,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { RetroButton } from "@/components/retro-button";
 import { useAuth } from "@/hooks/use-auth";
-import { X, ChevronLeft, ChevronRight, Check, SkipForward } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, SkipForward } from "lucide-react";
 import confetti from "canvas-confetti";
 
 interface TutorialStep {

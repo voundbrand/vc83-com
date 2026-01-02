@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Package, FileText, Receipt, Mail, Eye, CheckCircle, BookOpen, DollarSign, Award, IdCard, Calendar } from "lucide-react";
+import { Package, FileText, Receipt, Mail, Eye, CheckCircle, BookOpen, DollarSign, IdCard, Calendar } from "lucide-react";
 
 interface TemplateSetCardProps {
   templateSet: {

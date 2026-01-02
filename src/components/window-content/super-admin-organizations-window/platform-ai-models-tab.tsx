@@ -5,7 +5,7 @@ import { Cpu, Filter, CheckCircle, XCircle, AlertCircle, RefreshCw, Star } from 
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
-import { ProviderLogo, ProviderBadge, getProviderColor } from "@/components/ai/provider-logo";
+import { ProviderLogo, getProviderColor } from "@/components/ai/provider-logo";
 
 /**
  * Platform AI Models Tab - Super Admin Model Management

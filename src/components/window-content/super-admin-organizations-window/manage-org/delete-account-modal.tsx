@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Clock, Trash2 } from "lucide-react";
+import { X, Clock } from "lucide-react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 interface DeleteAccountModalProps {

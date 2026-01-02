@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { Rocket, ExternalLink, Clock, CheckCircle, AlertCircle, Plus, Settings as SettingsIcon } from "lucide-react";
+import { Rocket, Clock, Plus, Settings as SettingsIcon } from "lucide-react";
 import { RetroButton } from "@/components/retro-button";
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";

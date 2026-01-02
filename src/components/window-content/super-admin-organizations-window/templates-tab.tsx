@@ -8,7 +8,6 @@ import { useAuth } from "@/hooks/use-auth";
 import {
   FileText,
   Check,
-  X,
   Loader2,
   AlertCircle,
   Edit,
@@ -317,6 +316,7 @@ function TemplateCRUDSection({
  */
 function TemplateCRUDRow({
   template,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   sessionId,
 }: {
   template: any;
@@ -465,6 +465,8 @@ function TemplateAvailabilitySection({
     selectedOrgId && sessionId ? { sessionId, organizationId: selectedOrgId } : "skip"
   );
 
+  // Preserved for future template set availability feature
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const templateSetAvailabilities = useQuery(
     api.templateSetAvailability.getAllTemplateSetAvailabilities,
     selectedOrgId && sessionId ? { sessionId } : "skip"

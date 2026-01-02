@@ -73,7 +73,7 @@ export function StoreWindow() {
   const [modalTitle, setModalTitle] = useState("Enterprise Solutions");
 
   // Get current organization's plan
-  const { sessionId, user } = useAuth();
+  const { sessionId } = useAuth();
   const currentOrganization = useCurrentOrganization();
   const organization = useQuery(
     api.organizations.getById,

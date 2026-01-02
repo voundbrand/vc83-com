@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Code2, FileText, CheckCircle, XCircle, AlertTriangle } from "lucide-react"
+import { Code2, FileText, AlertTriangle } from "lucide-react"
 import { ProjectForm } from "@/components/forms/project-form"
 import { MilestoneForm } from "@/components/forms/milestone-form"
 import { ContactForm } from "@/components/forms/contact-form"

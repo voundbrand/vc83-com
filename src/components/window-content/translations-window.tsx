@@ -24,8 +24,8 @@ type TabType = "browse" | "edit" | "import-export" | "settings";
 
 export function TranslationsWindow() {
   const { sessionId } = useAuth();
-  const { t, isLoading } = useNamespaceTranslations("ui.translations");
-  const { availableLocales } = useTranslation();
+  const { isLoading } = useNamespaceTranslations("ui.translations");
+  useTranslation();
   const [activeTab, setActiveTab] = useState<TabType>("browse");
 
   return (

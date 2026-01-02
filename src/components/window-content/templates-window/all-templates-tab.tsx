@@ -8,7 +8,7 @@ import { Loader2, Plus, FileText, Filter, X, ChevronDown, Tag, Shield, Layers } 
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { TemplatesList } from "./templates-list";
 import { isValidEmailTemplateType, isValidPdfTemplateType } from "@/templates/template-types";
-import { TemplateUsageBadges, type TemplateUsageData } from "@/components/template-usage-badges";
+import type { TemplateUsageData } from "@/components/template-usage-badges";
 
 interface AllTemplatesTabProps {
   onEditTemplate: (templateId: string) => void;

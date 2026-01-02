@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../../../convex/_generated/api";
 import { Id } from "../../../../../../convex/_generated/dataModel";
-import { Loader2, Gift, AlertCircle, CheckCircle, Info, ArrowRight } from "lucide-react";
+import { Loader2, Gift, AlertCircle, CheckCircle, Info } from "lucide-react";
 
 interface ManualSubscriptionGrantProps {
   organizationId: Id<"organizations">;

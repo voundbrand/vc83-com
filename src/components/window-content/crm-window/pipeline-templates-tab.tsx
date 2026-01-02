@@ -39,7 +39,7 @@ export function PipelineTemplatesTab({ onTemplateCreated }: PipelineTemplatesTab
   const { sessionId } = useAuth();
   const currentOrganization = useCurrentOrganization();
   const currentOrganizationId = currentOrganization?.id;
-  const [expandedTemplate, setExpandedTemplate] = useState<Id<"objects"> | null>(null);
+  const [expandedTemplate] = useState<Id<"objects"> | null>(null);
 
   // Query system templates
   const templates = useQuery(

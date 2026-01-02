@@ -30,6 +30,7 @@ export const seedAllSchemaTemplates = internalMutation({
   args: {
     overwrite: v.optional(v.boolean()), // Set to true to update existing templates
   },
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   handler: async (ctx, _args): Promise<{
     message: string;
     totalTemplates: number;

@@ -185,7 +185,7 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
               { key: "uris", label: "2. Redirect URIs" },
               { key: "scopes", label: "3. Scopes" },
               { key: "type", label: "4. Type" },
-            ].map((step, index, arr) => (
+            ].map((step) => (
               <div
                 key={step.key}
                 className="flex-1 px-3 py-2 text-xs font-bold text-center border-r-2 last:border-r-0"
