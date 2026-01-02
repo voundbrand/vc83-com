@@ -94,13 +94,25 @@ export const createCheckoutSessionInternal = internalAction({
     const product = await ctx.runQuery(
       internal.productOntology.getProductInternal,
       { productId: args.productId }
-    ) as { name: string; customProperties?: Record<string, unknown> } | null;
+    ) as { name: string; status: string; customProperties?: Record<string, unknown> } | null;
 
     if (!product) {
       throw new Error("Product not found");
     }
 
-    // Get Platform Org's currency from locale settings
+    // 3. Validate product availability
+    const availability = await ctx.runQuery(
+      internal.productOntology.checkProductAvailability,
+      { productId: args.productId }
+    );
+
+    if (!availability.available) {
+      throw new Error(
+        `Product is not available for purchase: ${availability.reason || "Product is not available"}`
+      );
+    }
+
+    // 4. Get Platform Org's currency from locale settings
     const localeSettings = await ctx.runQuery(internal.checkoutSessions.getOrgLocaleSettings, {
       organizationId: args.organizationId
     });
@@ -116,7 +128,7 @@ export const createCheckoutSessionInternal = internalAction({
       || (product.customProperties?.currency as string)?.toLowerCase()
       || "eur";
 
-    // 3. Get connected account ID
+    // 5. Get connected account ID
     const connectedAccountId = getConnectedAccountId(org, "stripe-connect");
 
     if (!connectedAccountId) {
@@ -125,10 +137,10 @@ export const createCheckoutSessionInternal = internalAction({
       );
     }
 
-    // 4. Calculate total amount
+    // 6. Calculate total amount
     const totalAmount: number = priceInCents * args.quantity;
 
-    // 5. Create checkout session using payment provider
+    // 7. Create checkout session using payment provider
     const provider = getProviderByCode("stripe-connect");
 
     const session = await provider.createCheckoutSession({

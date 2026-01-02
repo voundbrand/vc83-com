@@ -259,6 +259,18 @@ export const createStripeCheckoutSession = action({
       throw new Error("Product not found");
     }
 
+    // Validate product availability
+    const availability = await ctx.runQuery(
+      internal.productOntology.checkProductAvailability,
+      { productId: args.productId }
+    );
+
+    if (!availability.available) {
+      throw new Error(
+        `Product is not available for purchase: ${availability.reason || "Product is not available"}`
+      );
+    }
+
     // Get Platform Org's currency from locale settings
     const localeSettings = await ctx.runQuery(internal.checkoutSessions.getOrgLocaleSettings, {
       organizationId: args.organizationId
@@ -401,6 +413,18 @@ export const createCheckoutSession = action({
 
     if (!targetProduct) {
       throw new Error("Product not found");
+    }
+
+    // Validate product availability
+    const availability = await ctx.runQuery(
+      internal.productOntology.checkProductAvailability,
+      { productId: args.productId }
+    );
+
+    if (!availability.available) {
+      throw new Error(
+        `Product is not available for purchase: ${availability.reason || "Product is not available"}`
+      );
     }
 
     // Get Platform Org's currency from locale settings

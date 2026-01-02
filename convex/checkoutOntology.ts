@@ -23,6 +23,7 @@ import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser, checkPermission } from "./rbacHelpers";
 import { checkResourceLimit, checkFeatureAccess } from "./licensing/helpers";
+import { internal } from "./_generated/api";
 
 // ============================================================================
 // CHECKOUT_INSTANCE OPERATIONS
@@ -837,13 +838,38 @@ export const getPublicCheckoutProducts = query({
       })
     );
 
-    // Filter out nulls and only return active products
-    const activeProducts = products.filter(
-      (p) => p !== null && "status" in p && p.status === "active"
+    // Filter out nulls and validate product availability
+    type ProductWithAvailability = {
+      product: typeof products[number] | null;
+      available: boolean;
+    };
+
+    const availabilityChecks: ProductWithAvailability[] = await Promise.all(
+      products.map(async (p): Promise<ProductWithAvailability> => {
+        if (p === null || !("status" in p)) {
+          return { product: p, available: false };
+        }
+
+        // Use shared validation function from productOntology
+        const availability = await ctx.runQuery(
+          internal.productOntology.checkProductAvailability,
+          { productId: p._id }
+        );
+
+        if (!availability.available) {
+          console.log(`⏸️ [getPublicCheckoutProducts] Product ${p._id} not available: ${availability.reason}`);
+        }
+
+        return { product: p, available: availability.available };
+      })
     );
 
-    console.log("🔍 [getPublicCheckoutProducts] Returning products:", activeProducts.length);
+    const availableProducts = availabilityChecks
+      .filter((check: ProductWithAvailability) => check.available && check.product !== null)
+      .map((check: ProductWithAvailability) => check.product);
 
-    return activeProducts;
+    console.log("🔍 [getPublicCheckoutProducts] Returning products:", availableProducts.length);
+
+    return availableProducts;
   },
 });

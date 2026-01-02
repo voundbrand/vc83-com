@@ -64,6 +64,98 @@ import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser } from "./rbacHelpers";
 import { checkResourceLimit, checkFeatureAccess, checkNestedResourceLimit, getLicenseInternal } from "./licensing/helpers";
 
+/**
+ * PRODUCT AVAILABILITY VALIDATION
+ * 
+ * Shared validation function to check if a product is available for purchase.
+ * This is the single source of truth for product availability logic.
+ * 
+ * Checks:
+ * - Product status must be "active"
+ * - startSaleDateTime (if set) must be <= current date
+ * - endSaleDateTime (if set) must be >= current date
+ * - earlyBirdEndDate (if ticketTier === "earlybird") must be >= current date
+ * - Inventory limits (if applicable)
+ */
+export function isProductAvailableForPurchase(
+  product: {
+    status: string;
+    customProperties?: Record<string, unknown>;
+  },
+  currentDate: number = Date.now()
+): { available: boolean; reason?: string } {
+  // 1. Check product status
+  if (product.status !== "active") {
+    return {
+      available: false,
+      reason: `Product status is "${product.status}". Only active products can be purchased.`,
+    };
+  }
+
+  const customProps = product.customProperties || {};
+
+  // 2. Check sale start date
+  const startSaleDateTime = customProps.startSaleDateTime;
+  if (startSaleDateTime && typeof startSaleDateTime === "number") {
+    if (currentDate < startSaleDateTime) {
+      return {
+        available: false,
+        reason: `Sales for this product have not started yet. Sales begin on ${new Date(startSaleDateTime).toLocaleString()}.`,
+      };
+    }
+  }
+
+  // 3. Check sale end date
+  const endSaleDateTime = customProps.endSaleDateTime;
+  if (endSaleDateTime && typeof endSaleDateTime === "number") {
+    if (currentDate > endSaleDateTime) {
+      return {
+        available: false,
+        reason: `Sales for this product have ended. Sales ended on ${new Date(endSaleDateTime).toLocaleString()}.`,
+      };
+    }
+  }
+
+  // 4. Check early bird end date (for early bird tickets)
+  const ticketTier = customProps.ticketTier as string | undefined;
+  if (ticketTier === "earlybird" || ticketTier === "early-bird") {
+    const earlyBirdEndDate = customProps.earlyBirdEndDate;
+    if (earlyBirdEndDate) {
+      // Handle both string and number formats
+      let endDate: number;
+      if (typeof earlyBirdEndDate === "string") {
+        endDate = new Date(earlyBirdEndDate).getTime();
+      } else if (typeof earlyBirdEndDate === "number") {
+        endDate = earlyBirdEndDate;
+      } else {
+        // Invalid format, skip check
+        endDate = Infinity;
+      }
+
+      if (!isNaN(endDate) && currentDate > endDate) {
+        return {
+          available: false,
+          reason: `Early bird pricing has ended. The early bird period ended on ${new Date(endDate).toLocaleString()}.`,
+        };
+      }
+    }
+  }
+
+  // 5. Check inventory (if inventory tracking is enabled)
+  const inventory = customProps.inventory;
+  if (inventory !== undefined && inventory !== null && typeof inventory === "number") {
+    if (inventory <= 0) {
+      return {
+        available: false,
+        reason: "This product is sold out.",
+      };
+    }
+  }
+
+  // All checks passed
+  return { available: true };
+}
+
 // Helper function for tier upgrade path (duplicated from helpers.ts for local use)
 function getNextTier(
   currentTier: "free" | "starter" | "professional" | "agency" | "enterprise"
@@ -917,5 +1009,32 @@ export const getProductInternal = internalQuery({
     }
 
     return product;
+  },
+});
+
+/**
+ * CHECK PRODUCT AVAILABILITY (INTERNAL)
+ * Internal query wrapper for product availability validation
+ * Used by other queries/actions to check if a product can be purchased
+ */
+export const checkProductAvailability = internalQuery({
+  args: {
+    productId: v.id("objects"),
+    currentDate: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const product = await ctx.db.get(args.productId);
+
+    if (!product || product.type !== "product") {
+      return {
+        available: false,
+        reason: "Product not found",
+      };
+    }
+
+    return isProductAvailableForPurchase(
+      product,
+      args.currentDate ?? Date.now()
+    );
   },
 });
