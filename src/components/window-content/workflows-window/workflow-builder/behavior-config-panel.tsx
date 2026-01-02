@@ -206,6 +206,7 @@ export function BehaviorConfigPanel({
   };
 
   // Helper to get objects needed by behavior type
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getRequiredObjects = (behaviorType: string): { types: string[]; description: string } => {
     switch (behaviorType) {
       case "form-linking":
@@ -272,6 +273,7 @@ export function BehaviorConfigPanel({
 
 
   // Get icon for object type
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getObjectIcon = (objectType: string) => {
     switch (objectType) {
       case "form": return <FileText className="h-3 w-3" />;
@@ -285,6 +287,7 @@ export function BehaviorConfigPanel({
   };
 
   // Get color for object type
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getObjectColor = (objectType: string) => {
     switch (objectType) {
       case "form": return { bg: "#f3e8ff", text: "#9333ea" };

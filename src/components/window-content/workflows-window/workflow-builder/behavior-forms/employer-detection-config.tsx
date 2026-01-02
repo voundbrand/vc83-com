@@ -26,6 +26,7 @@ interface EmployerDetectionConfigFormProps {
   availableCrmOrganizations?: Array<Record<string, unknown>>;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function EmployerDetectionConfigForm({
   config,
   onChange,

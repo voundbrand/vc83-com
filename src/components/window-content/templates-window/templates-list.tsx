@@ -136,6 +136,7 @@ export function TemplatesList({
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleDuplicate = async (templateId: string, _templateName: string) => {
     if (!sessionId || !currentOrg) return;
 
@@ -192,6 +193,7 @@ export function TemplatesList({
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleToggleStatus = async (templateId: string, templateName: string, _currentStatus: string) => {
     if (!sessionId) return;
 

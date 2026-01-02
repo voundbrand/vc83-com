@@ -985,6 +985,7 @@ interface AIAddonsTabProps {
   t: (key: string) => string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function AIAddonsTab({ onAddToCart, onContactSales, t }: AIAddonsTabProps) {
   return (
     <div className="space-y-6">

@@ -225,6 +225,8 @@ export default function HomePage() {
     );
   };
 
+  // Preserved for future tutorial access from desktop icons
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const openTutorialWindow = (tutorialId: string) => {
     // Define action handler
     const handleTutorialAction = (action: string) => {
@@ -270,6 +272,8 @@ export default function HomePage() {
     );
   };
 
+  // Preserved for future tutorials/docs access from desktop icons
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const openTutorialsDocsWindow = (initialItem?: string) => {
     openWindow(
       "tutorials-docs",

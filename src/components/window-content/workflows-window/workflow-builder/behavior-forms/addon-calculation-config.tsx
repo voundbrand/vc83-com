@@ -28,6 +28,7 @@ interface AddonCalculationConfigFormProps {
   availableProducts?: Array<{ _id: string; name: string }>;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function AddonCalculationConfigForm({
   config,
   onChange,
