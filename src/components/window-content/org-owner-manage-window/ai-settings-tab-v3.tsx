@@ -4,7 +4,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Save, Loader2, Brain, AlertTriangle, Lock, CreditCard, CheckCircle2, XCircle, ShoppingCart, Check } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { PrivacyBadge } from "@/components/ai-billing/privacy-badge";
@@ -115,7 +115,7 @@ export function AISettingsTabV3() {
         setEnabled(true); // Auto-enable AI features
       }
     }
-  }, [settings, platformModels]);
+  }, [settings, platformModels, enabledModels.length, getAllModelsForTier]);
 
   // Auto-select system default models when tier changes
   useEffect(() => {
@@ -144,7 +144,7 @@ export function AISettingsTabV3() {
 
       setEnabledModels(newModels);
     }
-  }, [tier]);
+  }, [tier, enabledModels, getAllModelsForTier]);
 
   // Model type definition
   type ModelOption = {
@@ -162,7 +162,7 @@ export function AISettingsTabV3() {
   };
 
   // Get all available models from platform-enabled models
-  const getAllModelsForTier = (tierValue: typeof tier): ModelOption[] => {
+  const getAllModelsForTier = useCallback((tierValue: typeof tier): ModelOption[] => {
     if (!platformModels) return [];
 
     // Convert platform models to ModelOption format
@@ -191,7 +191,7 @@ export function AISettingsTabV3() {
 
     // Standard tier: all platform-enabled models
     return models;
-  };
+  }, [platformModels]);
 
   // Get all available models based on tier
   const allAvailableModels = getAllModelsForTier(tier);
@@ -233,7 +233,7 @@ export function AISettingsTabV3() {
 
       return true;
     });
-  }, [allAvailableModels, filterProvider, filterCapability, showOnlyRecommended, showOnlyEnabled, searchQuery]);
+  }, [allAvailableModels, filterProvider, filterCapability, showOnlyRecommended, showOnlyEnabled, searchQuery, isModelEnabled]);
 
   // Count enabled models and privacy features
   const enabledModelCount = enabledModels.length;
@@ -272,7 +272,7 @@ export function AISettingsTabV3() {
   }, [enabledModels]);
 
   // Helper functions for model management
-  const isModelEnabled = (modelId: string) => enabledModels.some(m => m.modelId === modelId);
+  const isModelEnabled = useCallback((modelId: string) => enabledModels.some(m => m.modelId === modelId), [enabledModels]);
 
   const toggleModel = (modelId: string) => {
     if (isModelEnabled(modelId)) {

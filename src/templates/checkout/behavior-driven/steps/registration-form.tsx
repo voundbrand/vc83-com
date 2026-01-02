@@ -60,7 +60,7 @@ export function RegistrationFormStep({
   onBack
 }: StepProps) {
   const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.checkout_template.behavior_driven");
-  const selectedProducts = checkoutData.selectedProducts || [];
+  const selectedProducts = useMemo(() => checkoutData.selectedProducts || [], [checkoutData.selectedProducts]);
 
   // ============================================================================
   // PRIORITY 1: Get form from workflow behaviors (new behavior-driven approach)

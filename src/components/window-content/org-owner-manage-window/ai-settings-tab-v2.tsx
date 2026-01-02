@@ -6,7 +6,7 @@ import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Save, Loader2, Zap, DollarSign, Brain, Database, RefreshCw, AlertTriangle } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { PrivacyBadge, PrivacyBadgeGroup } from "@/components/ai-billing/privacy-badge";
@@ -70,7 +70,7 @@ export function AISettingsTab() {
   const [isRefreshingModels, setIsRefreshingModels] = useState(false);
 
   // Model filtering based on privacy tier
-  const isModelCompatibleWithTier = (modelId: string, tier: typeof privacyTier): boolean => {
+  const isModelCompatibleWithTier = useCallback((modelId: string, tier: typeof privacyTier): boolean => {
     // Standard tier: All models allowed
     if (tier === "standard") return true;
 
@@ -100,7 +100,7 @@ export function AISettingsTab() {
     if (tier === "private-llm") return false;
 
     return false;
-  };
+  }, []);
 
   // Get privacy badges for a model based on tier
   const getModelPrivacyBadges = (modelId: string, tier: typeof privacyTier): Array<'eu' | 'zdr' | 'no-training'> => {
@@ -176,7 +176,7 @@ export function AISettingsTab() {
       console.log("Model cache is stale, fetching fresh data...");
       handleRefreshModels();
     }
-  }, [modelsByProvider?.isStale]);
+  }, [modelsByProvider, handleRefreshModels]);
 
   // Filter out incompatible models when tier changes
   useEffect(() => {
@@ -196,7 +196,7 @@ export function AISettingsTab() {
 
       setEnabledModels(newModels);
     }
-  }, [privacyTier]); // Run when privacy tier changes
+  }, [privacyTier, enabledModels, isModelCompatibleWithTier]); // Run when privacy tier changes
 
   const handleSave = async () => {
     if (!organizationId) return;
@@ -249,7 +249,7 @@ export function AISettingsTab() {
     }
   };
 
-  const handleRefreshModels = async () => {
+  const handleRefreshModels = useCallback(async () => {
     setIsRefreshingModels(true);
     try {
       await refreshModelsAction({});
@@ -259,7 +259,7 @@ export function AISettingsTab() {
     } finally {
       setIsRefreshingModels(false);
     }
-  };
+  }, [refreshModelsAction]);
 
   // Helper: Check if a model is enabled
   const isModelEnabled = (modelId: string) => {

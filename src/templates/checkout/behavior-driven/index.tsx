@@ -27,7 +27,7 @@ import { PaymentStep } from "./steps/payment";
 import { ConfirmationStep } from "./steps/confirmation";
 
 export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
-  const config = { ...DEFAULT_CONFIG, ...props };
+  const config = useMemo(() => ({ ...DEFAULT_CONFIG, ...props }), [props]);
   const { locale } = useTranslation(); // For locale management only - browser-detected language
   const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.checkout_template.behavior_driven");
 
@@ -160,7 +160,7 @@ export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
     };
 
     initializeSession();
-  }, [checkoutSessionId, createCheckoutSession, config.organizationId]);
+  }, [checkoutSessionId, createCheckoutSession, config.organizationId, config.checkoutInstanceId, locale]);
 
   // Debug logging
   useEffect(() => {
@@ -519,7 +519,7 @@ export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
         setIsProcessing(false);
       }
     },
-    [checkoutData, currentStep, config, executeBehaviors, checkoutSessionId, updateCheckoutSession, initiateInvoice, sessionId]
+    [checkoutData, currentStep, config, executeBehaviors, checkoutSessionId, updateCheckoutSession, initiateInvoice, sessionId, orgLocaleSettings]
   );
 
   /**

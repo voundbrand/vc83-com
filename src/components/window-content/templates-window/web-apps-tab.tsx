@@ -84,7 +84,7 @@ function WebAppCard({
 }) {
   const customProps = template.customProperties || {};
   const features = customProps.features || [];
-  const deployment = customProps.deployment || {};
+  const deployment = useMemo(() => customProps.deployment || {}, [customProps.deployment]);
   const category = customProps.category || "web_app";
   const tags = customProps.tags || [];
   const [showEditModal, setShowEditModal] = useState(false);

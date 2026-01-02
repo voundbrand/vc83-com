@@ -54,7 +54,7 @@ export function IntegrationsTab() {
     }
 
     setPrevConnectionStatus(connection.status);
-  }, [connection?.status, connection?.lastSyncError, notification, t, prevConnectionStatus]);
+  }, [connection, notification, t, prevConnectionStatus]);
 
   // Check URL params for OAuth callback messages
   useEffect(() => {

@@ -218,7 +218,7 @@ export function MultiStepCheckout({
     if (!checkoutSessionId) {
       initCheckoutSession();
     }
-  }, [organizationId, createPublicCheckoutSession, checkoutSessionId, posthog, paymentProviders, linkedProducts.length]);
+  }, [organizationId, createPublicCheckoutSession, checkoutSessionId, posthog, paymentProviders, linkedProducts.length, locale]);
 
   /**
    * Determine next step based on current state

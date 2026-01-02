@@ -126,7 +126,7 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
 
       return;
     }
-  }, [sessionId, organizationId, selectedMode, refreshAccountStatus, handleOAuthCallbackMutation]);
+  }, [sessionId, organizationId, selectedMode, refreshAccountStatus, handleOAuthCallbackMutation, posthog]);
 
   const handleStartOnboarding = async () => {
     if (!sessionId) return;

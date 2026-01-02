@@ -10,17 +10,15 @@ export function ConversationHistory() {
   const { chat, currentConversationId, setCurrentConversationId } = useAIChatContext()
   const [searchQuery, setSearchQuery] = useState("")
 
-  // Get real conversations from Convex
-  const conversations = chat.conversations || []
-
   // Filter conversations based on search query
   const filteredConversations = useMemo(() => {
+    const conversations = chat.conversations || []
     if (!searchQuery) return conversations
 
     return conversations.filter((conv) =>
       conv.title?.toLowerCase().includes(searchQuery.toLowerCase())
     )
-  }, [conversations, searchQuery])
+  }, [chat.conversations, searchQuery])
 
   // Handle new conversation creation
   const handleNewChat = async () => {
