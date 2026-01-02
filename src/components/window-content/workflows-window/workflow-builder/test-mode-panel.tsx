@@ -8,7 +8,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Play, Square, Loader2, ChevronDown, ChevronUp, FileJson, Trash2 } from "lucide-react";
+import { Play, Loader2, ChevronDown, ChevronUp, FileJson, Trash2 } from "lucide-react";
 import { useQuery } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
@@ -302,7 +302,7 @@ export function TestModePanel({
       if (updated) {
         setTestData(JSON.stringify(currentData, null, 2));
       }
-    } catch (error) {
+    } catch {
       // Invalid JSON, don't try to inject
     }
   }, [selectedEventId, selectedProducts, selectedFormId, selectedCrmOrgId, testData, products]);

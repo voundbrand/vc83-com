@@ -41,10 +41,13 @@ const PAYMENT_TERMS = [
 export function PaymentProviderSelectionConfigForm({
   config,
   onChange,
-  availableForms: _availableForms = [],
-  availableProducts: _availableProducts = [],
+  availableForms = [],
+  availableProducts = [],
   availableCrmOrganizations = [],
 }: PaymentProviderSelectionConfigFormProps) {
+  // Mark as intentionally unused - preserved for future form/product selection UI
+  void availableForms;
+  void availableProducts;
   const handleUpdate = (updates: Partial<PaymentProviderSelectionConfig>) => {
     onChange({ ...config, ...updates });
   };

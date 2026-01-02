@@ -27,15 +27,16 @@ interface InvoiceMappingConfigFormProps {
   availableCrmOrganizations?: Array<Record<string, unknown>>;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function InvoiceMappingConfigForm({
   config,
   onChange,
   sessionId,
   organizationId,
   availableForms = [],
-  availableCrmOrganizations: _availableCrmOrganizations = [],
+  availableCrmOrganizations = [],
 }: InvoiceMappingConfigFormProps) {
+  // Mark as intentionally unused - preserved for future CRM org selection UI
+  void availableCrmOrganizations;
   const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.workflows.invoice_mapping");
 
   // Fetch CRM organizations

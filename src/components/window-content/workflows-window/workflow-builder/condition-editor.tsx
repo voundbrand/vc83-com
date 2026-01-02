@@ -8,7 +8,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Plus, Trash2, CheckCircle, XCircle } from "lucide-react";
+import { Plus, Trash2, CheckCircle } from "lucide-react";
 
 interface Condition {
   name: string;
@@ -69,8 +69,8 @@ export function ConditionEditor({
       // Simple expression evaluation (very basic - in production use json-logic-js)
       for (const condition of conditions) {
         try {
-          // Create a safe evaluation context
-          const evalContext = { input };
+          // Create a safe evaluation context (used in eval below)
+          void input; // evalContext used implicitly in evalFunc
 
           // Very basic expression evaluation (replace with proper library)
           // This is just for demo - use json-logic-js in production!

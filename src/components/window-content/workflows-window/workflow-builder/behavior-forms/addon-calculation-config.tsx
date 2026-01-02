@@ -28,14 +28,16 @@ interface AddonCalculationConfigFormProps {
   availableProducts?: Array<{ _id: string; name: string }>;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function AddonCalculationConfigForm({
   config,
   onChange,
   availableFormFields = [],
-  availableForms: _availableForms = [],
-  availableProducts: _availableProducts = [],
+  availableForms = [],
+  availableProducts = [],
 }: AddonCalculationConfigFormProps) {
+  // Mark as intentionally unused - preserved for future form/product selection UI
+  void availableForms;
+  void availableProducts;
   const [expandedAddon, setExpandedAddon] = useState<string | null>(null);
 
   // Get tax codes for dropdown (using DE as default, TODO: use actual org country)

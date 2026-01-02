@@ -261,6 +261,7 @@ export const checkEventProcessed = internalQuery({
   args: {
     eventId: v.string(),
   },
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   handler: async (ctx, args) => {
     // TODO: Check database for processed events
     // For now, always return false (no idempotency check)

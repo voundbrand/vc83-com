@@ -1,7 +1,6 @@
 "use client";
 
 import React, { createContext, useContext, useState, useCallback } from "react";
-import { Id } from "../../convex/_generated/dataModel";
 
 /**
  * SHOPPING CART CONTEXT - PLATFORM SERVICES ONLY

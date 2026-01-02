@@ -8,7 +8,7 @@
 "use client";
 
 import React from "react";
-import { X, HelpCircle, CheckCircle, ArrowRight } from "lucide-react";
+import { X, HelpCircle, CheckCircle } from "lucide-react";
 
 interface WorkflowHelpModalProps {
   onClose: () => void;
