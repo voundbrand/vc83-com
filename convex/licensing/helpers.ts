@@ -645,7 +645,7 @@ export const getAllUsageStats = query({
 
     // Find resources approaching limits (>75%)
     const approachingLimits = Object.entries(usage)
-      .filter(([_, stat]) => stat.percentUsed >= 75 && stat.limit !== -1)
+      .filter(([, stat]) => stat.percentUsed >= 75 && stat.limit !== -1)
       .map(([resource, stat]) => ({
         resource,
         ...stat,

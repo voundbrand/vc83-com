@@ -4,7 +4,7 @@ import React, { useState, useMemo } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
-import { X, Send, Eye, Loader2, FileText } from "lucide-react";
+import { X, Send, Eye, Loader2 } from "lucide-react";
 import { TemplateSelector } from "./template-selector";
 
 /**

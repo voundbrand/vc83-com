@@ -77,7 +77,8 @@ export const exampleEndpointWithAnomalyDetection = httpAction(
       authMethod: authContext.authMethod,
     };
 
-    const responseTimeMs = Date.now() - startTime;
+    // Response time captured for future anomaly detection integration
+    const _responseTimeMs = Date.now() - startTime;
 
     // 3. Schedule anomaly detection (ASYNC - doesn't block response)
     // This runs AFTER the response is sent to the client

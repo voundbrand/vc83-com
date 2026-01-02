@@ -96,7 +96,6 @@ export const cleanupOldTemplates = internalMutation({
       const code = props.code || props.templateCode || "";
       const category = props.category || "";
       const hasSchema = !!props.emailTemplateSchema;
-      const isPublished = template.status === "published";
 
       const templateInfo = {
         _id: template._id,

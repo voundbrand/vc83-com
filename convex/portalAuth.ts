@@ -153,6 +153,7 @@ export const oauthLogin = mutation({
     organizationSlug: v.string(),
     redirectUri: v.string(),
   },
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   handler: async (_ctx, _args) => {
     // TODO: Implement OAuth flow integration
     // 1. Verify authorization code

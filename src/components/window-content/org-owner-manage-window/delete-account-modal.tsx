@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, AlertTriangle, Clock, Trash2, Shield } from "lucide-react";
+import { X, Clock, Trash2, Shield } from "lucide-react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useWindowManager } from "@/hooks/use-window-manager";
 import { ComplianceWindow } from "../compliance-window";

@@ -1652,7 +1652,7 @@ export const autoDetectEnvVarsFromGithub = action({
             console.log(`[autoDetectEnvVarsFromGithub] Found ${envFile}: ${envFileContent.length} bytes`);
             break;
           }
-        } catch (e) {
+        } catch {
           console.log(`[autoDetectEnvVarsFromGithub] ${envFile} not found, trying next...`);
         }
       }
@@ -1678,7 +1678,7 @@ export const autoDetectEnvVarsFromGithub = action({
               console.log(`[autoDetectEnvVarsFromGithub] Found ${envFile} in master: ${envFileContent.length} bytes`);
               break;
             }
-          } catch (e) {
+          } catch {
             console.log(`[autoDetectEnvVarsFromGithub] ${envFile} not found in master`);
           }
         }
@@ -1770,7 +1770,7 @@ export const getDeploymentEnvVars = query({
     pageId: v.id("objects"),
   },
   handler: async (ctx, args) => {
-    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    await requireAuthenticatedUser(ctx, args.sessionId);
     const page = await ctx.db.get(args.pageId);
     if (!page) throw new Error("Published page not found");
 
@@ -1779,7 +1779,6 @@ export const getDeploymentEnvVars = query({
 
     // If no env vars configured, return default set based on template
     if (envVars.length === 0) {
-      const templateCode = page.customProperties?.templateCode;
 
       // Default env vars for Freelancer Portal and similar templates
       return [

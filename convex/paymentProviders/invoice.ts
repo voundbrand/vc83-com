@@ -239,6 +239,7 @@ export class InvoicePaymentProvider implements IPaymentProvider {
     };
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async sendInvoice(_invoiceId: string): Promise<InvoiceSendResult> {
     // This is handled by completeCheckoutAndFulfill via sendOrderConfirmationEmail
     return {

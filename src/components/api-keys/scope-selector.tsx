@@ -92,7 +92,9 @@ export function ScopeSelector({ selectedScopes, onChange, disabled }: ScopeSelec
     }
   };
 
-  const getRiskColor = (risk: "low" | "medium" | "high") => {
+  // Risk color helper - preserved for future scope UI enhancements
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _getRiskColor = (risk: "low" | "medium" | "high") => {
     switch (risk) {
       case "low":
         return "text-green-600";
