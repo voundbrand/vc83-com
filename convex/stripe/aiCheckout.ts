@@ -34,11 +34,11 @@ export const getOrCreateStripeCustomerInternal = internalAction({
     organizationName: v.string(),
     email: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<string> => {
     const stripe = getStripe();
 
     // Check if organization already has a Stripe customer ID
-    const org = await ctx.runQuery(
+    const org: { stripeCustomerId?: string } | null = await ctx.runQuery(
       api.organizations.get,
       { id: args.organizationId }
     );

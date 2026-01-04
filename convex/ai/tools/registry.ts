@@ -16,11 +16,23 @@ import { projectsToolDefinition } from "./projectsTool";
 import { crmToolDefinition } from "./crmTool";
 import { api } from "../../_generated/api";
 import { internal } from "../../_generated/api";
+import type { Id } from "../../_generated/dataModel";
+import type { ActionCtx } from "../../_generated/server";
 
 /**
  * Tool status types
  */
 export type ToolStatus = "ready" | "placeholder" | "beta";
+
+/**
+ * Extended context for AI tool execution
+ */
+export interface ToolExecutionContext extends ActionCtx {
+  organizationId: Id<"organizations">;
+  userId: Id<"users">;
+  conversationId?: Id<"aiConversations">;
+  sessionId?: string;
+}
 
 /**
  * Tool definition interface
@@ -31,13 +43,14 @@ export interface AITool {
   status: ToolStatus;
   parameters: {
     type: "object";
-    properties: Record<string, any>;
+    properties: Record<string, unknown>;
     required?: string[];
   };
   permissions?: string[];
   tutorialSteps?: string[]; // For placeholder tools
   windowName?: string; // Which window to open for this feature
-  execute: (ctx: any, args: any) => Promise<any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  execute: (ctx: ToolExecutionContext, args: any) => Promise<unknown>;
 }
 
 /**
@@ -64,18 +77,18 @@ const requestFeatureTool: AITool = {
     ctx.runAction(internal.ai.featureRequestEmail.sendFeatureRequest, {
       userId: ctx.userId,
       organizationId: ctx.organizationId,
-      toolName: args.suggestedToolName || "unknown_feature",
+      toolName: (args.suggestedToolName as string) || "unknown_feature",
       toolParameters: {
         featureDescription: args.featureDescription,
         category: args.category || "general",
         userElaboration: args.userElaboration, // Include user's detailed explanation
       },
       errorMessage: `Feature requested by user: ${args.featureDescription}`,
-      conversationId: ctx.conversationId,
-      userMessage: args.userMessage, // Original request
+      conversationId: ctx.conversationId!, // Will be set when called from chat
+      userMessage: args.userMessage as string, // Original request
       aiResponse: undefined,
       occurredAt: Date.now(),
-    }).catch((err: any) => {
+    }).catch((err: unknown) => {
       // Don't fail if email fails
       console.error("[request_feature] Email failed:", err);
     });
@@ -357,7 +370,7 @@ const sendBulkCRMEmailTool: AITool = {
 
     // Execute the actual bulk email via the implementation
     const result = await ctx.runAction(api.ai.tools.bulkCRMEmailTool.executeSendBulkCRMEmail, {
-      sessionId: ctx.sessionId,
+      sessionId: ctx.sessionId!, // Required by tool
       target: args.target,
       content: args.content,
       options: args.options,
@@ -1057,7 +1070,8 @@ const createInvoiceTool: AITool = {
     required: ["customerId", "items"]
   },
   execute: async (ctx, args) => {
-    const total = args.items.reduce((sum: number, item: any) => sum + (item.quantity * item.price), 0);
+    const items = args.items as Array<{ quantity: number; price: number }>;
+    const total = items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
     return {
       success: false,
       status: "placeholder",
@@ -1787,10 +1801,11 @@ export function getToolSchemas(): Array<any> {
  * Execute a tool by name
  */
 export async function executeTool(
-  ctx: any,
+  ctx: ToolExecutionContext,
   toolName: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   args: any
-): Promise<any> {
+): Promise<unknown> {
   const tool = TOOL_REGISTRY[toolName];
   if (!tool) {
     throw new Error(`Unknown tool: ${toolName}`);

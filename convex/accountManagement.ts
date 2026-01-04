@@ -5,6 +5,8 @@
  */
 
 import { action, internalMutation } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 
@@ -308,14 +310,14 @@ export const internalRestoreAccount = internalMutation({
  * have appAvailabilities and appInstallations records.
  */
 async function backfillOrgAppsInternal(
-  ctx: any,
-  organizationId: any,
-  userId: any
+  ctx: MutationCtx,
+  organizationId: Id<"organizations">,
+  userId: Id<"users">
 ): Promise<void> {
   // Get all active and approved apps
   const activeApps = await ctx.db
     .query("apps")
-    .filter((q: any) =>
+    .filter((q) =>
       q.or(
         q.eq(q.field("status"), "active"),
         q.eq(q.field("status"), "approved")
@@ -330,7 +332,7 @@ async function backfillOrgAppsInternal(
     // Check if availability already exists
     const existingAvailability = await ctx.db
       .query("appAvailabilities")
-      .withIndex("by_org_app", (q: any) =>
+      .withIndex("by_org_app", (q) =>
         q.eq("organizationId", organizationId).eq("appId", app._id)
       )
       .first();
@@ -360,7 +362,7 @@ async function backfillOrgAppsInternal(
     // Also ensure appInstallation exists
     const existingInstallation = await ctx.db
       .query("appInstallations")
-      .withIndex("by_org_and_app", (q: any) =>
+      .withIndex("by_org_and_app", (q) =>
         q.eq("organizationId", organizationId).eq("appId", app._id)
       )
       .first();

@@ -49,7 +49,7 @@ async function seedRBAC() {
     console.log("\n📋 Verifying created roles...");
     const roles = await client.query(api.rbac.getRoles, {});
     console.log("Roles in system:");
-    roles.forEach((role) => {
+    roles.forEach((role: { name: string; description?: string }) => {
       console.log(`   - ${role.name}: ${role.description}`);
     });
 
@@ -58,7 +58,7 @@ async function seedRBAC() {
     const permissions = await client.query(api.rbac.getPermissions, {});
     console.log(`Total permissions: ${permissions.length}`);
     console.log("Sample permissions:");
-    permissions.slice(0, 5).forEach((perm) => {
+    permissions.slice(0, 5).forEach((perm: { name: string; resource: string; action: string }) => {
       console.log(`   - ${perm.name} (${perm.resource}:${perm.action})`);
     });
 

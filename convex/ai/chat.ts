@@ -5,6 +5,7 @@
  */
 
 import { action } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
 import { v } from "convex/values";
 import { api, internal } from "../_generated/api";
 import { OpenRouterClient } from "./openrouter";
@@ -17,6 +18,60 @@ import {
 } from "./modelAdapters";
 import { getFeatureRequestMessage, detectUserLanguage } from "./i18nHelper";
 
+// Type definitions for OpenRouter API
+interface ChatMessage {
+  role: "system" | "user" | "assistant" | "tool";
+  content: string;
+  // tool_calls format varies between API and DB storage
+  tool_calls?: unknown;
+  tool_call_id?: string;
+}
+
+interface ToolCallFromAPI {
+  id: string;
+  type: string;
+  function: {
+    name: string;
+    arguments: string;
+  };
+}
+
+interface ChatResponse {
+  choices: Array<{
+    message: {
+      content: string | null;
+      tool_calls?: ToolCallFromAPI[];
+    };
+  }>;
+  usage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+}
+
+interface ToolCallResult {
+  id: string;
+  name: string;
+  arguments: Record<string, unknown>;
+  result: unknown;
+  status: "success" | "failed" | "pending_approval";
+  error?: string;
+}
+
+interface ConversationMessage {
+  role: "system" | "user" | "assistant" | "tool";
+  content: string;
+  toolCalls?: Array<{
+    id: string;
+    name: string;
+    arguments: Record<string, unknown>;
+    result?: unknown;
+    status: "success" | "failed";
+    error?: string;
+  }>;
+}
+
 export const sendMessage = action({
   args: {
     conversationId: v.optional(v.id("aiConversations")),
@@ -27,14 +82,14 @@ export const sendMessage = action({
     isAutoRecovery: v.optional(v.boolean()), // Flag to bypass proposals for auto-recovery
   },
   handler: async (ctx, args): Promise<{
-    conversationId: any;
+    conversationId: Id<"aiConversations">;
     message: string;
-    toolCalls: any[];
-    usage: any;
+    toolCalls: ToolCallResult[];
+    usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | null;
     cost: number;
   }> => {
     // 1. Get or create conversation
-    let conversationId: any = args.conversationId;
+    let conversationId: Id<"aiConversations"> | undefined = args.conversationId;
     if (!conversationId) {
       conversationId = await ctx.runMutation(api.ai.conversations.createConversation, {
         organizationId: args.organizationId,
@@ -51,12 +106,12 @@ export const sendMessage = action({
     });
 
     // 3. Get conversation history
-    const conversation: any = await ctx.runQuery(api.ai.conversations.getConversation, {
+    const conversation = await ctx.runQuery(api.ai.conversations.getConversation, {
       conversationId,
-    });
+    }) as { messages: ConversationMessage[] };
 
     // 4. Get AI settings for model selection
-    const settings: any = await ctx.runQuery(api.ai.settings.getAISettings, {
+    const settings = await ctx.runQuery(api.ai.settings.getAISettings, {
       organizationId: args.organizationId,
     });
 
@@ -79,7 +134,7 @@ export const sendMessage = action({
     }
 
     // 5. Get OpenRouter API key
-    const apiKey: string = settings.llm.openrouterApiKey || process.env.OPENROUTER_API_KEY;
+    const apiKey = settings.llm.openrouterApiKey || process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
       throw new Error("OpenRouter API key not configured");
     }
@@ -345,7 +400,7 @@ Remember: You're not just answering questions - you're helping users accomplish 
 
     // Build messages array, filtering out incomplete tool calling sequences
     // (assistant messages with tool_calls but no corresponding tool results)
-    const messages: any[] = [
+    const messages: ChatMessage[] = [
       { role: "system" as const, content: systemPrompt },
     ];
 
@@ -381,13 +436,13 @@ Remember: You're not just answering questions - you're helping users accomplish 
     console.log(`[AI Chat] Built ${messages.length} messages for OpenRouter (${conversation.messages.length} in DB)`);
 
     // 7. Call OpenRouter with tools
-    let response: any = await client.chatCompletion({
+    let response = await client.chatCompletion({
       model,
       messages,
       tools: getToolSchemas(),
       temperature: settings.llm.temperature,
       max_tokens: settings.llm.maxTokens,
-    });
+    }) as ChatResponse;
 
     // Validate response structure
     if (!response.choices || response.choices.length === 0) {
@@ -395,7 +450,7 @@ Remember: You're not just answering questions - you're helping users accomplish 
     }
 
     // 8. Handle tool calls (with provider-specific max rounds to prevent infinite loops)
-    const toolCalls: any[] = [];
+    const toolCalls: ToolCallResult[] = [];
     let toolCallRounds = 0;
     const maxToolCallRounds = providerConfig.maxToolCallRounds;
     let hasProposedTools = false; // Track if any tools were proposed (not executed)
@@ -408,7 +463,7 @@ Remember: You're not just answering questions - you're helping users accomplish 
       // IMPORTANT: Ensure all tool_calls have an arguments field
       // Anthropic sometimes omits it when no parameters are provided
       // But OpenRouter/Bedrock expects it to always be present
-      const toolCallsWithArgs = response.choices[0].message.tool_calls.map((tc: any) => ({
+      const toolCallsWithArgs = response.choices[0].message.tool_calls.map((tc) => ({
         ...tc,
         function: {
           ...tc.function,
@@ -448,7 +503,7 @@ Remember: You're not just answering questions - you're helping users accomplish 
 
         try {
 
-          let result: any;
+          let result: unknown;
 
           if (shouldPropose) {
             // Create a proposal instead of executing
@@ -527,9 +582,10 @@ Remember: You're not just answering questions - you're helping users accomplish 
               toolCall.function.name,
               result
             );
-            messages.push(toolResultMessage as any);
+            messages.push(toolResultMessage as ChatMessage);
           }
-        } catch (error: any) {
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
           console.error(`[AI Chat] Tool execution failed: ${toolCall.function.name}`, error);
 
           // Log failed execution (use parsedArgs, not re-parse!)
@@ -539,7 +595,7 @@ Remember: You're not just answering questions - you're helping users accomplish 
             userId: args.userId,
             toolName: toolCall.function.name,
             parameters: parsedArgs,
-            error: error.message,
+            error: errorMessage,
             status: "failed",
             tokensUsed: response.usage?.total_tokens || 0,
             costUsd: client.calculateCost(response.usage || { prompt_tokens: 0, completion_tokens: 0 }, model),
@@ -551,22 +607,23 @@ Remember: You're not just answering questions - you're helping users accomplish 
             id: toolCall.id,
             name: toolCall.function.name,
             arguments: parsedArgs,
-            error: error.message,
+            result: undefined,
+            error: errorMessage,
             status: "failed",
           });
 
           // Add tool error to messages (provider-specific format)
           // Create a user-friendly error message for feature requests in the user's language
-          const isFeatureRequest = error.message.includes("not yet") ||
-                                   error.message.includes("coming soon") ||
-                                   error.message.includes("placeholder");
+          const isFeatureRequest = errorMessage.includes("not yet") ||
+                                   errorMessage.includes("coming soon") ||
+                                   errorMessage.includes("placeholder");
 
           // Get user's preferred language from organization settings
           const userLanguage = detectUserLanguage(settings);
 
           const userFriendlyError = isFeatureRequest
             ? getFeatureRequestMessage(toolCall.function.name, userLanguage)
-            : error.message;
+            : errorMessage;
 
           // Add tool error to messages ONLY if tool was actually executed
           // (Proposals should never error since they don't execute)
@@ -577,17 +634,17 @@ Remember: You're not just answering questions - you're helping users accomplish 
               toolCall.function.name,
               userFriendlyError
             );
-            messages.push(toolErrorMessage as any);
+            messages.push(toolErrorMessage as ChatMessage);
           }
 
           // 🚨 SEND FEATURE REQUEST EMAIL TO DEV TEAM
           // This helps prioritize which tools to build next based on actual user needs
           try {
             // Get the original user message from conversation
-            const conversation: any = await ctx.runQuery(api.ai.conversations.getConversation, {
+            const conversationData = await ctx.runQuery(api.ai.conversations.getConversation, {
               conversationId,
-            });
-            const userMessages = conversation.messages.filter((m: any) => m.role === "user");
+            }) as { messages: ConversationMessage[] };
+            const userMessages = conversationData.messages.filter((m) => m.role === "user");
             const lastUserMessage = userMessages[userMessages.length - 1]?.content || args.message;
 
             // Send feature request email (don't await - fire and forget)
@@ -596,12 +653,12 @@ Remember: You're not just answering questions - you're helping users accomplish 
               organizationId: args.organizationId,
               toolName: toolCall.function.name,
               toolParameters: parsedArgs,
-              errorMessage: error.message,
-              conversationId,
+              errorMessage: errorMessage,
+              conversationId: conversationId!, // Guaranteed set at this point
               userMessage: lastUserMessage,
               aiResponse: undefined, // Will be filled after AI responds
               occurredAt: Date.now(),
-            }).catch(emailError => {
+            }).catch((emailError: unknown) => {
               // Don't fail the main flow if email fails
               console.error("[AI Chat] Failed to send feature request email:", emailError);
             });
@@ -650,7 +707,10 @@ Remember: You're not just answering questions - you're helping users accomplish 
 
     // CRITICAL: If tools were proposed (not executed), create a user-friendly message
     // but DON'T include toolCalls in the saved message (they'll break future conversations)
-    const executedToolCalls = toolCalls.filter(tc => tc.status !== "pending_approval");
+    const executedToolCalls = toolCalls
+      .filter((tc): tc is ToolCallResult & { status: "success" | "failed" } =>
+        tc.status !== "pending_approval"
+      );
     const proposedToolCount = toolCalls.length - executedToolCalls.length;
 
     // IMPORTANT: Don't add assistant messages to chat when tools are proposed
@@ -694,7 +754,7 @@ Remember: You're not just answering questions - you're helping users accomplish 
       : (finalMessage.content || `Executed ${executedToolCalls.length} tool(s)`);
 
     return {
-      conversationId,
+      conversationId: conversationId!, // Guaranteed set by createConversation
       message: returnMessage,
       toolCalls,
       usage: response.usage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },

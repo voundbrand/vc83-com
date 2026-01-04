@@ -6,6 +6,7 @@
  */
 
 import { action } from "../../_generated/server";
+import type { ActionCtx } from "../../_generated/server";
 import { v } from "convex/values";
 import { internal, api } from "../../_generated/api";
 import { Id } from "../../_generated/dataModel";
@@ -135,10 +136,10 @@ export const executeSyncContacts: ReturnType<typeof action> = action({
     mode?: string;
     syncId?: string;
     totalContacts: number;
-    previews?: any[];
-    stats?: any;
+    previews?: unknown[];
+    stats?: Record<string, unknown>;
     message?: string;
-    results?: any;
+    results?: unknown;
   }> => {
     // Get user session and organization
     const session = await ctx.runQuery(internal.stripeConnect.validateSession, {
@@ -322,6 +323,7 @@ export const executeSyncContacts: ReturnType<typeof action> = action({
  * Fetch contacts from external provider
  */
 async function fetchExternalContacts(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ctx: any,
   connectionId: Id<"oauthConnections">,
   provider: string,
@@ -368,9 +370,10 @@ async function fetchExternalContacts(
  * Analyze a contact and determine the best action
  */
 async function analyzeContact(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ctx: any,
   externalContact: ExternalContact,
-  existingContacts: any[],
+  existingContacts: Array<{ _id: Id<"objects">; name?: string; customProperties?: Record<string, unknown> }>,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _provider: string
 ): Promise<ContactSyncPreview> {
@@ -379,7 +382,10 @@ async function analyzeContact(
 
   // Find potential matches by email (exact match)
   const emailMatch = existingContacts.find(
-    c => c.customProperties?.email?.toLowerCase() === primaryEmail.toLowerCase()
+    c => {
+      const email = c.customProperties?.email as string | undefined;
+      return email?.toLowerCase() === primaryEmail.toLowerCase();
+    }
   );
 
   if (emailMatch) {
@@ -395,9 +401,9 @@ async function analyzeContact(
       action: "update",
       existingContactId: emailMatch._id,
       existingContact: {
-        name: emailMatch.name,
-        email: emailMatch.customProperties?.email,
-        phone: emailMatch.customProperties?.phone
+        name: emailMatch.name || "",
+        email: (emailMatch.customProperties?.email as string | undefined) || "",
+        phone: (emailMatch.customProperties?.phone as string | undefined) || ""
       },
       aiRecommendation: {
         action: "update",

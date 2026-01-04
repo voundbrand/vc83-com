@@ -848,7 +848,7 @@ export const internalUpdateWorkItem = internalMutation({
     })),
   },
   handler: async (ctx, args) => {
-    const updates: any = {};
+    const updates: Record<string, unknown> = {};
 
     if (args.status) updates.status = args.status;
     if (args.results) updates.results = args.results;
