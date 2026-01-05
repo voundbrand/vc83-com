@@ -9,8 +9,10 @@
 
 import { v } from "convex/values";
 import { action, internalMutation, internalAction } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
 import { ConvexError } from "convex/values";
 import { internal } from "./_generated/api";
+import { Id } from "./_generated/dataModel";
 import Stripe from "stripe";
 
 /**
@@ -47,9 +49,9 @@ export const signupFreeAccount = action({
   },
   handler: async (ctx, args): Promise<{
     success: boolean;
-    sessionId: any;
-    user: { id: any; email: string; firstName: string; lastName: string };
-    organization: { id: any; name: string; slug: string };
+    sessionId: Id<"sessions">;
+    user: { id: Id<"users">; email: string; firstName: string; lastName: string };
+    organization: { id: Id<"organizations">; name: string; slug: string };
     apiKeyPrefix: string;
     apiKey: string;
   }> => {
@@ -109,9 +111,9 @@ export const signupFreeAccount = action({
     // 7. Call internal mutation to create all records
     const result: {
       success: boolean;
-      sessionId: any;
-      user: { id: any; email: string; firstName: string; lastName: string };
-      organization: { id: any; name: string; slug: string };
+      sessionId: Id<"sessions">;
+      user: { id: Id<"users">; email: string; firstName: string; lastName: string };
+      organization: { id: Id<"organizations">; name: string; slug: string };
       apiKeyPrefix: string;
     } = await ctx.runMutation(internal.onboarding.createFreeAccountInternal, {
       email,
@@ -433,7 +435,7 @@ export const createFreeAccountInternal = internalMutation({
  * - "John's Organization" → "johns-organization"
  * - "John's Organization" (taken) → "johns-organization-2"
  */
-async function generateUniqueSlug(ctx: any, name: string): Promise<string> {
+async function generateUniqueSlug(ctx: MutationCtx, name: string): Promise<string> {
   // Create base slug from name
   let baseSlug = name
     .toLowerCase()
@@ -454,7 +456,7 @@ async function generateUniqueSlug(ctx: any, name: string): Promise<string> {
   while (true) {
     const existing = await ctx.db
       .query("organizations")
-      .withIndex("by_slug", (q: any) => q.eq("slug", slug))
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
       .first();
 
     if (!existing) {
@@ -485,16 +487,16 @@ async function generateUniqueSlug(ctx: any, name: string): Promise<string> {
  * @param userId - User who triggered the assignment (for audit trail)
  */
 async function assignAllAppsToOrgInternal(
-  ctx: any,
-  organizationId: any,
-  userId: any
+  ctx: MutationCtx,
+  organizationId: Id<"organizations">,
+  userId: Id<"users">
 ): Promise<void> {
   console.log(`[Onboarding/AppAvailability] 🚀 Starting app assignment for org ${organizationId}`);
 
   // Get system organization to ensure we only assign system-owned apps
   const systemOrg = await ctx.db
     .query("organizations")
-    .withIndex("by_slug", (q: any) => q.eq("slug", "system"))
+    .withIndex("by_slug", (q) => q.eq("slug", "system"))
     .first();
 
   if (!systemOrg) {
@@ -509,8 +511,8 @@ async function assignAllAppsToOrgInternal(
   // IMPORTANT: This prevents cross-org pollution of apps
   const activeApps = await ctx.db
     .query("apps")
-    .withIndex("by_creator", (q: any) => q.eq("creatorOrgId", systemOrg._id))
-    .filter((q: any) =>
+    .withIndex("by_creator", (q) => q.eq("creatorOrgId", systemOrg._id))
+    .filter((q) =>
       q.or(
         q.eq(q.field("status"), "active"),
         q.eq(q.field("status"), "approved")
@@ -525,7 +527,7 @@ async function assignAllAppsToOrgInternal(
   }
 
   console.log(`[Onboarding/AppAvailability] 📦 Found ${activeApps.length} system apps to assign:`);
-  activeApps.forEach((app: any, index: number) => {
+  activeApps.forEach((app, index: number) => {
     console.log(`[Onboarding/AppAvailability]   ${index + 1}. ${app.name || app.code} (${app._id}) - status: ${app.status}`);
   });
 
@@ -540,7 +542,7 @@ async function assignAllAppsToOrgInternal(
     // Check if availability already exists (shouldn't for new orgs, but be safe)
     const existingAvailability = await ctx.db
       .query("appAvailabilities")
-      .withIndex("by_org_app", (q: any) =>
+      .withIndex("by_org_app", (q) =>
         q.eq("organizationId", organizationId).eq("appId", app._id)
       )
       .first();
@@ -564,7 +566,7 @@ async function assignAllAppsToOrgInternal(
     // Check if installation already exists
     const existingInstallation = await ctx.db
       .query("appInstallations")
-      .withIndex("by_org_and_app", (q: any) =>
+      .withIndex("by_org_and_app", (q) =>
         q.eq("organizationId", organizationId).eq("appId", app._id)
       )
       .first();
@@ -645,16 +647,16 @@ export const assignAllAppsToOrg = internalMutation({
  * @param userId - User who triggered provisioning (for audit trail)
  */
 async function provisionStarterTemplatesInternal(
-  ctx: any,
-  organizationId: any,
-  userId: any
+  ctx: MutationCtx,
+  organizationId: Id<"organizations">,
+  userId: Id<"users">
 ): Promise<void> {
   console.log(`[Onboarding] Starting template provisioning for org ${organizationId}`);
 
   // 1. Get system organization (where templates are stored)
   const systemOrg = await ctx.db
     .query("organizations")
-    .withIndex("by_slug", (q: any) => q.eq("slug", "system"))
+    .withIndex("by_slug", (q) => q.eq("slug", "system"))
     .first();
 
   if (!systemOrg) {
@@ -706,10 +708,10 @@ async function provisionStarterTemplatesInternal(
   // 4. Get all system templates (web_app subtype)
   const systemTemplates = await ctx.db
     .query("objects")
-    .withIndex("by_org_type", (q: any) =>
+    .withIndex("by_org_type", (q) =>
       q.eq("organizationId", systemOrg._id).eq("type", "template")
     )
-    .filter((q: any) => q.eq(q.field("subtype"), "web_app"))
+    .filter((q) => q.eq(q.field("subtype"), "web_app"))
     .collect();
 
   console.log(`[Onboarding] Found ${systemTemplates.length} web app templates in system`);
@@ -718,7 +720,7 @@ async function provisionStarterTemplatesInternal(
   for (const starterConfig of STARTER_TEMPLATES) {
     // Find matching system template
     const systemTemplate = systemTemplates.find(
-      (t: any) => t.name === starterConfig.name
+      (t) => t.name === starterConfig.name
     );
 
     if (!systemTemplate) {
@@ -731,13 +733,13 @@ async function provisionStarterTemplatesInternal(
     // Check if template already exists in user's org
     const existingTemplate = await ctx.db
       .query("objects")
-      .withIndex("by_org_type", (q: any) =>
+      .withIndex("by_org_type", (q) =>
         q.eq("organizationId", organizationId).eq("type", "template")
       )
-      .filter((q: any) =>
+      .filter((q) =>
         q.eq(q.field("subtype"), "web_app")
       )
-      .filter((q: any) =>
+      .filter((q) =>
         q.eq(q.field("name"), starterConfig.name)
       )
       .first();
@@ -774,10 +776,10 @@ async function provisionStarterTemplatesInternal(
     // Check if published_page already exists
     const existingPage = await ctx.db
       .query("objects")
-      .withIndex("by_org_type", (q: any) =>
+      .withIndex("by_org_type", (q) =>
         q.eq("organizationId", organizationId).eq("type", "published_page")
       )
-      .filter((q: any) =>
+      .filter((q) =>
         q.eq(q.field("customProperties.templateCode"), starterConfig.templateCode)
       )
       .first();
