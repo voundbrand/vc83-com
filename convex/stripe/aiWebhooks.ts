@@ -12,10 +12,58 @@
  * - invoice.payment_failed - Failed payment (suspend access)
  */
 
-import { internalAction } from "../_generated/server";
+import { internalAction, ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
+
+// Stripe webhook data types
+interface StripeSubscription {
+  id: string;
+  customer: string;
+  status: string;
+  metadata: Record<string, string | undefined>;
+  current_period_start: number;
+  current_period_end: number;
+  cancel_at_period_end?: boolean;
+  canceled_at?: number | null;
+  items: {
+    data: Array<{
+      price?: {
+        id?: string;
+        unit_amount?: number;
+        currency?: string;
+      };
+    }>;
+  };
+}
+
+interface StripeInvoice {
+  subscription?: string;
+  customer?: string;
+  subscription_details?: unknown;
+}
+
+interface StripeCheckoutSession {
+  metadata?: Record<string, string | undefined>;
+  customer?: string;
+  customer_details?: {
+    email?: string;
+    name?: string;
+    address?: {
+      line1?: string;
+      line2?: string;
+      city?: string;
+      state?: string;
+      postal_code?: string;
+      country?: string;
+    };
+    tax_ids?: Array<{ type: string; value: string }>;
+  };
+  subscription?: string;
+  amount_total?: number;
+  currency?: string;
+}
 
 /**
  * TOKEN LIMITS BY TIER
@@ -148,7 +196,7 @@ export const processAIWebhook = internalAction({
  *
  * Called when a new AI subscription is created via Stripe Checkout.
  */
-async function handleSubscriptionCreated(ctx: any, subscription: any) {
+async function handleSubscriptionCreated(ctx: ActionCtx, subscription: StripeSubscription) {
   const { metadata, customer, id, status, current_period_start, current_period_end, items } = subscription;
 
   const organizationId = metadata.organizationId as Id<"organizations">;
@@ -175,10 +223,10 @@ async function handleSubscriptionCreated(ctx: any, subscription: any) {
     organizationId: organizationId,
     stripeSubscriptionId: id,
     stripeCustomerId: customer,
-    stripePriceId: priceId,
-    status: status,
-    tier: tier,
-    privateLLMTier: privateLLMTier,
+    stripePriceId: priceId || "",
+    status: status as "active" | "canceled" | "trialing" | "past_due" | "unpaid" | "incomplete" | "incomplete_expired" | "paused",
+    tier: tier as "standard" | "privacy-enhanced" | "private-llm",
+    privateLLMTier: privateLLMTier as "starter" | "professional" | "enterprise" | undefined,
     currentPeriodStart: current_period_start * 1000, // Convert to milliseconds
     currentPeriodEnd: current_period_end * 1000,
     cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
@@ -194,7 +242,7 @@ async function handleSubscriptionCreated(ctx: any, subscription: any) {
  *
  * Called when subscription is changed (upgrade, downgrade, or renewal).
  */
-async function handleSubscriptionUpdated(ctx: any, subscription: any) {
+async function handleSubscriptionUpdated(ctx: ActionCtx, subscription: StripeSubscription) {
   const { metadata, customer, id, status, current_period_start, current_period_end, items } = subscription;
 
   const organizationId = metadata.organizationId as Id<"organizations">;
@@ -220,10 +268,10 @@ async function handleSubscriptionUpdated(ctx: any, subscription: any) {
     organizationId: organizationId,
     stripeSubscriptionId: id,
     stripeCustomerId: customer,
-    stripePriceId: priceId,
-    status: status,
-    tier: tier,
-    privateLLMTier: privateLLMTier,
+    stripePriceId: priceId || "",
+    status: status as "active" | "canceled" | "trialing" | "past_due" | "unpaid" | "incomplete" | "incomplete_expired" | "paused",
+    tier: tier as "standard" | "privacy-enhanced" | "private-llm",
+    privateLLMTier: privateLLMTier as "starter" | "professional" | "enterprise" | undefined,
     currentPeriodStart: current_period_start * 1000,
     currentPeriodEnd: current_period_end * 1000,
     cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
@@ -239,7 +287,7 @@ async function handleSubscriptionUpdated(ctx: any, subscription: any) {
  *
  * Called when subscription is cancelled and period has ended.
  */
-async function handleSubscriptionDeleted(ctx: any, subscription: any) {
+async function handleSubscriptionDeleted(ctx: ActionCtx, subscription: StripeSubscription) {
   const { metadata } = subscription;
   const organizationId = metadata.organizationId as Id<"organizations">;
 
@@ -262,7 +310,7 @@ async function handleSubscriptionDeleted(ctx: any, subscription: any) {
  *
  * Called when monthly payment succeeds. Reset monthly token usage.
  */
-async function handlePaymentSucceeded(ctx: any, invoice: any) {
+async function handlePaymentSucceeded(_ctx: ActionCtx, invoice: StripeInvoice) {
   // Check if this is a subscription renewal (not just a one-time payment)
   if (!invoice.subscription) {
     return;
@@ -290,7 +338,7 @@ async function handlePaymentSucceeded(ctx: any, invoice: any) {
  *
  * Called when monthly payment fails. Suspend AI access.
  */
-async function handlePaymentFailed(ctx: any, invoice: any) {
+async function handlePaymentFailed(_ctx: ActionCtx, invoice: StripeInvoice) {
   if (!invoice.subscription) {
     return;
   }
@@ -311,7 +359,7 @@ async function handlePaymentFailed(ctx: any, invoice: any) {
  * Extracts billing details (tax IDs, addresses) and syncs to organization.
  * Sends confirmation emails to customer and sales team.
  */
-async function handleCheckoutCompleted(ctx: any, session: any) {
+async function handleCheckoutCompleted(ctx: ActionCtx, session: StripeCheckoutSession) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { metadata, customer: _customer2, customer_details, subscription, amount_total, currency } = session;
 
@@ -334,7 +382,7 @@ async function handleCheckoutCompleted(ctx: any, session: any) {
 
   // Log B2B tax information
   if (isB2B && customerTaxIds.length > 0) {
-    console.log(`[AI Webhooks] B2B Tax IDs:`, customerTaxIds.map((t: any) => ({
+    console.log(`[AI Webhooks] B2B Tax IDs:`, customerTaxIds.map((t) => ({
       type: t.type,
       value: t.value,
     })));
@@ -347,7 +395,7 @@ async function handleCheckoutCompleted(ctx: any, session: any) {
       isB2B,
       billingEmail: customerEmail,
       billingName: customerName,
-      billingAddress: customerAddress ? {
+      billingAddress: customerAddress && customerAddress.line1 && customerAddress.city && customerAddress.postal_code && customerAddress.country ? {
         line1: customerAddress.line1,
         line2: customerAddress.line2 || undefined,
         city: customerAddress.city,
@@ -355,7 +403,7 @@ async function handleCheckoutCompleted(ctx: any, session: any) {
         postalCode: customerAddress.postal_code,
         country: customerAddress.country,
       } : undefined,
-      taxIds: customerTaxIds.map((t: any) => ({
+      taxIds: customerTaxIds.map((t) => ({
         type: t.type,
         value: t.value,
       })),
@@ -370,18 +418,22 @@ async function handleCheckoutCompleted(ctx: any, session: any) {
   // Send confirmation emails
   try {
     // Get organization details for user language preference
-    const org = await ctx.runQuery(internal.ai.billing.getOrganizationInternal as any, {
-      organizationId,
-    });
+    const org = await ctx.runQuery(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      internal.ai.billing.getOrganizationInternal as any,
+      { organizationId }
+    ) as { name?: string; language?: string } | null;
 
     // Send customer confirmation email (in their language)
+    const toEmail = customerEmail || "";
+    const orgName = org?.name || customerName || customerEmail || "Customer";
     await ctx.runAction(internal.emailService.sendAISubscriptionConfirmation, {
-      to: customerEmail,
-      organizationName: org?.name || customerName || customerEmail,
+      to: toEmail,
+      organizationName: orgName,
       tier,
       amountTotal: amount_total || 0,
       currency: currency || "eur",
-      subscriptionId: subscription,
+      subscriptionId: subscription || "",
       isB2B,
       taxIds: customerTaxIds,
       language: org?.language || "en", // Use org language preference
@@ -389,15 +441,15 @@ async function handleCheckoutCompleted(ctx: any, session: any) {
 
     // Send sales team notification
     await ctx.runAction(internal.emailService.sendSalesNotification, {
-      customerEmail,
-      customerName: customerName || customerEmail,
-      organizationName: org?.name || customerName || customerEmail,
+      customerEmail: toEmail,
+      customerName: customerName || toEmail,
+      organizationName: orgName,
       tier,
       amountTotal: amount_total || 0,
       currency: currency || "eur",
       isB2B,
       taxIds: customerTaxIds,
-      subscriptionId: subscription,
+      subscriptionId: subscription || "",
     });
 
     console.log(`[AI Webhooks] ✓ Sent confirmation emails`);

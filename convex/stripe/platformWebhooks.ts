@@ -16,10 +16,61 @@
  * @see .kiro/templates_and_free_users/IMPLEMENTATION-PLAN.md Phase 0.4
  */
 
-import { internalAction, internalMutation, internalQuery } from "../_generated/server";
+import { internalAction, internalMutation, internalQuery, ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
+
+// Stripe webhook data types
+interface StripeCheckoutSession {
+  metadata?: Record<string, string | undefined>;
+  customer?: string;
+  customer_details?: {
+    email?: string;
+    name?: string;
+    address?: {
+      line1?: string;
+      line2?: string;
+      city?: string;
+      state?: string;
+      postal_code?: string;
+      country?: string;
+    };
+    tax_ids?: Array<{ type: string; value: string }>;
+  };
+  subscription?: string;
+  amount_total?: number;
+  currency?: string;
+}
+
+interface StripeSubscription {
+  id: string;
+  customer: string;
+  status: string;
+  metadata?: Record<string, string | undefined>;
+  current_period_start: number;
+  current_period_end: number;
+  cancel_at_period_end?: boolean;
+  items: {
+    data: Array<{
+      price?: {
+        id?: string;
+        unit_amount?: number;
+        currency?: string;
+      };
+    }>;
+  };
+}
+
+interface OrganizationMember {
+  isActive: boolean;
+  user?: {
+    _id: Id<"users">;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+  } | null;
+}
 
 /**
  * TIER METADATA MAPPING
@@ -92,7 +143,7 @@ export const processPlatformWebhook = internalAction({
  * Extracts billing details (addresses, tax IDs) and syncs to organization.
  * This enables proper invoicing and tax compliance.
  */
-async function handleCheckoutCompleted(ctx: any, session: any) {
+async function handleCheckoutCompleted(ctx: ActionCtx, session: StripeCheckoutSession) {
   const { metadata, customer, customer_details, subscription, amount_total, currency } = session;
 
   const organizationId = metadata?.organizationId as Id<"organizations">;
@@ -120,7 +171,7 @@ async function handleCheckoutCompleted(ctx: any, session: any) {
 
   // Log B2B tax information
   if (isB2B && customerTaxIds.length > 0) {
-    console.log(`[Platform Webhooks] B2B Tax IDs:`, customerTaxIds.map((t: any) => ({
+    console.log(`[Platform Webhooks] B2B Tax IDs:`, customerTaxIds.map((t) => ({
       type: t.type,
       value: t.value,
     })));
@@ -133,7 +184,7 @@ async function handleCheckoutCompleted(ctx: any, session: any) {
       isB2B,
       billingEmail: customerEmail,
       billingName: customerName,
-      billingAddress: customerAddress ? {
+      billingAddress: customerAddress && customerAddress.line1 && customerAddress.city && customerAddress.postal_code && customerAddress.country ? {
         line1: customerAddress.line1,
         line2: customerAddress.line2 || undefined,
         city: customerAddress.city,
@@ -141,7 +192,7 @@ async function handleCheckoutCompleted(ctx: any, session: any) {
         postalCode: customerAddress.postal_code,
         country: customerAddress.country,
       } : undefined,
-      taxIds: customerTaxIds.map((t: any) => ({
+      taxIds: customerTaxIds.map((t) => ({
         type: t.type,
         value: t.value,
       })),
@@ -172,7 +223,7 @@ async function handleCheckoutCompleted(ctx: any, session: any) {
         },
         organization: {
           name: org?.name || customerName || customerEmail || "Unknown",
-          plan: tier,
+          planTier: tier,
         },
         metadata: {
           amountTotal: amount_total || 0,
@@ -199,7 +250,7 @@ async function handleCheckoutCompleted(ctx: any, session: any) {
  * 1. Free user upgrades to paid tier
  * 2. New organization subscribes during signup
  */
-async function handleSubscriptionCreated(ctx: any, subscription: any) {
+async function handleSubscriptionCreated(ctx: ActionCtx, subscription: StripeSubscription) {
   const { metadata, customer, id, status, current_period_start, current_period_end, items } = subscription;
 
   // Extract organization ID from metadata
@@ -260,7 +311,7 @@ async function handleSubscriptionCreated(ctx: any, subscription: any) {
           organizationId,
         });
 
-        const primaryMember = members.find((m: any) => m.isActive);
+        const primaryMember = members.find((m: OrganizationMember) => m.isActive);
         if (primaryMember && primaryMember.user) {
           // Trigger Zapier webhook
           await ctx.runAction(internal.zapier.triggers.triggerCommunitySubscriptionCreated, {
@@ -291,7 +342,7 @@ async function handleSubscriptionCreated(ctx: any, subscription: any) {
  * - Renewal
  * - Status changes (active, past_due, canceled)
  */
-async function handleSubscriptionUpdated(ctx: any, subscription: any) {
+async function handleSubscriptionUpdated(ctx: ActionCtx, subscription: StripeSubscription) {
   const { metadata, customer, id, status, current_period_start, current_period_end, items, cancel_at_period_end } =
     subscription;
 
@@ -345,7 +396,7 @@ async function handleSubscriptionUpdated(ctx: any, subscription: any) {
  * Called when subscription is canceled and period has ended.
  * Reverts organization to Free tier.
  */
-async function handleSubscriptionDeleted(ctx: any, subscription: any) {
+async function handleSubscriptionDeleted(ctx: ActionCtx, subscription: StripeSubscription) {
   const { metadata, customer } = subscription;
   const organizationId = metadata?.organizationId as Id<"organizations">;
 
@@ -383,7 +434,7 @@ async function handleSubscriptionDeleted(ctx: any, subscription: any) {
  * Updates organization.plan and creates/updates organization_license object.
  */
 async function updateOrganizationTier(
-  ctx: any,
+  ctx: ActionCtx,
   organizationId: Id<"organizations">,
   tier: string,
   subscriptionInfo: {
@@ -553,7 +604,7 @@ export const upsertOrganizationLicense = internalMutation({
 /**
  * INTERNAL QUERY: Find organization by Stripe customer ID
  */
-export const findOrgByStripeCustomer = internalMutation({
+export const findOrgByStripeCustomer = internalQuery({
   args: {
     stripeCustomerId: v.string(),
   },
@@ -562,7 +613,7 @@ export const findOrgByStripeCustomer = internalMutation({
     const organizations = await ctx.db.query("organizations").collect();
 
     const org = organizations.find(
-      (o: { stripeCustomerId?: string }) => o.stripeCustomerId === args.stripeCustomerId
+      (o) => o.stripeCustomerId === args.stripeCustomerId
     );
 
     return org || null;
@@ -611,7 +662,7 @@ export const syncPlatformBillingDetails = internalMutation({
     const now = Date.now();
 
     // 1. Update organization with Stripe customer ID (billingEmail goes to organization_billing object)
-    const orgUpdate: Record<string, any> = {
+    const orgUpdate: Record<string, unknown> = {
       updatedAt: now,
     };
 

@@ -78,8 +78,17 @@ export type AuthResult = AuthSuccess | AuthError;
  * @param request - HTTP request
  * @returns Authentication result with context or error
  */
+// Use a permissive type for the context to avoid compatibility issues with Convex's ActionCtx
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ConvexContextLike = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  runQuery: (query: any, args: any) => Promise<any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  runAction: (action: any, args: any) => Promise<any>;
+};
+
 export async function authenticateRequest(
-  ctx: { runQuery: (query: any, args: any) => Promise<any>; runAction: (action: any, args: any) => Promise<any> },
+  ctx: ConvexContextLike,
   request: Request
 ): Promise<AuthResult> {
   const authHeader = request.headers.get("Authorization");
@@ -134,15 +143,22 @@ export async function authenticateRequest(
  * NOTE: Usage tracking is now async (0ms added latency)
  * See: convex/security/usageTracking.ts
  */
+interface ApiKeyAuthContext {
+  userId: Id<"users">;
+  organizationId: Id<"organizations">;
+  scopes?: string[];
+}
+
 async function authenticateApiKey(
-  ctx: { runAction: (action: any, args: any) => Promise<any> },
+  ctx: Pick<ConvexContextLike, "runAction">,
   apiKey: string
 ): Promise<AuthResult> {
   try {
     // Call the bcrypt Action for secure verification
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const authContext = await ctx.runAction(internal.actions.apiKeys.verifyApiKey as any, {
       apiKey,
-    });
+    }) as ApiKeyAuthContext | null;
 
     if (!authContext) {
       return {
@@ -184,7 +200,7 @@ async function authenticateApiKey(
  * - Required claims: sub (userId), org (organizationId), scope
  */
 async function authenticateOAuthToken(
-  ctx: { runQuery: (query: any, args: any) => Promise<any> },
+  ctx: Pick<ConvexContextLike, "runQuery">,
   token: string
 ): Promise<AuthResult> {
   try {

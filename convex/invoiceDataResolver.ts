@@ -167,6 +167,10 @@ function getCurrencySymbol(locale: string, currency: string): string {
  * @param options - Optional overrides (domainConfigId, etc.)
  * @returns Fully resolved and formatted invoice data
  */
+// Type for customProperties access
+type InvoiceCustomProps = Record<string, unknown>;
+type OrganizationRecord = Record<string, unknown>;
+
 export async function resolveInvoiceEmailData(
   ctx: ActionCtx,
   invoice: Doc<"objects">,
@@ -177,18 +181,18 @@ export async function resolveInvoiceEmailData(
     isTest?: boolean;
   }
 ): Promise<ResolvedInvoiceData> {
-  const invoiceProps = invoice.customProperties as any;
+  const invoiceProps = invoice.customProperties as InvoiceCustomProps;
 
   console.log(`🔍 [RESOLVER] Starting smart data resolution for invoice ${invoice._id}`);
 
   // ==========================================================================
   // STEP 1: FETCH TRANSACTION (from invoice's lineItems)
   // ==========================================================================
-  let transaction: any = null;
+  let transaction: Doc<"objects"> | null = null;
 
   // NEW: Extract transaction ID from invoice line items
   // Each invoice now references a SINGLE transaction
-  const invoiceLineItems = invoiceProps.lineItems as any[] | undefined;
+  const invoiceLineItems = invoiceProps.lineItems as Array<{ transactionId?: string }> | undefined;
   const transactionId = invoiceLineItems && invoiceLineItems.length > 0 ? invoiceLineItems[0].transactionId : undefined;
 
   if (transactionId) {
@@ -199,10 +203,10 @@ export async function resolveInvoiceEmailData(
       });
 
       if (transaction) {
-        const txProps = transaction.customProperties as any;
+        const txProps = transaction.customProperties as InvoiceCustomProps;
         console.log(`✅ [RESOLVER] Found transaction with currency: ${txProps.currency}`);
         console.log(`   Transaction has lineItems: ${!!txProps.lineItems}`);
-        console.log(`   Transaction totals: €${((txProps.totalInCents || 0) / 100).toFixed(2)}`);
+        console.log(`   Transaction totals: €${((Number(txProps.totalInCents) || 0) / 100).toFixed(2)}`);
       } else {
         console.log(`⚠️ [RESOLVER] Transaction ${transactionId} not found in database`);
       }
@@ -239,14 +243,15 @@ export async function resolveInvoiceEmailData(
   const organizationLocale = (localeSettings?.customProperties?.locale as string) || (language === "de" ? "de-DE" : language === "fr" ? "fr-FR" : language === "es" ? "es-ES" : "en-US");
 
   // Extract organization settings with smart defaults
+  const orgRecord = organization as OrganizationRecord;
   const orgSettings = {
     defaultCurrency: organizationCurrency,
     locale: organizationLocale,
-    companyName: (organization as any).legalName || organization.name,
-    taxId: (organization as any).taxId,
-    address: (organization as any).address,
-    phone: (organization as any).phone,
-    website: (organization as any).website,
+    companyName: (orgRecord.legalName as string | undefined) || organization.name,
+    taxId: orgRecord.taxId as string | undefined,
+    address: orgRecord.address as Record<string, unknown> | undefined,
+    phone: orgRecord.phone as string | undefined,
+    website: orgRecord.website as string | undefined,
   };
 
   console.log(`✅ [RESOLVER] Organization settings loaded: currency=${orgSettings.defaultCurrency}, locale=${orgSettings.locale}`);
@@ -278,16 +283,33 @@ export async function resolveInvoiceEmailData(
   // ==========================================================================
   // STEP 3: GET DOMAIN CONFIG (optional overrides)
   // ==========================================================================
-  let domainProps: any = null;
-  let emailSettings: any = null;
+  interface DomainPropsType {
+    displayName?: string;
+    branding?: {
+      logoUrl?: string;
+      primaryColor?: string;
+      secondaryColor?: string;
+      accentColor?: string;
+    };
+    webPublishing?: {
+      siteUrl?: string;
+    };
+    email?: {
+      senderEmail?: string;
+      replyToEmail?: string;
+    };
+  }
+
+  let domainProps: DomainPropsType | null = null;
+  let emailSettings: { senderEmail?: string; replyToEmail?: string } | null = null;
 
   if (options?.domainConfigId) {
     console.log(`🔍 [RESOLVER] Loading domain config: ${options.domainConfigId}`);
     const domainConfig = await ctx.runQuery(api.domainConfigOntology.getDomainConfig, {
       configId: options.domainConfigId,
     });
-    domainProps = domainConfig.customProperties as any;
-    emailSettings = domainProps.email;
+    domainProps = domainConfig.customProperties as DomainPropsType;
+    emailSettings = domainProps.email ?? null;
   } else {
     // No domain config - use empty structure to allow cascading to organization settings
     console.log(`🔍 [RESOLVER] No domain config provided, will cascade to organization settings`);
@@ -312,7 +334,8 @@ export async function resolveInvoiceEmailData(
   // ==========================================================================
   // STEP 4: DETERMINE FINAL CURRENCY (priority: transaction > invoice > org)
   // ==========================================================================
-  const currency = transaction?.currency || invoiceProps.currency || orgSettings.defaultCurrency;
+  const transactionProps = transaction?.customProperties as InvoiceCustomProps | undefined;
+  const currency = (transactionProps?.currency as string) || (invoiceProps.currency as string) || orgSettings.defaultCurrency;
   const locale = orgSettings.locale;
 
   console.log(`✅ [RESOLVER] Final currency: ${currency}, locale: ${locale}`);
@@ -328,28 +351,40 @@ export async function resolveInvoiceEmailData(
   // ==========================================================================
   // STEP 6: EXTRACT AND FORMAT LINE ITEMS
   // ==========================================================================
-  const lineItems = (invoiceProps.lineItems || []).map((item: any) => ({
-    description: item.description,
+  interface LineItemInput {
+    description?: string;
+    productName?: string;
+    eventName?: string;
+    quantity?: number;
+    unitPriceInCents?: number;
+    totalPriceInCents?: number;
+    taxRatePercent?: number;
+    taxAmountInCents?: number;
+  }
+
+  const rawLineItems = (invoiceProps.lineItems || []) as LineItemInput[];
+  const lineItems = rawLineItems.map((item) => ({
+    description: item.description || "",
     productName: item.productName,
     eventName: item.eventName,
-    quantity: item.quantity,
-    unitPriceInCents: item.unitPriceInCents,
-    totalPriceInCents: item.totalPriceInCents,
-    taxRatePercent: item.taxRatePercent,
-    taxAmountInCents: item.taxAmountInCents,
+    quantity: item.quantity || 1,
+    unitPriceInCents: item.unitPriceInCents || 0,
+    totalPriceInCents: item.totalPriceInCents || 0,
+    taxRatePercent: item.taxRatePercent || 0,
+    taxAmountInCents: item.taxAmountInCents || 0,
     // Formatted values
-    formattedUnitPrice: formatter.format(item.unitPriceInCents / 100),
-    formattedTotal: formatter.format(item.totalPriceInCents / 100),
-    formattedTax: formatter.format(item.taxAmountInCents / 100),
+    formattedUnitPrice: formatter.format((item.unitPriceInCents || 0) / 100),
+    formattedTotal: formatter.format((item.totalPriceInCents || 0) / 100),
+    formattedTax: formatter.format((item.taxAmountInCents || 0) / 100),
   }));
 
   // ==========================================================================
   // STEP 7: FORMAT TOTALS
   // ==========================================================================
-  const subtotalInCents = invoiceProps.subtotalInCents || 0;
+  const subtotalInCents = Number(invoiceProps.subtotalInCents) || 0;
   // Support both taxInCents and taxAmountInCents field names for compatibility
-  const taxAmountInCents = invoiceProps.taxInCents || invoiceProps.taxAmountInCents || 0;
-  const totalInCents = invoiceProps.totalInCents || 0;
+  const taxAmountInCents = Number(invoiceProps.taxInCents) || Number(invoiceProps.taxAmountInCents) || 0;
+  const totalInCents = Number(invoiceProps.totalInCents) || 0;
 
   const formattedSubtotal = formatter.format(subtotalInCents / 100);
   const formattedTax = formatter.format(taxAmountInCents / 100);
@@ -361,7 +396,22 @@ export async function resolveInvoiceEmailData(
   // STEP 8: EXTRACT RECIPIENT INFO (using SAME logic as PDF generation)
   // Match pdfGeneration.ts lines 1213-1279 exactly
   // ==========================================================================
-  const billingAddress = invoiceProps.billingAddress || {};
+  interface BillingAddressType {
+    line1?: string;
+    line2?: string;
+    city?: string;
+    postalCode?: string;
+    state?: string;
+    country?: string;
+    name?: string;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    companyName?: string;
+    taxId?: string;
+  }
+
+  const billingAddress = (invoiceProps.billingAddress || {}) as BillingAddressType;
   let recipientName: string = "";
   let recipientEmail: string = "";
   let recipientCompanyName: string | undefined;
@@ -381,7 +431,7 @@ export async function resolveInvoiceEmailData(
   // ALWAYS try to load fresh CRM data first (like PDF does), fall back to stale billing address only on error
   // Strategy: Load organization for billing, contact for greeting
   let loadedFromCRM = false;
-  let crmBillingAddress: typeof billingAddress = {};
+  let crmBillingAddress: BillingAddressType = {};
   let recipientVatNumber: string | undefined;
 
   // STEP 1: If B2B invoice (has organization), load organization for billing details
@@ -394,24 +444,24 @@ export async function resolveInvoiceEmailData(
 
       if (buyerCrmOrg) {
         recipientCompanyName = buyerCrmOrg.name; // Company name for billing section
-        const orgProps = buyerCrmOrg.customProperties as any;
-        recipientEmail = orgProps?.billingEmail || orgProps?.primaryEmail || invoiceProps.recipientEmail || "";
+        const orgProps = buyerCrmOrg.customProperties as Record<string, unknown>;
+        recipientEmail = (orgProps?.billingEmail as string) || (orgProps?.primaryEmail as string) || (invoiceProps.recipientEmail as string) || "";
         recipientName = buyerCrmOrg.name; // Temporary fallback, will try to get contact person next
-        recipientVatNumber = orgProps?.vatNumber;
+        recipientVatNumber = orgProps?.vatNumber as string | undefined;
 
         // Extract billing address from CRM organization
         // Priority: billingAddress (explicit) > address (general) > empty
-        const orgBillingAddr = orgProps?.billingAddress || orgProps?.address || {};
+        const orgBillingAddr = (orgProps?.billingAddress || orgProps?.address || {}) as Record<string, unknown>;
         if (orgBillingAddr && (orgBillingAddr.street || orgBillingAddr.city)) {
           crmBillingAddress = {
-            line1: orgBillingAddr.street,
-            line2: orgBillingAddr.street2,
-            city: orgBillingAddr.city,
-            state: orgBillingAddr.state,
-            postalCode: orgBillingAddr.postalCode,
-            country: orgBillingAddr.country,
+            line1: orgBillingAddr.street as string | undefined,
+            line2: orgBillingAddr.street2 as string | undefined,
+            city: orgBillingAddr.city as string | undefined,
+            state: orgBillingAddr.state as string | undefined,
+            postalCode: orgBillingAddr.postalCode as string | undefined,
+            country: orgBillingAddr.country as string | undefined,
             companyName: buyerCrmOrg.name,
-            taxId: orgProps?.vatNumber || orgProps?.taxId,
+            taxId: (orgProps?.vatNumber || orgProps?.taxId) as string | undefined,
           };
           console.log(`✅ [RESOLVER] Extracted billing address from CRM org:`, crmBillingAddress);
         }
@@ -434,9 +484,9 @@ export async function resolveInvoiceEmailData(
       });
 
       if (buyerCrmContact && buyerCrmContact.type === "crm_contact") {
-        const contactProps = buyerCrmContact.customProperties as any;
-        const firstName = contactProps?.firstName || "";
-        const lastName = contactProps?.lastName || "";
+        const contactProps = buyerCrmContact.customProperties as Record<string, unknown>;
+        const firstName = (contactProps?.firstName as string) || "";
+        const lastName = (contactProps?.lastName as string) || "";
 
         // Use firstName + lastName if available (preferred), otherwise use contact.name
         recipientName = (firstName || lastName)
@@ -445,20 +495,20 @@ export async function resolveInvoiceEmailData(
 
         // Only override email if we didn't get one from org
         if (!recipientEmail) {
-          recipientEmail = contactProps?.email || billingAddress.email || invoiceProps.recipientEmail || "";
+          recipientEmail = (contactProps?.email as string) || billingAddress.email || (invoiceProps.recipientEmail as string) || "";
         }
 
         // For B2C invoices (no crmOrganizationId), try to get address from contact
         if (!crmOrganizationId && !crmBillingAddress.line1) {
-          const contactAddr = contactProps?.address || contactProps?.billingAddress || {};
+          const contactAddr = (contactProps?.address || contactProps?.billingAddress || {}) as Record<string, unknown>;
           if (contactAddr && (contactAddr.street || contactAddr.city || contactAddr.line1)) {
             crmBillingAddress = {
-              line1: contactAddr.line1 || contactAddr.street,
-              line2: contactAddr.line2 || contactAddr.street2,
-              city: contactAddr.city,
-              state: contactAddr.state,
-              postalCode: contactAddr.postalCode,
-              country: contactAddr.country,
+              line1: (contactAddr.line1 as string) || (contactAddr.street as string),
+              line2: (contactAddr.line2 as string) || (contactAddr.street2 as string),
+              city: contactAddr.city as string | undefined,
+              state: contactAddr.state as string | undefined,
+              postalCode: contactAddr.postalCode as string | undefined,
+              country: contactAddr.country as string | undefined,
             };
             console.log(`✅ [RESOLVER] Extracted billing address from CRM contact:`, crmBillingAddress);
           }
@@ -480,7 +530,7 @@ export async function resolveInvoiceEmailData(
                      ? `${billingAddress.firstName} ${billingAddress.lastName}`.trim()
                      : billingAddress.firstName || billingAddress.lastName || "Customer");
     recipientCompanyName = billingAddress.companyName;
-    recipientEmail = billingAddress.email || invoiceProps.recipientEmail || "";
+    recipientEmail = billingAddress.email || (invoiceProps.recipientEmail as string) || "";
   }
 
   // Use CRM address if available, otherwise fall back to stale billing address
@@ -501,11 +551,11 @@ export async function resolveInvoiceEmailData(
   // STEP 9: BUILD SENDER INFO (from org + domain)
   // ==========================================================================
   const sender = {
-    name: domainProps.displayName || orgSettings.companyName,
+    name: domainProps?.displayName || orgSettings.companyName,
     companyName: orgSettings.companyName,
-    email: emailSettings.senderEmail,
+    email: emailSettings?.senderEmail || "invoices@mail.l4yercak3.com",
     phone: orgSettings.phone,
-    website: domainProps.webPublishing?.siteUrl || orgSettings.website,
+    website: domainProps?.webPublishing?.siteUrl || orgSettings.website,
     taxId: orgSettings.taxId,
     address: orgSettings.address,
   };
@@ -521,12 +571,12 @@ export async function resolveInvoiceEmailData(
   return {
     // Invoice identification
     invoiceId: invoice._id,
-    invoiceNumber: invoiceProps.invoiceNumber || "DRAFT",
-    invoiceDate: invoiceProps.invoiceDate || Date.now(),
-    dueDate: invoiceProps.dueDate || Date.now() + 30 * 24 * 60 * 60 * 1000,
-    status: invoiceProps.status || "draft",
-    invoiceType: invoiceProps.invoiceType || "b2b_single",
-    isDraft: invoiceProps.isDraft || false,
+    invoiceNumber: (invoiceProps.invoiceNumber as string) || "DRAFT",
+    invoiceDate: (invoiceProps.invoiceDate as number) || Date.now(),
+    dueDate: (invoiceProps.dueDate as number) || Date.now() + 30 * 24 * 60 * 60 * 1000,
+    status: (invoiceProps.status as string) || "draft",
+    invoiceType: (invoiceProps.invoiceType as string) || "b2b_single",
+    isDraft: (invoiceProps.isDraft as boolean) || false,
 
     // Recipient (uses CRM address if available, falls back to stale billing address)
     recipient: {
@@ -571,8 +621,8 @@ export async function resolveInvoiceEmailData(
     currencySymbol,
 
     // Payment
-    paymentTerms: invoiceProps.paymentTerms || "net30",
-    notes: invoiceProps.notes,
+    paymentTerms: (invoiceProps.paymentTerms as string) || "net30",
+    notes: invoiceProps.notes as string | undefined,
 
     // Branding (cascade: domain → organization → neutral defaults)
     // Using neutral colors (white/gray) as final fallbacks instead of brand-specific gold
