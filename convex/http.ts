@@ -15,6 +15,23 @@ import { api, internal } from "./_generated/api";
 import { httpAction } from "./_generated/server";
 import { getProviderByCode } from "./paymentProviders";
 import { getCorsHeaders, handleOptionsRequest } from "./api/v1/corsHeaders";
+import type { Id } from "./_generated/dataModel";
+import type Stripe from "stripe";
+
+// Helper to get error message from unknown error
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
+
+// Helper to check if error has data property with code
+function getErrorCode(error: unknown): string | undefined {
+  if (error && typeof error === "object" && "data" in error) {
+    const data = (error as { data?: { code?: string } }).data;
+    return data?.code;
+  }
+  return undefined;
+}
 
 const http = httpRouter();
 
@@ -273,7 +290,7 @@ http.route({
       });
 
       // Verify signature - MUST use async version in Convex runtime
-      let event: any;
+      let event: Stripe.Event;
       try {
         event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret);
         console.log(`[Invoice Webhooks] ✅ Signature verified for event: ${event.type}`);
@@ -289,7 +306,7 @@ http.route({
       await ctx.runAction(internal.api.v1.stripeInvoiceWebhooks.processStripeInvoiceWebhook, {
         eventType: event.type,
         eventId: event.id,
-        invoiceData: event.data.object,
+        invoiceData: event.data.object as Stripe.Invoice,
         created: event.created,
       });
 
@@ -367,7 +384,7 @@ http.route({
       });
 
       // Verify signature - MUST use async version in Convex runtime
-      let event: any;
+      let event: Stripe.Event;
       try {
         event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret);
         console.log(`[AI Webhooks] ✅ Signature verified for event: ${event.type}`);
@@ -379,7 +396,8 @@ http.route({
 
       // Parse event (already parsed by constructEvent)
       console.log(`[AI Webhooks] 📦 Processing: ${event.type} (${event.id})`);
-      console.log(`[AI Webhooks] 📧 Customer email: ${(event.data.object as any).customer_email || 'N/A'}`);
+      const eventObject = event.data.object as Record<string, unknown>;
+      console.log(`[AI Webhooks] 📧 Customer email: ${eventObject.customer_email || 'N/A'}`);
 
       // Schedule async processing
       await ctx.runAction(internal.stripe.aiWebhooks.processAIWebhook, {
@@ -662,10 +680,10 @@ http.route({
 
       // Route: /api/v1/events/{eventId}/products
       if (parts.length === 2 && parts[1] === "products") {
-        const eventId = parts[0];
+        const eventId = parts[0] as Id<"objects">;
         const products = await ctx.runQuery(
           internal.api.v1.eventsInternal.getEventProductsInternal,
-          { eventId: eventId as any, organizationId }
+          { eventId, organizationId }
         );
 
         return new Response(
@@ -683,10 +701,10 @@ http.route({
 
       // Route: /api/v1/events/{eventId}
       if (parts.length === 1) {
-        const eventId = parts[0];
+        const eventId = parts[0] as Id<"objects">;
         const event = await ctx.runQuery(
           internal.api.v1.eventsInternal.getEventByIdInternal,
-          { eventId: eventId as any, organizationId }
+          { eventId, organizationId }
         );
 
         if (!event) {
@@ -1215,7 +1233,7 @@ http.route({
         internal.api.v1.invoicesInternal.getInvoicesForClientInternal,
         {
           organizationId,
-          crmOrganizationId: crmOrganizationId as any,
+          crmOrganizationId: crmOrganizationId as Id<"objects">,
           status,
           limit,
           offset,
@@ -1393,12 +1411,13 @@ http.route({
         status: 201,
         headers: { "Content-Type": "application/json" },
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("[Webhooks API] Subscribe error:", error);
+      const errorCode = getErrorCode(error);
       return new Response(
-        JSON.stringify({ error: error.message || "Failed to subscribe webhook" }),
+        JSON.stringify({ error: getErrorMessage(error) || "Failed to subscribe webhook" }),
         {
-          status: error.data?.code === "UNAUTHORIZED" ? 401 : 400,
+          status: errorCode === "UNAUTHORIZED" ? 401 : 400,
           headers: { "Content-Type": "application/json" },
         }
       );
@@ -1428,19 +1447,20 @@ http.route({
 
       // Call Convex mutation to delete subscription
       await ctx.runMutation(api.zapier.webhooks.unsubscribeWebhook, {
-        subscriptionId: subscriptionId as any,
+        subscriptionId: subscriptionId as Id<"objects">,
       });
 
       return new Response(JSON.stringify({ success: true }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("[Webhooks API] Unsubscribe error:", error);
+      const errorCode = getErrorCode(error);
       return new Response(
-        JSON.stringify({ error: error.message || "Failed to unsubscribe webhook" }),
+        JSON.stringify({ error: getErrorMessage(error) || "Failed to unsubscribe webhook" }),
         {
-          status: error.data?.code === "UNAUTHORIZED" ? 401 : 404,
+          status: errorCode === "UNAUTHORIZED" ? 401 : 404,
           headers: { "Content-Type": "application/json" },
         }
       );
@@ -1476,7 +1496,7 @@ http.route({
         status: 200,
         headers: { "Content-Type": "application/json" },
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("[Community API] List subscriptions error:", error);
       return new Response(
         JSON.stringify({ error: "Failed to list subscriptions" }),
@@ -1580,27 +1600,28 @@ http.route({
           },
         }
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Signup error:", error);
 
       // Handle specific error codes
-      const errorMessage = error.data?.code === "EMAIL_EXISTS"
+      const errorCode = getErrorCode(error);
+      const errorMessage = errorCode === "EMAIL_EXISTS"
         ? "An account with this email already exists"
-        : error.data?.code === "WEAK_PASSWORD"
+        : errorCode === "WEAK_PASSWORD"
         ? "Password must be at least 8 characters long"
-        : error.data?.code === "INVALID_EMAIL"
+        : errorCode === "INVALID_EMAIL"
         ? "Invalid email format"
-        : error.data?.code === "DISPOSABLE_EMAIL"
+        : errorCode === "DISPOSABLE_EMAIL"
         ? "Please use a permanent email address"
-        : error.message || "Signup failed";
+        : getErrorMessage(error) || "Signup failed";
 
       return new Response(
         JSON.stringify({
           error: errorMessage,
-          code: error.data?.code,
+          code: errorCode,
         }),
         {
-          status: error.data?.code === "EMAIL_EXISTS" ? 409 : 400,
+          status: errorCode === "EMAIL_EXISTS" ? 409 : 400,
           headers: {
             "Content-Type": "application/json",
             ...getCorsHeaders(request.headers.get("origin")),

@@ -20,6 +20,62 @@ import { v } from "convex/values";
 import { requireAuthenticatedUser, checkPermission } from "./rbacHelpers";
 import { getLicenseInternal } from "./licensing/helpers";
 import { internal } from "./_generated/api";
+import { Id } from "./_generated/dataModel";
+
+// Type for domain config custom properties
+interface DomainConfigProps {
+  domainName: string;
+  includeSubdomains?: boolean;
+  verificationToken?: string;
+  domainVerified?: boolean;
+  verificationMethod?: string;
+  verifiedAt?: number;
+  capabilities?: {
+    email?: boolean;
+    api?: boolean;
+    branding?: boolean;
+    webPublishing?: boolean;
+  };
+  apiKeyId?: Id<"apiKeys">;
+  badgeRequired?: boolean;
+  badgeVerified?: boolean;
+  lastBadgeCheck?: number;
+  badgeCheckInterval?: number;
+  failedBadgeChecks?: number;
+  suspendedAt?: number;
+  suspensionReason?: string;
+  branding?: {
+    logoUrl: string;
+    primaryColor: string;
+    secondaryColor: string;
+    accentColor?: string;
+    fontFamily?: string;
+  };
+  email?: {
+    emailDomain: string;
+    senderEmail: string;
+    systemEmail: string;
+    salesEmail: string;
+    replyToEmail: string;
+    defaultTemplateCode?: string;
+    domainVerified?: boolean;
+    verifiedAt?: number;
+  };
+  webPublishing?: {
+    templateId?: string;
+    isExternal?: boolean;
+    siteUrl?: string;
+    metaTags?: {
+      title: string;
+      description: string;
+    };
+  };
+}
+
+// Helper to safely get domain config props
+function getDomainConfigProps(obj: { customProperties?: Record<string, unknown> }): DomainConfigProps {
+  return (obj.customProperties || {}) as DomainConfigProps;
+}
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -236,8 +292,8 @@ export const createDomainConfig = mutation({
 
       // Filter in JavaScript to check apiKeyId in customProperties
       const linkedConfigs = [
-        ...newTypeConfigs.filter((c) => (c.customProperties as any)?.apiKeyId === args.apiKeyId),
-        ...legacyTypeConfigs.filter((c) => (c.customProperties as any)?.apiKeyId === args.apiKeyId),
+        ...newTypeConfigs.filter((c) => getDomainConfigProps(c).apiKeyId === args.apiKeyId),
+        ...legacyTypeConfigs.filter((c) => getDomainConfigProps(c).apiKeyId === args.apiKeyId),
       ];
 
       const websitesCount = linkedConfigs.length;
@@ -380,7 +436,7 @@ export const verifyDomainOwnership = mutation({
       throw new Error("You don't have permission to verify this domain");
     }
 
-    const props = config.customProperties as any;
+    const props = getDomainConfigProps(config);
 
     // 4. Check if already verified
     if (props.domainVerified && config.status === "active") {
@@ -484,7 +540,7 @@ export const updateDomainConfig = mutation({
       throw new Error("You don't have permission to update this domain");
     }
 
-    const customProperties = existing.customProperties as any;
+    const customProperties = getDomainConfigProps(existing);
 
     // 4. If enabling API capability, check license and determine badge requirement
     let badgeRequired = customProperties.badgeRequired;
@@ -514,11 +570,11 @@ export const updateDomainConfig = mutation({
 
       // Filter in JavaScript to check apiKeyId in customProperties (excluding current config)
       const linkedConfigs = [
-        ...newTypeConfigs.filter((c) => 
-          c._id !== args.configId && (c.customProperties as any)?.apiKeyId === apiKeyIdToCheck
+        ...newTypeConfigs.filter((c) =>
+          c._id !== args.configId && getDomainConfigProps(c).apiKeyId === apiKeyIdToCheck
         ),
-        ...legacyTypeConfigs.filter((c) => 
-          c._id !== args.configId && (c.customProperties as any)?.apiKeyId === apiKeyIdToCheck
+        ...legacyTypeConfigs.filter((c) =>
+          c._id !== args.configId && getDomainConfigProps(c).apiKeyId === apiKeyIdToCheck
         ),
       ];
 
@@ -737,13 +793,13 @@ export const getDomainStatus = query({
       throw new Error("You don't have permission to view this domain");
     }
 
-    const props = config.customProperties as any;
+    const props = getDomainConfigProps(config);
 
     // 4. Get API key details if linked
     let apiKey = null;
     if (props.apiKeyId) {
       const key = await ctx.db.get(props.apiKeyId);
-      if (key && 'name' in key && 'status' in key && 'key' in key) {
+      if (key && "name" in key && "status" in key && "key" in key) {
         apiKey = {
           _id: key._id,
           name: key.name as string,
@@ -855,7 +911,7 @@ export const verifyApiRequestWithDomain = internalQuery({
       };
     }
 
-    const props = domainConfig.customProperties as any;
+    const props = getDomainConfigProps(domainConfig);
 
     // 5. Check if API capability is enabled
     if (!props.capabilities?.api) {
@@ -940,11 +996,11 @@ export const getDomainsNeedingVerification = internalQuery({
 
     // Filter for domains that need verification
     return allDomains.filter((domain) => {
-      const props = domain.customProperties as any;
+      const props = getDomainConfigProps(domain);
       return (
         props.capabilities?.api &&
         props.badgeRequired &&
-        props.lastBadgeCheck < oneDayAgo
+        (props.lastBadgeCheck ?? 0) < oneDayAgo
       );
     });
   },
@@ -971,9 +1027,13 @@ export const updateBadgeStatusInternal = internalMutation({
     const config = await ctx.db.get(args.configId);
     if (!config) return;
 
-    const props = config.customProperties as any;
+    const props = getDomainConfigProps(config);
 
-    const updates: any = {
+    const updates: {
+      updatedAt: number;
+      status?: "pending" | "active" | "suspended";
+      customProperties?: DomainConfigProps;
+    } = {
       updatedAt: Date.now(),
     };
 

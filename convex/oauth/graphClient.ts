@@ -5,11 +5,27 @@
  * Used for syncing emails, calendar, OneDrive, SharePoint, etc.
  */
 
-import { action, internalAction } from "../_generated/server";
+import { action, internalAction, ActionCtx } from "../_generated/server";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
+import { Id } from "../_generated/dataModel";
 
 const GRAPH_API_BASE = "https://graph.microsoft.com/v1.0";
+
+// Type for OAuth connection
+interface OAuthConnection {
+  _id: Id<"oauthConnections">;
+  status: string;
+  tokenExpiresAt: number;
+  accessToken: string;
+  organizationId: Id<"organizations">;
+}
+
+// Type for Graph API response (generic JSON object)
+type GraphApiResponse = Record<string, unknown> | null;
+
+// Type for request body
+type GraphApiRequestBody = Record<string, unknown>;
 
 /**
  * Make an authenticated request to Microsoft Graph API
@@ -20,9 +36,10 @@ export const graphRequest = internalAction({
     connectionId: v.id("oauthConnections"),
     endpoint: v.string(),
     method: v.optional(v.string()),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     body: v.optional(v.any()),
   },
-  handler: async (ctx, args): Promise<any> => {
+  handler: async (ctx, args): Promise<GraphApiResponse> => {
     // Get connection
     const connection = await ctx.runQuery(internal.oauth.microsoft.getConnection, {
       connectionId: args.connectionId,
@@ -44,19 +61,18 @@ export const graphRequest = internalAction({
       });
 
       // Re-fetch connection with fresh token
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const refreshedConnection: any = await ctx.runQuery(internal.oauth.microsoft.getConnection, {
+      const refreshedConnection = await ctx.runQuery(internal.oauth.microsoft.getConnection, {
         connectionId: args.connectionId,
-      });
+      }) as OAuthConnection | null;
 
       if (!refreshedConnection) {
         throw new Error("Failed to refresh connection");
       }
 
-      return await makeRequest(ctx, refreshedConnection, args.endpoint, args.method, args.body);
+      return await makeRequest(ctx, refreshedConnection, args.endpoint, args.method, args.body as GraphApiRequestBody | undefined);
     }
 
-    return await makeRequest(ctx, connection, args.endpoint, args.method, args.body);
+    return await makeRequest(ctx, connection as OAuthConnection, args.endpoint, args.method, args.body as GraphApiRequestBody | undefined);
   },
 });
 
@@ -64,15 +80,12 @@ export const graphRequest = internalAction({
  * Helper function to make the actual Graph API request
  */
 async function makeRequest(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ctx: any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  connection: any,
+  ctx: ActionCtx,
+  connection: OAuthConnection,
   endpoint: string,
   method: string = "GET",
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  body?: any
-): Promise<any> {
+  body?: GraphApiRequestBody
+): Promise<GraphApiResponse> {
   // Decrypt access token
   const accessToken = await ctx.runAction(internal.oauth.encryption.decryptToken, {
     encrypted: connection.accessToken,
@@ -144,13 +157,13 @@ export const getUserProfile = action({
   args: {
     connectionId: v.id("oauthConnections"),
   },
-  handler: async (ctx, args): Promise<any> => {
+  handler: async (ctx, args): Promise<GraphApiResponse> => {
     const { internal } = await import("../_generated/api");
-     
+
     return await ctx.runAction(internal.oauth.graphClient.graphRequest, {
       connectionId: args.connectionId,
       endpoint: "/me",
-    }) as any;
+    }) as GraphApiResponse;
   },
 });
 
@@ -162,17 +175,16 @@ export const getEmails = action({
     connectionId: v.id("oauthConnections"),
     top: v.optional(v.number()), // Number of emails to fetch
   },
-  handler: async (ctx, args): Promise<any> => {
+  handler: async (ctx, args): Promise<GraphApiResponse> => {
     const { internal } = await import("../_generated/api");
     const endpoint = args.top
       ? `/me/messages?$top=${args.top}&$orderby=receivedDateTime desc`
       : `/me/messages?$orderby=receivedDateTime desc`;
 
-     
     return await ctx.runAction(internal.oauth.graphClient.graphRequest, {
       connectionId: args.connectionId,
       endpoint,
-    }) as any;
+    }) as GraphApiResponse;
   },
 });
 
@@ -185,7 +197,7 @@ export const getCalendarEvents = action({
     startDateTime: v.optional(v.string()),
     endDateTime: v.optional(v.string()),
   },
-  handler: async (ctx, args): Promise<any> => {
+  handler: async (ctx, args): Promise<GraphApiResponse> => {
     const { internal } = await import("../_generated/api");
     let endpoint = "/me/calendarView";
 
@@ -193,11 +205,10 @@ export const getCalendarEvents = action({
       endpoint += `?startDateTime=${args.startDateTime}&endDateTime=${args.endDateTime}`;
     }
 
-     
     return await ctx.runAction(internal.oauth.graphClient.graphRequest, {
       connectionId: args.connectionId,
       endpoint,
-    }) as any;
+    }) as GraphApiResponse;
   },
 });
 
@@ -209,17 +220,16 @@ export const getOneDriveFiles = action({
     connectionId: v.id("oauthConnections"),
     folderId: v.optional(v.string()),
   },
-  handler: async (ctx, args): Promise<any> => {
+  handler: async (ctx, args): Promise<GraphApiResponse> => {
     const { internal } = await import("../_generated/api");
     const endpoint = args.folderId
       ? `/me/drive/items/${args.folderId}/children`
       : "/me/drive/root/children";
 
-     
     return await ctx.runAction(internal.oauth.graphClient.graphRequest, {
       connectionId: args.connectionId,
       endpoint,
-    }) as any;
+    }) as GraphApiResponse;
   },
 });
 
@@ -230,13 +240,13 @@ export const getSharePointSites = action({
   args: {
     connectionId: v.id("oauthConnections"),
   },
-  handler: async (ctx, args): Promise<any> => {
+  handler: async (ctx, args): Promise<GraphApiResponse> => {
     const { internal } = await import("../_generated/api");
-     
+
     return await ctx.runAction(internal.oauth.graphClient.graphRequest, {
       connectionId: args.connectionId,
       endpoint: "/sites?search=*",
-    }) as any;
+    }) as GraphApiResponse;
   },
 });
 
@@ -259,18 +269,24 @@ export const testConnection = action({
   }> => {
     try {
       const { api } = await import("../_generated/api");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const profile: any = await ctx.runAction(api.oauth.graphClient.getUserProfile, {
+      const profile = await ctx.runAction(api.oauth.graphClient.getUserProfile, {
         connectionId: args.connectionId,
-      });
+      }) as Record<string, unknown> | null;
+
+      if (!profile) {
+        return {
+          success: false,
+          message: "Failed to retrieve profile",
+        };
+      }
 
       return {
         success: true,
         message: "Connection successful",
         user: {
-          id: profile.id,
-          displayName: profile.displayName,
-          email: profile.userPrincipalName || profile.mail,
+          id: profile.id as string,
+          displayName: profile.displayName as string,
+          email: (profile.userPrincipalName || profile.mail) as string,
         },
       };
     } catch (error) {
