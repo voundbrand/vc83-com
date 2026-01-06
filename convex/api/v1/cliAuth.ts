@@ -9,7 +9,7 @@
 import { v } from "convex/values";
 import { action, query, mutation, internalMutation, internalQuery, internalAction } from "../../_generated/server";
 import { Id } from "../../_generated/dataModel";
-import { internal } from "../../_generated/api";
+import { api, internal } from "../../_generated/api";
 
 /**
  * Generate CLI session token
@@ -871,5 +871,562 @@ export const createDefaultOrganization = internalMutation({
     });
 
     return organizationId;
+  },
+});
+
+// ============================================================================
+// CLI ORGANIZATION FUNCTIONS
+// ============================================================================
+
+/**
+ * Get Organizations for CLI User
+ *
+ * Returns all organizations the authenticated CLI user belongs to.
+ * Uses CLI session token for authentication.
+ */
+export const getCliUserOrganizations = query({
+  args: {
+    token: v.string(),
+  },
+  handler: async (ctx, args): Promise<{
+    organizations: Array<{
+      id: Id<"organizations">;
+      name: string;
+      slug: string;
+      role: string;
+    }>;
+  } | null> => {
+    // Find CLI session by token
+    const session = await ctx.db
+      .query("cliSessions")
+      .withIndex("by_token", (q) => q.eq("cliToken", args.token))
+      .first();
+
+    if (!session) {
+      return null;
+    }
+
+    // Check expiration
+    if (session.expiresAt < Date.now()) {
+      return null;
+    }
+
+    // Get all organization memberships for this user
+    const memberships = await ctx.db
+      .query("organizationMembers")
+      .withIndex("by_user", (q) => q.eq("userId", session.userId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+
+    const organizations = await Promise.all(
+      memberships.map(async (membership) => {
+        const org = await ctx.db.get(membership.organizationId);
+        const role = await ctx.db.get(membership.role);
+        if (!org || !org.isActive) return null;
+        return {
+          id: org._id,
+          name: org.name,
+          slug: org.slug,
+          role: role?.name || "member",
+        };
+      })
+    );
+
+    return {
+      organizations: organizations.filter((org): org is NonNullable<typeof org> => org !== null),
+    };
+  },
+});
+
+/**
+ * Create Organization for CLI User
+ *
+ * Creates a new organization for the authenticated CLI user.
+ * Uses CLI session token for authentication.
+ */
+export const createCliOrganization = action({
+  args: {
+    token: v.string(),
+    name: v.string(),
+  },
+  handler: async (ctx, args): Promise<{
+    id: Id<"organizations">;
+    organizationId: Id<"organizations">;
+    name: string;
+    slug: string;
+  }> => {
+    // Validate session
+    const sessionInfo = await ctx.runQuery(api.api.v1.cliAuth.validateCliSession, {
+      token: args.token,
+    });
+
+    if (!sessionInfo) {
+      throw new Error("Invalid or expired CLI session");
+    }
+
+    // Create the organization using internal mutation
+    const organizationId = await ctx.runMutation(internal.api.v1.cliAuth.createCliOrganizationInternal, {
+      userId: sessionInfo.userId,
+      organizationName: args.name,
+    });
+
+    // Get the created organization to return slug
+    const org = await ctx.runQuery(internal.api.v1.cliAuth.getOrganizationById, {
+      organizationId,
+    });
+
+    if (!org) {
+      throw new Error("Failed to create organization");
+    }
+
+    return {
+      id: organizationId,
+      organizationId, // For CLI compatibility
+      name: org.name,
+      slug: org.slug,
+    };
+  },
+});
+
+/**
+ * Get Organization By ID (Internal)
+ */
+export const getOrganizationById = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.organizationId);
+  },
+});
+
+/**
+ * Create CLI Organization (Internal)
+ *
+ * Creates organization and adds user as owner.
+ */
+export const createCliOrganizationInternal = internalMutation({
+  args: {
+    userId: v.id("users"),
+    organizationName: v.string(),
+  },
+  handler: async (ctx, args): Promise<Id<"organizations">> => {
+    // Generate unique slug
+    const baseSlug = args.organizationName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 50);
+
+    let slug = baseSlug;
+    let counter = 2;
+    while (true) {
+      const existing = await ctx.db
+        .query("organizations")
+        .withIndex("by_slug", (q) => q.eq("slug", slug))
+        .first();
+
+      if (!existing) {
+        break;
+      }
+
+      slug = `${baseSlug}-${counter}`;
+      counter++;
+
+      if (counter > 1000) {
+        slug = `${baseSlug}-${Math.floor(Math.random() * 100000)}`;
+        break;
+      }
+    }
+
+    // Get user email for organization
+    const user = await ctx.db.get(args.userId);
+
+    // Create organization
+    const organizationId = await ctx.db.insert("organizations", {
+      name: args.organizationName,
+      slug,
+      businessName: args.organizationName,
+      isPersonalWorkspace: false,
+      isActive: true,
+      email: user?.email || "",
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    // Get or create org_owner role
+    let ownerRole = await ctx.db
+      .query("roles")
+      .withIndex("by_name", (q) => q.eq("name", "org_owner"))
+      .first();
+
+    if (!ownerRole) {
+      const ownerRoleId = await ctx.db.insert("roles", {
+        name: "org_owner",
+        description: "Organization owner with full permissions",
+        isActive: true,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+      ownerRole = await ctx.db.get(ownerRoleId);
+    }
+
+    // Add user as organization owner
+    await ctx.db.insert("organizationMembers", {
+      userId: args.userId,
+      organizationId,
+      role: ownerRole!._id,
+      isActive: true,
+      joinedAt: Date.now(),
+      acceptedAt: Date.now(),
+      invitedBy: args.userId,
+    });
+
+    return organizationId;
+  },
+});
+
+// ============================================================================
+// CLI API KEY FUNCTIONS
+// ============================================================================
+
+/**
+ * Generate API Key for CLI User
+ *
+ * Creates an API key for the specified organization.
+ * Uses CLI session token for authentication.
+ */
+export const generateCliApiKey = action({
+  args: {
+    token: v.string(),
+    organizationId: v.id("organizations"),
+    name: v.string(),
+    scopes: v.optional(v.array(v.string())),
+  },
+  handler: async (ctx, args): Promise<{
+    key: string;
+    apiKey: string; // For CLI compatibility
+    id: Id<"apiKeys">;
+    name: string;
+    scopes: string[];
+    createdAt: number;
+  }> => {
+    // Validate session
+    const sessionInfo = await ctx.runQuery(api.api.v1.cliAuth.validateCliSession, {
+      token: args.token,
+    });
+
+    if (!sessionInfo) {
+      throw new Error("Invalid or expired CLI session");
+    }
+
+    // Verify user has access to the organization
+    const hasAccess = sessionInfo.organizations.some((org: { id: Id<"organizations"> }) => org.id === args.organizationId);
+    if (!hasAccess) {
+      throw new Error("Not authorized: You don't have access to this organization");
+    }
+
+    // Check license limits
+    const licenseCheck = await ctx.runQuery(internal.apiKeysInternal.checkApiKeyLimit, {
+      organizationId: args.organizationId,
+    });
+
+    if (!licenseCheck.allowed) {
+      throw new Error(licenseCheck.error || "API key limit reached");
+    }
+
+    // Use internal action to generate and hash the key (requires Node.js runtime)
+    const result = await ctx.runAction(internal.api.v1.cliAuth.generateCliApiKeyInternal, {
+      organizationId: args.organizationId,
+      userId: sessionInfo.userId,
+      name: args.name,
+      scopes: args.scopes || ["*"],
+    });
+
+    return result;
+  },
+});
+
+/**
+ * Generate CLI API Key (Internal - Node.js runtime for bcrypt)
+ */
+export const generateCliApiKeyInternal = internalAction({
+  args: {
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+    name: v.string(),
+    scopes: v.array(v.string()),
+  },
+  handler: async (ctx, args): Promise<{
+    key: string;
+    apiKey: string;
+    id: Id<"apiKeys">;
+    name: string;
+    scopes: string[];
+    createdAt: number;
+  }> => {
+    // Generate cryptographically secure API key
+    const randomBytes = crypto.getRandomValues(new Uint8Array(32));
+    const randomString = Array.from(randomBytes, byte =>
+      byte.toString(16).padStart(2, '0')
+    ).join('');
+    const fullKey = `sk_live_${randomString}`;
+    const keyPrefix = fullKey.substring(0, 12);
+
+    // Hash with bcrypt - use dynamic import for Node.js runtime
+    const bcrypt = await import("bcryptjs");
+    const keyHash = await bcrypt.default.hash(fullKey, 12);
+
+    // Store in database
+    const apiKeyId = await ctx.runMutation(internal.apiKeysInternal.storeApiKey, {
+      keyHash,
+      keyPrefix,
+      name: args.name,
+      organizationId: args.organizationId,
+      createdBy: args.userId,
+      scopes: args.scopes,
+      type: "simple",
+    });
+
+    return {
+      key: fullKey,
+      apiKey: fullKey, // For CLI compatibility
+      id: apiKeyId,
+      name: args.name,
+      scopes: args.scopes,
+      createdAt: Date.now(),
+    };
+  },
+});
+
+// ============================================================================
+// SYNC USER FUNCTIONS (for NextAuth integration)
+// ============================================================================
+
+/**
+ * Sync External User (with API Key authentication)
+ *
+ * Called by customer's NextAuth integration to sync users to L4YERCAK3 backend.
+ * This allows customer apps to authenticate via their own NextAuth and sync
+ * those users to the platform.
+ *
+ * Note: This does NOT create full OAuth connections (those are for Microsoft 365
+ * sync, etc.) - it just creates/updates the user record and ensures they're
+ * a member of the organization.
+ *
+ * Authentication: API Key (Bearer token)
+ */
+export const syncExternalUser = action({
+  args: {
+    // API Key for authentication
+    apiKey: v.string(),
+    // User info from NextAuth
+    email: v.string(),
+    name: v.optional(v.string()),
+    image: v.optional(v.string()),
+    // OAuth provider info (for tracking, not for creating oauthConnections)
+    provider: v.string(),
+    providerAccountId: v.string(),
+    // These are passed but we don't store them (customer's app manages OAuth)
+    accessToken: v.optional(v.string()),
+    refreshToken: v.optional(v.string()),
+    expiresAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args): Promise<{
+    userId: Id<"users">;
+    organizationId: Id<"organizations">;
+    isNewUser: boolean;
+    email: string;
+  }> => {
+    // Verify API key using internal action
+    const authContext = await ctx.runAction(internal.actions.apiKeys.verifyApiKey, {
+      apiKey: args.apiKey,
+    });
+
+    if (!authContext) {
+      throw new Error("Invalid or expired API key");
+    }
+
+    const organizationId = authContext.organizationId;
+
+    // Check if user exists by email
+    const existingUser = await ctx.runQuery(internal.api.v1.cliAuth.getUserByEmailInternal, {
+      email: args.email,
+    });
+
+    let userId: Id<"users">;
+    let isNewUser = false;
+
+    if (existingUser) {
+      userId = existingUser._id;
+
+      // Ensure user is member of this organization
+      const membership = await ctx.runQuery(internal.api.v1.cliAuth.checkOrgMembership, {
+        userId,
+        organizationId,
+      });
+
+      if (!membership) {
+        // Add user to organization as viewer (lowest privilege for external sync)
+        await ctx.runMutation(internal.api.v1.cliAuth.addUserToOrgAsViewer, {
+          userId,
+          organizationId,
+        });
+      }
+    } else {
+      // Create new user
+      userId = await ctx.runMutation(internal.api.v1.cliAuth.createSyncedUser, {
+        email: args.email,
+        name: args.name,
+        organizationId,
+      });
+      isNewUser = true;
+    }
+
+    return {
+      userId,
+      organizationId,
+      isNewUser,
+      email: args.email,
+    };
+  },
+});
+
+/**
+ * Get User By Email (Internal)
+ */
+export const getUserByEmailInternal = internalQuery({
+  args: {
+    email: v.string(),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", args.email))
+      .first();
+  },
+});
+
+/**
+ * Check Organization Membership (Internal)
+ */
+export const checkOrgMembership = internalQuery({
+  args: {
+    userId: v.id("users"),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("organizationMembers")
+      .withIndex("by_user_and_org", (q) =>
+        q.eq("userId", args.userId).eq("organizationId", args.organizationId)
+      )
+      .first();
+  },
+});
+
+/**
+ * Add User to Organization as Viewer (Internal)
+ */
+export const addUserToOrgAsViewer = internalMutation({
+  args: {
+    userId: v.id("users"),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    // Get viewer role
+    let viewerRole = await ctx.db
+      .query("roles")
+      .withIndex("by_name", (q) => q.eq("name", "viewer"))
+      .first();
+
+    if (!viewerRole) {
+      // Create viewer role if it doesn't exist
+      const roleId = await ctx.db.insert("roles", {
+        name: "viewer",
+        description: "Read-only access",
+        isActive: true,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+      viewerRole = await ctx.db.get(roleId);
+    }
+
+    // Add membership
+    await ctx.db.insert("organizationMembers", {
+      userId: args.userId,
+      organizationId: args.organizationId,
+      role: viewerRole!._id,
+      isActive: true,
+      joinedAt: Date.now(),
+      acceptedAt: Date.now(),
+      invitedBy: args.userId, // Self-joined via sync
+    });
+  },
+});
+
+/**
+ * Create Synced User (Internal)
+ *
+ * Creates a new user from external sync (NextAuth).
+ * Does NOT create oauthConnections - customer's app manages OAuth tokens.
+ */
+export const createSyncedUser = internalMutation({
+  args: {
+    email: v.string(),
+    name: v.optional(v.string()),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args): Promise<Id<"users">> => {
+    // Parse name into first/last
+    let firstName: string | undefined;
+    let lastName: string | undefined;
+    if (args.name) {
+      const parts = args.name.split(" ");
+      firstName = parts[0];
+      lastName = parts.slice(1).join(" ") || undefined;
+    }
+
+    // Create user
+    const userId = await ctx.db.insert("users", {
+      email: args.email,
+      firstName,
+      lastName,
+      defaultOrgId: args.organizationId,
+      isPasswordSet: false, // Synced user, no password
+      isActive: true,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    // Get viewer role
+    let viewerRole = await ctx.db
+      .query("roles")
+      .withIndex("by_name", (q) => q.eq("name", "viewer"))
+      .first();
+
+    if (!viewerRole) {
+      const roleId = await ctx.db.insert("roles", {
+        name: "viewer",
+        description: "Read-only access",
+        isActive: true,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+      viewerRole = await ctx.db.get(roleId);
+    }
+
+    // Add user to organization as viewer
+    await ctx.db.insert("organizationMembers", {
+      userId,
+      organizationId: args.organizationId,
+      role: viewerRole!._id,
+      isActive: true,
+      joinedAt: Date.now(),
+      acceptedAt: Date.now(),
+      invitedBy: userId, // Self-joined via sync
+    });
+
+    return userId;
   },
 });

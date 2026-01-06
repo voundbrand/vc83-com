@@ -1,9 +1,22 @@
 /**
  * Validate CLI Session Route
- * 
+ *
  * GET /api/v1/auth/cli/validate
- * 
+ *
  * Validates a CLI session token and returns user info.
+ *
+ * Response (success):
+ * {
+ *   "valid": true,
+ *   "user": { "id": "...", "email": "..." },
+ *   "expiresAt": 1704567890000
+ * }
+ *
+ * Response (invalid):
+ * {
+ *   "valid": false,
+ *   "error": "Token expired"
+ * }
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -12,10 +25,13 @@ import { fetchQuery } from "convex/nextjs";
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("Authorization");
-  
+
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return NextResponse.json(
-      { error: "Missing or invalid Authorization header" },
+      {
+        valid: false,
+        error: "Missing or invalid Authorization header",
+      },
       { status: 401 }
     );
   }
@@ -29,16 +45,34 @@ export async function GET(request: NextRequest) {
 
     if (!userInfo) {
       return NextResponse.json(
-        { error: "Invalid or expired session" },
+        {
+          valid: false,
+          error: "Invalid or expired session",
+        },
         { status: 401 }
       );
     }
 
-    return NextResponse.json(userInfo);
-  } catch (error: any) {
+    // Return CLI-compatible format with valid field
+    return NextResponse.json({
+      valid: true,
+      user: {
+        id: userInfo.userId,
+        email: userInfo.email,
+        name: userInfo.email.split("@")[0], // Fallback name from email
+      },
+      organizations: userInfo.organizations,
+      expiresAt: userInfo.expiresAt,
+    });
+  } catch (error: unknown) {
     console.error("CLI session validation error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Failed to validate session", error_description: error.message },
+      {
+        valid: false,
+        error: "Failed to validate session",
+        error_description: errorMessage,
+      },
       { status: 500 }
     );
   }
