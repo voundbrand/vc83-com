@@ -6,6 +6,10 @@
  *
  * Uses the same retro UI styling as the main login window, displayed
  * in a floating window on the classic Windows 95 teal desktop.
+ *
+ * IMPORTANT: OAuth flow is initiated via /api/auth/oauth-signup endpoint
+ * which properly generates and stores the state token. Do NOT build
+ * OAuth URLs client-side as that bypasses state registration.
  */
 
 'use client';
@@ -16,7 +20,6 @@ import { Eye, EyeOff } from 'lucide-react';
 
 function CliLoginContent() {
   const searchParams = useSearchParams();
-  const state = searchParams.get('state');
   const callback = searchParams.get('callback');
   const [error, setError] = useState<string | null>(null);
   const [showEmailSignup, setShowEmailSignup] = useState(false);
@@ -32,55 +35,17 @@ function CliLoginContent() {
   const [passwordMatch, setPasswordMatch] = useState<boolean | null>(null);
 
   const handleProviderClick = (provider: 'microsoft' | 'google' | 'github') => {
-    if (!state || !callback) {
-      setError('Missing required parameters');
+    if (!callback) {
+      setError('Missing callback URL');
       return;
     }
 
-    // Redirect to provider OAuth (uses unified callback)
+    // Redirect to the oauth-signup endpoint which properly generates and stores the state
+    // This is the correct flow - do NOT build OAuth URLs client-side
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
-    const redirectUri = `${appUrl}/api/auth/oauth/callback`;
+    const oauthUrl = `${appUrl}/api/auth/oauth-signup?provider=${provider}&sessionType=cli&callback=${encodeURIComponent(callback)}`;
 
-    let authUrl = '';
-
-    if (provider === 'github') {
-      const githubAuthUrl = 'https://github.com/login/oauth/authorize';
-      const params = new URLSearchParams({
-        client_id: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID || '',
-        redirect_uri: redirectUri,
-        scope: 'read:user user:email',
-        state: state,
-        allow_signup: 'false',
-      });
-      authUrl = `${githubAuthUrl}?${params.toString()}`;
-    } else if (provider === 'microsoft') {
-      const microsoftAuthUrl = 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize';
-      const params = new URLSearchParams({
-        client_id: process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID || '',
-        response_type: 'code',
-        redirect_uri: redirectUri,
-        response_mode: 'query',
-        scope: 'openid profile email',
-        state: state,
-      });
-      authUrl = `${microsoftAuthUrl}?${params.toString()}`;
-    } else if (provider === 'google') {
-      const googleAuthUrl = 'https://accounts.google.com/o/oauth2/v2/auth';
-      const params = new URLSearchParams({
-        client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '',
-        response_type: 'code',
-        redirect_uri: redirectUri,
-        scope: 'openid profile email',
-        state: state,
-      });
-      authUrl = `${googleAuthUrl}?${params.toString()}`;
-    }
-
-    if (authUrl) {
-      window.location.href = authUrl;
-    } else {
-      setError('Failed to generate OAuth URL');
-    }
+    window.location.href = oauthUrl;
   };
 
   const handlePasswordChange = (value: string) => {
@@ -101,7 +66,7 @@ function CliLoginContent() {
     }
   };
 
-  if (!state || !callback) {
+  if (!callback) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6" style={{ background: '#008080' }}>
         {/* Retro Window */}
@@ -129,7 +94,7 @@ function CliLoginContent() {
             <div className="text-5xl mb-4">⚠️</div>
             <h1 className="font-pixel text-sm retro-text mb-4">Invalid Request</h1>
             <p className="text-sm retro-text-secondary">
-              Missing required parameters. Please try logging in again from the CLI.
+              Missing callback URL. Please try logging in again from the CLI.
             </p>
           </div>
         </div>
@@ -266,7 +231,6 @@ function CliLoginContent() {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                      state,
                       callback,
                       email,
                       password,
