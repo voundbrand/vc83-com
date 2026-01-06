@@ -46,7 +46,7 @@ export function ContactsList({ selectedId, onSelect, onNavigateToPipelines }: Co
       await deleteContactMutation({ sessionId, contactId })
       // Clear selection if deleted contact was selected
       if (selectedId === contactId) {
-        onSelect(null as any)
+        onSelect(null as unknown as Id<"objects">)
       }
       setDeletingId(null)
       notification.success(

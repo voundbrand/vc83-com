@@ -314,7 +314,7 @@ export function EmailSendModal({
               <>
                 <option disabled>──────────</option>
                 {domainConfigs.map((config) => {
-                  const props = config.customProperties as any;
+                  const props = config.customProperties as { domainName?: string; email?: { senderEmail?: string } } | undefined;
                   return (
                     <option key={config._id} value={config._id}>
                       {props?.domainName} ({props?.email?.senderEmail})

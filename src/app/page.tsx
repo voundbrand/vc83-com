@@ -45,6 +45,7 @@ import { useTheme } from "@/contexts/theme-context"
 import { getThemeFamily, isLightTheme, getOppositeTheme } from "@/contexts/theme-context"
 import { useQuery } from "convex/react"
 import { api } from "../../convex/_generated/api"
+import { Id } from "../../convex/_generated/dataModel"
 
 export default function HomePage() {
   // Load translations for start menu and app names
@@ -79,7 +80,7 @@ export default function HomePage() {
   const brandingSettings = useQuery(
     api.organizationOntology.getOrganizationSettings,
     currentOrg?.id ? {
-      organizationId: currentOrg.id as any,
+      organizationId: currentOrg.id as Id<"organizations">,
       subtype: "branding"
     } : "skip"
   )

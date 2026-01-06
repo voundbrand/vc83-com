@@ -71,7 +71,7 @@ export function FAIconPicker({ selectedIcon, onSelect, disabled }: FAIconPickerP
     }
 
     const query = searchQuery.toLowerCase();
-    const filtered: typeof ICON_CATEGORIES = {} as any;
+    const filtered: Partial<typeof ICON_CATEGORIES> = {};
 
     for (const [category, icons] of Object.entries(ICON_CATEGORIES)) {
       const matchingIcons = icons.filter(
@@ -80,7 +80,7 @@ export function FAIconPicker({ selectedIcon, onSelect, disabled }: FAIconPickerP
           icon.class.toLowerCase().includes(query)
       );
       if (matchingIcons.length > 0) {
-        (filtered as any)[category] = matchingIcons;
+        filtered[category as keyof typeof ICON_CATEGORIES] = matchingIcons;
       }
     }
 

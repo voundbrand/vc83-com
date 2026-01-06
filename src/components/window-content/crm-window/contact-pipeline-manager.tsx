@@ -14,6 +14,29 @@ import type { Id } from "../../../../convex/_generated/dataModel";
  * Allows viewing, adding, removing, and managing a contact's pipelines and stages
  */
 
+// Types for pipeline-related data from Convex queries
+interface PipelineStageFromQuery {
+  _id: Id<"objects">;
+  name: string;
+  customProperties?: Record<string, unknown>;
+}
+
+interface ContactPipelineItem {
+  pipeline: {
+    _id: Id<"objects">;
+    name?: string;
+    description?: string;
+    customProperties?: Record<string, unknown>;
+  } | null;
+  stage: {
+    _id: Id<"objects">;
+    name?: string;
+  } | null;
+  stages?: PipelineStageFromQuery[];
+  properties?: Record<string, unknown>;
+  linkId?: Id<"objectLinks">;
+}
+
 interface ContactPipelineManagerProps {
   contactId: Id<"objects">;
 }
@@ -123,7 +146,7 @@ export function ContactPipelineManager({ contactId }: ContactPipelineManagerProp
 
   // Filter out pipelines the contact is already in
   const pipelinesNotIn = availablePipelines?.filter(
-    (p) => !contactPipelines?.some((cp: any) => cp.pipeline?._id === p._id)
+    (p) => !(contactPipelines as ContactPipelineItem[] | undefined)?.some((cp) => cp.pipeline?._id === p._id)
   ) || [];
 
   if (!sessionId || !currentOrganizationId) {
@@ -154,7 +177,7 @@ export function ContactPipelineManager({ contactId }: ContactPipelineManagerProp
       {/* Current pipelines */}
       {contactPipelines && contactPipelines.length > 0 ? (
         <div className="space-y-2">
-          {contactPipelines.map((item: any) => {
+          {(contactPipelines as ContactPipelineItem[]).map((item) => {
             const pipeline = item.pipeline;
             const currentStage = item.stage;
             const stages = item.stages || [];
@@ -183,8 +206,8 @@ export function ContactPipelineManager({ contactId }: ContactPipelineManagerProp
                     )}
                   </div>
                   <button
-                    onClick={() => handleRemoveFromPipeline(pipeline?._id)}
-                    disabled={isRemoving}
+                    onClick={() => pipeline?._id && handleRemoveFromPipeline(pipeline._id)}
+                    disabled={isRemoving || !pipeline?._id}
                     className="retro-button px-1.5 py-0.5"
                     title="Remove from pipeline"
                     style={{ opacity: isRemoving ? 0.5 : 1 }}
@@ -201,11 +224,11 @@ export function ContactPipelineManager({ contactId }: ContactPipelineManagerProp
                   <select
                     className="retro-input w-full px-2 py-1 text-xs"
                     value={currentStage?._id || ""}
-                    onChange={(e) => handleMoveToStage(pipeline?._id, e.target.value as Id<"objects">)}
-                    disabled={isMoving || stages.length === 0}
+                    onChange={(e) => pipeline?._id && handleMoveToStage(pipeline._id, e.target.value as Id<"objects">)}
+                    disabled={isMoving || stages.length === 0 || !pipeline?._id}
                     style={{ opacity: isMoving ? 0.5 : 1 }}
                   >
-                    {stages.map((stage: any) => (
+                    {(stages as PipelineStageFromQuery[]).map((stage) => (
                       <option key={stage._id} value={stage._id}>
                         {stage.name}
                       </option>
@@ -258,7 +281,7 @@ export function ContactPipelineManager({ contactId }: ContactPipelineManagerProp
                   onChange={(e) => setSelectedNewStage(e.target.value as Id<"objects">)}
                 >
                   <option value="">-- Select Stage --</option>
-                  {newPipelineStages?.stages?.map((stage: any) => (
+                  {(newPipelineStages?.stages as PipelineStageFromQuery[] | undefined)?.map((stage) => (
                     <option key={stage._id} value={stage._id}>
                       {stage.name}
                     </option>

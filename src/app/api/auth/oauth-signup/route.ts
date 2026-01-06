@@ -129,10 +129,11 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.redirect(authUrl);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("OAuth signup initiation error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Failed to initiate OAuth signup", error_description: error.message },
+      { error: "Failed to initiate OAuth signup", error_description: errorMessage },
       { status: 500 }
     );
   }

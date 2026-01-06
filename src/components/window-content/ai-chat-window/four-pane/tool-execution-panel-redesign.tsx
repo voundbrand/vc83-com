@@ -741,8 +741,22 @@ export function ToolExecutionPanel({ selectedWorkItem, onSelectWorkItem, selecte
     organizationId ? { organizationId } : "skip"
   )
 
+  // Define a type for the raw Convex tool execution data
+  interface ConvexToolExecution {
+    _id: string;
+    toolName: string;
+    status: string;
+    executedAt: number;
+    durationMs?: number;
+    parameters: Record<string, unknown>;
+    result?: unknown;
+    error?: string;
+    isMinimized?: boolean;
+    proposalMessage?: string;
+  }
+
   // Transform Convex data to match our interface
-  const executions: ToolExecution[] = (toolExecutionsData || []).map((exec: any) => {
+  const executions: ToolExecution[] = (toolExecutionsData || []).map((exec: ConvexToolExecution) => {
     // Calculate end time from executedAt + durationMs
     const endTime = exec.durationMs
       ? new Date(exec.executedAt + exec.durationMs)
@@ -772,13 +786,23 @@ export function ToolExecutionPanel({ selectedWorkItem, onSelectWorkItem, selecte
     };
   })
 
+  // Define a type for action button output
+  interface ActionButtonOutput {
+    actionButton: {
+      label: string;
+      action: string;
+      variant: string;
+    };
+    message?: string;
+  }
+
   // Extract action items from failed executions with actionButton
   const actionItems = executions
     .filter(exec => exec.status === 'error' && exec.output && typeof exec.output === 'object' && 'actionButton' in exec.output)
     .map(exec => ({
       id: exec.id,
-      actionButton: (exec.output as any).actionButton,
-      message: (exec.output as any).message || exec.error || 'Action required'
+      actionButton: (exec.output as ActionButtonOutput).actionButton,
+      message: (exec.output as ActionButtonOutput).message || exec.error || 'Action required'
     }))
 
   const bottomPanelHeight = 100 - topPanelHeight;

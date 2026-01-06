@@ -276,6 +276,7 @@ function renderHeader(section: HeaderSection, resolveVariable: (template: string
       }}
     >
       {logoUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={logoUrl}
           alt="Logo"
@@ -323,6 +324,7 @@ function renderHeroImage(section: HeroImageSection, resolveVariable: (template: 
 
   return (
     <div style={{ position: "relative", height: content.height, overflow: "hidden" }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={imageUrl}
         alt={altText}
@@ -663,6 +665,7 @@ function renderEmailHero(section: EmailHeroSection, resolveVariable: (template: 
   return (
     <div style={{ padding: "32px 24px", textAlign: "center", backgroundColor: "#F9FAFB" }}>
       {image && (
+        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={image}
           alt={title}

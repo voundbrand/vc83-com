@@ -26,13 +26,13 @@ interface WorkItem {
 
 interface ToolExecution {
   id: string
-  _id?: any
+  _id?: Id<"aiToolExecutions">
   toolName: string
   status: "proposed" | "approved" | "executing" | "running" | "success" | "error" | "rejected" | "cancelled"
   startTime?: Date
   endTime?: Date
   input?: Record<string, unknown>
-  parameters?: any
+  parameters?: Record<string, unknown>
   output?: unknown
   error?: string
   isMinimized?: boolean
@@ -65,7 +65,7 @@ export function DetailView({ selectedWorkItem, onClearSelection, selectedToolExe
   const updateParameters = useMutation(api.ai.conversations.updateToolExecutionParameters)
   const customInstruction = useMutation(api.ai.conversations.customInstructionForExecution)
 
-  const handleApprove = async (executionId: Id<"aiToolExecutions">, dontAskAgain: boolean, editedParams?: any) => {
+  const handleApprove = async (executionId: Id<"aiToolExecutions">, dontAskAgain: boolean, editedParams?: Record<string, unknown>) => {
     try {
       // If parameters were edited, update them first
       if (editedParams) {
@@ -127,7 +127,7 @@ export function DetailView({ selectedWorkItem, onClearSelection, selectedToolExe
       return (
         <EditableProposalView
           execution={{
-            _id: selectedToolExecution._id || selectedToolExecution.id as any,
+            _id: selectedToolExecution._id || selectedToolExecution.id as Id<"aiToolExecutions">,
             toolName: selectedToolExecution.toolName,
             parameters: selectedToolExecution.parameters || selectedToolExecution.input || {},
             proposalMessage: selectedToolExecution.proposalMessage,

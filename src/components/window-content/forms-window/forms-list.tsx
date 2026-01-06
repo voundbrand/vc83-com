@@ -215,7 +215,7 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
         {/* Forms list - list style like web publishing */}
         <div className="space-y-2">
           {forms.map((form) => {
-            const fieldCount = countInputFields(form.customProperties?.formSchema as any);
+            const fieldCount = countInputFields(form.customProperties?.formSchema as { sections?: Array<{ fields?: FormField[] }> } | undefined);
             const submissions = form.customProperties?.stats?.submissions || 0;
             const isDeleting = deletingFormId === form._id;
             const isPublishing = publishingFormId === form._id;
@@ -259,7 +259,7 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
 
                     {/* Type badge */}
                     <div className="text-xs mb-1 capitalize" style={{ color: "var(--neutral-gray)" }}>
-                      {t("ui.forms.type_label")} <span className="font-bold">{form.subtype ? t(`ui.forms.type_${form.subtype}` as any) : t("ui.forms.type_form")}</span>
+                      {t("ui.forms.type_label")} <span className="font-bold">{form.subtype ? t(`ui.forms.type_${form.subtype}` as Parameters<typeof t>[0]) : t("ui.forms.type_form")}</span>
                     </div>
 
                     {/* Description (if exists) */}

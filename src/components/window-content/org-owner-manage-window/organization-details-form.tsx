@@ -1084,6 +1084,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                 </div>
                 {formData.settings.branding.logo && (
                   <div className="mt-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={formData.settings.branding.logo}
                       alt="Logo preview"
@@ -1156,6 +1157,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                 </div>
                 {formData.settings.branding.desktopBackground && (
                   <div className="mt-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={formData.settings.branding.desktopBackground}
                       alt="Desktop background preview"

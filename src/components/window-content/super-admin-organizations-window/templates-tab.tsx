@@ -18,6 +18,24 @@ import {
   Package,
 } from "lucide-react";
 
+/** Audit template interface */
+interface AuditTemplate {
+  _id: string;
+  name: string;
+  code: string;
+  subtype?: string;
+  category?: string;
+  hasSchema?: boolean;
+  status?: string;
+}
+
+/** Organization interface */
+interface Organization {
+  _id: Id<"organizations">;
+  name: string;
+  slug: string;
+}
+
 /**
  * Templates Tab - Redesigned with Two Sections + Theme System
  *
@@ -132,7 +150,7 @@ function TemplateCRUDSection({
   templates,
   sessionId,
 }: {
-  templates: any[];
+  templates: AuditTemplate[];
   sessionId: string;
 }) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -319,7 +337,7 @@ function TemplateCRUDRow({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   sessionId,
 }: {
-  template: any;
+  template: AuditTemplate;
   sessionId: string;
 }) {
   const templateType = getTemplateType(template);
@@ -431,8 +449,8 @@ function TemplateAvailabilitySection({
   organizations,
   sessionId,
 }: {
-  templates: any[];
-  organizations: any[];
+  templates: AuditTemplate[];
+  organizations: Organization[];
   sessionId: string;
 }) {
   const [selectedOrgId, setSelectedOrgId] = useState<Id<"organizations"> | null>(
@@ -473,7 +491,7 @@ function TemplateAvailabilitySection({
   );
 
   // Check if template is available for selected org
-  const isTemplateAvailable = (template: any) => {
+  const isTemplateAvailable = (template: AuditTemplate) => {
     if (!selectedOrgId) return false;
 
     const type = getTemplateType(template);
@@ -519,7 +537,7 @@ function TemplateAvailabilitySection({
 
   const [loadingTemplates, setLoadingTemplates] = useState<Set<string>>(new Set());
 
-  const handleToggle = async (template: any, currentState: boolean) => {
+  const handleToggle = async (template: AuditTemplate, currentState: boolean) => {
     if (!selectedOrgId) return;
 
     const code = template.code;
@@ -704,7 +722,7 @@ function TemplateAvailabilitySection({
 /**
  * Helper: Determine template type from audit data
  */
-function getTemplateType(template: any): string {
+function getTemplateType(template: AuditTemplate): string {
   if (template.subtype === "pdf") return "pdf";
   if (template.subtype === "email") return "email";
   if (template.subtype === "form") return "form";

@@ -318,7 +318,7 @@ export function TemplatesList({
             const code = template.customProperties?.code;
             const isActive = template.status === "published";
             const isSystemTemplate = template.isSystemTemplate === true; // Use the flag from the backend
-            const hasHtml = !!(template.customProperties as any)?.html;
+            const hasHtml = !!(template.customProperties as Record<string, unknown> | undefined)?.html;
 
             return (
               <div

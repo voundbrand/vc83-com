@@ -45,7 +45,7 @@ export function ApiKeysPanel({ onBack }: ApiKeysPanelProps) {
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
-  const handleRevoke = async (apiKey: any) => {
+  const handleRevoke = async (apiKey: { name: string; keyPreview: string }) => {
     if (!confirm(`Revoke API key "${apiKey.name}"?\n\nThis action cannot be undone. Any applications using this key will stop working.`)) {
       return;
     }

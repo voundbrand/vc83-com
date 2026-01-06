@@ -170,8 +170,20 @@ export function ToolExecutionPanel() {
     organizationId ? { organizationId } : "skip"
   )
 
+  // Define a type for the raw Convex tool execution data
+  interface ConvexToolExecution {
+    _id: string;
+    toolName: string;
+    success?: boolean;
+    error?: string;
+    executedAt: number;
+    completedAt?: number;
+    input?: Record<string, unknown>;
+    output?: unknown;
+  }
+
   // Transform Convex data to match our interface
-  const executions: ToolExecution[] = (toolExecutionsData || []).map((exec: any) => ({
+  const executions: ToolExecution[] = (toolExecutionsData || []).map((exec: ConvexToolExecution) => ({
     id: exec._id,
     toolName: exec.toolName,
     status: exec.success ? "success" : exec.error ? "error" : "running",
@@ -251,7 +263,7 @@ export function ToolExecutionPanel() {
             </div>
           ) : (
             <div className="space-y-2">
-              {workItems.map((item: any) => (
+              {workItems.map((item: { id: string; name: string; progress: { completed: number; total: number } }) => (
                 <div
                   key={item.id}
                   className="p-2 border rounded"

@@ -19,7 +19,11 @@ export function QuickStartSimple() {
   const [isRunning, setIsRunning] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState("");
-  const [results, setResults] = useState<any>(null);
+  const [results, setResults] = useState<{
+    appsProvisioned: string[];
+    templatesProvisioned: string[];
+    alreadyInstalled: string[];
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const applyQuickStart = useMutation(api.manualOnboarding.applyQuickStart);
@@ -57,9 +61,9 @@ export function QuickStartSimple() {
       setProgress(100);
       setCurrentStep("Setup complete!");
       setResults(result);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Quick Start failed:", err);
-      setError(err.message || "Something went wrong");
+      setError(err instanceof Error ? err.message : "Something went wrong");
       setIsRunning(false);
     }
   };

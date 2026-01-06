@@ -644,7 +644,7 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handlePdfPreview = async (_config: EmailSendConfig) => {
     // Check if invoice already has a PDF URL
-    const invoiceProps = invoice.customProperties as any;
+    const invoiceProps = invoice.customProperties as { pdfUrl?: string } | undefined;
     const existingPdfUrl = invoiceProps?.pdfUrl;
 
     if (existingPdfUrl) {

@@ -977,7 +977,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
             >
               {FORM_TYPES.map((formType) => (
                 <option key={formType.code} value={formType.code}>
-                  {getFormTypeIcon(formType.code)} {t(formType.translationKey as any)}
+                  {getFormTypeIcon(formType.code)} {t(formType.translationKey as Parameters<typeof t>[0])}
                 </option>
               ))}
             </select>

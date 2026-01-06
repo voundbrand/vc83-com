@@ -180,7 +180,7 @@ export function EventForm({
       // Load videos if they exist
       if (existingEvent.customProperties?.media?.items) {
         const videos = existingEvent.customProperties.media.items.filter(
-          (item: any) => item.type === 'video'
+          (item: { type: string }) => item.type === 'video'
         );
         setEventVideos(videos);
         // Load showVideoFirst setting
@@ -467,12 +467,12 @@ export function EventForm({
         const currentMedia = existingEvent?.customProperties?.media?.items || [];
 
         // Filter to only include images (exclude old videos)
-        const existingImages = currentMedia.filter((item: any) => item.type === 'image');
+        const existingImages = currentMedia.filter((item: { type: string }) => item.type === 'image');
 
         // Convert videos to media items
         const mediaItems = [
           // Include existing images as image type
-          ...existingImages.map((img: any, index: number) => ({
+          ...existingImages.map((img: { id: string; storageId: string; filename: string; mimeType: string }, index: number) => ({
             id: img.id,
             type: 'image' as const,
             storageId: img.storageId,

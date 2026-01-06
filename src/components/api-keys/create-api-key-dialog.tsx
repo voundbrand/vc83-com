@@ -69,8 +69,8 @@ export function CreateApiKeyDialog({
       if (onSuccess) {
         onSuccess(result.key);
       }
-    } catch (error: any) {
-      alert(`Failed to create API key: ${error.message}`);
+    } catch (error: unknown) {
+      alert(`Failed to create API key: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setIsCreating(false);
     }

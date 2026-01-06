@@ -27,7 +27,7 @@ export function LoginWindow() {
   const [showFirstLoginModal, setShowFirstLoginModal] = useState(false);
   const [isFirstLogin, setIsFirstLogin] = useState(false);
   const [showPasskeySetupPrompt, setShowPasskeySetupPrompt] = useState(false);
-  const [signupSuccess, setSignupSuccess] = useState<{apiKey: string; apiKeyPrefix: string; organization: any; sessionId: string} | null>(null);
+  const [signupSuccess, setSignupSuccess] = useState<{apiKey: string; apiKeyPrefix: string; organization: { name: string }; sessionId: string} | null>(null);
 
   const { user, isSignedIn, signIn, setupPassword, checkNeedsPasswordSetup, signOut, sessionId } = useAuth();
   const { t } = useNamespaceTranslations("ui.login");

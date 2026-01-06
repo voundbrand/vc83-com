@@ -54,8 +54,10 @@ export function TemplateSelector({
   nullLabel = "Use system default",
 }: TemplateSelectorProps) {
   // Determine if this is a PDF or email template category
-  const isSpecificPdfCategory = category !== "all" && (["invoice", "ticket", "certificate", "receipt", "badge"] as const).includes(category as any);
-  const isEmailCategory = category !== "all" && (["luxury", "minimal", "internal", "transactional", "marketing", "event", "support", "newsletter"] as const).includes(category as any);
+  const pdfCategories = ["invoice", "ticket", "certificate", "receipt", "badge"] as const;
+  const emailCategories = ["luxury", "minimal", "internal", "transactional", "marketing", "event", "support", "newsletter"] as const;
+  const isSpecificPdfCategory = category !== "all" && (pdfCategories as readonly string[]).includes(category);
+  const isEmailCategory = category !== "all" && (emailCategories as readonly string[]).includes(category);
 
   // Handle "all" category based on templateType hint
   const isAllPdfCategory = category === "all" && templateType === "pdf";
@@ -185,7 +187,7 @@ export function TemplateSelector({
             {template.name}
             {template.isDefault && " (Default)"}
             {template.isSystemTemplate ? "" : " (Custom)"}
-            {(template as any).isSchemaTemplate ? " 🌱" : ""}
+            {(template as { isSchemaTemplate?: boolean }).isSchemaTemplate ? " 🌱" : ""}
           </option>
         ))}
       </select>
@@ -194,22 +196,29 @@ export function TemplateSelector({
       {value && templates && (
         <div className="mt-2 p-2 rounded text-xs" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', color: 'var(--win95-highlight)' }}>
           {(() => {
-            const selected = templates.find((t: {_id: string}) => t._id === value);
+            const selected = templates.find((t: {_id: string}) => t._id === value) as {
+              _id: string;
+              name: string;
+              description?: string;
+              templateCode?: string;
+              version?: number;
+              isSchemaTemplate?: boolean;
+            } | undefined;
             if (!selected) return null;
             return (
               <div>
                 <div className="font-bold">
-                  {(selected as any).name}
-                  {(selected as any).isSchemaTemplate && (
+                  {selected.name}
+                  {selected.isSchemaTemplate && (
                     <span className="ml-1" title="Schema-driven template">🌱</span>
                   )}
                 </div>
-                {(selected as any).description && (
-                  <div className="mt-1">{(selected as any).description}</div>
+                {selected.description && (
+                  <div className="mt-1">{selected.description}</div>
                 )}
                 <div className="mt-1 font-mono text-xs opacity-75">
-                  Code: {(selected as any).templateCode} | v{(selected as any).version}
-                  {(selected as any).isSchemaTemplate && (
+                  Code: {selected.templateCode} | v{selected.version}
+                  {selected.isSchemaTemplate && (
                     <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ background: 'color-mix(in srgb, var(--win95-gradient-end) 20%, transparent)', color: 'var(--win95-gradient-end)' }}>
                       Schema-driven
                     </span>

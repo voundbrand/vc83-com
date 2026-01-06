@@ -112,9 +112,9 @@ export function OAuthTutorialWindow({
 
       // Auto-advance to next step
       setCurrentStep(2);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to create OAuth app:", err);
-      setError(err.message || "Failed to create OAuth application");
+      setError(err instanceof Error ? err.message : "Failed to create OAuth application");
     } finally {
       setIsCreating(false);
     }

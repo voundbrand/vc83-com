@@ -68,7 +68,7 @@ export function ManualSubscriptionGrant({
       await grantSubscription({
         sessionId,
         organizationId,
-        tier: tier as any,
+        tier: tier as "standard" | "privacy-enhanced" | "private-llm-starter" | "private-llm-professional" | "private-llm-enterprise",
         priceInCents: customPrice * 100,
         startDate: Date.now(),
         endDate: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days

@@ -168,15 +168,16 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
       } else {
         throw new Error("No onboarding URL returned");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to start onboarding:", error);
 
       // Check if this is a FEATURE_LOCKED error
-      if (error?.data?.code === "FEATURE_LOCKED") {
+      const errorWithData = error as { data?: { code?: string; requiredTier?: string } };
+      if (errorWithData?.data?.code === "FEATURE_LOCKED") {
         showFeatureLockedModal(
           "Stripe Connect",
           "Accept payments directly through Stripe with automatic payouts and invoicing capabilities.",
-          error.data.requiredTier || "Starter (€199/month)"
+          errorWithData.data.requiredTier || "Starter (€199/month)"
         );
       } else {
         alert("Failed to start Stripe Connect onboarding. Please try again.");

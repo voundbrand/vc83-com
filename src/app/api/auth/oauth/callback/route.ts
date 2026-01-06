@@ -107,13 +107,14 @@ export async function GET(request: NextRequest) {
       redirectUrl.searchParams.set("oauthProvider", oauthProvider); // Store provider for "last used" tracking
       return NextResponse.redirect(redirectUrl.toString());
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("OAuth callback error:", error);
-    
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+
     // Try to determine if this is CLI or platform from error context
     // For now, return JSON error (CLI-friendly) - platform can handle it
     return NextResponse.json(
-      { error: "Failed to complete OAuth signup", error_description: error.message },
+      { error: "Failed to complete OAuth signup", error_description: errorMessage },
       { status: 500 }
     );
   }

@@ -6,7 +6,7 @@ import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
 import { useNotification } from "@/hooks/use-notification"
 import { useRetroConfirm } from "@/components/retro-confirm-dialog"
 import { ContactCard } from "./contact-card"
-import type { Doc, Id } from "../../../../convex/_generated/dataModel"
+import type { Id } from "../../../../convex/_generated/dataModel"
 
 // Contact type for CRM pipeline (from API query result)
 type PipelineContact = Record<string, unknown>;

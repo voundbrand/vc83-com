@@ -923,6 +923,12 @@ Some scopes require extra confirmation:
 /**
  * Tree Node Component
  */
+interface TutorialProgress {
+  completed?: boolean;
+  skipped?: boolean;
+  currentStep?: number;
+}
+
 interface TreeNodeComponentProps {
   node: TreeNode;
   level: number;
@@ -930,7 +936,7 @@ interface TreeNodeComponentProps {
   selectedNode: string | null;
   onToggle: (nodeId: string) => void;
   onSelect: (nodeId: string) => void;
-  getTutorialProgress: (tutorialId: string) => any;
+  getTutorialProgress: (tutorialId: string) => TutorialProgress | null;
 }
 
 function TreeNodeComponent({
@@ -956,7 +962,7 @@ function TreeNodeComponent({
     if (!progress) return null;
     if (progress.completed) return <CheckCircle className="h-3 w-3 text-green-600" />;
     if (progress.skipped) return <SkipForward className="h-3 w-3 text-gray-500" />;
-    if (progress.currentStep > 0) return <PlayCircle className="h-3 w-3 text-blue-600" />;
+    if (progress.currentStep && progress.currentStep > 0) return <PlayCircle className="h-3 w-3 text-blue-600" />;
     return null;
   };
 

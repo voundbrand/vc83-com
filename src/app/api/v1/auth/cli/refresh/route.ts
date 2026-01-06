@@ -28,10 +28,11 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(result);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("CLI session refresh error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Failed to refresh session", error_description: error.message },
+      { error: "Failed to refresh session", error_description: errorMessage },
       { status: 500 }
     );
   }

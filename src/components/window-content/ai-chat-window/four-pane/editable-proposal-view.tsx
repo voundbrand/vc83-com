@@ -7,10 +7,29 @@ import { MilestoneForm } from "@/components/forms/milestone-form"
 import { ContactForm } from "@/components/forms/contact-form"
 import type { Id } from "../../../../../convex/_generated/dataModel"
 
+// Type for tool execution parameters with common fields
+interface ToolParameters {
+  action?: string
+  name?: string
+  description?: string
+  status?: string
+  startDate?: string
+  endDate?: string
+  dueDate?: string
+  progress?: number
+  email?: string
+  phone?: string
+  organization?: string
+  jobTitle?: string
+  location?: string
+  notes?: string
+  [key: string]: unknown
+}
+
 interface ToolExecution {
   _id: Id<"aiToolExecutions">
   toolName: string
-  parameters: any
+  parameters: ToolParameters
   proposalMessage?: string
   status: string
 }
@@ -19,7 +38,7 @@ interface EditableProposalViewProps {
   execution: ToolExecution
   showJson: boolean
   onToggleJson: () => void
-  onApprove: (executionId: Id<"aiToolExecutions">, dontAskAgain: boolean, editedParams?: any) => void
+  onApprove: (executionId: Id<"aiToolExecutions">, dontAskAgain: boolean, editedParams?: ToolParameters) => void
   onReject: (executionId: Id<"aiToolExecutions">) => void
   onCustomInstruction?: (executionId: Id<"aiToolExecutions">, instruction: string) => void
 }
@@ -39,7 +58,21 @@ export function EditableProposalView({
   const [customText, setCustomText] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleFormChange = (newParams: any) => {
+  // Type-safe form change handlers that convert specific form data to ToolParameters
+  const handleProjectFormChange = (values: { name: string; description?: string; status?: string; startDate?: string; endDate?: string; tags?: string[] }) => {
+    const newParams: ToolParameters = { ...execution.parameters, ...values }
+    setEditedParams(newParams)
+    setHasChanges(JSON.stringify(newParams) !== JSON.stringify(execution.parameters))
+  }
+
+  const handleMilestoneFormChange = (values: { name: string; description?: string; dueDate?: string; status?: string; progress?: number }) => {
+    const newParams: ToolParameters = { ...execution.parameters, ...values }
+    setEditedParams(newParams)
+    setHasChanges(JSON.stringify(newParams) !== JSON.stringify(execution.parameters))
+  }
+
+  const handleContactFormChange = (values: { name: string; email?: string; phone?: string; organization?: string; jobTitle?: string; location?: string; notes?: string }) => {
+    const newParams: ToolParameters = { ...execution.parameters, ...values }
     setEditedParams(newParams)
     setHasChanges(JSON.stringify(newParams) !== JSON.stringify(execution.parameters))
   }
@@ -81,7 +114,7 @@ export function EditableProposalView({
               startDate: execution.parameters.startDate,
               endDate: execution.parameters.endDate,
             }}
-            onChange={handleFormChange}
+            onChange={handleProjectFormChange}
             showJson={showJson}
           />
         )
@@ -98,7 +131,7 @@ export function EditableProposalView({
               status: execution.parameters.status,
               progress: execution.parameters.progress,
             }}
-            onChange={handleFormChange}
+            onChange={handleMilestoneFormChange}
             showJson={showJson}
           />
         )
@@ -119,7 +152,7 @@ export function EditableProposalView({
               location: execution.parameters.location,
               notes: execution.parameters.notes,
             }}
-            onChange={handleFormChange}
+            onChange={handleContactFormChange}
             showJson={showJson}
           />
         )
@@ -150,26 +183,26 @@ export function EditableProposalView({
         return (
           <div className="space-y-2 text-sm" style={{ color: 'var(--win95-text)' }}>
             <div>
-              <span className="font-semibold">Name:</span> {execution.parameters.name || "N/A"}
+              <span className="font-semibold">Name:</span> {String(execution.parameters.name || "N/A")}
             </div>
             {execution.parameters.description && (
               <div>
-                <span className="font-semibold">Description:</span> {execution.parameters.description}
+                <span className="font-semibold">Description:</span> {String(execution.parameters.description)}
               </div>
             )}
             {execution.parameters.status && (
               <div>
-                <span className="font-semibold">Status:</span> {execution.parameters.status}
+                <span className="font-semibold">Status:</span> {String(execution.parameters.status)}
               </div>
             )}
             {execution.parameters.startDate && (
               <div>
-                <span className="font-semibold">Start Date:</span> {new Date(execution.parameters.startDate).toLocaleDateString()}
+                <span className="font-semibold">Start Date:</span> {new Date(String(execution.parameters.startDate)).toLocaleDateString()}
               </div>
             )}
             {execution.parameters.endDate && (
               <div>
-                <span className="font-semibold">End Date:</span> {new Date(execution.parameters.endDate).toLocaleDateString()}
+                <span className="font-semibold">End Date:</span> {new Date(String(execution.parameters.endDate)).toLocaleDateString()}
               </div>
             )}
           </div>
@@ -180,26 +213,26 @@ export function EditableProposalView({
         return (
           <div className="space-y-2 text-sm" style={{ color: 'var(--win95-text)' }}>
             <div>
-              <span className="font-semibold">Name:</span> {execution.parameters.name || "N/A"}
+              <span className="font-semibold">Name:</span> {String(execution.parameters.name || "N/A")}
             </div>
             {execution.parameters.description && (
               <div>
-                <span className="font-semibold">Description:</span> {execution.parameters.description}
+                <span className="font-semibold">Description:</span> {String(execution.parameters.description)}
               </div>
             )}
             {execution.parameters.dueDate && (
               <div>
-                <span className="font-semibold">Due Date:</span> {new Date(execution.parameters.dueDate).toLocaleDateString()}
+                <span className="font-semibold">Due Date:</span> {new Date(String(execution.parameters.dueDate)).toLocaleDateString()}
               </div>
             )}
             {execution.parameters.status && (
               <div>
-                <span className="font-semibold">Status:</span> {execution.parameters.status}
+                <span className="font-semibold">Status:</span> {String(execution.parameters.status)}
               </div>
             )}
             {execution.parameters.progress !== undefined && (
               <div>
-                <span className="font-semibold">Progress:</span> {execution.parameters.progress}%
+                <span className="font-semibold">Progress:</span> {String(execution.parameters.progress)}%
               </div>
             )}
           </div>
@@ -212,36 +245,36 @@ export function EditableProposalView({
         return (
           <div className="space-y-2 text-sm" style={{ color: 'var(--win95-text)' }}>
             <div>
-              <span className="font-semibold">Name:</span> {execution.parameters.name || "N/A"}
+              <span className="font-semibold">Name:</span> {String(execution.parameters.name || "N/A")}
             </div>
             {execution.parameters.email && (
               <div>
-                <span className="font-semibold">Email:</span> {execution.parameters.email}
+                <span className="font-semibold">Email:</span> {String(execution.parameters.email)}
               </div>
             )}
             {execution.parameters.phone && (
               <div>
-                <span className="font-semibold">Phone:</span> {execution.parameters.phone}
+                <span className="font-semibold">Phone:</span> {String(execution.parameters.phone)}
               </div>
             )}
             {execution.parameters.organization && (
               <div>
-                <span className="font-semibold">Organization:</span> {execution.parameters.organization}
+                <span className="font-semibold">Organization:</span> {String(execution.parameters.organization)}
               </div>
             )}
             {execution.parameters.jobTitle && (
               <div>
-                <span className="font-semibold">Job Title:</span> {execution.parameters.jobTitle}
+                <span className="font-semibold">Job Title:</span> {String(execution.parameters.jobTitle)}
               </div>
             )}
             {execution.parameters.location && (
               <div>
-                <span className="font-semibold">Location:</span> {execution.parameters.location}
+                <span className="font-semibold">Location:</span> {String(execution.parameters.location)}
               </div>
             )}
             {execution.parameters.notes && (
               <div>
-                <span className="font-semibold">Notes:</span> {execution.parameters.notes}
+                <span className="font-semibold">Notes:</span> {String(execution.parameters.notes)}
               </div>
             )}
           </div>
@@ -365,7 +398,7 @@ export function EditableProposalView({
             Tool: <span className="font-mono" style={{ color: 'var(--win95-text)' }}>{execution.toolName}</span>
           </p>
           <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
-            Action: <span className="font-mono" style={{ color: 'var(--win95-text)' }}>{execution.parameters?.action || "N/A"}</span>
+            Action: <span className="font-mono" style={{ color: 'var(--win95-text)' }}>{String(execution.parameters?.action || "N/A")}</span>
           </p>
         </div>
 

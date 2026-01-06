@@ -75,10 +75,11 @@ export async function POST(request: NextRequest) {
       email: signupResult.user.email,
       organizationId: signupResult.organization.id,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("CLI email signup error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Failed to create account", error_description: error.message },
+      { error: "Failed to create account", error_description: errorMessage },
       { status: 500 }
     );
   }

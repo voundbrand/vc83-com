@@ -8,6 +8,30 @@ import type { Id } from "../../../../convex/_generated/dataModel";
 import { useMemo, useState } from "react";
 import { RetroButton } from "@/components/retro-button";
 
+/** Web app template interface */
+interface WebAppTemplate {
+  _id: string;
+  name: string;
+  description?: string;
+  status?: string;
+  customProperties?: {
+    features?: string[];
+    deployment?: {
+      githubRepo?: string;
+      vercelDeployButton?: string;
+      demoUrl?: string;
+    };
+    category?: string;
+    tags?: string[];
+  };
+}
+
+/** Template settings for save callback */
+interface TemplateSettings {
+  githubRepo: string;
+  vercelDeployButton: string;
+}
+
 interface WebAppsTabProps {
   onEditTemplate: (templateId: string) => void;
   onViewSchema?: (templateId: string) => void;
@@ -80,7 +104,7 @@ function WebAppCard({
   template,
   onView
 }: {
-  template: any;
+  template: WebAppTemplate;
   onView: () => void;
 }) {
   const customProps = template.customProperties || {};
@@ -309,9 +333,9 @@ function TemplateSettingsEditorModal({
   onClose,
   onSave
 }: {
-  template: any;
+  template: WebAppTemplate;
   onClose: () => void;
-  onSave: (settings: any) => void;
+  onSave: (settings: TemplateSettings) => void;
 }) {
   const deployment = template.customProperties?.deployment || {};
   const [githubRepo, setGithubRepo] = useState(deployment.githubRepo || '');

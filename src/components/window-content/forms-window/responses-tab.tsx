@@ -21,12 +21,23 @@ interface ResponsesTabProps {
   }>;
 }
 
+// Response object type from the forms ontology
+interface FormResponse {
+  _id: Id<"objects">;
+  customProperties?: {
+    responses?: Record<string, unknown>;
+    submittedAt?: number;
+    isPublicSubmission?: boolean;
+    ipAddress?: string;
+  };
+}
+
 export function ResponsesTab({ forms }: ResponsesTabProps) {
   const { sessionId } = useAuth();
   const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.forms");
   const [selectedFormId, setSelectedFormId] = useState<Id<"objects"> | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [viewingResponse, setViewingResponse] = useState<any | null>(null);
+  const [viewingResponse, setViewingResponse] = useState<FormResponse | null>(null);
 
   // Get responses for selected form
   const responses = useQuery(
@@ -207,14 +218,14 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
         ) : (
           <div className="space-y-2">
             {filteredResponses.map((response) => {
-              const responseData = response.customProperties?.responses as Record<string, any> || {};
+              const responseData = (response.customProperties?.responses ?? {}) as Record<string, unknown>;
               const submittedAt = response.customProperties?.submittedAt as number;
               const isPublic = response.customProperties?.isPublicSubmission as boolean;
 
               // Try to get a name from the response data
-              const name = responseData.firstName || responseData.first_name ||
+              const name = String(responseData.firstName || responseData.first_name ||
                           responseData.contact_name || responseData.name ||
-                          responseData.email || t("ui.forms.responses.anonymous");
+                          responseData.email || t("ui.forms.responses.anonymous"));
 
               return (
                 <div
@@ -380,7 +391,7 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
                   {t("ui.forms.responses.form_data")}
                 </h4>
                 <div className="text-xs space-y-3">
-                  {Object.entries((viewingResponse.customProperties?.responses as Record<string, any>) || {}).map(
+                  {Object.entries((viewingResponse.customProperties?.responses ?? {}) as Record<string, unknown>).map(
                     ([key, value]) => (
                       <div key={key} className="border-b pb-2 last:border-b-0" style={{ borderColor: "var(--win95-border-light)" }}>
                         <div className="font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>

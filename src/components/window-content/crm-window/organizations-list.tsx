@@ -39,7 +39,7 @@ export function OrganizationsList({ selectedId, onSelect, onNavigateToPipelines 
       await deleteOrgMutation({ sessionId, crmOrganizationId: orgId })
       // Clear selection if deleted org was selected
       if (selectedId === orgId) {
-        onSelect(null as any)
+        onSelect(null as unknown as Id<"objects">)
       }
       setDeletingId(null)
       notification.success(

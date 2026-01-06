@@ -4,6 +4,7 @@ import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
 import { MessageSquare, FolderOpen, Plus, Search } from "lucide-react"
 import { useState, useMemo } from "react"
 import { useAIChatContext } from "@/contexts/ai-chat-context"
+import type { Id } from "../../../../../convex/_generated/dataModel"
 
 export function ConversationHistory() {
   const { t } = useNamespaceTranslations("ui.ai_assistant")
@@ -32,7 +33,7 @@ export function ConversationHistory() {
 
   // Handle conversation selection
   const handleSelectConversation = (conversationId: string) => {
-    setCurrentConversationId(conversationId as any)
+    setCurrentConversationId(conversationId as Id<"aiConversations">)
   }
 
   return (

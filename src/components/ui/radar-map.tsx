@@ -35,7 +35,7 @@ export const RadarMap: React.FC<RadarMapProps> = ({
   showMarker = true,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<any>(null);
+  const mapRef = useRef<ReturnType<typeof radar.ui.map> | null>(null);
 
   useEffect(() => {
     // Initialize Radar SDK

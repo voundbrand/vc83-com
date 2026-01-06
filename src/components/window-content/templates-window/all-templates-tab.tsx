@@ -86,7 +86,8 @@ export function AllTemplatesTab({ onEditTemplate, onCreateTemplate, onViewSchema
     // Filter by category
     if (categoryFilter !== "all") {
       filtered = filtered.filter((t) => {
-        const category = (t.customProperties as any)?.category;
+        const props = t.customProperties as Record<string, unknown> | undefined;
+        const category = props?.category;
         const subtype = t.subtype;
         // Match category or subtype (some templates store category in different fields)
         return category === categoryFilter || subtype === categoryFilter;
@@ -95,14 +96,17 @@ export function AllTemplatesTab({ onEditTemplate, onCreateTemplate, onViewSchema
 
     // Filter by property
     if (propertyFilter === "system") {
-      filtered = filtered.filter((t) => (t as any).isSystemTemplate === true);
+      filtered = filtered.filter((t) => (t as { isSystemTemplate?: boolean }).isSystemTemplate === true);
     } else if (propertyFilter === "schema") {
       filtered = filtered.filter((t) => {
         const hasSchema = !!(t.customProperties?.templateSchema || t.customProperties?.emailTemplateSchema);
         return hasSchema;
       });
     } else if (propertyFilter === "default") {
-      filtered = filtered.filter((t) => (t.customProperties as any)?.isDefault === true);
+      filtered = filtered.filter((t) => {
+        const props = t.customProperties as Record<string, unknown> | undefined;
+        return props?.isDefault === true;
+      });
     }
 
     // Filter by template set (only if a specific set is selected AND we have link data)

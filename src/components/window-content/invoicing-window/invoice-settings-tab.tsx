@@ -379,6 +379,7 @@ export function InvoiceSettingsTab() {
                 }}
               >
                 {logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img src={logoUrl} alt="Company Logo" className="max-w-full max-h-full object-contain" />
                 ) : (
                   <div className="text-center">

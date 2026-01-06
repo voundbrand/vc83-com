@@ -899,7 +899,7 @@ export function AISettingsTabV3() {
                   </label>
                   <select
                     value={filterCapability}
-                    onChange={(e) => setFilterCapability(e.target.value as any)}
+                    onChange={(e) => setFilterCapability(e.target.value as "all" | "tool_calling" | "multimodal" | "vision")}
                     className="w-full px-2 py-1 text-xs"
                     style={{
                       backgroundColor: 'var(--win95-input-bg)',

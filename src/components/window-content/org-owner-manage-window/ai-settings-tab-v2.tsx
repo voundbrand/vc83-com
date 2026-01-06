@@ -142,7 +142,7 @@ export function AISettingsTab() {
       // NEW: Handle multi-select models
       if (settings.llm.enabledModels && settings.llm.enabledModels.length > 0) {
         setEnabledModels(settings.llm.enabledModels);
-        setDefaultModelId(settings.llm.defaultModelId || settings.llm.enabledModels.find((m: any) => m.isDefault)?.modelId || "");
+        setDefaultModelId(settings.llm.defaultModelId || settings.llm.enabledModels.find((m) => m.isDefault)?.modelId || "");
       } else if (settings.llm.provider && settings.llm.model) {
         // LEGACY: Convert old single model format to new multi-select
         const modelId = settings.llm.model.includes("/")
@@ -311,10 +311,18 @@ export function AISettingsTab() {
     setDefaultModelId(modelId);
   };
 
+  // Model type from OpenRouter discovery
+  type DiscoveredModel = {
+    id: string;
+    name: string;
+    context_length: number;
+    pricing: { prompt: string; completion: string };
+  };
+
   // Get current provider's models for UI - filtered by privacy tier
   const currentProviderModels = modelsByProvider
-    ? (modelsByProvider[selectedProvider as keyof typeof modelsByProvider] as any[] || [])
-        .filter((m: any) => isModelCompatibleWithTier(m.id, privacyTier))
+    ? ((modelsByProvider[selectedProvider as keyof typeof modelsByProvider] as DiscoveredModel[] | undefined) || [])
+        .filter((m) => isModelCompatibleWithTier(m.id, privacyTier))
     : [];
 
   // Count filtered models
@@ -322,8 +330,8 @@ export function AISettingsTab() {
     ? Object.keys(modelsByProvider)
         .filter(key => key !== 'isStale')
         .reduce((sum, key) => {
-          const models = (modelsByProvider as any)[key] as any[];
-          return sum + (models?.filter((m: any) => isModelCompatibleWithTier(m.id, privacyTier)).length || 0);
+          const models = modelsByProvider[key as keyof typeof modelsByProvider] as DiscoveredModel[] | undefined;
+          return sum + (models?.filter((m) => isModelCompatibleWithTier(m.id, privacyTier)).length || 0);
         }, 0)
     : 0;
 
@@ -808,7 +816,7 @@ export function AISettingsTab() {
                       backgroundColor: 'var(--win95-bg-light)',
                     }}
                   >
-                    {currentProviderModels.map((m: any) => {
+                    {currentProviderModels.map((m) => {
                       const enabled = isModelEnabled(m.id);
                       const isDefault = defaultModelId === m.id;
 

@@ -9,6 +9,20 @@ import { PermissionGuard } from "@/components/permission";
 import { DomainConfigModal } from "./domain-config-modal";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
+// Type for domain config custom properties
+interface DomainConfigProperties {
+  domainName?: string;
+  branding?: {
+    primaryColor?: string;
+  };
+  email?: {
+    senderEmail?: string;
+  };
+  webPublishing?: {
+    siteUrl?: string;
+  };
+}
+
 interface DomainConfigTabProps {
   organizationId: Id<"organizations">;
   sessionId: string;
@@ -29,7 +43,7 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
   const deleteDomainConfig = useMutation(api.domainConfigOntology.deleteDomainConfig);
 
   const handleDelete = async (config: Doc<"objects">) => {
-    const props = config.customProperties as any;
+    const props = config.customProperties as DomainConfigProperties;
     const domainName = props?.domainName || 'this domain';
     if (!confirm(t("ui.manage.domains.alert.delete_confirm", { domain: domainName }))) {
       return;
@@ -168,7 +182,7 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
       ) : (
         <div className="space-y-3">
           {domainConfigs.map((config) => {
-            const props = config.customProperties as any;
+            const props = config.customProperties as DomainConfigProperties;
             const hasEmail = !!props.email;
             const hasWeb = !!props.webPublishing;
 
@@ -228,7 +242,7 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
                         <div className="flex items-center gap-2">
                           <Mail size={12} style={{ color: 'var(--success)' }} />
                           <span style={{ color: 'var(--win95-text)' }}>
-                            {t("ui.manage.domains.field.email")} {props.email.senderEmail}
+                            {t("ui.manage.domains.field.email")} {props.email?.senderEmail}
                           </span>
                         </div>
                       )}
@@ -238,7 +252,7 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
                         <div className="flex items-center gap-2">
                           <Layout size={12} style={{ color: 'var(--win95-highlight)' }} />
                           <span style={{ color: 'var(--win95-text)' }}>
-                            {t("ui.manage.domains.field.web")} {props.webPublishing.siteUrl || t("ui.manage.domains.field.configured")}
+                            {t("ui.manage.domains.field.web")} {props.webPublishing?.siteUrl || t("ui.manage.domains.field.configured")}
                           </span>
                         </div>
                       )}
