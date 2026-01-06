@@ -1199,6 +1199,87 @@ export const generateCliApiKeyInternal = internalAction({
   },
 });
 
+/**
+ * List API Keys for CLI User
+ *
+ * Lists all API keys for the specified organization.
+ * Uses CLI session token for authentication.
+ * Returns keys without full key values (only preview).
+ */
+export const listCliApiKeys = query({
+  args: {
+    token: v.string(),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args): Promise<{
+    keys: Array<{
+      id: Id<"apiKeys">;
+      name: string;
+      keyPreview: string;
+      scopes: string[];
+      status: string;
+      createdAt: number;
+      lastUsed?: number;
+    }>;
+    limit: number;
+    currentCount: number;
+  } | null> => {
+    // Validate session
+    const session = await ctx.db
+      .query("cliSessions")
+      .withIndex("by_token", (q) => q.eq("cliToken", args.token))
+      .first();
+
+    if (!session) {
+      return null;
+    }
+
+    if (session.expiresAt < Date.now()) {
+      return null;
+    }
+
+    // Verify user has access to the organization
+    const membership = await ctx.db
+      .query("organizationMembers")
+      .withIndex("by_user_and_org", (q) =>
+        q.eq("userId", session.userId).eq("organizationId", args.organizationId)
+      )
+      .first();
+
+    if (!membership || !membership.isActive) {
+      return null;
+    }
+
+    // Get all API keys for organization
+    const keys = await ctx.db
+      .query("apiKeys")
+      .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+      .collect();
+
+    // Get license limit
+    const { getLicenseInternal } = await import("../../licensing/helpers");
+    const license = await getLicenseInternal(ctx, args.organizationId);
+    const limit = license.limits.maxApiKeys;
+
+    // Count active keys
+    const activeKeys = keys.filter(k => k.status === "active");
+
+    return {
+      keys: keys.map(key => ({
+        id: key._id,
+        name: key.name,
+        keyPreview: `${key.keyPrefix}...`,
+        scopes: key.scopes,
+        status: key.status,
+        createdAt: key.createdAt,
+        lastUsed: key.lastUsed,
+      })),
+      limit: limit === -1 ? -1 : limit, // -1 means unlimited
+      currentCount: activeKeys.length,
+    };
+  },
+});
+
 // ============================================================================
 // SYNC USER FUNCTIONS (for NextAuth integration)
 // ============================================================================

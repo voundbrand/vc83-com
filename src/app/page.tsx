@@ -366,14 +366,31 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSignedIn]);
 
-  // Handle return from Stripe onboarding
+  // Handle return from Stripe onboarding and CLI upgrade redirects
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const openWindowParam = params.get('openWindow');
+    const upgradeReason = params.get('upgradeReason');
+    const upgradeResource = params.get('upgradeResource');
 
     if (openWindowParam === 'payments' && isSignedIn) {
       // Open the Payments window
       openPaymentsWindow();
+
+      // Clean up the URL (remove query params)
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
+    // Handle CLI upgrade redirect - open store window
+    if (openWindowParam === 'store' && isSignedIn) {
+      // Open the Store window for upgrade
+      openStoreWindow();
+      setHasOpenedInitialWindow(true);
+
+      // Log upgrade context for analytics
+      if (upgradeReason || upgradeResource) {
+        console.log('[HomePage] CLI upgrade redirect:', { upgradeReason, upgradeResource });
+      }
 
       // Clean up the URL (remove query params)
       window.history.replaceState({}, '', window.location.pathname);

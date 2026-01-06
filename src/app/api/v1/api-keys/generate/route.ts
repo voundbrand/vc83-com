@@ -74,30 +74,53 @@ export async function POST(request: NextRequest) {
     console.error("CLI API key generation error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
 
-    // Check for specific error types
+    // Check for specific error types and return helpful messages
     if (errorMessage.includes("Invalid or expired")) {
       return NextResponse.json(
-        { error: "Invalid or expired session" },
+        {
+          error: "Invalid or expired session",
+          code: "SESSION_EXPIRED",
+          suggestion: "Please run 'l4yercak3 login' to authenticate again."
+        },
         { status: 401 }
       );
     }
 
     if (errorMessage.includes("Not authorized")) {
       return NextResponse.json(
-        { error: errorMessage },
+        {
+          error: errorMessage,
+          code: "NOT_AUTHORIZED",
+          suggestion: "You don't have access to this organization. Check your organization selection."
+        },
         { status: 403 }
       );
     }
 
-    if (errorMessage.includes("limit")) {
+    // API key limit reached - provide helpful upgrade info with upgrade URL
+    if (errorMessage.includes("limit") || errorMessage.includes("maxApiKeys")) {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.l4yercak3.com";
+      const upgradeUrl = `${appUrl}/upgrade?token=${encodeURIComponent(token)}&reason=api_keys&resource=API%20Keys`;
+
       return NextResponse.json(
-        { error: errorMessage },
+        {
+          error: errorMessage,
+          code: "API_KEY_LIMIT_REACHED",
+          suggestion: "You have reached your API key limit. Use 'l4yercak3 api-keys list' to see existing keys, or upgrade your plan for more capacity.",
+          upgradeUrl,
+          upgradeCommand: "l4yercak3 upgrade"
+        },
         { status: 429 }
       );
     }
 
     return NextResponse.json(
-      { error: "Failed to generate API key", error_description: errorMessage },
+      {
+        error: "Failed to generate API key",
+        error_description: errorMessage,
+        code: "UNKNOWN_ERROR",
+        suggestion: "Please try again or contact support if the issue persists."
+      },
       { status: 500 }
     );
   }
