@@ -11,6 +11,7 @@
 import { action, query, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
+import { Id } from "./_generated/dataModel";
 
 /**
  * Convert markdown content to PDF and store in media library
@@ -39,7 +40,7 @@ export const convertMarkdownToPdf = action({
   },
   handler: async (ctx, args): Promise<{
     success: boolean;
-    mediaId: any;
+    mediaId: Id<"organizationMedia">;
     url: string | null;
     documentTitle: string;
     generatedAt: number;
@@ -122,7 +123,7 @@ export const convertMarkdownToPdf = action({
     );
 
     // Create organizationMedia record
-    const mediaData: { mediaId: any; url: string | null } = await ctx.runMutation(internal.compliance.saveCompliancePdf, {
+    const mediaData: { mediaId: Id<"organizationMedia">; url: string | null } = await ctx.runMutation(internal.compliance.saveCompliancePdf, {
       sessionId,
       organizationId,
       userId: sessionData.userId,

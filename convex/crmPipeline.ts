@@ -386,8 +386,8 @@ export const getPipelineWithStagesAndContacts = query({
         return orderA - orderB;
       });
 
-    // Get contacts for each stage
-    const contactsByStage: Record<string, any[]> = {};
+    // Get contacts for each stage - using Record<string, unknown> for dynamic contact data
+    const contactsByStage: Record<string, Record<string, unknown>[]> = {};
 
     for (const stage of sortedStages) {
       if (!stage) continue;

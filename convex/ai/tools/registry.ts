@@ -1780,11 +1780,21 @@ export function getToolsByStatus() {
   return { ready, placeholder, beta };
 }
 
+// OpenAI function schema type
+interface OpenAIFunctionSchema {
+  type: "function";
+  function: {
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+  };
+}
+
 /**
  * Convert tool definitions to OpenAI function calling format
  * ONLY return tools that are "ready" - placeholder tools handled by AI system prompt
  */
-export function getToolSchemas(): Array<any> {
+export function getToolSchemas(): OpenAIFunctionSchema[] {
   // Return ALL tools (ready + placeholder) so AI can attempt to use them
   // The execute() function will return tutorial guidance for placeholder tools
   return Object.values(TOOL_REGISTRY).map((tool) => ({

@@ -313,6 +313,7 @@ export const approveToolExecution = mutation({
     });
 
     // Schedule execution via action
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await ctx.scheduler.runAfter(0, "ai/drafts:executeApprovedTool" as any, {
       executionId: args.executionId,
     });

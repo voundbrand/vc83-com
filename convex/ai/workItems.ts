@@ -365,15 +365,26 @@ export const updateAIWorkItem = mutation({
       throw new Error("Access denied");
     }
 
-    // Build update object
-    const updateData: any = {};
+    // Build update object with proper status type
+    const updateData: {
+      name?: string;
+      status?: "preview" | "approved" | "executing" | "completed" | "failed" | "cancelled";
+      completedAt?: number;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      results?: any;
+      progress?: { total: number; completed: number; failed: number };
+    } = {};
 
     if (args.updates.name !== undefined) {
       updateData.name = args.updates.name;
     }
 
     if (args.updates.status !== undefined) {
-      updateData.status = args.updates.status;
+      // Validate status against the union type in schema
+      const validStatuses = ["preview", "approved", "executing", "completed", "failed", "cancelled"] as const;
+      if (validStatuses.includes(args.updates.status as typeof validStatuses[number])) {
+        updateData.status = args.updates.status as typeof validStatuses[number];
+      }
       if (args.updates.status === "completed") {
         updateData.completedAt = Date.now();
       }

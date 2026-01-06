@@ -84,10 +84,11 @@ export const getAuditLogsForExport = query({
         let resourceName = log.resource || "Unknown";
         if (log.resourceId && typeof log.resourceId === "string") {
           try {
-            // Try to get the resource object
+            // Try to get the resource object - resourceId is a dynamic ID from various tables
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const resource = await ctx.db.get(log.resourceId as any);
             if (resource && "name" in resource) {
-              resourceName = (resource as any).name || resourceName;
+              resourceName = (resource as { name?: string }).name || resourceName;
             }
           } catch {
             // Resource might not exist or be accessible
