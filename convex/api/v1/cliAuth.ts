@@ -10,6 +10,7 @@ import { v } from "convex/values";
 import { action, query, mutation, internalMutation, internalQuery, internalAction } from "../../_generated/server";
 import { Id } from "../../_generated/dataModel";
 import { api, internal } from "../../_generated/api";
+import { getLicenseInternal } from "../../licensing/helpers";
 
 /**
  * Generate CLI session token
@@ -1257,7 +1258,6 @@ export const listCliApiKeys = query({
       .collect();
 
     // Get license limit
-    const { getLicenseInternal } = await import("../../licensing/helpers");
     const license = await getLicenseInternal(ctx, args.organizationId);
     const limit = license.limits.maxApiKeys;
 
