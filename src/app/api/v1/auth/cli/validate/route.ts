@@ -54,8 +54,13 @@ export async function GET(request: NextRequest) {
     }
 
     // Return CLI-compatible format with valid field
+    // Include userId and email at root level for CLI compatibility
     return NextResponse.json({
       valid: true,
+      // Root-level fields for CLI compatibility
+      userId: userInfo.userId,
+      email: userInfo.email,
+      // Nested user object for richer info
       user: {
         id: userInfo.userId,
         email: userInfo.email,
