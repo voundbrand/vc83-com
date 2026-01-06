@@ -90,9 +90,13 @@ export async function GET(request: NextRequest) {
 
     // Route based on session type
     if (stateRecord.sessionType === "cli") {
-      // CLI: Redirect to CLI callback URL with token
+      // CLI: Redirect to CLI callback URL with token and original state
       const redirectUrl = new URL(stateRecord.callbackUrl);
       redirectUrl.searchParams.set("token", result.token);
+      // Include CLI's original state for CSRF validation on the CLI side
+      if (stateRecord.cliState) {
+        redirectUrl.searchParams.set("state", stateRecord.cliState);
+      }
       return NextResponse.redirect(redirectUrl.toString());
     } else {
       // Platform: Redirect to platform home with session

@@ -632,6 +632,7 @@ export const storeOAuthSignupState = action({
     provider: v.union(v.literal("microsoft"), v.literal("google"), v.literal("github")),
     organizationName: v.optional(v.string()),
     cliToken: v.optional(v.string()), // Only for CLI sessions
+    cliState: v.optional(v.string()), // CLI's original state for CSRF protection
     createdAt: v.number(),
     expiresAt: v.number(),
   },
@@ -643,6 +644,7 @@ export const storeOAuthSignupState = action({
       provider: args.provider,
       organizationName: args.organizationName,
       cliToken: args.cliToken,
+      cliState: args.cliState,
       createdAt: args.createdAt,
       expiresAt: args.expiresAt,
     });
@@ -662,6 +664,7 @@ export const storeOAuthSignupStateInternal = internalMutation({
     provider: v.union(v.literal("microsoft"), v.literal("google"), v.literal("github")),
     organizationName: v.optional(v.string()),
     cliToken: v.optional(v.string()), // Only for CLI sessions
+    cliState: v.optional(v.string()), // CLI's original state for CSRF protection
     createdAt: v.number(),
     expiresAt: v.number(),
   },
@@ -673,6 +676,7 @@ export const storeOAuthSignupStateInternal = internalMutation({
       provider: args.provider,
       organizationName: args.organizationName,
       cliToken: args.cliToken,
+      cliState: args.cliState,
       createdAt: args.createdAt,
       expiresAt: args.expiresAt,
     });
@@ -695,6 +699,7 @@ export const getOAuthSignupState = action({
     provider: "microsoft" | "google" | "github";
     organizationName?: string;
     cliToken?: string;
+    cliState?: string;
     expiresAt: number;
   } | null> => {
     return await ctx.runQuery(internal.api.v1.oauthSignup.getOAuthSignupStateInternal, {
@@ -715,7 +720,7 @@ export const getOAuthSignupStateInternal = internalQuery({
       .query("oauthSignupStates")
       .withIndex("by_state", (q) => q.eq("state", args.state))
       .first();
-    
+
     if (!stateRecord) {
       return null;
     }
@@ -726,6 +731,7 @@ export const getOAuthSignupStateInternal = internalQuery({
       provider: stateRecord.provider,
       organizationName: stateRecord.organizationName,
       cliToken: stateRecord.cliToken,
+      cliState: stateRecord.cliState,
       expiresAt: stateRecord.expiresAt,
     };
   },

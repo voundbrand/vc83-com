@@ -514,6 +514,7 @@ export const oauthSignupStates = defineTable({
   provider: v.union(v.literal("microsoft"), v.literal("google"), v.literal("github")), // OAuth provider
   organizationName: v.optional(v.string()),    // Optional organization name for new accounts
   cliToken: v.optional(v.string()),            // Pre-generated CLI token (only for CLI sessions)
+  cliState: v.optional(v.string()),            // CLI's original state for CSRF protection (returned in callback)
   createdAt: v.number(),
   expiresAt: v.number(),                      // 10 minutes
 })

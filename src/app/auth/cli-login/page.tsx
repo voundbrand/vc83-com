@@ -21,6 +21,7 @@ import { Eye, EyeOff } from 'lucide-react';
 function CliLoginContent() {
   const searchParams = useSearchParams();
   const callback = searchParams.get('callback');
+  const cliState = searchParams.get('state'); // CLI's state for CSRF protection
   const [error, setError] = useState<string | null>(null);
   const [showEmailSignup, setShowEmailSignup] = useState(false);
   const [email, setEmail] = useState('');
@@ -42,8 +43,14 @@ function CliLoginContent() {
 
     // Redirect to the oauth-signup endpoint which properly generates and stores the state
     // This is the correct flow - do NOT build OAuth URLs client-side
+    // We pass the CLI's state so it can be returned in the callback for CSRF validation
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
-    const oauthUrl = `${appUrl}/api/auth/oauth-signup?provider=${provider}&sessionType=cli&callback=${encodeURIComponent(callback)}`;
+    let oauthUrl = `${appUrl}/api/auth/oauth-signup?provider=${provider}&sessionType=cli&callback=${encodeURIComponent(callback)}`;
+
+    // Pass CLI's original state so it can be returned in the callback
+    if (cliState) {
+      oauthUrl += `&cliState=${encodeURIComponent(cliState)}`;
+    }
 
     window.location.href = oauthUrl;
   };

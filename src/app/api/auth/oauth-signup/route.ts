@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
   const sessionType = (searchParams.get("sessionType") as "platform" | "cli") || "platform";
   const callback = searchParams.get("callback");
   const organizationName = searchParams.get("organizationName");
+  const cliState = searchParams.get("cliState"); // CLI's original state for CSRF protection
 
   if (!provider || !["microsoft", "google", "github"].includes(provider)) {
     return NextResponse.json(
@@ -54,6 +55,7 @@ export async function GET(request: NextRequest) {
       provider,
       organizationName: organizationName || undefined,
       cliToken,
+      cliState: cliState || undefined, // CLI's original state for CSRF protection
       createdAt: Date.now(),
       expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
     });
