@@ -31,7 +31,7 @@ export interface EmailTemplateProps {
       attendeeEmail?: string;
       purchaseDate?: number;
       pricePaid?: number;
-      [key: string]: any;
+      [key: string]: string | number | boolean | undefined;
     };
   };
 
@@ -45,7 +45,7 @@ export interface EmailTemplateProps {
       location?: string;
       durationHours?: number;
       description?: string;
-      [key: string]: any;
+      [key: string]: string | number | boolean | undefined;
     };
   };
 

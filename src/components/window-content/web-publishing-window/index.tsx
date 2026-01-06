@@ -49,11 +49,22 @@ interface SelectedPage {
   name: string;
 }
 
+interface SelectedDeployment {
+  id: string;
+  name: string;
+  provider?: string;
+  status?: string;
+  lastDeployed?: number | null;
+  deployedUrl?: string | null;
+  githubRepo?: string;
+  vercelUrl?: string;
+}
+
 export function WebPublishingWindow() {
   const [activeTab, setActiveTab] = useState<TabType>("pages");
   const [editMode, setEditMode] = useState<EditMode | null>(null);
   const [selectedPage, setSelectedPage] = useState<SelectedPage | null>(null);
-  const [selectedDeployment, setSelectedDeployment] = useState<any | null>(null);
+  const [selectedDeployment, setSelectedDeployment] = useState<SelectedDeployment | null>(null);
   const [showDeployModal, setShowDeployModal] = useState(false);
   const [showEnvVarsModal, setShowEnvVarsModal] = useState(false);
   const { t } = useNamespaceTranslations("ui.web_publishing");

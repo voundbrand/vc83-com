@@ -179,7 +179,7 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
   },
 
   "manage": {
-    createComponent: (props) => <ManageWindow {...(props as any)} />,
+    createComponent: (props) => <ManageWindow {...(props as Record<string, unknown>)} />,
     defaultConfig: {
       title: "Manage",
       titleKey: "ui.windows.manage.title",
@@ -344,7 +344,7 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
   },
 
   "tickets": {
-    createComponent: (props) => <TicketsWindow {...(props as any)} />,
+    createComponent: (props) => <TicketsWindow {...(props as Record<string, unknown>)} />,
     defaultConfig: {
       title: "Tickets",
       titleKey: "ui.windows.tickets.title",
@@ -454,6 +454,8 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
   },
 
   "oauth-tutorial": {
+    // OAuthTutorialWindow requires specific props - see OAuthTutorialWindowProps interface
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     createComponent: (props) => <OAuthTutorialWindow {...(props as any)} />,
     defaultConfig: {
       title: "OAuth Setup Tutorial",
@@ -530,7 +532,7 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
   },
 
   "checkout-failed": {
-    createComponent: (props) => <CheckoutFailedWindow {...(props as any)} />,
+    createComponent: (props) => <CheckoutFailedWindow {...(props as Record<string, unknown>)} />,
     defaultConfig: {
       title: "Checkout Failed",
       icon: "❌",
@@ -540,7 +542,7 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
   },
 
   "onboarding-welcome": {
-    createComponent: (props) => <OnboardingWelcomeScreen {...(props as any)} />,
+    createComponent: (props) => <OnboardingWelcomeScreen {...(props as Record<string, unknown>)} />,
     defaultConfig: {
       title: "Welcome",
       titleKey: "ui.windows.onboarding_welcome.title",
@@ -554,8 +556,9 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
     createComponent: (props) => {
       // Note: onAction and onClose callbacks cannot be serialized in sessionStorage
       // They will be lost on page refresh. Tutorial should be re-triggered on refresh.
-      const onAction = (props as any)?.onAction;
-      const onClose = (props as any)?.onClose || (() => {});
+      const typedProps = props as { onAction?: () => void; onClose?: () => void } | undefined;
+      const onAction = typedProps?.onAction;
+      const onClose = typedProps?.onClose || (() => {});
       return <TutorialWindow tutorialId="welcome" onClose={onClose} onAction={onAction} />;
     },
     defaultConfig: {

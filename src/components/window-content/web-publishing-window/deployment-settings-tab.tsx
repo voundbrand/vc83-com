@@ -9,10 +9,21 @@ import { useAuth } from "@/hooks/use-auth";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { useNotification } from "@/hooks/use-notification";
 
+interface DeploymentConfig {
+  id?: string;
+  name?: string;
+  provider?: string;
+  status?: string;
+  lastDeployed?: number | null;
+  deployedUrl?: string | null;
+  githubRepo?: string;
+  vercelUrl?: string;
+}
+
 interface DeploymentSettingsTabProps {
   pageId: Id<"objects">;
   pageName: string;
-  deployment: any; // The selected deployment
+  deployment: DeploymentConfig;
   onOpenEnvVarsModal: () => void;
 }
 
@@ -311,7 +322,7 @@ export function DeploymentSettingsTab({
           </div>
         ) : (
           <div className="space-y-2 max-h-[300px] overflow-y-auto">
-            {Array.isArray(envVars) && envVars.map((envVar: any) => (
+            {Array.isArray(envVars) && envVars.map((envVar: { _id: string; key: string; value?: string; required?: boolean; description?: string }) => (
               <div
                 key={envVar._id}
                 className="flex items-center justify-between p-2 border-2"

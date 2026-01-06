@@ -685,6 +685,7 @@ export function TestModePanel({
                   </div>
 
                   {/* Step Results */}
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                   {renderStepResults() as any}
 
                   {/* Final Output */}

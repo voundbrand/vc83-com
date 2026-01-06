@@ -97,8 +97,17 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
   const [isExternalPage, setIsExternalPage] = useState(false); // External page toggle
   const [externalDomain, setExternalDomain] = useState(""); // External domain URL
   const [showContentRulesModal, setShowContentRulesModal] = useState(false); // Content rules modal
-  const [tempPageForContentRules, setTempPageForContentRules] = useState<any>(null); // Temporary page object for content rules
-  const [contentRules, setContentRules] = useState<any>(null); // Stored content rules for page creation
+  // Temporary page object for content rules modal
+  const [tempPageForContentRules, setTempPageForContentRules] = useState<{
+    _id: Id<"objects">;
+    name: string;
+    customProperties?: {
+      slug: string;
+      contentRules?: Record<string, unknown>;
+    };
+  } | null>(null);
+  // Stored content rules for page creation
+  const [contentRules, setContentRules] = useState<Record<string, unknown> | null>(null);
 
   // Fetch available templates for this org
   const availableTemplates = useQuery(
@@ -146,7 +155,7 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
       // Check if this is an external page
       const isExternal = (content as { isExternal?: boolean }).isExternal;
       const externalDomain = (content as { externalDomain?: string }).externalDomain;
-      const contentRules = (content as { contentRules?: any }).contentRules;
+      const contentRules = (content as { contentRules?: Record<string, unknown> }).contentRules;
 
       if (isExternal) {
         // External page - load external settings

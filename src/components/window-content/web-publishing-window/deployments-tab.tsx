@@ -7,10 +7,21 @@ import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
+interface DeploymentConfig {
+  id: string;
+  name: string;
+  provider: string;
+  status: string;
+  lastDeployed: number | null;
+  deployedUrl: string | null;
+  githubRepo?: string;
+  vercelUrl?: string;
+}
+
 interface DeploymentsTabProps {
   pageId: Id<"objects">;
   pageName: string;
-  onSelectDeployment: (deployment: any) => void;
+  onSelectDeployment: (deployment: DeploymentConfig) => void;
   onAddDeployment: () => void;
   selectedDeploymentId?: string | null;
 }
@@ -57,7 +68,14 @@ export function DeploymentsTab({
   }
 
   // Extract deployment info from page
-  const deployment = page?.customProperties?.deployment as any;
+  interface PageDeploymentInfo {
+    githubRepo?: string;
+    vercelDeployButton?: string;
+    status?: string;
+    deployedAt?: number;
+    deployedUrl?: string;
+  }
+  const deployment = page?.customProperties?.deployment as PageDeploymentInfo | undefined;
   const hasDeployment = deployment?.githubRepo || deployment?.vercelDeployButton;
 
   // Mock deployment object (we'll enhance this when we add a deployments table)
