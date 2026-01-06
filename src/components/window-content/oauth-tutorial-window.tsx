@@ -43,8 +43,7 @@ interface OAuthCredentials {
  */
 export function OAuthTutorialWindow({
   organizationId,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  portalUrl: _portalUrl,
+  portalUrl,
   onComplete,
   onSkip,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

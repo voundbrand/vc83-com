@@ -170,14 +170,6 @@ export function AISettingsTab() {
     }
   }, [settings]);
 
-  // Auto-refresh models if cache is stale or empty
-  useEffect(() => {
-    if (modelsByProvider && modelsByProvider.isStale) {
-      console.log("Model cache is stale, fetching fresh data...");
-      handleRefreshModels();
-    }
-  }, [modelsByProvider, handleRefreshModels]);
-
   // Filter out incompatible models when tier changes
   useEffect(() => {
     const incompatibleModels = enabledModels.filter(m => !isModelCompatibleWithTier(m.modelId, privacyTier));
@@ -260,6 +252,14 @@ export function AISettingsTab() {
       setIsRefreshingModels(false);
     }
   }, [refreshModelsAction]);
+
+  // Auto-refresh models if cache is stale or empty
+  useEffect(() => {
+    if (modelsByProvider && modelsByProvider.isStale) {
+      console.log("Model cache is stale, fetching fresh data...");
+      handleRefreshModels();
+    }
+  }, [modelsByProvider, handleRefreshModels]);
 
   // Helper: Check if a model is enabled
   const isModelEnabled = (modelId: string) => {

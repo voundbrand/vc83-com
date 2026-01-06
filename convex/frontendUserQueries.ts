@@ -68,7 +68,7 @@ async function getFrontendUserFromSession(
     .withIndex("by_org_type", (q) =>
       q.eq("organizationId", session.organizationId).eq("type", "frontend_user")
     )
-    .filter((q) => q.eq(q.field("name"), session.email))
+    .filter((q) => q.eq(q.field("name"), session.contactEmail))
     .first();
 
   if (!frontendUser) return null;

@@ -833,8 +833,8 @@ async function provisionStarterTemplatesInternal(
           // Branding
           branding: {
             orgName: org.name,
-            orgLogo: org.customProperties?.logoUrl || "",
-            primaryColor: org.customProperties?.primaryColor || "#6B46C1",
+            orgLogo: (org as unknown as { customProperties?: { logoUrl?: string } }).customProperties?.logoUrl || "",
+            primaryColor: (org as unknown as { customProperties?: { primaryColor?: string } }).customProperties?.primaryColor || "#6B46C1",
           },
         },
         createdBy: userId,

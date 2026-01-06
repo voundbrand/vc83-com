@@ -74,7 +74,7 @@ interface DomainConfigProps {
 
 // Helper to safely get domain config props
 function getDomainConfigProps(obj: { customProperties?: Record<string, unknown> }): DomainConfigProps {
-  return (obj.customProperties || {}) as DomainConfigProps;
+  return (obj.customProperties || {}) as unknown as DomainConfigProps;
 }
 
 // ============================================================================

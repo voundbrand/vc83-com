@@ -62,7 +62,7 @@ async function testAIChat(message: string) {
       console.log("🔧 Tool Calls:");
       console.log("==============");
       for (const toolCall of result.toolCalls) {
-        console.log(`\n📍 ${toolCall.name} (round ${toolCall.round})`);
+        console.log(`\n📍 ${toolCall.name} (round ${(toolCall as { round?: number }).round ?? 'N/A'})`);
         console.log(`   Arguments: ${JSON.stringify(toolCall.arguments, null, 2)}`);
         if (toolCall.result) {
           console.log(`   ✅ Result: ${JSON.stringify(toolCall.result, null, 2)}`);
@@ -75,7 +75,7 @@ async function testAIChat(message: string) {
 
     console.log("\n📊 Usage:");
     console.log("=========");
-    console.log(`Tokens: ${result.usage.total_tokens}`);
+    console.log(`Tokens: ${result.usage?.total_tokens ?? 'N/A'}`);
     console.log(`Cost: $${result.cost.toFixed(6)}`);
     console.log(`Conversation ID: ${result.conversationId}`);
 

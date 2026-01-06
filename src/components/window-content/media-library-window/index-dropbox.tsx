@@ -23,9 +23,9 @@ import {
 interface MediaLibraryDropboxProps {
   onSelect?: (media: {
     _id: Id<"organizationMedia">;
-    url: string | null;
+    url?: string | null;
     filename: string;
-    mimeType: string;
+    mimeType?: string;
   }) => void;
   selectionMode?: boolean;
 }

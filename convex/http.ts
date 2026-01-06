@@ -396,7 +396,7 @@ http.route({
 
       // Parse event (already parsed by constructEvent)
       console.log(`[AI Webhooks] 📦 Processing: ${event.type} (${event.id})`);
-      const eventObject = event.data.object as Record<string, unknown>;
+      const eventObject = event.data.object as unknown as Record<string, unknown>;
       console.log(`[AI Webhooks] 📧 Customer email: ${eventObject.customer_email || 'N/A'}`);
 
       // Schedule async processing
@@ -1447,7 +1447,7 @@ http.route({
 
       // Call Convex mutation to delete subscription
       await ctx.runMutation(api.zapier.webhooks.unsubscribeWebhook, {
-        subscriptionId: subscriptionId as Id<"objects">,
+        subscriptionId: subscriptionId as Id<"webhookSubscriptions">,
       });
 
       return new Response(JSON.stringify({ success: true }), {

@@ -2,15 +2,17 @@
 
 import { useDraggable } from '@dnd-kit/core'
 import { Mail, Phone, DollarSign } from "lucide-react"
-import type { Doc } from "../../../../convex/_generated/dataModel"
+
+// Contact type for CRM pipeline (from API query result)
+type PipelineContact = Record<string, unknown>;
 
 interface ContactCardProps {
-  contact: Doc<"objects">
+  contact: PipelineContact
 }
 
 export function ContactCard({ contact }: ContactCardProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: contact._id,
+    id: contact._id as string,
   })
 
   const style = transform ? {
@@ -18,7 +20,7 @@ export function ContactCard({ contact }: ContactCardProps) {
     opacity: isDragging ? 0.5 : 1,
   } : undefined
 
-  const props = contact.customProperties || {}
+  const props = (contact.customProperties || {}) as Record<string, unknown>
   const fullName = `${props.firstName || ""} ${props.lastName || ""}`.trim() || "Unnamed"
   const email = props.email?.toString() || ""
   const phone = props.phone?.toString()
