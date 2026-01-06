@@ -11,6 +11,55 @@ import { v } from "convex/values";
 import { api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 
+// Custom property interfaces for type safety
+interface TicketCustomProperties {
+  emailTemplateId?: Id<"objects">;
+  productId?: Id<"objects">;
+  eventId?: Id<"objects">;
+  contactId?: Id<"objects">;
+  attendeeFirstName?: string;
+  attendeeLastName?: string;
+  attendeeEmail?: string;
+  holderName?: string;
+  holderEmail?: string;
+  guestCount?: number;
+  ticketNumber?: string;
+  [key: string]: unknown;
+}
+
+interface ProductCustomProperties {
+  emailTemplateId?: Id<"objects">;
+  [key: string]: unknown;
+}
+
+interface EventCustomProperties {
+  emailTemplateId?: Id<"objects">;
+  [key: string]: unknown;
+}
+
+interface ContactCustomProperties {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  [key: string]: unknown;
+}
+
+interface DomainBranding {
+  primaryColor?: string;
+  secondaryColor?: string;
+  accentColor?: string;
+  logoUrl?: string;
+}
+
+interface DomainCustomProperties {
+  domainName?: string;
+  branding?: DomainBranding;
+  webPublishing?: {
+    siteUrl?: string;
+  };
+  [key: string]: unknown;
+}
+
 // Import email template registry (runtime import)
 // Note: In production, this would be a dynamic import or server-side rendering
 // For now, we'll use the template code and generate on the frontend, then call from backend
@@ -34,7 +83,7 @@ export const resolveEmailTemplateCode = action({
     });
 
     // Check ticket-level template (for manual testing/overrides)
-    const ticketProps = ticket.customProperties as any;
+    const ticketProps = ticket.customProperties as TicketCustomProperties | undefined;
     if (ticketProps?.emailTemplateId) {
       const template = await ctx.runQuery(api.templateOntology.getEmailTemplateById, {
         templateId: ticketProps.emailTemplateId as Id<"objects">,
@@ -53,7 +102,7 @@ export const resolveEmailTemplateCode = action({
         productId: productId as Id<"objects">,
       });
 
-      const productProps = product.customProperties as any;
+      const productProps = product.customProperties as ProductCustomProperties | undefined;
       if (productProps?.emailTemplateId) {
         const template = await ctx.runQuery(api.templateOntology.getEmailTemplateById, {
           templateId: productProps.emailTemplateId as Id<"objects">,
@@ -73,7 +122,7 @@ export const resolveEmailTemplateCode = action({
         eventId: eventId as Id<"objects">,
       });
 
-      const eventProps = event.customProperties as any;
+      const eventProps = event.customProperties as EventCustomProperties | undefined;
       if (eventProps?.emailTemplateId) {
         const template = await ctx.runQuery(api.templateOntology.getEmailTemplateById, {
           templateId: eventProps.emailTemplateId as Id<"objects">,
@@ -115,12 +164,12 @@ export const getEmailTemplateData = action({
       name: string;
       ticketNumber?: string;
       status: string;
-      customProperties: any;
+      customProperties: TicketCustomProperties | undefined;
     };
     event: {
       _id: Id<"objects">;
       name: string;
-      customProperties?: any;
+      customProperties?: EventCustomProperties;
     };
     attendee: {
       firstName: string;
@@ -147,7 +196,7 @@ export const getEmailTemplateData = action({
       ticketId: args.ticketId,
     });
 
-    const ticketProps = ticket.customProperties as any;
+    const ticketProps = (ticket.customProperties || {}) as TicketCustomProperties;
 
     // Load event
     const eventId = ticketProps.eventId;
@@ -183,14 +232,14 @@ export const getEmailTemplateData = action({
     });
 
     // Load domain config (or use system defaults)
-    let domainProps: any;
-    let branding: any;
+    let domainProps: DomainCustomProperties;
+    let branding: DomainBranding;
 
     if (args.domainConfigId) {
       const domainConfig = await ctx.runQuery(api.domainConfigOntology.getDomainConfig, {
         configId: args.domainConfigId,
       });
-      domainProps = domainConfig.customProperties as any;
+      domainProps = domainConfig.customProperties as DomainCustomProperties;
 
       // Cascading branding: domain config can override organization settings
       const domainBranding = domainProps.branding;
@@ -216,7 +265,7 @@ export const getEmailTemplateData = action({
           siteUrl: "https://l4yercak3.com",
         },
       };
-      branding = domainProps.branding;
+      branding = domainProps.branding!;
     }
 
     console.log("🎨 [Email Branding] Final cascaded branding:", branding);
@@ -246,7 +295,7 @@ export const getEmailTemplateData = action({
         });
 
         if (contact && contact.type === "crm_contact") {
-          const contactProps = contact.customProperties as any;
+          const contactProps = contact.customProperties as ContactCustomProperties | undefined;
           attendeeFirstName = contactProps?.firstName || '';
           attendeeLastName = contactProps?.lastName || '';
           attendeeEmail = contactProps?.email || '';
@@ -314,13 +363,13 @@ export const getEmailTemplateData = action({
         guestCount: ticketProps.guestCount || 0,
       },
       domain: {
-        domainName: domainProps.domainName,
+        domainName: domainProps.domainName || 'l4yercak3.com',
         siteUrl: domainProps.webPublishing?.siteUrl || 'https://pluseins.gg',
         mapsUrl: "https://maps.app.goo.gl/zZXwB5vnZn6vIfH2F", // TODO: Make configurable
       },
       branding: {
-        primaryColor: branding.primaryColor,
-        secondaryColor: branding.secondaryColor,
+        primaryColor: branding.primaryColor || '#ffffff',
+        secondaryColor: branding.secondaryColor || '#1f2937',
         accentColor: branding.accentColor,
         logoUrl: branding.logoUrl,
       },

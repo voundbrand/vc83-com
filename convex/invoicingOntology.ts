@@ -1829,6 +1829,7 @@ export const createSimpleInvoiceFromCheckout = internalMutation({
 
     console.log(`📋 [createSimpleInvoiceFromCheckout] Using transaction ${transactionId} for invoice`);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const txProps = transaction.customProperties as any;
 
     // 3. Extract line items from transaction
@@ -1839,10 +1840,11 @@ export const createSimpleInvoiceFromCheckout = internalMutation({
     let totalInCents: number;
     let currency: string;
 
-    if (txProps.lineItems && Array.isArray(txProps.lineItems)) {
+    if (txProps?.lineItems && Array.isArray(txProps.lineItems)) {
       // NEW STRUCTURE: Transaction has lineItems array
       console.log(`✅ [createSimpleInvoiceFromCheckout] Using NEW transaction structure with ${txProps.lineItems.length} line items`);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       lineItems = txProps.lineItems.map((item: any) => ({
         transactionId: transaction._id,
         ticketId: item.ticketId,

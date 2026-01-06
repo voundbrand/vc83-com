@@ -183,6 +183,20 @@ function formatBytes(bytes: number): string {
 // CONTENT AREA
 // ============================================================================
 
+// Media item type based on organizationMedia.listMedia return type
+interface MediaItem {
+  _id: Id<"organizationMedia">;
+  filename: string;
+  mimeType?: string;
+  sizeBytes: number;
+  url?: string | null;
+  isStarred?: boolean;
+  folderId?: string | null;
+  createdAt: number;
+  _creationTime?: number;
+  [key: string]: unknown; // Allow additional properties from query
+}
+
 interface ContentAreaProps {
   activeSection: string;
   selectedFolderId: string | null;
@@ -193,7 +207,7 @@ interface ContentAreaProps {
   sessionId: string | null;
   selectedMediaIds: Set<string>;
   onSelectMedia: (id: string) => void;
-  onMediaClick: (media: any) => void;
+  onMediaClick: (media: MediaItem) => void;
   renamingId: string | null;
   newName: string;
   onStartRename: (id: string, currentName: string) => void;
@@ -302,15 +316,22 @@ export function ContentArea({
 }
 
 // Grid View Component
+interface GridViewProps {
+  media: MediaItem[];
+  selectedMediaIds: Set<string>;
+  onMediaClick: (media: MediaItem) => void;
+  sessionId: string | null;
+}
+
 function GridView({
   media,
   selectedMediaIds,
   onMediaClick,
   sessionId,
-}: any) {
+}: GridViewProps) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-      {media.map((item: any) => (
+      {media.map((item) => (
         <MediaGridItem
           key={item._id}
           item={item}
@@ -324,11 +345,17 @@ function GridView({
 }
 
 // List View Component
+interface ListViewProps {
+  media: MediaItem[];
+  selectedMediaIds: Set<string>;
+  onMediaClick: (media: MediaItem) => void;
+}
+
 function ListView({
   media,
   selectedMediaIds,
   onMediaClick,
-}: any) {
+}: ListViewProps) {
   return (
     <div className="space-y-1">
       {/* Header */}
@@ -343,7 +370,7 @@ function ListView({
       </div>
 
       {/* Items */}
-      {media.map((item: any) => (
+      {media.map((item) => (
         <MediaListItem
           key={item._id}
           item={item}
@@ -356,7 +383,14 @@ function ListView({
 }
 
 // Media Grid Item Component
-function MediaGridItem({ item, isSelected, onClick, sessionId }: any) {
+interface MediaGridItemProps {
+  item: MediaItem;
+  isSelected: boolean;
+  onClick: () => void;
+  sessionId: string | null;
+}
+
+function MediaGridItem({ item, isSelected, onClick, sessionId }: MediaGridItemProps) {
   const starMedia = useMutation(api.organizationMedia.starMedia);
   const unstarMedia = useMutation(api.organizationMedia.unstarMedia);
 
@@ -431,7 +465,13 @@ function MediaGridItem({ item, isSelected, onClick, sessionId }: any) {
 }
 
 // Media List Item Component (simplified - full version would be larger)
-function MediaListItem({ item, isSelected, onClick }: any) {
+interface MediaListItemProps {
+  item: MediaItem;
+  isSelected: boolean;
+  onClick: () => void;
+}
+
+function MediaListItem({ item, isSelected, onClick }: MediaListItemProps) {
   return (
     <div
       onClick={onClick}

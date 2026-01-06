@@ -1089,6 +1089,7 @@ export const duplicateForm = mutation({
       await ctx.db.insert("objectLinks", {
         organizationId: form.organizationId,
         fromObjectId: newFormId,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         toObjectId: eventId as any,
         linkType: "form_for",
         properties: {},
@@ -1175,6 +1176,7 @@ export const internalDuplicateForm = internalMutation({
       await ctx.db.insert("objectLinks", {
         organizationId: form.organizationId,
         fromObjectId: newFormId,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         toObjectId: eventId as any,
         linkType: "form_for",
         properties: {},
@@ -1236,7 +1238,12 @@ export const internalUpdateForm = internalMutation({
     }
 
     // Build update object
-    const updates: any = {
+    const updates: {
+      updatedAt: number;
+      name?: string;
+      description?: string;
+      status?: string;
+    } = {
       updatedAt: Date.now(),
     };
 
