@@ -57,6 +57,7 @@ import type * as api_v1_checkoutInternal from "../api/v1/checkoutInternal.js";
 import type * as api_v1_cliApplications from "../api/v1/cliApplications.js";
 import type * as api_v1_cliApplicationsInternal from "../api/v1/cliApplicationsInternal.js";
 import type * as api_v1_cliAuth from "../api/v1/cliAuth.js";
+import type * as api_v1_cliAuthHttp from "../api/v1/cliAuthHttp.js";
 import type * as api_v1_corsHeaders from "../api/v1/corsHeaders.js";
 import type * as api_v1_crm from "../api/v1/crm.js";
 import type * as api_v1_crmInternal from "../api/v1/crmInternal.js";
@@ -500,6 +501,7 @@ declare const fullApi: ApiFromModules<{
   "api/v1/cliApplications": typeof api_v1_cliApplications;
   "api/v1/cliApplicationsInternal": typeof api_v1_cliApplicationsInternal;
   "api/v1/cliAuth": typeof api_v1_cliAuth;
+  "api/v1/cliAuthHttp": typeof api_v1_cliAuthHttp;
   "api/v1/corsHeaders": typeof api_v1_corsHeaders;
   "api/v1/crm": typeof api_v1_crm;
   "api/v1/crmInternal": typeof api_v1_crmInternal;
