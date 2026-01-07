@@ -28,6 +28,7 @@ import { requireAuthenticatedUser, getUserContext } from "./rbacHelpers";
  * - CRM app
  * - Certificates app
  * - Compliance app
+ * - Benefits app
  *
  * No authentication required - this is a one-time setup mutation.
  *
@@ -257,6 +258,34 @@ export const seedSystemApps = mutation({
       console.log("Created AI Assistant app:", aiAssistantAppId);
     }
 
+    // Check if Benefits app already exists
+    const existingBenefits = await ctx.db
+      .query("apps")
+      .withIndex("by_code", (q) => q.eq("code", "benefits"))
+      .first();
+
+    let benefitsAppId;
+    if (existingBenefits) {
+      benefitsAppId = existingBenefits._id;
+      console.log("Benefits app already exists:", benefitsAppId);
+    } else {
+      benefitsAppId = await ctx.db.insert("apps", {
+        code: "benefits",
+        name: "Benefits",
+        description: "Member benefits and commission referral platform for community value sharing",
+        icon: "🎁",
+        category: "collaboration",
+        plans: ["pro", "business", "enterprise"],
+        creatorOrgId: systemOrg._id,
+        dataScope: "installer-owned",
+        status: "active",
+        version: "1.0.0",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+      console.log("Created Benefits app:", benefitsAppId);
+    }
+
     return {
       paymentsAppId,
       publishingAppId,
@@ -265,6 +294,7 @@ export const seedSystemApps = mutation({
       workflowsAppId,
       complianceAppId,
       aiAssistantAppId,
+      benefitsAppId,
       systemOrgId: systemOrg._id,
     };
   },
@@ -1553,5 +1583,76 @@ export const updateComplianceAppPlans = mutation({
 
     console.log("[Migration] Updated Compliance app to include all tiers");
     return { success: true, message: "Compliance app updated to include all tiers" };
+  },
+});
+
+/**
+ * Register Benefits app only
+ *
+ * Simple mutation to register the Benefits app for member benefits and commissions.
+ * No authentication required - this is a one-time setup mutation.
+ *
+ * @returns App ID if created, or existing app ID if already registered
+ */
+export const registerBenefitsApp = mutation({
+  args: {},
+  handler: async (ctx) => {
+    // Check if Benefits app already exists
+    const existing = await ctx.db
+      .query("apps")
+      .withIndex("by_code", (q) => q.eq("code", "benefits"))
+      .first();
+
+    if (existing) {
+      console.log("Benefits app already registered:", existing._id);
+      return {
+        appId: existing._id,
+        message: "Benefits app already registered",
+        app: existing,
+      };
+    }
+
+    // Find or create a system organization to own the app
+    let systemOrg = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", "system"))
+      .first();
+
+    // If no system org exists, just use the first organization
+    if (!systemOrg) {
+      const firstOrg = await ctx.db.query("organizations").first();
+      if (!firstOrg) {
+        throw new Error(
+          "No organizations found. Create an organization first before registering apps."
+        );
+      }
+      systemOrg = firstOrg;
+    }
+
+    // Create the Benefits app record
+    const appId = await ctx.db.insert("apps", {
+      code: "benefits",
+      name: "Benefits",
+      description: "Member benefits and commission referral platform for community value sharing",
+      icon: "🎁",
+      category: "collaboration",
+      plans: ["pro", "business", "enterprise"],
+      creatorOrgId: systemOrg._id,
+      dataScope: "installer-owned",
+      status: "active",
+      version: "1.0.0",
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    const app = await ctx.db.get(appId);
+
+    console.log("Benefits app registered successfully:", appId);
+
+    return {
+      appId,
+      message: "Benefits app registered successfully",
+      app,
+    };
   },
 });
