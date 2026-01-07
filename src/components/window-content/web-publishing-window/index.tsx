@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Globe, FileText, Plus, BarChart3, Rocket, Settings } from "lucide-react";
+import { Globe, FileText, Plus, BarChart3, Rocket, Settings, Box } from "lucide-react";
 import { PublishedPagesTab } from "./published-pages-tab";
 import { CreatePageTab } from "./create-page-tab";
 import { DeploymentsTab } from "./deployments-tab";
 import { DeploymentSettingsTab } from "./deployment-settings-tab";
+import { ApplicationsTab } from "./applications-tab";
 import { VercelDeploymentModal } from "./vercel-deployment-modal";
 import { EnvVarsModal } from "./env-vars-modal";
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
@@ -26,7 +27,7 @@ import type { Id } from "../../../../convex/_generated/dataModel";
  * - Analytics: Page views, conversions (future)
  */
 
-type TabType = "pages" | "create" | "deployments" | "settings" | "analytics";
+type TabType = "pages" | "create" | "deployments" | "settings" | "applications" | "analytics";
 
 interface EditMode {
   pageId: Id<"objects">;
@@ -158,6 +159,20 @@ export function WebPublishingWindow() {
           </>
         )}
 
+        {/* Applications Tab */}
+        <button
+          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
+          style={{
+            borderColor: 'var(--win95-border)',
+            background: activeTab === "applications" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+            color: activeTab === "applications" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+          }}
+          onClick={() => setActiveTab("applications")}
+        >
+          <Box size={14} />
+          Applications
+        </button>
+
         {/* Analytics Tab (future) */}
         <button
           className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2 opacity-50 cursor-not-allowed"
@@ -225,6 +240,11 @@ export function WebPublishingWindow() {
             deployment={selectedDeployment}
             onOpenEnvVarsModal={() => setShowEnvVarsModal(true)}
           />
+        )}
+
+        {/* Connected Applications */}
+        {activeTab === "applications" && (
+          <ApplicationsTab />
         )}
 
         {/* Analytics (future) */}

@@ -1787,4 +1787,86 @@ http.route({
   }),
 });
 
+/**
+ * ==========================================
+ * CLI APPLICATIONS API
+ * ==========================================
+ *
+ * Endpoints for CLI-connected application management.
+ * Uses CLI session token authentication (Bearer token).
+ */
+
+// Import CLI applications handlers
+import {
+  registerApplication as cliRegisterApplication,
+  listApplications as cliListApplications,
+  getApplicationByPath as cliGetApplicationByPath,
+  getApplication as cliGetApplication,
+  updateApplication as cliUpdateApplication,
+  syncApplication as cliSyncApplication,
+  handleOptions as cliHandleOptions,
+} from "./api/v1/cliApplications";
+
+// OPTIONS /api/v1/cli/applications - CORS preflight
+http.route({
+  path: "/api/v1/cli/applications",
+  method: "OPTIONS",
+  handler: cliHandleOptions,
+});
+
+// POST /api/v1/cli/applications - Register new application
+http.route({
+  path: "/api/v1/cli/applications",
+  method: "POST",
+  handler: cliRegisterApplication,
+});
+
+// GET /api/v1/cli/applications - List all applications
+http.route({
+  path: "/api/v1/cli/applications",
+  method: "GET",
+  handler: cliListApplications,
+});
+
+// OPTIONS /api/v1/cli/applications/by-path - CORS preflight
+http.route({
+  path: "/api/v1/cli/applications/by-path",
+  method: "OPTIONS",
+  handler: cliHandleOptions,
+});
+
+// GET /api/v1/cli/applications/by-path?hash={hash} - Find by project path
+http.route({
+  path: "/api/v1/cli/applications/by-path",
+  method: "GET",
+  handler: cliGetApplicationByPath,
+});
+
+// GET /api/v1/cli/applications/:id - Get application details (uses pathPrefix for dynamic ID)
+http.route({
+  pathPrefix: "/api/v1/cli/applications/",
+  method: "OPTIONS",
+  handler: cliHandleOptions,
+});
+
+http.route({
+  pathPrefix: "/api/v1/cli/applications/",
+  method: "GET",
+  handler: cliGetApplication,
+});
+
+// PATCH /api/v1/cli/applications/:id - Update application
+http.route({
+  pathPrefix: "/api/v1/cli/applications/",
+  method: "PATCH",
+  handler: cliUpdateApplication,
+});
+
+// POST /api/v1/cli/applications/:id/sync - Sync application data
+http.route({
+  pathPrefix: "/api/v1/cli/applications/",
+  method: "POST",
+  handler: cliSyncApplication,
+});
+
 export default http;
