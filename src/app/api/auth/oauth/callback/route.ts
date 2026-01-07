@@ -106,6 +106,9 @@ export async function GET(request: NextRequest) {
 
     // Route based on session type
     if (stateRecord.sessionType === "cli") {
+      // Debug: Log token details
+      console.log(`[OAuth Callback] CLI result.token: ${result.token.substring(0, 30)}... (length: ${result.token.length})`);
+
       // Wait for session to be readable before redirecting (handles Convex eventual consistency)
       const sessionReady = await waitForSession(result.token);
       if (!sessionReady) {
@@ -120,6 +123,11 @@ export async function GET(request: NextRequest) {
       if (stateRecord.cliState) {
         redirectUrl.searchParams.set("state", stateRecord.cliState);
       }
+
+      // Debug: Log the full redirect URL
+      console.log(`[OAuth Callback] Redirect URL: ${redirectUrl.toString()}`);
+      console.log(`[OAuth Callback] Token in URL: ${redirectUrl.searchParams.get("token")?.substring(0, 30)}...`);
+
       return NextResponse.redirect(redirectUrl.toString());
     } else {
       // Platform: Redirect to platform home with session

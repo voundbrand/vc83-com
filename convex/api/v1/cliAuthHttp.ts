@@ -42,7 +42,8 @@ export const validateSession = httpAction(async (ctx, request) => {
     }
 
     const token = authHeader.substring(7);
-    console.log(`[CLI Auth HTTP] validateSession: Token prefix: ${token.substring(0, 20)}...`);
+    // Enhanced debug logging: show token prefix and FULL LENGTH
+    console.log(`[CLI Auth HTTP] validateSession: Token: ${token.substring(0, 30)}... (length: ${token.length})`);
 
     const userInfo = await ctx.runQuery(api.api.v1.cliAuth.validateCliSession, {
       token,

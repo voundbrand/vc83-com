@@ -446,9 +446,9 @@ export const validateCliSession = query({
     organizations: Array<{ id: Id<"organizations">; name: string; slug: string }>;
     expiresAt: number;
   } | null> => {
-    // Log token info for debugging
-    const tokenPrefix = args.token.substring(0, 20);
-    console.log(`[validateCliSession] Looking up session with token prefix: ${tokenPrefix}...`);
+    // Enhanced logging: show token prefix AND length for debugging
+    const tokenPrefix = args.token.substring(0, 30);
+    console.log(`[validateCliSession] Looking up session with token: ${tokenPrefix}... (length: ${args.token.length})`);
 
     // Find CLI session by token
     const session = await ctx.db
@@ -457,7 +457,16 @@ export const validateCliSession = query({
       .first();
 
     if (!session) {
-      console.log(`[validateCliSession] No session found for token prefix: ${tokenPrefix}...`);
+      console.log(`[validateCliSession] No session found for token: ${tokenPrefix}... (length: ${args.token.length})`);
+      // Debug: Also log how many sessions exist total
+      const allSessions = await ctx.db.query("cliSessions").collect();
+      console.log(`[validateCliSession] Total sessions in DB: ${allSessions.length}`);
+      if (allSessions.length > 0 && allSessions.length <= 10) {
+        // Log all session token prefixes for comparison
+        for (const s of allSessions) {
+          console.log(`[validateCliSession] DB session token: ${s.cliToken.substring(0, 30)}... (length: ${s.cliToken.length})`);
+        }
+      }
       return null;
     }
 
