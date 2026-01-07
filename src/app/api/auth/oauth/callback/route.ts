@@ -10,7 +10,23 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { api } from "@convex/_generated/api";
-import { fetchAction } from "convex/nextjs";
+import { fetchAction, fetchQuery } from "convex/nextjs";
+
+// Helper to wait for session to be readable (handles Convex eventual consistency)
+async function waitForSession(token: string, maxAttempts = 5, delayMs = 100): Promise<boolean> {
+  for (let i = 0; i < maxAttempts; i++) {
+    const session = await fetchQuery(api.api.v1.cliAuth.validateCliSession, { token });
+    if (session) {
+      console.log(`[OAuth Callback] Session verified after ${i + 1} attempt(s)`);
+      return true;
+    }
+    if (i < maxAttempts - 1) {
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+  }
+  console.error(`[OAuth Callback] Session not found after ${maxAttempts} attempts`);
+  return false;
+}
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -90,6 +106,13 @@ export async function GET(request: NextRequest) {
 
     // Route based on session type
     if (stateRecord.sessionType === "cli") {
+      // Wait for session to be readable before redirecting (handles Convex eventual consistency)
+      const sessionReady = await waitForSession(result.token);
+      if (!sessionReady) {
+        console.error("[OAuth Callback] CLI session creation may have failed - session not readable");
+        // Still redirect, but log the issue - CLI will get 401 and can retry
+      }
+
       // CLI: Redirect to CLI callback URL with token and original state
       const redirectUrl = new URL(stateRecord.callbackUrl);
       redirectUrl.searchParams.set("token", result.token);
