@@ -118,7 +118,14 @@ export function useMultipleNamespaces(namespaces: string[]) {
     if (!value) {
       // Debug logging in development only
       if (process.env.NODE_ENV === 'development') {
-        console.warn(`[Translation] Missing key: ${key} in namespaces: ${namespaces.join(", ")} for locale: ${locale}`);
+        // Enhanced debug logging for window title issues
+        if (key.includes('ui.windows.')) {
+          const windowKeys = Object.keys(translationsMap).filter(k => k.startsWith('ui.windows.'));
+          console.warn(`[Translation] Missing window title: "${key}"`);
+          console.warn(`[Translation] Loaded ${windowKeys.length} window keys:`, windowKeys.slice(0, 15));
+        } else {
+          console.warn(`[Translation] Missing key: ${key} in namespaces: ${namespaces.join(", ")} for locale: ${locale}`);
+        }
       }
 
       // Fallback: return the key

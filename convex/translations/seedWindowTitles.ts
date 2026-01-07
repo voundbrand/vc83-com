@@ -8,7 +8,7 @@
  */
 
 import { internalMutation } from "../_generated/server";
-import { getExistingTranslationKeys, insertTranslationIfNew } from "./_translationHelpers";
+import { upsertTranslation } from "./_translationHelpers";
 
 export const seed = internalMutation({
   handler: async (ctx) => {
@@ -390,22 +390,16 @@ export const seed = internalMutation({
       },
     ];
 
-    const allKeys = translations.map(t => t.key);
-    const existingKeys = await getExistingTranslationKeys(
-      ctx.db,
-      systemOrg._id,
-      allKeys
-    );
-
-    let count = 0;
+    // Use upsert to UPDATE existing translations (fixes any broken entries)
+    let inserted = 0;
+    let updated = 0;
     for (const trans of translations) {
       for (const locale of supportedLocales) {
         const value = trans.values[locale.code as keyof typeof trans.values];
 
         if (value) {
-          const inserted = await insertTranslationIfNew(
+          const result = await upsertTranslation(
             ctx.db,
-            existingKeys,
             systemOrg._id,
             systemUser._id,
             trans.key,
@@ -415,14 +409,13 @@ export const seed = internalMutation({
             "windows"
           );
 
-          if (inserted) {
-            count++;
-          }
+          if (result.inserted) inserted++;
+          if (result.updated) updated++;
         }
       }
     }
 
-    console.log(`✅ Seeded ${count} window title translations`);
-    return { success: true, count, totalKeys: translations.length };
+    console.log(`✅ Seeded window title translations: ${inserted} inserted, ${updated} updated`);
+    return { success: true, inserted, updated, totalKeys: translations.length };
   }
 });
