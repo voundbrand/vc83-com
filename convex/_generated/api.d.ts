@@ -419,6 +419,7 @@ import type * as translations_seedTemplatesWindowTranslations from "../translati
 import type * as translations_seedTicketsTranslations from "../translations/seedTicketsTranslations.js";
 import type * as translations_seedWebPublishing from "../translations/seedWebPublishing.js";
 import type * as translations_seedWelcomeTranslations from "../translations/seedWelcomeTranslations.js";
+import type * as translations_seedWindowTitles from "../translations/seedWindowTitles.js";
 import type * as translations_seedWorkflowsTranslations from "../translations/seedWorkflowsTranslations.js";
 import type * as translations_updateBranding from "../translations/updateBranding.js";
 import type * as tutorialOntology from "../tutorialOntology.js";
@@ -863,6 +864,7 @@ declare const fullApi: ApiFromModules<{
   "translations/seedTicketsTranslations": typeof translations_seedTicketsTranslations;
   "translations/seedWebPublishing": typeof translations_seedWebPublishing;
   "translations/seedWelcomeTranslations": typeof translations_seedWelcomeTranslations;
+  "translations/seedWindowTitles": typeof translations_seedWindowTitles;
   "translations/seedWorkflowsTranslations": typeof translations_seedWorkflowsTranslations;
   "translations/updateBranding": typeof translations_updateBranding;
   tutorialOntology: typeof tutorialOntology;

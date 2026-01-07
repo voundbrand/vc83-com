@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Box, Plug, RefreshCw, Trash2, Clock, ExternalLink, Settings as SettingsIcon } from "lucide-react";
+import { Plug, RefreshCw, Trash2, Clock, ExternalLink, Settings as SettingsIcon, Terminal } from "lucide-react";
 import { RetroButton } from "@/components/retro-button";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { useNotification } from "@/hooks/use-notification";
+import { CLISetupGuide, CLISetupModal } from "./cli-setup-guide";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
 interface ApplicationProps {
@@ -66,6 +67,7 @@ export function ApplicationsTab({ onSelectApplication }: ApplicationsTabProps) {
   const currentOrg = useCurrentOrganization();
   const notification = useNotification();
   const [statusFilter, setStatusFilter] = useState<string>("active");
+  const [showConnectModal, setShowConnectModal] = useState(false);
 
   // Query connected applications
   const applications = useQuery(
@@ -173,32 +175,15 @@ export function ApplicationsTab({ onSelectApplication }: ApplicationsTabProps) {
 
       {/* Applications List */}
       {applications.length === 0 ? (
-        // Empty State
+        // Empty State with Step-by-Step Guide
         <div
-          className="border-2 p-8 text-center"
+          className="border-2 p-6"
           style={{
             borderColor: 'var(--win95-border)',
             background: 'var(--win95-bg-light)'
           }}
         >
-          <Box size={48} style={{ color: 'var(--neutral-gray)', margin: '0 auto 16px' }} />
-          <h4 className="text-sm font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
-            No Connected Applications
-          </h4>
-          <p className="text-xs mb-4" style={{ color: 'var(--neutral-gray)' }}>
-            Connect your first app using the L4YERCAK3 CLI:
-          </p>
-          <div
-            className="p-3 text-left font-mono text-xs mx-auto max-w-md"
-            style={{
-              background: 'var(--win95-text)',
-              color: 'var(--win95-bg-light)'
-            }}
-          >
-            <div>$ npm install -g l4yercak3</div>
-            <div>$ l4yercak3 login</div>
-            <div>$ l4yercak3 init</div>
-          </div>
+          <CLISetupGuide variant="full" showInstall={true} />
         </div>
       ) : (
         <div className="space-y-3">
@@ -367,27 +352,53 @@ export function ApplicationsTab({ onSelectApplication }: ApplicationsTabProps) {
         </div>
       )}
 
-      {/* CLI Installation Guide */}
+      {/* Connect Another App Card */}
       {applications.length > 0 && (
         <div
-          className="mt-4 p-3 border-2 text-xs"
+          className="mt-4 p-4 border-2"
           style={{
             borderColor: 'var(--win95-border)',
             background: 'var(--win95-bg-light)',
-            color: 'var(--neutral-gray)'
           }}
         >
-          <div className="flex items-center gap-2 mb-1">
-            <Plug size={14} />
-            <span className="font-bold" style={{ color: 'var(--win95-text)' }}>
-              Connect Another App
-            </span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div
+                className="w-10 h-10 flex items-center justify-center rounded"
+                style={{
+                  background: 'linear-gradient(135deg, var(--win95-highlight) 0%, var(--win95-gradient-end) 100%)',
+                }}
+              >
+                <Terminal size={20} className="text-white" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
+                  Connect Another App
+                </h4>
+                <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
+                  Use the CLI to connect more applications
+                </p>
+              </div>
+            </div>
+            <RetroButton
+              onClick={() => setShowConnectModal(true)}
+              variant="primary"
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <Plug size={14} />
+              View Instructions
+            </RetroButton>
           </div>
-          <p>
-            Run <code className="font-mono px-1 py-0.5" style={{ background: 'white' }}>l4yercak3 init</code> in any project directory to connect it.
-          </p>
         </div>
       )}
+
+      {/* CLI Setup Modal */}
+      <CLISetupModal
+        isOpen={showConnectModal}
+        onClose={() => setShowConnectModal(false)}
+        showInstall={false}
+      />
     </div>
   );
 }
