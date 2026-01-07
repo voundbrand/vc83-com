@@ -725,18 +725,9 @@ export const createCliSession = internalMutation({
     const tokenPrefix = args.cliToken.substring(0, 20);
     console.log(`[createCliSession] Creating session with token prefix: ${tokenPrefix}... for user: ${args.userId}`);
 
-    // Clean up existing sessions for this user (one session per user policy)
-    const existingSessions = await ctx.db
-      .query("cliSessions")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId))
-      .collect();
-
-    if (existingSessions.length > 0) {
-      console.log(`[createCliSession] Cleaning up ${existingSessions.length} existing session(s) for user`);
-      for (const session of existingSessions) {
-        await ctx.db.delete(session._id);
-      }
-    }
+    // Note: We don't clean up existing sessions here anymore.
+    // The CLI handles session management (logout/revoke) on its side.
+    // This avoids race conditions where cleanup deletes newly created sessions.
 
     const sessionId = await ctx.db.insert("cliSessions", {
       userId: args.userId,
