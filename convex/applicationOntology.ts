@@ -233,6 +233,7 @@ export const registerApplication = mutation({
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
     // Check if application already exists with this path hash
+    // Note: Excludes archived applications so users can re-register deleted apps
     if (args.source.projectPathHash) {
       const existingApps = await ctx.db
         .query("objects")
@@ -242,6 +243,8 @@ export const registerApplication = mutation({
         .collect();
 
       const existing = existingApps.find((a) => {
+        // Skip archived applications - they should not block re-registration
+        if (a.status === "archived") return false;
         const props = a.customProperties as { source?: { projectPathHash?: string } } | undefined;
         return props?.source?.projectPathHash === args.source.projectPathHash;
       });
@@ -508,6 +511,53 @@ export const archiveApplication = mutation({
 });
 
 /**
+ * Delete application (hard delete)
+ * Permanently removes the application record from the database.
+ */
+export const deleteApplication = mutation({
+  args: {
+    sessionId: v.string(),
+    applicationId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const app = await ctx.db.get(args.applicationId);
+    if (!app || app.type !== "connected_application") {
+      throw new Error("Application not found");
+    }
+
+    // Log the deletion before removing
+    await ctx.db.insert("objectActions", {
+      organizationId: app.organizationId,
+      objectId: args.applicationId,
+      actionType: "application_deleted",
+      actionData: {
+        name: app.name,
+        status: app.status,
+      },
+      performedBy: userId,
+      performedAt: Date.now(),
+    });
+
+    // Delete any object links associated with this application
+    const links = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_from_object", (q) => q.eq("fromObjectId", args.applicationId))
+      .collect();
+
+    for (const link of links) {
+      await ctx.db.delete(link._id);
+    }
+
+    // Hard delete the application
+    await ctx.db.delete(args.applicationId);
+
+    return { success: true };
+  },
+});
+
+/**
  * Record generated file (for tracking what CLI generated)
  */
 export const recordGeneratedFile = mutation({
@@ -569,6 +619,7 @@ export const recordGeneratedFile = mutation({
 
 /**
  * Get application by path hash (internal - no session required)
+ * Note: Excludes archived applications so CLI can re-register deleted apps
  */
 export const getApplicationByPathHashInternal = internalQuery({
   args: {
@@ -584,6 +635,8 @@ export const getApplicationByPathHashInternal = internalQuery({
       .collect();
 
     const app = apps.find((a) => {
+      // Skip archived applications - they should not block re-registration
+      if (a.status === "archived") return false;
       const props = a.customProperties as { source?: { projectPathHash?: string } } | undefined;
       return props?.source?.projectPathHash === args.projectPathHash;
     });
@@ -691,6 +744,7 @@ export const registerApplicationInternal = internalMutation({
   },
   handler: async (ctx, args) => {
     // Check for existing application with same path hash
+    // Note: Excludes archived applications so users can re-register deleted apps
     if (args.source.projectPathHash) {
       const existingApps = await ctx.db
         .query("objects")
@@ -700,6 +754,8 @@ export const registerApplicationInternal = internalMutation({
         .collect();
 
       const existing = existingApps.find((a) => {
+        // Skip archived applications - they should not block re-registration
+        if (a.status === "archived") return false;
         const props = a.customProperties as { source?: { projectPathHash?: string } } | undefined;
         return props?.source?.projectPathHash === args.source.projectPathHash;
       });

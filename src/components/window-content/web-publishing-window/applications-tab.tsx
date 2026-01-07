@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plug, RefreshCw, Trash2, Clock, ExternalLink, Settings as SettingsIcon, Terminal } from "lucide-react";
+import { Plug, RefreshCw, Trash2, Archive, Clock, ExternalLink, Settings as SettingsIcon, Terminal } from "lucide-react";
 import { RetroButton } from "@/components/retro-button";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
@@ -79,15 +79,28 @@ export function ApplicationsTab({ onSelectApplication }: ApplicationsTabProps) {
 
   // Archive mutation
   const archiveApplication = useMutation(api.applicationOntology.archiveApplication);
+  // Delete mutation
+  const deleteApplication = useMutation(api.applicationOntology.deleteApplication);
 
   const handleArchive = async (appId: Id<"objects">) => {
     if (!sessionId) return;
     try {
       await archiveApplication({ sessionId, applicationId: appId });
-      notification.success("Success", "Application disconnected successfully");
+      notification.success("Success", "Application archived successfully");
     } catch (error) {
       console.error("Failed to archive application:", error);
-      notification.error("Error", "Failed to disconnect application");
+      notification.error("Error", "Failed to archive application");
+    }
+  };
+
+  const handleDelete = async (appId: Id<"objects">) => {
+    if (!sessionId) return;
+    try {
+      await deleteApplication({ sessionId, applicationId: appId });
+      notification.success("Success", "Application deleted permanently");
+    } catch (error) {
+      console.error("Failed to delete application:", error);
+      notification.error("Error", "Failed to delete application");
     }
   };
 
@@ -333,17 +346,31 @@ export function ApplicationsTab({ onSelectApplication }: ApplicationsTabProps) {
                     {app.status !== 'archived' && (
                       <RetroButton
                         onClick={() => {
-                          if (confirm(`Disconnect "${app.name}"? This will archive the application.`)) {
+                          if (confirm(`Archive "${app.name}"? The application will be disconnected but can be restored.`)) {
                             handleArchive(app._id);
                           }
                         }}
                         variant="secondary"
                         size="sm"
-                        className="flex items-center gap-1 whitespace-nowrap text-red-600 hover:bg-red-50"
+                        className="flex items-center gap-1 whitespace-nowrap"
+                        title="Archive application"
                       >
-                        <Trash2 size={14} />
+                        <Archive size={14} />
                       </RetroButton>
                     )}
+                    <RetroButton
+                      onClick={() => {
+                        if (confirm(`Permanently delete "${app.name}"? This action cannot be undone.`)) {
+                          handleDelete(app._id);
+                        }
+                      }}
+                      variant="secondary"
+                      size="sm"
+                      className="flex items-center gap-1 whitespace-nowrap text-red-600 hover:bg-red-50"
+                      title="Delete permanently"
+                    >
+                      <Trash2 size={14} />
+                    </RetroButton>
                   </div>
                 </div>
               </div>
