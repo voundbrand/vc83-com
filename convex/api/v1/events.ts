@@ -1,118 +1,92 @@
 /**
  * API V1: EVENTS ENDPOINT
  *
- * External API for listing events.
- * Used by external websites to display available CME courses.
+ * External API for listing and managing events.
+ * Used by external websites and MCP tools to display and manage events.
  *
- * Endpoint: GET /api/v1/events?organizationId=xxx
- *
- * Security: API key required in Authorization header
- * Scope: Returns only events for the authenticated organization
+ * Security: Triple authentication support
+ * - API keys (full access or scoped permissions)
+ * - OAuth tokens (scope-based access control)
+ * - CLI sessions (full organization access via MCP tools)
  */
 
 import { httpAction } from "../../_generated/server";
 import { internal } from "../../_generated/api";
 import { Id } from "../../_generated/dataModel";
 import { getCorsHeaders } from "./corsHeaders";
+import { authenticateRequest, requireScopes } from "../../middleware/auth";
 
 /**
- * GET EVENTS
- * Returns all published events for an organization
+ * LIST EVENTS
+ * Returns events for an organization with filtering and pagination
+ *
+ * GET /api/v1/events
  *
  * Query Parameters:
- * - organizationId: Organization ID (optional if inferred from API key)
  * - subtype: Filter by event type (conference, workshop, etc.)
  * - status: Filter by status (default: published)
- * - startDate: Filter events after this date (Unix timestamp)
- * - endDate: Filter events before this date (Unix timestamp)
- *
- * Response:
- * {
- *   events: Array<{
- *     id: string,
- *     name: string,
- *     description: string,
- *     subtype: string,
- *     startDate: number,
- *     endDate: number,
- *     location: object,
- *     status: string,
- *     customProperties: object
- *   }>,
- *   total: number
- * }
+ * - startDateAfter: Filter events after this date (Unix timestamp)
+ * - startDateBefore: Filter events before this date (Unix timestamp)
+ * - limit: Number of results (default: 50, max: 200)
+ * - offset: Pagination offset (default: 0)
  */
-export const getEvents = httpAction(async (ctx, request) => {
+export const listEvents = httpAction(async (ctx, request) => {
   try {
     const origin = request.headers.get("origin");
     const corsHeaders = getCorsHeaders(origin);
 
-    // 1. Verify API key
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // 1. Universal authentication (API key, OAuth, or CLI session)
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
       return new Response(
-        JSON.stringify({ error: "Missing or invalid Authorization header" }),
-        {
-          status: 401,
-          headers: {
-            "Content-Type": "application/json",
-            ...corsHeaders,
-          }
-        }
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
-    const apiKey = authHeader.substring(7); // Remove "Bearer "
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
-      apiKey,
-    });
+    const authContext = authResult.context;
 
-    if (!authContext) {
+    // 2. Require events:read scope
+    const scopeCheck = requireScopes(authContext, ["events:read"]);
+    if (!scopeCheck.success) {
       return new Response(
-        JSON.stringify({ error: "Invalid API key" }),
-        {
-          status: 401,
-          headers: {
-            "Content-Type": "application/json",
-            ...corsHeaders,
-          }
-        }
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
-    const { organizationId } = authContext;
-
-    // 2. Parse query parameters
+    // 3. Parse query parameters
     const url = new URL(request.url);
     const subtype = url.searchParams.get("subtype") || undefined;
-    const status = url.searchParams.get("status") || "published";
-    const startDate = url.searchParams.get("startDate")
-      ? parseInt(url.searchParams.get("startDate")!)
+    const status = url.searchParams.get("status") || undefined;
+    const startDateAfter = url.searchParams.get("startDateAfter")
+      ? parseInt(url.searchParams.get("startDateAfter")!)
       : undefined;
-    const endDate = url.searchParams.get("endDate")
-      ? parseInt(url.searchParams.get("endDate")!)
+    const startDateBefore = url.searchParams.get("startDateBefore")
+      ? parseInt(url.searchParams.get("startDateBefore")!)
       : undefined;
+    const limit = Math.min(parseInt(url.searchParams.get("limit") || "50"), 200);
+    const offset = parseInt(url.searchParams.get("offset") || "0");
 
-    // 3. Query events using internal query
-    const events = await ctx.runQuery(internal.api.v1.eventsInternal.getEventsInternal, {
-      organizationId,
+    // 4. Query events using internal query
+    const result = await ctx.runQuery(internal.api.v1.eventsInternal.listEventsInternal, {
+      organizationId: authContext.organizationId,
       subtype,
       status,
-      startDate,
-      endDate,
+      startDateAfter,
+      startDateBefore,
+      limit,
+      offset,
     });
 
-    // 4. Return response
+    // 5. Return response
     return new Response(
-      JSON.stringify({
-        events,
-        total: events.length,
-      }),
+      JSON.stringify(result),
       {
         status: 200,
         headers: {
           "Content-Type": "application/json",
-          "X-Organization-Id": organizationId,
+          "X-Organization-Id": authContext.organizationId,
           ...corsHeaders,
         },
       }
@@ -123,13 +97,353 @@ export const getEvents = httpAction(async (ctx, request) => {
     const corsHeaders = getCorsHeaders(origin);
     return new Response(
       JSON.stringify({ error: "Internal server error" }),
+      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+    );
+  }
+});
+
+// BACKWARD COMPATIBLE: Keep old getEvents function that wraps listEvents
+export const getEvents = listEvents;
+
+/**
+ * CREATE EVENT
+ * Creates a new event
+ *
+ * POST /api/v1/events
+ *
+ * Request Body:
+ * {
+ *   subtype: "conference" | "workshop" | "concert" | "meetup" | "seminar",
+ *   name: string,
+ *   description?: string,
+ *   startDate: number (Unix timestamp),
+ *   endDate: number (Unix timestamp),
+ *   location: string,
+ *   timezone?: string,
+ *   maxCapacity?: number,
+ *   customProperties?: object
+ * }
+ */
+export const createEvent = httpAction(async (ctx, request) => {
+  try {
+    const origin = request.headers.get("origin");
+    const corsHeaders = getCorsHeaders(origin);
+
+    // 1. Universal authentication
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
+      return new Response(
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const authContext = authResult.context;
+
+    // 2. Require events:write scope
+    const scopeCheck = requireScopes(authContext, ["events:write"]);
+    if (!scopeCheck.success) {
+      return new Response(
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // 3. Parse request body
+    const body = await request.json();
+    const { subtype, name, description, startDate, endDate, location, timezone, maxCapacity, customProperties } = body;
+
+    // Validate required fields
+    if (!subtype || !name || !startDate || !endDate || !location) {
+      return new Response(
+        JSON.stringify({ error: "Missing required fields: subtype, name, startDate, endDate, location" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // 4. Create event
+    const result = await ctx.runMutation(internal.api.v1.eventsInternal.createEventInternal, {
+      organizationId: authContext.organizationId,
+      subtype,
+      name,
+      description,
+      startDate,
+      endDate,
+      location,
+      timezone,
+      maxCapacity,
+      customProperties,
+      performedBy: authContext.userId,
+    });
+
+    // 5. Return response
+    return new Response(
+      JSON.stringify({
+        success: true,
+        eventId: result.eventId,
+        slug: result.slug,
+      }),
       {
-        status: 500,
+        status: 201,
         headers: {
           "Content-Type": "application/json",
+          "X-Organization-Id": authContext.organizationId,
           ...corsHeaders,
-        }
+        },
       }
+    );
+  } catch (error) {
+    console.error("API /events (POST) error:", error);
+    const origin = request.headers.get("origin");
+    const corsHeaders = getCorsHeaders(origin);
+    const message = error instanceof Error ? error.message : "Internal server error";
+    return new Response(
+      JSON.stringify({ error: message }),
+      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+    );
+  }
+});
+
+/**
+ * GET EVENT
+ * Gets a specific event by ID
+ *
+ * GET /api/v1/events/:eventId
+ */
+export const getEvent = httpAction(async (ctx, request) => {
+  try {
+    const origin = request.headers.get("origin");
+    const corsHeaders = getCorsHeaders(origin);
+
+    // 1. Universal authentication
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
+      return new Response(
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const authContext = authResult.context;
+
+    // 2. Require events:read scope
+    const scopeCheck = requireScopes(authContext, ["events:read"]);
+    if (!scopeCheck.success) {
+      return new Response(
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // 3. Extract event ID from URL
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split("/");
+    const eventId = pathParts[pathParts.length - 1];
+
+    if (!eventId) {
+      return new Response(
+        JSON.stringify({ error: "Event ID required" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // 4. Get event by ID
+    const event = await ctx.runQuery(internal.api.v1.eventsInternal.getEventByIdInternal, {
+      eventId: eventId as Id<"objects">,
+      organizationId: authContext.organizationId,
+    });
+
+    if (!event) {
+      return new Response(
+        JSON.stringify({ error: "Event not found" }),
+        { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // 5. Return response
+    return new Response(
+      JSON.stringify(event),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "X-Organization-Id": authContext.organizationId,
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error) {
+    console.error("API /events/:id error:", error);
+    const origin = request.headers.get("origin");
+    const corsHeaders = getCorsHeaders(origin);
+    return new Response(
+      JSON.stringify({ error: "Internal server error" }),
+      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+    );
+  }
+});
+
+/**
+ * UPDATE EVENT
+ * Updates an existing event
+ *
+ * PATCH /api/v1/events/:eventId
+ */
+export const updateEvent = httpAction(async (ctx, request) => {
+  try {
+    const origin = request.headers.get("origin");
+    const corsHeaders = getCorsHeaders(origin);
+
+    // 1. Universal authentication
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
+      return new Response(
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const authContext = authResult.context;
+
+    // 2. Require events:write scope
+    const scopeCheck = requireScopes(authContext, ["events:write"]);
+    if (!scopeCheck.success) {
+      return new Response(
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // 3. Extract event ID from URL
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split("/");
+    const eventId = pathParts[pathParts.length - 1];
+
+    if (!eventId) {
+      return new Response(
+        JSON.stringify({ error: "Event ID required" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // 4. Parse request body
+    const body = await request.json();
+    const { name, description, subtype, status, startDate, endDate, location, timezone, maxCapacity, customProperties } = body;
+
+    // 5. Update event
+    await ctx.runMutation(internal.api.v1.eventsInternal.updateEventInternal, {
+      organizationId: authContext.organizationId,
+      eventId,
+      updates: {
+        name,
+        description,
+        subtype,
+        status,
+        startDate,
+        endDate,
+        location,
+        timezone,
+        maxCapacity,
+        customProperties,
+      },
+      performedBy: authContext.userId,
+    });
+
+    // 6. Return response
+    return new Response(
+      JSON.stringify({ success: true }),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "X-Organization-Id": authContext.organizationId,
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error) {
+    console.error("API /events/:id (PATCH) error:", error);
+    const origin = request.headers.get("origin");
+    const corsHeaders = getCorsHeaders(origin);
+    const message = error instanceof Error ? error.message : "Internal server error";
+    const status = message === "Event not found" ? 404 : 500;
+    return new Response(
+      JSON.stringify({ error: message }),
+      { status, headers: { "Content-Type": "application/json", ...corsHeaders } }
+    );
+  }
+});
+
+/**
+ * GET EVENT ATTENDEES
+ * Gets all attendees registered for an event
+ *
+ * GET /api/v1/events/:eventId/attendees
+ */
+export const getEventAttendees = httpAction(async (ctx, request) => {
+  try {
+    const origin = request.headers.get("origin");
+    const corsHeaders = getCorsHeaders(origin);
+
+    // 1. Universal authentication
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
+      return new Response(
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const authContext = authResult.context;
+
+    // 2. Require events:read scope
+    const scopeCheck = requireScopes(authContext, ["events:read"]);
+    if (!scopeCheck.success) {
+      return new Response(
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // 3. Extract event ID from URL
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split("/");
+    const eventId = pathParts[pathParts.length - 2]; // /api/v1/events/:eventId/attendees
+    const ticketType = url.searchParams.get("ticketType") || undefined;
+
+    if (!eventId) {
+      return new Response(
+        JSON.stringify({ error: "Event ID required" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // 4. Get event attendees
+    const result = await ctx.runQuery(internal.api.v1.eventsInternal.getEventAttendeesInternal, {
+      organizationId: authContext.organizationId,
+      eventId,
+      ticketType,
+    });
+
+    // 5. Return response
+    return new Response(
+      JSON.stringify(result),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "X-Organization-Id": authContext.organizationId,
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error) {
+    console.error("API /events/:id/attendees error:", error);
+    const origin = request.headers.get("origin");
+    const corsHeaders = getCorsHeaders(origin);
+    return new Response(
+      JSON.stringify({ error: "Internal server error" }),
+      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   }
 });

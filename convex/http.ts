@@ -525,9 +525,27 @@ http.route({
  */
 
 // Import API handlers
-import { getEvents, getEventBySlug } from "./api/v1/events";
+import {
+  listEvents,
+  getEvents,
+  createEvent,
+  getEvent,
+  updateEvent,
+  getEventAttendees,
+  getEventBySlug,
+  getEventById,
+  getEventProducts,
+} from "./api/v1/events";
 import { getProduct } from "./api/v1/products";
-import { getForm, getPublicForm, submitPublicForm } from "./api/v1/forms";
+import {
+  listForms,
+  createForm,
+  getForm,
+  getFormResponses,
+  submitFormResponse,
+  getPublicForm,
+  submitPublicForm,
+} from "./api/v1/forms";
 import { triggerWorkflow } from "./api/v1/workflows";
 import { getTransaction } from "./api/v1/transactions";
 import { getTicketPdf } from "./api/v1/tickets";
@@ -540,8 +558,15 @@ import {
   createContactFromEvent,
   createContact,
   listContacts,
+  getContact,
+  updateContact,
+  deleteContact,
   bulkImportContacts,
   exportContacts,
+  listCrmOrganizations,
+  createCrmOrganization,
+  getCrmOrganization,
+  updateCrmOrganization,
 } from "./api/v1/crm";
 import { createBooking } from "./api/v1/bookings";
 import {
@@ -608,7 +633,14 @@ http.route({
 http.route({
   path: "/api/v1/events",
   method: "GET",
-  handler: getEvents,
+  handler: listEvents,
+});
+
+// POST /api/v1/events (create event)
+http.route({
+  path: "/api/v1/events",
+  method: "POST",
+  handler: createEvent,
 });
 
 // OPTIONS /api/v1/events/by-slug/:slug (CORS preflight)
@@ -628,7 +660,7 @@ http.route({
   handler: getEventBySlug,
 });
 
-// OPTIONS /api/v1/events/:eventId (CORS preflight for both /:eventId and /:eventId/products)
+// OPTIONS /api/v1/events/:eventId (CORS preflight for event paths)
 http.route({
   pathPrefix: "/api/v1/events/",
   method: "OPTIONS",
@@ -638,139 +670,33 @@ http.route({
   }),
 });
 
-// GET /api/v1/events/:eventId (get event by ID)
+// GET /api/v1/events/:eventId/attendees (get event attendees)
+http.route({
+  path: "/api/v1/events/:eventId/attendees",
+  method: "GET",
+  handler: getEventAttendees,
+});
+
 // GET /api/v1/events/:eventId/products (get event products)
+http.route({
+  path: "/api/v1/events/:eventId/products",
+  method: "GET",
+  handler: getEventProducts,
+});
+
+// GET /api/v1/events/:eventId (get event by ID)
+// Uses pathPrefix to handle dynamic eventId parameter
 http.route({
   pathPrefix: "/api/v1/events/",
   method: "GET",
-  handler: httpAction(async (ctx, request) => {
-    try {
-      const url = new URL(request.url);
-      const pathname = url.pathname;
-      const origin = request.headers.get("origin");
-      const corsHeaders = getCorsHeaders(origin);
+  handler: getEvent,
+});
 
-      // Skip if it's the by-slug route (handled above)
-      if (pathname.includes("/by-slug/")) {
-        return new Response("Route handled elsewhere", { status: 404 });
-      }
-
-      // Verify API key first
-      const authHeader = request.headers.get("Authorization");
-      if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        return new Response(
-          JSON.stringify({ error: "Missing or invalid Authorization header" }),
-          {
-            status: 401,
-            headers: {
-              "Content-Type": "application/json",
-              ...corsHeaders,
-            }
-          }
-        );
-      }
-
-      const apiKey = authHeader.substring(7);
-      const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, { apiKey });
-
-      if (!authContext) {
-        return new Response(
-          JSON.stringify({ error: "Invalid API key" }),
-          {
-            status: 401,
-            headers: {
-              "Content-Type": "application/json",
-              ...corsHeaders,
-            }
-          }
-        );
-      }
-
-      const { organizationId } = authContext;
-
-      // Parse path
-      const afterPrefix = pathname.substring("/api/v1/events/".length);
-      const parts = afterPrefix.split("/").filter(p => p);
-
-      // Route: /api/v1/events/{eventId}/products
-      if (parts.length === 2 && parts[1] === "products") {
-        const eventId = parts[0] as Id<"objects">;
-        const products = await ctx.runQuery(
-          internal.api.v1.eventsInternal.getEventProductsInternal,
-          { eventId, organizationId }
-        );
-
-        return new Response(
-          JSON.stringify({ success: true, products, total: products.length }),
-          {
-            status: 200,
-            headers: {
-              "Content-Type": "application/json",
-              "X-Organization-Id": organizationId,
-              ...corsHeaders,
-            },
-          }
-        );
-      }
-
-      // Route: /api/v1/events/{eventId}
-      if (parts.length === 1) {
-        const eventId = parts[0] as Id<"objects">;
-        const event = await ctx.runQuery(
-          internal.api.v1.eventsInternal.getEventByIdInternal,
-          { eventId, organizationId }
-        );
-
-        if (!event) {
-          return new Response(
-            JSON.stringify({ error: "Event not found" }),
-            {
-              status: 404,
-              headers: {
-                "Content-Type": "application/json",
-                ...corsHeaders,
-              }
-            }
-          );
-        }
-
-        return new Response(
-          JSON.stringify({ success: true, event }),
-          {
-            status: 200,
-            headers: {
-              "Content-Type": "application/json",
-              "X-Organization-Id": organizationId,
-              ...corsHeaders,
-            },
-          }
-        );
-      }
-
-      // No matching route
-      return new Response("No matching routes found", {
-        status: 404,
-        headers: {
-          "Content-Type": "text/plain",
-          ...corsHeaders,
-        },
-      });
-    } catch (error) {
-      console.error("API /events/* error:", error);
-      const origin = request.headers.get("origin");
-      const corsHeaders = getCorsHeaders(origin);
-      return new Response(
-        JSON.stringify({ error: "Internal server error" }),
-        {
-          status: 500,
-          headers: {
-            "Content-Type": "application/json",
-            ...corsHeaders,
-          }
-        }
-      );
-    }
-  }),
+// PATCH /api/v1/events/:eventId (update event)
+http.route({
+  pathPrefix: "/api/v1/events/",
+  method: "PATCH",
+  handler: updateEvent,
 });
 
 // GET /api/v1/products/:productId
@@ -780,7 +706,35 @@ http.route({
   handler: getProduct,
 });
 
-// GET /api/v1/forms/:formId (authenticated)
+// GET /api/v1/forms (list forms - authenticated)
+http.route({
+  path: "/api/v1/forms",
+  method: "GET",
+  handler: listForms,
+});
+
+// POST /api/v1/forms (create form - authenticated)
+http.route({
+  path: "/api/v1/forms",
+  method: "POST",
+  handler: createForm,
+});
+
+// GET /api/v1/forms/:formId/responses (get form responses - authenticated)
+http.route({
+  path: "/api/v1/forms/:formId/responses",
+  method: "GET",
+  handler: getFormResponses,
+});
+
+// POST /api/v1/forms/:formId/responses (submit form response - authenticated)
+http.route({
+  path: "/api/v1/forms/:formId/responses",
+  method: "POST",
+  handler: submitFormResponse,
+});
+
+// GET /api/v1/forms/:formId (get form - authenticated)
 http.route({
   path: "/api/v1/forms/:formId",
   method: "GET",
@@ -916,87 +870,57 @@ http.route({
 
 // GET /api/v1/crm/contacts/:contactId - Get contact details
 // Uses pathPrefix to handle dynamic contactId parameter
+// Uses the exported getContact handler from crm.ts which supports CLI sessions
 http.route({
   pathPrefix: "/api/v1/crm/contacts/",
   method: "GET",
-  handler: httpAction(async (ctx, request) => {
-    try {
-      const url = new URL(request.url);
-      const pathname = url.pathname;
+  handler: getContact,
+});
 
-      // Extract contactId from path
-      const afterPrefix = pathname.substring("/api/v1/crm/contacts/".length);
-      const contactId = afterPrefix.split("/")[0];
+// PATCH /api/v1/crm/contacts/:contactId - Update contact
+http.route({
+  pathPrefix: "/api/v1/crm/contacts/",
+  method: "PATCH",
+  handler: updateContact,
+});
 
-      // If no contactId, this is the list endpoint (handled above)
-      if (!contactId) {
-        return new Response(
-          JSON.stringify({ error: "Contact ID required" }),
-          { status: 400, headers: { "Content-Type": "application/json" } }
-        );
-      }
+// DELETE /api/v1/crm/contacts/:contactId - Delete contact
+http.route({
+  pathPrefix: "/api/v1/crm/contacts/",
+  method: "DELETE",
+  handler: deleteContact,
+});
 
-      // Verify API key
-      const authHeader = request.headers.get("Authorization");
-      if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        return new Response(
-          JSON.stringify({ error: "Missing or invalid Authorization header" }),
-          { status: 401, headers: { "Content-Type": "application/json" } }
-        );
-      }
+/**
+ * Layer 5b: CRM Organization APIs
+ */
 
-      const apiKey = authHeader.substring(7);
-      const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
-        apiKey,
-      });
+// GET /api/v1/crm/organizations - List CRM organizations
+http.route({
+  path: "/api/v1/crm/organizations",
+  method: "GET",
+  handler: listCrmOrganizations,
+});
 
-      if (!authContext) {
-        return new Response(
-          JSON.stringify({ error: "Invalid API key" }),
-          { status: 401, headers: { "Content-Type": "application/json" } }
-        );
-      }
+// POST /api/v1/crm/organizations - Create CRM organization
+http.route({
+  path: "/api/v1/crm/organizations",
+  method: "POST",
+  handler: createCrmOrganization,
+});
 
-      const { organizationId } = authContext;
+// GET /api/v1/crm/organizations/:organizationId - Get CRM organization details
+http.route({
+  pathPrefix: "/api/v1/crm/organizations/",
+  method: "GET",
+  handler: getCrmOrganization,
+});
 
-      // Update API key usage tracking
-      // TODO: Implement async usage tracking - await ctx.scheduler.runAfter(0, internal.apiKeys.trackUsage, { apiKeyId, ipAddress });
-
-      // Query contact
-      const contact = await ctx.runQuery(
-        internal.api.v1.crmInternal.getContactInternal,
-        {
-          organizationId,
-          contactId,
-        }
-      );
-
-      if (!contact) {
-        return new Response(
-          JSON.stringify({ error: "Contact not found" }),
-          { status: 404, headers: { "Content-Type": "application/json" } }
-        );
-      }
-
-      // Return response
-      return new Response(
-        JSON.stringify(contact),
-        {
-          status: 200,
-          headers: {
-            "Content-Type": "application/json",
-            "X-Organization-Id": organizationId,
-          },
-        }
-      );
-    } catch (error) {
-      console.error("API /crm/contacts/:id error:", error);
-      return new Response(
-        JSON.stringify({ error: "Internal server error" }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
-      );
-    }
-  }),
+// PATCH /api/v1/crm/organizations/:organizationId - Update CRM organization
+http.route({
+  pathPrefix: "/api/v1/crm/organizations/",
+  method: "PATCH",
+  handler: updateCrmOrganization,
 });
 
 /**

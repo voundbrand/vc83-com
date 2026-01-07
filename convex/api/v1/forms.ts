@@ -1,78 +1,216 @@
 /**
  * API V1: FORMS ENDPOINT
  *
- * External API for getting form schemas.
- * Used by external websites to display registration forms.
+ * External API for form management.
+ * Used by external websites and MCP tools to display and manage registration forms.
  *
  * Endpoints:
- * - GET /api/v1/forms/{formId} - Authenticated access (requires API key)
+ * - GET /api/v1/forms - List forms (authenticated)
+ * - POST /api/v1/forms - Create form (authenticated)
+ * - GET /api/v1/forms/{formId} - Get form (authenticated)
+ * - GET /api/v1/forms/{formId}/responses - Get form responses (authenticated)
+ * - POST /api/v1/forms/{formId}/responses - Submit form response (authenticated)
  * - GET /api/v1/forms/public/{formId} - Public access (for published forms only)
+ * - POST /api/v1/forms/public/{formId}/submit - Public form submission
  *
- * Security:
- * - Authenticated endpoint: API key required in Authorization header
- * - Public endpoint: No authentication, only returns published forms
+ * Security: Triple authentication support
+ * - API keys (full access or scoped permissions)
+ * - OAuth tokens (scope-based access control)
+ * - CLI sessions (full organization access via MCP tools)
  */
 
 import { httpAction } from "../../_generated/server";
 import { internal, api } from "../../_generated/api";
 import { Id } from "../../_generated/dataModel";
 import { getCorsHeaders } from "./corsHeaders";
+import { authenticateRequest, requireScopes } from "../../middleware/auth";
+
+/**
+ * LIST FORMS
+ * Returns forms for an organization with filtering and pagination
+ *
+ * GET /api/v1/forms
+ */
+export const listForms = httpAction(async (ctx, request) => {
+  try {
+    const origin = request.headers.get("origin");
+    const corsHeaders = getCorsHeaders(origin);
+
+    // 1. Universal authentication
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
+      return new Response(
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const authContext = authResult.context;
+
+    // 2. Require forms:read scope
+    const scopeCheck = requireScopes(authContext, ["forms:read"]);
+    if (!scopeCheck.success) {
+      return new Response(
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // 3. Parse query parameters
+    const url = new URL(request.url);
+    const subtype = url.searchParams.get("subtype") || undefined;
+    const status = url.searchParams.get("status") || undefined;
+    const eventIdParam = url.searchParams.get("eventId");
+    const eventId = eventIdParam ? eventIdParam as Id<"objects"> : undefined;
+    const limit = Math.min(parseInt(url.searchParams.get("limit") || "50"), 200);
+    const offset = parseInt(url.searchParams.get("offset") || "0");
+
+    // 4. Query forms
+    const result = await ctx.runQuery(internal.api.v1.formsInternal.listFormsInternal, {
+      organizationId: authContext.organizationId,
+      subtype,
+      status,
+      eventId,
+      limit,
+      offset,
+    });
+
+    // 5. Return response
+    return new Response(
+      JSON.stringify(result),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "X-Organization-Id": authContext.organizationId,
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error) {
+    console.error("API /forms (list) error:", error);
+    const origin = request.headers.get("origin");
+    const corsHeaders = getCorsHeaders(origin);
+    return new Response(
+      JSON.stringify({ error: "Internal server error" }),
+      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+    );
+  }
+});
+
+/**
+ * CREATE FORM
+ * Creates a new form
+ *
+ * POST /api/v1/forms
+ */
+export const createForm = httpAction(async (ctx, request) => {
+  try {
+    const origin = request.headers.get("origin");
+    const corsHeaders = getCorsHeaders(origin);
+
+    // 1. Universal authentication
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
+      return new Response(
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const authContext = authResult.context;
+
+    // 2. Require forms:write scope
+    const scopeCheck = requireScopes(authContext, ["forms:write"]);
+    if (!scopeCheck.success) {
+      return new Response(
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // 3. Parse request body
+    const body = await request.json();
+    const { subtype, name, description, formSchema, eventId } = body;
+
+    // Validate required fields
+    if (!subtype || !name) {
+      return new Response(
+        JSON.stringify({ error: "Missing required fields: subtype, name" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // 4. Create form
+    const result = await ctx.runMutation(internal.api.v1.formsInternal.createFormInternal, {
+      organizationId: authContext.organizationId,
+      subtype,
+      name,
+      description,
+      formSchema,
+      eventId: eventId ? eventId as Id<"objects"> : undefined,
+      performedBy: authContext.userId,
+    });
+
+    // 5. Return response
+    return new Response(
+      JSON.stringify({
+        success: true,
+        formId: result.formId,
+      }),
+      {
+        status: 201,
+        headers: {
+          "Content-Type": "application/json",
+          "X-Organization-Id": authContext.organizationId,
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error) {
+    console.error("API /forms (POST) error:", error);
+    const origin = request.headers.get("origin");
+    const corsHeaders = getCorsHeaders(origin);
+    const message = error instanceof Error ? error.message : "Internal server error";
+    return new Response(
+      JSON.stringify({ error: message }),
+      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+    );
+  }
+});
 
 /**
  * GET FORM
  * Returns form schema with all fields and validation rules
  *
- * Path Parameters:
- * - formId: Form ID
- *
- * Response:
- * {
- *   id: string,
- *   name: string,
- *   description: string,
- *   status: string,
- *   fields: Array<{
- *     id: string,
- *     type: string,
- *     label: string,
- *     required: boolean,
- *     validation: object,
- *     options: array (for select/radio/etc),
- *     conditionalLogic: object
- *   }>,
- *   settings: {
- *     submitButtonText: string,
- *     successMessage: string,
- *     ...
- *   }
- * }
+ * GET /api/v1/forms/{formId}
  */
 export const getForm = httpAction(async (ctx, request) => {
   try {
-    // 1. Verify API key
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    const origin = request.headers.get("origin");
+    const corsHeaders = getCorsHeaders(origin);
+
+    // 1. Universal authentication
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
       return new Response(
-        JSON.stringify({ error: "Missing or invalid Authorization header" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
-    const apiKey = authHeader.substring(7);
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
-      apiKey,
-    });
+    const authContext = authResult.context;
 
-    if (!authContext) {
+    // 2. Require forms:read scope
+    const scopeCheck = requireScopes(authContext, ["forms:read"]);
+    if (!scopeCheck.success) {
       return new Response(
-        JSON.stringify({ error: "Invalid API key" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
-    const { organizationId } = authContext;
-
-    // 2. Extract form ID from URL
+    // 3. Extract form ID from URL
     const url = new URL(request.url);
     const pathParts = url.pathname.split("/");
     const formId = pathParts[pathParts.length - 1] as Id<"objects">;
@@ -80,39 +218,210 @@ export const getForm = httpAction(async (ctx, request) => {
     if (!formId) {
       return new Response(
         JSON.stringify({ error: "Form ID required" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
-    // 3. Get form
+    // 4. Get form
     const form = await ctx.runQuery(
       internal.api.v1.formsInternal.getFormInternal,
       {
         formId,
-        organizationId,
+        organizationId: authContext.organizationId,
       }
     );
 
     if (!form) {
       return new Response(
         JSON.stringify({ error: "Form not found" }),
-        { status: 404, headers: { "Content-Type": "application/json" } }
+        { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
-    // 4. Return response
+    // 5. Return response
     return new Response(JSON.stringify(form), {
       status: 200,
       headers: {
         "Content-Type": "application/json",
-        "X-Organization-Id": organizationId,
+        "X-Organization-Id": authContext.organizationId,
+        ...corsHeaders,
       },
     });
   } catch (error) {
-    console.error("API /forms error:", error);
+    console.error("API /forms/:formId error:", error);
+    const origin = request.headers.get("origin");
+    const corsHeaders = getCorsHeaders(origin);
     return new Response(
       JSON.stringify({ error: "Internal server error" }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+    );
+  }
+});
+
+/**
+ * GET FORM RESPONSES
+ * Returns all responses for a form with pagination
+ *
+ * GET /api/v1/forms/{formId}/responses
+ */
+export const getFormResponses = httpAction(async (ctx, request) => {
+  try {
+    const origin = request.headers.get("origin");
+    const corsHeaders = getCorsHeaders(origin);
+
+    // 1. Universal authentication
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
+      return new Response(
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const authContext = authResult.context;
+
+    // 2. Require forms:read scope
+    const scopeCheck = requireScopes(authContext, ["forms:read"]);
+    if (!scopeCheck.success) {
+      return new Response(
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // 3. Extract form ID from URL
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split("/");
+    const formId = pathParts[pathParts.length - 2]; // /api/v1/forms/:formId/responses
+    const status = url.searchParams.get("status") || undefined;
+    const limit = Math.min(parseInt(url.searchParams.get("limit") || "50"), 200);
+    const offset = parseInt(url.searchParams.get("offset") || "0");
+
+    if (!formId) {
+      return new Response(
+        JSON.stringify({ error: "Form ID required" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // 4. Get form responses
+    const result = await ctx.runQuery(internal.api.v1.formsInternal.getFormResponsesInternal, {
+      organizationId: authContext.organizationId,
+      formId,
+      status,
+      limit,
+      offset,
+    });
+
+    // 5. Return response
+    return new Response(
+      JSON.stringify(result),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "X-Organization-Id": authContext.organizationId,
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error) {
+    console.error("API /forms/:formId/responses error:", error);
+    const origin = request.headers.get("origin");
+    const corsHeaders = getCorsHeaders(origin);
+    return new Response(
+      JSON.stringify({ error: "Internal server error" }),
+      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+    );
+  }
+});
+
+/**
+ * SUBMIT FORM RESPONSE (Authenticated)
+ * Submit a form response with authentication
+ *
+ * POST /api/v1/forms/{formId}/responses
+ */
+export const submitFormResponse = httpAction(async (ctx, request) => {
+  try {
+    const origin = request.headers.get("origin");
+    const corsHeaders = getCorsHeaders(origin);
+
+    // 1. Universal authentication
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
+      return new Response(
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const authContext = authResult.context;
+
+    // 2. Require forms:write scope
+    const scopeCheck = requireScopes(authContext, ["forms:write"]);
+    if (!scopeCheck.success) {
+      return new Response(
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // 3. Extract form ID from URL
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split("/");
+    const formId = pathParts[pathParts.length - 2]; // /api/v1/forms/:formId/responses
+
+    if (!formId) {
+      return new Response(
+        JSON.stringify({ error: "Form ID required" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // 4. Parse request body
+    const body = await request.json();
+    const { responses, metadata } = body;
+
+    if (!responses) {
+      return new Response(
+        JSON.stringify({ error: "Missing required field: responses" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // 5. Create form response
+    const result = await ctx.runMutation(internal.api.v1.formsInternal.createFormResponseInternal, {
+      organizationId: authContext.organizationId,
+      formId,
+      responses,
+      metadata,
+      performedBy: authContext.userId,
+    });
+
+    // 6. Return response
+    return new Response(
+      JSON.stringify({
+        success: true,
+        responseId: result.responseId,
+      }),
+      {
+        status: 201,
+        headers: {
+          "Content-Type": "application/json",
+          "X-Organization-Id": authContext.organizationId,
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error) {
+    console.error("API /forms/:formId/responses (POST) error:", error);
+    const origin = request.headers.get("origin");
+    const corsHeaders = getCorsHeaders(origin);
+    const message = error instanceof Error ? error.message : "Internal server error";
+    return new Response(
+      JSON.stringify({ error: message }),
+      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   }
 });
