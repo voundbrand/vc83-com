@@ -449,13 +449,8 @@ const createContactTool: AITool = {
 const searchContactsTool: AITool = {
   name: "search_contacts",
   description: "Search for contacts by name, email, or company",
-  status: "placeholder",
+  status: "ready",
   windowName: "CRM",
-  tutorialSteps: [
-    "Click the **CRM** icon in your taskbar",
-    "Use the search bar at the top to search by name, email, or company",
-    "Click on a contact to view details"
-  ],
   parameters: {
     type: "object",
     properties: {
@@ -464,16 +459,34 @@ const searchContactsTool: AITool = {
     },
     required: ["query"]
   },
-  execute: async (_ctx, args) => {
+  execute: async (ctx, args) => {
+    const contacts = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalSearchContacts, {
+      organizationId: ctx.organizationId,
+      searchQuery: args.query,
+      limit: args.limit || 10,
+    });
+
+    if (contacts.length === 0) {
+      return {
+        success: true,
+        message: `No contacts found matching "${args.query}"`,
+        contacts: [],
+        count: 0,
+      };
+    }
+
     return {
-      success: false,
-      status: "placeholder",
-      message: `Let me help you search for: ${args.query}`,
-      tutorialSteps: [
-        "Click the **CRM** icon in your taskbar",
-        `Use the search bar at the top and search for: **${args.query}**`,
-        "Click on any contact to view their full details"
-      ]
+      success: true,
+      message: `Found ${contacts.length} contact(s) matching "${args.query}"`,
+      contacts: contacts.map((c: { _id: string; name: string; customProperties?: { email?: string; phone?: string; company?: string; tags?: string[] } }) => ({
+        id: c._id,
+        name: c.name,
+        email: c.customProperties?.email,
+        phone: c.customProperties?.phone,
+        company: c.customProperties?.company,
+        tags: c.customProperties?.tags || [],
+      })),
+      count: contacts.length,
     };
   }
 };
@@ -481,29 +494,55 @@ const searchContactsTool: AITool = {
 const updateContactTool: AITool = {
   name: "update_contact",
   description: "Update an existing contact's information",
-  status: "placeholder",
+  status: "ready",
   windowName: "CRM",
   parameters: {
     type: "object",
     properties: {
       contactId: { type: "string", description: "Contact ID to update" },
-      updates: { type: "object", description: "Fields to update (email, phone, etc.)" }
+      firstName: { type: "string", description: "First name" },
+      lastName: { type: "string", description: "Last name" },
+      email: { type: "string", description: "Email address" },
+      phone: { type: "string", description: "Phone number" },
+      company: { type: "string", description: "Company name" },
+      jobTitle: { type: "string", description: "Job title" },
+      notes: { type: "string", description: "Notes about the contact" }
     },
-    required: ["contactId", "updates"]
+    required: ["contactId"]
   },
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  execute: async (_ctx, _args) => {
+  execute: async (ctx, args) => {
+    const updateArgs: {
+      organizationId: Id<"organizations">;
+      userId: Id<"users">;
+      contactId: Id<"objects">;
+      firstName?: string;
+      lastName?: string;
+      email?: string;
+      phone?: string;
+      company?: string;
+      jobTitle?: string;
+      notes?: string;
+    } = {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      contactId: args.contactId as Id<"objects">,
+    };
+
+    if (args.firstName) updateArgs.firstName = args.firstName;
+    if (args.lastName) updateArgs.lastName = args.lastName;
+    if (args.email) updateArgs.email = args.email;
+    if (args.phone) updateArgs.phone = args.phone;
+    if (args.company) updateArgs.company = args.company;
+    if (args.jobTitle) updateArgs.jobTitle = args.jobTitle;
+    if (args.notes) updateArgs.notes = args.notes;
+
+    await ctx.runMutation(internal.ai.tools.internalToolMutations.internalUpdateContact, updateArgs);
+
     return {
-      success: false,
-      status: "placeholder",
-      message: "I can guide you through updating a contact!",
-      tutorialSteps: [
-        "Open the **CRM** window",
-        "Find and click on the contact you want to update",
-        "Click the **Edit** button",
-        "Make your changes",
-        "Click **Save**"
-      ]
+      success: true,
+      message: "Contact updated successfully",
+      contactId: args.contactId,
+      updatedFields: Object.keys(args).filter(k => k !== "contactId"),
     };
   }
 };
@@ -511,7 +550,7 @@ const updateContactTool: AITool = {
 const tagContactsTool: AITool = {
   name: "tag_contacts",
   description: "Add tags to one or more contacts for organization",
-  status: "placeholder",
+  status: "ready",
   windowName: "CRM",
   parameters: {
     type: "object",
@@ -521,18 +560,20 @@ const tagContactsTool: AITool = {
     },
     required: ["contactIds", "tags"]
   },
-  execute: async (_ctx, args) => {
+  execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalTagContacts, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      contactIds: args.contactIds.map((id: string) => id as Id<"objects">),
+      tags: args.tags,
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: `Let me help you add tags: ${args.tags.join(", ")}`,
-      tutorialSteps: [
-        "Open the **CRM** window",
-        "Select the contacts you want to tag (use checkboxes)",
-        "Click the **Add Tags** button",
-        `Add these tags: **${args.tags.join(", ")}**`,
-        "Click **Apply**"
-      ]
+      success: true,
+      message: `Added tags [${args.tags.join(", ")}] to ${result.success} contact(s)`,
+      total: result.total,
+      successCount: result.success,
+      failedCount: result.failed,
     };
   }
 };
@@ -632,7 +673,7 @@ const createEventTool: AITool = {
 const listEventsTool: AITool = {
   name: "list_events",
   description: "Get a list of all events (upcoming or past)",
-  status: "placeholder",
+  status: "ready",
   windowName: "Events",
   parameters: {
     type: "object",
@@ -642,15 +683,34 @@ const listEventsTool: AITool = {
     }
   },
   execute: async (ctx, args) => {
+    const events = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalListEvents, {
+      organizationId: ctx.organizationId,
+      upcoming: args.upcoming !== false,
+      limit: args.limit || 20,
+    });
+
+    if (events.length === 0) {
+      return {
+        success: true,
+        message: args.upcoming ? "No upcoming events found." : "No events found.",
+        events: [],
+        count: 0,
+      };
+    }
+
     return {
-      success: false,
-      status: "placeholder",
-      message: `Let me help you view your ${args.upcoming ? "upcoming" : "all"} events!`,
-      tutorialSteps: [
-        "Click the **Events** icon in your taskbar (📅)",
-        args.upcoming ? "You'll see upcoming events by default" : "Click **View All Events** to see past events too",
-        "Click on any event to view details"
-      ]
+      success: true,
+      message: `Found ${events.length} ${args.upcoming ? "upcoming " : ""}event(s)`,
+      events: events.map((e: { _id: string; name: string; startDate?: number; endDate?: number; location?: string; status: string; subtype?: string }) => ({
+        id: e._id,
+        name: e.name,
+        startDate: e.startDate ? new Date(e.startDate).toISOString() : null,
+        endDate: e.endDate ? new Date(e.endDate).toISOString() : null,
+        location: e.location,
+        status: e.status,
+        type: e.subtype,
+      })),
+      count: events.length,
     };
   }
 };
@@ -658,29 +718,55 @@ const listEventsTool: AITool = {
 const updateEventTool: AITool = {
   name: "update_event",
   description: "Update an existing event's details",
-  status: "placeholder",
+  status: "ready",
   windowName: "Events",
   parameters: {
     type: "object",
     properties: {
       eventId: { type: "string", description: "Event ID" },
-      updates: { type: "object", description: "Fields to update" }
+      name: { type: "string", description: "New event name" },
+      description: { type: "string", description: "New description" },
+      startDate: { type: "string", description: "New start date (ISO format)" },
+      endDate: { type: "string", description: "New end date (ISO format)" },
+      location: { type: "string", description: "New location" },
+      capacity: { type: "number", description: "New max capacity" },
+      status: { type: "string", description: "New status (draft, active, cancelled)" }
     },
-    required: ["eventId", "updates"]
+    required: ["eventId"]
   },
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  execute: async (_ctx, _args) => {
+  execute: async (ctx, args) => {
+    const updateArgs: {
+      organizationId: Id<"organizations">;
+      userId: Id<"users">;
+      eventId: Id<"objects">;
+      name?: string;
+      description?: string;
+      startDate?: number;
+      endDate?: number;
+      location?: string;
+      capacity?: number;
+      status?: string;
+    } = {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      eventId: args.eventId as Id<"objects">,
+    };
+
+    if (args.name) updateArgs.name = args.name;
+    if (args.description) updateArgs.description = args.description;
+    if (args.startDate) updateArgs.startDate = new Date(args.startDate).getTime();
+    if (args.endDate) updateArgs.endDate = new Date(args.endDate).getTime();
+    if (args.location) updateArgs.location = args.location;
+    if (args.capacity) updateArgs.capacity = args.capacity;
+    if (args.status) updateArgs.status = args.status;
+
+    await ctx.runMutation(internal.ai.tools.internalToolMutations.internalUpdateEvent, updateArgs);
+
     return {
-      success: false,
-      status: "placeholder",
-      message: "I can guide you through updating an event!",
-      tutorialSteps: [
-        "Open the **Events** window",
-        "Find and click on the event you want to update",
-        "Click the **Edit** button",
-        "Make your changes",
-        "Click **Save Changes**"
-      ]
+      success: true,
+      message: `Event updated successfully`,
+      eventId: args.eventId,
+      updatedFields: Object.keys(args).filter(k => k !== "eventId"),
     };
   }
 };
@@ -688,30 +774,33 @@ const updateEventTool: AITool = {
 const registerAttendeeTool: AITool = {
   name: "register_attendee",
   description: "Register an attendee for an event",
-  status: "placeholder",
+  status: "ready",
   windowName: "Events",
   parameters: {
     type: "object",
     properties: {
       eventId: { type: "string", description: "Event ID" },
       attendeeEmail: { type: "string", description: "Attendee email" },
-      attendeeName: { type: "string", description: "Attendee name" }
+      attendeeName: { type: "string", description: "Attendee name" },
+      ticketType: { type: "string", description: "Ticket type (general, vip, etc.)" }
     },
-    required: ["eventId", "attendeeEmail"]
+    required: ["eventId", "attendeeEmail", "attendeeName"]
   },
   execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalRegisterAttendee, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      eventId: args.eventId as Id<"objects">,
+      attendeeName: args.attendeeName,
+      attendeeEmail: args.attendeeEmail,
+      ticketType: args.ticketType,
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: `Let me help you register ${args.attendeeName || args.attendeeEmail} for this event!`,
-      tutorialSteps: [
-        "Open the **Events** window",
-        "Click on the event",
-        "Go to the **Attendees** tab",
-        "Click **+ Add Attendee**",
-        `Enter: **${args.attendeeName || ""} (${args.attendeeEmail})**`,
-        "Click **Register**"
-      ]
+      success: result.success,
+      message: result.message,
+      contactId: result.contactId,
+      registrationId: result.linkId,
     };
   }
 };
@@ -879,7 +968,7 @@ const createFormTool: AITool = {
 const listFormsTool: AITool = {
   name: "list_forms",
   description: "Get a list of all forms",
-  status: "placeholder",
+  status: "ready",
   windowName: "Forms",
   parameters: {
     type: "object",
@@ -889,15 +978,33 @@ const listFormsTool: AITool = {
     }
   },
   execute: async (ctx, args) => {
+    const forms = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalListForms, {
+      organizationId: ctx.organizationId,
+      status: args.status,
+      limit: args.limit || 20,
+    });
+
+    if (forms.length === 0) {
+      return {
+        success: true,
+        message: "No forms found",
+        forms: [],
+        count: 0,
+      };
+    }
+
     return {
-      success: false,
-      status: "placeholder",
-      message: "Let me help you view your forms!",
-      tutorialSteps: [
-        "Click the **Forms** icon in your taskbar",
-        args.status !== "all" ? `Filter by status: **${args.status}**` : "You'll see all your forms here",
-        "Click on any form to view details or edit"
-      ]
+      success: true,
+      message: `Found ${forms.length} form(s)`,
+      forms: forms.map((f: { _id: string; name: string; subtype?: string; status: string; stats?: { views: number; submissions: number } }) => ({
+        id: f._id,
+        name: f.name,
+        type: f.subtype,
+        status: f.status,
+        views: f.stats?.views || 0,
+        submissions: f.stats?.submissions || 0,
+      })),
+      count: forms.length,
     };
   }
 };
@@ -905,7 +1012,7 @@ const listFormsTool: AITool = {
 const publishFormTool: AITool = {
   name: "publish_form",
   description: "Make a form live and available for submissions",
-  status: "placeholder",
+  status: "ready",
   windowName: "Forms",
   parameters: {
     type: "object",
@@ -914,18 +1021,17 @@ const publishFormTool: AITool = {
     },
     required: ["formId"]
   },
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  execute: async (_ctx, _args) => {
+  execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalPublishForm, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      formId: args.formId as Id<"objects">,
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: "I can help you publish your form!",
-      tutorialSteps: [
-        "Open the **Forms** window",
-        "Find and click on your form",
-        "Click the **Publish** button",
-        "Copy the form URL to share with others"
-      ]
+      success: result.success,
+      message: "Form published successfully! It's now live and accepting submissions.",
+      formId: result.formId,
     };
   }
 };
@@ -933,7 +1039,7 @@ const publishFormTool: AITool = {
 const getFormResponsesTool: AITool = {
   name: "get_form_responses",
   description: "Retrieve submissions for a specific form",
-  status: "placeholder",
+  status: "ready",
   windowName: "Forms",
   parameters: {
     type: "object",
@@ -943,19 +1049,20 @@ const getFormResponsesTool: AITool = {
     },
     required: ["formId"]
   },
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  execute: async (_ctx, _args) => {
+  execute: async (ctx, args) => {
+    const result = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalGetFormResponses, {
+      organizationId: ctx.organizationId,
+      formId: args.formId as Id<"objects">,
+      limit: args.limit || 50,
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: "Let me help you view form responses!",
-      tutorialSteps: [
-        "Open the **Forms** window",
-        "Click on your form",
-        "Go to the **Responses** tab",
-        "You'll see all submissions here",
-        "Click **Export** to download as CSV"
-      ]
+      success: true,
+      message: `Found ${result.total} response(s) for "${result.formName}"`,
+      formId: result.formId,
+      formName: result.formName,
+      total: result.total,
+      responses: result.responses,
     };
   }
 };
@@ -1038,7 +1145,7 @@ const createProductTool: AITool = {
 const listProductsTool: AITool = {
   name: "list_products",
   description: "Get a list of all products",
-  status: "placeholder",
+  status: "ready",
   windowName: "Products",
   parameters: {
     type: "object",
@@ -1048,15 +1155,33 @@ const listProductsTool: AITool = {
     }
   },
   execute: async (ctx, args) => {
+    const products = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalListProducts, {
+      organizationId: ctx.organizationId,
+      status: args.status,
+      limit: args.limit || 20,
+    });
+
+    if (products.length === 0) {
+      return {
+        success: true,
+        message: "No products found",
+        products: [],
+        count: 0,
+      };
+    }
+
     return {
-      success: false,
-      status: "placeholder",
-      message: "Let me help you view your products!",
-      tutorialSteps: [
-        "Click the **Products** icon in your taskbar",
-        args.status !== "all" ? `Filter by status: **${args.status}**` : "You'll see all your products here",
-        "Click on any product to edit details or view sales"
-      ]
+      success: true,
+      message: `Found ${products.length} product(s)`,
+      products: products.map((p) => ({
+        id: p._id,
+        name: p.name,
+        type: p.subtype,
+        status: p.status,
+        price: p.priceDollars ? `$${p.priceDollars} ${p.currency || "USD"}` : "No price set",
+        sold: p.sold || 0,
+      })),
+      count: products.length,
     };
   }
 };
@@ -1064,28 +1189,34 @@ const listProductsTool: AITool = {
 const updateProductPriceTool: AITool = {
   name: "set_product_price",
   description: "Update the price of a product",
-  status: "placeholder",
+  status: "ready",
   windowName: "Products",
   parameters: {
     type: "object",
     properties: {
       productId: { type: "string", description: "Product ID" },
-      newPrice: { type: "number", description: "New price in dollars" }
+      newPrice: { type: "number", description: "New price in dollars" },
+      currency: { type: "string", description: "Currency (USD, EUR, etc.)" }
     },
     required: ["productId", "newPrice"]
   },
   execute: async (ctx, args) => {
+    const priceInCents = Math.round(args.newPrice * 100);
+
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalSetProductPrice, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      productId: args.productId as Id<"objects">,
+      priceInCents,
+      currency: args.currency,
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: `Let me help you update the price to $${args.newPrice}!`,
-      tutorialSteps: [
-        "Open the **Products** window",
-        "Find and click on the product",
-        "Click the **Edit** button",
-        `Change the price to: **$${args.newPrice}**`,
-        "Click **Save Changes**"
-      ]
+      success: result.success,
+      message: `Price updated from $${(result.oldPrice as number) / 100} to $${args.newPrice}`,
+      productId: result.productId,
+      oldPrice: result.oldPrice ? `$${(result.oldPrice as number) / 100}` : null,
+      newPrice: `$${args.newPrice}`,
     };
   }
 };
@@ -1097,19 +1228,14 @@ const updateProductPriceTool: AITool = {
 const createInvoiceTool: AITool = {
   name: "create_invoice",
   description: "Generate a new invoice for a customer",
-  status: "placeholder",
+  status: "ready",
   windowName: "Payments",
-  tutorialSteps: [
-    "Click the **Payments** icon in your taskbar",
-    "Go to the **Invoices** tab",
-    "Click **+ New Invoice**",
-    "Select customer and add line items",
-    "Click **Generate Invoice**"
-  ],
   parameters: {
     type: "object",
     properties: {
-      customerId: { type: "string", description: "Customer ID or email" },
+      customerId: { type: "string", description: "Customer ID (optional)" },
+      customerEmail: { type: "string", description: "Customer email address" },
+      customerName: { type: "string", description: "Customer name" },
       items: {
         type: "array",
         description: "Invoice line items",
@@ -1118,30 +1244,43 @@ const createInvoiceTool: AITool = {
           properties: {
             description: { type: "string" },
             quantity: { type: "number" },
-            price: { type: "number" }
+            unitPrice: { type: "number", description: "Price per unit in cents" }
           }
         }
       },
-      dueDate: { type: "string", description: "Payment due date (ISO 8601)" }
+      dueDate: { type: "string", description: "Payment due date (ISO 8601)" },
+      notes: { type: "string", description: "Additional notes" },
+      currency: { type: "string", description: "Currency (USD, EUR, etc.)", default: "USD" }
     },
-    required: ["customerId", "items"]
+    required: ["items"]
   },
   execute: async (ctx, args) => {
-    const items = args.items as Array<{ quantity: number; price: number }>;
-    const total = items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+    const items = (args.items as Array<{ description: string; quantity: number; unitPrice: number }>).map(item => ({
+      description: item.description || "Item",
+      quantity: item.quantity || 1,
+      unitPrice: item.unitPrice || 0,
+    }));
+
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateInvoice, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      customerId: args.customerId ? (args.customerId as Id<"objects">) : undefined,
+      customerEmail: args.customerEmail,
+      customerName: args.customerName,
+      items,
+      dueDate: args.dueDate ? new Date(args.dueDate).getTime() : undefined,
+      notes: args.notes,
+      currency: args.currency,
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: `I can help you create an invoice for ${args.customerId}!`,
-      tutorialSteps: [
-        "Click the **Payments** icon in your taskbar",
-        "Go to the **Invoices** tab",
-        "Click **+ New Invoice**",
-        `Select customer: **${args.customerId}**`,
-        `Add line items (Total: $${total.toFixed(2)})`,
-        args.dueDate ? `Set due date: **${args.dueDate}**` : "Set a due date",
-        "Click **Generate Invoice**"
-      ]
+      success: true,
+      message: `Invoice ${result.invoiceNumber} created for $${(result.total / 100).toFixed(2)} ${result.currency}`,
+      invoiceId: result.invoiceId,
+      invoiceNumber: result.invoiceNumber,
+      total: `$${(result.total / 100).toFixed(2)}`,
+      currency: result.currency,
+      status: result.status,
     };
   }
 };
@@ -1149,7 +1288,7 @@ const createInvoiceTool: AITool = {
 const sendInvoiceTool: AITool = {
   name: "send_invoice",
   description: "Email an invoice to a customer",
-  status: "placeholder",
+  status: "ready",
   windowName: "Payments",
   parameters: {
     type: "object",
@@ -1160,49 +1299,61 @@ const sendInvoiceTool: AITool = {
     required: ["invoiceId"]
   },
   execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalSendInvoice, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      invoiceId: args.invoiceId as Id<"objects">,
+      emailMessage: args.emailMessage,
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: "Let me help you send this invoice!",
-      tutorialSteps: [
-        "Open the **Payments** window → **Invoices** tab",
-        "Find and click on the invoice",
-        "Click the **Send Invoice** button",
-        args.emailMessage ? `Add your message: "${args.emailMessage}"` : "Add a message (optional)",
-        "Click **Send Email**"
-      ]
+      success: result.success,
+      message: `Invoice ${result.invoiceNumber} sent to ${result.customerEmail}`,
+      invoiceId: result.invoiceId,
+      invoiceNumber: result.invoiceNumber,
+      customerEmail: result.customerEmail,
+      previousStatus: result.previousStatus,
+      newStatus: result.newStatus,
     };
   }
 };
 
 const processPaymentTool: AITool = {
   name: "process_payment",
-  description: "Charge a customer's credit card or payment method",
-  status: "placeholder",
+  description: "Record a payment or mark an invoice as paid",
+  status: "ready",
   windowName: "Payments",
   parameters: {
     type: "object",
     properties: {
-      customerId: { type: "string", description: "Customer ID" },
-      amount: { type: "number", description: "Amount in dollars" },
-      description: { type: "string", description: "Payment description" }
+      invoiceId: { type: "string", description: "Invoice ID to mark as paid (optional)" },
+      customerId: { type: "string", description: "Customer ID (optional)" },
+      amount: { type: "number", description: "Amount in cents" },
+      paymentMethod: { type: "string", description: "Payment method (card, cash, bank_transfer)", default: "manual" },
+      description: { type: "string", description: "Payment description" },
+      transactionId: { type: "string", description: "External transaction ID (optional)" }
     },
-    required: ["customerId", "amount"]
+    required: ["amount"]
   },
   execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalProcessPayment, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      invoiceId: args.invoiceId ? (args.invoiceId as Id<"objects">) : undefined,
+      customerId: args.customerId ? (args.customerId as Id<"objects">) : undefined,
+      amount: args.amount,
+      paymentMethod: args.paymentMethod,
+      description: args.description,
+      transactionId: args.transactionId,
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: `⚠️ Processing payments requires manual confirmation. Let me guide you through charging $${args.amount}:`,
-      tutorialSteps: [
-        "Open the **Payments** window",
-        "Go to the **Process Payment** tab",
-        `Select customer: **${args.customerId}**`,
-        `Enter amount: **$${args.amount}**`,
-        args.description ? `Description: ${args.description}` : "Add a description",
-        "**Review carefully before proceeding**",
-        "Click **Charge Card**"
-      ]
+      success: result.success,
+      message: `Payment of $${(args.amount / 100).toFixed(2)} recorded`,
+      paymentId: result.paymentId,
+      amount: `$${(result.amount / 100).toFixed(2)}`,
+      invoiceId: result.invoiceId,
+      transactionId: result.transactionId,
     };
   }
 };
@@ -1214,40 +1365,32 @@ const processPaymentTool: AITool = {
 const createTicketTool: AITool = {
   name: "create_ticket",
   description: "Create a support ticket or help desk request",
-  status: "placeholder",
+  status: "ready",
   windowName: "Tickets",
-  tutorialSteps: [
-    "Click the **Tickets** icon in your taskbar",
-    "Click **+ New Ticket**",
-    "Fill in ticket subject and description",
-    "Set priority and assign to team member",
-    "Click **Create Ticket**"
-  ],
   parameters: {
     type: "object",
     properties: {
       subject: { type: "string", description: "Ticket subject/title" },
       description: { type: "string", description: "Detailed description" },
-      priority: { type: "string", enum: ["low", "medium", "high", "urgent"], default: "medium" },
-      assignee: { type: "string", description: "Team member to assign" }
+      priority: { type: "string", enum: ["low", "medium", "high", "urgent"], default: "medium" }
     },
     required: ["subject", "description"]
   },
   execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateTicket, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      subject: args.subject,
+      description: args.description,
+      priority: args.priority || "medium",
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: `I can help you create a ticket: "${args.subject}"`,
-      tutorialSteps: [
-        "Click the **Tickets** icon in your taskbar",
-        "Click **+ New Ticket**",
-        `Fill in:
-   - Subject: **${args.subject}**
-   - Description: ${args.description}
-   - Priority: **${args.priority || "Medium"}**
-   - Assignee: ${args.assignee || "[Select team member]"}`,
-        "Click **Create Ticket**"
-      ]
+      success: true,
+      message: `Created ticket ${result.ticketNumber}: "${args.subject}"`,
+      ticketId: result.ticketId,
+      ticketNumber: result.ticketNumber,
+      priority: args.priority || "medium",
     };
   }
 };
@@ -1255,7 +1398,7 @@ const createTicketTool: AITool = {
 const updateTicketStatusTool: AITool = {
   name: "update_ticket_status",
   description: "Change a ticket's status (open, in-progress, resolved, closed)",
-  status: "placeholder",
+  status: "ready",
   windowName: "Tickets",
   parameters: {
     type: "object",
@@ -1266,17 +1409,19 @@ const updateTicketStatusTool: AITool = {
     required: ["ticketId", "newStatus"]
   },
   execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalUpdateTicketStatus, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      ticketId: args.ticketId as Id<"objects">,
+      newStatus: args.newStatus,
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: `Let me help you update the ticket status to "${args.newStatus}"!`,
-      tutorialSteps: [
-        "Open the **Tickets** window",
-        "Find and click on the ticket",
-        "Click the **Status** dropdown",
-        `Select: **${args.newStatus}**`,
-        "The ticket status will update automatically"
-      ]
+      success: result.success,
+      message: `Ticket status updated from "${result.oldStatus}" to "${result.newStatus}"`,
+      ticketId: args.ticketId,
+      oldStatus: result.oldStatus,
+      newStatus: result.newStatus,
     };
   }
 };
@@ -1284,7 +1429,7 @@ const updateTicketStatusTool: AITool = {
 const listTicketsTool: AITool = {
   name: "list_tickets",
   description: "Get a list of all support tickets",
-  status: "placeholder",
+  status: "ready",
   windowName: "Tickets",
   parameters: {
     type: "object",
@@ -1294,15 +1439,33 @@ const listTicketsTool: AITool = {
     }
   },
   execute: async (ctx, args) => {
+    const tickets = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalListTickets, {
+      organizationId: ctx.organizationId,
+      status: args.status !== "all" ? args.status : undefined,
+      limit: args.limit || 20,
+    });
+
+    if (tickets.length === 0) {
+      return {
+        success: true,
+        message: "No tickets found",
+        tickets: [],
+        count: 0,
+      };
+    }
+
     return {
-      success: false,
-      status: "placeholder",
-      message: "Let me help you view your tickets!",
-      tutorialSteps: [
-        "Click the **Tickets** icon in your taskbar",
-        args.status !== "all" ? `Filter by status: **${args.status}**` : "You'll see all tickets here",
-        "Click on any ticket to view details and add comments"
-      ]
+      success: true,
+      message: `Found ${tickets.length} ticket(s)`,
+      tickets: tickets.map((t) => ({
+        id: t._id,
+        ticketNumber: t.ticketNumber,
+        subject: t.name,
+        status: t.status,
+        priority: t.priority,
+        createdAt: new Date(t.createdAt).toISOString(),
+      })),
+      count: tickets.length,
     };
   }
 };
@@ -1314,65 +1477,67 @@ const listTicketsTool: AITool = {
 const createWorkflowTool: AITool = {
   name: "create_workflow",
   description: "Create an automated workflow (if-this-then-that style)",
-  status: "placeholder",
+  status: "ready",
   windowName: "Workflows",
-  tutorialSteps: [
-    "Click the **Workflows** icon in your taskbar",
-    "Click **+ New Workflow**",
-    "Choose a trigger (event happens, form submitted, etc.)",
-    "Add actions (send email, create contact, etc.)",
-    "Click **Save & Enable Workflow**"
-  ],
   parameters: {
     type: "object",
     properties: {
       name: { type: "string", description: "Workflow name" },
-      trigger: { type: "string", description: "What triggers this workflow" },
-      actions: { type: "array", items: { type: "string" }, description: "Actions to perform" }
+      trigger: { type: "string", description: "What triggers this workflow (e.g., form_submitted, event_registered, contact_created)" },
+      actions: { type: "array", items: { type: "string" }, description: "Actions to perform (e.g., send_email, add_tag, create_task)" }
     },
     required: ["name", "trigger"]
   },
   execute: async (ctx, args) => {
+    const workflowId = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateWorkflow, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      name: args.name,
+      trigger: args.trigger,
+      actions: args.actions,
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: `I can help you create the "${args.name}" workflow!`,
-      tutorialSteps: [
-        "Click the **Workflows** icon in your taskbar",
-        "Click **+ New Workflow**",
-        `Name it: **${args.name}**`,
-        `Set trigger: ${args.trigger}`,
-        args.actions ? `Add these actions: ${args.actions.join(", ")}` : "Add your actions",
-        "Click **Save & Enable Workflow**"
-      ]
+      success: true,
+      message: `Created workflow "${args.name}" (draft mode). Enable it to activate.`,
+      workflowId,
+      name: args.name,
+      trigger: args.trigger,
+      actions: args.actions || [],
+      status: "draft",
     };
   }
 };
 
 const enableWorkflowTool: AITool = {
   name: "enable_workflow",
-  description: "Activate an automation workflow",
-  status: "placeholder",
+  description: "Activate or deactivate an automation workflow",
+  status: "ready",
   windowName: "Workflows",
   parameters: {
     type: "object",
     properties: {
-      workflowId: { type: "string", description: "Workflow ID to enable" }
+      workflowId: { type: "string", description: "Workflow ID to enable/disable" },
+      enabled: { type: "boolean", description: "True to enable, false to disable", default: true }
     },
     required: ["workflowId"]
   },
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  execute: async (_ctx, _args) => {
+  execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalSetWorkflowStatus, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      workflowId: args.workflowId as Id<"objects">,
+      enabled: args.enabled !== false,
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: "Let me help you enable this workflow!",
-      tutorialSteps: [
-        "Open the **Workflows** window",
-        "Find your workflow in the list",
-        "Click the **Enable** toggle switch",
-        "The workflow is now active! ✅"
-      ]
+      success: result.success,
+      message: args.enabled !== false
+        ? "Workflow enabled and now active!"
+        : "Workflow disabled",
+      workflowId: args.workflowId,
+      oldStatus: result.oldStatus,
+      newStatus: result.newStatus,
     };
   }
 };
@@ -1383,37 +1548,45 @@ const enableWorkflowTool: AITool = {
 
 const uploadMediaTool: AITool = {
   name: "upload_media",
-  description: "Upload a file or image to your media library",
-  status: "placeholder",
+  description: "Create a media library entry for tracking uploaded files",
+  status: "ready",
   windowName: "Media",
-  tutorialSteps: [
-    "Click the **Media** icon in your taskbar",
-    "Click **Upload File** or drag-and-drop",
-    "Select your file",
-    "Add a title and description (optional)",
-    "Click **Upload**"
-  ],
   parameters: {
     type: "object",
     properties: {
       fileName: { type: "string", description: "File name" },
       fileType: { type: "string", description: "File type (image, video, document)" },
-      folder: { type: "string", description: "Folder to organize file" }
+      mimeType: { type: "string", description: "MIME type (e.g., image/png)" },
+      size: { type: "number", description: "File size in bytes" },
+      folder: { type: "string", description: "Folder to organize file" },
+      description: { type: "string", description: "File description" },
+      tags: { type: "array", items: { type: "string" }, description: "Tags for searching" },
+      url: { type: "string", description: "URL if already hosted" },
+      storageId: { type: "string", description: "Convex storage ID if uploaded" }
     },
     required: ["fileName"]
   },
   execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateMediaEntry, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      fileName: args.fileName,
+      fileType: args.fileType,
+      mimeType: args.mimeType,
+      size: args.size,
+      folder: args.folder,
+      description: args.description,
+      tags: args.tags as string[] | undefined,
+      url: args.url,
+      storageId: args.storageId,
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: `I can help you upload "${args.fileName}"!`,
-      tutorialSteps: [
-        "Click the **Media** icon in your taskbar",
-        "Click **Upload File** or drag-and-drop your file",
-        `Select your file: **${args.fileName}**`,
-        args.folder ? `Choose folder: **${args.folder}**` : "Choose a folder (optional)",
-        "Click **Upload**"
-      ]
+      success: true,
+      message: `Media entry created for "${args.fileName}"`,
+      mediaId: result.mediaId,
+      fileName: result.fileName,
+      folder: args.folder,
     };
   }
 };
@@ -1421,27 +1594,47 @@ const uploadMediaTool: AITool = {
 const searchMediaTool: AITool = {
   name: "search_media",
   description: "Search for files in your media library",
-  status: "placeholder",
+  status: "ready",
   windowName: "Media",
   parameters: {
     type: "object",
     properties: {
       query: { type: "string", description: "Search term (file name, tag, etc.)" },
-      fileType: { type: "string", enum: ["all", "images", "videos", "documents"], default: "all" }
+      fileType: { type: "string", enum: ["all", "images", "videos", "documents"], default: "all" },
+      limit: { type: "number", description: "Maximum results", default: 20 }
     },
     required: ["query"]
   },
   execute: async (ctx, args) => {
+    const media = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalSearchMedia, {
+      organizationId: ctx.organizationId,
+      query: args.query,
+      fileType: args.fileType,
+      limit: args.limit || 20,
+    });
+
+    if (media.length === 0) {
+      return {
+        success: true,
+        message: `No media found matching "${args.query}"`,
+        results: [],
+        count: 0,
+      };
+    }
+
     return {
-      success: false,
-      status: "placeholder",
-      message: `Let me help you search for: ${args.query}`,
-      tutorialSteps: [
-        "Open the **Media** window",
-        `Use the search bar and type: **${args.query}**`,
-        args.fileType !== "all" ? `Filter by: **${args.fileType}**` : "You'll see all matching files",
-        "Click on any file to view details or download"
-      ]
+      success: true,
+      message: `Found ${media.length} file(s) matching "${args.query}"`,
+      results: media.map((m) => ({
+        id: m._id,
+        name: m.name,
+        fileName: m.fileName,
+        fileType: m.fileType,
+        mimeType: m.mimeType,
+        size: m.size ? `${(m.size / 1024).toFixed(1)} KB` : undefined,
+        url: m.url,
+      })),
+      count: media.length,
     };
   }
 };
@@ -1453,37 +1646,35 @@ const searchMediaTool: AITool = {
 const createTemplateTool: AITool = {
   name: "create_template",
   description: "Create an email template for reuse",
-  status: "placeholder",
+  status: "ready",
   windowName: "Templates",
-  tutorialSteps: [
-    "Click the **Templates** icon in your taskbar",
-    "Click **+ New Template**",
-    "Design your email (subject, body, variables)",
-    "Click **Save Template**"
-  ],
   parameters: {
     type: "object",
     properties: {
       name: { type: "string", description: "Template name" },
       subject: { type: "string", description: "Email subject line" },
       body: { type: "string", description: "Email body (supports HTML)" },
-      variables: { type: "array", items: { type: "string" }, description: "Merge variables (e.g., {{firstName}})" }
+      variables: { type: "array", items: { type: "string" }, description: "Merge variables (e.g., firstName, company)" }
     },
     required: ["name", "subject", "body"]
   },
   execute: async (ctx, args) => {
+    const templateId = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateEmailTemplate, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      name: args.name,
+      subject: args.subject,
+      body: args.body,
+      variables: args.variables,
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: `I can help you create the "${args.name}" email template!`,
-      tutorialSteps: [
-        "Click the **Templates** icon in your taskbar",
-        "Click **+ New Template**",
-        `Template name: **${args.name}**`,
-        `Subject: ${args.subject}`,
-        "Write your email body (use {{firstName}}, {{company}}, etc. for personalization)",
-        "Click **Save Template**"
-      ]
+      success: true,
+      message: `Created email template "${args.name}"`,
+      templateId,
+      name: args.name,
+      subject: args.subject,
+      variables: args.variables || [],
     };
   }
 };
@@ -1491,30 +1682,35 @@ const createTemplateTool: AITool = {
 const sendEmailFromTemplateTool: AITool = {
   name: "send_email_from_template",
   description: "Send an email using a saved template",
-  status: "placeholder",
+  status: "ready",
   windowName: "Templates",
   parameters: {
     type: "object",
     properties: {
       templateId: { type: "string", description: "Template ID to use" },
       recipientEmail: { type: "string", description: "Recipient email address" },
+      recipientName: { type: "string", description: "Recipient name (for personalization)" },
       variables: { type: "object", description: "Variables to fill in (firstName, company, etc.)" }
     },
     required: ["templateId", "recipientEmail"]
   },
   execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalSendEmailFromTemplate, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      templateId: args.templateId as Id<"objects">,
+      recipientEmail: args.recipientEmail,
+      recipientName: args.recipientName,
+      variables: args.variables,
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: `Let me help you send an email to ${args.recipientEmail}!`,
-      tutorialSteps: [
-        "Open the **Templates** window",
-        "Find and click on your template",
-        "Click **Use Template**",
-        `Enter recipient: **${args.recipientEmail}**`,
-        args.variables ? "Fill in personalization variables" : "Review the email content",
-        "Click **Send Email**"
-      ]
+      success: result.success,
+      message: `Email queued to ${args.recipientEmail} using template "${result.templateName}"`,
+      emailLogId: result.emailLogId,
+      templateName: result.templateName,
+      recipientEmail: result.recipientEmail,
+      subject: result.subject,
     };
   }
 };
@@ -1526,38 +1722,39 @@ const sendEmailFromTemplateTool: AITool = {
 const createPageTool: AITool = {
   name: "create_page",
   description: "Create a new website page",
-  status: "placeholder",
+  status: "ready",
   windowName: "Web Publishing",
-  tutorialSteps: [
-    "Click the **Web Publishing** icon in your taskbar",
-    "Click **+ New Page**",
-    "Choose a template or start blank",
-    "Design your page with the visual editor",
-    "Click **Publish Page**"
-  ],
   parameters: {
     type: "object",
     properties: {
       title: { type: "string", description: "Page title" },
       slug: { type: "string", description: "URL slug (e.g., 'about-us')" },
-      template: { type: "string", description: "Template to use" }
+      template: { type: "string", description: "Template to use" },
+      content: { type: "object", description: "Page content (blocks structure)" },
+      metaTitle: { type: "string", description: "SEO meta title" },
+      metaDescription: { type: "string", description: "SEO meta description" }
     },
     required: ["title", "slug"]
   },
   execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreatePage, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      title: args.title,
+      slug: args.slug,
+      template: args.template,
+      content: args.content,
+      metaTitle: args.metaTitle,
+      metaDescription: args.metaDescription,
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: `I can help you create a page: "${args.title}"!`,
-      tutorialSteps: [
-        "Click the **Web Publishing** icon in your taskbar",
-        "Click **+ New Page**",
-        `Page title: **${args.title}**`,
-        `URL slug: **${args.slug}**`,
-        args.template ? `Choose template: **${args.template}**` : "Choose a template or start blank",
-        "Design your page content",
-        "Click **Publish Page**"
-      ]
+      success: true,
+      message: `Page "${args.title}" created at /${args.slug}`,
+      pageId: result.pageId,
+      title: args.title,
+      slug: result.slug,
+      status: "draft",
     };
   }
 };
@@ -1565,7 +1762,7 @@ const createPageTool: AITool = {
 const publishPageTool: AITool = {
   name: "publish_page",
   description: "Make a page live on your website",
-  status: "placeholder",
+  status: "ready",
   windowName: "Web Publishing",
   parameters: {
     type: "object",
@@ -1574,19 +1771,21 @@ const publishPageTool: AITool = {
     },
     required: ["pageId"]
   },
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  execute: async (_ctx, _args) => {
+  execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalPublishPage, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      pageId: args.pageId as Id<"objects">,
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: "Let me help you publish this page!",
-      tutorialSteps: [
-        "Open the **Web Publishing** window",
-        "Find and click on your page",
-        "Click the **Publish** button",
-        "Your page is now live! 🚀",
-        "Click **View Live Page** to see it"
-      ]
+      success: result.success,
+      message: `Page "${result.title}" is now live at /${result.slug}`,
+      pageId: result.pageId,
+      title: result.title,
+      slug: result.slug,
+      previousStatus: result.oldStatus,
+      newStatus: result.newStatus,
     };
   }
 };
@@ -1598,38 +1797,33 @@ const publishPageTool: AITool = {
 const createCheckoutPageTool: AITool = {
   name: "create_checkout_page",
   description: "Create a custom checkout page for products",
-  status: "placeholder",
+  status: "ready",
   windowName: "Checkout",
-  tutorialSteps: [
-    "Click the **Checkout** icon in your taskbar",
-    "Click **+ New Checkout**",
-    "Select products to include",
-    "Configure payment methods (Stripe, PayPal)",
-    "Click **Create Checkout**"
-  ],
   parameters: {
     type: "object",
     properties: {
       name: { type: "string", description: "Checkout page name" },
-      productIds: { type: "array", items: { type: "string" }, description: "Products to include" },
-      paymentMethods: { type: "array", items: { type: "string" }, description: "Payment methods (stripe, paypal, etc.)" }
+      productIds: { type: "array", items: { type: "string" }, description: "Product IDs to include" },
+      paymentMethods: { type: "array", items: { type: "string" }, description: "Payment methods (stripe-connect, paypal, etc.)" }
     },
     required: ["name", "productIds"]
   },
   execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateCheckoutPage, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      name: args.name,
+      productIds: args.productIds.map((id: string) => id as Id<"objects">),
+      paymentMethods: args.paymentMethods,
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: `I can help you create a checkout page: "${args.name}"!`,
-      tutorialSteps: [
-        "Click the **Checkout** icon in your taskbar",
-        "Click **+ New Checkout**",
-        `Name: **${args.name}**`,
-        "Select products to sell",
-        args.paymentMethods ? `Enable: **${args.paymentMethods.join(", ")}**` : "Configure payment methods",
-        "Click **Create Checkout**",
-        "Copy the checkout URL to share"
-      ]
+      success: true,
+      message: `Created checkout page "${args.name}"`,
+      checkoutId: result.checkoutId,
+      publicSlug: result.publicSlug,
+      checkoutUrl: `https://checkout.l4yercak3.com/${result.publicSlug}`,
+      status: "draft",
     };
   }
 };
@@ -1641,40 +1835,41 @@ const createCheckoutPageTool: AITool = {
 const generateCertificateTool: AITool = {
   name: "generate_certificate",
   description: "Create a certificate of completion or achievement",
-  status: "placeholder",
+  status: "ready",
   windowName: "Certificates",
-  tutorialSteps: [
-    "Click the **Certificates** icon in your taskbar",
-    "Click **+ New Certificate**",
-    "Choose a template",
-    "Fill in recipient details",
-    "Click **Generate**"
-  ],
   parameters: {
     type: "object",
     properties: {
       recipientName: { type: "string", description: "Certificate recipient name" },
-      certificateType: { type: "string", description: "Type of certificate (completion, achievement, etc.)" },
+      recipientEmail: { type: "string", description: "Certificate recipient email (for delivery)" },
+      certificateType: { type: "string", description: "Type of certificate (completion, achievement, attendance)" },
       eventName: { type: "string", description: "Related event or course name" },
-      issueDate: { type: "string", description: "Date of issue" }
+      issueDate: { type: "string", description: "Date of issue (ISO 8601 format)" },
+      pointsAwarded: { type: "number", description: "Points/credits to award", default: 1 }
     },
     required: ["recipientName", "certificateType"]
   },
   execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalGenerateCertificate, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      recipientName: args.recipientName,
+      recipientEmail: args.recipientEmail,
+      certificateType: args.certificateType,
+      eventName: args.eventName,
+      issueDate: args.issueDate ? new Date(args.issueDate).getTime() : undefined,
+      pointsAwarded: args.pointsAwarded,
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: `I can help you generate a certificate for ${args.recipientName}!`,
-      tutorialSteps: [
-        "Click the **Certificates** icon in your taskbar",
-        "Click **+ New Certificate**",
-        "Choose a certificate template",
-        `Recipient: **${args.recipientName}**`,
-        `Type: **${args.certificateType}**`,
-        args.eventName ? `For: **${args.eventName}**` : "Add event/course name",
-        "Click **Generate Certificate**",
-        "Download PDF or send via email"
-      ]
+      success: true,
+      message: `Certificate generated for ${args.recipientName}`,
+      certificateId: result.certificateId,
+      certificateNumber: result.certificateNumber,
+      recipientName: args.recipientName,
+      certificateType: args.certificateType,
+      eventName: args.eventName,
+      verificationUrl: `https://l4yercak3.com/verify/${result.certificateNumber}`,
     };
   }
 };
