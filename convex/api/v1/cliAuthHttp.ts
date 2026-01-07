@@ -28,8 +28,10 @@ export const validateSession = httpAction(async (ctx, request) => {
 
   try {
     const authHeader = request.headers.get("Authorization");
+    console.log(`[CLI Auth HTTP] validateSession: authHeader present: ${!!authHeader}`);
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.log("[CLI Auth HTTP] validateSession: Missing or invalid Authorization header");
       return new Response(
         JSON.stringify({
           valid: false,
@@ -40,12 +42,15 @@ export const validateSession = httpAction(async (ctx, request) => {
     }
 
     const token = authHeader.substring(7);
+    console.log(`[CLI Auth HTTP] validateSession: Token prefix: ${token.substring(0, 20)}...`);
 
     const userInfo = await ctx.runQuery(api.api.v1.cliAuth.validateCliSession, {
       token,
     });
+    console.log(`[CLI Auth HTTP] validateSession: Query result: ${userInfo ? 'found user' : 'null'}`);
 
     if (!userInfo) {
+      console.log("[CLI Auth HTTP] validateSession: Returning invalid session response");
       return new Response(
         JSON.stringify({
           valid: false,
