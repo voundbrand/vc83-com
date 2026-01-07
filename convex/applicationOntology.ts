@@ -19,8 +19,7 @@
 
 import { query, mutation, internalQuery, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
-import { Id } from "./_generated/dataModel";
-import { internal } from "./_generated/api";
+import { requireAuthenticatedUser } from "./rbacHelpers";
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -123,8 +122,6 @@ export const getApplications = query({
     status: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // Import helper inline to avoid circular dependency
-    const { requireAuthenticatedUser } = await import("./rbacHelpers");
     await requireAuthenticatedUser(ctx, args.sessionId);
 
     const apps = await ctx.db
@@ -152,7 +149,6 @@ export const getApplication = query({
     applicationId: v.id("objects"),
   },
   handler: async (ctx, args) => {
-    const { requireAuthenticatedUser } = await import("./rbacHelpers");
     await requireAuthenticatedUser(ctx, args.sessionId);
 
     const app = await ctx.db.get(args.applicationId);
@@ -174,7 +170,6 @@ export const getApplicationByPathHash = query({
     projectPathHash: v.string(),
   },
   handler: async (ctx, args) => {
-    const { requireAuthenticatedUser } = await import("./rbacHelpers");
     await requireAuthenticatedUser(ctx, args.sessionId);
 
     const apps = await ctx.db
@@ -235,7 +230,6 @@ export const registerApplication = mutation({
     }))),
   },
   handler: async (ctx, args) => {
-    const { requireAuthenticatedUser } = await import("./rbacHelpers");
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
     // Check if application already exists with this path hash
@@ -362,7 +356,6 @@ export const updateApplication = mutation({
     })),
   },
   handler: async (ctx, args) => {
-    const { requireAuthenticatedUser } = await import("./rbacHelpers");
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
     const app = await ctx.db.get(args.applicationId);
@@ -435,7 +428,6 @@ export const linkApiKey = mutation({
     apiKeyId: v.id("apiKeys"),
   },
   handler: async (ctx, args) => {
-    const { requireAuthenticatedUser } = await import("./rbacHelpers");
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
     const app = await ctx.db.get(args.applicationId);
@@ -489,7 +481,6 @@ export const archiveApplication = mutation({
     applicationId: v.id("objects"),
   },
   handler: async (ctx, args) => {
-    const { requireAuthenticatedUser } = await import("./rbacHelpers");
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
     const app = await ctx.db.get(args.applicationId);
@@ -527,7 +518,6 @@ export const recordGeneratedFile = mutation({
     fileType: v.string(), // "api-client", "types", "env", etc.
   },
   handler: async (ctx, args) => {
-    const { requireAuthenticatedUser } = await import("./rbacHelpers");
     await requireAuthenticatedUser(ctx, args.sessionId);
 
     const app = await ctx.db.get(args.applicationId);
