@@ -26,6 +26,16 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async rewrites() {
+    const convexSiteUrl = process.env.NEXT_PUBLIC_CONVEX_URL?.replace('.cloud', '.site') || '';
+    return [
+      // Proxy CLI application routes to Convex HTTP endpoints
+      {
+        source: '/api/v1/cli/:path*',
+        destination: `${convexSiteUrl}/api/v1/cli/:path*`,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
