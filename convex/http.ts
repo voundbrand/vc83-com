@@ -1789,6 +1789,96 @@ http.route({
 
 /**
  * ==========================================
+ * CLI AUTHENTICATION API
+ * ==========================================
+ *
+ * Endpoints for CLI authentication and session management.
+ * Uses CLI session token authentication (Bearer token).
+ */
+
+// Import CLI auth HTTP handlers
+import {
+  validateSession as cliValidateSession,
+  refreshSession as cliRefreshSession,
+  listOrganizations as cliListOrganizations,
+  createOrganization as cliCreateOrganization,
+  listApiKeys as cliListApiKeys,
+  generateApiKey as cliGenerateApiKey,
+  handleOptions as cliAuthHandleOptions,
+} from "./api/v1/cliAuthHttp";
+
+// OPTIONS /api/v1/auth/cli/validate - CORS preflight
+http.route({
+  path: "/api/v1/auth/cli/validate",
+  method: "OPTIONS",
+  handler: cliAuthHandleOptions,
+});
+
+// GET /api/v1/auth/cli/validate - Validate CLI session
+http.route({
+  path: "/api/v1/auth/cli/validate",
+  method: "GET",
+  handler: cliValidateSession,
+});
+
+// OPTIONS /api/v1/auth/cli/refresh - CORS preflight
+http.route({
+  path: "/api/v1/auth/cli/refresh",
+  method: "OPTIONS",
+  handler: cliAuthHandleOptions,
+});
+
+// POST /api/v1/auth/cli/refresh - Refresh CLI session
+http.route({
+  path: "/api/v1/auth/cli/refresh",
+  method: "POST",
+  handler: cliRefreshSession,
+});
+
+// OPTIONS /api/v1/auth/cli/organizations - CORS preflight
+http.route({
+  path: "/api/v1/auth/cli/organizations",
+  method: "OPTIONS",
+  handler: cliAuthHandleOptions,
+});
+
+// GET /api/v1/auth/cli/organizations - List user's organizations
+http.route({
+  path: "/api/v1/auth/cli/organizations",
+  method: "GET",
+  handler: cliListOrganizations,
+});
+
+// POST /api/v1/auth/cli/organizations - Create organization
+http.route({
+  path: "/api/v1/auth/cli/organizations",
+  method: "POST",
+  handler: cliCreateOrganization,
+});
+
+// OPTIONS /api/v1/auth/cli/api-keys - CORS preflight
+http.route({
+  path: "/api/v1/auth/cli/api-keys",
+  method: "OPTIONS",
+  handler: cliAuthHandleOptions,
+});
+
+// GET /api/v1/auth/cli/api-keys - List API keys
+http.route({
+  path: "/api/v1/auth/cli/api-keys",
+  method: "GET",
+  handler: cliListApiKeys,
+});
+
+// POST /api/v1/auth/cli/api-keys - Generate API key
+http.route({
+  path: "/api/v1/auth/cli/api-keys",
+  method: "POST",
+  handler: cliGenerateApiKey,
+});
+
+/**
+ * ==========================================
  * CLI APPLICATIONS API
  * ==========================================
  *
