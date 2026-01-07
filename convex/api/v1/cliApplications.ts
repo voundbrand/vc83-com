@@ -477,6 +477,7 @@ export const updateApplication = httpAction(async (ctx, request) => {
       description: body.description,
       status: body.status,
       connection: body.connection,
+      deployment: body.deployment,
       modelMappings: body.modelMappings,
     });
 

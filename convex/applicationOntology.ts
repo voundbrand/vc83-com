@@ -761,6 +761,13 @@ export const updateApplicationInternal = internalMutation({
     status: v.optional(v.string()),
     connection: v.optional(v.object({
       features: v.optional(v.array(v.string())),
+      hasFrontendDatabase: v.optional(v.boolean()),
+      frontendDatabaseType: v.optional(v.string()),
+    })),
+    deployment: v.optional(v.object({
+      githubRepo: v.optional(v.string()),
+      productionUrl: v.optional(v.string()),
+      stagingUrl: v.optional(v.string()),
     })),
     modelMappings: v.optional(v.array(v.any())),
   },
@@ -783,6 +790,13 @@ export const updateApplicationInternal = internalMutation({
       newProps.connection = {
         ...(currentProps.connection as Record<string, unknown> || {}),
         ...args.connection,
+      };
+    }
+
+    if (args.deployment) {
+      newProps.deployment = {
+        ...(currentProps.deployment as Record<string, unknown> || {}),
+        ...args.deployment,
       };
     }
 
