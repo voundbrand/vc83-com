@@ -163,6 +163,10 @@ const QuickStartICPSelector = lazy(() =>
   import("@/components/quick-start").then(m => ({ default: m.QuickStartICPSelector }))
 );
 
+const BenefitsWindow = lazy(() =>
+  import("@/components/window-content/benefits-window").then(m => ({ default: m.BenefitsWindow }))
+);
+
 /**
  * Registry of all available windows
  */
@@ -581,6 +585,17 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
       icon: "🚀",
       position: { x: 200, y: 100 },
       size: { width: 900, height: 700 }
+    }
+  },
+
+  "benefits": {
+    createComponent: () => <BenefitsWindow />,
+    defaultConfig: {
+      title: "Benefits",
+      titleKey: "ui.windows.benefits.title",
+      icon: "🎁",
+      position: { x: 150, y: 100 },
+      size: { width: 1100, height: 700 }
     }
   }
 };

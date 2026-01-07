@@ -36,6 +36,7 @@ import { TutorialsDocsWindow } from "@/components/window-content/tutorials-docs-
 import { IntegrationsWindow } from "@/components/window-content/integrations-window"
 import { ComplianceWindow } from "@/components/window-content/compliance-window"
 import { OrganizationSwitcherWindow } from "@/components/window-content/organization-switcher-window"
+import { BenefitsWindow } from "@/components/window-content/benefits-window"
 import { OnboardingWelcomeScreen } from "@/components/onboarding-welcome-screen"
 import { useIsMobile } from "@/hooks/use-media-query"
 import { useAuth, useOrganizations, useCurrentOrganization, useIsSuperAdmin, useAccountDeletionStatus } from "@/hooks/use-auth"
@@ -204,6 +205,10 @@ export default function HomePage() {
 
   const openComplianceWindow = () => {
     openWindow("compliance", "Compliance", <ComplianceWindow />, { x: 150, y: 100 }, { width: 900, height: 600 }, 'ui.app.compliance', '⚖️')
+  }
+
+  const openBenefitsWindow = () => {
+    openWindow("benefits", "Benefits", <BenefitsWindow />, { x: 150, y: 100 }, { width: 1100, height: 700 }, 'ui.app.benefits', '🎁')
   }
 
   const openOrganizationSwitcherWindow = () => {
@@ -536,6 +541,8 @@ export default function HomePage() {
     { label: t('ui.app.compliance') || "Compliance", icon: "⚖️", onClick: requireAuth(openComplianceWindow) },
     // Templates app - Browse and preview all templates
     { label: t('ui.app.templates'), icon: "📄", onClick: requireAuth(openTemplatesWindow) },
+    // Benefits app - Member benefits and commission referrals
+    { label: t('ui.app.benefits') || "Benefits", icon: "🎁", onClick: requireAuth(openBenefitsWindow) },
     //{ label: "l4yercak3 Podcast", icon: "🎙️", onClick: requireAuth(openEpisodesWindow) },
     //{ label: "Subscribe", icon: "🔊", onClick: requireAuth(openSubscribeWindow) },
   ]

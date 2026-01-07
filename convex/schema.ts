@@ -102,6 +102,14 @@ import {
 // 📧 EMAIL QUEUE SCHEMA (Email delivery tracking)
 import { emailQueue } from "./schemas/emailQueueSchemas";
 
+// 🎁 BENEFITS PLATFORM SCHEMAS (Benefits & Commissions tracking)
+import {
+  benefitClaims,
+  commissionPayouts,
+  memberWallets,
+  platformFees
+} from "./schemas/benefitsSchemas";
+
 /**
  * MAIN SCHEMA EXPORT
  *
@@ -213,6 +221,12 @@ export default defineSchema({
 
   // 📧 EMAIL QUEUE: Email delivery tracking
   emailQueue,                // Outbound email queue
+
+  // 🎁 BENEFITS PLATFORM: Benefits & Commissions tracking
+  benefitClaims,             // Benefit claim workflow tracking
+  commissionPayouts,         // Commission payout workflow tracking
+  memberWallets,             // Crypto wallet links for members
+  platformFees,              // Platform fee tracking for billing
 
   // ❌ OLD TRANSLATIONS - Replaced by ontology
   // systemTranslations,

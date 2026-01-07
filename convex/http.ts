@@ -558,6 +558,20 @@ import {
   getInvoicePdf,
   syncInvoiceToStripe,
 } from "./api/v1/invoices";
+import {
+  createBenefit,
+  listBenefits,
+  getBenefit,
+  updateBenefit,
+  deleteBenefit,
+  createClaim,
+  listClaims,
+  createCommission,
+  listCommissions,
+  getCommission,
+  createPayout,
+  listPayouts,
+} from "./api/v1/benefits";
 
 /**
  * Layer 1: READ APIs (Before Checkout)
@@ -1242,6 +1256,137 @@ http.route({
       );
     }
   }),
+});
+
+/**
+ * Layer 7.6: BENEFITS API (Benefits & Commissions Management)
+ *
+ * Endpoints for managing benefits, claims, commissions, and payouts.
+ * Security: Dual auth (API keys + OAuth tokens with benefits:read/write scopes)
+ */
+
+// OPTIONS /api/v1/benefits - CORS preflight
+http.route({
+  path: "/api/v1/benefits",
+  method: "OPTIONS",
+  handler: httpAction(async (ctx, request) => {
+    const origin = request.headers.get("origin");
+    return handleOptionsRequest(origin);
+  }),
+});
+
+// OPTIONS /api/v1/benefits/:benefitId - CORS preflight
+http.route({
+  pathPrefix: "/api/v1/benefits/",
+  method: "OPTIONS",
+  handler: httpAction(async (ctx, request) => {
+    const origin = request.headers.get("origin");
+    return handleOptionsRequest(origin);
+  }),
+});
+
+// OPTIONS /api/v1/commissions - CORS preflight
+http.route({
+  path: "/api/v1/commissions",
+  method: "OPTIONS",
+  handler: httpAction(async (ctx, request) => {
+    const origin = request.headers.get("origin");
+    return handleOptionsRequest(origin);
+  }),
+});
+
+// OPTIONS /api/v1/commissions/:commissionId - CORS preflight
+http.route({
+  pathPrefix: "/api/v1/commissions/",
+  method: "OPTIONS",
+  handler: httpAction(async (ctx, request) => {
+    const origin = request.headers.get("origin");
+    return handleOptionsRequest(origin);
+  }),
+});
+
+// POST /api/v1/benefits - Create benefit
+http.route({
+  path: "/api/v1/benefits",
+  method: "POST",
+  handler: createBenefit,
+});
+
+// GET /api/v1/benefits - List benefits
+http.route({
+  path: "/api/v1/benefits",
+  method: "GET",
+  handler: listBenefits,
+});
+
+// GET /api/v1/benefits/:benefitId - Get benefit details
+http.route({
+  path: "/api/v1/benefits/:benefitId",
+  method: "GET",
+  handler: getBenefit,
+});
+
+// PATCH /api/v1/benefits/:benefitId - Update benefit
+http.route({
+  path: "/api/v1/benefits/:benefitId",
+  method: "PATCH",
+  handler: updateBenefit,
+});
+
+// DELETE /api/v1/benefits/:benefitId - Delete benefit (draft only)
+http.route({
+  path: "/api/v1/benefits/:benefitId",
+  method: "DELETE",
+  handler: deleteBenefit,
+});
+
+// POST /api/v1/benefits/:benefitId/claims - Create claim
+http.route({
+  path: "/api/v1/benefits/:benefitId/claims",
+  method: "POST",
+  handler: createClaim,
+});
+
+// GET /api/v1/benefits/:benefitId/claims - List claims for benefit
+http.route({
+  path: "/api/v1/benefits/:benefitId/claims",
+  method: "GET",
+  handler: listClaims,
+});
+
+// POST /api/v1/commissions - Create commission
+http.route({
+  path: "/api/v1/commissions",
+  method: "POST",
+  handler: createCommission,
+});
+
+// GET /api/v1/commissions - List commissions
+http.route({
+  path: "/api/v1/commissions",
+  method: "GET",
+  handler: listCommissions,
+});
+
+// GET /api/v1/commissions/:commissionId - Get commission details
+http.route({
+  path: "/api/v1/commissions/:commissionId",
+  method: "GET",
+  handler: getCommission,
+});
+
+// POST /api/v1/commissions/:commissionId/payouts - Create payout
+http.route({
+  path: "/api/v1/commissions/:commissionId/payouts",
+  method: "POST",
+  handler: createPayout,
+});
+
+// GET /api/v1/commissions/:commissionId/payouts - List payouts
+http.route({
+  path: "/api/v1/commissions/:commissionId/payouts",
+  method: "GET",
+  handler: listPayouts,
 });
 
 /**

@@ -84,6 +84,12 @@ export interface TierLimits {
 
   // Audit
   auditLogRetentionDays: number;
+
+  // Benefits Platform
+  maxBenefits: number;
+  maxCommissions: number;
+  maxBenefitClaimsPerMonth: number;
+  maxCommissionPayoutsPerMonth: number;
 }
 
 export interface TierFeatures {
@@ -188,6 +194,12 @@ export interface TierFeatures {
   // Audit
   detailedLogsEnabled: boolean;
   auditLogExportEnabled: boolean;
+
+  // Benefits Platform
+  benefitsEnabled: boolean;
+  commissionsEnabled: boolean;
+  cryptoPayoutsEnabled: boolean;
+  benefitsAnalyticsEnabled: boolean;
 }
 
 export interface TierConfig {
@@ -282,6 +294,12 @@ export const FREE_TIER: TierConfig = {
 
     // Audit
     auditLogRetentionDays: 7,
+
+    // Benefits Platform
+    maxBenefits: 0,
+    maxCommissions: 0,
+    maxBenefitClaimsPerMonth: 0,
+    maxCommissionPayoutsPerMonth: 0,
   },
 
   features: {
@@ -386,6 +404,12 @@ export const FREE_TIER: TierConfig = {
     // Audit
     detailedLogsEnabled: false,
     auditLogExportEnabled: false,
+
+    // Benefits Platform
+    benefitsEnabled: false,
+    commissionsEnabled: false,
+    cryptoPayoutsEnabled: false,
+    benefitsAnalyticsEnabled: false,
   },
 };
 
@@ -464,6 +488,12 @@ export const STARTER_TIER: TierConfig = {
 
     // Audit
     auditLogRetentionDays: 30,
+
+    // Benefits Platform
+    maxBenefits: 10,
+    maxCommissions: 5,
+    maxBenefitClaimsPerMonth: 50,
+    maxCommissionPayoutsPerMonth: 10,
   },
 
   features: {
@@ -568,6 +598,12 @@ export const STARTER_TIER: TierConfig = {
     // Audit
     detailedLogsEnabled: true,
     auditLogExportEnabled: false,
+
+    // Benefits Platform
+    benefitsEnabled: true,
+    commissionsEnabled: true,
+    cryptoPayoutsEnabled: false,
+    benefitsAnalyticsEnabled: false,
   },
 };
 
@@ -646,6 +682,12 @@ export const PROFESSIONAL_TIER: TierConfig = {
 
     // Audit
     auditLogRetentionDays: 90,
+
+    // Benefits Platform
+    maxBenefits: 50,
+    maxCommissions: 25,
+    maxBenefitClaimsPerMonth: 250,
+    maxCommissionPayoutsPerMonth: 50,
   },
 
   features: {
@@ -750,6 +792,12 @@ export const PROFESSIONAL_TIER: TierConfig = {
     // Audit
     detailedLogsEnabled: true,
     auditLogExportEnabled: true,
+
+    // Benefits Platform
+    benefitsEnabled: true,
+    commissionsEnabled: true,
+    cryptoPayoutsEnabled: true,
+    benefitsAnalyticsEnabled: true,
   },
 };
 
@@ -828,6 +876,12 @@ export const AGENCY_TIER: TierConfig = {
 
     // Audit
     auditLogRetentionDays: 180,
+
+    // Benefits Platform
+    maxBenefits: 200,
+    maxCommissions: 100,
+    maxBenefitClaimsPerMonth: 1000,
+    maxCommissionPayoutsPerMonth: 200,
   },
 
   features: {
@@ -932,6 +986,12 @@ export const AGENCY_TIER: TierConfig = {
     // Audit
     detailedLogsEnabled: true,
     auditLogExportEnabled: true,
+
+    // Benefits Platform
+    benefitsEnabled: true,
+    commissionsEnabled: true,
+    cryptoPayoutsEnabled: true,
+    benefitsAnalyticsEnabled: true,
   },
 };
 
@@ -1010,6 +1070,12 @@ export const ENTERPRISE_TIER: TierConfig = {
 
     // Audit
     auditLogRetentionDays: 365,
+
+    // Benefits Platform
+    maxBenefits: UNLIMITED,
+    maxCommissions: UNLIMITED,
+    maxBenefitClaimsPerMonth: UNLIMITED,
+    maxCommissionPayoutsPerMonth: UNLIMITED,
   },
 
   features: {
@@ -1114,6 +1180,12 @@ export const ENTERPRISE_TIER: TierConfig = {
     // Audit
     detailedLogsEnabled: true,
     auditLogExportEnabled: true,
+
+    // Benefits Platform
+    benefitsEnabled: true,
+    commissionsEnabled: true,
+    cryptoPayoutsEnabled: true,
+    benefitsAnalyticsEnabled: true,
   },
 };
 

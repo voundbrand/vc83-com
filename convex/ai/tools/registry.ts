@@ -14,6 +14,7 @@ import { contactSyncToolDefinition } from "./contactSyncTool";
 import { formsToolDefinition } from "./formsTool";
 import { projectsToolDefinition } from "./projectsTool";
 import { crmToolDefinition } from "./crmTool";
+import { benefitsToolDefinition } from "./benefitsTool";
 import { api } from "../../_generated/api";
 import { internal } from "../../_generated/api";
 
@@ -745,6 +746,62 @@ const manageProjectsTool: AITool = {
       // Filters
       filterStatus: args.filterStatus,
       filterPriority: args.filterPriority,
+      limit: args.limit,
+    });
+
+    return result;
+  }
+};
+
+/**
+ * 2.5 BENEFITS TOOLS
+ */
+
+const manageBenefitsTool: AITool = {
+  name: "manage_benefits",
+  description: "Comprehensive benefits and commissions management: create benefits, list benefits, create commissions, manage claims, track payouts. Use this for ALL member benefits, discounts, commissions, and referral programs.",
+  status: "ready",
+  parameters: benefitsToolDefinition.function.parameters,
+  execute: async (ctx, args) => {
+    const result = await ctx.runAction(api.ai.tools.benefitsTool.executeManageBenefits, {
+      sessionId: ctx.sessionId,
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      conversationId: ctx.conversationId,
+      action: args.action,
+      mode: args.mode,
+      workItemId: args.workItemId,
+      // Benefit fields
+      benefitId: args.benefitId,
+      subtype: args.subtype,
+      name: args.name,
+      description: args.description,
+      discountValue: args.discountValue,
+      category: args.category,
+      validFrom: args.validFrom,
+      validUntil: args.validUntil,
+      maxTotalClaims: args.maxTotalClaims,
+      maxClaimsPerMember: args.maxClaimsPerMember,
+      requirements: args.requirements,
+      contactEmail: args.contactEmail,
+      contactPhone: args.contactPhone,
+      status: args.status,
+      // Commission fields
+      commissionId: args.commissionId,
+      commissionSubtype: args.commissionSubtype,
+      commissionRate: args.commissionRate,
+      minDealSize: args.minDealSize,
+      maxDealSize: args.maxDealSize,
+      payoutTerms: args.payoutTerms,
+      // Claim fields
+      claimId: args.claimId,
+      claimDetails: args.claimDetails,
+      claimStatus: args.claimStatus,
+      // Filters
+      filterSubtype: args.filterSubtype,
+      filterCategory: args.filterCategory,
+      filterStatus: args.filterStatus,
+      includeInactive: args.includeInactive,
       limit: args.limit,
     });
 
@@ -1693,6 +1750,9 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
 
   // Projects
   manage_projects: manageProjectsTool,
+
+  // Benefits
+  manage_benefits: manageBenefitsTool,
 
   // Forms
   create_form: createFormTool,
