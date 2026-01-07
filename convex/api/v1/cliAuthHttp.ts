@@ -125,6 +125,47 @@ export const refreshSession = httpAction(async (ctx, request) => {
 });
 
 // ============================================================================
+// POST /api/v1/auth/cli/revoke - Revoke CLI Session (Logout)
+// ============================================================================
+
+export const revokeSession = httpAction(async (ctx, request) => {
+  const origin = request.headers.get("origin");
+  const corsHeaders = getCorsHeaders(origin);
+
+  try {
+    const authHeader = request.headers.get("Authorization");
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return new Response(
+        JSON.stringify({ error: "Missing or invalid Authorization header" }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const token = authHeader.substring(7);
+    console.log(`[CLI Auth HTTP] revokeSession: Revoking token prefix: ${token.substring(0, 20)}...`);
+
+    const result = await ctx.runMutation(api.api.v1.cliAuth.revokeCliSession, {
+      token,
+    });
+
+    return new Response(
+      JSON.stringify(result),
+      { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+    );
+  } catch (error) {
+    console.error("[CLI Auth] Revoke error:", error);
+    return new Response(
+      JSON.stringify({
+        error: "Failed to revoke session",
+        error_description: error instanceof Error ? error.message : "Unknown error",
+      }),
+      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+    );
+  }
+});
+
+// ============================================================================
 // GET /api/v1/auth/cli/organizations - List User's Organizations
 // ============================================================================
 

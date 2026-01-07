@@ -1800,6 +1800,7 @@ http.route({
 import {
   validateSession as cliValidateSession,
   refreshSession as cliRefreshSession,
+  revokeSession as cliRevokeSession,
   listOrganizations as cliListOrganizations,
   createOrganization as cliCreateOrganization,
   listApiKeys as cliListApiKeys,
@@ -1833,6 +1834,20 @@ http.route({
   path: "/api/v1/auth/cli/refresh",
   method: "POST",
   handler: cliRefreshSession,
+});
+
+// OPTIONS /api/v1/auth/cli/revoke - CORS preflight
+http.route({
+  path: "/api/v1/auth/cli/revoke",
+  method: "OPTIONS",
+  handler: cliAuthHandleOptions,
+});
+
+// POST /api/v1/auth/cli/revoke - Revoke CLI session (logout)
+http.route({
+  path: "/api/v1/auth/cli/revoke",
+  method: "POST",
+  handler: cliRevokeSession,
 });
 
 // OPTIONS /api/v1/auth/cli/organizations - CORS preflight

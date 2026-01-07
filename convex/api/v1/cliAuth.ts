@@ -537,6 +537,38 @@ export const refreshCliSession = mutation({
 });
 
 /**
+ * Revoke CLI Session
+ *
+ * Revokes/deletes a CLI session. Used during logout.
+ */
+export const revokeCliSession = mutation({
+  args: {
+    token: v.string(),
+  },
+  handler: async (ctx, args): Promise<{ success: boolean }> => {
+    const tokenPrefix = args.token.substring(0, 20);
+    console.log(`[revokeCliSession] Revoking session with token prefix: ${tokenPrefix}...`);
+
+    // Find CLI session by token
+    const session = await ctx.db
+      .query("cliSessions")
+      .withIndex("by_token", (q) => q.eq("cliToken", args.token))
+      .first();
+
+    if (!session) {
+      console.log(`[revokeCliSession] No session found for token prefix: ${tokenPrefix}...`);
+      // Return success even if not found - idempotent operation
+      return { success: true };
+    }
+
+    console.log(`[revokeCliSession] Deleting session for user: ${session.userId}`);
+    await ctx.db.delete(session._id);
+
+    return { success: true };
+  },
+});
+
+/**
  * Store CLI Login State (Internal)
  */
 export const storeCliLoginState = internalMutation({
@@ -693,6 +725,19 @@ export const createCliSession = internalMutation({
     const tokenPrefix = args.cliToken.substring(0, 20);
     console.log(`[createCliSession] Creating session with token prefix: ${tokenPrefix}... for user: ${args.userId}`);
 
+    // Clean up existing sessions for this user (one session per user policy)
+    const existingSessions = await ctx.db
+      .query("cliSessions")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    if (existingSessions.length > 0) {
+      console.log(`[createCliSession] Cleaning up ${existingSessions.length} existing session(s) for user`);
+      for (const session of existingSessions) {
+        await ctx.db.delete(session._id);
+      }
+    }
+
     const sessionId = await ctx.db.insert("cliSessions", {
       userId: args.userId,
       email: args.email,
@@ -704,14 +749,6 @@ export const createCliSession = internalMutation({
     });
 
     console.log(`[createCliSession] Session created with ID: ${sessionId}`);
-
-    // Verify the session was stored correctly
-    const storedSession = await ctx.db.get(sessionId);
-    if (storedSession) {
-      console.log(`[createCliSession] Verified: stored token prefix: ${storedSession.cliToken.substring(0, 20)}...`);
-    } else {
-      console.error(`[createCliSession] ERROR: Session not found after creation!`);
-    }
 
     return sessionId;
   },
