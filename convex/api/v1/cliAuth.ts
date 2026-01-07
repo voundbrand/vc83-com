@@ -43,6 +43,77 @@ function getTokenPrefix(token: string): string {
 }
 
 /**
+ * CLI PERMISSION MAPPING BY ROLE
+ *
+ * Maps organization roles to granular permissions for MCP tool filtering.
+ * The CLI uses these permissions to determine which tools to expose to AI assistants.
+ *
+ * Permission types:
+ * - view_crm / manage_crm: CRM contacts and organizations
+ * - view_events / manage_events: Events and attendees
+ * - view_forms / manage_forms: Forms and responses
+ * - view_products / manage_products: Products catalog
+ * - view_tickets / manage_tickets: Support tickets
+ * - view_applications / manage_applications: Connected apps (CLI apps, integrations)
+ */
+function getPermissionsForRole(roleName: string): string[] {
+  const rolePermissions: Record<string, string[]> = {
+    // Owner: Full access to everything including app management
+    org_owner: [
+      "view_crm", "manage_crm",
+      "view_events", "manage_events",
+      "view_forms", "manage_forms",
+      "view_products", "manage_products",
+      "view_tickets", "manage_tickets",
+      "view_applications", "manage_applications",
+    ],
+    // Admin: Full access to data, can view but not manage applications
+    admin: [
+      "view_crm", "manage_crm",
+      "view_events", "manage_events",
+      "view_forms", "manage_forms",
+      "view_products", "manage_products",
+      "view_tickets", "manage_tickets",
+      "view_applications",
+    ],
+    // Manager: Can manage most data
+    manager: [
+      "view_crm", "manage_crm",
+      "view_events", "manage_events",
+      "view_forms", "manage_forms",
+      "view_products", "manage_products",
+      "view_tickets", "manage_tickets",
+    ],
+    // Editor: Can manage most data (same as manager)
+    editor: [
+      "view_crm", "manage_crm",
+      "view_events", "manage_events",
+      "view_forms", "manage_forms",
+      "view_products", "manage_products",
+      "view_tickets", "manage_tickets",
+    ],
+    // Member: View-only access
+    member: [
+      "view_crm",
+      "view_events",
+      "view_forms",
+      "view_products",
+      "view_tickets",
+    ],
+    // Viewer: View-only access (same as member)
+    viewer: [
+      "view_crm",
+      "view_events",
+      "view_forms",
+      "view_products",
+      "view_tickets",
+    ],
+  };
+
+  return rolePermissions[roleName] || rolePermissions.member;
+}
+
+/**
  * VERIFY CLI SESSION TOKEN (Internal Action)
  *
  * Verifies a CLI session token using bcrypt comparison.
@@ -706,29 +777,8 @@ export const getCliSessionFullInfo = internalQuery({
     const roleName = role?.name || "member";
 
     // Define permissions based on role
-    let permissions: string[];
-    if (roleName === "org_owner" || roleName === "admin") {
-      // Full access
-      permissions = ["*"];
-    } else if (roleName === "manager" || roleName === "editor") {
-      // Can view and manage most things
-      permissions = [
-        "view_crm", "manage_crm",
-        "view_events", "manage_events",
-        "view_forms", "manage_forms",
-        "view_products", "manage_products",
-        "view_tickets", "manage_tickets",
-      ];
-    } else {
-      // Viewer/member - read-only
-      permissions = [
-        "view_crm",
-        "view_events",
-        "view_forms",
-        "view_products",
-        "view_tickets",
-      ];
-    }
+    // These permissions are used by CLI MCP tools to filter which tools are exposed
+    const permissions = getPermissionsForRole(roleName);
 
     return {
       organizationId: defaultOrg.id,
