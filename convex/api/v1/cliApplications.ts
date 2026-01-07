@@ -342,7 +342,8 @@ export const getApplication = httpAction(async (ctx, request) => {
     const pathParts = url.pathname.split("/");
     const applicationId = pathParts[pathParts.length - 1];
 
-    if (!applicationId) {
+    // Skip handling for special paths that should be handled by other routes
+    if (!applicationId || applicationId === "by-path" || applicationId === "applications") {
       return new Response(
         JSON.stringify({ error: "Application ID required", code: "VALIDATION_ERROR" }),
         { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
