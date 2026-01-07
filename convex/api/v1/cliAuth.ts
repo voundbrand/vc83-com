@@ -446,6 +446,10 @@ export const validateCliSession = query({
     organizations: Array<{ id: Id<"organizations">; name: string; slug: string }>;
     expiresAt: number;
   } | null> => {
+    // Log token info for debugging
+    const tokenPrefix = args.token.substring(0, 20);
+    console.log(`[validateCliSession] Looking up session with token prefix: ${tokenPrefix}...`);
+
     // Find CLI session by token
     const session = await ctx.db
       .query("cliSessions")
@@ -453,8 +457,11 @@ export const validateCliSession = query({
       .first();
 
     if (!session) {
+      console.log(`[validateCliSession] No session found for token prefix: ${tokenPrefix}...`);
       return null;
     }
+
+    console.log(`[validateCliSession] Session found for user: ${session.userId}`);
 
     // Check expiration
     if (session.expiresAt < Date.now()) {
@@ -683,7 +690,10 @@ export const createCliSession = internalMutation({
     expiresAt: v.number(),
   },
   handler: async (ctx, args): Promise<Id<"cliSessions">> => {
-    return await ctx.db.insert("cliSessions", {
+    const tokenPrefix = args.cliToken.substring(0, 20);
+    console.log(`[createCliSession] Creating session with token prefix: ${tokenPrefix}... for user: ${args.userId}`);
+
+    const sessionId = await ctx.db.insert("cliSessions", {
       userId: args.userId,
       email: args.email,
       organizationId: args.organizationId,
@@ -692,6 +702,18 @@ export const createCliSession = internalMutation({
       expiresAt: args.expiresAt,
       lastUsedAt: args.createdAt,
     });
+
+    console.log(`[createCliSession] Session created with ID: ${sessionId}`);
+
+    // Verify the session was stored correctly
+    const storedSession = await ctx.db.get(sessionId);
+    if (storedSession) {
+      console.log(`[createCliSession] Verified: stored token prefix: ${storedSession.cliToken.substring(0, 20)}...`);
+    } else {
+      console.error(`[createCliSession] ERROR: Session not found after creation!`);
+    }
+
+    return sessionId;
   },
 });
 
@@ -897,6 +919,10 @@ export const getCliUserOrganizations = query({
       role: string;
     }>;
   } | null> => {
+    // Log token info for debugging (safe - only prefix shown)
+    const tokenPrefix = args.token.substring(0, 20);
+    console.log(`[getCliUserOrganizations] Looking up session with token prefix: ${tokenPrefix}...`);
+
     // Find CLI session by token
     const session = await ctx.db
       .query("cliSessions")
@@ -904,8 +930,19 @@ export const getCliUserOrganizations = query({
       .first();
 
     if (!session) {
+      console.log(`[getCliUserOrganizations] No session found for token prefix: ${tokenPrefix}...`);
+      // Log all sessions for debugging (remove in production)
+      const allSessions = await ctx.db.query("cliSessions").collect();
+      console.log(`[getCliUserOrganizations] Total sessions in DB: ${allSessions.length}`);
+      if (allSessions.length > 0) {
+        console.log(`[getCliUserOrganizations] Sample session tokens:`,
+          allSessions.slice(0, 3).map(s => s.cliToken.substring(0, 20) + "...")
+        );
+      }
       return null;
     }
+
+    console.log(`[getCliUserOrganizations] Session found for user: ${session.userId}`);
 
     // Check expiration
     if (session.expiresAt < Date.now()) {

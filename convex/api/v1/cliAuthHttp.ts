@@ -136,6 +136,7 @@ export const listOrganizations = httpAction(async (ctx, request) => {
     const authHeader = request.headers.get("Authorization");
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.log("[CLI Auth HTTP] listOrganizations: Missing or invalid Authorization header");
       return new Response(
         JSON.stringify({ error: "Missing or invalid Authorization header" }),
         { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
@@ -143,6 +144,8 @@ export const listOrganizations = httpAction(async (ctx, request) => {
     }
 
     const token = authHeader.substring(7);
+    const tokenPrefix = token.substring(0, 20);
+    console.log(`[CLI Auth HTTP] listOrganizations: Received token prefix: ${tokenPrefix}...`);
 
     const result = await ctx.runQuery(api.api.v1.cliAuth.getCliUserOrganizations, {
       token,
