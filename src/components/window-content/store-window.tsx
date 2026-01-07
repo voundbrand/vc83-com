@@ -420,6 +420,8 @@ function PlatformPlansTab({
 
   // Plan configurations with both monthly and annual pricing
   // Note: Stripe Price IDs are managed on the backend via Convex env vars
+  // API key limits from convex/licensing/tierConfigs.ts:
+  // - Free: 1 API key, Starter: 1 API key, Professional: 3 API keys, Agency: 5 API keys, Enterprise: Unlimited
   const plans = [
     {
       id: "free",
@@ -471,8 +473,8 @@ function PlatformPlansTab({
         "3 users",
         "1,000 contacts",
         "20 projects",
+        "1 API key",
         "500 emails/month",
-        "Stripe Connect",
         "Email support (48h)",
       ],
       cta: "Subscribe",
@@ -490,8 +492,8 @@ function PlatformPlansTab({
         "10 users",
         "5,000 contacts",
         "Unlimited projects",
+        "3 API keys",
         "2,500 emails/month",
-        "Custom domains",
         "Email support (24h)",
       ],
       cta: "Subscribe",
@@ -510,8 +512,8 @@ function PlatformPlansTab({
         "15 users",
         "10,000 contacts",
         "Sub-organizations",
+        "5 API keys (+1/sub-org)",
         "10,000 emails/month",
-        "White-label",
         "Priority support (12h)",
       ],
       cta: "Subscribe",
@@ -529,10 +531,10 @@ function PlatformPlansTab({
       features: [
         "Unlimited users",
         "Unlimited contacts",
+        "Unlimited API keys",
         "Custom SLA",
         "SSO/SAML",
         "Dedicated support",
-        "Custom integrations",
       ],
       cta: "Contact Sales",
       highlight: false,

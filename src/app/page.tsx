@@ -371,35 +371,74 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSignedIn]);
 
-  // Handle return from Stripe onboarding and CLI upgrade redirects
+  // Handle generic window opening via URL parameters
+  // Supports: ?openWindow=<window-id>&panel=<panel-id>
+  // This enables deep linking to any registered window from CLI or external links
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const openWindowParam = params.get('openWindow');
+    const panelParam = params.get('panel');
     const upgradeReason = params.get('upgradeReason');
     const upgradeResource = params.get('upgradeResource');
 
-    if (openWindowParam === 'payments' && isSignedIn) {
-      // Open the Payments window
-      openPaymentsWindow();
+    // Skip if no openWindow param or user not signed in
+    if (!openWindowParam || !isSignedIn) return;
 
-      // Clean up the URL (remove query params)
-      window.history.replaceState({}, '', window.location.pathname);
-    }
+    // Import window registry to check if window exists
+    import('@/hooks/window-registry').then(({ WINDOW_REGISTRY }) => {
+      const windowConfig = WINDOW_REGISTRY[openWindowParam];
 
-    // Handle CLI upgrade redirect - open store window
-    if (openWindowParam === 'store' && isSignedIn) {
-      // Open the Store window for upgrade
-      openStoreWindow();
-      setHasOpenedInitialWindow(true);
+      if (windowConfig) {
+        // Build props object if panel parameter is provided
+        const props: Record<string, unknown> = {};
+        if (panelParam) {
+          // Map panel param to the appropriate prop name based on window type
+          // Most windows use 'initialPanel', some use 'initialTab'
+          props.initialPanel = panelParam;
+          props.initialTab = panelParam; // Some windows may use this
+        }
 
-      // Log upgrade context for analytics
-      if (upgradeReason || upgradeResource) {
-        console.log('[HomePage] CLI upgrade redirect:', { upgradeReason, upgradeResource });
+        // Log for debugging
+        console.log('[HomePage] Opening window via URL param:', {
+          windowId: openWindowParam,
+          panel: panelParam,
+          props
+        });
+
+        // Get default config from registry
+        const { defaultConfig } = windowConfig;
+
+        // Create the component with props
+        const component = windowConfig.createComponent(Object.keys(props).length > 0 ? props : undefined);
+
+        // Open the window
+        openWindow(
+          openWindowParam,
+          defaultConfig.title,
+          component,
+          defaultConfig.position,
+          defaultConfig.size,
+          defaultConfig.titleKey,
+          defaultConfig.icon,
+          Object.keys(props).length > 0 ? props : undefined
+        );
+
+        // Prevent initial window effect from opening another window
+        setHasOpenedInitialWindow(true);
+
+        // Log upgrade context for analytics (if present)
+        if (upgradeReason || upgradeResource) {
+          console.log('[HomePage] CLI upgrade redirect:', { upgradeReason, upgradeResource });
+        }
+
+        // Clean up the URL (remove query params)
+        window.history.replaceState({}, '', window.location.pathname);
+      } else {
+        console.warn('[HomePage] Unknown window ID in URL param:', openWindowParam);
+        // Still clean up URL for unknown windows
+        window.history.replaceState({}, '', window.location.pathname);
       }
-
-      // Clean up the URL (remove query params)
-      window.history.replaceState({}, '', window.location.pathname);
-    }
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSignedIn])
 

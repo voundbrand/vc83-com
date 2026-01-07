@@ -447,7 +447,7 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
   },
 
   "integrations": {
-    createComponent: () => <IntegrationsWindow />,
+    createComponent: (props) => <IntegrationsWindow {...(props as { initialPanel?: "api-keys" | "microsoft" | null })} />,
     defaultConfig: {
       title: "Integrations & API",
       titleKey: "ui.windows.integrations.title",
