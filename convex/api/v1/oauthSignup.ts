@@ -479,7 +479,8 @@ export const completeOAuthSignup = action({
       // Create CLI session
       const cliToken = stateRecord.cliToken || `cli_session_${crypto.randomUUID().replace(/-/g, '')}`;
       console.log(`[completeOAuthSignup] CLI session - stateRecord.cliToken: ${stateRecord.cliToken?.substring(0, 20) || 'undefined'}, using cliToken: ${cliToken.substring(0, 20)}...`);
-      const sessionId = await ctx.runMutation(internal.api.v1.cliAuth.createCliSession, {
+      // createCliSession is now an Action (uses bcrypt for hashing)
+      const sessionId = await ctx.runAction(internal.api.v1.cliAuth.createCliSession, {
         userId: userResult.userId,
         email: userInfo.email,
         organizationId: userResult.organizationId,

@@ -10,12 +10,13 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { api } from "@convex/_generated/api";
-import { fetchAction, fetchQuery } from "convex/nextjs";
+import { fetchAction } from "convex/nextjs";
 
 // Helper to wait for session to be readable (handles Convex eventual consistency)
+// validateCliSession is now an Action (uses bcrypt verification)
 async function waitForSession(token: string, maxAttempts = 5, delayMs = 100): Promise<boolean> {
   for (let i = 0; i < maxAttempts; i++) {
-    const session = await fetchQuery(api.api.v1.cliAuth.validateCliSession, { token });
+    const session = await fetchAction(api.api.v1.cliAuth.validateCliSession, { token });
     if (session) {
       console.log(`[OAuth Callback] Session verified after ${i + 1} attempt(s)`);
       return true;

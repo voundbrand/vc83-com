@@ -43,7 +43,7 @@ import { internal } from "../_generated/api";
 export const trackUsageAsync = internalAction({
   args: {
     organizationId: v.id("organizations"),
-    authMethod: v.union(v.literal("api_key"), v.literal("oauth"), v.literal("none")),
+    authMethod: v.union(v.literal("api_key"), v.literal("oauth"), v.literal("cli_session"), v.literal("none")),
     apiKeyId: v.optional(v.id("apiKeys")),
     userId: v.optional(v.id("users")),
     endpoint: v.string(),
@@ -110,7 +110,7 @@ export const trackUsageAsync = internalAction({
 export const storeUsageMetadata = internalMutation({
   args: {
     organizationId: v.id("organizations"),
-    authMethod: v.union(v.literal("api_key"), v.literal("oauth"), v.literal("none")),
+    authMethod: v.union(v.literal("api_key"), v.literal("oauth"), v.literal("cli_session"), v.literal("none")),
     apiKeyId: v.optional(v.id("apiKeys")),
     userId: v.optional(v.id("users")),
     endpoint: v.string(),

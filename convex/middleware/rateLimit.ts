@@ -237,7 +237,7 @@ export function getRateLimitIdentifier(
   authContext?: {
     apiKeyId?: Id<"apiKeys">;
     userId?: Id<"users">;
-    authMethod?: "api_key" | "oauth";
+    authMethod?: "api_key" | "oauth" | "cli_session";
   },
   request?: Request
 ): { identifier: string; identifierType: "api_key" | "user" | "ip" } {

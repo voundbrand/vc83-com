@@ -480,18 +480,25 @@ export const oauthConnections = defineTable({
   .index("by_status", ["status"])                                       // Find connections by status
   .index("by_org_and_provider", ["organizationId", "provider"]);        // Find connections by org and provider
 
-// OAuth State Tokens - CSRF protection for OAuth flows
+// CLI Sessions - Authenticated CLI users (bcrypt hashed tokens)
 export const cliSessions = defineTable({
   // CLI session for authenticated CLI users
   userId: v.id("users"),
   email: v.string(),
   organizationId: v.id("organizations"),
-  cliToken: v.string(),                        // Format: cli_session_{32_random_bytes}
+
+  // Token storage (bcrypt hashed for security)
+  // DEPRECATED: cliToken - kept for backward compatibility during migration
+  cliToken: v.optional(v.string()),            // OLD: plaintext token (to be removed)
+  tokenHash: v.optional(v.string()),           // NEW: bcrypt hash of full token
+  tokenPrefix: v.optional(v.string()),         // NEW: first 20 chars for lookup ("cli_session_abc123")
+
   createdAt: v.number(),
   expiresAt: v.number(),                       // 30 days from creation
   lastUsedAt: v.number(),
 })
-  .index("by_token", ["cliToken"])
+  .index("by_token", ["cliToken"])             // DEPRECATED: for backward compat during migration
+  .index("by_token_prefix", ["tokenPrefix"])   // NEW: fast prefix lookup, then bcrypt verify
   .index("by_user", ["userId"])
   .index("by_organization", ["organizationId"]);
 

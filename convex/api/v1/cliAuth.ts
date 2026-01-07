@@ -1,9 +1,16 @@
 /**
  * CLI Authentication
- * 
+ *
  * Handles CLI-specific authentication via browser OAuth flow.
  * Uses the SAME OAuth providers as platform login (Microsoft, Google, GitHub).
  * Creates the same account type - just with a CLI session instead of platform session.
+ *
+ * SECURITY MODEL (as of 2025-01):
+ * - CLI session tokens are now bcrypt hashed (same security as API keys)
+ * - Lookup by prefix (first 20 chars) for performance
+ * - Full hash verification with bcrypt.compare()
+ * - Full tokens are NEVER stored in database
+ * - Backward compatibility: old plaintext tokens still work during migration
  */
 
 import { v } from "convex/values";
@@ -12,9 +19,12 @@ import { Id } from "../../_generated/dataModel";
 import { api, internal } from "../../_generated/api";
 import { getLicenseInternal } from "../../licensing/helpers";
 
+// Token prefix length for indexed lookup
+const CLI_TOKEN_PREFIX_LENGTH = 20; // "cli_session_" (12) + 8 random chars
+
 /**
  * Generate CLI session token
- * Format: cli_session_{32_random_bytes}
+ * Format: cli_session_{32_random_bytes} (76 chars total)
  */
 function generateCliSessionToken(): string {
   const randomBytes = new Uint8Array(32);
@@ -24,6 +34,155 @@ function generateCliSessionToken(): string {
   ).join('');
   return `cli_session_${randomString}`;
 }
+
+/**
+ * Get token prefix for indexed lookup
+ */
+function getTokenPrefix(token: string): string {
+  return token.substring(0, CLI_TOKEN_PREFIX_LENGTH);
+}
+
+/**
+ * VERIFY CLI SESSION TOKEN (Internal Action)
+ *
+ * Verifies a CLI session token using bcrypt comparison.
+ * Called by auth middleware for CLI session authentication.
+ *
+ * Security:
+ * - Prefix lookup is fast (indexed)
+ * - bcrypt.compare() takes ~50ms (acceptable for auth)
+ * - Falls back to plaintext matching for backward compatibility
+ *
+ * @returns Session info or null if invalid
+ */
+export const verifyCliSessionToken = internalAction({
+  args: {
+    sessionToken: v.string(),
+  },
+  handler: async (ctx, args): Promise<{
+    sessionId: Id<"cliSessions">;
+    userId: Id<"users">;
+    email: string;
+    organizationId: Id<"organizations">;
+    expiresAt: number;
+  } | null> => {
+    // Validate token format
+    if (!args.sessionToken.startsWith("cli_session_")) {
+      return null;
+    }
+
+    const tokenPrefix = getTokenPrefix(args.sessionToken);
+
+    // First try: Look up by tokenPrefix (new bcrypt-hashed sessions)
+    const hashedSessions = await ctx.runQuery(
+      internal.api.v1.cliAuth.findCliSessionsByPrefix,
+      { tokenPrefix }
+    );
+
+    if (hashedSessions && hashedSessions.length > 0) {
+      // Import bcrypt for hash verification
+      const bcrypt = await import("bcryptjs");
+
+      for (const session of hashedSessions) {
+        // Skip expired sessions
+        if (session.expiresAt < Date.now()) {
+          continue;
+        }
+
+        // Skip sessions without tokenHash (shouldn't happen due to query filter)
+        if (!session.tokenHash) {
+          continue;
+        }
+
+        // Verify hash with bcrypt (~50ms)
+        const isValid = await bcrypt.default.compare(args.sessionToken, session.tokenHash);
+
+        if (isValid) {
+          // Update last used timestamp (async, don't block response)
+          ctx.scheduler.runAfter(0, internal.api.v1.cliAuth.updateCliSessionLastUsed, {
+            sessionId: session._id,
+          });
+
+          return {
+            sessionId: session._id,
+            userId: session.userId,
+            email: session.email,
+            organizationId: session.organizationId,
+            expiresAt: session.expiresAt,
+          };
+        }
+      }
+    }
+
+    // Fallback: Try plaintext lookup (backward compatibility for old sessions)
+    const legacySession = await ctx.runQuery(
+      internal.api.v1.cliAuth.findCliSessionByPlainToken,
+      { cliToken: args.sessionToken }
+    );
+
+    if (legacySession && legacySession.expiresAt >= Date.now()) {
+      // Update last used timestamp
+      ctx.scheduler.runAfter(0, internal.api.v1.cliAuth.updateCliSessionLastUsed, {
+        sessionId: legacySession._id,
+      });
+
+      return {
+        sessionId: legacySession._id,
+        userId: legacySession.userId,
+        email: legacySession.email,
+        organizationId: legacySession.organizationId,
+        expiresAt: legacySession.expiresAt,
+      };
+    }
+
+    return null;
+  },
+});
+
+/**
+ * Find CLI sessions by token prefix (Internal Query)
+ */
+export const findCliSessionsByPrefix = internalQuery({
+  args: {
+    tokenPrefix: v.string(),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("cliSessions")
+      .withIndex("by_token_prefix", (q) => q.eq("tokenPrefix", args.tokenPrefix))
+      .filter((q) => q.neq(q.field("tokenHash"), undefined)) // Only hashed sessions
+      .collect();
+  },
+});
+
+/**
+ * Find CLI session by plaintext token (Internal Query - backward compat)
+ */
+export const findCliSessionByPlainToken = internalQuery({
+  args: {
+    cliToken: v.string(),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("cliSessions")
+      .withIndex("by_token", (q) => q.eq("cliToken", args.cliToken))
+      .first();
+  },
+});
+
+/**
+ * Update CLI session last used timestamp (Internal Mutation)
+ */
+export const updateCliSessionLastUsed = internalMutation({
+  args: {
+    sessionId: v.id("cliSessions"),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.sessionId, {
+      lastUsedAt: Date.now(),
+    });
+  },
+});
 
 /**
  * Get Provider OAuth URL (Internal)
@@ -225,8 +384,9 @@ export const completeCliLogin = action({
     }
 
     // Create CLI session (30 days expiration)
+    // Note: createCliSession is now an Action (uses bcrypt for hashing)
     const cliToken = stateRecord.cliToken;
-    const sessionId: Id<"cliSessions"> = await ctx.runMutation(internal.api.v1.cliAuth.createCliSession, {
+    const sessionId: Id<"cliSessions"> = await ctx.runAction(internal.api.v1.cliAuth.createCliSession, {
       userId: user.userId,
       email: userEmail,
       organizationId,
@@ -432,85 +592,216 @@ export const exchangeGoogleCode = internalAction({
 });
 
 /**
- * Validate CLI Session
- * 
+ * Validate CLI Session (Action)
+ *
  * Validates a CLI session token and returns user info.
+ * Enhanced to return organizationId and permissions for MCP tools.
+ *
+ * SECURITY: This is now an Action to support bcrypt hash verification.
+ * Supports both new hashed tokens and legacy plaintext tokens for backward compat.
  */
-export const validateCliSession = query({
+export const validateCliSession = action({
   args: {
     token: v.string(),
   },
   handler: async (ctx, args): Promise<{
     userId: Id<"users">;
     email: string;
-    organizations: Array<{ id: Id<"organizations">; name: string; slug: string }>;
+    organizationId: Id<"organizations">;
+    organizationName: string;
+    permissions: string[];
+    organizations: Array<{ id: Id<"organizations">; name: string; slug: string; role: string }>;
     expiresAt: number;
   } | null> => {
-    // Enhanced logging: show token prefix AND length for debugging
-    const tokenPrefix = args.token.substring(0, 30);
-    console.log(`[validateCliSession] Looking up session with token: ${tokenPrefix}... (length: ${args.token.length})`);
+    // Use the internal verification action to validate the token
+    const sessionInfo = await ctx.runAction(internal.api.v1.cliAuth.verifyCliSessionToken, {
+      sessionToken: args.token,
+    });
 
-    // Find CLI session by token
-    const session = await ctx.db
-      .query("cliSessions")
-      .withIndex("by_token", (q) => q.eq("cliToken", args.token))
-      .first();
-
-    if (!session) {
-      console.log(`[validateCliSession] No session found for token: ${tokenPrefix}... (length: ${args.token.length})`);
-      // Debug: Also log how many sessions exist total
-      const allSessions = await ctx.db.query("cliSessions").collect();
-      console.log(`[validateCliSession] Total sessions in DB: ${allSessions.length}`);
-      if (allSessions.length > 0 && allSessions.length <= 10) {
-        // Log all session token prefixes for comparison
-        for (const s of allSessions) {
-          console.log(`[validateCliSession] DB session token: ${s.cliToken.substring(0, 30)}... (length: ${s.cliToken.length})`);
-        }
-      }
+    if (!sessionInfo) {
+      console.log(`[validateCliSession] Token verification failed`);
       return null;
     }
 
-    console.log(`[validateCliSession] Session found for user: ${session.userId}`);
+    // Get full user and organization info using internal query
+    const fullInfo = await ctx.runQuery(internal.api.v1.cliAuth.getCliSessionFullInfo, {
+      sessionId: sessionInfo.sessionId,
+      userId: sessionInfo.userId,
+      organizationId: sessionInfo.organizationId,
+    });
 
-    // Check expiration
-    if (session.expiresAt < Date.now()) {
+    if (!fullInfo) {
       return null;
     }
-
-    // Get user info
-    const user = await ctx.db.get(session.userId);
-    if (!user) {
-      return null;
-    }
-
-    // Get organizations
-    const organizations = await ctx.db
-      .query("organizationMembers")
-      .withIndex("by_user", (q) => q.eq("userId", session.userId))
-      .collect();
-
-    const orgIds = organizations.map(m => m.organizationId);
-    const orgs = await Promise.all(orgIds.map(id => ctx.db.get(id)));
 
     return {
-      userId: session.userId,
-      email: session.email,
-      organizations: orgs.filter(Boolean).map(org => ({
-        id: org!._id,
-        name: org!.name,
-        slug: org!.slug,
-      })),
-      expiresAt: session.expiresAt,
+      userId: sessionInfo.userId,
+      email: sessionInfo.email,
+      organizationId: fullInfo.organizationId,
+      organizationName: fullInfo.organizationName,
+      permissions: fullInfo.permissions,
+      organizations: fullInfo.organizations,
+      expiresAt: sessionInfo.expiresAt,
     };
   },
 });
 
 /**
- * Refresh CLI Session
- * 
- * Refreshes an expired or soon-to-expire CLI session.
+ * Get CLI Session Full Info (Internal Query)
+ * Gets organizations and permissions for a validated session
  */
-export const refreshCliSession = mutation({
+export const getCliSessionFullInfo = internalQuery({
+  args: {
+    sessionId: v.id("cliSessions"),
+    userId: v.id("users"),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args): Promise<{
+    organizationId: Id<"organizations">;
+    organizationName: string;
+    permissions: string[];
+    organizations: Array<{ id: Id<"organizations">; name: string; slug: string; role: string }>;
+  } | null> => {
+    // Get user info
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      return null;
+    }
+
+    // Get organizations with roles
+    const memberships = await ctx.db
+      .query("organizationMembers")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+
+    const orgsWithRoles = await Promise.all(
+      memberships.map(async (membership) => {
+        const org = await ctx.db.get(membership.organizationId);
+        const role = await ctx.db.get(membership.role);
+        if (!org || !org.isActive) return null;
+        return {
+          id: org._id,
+          name: org.name,
+          slug: org.slug,
+          role: role?.name || "member",
+          isDefault: org._id === args.organizationId,
+        };
+      })
+    );
+
+    const validOrgs = orgsWithRoles.filter((org): org is NonNullable<typeof org> => org !== null);
+
+    // Get the default/active organization
+    const defaultOrg = validOrgs.find(o => o.isDefault) || validOrgs[0];
+
+    if (!defaultOrg) {
+      console.log(`[getCliSessionFullInfo] User ${args.userId} has no active organizations`);
+      return null;
+    }
+
+    // Get permissions based on role
+    const defaultOrgMembership = memberships.find(m => m.organizationId === defaultOrg.id);
+    const role = defaultOrgMembership ? await ctx.db.get(defaultOrgMembership.role) : null;
+    const roleName = role?.name || "member";
+
+    // Define permissions based on role
+    let permissions: string[];
+    if (roleName === "org_owner" || roleName === "admin") {
+      // Full access
+      permissions = ["*"];
+    } else if (roleName === "manager" || roleName === "editor") {
+      // Can view and manage most things
+      permissions = [
+        "view_crm", "manage_crm",
+        "view_events", "manage_events",
+        "view_forms", "manage_forms",
+        "view_products", "manage_products",
+        "view_tickets", "manage_tickets",
+      ];
+    } else {
+      // Viewer/member - read-only
+      permissions = [
+        "view_crm",
+        "view_events",
+        "view_forms",
+        "view_products",
+        "view_tickets",
+      ];
+    }
+
+    return {
+      organizationId: defaultOrg.id,
+      organizationName: defaultOrg.name,
+      permissions,
+      organizations: validOrgs.map(org => ({
+        id: org.id,
+        name: org.name,
+        slug: org.slug,
+        role: org.role,
+      })),
+    };
+  },
+});
+
+/**
+ * Validate CLI Session (Internal Action)
+ *
+ * Internal version of validateCliSession for use in middleware.
+ * Supports both hashed and legacy plaintext tokens.
+ */
+export const validateCliSessionInternal = internalAction({
+  args: {
+    sessionToken: v.string(),
+  },
+  handler: async (ctx, args): Promise<{
+    userId: Id<"users">;
+    email: string;
+    organizationId: Id<"organizations">;
+    organizationName: string;
+    permissions: string[];
+    organizations: Array<{ id: Id<"organizations">; name: string; slug: string; role: string }>;
+    expiresAt: number;
+  } | null> => {
+    // Use the internal verification action to validate the token
+    const sessionInfo = await ctx.runAction(internal.api.v1.cliAuth.verifyCliSessionToken, {
+      sessionToken: args.sessionToken,
+    });
+
+    if (!sessionInfo) {
+      return null;
+    }
+
+    // Get full user and organization info
+    const fullInfo = await ctx.runQuery(internal.api.v1.cliAuth.getCliSessionFullInfo, {
+      sessionId: sessionInfo.sessionId,
+      userId: sessionInfo.userId,
+      organizationId: sessionInfo.organizationId,
+    });
+
+    if (!fullInfo) {
+      return null;
+    }
+
+    return {
+      userId: sessionInfo.userId,
+      email: sessionInfo.email,
+      organizationId: fullInfo.organizationId,
+      organizationName: fullInfo.organizationName,
+      permissions: fullInfo.permissions,
+      organizations: fullInfo.organizations,
+      expiresAt: sessionInfo.expiresAt,
+    };
+  },
+});
+
+/**
+ * Refresh CLI Session (Action)
+ *
+ * Refreshes an expired or soon-to-expire CLI session.
+ * Now uses bcrypt hashing for the new token.
+ */
+export const refreshCliSession = action({
   args: {
     token: v.string(),
   },
@@ -518,62 +809,103 @@ export const refreshCliSession = mutation({
     token: string;
     expiresAt: number;
   }> => {
-    // Find CLI session
-    const session = await ctx.db
-      .query("cliSessions")
-      .withIndex("by_token", (q) => q.eq("cliToken", args.token))
-      .first();
+    // Verify current token using the internal action
+    const sessionInfo = await ctx.runAction(internal.api.v1.cliAuth.verifyCliSessionToken, {
+      sessionToken: args.token,
+    });
 
-    if (!session) {
+    if (!sessionInfo) {
       throw new Error("Invalid session token");
     }
 
     // Generate new token
     const newToken = generateCliSessionToken();
+    const newTokenPrefix = getTokenPrefix(newToken);
+    const expiresAt = Date.now() + (30 * 24 * 60 * 60 * 1000); // 30 days
 
-    // Update session with new token and extended expiration
-    await ctx.db.patch(session._id, {
-      cliToken: newToken,
-      expiresAt: Date.now() + (30 * 24 * 60 * 60 * 1000), // 30 days
-      lastUsedAt: Date.now(),
+    // Hash with bcrypt
+    const bcrypt = await import("bcryptjs");
+    const newTokenHash = await bcrypt.default.hash(newToken, 12);
+
+    // Update session with new hashed token
+    await ctx.runMutation(internal.api.v1.cliAuth.updateCliSessionToken, {
+      sessionId: sessionInfo.sessionId,
+      tokenHash: newTokenHash,
+      tokenPrefix: newTokenPrefix,
+      expiresAt,
     });
 
     return {
       token: newToken,
-      expiresAt: Date.now() + (30 * 24 * 60 * 60 * 1000),
+      expiresAt,
     };
   },
 });
 
 /**
- * Revoke CLI Session
+ * Update CLI Session Token (Internal Mutation)
+ */
+export const updateCliSessionToken = internalMutation({
+  args: {
+    sessionId: v.id("cliSessions"),
+    tokenHash: v.string(),
+    tokenPrefix: v.string(),
+    expiresAt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.sessionId, {
+      tokenHash: args.tokenHash,
+      tokenPrefix: args.tokenPrefix,
+      cliToken: undefined, // Clear legacy plaintext token
+      expiresAt: args.expiresAt,
+      lastUsedAt: Date.now(),
+    });
+  },
+});
+
+/**
+ * Revoke CLI Session (Action)
  *
  * Revokes/deletes a CLI session. Used during logout.
+ * Now uses bcrypt verification to find the session.
  */
-export const revokeCliSession = mutation({
+export const revokeCliSession = action({
   args: {
     token: v.string(),
   },
   handler: async (ctx, args): Promise<{ success: boolean }> => {
-    const tokenPrefix = args.token.substring(0, 20);
+    const tokenPrefix = getTokenPrefix(args.token);
     console.log(`[revokeCliSession] Revoking session with token prefix: ${tokenPrefix}...`);
 
-    // Find CLI session by token
-    const session = await ctx.db
-      .query("cliSessions")
-      .withIndex("by_token", (q) => q.eq("cliToken", args.token))
-      .first();
+    // Verify token using the internal action to get session ID
+    const sessionInfo = await ctx.runAction(internal.api.v1.cliAuth.verifyCliSessionToken, {
+      sessionToken: args.token,
+    });
 
-    if (!session) {
+    if (!sessionInfo) {
       console.log(`[revokeCliSession] No session found for token prefix: ${tokenPrefix}...`);
       // Return success even if not found - idempotent operation
       return { success: true };
     }
 
-    console.log(`[revokeCliSession] Deleting session for user: ${session.userId}`);
-    await ctx.db.delete(session._id);
+    console.log(`[revokeCliSession] Deleting session for user: ${sessionInfo.userId}`);
+    await ctx.runMutation(internal.api.v1.cliAuth.deleteCliSession, {
+      sessionId: sessionInfo.sessionId,
+    });
 
     return { success: true };
+  },
+});
+
+/**
+ * Delete CLI Session (Internal Mutation)
+ */
+export const deleteCliSession = internalMutation({
+  args: {
+    sessionId: v.id("cliSessions"),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.delete(args.sessionId);
   },
 });
 
@@ -719,9 +1051,12 @@ export const deleteCliLoginStateInternal = internalMutation({
 });
 
 /**
- * Create CLI Session (Internal)
+ * Create CLI Session (Internal Action - hashes token with bcrypt)
+ *
+ * This is an Action (not Mutation) because bcrypt.hash() requires Node.js runtime.
+ * Generates bcrypt hash of the token, then stores hash + prefix in database.
  */
-export const createCliSession = internalMutation({
+export const createCliSession = internalAction({
   args: {
     userId: v.id("users"),
     email: v.string(),
@@ -731,9 +1066,44 @@ export const createCliSession = internalMutation({
     expiresAt: v.number(),
   },
   handler: async (ctx, args): Promise<Id<"cliSessions">> => {
-    const tokenPrefix = args.cliToken.substring(0, 20);
-    console.log(`[createCliSession] Creating session with token prefix: ${tokenPrefix}... for user: ${args.userId}`);
+    const tokenPrefix = getTokenPrefix(args.cliToken);
+    console.log(`[createCliSession] Creating hashed session with token prefix: ${tokenPrefix}... for user: ${args.userId}`);
 
+    // Hash with bcrypt (12 rounds = ~250ms, secure against brute force)
+    const bcrypt = await import("bcryptjs");
+    const tokenHash = await bcrypt.default.hash(args.cliToken, 12);
+
+    // Store in database (via internal mutation)
+    const sessionId = await ctx.runMutation(internal.api.v1.cliAuth.storeCliSession, {
+      userId: args.userId,
+      email: args.email,
+      organizationId: args.organizationId,
+      tokenHash,
+      tokenPrefix,
+      createdAt: args.createdAt,
+      expiresAt: args.expiresAt,
+    });
+
+    console.log(`[createCliSession] Hashed session created with ID: ${sessionId}`);
+
+    return sessionId;
+  },
+});
+
+/**
+ * Store CLI Session (Internal Mutation - stores hashed token)
+ */
+export const storeCliSession = internalMutation({
+  args: {
+    userId: v.id("users"),
+    email: v.string(),
+    organizationId: v.id("organizations"),
+    tokenHash: v.string(),
+    tokenPrefix: v.string(),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+  },
+  handler: async (ctx, args): Promise<Id<"cliSessions">> => {
     // Note: We don't clean up existing sessions here anymore.
     // The CLI handles session management (logout/revoke) on its side.
     // This avoids race conditions where cleanup deletes newly created sessions.
@@ -742,13 +1112,15 @@ export const createCliSession = internalMutation({
       userId: args.userId,
       email: args.email,
       organizationId: args.organizationId,
-      cliToken: args.cliToken,
+      // New hashed token storage
+      tokenHash: args.tokenHash,
+      tokenPrefix: args.tokenPrefix,
+      // Keep cliToken undefined for new sessions (backward compat field)
+      cliToken: undefined,
       createdAt: args.createdAt,
       expiresAt: args.expiresAt,
       lastUsedAt: args.createdAt,
     });
-
-    console.log(`[createCliSession] Session created with ID: ${sessionId}`);
 
     return sessionId;
   },
@@ -832,7 +1204,8 @@ export const createCliSessionFromSignup = action({
   handler: async (ctx, args): Promise<{
     sessionId: Id<"cliSessions">;
   }> => {
-    const sessionId = await ctx.runMutation(internal.api.v1.cliAuth.createCliSession, {
+    // Note: createCliSession is now an Action (uses bcrypt for hashing)
+    const sessionId = await ctx.runAction(internal.api.v1.cliAuth.createCliSession, {
       userId: args.userId,
       email: args.email,
       organizationId: args.organizationId,
@@ -939,12 +1312,12 @@ export const createDefaultOrganization = internalMutation({
 // ============================================================================
 
 /**
- * Get Organizations for CLI User
+ * Get Organizations for CLI User (Action)
  *
  * Returns all organizations the authenticated CLI user belongs to.
- * Uses CLI session token for authentication.
+ * Uses CLI session token for authentication via bcrypt verification.
  */
-export const getCliUserOrganizations = query({
+export const getCliUserOrganizations = action({
   args: {
     token: v.string(),
   },
@@ -956,40 +1329,44 @@ export const getCliUserOrganizations = query({
       role: string;
     }>;
   } | null> => {
-    // Log token info for debugging (safe - only prefix shown)
-    const tokenPrefix = args.token.substring(0, 20);
-    console.log(`[getCliUserOrganizations] Looking up session with token prefix: ${tokenPrefix}...`);
+    // Verify token using bcrypt
+    const sessionInfo = await ctx.runAction(internal.api.v1.cliAuth.verifyCliSessionToken, {
+      sessionToken: args.token,
+    });
 
-    // Find CLI session by token
-    const session = await ctx.db
-      .query("cliSessions")
-      .withIndex("by_token", (q) => q.eq("cliToken", args.token))
-      .first();
-
-    if (!session) {
-      console.log(`[getCliUserOrganizations] No session found for token prefix: ${tokenPrefix}...`);
-      // Log all sessions for debugging (remove in production)
-      const allSessions = await ctx.db.query("cliSessions").collect();
-      console.log(`[getCliUserOrganizations] Total sessions in DB: ${allSessions.length}`);
-      if (allSessions.length > 0) {
-        console.log(`[getCliUserOrganizations] Sample session tokens:`,
-          allSessions.slice(0, 3).map(s => s.cliToken.substring(0, 20) + "...")
-        );
-      }
+    if (!sessionInfo) {
+      console.log(`[getCliUserOrganizations] Token verification failed`);
       return null;
     }
 
-    console.log(`[getCliUserOrganizations] Session found for user: ${session.userId}`);
+    // Get organizations using internal query
+    const orgsInfo = await ctx.runQuery(internal.api.v1.cliAuth.getUserOrganizationsInternal, {
+      userId: sessionInfo.userId,
+    });
 
-    // Check expiration
-    if (session.expiresAt < Date.now()) {
-      return null;
-    }
+    return orgsInfo;
+  },
+});
 
+/**
+ * Get User Organizations (Internal Query)
+ */
+export const getUserOrganizationsInternal = internalQuery({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args): Promise<{
+    organizations: Array<{
+      id: Id<"organizations">;
+      name: string;
+      slug: string;
+      role: string;
+    }>;
+  }> => {
     // Get all organization memberships for this user
     const memberships = await ctx.db
       .query("organizationMembers")
-      .withIndex("by_user", (q) => q.eq("userId", session.userId))
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .filter((q) => q.eq(q.field("isActive"), true))
       .collect();
 
@@ -1030,9 +1407,9 @@ export const createCliOrganization = action({
     name: string;
     slug: string;
   }> => {
-    // Validate session
-    const sessionInfo = await ctx.runQuery(api.api.v1.cliAuth.validateCliSession, {
-      token: args.token,
+    // Validate session using bcrypt verification
+    const sessionInfo = await ctx.runAction(internal.api.v1.cliAuth.verifyCliSessionToken, {
+      sessionToken: args.token,
     });
 
     if (!sessionInfo) {
@@ -1186,9 +1563,9 @@ export const generateCliApiKey = action({
     scopes: string[];
     createdAt: number;
   }> => {
-    // Validate session
-    const sessionInfo = await ctx.runQuery(api.api.v1.cliAuth.validateCliSession, {
-      token: args.token,
+    // Validate session using bcrypt verification
+    const sessionInfo = await ctx.runAction(internal.api.v1.cliAuth.validateCliSessionInternal, {
+      sessionToken: args.token,
     });
 
     if (!sessionInfo) {

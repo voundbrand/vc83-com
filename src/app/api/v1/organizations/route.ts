@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { api } from "@convex/_generated/api";
-import { fetchQuery, fetchAction } from "convex/nextjs";
+import { fetchAction } from "convex/nextjs";
 
 /**
  * GET /api/v1/organizations
@@ -28,7 +28,8 @@ export async function GET(request: NextRequest) {
   const token = authHeader.substring(7);
 
   try {
-    const result = await fetchQuery(api.api.v1.cliAuth.getCliUserOrganizations, {
+    // getCliUserOrganizations is now an Action (uses bcrypt verification)
+    const result = await fetchAction(api.api.v1.cliAuth.getCliUserOrganizations, {
       token,
     });
 

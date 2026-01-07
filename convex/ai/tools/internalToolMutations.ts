@@ -2468,7 +2468,7 @@ export const internalSearchMedia = internalQuery({
   handler: async (ctx, args) => {
     const queryLower = args.query.toLowerCase();
 
-    let mediaQuery = ctx.db
+    const mediaQuery = ctx.db
       .query("objects")
       .withIndex("by_org_type", (q) =>
         q.eq("organizationId", args.organizationId).eq("type", "media")

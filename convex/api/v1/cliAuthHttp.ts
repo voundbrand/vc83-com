@@ -45,7 +45,8 @@ export const validateSession = httpAction(async (ctx, request) => {
     // Enhanced debug logging: show token prefix and FULL LENGTH
     console.log(`[CLI Auth HTTP] validateSession: Token: ${token.substring(0, 30)}... (length: ${token.length})`);
 
-    const userInfo = await ctx.runQuery(api.api.v1.cliAuth.validateCliSession, {
+    // validateCliSession is now an Action (uses bcrypt verification)
+    const userInfo = await ctx.runAction(api.api.v1.cliAuth.validateCliSession, {
       token,
     });
     console.log(`[CLI Auth HTTP] validateSession: Query result: ${userInfo ? 'found user' : 'null'}`);
@@ -61,12 +62,15 @@ export const validateSession = httpAction(async (ctx, request) => {
       );
     }
 
-    // Return CLI-compatible format
+    // Return CLI-compatible format with organizationId and permissions for MCP tools
     return new Response(
       JSON.stringify({
         valid: true,
         userId: userInfo.userId,
         email: userInfo.email,
+        organizationId: userInfo.organizationId,
+        organizationName: userInfo.organizationName,
+        permissions: userInfo.permissions,
         user: {
           id: userInfo.userId,
           email: userInfo.email,
@@ -110,7 +114,8 @@ export const refreshSession = httpAction(async (ctx, request) => {
 
     const token = authHeader.substring(7);
 
-    const result = await ctx.runMutation(api.api.v1.cliAuth.refreshCliSession, {
+    // refreshCliSession is now an Action (uses bcrypt for new token)
+    const result = await ctx.runAction(api.api.v1.cliAuth.refreshCliSession, {
       token,
     });
 
@@ -151,7 +156,8 @@ export const revokeSession = httpAction(async (ctx, request) => {
     const token = authHeader.substring(7);
     console.log(`[CLI Auth HTTP] revokeSession: Revoking token prefix: ${token.substring(0, 20)}...`);
 
-    const result = await ctx.runMutation(api.api.v1.cliAuth.revokeCliSession, {
+    // revokeCliSession is now an Action (uses bcrypt verification)
+    const result = await ctx.runAction(api.api.v1.cliAuth.revokeCliSession, {
       token,
     });
 
@@ -194,7 +200,8 @@ export const listOrganizations = httpAction(async (ctx, request) => {
     const tokenPrefix = token.substring(0, 20);
     console.log(`[CLI Auth HTTP] listOrganizations: Received token prefix: ${tokenPrefix}...`);
 
-    const result = await ctx.runQuery(api.api.v1.cliAuth.getCliUserOrganizations, {
+    // getCliUserOrganizations is now an Action (uses bcrypt verification)
+    const result = await ctx.runAction(api.api.v1.cliAuth.getCliUserOrganizations, {
       token,
     });
 

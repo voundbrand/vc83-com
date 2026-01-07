@@ -10,9 +10,10 @@
  * - GET /api/v1/crm/contacts - List contacts
  * - GET /api/v1/crm/contacts/:contactId - Get contact details
  *
- * Security: Dual authentication support
- * - API keys (full access, backward compatible)
+ * Security: Triple authentication support
+ * - API keys (full access or scoped permissions)
  * - OAuth tokens (scope-based access control)
+ * - CLI sessions (full organization access via MCP tools)
  * Scope: Returns only contacts for the authenticated organization
  */
 
