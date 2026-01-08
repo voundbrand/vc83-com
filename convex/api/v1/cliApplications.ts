@@ -146,10 +146,29 @@ export const registerApplication = httpAction(async (ctx, request) => {
     });
 
     // Link API key to application
-    await ctx.runMutation(internal.api.v1.cliApplicationsInternal.linkApiKeyToApplication, {
-      applicationId: result.applicationId,
-      apiKeyId: apiKeyResult.id,
-    });
+    // This enforces "one API key = one application" constraint
+    try {
+      await ctx.runMutation(internal.api.v1.cliApplicationsInternal.linkApiKeyToApplication, {
+        applicationId: result.applicationId,
+        apiKeyId: apiKeyResult.id,
+      });
+    } catch (linkError: any) {
+      // Check if this is an API key already linked error
+      if (linkError.message?.includes("already connected to another application")) {
+        return new Response(
+          JSON.stringify({
+            error: linkError.message,
+            code: "API_KEY_ALREADY_LINKED",
+            suggestion: "Each API key can only be connected to one application. Generate a new API key from your L4YERCAK3 dashboard, or disconnect the existing application first.",
+            details: {
+              applicationId: result.applicationId,
+            },
+          }),
+          { status: 409, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+      throw linkError; // Re-throw other errors
+    }
 
     return new Response(
       JSON.stringify({
@@ -165,8 +184,22 @@ export const registerApplication = httpAction(async (ctx, request) => {
       }),
       { status: 201, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error("[CLI Applications] Register error:", error);
+
+    // Handle specific error codes
+    if (error.code === "API_KEY_ALREADY_LINKED") {
+      return new Response(
+        JSON.stringify({
+          error: error.message,
+          code: error.code,
+          suggestion: error.suggestion || "Generate a new API key for this application.",
+          linkedApplicationName: error.linkedApplicationName,
+        }),
+        { status: 409, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ error: "Internal server error", code: "INTERNAL_ERROR" }),
       { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }

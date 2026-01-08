@@ -423,6 +423,9 @@ export const updateApplication = mutation({
 
 /**
  * Link API key to application
+ *
+ * Enforces "one API key = one application" constraint.
+ * An API key can only be linked to a single application at a time.
  */
 export const linkApiKey = mutation({
   args: {
@@ -442,6 +445,36 @@ export const linkApiKey = mutation({
     const apiKey = await ctx.db.get(args.apiKeyId);
     if (!apiKey || apiKey.organizationId !== app.organizationId) {
       throw new Error("Invalid API key");
+    }
+
+    // Check if this API key is already linked to another application
+    // Enforces "one API key = one application" constraint
+    const allApps = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", app.organizationId).eq("type", "connected_application")
+      )
+      .collect();
+
+    for (const existingApp of allApps) {
+      // Skip the current application being linked
+      if (existingApp._id === args.applicationId) {
+        continue;
+      }
+
+      // Skip archived applications
+      if (existingApp.status === "archived") {
+        continue;
+      }
+
+      const props = existingApp.customProperties as { connection?: { apiKeyId?: string } } | undefined;
+      if (props?.connection?.apiKeyId === args.apiKeyId) {
+        throw new Error(
+          `This API key is already connected to another application: "${existingApp.name}". ` +
+          `Each API key can only be linked to one application. ` +
+          `Generate a new API key, or disconnect the existing application first.`
+        );
+      }
     }
 
     const currentProps = (app.customProperties || {}) as Record<string, unknown>;

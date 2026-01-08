@@ -69,9 +69,63 @@ export const checkOrgAccessInternal = internalQuery({
 });
 
 /**
+ * Check if API Key is Already Linked (Internal)
+ *
+ * Checks if an API key is already linked to another application.
+ * Enforces the "one API key = one application" constraint.
+ *
+ * Returns:
+ * - { linked: false } if the API key is available
+ * - { linked: true, applicationId, applicationName } if already linked
+ */
+export const checkApiKeyAlreadyLinked = internalQuery({
+  args: {
+    apiKeyId: v.id("apiKeys"),
+    excludeApplicationId: v.optional(v.id("objects")), // Exclude this app (for re-linking same app)
+  },
+  handler: async (ctx, args): Promise<{
+    linked: boolean;
+    applicationId?: Id<"objects">;
+    applicationName?: string;
+  }> => {
+    // Find any application that has this API key linked
+    const apps = await ctx.db
+      .query("objects")
+      .filter((q) => q.eq(q.field("type"), "connected_application"))
+      .collect();
+
+    for (const app of apps) {
+      // Skip the excluded application (useful when updating an existing link)
+      if (args.excludeApplicationId && app._id === args.excludeApplicationId) {
+        continue;
+      }
+
+      // Skip archived applications
+      if (app.status === "archived") {
+        continue;
+      }
+
+      const props = app.customProperties as { connection?: { apiKeyId?: Id<"apiKeys"> } } | undefined;
+      if (props?.connection?.apiKeyId === args.apiKeyId) {
+        return {
+          linked: true,
+          applicationId: app._id,
+          applicationName: app.name,
+        };
+      }
+    }
+
+    return { linked: false };
+  },
+});
+
+/**
  * Link API Key to Application (Internal)
  *
  * Links an API key to a connected application.
+ * Enforces "one API key = one application" constraint.
+ *
+ * @throws Error with code API_KEY_ALREADY_LINKED if the key is connected elsewhere
  */
 export const linkApiKeyToApplication = internalMutation({
   args: {
@@ -82,6 +136,39 @@ export const linkApiKeyToApplication = internalMutation({
     const app = await ctx.db.get(args.applicationId);
     if (!app) {
       throw new Error("Application not found");
+    }
+
+    // Check if this API key is already linked to another application
+    // We need to scan all connected_applications to enforce the constraint
+    const allApps = await ctx.db
+      .query("objects")
+      .filter((q) => q.eq(q.field("type"), "connected_application"))
+      .collect();
+
+    for (const existingApp of allApps) {
+      // Skip the current application being linked
+      if (existingApp._id === args.applicationId) {
+        continue;
+      }
+
+      // Skip archived applications
+      if (existingApp.status === "archived") {
+        continue;
+      }
+
+      const props = existingApp.customProperties as { connection?: { apiKeyId?: Id<"apiKeys"> } } | undefined;
+      if (props?.connection?.apiKeyId === args.apiKeyId) {
+        // Create a structured error that can be caught and returned to CLI
+        const error = new Error(
+          `This API key is already connected to another application: "${existingApp.name}". ` +
+          `Each API key can only be linked to one application.`
+        );
+        (error as any).code = "API_KEY_ALREADY_LINKED";
+        (error as any).linkedApplicationId = existingApp._id;
+        (error as any).linkedApplicationName = existingApp.name;
+        (error as any).suggestion = "Generate a new API key for this application, or disconnect the existing application first.";
+        throw error;
+      }
     }
 
     const currentProps = (app.customProperties || {}) as Record<string, unknown>;
