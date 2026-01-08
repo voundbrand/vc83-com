@@ -27,10 +27,18 @@ interface Milestone {
 }
 
 interface LTVInputs {
+  // Primary course (e.g., SBF Binnen)
+  primaryCourseValue: number;
+  primaryCoursesPerYear: number;
+  // Upsell courses (e.g., SBF See, SKS, advanced)
+  upsellRate: number; // % of customers who book additional courses
+  avgUpsellValue: number;
+  // Referral
+  referralRate: number; // % of customers who refer others
+  // For house: different model
   avgBookingValue: number;
   bookingsPerYear: number;
-  customerLifetimeYears: number;
-  referralRate: number;
+  repeatGuestRate: number;
 }
 
 interface MarketingInputs {
@@ -50,72 +58,145 @@ function LTVCACCalculator() {
   const [businessType, setBusinessType] = useState<"segelschule" | "haus" | "combined">("segelschule");
   const [showDetails, setShowDetails] = useState(false);
 
+  // Segelschule: One-time course business with upsell potential
   const [segelschuleInputs, setSegelschuleInputs] = useState<LTVInputs>({
-    avgBookingValue: 350,
-    bookingsPerYear: 25,
-    customerLifetimeYears: 2,
-    referralRate: 0.15,
+    // Primary course (e.g., SBF Binnen, basic sailing)
+    primaryCourseValue: 450,
+    primaryCoursesPerYear: 30, // Number of students/year
+    // Upsells: Some students continue to SBF See, SKS, etc.
+    upsellRate: 25, // 25% book another course
+    avgUpsellValue: 600, // Advanced courses cost more
+    // Referrals: Satisfied students tell friends
+    referralRate: 20, // 20% bring a friend
+    // House fields (not used for segelschule)
+    avgBookingValue: 0,
+    bookingsPerYear: 0,
+    repeatGuestRate: 0,
   });
 
+  // House: Repeat guest model
   const [houseInputs, setHouseInputs] = useState<LTVInputs>({
-    avgBookingValue: 180,
-    bookingsPerYear: 40,
-    customerLifetimeYears: 3,
-    referralRate: 0.20,
+    primaryCourseValue: 0,
+    primaryCoursesPerYear: 0,
+    upsellRate: 0,
+    avgUpsellValue: 0,
+    referralRate: 15, // 15% recommend to others
+    // House-specific
+    avgBookingValue: 150, // Per night
+    bookingsPerYear: 50, // Nights booked per year (not guests)
+    repeatGuestRate: 30, // 30% come back
   });
 
   const calculations = useMemo(() => {
-    // Segelschule only
-    const segelschuleLTV =
-      segelschuleInputs.avgBookingValue *
-      segelschuleInputs.bookingsPerYear *
-      segelschuleInputs.customerLifetimeYears *
-      (1 + segelschuleInputs.referralRate);
+    // ===========================================
+    // SEGELSCHULE LTV CALCULATION
+    // Most customers are one-time, but:
+    // - Some upsell to advanced courses
+    // - Some refer friends (which is essentially new revenue)
+    // ===========================================
+
+    // Base revenue from primary courses
+    const primaryRevenue = segelschuleInputs.primaryCourseValue * segelschuleInputs.primaryCoursesPerYear;
+
+    // Upsell revenue (% of students who take advanced courses)
+    const upsellRevenue = segelschuleInputs.primaryCoursesPerYear *
+      (segelschuleInputs.upsellRate / 100) *
+      segelschuleInputs.avgUpsellValue;
+
+    // Referral value: Each referral is essentially a "free" customer acquisition
+    // We count this as additional LTV because it reduces effective CAC
+    const referralValue = segelschuleInputs.primaryCoursesPerYear *
+      (segelschuleInputs.referralRate / 100) *
+      segelschuleInputs.primaryCourseValue;
+
+    const segelschuleYearlyRevenue = primaryRevenue + upsellRevenue;
+
+    // LTV per customer = base course + upsell chance + referral value
+    const segelschuleLTVPerCustomer =
+      segelschuleInputs.primaryCourseValue +
+      (segelschuleInputs.upsellRate / 100) * segelschuleInputs.avgUpsellValue +
+      (segelschuleInputs.referralRate / 100) * segelschuleInputs.primaryCourseValue;
+
+    // Total LTV over the projection period (yearly revenue including referral effect)
+    const segelschuleTotalLTV = segelschuleYearlyRevenue + referralValue;
 
     const segelschuleCAC = 8500;
-    const segelschuleRatio = segelschuleLTV / segelschuleCAC;
-    const segelschuleYearlyRevenue = segelschuleInputs.avgBookingValue * segelschuleInputs.bookingsPerYear;
+    const segelschuleRatio = segelschuleTotalLTV / segelschuleCAC;
 
-    // House only
-    const houseLTV =
-      houseInputs.avgBookingValue *
-      houseInputs.bookingsPerYear *
-      houseInputs.customerLifetimeYears *
-      (1 + houseInputs.referralRate);
+    // ===========================================
+    // HOUSE LTV CALCULATION
+    // Guests can return, and they can refer others
+    // ===========================================
+
+    // Average guest stays ~2-3 nights
+    const avgNightsPerGuest = 2.5;
+    const guestsPerYear = Math.round(houseInputs.bookingsPerYear / avgNightsPerGuest);
+
+    // Base revenue
+    const houseBaseRevenue = houseInputs.avgBookingValue * houseInputs.bookingsPerYear;
+
+    // Repeat guest value (they come back ~1.5x on average if they return)
+    const repeatGuestRevenue = guestsPerYear *
+      (houseInputs.repeatGuestRate / 100) *
+      houseInputs.avgBookingValue * avgNightsPerGuest;
+
+    // Referral value
+    const houseReferralValue = guestsPerYear *
+      (houseInputs.referralRate / 100) *
+      houseInputs.avgBookingValue * avgNightsPerGuest;
+
+    const houseYearlyRevenue = houseBaseRevenue;
+    const houseTotalLTV = houseBaseRevenue + repeatGuestRevenue + houseReferralValue;
 
     const houseCAC = 8500;
-    const houseRatio = houseLTV / houseCAC;
-    const houseYearlyRevenue = houseInputs.avgBookingValue * houseInputs.bookingsPerYear;
+    const houseRatio = houseTotalLTV / houseCAC;
 
-    // Combined (with synergy bonus)
-    const synergyMultiplier = 1.25; // 25% synergy from cross-selling
-    const combinedLTV = (segelschuleLTV + houseLTV) * synergyMultiplier;
+    // ===========================================
+    // COMBINED: Synergy from cross-selling
+    // Sailing students who stay at the house (and vice versa)
+    // ===========================================
+
+    // Synergy: 15% of sailing students also book accommodation
+    const crossSellRate = 0.15;
+    const crossSellRevenue = segelschuleInputs.primaryCoursesPerYear *
+      crossSellRate *
+      houseInputs.avgBookingValue * avgNightsPerGuest;
+
+    const combinedYearlyRevenue = segelschuleYearlyRevenue + houseYearlyRevenue + crossSellRevenue;
+    const combinedTotalLTV = segelschuleTotalLTV + houseTotalLTV + crossSellRevenue;
+
     const combinedCAC = 15000;
-    const combinedRatio = combinedLTV / combinedCAC;
-    const combinedYearlyRevenue = segelschuleYearlyRevenue + houseYearlyRevenue;
+    const combinedRatio = combinedTotalLTV / combinedCAC;
 
     return {
       segelschule: {
-        ltv: segelschuleLTV,
+        ltv: segelschuleTotalLTV,
+        ltvPerCustomer: segelschuleLTVPerCustomer,
         cac: segelschuleCAC,
         ratio: segelschuleRatio,
         yearlyRevenue: segelschuleYearlyRevenue,
         breakEvenMonths: Math.ceil(segelschuleCAC / (segelschuleYearlyRevenue / 12)),
+        studentsPerYear: segelschuleInputs.primaryCoursesPerYear,
+        upsellRevenue,
+        referralValue,
       },
       haus: {
-        ltv: houseLTV,
+        ltv: houseTotalLTV,
         cac: houseCAC,
         ratio: houseRatio,
         yearlyRevenue: houseYearlyRevenue,
         breakEvenMonths: Math.ceil(houseCAC / (houseYearlyRevenue / 12)),
+        guestsPerYear,
+        repeatGuestRevenue,
+        referralValue: houseReferralValue,
       },
       combined: {
-        ltv: combinedLTV,
+        ltv: combinedTotalLTV,
         cac: combinedCAC,
         ratio: combinedRatio,
         yearlyRevenue: combinedYearlyRevenue,
         breakEvenMonths: Math.ceil(combinedCAC / (combinedYearlyRevenue / 12)),
-        synergyBonus: (combinedLTV - (segelschuleLTV + houseLTV)),
+        synergyBonus: crossSellRevenue,
       },
     };
   }, [segelschuleInputs, houseInputs]);
@@ -247,60 +328,88 @@ function LTVCACCalculator() {
       {/* Adjustable Inputs */}
       {showDetails && (
         <div className="grid md:grid-cols-2 gap-6 p-4 bg-slate-900/30 rounded-xl">
+          {/* Segelschule Parameters */}
           <div>
             <h4 className="text-sm font-medium text-slate-300 mb-3">Segelschule</h4>
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-slate-400">Durchschn. Buchungswert (€)</label>
+                <label className="text-xs text-slate-400">Kurspreis (z.B. SBF Binnen) (€)</label>
                 <input
                   type="range"
-                  min="200"
-                  max="600"
+                  min="250"
+                  max="800"
                   step="25"
-                  value={segelschuleInputs.avgBookingValue}
-                  onChange={(e) => setSegelschuleInputs(prev => ({ ...prev, avgBookingValue: Number(e.target.value) }))}
+                  value={segelschuleInputs.primaryCourseValue}
+                  onChange={(e) => setSegelschuleInputs(prev => ({ ...prev, primaryCourseValue: Number(e.target.value) }))}
                   className="w-full mt-1"
                 />
-                <div className="text-right text-xs text-cyan-400">{segelschuleInputs.avgBookingValue}€</div>
+                <div className="text-right text-xs text-cyan-400">{segelschuleInputs.primaryCourseValue}€</div>
               </div>
               <div>
-                <label className="text-xs text-slate-400">Buchungen pro Jahr</label>
+                <label className="text-xs text-slate-400">Schüler pro Jahr</label>
                 <input
                   type="range"
                   min="10"
-                  max="100"
+                  max="80"
                   step="5"
-                  value={segelschuleInputs.bookingsPerYear}
-                  onChange={(e) => setSegelschuleInputs(prev => ({ ...prev, bookingsPerYear: Number(e.target.value) }))}
+                  value={segelschuleInputs.primaryCoursesPerYear}
+                  onChange={(e) => setSegelschuleInputs(prev => ({ ...prev, primaryCoursesPerYear: Number(e.target.value) }))}
                   className="w-full mt-1"
                 />
-                <div className="text-right text-xs text-cyan-400">{segelschuleInputs.bookingsPerYear}</div>
+                <div className="text-right text-xs text-cyan-400">{segelschuleInputs.primaryCoursesPerYear}</div>
               </div>
               <div>
-                <label className="text-xs text-slate-400">Kundenlebensdauer (Jahre)</label>
+                <label className="text-xs text-slate-400">Upsell-Rate (% die Folgekurs buchen)</label>
                 <input
                   type="range"
-                  min="1"
-                  max="5"
-                  step="0.5"
-                  value={segelschuleInputs.customerLifetimeYears}
-                  onChange={(e) => setSegelschuleInputs(prev => ({ ...prev, customerLifetimeYears: Number(e.target.value) }))}
+                  min="5"
+                  max="50"
+                  step="5"
+                  value={segelschuleInputs.upsellRate}
+                  onChange={(e) => setSegelschuleInputs(prev => ({ ...prev, upsellRate: Number(e.target.value) }))}
                   className="w-full mt-1"
                 />
-                <div className="text-right text-xs text-cyan-400">{segelschuleInputs.customerLifetimeYears} Jahre</div>
+                <div className="text-right text-xs text-cyan-400">{segelschuleInputs.upsellRate}%</div>
+              </div>
+              <div>
+                <label className="text-xs text-slate-400">Folgekurs-Wert (z.B. SBF See, SKS) (€)</label>
+                <input
+                  type="range"
+                  min="400"
+                  max="1200"
+                  step="50"
+                  value={segelschuleInputs.avgUpsellValue}
+                  onChange={(e) => setSegelschuleInputs(prev => ({ ...prev, avgUpsellValue: Number(e.target.value) }))}
+                  className="w-full mt-1"
+                />
+                <div className="text-right text-xs text-cyan-400">{segelschuleInputs.avgUpsellValue}€</div>
+              </div>
+              <div>
+                <label className="text-xs text-slate-400">Empfehlungsrate (% die Freunde bringen)</label>
+                <input
+                  type="range"
+                  min="5"
+                  max="40"
+                  step="5"
+                  value={segelschuleInputs.referralRate}
+                  onChange={(e) => setSegelschuleInputs(prev => ({ ...prev, referralRate: Number(e.target.value) }))}
+                  className="w-full mt-1"
+                />
+                <div className="text-right text-xs text-cyan-400">{segelschuleInputs.referralRate}%</div>
               </div>
             </div>
           </div>
 
+          {/* House Parameters */}
           <div>
             <h4 className="text-sm font-medium text-slate-300 mb-3">Haff Erleben (Haus)</h4>
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-slate-400">Durchschn. Übernachtungswert (€)</label>
+                <label className="text-xs text-slate-400">Preis pro Nacht (€)</label>
                 <input
                   type="range"
                   min="80"
-                  max="300"
+                  max="250"
                   step="10"
                   value={houseInputs.avgBookingValue}
                   onChange={(e) => setHouseInputs(prev => ({ ...prev, avgBookingValue: Number(e.target.value) }))}
@@ -309,12 +418,12 @@ function LTVCACCalculator() {
                 <div className="text-right text-xs text-cyan-400">{houseInputs.avgBookingValue}€</div>
               </div>
               <div>
-                <label className="text-xs text-slate-400">Übernachtungen pro Jahr</label>
+                <label className="text-xs text-slate-400">Gebuchte Nächte pro Jahr</label>
                 <input
                   type="range"
                   min="20"
-                  max="150"
-                  step="5"
+                  max="200"
+                  step="10"
                   value={houseInputs.bookingsPerYear}
                   onChange={(e) => setHouseInputs(prev => ({ ...prev, bookingsPerYear: Number(e.target.value) }))}
                   className="w-full mt-1"
@@ -322,17 +431,30 @@ function LTVCACCalculator() {
                 <div className="text-right text-xs text-cyan-400">{houseInputs.bookingsPerYear}</div>
               </div>
               <div>
-                <label className="text-xs text-slate-400">Kundenlebensdauer (Jahre)</label>
+                <label className="text-xs text-slate-400">Wiederkehrende Gäste (%)</label>
                 <input
                   type="range"
-                  min="1"
-                  max="5"
-                  step="0.5"
-                  value={houseInputs.customerLifetimeYears}
-                  onChange={(e) => setHouseInputs(prev => ({ ...prev, customerLifetimeYears: Number(e.target.value) }))}
+                  min="10"
+                  max="60"
+                  step="5"
+                  value={houseInputs.repeatGuestRate}
+                  onChange={(e) => setHouseInputs(prev => ({ ...prev, repeatGuestRate: Number(e.target.value) }))}
                   className="w-full mt-1"
                 />
-                <div className="text-right text-xs text-cyan-400">{houseInputs.customerLifetimeYears} Jahre</div>
+                <div className="text-right text-xs text-cyan-400">{houseInputs.repeatGuestRate}%</div>
+              </div>
+              <div>
+                <label className="text-xs text-slate-400">Empfehlungsrate (%)</label>
+                <input
+                  type="range"
+                  min="5"
+                  max="40"
+                  step="5"
+                  value={houseInputs.referralRate}
+                  onChange={(e) => setHouseInputs(prev => ({ ...prev, referralRate: Number(e.target.value) }))}
+                  className="w-full mt-1"
+                />
+                <div className="text-right text-xs text-cyan-400">{houseInputs.referralRate}%</div>
               </div>
             </div>
           </div>
