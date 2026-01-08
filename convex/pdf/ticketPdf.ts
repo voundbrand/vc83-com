@@ -1020,8 +1020,11 @@ export const generateEventAttendeeListCSV = action({
 
             const csvContent = rows.join("\n");
 
-            // 5. Convert to base64
-            const csvBase64 = Buffer.from(csvContent, "utf-8").toString("base64");
+            // 5. Convert to base64 (browser-compatible, no Node.js Buffer)
+            // Use TextEncoder to convert string to bytes, then btoa for base64
+            const encoder = new TextEncoder();
+            const uint8Array = encoder.encode(csvContent);
+            const csvBase64 = btoa(String.fromCharCode(...uint8Array));
 
             return {
                 filename: `attendee-list-${event._id.substring(0, 12)}.csv`,
