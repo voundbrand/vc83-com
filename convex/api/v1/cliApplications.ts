@@ -2,7 +2,7 @@
  * CLI APPLICATIONS API
  *
  * HTTP handlers for CLI application registration and management.
- * Uses CLI session token authentication (Bearer token).
+ * Uses universal authentication (CLI session, API key, or OAuth token).
  *
  * Endpoints:
  * - POST /api/v1/cli/applications - Register new application
@@ -15,33 +15,8 @@
 import { httpAction } from "../../_generated/server";
 import { internal } from "../../_generated/api";
 import { getCorsHeaders, handleOptionsRequest } from "./corsHeaders";
+import { authenticateRequest, requireScopes } from "../../middleware/auth";
 import type { Id } from "../../_generated/dataModel";
-
-// ============================================================================
-// HELPER: Verify CLI Token
-// ============================================================================
-
-async function verifyCliToken(
-  ctx: { runQuery: (fn: any, args: any) => Promise<any> },
-  authHeader: string | null
-): Promise<{
-  userId: Id<"users">;
-  email: string;
-  organizationId: Id<"organizations">;
-} | null> {
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return null;
-  }
-
-  const token = authHeader.substring(7);
-
-  // Validate CLI session
-  const session = await ctx.runQuery(internal.api.v1.cliApplicationsInternal.validateCliTokenInternal, {
-    token,
-  });
-
-  return session;
-}
 
 // ============================================================================
 // POST /api/v1/cli/applications - Register Application
@@ -52,12 +27,23 @@ export const registerApplication = httpAction(async (ctx, request) => {
   const corsHeaders = getCorsHeaders(origin);
 
   try {
-    // Verify CLI token
-    const authContext = await verifyCliToken(ctx, request.headers.get("Authorization"));
-    if (!authContext) {
+    // Universal authentication (CLI session, API key, or OAuth)
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
       return new Response(
-        JSON.stringify({ error: "Invalid or expired CLI session", code: "INVALID_SESSION" }),
-        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        JSON.stringify({ error: authResult.error, code: "INVALID_SESSION" }),
+        { status: authResult.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const authContext = authResult.context;
+
+    // Require applications:write scope
+    const scopeCheck = requireScopes(authContext, ["applications:write"]);
+    if (!scopeCheck.success) {
+      return new Response(
+        JSON.stringify({ error: scopeCheck.error, code: "INSUFFICIENT_PERMISSIONS" }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
@@ -216,12 +202,23 @@ export const listApplications = httpAction(async (ctx, request) => {
   const corsHeaders = getCorsHeaders(origin);
 
   try {
-    // Verify CLI token
-    const authContext = await verifyCliToken(ctx, request.headers.get("Authorization"));
-    if (!authContext) {
+    // Universal authentication (CLI session, API key, or OAuth)
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
       return new Response(
-        JSON.stringify({ error: "Invalid or expired CLI session", code: "INVALID_SESSION" }),
-        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        JSON.stringify({ error: authResult.error, code: "INVALID_SESSION" }),
+        { status: authResult.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const authContext = authResult.context;
+
+    // Require applications:read scope
+    const scopeCheck = requireScopes(authContext, ["applications:read"]);
+    if (!scopeCheck.success) {
+      return new Response(
+        JSON.stringify({ error: scopeCheck.error, code: "INSUFFICIENT_PERMISSIONS" }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
@@ -289,12 +286,23 @@ export const getApplicationByPath = httpAction(async (ctx, request) => {
   const corsHeaders = getCorsHeaders(origin);
 
   try {
-    // Verify CLI token
-    const authContext = await verifyCliToken(ctx, request.headers.get("Authorization"));
-    if (!authContext) {
+    // Universal authentication (CLI session, API key, or OAuth)
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
       return new Response(
-        JSON.stringify({ error: "Invalid or expired CLI session", code: "INVALID_SESSION" }),
-        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        JSON.stringify({ error: authResult.error, code: "INVALID_SESSION" }),
+        { status: authResult.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const authContext = authResult.context;
+
+    // Require applications:read scope
+    const scopeCheck = requireScopes(authContext, ["applications:read"]);
+    if (!scopeCheck.success) {
+      return new Response(
+        JSON.stringify({ error: scopeCheck.error, code: "INSUFFICIENT_PERMISSIONS" }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
@@ -361,12 +369,23 @@ export const getApplication = httpAction(async (ctx, request) => {
   const corsHeaders = getCorsHeaders(origin);
 
   try {
-    // Verify CLI token
-    const authContext = await verifyCliToken(ctx, request.headers.get("Authorization"));
-    if (!authContext) {
+    // Universal authentication (CLI session, API key, or OAuth)
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
       return new Response(
-        JSON.stringify({ error: "Invalid or expired CLI session", code: "INVALID_SESSION" }),
-        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        JSON.stringify({ error: authResult.error, code: "INVALID_SESSION" }),
+        { status: authResult.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const authContext = authResult.context;
+
+    // Require applications:read scope
+    const scopeCheck = requireScopes(authContext, ["applications:read"]);
+    if (!scopeCheck.success) {
+      return new Response(
+        JSON.stringify({ error: scopeCheck.error, code: "INSUFFICIENT_PERMISSIONS" }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
@@ -452,12 +471,23 @@ export const updateApplication = httpAction(async (ctx, request) => {
   const corsHeaders = getCorsHeaders(origin);
 
   try {
-    // Verify CLI token
-    const authContext = await verifyCliToken(ctx, request.headers.get("Authorization"));
-    if (!authContext) {
+    // Universal authentication (CLI session, API key, or OAuth)
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
       return new Response(
-        JSON.stringify({ error: "Invalid or expired CLI session", code: "INVALID_SESSION" }),
-        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        JSON.stringify({ error: authResult.error, code: "INVALID_SESSION" }),
+        { status: authResult.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const authContext = authResult.context;
+
+    // Require applications:write scope
+    const scopeCheck = requireScopes(authContext, ["applications:write"]);
+    if (!scopeCheck.success) {
+      return new Response(
+        JSON.stringify({ error: scopeCheck.error, code: "INSUFFICIENT_PERMISSIONS" }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
@@ -536,12 +566,23 @@ export const syncApplication = httpAction(async (ctx, request) => {
   const corsHeaders = getCorsHeaders(origin);
 
   try {
-    // Verify CLI token
-    const authContext = await verifyCliToken(ctx, request.headers.get("Authorization"));
-    if (!authContext) {
+    // Universal authentication (CLI session, API key, or OAuth)
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
       return new Response(
-        JSON.stringify({ error: "Invalid or expired CLI session", code: "INVALID_SESSION" }),
-        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        JSON.stringify({ error: authResult.error, code: "INVALID_SESSION" }),
+        { status: authResult.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const authContext = authResult.context;
+
+    // Require applications:write scope for sync operations
+    const scopeCheck = requireScopes(authContext, ["applications:write"]);
+    if (!scopeCheck.success) {
+      return new Response(
+        JSON.stringify({ error: scopeCheck.error, code: "INSUFFICIENT_PERMISSIONS" }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
