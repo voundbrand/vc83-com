@@ -527,14 +527,13 @@ http.route({
 // Import API handlers
 import {
   listEvents,
-  getEvents,
   createEvent,
   getEvent,
   updateEvent,
   getEventAttendees,
   getEventBySlug,
-  getEventById,
   getEventProducts,
+  cancelEvent,
 } from "./api/v1/events";
 import { getProduct } from "./api/v1/products";
 import {
@@ -543,6 +542,7 @@ import {
   getForm,
   getFormResponses,
   submitFormResponse,
+  deleteForm,
   getPublicForm,
   submitPublicForm,
 } from "./api/v1/forms";
@@ -684,6 +684,13 @@ http.route({
   handler: getEventProducts,
 });
 
+// POST /api/v1/events/:eventId/cancel (cancel event)
+http.route({
+  path: "/api/v1/events/:eventId/cancel",
+  method: "POST",
+  handler: cancelEvent,
+});
+
 // GET /api/v1/events/:eventId (get event by ID)
 // Uses pathPrefix to handle dynamic eventId parameter
 http.route({
@@ -739,6 +746,13 @@ http.route({
   path: "/api/v1/forms/:formId",
   method: "GET",
   handler: getForm,
+});
+
+// DELETE /api/v1/forms/:formId (delete form - authenticated)
+http.route({
+  path: "/api/v1/forms/:formId",
+  method: "DELETE",
+  handler: deleteForm,
 });
 
 // OPTIONS /api/v1/forms/public/:formId (CORS preflight)

@@ -427,6 +427,81 @@ export const submitFormResponse = httpAction(async (ctx, request) => {
 });
 
 /**
+ * DELETE FORM
+ * Permanently deletes a form
+ *
+ * DELETE /api/v1/forms/{formId}
+ */
+export const deleteForm = httpAction(async (ctx, request) => {
+  try {
+    const origin = request.headers.get("origin");
+    const corsHeaders = getCorsHeaders(origin);
+
+    // 1. Universal authentication
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
+      return new Response(
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const authContext = authResult.context;
+
+    // 2. Require forms:write scope
+    const scopeCheck = requireScopes(authContext, ["forms:write"]);
+    if (!scopeCheck.success) {
+      return new Response(
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // 3. Extract form ID from URL
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split("/");
+    const formId = pathParts[pathParts.length - 1];
+
+    if (!formId) {
+      return new Response(
+        JSON.stringify({ error: "Form ID required" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // 4. Delete form
+    await ctx.runMutation(internal.api.v1.formsInternal.deleteFormInternal, {
+      organizationId: authContext.organizationId,
+      formId,
+      performedBy: authContext.userId,
+    });
+
+    // 5. Return response
+    return new Response(
+      JSON.stringify({ success: true, message: "Form deleted successfully" }),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "X-Organization-Id": authContext.organizationId,
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error) {
+    console.error("API /forms/:formId (DELETE) error:", error);
+    const origin = request.headers.get("origin");
+    const corsHeaders = getCorsHeaders(origin);
+    const message = error instanceof Error ? error.message : "Internal server error";
+    const status = message === "Form not found" ? 404 : 500;
+    return new Response(
+      JSON.stringify({ error: message }),
+      { status, headers: { "Content-Type": "application/json", ...corsHeaders } }
+    );
+  }
+});
+
+/**
  * GET PUBLIC FORM
  * Returns form schema for published forms (no authentication required)
  *

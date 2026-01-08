@@ -682,6 +682,81 @@ export const getEventById = httpAction(async (ctx, request) => {
 });
 
 /**
+ * CANCEL EVENT
+ * Cancels an existing event (soft delete - sets status to "cancelled")
+ *
+ * POST /api/v1/events/:eventId/cancel
+ */
+export const cancelEvent = httpAction(async (ctx, request) => {
+  try {
+    const origin = request.headers.get("origin");
+    const corsHeaders = getCorsHeaders(origin);
+
+    // 1. Universal authentication
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
+      return new Response(
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const authContext = authResult.context;
+
+    // 2. Require events:write scope
+    const scopeCheck = requireScopes(authContext, ["events:write"]);
+    if (!scopeCheck.success) {
+      return new Response(
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // 3. Extract event ID from URL (path is /api/v1/events/:eventId/cancel)
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split("/");
+    const eventId = pathParts[pathParts.length - 2]; // Second to last part
+
+    if (!eventId) {
+      return new Response(
+        JSON.stringify({ error: "Event ID required" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // 4. Cancel event
+    await ctx.runMutation(internal.api.v1.eventsInternal.cancelEventInternal, {
+      organizationId: authContext.organizationId,
+      eventId,
+      performedBy: authContext.userId,
+    });
+
+    // 5. Return response
+    return new Response(
+      JSON.stringify({ success: true, message: "Event cancelled successfully" }),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "X-Organization-Id": authContext.organizationId,
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error) {
+    console.error("API /events/:id/cancel (POST) error:", error);
+    const origin = request.headers.get("origin");
+    const corsHeaders = getCorsHeaders(origin);
+    const message = error instanceof Error ? error.message : "Internal server error";
+    const status = message === "Event not found" ? 404 : 500;
+    return new Response(
+      JSON.stringify({ error: message }),
+      { status, headers: { "Content-Type": "application/json", ...corsHeaders } }
+    );
+  }
+});
+
+/**
  * GET EVENT PRODUCTS
  * Returns all products associated with a specific event
  *
