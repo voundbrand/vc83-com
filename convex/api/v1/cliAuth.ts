@@ -45,68 +45,72 @@ function getTokenPrefix(token: string): string {
 /**
  * CLI PERMISSION MAPPING BY ROLE
  *
- * Maps organization roles to granular permissions for MCP tool filtering.
- * The CLI uses these permissions to determine which tools to expose to AI assistants.
+ * Maps organization roles to API scopes for authorization.
+ * These scopes are used by the auth middleware (requireScopes) to control access.
  *
- * Permission types:
- * - view_crm / manage_crm: CRM contacts and organizations
- * - view_events / manage_events: Events and attendees
- * - view_forms / manage_forms: Forms and responses
- * - view_products / manage_products: Products catalog
- * - view_tickets / manage_tickets: Support tickets
- * - view_applications / manage_applications: Connected apps (CLI apps, integrations)
+ * Scope format follows OAuth conventions:
+ * - {resource}:read - Read access to resource
+ * - {resource}:write - Write/modify access to resource
+ *
+ * Resources:
+ * - contacts: CRM contacts and organizations
+ * - events: Events and attendees
+ * - forms: Forms and responses
+ * - products: Products catalog
+ * - tickets: Support tickets
+ * - applications: Connected apps (CLI apps, integrations)
  */
 function getPermissionsForRole(roleName: string): string[] {
   const rolePermissions: Record<string, string[]> = {
     // Owner: Full access to everything including app management
     org_owner: [
-      "view_crm", "manage_crm",
-      "view_events", "manage_events",
-      "view_forms", "manage_forms",
-      "view_products", "manage_products",
-      "view_tickets", "manage_tickets",
-      "view_applications", "manage_applications",
+      "contacts:read", "contacts:write",
+      "events:read", "events:write",
+      "forms:read", "forms:write",
+      "products:read", "products:write",
+      "tickets:read", "tickets:write",
+      "applications:read", "applications:write",
     ],
     // Admin: Full access to data, can view but not manage applications
     admin: [
-      "view_crm", "manage_crm",
-      "view_events", "manage_events",
-      "view_forms", "manage_forms",
-      "view_products", "manage_products",
-      "view_tickets", "manage_tickets",
-      "view_applications",
+      "contacts:read", "contacts:write",
+      "events:read", "events:write",
+      "forms:read", "forms:write",
+      "products:read", "products:write",
+      "tickets:read", "tickets:write",
+      "applications:read",
     ],
     // Manager: Can manage most data
     manager: [
-      "view_crm", "manage_crm",
-      "view_events", "manage_events",
-      "view_forms", "manage_forms",
-      "view_products", "manage_products",
-      "view_tickets", "manage_tickets",
+      "contacts:read", "contacts:write",
+      "events:read", "events:write",
+      "forms:read", "forms:write",
+      "products:read", "products:write",
+      "tickets:read", "tickets:write",
     ],
     // Editor: Can manage most data (same as manager)
     editor: [
-      "view_crm", "manage_crm",
-      "view_events", "manage_events",
-      "view_forms", "manage_forms",
-      "view_products", "manage_products",
-      "view_tickets", "manage_tickets",
+      "contacts:read", "contacts:write",
+      "events:read", "events:write",
+      "forms:read", "forms:write",
+      "products:read", "products:write",
+      "tickets:read", "tickets:write",
     ],
     // Member: View-only access
     member: [
-      "view_crm",
-      "view_events",
-      "view_forms",
-      "view_products",
-      "view_tickets",
+      "contacts:read",
+      "events:read",
+      "forms:read",
+      "products:read",
+      "tickets:read",
     ],
     // Viewer: View-only access (same as member)
     viewer: [
-      "view_crm",
-      "view_events",
-      "view_forms",
-      "view_products",
-      "view_tickets",
+      "contacts:read",
+      "events:read",
+      "forms:read",
+      "products:read",
+      "tickets:read",
     ],
   };
 
