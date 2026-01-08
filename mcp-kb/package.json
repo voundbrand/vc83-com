@@ -1,0 +1,21 @@
+{
+  "name": "@l4yercak3/mcp-kb",
+  "version": "1.0.0",
+  "description": "MCP Knowledge Base tools for L4YERCAK3 documentation",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.25.2",
+    "glob": "^10.0.0",
+    "gray-matter": "^4.0.3",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}

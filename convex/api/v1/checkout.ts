@@ -5,13 +5,19 @@
  * Enables organizations to accept payments on their own websites
  * without redirecting users away.
  *
- * Key Features:
- * - Get payment provider configuration (public keys, provider info)
- * - Create checkout sessions (returns clientSecret for Stripe Elements)
- * - Verify payment completion (confirms payment and fulfills orders)
+ * Endpoints:
+ * - GET /api/v1/checkout/config - Get payment provider configuration
+ * - GET /api/v1/checkout/sessions - List checkout sessions
+ * - GET /api/v1/checkout/sessions/:sessionId - Get session details
+ * - POST /api/v1/checkout/sessions - Create checkout session
+ * - POST /api/v1/checkout/sessions/:sessionId/cancel - Cancel session
+ * - POST /api/v1/checkout/confirm - Confirm payment and fulfill
  *
- * Security: API key required in Authorization header
- * Scope: Operates on the authenticated organization's payment providers
+ * Security: Triple authentication support
+ * - API keys (full access or scoped permissions)
+ * - OAuth tokens (scope-based access control)
+ * - CLI sessions (full organization access via MCP tools)
+ * Scope: checkout:read, checkout:write
  *
  * Example Usage:
  * ```typescript
@@ -59,7 +65,39 @@
 
 import { httpAction } from "../../_generated/server";
 import { internal } from "../../_generated/api";
+import { authenticateRequest, requireScopes, type AuthContext } from "../../middleware/auth";
 import { Id } from "../../_generated/dataModel";
+
+// Helper: Authenticate and check scope
+async function authenticateWithScope(
+  ctx: Parameters<Parameters<typeof httpAction>[0]>[0],
+  request: Request,
+  scope: string
+): Promise<{ success: true; authContext: AuthContext } | { success: false; response: Response }> {
+  const authResult = await authenticateRequest(ctx, request);
+  if (!authResult.success) {
+    return {
+      success: false,
+      response: new Response(
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json" } }
+      ),
+    };
+  }
+
+  const scopeCheck = requireScopes(authResult.context, [scope]);
+  if (!scopeCheck.success) {
+    return {
+      success: false,
+      response: new Response(
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json" } }
+      ),
+    };
+  }
+
+  return { success: true, authContext: authResult.context };
+}
 
 /**
  * GET PAYMENT PROVIDER CONFIG
@@ -334,4 +372,434 @@ export const confirmPayment = httpAction(async (ctx, request) => {
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
+});
+
+// ============================================================================
+// CHECKOUT SESSION CRUD ENDPOINTS
+// ============================================================================
+
+/**
+ * LIST CHECKOUT SESSIONS
+ *
+ * Lists checkout sessions for the organization with optional filters.
+ *
+ * GET /api/v1/checkout/sessions
+ *
+ * Query Parameters:
+ * - status: Filter by status (pending, completed, expired)
+ * - customerEmail: Filter by customer email
+ * - limit: Number of results (default: 50, max: 200)
+ * - offset: Pagination offset (default: 0)
+ *
+ * Response:
+ * {
+ *   sessions: Array<{
+ *     id: string,
+ *     status: string,
+ *     customerEmail?: string,
+ *     totalAmount?: number,
+ *     currency?: string,
+ *     createdAt: number,
+ *     ...
+ *   }>,
+ *   total: number,
+ *   limit: number,
+ *   offset: number
+ * }
+ */
+export const listCheckoutSessions = httpAction(async (ctx, request) => {
+  try {
+    // 1. Authenticate
+    const auth = await authenticateWithScope(ctx, request, "checkout:read");
+    if (!auth.success) return auth.response;
+
+    // 2. Parse query parameters
+    const url = new URL(request.url);
+    const status = url.searchParams.get("status") || undefined;
+    const customerEmail = url.searchParams.get("customerEmail") || undefined;
+    const limit = Math.min(parseInt(url.searchParams.get("limit") || "50"), 200);
+    const offset = parseInt(url.searchParams.get("offset") || "0");
+
+    // 3. Query checkout sessions
+    const result = await ctx.runQuery(
+      internal.api.v1.checkoutInternal.listCheckoutSessionsInternal,
+      {
+        organizationId: auth.authContext.organizationId,
+        status,
+        customerEmail,
+        limit,
+        offset,
+      }
+    );
+
+    // 4. Return response
+    return new Response(
+      JSON.stringify(result),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "X-Organization-Id": auth.authContext.organizationId,
+        },
+      }
+    );
+  } catch (error) {
+    console.error("API /checkout/sessions (list) error:", error);
+    return new Response(
+      JSON.stringify({ error: "Internal server error" }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
+});
+
+/**
+ * GET CHECKOUT SESSION
+ *
+ * Gets details of a specific checkout session.
+ *
+ * GET /api/v1/checkout/sessions/:sessionId
+ *
+ * Response: Full checkout session object
+ */
+export const getCheckoutSession = httpAction(async (ctx, request) => {
+  try {
+    // 1. Authenticate
+    const auth = await authenticateWithScope(ctx, request, "checkout:read");
+    if (!auth.success) return auth.response;
+
+    // 2. Extract session ID from URL
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split("/");
+    const sessionId = pathParts[pathParts.length - 1] as Id<"objects">;
+
+    if (!sessionId) {
+      return new Response(
+        JSON.stringify({ error: "Session ID required" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // 3. Get checkout session
+    const session = await ctx.runQuery(
+      internal.api.v1.checkoutInternal.getCheckoutSessionInternal,
+      {
+        organizationId: auth.authContext.organizationId,
+        sessionId,
+      }
+    );
+
+    if (!session) {
+      return new Response(
+        JSON.stringify({ error: "Checkout session not found" }),
+        { status: 404, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // 4. Return response
+    return new Response(
+      JSON.stringify(session),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "X-Organization-Id": auth.authContext.organizationId,
+        },
+      }
+    );
+  } catch (error) {
+    console.error("API /checkout/sessions/:id error:", error);
+    return new Response(
+      JSON.stringify({ error: "Internal server error" }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
+});
+
+/**
+ * CANCEL CHECKOUT SESSION
+ *
+ * Cancels a pending checkout session.
+ *
+ * POST /api/v1/checkout/sessions/:sessionId/cancel
+ *
+ * Response: { success: true }
+ */
+export const cancelCheckoutSession = httpAction(async (ctx, request) => {
+  try {
+    // 1. Authenticate
+    const auth = await authenticateWithScope(ctx, request, "checkout:write");
+    if (!auth.success) return auth.response;
+
+    // 2. Extract session ID from URL
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split("/");
+    // Path: /api/v1/checkout/sessions/:sessionId/cancel -> sessionId is second to last
+    const sessionId = pathParts[pathParts.length - 2] as Id<"objects">;
+
+    if (!sessionId) {
+      return new Response(
+        JSON.stringify({ error: "Session ID required" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // 3. Cancel checkout session
+    const result = await ctx.runMutation(
+      internal.api.v1.checkoutInternal.cancelCheckoutSessionInternal,
+      {
+        organizationId: auth.authContext.organizationId,
+        sessionId,
+      }
+    );
+
+    // 4. Return response
+    return new Response(
+      JSON.stringify(result),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "X-Organization-Id": auth.authContext.organizationId,
+        },
+      }
+    );
+  } catch (error) {
+    console.error("API /checkout/sessions/:id/cancel error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Internal server error";
+    const isNotFound = errorMessage.includes("not found");
+    return new Response(
+      JSON.stringify({ error: errorMessage }),
+      { status: isNotFound ? 404 : 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
+});
+
+// ============================================================================
+// COMBINED HANDLERS FOR HTTP ROUTING
+// ============================================================================
+
+/**
+ * Combined GET handler for checkout/sessions routes
+ * Handles: GET /api/v1/checkout/sessions and GET /api/v1/checkout/sessions/:sessionId
+ */
+export const handleCheckoutSessionsGet = httpAction(async (ctx, request) => {
+  const url = new URL(request.url);
+  const pathParts = url.pathname.split("/").filter(Boolean);
+
+  // /api/v1/checkout/sessions -> ["api", "v1", "checkout", "sessions"] -> list
+  // /api/v1/checkout/sessions/:id -> ["api", "v1", "checkout", "sessions", ":id"] -> get by id
+  if (pathParts.length === 4 && pathParts[3] === "sessions") {
+    // List checkout sessions - inline the logic
+    try {
+      const auth = await authenticateWithScope(ctx, request, "checkout:read");
+      if (!auth.success) return auth.response;
+
+      const status = url.searchParams.get("status") || undefined;
+      const customerEmail = url.searchParams.get("customerEmail") || undefined;
+      const limit = Math.min(parseInt(url.searchParams.get("limit") || "50"), 200);
+      const offset = parseInt(url.searchParams.get("offset") || "0");
+
+      const result = await ctx.runQuery(
+        internal.api.v1.checkoutInternal.listCheckoutSessionsInternal,
+        {
+          organizationId: auth.authContext.organizationId,
+          status,
+          customerEmail,
+          limit,
+          offset,
+        }
+      );
+
+      return new Response(
+        JSON.stringify(result),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "X-Organization-Id": auth.authContext.organizationId,
+          },
+        }
+      );
+    } catch (error) {
+      console.error("API /checkout/sessions (list) error:", error);
+      return new Response(
+        JSON.stringify({ error: "Internal server error" }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
+    }
+  } else if (pathParts.length === 5) {
+    // Get single checkout session - inline the logic
+    try {
+      const auth = await authenticateWithScope(ctx, request, "checkout:read");
+      if (!auth.success) return auth.response;
+
+      const sessionId = pathParts[4] as Id<"objects">;
+
+      if (!sessionId) {
+        return new Response(
+          JSON.stringify({ error: "Session ID required" }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      const session = await ctx.runQuery(
+        internal.api.v1.checkoutInternal.getCheckoutSessionInternal,
+        {
+          organizationId: auth.authContext.organizationId,
+          sessionId,
+        }
+      );
+
+      if (!session) {
+        return new Response(
+          JSON.stringify({ error: "Checkout session not found" }),
+          { status: 404, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify(session),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "X-Organization-Id": auth.authContext.organizationId,
+          },
+        }
+      );
+    } catch (error) {
+      console.error("API /checkout/sessions/:id error:", error);
+      return new Response(
+        JSON.stringify({ error: "Internal server error" }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
+    }
+  }
+
+  return new Response(
+    JSON.stringify({ error: "Not found" }),
+    { status: 404, headers: { "Content-Type": "application/json" } }
+  );
+});
+
+/**
+ * Combined POST handler for checkout/sessions routes
+ * Handles:
+ * - POST /api/v1/checkout/sessions (create)
+ * - POST /api/v1/checkout/sessions/:sessionId/cancel
+ */
+export const handleCheckoutSessionsPost = httpAction(async (ctx, request) => {
+  const url = new URL(request.url);
+  const pathname = url.pathname;
+
+  if (pathname.endsWith("/cancel")) {
+    // Cancel checkout session - inline the logic
+    try {
+      const auth = await authenticateWithScope(ctx, request, "checkout:write");
+      if (!auth.success) return auth.response;
+
+      const pathParts = pathname.split("/");
+      const sessionId = pathParts[pathParts.length - 2] as Id<"objects">;
+
+      if (!sessionId) {
+        return new Response(
+          JSON.stringify({ error: "Session ID required" }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      const result = await ctx.runMutation(
+        internal.api.v1.checkoutInternal.cancelCheckoutSessionInternal,
+        {
+          organizationId: auth.authContext.organizationId,
+          sessionId,
+        }
+      );
+
+      return new Response(
+        JSON.stringify(result),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "X-Organization-Id": auth.authContext.organizationId,
+          },
+        }
+      );
+    } catch (error) {
+      console.error("API /checkout/sessions/:id/cancel error:", error);
+      const errorMessage = error instanceof Error ? error.message : "Internal server error";
+      const isNotFound = errorMessage.includes("not found");
+      return new Response(
+        JSON.stringify({ error: errorMessage }),
+        { status: isNotFound ? 404 : 500, headers: { "Content-Type": "application/json" } }
+      );
+    }
+  } else if (pathname.match(/\/api\/v1\/checkout\/sessions\/?$/)) {
+    // Create checkout session - use existing handler but with updated auth
+    // (The original createCheckoutSession already uses API key auth, leave it for backwards compatibility)
+    try {
+      // Use triple auth (API key, OAuth, CLI session)
+      const auth = await authenticateWithScope(ctx, request, "checkout:write");
+      if (!auth.success) return auth.response;
+
+      const body = await request.json();
+
+      if (!body.productId) {
+        return new Response(
+          JSON.stringify({ error: "Missing 'productId' field" }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      const session = await ctx.runAction(
+        internal.api.v1.checkoutInternal.createCheckoutSessionInternal,
+        {
+          organizationId: auth.authContext.organizationId,
+          productId: body.productId as Id<"objects">,
+          quantity: body.quantity || 1,
+          customerEmail: body.customerEmail,
+          customerName: body.customerName,
+          customerPhone: body.customerPhone,
+          metadata: body.metadata,
+        }
+      );
+
+      return new Response(JSON.stringify(session), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "X-Organization-Id": auth.authContext.organizationId,
+        },
+      });
+    } catch (error) {
+      console.error("API /checkout/sessions (create) error:", error);
+      return new Response(
+        JSON.stringify({
+          error: "Failed to create checkout session",
+          message: error instanceof Error ? error.message : "Unknown error",
+        }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
+    }
+  }
+
+  return new Response(
+    JSON.stringify({ error: "Not found" }),
+    { status: 404, headers: { "Content-Type": "application/json" } }
+  );
+});
+
+/**
+ * OPTIONS handler for CORS preflight requests
+ */
+export const handleOptions = httpAction(async () => {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    },
+  });
 });

@@ -535,7 +535,14 @@ import {
   getEventProducts,
   cancelEvent,
 } from "./api/v1/events";
-import { getProduct } from "./api/v1/products";
+import {
+  listProducts,
+  handleProductsGet,
+  handleProductsPost,
+  handleProductsPatch,
+  handleProductsDelete,
+  handleOptions as productsHandleOptions,
+} from "./api/v1/products";
 import {
   listForms,
   createForm,
@@ -548,11 +555,22 @@ import {
 } from "./api/v1/forms";
 import { triggerWorkflow } from "./api/v1/workflows";
 import { getTransaction } from "./api/v1/transactions";
-import { getTicketPdf } from "./api/v1/tickets";
+import {
+  getTicketPdf,
+  listTickets,
+  validateTicket,
+  handleTicketsGet,
+  handleTicketsPost,
+  handleOptions as ticketsHandleOptions,
+} from "./api/v1/tickets";
 import {
   getCheckoutConfig,
   createCheckoutSession,
   confirmPayment,
+  listCheckoutSessions,
+  handleCheckoutSessionsGet,
+  handleCheckoutSessionsPost,
+  handleOptions as checkoutHandleOptions,
 } from "./api/v1/checkout";
 import {
   createContactFromEvent,
@@ -614,6 +632,59 @@ import {
   createPayout,
   listPayouts,
 } from "./api/v1/benefits";
+import {
+  listCertificates,
+  getCertificate,
+  createCertificate,
+  updateCertificate,
+  deleteCertificate,
+  batchIssueCertificates,
+  verifyCertificate,
+  getCertificatesByRecipient,
+  handleOptions as certificatesHandleOptions,
+  handleCertificatePost,
+} from "./api/v1/certificates";
+import {
+  listPublishedPages,
+  createPublishedPage,
+  updatePublishedPage,
+  deletePublishedPage,
+  handlePublishingPost,
+  handlePublishingGet,
+  handleOptions as publishingHandleOptions,
+} from "./api/v1/publishing";
+import {
+  listOAuthConnections,
+  handleOAuthConnectionsGet,
+  handleOAuthConnectionsPost,
+  handleOAuthConnectionsPatch,
+  handleOAuthConnectionsDelete,
+  handleOptions as oauthConnectionsHandleOptions,
+} from "./api/v1/oauthConnections";
+import {
+  listLocations,
+  createLocation,
+  getLocation,
+  updateLocation,
+  deleteLocation,
+} from "./api/v1/locations";
+import {
+  getResourceAvailability,
+  setWeeklySchedule,
+  createException,
+  createBlock,
+  deleteAvailability,
+  getAvailableSlots,
+} from "./api/v1/availability";
+import {
+  listResourceBookings,
+  createResourceBooking,
+  getResourceBooking,
+  confirmResourceBooking,
+  checkInResourceBooking,
+  completeResourceBooking,
+  cancelResourceBooking,
+} from "./api/v1/resourceBookings";
 
 /**
  * Layer 1: READ APIs (Before Checkout)
@@ -707,12 +778,69 @@ http.route({
   handler: updateEvent,
 });
 
-// GET /api/v1/products/:productId
+// ============================================================================
+// LAYER 4: PRODUCTS API (Full CRUD)
+// ============================================================================
+
+// GET /api/v1/products (list products)
 http.route({
-  path: "/api/v1/products/:productId",
+  path: "/api/v1/products",
   method: "GET",
-  handler: getProduct,
+  handler: listProducts,
 });
+
+// POST /api/v1/products (create product)
+http.route({
+  path: "/api/v1/products",
+  method: "POST",
+  handler: handleProductsPost,
+});
+
+// OPTIONS /api/v1/products (CORS preflight)
+http.route({
+  path: "/api/v1/products",
+  method: "OPTIONS",
+  handler: productsHandleOptions,
+});
+
+// GET /api/v1/products/:productId (get product by ID)
+http.route({
+  pathPrefix: "/api/v1/products/",
+  method: "GET",
+  handler: handleProductsGet,
+});
+
+// POST /api/v1/products/:productId/* (publish, archive, price)
+http.route({
+  pathPrefix: "/api/v1/products/",
+  method: "POST",
+  handler: handleProductsPost,
+});
+
+// PATCH /api/v1/products/:productId (update product)
+http.route({
+  pathPrefix: "/api/v1/products/",
+  method: "PATCH",
+  handler: handleProductsPatch,
+});
+
+// DELETE /api/v1/products/:productId (delete product)
+http.route({
+  pathPrefix: "/api/v1/products/",
+  method: "DELETE",
+  handler: handleProductsDelete,
+});
+
+// OPTIONS /api/v1/products/:productId/* (CORS preflight)
+http.route({
+  pathPrefix: "/api/v1/products/",
+  method: "OPTIONS",
+  handler: productsHandleOptions,
+});
+
+// ============================================================================
+// LAYER 5: FORMS API
+// ============================================================================
 
 // GET /api/v1/forms (list forms - authenticated)
 http.route({
@@ -777,7 +905,7 @@ http.route({
 });
 
 /**
- * Layer 2: CHECKOUT APIs (Payment Processing)
+ * Layer 2: CHECKOUT APIs (Payment Processing + Session CRUD)
  */
 
 // GET /api/v1/checkout/config - Get payment provider configuration
@@ -787,11 +915,46 @@ http.route({
   handler: getCheckoutConfig,
 });
 
+// GET /api/v1/checkout/sessions - List checkout sessions
+http.route({
+  path: "/api/v1/checkout/sessions",
+  method: "GET",
+  handler: listCheckoutSessions,
+});
+
 // POST /api/v1/checkout/sessions - Create checkout session
 http.route({
   path: "/api/v1/checkout/sessions",
   method: "POST",
   handler: createCheckoutSession,
+});
+
+// OPTIONS /api/v1/checkout/sessions (CORS preflight)
+http.route({
+  path: "/api/v1/checkout/sessions",
+  method: "OPTIONS",
+  handler: checkoutHandleOptions,
+});
+
+// GET /api/v1/checkout/sessions/:sessionId - Get session details
+http.route({
+  pathPrefix: "/api/v1/checkout/sessions/",
+  method: "GET",
+  handler: handleCheckoutSessionsGet,
+});
+
+// POST /api/v1/checkout/sessions/:sessionId/cancel - Cancel session
+http.route({
+  pathPrefix: "/api/v1/checkout/sessions/",
+  method: "POST",
+  handler: handleCheckoutSessionsPost,
+});
+
+// OPTIONS /api/v1/checkout/sessions/:sessionId/* (CORS preflight)
+http.route({
+  pathPrefix: "/api/v1/checkout/sessions/",
+  method: "OPTIONS",
+  handler: checkoutHandleOptions,
 });
 
 // POST /api/v1/checkout/confirm - Confirm payment and fulfill order
@@ -833,11 +996,55 @@ http.route({
   handler: getTransaction,
 });
 
-// GET /api/v1/tickets/:ticketId/pdf
+/**
+ * Layer 4b: TICKETS API
+ *
+ * Endpoints for managing event tickets.
+ * Security: Dual auth (API keys + OAuth tokens with tickets:read/write scopes)
+ */
+
+// OPTIONS /api/v1/tickets - CORS preflight
 http.route({
-  path: "/api/v1/tickets/:ticketId/pdf",
+  path: "/api/v1/tickets",
+  method: "OPTIONS",
+  handler: ticketsHandleOptions,
+});
+
+// OPTIONS /api/v1/tickets/* - CORS preflight for all ticket paths
+http.route({
+  pathPrefix: "/api/v1/tickets/",
+  method: "OPTIONS",
+  handler: ticketsHandleOptions,
+});
+
+// GET /api/v1/tickets - List tickets
+http.route({
+  path: "/api/v1/tickets",
   method: "GET",
-  handler: getTicketPdf,
+  handler: listTickets,
+});
+
+// POST /api/v1/tickets/validate - Validate ticket by QR code
+http.route({
+  path: "/api/v1/tickets/validate",
+  method: "POST",
+  handler: validateTicket,
+});
+
+// GET /api/v1/tickets/:ticketId or /pdf
+// Combined handler routes based on URL path
+http.route({
+  pathPrefix: "/api/v1/tickets/",
+  method: "GET",
+  handler: handleTicketsGet,
+});
+
+// POST /api/v1/tickets/:ticketId/redeem or /void
+// Combined handler routes based on URL path
+http.route({
+  pathPrefix: "/api/v1/tickets/",
+  method: "POST",
+  handler: handleTicketsPost,
 });
 
 /**
@@ -1342,8 +1549,216 @@ http.route({
 });
 
 /**
+ * Layer 7.7: CERTIFICATES API (CE/CME/CPD Credits)
+ *
+ * Endpoints for managing certificates and continuing education credits.
+ * Security: Dual auth (API keys + OAuth tokens with certificates:read/write scopes)
+ */
+
+// OPTIONS /api/v1/certificates - CORS preflight
+http.route({
+  path: "/api/v1/certificates",
+  method: "OPTIONS",
+  handler: certificatesHandleOptions,
+});
+
+// OPTIONS /api/v1/certificates/* - CORS preflight for all certificate paths
+http.route({
+  pathPrefix: "/api/v1/certificates/",
+  method: "OPTIONS",
+  handler: certificatesHandleOptions,
+});
+
+// GET /api/v1/certificates/verify/:certificateNumber - Verify certificate (PUBLIC - no auth)
+// Must be before the pathPrefix route for /:certificateId
+http.route({
+  pathPrefix: "/api/v1/certificates/verify/",
+  method: "GET",
+  handler: verifyCertificate,
+});
+
+// GET /api/v1/certificates/recipient/:email - Get certificates by recipient
+http.route({
+  pathPrefix: "/api/v1/certificates/recipient/",
+  method: "GET",
+  handler: getCertificatesByRecipient,
+});
+
+// POST /api/v1/certificates/batch - Batch issue certificates
+http.route({
+  path: "/api/v1/certificates/batch",
+  method: "POST",
+  handler: batchIssueCertificates,
+});
+
+// POST /api/v1/certificates - Create certificate
+http.route({
+  path: "/api/v1/certificates",
+  method: "POST",
+  handler: createCertificate,
+});
+
+// GET /api/v1/certificates - List certificates
+http.route({
+  path: "/api/v1/certificates",
+  method: "GET",
+  handler: listCertificates,
+});
+
+// POST /api/v1/certificates/:certificateId/revoke or /reinstate
+// Combined handler routes based on URL path suffix
+http.route({
+  pathPrefix: "/api/v1/certificates/",
+  method: "POST",
+  handler: handleCertificatePost,
+});
+
+// GET /api/v1/certificates/:certificateId - Get certificate details
+http.route({
+  pathPrefix: "/api/v1/certificates/",
+  method: "GET",
+  handler: getCertificate,
+});
+
+// PATCH /api/v1/certificates/:certificateId - Update certificate
+http.route({
+  pathPrefix: "/api/v1/certificates/",
+  method: "PATCH",
+  handler: updateCertificate,
+});
+
+// DELETE /api/v1/certificates/:certificateId - Delete certificate
+http.route({
+  pathPrefix: "/api/v1/certificates/",
+  method: "DELETE",
+  handler: deleteCertificate,
+});
+
+/**
  * Layer 8: BOOKINGS API (Event Registration)
  */
+
+/**
+ * Layer 7.8: PUBLISHING API (Published Pages Management)
+ *
+ * Endpoints for managing published pages via CLI/MCP.
+ * Security: Dual auth (API keys + OAuth tokens with publishing:read/write scopes)
+ */
+
+// OPTIONS /api/v1/publishing/pages - CORS preflight
+http.route({
+  path: "/api/v1/publishing/pages",
+  method: "OPTIONS",
+  handler: publishingHandleOptions,
+});
+
+// OPTIONS /api/v1/publishing/pages/* - CORS preflight for all publishing paths
+http.route({
+  pathPrefix: "/api/v1/publishing/pages/",
+  method: "OPTIONS",
+  handler: publishingHandleOptions,
+});
+
+// GET /api/v1/publishing/pages/:pageId or /analytics
+// Combined handler routes based on URL path
+http.route({
+  pathPrefix: "/api/v1/publishing/pages/",
+  method: "GET",
+  handler: handlePublishingGet,
+});
+
+// POST /api/v1/publishing/pages - Create published page
+http.route({
+  path: "/api/v1/publishing/pages",
+  method: "POST",
+  handler: createPublishedPage,
+});
+
+// GET /api/v1/publishing/pages - List published pages
+http.route({
+  path: "/api/v1/publishing/pages",
+  method: "GET",
+  handler: listPublishedPages,
+});
+
+// POST /api/v1/publishing/pages/:pageId/publish or /unpublish
+// Combined handler routes based on URL path suffix
+http.route({
+  pathPrefix: "/api/v1/publishing/pages/",
+  method: "POST",
+  handler: handlePublishingPost,
+});
+
+// PATCH /api/v1/publishing/pages/:pageId - Update page
+http.route({
+  pathPrefix: "/api/v1/publishing/pages/",
+  method: "PATCH",
+  handler: updatePublishedPage,
+});
+
+// DELETE /api/v1/publishing/pages/:pageId - Delete page
+http.route({
+  pathPrefix: "/api/v1/publishing/pages/",
+  method: "DELETE",
+  handler: deletePublishedPage,
+});
+
+/**
+ * Layer 7.9: OAUTH CONNECTIONS API (OAuth Account Management)
+ *
+ * Endpoints for managing OAuth connections via CLI/MCP.
+ * Security: Triple auth (API keys, OAuth tokens, CLI sessions) with oauth:read/write scopes
+ * NOTE: Token values are NEVER exposed via these endpoints for security.
+ */
+
+// OPTIONS /api/v1/oauth/connections - CORS preflight
+http.route({
+  path: "/api/v1/oauth/connections",
+  method: "OPTIONS",
+  handler: oauthConnectionsHandleOptions,
+});
+
+// OPTIONS /api/v1/oauth/connections/* - CORS preflight for all oauth paths
+http.route({
+  pathPrefix: "/api/v1/oauth/connections/",
+  method: "OPTIONS",
+  handler: oauthConnectionsHandleOptions,
+});
+
+// GET /api/v1/oauth/connections - List OAuth connections
+http.route({
+  path: "/api/v1/oauth/connections",
+  method: "GET",
+  handler: listOAuthConnections,
+});
+
+// GET /api/v1/oauth/connections/:connectionId - Get connection details
+http.route({
+  pathPrefix: "/api/v1/oauth/connections/",
+  method: "GET",
+  handler: handleOAuthConnectionsGet,
+});
+
+// POST /api/v1/oauth/connections/:connectionId/disconnect - Disconnect connection
+http.route({
+  pathPrefix: "/api/v1/oauth/connections/",
+  method: "POST",
+  handler: handleOAuthConnectionsPost,
+});
+
+// PATCH /api/v1/oauth/connections/:connectionId - Update sync settings
+http.route({
+  pathPrefix: "/api/v1/oauth/connections/",
+  method: "PATCH",
+  handler: handleOAuthConnectionsPatch,
+});
+
+// DELETE /api/v1/oauth/connections/:connectionId - Delete connection permanently
+http.route({
+  pathPrefix: "/api/v1/oauth/connections/",
+  method: "DELETE",
+  handler: handleOAuthConnectionsDelete,
+});
 
 // OPTIONS /api/v1/bookings/create - CORS preflight
 http.route({
@@ -1743,6 +2158,36 @@ import {
   handleOptions as cliAuthHandleOptions,
 } from "./api/v1/cliAuthHttp";
 
+// Import Mobile OAuth handlers
+import {
+  mobileOAuthHandler,
+  mobileOAuthOptionsHandler,
+} from "./api/v1/mobileOAuth";
+
+/**
+ * ==========================================
+ * MOBILE OAUTH API
+ * ==========================================
+ *
+ * Native mobile OAuth authentication for iOS/Android apps.
+ * Accepts user info from native OAuth SDKs (Google Sign-In, Apple Sign-In)
+ * and creates/logs into platform users.
+ */
+
+// OPTIONS /api/v1/auth/mobile-oauth - CORS preflight
+http.route({
+  path: "/api/v1/auth/mobile-oauth",
+  method: "OPTIONS",
+  handler: mobileOAuthOptionsHandler,
+});
+
+// POST /api/v1/auth/mobile-oauth - Native mobile OAuth authentication
+http.route({
+  path: "/api/v1/auth/mobile-oauth",
+  method: "POST",
+  handler: mobileOAuthHandler,
+});
+
 // OPTIONS /api/v1/auth/cli/validate - CORS preflight
 http.route({
   path: "/api/v1/auth/cli/validate",
@@ -1907,6 +2352,102 @@ http.route({
   pathPrefix: "/api/v1/cli/applications/",
   method: "POST",
   handler: cliSyncApplication,
+});
+
+// ============================================================================
+// LOCATIONS API
+// ============================================================================
+
+// GET /api/v1/locations - List all locations
+http.route({
+  path: "/api/v1/locations",
+  method: "GET",
+  handler: listLocations,
+});
+
+// POST /api/v1/locations - Create location
+http.route({
+  path: "/api/v1/locations",
+  method: "POST",
+  handler: createLocation,
+});
+
+// GET /api/v1/locations/:id - Get location details
+http.route({
+  pathPrefix: "/api/v1/locations/",
+  method: "GET",
+  handler: getLocation,
+});
+
+// PATCH /api/v1/locations/:id - Update location
+http.route({
+  pathPrefix: "/api/v1/locations/",
+  method: "PATCH",
+  handler: updateLocation,
+});
+
+// DELETE /api/v1/locations/:id - Archive location
+http.route({
+  pathPrefix: "/api/v1/locations/",
+  method: "DELETE",
+  handler: deleteLocation,
+});
+
+// ============================================================================
+// AVAILABILITY API
+// ============================================================================
+
+// GET /api/v1/resources/:id/availability - Get resource availability
+http.route({
+  pathPrefix: "/api/v1/resources/",
+  method: "GET",
+  handler: getResourceAvailability,
+});
+
+// POST /api/v1/resources/:id/availability/schedule - Set weekly schedule
+http.route({
+  pathPrefix: "/api/v1/resources/",
+  method: "POST",
+  handler: setWeeklySchedule,
+});
+
+// DELETE /api/v1/resources/:id/availability/:availId - Delete availability item
+http.route({
+  pathPrefix: "/api/v1/resources/",
+  method: "DELETE",
+  handler: deleteAvailability,
+});
+
+// ============================================================================
+// RESOURCE BOOKINGS API
+// ============================================================================
+
+// GET /api/v1/resource-bookings - List all resource bookings
+http.route({
+  path: "/api/v1/resource-bookings",
+  method: "GET",
+  handler: listResourceBookings,
+});
+
+// POST /api/v1/resource-bookings - Create resource booking
+http.route({
+  path: "/api/v1/resource-bookings",
+  method: "POST",
+  handler: createResourceBooking,
+});
+
+// GET /api/v1/resource-bookings/:id - Get booking details
+http.route({
+  pathPrefix: "/api/v1/resource-bookings/",
+  method: "GET",
+  handler: getResourceBooking,
+});
+
+// POST /api/v1/resource-bookings/:id/confirm - Confirm booking
+http.route({
+  pathPrefix: "/api/v1/resource-bookings/",
+  method: "POST",
+  handler: confirmResourceBooking,
 });
 
 export default http;

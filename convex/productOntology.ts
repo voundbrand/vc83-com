@@ -9,6 +9,37 @@
  * - "physical" - Physical goods (merchandise, swag)
  * - "digital" - Digital products (downloads, access codes)
  *
+ * BOOKABLE RESOURCE TYPES (subtype):
+ * - "room" - Hotel rooms, meeting rooms, studios
+ * - "staff" - Therapists, consultants, instructors
+ * - "equipment" - Vehicles, projectors, tools
+ * - "space" - Desks, parking spots, lockers
+ *
+ * BOOKABLE SERVICE TYPES (subtype):
+ * - "appointment" - 1:1 meetings, consultations
+ * - "class" - Group sessions with max participants
+ * - "treatment" - Spa, medical (may require multiple resources)
+ *
+ * Bookable Resource customProperties:
+ * - bookingMode: "calendar" | "date-range" | "both"
+ * - minDuration: number (minutes or days)
+ * - maxDuration: number
+ * - durationUnit: "minutes" | "hours" | "days" | "nights"
+ * - slotIncrement: number (15, 30, 60 minutes)
+ * - bufferBefore: number (minutes before booking)
+ * - bufferAfter: number (minutes after booking)
+ * - capacity: number (1 for staff, 10 for room)
+ * - confirmationRequired: boolean (false = auto-confirm)
+ * - pricePerUnit: number (cents)
+ * - priceUnit: "hour" | "day" | "night" | "session" | "flat"
+ * - depositRequired: boolean
+ * - depositAmountCents: number
+ * - depositPercent: number (alternative: 20% of total)
+ * - locationId: Id<"objects"> (link to location object)
+ * - amenities: string[] (["wifi", "ac", "projector"])
+ * - maxOccupancy: number (for rooms)
+ * - specialties: string[] (for staff: ["massage", "facial"])
+ *
  * Status Workflow:
  * - "draft" - Being created
  * - "active" - Available for sale
@@ -436,7 +467,14 @@ export const createProduct = mutation({
     await checkResourceLimit(ctx, args.organizationId, "product", "maxProducts");
 
     // Validate subtype
-    const validSubtypes = ["ticket", "physical", "digital"];
+    const validSubtypes = [
+      // Standard product types
+      "ticket", "physical", "digital",
+      // Bookable resource types
+      "room", "staff", "equipment", "space",
+      // Bookable service types
+      "appointment", "class", "treatment",
+    ];
     if (!validSubtypes.includes(args.subtype)) {
       throw new Error(
         `Invalid product subtype. Must be one of: ${validSubtypes.join(", ")}`

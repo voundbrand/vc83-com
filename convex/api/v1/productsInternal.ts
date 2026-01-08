@@ -89,7 +89,14 @@ export const createProductInternal = internalMutation({
   },
   handler: async (ctx, args) => {
     // Validate subtype
-    const validSubtypes = ["ticket", "physical", "digital"];
+    const validSubtypes = [
+      // Standard product types
+      "ticket", "physical", "digital",
+      // Bookable resource types
+      "room", "staff", "equipment", "space",
+      // Bookable service types
+      "appointment", "class", "treatment",
+    ];
     if (!validSubtypes.includes(args.subtype)) {
       throw new Error(
         `Invalid product subtype. Must be one of: ${validSubtypes.join(", ")}`

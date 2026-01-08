@@ -90,6 +90,13 @@ export interface TierLimits {
   maxCommissions: number;
   maxBenefitClaimsPerMonth: number;
   maxCommissionPayoutsPerMonth: number;
+
+  // Bookings
+  maxLocations: number;
+  maxBookableResources: number;
+  maxBookingsPerMonth: number;
+  maxRecurringSeriesLength: number;
+  maxResourcesPerBooking: number;
 }
 
 export interface TierFeatures {
@@ -200,6 +207,15 @@ export interface TierFeatures {
   commissionsEnabled: boolean;
   cryptoPayoutsEnabled: boolean;
   benefitsAnalyticsEnabled: boolean;
+
+  // Bookings
+  bookingsEnabled: boolean;
+  recurringBookingsEnabled: boolean;
+  multiResourceBookingsEnabled: boolean;
+  depositPaymentsEnabled: boolean;
+  bookingRemindersEnabled: boolean;
+  bufferTimeEnabled: boolean;
+  multiLocationEnabled: boolean;
 }
 
 export interface TierConfig {
@@ -300,6 +316,13 @@ export const FREE_TIER: TierConfig = {
     maxCommissions: 0,
     maxBenefitClaimsPerMonth: 0,
     maxCommissionPayoutsPerMonth: 0,
+
+    // Bookings
+    maxLocations: 1,
+    maxBookableResources: 3,
+    maxBookingsPerMonth: 20,
+    maxRecurringSeriesLength: 0, // No recurring on Free
+    maxResourcesPerBooking: 1,
   },
 
   features: {
@@ -410,6 +433,15 @@ export const FREE_TIER: TierConfig = {
     commissionsEnabled: false,
     cryptoPayoutsEnabled: false,
     benefitsAnalyticsEnabled: false,
+
+    // Bookings
+    bookingsEnabled: true,
+    recurringBookingsEnabled: false,
+    multiResourceBookingsEnabled: false,
+    depositPaymentsEnabled: false,
+    bookingRemindersEnabled: false,
+    bufferTimeEnabled: false,
+    multiLocationEnabled: false,
   },
 };
 
@@ -494,6 +526,13 @@ export const STARTER_TIER: TierConfig = {
     maxCommissions: 5,
     maxBenefitClaimsPerMonth: 50,
     maxCommissionPayoutsPerMonth: 10,
+
+    // Bookings
+    maxLocations: 3,
+    maxBookableResources: 20,
+    maxBookingsPerMonth: 200,
+    maxRecurringSeriesLength: 12, // 12 weeks
+    maxResourcesPerBooking: 3,
   },
 
   features: {
@@ -604,6 +643,15 @@ export const STARTER_TIER: TierConfig = {
     commissionsEnabled: true,
     cryptoPayoutsEnabled: false,
     benefitsAnalyticsEnabled: false,
+
+    // Bookings
+    bookingsEnabled: true,
+    recurringBookingsEnabled: true,
+    multiResourceBookingsEnabled: true,
+    depositPaymentsEnabled: true,
+    bookingRemindersEnabled: true,
+    bufferTimeEnabled: true,
+    multiLocationEnabled: false,
   },
 };
 
@@ -688,6 +736,13 @@ export const PROFESSIONAL_TIER: TierConfig = {
     maxCommissions: 25,
     maxBenefitClaimsPerMonth: 250,
     maxCommissionPayoutsPerMonth: 50,
+
+    // Bookings
+    maxLocations: 10,
+    maxBookableResources: 100,
+    maxBookingsPerMonth: 1000,
+    maxRecurringSeriesLength: 52, // 52 weeks (1 year)
+    maxResourcesPerBooking: 10,
   },
 
   features: {
@@ -798,6 +853,15 @@ export const PROFESSIONAL_TIER: TierConfig = {
     commissionsEnabled: true,
     cryptoPayoutsEnabled: true,
     benefitsAnalyticsEnabled: true,
+
+    // Bookings
+    bookingsEnabled: true,
+    recurringBookingsEnabled: true,
+    multiResourceBookingsEnabled: true,
+    depositPaymentsEnabled: true,
+    bookingRemindersEnabled: true,
+    bufferTimeEnabled: true,
+    multiLocationEnabled: true,
   },
 };
 
@@ -882,6 +946,13 @@ export const AGENCY_TIER: TierConfig = {
     maxCommissions: 100,
     maxBenefitClaimsPerMonth: 1000,
     maxCommissionPayoutsPerMonth: 200,
+
+    // Bookings
+    maxLocations: UNLIMITED,
+    maxBookableResources: UNLIMITED,
+    maxBookingsPerMonth: UNLIMITED,
+    maxRecurringSeriesLength: UNLIMITED,
+    maxResourcesPerBooking: UNLIMITED,
   },
 
   features: {
@@ -992,6 +1063,15 @@ export const AGENCY_TIER: TierConfig = {
     commissionsEnabled: true,
     cryptoPayoutsEnabled: true,
     benefitsAnalyticsEnabled: true,
+
+    // Bookings
+    bookingsEnabled: true,
+    recurringBookingsEnabled: true,
+    multiResourceBookingsEnabled: true,
+    depositPaymentsEnabled: true,
+    bookingRemindersEnabled: true,
+    bufferTimeEnabled: true,
+    multiLocationEnabled: true,
   },
 };
 
@@ -1076,6 +1156,13 @@ export const ENTERPRISE_TIER: TierConfig = {
     maxCommissions: UNLIMITED,
     maxBenefitClaimsPerMonth: UNLIMITED,
     maxCommissionPayoutsPerMonth: UNLIMITED,
+
+    // Bookings
+    maxLocations: UNLIMITED,
+    maxBookableResources: UNLIMITED,
+    maxBookingsPerMonth: UNLIMITED,
+    maxRecurringSeriesLength: UNLIMITED,
+    maxResourcesPerBooking: UNLIMITED,
   },
 
   features: {
@@ -1186,6 +1273,15 @@ export const ENTERPRISE_TIER: TierConfig = {
     commissionsEnabled: true,
     cryptoPayoutsEnabled: true,
     benefitsAnalyticsEnabled: true,
+
+    // Bookings
+    bookingsEnabled: true,
+    recurringBookingsEnabled: true,
+    multiResourceBookingsEnabled: true,
+    depositPaymentsEnabled: true,
+    bookingRemindersEnabled: true,
+    bufferTimeEnabled: true,
+    multiLocationEnabled: true,
   },
 };
 

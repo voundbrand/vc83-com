@@ -59,6 +59,9 @@ function getTokenPrefix(token: string): string {
  * - products: Products catalog
  * - tickets: Support tickets
  * - applications: Connected apps (CLI apps, integrations)
+ * - certificates: CE/CME/CPD certificates
+ * - benefits: Benefits and commissions
+ * - publishing: Published pages and content
  */
 function getPermissionsForRole(roleName: string): string[] {
   const rolePermissions: Record<string, string[]> = {
@@ -70,6 +73,11 @@ function getPermissionsForRole(roleName: string): string[] {
       "products:read", "products:write",
       "tickets:read", "tickets:write",
       "applications:read", "applications:write",
+      "certificates:read", "certificates:write",
+      "benefits:read", "benefits:write",
+      "publishing:read", "publishing:write",
+      "checkout:read", "checkout:write",
+      "oauth:read", "oauth:write",
     ],
     // Admin: Full access to data, can view but not manage applications
     admin: [
@@ -79,6 +87,11 @@ function getPermissionsForRole(roleName: string): string[] {
       "products:read", "products:write",
       "tickets:read", "tickets:write",
       "applications:read",
+      "certificates:read", "certificates:write",
+      "benefits:read", "benefits:write",
+      "publishing:read", "publishing:write",
+      "checkout:read", "checkout:write",
+      "oauth:read", "oauth:write",
     ],
     // Manager: Can manage most data
     manager: [
@@ -87,6 +100,11 @@ function getPermissionsForRole(roleName: string): string[] {
       "forms:read", "forms:write",
       "products:read", "products:write",
       "tickets:read", "tickets:write",
+      "certificates:read", "certificates:write",
+      "benefits:read", "benefits:write",
+      "publishing:read",
+      "checkout:read", "checkout:write",
+      "oauth:read",
     ],
     // Editor: Can manage most data (same as manager)
     editor: [
@@ -95,6 +113,9 @@ function getPermissionsForRole(roleName: string): string[] {
       "forms:read", "forms:write",
       "products:read", "products:write",
       "tickets:read", "tickets:write",
+      "certificates:read", "certificates:write",
+      "benefits:read",
+      "checkout:read",
     ],
     // Member: View-only access
     member: [
@@ -103,6 +124,9 @@ function getPermissionsForRole(roleName: string): string[] {
       "forms:read",
       "products:read",
       "tickets:read",
+      "certificates:read",
+      "benefits:read",
+      "checkout:read",
     ],
     // Viewer: View-only access (same as member)
     viewer: [
@@ -111,6 +135,8 @@ function getPermissionsForRole(roleName: string): string[] {
       "forms:read",
       "products:read",
       "tickets:read",
+      "certificates:read",
+      "checkout:read",
     ],
   };
 

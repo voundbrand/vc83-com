@@ -11,6 +11,174 @@ import { internal, api } from "../../_generated/api";
 import { Id } from "../../_generated/dataModel";
 import { getProviderByCode, getConnectedAccountId } from "../../paymentProviders";
 
+// ============================================================================
+// CHECKOUT SESSION QUERIES
+// ============================================================================
+
+/**
+ * LIST CHECKOUT SESSIONS (Internal Query)
+ *
+ * Lists checkout sessions for an organization with optional filters.
+ */
+export const listCheckoutSessionsInternal = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    status: v.optional(v.string()),
+    customerEmail: v.optional(v.string()),
+    limit: v.number(),
+    offset: v.number(),
+  },
+  handler: async (ctx, args) => {
+    // Query all checkout sessions for organization
+    const query = ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "checkout_session")
+      );
+
+    const allSessions = await query.collect();
+
+    // Apply filters
+    let filteredSessions = allSessions;
+
+    if (args.status) {
+      filteredSessions = filteredSessions.filter((s) => s.status === args.status);
+    }
+
+    if (args.customerEmail) {
+      filteredSessions = filteredSessions.filter((s) => {
+        const customProps = s.customProperties as Record<string, unknown> | undefined;
+        return customProps?.customerEmail === args.customerEmail;
+      });
+    }
+
+    // Sort by creation date (newest first)
+    filteredSessions.sort((a, b) => b.createdAt - a.createdAt);
+
+    // Apply pagination
+    const total = filteredSessions.length;
+    const paginatedSessions = filteredSessions.slice(args.offset, args.offset + args.limit);
+
+    // Format response
+    const sessions = paginatedSessions.map((session) => {
+      const customProps = session.customProperties as Record<string, unknown> | undefined;
+      return {
+        id: session._id,
+        status: session.status,
+        customerEmail: customProps?.customerEmail as string | undefined,
+        customerName: customProps?.customerName as string | undefined,
+        totalAmount: customProps?.totalAmount as number | undefined,
+        currency: customProps?.currency as string | undefined,
+        paymentIntentId: customProps?.paymentIntentId as string | undefined,
+        expiresAt: customProps?.expiresAt as number | undefined,
+        selectedProducts: customProps?.selectedProducts as Array<{
+          productId: string;
+          quantity: number;
+          pricePerUnit: number;
+          totalPrice: number;
+        }> | undefined,
+        source: customProps?.source as string | undefined,
+        createdAt: session.createdAt,
+        updatedAt: session.updatedAt,
+      };
+    });
+
+    return {
+      sessions,
+      total,
+      limit: args.limit,
+      offset: args.offset,
+    };
+  },
+});
+
+/**
+ * GET CHECKOUT SESSION (Internal Query)
+ *
+ * Gets a specific checkout session by ID.
+ */
+export const getCheckoutSessionInternal = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    sessionId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+
+    if (!session || session.type !== "checkout_session") {
+      return null;
+    }
+
+    // Verify organization ownership
+    if (session.organizationId !== args.organizationId) {
+      return null;
+    }
+
+    const customProps = session.customProperties as Record<string, unknown> | undefined;
+
+    return {
+      id: session._id,
+      status: session.status,
+      name: session.name,
+      description: session.description,
+      customerEmail: customProps?.customerEmail as string | undefined,
+      customerName: customProps?.customerName as string | undefined,
+      customerPhone: customProps?.customerPhone as string | undefined,
+      totalAmount: customProps?.totalAmount as number | undefined,
+      currency: customProps?.currency as string | undefined,
+      paymentIntentId: customProps?.paymentIntentId as string | undefined,
+      expiresAt: customProps?.expiresAt as number | undefined,
+      selectedProducts: customProps?.selectedProducts as Array<{
+        productId: string;
+        quantity: number;
+        pricePerUnit: number;
+        totalPrice: number;
+      }> | undefined,
+      source: customProps?.source as string | undefined,
+      metadata: customProps?.metadata as Record<string, unknown> | undefined,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
+    };
+  },
+});
+
+/**
+ * CANCEL CHECKOUT SESSION (Internal Mutation)
+ *
+ * Cancels/expires a pending checkout session.
+ */
+export const cancelCheckoutSessionInternal = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    sessionId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+
+    if (!session || session.type !== "checkout_session") {
+      throw new Error("Checkout session not found");
+    }
+
+    // Verify organization ownership
+    if (session.organizationId !== args.organizationId) {
+      throw new Error("Checkout session not found");
+    }
+
+    // Only allow canceling pending sessions
+    if (session.status !== "pending") {
+      throw new Error(`Cannot cancel session with status '${session.status}'`);
+    }
+
+    // Update status to expired
+    await ctx.db.patch(args.sessionId, {
+      status: "expired",
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
 /**
  * GET PAYMENT CONFIG (Internal Query)
  *
