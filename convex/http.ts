@@ -685,8 +685,9 @@ http.route({
 });
 
 // POST /api/v1/events/:eventId/cancel (cancel event)
+// Uses pathPrefix because Convex doesn't support Express-style :param in path
 http.route({
-  path: "/api/v1/events/:eventId/cancel",
+  pathPrefix: "/api/v1/events/",
   method: "POST",
   handler: cancelEvent,
 });
@@ -728,29 +729,25 @@ http.route({
 });
 
 // GET /api/v1/forms/:formId/responses (get form responses - authenticated)
+// Uses pathPrefix because Convex doesn't support Express-style :param in path
 http.route({
-  path: "/api/v1/forms/:formId/responses",
+  pathPrefix: "/api/v1/forms/",
   method: "GET",
-  handler: getFormResponses,
+  handler: getForm, // Handler checks for /responses suffix internally
 });
 
 // POST /api/v1/forms/:formId/responses (submit form response - authenticated)
+// Uses pathPrefix because Convex doesn't support Express-style :param in path
 http.route({
-  path: "/api/v1/forms/:formId/responses",
+  pathPrefix: "/api/v1/forms/",
   method: "POST",
-  handler: submitFormResponse,
-});
-
-// GET /api/v1/forms/:formId (get form - authenticated)
-http.route({
-  path: "/api/v1/forms/:formId",
-  method: "GET",
-  handler: getForm,
+  handler: submitFormResponse, // Handler checks for /responses suffix internally
 });
 
 // DELETE /api/v1/forms/:formId (delete form - authenticated)
+// Uses pathPrefix because Convex doesn't support Express-style :param in path
 http.route({
-  path: "/api/v1/forms/:formId",
+  pathPrefix: "/api/v1/forms/",
   method: "DELETE",
   handler: deleteForm,
 });

@@ -692,6 +692,15 @@ export const cancelEvent = httpAction(async (ctx, request) => {
     const origin = request.headers.get("origin");
     const corsHeaders = getCorsHeaders(origin);
 
+    // 0. Verify path ends with /cancel (since we use pathPrefix routing)
+    const url = new URL(request.url);
+    if (!url.pathname.endsWith("/cancel")) {
+      return new Response(
+        JSON.stringify({ error: "Not found" }),
+        { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
     // 1. Universal authentication
     const authResult = await authenticateRequest(ctx, request);
     if (!authResult.success) {
@@ -713,7 +722,6 @@ export const cancelEvent = httpAction(async (ctx, request) => {
     }
 
     // 3. Extract event ID from URL (path is /api/v1/events/:eventId/cancel)
-    const url = new URL(request.url);
     const pathParts = url.pathname.split("/");
     const eventId = pathParts[pathParts.length - 2]; // Second to last part
 

@@ -180,15 +180,32 @@ export const createForm = httpAction(async (ctx, request) => {
 });
 
 /**
- * GET FORM
+ * GET FORM (or FORM RESPONSES)
  * Returns form schema with all fields and validation rules
+ * Also handles /responses sub-route since we use pathPrefix routing
  *
  * GET /api/v1/forms/{formId}
+ * GET /api/v1/forms/{formId}/responses
  */
 export const getForm = httpAction(async (ctx, request) => {
   try {
     const origin = request.headers.get("origin");
     const corsHeaders = getCorsHeaders(origin);
+
+    // 0. Check if this is a request for /responses (route internally)
+    const url = new URL(request.url);
+    if (url.pathname.endsWith("/responses")) {
+      // Delegate to getFormResponses handler
+      return getFormResponsesHandler(ctx, request);
+    }
+
+    // Skip paths that should go to public routes
+    if (url.pathname.includes("/public/")) {
+      return new Response(
+        JSON.stringify({ error: "Not found" }),
+        { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
 
     // 1. Universal authentication
     const authResult = await authenticateRequest(ctx, request);
@@ -211,11 +228,10 @@ export const getForm = httpAction(async (ctx, request) => {
     }
 
     // 3. Extract form ID from URL
-    const url = new URL(request.url);
     const pathParts = url.pathname.split("/");
     const formId = pathParts[pathParts.length - 1] as Id<"objects">;
 
-    if (!formId) {
+    if (!formId || formId === "forms") {
       return new Response(
         JSON.stringify({ error: "Form ID required" }),
         { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
@@ -257,6 +273,72 @@ export const getForm = httpAction(async (ctx, request) => {
     );
   }
 });
+
+/**
+ * Internal handler for GET FORM RESPONSES
+ * Called by getForm when URL ends with /responses
+ */
+async function getFormResponsesHandler(ctx: Parameters<typeof httpAction>[0] extends (ctx: infer C, req: Request) => unknown ? C : never, request: Request): Promise<Response> {
+  const origin = request.headers.get("origin");
+  const corsHeaders = getCorsHeaders(origin);
+
+  // 1. Universal authentication
+  const authResult = await authenticateRequest(ctx, request);
+  if (!authResult.success) {
+    return new Response(
+      JSON.stringify({ error: authResult.error }),
+      { status: authResult.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
+    );
+  }
+
+  const authContext = authResult.context;
+
+  // 2. Require forms:read scope
+  const scopeCheck = requireScopes(authContext, ["forms:read"]);
+  if (!scopeCheck.success) {
+    return new Response(
+      JSON.stringify({ error: scopeCheck.error }),
+      { status: scopeCheck.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
+    );
+  }
+
+  // 3. Extract form ID from URL
+  const url = new URL(request.url);
+  const pathParts = url.pathname.split("/");
+  const formId = pathParts[pathParts.length - 2]; // /api/v1/forms/:formId/responses
+  const status = url.searchParams.get("status") || undefined;
+  const limit = Math.min(parseInt(url.searchParams.get("limit") || "50"), 200);
+  const offset = parseInt(url.searchParams.get("offset") || "0");
+
+  if (!formId) {
+    return new Response(
+      JSON.stringify({ error: "Form ID required" }),
+      { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+    );
+  }
+
+  // 4. Get form responses
+  const result = await ctx.runQuery(internal.api.v1.formsInternal.getFormResponsesInternal, {
+    organizationId: authContext.organizationId,
+    formId,
+    status,
+    limit,
+    offset,
+  });
+
+  // 5. Return response
+  return new Response(
+    JSON.stringify(result),
+    {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        "X-Organization-Id": authContext.organizationId,
+        ...corsHeaders,
+      },
+    }
+  );
+}
 
 /**
  * GET FORM RESPONSES
@@ -347,6 +429,23 @@ export const submitFormResponse = httpAction(async (ctx, request) => {
     const origin = request.headers.get("origin");
     const corsHeaders = getCorsHeaders(origin);
 
+    // 0. Verify path ends with /responses (since we use pathPrefix routing)
+    const url = new URL(request.url);
+    if (!url.pathname.endsWith("/responses")) {
+      return new Response(
+        JSON.stringify({ error: "Not found" }),
+        { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Skip paths that should go to public routes
+    if (url.pathname.includes("/public/")) {
+      return new Response(
+        JSON.stringify({ error: "Not found" }),
+        { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
     // 1. Universal authentication
     const authResult = await authenticateRequest(ctx, request);
     if (!authResult.success) {
@@ -368,7 +467,6 @@ export const submitFormResponse = httpAction(async (ctx, request) => {
     }
 
     // 3. Extract form ID from URL
-    const url = new URL(request.url);
     const pathParts = url.pathname.split("/");
     const formId = pathParts[pathParts.length - 2]; // /api/v1/forms/:formId/responses
 
