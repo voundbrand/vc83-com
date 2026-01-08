@@ -70,18 +70,18 @@ function DetailModal({
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-3xl max-h-[85vh] overflow-y-auto bg-slate-900 rounded-2xl border border-slate-700 shadow-2xl">
+      <div className="relative w-full max-w-3xl max-h-[85vh] overflow-y-auto bg-white border border-stone-200 shadow-2xl">
         {/* Header */}
-        <div className="sticky top-0 bg-slate-900 border-b border-slate-700 px-6 py-4 flex items-center justify-between">
+        <div className="sticky top-0 bg-white border-b border-stone-200 px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {icon}
-            <h3 className="text-xl font-bold text-white">{title}</h3>
+            <h3 className="text-xl font-serif font-bold text-slate-800">{title}</h3>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+            className="p-2 hover:bg-white transition-colors"
           >
-            <X className="w-5 h-5 text-slate-400" />
+            <X className="w-5 h-5 text-slate-500" />
           </button>
         </div>
 
@@ -254,46 +254,46 @@ function LTVCACCalculator() {
     ? calculations.haus
     : calculations.combined;
 
-  const ratioColor = current.ratio >= 3 ? "text-emerald-400" : current.ratio >= 2 ? "text-amber-400" : "text-red-400";
+  const ratioColor = current.ratio >= 3 ? "text-sky-700" : current.ratio >= 2 ? "text-amber-600" : "text-rose-600";
 
   return (
-    <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 md:p-8 border border-slate-700">
+    <div className="bg-white p-6 md:p-8 border border-sky-100 shadow-lg shadow-sky-900/5">
       <div className="flex items-center gap-3 mb-2">
-        <TrendingUp className="w-6 h-6 text-cyan-400" />
-        <h3 className="text-xl font-semibold text-white">Website-Investition</h3>
+        <TrendingUp className="w-6 h-6 text-sky-600" />
+        <h3 className="text-xl font-serif font-semibold text-slate-800">Website-Investition</h3>
       </div>
-      <p className="text-slate-400 text-sm mb-6">
+      <p className="text-slate-600 text-sm mb-6">
         Wie schnell macht sich die Website-Entwicklung bezahlt?
       </p>
 
       {/* Business Type Toggle - 3 tabs */}
-      <div className="flex gap-1 mb-6 p-1 bg-slate-900/50 rounded-lg">
+      <div className="flex gap-1 mb-6 p-1 bg-sky-50 border border-sky-100">
         <button
           onClick={() => setBusinessType("segelschule")}
-          className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${
+          className={`flex-1 py-2 px-3 text-sm font-medium transition-all ${
             businessType === "segelschule"
-              ? "bg-cyan-500 text-white"
-              : "text-slate-400 hover:text-white"
+              ? "bg-sky-600 text-white shadow-sm"
+              : "text-slate-600 hover:text-slate-800 hover:bg-sky-100/50"
           }`}
         >
           Segelschule
         </button>
         <button
           onClick={() => setBusinessType("haus")}
-          className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${
+          className={`flex-1 py-2 px-3 text-sm font-medium transition-all ${
             businessType === "haus"
-              ? "bg-cyan-500 text-white"
-              : "text-slate-400 hover:text-white"
+              ? "bg-sky-600 text-white shadow-sm"
+              : "text-slate-600 hover:text-slate-800 hover:bg-sky-100/50"
           }`}
         >
           Haff Erleben
         </button>
         <button
           onClick={() => setBusinessType("combined")}
-          className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${
+          className={`flex-1 py-2 px-3 text-sm font-medium transition-all ${
             businessType === "combined"
-              ? "bg-cyan-500 text-white"
-              : "text-slate-400 hover:text-white"
+              ? "bg-sky-600 text-white shadow-sm"
+              : "text-slate-600 hover:text-slate-800 hover:bg-sky-100/50"
           }`}
         >
           Komplett
@@ -302,57 +302,57 @@ function LTVCACCalculator() {
 
       {/* Key Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-slate-900/50 rounded-xl p-4 text-center">
-          <div className="text-2xl md:text-3xl font-bold text-cyan-400">
+        <div className="bg-sky-50 p-4 text-center border border-sky-100">
+          <div className="text-2xl md:text-3xl font-bold text-sky-700">
             {current.ltv.toLocaleString("de-DE")}€
           </div>
-          <div className="text-xs text-slate-400 mt-1">Customer Lifetime Value</div>
+          <div className="text-xs text-slate-500 mt-1">Customer Lifetime Value</div>
         </div>
-        <div className="bg-slate-900/50 rounded-xl p-4 text-center">
-          <div className="text-2xl md:text-3xl font-bold text-amber-400">
+        <div className="bg-amber-50 p-4 text-center border border-amber-100">
+          <div className="text-2xl md:text-3xl font-bold text-amber-700">
             {current.cac.toLocaleString("de-DE")}€
           </div>
-          <div className="text-xs text-slate-400 mt-1">Website-Investition</div>
+          <div className="text-xs text-slate-500 mt-1">Website-Investition</div>
         </div>
-        <div className="bg-slate-900/50 rounded-xl p-4 text-center">
+        <div className="bg-white p-4 text-center border border-stone-200">
           <div className={`text-2xl md:text-3xl font-bold ${ratioColor}`}>
             {current.ratio.toFixed(1)}x
           </div>
-          <div className="text-xs text-slate-400 mt-1">LTV:CAC Ratio</div>
+          <div className="text-xs text-slate-500 mt-1">LTV:CAC Ratio</div>
         </div>
-        <div className="bg-slate-900/50 rounded-xl p-4 text-center">
-          <div className="text-2xl md:text-3xl font-bold text-emerald-400">
+        <div className="bg-sky-50 p-4 text-center border border-sky-200">
+          <div className="text-2xl md:text-3xl font-bold text-sky-700">
             ~{current.breakEvenMonths} Mo.
           </div>
-          <div className="text-xs text-slate-400 mt-1">Break-Even</div>
+          <div className="text-xs text-slate-500 mt-1">Break-Even</div>
         </div>
       </div>
 
       {/* Ratio Interpretation */}
-      <div className={`p-4 rounded-xl mb-6 ${
-        current.ratio >= 3 ? "bg-emerald-500/10 border border-emerald-500/30" :
-        current.ratio >= 2 ? "bg-amber-500/10 border border-amber-500/30" :
-        "bg-red-500/10 border border-red-500/30"
+      <div className={`p-4 mb-6 ${
+        current.ratio >= 3 ? "bg-sky-50 border border-sky-200" :
+        current.ratio >= 2 ? "bg-amber-50 border border-amber-200" :
+        "bg-rose-50 border border-rose-200"
       }`}>
         <div className="flex items-start gap-3">
-          <div className={`p-2 rounded-lg ${
-            current.ratio >= 3 ? "bg-emerald-500/20" :
-            current.ratio >= 2 ? "bg-amber-500/20" :
-            "bg-red-500/20"
+          <div className={`p-2 ${
+            current.ratio >= 3 ? "bg-sky-100" :
+            current.ratio >= 2 ? "bg-amber-100" :
+            "bg-rose-100"
           }`}>
-            {current.ratio >= 3 ? <CheckCircle2 className="w-5 h-5 text-emerald-400" /> :
-             current.ratio >= 2 ? <TrendingUp className="w-5 h-5 text-amber-400" /> :
-             <TrendingUp className="w-5 h-5 text-red-400" />}
+            {current.ratio >= 3 ? <CheckCircle2 className="w-5 h-5 text-sky-700" /> :
+             current.ratio >= 2 ? <TrendingUp className="w-5 h-5 text-amber-600" /> :
+             <TrendingUp className="w-5 h-5 text-rose-600" />}
           </div>
           <div>
             <div className={`font-semibold ${
-              current.ratio >= 3 ? "text-emerald-400" :
-              current.ratio >= 2 ? "text-amber-400" :
-              "text-red-400"
+              current.ratio >= 3 ? "text-sky-700" :
+              current.ratio >= 2 ? "text-amber-700" :
+              "text-rose-700"
             }`}>
               {current.ratio >= 3 ? "Exzellent" : current.ratio >= 2 ? "Gut" : "Entwicklungspotenzial"}
             </div>
-            <div className="text-sm text-slate-300 mt-1">
+            <div className="text-sm text-slate-600 mt-1">
               {current.ratio >= 3
                 ? "Ein LTV:CAC von 3:1 oder höher gilt als exzellent. Jeder investierte Euro bringt mindestens 3€ zurück."
                 : current.ratio >= 2
@@ -366,7 +366,7 @@ function LTVCACCalculator() {
       {/* Show/Hide Details */}
       <button
         onClick={() => setShowDetails(!showDetails)}
-        className="flex items-center gap-2 text-cyan-400 hover:text-cyan-300 transition-colors mb-4"
+        className="flex items-center gap-2 text-sky-600 hover:text-sky-500 transition-colors mb-4"
       >
         {showDetails ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
         <span className="text-sm">Parameter anpassen</span>
@@ -374,12 +374,12 @@ function LTVCACCalculator() {
 
       {/* Adjustable Inputs - Show relevant params based on selected tab */}
       {showDetails && (
-        <div className="p-4 bg-slate-900/30 rounded-xl">
+        <div className="p-4 bg-stone-50">
           {/* Segelschule Parameters */}
           {businessType === "segelschule" && (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
-                <label className="text-xs text-slate-400">Kurspreis (z.B. SBF Binnen)</label>
+                <label className="text-xs text-slate-500">Kurspreis (z.B. SBF Binnen)</label>
                 <input
                   type="range"
                   min="250"
@@ -389,10 +389,10 @@ function LTVCACCalculator() {
                   onChange={(e) => setSegelschuleInputs(prev => ({ ...prev, primaryCourseValue: Number(e.target.value) }))}
                   className="w-full mt-1"
                 />
-                <div className="text-right text-xs text-cyan-400">{segelschuleInputs.primaryCourseValue}€</div>
+                <div className="text-right text-xs text-sky-600">{segelschuleInputs.primaryCourseValue}€</div>
               </div>
               <div>
-                <label className="text-xs text-slate-400">Schüler pro Jahr</label>
+                <label className="text-xs text-slate-500">Schüler pro Jahr</label>
                 <input
                   type="range"
                   min="10"
@@ -402,10 +402,10 @@ function LTVCACCalculator() {
                   onChange={(e) => setSegelschuleInputs(prev => ({ ...prev, primaryCoursesPerYear: Number(e.target.value) }))}
                   className="w-full mt-1"
                 />
-                <div className="text-right text-xs text-cyan-400">{segelschuleInputs.primaryCoursesPerYear}</div>
+                <div className="text-right text-xs text-sky-600">{segelschuleInputs.primaryCoursesPerYear}</div>
               </div>
               <div>
-                <label className="text-xs text-slate-400">Upsell-Rate (% Folgekurs)</label>
+                <label className="text-xs text-slate-500">Upsell-Rate (% Folgekurs)</label>
                 <input
                   type="range"
                   min="5"
@@ -415,10 +415,10 @@ function LTVCACCalculator() {
                   onChange={(e) => setSegelschuleInputs(prev => ({ ...prev, upsellRate: Number(e.target.value) }))}
                   className="w-full mt-1"
                 />
-                <div className="text-right text-xs text-amber-400">{segelschuleInputs.upsellRate}%</div>
+                <div className="text-right text-xs text-amber-600">{segelschuleInputs.upsellRate}%</div>
               </div>
               <div>
-                <label className="text-xs text-slate-400">Folgekurs-Preis (SBF See, SKS...)</label>
+                <label className="text-xs text-slate-500">Folgekurs-Preis (SBF See, SKS...)</label>
                 <input
                   type="range"
                   min="400"
@@ -428,10 +428,10 @@ function LTVCACCalculator() {
                   onChange={(e) => setSegelschuleInputs(prev => ({ ...prev, avgUpsellValue: Number(e.target.value) }))}
                   className="w-full mt-1"
                 />
-                <div className="text-right text-xs text-amber-400">{segelschuleInputs.avgUpsellValue}€</div>
+                <div className="text-right text-xs text-amber-600">{segelschuleInputs.avgUpsellValue}€</div>
               </div>
               <div>
-                <label className="text-xs text-slate-400">Empfehlungsrate (%)</label>
+                <label className="text-xs text-slate-500">Empfehlungsrate (%)</label>
                 <input
                   type="range"
                   min="5"
@@ -441,7 +441,7 @@ function LTVCACCalculator() {
                   onChange={(e) => setSegelschuleInputs(prev => ({ ...prev, referralRate: Number(e.target.value) }))}
                   className="w-full mt-1"
                 />
-                <div className="text-right text-xs text-emerald-400">{segelschuleInputs.referralRate}%</div>
+                <div className="text-right text-xs text-sky-600">{segelschuleInputs.referralRate}%</div>
               </div>
             </div>
           )}
@@ -450,7 +450,7 @@ function LTVCACCalculator() {
           {businessType === "haus" && (
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
-                <label className="text-xs text-slate-400">Preis pro Nacht</label>
+                <label className="text-xs text-slate-500">Preis pro Nacht</label>
                 <input
                   type="range"
                   min="80"
@@ -460,10 +460,10 @@ function LTVCACCalculator() {
                   onChange={(e) => setHouseInputs(prev => ({ ...prev, avgBookingValue: Number(e.target.value) }))}
                   className="w-full mt-1"
                 />
-                <div className="text-right text-xs text-cyan-400">{houseInputs.avgBookingValue}€</div>
+                <div className="text-right text-xs text-sky-600">{houseInputs.avgBookingValue}€</div>
               </div>
               <div>
-                <label className="text-xs text-slate-400">Gebuchte Nächte/Jahr</label>
+                <label className="text-xs text-slate-500">Gebuchte Nächte/Jahr</label>
                 <input
                   type="range"
                   min="20"
@@ -473,10 +473,10 @@ function LTVCACCalculator() {
                   onChange={(e) => setHouseInputs(prev => ({ ...prev, bookingsPerYear: Number(e.target.value) }))}
                   className="w-full mt-1"
                 />
-                <div className="text-right text-xs text-cyan-400">{houseInputs.bookingsPerYear}</div>
+                <div className="text-right text-xs text-sky-600">{houseInputs.bookingsPerYear}</div>
               </div>
               <div>
-                <label className="text-xs text-slate-400">Wiederkommer (%)</label>
+                <label className="text-xs text-slate-500">Wiederkommer (%)</label>
                 <input
                   type="range"
                   min="10"
@@ -486,10 +486,10 @@ function LTVCACCalculator() {
                   onChange={(e) => setHouseInputs(prev => ({ ...prev, repeatGuestRate: Number(e.target.value) }))}
                   className="w-full mt-1"
                 />
-                <div className="text-right text-xs text-amber-400">{houseInputs.repeatGuestRate}%</div>
+                <div className="text-right text-xs text-amber-600">{houseInputs.repeatGuestRate}%</div>
               </div>
               <div>
-                <label className="text-xs text-slate-400">Empfehlungsrate (%)</label>
+                <label className="text-xs text-slate-500">Empfehlungsrate (%)</label>
                 <input
                   type="range"
                   min="5"
@@ -499,7 +499,7 @@ function LTVCACCalculator() {
                   onChange={(e) => setHouseInputs(prev => ({ ...prev, referralRate: Number(e.target.value) }))}
                   className="w-full mt-1"
                 />
-                <div className="text-right text-xs text-emerald-400">{houseInputs.referralRate}%</div>
+                <div className="text-right text-xs text-sky-600">{houseInputs.referralRate}%</div>
               </div>
             </div>
           )}
@@ -508,10 +508,10 @@ function LTVCACCalculator() {
           {businessType === "combined" && (
             <div className="space-y-6">
               <div>
-                <h4 className="text-sm font-medium text-cyan-400 mb-3">Segelschule</h4>
+                <h4 className="text-sm font-medium text-sky-600 mb-3">Segelschule</h4>
                 <div className="grid md:grid-cols-3 lg:grid-cols-5 gap-4">
                   <div>
-                    <label className="text-xs text-slate-400">Kurspreis</label>
+                    <label className="text-xs text-slate-500">Kurspreis</label>
                     <input
                       type="range"
                       min="250"
@@ -521,10 +521,10 @@ function LTVCACCalculator() {
                       onChange={(e) => setSegelschuleInputs(prev => ({ ...prev, primaryCourseValue: Number(e.target.value) }))}
                       className="w-full mt-1"
                     />
-                    <div className="text-right text-xs text-cyan-400">{segelschuleInputs.primaryCourseValue}€</div>
+                    <div className="text-right text-xs text-sky-600">{segelschuleInputs.primaryCourseValue}€</div>
                   </div>
                   <div>
-                    <label className="text-xs text-slate-400">Schüler/Jahr</label>
+                    <label className="text-xs text-slate-500">Schüler/Jahr</label>
                     <input
                       type="range"
                       min="10"
@@ -534,10 +534,10 @@ function LTVCACCalculator() {
                       onChange={(e) => setSegelschuleInputs(prev => ({ ...prev, primaryCoursesPerYear: Number(e.target.value) }))}
                       className="w-full mt-1"
                     />
-                    <div className="text-right text-xs text-cyan-400">{segelschuleInputs.primaryCoursesPerYear}</div>
+                    <div className="text-right text-xs text-sky-600">{segelschuleInputs.primaryCoursesPerYear}</div>
                   </div>
                   <div>
-                    <label className="text-xs text-slate-400">Upsell %</label>
+                    <label className="text-xs text-slate-500">Upsell %</label>
                     <input
                       type="range"
                       min="5"
@@ -547,10 +547,10 @@ function LTVCACCalculator() {
                       onChange={(e) => setSegelschuleInputs(prev => ({ ...prev, upsellRate: Number(e.target.value) }))}
                       className="w-full mt-1"
                     />
-                    <div className="text-right text-xs text-amber-400">{segelschuleInputs.upsellRate}%</div>
+                    <div className="text-right text-xs text-amber-600">{segelschuleInputs.upsellRate}%</div>
                   </div>
                   <div>
-                    <label className="text-xs text-slate-400">Folgekurs €</label>
+                    <label className="text-xs text-slate-500">Folgekurs €</label>
                     <input
                       type="range"
                       min="400"
@@ -560,10 +560,10 @@ function LTVCACCalculator() {
                       onChange={(e) => setSegelschuleInputs(prev => ({ ...prev, avgUpsellValue: Number(e.target.value) }))}
                       className="w-full mt-1"
                     />
-                    <div className="text-right text-xs text-amber-400">{segelschuleInputs.avgUpsellValue}€</div>
+                    <div className="text-right text-xs text-amber-600">{segelschuleInputs.avgUpsellValue}€</div>
                   </div>
                   <div>
-                    <label className="text-xs text-slate-400">Empfehlung %</label>
+                    <label className="text-xs text-slate-500">Empfehlung %</label>
                     <input
                       type="range"
                       min="5"
@@ -573,15 +573,15 @@ function LTVCACCalculator() {
                       onChange={(e) => setSegelschuleInputs(prev => ({ ...prev, referralRate: Number(e.target.value) }))}
                       className="w-full mt-1"
                     />
-                    <div className="text-right text-xs text-emerald-400">{segelschuleInputs.referralRate}%</div>
+                    <div className="text-right text-xs text-sky-600">{segelschuleInputs.referralRate}%</div>
                   </div>
                 </div>
               </div>
               <div>
-                <h4 className="text-sm font-medium text-amber-400 mb-3">Haff Erleben</h4>
+                <h4 className="text-sm font-medium text-amber-600 mb-3">Haff Erleben</h4>
                 <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div>
-                    <label className="text-xs text-slate-400">Preis/Nacht</label>
+                    <label className="text-xs text-slate-500">Preis/Nacht</label>
                     <input
                       type="range"
                       min="80"
@@ -591,10 +591,10 @@ function LTVCACCalculator() {
                       onChange={(e) => setHouseInputs(prev => ({ ...prev, avgBookingValue: Number(e.target.value) }))}
                       className="w-full mt-1"
                     />
-                    <div className="text-right text-xs text-cyan-400">{houseInputs.avgBookingValue}€</div>
+                    <div className="text-right text-xs text-sky-600">{houseInputs.avgBookingValue}€</div>
                   </div>
                   <div>
-                    <label className="text-xs text-slate-400">Nächte/Jahr</label>
+                    <label className="text-xs text-slate-500">Nächte/Jahr</label>
                     <input
                       type="range"
                       min="20"
@@ -604,10 +604,10 @@ function LTVCACCalculator() {
                       onChange={(e) => setHouseInputs(prev => ({ ...prev, bookingsPerYear: Number(e.target.value) }))}
                       className="w-full mt-1"
                     />
-                    <div className="text-right text-xs text-cyan-400">{houseInputs.bookingsPerYear}</div>
+                    <div className="text-right text-xs text-sky-600">{houseInputs.bookingsPerYear}</div>
                   </div>
                   <div>
-                    <label className="text-xs text-slate-400">Wiederkommer %</label>
+                    <label className="text-xs text-slate-500">Wiederkommer %</label>
                     <input
                       type="range"
                       min="10"
@@ -617,10 +617,10 @@ function LTVCACCalculator() {
                       onChange={(e) => setHouseInputs(prev => ({ ...prev, repeatGuestRate: Number(e.target.value) }))}
                       className="w-full mt-1"
                     />
-                    <div className="text-right text-xs text-amber-400">{houseInputs.repeatGuestRate}%</div>
+                    <div className="text-right text-xs text-amber-600">{houseInputs.repeatGuestRate}%</div>
                   </div>
                   <div>
-                    <label className="text-xs text-slate-400">Empfehlung %</label>
+                    <label className="text-xs text-slate-500">Empfehlung %</label>
                     <input
                       type="range"
                       min="5"
@@ -630,7 +630,7 @@ function LTVCACCalculator() {
                       onChange={(e) => setHouseInputs(prev => ({ ...prev, referralRate: Number(e.target.value) }))}
                       className="w-full mt-1"
                     />
-                    <div className="text-right text-xs text-emerald-400">{houseInputs.referralRate}%</div>
+                    <div className="text-right text-xs text-sky-600">{houseInputs.referralRate}%</div>
                   </div>
                 </div>
               </div>
@@ -641,34 +641,34 @@ function LTVCACCalculator() {
 
       {/* Business Model Explanation */}
       {businessType === "segelschule" && (
-        <div className="mt-6 p-4 bg-slate-900/50 rounded-xl border border-slate-700">
-          <h4 className="font-semibold text-white mb-3 flex items-center gap-2">
-            <Users className="w-4 h-4 text-cyan-400" />
+        <div className="mt-6 p-4 bg-white border border-stone-200">
+          <h4 className="font-serif font-semibold text-slate-800 mb-3 flex items-center gap-2">
+            <Users className="w-4 h-4 text-sky-600" />
             LTV-Berechnung für Segelschulen
           </h4>
-          <p className="text-sm text-slate-400 mb-3">
-            Bei einer Segelschule sind die meisten Kunden <strong className="text-slate-300">Einmalkunden</strong> – sie machen einen Schein und sind fertig.
+          <p className="text-sm text-slate-500 mb-3">
+            Bei einer Segelschule sind die meisten Kunden <strong className="text-slate-600">Einmalkunden</strong> – sie machen einen Schein und sind fertig.
             Aber der Wert entsteht durch:
           </p>
           <div className="grid grid-cols-3 gap-3 text-sm">
-            <div className="bg-slate-800/50 rounded-lg p-3">
-              <div className="text-cyan-400 font-semibold">{segelschuleInputs.primaryCoursesPerYear} Schüler</div>
-              <div className="text-slate-400 text-xs">× {segelschuleInputs.primaryCourseValue}€ Grundkurs</div>
-              <div className="text-white font-semibold mt-1">
+            <div className="bg-white p-3">
+              <div className="text-sky-600 font-semibold">{segelschuleInputs.primaryCoursesPerYear} Schüler</div>
+              <div className="text-slate-500 text-xs">× {segelschuleInputs.primaryCourseValue}€ Grundkurs</div>
+              <div className="text-slate-800 font-semibold mt-1">
                 = {(segelschuleInputs.primaryCoursesPerYear * segelschuleInputs.primaryCourseValue).toLocaleString("de-DE")}€
               </div>
             </div>
-            <div className="bg-slate-800/50 rounded-lg p-3">
-              <div className="text-amber-400 font-semibold">{segelschuleInputs.upsellRate}% Upsell</div>
-              <div className="text-slate-400 text-xs">buchen Folgekurs ({segelschuleInputs.avgUpsellValue}€)</div>
-              <div className="text-white font-semibold mt-1">
+            <div className="bg-white p-3">
+              <div className="text-amber-600 font-semibold">{segelschuleInputs.upsellRate}% Upsell</div>
+              <div className="text-slate-500 text-xs">buchen Folgekurs ({segelschuleInputs.avgUpsellValue}€)</div>
+              <div className="text-slate-800 font-semibold mt-1">
                 + {calculations.segelschule.upsellRevenue.toLocaleString("de-DE")}€
               </div>
             </div>
-            <div className="bg-slate-800/50 rounded-lg p-3">
-              <div className="text-emerald-400 font-semibold">{segelschuleInputs.referralRate}% Empfehlungen</div>
-              <div className="text-slate-400 text-xs">bringen Freunde</div>
-              <div className="text-white font-semibold mt-1">
+            <div className="bg-white p-3">
+              <div className="text-sky-600 font-semibold">{segelschuleInputs.referralRate}% Empfehlungen</div>
+              <div className="text-slate-500 text-xs">bringen Freunde</div>
+              <div className="text-slate-800 font-semibold mt-1">
                 + {calculations.segelschule.referralValue.toLocaleString("de-DE")}€
               </div>
             </div>
@@ -681,33 +681,33 @@ function LTVCACCalculator() {
 
       {/* House Model Explanation */}
       {businessType === "haus" && (
-        <div className="mt-6 p-4 bg-slate-900/50 rounded-xl border border-slate-700">
-          <h4 className="font-semibold text-white mb-3 flex items-center gap-2">
-            <Home className="w-4 h-4 text-amber-400" />
+        <div className="mt-6 p-4 bg-white border border-stone-200">
+          <h4 className="font-serif font-semibold text-slate-800 mb-3 flex items-center gap-2">
+            <Home className="w-4 h-4 text-amber-600" />
             LTV-Berechnung für Ferienwohnungen
           </h4>
-          <p className="text-sm text-slate-400 mb-3">
-            Bei Übernachtungen ist das Modell anders – Gäste <strong className="text-slate-300">kommen zurück</strong> und empfehlen weiter.
+          <p className="text-sm text-slate-500 mb-3">
+            Bei Übernachtungen ist das Modell anders – Gäste <strong className="text-slate-600">kommen zurück</strong> und empfehlen weiter.
           </p>
           <div className="grid grid-cols-3 gap-3 text-sm">
-            <div className="bg-slate-800/50 rounded-lg p-3">
-              <div className="text-cyan-400 font-semibold">{houseInputs.bookingsPerYear} Nächte</div>
-              <div className="text-slate-400 text-xs">× {houseInputs.avgBookingValue}€ pro Nacht</div>
-              <div className="text-white font-semibold mt-1">
+            <div className="bg-white p-3">
+              <div className="text-sky-600 font-semibold">{houseInputs.bookingsPerYear} Nächte</div>
+              <div className="text-slate-500 text-xs">× {houseInputs.avgBookingValue}€ pro Nacht</div>
+              <div className="text-slate-800 font-semibold mt-1">
                 = {(houseInputs.bookingsPerYear * houseInputs.avgBookingValue).toLocaleString("de-DE")}€
               </div>
             </div>
-            <div className="bg-slate-800/50 rounded-lg p-3">
-              <div className="text-amber-400 font-semibold">{houseInputs.repeatGuestRate}% Wiederkommer</div>
-              <div className="text-slate-400 text-xs">kommen nochmal</div>
-              <div className="text-white font-semibold mt-1">
+            <div className="bg-white p-3">
+              <div className="text-amber-600 font-semibold">{houseInputs.repeatGuestRate}% Wiederkommer</div>
+              <div className="text-slate-500 text-xs">kommen nochmal</div>
+              <div className="text-slate-800 font-semibold mt-1">
                 + {calculations.haus.repeatGuestRevenue.toLocaleString("de-DE")}€
               </div>
             </div>
-            <div className="bg-slate-800/50 rounded-lg p-3">
-              <div className="text-emerald-400 font-semibold">{houseInputs.referralRate}% Empfehlungen</div>
-              <div className="text-slate-400 text-xs">bringen Freunde</div>
-              <div className="text-white font-semibold mt-1">
+            <div className="bg-white p-3">
+              <div className="text-sky-600 font-semibold">{houseInputs.referralRate}% Empfehlungen</div>
+              <div className="text-slate-500 text-xs">bringen Freunde</div>
+              <div className="text-slate-800 font-semibold mt-1">
                 + {calculations.haus.referralValue.toLocaleString("de-DE")}€
               </div>
             </div>
@@ -717,14 +717,14 @@ function LTVCACCalculator() {
 
       {/* Synergy Bonus (Combined only) */}
       {businessType === "combined" && (
-        <div className="mt-6 p-4 bg-gradient-to-r from-cyan-500/10 to-purple-500/10 rounded-xl border border-cyan-500/20">
+        <div className="mt-6 p-4 bg-gradient-to-r from-sky-500/10 to-purple-500/10 border border-sky-200">
           <div className="flex items-center gap-2 mb-2">
-            <Sparkles className="w-5 h-5 text-cyan-400" />
-            <span className="font-semibold text-white">Cross-Selling Synergie</span>
+            <Sparkles className="w-5 h-5 text-sky-600" />
+            <span className="font-semibold text-slate-800">Cross-Selling Synergie</span>
           </div>
-          <p className="text-sm text-slate-300">
+          <p className="text-sm text-slate-600">
             ~15% der Segelschüler buchen auch eine Übernachtung. Das sind zusätzliche{" "}
-            <span className="text-emerald-400 font-semibold">{calculations.combined.synergyBonus?.toLocaleString("de-DE")}€</span> Umsatz
+            <span className="text-sky-600 font-semibold">{calculations.combined.synergyBonus?.toLocaleString("de-DE")}€</span> Umsatz
             ohne extra Marketing-Kosten.
           </p>
           <p className="text-xs text-slate-500 mt-2">
@@ -768,10 +768,10 @@ function ProblemSection() {
   return (
     <div className="space-y-8">
       <div className="text-center mb-12">
-        <h2 className="text-3xl font-bold text-white mb-4">
+        <h2 className="text-3xl md:text-4xl font-serif font-bold text-slate-800 mb-4">
           Die Herausforderung
         </h2>
-        <p className="text-slate-400 max-w-2xl mx-auto">
+        <p className="text-slate-600 max-w-2xl mx-auto">
           Du hast etwas Besonderes aufgebaut. Aber die digitale Welt versteht das nicht von selbst.
         </p>
       </div>
@@ -780,23 +780,23 @@ function ProblemSection() {
         {problems.map((item, idx) => (
           <div
             key={idx}
-            className="group relative bg-slate-900/50 rounded-2xl p-6 border border-slate-700 hover:border-red-500/30 transition-all"
+            className="group relative bg-white p-6 shadow-md shadow-lg shadow-stone-900/5 hover:shadow-xl transition-all"
           >
             {/* Problem Type Badge */}
-            <div className="absolute -top-3 left-6 bg-red-500/20 text-red-400 text-xs font-medium px-3 py-1 rounded-full border border-red-500/30">
+            <div className="absolute -top-3 left-6 bg-stone-100 text-stone-600 text-xs font-medium px-3 py-1 border border-stone-200">
               {item.title}
             </div>
 
             <div className="pt-4">
-              <div className="p-3 bg-red-500/10 rounded-xl w-fit mb-4 text-red-400 group-hover:bg-red-500/20 transition-colors">
+              <div className="text-stone-400 mb-4">
                 {item.icon}
               </div>
 
-              <h3 className="text-lg font-semibold text-white mb-3">
+              <h3 className="text-lg font-serif font-semibold text-slate-800 mb-3">
                 {item.problem}
               </h3>
 
-              <p className="text-slate-400 text-sm leading-relaxed">
+              <p className="text-slate-600 text-sm leading-relaxed">
                 {item.description}
               </p>
             </div>
@@ -805,12 +805,12 @@ function ProblemSection() {
       </div>
 
       {/* The Stakes */}
-      <div className="bg-gradient-to-r from-red-500/10 to-orange-500/10 rounded-2xl p-6 border border-red-500/20 mt-8">
+      <div className="bg-stone-50 p-6 shadow-md mt-8 border border-stone-100">
         <div className="flex items-start gap-4">
-          <AlertCircle className="w-6 h-6 text-red-400 flex-shrink-0 mt-1" />
+          <AlertCircle className="w-6 h-6 text-stone-400 flex-shrink-0 mt-1" />
           <div>
-            <h4 className="font-semibold text-white mb-2">Was passiert, wenn nichts passiert?</h4>
-            <p className="text-slate-300 text-sm leading-relaxed">
+            <h4 className="font-serif font-semibold text-slate-800 mb-2">Was passiert, wenn nichts passiert?</h4>
+            <p className="text-slate-600 text-sm leading-relaxed">
               Jedes Jahr kommen neue Segelschulen dazu. Ferienwohnungen gibt es wie Sand am Meer.
               Wer nicht online sichtbar ist – mit einer Präsenz, die überzeugt – verliert nicht nur Buchungen.
               Er verliert die Chance, Menschen zu erreichen, die genau das suchen, was du bietest.
@@ -830,34 +830,34 @@ function GuideSection() {
   return (
     <div className="space-y-8">
       <div className="text-center mb-12">
-        <h2 className="text-3xl font-bold text-white mb-4">
+        <h2 className="text-3xl md:text-4xl font-serif font-bold text-slate-800 mb-4">
           Warum ich das verstehe
         </h2>
-        <p className="text-slate-400 max-w-2xl mx-auto">
+        <p className="text-slate-600 max-w-2xl mx-auto">
           Du bist nicht der erste, der vor dieser Herausforderung steht.
         </p>
       </div>
 
       <div className="grid md:grid-cols-2 gap-8">
         {/* Empathy */}
-        <div className="bg-slate-900/50 rounded-2xl p-8 border border-slate-700">
+        <div className="bg-white p-8 shadow-lg shadow-sky-900/5">
           <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-cyan-500/20 rounded-lg">
-              <Heart className="w-5 h-5 text-cyan-400" />
+            <div className="text-sky-600">
+              <Heart className="w-5 h-5 text-sky-600" />
             </div>
-            <h3 className="text-lg font-semibold text-white">Ich kenne das Gefühl</h3>
+            <h3 className="text-lg font-serif font-semibold text-slate-800">Ich kenne das Gefühl</h3>
           </div>
 
-          <div className="space-y-4 text-slate-300 text-sm leading-relaxed">
+          <div className="space-y-4 text-slate-600 text-sm leading-relaxed">
             <p>
               Du hast etwas aufgebaut, das dir wichtig ist. Etwas, das mehr ist als ein Geschäft.
-              Und dann kommt jemand und sagt: <em className="text-slate-400">"Du brauchst mehr SEO"</em> oder
-              <em className="text-slate-400">"Mach mal Instagram-Reels"</em>.
+              Und dann kommt jemand und sagt: <em className="text-slate-500">"Du brauchst mehr SEO"</em> oder
+              <em className="text-slate-500">"Mach mal Instagram-Reels"</em>.
             </p>
             <p>
               Das fühlt sich falsch an. Weil es falsch ist. Nicht jede Lösung passt zu jedem Problem.
             </p>
-            <p className="text-cyan-400 font-medium">
+            <p className="text-sky-700 font-medium">
               Du brauchst keine laute Marketing-Maschine. Du brauchst ein System, das so arbeitet wie du:
               ruhig, durchdacht, authentisch.
             </p>
@@ -865,47 +865,46 @@ function GuideSection() {
         </div>
 
         {/* Authority */}
-        <div className="bg-slate-900/50 rounded-2xl p-8 border border-slate-700">
+        <div className="bg-white p-8 shadow-lg shadow-stone-900/5">
           <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-purple-500/20 rounded-lg">
-              <Award className="w-5 h-5 text-purple-400" />
+            <div className="text-stone-600">
+              <Award className="w-5 h-5 text-stone-700" />
             </div>
-            <h3 className="text-lg font-semibold text-white">Was ich mitbringe</h3>
+            <h3 className="text-lg font-serif font-semibold text-slate-800">Was ich mitbringe</h3>
           </div>
 
           <div className="space-y-4">
             <div className="flex items-start gap-3">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-1 flex-shrink-0" />
-              <p className="text-slate-300 text-sm">
-                <strong className="text-white">Fast 20 Jahre</strong> Erfahrung in Webentwicklung und digitalem Marketing
+              <CheckCircle2 className="w-4 h-4 text-sky-600 mt-1 flex-shrink-0" />
+              <p className="text-slate-600 text-sm">
+                <strong className="text-slate-800">Fast 20 Jahre</strong> Erfahrung in Webentwicklung und digitalem Marketing
               </p>
             </div>
             <div className="flex items-start gap-3">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-1 flex-shrink-0" />
-              <p className="text-slate-300 text-sm">
-                <strong className="text-white">Menschen verstehen:</strong> Was treibt deine Kunden an? Was suchen sie wirklich? Ich versetze mich in ihre Schuhe – und in deine.
+              <CheckCircle2 className="w-4 h-4 text-sky-600 mt-1 flex-shrink-0" />
+              <p className="text-slate-600 text-sm">
+                <strong className="text-slate-800">Menschen verstehen:</strong> Was treibt deine Kunden an? Was suchen sie wirklich? Ich versetze mich in ihre Schuhe – und in deine.
               </p>
             </div>
             <div className="flex items-start gap-3">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-1 flex-shrink-0" />
-              <p className="text-slate-300 text-sm">
-                <strong className="text-white">Automatisierungs-Experte:</strong> Systeme, die arbeiten, während du auf dem Wasser bist
+              <CheckCircle2 className="w-4 h-4 text-sky-600 mt-1 flex-shrink-0" />
+              <p className="text-slate-600 text-sm">
+                <strong className="text-slate-800">Automatisierungs-Experte:</strong> Systeme, die arbeiten, während du auf dem Wasser bist
               </p>
             </div>
             <div className="flex items-start gap-3">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-1 flex-shrink-0" />
-              <p className="text-slate-300 text-sm">
-                <strong className="text-white">Full-Stack:</strong> Vom Design bis zur Technik – alles aus einer Hand
+              <CheckCircle2 className="w-4 h-4 text-sky-600 mt-1 flex-shrink-0" />
+              <p className="text-slate-600 text-sm">
+                <strong className="text-slate-800">Full-Stack:</strong> Vom Design bis zur Technik – alles aus einer Hand
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* The Promise */}
-      <div className="bg-gradient-to-r from-cyan-500/10 to-purple-500/10 rounded-2xl p-6 border border-cyan-500/20 text-center">
-        <p className="text-white font-medium mb-2">Mein Versprechen:</p>
-        <p className="text-slate-300 text-sm max-w-2xl mx-auto">
+      {/* Summary */}
+      <div className="bg-stone-50 p-6 border border-stone-200 text-center">
+        <p className="text-slate-600 text-sm max-w-2xl mx-auto">
           Eine digitale Präsenz, die die Stille transportiert. Ein System, das dein Geschäft wachsen lässt –
           ohne dass du dafür deine Werte opfern musst. Authentisch, automatisiert, wirksam.
         </p>
@@ -955,10 +954,10 @@ function SuccessVisionSection() {
   return (
     <div className="space-y-8">
       <div className="text-center mb-12">
-        <h2 className="text-3xl font-bold text-white mb-4">
+        <h2 className="text-3xl md:text-4xl font-serif font-bold text-slate-800 mb-4">
           Stell dir vor...
         </h2>
-        <p className="text-slate-400 max-w-2xl mx-auto">
+        <p className="text-slate-600 max-w-2xl mx-auto">
           So sieht dein Alltag aus, wenn das System läuft.
         </p>
       </div>
@@ -967,27 +966,27 @@ function SuccessVisionSection() {
         {successPoints.map((point, idx) => (
           <div
             key={idx}
-            className="group bg-slate-900/50 rounded-xl p-5 border border-slate-700 hover:border-emerald-500/30 transition-all"
+            className="group bg-white p-5 shadow-md hover:shadow-lg hover:border-sky-200 transition-all"
           >
             <div className="flex items-center gap-6">
               {/* Before */}
               <div className="flex-1 flex items-center gap-3">
-                <div className="p-2 bg-red-500/10 rounded-lg text-red-400 group-hover:bg-red-500/20 transition-colors">
+                <div className="text-rose-400">
                   {point.icon}
                 </div>
-                <p className="text-slate-400 text-sm line-through decoration-red-400/50">
+                <p className="text-slate-500 text-sm line-through decoration-rose-300/50">
                   {point.before}
                 </p>
               </div>
 
               {/* Arrow */}
               <div className="flex-shrink-0">
-                <ArrowRight className="w-5 h-5 text-emerald-400" />
+                <ArrowRight className="w-5 h-5 text-sky-600" />
               </div>
 
               {/* After */}
               <div className="flex-1">
-                <p className="text-white text-sm font-medium">
+                <p className="text-slate-800 text-sm font-medium">
                   {point.after}
                 </p>
               </div>
@@ -997,13 +996,13 @@ function SuccessVisionSection() {
       </div>
 
       {/* Ultimate Success */}
-      <div className="bg-gradient-to-br from-emerald-500/10 to-cyan-500/10 rounded-2xl p-8 border border-emerald-500/20 text-center mt-8">
-        <Wind className="w-10 h-10 text-emerald-400 mx-auto mb-4" />
-        <h3 className="text-xl font-bold text-white mb-3">
+      <div className="bg-gradient-to-br from-sky-50 to-stone-50 p-8 shadow-md text-center mt-8 shadow-sm">
+        <Wind className="w-10 h-10 text-sky-600 mx-auto mb-4" />
+        <h3 className="text-xl font-serif font-bold text-slate-800 mb-3">
           Das Ergebnis?
         </h3>
-        <p className="text-slate-300 max-w-xl mx-auto leading-relaxed">
-          Du bist da, wo du sein sollst: <strong className="text-emerald-400">Auf dem Wasser. Bei deinen Gästen.
+        <p className="text-slate-600 max-w-xl mx-auto leading-relaxed">
+          Du bist da, wo du sein sollst: <strong className="text-sky-700">Auf dem Wasser. Bei deinen Gästen.
           Im Moment.</strong> Das System arbeitet im Hintergrund – leise, zuverlässig, jeden Tag.
           Und dein Geschäft wächst, ohne dass du mehr arbeitest.
         </p>
@@ -1033,13 +1032,13 @@ function AvoidFailureSection() {
   ];
 
   return (
-    <div className="bg-gradient-to-br from-slate-900 to-red-900/20 rounded-2xl p-8 border border-red-500/20">
+    <div className="bg-gradient-to-br from-rose-50/70 to-stone-50 p-8 shadow-md">
       <div className="text-center mb-8">
-        <AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-4" />
-        <h2 className="text-2xl font-bold text-white mb-2">
+        <AlertCircle className="w-10 h-10 text-rose-400 mx-auto mb-4" />
+        <h2 className="text-2xl font-serif font-bold text-slate-800 mb-2">
           Die Alternative? Nichts tun.
         </h2>
-        <p className="text-slate-400 text-sm">
+        <p className="text-slate-600 text-sm">
           Und das sind die Konsequenzen.
         </p>
       </div>
@@ -1047,30 +1046,30 @@ function AvoidFailureSection() {
       <div className="grid md:grid-cols-3 gap-6 mb-8">
         {failures.map((item, idx) => (
           <div key={idx} className="text-center">
-            <div className="text-3xl font-bold text-red-400 mb-2">{item.stat}</div>
-            <p className="text-slate-400 text-sm">{item.description}</p>
+            <div className="text-3xl font-bold text-rose-500 mb-2">{item.stat}</div>
+            <p className="text-slate-600 text-sm">{item.description}</p>
           </div>
         ))}
       </div>
 
-      <div className="bg-slate-900/50 rounded-xl p-6 border border-slate-700">
-        <h4 className="font-semibold text-white mb-4 text-center">Was du verlierst:</h4>
+      <div className="bg-white/80 p-6 border border-rose-100">
+        <h4 className="font-serif font-semibold text-slate-800 mb-4 text-center">Was du verlierst:</h4>
         <div className="grid md:grid-cols-2 gap-4">
           <div className="flex items-start gap-3">
-            <X className="w-4 h-4 text-red-400 mt-1 flex-shrink-0" />
-            <p className="text-slate-400 text-sm">Buchungen von Menschen, die genau das suchen, was du bietest – aber dich nie finden</p>
+            <X className="w-4 h-4 text-rose-400 mt-1 flex-shrink-0" />
+            <p className="text-slate-600 text-sm">Buchungen von Menschen, die genau das suchen, was du bietest – aber dich nie finden</p>
           </div>
           <div className="flex items-start gap-3">
-            <X className="w-4 h-4 text-red-400 mt-1 flex-shrink-0" />
-            <p className="text-slate-400 text-sm">Folgekurse, Wiederbuchungen, Empfehlungen – weil niemand dran erinnert wird</p>
+            <X className="w-4 h-4 text-rose-400 mt-1 flex-shrink-0" />
+            <p className="text-slate-600 text-sm">Folgekurse, Wiederbuchungen, Empfehlungen – weil niemand dran erinnert wird</p>
           </div>
           <div className="flex items-start gap-3">
-            <X className="w-4 h-4 text-red-400 mt-1 flex-shrink-0" />
-            <p className="text-slate-400 text-sm">Die Synergie zwischen Segelschule und Haus – zwei Geschäfte, die nebeneinander her laufen</p>
+            <X className="w-4 h-4 text-rose-400 mt-1 flex-shrink-0" />
+            <p className="text-slate-600 text-sm">Die Synergie zwischen Segelschule und Haus – zwei Geschäfte, die nebeneinander her laufen</p>
           </div>
           <div className="flex items-start gap-3">
-            <X className="w-4 h-4 text-red-400 mt-1 flex-shrink-0" />
-            <p className="text-slate-400 text-sm">Deine Zeit – weil du Admin-Arbeit machst, statt auf dem Wasser zu sein</p>
+            <X className="w-4 h-4 text-rose-400 mt-1 flex-shrink-0" />
+            <p className="text-slate-600 text-sm">Deine Zeit – weil du Admin-Arbeit machst, statt auf dem Wasser zu sein</p>
           </div>
         </div>
       </div>
@@ -1087,12 +1086,13 @@ function StoryBrandJourneySection() {
   const [activeStep, setActiveStep] = useState(0);
 
   // StoryBrand journey for Segelschule
+  // Colors: Hero=blue, Problem=red, Guide=purple, Plan=amber, CTA=orange, Result=green
   const segelschuleJourney = [
     {
       step: "Der Held",
       title: "Dein Segelschüler",
       icon: <Users className="w-6 h-6" />,
-      color: "cyan",
+      color: "blue",
       avatar: "Max, 35, Berliner, Bürojob, sucht Abenteuer und Freiheit auf dem Wasser",
       wants: "Segeln lernen. Endlich raus aus dem Alltag. Etwas Echtes erleben.",
       feels: "Neugierig, aber unsicher. Wird er es schaffen? Ist das der richtige Ort?",
@@ -1110,7 +1110,7 @@ function StoryBrandJourneySection() {
       step: "Der Guide",
       title: "Du – Gerrit",
       icon: <Award className="w-6 h-6" />,
-      color: "emerald",
+      color: "purple",
       empathy: "Du verstehst, dass es um mehr geht als einen Schein – es geht ums Ankommen",
       authority: "Erfahrener Skipper, das Plattbodenschiff, das Haff als perfekter Lernort",
       promise: "'Bei mir lernst du verantwortungsvolles Segeln – der erste Schritt aufs Meer'",
@@ -1132,7 +1132,7 @@ function StoryBrandJourneySection() {
       step: "Der Call-to-Action",
       title: "Jetzt buchen",
       icon: <Zap className="w-6 h-6" />,
-      color: "purple",
+      color: "orange",
       primary: "'Jetzt Segelkurs buchen' – klarer Button auf der Website",
       secondary: "'Erstgespräch vereinbaren' für Unentschlossene",
       trigger: "Das System erinnert: Vorfreude-Mail 7 Tage vorher",
@@ -1141,7 +1141,7 @@ function StoryBrandJourneySection() {
       step: "Das Ergebnis",
       title: "Erfolg vs. Scheitern",
       icon: <Star className="w-6 h-6" />,
-      color: "emerald",
+      color: "green",
       success: "Max hat den SBF Binnen. Er fühlt sich lebendig. Er erzählt allen davon. Er bucht SBF See.",
       failure: "Ohne klaren Weg: Max googelt weiter, bucht woanders, oder gar nicht.",
       transformation: "Vom Schreibtisch aufs Wasser – vom Träumer zum Segler",
@@ -1149,12 +1149,13 @@ function StoryBrandJourneySection() {
   ];
 
   // StoryBrand journey for Haus
+  // Colors: Hero=blue, Problem=red, Guide=purple, Plan=amber, CTA=orange, Result=green
   const hausJourney = [
     {
       step: "Der Held",
       title: "Dein Gast",
       icon: <Users className="w-6 h-6" />,
-      color: "purple",
+      color: "blue",
       avatar: "Anna & Tom, beide 42, zwei Kinder, Hamburg, Stress im Alltag",
       wants: "Auszeit. Stille. Einfach mal abschalten. Qualitätszeit als Familie.",
       feels: "Erschöpft, aber hoffnungsvoll. Gibt es noch Orte ohne WLAN-Zwang?",
@@ -1170,11 +1171,11 @@ function StoryBrandJourneySection() {
     },
     {
       step: "Der Guide",
-      title: "Du – Gerrit & Kathrin",
+      title: "Du – Gerrit & Axinia",
       icon: <Award className="w-6 h-6" />,
-      color: "emerald",
+      color: "purple",
       empathy: "Ihr wisst, was Menschen brauchen: Raum, Stille, Offenheit – keine Bewertung",
-      authority: "Das Haus am Haff, Kathrins Walking, der Ort der keiner kennt",
+      authority: "Das Haus am Haff, Axinias Walking, der Ort der keiner kennt",
       promise: "'Bei uns darfst du einfach sein – ohne Programm, ohne Erwartung'",
     },
     {
@@ -1194,7 +1195,7 @@ function StoryBrandJourneySection() {
       step: "Der Call-to-Action",
       title: "Jetzt buchen",
       icon: <Zap className="w-6 h-6" />,
-      color: "purple",
+      color: "orange",
       primary: "'Verfügbarkeit prüfen' – klarer Button",
       secondary: "'Walking dazubuchen' als Upgrade",
       trigger: "Das System cross-sellet: 'Segeln probieren am Plattboden?'",
@@ -1203,7 +1204,7 @@ function StoryBrandJourneySection() {
       step: "Das Ergebnis",
       title: "Erfolg vs. Scheitern",
       icon: <Star className="w-6 h-6" />,
-      color: "emerald",
+      color: "green",
       success: "Anna & Tom kommen jedes Jahr. Sie empfehlen das Haff weiter. Sie buchen Walking, Segeln, alles.",
       failure: "Ohne Präsenz: Sie finden einen anderen Airbnb. Austauschbar. Vergessen.",
       transformation: "Von erschöpft zu erholt – vom Funktionieren zum Leben",
@@ -1213,12 +1214,14 @@ function StoryBrandJourneySection() {
   const journey = activeBusiness === "segelschule" ? segelschuleJourney : hausJourney;
   const currentStepData = journey[activeStep];
 
-  const colorClasses: Record<string, { bg: string; text: string; border: string }> = {
-    cyan: { bg: "bg-cyan-500/20", text: "text-cyan-400", border: "border-cyan-500/30" },
-    purple: { bg: "bg-purple-500/20", text: "text-purple-400", border: "border-purple-500/30" },
-    red: { bg: "bg-red-500/20", text: "text-red-400", border: "border-red-500/30" },
-    emerald: { bg: "bg-emerald-500/20", text: "text-emerald-400", border: "border-emerald-500/30" },
-    amber: { bg: "bg-amber-500/20", text: "text-amber-400", border: "border-amber-500/30" },
+  // Color scheme: Hero=blue, Problem=red, Guide=purple, Plan=amber, CTA=orange, Result=green
+  const colorClasses: Record<string, { bg: string; text: string; border: string; dot: string; nav: string }> = {
+    blue: { bg: "bg-sky-50", text: "text-sky-700", border: "border-sky-200", dot: "bg-sky-600", nav: "bg-sky-600" },
+    red: { bg: "bg-rose-50", text: "text-rose-600", border: "border-rose-200", dot: "bg-rose-500", nav: "bg-rose-500" },
+    purple: { bg: "bg-violet-50", text: "text-violet-700", border: "border-violet-200", dot: "bg-violet-600", nav: "bg-violet-600" },
+    amber: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200", dot: "bg-amber-500", nav: "bg-amber-500" },
+    orange: { bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-200", dot: "bg-orange-500", nav: "bg-orange-500" },
+    green: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200", dot: "bg-emerald-600", nav: "bg-emerald-600" },
   };
 
   const colors = colorClasses[currentStepData.color];
@@ -1226,14 +1229,14 @@ function StoryBrandJourneySection() {
   return (
     <div className="space-y-8">
       <div className="text-center mb-8">
-        <div className="inline-flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-full px-4 py-2 mb-6">
-          <Layers className="w-4 h-4 text-amber-400" />
-          <span className="text-amber-400 text-sm font-medium">StoryBrand Framework</span>
+        <div className="inline-flex items-center gap-2 text-amber-700 mb-6">
+          <Layers className="w-4 h-4 text-amber-600" />
+          <span className="text-amber-700 text-sm font-medium">StoryBrand Framework</span>
         </div>
-        <h2 className="text-3xl font-bold text-white mb-4">
+        <h2 className="text-3xl md:text-4xl font-serif font-bold text-slate-800 mb-4">
           Die Kundenreise – visualisiert
         </h2>
-        <p className="text-slate-400 max-w-2xl mx-auto mb-2">
+        <p className="text-slate-600 max-w-2xl mx-auto mb-2">
           So führt das System deine Kunden von der ersten Google-Suche bis zum Stammgast.
         </p>
         <p className="text-slate-500 text-xs">
@@ -1242,7 +1245,7 @@ function StoryBrandJourneySection() {
             href="https://storybrand.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-amber-400 hover:text-amber-300 underline"
+            className="text-amber-600 hover:text-amber-700 underline"
           >
             Donald Miller
           </a>
@@ -1251,13 +1254,13 @@ function StoryBrandJourneySection() {
 
       {/* Business Type Toggle */}
       <div className="flex justify-center mb-8">
-        <div className="inline-flex gap-1 p-1 bg-slate-800/50 rounded-xl border border-slate-700">
+        <div className="inline-flex gap-1 p-1 bg-white shadow-md">
           <button
             onClick={() => { setActiveBusiness("segelschule"); setActiveStep(0); }}
-            className={`flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-medium transition-all ${
+            className={`flex items-center gap-2 px-6 py-3 text-sm font-medium transition-all ${
               activeBusiness === "segelschule"
-                ? "bg-cyan-500 text-white shadow-lg"
-                : "text-slate-400 hover:text-white hover:bg-slate-700/50"
+                ? "bg-sky-600 text-white shadow-md"
+                : "text-slate-600 hover:text-slate-800 hover:bg-sky-50"
             }`}
           >
             <Ship className="w-4 h-4" />
@@ -1265,10 +1268,10 @@ function StoryBrandJourneySection() {
           </button>
           <button
             onClick={() => { setActiveBusiness("haus"); setActiveStep(0); }}
-            className={`flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-medium transition-all ${
+            className={`flex items-center gap-2 px-6 py-3 text-sm font-medium transition-all ${
               activeBusiness === "haus"
-                ? "bg-purple-500 text-white shadow-lg"
-                : "text-slate-400 hover:text-white hover:bg-slate-700/50"
+                ? "bg-stone-600 text-white shadow-md"
+                : "text-slate-600 hover:text-slate-800 hover:bg-stone-100"
             }`}
           >
             <Home className="w-4 h-4" />
@@ -1280,18 +1283,14 @@ function StoryBrandJourneySection() {
       {/* Journey Steps - Horizontal Clickable */}
       <div className="relative">
         {/* Progress Line */}
-        <div className="absolute top-8 left-0 right-0 h-0.5 bg-slate-700" />
-        <div
-          className="absolute top-8 left-0 h-0.5 bg-gradient-to-r from-cyan-500 via-amber-500 to-emerald-500 transition-all duration-500"
-          style={{ width: `${(activeStep / (journey.length - 1)) * 100}%` }}
-        />
+        <div className="absolute top-8 left-0 right-0 h-px bg-stone-300" />
 
         {/* Steps */}
         <div className="grid grid-cols-6 gap-2">
           {journey.map((step, idx) => {
-            const stepColors = colorClasses[step.color];
             const isActive = activeStep === idx;
             const isPast = idx < activeStep;
+            const stepColors = colorClasses[step.color];
 
             return (
               <button
@@ -1302,21 +1301,21 @@ function StoryBrandJourneySection() {
                 }`}
               >
                 {/* Circle */}
-                <div className={`w-16 h-16 rounded-full flex items-center justify-center transition-all z-10 ${
+                <div className={`w-16 h-16 flex items-center justify-center transition-all z-10 ${
                   isActive
-                    ? `${stepColors.bg} ${stepColors.border} border-2`
+                    ? `${stepColors.nav} text-white shadow-md`
                     : isPast
-                    ? "bg-emerald-500/20 border border-emerald-500/30"
-                    : "bg-slate-800 border border-slate-700"
+                    ? `${stepColors.bg} ${stepColors.text}`
+                    : "bg-white text-slate-500 shadow-sm"
                 }`}>
-                  <span className={isActive ? stepColors.text : isPast ? "text-emerald-400" : "text-slate-500"}>
+                  <span>
                     {step.icon}
                   </span>
                 </div>
 
                 {/* Label */}
                 <span className={`mt-3 text-xs font-medium text-center ${
-                  isActive ? stepColors.text : isPast ? "text-emerald-400" : "text-slate-500"
+                  isActive ? stepColors.text : isPast ? stepColors.text : "text-slate-500"
                 }`}>
                   {step.step}
                 </span>
@@ -1327,34 +1326,34 @@ function StoryBrandJourneySection() {
       </div>
 
       {/* Active Step Content */}
-      <div className={`${colors.bg} rounded-2xl p-8 border ${colors.border} transition-all duration-300`}>
+      <div className={`${colors.bg} p-8 border ${colors.border} transition-all duration-300 shadow-lg`}>
         <div className="flex items-center gap-3 mb-6">
-          <div className={`p-3 rounded-xl ${colors.bg}`}>
+          <div className={`p-3 ${colors.bg} border ${colors.border}`}>
             {currentStepData.icon}
           </div>
           <div>
             <span className={`text-xs font-semibold ${colors.text} uppercase tracking-wider`}>
               {currentStepData.step}
             </span>
-            <h3 className="text-xl font-bold text-white">{currentStepData.title}</h3>
+            <h3 className="text-xl font-serif font-bold text-slate-800">{currentStepData.title}</h3>
           </div>
         </div>
 
         {/* Content varies by step type */}
         {"avatar" in currentStepData && (
           <div className="space-y-4">
-            <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700">
+            <div className="bg-white p-4 border border-stone-200">
               <div className="text-xs text-slate-500 mb-1">Wer ist das?</div>
-              <p className="text-slate-300">{currentStepData.avatar}</p>
+              <p className="text-slate-700">{currentStepData.avatar}</p>
             </div>
             <div className="grid md:grid-cols-2 gap-4">
-              <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700">
+              <div className="bg-white p-4 border border-stone-200">
                 <div className="text-xs text-slate-500 mb-1">Was will er/sie?</div>
-                <p className="text-slate-300 text-sm">{currentStepData.wants}</p>
+                <p className="text-slate-700 text-sm">{currentStepData.wants}</p>
               </div>
-              <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700">
+              <div className="bg-white p-4 border border-stone-200">
                 <div className="text-xs text-slate-500 mb-1">Was fühlt er/sie?</div>
-                <p className="text-slate-300 text-sm">{currentStepData.feels}</p>
+                <p className="text-slate-700 text-sm">{currentStepData.feels}</p>
               </div>
             </div>
           </div>
@@ -1362,17 +1361,17 @@ function StoryBrandJourneySection() {
 
         {"external" in currentStepData && (
           <div className="grid md:grid-cols-3 gap-4">
-            <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700">
-              <div className="text-xs text-red-400 mb-1">Externes Problem</div>
-              <p className="text-slate-300 text-sm">{currentStepData.external}</p>
+            <div className="bg-white p-4 border border-stone-200">
+              <div className="text-xs text-slate-500 mb-1">Externes Problem</div>
+              <p className="text-slate-700 text-sm">{currentStepData.external}</p>
             </div>
-            <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700">
-              <div className="text-xs text-amber-400 mb-1">Internes Problem</div>
-              <p className="text-slate-300 text-sm">{currentStepData.internal}</p>
+            <div className="bg-white p-4 border border-stone-200">
+              <div className="text-xs text-slate-500 mb-1">Internes Problem</div>
+              <p className="text-slate-700 text-sm">{currentStepData.internal}</p>
             </div>
-            <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700">
-              <div className="text-xs text-purple-400 mb-1">Philosophisches Problem</div>
-              <p className="text-slate-300 text-sm">{currentStepData.philosophical}</p>
+            <div className="bg-white p-4 border border-stone-200">
+              <div className="text-xs text-slate-500 mb-1">Philosophisches Problem</div>
+              <p className="text-slate-700 text-sm">{currentStepData.philosophical}</p>
             </div>
           </div>
         )}
@@ -1380,18 +1379,18 @@ function StoryBrandJourneySection() {
         {"empathy" in currentStepData && (
           <div className="space-y-4">
             <div className="grid md:grid-cols-2 gap-4">
-              <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700">
-                <div className="text-xs text-emerald-400 mb-1">Empathie</div>
-                <p className="text-slate-300 text-sm">{currentStepData.empathy}</p>
+              <div className="bg-white p-4 border border-stone-200">
+                <div className="text-xs text-slate-500 mb-1">Empathie</div>
+                <p className="text-slate-700 text-sm">{currentStepData.empathy}</p>
               </div>
-              <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700">
-                <div className="text-xs text-cyan-400 mb-1">Autorität</div>
-                <p className="text-slate-300 text-sm">{currentStepData.authority}</p>
+              <div className="bg-white p-4 border border-stone-200">
+                <div className="text-xs text-slate-500 mb-1">Autorität</div>
+                <p className="text-slate-700 text-sm">{currentStepData.authority}</p>
               </div>
             </div>
-            <div className="bg-emerald-500/10 rounded-xl p-4 border border-emerald-500/30">
-              <div className="text-xs text-emerald-400 mb-1">Das Versprechen</div>
-              <p className="text-emerald-300 font-medium">{currentStepData.promise}</p>
+            <div className="bg-white p-4 border border-stone-200">
+              <div className="text-xs text-slate-500 mb-1">Das Versprechen</div>
+              <p className="text-slate-700 font-medium">{currentStepData.promise}</p>
             </div>
           </div>
         )}
@@ -1399,11 +1398,11 @@ function StoryBrandJourneySection() {
         {"steps" in currentStepData && currentStepData.steps && (
           <div className="space-y-3">
             {currentStepData.steps.map((step, idx) => (
-              <div key={idx} className="flex items-start gap-3 bg-slate-900/50 rounded-xl p-4 border border-slate-700">
-                <div className="w-6 h-6 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0">
-                  <span className="text-amber-400 text-xs font-bold">{idx + 1}</span>
+              <div key={idx} className="flex items-start gap-3 bg-white p-4 border border-stone-200">
+                <div className="w-6 h-6 bg-stone-100 border border-stone-200 flex items-center justify-center flex-shrink-0">
+                  <span className="text-slate-600 text-xs font-bold">{idx + 1}</span>
                 </div>
-                <p className="text-slate-300 text-sm">{step.substring(3)}</p>
+                <p className="text-slate-700 text-sm">{step.substring(3)}</p>
               </div>
             ))}
           </div>
@@ -1412,18 +1411,18 @@ function StoryBrandJourneySection() {
         {"primary" in currentStepData && (
           <div className="space-y-4">
             <div className="grid md:grid-cols-2 gap-4">
-              <div className="bg-purple-500/10 rounded-xl p-4 border border-purple-500/30">
-                <div className="text-xs text-purple-400 mb-1">Primärer CTA</div>
-                <p className="text-slate-300 text-sm">{currentStepData.primary}</p>
+              <div className="bg-white p-4 border border-stone-200">
+                <div className="text-xs text-slate-500 mb-1">Primärer CTA</div>
+                <p className="text-slate-700 text-sm">{currentStepData.primary}</p>
               </div>
-              <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700">
-                <div className="text-xs text-slate-400 mb-1">Sekundärer CTA</div>
-                <p className="text-slate-300 text-sm">{currentStepData.secondary}</p>
+              <div className="bg-white p-4 border border-stone-200">
+                <div className="text-xs text-slate-500 mb-1">Sekundärer CTA</div>
+                <p className="text-slate-700 text-sm">{currentStepData.secondary}</p>
               </div>
             </div>
-            <div className="bg-cyan-500/10 rounded-xl p-4 border border-cyan-500/30">
-              <div className="text-xs text-cyan-400 mb-1">Das System übernimmt</div>
-              <p className="text-slate-300 text-sm">{currentStepData.trigger}</p>
+            <div className="bg-white p-4 border border-stone-200">
+              <div className="text-xs text-slate-500 mb-1">Das System übernimmt</div>
+              <p className="text-slate-700 text-sm">{currentStepData.trigger}</p>
             </div>
           </div>
         )}
@@ -1431,24 +1430,24 @@ function StoryBrandJourneySection() {
         {"success" in currentStepData && (
           <div className="space-y-4">
             <div className="grid md:grid-cols-2 gap-4">
-              <div className="bg-emerald-500/10 rounded-xl p-4 border border-emerald-500/30">
-                <div className="flex items-center gap-2 text-xs text-emerald-400 mb-2">
+              <div className="bg-white p-4 border border-stone-200">
+                <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
                   <CheckCircle2 className="w-4 h-4" />
                   Erfolg (mit System)
                 </div>
-                <p className="text-slate-300 text-sm">{currentStepData.success}</p>
+                <p className="text-slate-700 text-sm">{currentStepData.success}</p>
               </div>
-              <div className="bg-red-500/10 rounded-xl p-4 border border-red-500/30">
-                <div className="flex items-center gap-2 text-xs text-red-400 mb-2">
+              <div className="bg-white p-4 border border-stone-200">
+                <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
                   <X className="w-4 h-4" />
                   Scheitern (ohne System)
                 </div>
-                <p className="text-slate-300 text-sm">{currentStepData.failure}</p>
+                <p className="text-slate-700 text-sm">{currentStepData.failure}</p>
               </div>
             </div>
-            <div className="bg-gradient-to-r from-cyan-500/10 to-purple-500/10 rounded-xl p-4 border border-cyan-500/20">
-              <div className="text-xs text-white mb-1">Die Transformation</div>
-              <p className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 font-semibold">
+            <div className="bg-white p-4 border border-stone-200">
+              <div className="text-xs text-slate-500 mb-1">Die Transformation</div>
+              <p className="text-slate-700 font-semibold">
                 {currentStepData.transformation}
               </p>
             </div>
@@ -1461,10 +1460,10 @@ function StoryBrandJourneySection() {
         <button
           onClick={() => setActiveStep(Math.max(0, activeStep - 1))}
           disabled={activeStep === 0}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 transition-all ${
             activeStep === 0
               ? "text-slate-600 cursor-not-allowed"
-              : "text-slate-400 hover:text-white hover:bg-slate-800"
+              : "text-slate-600 hover:text-slate-800 hover:bg-white"
           }`}
         >
           <ArrowRight className="w-4 h-4 rotate-180" />
@@ -1472,24 +1471,27 @@ function StoryBrandJourneySection() {
         </button>
 
         <div className="flex gap-1">
-          {journey.map((_, idx) => (
-            <button
-              key={idx}
-              onClick={() => setActiveStep(idx)}
-              className={`w-2 h-2 rounded-full transition-all ${
-                activeStep === idx ? "bg-white w-6" : "bg-slate-600 hover:bg-slate-500"
-              }`}
-            />
-          ))}
+          {journey.map((step, idx) => {
+            const stepColors = colorClasses[step.color];
+            return (
+              <button
+                key={idx}
+                onClick={() => setActiveStep(idx)}
+                className={`w-2 h-2 transition-all ${
+                  activeStep === idx ? `${stepColors.dot} w-6` : "bg-stone-300 hover:bg-stone-400"
+                }`}
+              />
+            );
+          })}
         </div>
 
         <button
           onClick={() => setActiveStep(Math.min(journey.length - 1, activeStep + 1))}
           disabled={activeStep === journey.length - 1}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 transition-all ${
             activeStep === journey.length - 1
               ? "text-slate-600 cursor-not-allowed"
-              : "text-slate-400 hover:text-white hover:bg-slate-800"
+              : "text-slate-600 hover:text-slate-800 hover:bg-white"
           }`}
         >
           Weiter
@@ -1642,14 +1644,14 @@ function DynamicLTVBooster() {
           impact: "+35% Zufriedenheit",
           timing: "Mit der Buchungsbestätigung",
           description: "PDF mit Orten, die nur Einheimische kennen. Macht dich zum Insider.",
-          mockup: { type: "pdf", title: "Geheimtipps am Haff", items: ["🏖️ Der versteckte Strand", "🍽️ Fischerhütte (kein Tourist)", "🌅 Bester Sonnenuntergang-Spot", "🚶 Kathrins Lieblingsweg"] },
+          mockup: { type: "pdf", title: "Geheimtipps am Haff", items: ["🏖️ Der versteckte Strand", "🍽️ Fischerhütte (kein Tourist)", "🌅 Bester Sonnenuntergang-Spot", "🚶 Axinias Lieblingsweg"] },
         },
         {
           title: "Walking-Angebot",
           impact: "+20% Zusatzbuchungen",
           timing: "Mit der 7-Tage-Mail",
-          description: "Hinweis auf Kathrins begleitete Walks. Cross-Selling, das zum Erlebnis passt.",
-          mockup: { type: "offer", title: "Walking mit Kathrin", items: ["Während eures Aufenthalts:", "Begleitete Walks in der Natur", "Zeit mit sich selbst", "→ Jetzt dazubuchen"] },
+          description: "Hinweis auf Axinias begleitete Walks. Cross-Selling, das zum Erlebnis passt.",
+          mockup: { type: "offer", title: "Walking mit Axinia", items: ["Während eures Aufenthalts:", "Begleitete Walks in der Natur", "Zeit mit sich selbst", "→ Jetzt dazubuchen"] },
         },
         {
           title: "Anreise-Infos",
@@ -1730,9 +1732,9 @@ function DynamicLTVBooster() {
   const currentPhase = content[activePhase];
 
   const colorClasses = {
-    emerald: { bg: "bg-emerald-500/20", text: "text-emerald-400", border: "border-emerald-500/30", light: "bg-emerald-500/10" },
-    cyan: { bg: "bg-cyan-500/20", text: "text-cyan-400", border: "border-cyan-500/30", light: "bg-cyan-500/10" },
-    purple: { bg: "bg-purple-500/20", text: "text-purple-400", border: "border-purple-500/30", light: "bg-purple-500/10" },
+    emerald: { bg: "bg-sky-50", text: "text-sky-700", border: "border-sky-200", light: "bg-sky-50/50" },
+    cyan: { bg: "bg-sky-50", text: "text-sky-700", border: "border-sky-200", light: "bg-sky-50/50" },
+    purple: { bg: "bg-stone-100", text: "text-stone-700", border: "border-stone-300", light: "bg-stone-50" },
   };
   const colors = colorClasses[currentPhase.color as keyof typeof colorClasses];
 
@@ -1742,27 +1744,27 @@ function DynamicLTVBooster() {
   return (
     <div className="space-y-8">
       <div className="text-center mb-8">
-        <div className="inline-flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 rounded-full px-4 py-2 mb-6">
-          <Sparkles className="w-4 h-4 text-emerald-400" />
-          <span className="text-emerald-400 text-sm font-medium">Die Transformation</span>
+        <div className="inline-flex items-center gap-2 text-sky-700 mb-6">
+          <Sparkles className="w-4 h-4 text-sky-700" />
+          <span className="text-sky-700 text-sm font-medium">Die Transformation</span>
         </div>
-        <h2 className="text-3xl font-bold text-white mb-4">
+        <h2 className="text-3xl md:text-4xl font-serif font-bold text-slate-800 mb-4">
           Das System, das leise arbeitet
         </h2>
-        <p className="text-slate-400 max-w-2xl mx-auto">
+        <p className="text-slate-600 max-w-2xl mx-auto">
           Drei Phasen, ein Ziel: Mehr Wert aus jedem Gast – automatisch.
         </p>
       </div>
 
       {/* Business Type Toggle */}
       <div className="flex justify-center mb-8">
-        <div className="inline-flex gap-1 p-1 bg-slate-800/50 rounded-xl border border-slate-700">
+        <div className="inline-flex gap-1 p-1 bg-white shadow-md">
           <button
             onClick={() => { setActiveBusiness("segelschule"); setActivePhase("vorher"); }}
-            className={`flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-medium transition-all ${
+            className={`flex items-center gap-2 px-6 py-3 text-sm font-medium transition-all ${
               activeBusiness === "segelschule"
-                ? "bg-cyan-500 text-white shadow-lg"
-                : "text-slate-400 hover:text-white hover:bg-slate-700/50"
+                ? "bg-sky-600 text-white shadow-md"
+                : "text-slate-600 hover:text-slate-800 hover:bg-sky-50"
             }`}
           >
             <Ship className="w-4 h-4" />
@@ -1770,10 +1772,10 @@ function DynamicLTVBooster() {
           </button>
           <button
             onClick={() => { setActiveBusiness("haus"); setActivePhase("vorher"); }}
-            className={`flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-medium transition-all ${
+            className={`flex items-center gap-2 px-6 py-3 text-sm font-medium transition-all ${
               activeBusiness === "haus"
-                ? "bg-purple-500 text-white shadow-lg"
-                : "text-slate-400 hover:text-white hover:bg-slate-700/50"
+                ? "bg-stone-600 text-white shadow-md"
+                : "text-slate-600 hover:text-slate-800 hover:bg-stone-100"
             }`}
           >
             <Home className="w-4 h-4" />
@@ -1782,55 +1784,31 @@ function DynamicLTVBooster() {
         </div>
       </div>
 
-      {/* Phase Selector - Three Equal Tiles */}
-      <div className="grid grid-cols-3 gap-4 px-4">
+      {/* Phase Selector - Simple Tabs */}
+      <div className="flex justify-center gap-2">
         {(["vorher", "waehrend", "nachher"] as const).map((phase) => {
           const phaseData = content[phase];
           const isActive = activePhase === phase;
-          const phaseColors = colorClasses[phaseData.color as keyof typeof colorClasses];
 
           return (
             <button
               key={phase}
               onClick={() => setActivePhase(phase)}
-              className={`relative flex flex-col items-center justify-center gap-3 p-6 rounded-2xl transition-all duration-300 min-h-[140px] ${
+              className={`px-6 py-3 text-sm font-medium transition-all ${
                 isActive
-                  ? `${phaseColors.bg} ${phaseColors.border} border-2`
-                  : "bg-slate-800/50 border border-slate-700 hover:bg-slate-700/50"
+                  ? "bg-sky-600 text-white shadow-md"
+                  : "bg-white text-slate-600 hover:bg-stone-50 shadow-sm"
               }`}
             >
-              <div className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-xl ${
-                isActive ? phaseColors.text : "text-slate-500"
-              } ${isActive ? phaseColors.bg : "bg-slate-700"}`}>
-                {phase === "vorher" ? "1" : phase === "waehrend" ? "2" : "3"}
-              </div>
-              <span className={`text-sm font-semibold ${isActive ? phaseColors.text : "text-slate-400"}`}>
-                {phaseData.title}
-              </span>
-              <span className="text-xs text-slate-500 text-center">{phaseData.subtitle}</span>
+              {phaseData.title}
             </button>
           );
         })}
       </div>
 
-      {/* Progress Bar Below Tiles */}
-      <div className="px-4">
-        <div className="relative h-2 bg-slate-700 rounded-full overflow-hidden">
-          <div
-            className="absolute top-0 left-0 h-full bg-gradient-to-r from-emerald-500 via-cyan-500 to-purple-500 transition-all duration-500 rounded-full"
-            style={{ width: `${progressPercent}%` }}
-          />
-        </div>
-        <div className="flex justify-between mt-2 px-2">
-          <span className="text-xs text-emerald-400">Start</span>
-          <span className="text-xs text-cyan-400">Erlebnis</span>
-          <span className="text-xs text-purple-400">Danach</span>
-        </div>
-      </div>
-
       {/* Active Phase Content - Alternating Layout */}
-      <div className={`${colors.light} rounded-2xl p-6 md:p-8 border ${colors.border} transition-all duration-300`}>
-        <p className="text-slate-300 text-center mb-10 max-w-2xl mx-auto">
+      <div className="bg-white p-6 md:p-8 shadow-md transition-all duration-300">
+        <p className="text-slate-600 text-center mb-10 max-w-2xl mx-auto">
           {currentPhase.description}
         </p>
 
@@ -1846,17 +1824,17 @@ function DynamicLTVBooster() {
                 {/* Text Content */}
                 <div className="flex-1 space-y-4">
                   <div className="flex items-center gap-3 flex-wrap">
-                    <h4 className="text-xl font-bold text-white">{item.title}</h4>
-                    <span className={`text-xs font-semibold ${colors.text} ${colors.bg} px-3 py-1 rounded-full`}>
+                    <h4 className="text-xl font-serif font-bold text-slate-800">{item.title}</h4>
+                    <span className={`text-xs font-semibold ${colors.text} ${colors.bg} px-3 py-1`}>
                       {item.impact}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 text-slate-400 text-sm">
+                  <div className="flex items-center gap-2 text-slate-500 text-sm">
                     <Clock className="w-4 h-4" />
                     <span>{item.timing}</span>
                   </div>
                   {"description" in item && item.description && (
-                    <p className="text-slate-300">{item.description}</p>
+                    <p className="text-slate-600">{item.description}</p>
                   )}
                 </div>
 
@@ -1865,35 +1843,35 @@ function DynamicLTVBooster() {
                   {"emails" in item && item.emails && (
                     <div className="space-y-3">
                       {item.emails.map((email, emailIdx) => (
-                        <div key={emailIdx} className="bg-slate-900/70 rounded-xl p-4 border border-slate-700 hover:border-slate-600 transition-all">
+                        <div key={emailIdx} className="bg-white p-4 border border-stone-200 hover:border-slate-300 transition-all">
                           <div className="flex items-center gap-3 mb-2">
-                            <div className={`p-2 rounded-lg ${colors.bg}`}>
+                            <div className={`p-2 ${colors.bg}`}>
                               <span className={colors.text}>{email.icon}</span>
                             </div>
                             <div className="flex-1">
                               <div className="text-xs text-slate-500">{email.day}</div>
-                              <div className="font-semibold text-white text-sm">{email.subject}</div>
+                              <div className="font-semibold text-slate-800 text-sm">{email.subject}</div>
                             </div>
                           </div>
-                          <p className="text-slate-400 text-sm pl-12 leading-relaxed">{email.preview}</p>
+                          <p className="text-slate-500 text-sm pl-12 leading-relaxed">{email.preview}</p>
                         </div>
                       ))}
                     </div>
                   )}
 
                   {"mockup" in item && item.mockup && (
-                    <div className="bg-slate-900/70 rounded-xl p-5 border border-slate-700">
+                    <div className="bg-white p-5 border border-stone-200">
                       <div className="flex items-center gap-2 mb-4">
                         <div className="flex gap-1">
-                          <div className="w-3 h-3 rounded-full bg-red-500/50" />
-                          <div className="w-3 h-3 rounded-full bg-yellow-500/50" />
-                          <div className="w-3 h-3 rounded-full bg-green-500/50" />
+                          <div className="w-3 h-3 bg-red-500/50" />
+                          <div className="w-3 h-3 bg-yellow-500/50" />
+                          <div className="w-3 h-3 bg-green-500/50" />
                         </div>
-                        <span className="text-slate-400 text-xs ml-2">{item.mockup.title}</span>
+                        <span className="text-slate-500 text-xs ml-2">{item.mockup.title}</span>
                       </div>
                       <div className="space-y-2">
                         {item.mockup.items.map((mockItem, mockIdx) => (
-                          <div key={mockIdx} className={`text-sm ${mockItem.startsWith("→") || mockItem.startsWith("☑") ? colors.text : mockItem.startsWith("☐") ? "text-slate-500" : "text-slate-300"} ${mockItem.startsWith("→") ? "pl-4" : ""}`}>
+                          <div key={mockIdx} className={`text-sm ${mockItem.startsWith("→") || mockItem.startsWith("☑") ? colors.text : mockItem.startsWith("☐") ? "text-slate-500" : "text-slate-600"} ${mockItem.startsWith("→") ? "pl-4" : ""}`}>
                             {mockItem}
                           </div>
                         ))}
@@ -1908,36 +1886,36 @@ function DynamicLTVBooster() {
       </div>
 
       {/* Summary Stats */}
-      <div className="bg-slate-900/50 rounded-2xl p-6 border border-slate-700">
-        <h4 className="font-semibold text-white text-center mb-6">
+      <div className="bg-white p-6 border border-stone-200">
+        <h4 className="font-serif font-semibold text-slate-800 text-center mb-6">
           Zusammengefasst: Was diese Systeme für {activeBusiness === "segelschule" ? "die Segelschule" : "Haff Erleben"} tun
         </h4>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <div className="text-center p-4 bg-slate-800/50 rounded-xl">
-            <div className="text-2xl font-bold text-red-400">-50%</div>
+          <div className="text-center p-4 bg-white">
+            <div className="text-2xl font-bold text-rose-500">-50%</div>
             <div className="text-xs text-slate-500 mt-1">No-Shows</div>
           </div>
-          <div className="text-center p-4 bg-slate-800/50 rounded-xl">
-            <div className="text-2xl font-bold text-amber-400">+15%</div>
+          <div className="text-center p-4 bg-white">
+            <div className="text-2xl font-bold text-amber-600">+15%</div>
             <div className="text-xs text-slate-500 mt-1">{activeBusiness === "segelschule" ? "Upsells" : "Cross-Sells"}</div>
           </div>
-          <div className="text-center p-4 bg-slate-800/50 rounded-xl">
-            <div className="text-2xl font-bold text-emerald-400">+40%</div>
+          <div className="text-center p-4 bg-white">
+            <div className="text-2xl font-bold text-sky-600">+40%</div>
             <div className="text-xs text-slate-500 mt-1">Reviews</div>
           </div>
-          <div className="text-center p-4 bg-slate-800/50 rounded-xl">
-            <div className="text-2xl font-bold text-cyan-400">+30%</div>
+          <div className="text-center p-4 bg-white">
+            <div className="text-2xl font-bold text-sky-600">+30%</div>
             <div className="text-xs text-slate-500 mt-1">Wiederkommer</div>
           </div>
-          <div className="text-center p-4 bg-slate-800/50 rounded-xl">
-            <div className="text-2xl font-bold text-purple-400">+25%</div>
+          <div className="text-center p-4 bg-white">
+            <div className="text-2xl font-bold text-stone-600">+25%</div>
             <div className="text-xs text-slate-500 mt-1">Empfehlungen</div>
           </div>
         </div>
 
-        <div className="flex items-center justify-center gap-3 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl mt-6">
-          <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-          <span className="text-emerald-400 font-medium text-sm">
+        <div className="flex items-center justify-center gap-3 p-4 bg-sky-50 border border-sky-200 mt-6">
+          <CheckCircle2 className="w-5 h-5 text-sky-600" />
+          <span className="text-sky-600 font-medium text-sm">
             Alle Automationen sind im Website-Preis enthalten – kein Aufpreis
           </span>
         </div>
@@ -1976,7 +1954,7 @@ function MarketingPackagesSection() {
   const packages = {
     seo: {
       name: "SEO (Suchmaschinenoptimierung)",
-      icon: <Search className="w-6 h-6 text-cyan-400" />,
+      icon: <Search className="w-6 h-6 text-sky-600" />,
       color: "cyan",
       monthlyPrice: 350,
       setupFee: 500,
@@ -1995,7 +1973,7 @@ function MarketingPackagesSection() {
     },
     geo: {
       name: "GEO (AI-Sichtbarkeit)",
-      icon: <Bot className="w-6 h-6 text-purple-400" />,
+      icon: <Bot className="w-6 h-6 text-stone-600" />,
       color: "purple",
       monthlyPrice: 250,
       setupFee: 400,
@@ -2014,7 +1992,7 @@ function MarketingPackagesSection() {
     },
     ads: {
       name: "Bezahlte Werbung",
-      icon: <Target className="w-6 h-6 text-orange-400" />,
+      icon: <Target className="w-6 h-6 text-amber-600" />,
       color: "orange",
       monthlyPrice: customParams.adsMonthlyBudget,
       setupFee: 300,
@@ -2067,23 +2045,23 @@ function MarketingPackagesSection() {
   };
 
   return (
-    <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 md:p-8 border border-slate-700">
+    <div className="bg-white backdrop-blur-sm p-6 md:p-8 border border-stone-200">
       <div className="flex items-center gap-3 mb-2">
-        <Megaphone className="w-6 h-6 text-purple-400" />
-        <h3 className="text-xl font-semibold text-white">Marketing-Optionen</h3>
-        <span className="text-xs bg-purple-500/20 text-purple-400 px-2 py-1 rounded-full">Zusatzleistung</span>
+        <Megaphone className="w-6 h-6 text-stone-600" />
+        <h3 className="text-xl font-serif font-semibold text-slate-800">Marketing-Optionen</h3>
+        <span className="text-xs bg-stone-100 text-stone-600 px-2 py-1">Zusatzleistung</span>
       </div>
-      <p className="text-slate-400 text-sm mb-6">
+      <p className="text-slate-500 text-sm mb-6">
         Wähle die Kanäle, die für dich Sinn machen. Klicke auf „Details" für technische Informationen.
       </p>
 
       {/* Important Note */}
-      <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl mb-6">
+      <div className="p-4 bg-amber-500/10 border border-amber-500/30 mb-6">
         <div className="flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+          <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
           <div>
-            <div className="font-semibold text-amber-400">Wichtig zu verstehen</div>
-            <p className="text-sm text-slate-300 mt-1">
+            <div className="font-semibold text-amber-600">Wichtig zu verstehen</div>
+            <p className="text-sm text-slate-600 mt-1">
               Die Website allein macht dich nicht automatisch sichtbar. Marketing ist eine <strong>separate, laufende Investition</strong>.
               Wähle unten, was zu deinen Zielen passt.
             </p>
@@ -2095,45 +2073,45 @@ function MarketingPackagesSection() {
       <div className="grid md:grid-cols-3 gap-4 mb-6">
         {/* SEO Package */}
         <div
-          className={`relative rounded-xl p-5 border-2 transition-all cursor-pointer ${
+          className={`relative p-5 border-2 transition-all cursor-pointer ${
             selectedPackages.seo
-              ? "bg-cyan-500/10 border-cyan-500"
-              : "bg-slate-900/50 border-slate-700 hover:border-slate-600"
+              ? "bg-sky-50 border-sky-500"
+              : "bg-white border-stone-200 hover:border-slate-300"
           }`}
           onClick={() => togglePackage("seo")}
         >
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center gap-2">
               {packages.seo.icon}
-              <h4 className="font-semibold text-white text-sm">SEO</h4>
+              <h4 className="font-serif font-semibold text-slate-800 text-sm">SEO</h4>
             </div>
-            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-              selectedPackages.seo ? "bg-cyan-500 border-cyan-500" : "border-slate-600"
+            <div className={`w-5 h-5 border-2 flex items-center justify-center transition-all ${
+              selectedPackages.seo ? "bg-sky-600 border-sky-500" : "border-slate-300"
             }`}>
               {selectedPackages.seo && <CheckCircle2 className="w-4 h-4 text-white" />}
             </div>
           </div>
 
-          <p className="text-xs text-slate-400 mb-3">{packages.seo.description}</p>
+          <p className="text-xs text-slate-500 mb-3">{packages.seo.description}</p>
 
           <div className="space-y-2 mb-4">
             <div className="flex justify-between text-sm">
-              <span className="text-slate-400">Monatlich</span>
-              <span className="text-white font-semibold">{packages.seo.monthlyPrice}€</span>
+              <span className="text-slate-500">Monatlich</span>
+              <span className="text-slate-800 font-semibold">{packages.seo.monthlyPrice}€</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-slate-400">Setup (einmalig)</span>
-              <span className="text-slate-300">{packages.seo.setupFee}€</span>
+              <span className="text-slate-500">Setup (einmalig)</span>
+              <span className="text-slate-600">{packages.seo.setupFee}€</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-slate-400">Erste Ergebnisse</span>
-              <span className="text-cyan-400">{packages.seo.timeToResults}</span>
+              <span className="text-slate-500">Erste Ergebnisse</span>
+              <span className="text-sky-600">{packages.seo.timeToResults}</span>
             </div>
           </div>
 
           <button
             onClick={(e) => { e.stopPropagation(); setActiveModal("seo"); }}
-            className="w-full py-2 px-3 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm text-cyan-400 flex items-center justify-center gap-2 transition-colors"
+            className="w-full py-2 px-3 bg-white hover:bg-stone-100 text-sm text-sky-600 flex items-center justify-center gap-2 transition-colors"
           >
             <Info className="w-4 h-4" />
             Details & Technik
@@ -2142,48 +2120,48 @@ function MarketingPackagesSection() {
 
         {/* GEO Package */}
         <div
-          className={`relative rounded-xl p-5 border-2 transition-all cursor-pointer ${
+          className={`relative p-5 border-2 transition-all cursor-pointer ${
             selectedPackages.geo
-              ? "bg-purple-500/10 border-purple-500"
-              : "bg-slate-900/50 border-slate-700 hover:border-slate-600"
+              ? "bg-stone-100 border-stone-400"
+              : "bg-white border-stone-200 hover:border-slate-300"
           }`}
           onClick={() => togglePackage("geo")}
         >
-          <div className="absolute -top-2 -right-2 text-xs bg-purple-500 text-white px-2 py-0.5 rounded-full">
+          <div className="absolute -top-2 -right-2 text-xs bg-stone-600 text-white px-2 py-0.5">
             Neu
           </div>
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center gap-2">
               {packages.geo.icon}
-              <h4 className="font-semibold text-white text-sm">GEO</h4>
+              <h4 className="font-serif font-semibold text-slate-800 text-sm">GEO</h4>
             </div>
-            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-              selectedPackages.geo ? "bg-purple-500 border-purple-500" : "border-slate-600"
+            <div className={`w-5 h-5 border-2 flex items-center justify-center transition-all ${
+              selectedPackages.geo ? "bg-stone-600 border-stone-400" : "border-slate-300"
             }`}>
               {selectedPackages.geo && <CheckCircle2 className="w-4 h-4 text-white" />}
             </div>
           </div>
 
-          <p className="text-xs text-slate-400 mb-3">{packages.geo.description}</p>
+          <p className="text-xs text-slate-500 mb-3">{packages.geo.description}</p>
 
           <div className="space-y-2 mb-4">
             <div className="flex justify-between text-sm">
-              <span className="text-slate-400">Monatlich</span>
-              <span className="text-white font-semibold">{packages.geo.monthlyPrice}€</span>
+              <span className="text-slate-500">Monatlich</span>
+              <span className="text-slate-800 font-semibold">{packages.geo.monthlyPrice}€</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-slate-400">Setup (einmalig)</span>
-              <span className="text-slate-300">{packages.geo.setupFee}€</span>
+              <span className="text-slate-500">Setup (einmalig)</span>
+              <span className="text-slate-600">{packages.geo.setupFee}€</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-slate-400">Erste Ergebnisse</span>
-              <span className="text-purple-400">{packages.geo.timeToResults}</span>
+              <span className="text-slate-500">Erste Ergebnisse</span>
+              <span className="text-stone-600">{packages.geo.timeToResults}</span>
             </div>
           </div>
 
           <button
             onClick={(e) => { e.stopPropagation(); setActiveModal("geo"); }}
-            className="w-full py-2 px-3 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm text-purple-400 flex items-center justify-center gap-2 transition-colors"
+            className="w-full py-2 px-3 bg-white hover:bg-stone-100 text-sm text-stone-600 flex items-center justify-center gap-2 transition-colors"
           >
             <Info className="w-4 h-4" />
             Details & Technik
@@ -2192,45 +2170,45 @@ function MarketingPackagesSection() {
 
         {/* Ads Package */}
         <div
-          className={`relative rounded-xl p-5 border-2 transition-all cursor-pointer ${
+          className={`relative p-5 border-2 transition-all cursor-pointer ${
             selectedPackages.ads
-              ? "bg-orange-500/10 border-orange-500"
-              : "bg-slate-900/50 border-slate-700 hover:border-slate-600"
+              ? "bg-amber-50 border-orange-500"
+              : "bg-white border-stone-200 hover:border-slate-300"
           }`}
           onClick={() => togglePackage("ads")}
         >
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center gap-2">
               {packages.ads.icon}
-              <h4 className="font-semibold text-white text-sm">Ads</h4>
+              <h4 className="font-serif font-semibold text-slate-800 text-sm">Ads</h4>
             </div>
-            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-              selectedPackages.ads ? "bg-orange-500 border-orange-500" : "border-slate-600"
+            <div className={`w-5 h-5 border-2 flex items-center justify-center transition-all ${
+              selectedPackages.ads ? "bg-orange-500 border-orange-500" : "border-slate-300"
             }`}>
-              {selectedPackages.ads && <CheckCircle2 className="w-4 h-4 text-white" />}
+              {selectedPackages.ads && <CheckCircle2 className="w-4 h-4 text-slate-800" />}
             </div>
           </div>
 
-          <p className="text-xs text-slate-400 mb-3">{packages.ads.description}</p>
+          <p className="text-xs text-slate-500 mb-3">{packages.ads.description}</p>
 
           <div className="space-y-2 mb-4">
             <div className="flex justify-between text-sm">
-              <span className="text-slate-400">Werbebudget</span>
-              <span className="text-white font-semibold">{customParams.adsMonthlyBudget}€/Mo</span>
+              <span className="text-slate-500">Werbebudget</span>
+              <span className="text-slate-800 font-semibold">{customParams.adsMonthlyBudget}€/Mo</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-slate-400">+ Management</span>
-              <span className="text-slate-300">{packages.ads.managementFee}€/Mo</span>
+              <span className="text-slate-500">+ Management</span>
+              <span className="text-slate-600">{packages.ads.managementFee}€/Mo</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-slate-400">Erste Ergebnisse</span>
-              <span className="text-orange-400">{packages.ads.timeToResults}</span>
+              <span className="text-slate-500">Erste Ergebnisse</span>
+              <span className="text-amber-600">{packages.ads.timeToResults}</span>
             </div>
           </div>
 
           <button
             onClick={(e) => { e.stopPropagation(); setActiveModal("ads"); }}
-            className="w-full py-2 px-3 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm text-orange-400 flex items-center justify-center gap-2 transition-colors"
+            className="w-full py-2 px-3 bg-white hover:bg-stone-100 text-sm text-amber-600 flex items-center justify-center gap-2 transition-colors"
           >
             <Info className="w-4 h-4" />
             Details & Technik
@@ -2240,11 +2218,11 @@ function MarketingPackagesSection() {
 
       {/* Ads Budget Slider (shown when ads selected) */}
       {selectedPackages.ads && (
-        <div className="p-4 bg-slate-900/30 rounded-xl mb-6">
-          <h4 className="text-sm font-semibold text-white mb-3">Werbebudget anpassen</h4>
+        <div className="p-4 bg-stone-50 mb-6">
+          <h4 className="text-sm font-semibold text-slate-800 mb-3">Werbebudget anpassen</h4>
           <div className="grid md:grid-cols-3 gap-4">
             <div>
-              <label className="text-xs text-slate-400">Monatliches Werbebudget</label>
+              <label className="text-xs text-slate-500">Monatliches Werbebudget</label>
               <input
                 type="range"
                 min="200"
@@ -2254,10 +2232,10 @@ function MarketingPackagesSection() {
                 onChange={(e) => setCustomParams(prev => ({ ...prev, adsMonthlyBudget: Number(e.target.value) }))}
                 className="w-full mt-1"
               />
-              <div className="text-right text-xs text-orange-400">{customParams.adsMonthlyBudget}€</div>
+              <div className="text-right text-xs text-amber-600">{customParams.adsMonthlyBudget}€</div>
             </div>
             <div>
-              <label className="text-xs text-slate-400">Kosten pro Klick (geschätzt)</label>
+              <label className="text-xs text-slate-500">Kosten pro Klick (geschätzt)</label>
               <input
                 type="range"
                 min="0.4"
@@ -2267,10 +2245,10 @@ function MarketingPackagesSection() {
                 onChange={(e) => setCustomParams(prev => ({ ...prev, adsCostPerClick: Number(e.target.value) }))}
                 className="w-full mt-1"
               />
-              <div className="text-right text-xs text-slate-400">{customParams.adsCostPerClick.toFixed(2)}€</div>
+              <div className="text-right text-xs text-slate-500">{customParams.adsCostPerClick.toFixed(2)}€</div>
             </div>
             <div>
-              <label className="text-xs text-slate-400">Conversion Rate (geschätzt)</label>
+              <label className="text-xs text-slate-500">Conversion Rate (geschätzt)</label>
               <input
                 type="range"
                 min="1"
@@ -2280,7 +2258,7 @@ function MarketingPackagesSection() {
                 onChange={(e) => setCustomParams(prev => ({ ...prev, adsConversionRate: Number(e.target.value) }))}
                 className="w-full mt-1"
               />
-              <div className="text-right text-xs text-emerald-400">{customParams.adsConversionRate}%</div>
+              <div className="text-right text-xs text-sky-600">{customParams.adsConversionRate}%</div>
             </div>
           </div>
         </div>
@@ -2289,47 +2267,47 @@ function MarketingPackagesSection() {
       {/* Total Summary */}
       {(selectedPackages.seo || selectedPackages.geo || selectedPackages.ads) ? (
         <div className="space-y-4">
-          <div className="bg-gradient-to-r from-cyan-500/10 via-purple-500/10 to-orange-500/10 rounded-xl p-5 border border-cyan-500/20">
-            <h4 className="font-semibold text-white mb-4">Deine Auswahl</h4>
+          <div className="bg-gradient-to-r from-sky-500/10 via-purple-500/10 to-orange-500/10 p-5 border border-sky-200">
+            <h4 className="font-serif font-semibold text-slate-800 mb-4">Deine Auswahl</h4>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <div className="text-slate-400 text-xs">Setup (einmalig)</div>
-                <div className="text-white font-bold text-lg">{totals.setupTotal.toLocaleString("de-DE")}€</div>
+                <div className="text-slate-500 text-xs">Setup (einmalig)</div>
+                <div className="text-slate-800 font-bold text-lg">{totals.setupTotal.toLocaleString("de-DE")}€</div>
               </div>
               <div>
-                <div className="text-slate-400 text-xs">Monatlich</div>
-                <div className="text-white font-bold text-lg">{totals.monthlyTotal.toLocaleString("de-DE")}€</div>
+                <div className="text-slate-500 text-xs">Monatlich</div>
+                <div className="text-slate-800 font-bold text-lg">{totals.monthlyTotal.toLocaleString("de-DE")}€</div>
               </div>
               <div>
-                <div className="text-slate-400 text-xs">Erwartete Buchungen/Jahr</div>
-                <div className="text-emerald-400 font-bold text-lg">~{totals.yearlyBookings}</div>
+                <div className="text-slate-500 text-xs">Erwartete Buchungen/Jahr</div>
+                <div className="text-sky-600 font-bold text-lg">~{totals.yearlyBookings}</div>
               </div>
               <div>
-                <div className="text-slate-400 text-xs">Ø Kosten/Buchung</div>
-                <div className="text-amber-400 font-bold text-lg">~{totals.costPerBooking}€</div>
+                <div className="text-slate-500 text-xs">Ø Kosten/Buchung</div>
+                <div className="text-amber-600 font-bold text-lg">~{totals.costPerBooking}€</div>
               </div>
             </div>
-            <div className="mt-4 pt-4 border-t border-slate-700">
+            <div className="mt-4 pt-4 border-t border-stone-200">
               <div className="flex justify-between items-center">
-                <span className="text-slate-300">Erstes Jahr (Setup + 12× Monatlich)</span>
-                <span className="text-xl font-bold text-white">{totals.yearlyTotal.toLocaleString("de-DE")}€</span>
+                <span className="text-slate-600">Erstes Jahr (Setup + 12× Monatlich)</span>
+                <span className="text-xl font-serif font-bold text-slate-800">{totals.yearlyTotal.toLocaleString("de-DE")}€</span>
               </div>
             </div>
           </div>
 
           {/* LTV:CAC Impact Section - HERO DISPLAY */}
-          <div className="bg-gradient-to-br from-emerald-500/20 via-cyan-500/10 to-purple-500/10 rounded-2xl p-6 md:p-8 border border-emerald-500/30 relative overflow-hidden">
+          <div className="bg-gradient-to-br from-sky-500/20 via-sky-500/10 to-stone-500/10 p-6 md:p-8 border border-sky-200 relative overflow-hidden">
             {/* Background glow effect */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+            <div className="absolute top-0 right-0 w-64 h-64 bg-sky-50 blur-3xl -translate-y-1/2 translate-x-1/2" />
 
             <div className="relative">
               <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-emerald-500/20 rounded-lg">
-                  <TrendingUp className="w-6 h-6 text-emerald-400" />
+                <div className="text-sky-600">
+                  <TrendingUp className="w-6 h-6 text-sky-600" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-white text-lg">Auswirkung auf deinen ROI</h4>
-                  <p className="text-slate-400 text-sm">So verbessert Marketing dein LTV:CAC Verhältnis</p>
+                  <h4 className="font-bold text-slate-800 text-lg">Auswirkung auf deinen ROI</h4>
+                  <p className="text-slate-500 text-sm">So verbessert Marketing dein LTV:CAC Verhältnis</p>
                 </div>
               </div>
 
@@ -2355,33 +2333,33 @@ function MarketingPackagesSection() {
                   <div className="space-y-6">
                     {/* HERO: Big Improvement Percentage */}
                     {isImproved && (
-                      <div className="text-center py-6 bg-gradient-to-r from-emerald-500/10 via-emerald-500/20 to-emerald-500/10 rounded-xl border border-emerald-500/20">
+                      <div className="text-center py-6 bg-gradient-to-r from-sky-500/10 via-sky-500/20 to-teal-500/10 border border-sky-400/20">
                         <div className="flex items-center justify-center gap-3 mb-2">
-                          <ArrowUp className="w-8 h-8 text-emerald-400 animate-bounce" />
-                          <span className="text-6xl md:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400 tabular-nums transition-all duration-500">
+                          <ArrowUp className="w-8 h-8 text-sky-600 animate-bounce" />
+                          <span className="text-6xl md:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-sky-600 tabular-nums transition-all duration-500">
                             +{ratioImprovement.toFixed(0)}%
                           </span>
                         </div>
-                        <div className="text-emerald-300 font-semibold text-lg">LTV:CAC Verbesserung</div>
-                        <div className="text-slate-400 text-sm mt-1">durch deine Marketing-Auswahl</div>
+                        <div className="text-sky-700 font-semibold text-lg">LTV:CAC Verbesserung</div>
+                        <div className="text-slate-500 text-sm mt-1">durch deine Marketing-Auswahl</div>
                       </div>
                     )}
 
                     {/* Before vs After Cards */}
                     <div className="grid md:grid-cols-3 gap-4">
                       {/* Before */}
-                      <div className="bg-slate-900/60 rounded-xl p-5 border border-slate-700">
+                      <div className="bg-white p-5 border border-stone-200">
                         <div className="text-slate-500 text-xs font-medium uppercase tracking-wider mb-3">Ohne Marketing</div>
-                        <div className="text-3xl font-bold text-slate-400 mb-1">{baseRatio.toFixed(1)}x</div>
+                        <div className="text-3xl font-serif font-bold text-slate-500 mb-1">{baseRatio.toFixed(1)}x</div>
                         <div className="text-xs text-slate-500">LTV:CAC Ratio</div>
-                        <div className="mt-3 pt-3 border-t border-slate-700/50 space-y-1">
+                        <div className="mt-3 pt-3 border-t border-stone-200/50 space-y-1">
                           <div className="flex justify-between text-xs">
                             <span className="text-slate-500">LTV</span>
-                            <span className="text-slate-400">{baseLTV.toLocaleString("de-DE")}€</span>
+                            <span className="text-slate-500">{baseLTV.toLocaleString("de-DE")}€</span>
                           </div>
                           <div className="flex justify-between text-xs">
                             <span className="text-slate-500">CAC</span>
-                            <span className="text-slate-400">{baseCAC.toLocaleString("de-DE")}€</span>
+                            <span className="text-slate-500">{baseCAC.toLocaleString("de-DE")}€</span>
                           </div>
                         </div>
                       </div>
@@ -2389,31 +2367,31 @@ function MarketingPackagesSection() {
                       {/* Arrow */}
                       <div className="hidden md:flex items-center justify-center">
                         <div className="flex flex-col items-center gap-2">
-                          <ArrowRight className="w-8 h-8 text-emerald-400" />
-                          <div className="text-xs text-emerald-400 font-medium">Marketing</div>
+                          <ArrowRight className="w-8 h-8 text-sky-600" />
+                          <div className="text-xs text-sky-600 font-medium">Marketing</div>
                         </div>
                       </div>
 
                       {/* After */}
-                      <div className="bg-gradient-to-br from-emerald-500/20 to-cyan-500/10 rounded-xl p-5 border-2 border-emerald-500/50 relative">
-                        <div className="absolute -top-3 -right-3 bg-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
+                      <div className="bg-gradient-to-br from-sky-500/20 to-sky-500/10 p-5 border-2 border-sky-400/50 relative">
+                        <div className="absolute -top-3 -right-3 bg-teal-600 text-white text-xs font-bold px-3 py-1 shadow-lg">
                           NEU
                         </div>
-                        <div className="text-emerald-400 text-xs font-medium uppercase tracking-wider mb-3">Mit Marketing</div>
+                        <div className="text-sky-600 text-xs font-medium uppercase tracking-wider mb-3">Mit Marketing</div>
                         <div className={`text-4xl font-black mb-1 transition-all duration-500 ${
-                          newRatio >= 3 ? "text-emerald-400" : newRatio >= 2 ? "text-amber-400" : "text-red-400"
+                          newRatio >= 3 ? "text-sky-600" : newRatio >= 2 ? "text-amber-600" : "text-rose-600"
                         }`}>
                           {newRatio.toFixed(1)}x
                         </div>
-                        <div className="text-xs text-emerald-300/80">LTV:CAC Ratio</div>
-                        <div className="mt-3 pt-3 border-t border-emerald-500/30 space-y-1">
+                        <div className="text-xs text-sky-700/80">LTV:CAC Ratio</div>
+                        <div className="mt-3 pt-3 border-t border-sky-200 space-y-1">
                           <div className="flex justify-between text-xs">
-                            <span className="text-emerald-300/60">LTV</span>
-                            <span className="text-emerald-300 font-semibold">{Math.round(newLTV).toLocaleString("de-DE")}€</span>
+                            <span className="text-sky-700/60">LTV</span>
+                            <span className="text-sky-700 font-semibold">{Math.round(newLTV).toLocaleString("de-DE")}€</span>
                           </div>
                           <div className="flex justify-between text-xs">
-                            <span className="text-emerald-300/60">CAC</span>
-                            <span className="text-emerald-300">{Math.round(newCAC).toLocaleString("de-DE")}€</span>
+                            <span className="text-sky-700/60">CAC</span>
+                            <span className="text-sky-700">{Math.round(newCAC).toLocaleString("de-DE")}€</span>
                           </div>
                         </div>
                       </div>
@@ -2421,25 +2399,25 @@ function MarketingPackagesSection() {
 
                     {/* Additional LTV Increase Highlight */}
                     <div className="grid md:grid-cols-2 gap-4">
-                      <div className="bg-slate-900/40 rounded-xl p-4 border border-slate-700/50">
+                      <div className="bg-white/90 p-4 border border-stone-200/50">
                         <div className="flex items-center gap-3">
-                          <div className="p-2 bg-cyan-500/20 rounded-lg">
-                            <Users className="w-5 h-5 text-cyan-400" />
+                          <div className="text-sky-600">
+                            <Users className="w-5 h-5 text-sky-600" />
                           </div>
                           <div>
-                            <div className="text-2xl font-bold text-cyan-400">+{totals.yearlyBookings}</div>
-                            <div className="text-xs text-slate-400">Zusätzliche Buchungen/Jahr</div>
+                            <div className="text-2xl font-bold text-sky-600">+{totals.yearlyBookings}</div>
+                            <div className="text-xs text-slate-500">Zusätzliche Buchungen/Jahr</div>
                           </div>
                         </div>
                       </div>
-                      <div className="bg-slate-900/40 rounded-xl p-4 border border-slate-700/50">
+                      <div className="bg-white/90 p-4 border border-stone-200/50">
                         <div className="flex items-center gap-3">
-                          <div className="p-2 bg-purple-500/20 rounded-lg">
-                            <TrendingUp className="w-5 h-5 text-purple-400" />
+                          <div className="text-stone-600">
+                            <TrendingUp className="w-5 h-5 text-stone-600" />
                           </div>
                           <div>
-                            <div className="text-2xl font-bold text-purple-400">+{ltvIncrease.toFixed(0)}%</div>
-                            <div className="text-xs text-slate-400">Mehr Lifetime Value</div>
+                            <div className="text-2xl font-bold text-stone-600">+{ltvIncrease.toFixed(0)}%</div>
+                            <div className="text-xs text-slate-500">Mehr Lifetime Value</div>
                           </div>
                         </div>
                       </div>
@@ -2449,20 +2427,20 @@ function MarketingPackagesSection() {
                     <div className="space-y-2">
                       <div className="flex justify-between text-xs text-slate-500">
                         <span>LTV:CAC Ratio</span>
-                        <span className={newRatio >= 3 ? "text-emerald-400 font-semibold" : newRatio >= 2 ? "text-amber-400" : "text-red-400"}>
+                        <span className={newRatio >= 3 ? "text-sky-600 font-semibold" : newRatio >= 2 ? "text-amber-600" : "text-rose-600"}>
                           {newRatio >= 3 ? "Exzellent" : newRatio >= 2 ? "Gut" : "Verbesserungswürdig"}
                         </span>
                       </div>
-                      <div className="relative h-6 bg-slate-800 rounded-full overflow-hidden">
+                      <div className="relative h-6 bg-white overflow-hidden">
                         {/* Base ratio (ghost) */}
                         <div
-                          className="absolute inset-y-0 left-0 bg-slate-700/50 rounded-full"
+                          className="absolute inset-y-0 left-0 bg-stone-100"
                           style={{ width: `${Math.min((baseRatio / 6) * 100, 100)}%` }}
                         />
                         {/* New ratio (animated) */}
                         <div
-                          className={`absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out ${
-                            newRatio >= 3 ? "bg-gradient-to-r from-emerald-600 via-emerald-500 to-cyan-400" :
+                          className={`absolute inset-y-0 left-0 transition-all duration-700 ease-out ${
+                            newRatio >= 3 ? "bg-gradient-to-r from-sky-600 via-sky-500 to-sky-600" :
                             newRatio >= 2 ? "bg-gradient-to-r from-amber-600 to-amber-400" :
                             "bg-gradient-to-r from-red-600 to-red-400"
                           }`}
@@ -2472,11 +2450,11 @@ function MarketingPackagesSection() {
                           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse" />
                         </div>
                         {/* Markers */}
-                        <div className="absolute inset-y-0 left-[33.3%] w-0.5 bg-slate-600/50" />
-                        <div className="absolute inset-y-0 left-[50%] w-0.5 bg-slate-600/50" />
+                        <div className="absolute inset-y-0 left-[33.3%] w-0.5 bg-stone-300/50" />
+                        <div className="absolute inset-y-0 left-[50%] w-0.5 bg-stone-300/50" />
                         {/* Current value indicator */}
                         <div
-                          className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-lg border-2 border-emerald-400 transition-all duration-700"
+                          className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white shadow-lg border-2 border-emerald-400 transition-all duration-700"
                           style={{ left: `calc(${Math.min((newRatio / 6) * 100, 100)}% - 8px)` }}
                         />
                       </div>
@@ -2489,16 +2467,16 @@ function MarketingPackagesSection() {
                     </div>
 
                     {/* Explanation */}
-                    <div className="bg-slate-900/30 rounded-xl p-4 border border-slate-700/50">
+                    <div className="bg-stone-50 p-4 border border-stone-200/50">
                       <div className="flex items-start gap-3">
-                        <Lightbulb className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
-                        <div className="text-sm text-slate-300">
-                          <strong className="text-white">Das Prinzip:</strong> Marketing erhöht deinen CAC (Kundenakquisitionskosten),
+                        <Lightbulb className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                        <div className="text-sm text-slate-600">
+                          <strong className="text-slate-800">Das Prinzip:</strong> Marketing erhöht deinen CAC (Kundenakquisitionskosten),
                           aber jeder neue Kunde generiert durch das automatisierte System mehr Umsatz (Upsells, Wiederkehrer, Empfehlungen).
                           {isImproved ? (
-                            <span className="text-emerald-400 font-medium"> Das System macht jeden Marketing-Euro wertvoller!</span>
+                            <span className="text-sky-600 font-medium"> Das System macht jeden Marketing-Euro wertvoller!</span>
                           ) : (
-                            <span className="text-amber-400"> Die Buchungen müssen den höheren CAC rechtfertigen.</span>
+                            <span className="text-amber-600"> Die Buchungen müssen den höheren CAC rechtfertigen.</span>
                           )}
                         </div>
                       </div>
@@ -2522,13 +2500,13 @@ function MarketingPackagesSection() {
         isOpen={activeModal === "seo"}
         onClose={() => setActiveModal(null)}
         title="SEO im Detail"
-        icon={<Search className="w-6 h-6 text-cyan-400" />}
+        icon={<Search className="w-6 h-6 text-sky-600" />}
       >
         <div className="space-y-6">
           {/* What is SEO */}
           <div>
-            <h4 className="font-semibold text-white mb-2">Was ist SEO?</h4>
-            <p className="text-slate-300 text-sm">
+            <h4 className="font-serif font-semibold text-slate-800 mb-2">Was ist SEO?</h4>
+            <p className="text-slate-600 text-sm">
               SEO (Search Engine Optimization) sorgt dafür, dass deine Website bei Google, Bing und anderen
               Suchmaschinen gefunden wird, wenn jemand nach „Segelschule Ostsee" oder „Ferienwohnung Haff" sucht.
             </p>
@@ -2536,69 +2514,69 @@ function MarketingPackagesSection() {
 
           {/* Technical Breakdown */}
           <div>
-            <h4 className="font-semibold text-white mb-3">Was wir technisch machen</h4>
+            <h4 className="font-serif font-semibold text-slate-800 mb-3">Was wir technisch machen</h4>
             <div className="space-y-4">
-              <div className="bg-slate-800/50 rounded-lg p-4">
+              <div className="bg-white p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <FileSearch className="w-4 h-4 text-cyan-400" />
-                  <span className="font-medium text-white text-sm">Keyword-Recherche</span>
+                  <FileSearch className="w-4 h-4 text-sky-600" />
+                  <span className="font-medium text-slate-800 text-sm">Keyword-Recherche</span>
                 </div>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-500">
                   Wir finden heraus, wonach deine Zielgruppe sucht: „SBF Binnen Kurs", „Segelschein machen",
                   „Urlaub am Stettiner Haff", etc. Diese Keywords werden strategisch in deine Inhalte eingebaut.
                 </p>
               </div>
 
-              <div className="bg-slate-800/50 rounded-lg p-4">
+              <div className="bg-white p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <Layers className="w-4 h-4 text-cyan-400" />
-                  <span className="font-medium text-white text-sm">On-Page Optimierung</span>
+                  <Layers className="w-4 h-4 text-sky-600" />
+                  <span className="font-medium text-slate-800 text-sm">On-Page Optimierung</span>
                 </div>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-500">
                   Titel, Meta-Beschreibungen, Überschriften, Bildtexte – alles wird so optimiert, dass Google
                   versteht, worum es auf deiner Seite geht. Technisch sauber, für Menschen lesbar.
                 </p>
               </div>
 
-              <div className="bg-slate-800/50 rounded-lg p-4">
+              <div className="bg-white p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <Zap className="w-4 h-4 text-cyan-400" />
-                  <span className="font-medium text-white text-sm">Technisches SEO</span>
+                  <Zap className="w-4 h-4 text-sky-600" />
+                  <span className="font-medium text-slate-800 text-sm">Technisches SEO</span>
                 </div>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-500">
                   Ladezeiten optimieren, Mobile-Friendliness, XML-Sitemaps, strukturierte Daten (Schema.org),
                   Core Web Vitals. Google belohnt schnelle, gut strukturierte Websites.
                 </p>
               </div>
 
-              <div className="bg-slate-800/50 rounded-lg p-4">
+              <div className="bg-white p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <PenTool className="w-4 h-4 text-cyan-400" />
-                  <span className="font-medium text-white text-sm">Content-Erstellung</span>
+                  <PenTool className="w-4 h-4 text-sky-600" />
+                  <span className="font-medium text-slate-800 text-sm">Content-Erstellung</span>
                 </div>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-500">
                   2 SEO-optimierte Blogartikel pro Monat: „Die 5 häufigsten Fehler beim Segelschein",
                   „Warum das Stettiner Haff perfekt für Anfänger ist", etc. Bringt Traffic und baut Autorität auf.
                 </p>
               </div>
 
-              <div className="bg-slate-800/50 rounded-lg p-4">
+              <div className="bg-white p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <MapPin className="w-4 h-4 text-cyan-400" />
-                  <span className="font-medium text-white text-sm">Lokales SEO</span>
+                  <MapPin className="w-4 h-4 text-sky-600" />
+                  <span className="font-medium text-slate-800 text-sm">Lokales SEO</span>
                 </div>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-500">
                   Google Business Profile optimieren, lokale Verzeichnisse, Bewertungsmanagement.
                   Wenn jemand in der Nähe sucht, erscheinst du ganz oben.
                 </p>
               </div>
 
-              <div className="bg-slate-800/50 rounded-lg p-4">
+              <div className="bg-white p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <Link2 className="w-4 h-4 text-cyan-400" />
-                  <span className="font-medium text-white text-sm">Backlink-Aufbau (Basis)</span>
+                  <Link2 className="w-4 h-4 text-sky-600" />
+                  <span className="font-medium text-slate-800 text-sm">Backlink-Aufbau (Basis)</span>
                 </div>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-500">
                   Links von anderen Websites zu deiner Seite = Vertrauenssignal für Google.
                   Wir bauen qualitative Verlinkungen auf (keine Spam-Links).
                 </p>
@@ -2608,43 +2586,43 @@ function MarketingPackagesSection() {
 
           {/* Timeline */}
           <div>
-            <h4 className="font-semibold text-white mb-3">Zeitlicher Ablauf</h4>
+            <h4 className="font-serif font-semibold text-slate-800 mb-3">Zeitlicher Ablauf</h4>
             <div className="space-y-2 text-sm">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-400 font-semibold">1</div>
-                <div><span className="text-white">Monat 1:</span> <span className="text-slate-400">Setup, Keyword-Recherche, technische Optimierung</span></div>
+                <div className="w-8 h-8 bg-sky-100 flex items-center justify-center text-sky-600 font-semibold">1</div>
+                <div><span className="text-slate-800">Monat 1:</span> <span className="text-slate-500">Setup, Keyword-Recherche, technische Optimierung</span></div>
               </div>
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-400 font-semibold">2</div>
-                <div><span className="text-white">Monat 2-3:</span> <span className="text-slate-400">On-Page Optimierung, erste Inhalte, lokales SEO</span></div>
+                <div className="w-8 h-8 bg-sky-100 flex items-center justify-center text-sky-600 font-semibold">2</div>
+                <div><span className="text-slate-800">Monat 2-3:</span> <span className="text-slate-500">On-Page Optimierung, erste Inhalte, lokales SEO</span></div>
               </div>
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-400 font-semibold">3</div>
-                <div><span className="text-white">Monat 4-6:</span> <span className="text-slate-400">Erste Rankings sichtbar, kontinuierliche Optimierung</span></div>
+                <div className="w-8 h-8 bg-sky-100 flex items-center justify-center text-sky-600 font-semibold">3</div>
+                <div><span className="text-slate-800">Monat 4-6:</span> <span className="text-slate-500">Erste Rankings sichtbar, kontinuierliche Optimierung</span></div>
               </div>
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 font-semibold">✓</div>
-                <div><span className="text-white">Ab Monat 6:</span> <span className="text-slate-400">Stabiler Traffic, messbare Buchungen</span></div>
+                <div className="w-8 h-8 bg-sky-100 flex items-center justify-center text-sky-600 font-semibold">✓</div>
+                <div><span className="text-slate-800">Ab Monat 6:</span> <span className="text-slate-500">Stabiler Traffic, messbare Buchungen</span></div>
               </div>
             </div>
           </div>
 
           {/* Pricing Breakdown */}
           <div>
-            <h4 className="font-semibold text-white mb-3">Kostenaufschlüsselung</h4>
-            <div className="bg-slate-800/50 rounded-lg p-4">
+            <h4 className="font-serif font-semibold text-slate-800 mb-3">Kostenaufschlüsselung</h4>
+            <div className="bg-white p-4">
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Setup (einmalig)</span>
-                  <span className="text-white">{packages.seo.setupFee}€</span>
+                  <span className="text-slate-500">Setup (einmalig)</span>
+                  <span className="text-slate-800">{packages.seo.setupFee}€</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Monatliche Betreuung</span>
-                  <span className="text-white">{packages.seo.monthlyPrice}€</span>
+                  <span className="text-slate-500">Monatliche Betreuung</span>
+                  <span className="text-slate-800">{packages.seo.monthlyPrice}€</span>
                 </div>
-                <div className="pt-2 border-t border-slate-700 flex justify-between">
-                  <span className="text-slate-300">Erstes Jahr gesamt</span>
-                  <span className="text-cyan-400 font-semibold">{(packages.seo.setupFee + packages.seo.monthlyPrice * 12).toLocaleString("de-DE")}€</span>
+                <div className="pt-2 border-t border-stone-200 flex justify-between">
+                  <span className="text-slate-600">Erstes Jahr gesamt</span>
+                  <span className="text-sky-600 font-semibold">{(packages.seo.setupFee + packages.seo.monthlyPrice * 12).toLocaleString("de-DE")}€</span>
                 </div>
               </div>
             </div>
@@ -2657,13 +2635,13 @@ function MarketingPackagesSection() {
         isOpen={activeModal === "geo"}
         onClose={() => setActiveModal(null)}
         title="GEO im Detail"
-        icon={<Bot className="w-6 h-6 text-purple-400" />}
+        icon={<Bot className="w-6 h-6 text-stone-600" />}
       >
         <div className="space-y-6">
           {/* What is GEO */}
           <div>
-            <h4 className="font-semibold text-white mb-2">Was ist GEO?</h4>
-            <p className="text-slate-300 text-sm">
+            <h4 className="font-serif font-semibold text-slate-800 mb-2">Was ist GEO?</h4>
+            <p className="text-slate-600 text-sm">
               GEO (Generative Engine Optimization) ist die nächste Evolution nach SEO. Immer mehr Menschen
               fragen KI-Assistenten wie ChatGPT, Perplexity oder Claude: „Wo kann ich in der Nähe von Berlin
               segeln lernen?" – und die KI empfiehlt Anbieter basierend auf verfügbaren Informationen.
@@ -2671,19 +2649,19 @@ function MarketingPackagesSection() {
           </div>
 
           {/* Why it matters */}
-          <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-4">
-            <h4 className="font-semibold text-purple-400 mb-2">Warum ist das wichtig?</h4>
-            <ul className="text-sm text-slate-300 space-y-2">
+          <div className="bg-stone-100 border border-stone-300 p-4">
+            <h4 className="font-semibold text-stone-600 mb-2">Warum ist das wichtig?</h4>
+            <ul className="text-sm text-slate-600 space-y-2">
               <li className="flex items-start gap-2">
-                <CheckCircle2 className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
+                <CheckCircle2 className="w-4 h-4 text-stone-600 flex-shrink-0 mt-0.5" />
                 <span>30% der Gen Z nutzen TikTok/KI statt Google für Suchanfragen (Tendenz steigend)</span>
               </li>
               <li className="flex items-start gap-2">
-                <CheckCircle2 className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
+                <CheckCircle2 className="w-4 h-4 text-stone-600 flex-shrink-0 mt-0.5" />
                 <span>ChatGPT hat 200+ Millionen wöchentliche Nutzer</span>
               </li>
               <li className="flex items-start gap-2">
-                <CheckCircle2 className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
+                <CheckCircle2 className="w-4 h-4 text-stone-600 flex-shrink-0 mt-0.5" />
                 <span>Wer jetzt optimiert, hat einen First-Mover-Vorteil</span>
               </li>
             </ul>
@@ -2691,58 +2669,58 @@ function MarketingPackagesSection() {
 
           {/* Technical Breakdown */}
           <div>
-            <h4 className="font-semibold text-white mb-3">Was wir technisch machen</h4>
+            <h4 className="font-serif font-semibold text-slate-800 mb-3">Was wir technisch machen</h4>
             <div className="space-y-4">
-              <div className="bg-slate-800/50 rounded-lg p-4">
+              <div className="bg-white p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <Layers className="w-4 h-4 text-purple-400" />
-                  <span className="font-medium text-white text-sm">Strukturierte Daten (Schema.org)</span>
+                  <Layers className="w-4 h-4 text-stone-600" />
+                  <span className="font-medium text-slate-800 text-sm">Strukturierte Daten (Schema.org)</span>
                 </div>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-500">
                   Wir implementieren umfassende Schema-Markups: LocalBusiness, Course, Event, FAQPage, Review.
                   Das hilft KI-Systemen, dein Angebot korrekt zu verstehen und einzuordnen.
                 </p>
               </div>
 
-              <div className="bg-slate-800/50 rounded-lg p-4">
+              <div className="bg-white p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <MessageSquare className="w-4 h-4 text-purple-400" />
-                  <span className="font-medium text-white text-sm">FAQ-Optimierung</span>
+                  <MessageSquare className="w-4 h-4 text-stone-600" />
+                  <span className="font-medium text-slate-800 text-sm">FAQ-Optimierung</span>
                 </div>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-500">
                   Umfangreiche FAQ-Seiten mit natürlich formulierten Fragen und Antworten.
                   KI-Systeme lieben gut strukturierte Q&A-Inhalte.
                 </p>
               </div>
 
-              <div className="bg-slate-800/50 rounded-lg p-4">
+              <div className="bg-white p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <PenTool className="w-4 h-4 text-purple-400" />
-                  <span className="font-medium text-white text-sm">KI-optimierte Inhalte</span>
+                  <PenTool className="w-4 h-4 text-stone-600" />
+                  <span className="font-medium text-slate-800 text-sm">KI-optimierte Inhalte</span>
                 </div>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-500">
                   Texte, die sowohl für Menschen lesbar als auch für KI-Systeme gut parsebar sind.
                   Klare Fakten, strukturierte Informationen, verifizierbare Details.
                 </p>
               </div>
 
-              <div className="bg-slate-800/50 rounded-lg p-4">
+              <div className="bg-white p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <Globe className="w-4 h-4 text-purple-400" />
-                  <span className="font-medium text-white text-sm">Präsenz in KI-freundlichen Quellen</span>
+                  <Globe className="w-4 h-4 text-stone-600" />
+                  <span className="font-medium text-slate-800 text-sm">Präsenz in KI-freundlichen Quellen</span>
                 </div>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-500">
                   Wikipedia-artige Quellen, Branchenverzeichnisse, lokale Portale – überall dort,
                   wo KI-Systeme ihre Informationen herziehen.
                 </p>
               </div>
 
-              <div className="bg-slate-800/50 rounded-lg p-4">
+              <div className="bg-white p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <Eye className="w-4 h-4 text-purple-400" />
-                  <span className="font-medium text-white text-sm">KI-Sichtbarkeits-Monitoring</span>
+                  <Eye className="w-4 h-4 text-stone-600" />
+                  <span className="font-medium text-slate-800 text-sm">KI-Sichtbarkeits-Monitoring</span>
                 </div>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-500">
                   Wir tracken, ob und wie ChatGPT, Perplexity & Co. dein Business erwähnen.
                   Monatliche Reports zeigen die Entwicklung.
                 </p>
@@ -2752,15 +2730,15 @@ function MarketingPackagesSection() {
 
           {/* Example */}
           <div>
-            <h4 className="font-semibold text-white mb-3">Beispiel: Was passiert bei einer KI-Anfrage?</h4>
-            <div className="bg-slate-800/50 rounded-lg p-4">
+            <h4 className="font-serif font-semibold text-slate-800 mb-3">Beispiel: Was passiert bei einer KI-Anfrage?</h4>
+            <div className="bg-white p-4">
               <div className="mb-3">
-                <div className="text-xs text-purple-400 mb-1">Nutzer fragt ChatGPT:</div>
-                <p className="text-sm text-white italic">"Wo kann ich in der Nähe von Berlin segeln lernen? Am liebsten in einer ruhigen Gegend."</p>
+                <div className="text-xs text-stone-600 mb-1">Nutzer fragt ChatGPT:</div>
+                <p className="text-sm text-slate-800 italic">"Wo kann ich in der Nähe von Berlin segeln lernen? Am liebsten in einer ruhigen Gegend."</p>
               </div>
               <div>
-                <div className="text-xs text-emerald-400 mb-1">Optimierte Antwort könnte sein:</div>
-                <p className="text-sm text-slate-300">
+                <div className="text-xs text-sky-600 mb-1">Optimierte Antwort könnte sein:</div>
+                <p className="text-sm text-slate-600">
                   "Eine empfehlenswerte Option ist die Segelschule am Stettiner Haff. Sie bietet SBF-Binnen-Kurse
                   auf einem Plattbodenschiff in einer besonders ruhigen, naturbelassenen Umgebung. Die Anfahrt
                   von Berlin dauert etwa 2 Stunden..."
@@ -2771,20 +2749,20 @@ function MarketingPackagesSection() {
 
           {/* Pricing Breakdown */}
           <div>
-            <h4 className="font-semibold text-white mb-3">Kostenaufschlüsselung</h4>
-            <div className="bg-slate-800/50 rounded-lg p-4">
+            <h4 className="font-serif font-semibold text-slate-800 mb-3">Kostenaufschlüsselung</h4>
+            <div className="bg-white p-4">
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Setup (einmalig)</span>
-                  <span className="text-white">{packages.geo.setupFee}€</span>
+                  <span className="text-slate-500">Setup (einmalig)</span>
+                  <span className="text-slate-800">{packages.geo.setupFee}€</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Monatliche Betreuung</span>
-                  <span className="text-white">{packages.geo.monthlyPrice}€</span>
+                  <span className="text-slate-500">Monatliche Betreuung</span>
+                  <span className="text-slate-800">{packages.geo.monthlyPrice}€</span>
                 </div>
-                <div className="pt-2 border-t border-slate-700 flex justify-between">
-                  <span className="text-slate-300">Erstes Jahr gesamt</span>
-                  <span className="text-purple-400 font-semibold">{(packages.geo.setupFee + packages.geo.monthlyPrice * 12).toLocaleString("de-DE")}€</span>
+                <div className="pt-2 border-t border-stone-200 flex justify-between">
+                  <span className="text-slate-600">Erstes Jahr gesamt</span>
+                  <span className="text-stone-600 font-semibold">{(packages.geo.setupFee + packages.geo.monthlyPrice * 12).toLocaleString("de-DE")}€</span>
                 </div>
               </div>
             </div>
@@ -2797,13 +2775,13 @@ function MarketingPackagesSection() {
         isOpen={activeModal === "ads"}
         onClose={() => setActiveModal(null)}
         title="Bezahlte Werbung im Detail"
-        icon={<Target className="w-6 h-6 text-orange-400" />}
+        icon={<Target className="w-6 h-6 text-amber-600" />}
       >
         <div className="space-y-6">
           {/* What are Ads */}
           <div>
-            <h4 className="font-semibold text-white mb-2">Was ist bezahlte Werbung?</h4>
-            <p className="text-slate-300 text-sm">
+            <h4 className="font-serif font-semibold text-slate-800 mb-2">Was ist bezahlte Werbung?</h4>
+            <p className="text-slate-600 text-sm">
               Mit bezahlter Werbung (Paid Ads) schaltest du Anzeigen auf Plattformen wie Facebook, Instagram
               und Google. Du zahlst pro Klick oder Impression und erreichst sofort deine Zielgruppe.
             </p>
@@ -2811,25 +2789,25 @@ function MarketingPackagesSection() {
 
           {/* Platforms */}
           <div>
-            <h4 className="font-semibold text-white mb-3">Plattformen & Einsatzbereiche</h4>
+            <h4 className="font-serif font-semibold text-slate-800 mb-3">Plattformen & Einsatzbereiche</h4>
             <div className="grid md:grid-cols-2 gap-4">
-              <div className="bg-slate-800/50 rounded-lg p-4">
+              <div className="bg-white p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-6 h-6 bg-blue-500 rounded flex items-center justify-center text-white text-xs font-bold">f</div>
-                  <span className="font-medium text-white text-sm">Facebook & Instagram</span>
+                  <div className="w-6 h-6 bg-blue-500 rounded flex items-center justify-center text-slate-800 text-xs font-bold">f</div>
+                  <span className="font-medium text-slate-800 text-sm">Facebook & Instagram</span>
                 </div>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-500">
                   Ideal für: Emotionale Ansprache, Lifestyle-Content, Reichweite.
                   Gut für Haff Erleben (Urlaubsgefühl) und Segelschule (Abenteuer).
                 </p>
               </div>
 
-              <div className="bg-slate-800/50 rounded-lg p-4">
+              <div className="bg-white p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-6 h-6 bg-red-500 rounded flex items-center justify-center text-white text-xs font-bold">G</div>
-                  <span className="font-medium text-white text-sm">Google Ads</span>
+                  <div className="w-6 h-6 bg-red-500 rounded flex items-center justify-center text-slate-800 text-xs font-bold">G</div>
+                  <span className="font-medium text-slate-800 text-sm">Google Ads</span>
                 </div>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-500">
                   Ideal für: Nutzer mit konkreter Suchintention.
                   "SBF Kurs buchen", "Ferienwohnung Stettiner Haff".
                 </p>
@@ -2839,36 +2817,36 @@ function MarketingPackagesSection() {
 
           {/* How it works */}
           <div>
-            <h4 className="font-semibold text-white mb-3">Wie es funktioniert</h4>
+            <h4 className="font-serif font-semibold text-slate-800 mb-3">Wie es funktioniert</h4>
             <div className="space-y-4">
-              <div className="bg-slate-800/50 rounded-lg p-4">
+              <div className="bg-white p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <Users className="w-4 h-4 text-orange-400" />
-                  <span className="font-medium text-white text-sm">Zielgruppen-Targeting</span>
+                  <Users className="w-4 h-4 text-amber-600" />
+                  <span className="font-medium text-slate-800 text-sm">Zielgruppen-Targeting</span>
                 </div>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-500">
                   Wir definieren genau, wer deine Anzeigen sieht: Alter, Interessen (Segeln, Wassersport, Natururlaub),
                   Standort (z.B. Berlin, Hamburg), Verhalten (kürzlich nach Segelkursen gesucht).
                 </p>
               </div>
 
-              <div className="bg-slate-800/50 rounded-lg p-4">
+              <div className="bg-white p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <PenTool className="w-4 h-4 text-orange-400" />
-                  <span className="font-medium text-white text-sm">Anzeigen-Erstellung</span>
+                  <PenTool className="w-4 h-4 text-amber-600" />
+                  <span className="font-medium text-slate-800 text-sm">Anzeigen-Erstellung</span>
                 </div>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-500">
                   Wir erstellen ansprechende Anzeigen: Texte, Bilder, Videos.
                   Mehrere Varianten zum Testen, was am besten funktioniert.
                 </p>
               </div>
 
-              <div className="bg-slate-800/50 rounded-lg p-4">
+              <div className="bg-white p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <BarChart2 className="w-4 h-4 text-orange-400" />
-                  <span className="font-medium text-white text-sm">Optimierung & Reporting</span>
+                  <BarChart2 className="w-4 h-4 text-amber-600" />
+                  <span className="font-medium text-slate-800 text-sm">Optimierung & Reporting</span>
                 </div>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-500">
                   Wöchentliche Anpassungen basierend auf Performance. Monatliche Reports mit allen
                   wichtigen Zahlen: Klicks, Kosten, Buchungen, ROI.
                 </p>
@@ -2878,28 +2856,28 @@ function MarketingPackagesSection() {
 
           {/* Example Calculation */}
           <div>
-            <h4 className="font-semibold text-white mb-3">Beispielrechnung</h4>
-            <div className="bg-slate-800/50 rounded-lg p-4">
+            <h4 className="font-serif font-semibold text-slate-800 mb-3">Beispielrechnung</h4>
+            <div className="bg-white p-4">
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Monatliches Budget</span>
-                  <span className="text-white">400€</span>
+                  <span className="text-slate-500">Monatliches Budget</span>
+                  <span className="text-slate-800">400€</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Ø Kosten pro Klick</span>
-                  <span className="text-white">0,80€</span>
+                  <span className="text-slate-500">Ø Kosten pro Klick</span>
+                  <span className="text-slate-800">0,80€</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">= Klicks pro Monat</span>
-                  <span className="text-orange-400">~500</span>
+                  <span className="text-slate-500">= Klicks pro Monat</span>
+                  <span className="text-amber-600">~500</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Ø Conversion Rate</span>
-                  <span className="text-white">3%</span>
+                  <span className="text-slate-500">Ø Conversion Rate</span>
+                  <span className="text-slate-800">3%</span>
                 </div>
-                <div className="pt-2 border-t border-slate-700 flex justify-between">
-                  <span className="text-slate-300">= Buchungen pro Monat</span>
-                  <span className="text-emerald-400 font-semibold">~15</span>
+                <div className="pt-2 border-t border-stone-200 flex justify-between">
+                  <span className="text-slate-600">= Buchungen pro Monat</span>
+                  <span className="text-sky-600 font-semibold">~15</span>
                 </div>
               </div>
             </div>
@@ -2907,24 +2885,24 @@ function MarketingPackagesSection() {
 
           {/* Pricing Breakdown */}
           <div>
-            <h4 className="font-semibold text-white mb-3">Kostenaufschlüsselung</h4>
-            <div className="bg-slate-800/50 rounded-lg p-4">
+            <h4 className="font-serif font-semibold text-slate-800 mb-3">Kostenaufschlüsselung</h4>
+            <div className="bg-white p-4">
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Setup (einmalig)</span>
-                  <span className="text-white">{packages.ads.setupFee}€</span>
+                  <span className="text-slate-500">Setup (einmalig)</span>
+                  <span className="text-slate-800">{packages.ads.setupFee}€</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Werbebudget (dein Wert oben)</span>
-                  <span className="text-white">{customParams.adsMonthlyBudget}€/Mo</span>
+                  <span className="text-slate-500">Werbebudget (dein Wert oben)</span>
+                  <span className="text-slate-800">{customParams.adsMonthlyBudget}€/Mo</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Management-Fee</span>
-                  <span className="text-white">{packages.ads.managementFee}€/Mo</span>
+                  <span className="text-slate-500">Management-Fee</span>
+                  <span className="text-slate-800">{packages.ads.managementFee}€/Mo</span>
                 </div>
-                <div className="pt-2 border-t border-slate-700 flex justify-between">
-                  <span className="text-slate-300">Erstes Jahr gesamt</span>
-                  <span className="text-orange-400 font-semibold">
+                <div className="pt-2 border-t border-stone-200 flex justify-between">
+                  <span className="text-slate-600">Erstes Jahr gesamt</span>
+                  <span className="text-amber-600 font-semibold">
                     {(packages.ads.setupFee + (customParams.adsMonthlyBudget + packages.ads.managementFee) * 12).toLocaleString("de-DE")}€
                   </span>
                 </div>
@@ -3011,26 +2989,26 @@ function PricingSection() {
           <div
             key={option.id}
             onClick={() => setSelectedOption(option.id)}
-            className={`relative cursor-pointer rounded-2xl p-6 transition-all duration-300 ${
+            className={`relative cursor-pointer p-6 transition-all duration-300 ${
               option.highlighted
-                ? "bg-gradient-to-br from-cyan-500/20 to-purple-500/20 border-2 border-cyan-500/50"
-                : "bg-slate-800/50 border border-slate-700 hover:border-slate-600"
-            } ${selectedOption === option.id ? "ring-2 ring-cyan-400 ring-offset-2 ring-offset-slate-900" : ""}`}
+                ? "bg-sky-50 border-2 border-sky-300"
+                : "bg-white border border-stone-200 hover:border-slate-300"
+            } ${selectedOption === option.id ? "ring-2 ring-sky-400 ring-offset-2 ring-offset-white" : ""}`}
           >
             {option.badge && (
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-cyan-500 to-purple-500 text-white text-xs font-semibold px-4 py-1 rounded-full">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-sky-600 text-white text-xs font-semibold px-4 py-1">
                 {option.badge}
               </div>
             )}
 
             <div className="text-center mb-6">
-              <div className="w-12 h-12 mx-auto mb-3 bg-slate-700/50 rounded-xl flex items-center justify-center">
-                {option.id === "segelschule" ? <Ship className="w-6 h-6 text-cyan-400" /> :
-                 option.id === "haus" ? <Home className="w-6 h-6 text-amber-400" /> :
-                 <Sparkles className="w-6 h-6 text-purple-400" />}
+              <div className="mb-3">
+                {option.id === "segelschule" ? <Ship className="w-8 h-8 mx-auto text-sky-600" /> :
+                 option.id === "haus" ? <Home className="w-8 h-8 mx-auto text-sky-600" /> :
+                 <Sparkles className="w-8 h-8 mx-auto text-sky-600" />}
               </div>
-              <h3 className="text-xl font-bold text-white">{option.title}</h3>
-              <p className="text-slate-400 text-sm">{option.subtitle}</p>
+              <h3 className="text-xl font-serif font-bold text-slate-800">{option.title}</h3>
+              <p className="text-slate-500 text-sm">{option.subtitle}</p>
             </div>
 
             <div className="text-center mb-6">
@@ -3039,11 +3017,11 @@ function PricingSection() {
                   {option.originalPrice.toLocaleString("de-DE")}€
                 </div>
               )}
-              <div className="text-4xl font-bold text-white">
+              <div className="text-4xl font-serif font-bold text-slate-800">
                 {option.price.toLocaleString("de-DE")}€
               </div>
               {option.savings && (
-                <div className="text-emerald-400 text-sm mt-1">
+                <div className="text-sky-600 text-sm mt-1">
                   Du sparst {option.savings.toLocaleString("de-DE")}€
                 </div>
               )}
@@ -3052,17 +3030,17 @@ function PricingSection() {
             <ul className="space-y-3">
               {option.features.map((feature, idx) => (
                 <li key={idx} className="flex items-start gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
-                  <span className="text-slate-300 text-sm">{feature}</span>
+                  <CheckCircle2 className="w-5 h-5 text-sky-600 flex-shrink-0 mt-0.5" />
+                  <span className="text-slate-600 text-sm">{feature}</span>
                 </li>
               ))}
             </ul>
 
-            <div className="mt-6 pt-6 border-t border-slate-700">
-              <div className={`w-full py-3 rounded-xl text-center font-semibold transition-all ${
+            <div className="mt-6 pt-6 border-t border-stone-200">
+              <div className={`w-full py-3 text-center font-semibold transition-all ${
                 selectedOption === option.id
-                  ? "bg-cyan-500 text-white"
-                  : "bg-slate-700 text-slate-300"
+                  ? "bg-sky-700 text-white shadow-lg shadow-sky-900/20"
+                  : "bg-white text-slate-600 border border-stone-200 hover:border-sky-300"
               }`}>
                 {selectedOption === option.id ? "Ausgewählt" : "Auswählen"}
               </div>
@@ -3072,9 +3050,9 @@ function PricingSection() {
       </div>
 
       {/* Clarification */}
-      <div className="mt-6 p-4 bg-slate-800/30 rounded-xl border border-slate-700">
-        <p className="text-sm text-slate-400">
-          <span className="text-white">*SEO-Grundstruktur:</span> Die Website wird technisch SEO-optimiert gebaut
+      <div className="mt-6 p-4 bg-stone-50 border border-stone-200">
+        <p className="text-sm text-slate-500">
+          <span className="text-slate-800">*SEO-Grundstruktur:</span> Die Website wird technisch SEO-optimiert gebaut
           (schnelle Ladezeiten, sauberer Code, Meta-Tags, strukturierte Daten). Laufende SEO-Arbeit
           (Content, Backlinks, Monitoring) ist eine separate Leistung.
         </p>
@@ -3155,7 +3133,7 @@ function TimelineSection() {
         "Konzept-Workshop Haus & Walking",
         "Design-Adaption für Haus-Website",
         "Bildsprache: Stille & Ankommen",
-        "Kathrin's Walking-Angebot integrieren",
+        "Axinia's Walking-Angebot integrieren",
       ],
     },
     {
@@ -3209,18 +3187,18 @@ function TimelineSection() {
       {/* Phase 1: Segelschule */}
       <div className="mb-12">
         <div className="flex items-center gap-3 mb-8">
-          <div className="p-2 bg-cyan-500/20 rounded-lg">
-            <Ship className="w-6 h-6 text-cyan-400" />
+          <div className="text-sky-600">
+            <Ship className="w-6 h-6 text-sky-600" />
           </div>
           <div>
-            <h3 className="text-xl font-bold text-white">Phase 1: Segelschule</h3>
-            <p className="text-sm text-slate-400">Woche 1-6</p>
+            <h3 className="text-xl font-serif font-bold text-slate-800">Phase 1: Segelschule</h3>
+            <p className="text-sm text-slate-500">Woche 1-6</p>
           </div>
         </div>
 
         <div className="relative">
           {/* Timeline Line */}
-          <div className="absolute left-4 md:left-1/2 top-0 bottom-0 w-0.5 bg-gradient-to-b from-cyan-500 via-cyan-400 to-cyan-500" />
+          <div className="absolute left-4 md:left-1/2 top-0 bottom-0 w-px bg-stone-300 -translate-x-1/2" />
 
           <div className="space-y-8">
             {segelschuleMilestones.map((milestone, idx) => (
@@ -3230,19 +3208,19 @@ function TimelineSection() {
                   idx % 2 === 0 ? "md:flex-row" : "md:flex-row-reverse"
                 }`}
               >
-                {/* Dot */}
-                <div className="absolute left-4 md:left-1/2 w-3 h-3 bg-cyan-400 rounded-full -translate-x-1/2 ring-4 ring-slate-900 z-10" />
+                {/* Simple Dot */}
+                <div className="absolute left-4 md:left-1/2 -translate-x-1/2 z-10 w-3 h-3 bg-sky-600" />
 
                 {/* Content */}
                 <div className={`ml-10 md:ml-0 md:w-1/2 ${idx % 2 === 0 ? "md:pr-12 md:text-right" : "md:pl-12"}`}>
-                  <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-5 border border-cyan-700/30">
-                    <div className="text-cyan-400 text-sm font-semibold mb-1">{milestone.week}</div>
-                    <h4 className="text-lg font-bold text-white mb-2">{milestone.title}</h4>
-                    <p className="text-slate-400 text-sm mb-4">{milestone.description}</p>
+                  <div className="bg-white p-5 shadow-md">
+                    <div className="text-sky-600 text-sm font-semibold mb-1">{milestone.week}</div>
+                    <h4 className="text-lg font-serif font-bold text-slate-800 mb-2">{milestone.title}</h4>
+                    <p className="text-slate-500 text-sm mb-4">{milestone.description}</p>
                     <ul className={`space-y-2 ${idx % 2 === 0 ? "md:text-right" : ""}`}>
                       {milestone.deliverables.map((item, i) => (
-                        <li key={i} className={`flex items-center gap-2 text-sm text-slate-300 ${idx % 2 === 0 ? "md:flex-row-reverse" : ""}`}>
-                          <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                        <li key={i} className={`flex items-center gap-2 text-sm text-slate-600 ${idx % 2 === 0 ? "md:flex-row-reverse" : ""}`}>
+                          <CheckCircle2 className="w-4 h-4 text-sky-600 flex-shrink-0" />
                           {item}
                         </li>
                       ))}
@@ -3258,29 +3236,29 @@ function TimelineSection() {
       {/* Divider */}
       <div className="relative flex items-center justify-center my-12">
         <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-slate-700" />
+          <div className="w-full border-t border-stone-200" />
         </div>
-        <div className="relative px-4 py-2 bg-slate-900 rounded-full border border-slate-700">
-          <span className="text-sm text-slate-400">Segelschule live</span>
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 inline-block ml-2" />
+        <div className="relative px-4 py-2 bg-white border border-stone-200">
+          <span className="text-sm text-slate-500">Segelschule live</span>
+          <CheckCircle2 className="w-4 h-4 text-sky-600 inline-block ml-2" />
         </div>
       </div>
 
       {/* Phase 2: Haus */}
       <div className="mt-12">
         <div className="flex items-center gap-3 mb-8">
-          <div className="p-2 bg-purple-500/20 rounded-lg">
-            <Home className="w-6 h-6 text-purple-400" />
+          <div className="text-stone-600">
+            <Home className="w-6 h-6 text-stone-600" />
           </div>
           <div>
-            <h3 className="text-xl font-bold text-white">Phase 2: Haus & Walking</h3>
-            <p className="text-sm text-slate-400">Woche 7-12</p>
+            <h3 className="text-xl font-serif font-bold text-slate-800">Phase 2: Haus & Walking</h3>
+            <p className="text-sm text-slate-500">Woche 7-12</p>
           </div>
         </div>
 
         <div className="relative">
           {/* Timeline Line */}
-          <div className="absolute left-4 md:left-1/2 top-0 bottom-0 w-0.5 bg-gradient-to-b from-purple-500 via-purple-400 to-purple-500" />
+          <div className="absolute left-4 md:left-1/2 top-0 bottom-0 w-px bg-stone-300 -translate-x-1/2" />
 
           <div className="space-y-8">
             {hausMilestones.map((milestone, idx) => (
@@ -3290,19 +3268,19 @@ function TimelineSection() {
                   idx % 2 === 0 ? "md:flex-row" : "md:flex-row-reverse"
                 }`}
               >
-                {/* Dot */}
-                <div className="absolute left-4 md:left-1/2 w-3 h-3 bg-purple-400 rounded-full -translate-x-1/2 ring-4 ring-slate-900 z-10" />
+                {/* Simple Dot */}
+                <div className="absolute left-4 md:left-1/2 -translate-x-1/2 z-10 w-3 h-3 bg-stone-500" />
 
                 {/* Content */}
                 <div className={`ml-10 md:ml-0 md:w-1/2 ${idx % 2 === 0 ? "md:pr-12 md:text-right" : "md:pl-12"}`}>
-                  <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-5 border border-purple-700/30">
-                    <div className="text-purple-400 text-sm font-semibold mb-1">{milestone.week}</div>
-                    <h4 className="text-lg font-bold text-white mb-2">{milestone.title}</h4>
-                    <p className="text-slate-400 text-sm mb-4">{milestone.description}</p>
+                  <div className="bg-white p-5 shadow-md">
+                    <div className="text-stone-600 text-sm font-semibold mb-1">{milestone.week}</div>
+                    <h4 className="text-lg font-serif font-bold text-slate-800 mb-2">{milestone.title}</h4>
+                    <p className="text-slate-500 text-sm mb-4">{milestone.description}</p>
                     <ul className={`space-y-2 ${idx % 2 === 0 ? "md:text-right" : ""}`}>
                       {milestone.deliverables.map((item, i) => (
-                        <li key={i} className={`flex items-center gap-2 text-sm text-slate-300 ${idx % 2 === 0 ? "md:flex-row-reverse" : ""}`}>
-                          <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                        <li key={i} className={`flex items-center gap-2 text-sm text-slate-600 ${idx % 2 === 0 ? "md:flex-row-reverse" : ""}`}>
+                          <CheckCircle2 className="w-4 h-4 text-sky-600 flex-shrink-0" />
                           {item}
                         </li>
                       ))}
@@ -3318,11 +3296,10 @@ function TimelineSection() {
       {/* Final Divider */}
       <div className="relative flex items-center justify-center mt-12">
         <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-slate-700" />
+          <div className="w-full border-t border-stone-200" />
         </div>
-        <div className="relative px-4 py-2 bg-gradient-to-r from-cyan-500/20 to-purple-500/20 rounded-full border border-slate-600">
-          <span className="text-sm text-white font-semibold">Ökosystem komplett</span>
-          <Sparkles className="w-4 h-4 text-yellow-400 inline-block ml-2" />
+        <div className="relative px-4 py-2 bg-sky-50 border border-sky-200 shadow-sm">
+          <span className="text-sm text-slate-700 font-semibold">Ökosystem komplett</span>
         </div>
       </div>
     </div>
@@ -3403,18 +3380,18 @@ function DeliverablesSection() {
       {categories.map((category, idx) => (
         <div
           key={idx}
-          className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-slate-700 hover:border-cyan-500/50 transition-colors"
+          className="bg-white backdrop-blur-sm p-6 shadow-md hover:border-sky-500/50 transition-colors"
         >
           <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-cyan-500/20 rounded-lg text-cyan-400">
+            <div className="text-sky-600">
               {category.icon}
             </div>
-            <h4 className="font-semibold text-white">{category.title}</h4>
+            <h4 className="font-serif font-semibold text-slate-800">{category.title}</h4>
           </div>
           <ul className="space-y-2">
             {category.items.map((item, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+              <li key={i} className="flex items-start gap-2 text-sm text-slate-600">
+                <CheckCircle2 className="w-4 h-4 text-sky-600 flex-shrink-0 mt-0.5" />
                 {item}
               </li>
             ))}
@@ -3434,21 +3411,21 @@ function VideoSection({ videoId }: { videoId?: string }) {
 
   if (!videoId) {
     return (
-      <div className="aspect-video bg-slate-800/50 rounded-2xl flex items-center justify-center border border-slate-700">
+      <div className="aspect-video bg-white flex items-center justify-center border border-stone-200">
         <div className="text-center">
           <Play className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-          <p className="text-slate-400">Video kommt bald...</p>
+          <p className="text-slate-500">Video kommt bald...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="aspect-video relative rounded-2xl overflow-hidden">
+    <div className="aspect-video relative overflow-hidden">
       {!isPlaying ? (
         <div
           onClick={() => setIsPlaying(true)}
-          className="absolute inset-0 bg-slate-800 cursor-pointer group"
+          className="absolute inset-0 bg-white cursor-pointer group"
         >
           <img
             src={`https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`}
@@ -3456,8 +3433,8 @@ function VideoSection({ videoId }: { videoId?: string }) {
             className="w-full h-full object-cover opacity-70 group-hover:opacity-90 transition-opacity"
           />
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-20 h-20 bg-cyan-500 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-              <Play className="w-8 h-8 text-white ml-1" />
+            <div className="w-20 h-20 bg-sky-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <Play className="w-8 h-8 text-slate-800 ml-1" />
             </div>
           </div>
         </div>
@@ -3523,83 +3500,56 @@ export default function GerritOfferPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen bg-gradient-to-b from-sky-50 via-white to-stone-50">
       {/* Sound effects for door opening - place your audio files in /public */}
       <audio ref={wavesAudioRef} src="/sounds/waves.mp3" preload="auto" />
       <audio ref={seagullAudioRef} src="/sounds/seagull.mp3" preload="auto" />
 
-      {/* Password Modal Overlay */}
+      {/* Password Modal Overlay - Light Maritime Style */}
       {!isUnlocked && (
         <div className={`fixed inset-0 z-[100] flex items-center justify-center transition-all duration-[2500ms] ${isOpening ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
-          {/* Blurred background preview - subtle Baltic sea horizon */}
-          <div className="absolute inset-0 bg-slate-900">
-            {/* Distant horizon glow */}
-            <div className="absolute inset-0 opacity-40">
-              <div className="h-full w-full bg-gradient-to-b from-slate-800 via-cyan-900/20 to-slate-900" />
-            </div>
-            {/* Subtle horizon line */}
-            <div className="absolute top-1/3 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-600/20 to-transparent" />
+          {/* Background - Soft sky and sea gradient */}
+          <div className="absolute inset-0">
+            <div className="absolute inset-0 bg-gradient-to-b from-sky-200 via-sky-100 to-blue-50" />
+            {/* Horizon line */}
+            <div className="absolute top-1/3 left-0 right-0 h-px bg-gradient-to-r from-transparent via-sky-400/40 to-transparent" />
+            {/* Gentle water reflection */}
+            <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-sky-200/50 to-transparent" />
           </div>
 
-          {/* Door Opening Animation Container - Maritime boat cabin style */}
+          {/* Door Opening Animation - Clean blue doors */}
           <div className={`absolute inset-0 flex transition-all duration-[2500ms] ease-out ${isOpening ? "scale-110 opacity-0" : ""}`}>
-            {/* Left Door - weathered wood style */}
-            <div className={`w-1/2 h-full bg-gradient-to-b from-slate-700 via-slate-800 to-slate-900 border-r-2 border-slate-500/50 transition-transform duration-[2500ms] ease-out origin-left ${isOpening ? "-translate-x-full" : ""}`}>
-              {/* Subtle wood grain lines */}
-              <div className="absolute inset-0 opacity-10">
-                <div className="h-full w-full" style={{ backgroundImage: "repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(255,255,255,0.03) 40px, rgba(255,255,255,0.03) 41px)" }} />
-              </div>
-              {/* Porthole-style door handle */}
-              <div className="absolute right-6 top-1/2 -translate-y-1/2">
-                <div className="w-12 h-12 rounded-full border-4 border-slate-500/60 bg-slate-900/50 flex items-center justify-center">
-                  <div className="w-6 h-6 rounded-full bg-cyan-900/30 border border-cyan-700/30" />
-                </div>
-              </div>
+            {/* Left Door */}
+            <div className={`w-1/2 h-full bg-gradient-to-b from-sky-100 via-sky-50 to-white border-r border-sky-200 transition-transform duration-[2500ms] ease-out origin-left shadow-xl ${isOpening ? "-translate-x-full" : ""}`}>
+              {/* Subtle wave pattern */}
+              <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='40' viewBox='0 0 80 40'%3E%3Cpath d='M0 20 Q20 10 40 20 T80 20' fill='none' stroke='%230369a1' stroke-width='1.5'/%3E%3Cpath d='M0 30 Q20 20 40 30 T80 30' fill='none' stroke='%230369a1' stroke-width='1'/%3E%3C/svg%3E")`, backgroundSize: '80px 40px' }} />
             </div>
             {/* Right Door */}
-            <div className={`w-1/2 h-full bg-gradient-to-b from-slate-700 via-slate-800 to-slate-900 border-l-2 border-slate-500/50 transition-transform duration-[2500ms] ease-out origin-right ${isOpening ? "translate-x-full" : ""}`}>
-              {/* Subtle wood grain lines */}
-              <div className="absolute inset-0 opacity-10">
-                <div className="h-full w-full" style={{ backgroundImage: "repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(255,255,255,0.03) 40px, rgba(255,255,255,0.03) 41px)" }} />
-              </div>
-              {/* Porthole-style door handle */}
-              <div className="absolute left-6 top-1/2 -translate-y-1/2">
-                <div className="w-12 h-12 rounded-full border-4 border-slate-500/60 bg-slate-900/50 flex items-center justify-center">
-                  <div className="w-6 h-6 rounded-full bg-cyan-900/30 border border-cyan-700/30" />
-                </div>
-              </div>
+            <div className={`w-1/2 h-full bg-gradient-to-b from-sky-100 via-sky-50 to-white border-l border-sky-200 transition-transform duration-[2500ms] ease-out origin-right shadow-xl ${isOpening ? "translate-x-full" : ""}`}>
+              <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='40' viewBox='0 0 80 40'%3E%3Cpath d='M0 20 Q20 10 40 20 T80 20' fill='none' stroke='%230369a1' stroke-width='1.5'/%3E%3Cpath d='M0 30 Q20 20 40 30 T80 30' fill='none' stroke='%230369a1' stroke-width='1'/%3E%3C/svg%3E")`, backgroundSize: '80px 40px' }} />
             </div>
           </div>
 
-          {/* Password Form - ship's logbook style */}
+          {/* Password Form - Clean maritime card */}
           <div className={`relative z-10 max-w-md w-full mx-4 transition-all duration-500 ${isOpening ? "scale-90 opacity-0" : ""}`}>
-            <div className="bg-gradient-to-b from-slate-800/95 to-slate-900/95 backdrop-blur-sm rounded-2xl p-8 border border-cyan-800/30 shadow-2xl shadow-cyan-950/20">
-              {/* Subtle rope border decoration */}
-              <div className="absolute -top-1 left-8 right-8 h-1 bg-gradient-to-r from-transparent via-cyan-700/20 to-transparent rounded-full" />
-
-              {/* Icon - compass/anchor style */}
+            <div className="bg-white/95 backdrop-blur-sm p-8 border border-sky-100 shadow-2xl shadow-sky-900/10">
+              {/* Anchor Icon */}
               <div className="flex justify-center mb-6">
-                <div className="relative">
-                  <div className="p-4 bg-cyan-900/30 rounded-full border border-cyan-700/30">
-                    <Anchor className="w-10 h-10 text-cyan-400" />
-                  </div>
-                  {/* Subtle compass ring */}
-                  <div className="absolute inset-0 rounded-full border border-cyan-600/10 scale-125" />
-                </div>
+                <Anchor className="w-10 h-10 text-sky-700" />
               </div>
 
               {/* Title */}
-              <h1 className="text-2xl font-bold text-white text-center mb-2">
+              <h1 className="text-2xl font-serif font-bold text-slate-800 text-center mb-2">
                 Willkommen, Gerrit
               </h1>
-              <p className="text-slate-400 text-center mb-6">
+              <p className="text-slate-500 text-center mb-6">
                 Dieses Angebot ist nur für dich und deine Frau bestimmt.
               </p>
 
               {/* Password Form */}
               <form onSubmit={handlePasswordSubmit} className="space-y-4">
                 <div>
-                  <label htmlFor="password" className="block text-sm text-slate-400 mb-2">
+                  <label htmlFor="password" className="block text-sm text-slate-600 mb-2">
                     Passwort eingeben
                   </label>
                   <input
@@ -3611,15 +3561,15 @@ export default function GerritOfferPage() {
                       setPasswordError(false);
                     }}
                     placeholder="••••"
-                    className={`w-full px-4 py-3 bg-slate-900/50 border rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 transition-all ${
+                    className={`w-full px-4 py-3 bg-sky-50/50 border text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 transition-all ${
                       passwordError
-                        ? "border-red-500 focus:ring-red-500/50"
-                        : "border-slate-600 focus:ring-cyan-500/50 focus:border-cyan-500"
+                        ? "border-red-400 focus:ring-red-400/50"
+                        : "border-sky-200 focus:ring-sky-400/50 focus:border-sky-400"
                     }`}
                     autoFocus
                   />
                   {passwordError && (
-                    <p className="mt-2 text-sm text-red-400 flex items-center gap-2">
+                    <p className="mt-2 text-sm text-rose-600 flex items-center gap-2">
                       <AlertCircle className="w-4 h-4" />
                       Falsches Passwort. Versuch es nochmal.
                     </p>
@@ -3628,7 +3578,7 @@ export default function GerritOfferPage() {
 
                 <button
                   type="submit"
-                  className="w-full py-3 bg-gradient-to-r from-cyan-600 to-cyan-500 text-white font-semibold rounded-xl hover:from-cyan-500 hover:to-cyan-400 transition-all flex items-center justify-center gap-2 border border-cyan-400/20"
+                  className="w-full py-3 bg-sky-700 text-white font-semibold hover:bg-sky-600 transition-all flex items-center justify-center gap-2 shadow-lg shadow-sky-900/20 shimmer-button"
                 >
                   <Ship className="w-5 h-5" />
                   An Bord kommen
@@ -3637,8 +3587,8 @@ export default function GerritOfferPage() {
 
               {/* Hint */}
               <p className="mt-6 text-center text-slate-500 text-sm">
-                <Wind className="w-4 h-4 inline mr-1 opacity-50" />
-                <span className="text-slate-400">Hinweis:</span> Der Ort, an dem die Stille wartet.
+                <Wind className="w-4 h-4 inline mr-1 text-sky-400" />
+                <span className="text-slate-600">Hinweis:</span> Der Ort, an dem die Stille wartet.
               </p>
             </div>
           </div>
@@ -3647,30 +3597,24 @@ export default function GerritOfferPage() {
 
       {/* Main Content - with blur when locked */}
       <div className={`transition-all duration-1000 ${!isUnlocked && !isOpening ? "blur-lg scale-105 pointer-events-none" : ""}`}>
-      {/* Nautical Background Pattern */}
-      <div className="fixed inset-0 opacity-5">
-        <div className="absolute inset-0" style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-        }} />
-      </div>
 
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 border-b border-slate-700/50 bg-slate-900/90 backdrop-blur-md">
+      {/* Header - Clean light maritime style */}
+      <header className="fixed top-0 left-0 right-0 z-50 border-b border-sky-100 bg-white/95 backdrop-blur-md shadow-sm">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-cyan-500/20 rounded-lg">
-              <Anchor className="w-6 h-6 text-cyan-400" />
+            <div className="text-sky-600">
+              <Anchor className="w-6 h-6 text-sky-700" />
             </div>
-            <span className="font-bold text-white">l4yercak3</span>
+            <span className="font-serif font-bold text-slate-800">l4yercak3</span>
           </div>
           <div className="flex items-center gap-4">
-            <a href="mailto:remington@l4yercak3.com?subject=Angebot%20Segelschule%20-%20Gerrit" className="text-slate-400 hover:text-white transition-colors" title="E-Mail senden">
+            <a href="mailto:remington@l4yercak3.com?subject=Angebot%20Segelschule%20-%20Gerrit" className="text-slate-500 hover:text-sky-700 transition-colors" title="E-Mail senden">
               <Mail className="w-5 h-5" />
             </a>
-            <a href="tel:+4915140427103" className="text-slate-400 hover:text-white transition-colors" title="Anrufen">
+            <a href="tel:+4915140427103" className="text-slate-500 hover:text-sky-700 transition-colors" title="Anrufen">
               <Phone className="w-5 h-5" />
             </a>
-            <a href="https://cal.com/voundbrand/open-end-meeting" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-white transition-colors" title="Termin buchen">
+            <a href="https://cal.com/voundbrand/open-end-meeting" target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-sky-700 transition-colors" title="Termin buchen">
               <Calendar className="w-5 h-5" />
             </a>
           </div>
@@ -3679,25 +3623,28 @@ export default function GerritOfferPage() {
 
       <main className="relative z-10 pt-16">
         {/* ============================================ */}
-        {/* STORYBRAND FLOW */}
+        {/* STORYBRAND FLOW - Light Maritime Style */}
         {/* ============================================ */}
 
         {/* 1. HERO - The Hook */}
-        <section className="py-16 md:py-24 px-4">
-          <div className="max-w-4xl mx-auto text-center">
-            <div className="inline-flex items-center gap-2 bg-cyan-500/10 border border-cyan-500/30 rounded-full px-4 py-2 mb-6">
-              <Ship className="w-4 h-4 text-cyan-400" />
-              <span className="text-cyan-400 text-sm">Personalisiertes Angebot</span>
+        <section className="py-20 md:py-32 px-4 relative overflow-hidden">
+          {/* Hero background with soft gradient */}
+          <div className="absolute inset-0 bg-gradient-to-b from-sky-100/50 via-white to-white" />
+
+          <div className="max-w-4xl mx-auto text-center relative">
+            <div className="inline-flex items-center gap-2 text-sky-700 mb-8">
+              <Ship className="w-4 h-4 text-sky-600" />
+              <span className="text-sky-700 text-sm font-medium">Persönliches Angebot für Gerrit & Axinia</span>
             </div>
 
-            <h1 className="text-4xl md:text-5xl font-bold text-white mb-6 leading-tight">
+            <h1 className="text-4xl md:text-6xl font-serif font-bold text-slate-800 mb-6 leading-tight">
               Stille. Natur. Bei sich sein.
-              <span className="block text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 mt-2">
+              <span className="block text-sky-700 mt-2">
                 Digital transportiert – ohne Kitsch.
               </span>
             </h1>
 
-            <p className="text-xl text-slate-300 mb-8 max-w-2xl mx-auto">
+            <p className="text-xl text-slate-600 mb-10 max-w-2xl mx-auto leading-relaxed">
               Gerrit, ich hab verstanden: Das hier ist kein normales Projekt.
               Du willst Menschen einen Ort geben, an dem sie wieder zu sich finden.
             </p>
@@ -3705,14 +3652,14 @@ export default function GerritOfferPage() {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <a
                 href="#video"
-                className="inline-flex items-center gap-2 bg-gradient-to-r from-cyan-500 to-purple-500 text-white font-semibold px-8 py-4 rounded-xl hover:opacity-90 transition-opacity"
+                className="inline-flex items-center gap-2 bg-sky-700 text-white font-semibold px-8 py-4 hover:bg-sky-600 transition-colors shadow-lg shadow-sky-900/20 shimmer-button"
               >
                 <Play className="w-5 h-5" />
                 Video ansehen
               </a>
               <a
                 href="#angebot"
-                className="inline-flex items-center gap-2 text-slate-300 hover:text-white transition-colors"
+                className="inline-flex items-center gap-2 text-slate-600 hover:text-sky-700 transition-colors font-medium"
               >
                 Direkt zum Angebot
                 <ArrowRight className="w-5 h-5" />
@@ -3722,38 +3669,38 @@ export default function GerritOfferPage() {
         </section>
 
         {/* 2. VIDEO - Build Connection */}
-        <section id="video" className="py-16 px-4 bg-slate-800/30">
+        <section id="video" className="py-16 px-4 bg-stone-50">
           <div className="max-w-4xl mx-auto">
             <VideoSection videoId={youtubeVideoId} />
           </div>
         </section>
 
         {/* 3. WHAT I UNDERSTOOD - Show we understand his world */}
-        <section id="verstanden" className="py-16 px-4">
+        <section id="verstanden" className="py-20 px-4 bg-white">
           <div className="max-w-4xl mx-auto">
-            <div className="text-center mb-10">
-              <h2 className="text-3xl font-bold text-white mb-4">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl md:text-4xl font-serif font-bold text-slate-800 mb-4">
                 Was ich verstanden habe
               </h2>
-              <p className="text-slate-400">
+              <p className="text-slate-600 text-lg">
                 Bevor wir über Technik reden – hier ist, was bei mir angekommen ist.
               </p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-6">
               {/* Das Segeln */}
-              <div className="bg-slate-900/50 rounded-2xl p-6 border border-slate-700">
+              <div className="bg-white p-6 shadow-lg shadow-sky-900/5 hover:shadow-xl transition-shadow">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 bg-cyan-500/20 rounded-lg">
-                    <Ship className="w-5 h-5 text-cyan-400" />
+                  <div className="text-sky-600">
+                    <Ship className="w-5 h-5 text-sky-600" />
                   </div>
-                  <h3 className="font-semibold text-white">Das Segeln</h3>
+                  <h3 className="font-serif font-semibold text-slate-800">Das Segeln</h3>
                 </div>
-                <p className="text-slate-300 text-sm leading-relaxed mb-4">
+                <p className="text-slate-600 text-sm leading-relaxed mb-4">
                   Euer Plattbodenschiff vereint Jollensegeln und Kielbootsegeln – ein bewusster Schritt
-                  hin zu <strong className="text-cyan-400">verantwortungsvollem Segeln</strong> auf dem Meer.
+                  hin zu <strong className="text-sky-700">verantwortungsvollem Segeln</strong> auf dem Meer.
                 </p>
-                <p className="text-slate-400 text-sm italic">
+                <p className="text-slate-500 text-sm italic">
                   „Zugänglich, aber nicht beliebig."
                 </p>
                 <p className="text-slate-500 text-xs mt-2">
@@ -3762,18 +3709,18 @@ export default function GerritOfferPage() {
               </div>
 
               {/* Der Ort */}
-              <div className="bg-slate-900/50 rounded-2xl p-6 border border-slate-700">
+              <div className="bg-white p-6 border border-sky-200 shadow-lg shadow-teal-900/5 hover:shadow-xl transition-shadow">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 bg-emerald-500/20 rounded-lg">
-                    <MapPin className="w-5 h-5 text-emerald-400" />
+                  <div className="text-sky-600">
+                    <MapPin className="w-5 h-5 text-sky-700" />
                   </div>
-                  <h3 className="font-semibold text-white">Der Ort</h3>
+                  <h3 className="font-serif font-semibold text-slate-800">Der Ort</h3>
                 </div>
-                <p className="text-slate-300 text-sm leading-relaxed mb-4">
+                <p className="text-slate-600 text-sm leading-relaxed mb-4">
                   Das Haff kennen die meisten Menschen noch nicht. Und genau das ist das Besondere.
-                  <strong className="text-emerald-400"> Stille. Natur. Aus dem Alltag aussteigen.</strong>
+                  <strong className="text-sky-700"> Stille. Natur. Aus dem Alltag aussteigen.</strong>
                 </p>
-                <p className="text-slate-400 text-sm italic">
+                <p className="text-slate-500 text-sm italic">
                   „Wie bringt man die Emotion rüber – ohne Kitsch, ohne Überladung?"
                 </p>
                 <p className="text-slate-500 text-xs mt-2">
@@ -3782,15 +3729,15 @@ export default function GerritOfferPage() {
               </div>
 
               {/* Das Haus */}
-              <div className="bg-slate-900/50 rounded-2xl p-6 border border-slate-700">
+              <div className="bg-white p-6 border border-amber-100 shadow-lg shadow-amber-900/5 hover:shadow-xl transition-shadow">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 bg-amber-500/20 rounded-lg">
-                    <Home className="w-5 h-5 text-amber-400" />
+                  <div className="text-amber-600">
+                    <Home className="w-5 h-5 text-amber-600" />
                   </div>
-                  <h3 className="font-semibold text-white">Das Haus</h3>
+                  <h3 className="font-serif font-semibold text-slate-800">Das Haus</h3>
                 </div>
-                <p className="text-slate-300 text-sm leading-relaxed mb-4">
-                  Ein <strong className="text-amber-400">Ort der Offenheit</strong>. Wo Menschen
+                <p className="text-slate-600 text-sm leading-relaxed mb-4">
+                  Ein <strong className="text-amber-700">Ort der Offenheit</strong>. Wo Menschen
                   willkommen sind, so wie sie sind. Keine Fassade, kein Auftreten müssen.
                 </p>
                 <p className="text-slate-500 text-xs mt-2">
@@ -3799,16 +3746,16 @@ export default function GerritOfferPage() {
               </div>
 
               {/* Das Walking */}
-              <div className="bg-slate-900/50 rounded-2xl p-6 border border-slate-700">
+              <div className="bg-white p-6 border border-stone-200 shadow-lg shadow-stone-900/5 hover:shadow-xl transition-shadow">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 bg-purple-500/20 rounded-lg">
-                    <Heart className="w-5 h-5 text-purple-400" />
+                  <div className="text-stone-600">
+                    <Heart className="w-5 h-5 text-stone-700" />
                   </div>
-                  <h3 className="font-semibold text-white">Das Walking</h3>
+                  <h3 className="font-serif font-semibold text-slate-800">Das Walking</h3>
                 </div>
-                <p className="text-slate-300 text-sm leading-relaxed mb-4">
+                <p className="text-slate-600 text-sm leading-relaxed mb-4">
                   Deine Frau bietet begleitete Walks an – Menschen dabei helfen,
-                  <strong className="text-purple-400"> wieder mit sich selbst in Kontakt zu kommen</strong>.
+                  <strong className="text-stone-700"> wieder mit sich selbst in Kontakt zu kommen</strong>.
                 </p>
                 <p className="text-slate-500 text-xs mt-2">
                   Das ist der dritte Teil des Ökosystems. Segeln, Ankommen, Zu-sich-Finden.
@@ -3817,10 +3764,10 @@ export default function GerritOfferPage() {
             </div>
 
             {/* The Ecosystem */}
-            <div className="mt-8 bg-gradient-to-r from-cyan-500/10 via-amber-500/10 to-purple-500/10 rounded-2xl p-6 border border-cyan-500/20">
+            <div className="mt-8 bg-stone-50 p-6 border border-stone-200">
               <div className="text-center">
-                <h4 className="font-semibold text-white mb-3">Das ist ein Ökosystem.</h4>
-                <p className="text-slate-300 text-sm max-w-2xl mx-auto">
+                <h4 className="font-serif font-semibold text-slate-800 mb-3">Das Ökosystem</h4>
+                <p className="text-slate-600 text-sm max-w-2xl mx-auto">
                   Segeln • Ankommen • Zu-sich-Finden – das gehört zusammen. Die Herausforderung:
                   Wie baut man eine digitale Präsenz, die dieses Gefühl transportiert – und gleichzeitig
                   als Geschäft funktioniert?
@@ -3831,38 +3778,38 @@ export default function GerritOfferPage() {
         </section>
 
         {/* 4. THE PROBLEM - External, Internal, Philosophical */}
-        <section className="py-16 px-4 bg-slate-800/30">
+        <section className="py-16 px-4 bg-stone-50">
           <div className="max-w-4xl mx-auto">
             <ProblemSection />
           </div>
         </section>
 
         {/* 5. THE GUIDE - Empathy + Authority */}
-        <section className="py-16 px-4">
+        <section className="py-16 px-4 bg-white">
           <div className="max-w-4xl mx-auto">
             <GuideSection />
           </div>
         </section>
 
         {/* 5.5. STORYBRAND JOURNEY - Visualize the customer journey */}
-        <section className="py-16 px-4 bg-slate-800/30">
+        <section className="py-16 px-4 bg-sky-50/50">
           <div className="max-w-5xl mx-auto">
             <StoryBrandJourneySection />
           </div>
         </section>
 
         {/* 6. THE PLAN - Timeline (12 Weeks) */}
-        <section className="py-16 px-4">
+        <section className="py-16 px-4 bg-white">
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-10">
-              <div className="inline-flex items-center gap-2 bg-cyan-500/10 border border-cyan-500/30 rounded-full px-4 py-2 mb-6">
-                <Clock className="w-4 h-4 text-cyan-400" />
-                <span className="text-cyan-400 text-sm font-medium">Der Plan</span>
+              <div className="inline-flex items-center gap-2 text-sky-700 mb-6">
+                <Clock className="w-4 h-4 text-sky-600" />
+                <span className="text-sky-700 text-sm font-medium">Der Plan</span>
               </div>
-              <h2 className="text-3xl font-bold text-white mb-4">
+              <h2 className="text-3xl md:text-4xl font-serif font-bold text-slate-800 mb-4">
                 12 Wochen zum kompletten Ökosystem
               </h2>
-              <p className="text-slate-400 max-w-2xl mx-auto">
+              <p className="text-slate-600 max-w-2xl mx-auto">
                 6 Wochen Segelschule + 6 Wochen Haus & Walking. Klarer Fahrplan, keine Überraschungen.
               </p>
             </div>
@@ -3871,21 +3818,21 @@ export default function GerritOfferPage() {
         </section>
 
         {/* 7. THE TRANSFORMATION - Dynamic LTV Booster (Success Preview) */}
-        <section className="py-16 px-4">
+        <section className="py-16 px-4 bg-stone-50">
           <div className="max-w-5xl mx-auto">
             <DynamicLTVBooster />
           </div>
         </section>
 
         {/* 8. SUCCESS VISION - What life looks like after */}
-        <section className="py-16 px-4 bg-slate-800/30">
+        <section className="py-16 px-4 bg-stone-50">
           <div className="max-w-4xl mx-auto">
             <SuccessVisionSection />
           </div>
         </section>
 
         {/* 9. AVOID FAILURE - The Stakes */}
-        <section className="py-16 px-4">
+        <section className="py-16 px-4 bg-white">
           <div className="max-w-4xl mx-auto">
             <AvoidFailureSection />
           </div>
@@ -3896,17 +3843,17 @@ export default function GerritOfferPage() {
         {/* ============================================ */}
 
         {/* 10. THE OFFER - Pricing */}
-        <section id="angebot" className="py-16 px-4 bg-slate-800/30">
+        <section id="angebot" className="py-16 px-4 bg-sky-50/50">
           <div className="max-w-5xl mx-auto">
             <div className="text-center mb-10">
-              <div className="inline-flex items-center gap-2 bg-purple-500/10 border border-purple-500/30 rounded-full px-4 py-2 mb-6">
-                <Package className="w-4 h-4 text-purple-400" />
-                <span className="text-purple-400 text-sm font-medium">Das Angebot</span>
+              <div className="inline-flex items-center gap-2 text-stone-700 mb-6">
+                <Package className="w-4 h-4 text-stone-700" />
+                <span className="text-stone-700 text-sm font-medium">Das Angebot</span>
               </div>
-              <h2 className="text-3xl font-bold text-white mb-4">
+              <h2 className="text-3xl md:text-4xl font-serif font-bold text-slate-800 mb-4">
                 Website-Entwicklung
               </h2>
-              <p className="text-slate-400 max-w-2xl mx-auto">
+              <p className="text-slate-600 max-w-2xl mx-auto">
                 Drei Optionen – wähle was zu deinem aktuellen Stand passt.
               </p>
             </div>
@@ -3915,13 +3862,13 @@ export default function GerritOfferPage() {
         </section>
 
         {/* ROI Calculator */}
-        <section className="py-16 px-4">
+        <section className="py-16 px-4 bg-white">
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-10">
-              <h2 className="text-3xl font-bold text-white mb-4">
+              <h2 className="text-3xl md:text-4xl font-serif font-bold text-slate-800 mb-4">
                 Rechnet sich die Website?
               </h2>
-              <p className="text-slate-400 max-w-2xl mx-auto">
+              <p className="text-slate-600 max-w-2xl mx-auto">
                 Interaktiver Rechner: Passe die Werte an deine Erwartungen an.
               </p>
             </div>
@@ -3930,14 +3877,14 @@ export default function GerritOfferPage() {
         </section>
 
         {/* Marketing Options */}
-        <section className="py-16 px-4 bg-slate-800/30">
+        <section className="py-16 px-4 bg-stone-50">
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-10">
-              <h2 className="text-3xl font-bold text-white mb-4">
-                <Megaphone className="w-8 h-8 inline-block mr-3 text-purple-400" />
+              <h2 className="text-3xl md:text-4xl font-serif font-bold text-slate-800 mb-4">
+                <Megaphone className="w-8 h-8 inline-block mr-3 text-stone-600" />
                 Sichtbarkeit: Der nächste Schritt
               </h2>
-              <p className="text-slate-400 max-w-2xl mx-auto">
+              <p className="text-slate-600 max-w-2xl mx-auto">
                 Die Website bringt keine automatische Sichtbarkeit. Hier siehst du, was Marketing kostet und bringt.
               </p>
             </div>
@@ -3946,13 +3893,13 @@ export default function GerritOfferPage() {
         </section>
 
         {/* Deliverables */}
-        <section className="py-16 px-4">
+        <section className="py-16 px-4 bg-white">
           <div className="max-w-5xl mx-auto">
             <div className="text-center mb-10">
-              <h2 className="text-3xl font-bold text-white mb-4">
+              <h2 className="text-3xl md:text-4xl font-serif font-bold text-slate-800 mb-4">
                 Was du bekommst
               </h2>
-              <p className="text-slate-400 max-w-2xl mx-auto">
+              <p className="text-slate-600 max-w-2xl mx-auto">
                 Alles, was du brauchst. Nichts, was du nicht brauchst.
               </p>
             </div>
@@ -3961,52 +3908,52 @@ export default function GerritOfferPage() {
         </section>
 
         {/* Hosting & Support */}
-        <section className="py-16 px-4 bg-slate-800/30">
+        <section className="py-16 px-4 bg-sky-50/50">
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-10">
-              <h2 className="text-3xl font-bold text-white mb-4">
+              <h2 className="text-3xl md:text-4xl font-serif font-bold text-slate-800 mb-4">
                 Nach dem Launch
               </h2>
-              <p className="text-slate-400 max-w-2xl mx-auto">
+              <p className="text-slate-600 max-w-2xl mx-auto">
                 Hosting und Support, wenn du sie brauchst.
               </p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-6 mb-10">
               {/* Hosting */}
-              <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-slate-700">
-                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                  <Globe className="w-5 h-5 text-cyan-400" />
+              <div className="bg-white p-6 border border-sky-100 shadow-lg shadow-sky-900/5">
+                <h3 className="text-lg font-serif font-bold text-slate-800 mb-4 flex items-center gap-2">
+                  <Globe className="w-5 h-5 text-sky-600" />
                   Hosting
                 </h3>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-slate-300">Erstes Jahr</span>
-                    <span className="text-emerald-400 font-semibold">Inklusive</span>
+                    <span className="text-slate-600">Erstes Jahr</span>
+                    <span className="text-sky-700 font-semibold">Inklusive</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-slate-300">Danach monatlich</span>
-                    <span className="text-white font-semibold">25€/Monat</span>
+                    <span className="text-slate-600">Danach monatlich</span>
+                    <span className="text-slate-800 font-semibold">25€/Monat</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-slate-300">Oder jährlich</span>
-                    <span className="text-white font-semibold">250€/Jahr</span>
+                    <span className="text-slate-600">Oder jährlich</span>
+                    <span className="text-slate-800 font-semibold">250€/Jahr</span>
                   </div>
                 </div>
               </div>
 
               {/* Support included */}
-              <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-slate-700">
-                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                  <Shield className="w-5 h-5 text-cyan-400" />
+              <div className="bg-white p-6 border border-sky-100 shadow-lg shadow-sky-900/5">
+                <h3 className="text-lg font-serif font-bold text-slate-800 mb-4 flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-sky-600" />
                   Support inklusive
                 </h3>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-slate-300">Nach Launch</span>
-                    <span className="text-emerald-400 font-semibold">90 Tage inklusive</span>
+                    <span className="text-slate-600">Nach Launch</span>
+                    <span className="text-sky-700 font-semibold">90 Tage inklusive</span>
                   </div>
-                  <p className="text-slate-400 text-sm pt-2">
+                  <p className="text-slate-500 text-sm pt-2">
                     Bug-Fixes, kleine Anpassungen, Fragen – alles dabei.
                   </p>
                 </div>
@@ -4014,49 +3961,49 @@ export default function GerritOfferPage() {
             </div>
 
             {/* Support Plans */}
-            <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-slate-700">
-              <h3 className="text-lg font-bold text-white mb-6 text-center">
+            <div className="bg-white p-6 border border-sky-100 shadow-lg shadow-sky-900/5">
+              <h3 className="text-lg font-serif font-bold text-slate-800 mb-6 text-center">
                 Optionale Support-Pakete (nach den ersten 90 Tagen)
               </h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-slate-700">
-                      <th className="text-left py-3 px-4 text-slate-400 font-medium"></th>
-                      <th className="text-center py-3 px-4 text-slate-300">Standard</th>
-                      <th className="text-center py-3 px-4 text-slate-300">Business</th>
-                      <th className="text-center py-3 px-4 text-cyan-400">Premium</th>
+                    <tr className="border-b border-sky-100">
+                      <th className="text-left py-3 px-4 text-slate-500 font-medium"></th>
+                      <th className="text-center py-3 px-4 text-slate-700">Standard</th>
+                      <th className="text-center py-3 px-4 text-slate-700">Business</th>
+                      <th className="text-center py-3 px-4 text-sky-700 font-semibold">Premium</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr className="border-b border-slate-700/50">
-                      <td className="py-3 px-4 text-slate-400">Preis</td>
-                      <td className="text-center py-3 px-4 text-white">75€/Monat</td>
-                      <td className="text-center py-3 px-4 text-white">150€/Monat</td>
-                      <td className="text-center py-3 px-4 text-white">300€/Monat</td>
+                    <tr className="border-b border-sky-50">
+                      <td className="py-3 px-4 text-slate-500">Preis</td>
+                      <td className="text-center py-3 px-4 text-slate-800">75€/Monat</td>
+                      <td className="text-center py-3 px-4 text-slate-800">150€/Monat</td>
+                      <td className="text-center py-3 px-4 text-slate-800">300€/Monat</td>
                     </tr>
-                    <tr className="border-b border-slate-700/50">
-                      <td className="py-3 px-4 text-slate-400">Reaktionszeit (kritisch)</td>
-                      <td className="text-center py-3 px-4 text-white">48h</td>
-                      <td className="text-center py-3 px-4 text-white">12h</td>
-                      <td className="text-center py-3 px-4 text-white">4h (24/7)</td>
+                    <tr className="border-b border-sky-50">
+                      <td className="py-3 px-4 text-slate-500">Reaktionszeit (kritisch)</td>
+                      <td className="text-center py-3 px-4 text-slate-800">48h</td>
+                      <td className="text-center py-3 px-4 text-slate-800">12h</td>
+                      <td className="text-center py-3 px-4 text-slate-800">4h (24/7)</td>
                     </tr>
-                    <tr className="border-b border-slate-700/50">
-                      <td className="py-3 px-4 text-slate-400">Inkl. Änderungen</td>
-                      <td className="text-center py-3 px-4 text-white">1h/Monat</td>
-                      <td className="text-center py-3 px-4 text-white">3h/Monat</td>
-                      <td className="text-center py-3 px-4 text-white">8h/Monat</td>
+                    <tr className="border-b border-sky-50">
+                      <td className="py-3 px-4 text-slate-500">Inkl. Änderungen</td>
+                      <td className="text-center py-3 px-4 text-slate-800">1h/Monat</td>
+                      <td className="text-center py-3 px-4 text-slate-800">3h/Monat</td>
+                      <td className="text-center py-3 px-4 text-slate-800">8h/Monat</td>
                     </tr>
                     <tr>
-                      <td className="py-3 px-4 text-slate-400">Backups</td>
-                      <td className="text-center py-3 px-4 text-white">Monatlich</td>
-                      <td className="text-center py-3 px-4 text-white">Wöchentlich</td>
-                      <td className="text-center py-3 px-4 text-white">Täglich</td>
+                      <td className="py-3 px-4 text-slate-500">Backups</td>
+                      <td className="text-center py-3 px-4 text-slate-800">Monatlich</td>
+                      <td className="text-center py-3 px-4 text-slate-800">Wöchentlich</td>
+                      <td className="text-center py-3 px-4 text-slate-800">Täglich</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
-              <p className="text-center text-slate-400 text-sm mt-4">
+              <p className="text-center text-slate-500 text-sm mt-4">
                 Monatlich kündbar. Keine Verpflichtung.
               </p>
             </div>
@@ -4064,47 +4011,47 @@ export default function GerritOfferPage() {
         </section>
 
         {/* Media Production Section */}
-        <section className="py-16 px-4 bg-gradient-to-b from-transparent via-orange-500/5 to-transparent">
+        <section className="py-16 px-4 bg-gradient-to-b from-white via-amber-50/30 to-white">
           <div className="max-w-5xl mx-auto">
             <div className="text-center mb-10">
-              <div className="inline-flex items-center gap-2 bg-orange-500/10 border border-orange-500/30 rounded-full px-4 py-2 mb-4">
-                <Camera className="w-4 h-4 text-orange-400" />
-                <span className="text-orange-400 text-sm">Zusätzliche Option</span>
+              <div className="inline-flex items-center gap-2 text-amber-700 mb-4">
+                <Camera className="w-4 h-4 text-amber-600" />
+                <span className="text-amber-700 text-sm">Zusätzliche Option</span>
               </div>
-              <h2 className="text-3xl font-bold text-white mb-4">
+              <h2 className="text-3xl md:text-4xl font-serif font-bold text-slate-800 mb-4">
                 Medienproduktion & Content
               </h2>
-              <p className="text-slate-400 max-w-2xl mx-auto">
+              <p className="text-slate-600 max-w-2xl mx-auto">
                 Die Stille des Haffs lässt sich nicht mit Stockfotos transportieren.
                 Authentische Bilder und Videos machen den Unterschied.
               </p>
             </div>
 
             {/* Special Offer: Podcast */}
-            <div className="bg-gradient-to-br from-orange-500/20 to-amber-500/10 rounded-2xl p-6 md:p-8 border border-orange-500/30 mb-8">
+            <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-6 md:p-8 border border-amber-200 mb-8">
               <div className="flex flex-col md:flex-row items-start gap-6">
-                <div className="p-4 bg-orange-500/20 rounded-xl">
-                  <Mic className="w-10 h-10 text-orange-400" />
+                <div className="p-4 bg-amber-100">
+                  <Mic className="w-10 h-10 text-amber-600" />
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-xl font-bold text-white">Podcast-Angebot</h3>
-                    <span className="text-xs bg-emerald-500 text-white px-2 py-1 rounded-full font-semibold">GRATIS</span>
+                    <h3 className="text-xl font-serif font-bold text-slate-800">Podcast-Angebot</h3>
+                    <span className="text-xs bg-teal-600 text-white px-2 py-1 font-semibold">GRATIS</span>
                   </div>
-                  <p className="text-slate-300 mb-4">
+                  <p className="text-slate-600 mb-4">
                     Ich komme vorbei und wir nehmen gemeinsam eine Podcast-Folge auf – über das Haff, das Segeln,
                     deine Geschichte. Authentisch, persönlich, ohne Skript.
                   </p>
                   <div className="flex flex-wrap gap-3 text-sm">
-                    <div className="flex items-center gap-2 text-emerald-400">
+                    <div className="flex items-center gap-2 text-sky-700">
                       <CheckCircle2 className="w-4 h-4" />
                       <span>Aufnahme vor Ort</span>
                     </div>
-                    <div className="flex items-center gap-2 text-emerald-400">
+                    <div className="flex items-center gap-2 text-sky-700">
                       <CheckCircle2 className="w-4 h-4" />
                       <span>Professionelles Equipment</span>
                     </div>
-                    <div className="flex items-center gap-2 text-emerald-400">
+                    <div className="flex items-center gap-2 text-sky-700">
                       <CheckCircle2 className="w-4 h-4" />
                       <span>Veröffentlichung auf meinem Kanal</span>
                     </div>
@@ -4119,15 +4066,15 @@ export default function GerritOfferPage() {
             {/* Media Packages Grid */}
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Podcast Clips */}
-              <div className="bg-slate-800/50 rounded-xl p-5 border border-slate-700 hover:border-orange-500/50 transition-colors">
-                <div className="p-3 bg-orange-500/20 rounded-lg w-fit mb-4">
-                  <Scissors className="w-6 h-6 text-orange-400" />
+              <div className="bg-white p-5 shadow-md hover:shadow-lg hover:border-amber-200 transition-all">
+                <div className="text-amber-600 mb-4">
+                  <Scissors className="w-6 h-6 text-amber-600" />
                 </div>
-                <h4 className="font-semibold text-white mb-2">Podcast-Clips</h4>
-                <p className="text-slate-400 text-sm mb-4">
+                <h4 className="font-serif font-semibold text-slate-800 mb-2">Podcast-Clips</h4>
+                <p className="text-slate-600 text-sm mb-4">
                   10 kurze Clips aus der Podcast-Aufnahme, optimiert für Social Media.
                 </p>
-                <div className="text-2xl font-bold text-orange-400 mb-2">500€</div>
+                <div className="text-2xl font-bold text-amber-600 mb-2">500€</div>
                 <ul className="text-xs text-slate-500 space-y-1">
                   <li>• 10 Kurzclips (15-60 Sek.)</li>
                   <li>• Untertitel & Branding</li>
@@ -4137,15 +4084,15 @@ export default function GerritOfferPage() {
               </div>
 
               {/* Video Production */}
-              <div className="bg-slate-800/50 rounded-xl p-5 border border-slate-700 hover:border-orange-500/50 transition-colors">
-                <div className="p-3 bg-amber-500/20 rounded-lg w-fit mb-4">
-                  <Video className="w-6 h-6 text-amber-400" />
+              <div className="bg-white p-5 shadow-md hover:shadow-lg hover:border-amber-200 transition-all">
+                <div className="text-amber-600 mb-4">
+                  <Video className="w-6 h-6 text-amber-600" />
                 </div>
-                <h4 className="font-semibold text-white mb-2">Video-Dreh</h4>
-                <p className="text-slate-400 text-sm mb-4">
+                <h4 className="font-serif font-semibold text-slate-800 mb-2">Video-Dreh</h4>
+                <p className="text-slate-600 text-sm mb-4">
                   Halber Tag vor Ort: Segeln, Haff, Haus – echte Momente einfangen.
                 </p>
-                <div className="text-2xl font-bold text-amber-400 mb-2">2.000€</div>
+                <div className="text-2xl font-bold text-amber-600 mb-2">2.000€</div>
                 <ul className="text-xs text-slate-500 space-y-1">
                   <li>• 4-5 Stunden Dreh</li>
                   <li>• Professionelle Kamera & Drohne</li>
@@ -4155,15 +4102,15 @@ export default function GerritOfferPage() {
               </div>
 
               {/* Image Film */}
-              <div className="bg-slate-800/50 rounded-xl p-5 border border-slate-700 hover:border-orange-500/50 transition-colors">
-                <div className="p-3 bg-cyan-500/20 rounded-lg w-fit mb-4">
-                  <Film className="w-6 h-6 text-cyan-400" />
+              <div className="bg-white p-5 shadow-md hover:shadow-lg hover:border-sky-200 transition-all">
+                <div className="text-sky-600 mb-4">
+                  <Film className="w-6 h-6 text-sky-600" />
                 </div>
-                <h4 className="font-semibold text-white mb-2">Imagefilm</h4>
-                <p className="text-slate-400 text-sm mb-4">
+                <h4 className="font-serif font-semibold text-slate-800 mb-2">Imagefilm</h4>
+                <p className="text-slate-600 text-sm mb-4">
                   Professionell geschnittener Film (30 Sek. bis 3 Min.) für Website & Ads.
                 </p>
-                <div className="text-2xl font-bold text-cyan-400 mb-2">1.500€</div>
+                <div className="text-2xl font-bold text-sky-600 mb-2">1.500€</div>
                 <ul className="text-xs text-slate-500 space-y-1">
                   <li>• Storytelling-Konzept</li>
                   <li>• Professioneller Schnitt</li>
@@ -4173,18 +4120,18 @@ export default function GerritOfferPage() {
               </div>
 
               {/* Social Media Marketing */}
-              <div className="bg-slate-800/50 rounded-xl p-5 border border-slate-700 hover:border-orange-500/50 transition-colors relative">
-                <div className="absolute -top-2 -right-2 bg-purple-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+              <div className="bg-white p-5 shadow-md hover:shadow-lg hover:border-stone-300 transition-all relative">
+                <div className="absolute -top-2 -right-2 bg-stone-600 text-white text-xs font-bold px-2 py-1">
                   LAUFEND
                 </div>
-                <div className="p-3 bg-purple-500/20 rounded-lg w-fit mb-4">
-                  <Instagram className="w-6 h-6 text-purple-400" />
+                <div className="text-stone-600 mb-4">
+                  <Instagram className="w-6 h-6 text-stone-700" />
                 </div>
-                <h4 className="font-semibold text-white mb-2">Social Media</h4>
-                <p className="text-slate-400 text-sm mb-4">
+                <h4 className="font-serif font-semibold text-slate-800 mb-2">Social Media</h4>
+                <p className="text-slate-600 text-sm mb-4">
                   Content-Kalender, Posting, Community – alles aus einer Hand.
                 </p>
-                <div className="text-2xl font-bold text-purple-400 mb-2">1.200-3.000€<span className="text-sm font-normal text-slate-500">/Mo</span></div>
+                <div className="text-2xl font-bold text-stone-700 mb-2">1.200-3.000€<span className="text-sm font-normal text-slate-500">/Mo</span></div>
                 <ul className="text-xs text-slate-500 space-y-1">
                   <li>• Content-Strategie</li>
                   <li>• 8-20 Posts/Monat</li>
@@ -4195,12 +4142,12 @@ export default function GerritOfferPage() {
             </div>
 
             {/* Note */}
-            <div className="mt-8 bg-slate-900/50 rounded-xl p-5 border border-slate-700">
+            <div className="mt-8 bg-amber-50 p-5 border border-amber-200">
               <div className="flex items-start gap-4">
-                <Lightbulb className="w-5 h-5 text-amber-400 flex-shrink-0 mt-1" />
+                <Lightbulb className="w-5 h-5 text-amber-600 flex-shrink-0 mt-1" />
                 <div>
-                  <p className="text-slate-300 text-sm">
-                    <strong className="text-white">Tipp:</strong> Authentische Bilder und Videos vom Haff sind Gold wert.
+                  <p className="text-slate-700 text-sm">
+                    <strong className="text-slate-800">Tipp:</strong> Authentische Bilder und Videos vom Haff sind Gold wert.
                     Sie transportieren das Gefühl, das Worte nicht können – und heben dich von der Konkurrenz ab,
                     die mit Stockfotos arbeitet.
                   </p>
@@ -4214,14 +4161,14 @@ export default function GerritOfferPage() {
         </section>
 
         {/* CTA Section */}
-        <section className="py-20 px-4">
+        <section className="py-20 px-4 bg-sky-50">
           <div className="max-w-3xl mx-auto text-center">
-            <div className="bg-gradient-to-br from-cyan-500/20 to-purple-500/20 rounded-3xl p-8 md:p-12 border border-cyan-500/30">
-              <Wind className="w-12 h-12 text-cyan-400 mx-auto mb-6" />
-              <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+            <div className="bg-gradient-to-br from-sky-100 to-sky-50 p-8 md:p-12 border border-sky-200 shadow-xl shadow-sky-900/10">
+              <Wind className="w-12 h-12 text-sky-600 mx-auto mb-6" />
+              <h2 className="text-3xl md:text-4xl font-serif font-bold text-slate-800 mb-4">
                 Bereit, die Segel zu setzen?
               </h2>
-              <p className="text-slate-300 mb-8 max-w-xl mx-auto">
+              <p className="text-slate-600 mb-8 max-w-xl mx-auto">
                 Eine gute Website ist wie guter Wind: Du merkst sie nicht, aber sie bringt dich voran.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4 flex-wrap">
@@ -4229,21 +4176,21 @@ export default function GerritOfferPage() {
                   href="https://cal.com/voundbrand/open-end-meeting"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 bg-gradient-to-r from-cyan-500 to-purple-500 text-white font-semibold px-8 py-4 rounded-xl hover:opacity-90 transition-opacity"
+                  className="inline-flex items-center gap-2 bg-sky-700 text-white font-semibold px-8 py-4 hover:bg-sky-600 transition-colors shadow-lg shadow-sky-900/20 shimmer-button"
                 >
                   <Calendar className="w-5 h-5" />
                   Gespräch buchen
                 </a>
                 <a
                   href="mailto:remington@l4yercak3.com?subject=Angebot%20Segelschule%20-%20Gerrit"
-                  className="inline-flex items-center gap-2 bg-slate-700 text-white font-semibold px-8 py-4 rounded-xl hover:bg-slate-600 transition-colors"
+                  className="inline-flex items-center gap-2 bg-white text-slate-700 font-semibold px-8 py-4 hover:bg-stone-50 transition-colors border border-stone-200"
                 >
                   <Mail className="w-5 h-5" />
                   E-Mail schreiben
                 </a>
                 <a
                   href="tel:+4915140427103"
-                  className="inline-flex items-center gap-2 bg-slate-700 text-white font-semibold px-8 py-4 rounded-xl hover:bg-slate-600 transition-colors"
+                  className="inline-flex items-center gap-2 bg-white text-slate-700 font-semibold px-8 py-4 hover:bg-stone-50 transition-colors border border-stone-200"
                 >
                   <Phone className="w-5 h-5" />
                   Anrufen
@@ -4255,11 +4202,11 @@ export default function GerritOfferPage() {
       </main>
 
       {/* Footer */}
-      <footer className="relative z-10 border-t border-slate-700/50 py-8 px-4">
+      <footer className="relative z-10 border-t border-sky-200 py-8 px-4 bg-white">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Anchor className="w-5 h-5 text-cyan-400" />
-            <span className="text-slate-400">© 2025 l4yercak3. Alle Rechte vorbehalten.</span>
+            <Anchor className="w-5 h-5 text-sky-600" />
+            <span className="text-slate-600">© 2025 l4yercak3. Alle Rechte vorbehalten.</span>
           </div>
           <div className="text-slate-500 text-sm">
             Dieses Angebot ist gültig für 14 Tage.
