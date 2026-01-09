@@ -1,6 +1,8 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser, getUserContext } from "./rbacHelpers";
+import { getLicenseInternal } from "./licensing/helpers";
+import { isAppEnabledByTier } from "./licensing/appFeatureMapping";
 
 /**
  * App Availability Management
@@ -50,8 +52,12 @@ export const getOrgAvailabilities = query({
 /**
  * Get all apps available to an organization
  *
- * Super admins see all active apps.
- * Regular users see only apps enabled for their organization.
+ * Access is determined by:
+ * 1. App is in appAvailabilities (seeded for all orgs) AND
+ * 2. Organization's license tier has the corresponding feature enabled
+ *
+ * Super admins see all active apps (bypass licensing).
+ * Regular users see only apps enabled for their tier.
  *
  * @param sessionId - User session
  * @param organizationId - Organization to check
@@ -66,7 +72,7 @@ export const getAvailableApps = query({
     const { userId } = await requireAuthenticatedUser(ctx, sessionId);
     const userContext = await getUserContext(ctx, userId, organizationId);
 
-    // Super admins see all active and approved apps
+    // Super admins see all active and approved apps (bypass licensing)
     if (userContext.isGlobal && userContext.roleName === "super_admin") {
       return await ctx.db
         .query("apps")
@@ -79,7 +85,10 @@ export const getAvailableApps = query({
         .collect();
     }
 
-    // Get enabled apps for this organization
+    // Get organization's license to check tier-based access
+    const license = await getLicenseInternal(ctx, organizationId);
+
+    // Get enabled apps for this organization from appAvailabilities
     const availabilities = await ctx.db
       .query("appAvailabilities")
       .withIndex("by_org", (q) => q.eq("organizationId", organizationId))
@@ -88,13 +97,16 @@ export const getAvailableApps = query({
 
     const availableAppIds = availabilities.map((a) => a.appId);
 
-    // Get the app details for available apps
+    // Get the app details and filter by tier-based access
     const apps = [];
     for (const appId of availableAppIds) {
       const app = await ctx.db.get(appId);
       // Include both active and approved apps
       if (app && (app.status === "active" || app.status === "approved")) {
-        apps.push(app);
+        // Check if the app is enabled by the organization's tier
+        if (isAppEnabledByTier(app.code, license.features)) {
+          apps.push(app);
+        }
       }
     }
 

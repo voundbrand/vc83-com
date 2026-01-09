@@ -172,6 +172,7 @@ import type * as lib_pdf_templates_quote_estimate from "../lib/pdf_templates/quo
 import type * as lib_pdf_templates_ticket_template from "../lib/pdf_templates/ticket_template.js";
 import type * as lib_pdf_templates_vip_premium_ticket_template from "../lib/pdf_templates/vip_premium_ticket_template.js";
 import type * as lib_vatValidation from "../lib/vatValidation.js";
+import type * as licensing_appFeatureMapping from "../licensing/appFeatureMapping.js";
 import type * as licensing_badgeVerification from "../licensing/badgeVerification.js";
 import type * as licensing_helpers from "../licensing/helpers.js";
 import type * as licensing_superAdmin from "../licensing/superAdmin.js";
@@ -639,6 +640,7 @@ declare const fullApi: ApiFromModules<{
   "lib/pdf_templates/ticket_template": typeof lib_pdf_templates_ticket_template;
   "lib/pdf_templates/vip_premium_ticket_template": typeof lib_pdf_templates_vip_premium_ticket_template;
   "lib/vatValidation": typeof lib_vatValidation;
+  "licensing/appFeatureMapping": typeof licensing_appFeatureMapping;
   "licensing/badgeVerification": typeof licensing_badgeVerification;
   "licensing/helpers": typeof licensing_helpers;
   "licensing/superAdmin": typeof licensing_superAdmin;

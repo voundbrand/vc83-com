@@ -108,24 +108,29 @@ export interface TierFeatures {
   whiteLabelLevel: "none" | "badge_removal" | "full" | "full_with_api_domain";
 
   // CRM
+  crmEnabled: boolean;
   contactImportExportEnabled: boolean;
   contactSyncEnabled: boolean;
   bulkEmailEnabled: boolean;
 
   // Projects
+  projectsEnabled: boolean;
   budgetTrackingEnabled: boolean;
   advancedReportsEnabled: boolean;
 
   // Events
+  eventsEnabled: boolean;
   mediaGalleryEnabled: boolean;
   eventAnalyticsEnabled: boolean;
 
   // Products
+  productsEnabled: boolean;
   inventoryTrackingEnabled: boolean;
   b2bInvoicingEnabled: boolean;
   templateSetOverridesEnabled: boolean;
 
   // Checkout
+  checkoutEnabled: boolean;
   stripeConnectEnabled: boolean;
   invoicePaymentEnabled: boolean;
   manualPaymentEnabled: boolean;
@@ -134,6 +139,7 @@ export interface TierFeatures {
   stripeTaxEnabled: boolean;
 
   // Invoicing
+  invoicingEnabled: boolean;
   consolidatedInvoicingEnabled: boolean;
   multiCurrencyEnabled: boolean;
   automatedGenerationEnabled: boolean;
@@ -141,27 +147,34 @@ export interface TierFeatures {
   customTemplatesEnabled: boolean;
 
   // Forms
+  formsEnabled: boolean;
   multiStepFormsEnabled: boolean;
   conditionalLogicEnabled: boolean;
   fileUploadsEnabled: boolean;
   formAnalyticsEnabled: boolean;
 
   // Web Publishing
+  webPublishingEnabled: boolean;
   seoToolsEnabled: boolean;
   contentRulesEnabled: boolean;
   pageAnalyticsEnabled: boolean;
   vercelDeploymentEnabled: boolean;
 
   // Workflows
+  workflowsEnabled: boolean;
   workflowTemplatesEnabled: boolean;
   advancedConditionsEnabled: boolean;
   testModeEnabled: boolean;
 
   // Templates
+  templatesEnabled: boolean;
   templateSetsEnabled: boolean;
   templateVersioningEnabled: boolean;
   advancedEditorEnabled: boolean;
   templateSharingEnabled: boolean;
+
+  // Certificates
+  certificatesEnabled: boolean;
 
   // Media
   folderOrganizationEnabled: boolean;
@@ -334,24 +347,29 @@ export const FREE_TIER: TierConfig = {
     whiteLabelLevel: "none",
 
     // CRM
+    crmEnabled: false,
     contactImportExportEnabled: false,
     contactSyncEnabled: false,
     bulkEmailEnabled: false,
 
     // Projects
+    projectsEnabled: false,
     budgetTrackingEnabled: false,
     advancedReportsEnabled: false,
 
     // Events
+    eventsEnabled: false,
     mediaGalleryEnabled: false,
     eventAnalyticsEnabled: false,
 
     // Products
+    productsEnabled: false,
     inventoryTrackingEnabled: false,
     b2bInvoicingEnabled: false,
     templateSetOverridesEnabled: false,
 
     // Checkout
+    checkoutEnabled: false,
     stripeConnectEnabled: false,
     invoicePaymentEnabled: false,
     manualPaymentEnabled: false,
@@ -360,6 +378,7 @@ export const FREE_TIER: TierConfig = {
     stripeTaxEnabled: false,
 
     // Invoicing
+    invoicingEnabled: false,
     consolidatedInvoicingEnabled: false,
     multiCurrencyEnabled: false,
     automatedGenerationEnabled: false,
@@ -367,33 +386,40 @@ export const FREE_TIER: TierConfig = {
     customTemplatesEnabled: false,
 
     // Forms
+    formsEnabled: false,
     multiStepFormsEnabled: false,
     conditionalLogicEnabled: false,
     fileUploadsEnabled: false,
     formAnalyticsEnabled: false,
 
     // Web Publishing
+    webPublishingEnabled: false,
     seoToolsEnabled: false,
     contentRulesEnabled: false,
     pageAnalyticsEnabled: false,
     vercelDeploymentEnabled: true, // Free tier can deploy to Vercel
 
     // Workflows
+    workflowsEnabled: false,
     workflowTemplatesEnabled: false,
     advancedConditionsEnabled: false,
     testModeEnabled: false,
 
     // Templates (enabled for Free to allow system template access)
+    templatesEnabled: false,
     templateSetsEnabled: true,
     templateVersioningEnabled: false,
     advancedEditorEnabled: false,
     templateSharingEnabled: false,
 
+    // Certificates
+    certificatesEnabled: false,
+
     // Media
     folderOrganizationEnabled: false,
     cloudIntegrationEnabled: false,
 
-    // Certificates
+    // Certificates (sub-features)
     customCertificateTemplatesEnabled: false,
     automatedCertificateDeliveryEnabled: false,
     qrCodeEnabled: false,
@@ -544,24 +570,29 @@ export const STARTER_TIER: TierConfig = {
     whiteLabelLevel: "none",
 
     // CRM
+    crmEnabled: true,
     contactImportExportEnabled: true,
     contactSyncEnabled: false,
     bulkEmailEnabled: true,
 
     // Projects
+    projectsEnabled: true,
     budgetTrackingEnabled: true,
     advancedReportsEnabled: false,
 
     // Events
+    eventsEnabled: true,
     mediaGalleryEnabled: true,
     eventAnalyticsEnabled: false,
 
     // Products
+    productsEnabled: true,
     inventoryTrackingEnabled: true,
     b2bInvoicingEnabled: true,
     templateSetOverridesEnabled: false,
 
     // Checkout
+    checkoutEnabled: true,
     stripeConnectEnabled: true,
     invoicePaymentEnabled: true,
     manualPaymentEnabled: true,
@@ -570,6 +601,7 @@ export const STARTER_TIER: TierConfig = {
     stripeTaxEnabled: true,
 
     // Invoicing
+    invoicingEnabled: true,
     consolidatedInvoicingEnabled: true,
     multiCurrencyEnabled: true,
     automatedGenerationEnabled: true,
@@ -577,33 +609,40 @@ export const STARTER_TIER: TierConfig = {
     customTemplatesEnabled: false,
 
     // Forms
+    formsEnabled: true,
     multiStepFormsEnabled: true,
     conditionalLogicEnabled: true,
     fileUploadsEnabled: true,
     formAnalyticsEnabled: false,
 
     // Web Publishing
+    webPublishingEnabled: true,
     seoToolsEnabled: false,
     contentRulesEnabled: false,
     pageAnalyticsEnabled: false,
     vercelDeploymentEnabled: true,
 
     // Workflows
+    workflowsEnabled: true,
     workflowTemplatesEnabled: true,
     advancedConditionsEnabled: true,
     testModeEnabled: true,
 
     // Templates
+    templatesEnabled: true,
     templateSetsEnabled: true,
     templateVersioningEnabled: false,
     advancedEditorEnabled: true,
     templateSharingEnabled: false,
 
+    // Certificates
+    certificatesEnabled: true,
+
     // Media
     folderOrganizationEnabled: true,
     cloudIntegrationEnabled: false,
 
-    // Certificates
+    // Certificates (sub-features)
     customCertificateTemplatesEnabled: true,
     automatedCertificateDeliveryEnabled: true,
     qrCodeEnabled: true,
@@ -754,24 +793,29 @@ export const PROFESSIONAL_TIER: TierConfig = {
     whiteLabelLevel: "badge_removal",
 
     // CRM
+    crmEnabled: true,
     contactImportExportEnabled: true,
     contactSyncEnabled: true,
     bulkEmailEnabled: true,
 
     // Projects
+    projectsEnabled: true,
     budgetTrackingEnabled: true,
     advancedReportsEnabled: true,
 
     // Events
+    eventsEnabled: true,
     mediaGalleryEnabled: true,
     eventAnalyticsEnabled: true,
 
     // Products
+    productsEnabled: true,
     inventoryTrackingEnabled: true,
     b2bInvoicingEnabled: true,
     templateSetOverridesEnabled: true,
 
     // Checkout
+    checkoutEnabled: true,
     stripeConnectEnabled: true,
     invoicePaymentEnabled: true,
     manualPaymentEnabled: true,
@@ -780,6 +824,7 @@ export const PROFESSIONAL_TIER: TierConfig = {
     stripeTaxEnabled: true,
 
     // Invoicing
+    invoicingEnabled: true,
     consolidatedInvoicingEnabled: true,
     multiCurrencyEnabled: true,
     automatedGenerationEnabled: true,
@@ -787,33 +832,40 @@ export const PROFESSIONAL_TIER: TierConfig = {
     customTemplatesEnabled: false,
 
     // Forms
+    formsEnabled: true,
     multiStepFormsEnabled: true,
     conditionalLogicEnabled: true,
     fileUploadsEnabled: true,
     formAnalyticsEnabled: true,
 
     // Web Publishing
+    webPublishingEnabled: true,
     seoToolsEnabled: true,
     contentRulesEnabled: true,
     pageAnalyticsEnabled: true,
     vercelDeploymentEnabled: true,
 
     // Workflows
+    workflowsEnabled: true,
     workflowTemplatesEnabled: true,
     advancedConditionsEnabled: true,
     testModeEnabled: true,
 
     // Templates
+    templatesEnabled: true,
     templateSetsEnabled: true,
     templateVersioningEnabled: true,
     advancedEditorEnabled: true,
     templateSharingEnabled: false,
 
+    // Certificates
+    certificatesEnabled: true,
+
     // Media
     folderOrganizationEnabled: true,
     cloudIntegrationEnabled: true,
 
-    // Certificates
+    // Certificates (sub-features)
     customCertificateTemplatesEnabled: true,
     automatedCertificateDeliveryEnabled: true,
     qrCodeEnabled: true,
@@ -964,24 +1016,29 @@ export const AGENCY_TIER: TierConfig = {
     whiteLabelLevel: "full",
 
     // CRM
+    crmEnabled: true,
     contactImportExportEnabled: true,
     contactSyncEnabled: true,
     bulkEmailEnabled: true,
 
     // Projects
+    projectsEnabled: true,
     budgetTrackingEnabled: true,
     advancedReportsEnabled: true,
 
     // Events
+    eventsEnabled: true,
     mediaGalleryEnabled: true,
     eventAnalyticsEnabled: true,
 
     // Products
+    productsEnabled: true,
     inventoryTrackingEnabled: true,
     b2bInvoicingEnabled: true,
     templateSetOverridesEnabled: true,
 
     // Checkout
+    checkoutEnabled: true,
     stripeConnectEnabled: true,
     invoicePaymentEnabled: true,
     manualPaymentEnabled: true,
@@ -990,6 +1047,7 @@ export const AGENCY_TIER: TierConfig = {
     stripeTaxEnabled: true,
 
     // Invoicing
+    invoicingEnabled: true,
     consolidatedInvoicingEnabled: true,
     multiCurrencyEnabled: true,
     automatedGenerationEnabled: true,
@@ -997,33 +1055,40 @@ export const AGENCY_TIER: TierConfig = {
     customTemplatesEnabled: true,
 
     // Forms
+    formsEnabled: true,
     multiStepFormsEnabled: true,
     conditionalLogicEnabled: true,
     fileUploadsEnabled: true,
     formAnalyticsEnabled: true,
 
     // Web Publishing
+    webPublishingEnabled: true,
     seoToolsEnabled: true,
     contentRulesEnabled: true,
     pageAnalyticsEnabled: true,
     vercelDeploymentEnabled: true,
 
     // Workflows
+    workflowsEnabled: true,
     workflowTemplatesEnabled: true,
     advancedConditionsEnabled: true,
     testModeEnabled: true,
 
     // Templates
+    templatesEnabled: true,
     templateSetsEnabled: true,
     templateVersioningEnabled: true,
     advancedEditorEnabled: true,
     templateSharingEnabled: true,
 
+    // Certificates
+    certificatesEnabled: true,
+
     // Media
     folderOrganizationEnabled: true,
     cloudIntegrationEnabled: true,
 
-    // Certificates
+    // Certificates (sub-features)
     customCertificateTemplatesEnabled: true,
     automatedCertificateDeliveryEnabled: true,
     qrCodeEnabled: true,
@@ -1174,24 +1239,29 @@ export const ENTERPRISE_TIER: TierConfig = {
     whiteLabelLevel: "full_with_api_domain",
 
     // CRM
+    crmEnabled: true,
     contactImportExportEnabled: true,
     contactSyncEnabled: true,
     bulkEmailEnabled: true,
 
     // Projects
+    projectsEnabled: true,
     budgetTrackingEnabled: true,
     advancedReportsEnabled: true,
 
     // Events
+    eventsEnabled: true,
     mediaGalleryEnabled: true,
     eventAnalyticsEnabled: true,
 
     // Products
+    productsEnabled: true,
     inventoryTrackingEnabled: true,
     b2bInvoicingEnabled: true,
     templateSetOverridesEnabled: true,
 
     // Checkout
+    checkoutEnabled: true,
     stripeConnectEnabled: true,
     invoicePaymentEnabled: true,
     manualPaymentEnabled: true,
@@ -1200,6 +1270,7 @@ export const ENTERPRISE_TIER: TierConfig = {
     stripeTaxEnabled: true,
 
     // Invoicing
+    invoicingEnabled: true,
     consolidatedInvoicingEnabled: true,
     multiCurrencyEnabled: true,
     automatedGenerationEnabled: true,
@@ -1207,33 +1278,40 @@ export const ENTERPRISE_TIER: TierConfig = {
     customTemplatesEnabled: true,
 
     // Forms
+    formsEnabled: true,
     multiStepFormsEnabled: true,
     conditionalLogicEnabled: true,
     fileUploadsEnabled: true,
     formAnalyticsEnabled: true,
 
     // Web Publishing
+    webPublishingEnabled: true,
     seoToolsEnabled: true,
     contentRulesEnabled: true,
     pageAnalyticsEnabled: true,
     vercelDeploymentEnabled: true,
 
     // Workflows
+    workflowsEnabled: true,
     workflowTemplatesEnabled: true,
     advancedConditionsEnabled: true,
     testModeEnabled: true,
 
     // Templates
+    templatesEnabled: true,
     templateSetsEnabled: true,
     templateVersioningEnabled: true,
     advancedEditorEnabled: true,
     templateSharingEnabled: true,
 
+    // Certificates
+    certificatesEnabled: true,
+
     // Media
     folderOrganizationEnabled: true,
     cloudIntegrationEnabled: true,
 
-    // Certificates
+    // Certificates (sub-features)
     customCertificateTemplatesEnabled: true,
     automatedCertificateDeliveryEnabled: true,
     qrCodeEnabled: true,
