@@ -42,6 +42,23 @@ import { requireAuthenticatedUser } from "./rbacHelpers";
 import { checkResourceLimit, checkFeatureAccess, checkNestedResourceLimit } from "./licensing/helpers";
 
 /**
+ * Public Page Configuration Interface
+ * Controls the public-facing project page settings
+ */
+interface PublicPageConfig {
+  enabled: boolean;
+  slug: string;
+  password?: string;
+  theme?: "amber" | "purple" | "blue" | "green" | "neutral";
+  template?: "proposal" | "portfolio" | "simple" | "custom";
+  title?: string;
+  description?: string;
+  logoUrl?: string;
+  faviconUrl?: string;
+  customCss?: string;
+}
+
+/**
  * GET PROJECTS
  * Returns all projects for an organization
  */
@@ -1611,5 +1628,171 @@ export const searchProjects = query({
       .take(50);
 
     return results;
+  },
+});
+
+/**
+ * ========================================
+ * PUBLIC PROJECT PAGES
+ * ========================================
+ */
+
+/**
+ * GET PROJECT BY SLUG (Public)
+ * Returns project config for public page rendering
+ * No authentication required - returns limited public data
+ */
+export const getProjectBySlug = query({
+  args: {
+    slug: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const normalizedSlug = args.slug.toLowerCase().trim();
+
+    // Use index for efficient query - only scan projects, not all objects
+    // Limit to reasonable batch and search through them
+    const projects = await ctx.db
+      .query("objects")
+      .withIndex("by_type", (q) => q.eq("type", "project"))
+      .collect();
+
+    const project = projects.find((p) => {
+      const publicPage = p.customProperties?.publicPage as PublicPageConfig | undefined;
+      return publicPage?.slug?.toLowerCase() === normalizedSlug && publicPage?.enabled;
+    });
+
+    if (!project) {
+      return null;
+    }
+
+    const publicPage = project.customProperties?.publicPage as PublicPageConfig;
+
+    // Return only public-safe data
+    return {
+      projectId: project._id,
+      organizationId: project.organizationId,
+      name: publicPage.title || project.name,
+      description: publicPage.description || project.description,
+      theme: publicPage.theme || "purple",
+      template: publicPage.template || "simple",
+      hasPassword: !!publicPage.password,
+      logoUrl: publicPage.logoUrl,
+      faviconUrl: publicPage.faviconUrl,
+      customCss: publicPage.customCss,
+    };
+  },
+});
+
+/**
+ * VERIFY PROJECT PAGE PASSWORD
+ * Check if provided password matches project's public page password
+ */
+export const verifyProjectPagePassword = query({
+  args: {
+    slug: v.string(),
+    password: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const normalizedSlug = args.slug.toLowerCase().trim();
+
+    // Use index for efficient query
+    const projects = await ctx.db
+      .query("objects")
+      .withIndex("by_type", (q) => q.eq("type", "project"))
+      .collect();
+
+    const project = projects.find((p) => {
+      const publicPage = p.customProperties?.publicPage as PublicPageConfig | undefined;
+      return publicPage?.slug?.toLowerCase() === normalizedSlug && publicPage?.enabled;
+    });
+
+    if (!project) {
+      return { valid: false, reason: "not_found" as const };
+    }
+
+    const publicPage = project.customProperties?.publicPage as PublicPageConfig;
+
+    if (!publicPage.password) {
+      return { valid: true, reason: "no_password" as const };
+    }
+
+    // Case-insensitive password comparison
+    const isValid = publicPage.password.toLowerCase() === args.password.toLowerCase();
+    return { valid: isValid, reason: isValid ? "correct" as const : "incorrect" as const };
+  },
+});
+
+/**
+ * UPDATE PROJECT PUBLIC PAGE CONFIG
+ * Update the public page settings for a project
+ */
+export const updateProjectPublicPage = mutation({
+  args: {
+    sessionId: v.string(),
+    projectId: v.id("objects"),
+    publicPage: v.object({
+      enabled: v.boolean(),
+      slug: v.string(),
+      password: v.optional(v.string()),
+      theme: v.optional(v.string()),
+      template: v.optional(v.string()),
+      title: v.optional(v.string()),
+      description: v.optional(v.string()),
+      logoUrl: v.optional(v.string()),
+      faviconUrl: v.optional(v.string()),
+      customCss: v.optional(v.string()),
+    }),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const project = await ctx.db.get(args.projectId);
+    if (!project || project.type !== "project") {
+      throw new Error("Project not found");
+    }
+
+    // Validate slug uniqueness within organization
+    const normalizedSlug = args.publicPage.slug.toLowerCase().trim();
+
+    // Check slug format (alphanumeric + hyphens only)
+    if (!/^[a-z0-9-]+$/.test(normalizedSlug)) {
+      throw new Error("Slug can only contain lowercase letters, numbers, and hyphens");
+    }
+
+    if (normalizedSlug.length < 3 || normalizedSlug.length > 50) {
+      throw new Error("Slug must be between 3 and 50 characters");
+    }
+
+    // Check for duplicate slugs in same org
+    const orgProjects = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", project.organizationId).eq("type", "project")
+      )
+      .collect();
+
+    const duplicateSlug = orgProjects.find((p) => {
+      if (p._id === args.projectId) return false;
+      const pp = p.customProperties?.publicPage as PublicPageConfig | undefined;
+      return pp?.slug?.toLowerCase() === normalizedSlug;
+    });
+
+    if (duplicateSlug) {
+      throw new Error(`Slug "${normalizedSlug}" is already in use by another project`);
+    }
+
+    // Update project
+    await ctx.db.patch(args.projectId, {
+      customProperties: {
+        ...(project.customProperties || {}),
+        publicPage: {
+          ...args.publicPage,
+          slug: normalizedSlug,
+        },
+      },
+      updatedAt: Date.now(),
+    });
+
+    return { success: true, slug: normalizedSlug };
   },
 });

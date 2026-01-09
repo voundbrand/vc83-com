@@ -8,7 +8,7 @@ import { Id } from "../../../convex/_generated/dataModel";
 // TYPES
 // ============================================
 
-export type DrawerTheme = "amber" | "blue" | "emerald" | "neutral";
+export type DrawerTheme = "amber" | "blue" | "emerald" | "neutral" | "purple" | "green";
 
 export interface ProjectDrawerConfig {
   organizationId: Id<"organizations">;
@@ -90,6 +90,20 @@ const themeConfigs: Record<DrawerTheme, ThemeColors> = {
     accent: "#1f2937",
     background: "#f9fafb",
     border: "#d1d5db",
+  },
+  purple: {
+    primary: "#9333ea",
+    primaryHover: "#7e22ce",
+    accent: "#581c87",
+    background: "#faf5ff",
+    border: "#c4b5fd",
+  },
+  green: {
+    primary: "#16a34a",
+    primaryHover: "#15803d",
+    accent: "#14532d",
+    background: "#f0fdf4",
+    border: "#86efac",
   },
 };
 
