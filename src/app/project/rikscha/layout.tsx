@@ -12,11 +12,11 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "Angebot für Gerrit & Axinia - Segelschule & Haus am Haff",
-  description: "Persönliches Angebot für die digitale Transformation der Segelschule und des Hauses am Haff.",
+  title: "Rikscha-Projekt Torgelow - Marketingstrategie",
+  description: "Marketingstrategie und Projektplan für das Rikscha-Projekt in Torgelow. TuS Pommern Torgelow e.V.",
 };
 
-export default function GerritLayout({
+export default function RikschaLayout({
   children,
 }: {
   children: React.ReactNode;

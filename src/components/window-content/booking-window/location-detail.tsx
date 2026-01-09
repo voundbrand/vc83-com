@@ -1,0 +1,278 @@
+"use client"
+
+import { useQuery, useMutation } from "convex/react"
+import { api } from "../../../../convex/_generated/api"
+import { useAuth } from "@/hooks/use-auth"
+import { MapPin, Clock, Mail, Phone, Globe, Building2, Monitor, Edit, Trash2 } from "lucide-react"
+import type { Id } from "../../../../convex/_generated/dataModel"
+import { useNotification } from "@/hooks/use-notification"
+import { useState } from "react"
+
+interface LocationDetailProps {
+  locationId: Id<"objects">
+}
+
+export function LocationDetail({ locationId }: LocationDetailProps) {
+  const { sessionId } = useAuth()
+  const notification = useNotification()
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+
+  const location = useQuery(
+    api.locationOntology.getLocation,
+    sessionId
+      ? { sessionId, locationId }
+      : "skip"
+  )
+
+  const archiveLocation = useMutation(api.locationOntology.deleteLocation)
+
+  if (!sessionId) {
+    return (
+      <div className="p-4 text-center" style={{ color: 'var(--neutral-gray)' }}>
+        <p className="font-pixel text-sm">Please log in</p>
+      </div>
+    )
+  }
+
+  if (!location) {
+    return (
+      <div className="p-4 text-center" style={{ color: 'var(--neutral-gray)' }}>
+        <p className="text-sm">Loading location details...</p>
+      </div>
+    )
+  }
+
+  const props = location.customProperties as Record<string, unknown> || {}
+  const address = props.address as { street?: string; city?: string; state?: string; postalCode?: string; country?: string } | undefined
+  const operatingHours = props.defaultOperatingHours as Record<string, { open?: string; close?: string }> | undefined
+
+  const getSubtypeIcon = (subtype: string) => {
+    switch (subtype) {
+      case "branch": return <Building2 size={20} />
+      case "venue": return <MapPin size={20} />
+      case "virtual": return <Monitor size={20} />
+      default: return <MapPin size={20} />
+    }
+  }
+
+  const formatAddress = (): string[] | null => {
+    if (!address) return null
+    const cityLine = [address.city, address.state, address.postalCode].filter(Boolean).join(", ")
+    const parts: string[] = [
+      address.street,
+      cityLine,
+      address.country
+    ].filter((part): part is string => typeof part === "string" && part.length > 0)
+    return parts.length > 0 ? parts : null
+  }
+
+  const formatOperatingHours = () => {
+    if (!operatingHours) return null
+    const days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+    const dayLabels: Record<string, string> = {
+      monday: "Mon",
+      tuesday: "Tue",
+      wednesday: "Wed",
+      thursday: "Thu",
+      friday: "Fri",
+      saturday: "Sat",
+      sunday: "Sun"
+    }
+
+    return days.map(day => {
+      const hours = operatingHours[day]
+      if (!hours || !hours.open || !hours.close) return { day: dayLabels[day], hours: "Closed" }
+      return { day: dayLabels[day], hours: `${hours.open} - ${hours.close}` }
+    })
+  }
+
+  const handleArchive = async () => {
+    try {
+      await archiveLocation({ sessionId, locationId })
+      notification.success("Location archived", "The location has been archived.")
+      setShowDeleteDialog(false)
+    } catch (error) {
+      notification.error("Error", "Failed to archive location.")
+    }
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "active": return "var(--win95-success-bg)"
+      case "inactive": return "var(--win95-warning-bg)"
+      case "archived": return "var(--win95-error-bg)"
+      default: return "var(--win95-bg-light)"
+    }
+  }
+
+  const formattedAddress = formatAddress()
+  const formattedHours = formatOperatingHours()
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-3">
+          <div
+            className="p-3 rounded"
+            style={{
+              background: 'var(--win95-selected-bg)',
+              color: 'var(--win95-selected-text)'
+            }}
+          >
+            {getSubtypeIcon(location.subtype || "venue")}
+          </div>
+          <div>
+            <h2 className="font-pixel text-lg">{location.name}</h2>
+            <p className="text-sm opacity-70 mt-1 capitalize">{location.subtype?.replace("_", " ") || "Location"}</p>
+          </div>
+        </div>
+        <span
+          className="px-3 py-1 text-xs font-medium rounded capitalize"
+          style={{
+            background: getStatusColor(location.status || "active"),
+            color: 'white'
+          }}
+        >
+          {location.status || "active"}
+        </span>
+      </div>
+
+      {/* Address */}
+      {formattedAddress && (
+        <div
+          className="p-3 rounded border-2"
+          style={{
+            background: 'var(--win95-bg-light)',
+            borderColor: 'var(--win95-border)'
+          }}
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <MapPin size={16} />
+            <span className="font-medium text-sm">Address</span>
+          </div>
+          {formattedAddress.map((line: string, i: number) => (
+            <p key={i} className="text-sm">{line}</p>
+          ))}
+        </div>
+      )}
+
+      {/* Timezone */}
+      {typeof props.timezone === "string" && props.timezone ? (
+        <div
+          className="p-3 rounded border-2"
+          style={{
+            background: 'var(--win95-bg-light)',
+            borderColor: 'var(--win95-border)'
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <Globe size={16} />
+            <span className="text-sm">Timezone: <strong>{props.timezone}</strong></span>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Operating Hours */}
+      {formattedHours && (
+        <div
+          className="p-3 rounded border-2"
+          style={{
+            background: 'var(--win95-bg-light)',
+            borderColor: 'var(--win95-border)'
+          }}
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <Clock size={16} />
+            <span className="font-medium text-sm">Operating Hours</span>
+          </div>
+          <div className="grid grid-cols-2 gap-1 text-sm">
+            {formattedHours.map(({ day, hours }) => (
+              <div key={day} className="flex justify-between">
+                <span className="opacity-70">{day}</span>
+                <span>{hours}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Contact Info */}
+      {(typeof props.contactEmail === "string" || typeof props.contactPhone === "string") ? (
+        <div
+          className="p-3 rounded border-2"
+          style={{
+            background: 'var(--win95-bg-light)',
+            borderColor: 'var(--win95-border)'
+          }}
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <Mail size={16} />
+            <span className="font-medium text-sm">Contact</span>
+          </div>
+          {typeof props.contactEmail === "string" && props.contactEmail ? (
+            <p className="text-sm flex items-center gap-2">
+              <Mail size={12} /> {props.contactEmail}
+            </p>
+          ) : null}
+          {typeof props.contactPhone === "string" && props.contactPhone ? (
+            <p className="text-sm flex items-center gap-2 mt-1">
+              <Phone size={12} /> {props.contactPhone}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* Actions */}
+      {location.status !== "archived" && (
+        <div className="flex gap-2 pt-2 border-t" style={{ borderColor: 'var(--win95-border)' }}>
+          <button
+            onClick={() => setShowDeleteDialog(true)}
+            className="retro-button px-3 py-1.5 flex items-center gap-1 text-xs"
+            style={{ background: 'var(--win95-error-bg)', color: 'white' }}
+          >
+            <Trash2 size={14} /> Archive
+          </button>
+        </div>
+      )}
+
+      {/* Delete Dialog */}
+      {showDeleteDialog && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={() => setShowDeleteDialog(false)}
+        >
+          <div
+            className="p-4 rounded border-2 max-w-md w-full mx-4"
+            style={{
+              background: 'var(--win95-bg)',
+              borderColor: 'var(--win95-border)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="font-pixel text-sm mb-3">Archive Location</h3>
+            <p className="text-sm mb-4">
+              Are you sure you want to archive "{location.name}"? This location will no longer be available for new bookings.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={handleArchive}
+                className="retro-button px-4 py-2 text-xs flex-1"
+                style={{ background: 'var(--win95-error-bg)', color: 'white' }}
+              >
+                Archive Location
+              </button>
+              <button
+                onClick={() => setShowDeleteDialog(false)}
+                className="retro-button px-4 py-2 text-xs"
+                style={{ background: 'var(--win95-button-face)' }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

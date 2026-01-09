@@ -355,6 +355,28 @@ export const seed = internalMutation({
           ja: "特典",
         }
       },
+      {
+        key: "ui.app.booking",
+        values: {
+          en: "Booking",
+          de: "Buchungen",
+          pl: "Rezerwacje",
+          es: "Reservas",
+          fr: "Réservations",
+          ja: "予約",
+        }
+      },
+      {
+        key: "ui.windows.booking.title",
+        values: {
+          en: "Booking",
+          de: "Buchungen",
+          pl: "Rezerwacje",
+          es: "Reservas",
+          fr: "Réservations",
+          ja: "予約",
+        }
+      },
 
       // === SYSTEM APPS ===
       {

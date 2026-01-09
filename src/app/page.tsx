@@ -37,6 +37,7 @@ import { IntegrationsWindow } from "@/components/window-content/integrations-win
 import { ComplianceWindow } from "@/components/window-content/compliance-window"
 import { OrganizationSwitcherWindow } from "@/components/window-content/organization-switcher-window"
 import { BenefitsWindow } from "@/components/window-content/benefits-window"
+import { BookingWindow } from "@/components/window-content/booking-window"
 import { OnboardingWelcomeScreen } from "@/components/onboarding-welcome-screen"
 import { useIsMobile } from "@/hooks/use-media-query"
 import { useAuth, useOrganizations, useCurrentOrganization, useIsSuperAdmin, useAccountDeletionStatus } from "@/hooks/use-auth"
@@ -210,6 +211,10 @@ export default function HomePage() {
 
   const openBenefitsWindow = () => {
     openWindow("benefits", "Benefits", <BenefitsWindow />, { x: 150, y: 100 }, { width: 1100, height: 700 }, 'ui.app.benefits', '🎁')
+  }
+
+  const openBookingWindow = () => {
+    openWindow("booking", "Booking", <BookingWindow />, { x: 150, y: 100 }, { width: 1100, height: 700 }, 'ui.app.booking', '📅')
   }
 
   const openOrganizationSwitcherWindow = () => {
@@ -604,6 +609,8 @@ export default function HomePage() {
     { label: t('ui.app.templates'), icon: "📄", onClick: requireAuth(openTemplatesWindow) },
     // Benefits app - Member benefits and commission referrals
     { label: t('ui.app.benefits') || "Benefits", icon: "🎁", onClick: requireAuth(openBenefitsWindow) },
+    // Booking app - Resource scheduling and appointments
+    { label: t('ui.app.booking') || "Booking", icon: "📅", onClick: requireAuth(openBookingWindow) },
     //{ label: "l4yercak3 Podcast", icon: "🎙️", onClick: requireAuth(openEpisodesWindow) },
     //{ label: "Subscribe", icon: "🔊", onClick: requireAuth(openSubscribeWindow) },
   ]

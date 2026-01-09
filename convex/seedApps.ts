@@ -29,6 +29,7 @@ import { requireAuthenticatedUser, getUserContext } from "./rbacHelpers";
  * - Certificates app
  * - Compliance app
  * - Benefits app
+ * - Booking app
  *
  * No authentication required - this is a one-time setup mutation.
  *
@@ -286,6 +287,34 @@ export const seedSystemApps = mutation({
       console.log("Created Benefits app:", benefitsAppId);
     }
 
+    // Check if Booking app already exists
+    const existingBooking = await ctx.db
+      .query("apps")
+      .withIndex("by_code", (q) => q.eq("code", "booking"))
+      .first();
+
+    let bookingAppId;
+    if (existingBooking) {
+      bookingAppId = existingBooking._id;
+      console.log("Booking app already exists:", bookingAppId);
+    } else {
+      bookingAppId = await ctx.db.insert("apps", {
+        code: "booking",
+        name: "Booking",
+        description: "Resource scheduling and appointment booking - manage rooms, staff, equipment, and service appointments",
+        icon: "📅",
+        category: "commerce",
+        plans: ["pro", "business", "enterprise"],
+        creatorOrgId: systemOrg._id,
+        dataScope: "installer-owned",
+        status: "active",
+        version: "1.0.0",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+      console.log("Created Booking app:", bookingAppId);
+    }
+
     return {
       paymentsAppId,
       publishingAppId,
@@ -295,6 +324,7 @@ export const seedSystemApps = mutation({
       complianceAppId,
       aiAssistantAppId,
       benefitsAppId,
+      bookingAppId,
       systemOrgId: systemOrg._id,
     };
   },
@@ -1652,6 +1682,77 @@ export const registerBenefitsApp = mutation({
     return {
       appId,
       message: "Benefits app registered successfully",
+      app,
+    };
+  },
+});
+
+/**
+ * Register Booking app only
+ *
+ * Simple mutation to register the Booking app for resource scheduling and appointments.
+ * No authentication required - this is a one-time setup mutation.
+ *
+ * @returns App ID if created, or existing app ID if already registered
+ */
+export const registerBookingApp = mutation({
+  args: {},
+  handler: async (ctx) => {
+    // Check if Booking app already exists
+    const existing = await ctx.db
+      .query("apps")
+      .withIndex("by_code", (q) => q.eq("code", "booking"))
+      .first();
+
+    if (existing) {
+      console.log("Booking app already registered:", existing._id);
+      return {
+        appId: existing._id,
+        message: "Booking app already registered",
+        app: existing,
+      };
+    }
+
+    // Find or create a system organization to own the app
+    let systemOrg = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", "system"))
+      .first();
+
+    // If no system org exists, just use the first organization
+    if (!systemOrg) {
+      const firstOrg = await ctx.db.query("organizations").first();
+      if (!firstOrg) {
+        throw new Error(
+          "No organizations found. Create an organization first before registering apps."
+        );
+      }
+      systemOrg = firstOrg;
+    }
+
+    // Create the Booking app record
+    const appId = await ctx.db.insert("apps", {
+      code: "booking",
+      name: "Booking",
+      description: "Resource scheduling and appointment booking - manage rooms, staff, equipment, and service appointments",
+      icon: "📅",
+      category: "commerce",
+      plans: ["pro", "business", "enterprise"],
+      creatorOrgId: systemOrg._id,
+      dataScope: "installer-owned",
+      status: "active",
+      version: "1.0.0",
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    const app = await ctx.db.get(appId);
+
+    console.log("Booking app registered successfully:", appId);
+
+    return {
+      appId,
+      message: "Booking app registered successfully",
       app,
     };
   },

@@ -20,6 +20,7 @@ import { InvoicingWindow } from "@/components/window-content/invoicing-window";
 import { WorkflowsWindow } from "@/components/window-content/workflows-window";
 import { ProjectsWindow } from "@/components/window-content/projects-window";
 import { BenefitsWindow } from "@/components/window-content/benefits-window";
+import { BookingWindow } from "@/components/window-content/booking-window";
 
 /**
  * All Apps Window
@@ -52,6 +53,7 @@ export function AllAppsWindow() {
       'workflows': 'ui.app.workflows',
       'projects': 'ui.app.projects',
       'benefits': 'ui.app.benefits',
+      'booking': 'ui.app.booking',
     };
 
     const translationKey = translationKeyMap[appCode];
@@ -130,6 +132,11 @@ export function AllAppsWindow() {
       },
       'benefits': {
         component: <BenefitsWindow />,
+        width: 1100,
+        height: 700
+      },
+      'booking': {
+        component: <BookingWindow />,
         width: 1100,
         height: 700
       },

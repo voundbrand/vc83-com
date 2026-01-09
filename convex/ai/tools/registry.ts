@@ -15,6 +15,7 @@ import { formsToolDefinition } from "./formsTool";
 import { projectsToolDefinition } from "./projectsTool";
 import { crmToolDefinition } from "./crmTool";
 import { benefitsToolDefinition } from "./benefitsTool";
+import { bookingToolDefinition } from "./bookingTool";
 import { api } from "../../_generated/api";
 import { internal } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
@@ -906,6 +907,58 @@ const manageBenefitsTool: AITool = {
       filterCategory: args.filterCategory,
       filterStatus: args.filterStatus,
       includeInactive: args.includeInactive,
+      limit: args.limit,
+    });
+
+    return result;
+  }
+};
+
+/**
+ * 2.6 BOOKINGS TOOL
+ */
+
+const manageBookingsTool: AITool = {
+  name: "manage_bookings",
+  description: "Comprehensive booking, location, and availability management: create bookings, manage appointments/reservations/rentals, confirm/check-in/complete bookings, manage locations, check available time slots.",
+  status: "ready",
+  parameters: bookingToolDefinition.function.parameters,
+  execute: async (ctx, args) => {
+    const result = await ctx.runAction(api.ai.tools.bookingTool.executeManageBookings, {
+      sessionId: ctx.sessionId,
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      conversationId: ctx.conversationId,
+      action: args.action,
+      mode: args.mode,
+      workItemId: args.workItemId,
+      // Booking fields
+      bookingId: args.bookingId,
+      subtype: args.subtype,
+      resourceId: args.resourceId,
+      customerName: args.customerName,
+      customerEmail: args.customerEmail,
+      customerPhone: args.customerPhone,
+      startDateTime: args.startDateTime,
+      endDateTime: args.endDateTime,
+      duration: args.duration,
+      participants: args.participants,
+      notes: args.notes,
+      cancellationReason: args.cancellationReason,
+      confirmationRequired: args.confirmationRequired,
+      // Location fields
+      locationId: args.locationId,
+      locationName: args.locationName,
+      locationType: args.locationType,
+      address: args.address,
+      timezone: args.timezone,
+      contactEmail: args.contactEmail,
+      contactPhone: args.contactPhone,
+      // Filters
+      filterStatus: args.filterStatus,
+      filterSubtype: args.filterSubtype,
+      dateFrom: args.dateFrom,
+      dateTo: args.dateTo,
       limit: args.limit,
     });
 
@@ -1968,6 +2021,9 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
 
   // Benefits
   manage_benefits: manageBenefitsTool,
+
+  // Bookings
+  manage_bookings: manageBookingsTool,
 
   // Forms
   create_form: createFormTool,

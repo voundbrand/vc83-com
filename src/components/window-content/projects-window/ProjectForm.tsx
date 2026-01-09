@@ -6,7 +6,8 @@ import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { ClientSelector } from "./ClientSelector";
 import RichTextEditor from "./RichTextEditor";
-import { Loader2, Save, X, AlertCircle } from "lucide-react";
+import MeetingsTab from "./MeetingsTab";
+import { Loader2, Save, X, AlertCircle, Calendar } from "lucide-react";
 
 interface ProjectFormProps {
   sessionId: string;
@@ -445,6 +446,33 @@ export function ProjectForm({
           disabled={isSubmitting}
         />
       </div>
+
+      {/* Meetings Section (only for edit mode) */}
+      {mode === "edit" && projectId && (
+        <div
+          className="p-4 border-2"
+          style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        >
+          <h3 className="text-sm font-bold mb-2 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+            <Calendar size={16} />
+            Project Meetings
+          </h3>
+          <p className="text-xs mb-4" style={{ color: "var(--neutral-gray)" }}>
+            Manage client-facing meetings for this project. These will be visible in the Project Drawer.
+          </p>
+
+          <div
+            className="border-2 rounded overflow-hidden"
+            style={{ borderColor: "var(--win95-border)" }}
+          >
+            <MeetingsTab
+              projectId={projectId}
+              sessionId={sessionId}
+              organizationId={organizationId}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Action Buttons */}
       <div className="flex items-center gap-3 justify-end">

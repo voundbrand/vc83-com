@@ -13,6 +13,7 @@ import TasksTab from "./TasksTab";
 import TeamTab from "./TeamTab";
 import CommentsTab from "./CommentsTab";
 import ActivityTab from "./ActivityTab";
+import MeetingsTab from "./MeetingsTab";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
 interface Project {
@@ -43,7 +44,7 @@ interface ProjectDetailViewProps {
   onEdit: (project: Project) => void;
 }
 
-type TabType = "overview" | "milestones" | "tasks" | "team" | "comments" | "activity";
+type TabType = "overview" | "milestones" | "tasks" | "team" | "meetings" | "comments" | "activity";
 
 export default function ProjectDetailView({
   project,
@@ -59,6 +60,7 @@ export default function ProjectDetailView({
     { id: "milestones", label: "Milestones" },
     { id: "tasks", label: "Tasks" },
     { id: "team", label: "Team" },
+    { id: "meetings", label: "Meetings" },
     { id: "comments", label: "Comments" },
     { id: "activity", label: "Activity" },
   ];
@@ -286,6 +288,14 @@ export default function ProjectDetailView({
 
         {activeTab === "team" && (
           <TeamTab
+            projectId={project._id as Id<"objects">}
+            sessionId={sessionId}
+            organizationId={organizationId}
+          />
+        )}
+
+        {activeTab === "meetings" && (
+          <MeetingsTab
             projectId={project._id as Id<"objects">}
             sessionId={sessionId}
             organizationId={organizationId}

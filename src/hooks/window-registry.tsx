@@ -167,6 +167,10 @@ const BenefitsWindow = lazy(() =>
   import("@/components/window-content/benefits-window").then(m => ({ default: m.BenefitsWindow }))
 );
 
+const BookingWindow = lazy(() =>
+  import("@/components/window-content/booking-window").then(m => ({ default: m.BookingWindow }))
+);
+
 /**
  * Registry of all available windows
  */
@@ -597,6 +601,17 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
       title: "Benefits",
       titleKey: "ui.windows.benefits.title",
       icon: "🎁",
+      position: { x: 150, y: 100 },
+      size: { width: 1100, height: 700 }
+    }
+  },
+
+  "booking": {
+    createComponent: () => <BookingWindow />,
+    defaultConfig: {
+      title: "Booking",
+      titleKey: "ui.windows.booking.title",
+      icon: "📅",
       position: { x: 150, y: 100 },
       size: { width: 1100, height: 700 }
     }

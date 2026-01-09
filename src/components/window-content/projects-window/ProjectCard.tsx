@@ -1,6 +1,6 @@
 "use client";
 
-import { Briefcase, Calendar, DollarSign, TrendingUp, Edit, Archive, Building2 } from "lucide-react";
+import { Briefcase, Calendar, DollarSign, TrendingUp, Edit, Archive, Building2, Eye } from "lucide-react";
 import { Doc, Id } from "../../../../convex/_generated/dataModel";
 
 interface ProjectCardProps {
@@ -10,7 +10,6 @@ interface ProjectCardProps {
   onView?: (project: unknown) => void;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function ProjectCard({ project, onEdit, onArchive, onView }: ProjectCardProps) {
   const props = project.customProperties || {};
   const projectCode = props.projectCode as string | undefined;
@@ -49,8 +48,9 @@ export function ProjectCard({ project, onEdit, onArchive, onView }: ProjectCardP
   };
 
   // Format budget
-  const formatBudget = (budget: { amount: number; currency: string } | undefined) => {
-    if (!budget || budget.amount === 0) return "No budget";
+  const formatBudget = (budget: { amount?: number; currency?: string } | undefined) => {
+    if (!budget || typeof budget.amount !== "number" || budget.amount === 0) return "No budget";
+    if (!budget.currency) return budget.amount.toLocaleString();
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: budget.currency,
@@ -182,6 +182,23 @@ export function ProjectCard({ project, onEdit, onArchive, onView }: ProjectCardP
 
       {/* Actions */}
       <div className="flex items-center gap-2 pt-3 border-t" style={{ borderColor: "var(--win95-border)" }}>
+        {onView && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onView(project);
+            }}
+            className="flex-1 px-3 py-1.5 text-xs font-bold flex items-center justify-center gap-1.5 border-2 transition-colors hover:opacity-80"
+            style={{
+              borderColor: "var(--win95-border)",
+              background: "var(--win95-highlight)",
+              color: "white",
+            }}
+          >
+            <Eye size={12} />
+            View
+          </button>
+        )}
         <button
           onClick={(e) => {
             e.stopPropagation();
