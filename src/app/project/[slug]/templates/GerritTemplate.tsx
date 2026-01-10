@@ -6238,7 +6238,7 @@ function GerritOfferPageInner({ config }: { config: ProjectPageConfig }) {
   const seagullAudioRef = useRef<HTMLAudioElement>(null);
 
   // The password - "haff" - simple, fitting, related to the location
-  const correctPassword = "haff";
+  const correctPassword = "haffleben";
 
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
