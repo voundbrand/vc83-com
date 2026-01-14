@@ -16,11 +16,11 @@
 import { action, internalAction } from "../_generated/server";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
-import Mux from "@mux/mux-node";
-import * as crypto from "crypto";
 
-// Initialize Mux client (will be created per-action due to Convex action constraints)
-function getMuxClient() {
+// Dynamic import for Mux client to avoid bundler issues with Node.js built-ins
+async function getMuxClient() {
+  const Mux = (await import("@mux/mux-node")).default;
+
   const tokenId = process.env.MUX_TOKEN_ID;
   const tokenSecret = process.env.MUX_TOKEN_SECRET;
 
@@ -50,7 +50,7 @@ export const getDirectUploadUrl = action({
     corsOrigin: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const mux = getMuxClient();
+    const mux = await getMuxClient();
 
     // Create a direct upload URL
     const upload = await mux.video.uploads.create({
@@ -89,7 +89,7 @@ export const getAssetStatus = action({
     muxAssetId: v.string(),
   },
   handler: async (ctx, args) => {
-    const mux = getMuxClient();
+    const mux = await getMuxClient();
 
     const asset = await mux.video.assets.retrieve(args.muxAssetId);
 
@@ -154,7 +154,7 @@ export const deleteAsset = action({
     muxAssetId: v.string(),
   },
   handler: async (ctx, args) => {
-    const mux = getMuxClient();
+    const mux = await getMuxClient();
 
     await mux.video.assets.delete(args.muxAssetId);
 
@@ -178,7 +178,7 @@ export const createLiveStream = action({
     reducedLatency: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const mux = getMuxClient();
+    const mux = await getMuxClient();
 
     const liveStream = await mux.video.liveStreams.create({
       playback_policy: ["public"],
@@ -219,7 +219,7 @@ export const getLiveStreamStatus = action({
     liveStreamId: v.string(),
   },
   handler: async (ctx, args) => {
-    const mux = getMuxClient();
+    const mux = await getMuxClient();
 
     const liveStream = await mux.video.liveStreams.retrieve(args.liveStreamId);
 
@@ -247,7 +247,7 @@ export const endLiveStream = action({
     liveStreamId: v.string(),
   },
   handler: async (ctx, args) => {
-    const mux = getMuxClient();
+    const mux = await getMuxClient();
 
     // Complete the live stream (triggers VOD asset creation)
     await mux.video.liveStreams.complete(args.liveStreamId);
@@ -268,7 +268,7 @@ export const disableLiveStream = action({
     liveStreamId: v.string(),
   },
   handler: async (ctx, args) => {
-    const mux = getMuxClient();
+    const mux = await getMuxClient();
 
     await mux.video.liveStreams.disable(args.liveStreamId);
 
@@ -288,7 +288,7 @@ export const enableLiveStream = action({
     liveStreamId: v.string(),
   },
   handler: async (ctx, args) => {
-    const mux = getMuxClient();
+    const mux = await getMuxClient();
 
     await mux.video.liveStreams.enable(args.liveStreamId);
 
@@ -308,7 +308,7 @@ export const deleteLiveStream = action({
     liveStreamId: v.string(),
   },
   handler: async (ctx, args) => {
-    const mux = getMuxClient();
+    const mux = await getMuxClient();
 
     await mux.video.liveStreams.delete(args.liveStreamId);
 
@@ -421,12 +421,17 @@ export const processMuxWebhook = internalAction({
  *
  * Verifies the authenticity of Mux webhook requests.
  * Uses the webhook signature header and secret.
+ *
+ * Note: Uses dynamic import for crypto to work with Convex bundler.
  */
-export function verifyMuxWebhookSignature(
+export async function verifyMuxWebhookSignature(
   body: string,
   signature: string,
   secret: string
-): boolean {
+): Promise<boolean> {
+  // Dynamic import for crypto
+  const crypto = await import("crypto");
+
   // Mux uses a simple HMAC-SHA256 signature
   // The signature header format is: "t=<timestamp>,v1=<signature>"
   try {

@@ -2190,7 +2190,7 @@ http.route({
 
       // Verify signature using Mux's format
       const { verifyMuxWebhookSignature } = await import("./actions/mux");
-      const isValid = verifyMuxWebhookSignature(body, signature, webhookSecret);
+      const isValid = await verifyMuxWebhookSignature(body, signature, webhookSecret);
 
       if (!isValid) {
         console.error("[Mux Webhook] ❌ Signature verification failed");
