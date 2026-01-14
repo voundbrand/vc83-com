@@ -1,3 +1,5 @@
+"use node";
+
 /**
  * MUX VIDEO ACTIONS
  *
