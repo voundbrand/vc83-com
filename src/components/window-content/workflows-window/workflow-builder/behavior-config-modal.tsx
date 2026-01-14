@@ -65,12 +65,22 @@ export function BehaviorConfigModal({
   sessionId,
   organizationId,
 }: BehaviorConfigModalProps) {
-  // Note: Objects come from runtime API, not design-time selection
-  const selectedObjects: WorkflowObject[] = [];
   const { t } = useNamespaceTranslations("ui.workflows");
   const [config, setConfig] = React.useState(behavior.config);
 
-  // Fetch full form data for selected forms
+  // Fetch ALL published forms for the organization directly
+  // This replaces the broken selectedObjects approach
+  const allForms = useQuery(api.formsOntology.getForms, {
+    sessionId,
+    organizationId: organizationId as Id<"organizations">,
+    status: "published", // Only show active/published forms
+  });
+
+  // Note: Objects come from runtime API, not design-time selection
+  // Keep this for backward compatibility with other object types
+  const selectedObjects: WorkflowObject[] = [];
+
+  // Fetch full form data for selected forms (legacy path)
   const formObjects = selectedObjects.filter((obj) => obj.objectType === "form");
 
   // Fetch each form's data individually
@@ -114,9 +124,17 @@ export function BehaviorConfigModal({
   };
 
   const getAvailableObjects = (type: string) => {
-    if (type === "form" && formsData) {
-      // Return full form objects with all fields data
-      return formsData;
+    if (type === "form") {
+      // Return ALL published forms from the organization query
+      // This is the primary source - fetched directly, not from selectedObjects
+      if (allForms && allForms.length > 0) {
+        return allForms;
+      }
+      // Fallback to formsData from selectedObjects (legacy path)
+      if (formsData && formsData.length > 0) {
+        return formsData;
+      }
+      return [];
     }
     if (type === "event" && allEvents) {
       // Return all events from the organization
