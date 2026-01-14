@@ -2707,11 +2707,14 @@ export const internalCreateCheckoutPageWithDetails = internalMutation({
     // Build behaviors array with defaults
     const behaviors = args.behaviors || [];
 
-    // Auto-add form-collection behavior if form is linked
-    if (args.formId && !behaviors.some(b => b.type === "form-collection")) {
+    // Auto-add form_linking behavior if form is linked
+    if (args.formId && !behaviors.some(b => b.type === "form_linking" || b.type === "form-collection")) {
       behaviors.push({
-        type: "form-collection",
-        config: { formId: args.formId },
+        type: "form_linking",
+        config: {
+          formId: args.formId,
+          timing: "duringCheckout", // Show form during checkout flow
+        },
         priority: 100,
       });
     }
@@ -3474,8 +3477,8 @@ export const internalPublishPage = internalMutation({
 /**
  * LINK FORM TO CHECKOUT
  *
- * Links a form to a checkout page, adding the form-collection behavior
- * so the checkout will include a form step.
+ * Links a form to a checkout page, adding the form_linking behavior
+ * so the checkout will include a form step during checkout flow.
  */
 export const internalLinkFormToCheckout = internalMutation({
   args: {
@@ -3500,13 +3503,17 @@ export const internalLinkFormToCheckout = internalMutation({
     const customProps = (checkout.customProperties || {}) as Record<string, unknown>;
     const existingBehaviors = (customProps.behaviors || []) as Array<{ type: string; config?: Record<string, unknown>; priority?: number }>;
 
-    // Remove any existing form-collection behavior
-    const filteredBehaviors = existingBehaviors.filter(b => b.type !== "form-collection");
+    // Remove any existing form_linking or legacy form-collection behavior
+    const filteredBehaviors = existingBehaviors.filter(b => b.type !== "form_linking" && b.type !== "form-collection");
 
-    // Add new form-collection behavior
+    // Add new form_linking behavior with timing: "duringCheckout"
+    // This is required for the frontend registration-form.tsx to detect and render the form
     filteredBehaviors.push({
-      type: "form-collection",
-      config: { formId: args.formId },
+      type: "form_linking",
+      config: {
+        formId: args.formId,
+        timing: "duringCheckout", // Show form during checkout flow
+      },
       priority: 100,
     });
 
@@ -3570,7 +3577,7 @@ export const internalLinkFormToCheckout = internalMutation({
 /**
  * UNLINK FORM FROM CHECKOUT
  *
- * Removes a form from a checkout page, removing the form-collection behavior.
+ * Removes a form from a checkout page, removing the form_linking behavior.
  */
 export const internalUnlinkFormFromCheckout = internalMutation({
   args: {
@@ -3589,8 +3596,8 @@ export const internalUnlinkFormFromCheckout = internalMutation({
     const existingBehaviors = (customProps.behaviors || []) as Array<{ type: string; config?: Record<string, unknown>; priority?: number }>;
     const previousFormId = customProps.linkedFormId;
 
-    // Remove form-collection behavior
-    const filteredBehaviors = existingBehaviors.filter(b => b.type !== "form-collection");
+    // Remove form_linking and legacy form-collection behaviors
+    const filteredBehaviors = existingBehaviors.filter(b => b.type !== "form_linking" && b.type !== "form-collection");
 
     const now = Date.now();
 
