@@ -1894,140 +1894,6 @@ const publishCheckoutTool: AITool = {
   }
 };
 
-/**
- * LINK FORM TO CHECKOUT TOOL
- *
- * Links a form to checkout via a workflow with form_linking behavior.
- * This creates/updates a checkout workflow that triggers on checkout_start.
- *
- * Using workflows instead of direct checkout modification allows:
- * - External applications to trigger the same checkout flow
- * - Reusable checkout configurations across multiple checkouts
- * - Multiple behaviors in a single workflow (form + other behaviors)
- */
-const linkFormToCheckoutTool: AITool = {
-  name: "link_form_to_checkout",
-  description: `Link a form to be shown during ALL checkouts for this organization.
-
-This creates a checkout workflow that automatically shows the specified form during checkout.
-The form will appear as a step where customers fill out the form fields before completing their purchase.
-
-USE CASES:
-- Registration forms for event tickets
-- Dietary requirements for catering
-- T-shirt sizes for merchandise
-- Additional attendee information
-- Custom questionnaires
-
-IMPORTANT: This links the form to ALL checkouts in the organization via a workflow.
-The workflow-based approach allows external applications to trigger the same checkout flow.
-
-If the user doesn't specify which form to use, list the available ones and ask them to choose.`,
-  status: "ready",
-  windowName: "Workflows",
-  parameters: {
-    type: "object",
-    properties: {
-      formId: {
-        type: "string",
-        description: "The form ID to link to checkouts"
-      },
-      workflowName: {
-        type: "string",
-        description: "Optional name for the checkout workflow (default: 'Checkout Form Collection')"
-      }
-    },
-    required: ["formId"]
-  },
-  execute: async (ctx, args) => {
-    // If no formId, list available forms
-    if (!args.formId) {
-      const forms = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalListForms, {
-        organizationId: ctx.organizationId,
-        status: "all",
-        limit: 20,
-      });
-
-      return {
-        success: false,
-        requiresUserDecision: true,
-        error: "Please specify which form to link to checkouts",
-        userPrompt: "I need to know which form to add to the checkout flow. Here are your available forms:",
-        availableForms: forms.map((f: { _id: string; name: string; status: string }) => ({
-          id: f._id,
-          name: f.name,
-          status: f.status
-        })),
-        hint: "Ask the user which form should be shown during checkout."
-      };
-    }
-
-    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalAddFormToCheckoutWorkflow, {
-      organizationId: ctx.organizationId,
-      userId: ctx.userId,
-      formId: args.formId as Id<"objects">,
-      workflowName: args.workflowName,
-    });
-
-    const actionVerb = result.action === "created" ? "Created new" : "Updated existing";
-
-    return {
-      success: true,
-      message: `${actionVerb} checkout workflow "${result.workflowName}" with form "${result.formName}". The form will now appear during checkout.`,
-      workflowId: result.workflowId,
-      workflowName: result.workflowName,
-      formId: result.formId,
-      formName: result.formName,
-      action: result.action,
-      nextSteps: [
-        "The form will appear as a step in ALL checkout flows",
-        "Customers will fill out the form before payment",
-        "Form responses are stored with the order",
-        "External applications can trigger the same checkout workflow"
-      ]
-    };
-  }
-};
-
-/**
- * UNLINK FORM FROM CHECKOUT TOOL
- *
- * Removes the form_linking behavior from the checkout workflow.
- * This stops forms from being shown during checkout.
- */
-const unlinkFormFromCheckoutTool: AITool = {
-  name: "unlink_form_from_checkout",
-  description: "Remove the form from the checkout workflow. Checkouts will no longer include a form collection step.",
-  status: "ready",
-  windowName: "Workflows",
-  parameters: {
-    type: "object",
-    properties: {},
-    required: []
-  },
-  execute: async (ctx) => {
-    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalRemoveFormFromCheckoutWorkflow, {
-      organizationId: ctx.organizationId,
-      userId: ctx.userId,
-    });
-
-    if (!result.success) {
-      return {
-        success: false,
-        error: result.error || "No checkout workflow with form found",
-      };
-    }
-
-    return {
-      success: true,
-      message: `Removed form from checkout workflow "${result.workflowName}". Checkouts will no longer include a form collection step.`,
-      workflowId: result.workflowId,
-      workflowName: result.workflowName,
-      previousFormId: result.previousFormId,
-    };
-  }
-};
-
 const publishAllTool: AITool = {
   name: "publish_all",
   description: `Publish/activate multiple entities at once. Use this when the user asks to "publish everything", "activate all", or "make everything live".
@@ -2426,15 +2292,56 @@ const listTicketsTool: AITool = {
 
 const createWorkflowTool: AITool = {
   name: "create_workflow",
-  description: "Create an automated workflow (if-this-then-that style)",
+  description: `Create an automated workflow with behaviors.
+
+WORKFLOW CREATION PROCESS:
+1. First use "list_workflows" to check existing workflows
+2. Create workflow with this tool, specifying trigger and behaviors
+3. Use "enable_workflow" to activate it
+
+AVAILABLE TRIGGERS:
+- checkout_start: Runs when checkout begins (use for form collection during checkout)
+- form_submitted: Runs when a form is submitted
+- event_registered: Runs when someone registers for an event
+- contact_created: Runs when a new contact is created
+
+BEHAVIOR TYPES (for checkout_start workflows):
+- form_linking: Show a form during checkout
+  Config: { formId: "form_id", timing: "duringCheckout" }
+- addon_calculation: Calculate add-on prices
+- payment_provider_selection: Select payment provider
+
+EXAMPLE - To show a form during checkout:
+{
+  name: "Checkout Registration Form",
+  trigger: "checkout_start",
+  behaviors: [{
+    type: "form_linking",
+    config: { formId: "FORM_ID_HERE", timing: "duringCheckout" }
+  }]
+}`,
   status: "ready",
   windowName: "Workflows",
   parameters: {
     type: "object",
     properties: {
       name: { type: "string", description: "Workflow name" },
-      trigger: { type: "string", description: "What triggers this workflow (e.g., form_submitted, event_registered, contact_created)" },
-      actions: { type: "array", items: { type: "string" }, description: "Actions to perform (e.g., send_email, add_tag, create_task)" }
+      trigger: { type: "string", description: "What triggers this workflow (checkout_start, form_submitted, event_registered, contact_created)" },
+      behaviors: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            type: { type: "string", description: "Behavior type (form_linking, addon_calculation, etc.)" },
+            config: { type: "object", description: "Behavior-specific configuration" },
+            enabled: { type: "boolean", description: "Whether behavior is enabled (default: true)" },
+            priority: { type: "number", description: "Execution priority (higher = first, default: 100)" }
+          },
+          required: ["type"]
+        },
+        description: "Behaviors to add to the workflow with their configs"
+      },
+      status: { type: "string", description: "Initial status: 'draft' or 'active' (default: draft)" }
     },
     required: ["name", "trigger"]
   },
@@ -2444,17 +2351,18 @@ const createWorkflowTool: AITool = {
       userId: ctx.userId,
       name: args.name,
       trigger: args.trigger,
-      actions: args.actions,
+      behaviors: args.behaviors,
+      status: args.status,
     });
 
     return {
       success: true,
-      message: `Created workflow "${args.name}" (draft mode). Enable it to activate.`,
+      message: `Created workflow "${args.name}" (${args.status || "draft"} mode).${args.status !== "active" ? " Use enable_workflow to activate." : ""}`,
       workflowId,
       name: args.name,
       trigger: args.trigger,
-      actions: args.actions || [],
-      status: "draft",
+      behaviors: args.behaviors || [],
+      status: args.status || "draft",
     };
   }
 };
@@ -2554,8 +2462,138 @@ The response includes:
       checkoutWorkflows: checkoutWorkflows.length,
       workflows: formatted,
       hint: checkoutWorkflows.length === 0
-        ? "No checkout_start workflows found. Use link_form_to_checkout to create one with a form."
+        ? "No checkout_start workflows found. Use create_workflow with trigger 'checkout_start' and a form_linking behavior."
         : `Found ${checkoutWorkflows.length} checkout workflow(s). Check their behaviors to see if form_linking is configured.`,
+    };
+  }
+};
+
+/**
+ * ADD BEHAVIOR TO WORKFLOW TOOL
+ *
+ * Adds a behavior with proper configuration to an existing workflow.
+ */
+const addBehaviorToWorkflowTool: AITool = {
+  name: "add_behavior_to_workflow",
+  description: `Add a behavior to an existing workflow.
+
+Use this to add behaviors to workflows without recreating them.
+
+BEHAVIOR TYPES:
+- form_linking: Show a form during checkout
+  Config: { formId: "form_id", timing: "duringCheckout" }
+- addon_calculation: Calculate add-on prices
+- payment_provider_selection: Select payment provider
+- email_notification: Send email notifications
+- webhook: Call external webhook
+
+EXAMPLE - Add form to existing checkout workflow:
+{
+  workflowId: "WORKFLOW_ID",
+  behavior: {
+    type: "form_linking",
+    config: { formId: "FORM_ID", timing: "duringCheckout" }
+  }
+}`,
+  status: "ready",
+  windowName: "Workflows",
+  parameters: {
+    type: "object",
+    properties: {
+      workflowId: { type: "string", description: "ID of the workflow to modify" },
+      behavior: {
+        type: "object",
+        properties: {
+          type: { type: "string", description: "Behavior type (form_linking, addon_calculation, etc.)" },
+          config: { type: "object", description: "Behavior-specific configuration" },
+          enabled: { type: "boolean", description: "Whether behavior is enabled (default: true)" },
+          priority: { type: "number", description: "Execution priority (higher = first, default: 100)" }
+        },
+        required: ["type"],
+        description: "The behavior to add"
+      }
+    },
+    required: ["workflowId", "behavior"]
+  },
+  execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalAddBehaviorToWorkflow, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      workflowId: args.workflowId as Id<"objects">,
+      behavior: args.behavior,
+    });
+
+    return {
+      success: true,
+      message: `Added ${result.behaviorType} behavior to workflow "${result.workflowName}". Total behaviors: ${result.totalBehaviors}`,
+      workflowId: result.workflowId,
+      workflowName: result.workflowName,
+      behaviorId: result.behaviorId,
+      behaviorType: result.behaviorType,
+      totalBehaviors: result.totalBehaviors,
+    };
+  }
+};
+
+/**
+ * REMOVE BEHAVIOR FROM WORKFLOW TOOL
+ *
+ * Removes a behavior from an existing workflow.
+ */
+const removeBehaviorFromWorkflowTool: AITool = {
+  name: "remove_behavior_from_workflow",
+  description: `Remove a behavior from a workflow.
+
+Use this to remove specific behaviors without deleting the entire workflow.
+You can remove by behavior ID (specific) or by type (all of that type).
+
+EXAMPLE - Remove form_linking from checkout workflow:
+{
+  workflowId: "WORKFLOW_ID",
+  behaviorType: "form_linking"
+}`,
+  status: "ready",
+  windowName: "Workflows",
+  parameters: {
+    type: "object",
+    properties: {
+      workflowId: { type: "string", description: "ID of the workflow to modify" },
+      behaviorId: { type: "string", description: "Specific behavior ID to remove" },
+      behaviorType: { type: "string", description: "Remove behavior(s) of this type" }
+    },
+    required: ["workflowId"]
+  },
+  execute: async (ctx, args) => {
+    if (!args.behaviorId && !args.behaviorType) {
+      return {
+        success: false,
+        error: "Must provide either behaviorId or behaviorType to identify which behavior to remove",
+      };
+    }
+
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalRemoveBehaviorFromWorkflow, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      workflowId: args.workflowId as Id<"objects">,
+      behaviorId: args.behaviorId,
+      behaviorType: args.behaviorType,
+    });
+
+    if (!result.success) {
+      return {
+        success: false,
+        error: result.error,
+      };
+    }
+
+    return {
+      success: true,
+      message: `Removed ${result.removedBehaviorType} behavior from workflow "${result.workflowName}". Remaining behaviors: ${result.remainingBehaviors}`,
+      workflowId: result.workflowId,
+      workflowName: result.workflowName,
+      removedBehaviorId: result.removedBehaviorId,
+      removedBehaviorType: result.removedBehaviorType,
+      remainingBehaviors: result.remainingBehaviors,
     };
   }
 };
@@ -3254,6 +3292,8 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
   create_workflow: createWorkflowTool,
   enable_workflow: enableWorkflowTool,
   list_workflows: listWorkflowsTool,
+  add_behavior_to_workflow: addBehaviorToWorkflowTool,
+  remove_behavior_from_workflow: removeBehaviorFromWorkflowTool,
 
   // Media
   upload_media: uploadMediaTool,
@@ -3270,8 +3310,6 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
   // Checkout
   create_checkout_page: createCheckoutPageTool,
   publish_checkout: publishCheckoutTool,
-  link_form_to_checkout: linkFormToCheckoutTool,
-  unlink_form_from_checkout: unlinkFormFromCheckoutTool,
 
   // Batch Operations
   publish_all: publishAllTool,

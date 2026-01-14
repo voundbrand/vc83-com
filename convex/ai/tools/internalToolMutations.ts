@@ -2234,6 +2234,9 @@ export const internalUpdateTicketStatus = internalMutation({
 
 /**
  * Internal: Create Workflow
+ *
+ * Creates a workflow with proper behavior configurations.
+ * Accepts behaviors array with type, config, enabled, and priority.
  */
 export const internalCreateWorkflow = internalMutation({
   args: {
@@ -2241,30 +2244,75 @@ export const internalCreateWorkflow = internalMutation({
     userId: v.id("users"),
     name: v.string(),
     trigger: v.string(),
+    // New: Accept proper behavior objects with configs
+    behaviors: v.optional(v.array(v.object({
+      type: v.string(),
+      config: v.optional(v.any()),
+      enabled: v.optional(v.boolean()),
+      priority: v.optional(v.number()),
+    }))),
+    // Legacy: Keep actions for backwards compatibility
     actions: v.optional(v.array(v.string())),
+    // Allow setting initial status
+    status: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
+
+    // Build behaviors array - prefer new behaviors format, fall back to legacy actions
+    let behaviors: Array<{
+      id: string;
+      type: string;
+      enabled: boolean;
+      priority: number;
+      config: Record<string, unknown>;
+      metadata: {
+        createdAt: number;
+        createdBy: string;
+      };
+    }> = [];
+
+    if (args.behaviors && args.behaviors.length > 0) {
+      // New format: proper behavior objects with configs
+      behaviors = args.behaviors.map((behavior, idx) => ({
+        id: `bhv_${now}_${idx}`,
+        type: behavior.type,
+        enabled: behavior.enabled !== false,
+        priority: behavior.priority ?? (100 - idx), // Higher priority for earlier behaviors
+        config: (behavior.config || {}) as Record<string, unknown>,
+        metadata: {
+          createdAt: now,
+          createdBy: args.userId,
+        },
+      }));
+    } else if (args.actions && args.actions.length > 0) {
+      // Legacy format: simple action strings (for backwards compatibility)
+      behaviors = args.actions.map((action, idx) => ({
+        id: `bhv_${now}_${idx}`,
+        type: action,
+        enabled: true,
+        priority: idx,
+        config: {},
+        metadata: {
+          createdAt: now,
+          createdBy: args.userId,
+        },
+      }));
+    }
+
+    // Determine subtype based on trigger
+    const subtype = args.trigger === "checkout_start" ? "checkout_behavior" : "automation";
+
     const workflowId = await ctx.db.insert("objects", {
       organizationId: args.organizationId,
       type: "workflow",
-      subtype: "automation",
+      subtype,
       name: args.name,
       description: `Triggered by: ${args.trigger}`,
-      status: "draft",
+      status: args.status || "draft",
       customProperties: {
         objects: [],
-        behaviors: args.actions?.map((action, idx) => ({
-          id: `bhv_${now}_${idx}`,
-          type: action,
-          enabled: true,
-          priority: idx,
-          config: {},
-          metadata: {
-            createdAt: now,
-            createdBy: args.userId,
-          },
-        })) || [],
+        behaviors,
         execution: {
           triggerOn: args.trigger,
           errorHandling: "continue",
@@ -2283,7 +2331,8 @@ export const internalCreateWorkflow = internalMutation({
       actionData: {
         source: "ai_assistant",
         trigger: args.trigger,
-        actionCount: args.actions?.length || 0,
+        behaviorCount: behaviors.length,
+        behaviorTypes: behaviors.map(b => b.type),
       },
       performedBy: args.userId,
       performedAt: now,
@@ -2332,6 +2381,176 @@ export const internalSetWorkflowStatus = internalMutation({
     });
 
     return { success: true, oldStatus, newStatus };
+  },
+});
+
+/**
+ * Internal: Add Behavior to Workflow
+ *
+ * Adds a behavior with proper configuration to an existing workflow.
+ */
+export const internalAddBehaviorToWorkflow = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+    workflowId: v.id("objects"),
+    behavior: v.object({
+      type: v.string(),
+      config: v.optional(v.any()),
+      enabled: v.optional(v.boolean()),
+      priority: v.optional(v.number()),
+    }),
+  },
+  handler: async (ctx, args) => {
+    const workflow = await ctx.db.get(args.workflowId);
+    if (!workflow || workflow.type !== "workflow" || workflow.organizationId !== args.organizationId) {
+      throw new Error("Workflow not found");
+    }
+
+    const now = Date.now();
+    const customProps = (workflow.customProperties || {}) as Record<string, unknown>;
+    const existingBehaviors = (customProps.behaviors || []) as Array<{
+      id: string;
+      type: string;
+      enabled: boolean;
+      priority: number;
+      config: Record<string, unknown>;
+      metadata: Record<string, unknown>;
+    }>;
+
+    // Create new behavior
+    const newBehavior = {
+      id: `bhv_${now}`,
+      type: args.behavior.type,
+      enabled: args.behavior.enabled !== false,
+      priority: args.behavior.priority ?? 100,
+      config: (args.behavior.config || {}) as Record<string, unknown>,
+      metadata: {
+        createdAt: now,
+        createdBy: args.userId,
+      },
+    };
+
+    // Add to behaviors array
+    const updatedBehaviors = [...existingBehaviors, newBehavior];
+
+    // Update workflow
+    await ctx.db.patch(args.workflowId, {
+      customProperties: {
+        ...customProps,
+        behaviors: updatedBehaviors,
+      },
+      updatedAt: now,
+    });
+
+    // Log action
+    await ctx.db.insert("objectActions", {
+      organizationId: args.organizationId,
+      objectId: args.workflowId,
+      actionType: "behavior_added",
+      actionData: {
+        source: "ai_assistant",
+        behaviorId: newBehavior.id,
+        behaviorType: newBehavior.type,
+        totalBehaviors: updatedBehaviors.length,
+      },
+      performedBy: args.userId,
+      performedAt: now,
+    });
+
+    return {
+      success: true,
+      workflowId: args.workflowId,
+      workflowName: workflow.name,
+      behaviorId: newBehavior.id,
+      behaviorType: newBehavior.type,
+      totalBehaviors: updatedBehaviors.length,
+    };
+  },
+});
+
+/**
+ * Internal: Remove Behavior from Workflow
+ *
+ * Removes a behavior by ID or type from an existing workflow.
+ */
+export const internalRemoveBehaviorFromWorkflow = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+    workflowId: v.id("objects"),
+    behaviorId: v.optional(v.string()),
+    behaviorType: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    if (!args.behaviorId && !args.behaviorType) {
+      throw new Error("Must provide either behaviorId or behaviorType");
+    }
+
+    const workflow = await ctx.db.get(args.workflowId);
+    if (!workflow || workflow.type !== "workflow" || workflow.organizationId !== args.organizationId) {
+      throw new Error("Workflow not found");
+    }
+
+    const now = Date.now();
+    const customProps = (workflow.customProperties || {}) as Record<string, unknown>;
+    const existingBehaviors = (customProps.behaviors || []) as Array<{
+      id: string;
+      type: string;
+      enabled: boolean;
+      priority: number;
+      config: Record<string, unknown>;
+    }>;
+
+    // Find and remove the behavior
+    let removedBehavior: typeof existingBehaviors[0] | undefined;
+    const filteredBehaviors = existingBehaviors.filter(b => {
+      const shouldRemove = args.behaviorId ? b.id === args.behaviorId : b.type === args.behaviorType;
+      if (shouldRemove && !removedBehavior) {
+        removedBehavior = b;
+      }
+      return !shouldRemove;
+    });
+
+    if (!removedBehavior) {
+      return {
+        success: false,
+        error: `Behavior not found: ${args.behaviorId || args.behaviorType}`,
+      };
+    }
+
+    // Update workflow
+    await ctx.db.patch(args.workflowId, {
+      customProperties: {
+        ...customProps,
+        behaviors: filteredBehaviors,
+      },
+      updatedAt: now,
+    });
+
+    // Log action
+    await ctx.db.insert("objectActions", {
+      organizationId: args.organizationId,
+      objectId: args.workflowId,
+      actionType: "behavior_removed",
+      actionData: {
+        source: "ai_assistant",
+        behaviorId: removedBehavior.id,
+        behaviorType: removedBehavior.type,
+        remainingBehaviors: filteredBehaviors.length,
+      },
+      performedBy: args.userId,
+      performedAt: now,
+    });
+
+    return {
+      success: true,
+      workflowId: args.workflowId,
+      workflowName: workflow.name,
+      removedBehaviorId: removedBehavior.id,
+      removedBehaviorType: removedBehavior.type,
+      remainingBehaviors: filteredBehaviors.length,
+    };
   },
 });
 
@@ -3594,259 +3813,6 @@ export const internalUnlinkFormFromCheckout = internalMutation({
       success: true,
       checkoutId: args.checkoutId,
       checkoutName: checkout.name,
-      previousFormId,
-    };
-  },
-});
-
-/**
- * ADD FORM TO CHECKOUT WORKFLOW
- *
- * Creates or updates a checkout workflow to include a form_linking behavior.
- * This is the proper way to add forms to checkouts - via workflows, not direct checkout modification.
- *
- * The workflow approach allows:
- * - External applications to trigger the same checkout flow
- * - Reusable checkout configurations
- * - Multiple behaviors in a single workflow
- */
-export const internalAddFormToCheckoutWorkflow = internalMutation({
-  args: {
-    organizationId: v.id("organizations"),
-    userId: v.id("users"),
-    formId: v.id("objects"),
-    workflowName: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    // Verify form exists and belongs to org
-    const form = await ctx.db.get(args.formId);
-    if (!form || form.type !== "form" || form.organizationId !== args.organizationId) {
-      throw new Error("Form not found or not accessible");
-    }
-
-    const now = Date.now();
-
-    // Find existing checkout_start workflow
-    const allWorkflows = await ctx.db
-      .query("objects")
-      .withIndex("by_org_type", q => q.eq("organizationId", args.organizationId).eq("type", "workflow"))
-      .filter(q => {
-        // Filter out archived/deleted workflows
-        return q.and(
-          q.neq(q.field("status"), "archived"),
-          q.neq(q.field("status"), "deleted")
-        );
-      })
-      .collect();
-
-    // Find the one with checkout_start trigger
-    let workflow = allWorkflows.find(w => {
-      const customProps = w.customProperties as Record<string, unknown> | undefined;
-      const execution = customProps?.execution as { triggerOn?: string } | undefined;
-      return execution?.triggerOn === "checkout_start";
-    }) || null;
-
-    if (!workflow) {
-      // Create new checkout workflow
-      const workflowId = await ctx.db.insert("objects", {
-        organizationId: args.organizationId,
-        type: "workflow",
-        subtype: "checkout_behavior",
-        name: args.workflowName || "Checkout Form Collection",
-        description: `Automatically collects form "${form.name}" during checkout`,
-        status: "active", // Auto-enable so it works immediately
-        createdBy: args.userId,
-        createdAt: now,
-        updatedAt: now,
-        customProperties: {
-          objects: [],
-          behaviors: [{
-            id: `bhv_form_${now}`,
-            type: "form_linking",
-            enabled: true,
-            priority: 100,
-            config: {
-              formId: args.formId,
-              timing: "duringCheckout",
-            },
-            metadata: {
-              createdAt: now,
-              createdBy: args.userId,
-              formName: form.name,
-            },
-          }],
-          execution: {
-            triggerOn: "checkout_start",
-            errorHandling: "continue",
-          },
-        },
-      });
-
-      // Log action
-      await ctx.db.insert("objectActions", {
-        organizationId: args.organizationId,
-        objectId: workflowId,
-        actionType: "workflow_created_with_form",
-        actionData: {
-          source: "ai_assistant",
-          formId: args.formId,
-          formName: form.name,
-        },
-        performedBy: args.userId,
-        performedAt: now,
-      });
-
-      return {
-        success: true,
-        action: "created",
-        workflowId,
-        workflowName: args.workflowName || "Checkout Form Collection",
-        formId: args.formId,
-        formName: form.name,
-      };
-    }
-
-    // Update existing workflow - add or replace form_linking behavior
-    const customProps = (workflow.customProperties || {}) as Record<string, unknown>;
-    const existingBehaviors = (customProps.behaviors || []) as Array<{
-      id: string;
-      type: string;
-      enabled: boolean;
-      priority?: number;
-      config?: Record<string, unknown>;
-      metadata?: Record<string, unknown>;
-    }>;
-
-    // Remove any existing form_linking behaviors
-    const filteredBehaviors = existingBehaviors.filter(b => b.type !== "form_linking");
-
-    // Add new form_linking behavior
-    filteredBehaviors.push({
-      id: `bhv_form_${now}`,
-      type: "form_linking",
-      enabled: true,
-      priority: 100,
-      config: {
-        formId: args.formId,
-        timing: "duringCheckout",
-      },
-      metadata: {
-        createdAt: now,
-        createdBy: args.userId,
-        formName: form.name,
-      },
-    });
-
-    // Update workflow
-    await ctx.db.patch(workflow._id, {
-      customProperties: {
-        ...customProps,
-        behaviors: filteredBehaviors,
-      },
-      updatedAt: now,
-    });
-
-    // Log action
-    await ctx.db.insert("objectActions", {
-      organizationId: args.organizationId,
-      objectId: workflow._id,
-      actionType: "workflow_form_updated",
-      actionData: {
-        source: "ai_assistant",
-        formId: args.formId,
-        formName: form.name,
-        previousBehaviorCount: existingBehaviors.length,
-        newBehaviorCount: filteredBehaviors.length,
-      },
-      performedBy: args.userId,
-      performedAt: now,
-    });
-
-    return {
-      success: true,
-      action: "updated",
-      workflowId: workflow._id,
-      workflowName: workflow.name,
-      formId: args.formId,
-      formName: form.name,
-    };
-  },
-});
-
-/**
- * REMOVE FORM FROM CHECKOUT WORKFLOW
- *
- * Removes form_linking behavior from checkout workflow.
- */
-export const internalRemoveFormFromCheckoutWorkflow = internalMutation({
-  args: {
-    organizationId: v.id("organizations"),
-    userId: v.id("users"),
-  },
-  handler: async (ctx, args) => {
-    const now = Date.now();
-
-    // Find checkout_start workflow
-    const workflows = await ctx.db
-      .query("objects")
-      .withIndex("by_org_type", q => q.eq("organizationId", args.organizationId).eq("type", "workflow"))
-      .filter(q => q.neq(q.field("status"), "archived"))
-      .collect();
-
-    // Find the one with checkout_start trigger
-    const workflow = workflows.find(w => {
-      const customProps = w.customProperties as Record<string, unknown> | undefined;
-      const execution = customProps?.execution as { triggerOn?: string } | undefined;
-      return execution?.triggerOn === "checkout_start";
-    });
-
-    if (!workflow) {
-      return {
-        success: false,
-        error: "No checkout workflow found",
-      };
-    }
-
-    const customProps = (workflow.customProperties || {}) as Record<string, unknown>;
-    const existingBehaviors = (customProps.behaviors || []) as Array<{
-      id: string;
-      type: string;
-      config?: Record<string, unknown>;
-    }>;
-
-    // Find the form_linking behavior to get form info before removing
-    const formBehavior = existingBehaviors.find(b => b.type === "form_linking");
-    const previousFormId = formBehavior?.config?.formId;
-
-    // Remove form_linking behaviors
-    const filteredBehaviors = existingBehaviors.filter(b => b.type !== "form_linking");
-
-    // Update workflow
-    await ctx.db.patch(workflow._id, {
-      customProperties: {
-        ...customProps,
-        behaviors: filteredBehaviors,
-      },
-      updatedAt: now,
-    });
-
-    // Log action
-    await ctx.db.insert("objectActions", {
-      organizationId: args.organizationId,
-      objectId: workflow._id,
-      actionType: "workflow_form_removed",
-      actionData: {
-        source: "ai_assistant",
-        previousFormId,
-      },
-      performedBy: args.userId,
-      performedAt: now,
-    });
-
-    return {
-      success: true,
-      workflowId: workflow._id,
-      workflowName: workflow.name,
       previousFormId,
     };
   },
