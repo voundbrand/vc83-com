@@ -15,6 +15,7 @@ import type {
 } from "convex/server";
 import type * as accountManagement from "../accountManagement.js";
 import type * as actions_apiKeys from "../actions/apiKeys.js";
+import type * as actions_mux from "../actions/mux.js";
 import type * as actions_salesNotificationEmail from "../actions/salesNotificationEmail.js";
 import type * as actions_welcomeEmail from "../actions/welcomeEmail.js";
 import type * as activityProtocol from "../activityProtocol.js";
@@ -49,6 +50,7 @@ import type * as ai_tools_internalToolMutations from "../ai/tools/internalToolMu
 import type * as ai_tools_projectsTool from "../ai/tools/projectsTool.js";
 import type * as ai_tools_registry from "../ai/tools/registry.js";
 import type * as ai_tools_sequencesTool from "../ai/tools/sequencesTool.js";
+import type * as ai_tools_webinarTool from "../ai/tools/webinarTool.js";
 import type * as ai_workItemActions from "../ai/workItemActions.js";
 import type * as ai_workItems from "../ai/workItems.js";
 import type * as api_auth from "../api/auth.js";
@@ -104,6 +106,8 @@ import type * as api_v1_ticketsInternal from "../api/v1/ticketsInternal.js";
 import type * as api_v1_transactions from "../api/v1/transactions.js";
 import type * as api_v1_transactionsInternal from "../api/v1/transactionsInternal.js";
 import type * as api_v1_users from "../api/v1/users.js";
+import type * as api_v1_webinars from "../api/v1/webinars.js";
+import type * as api_v1_webinarsInternal from "../api/v1/webinarsInternal.js";
 import type * as api_v1_workflows from "../api/v1/workflows.js";
 import type * as api_v1_workflowsCrudInternal from "../api/v1/workflowsCrudInternal.js";
 import type * as api_v1_workflowsInternal from "../api/v1/workflowsInternal.js";
@@ -475,6 +479,8 @@ import type * as translations_updateBranding from "../translations/updateBrandin
 import type * as tutorialOntology from "../tutorialOntology.js";
 import type * as userPreferences from "../userPreferences.js";
 import type * as vatValidation from "../vatValidation.js";
+import type * as webinarOntology from "../webinarOntology.js";
+import type * as webinarRegistrants from "../webinarRegistrants.js";
 import type * as workflowExecutionLogs from "../workflowExecutionLogs.js";
 import type * as workflowTemplateAvailability from "../workflowTemplateAvailability.js";
 import type * as workflows_behaviorExecutor from "../workflows/behaviorExecutor.js";
@@ -511,6 +517,7 @@ import type * as zapier_webhooks from "../zapier/webhooks.js";
 declare const fullApi: ApiFromModules<{
   accountManagement: typeof accountManagement;
   "actions/apiKeys": typeof actions_apiKeys;
+  "actions/mux": typeof actions_mux;
   "actions/salesNotificationEmail": typeof actions_salesNotificationEmail;
   "actions/welcomeEmail": typeof actions_welcomeEmail;
   activityProtocol: typeof activityProtocol;
@@ -545,6 +552,7 @@ declare const fullApi: ApiFromModules<{
   "ai/tools/projectsTool": typeof ai_tools_projectsTool;
   "ai/tools/registry": typeof ai_tools_registry;
   "ai/tools/sequencesTool": typeof ai_tools_sequencesTool;
+  "ai/tools/webinarTool": typeof ai_tools_webinarTool;
   "ai/workItemActions": typeof ai_workItemActions;
   "ai/workItems": typeof ai_workItems;
   "api/auth": typeof api_auth;
@@ -600,6 +608,8 @@ declare const fullApi: ApiFromModules<{
   "api/v1/transactions": typeof api_v1_transactions;
   "api/v1/transactionsInternal": typeof api_v1_transactionsInternal;
   "api/v1/users": typeof api_v1_users;
+  "api/v1/webinars": typeof api_v1_webinars;
+  "api/v1/webinarsInternal": typeof api_v1_webinarsInternal;
   "api/v1/workflows": typeof api_v1_workflows;
   "api/v1/workflowsCrudInternal": typeof api_v1_workflowsCrudInternal;
   "api/v1/workflowsInternal": typeof api_v1_workflowsInternal;
@@ -971,6 +981,8 @@ declare const fullApi: ApiFromModules<{
   tutorialOntology: typeof tutorialOntology;
   userPreferences: typeof userPreferences;
   vatValidation: typeof vatValidation;
+  webinarOntology: typeof webinarOntology;
+  webinarRegistrants: typeof webinarRegistrants;
   workflowExecutionLogs: typeof workflowExecutionLogs;
   workflowTemplateAvailability: typeof workflowTemplateAvailability;
   "workflows/behaviorExecutor": typeof workflows_behaviorExecutor;
