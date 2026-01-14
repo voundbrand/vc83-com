@@ -14,6 +14,7 @@ import { contactSyncToolDefinition } from "./contactSyncTool";
 import { formsToolDefinition } from "./formsTool";
 import { projectsToolDefinition } from "./projectsTool";
 import { crmToolDefinition } from "./crmTool";
+import { webinarToolDefinition } from "./webinarTool";
 import { api } from "../../_generated/api";
 import { internal } from "../../_generated/api";
 
@@ -1741,6 +1742,42 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
   // Settings
   update_organization_settings: updateOrganizationSettingsTool,
   configure_ai_models: configureAIModelsTool,
+
+  // Webinars
+  manage_webinars: {
+    name: "manage_webinars",
+    description: webinarToolDefinition.function.description,
+    status: "ready" as ToolStatus,
+    parameters: webinarToolDefinition.function.parameters,
+    execute: async (ctx, args) => {
+      const result = await ctx.runAction(api.ai.tools.webinarTool.executeManageWebinars, {
+        sessionId: ctx.sessionId,
+        organizationId: ctx.organizationId,
+        userId: ctx.userId,
+        conversationId: ctx.conversationId,
+        action: args.action,
+        mode: args.mode,
+        workItemId: args.workItemId,
+        webinarId: args.webinarId,
+        name: args.name,
+        description: args.description,
+        subtype: args.subtype,
+        scheduledAt: args.scheduledAt,
+        durationMinutes: args.durationMinutes,
+        timezone: args.timezone,
+        maxRegistrants: args.maxRegistrants,
+        offerEnabled: args.offerEnabled,
+        offerTimestamp: args.offerTimestamp,
+        offerCtaText: args.offerCtaText,
+        offerCheckoutId: args.offerCheckoutId,
+        offerExternalUrl: args.offerExternalUrl,
+        status: args.status,
+        registrantStatus: args.registrantStatus,
+        limit: args.limit,
+      });
+      return result;
+    }
+  },
 };
 
 /**

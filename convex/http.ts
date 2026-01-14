@@ -1621,4 +1621,125 @@ http.route({
   }),
 });
 
+/**
+ * ==========================================
+ * MUX WEBHOOK ENDPOINT
+ * ==========================================
+ *
+ * Receives webhooks from Mux for video processing events.
+ * Events handled:
+ * - video.asset.created: Asset is being processed
+ * - video.asset.ready: Video is ready for playback
+ * - video.asset.errored: Processing failed
+ * - video.live_stream.active: Live stream started
+ * - video.live_stream.idle: Live stream stopped
+ */
+http.route({
+  path: "/mux-webhooks",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    console.log("[Mux Webhook] 📥 Received webhook request");
+
+    try {
+      const body = await request.text();
+      const signature = request.headers.get("mux-signature");
+
+      if (!signature) {
+        console.error("[Mux Webhook] ❌ No signature provided");
+        return new Response("Missing signature", { status: 400 });
+      }
+
+      // Verify webhook signature
+      const webhookSecret = process.env.MUX_WEBHOOK_SECRET;
+
+      if (!webhookSecret) {
+        console.error("[Mux Webhook] ❌ MUX_WEBHOOK_SECRET not configured");
+        return new Response("Webhook secret not configured", { status: 500 });
+      }
+
+      // Verify signature using Mux's format
+      const { verifyMuxWebhookSignature } = await import("./actions/mux");
+      const isValid = verifyMuxWebhookSignature(body, signature, webhookSecret);
+
+      if (!isValid) {
+        console.error("[Mux Webhook] ❌ Signature verification failed");
+        return new Response("Invalid signature", { status: 400 });
+      }
+
+      // Parse event
+      const event = JSON.parse(body);
+      console.log(`[Mux Webhook] ✅ Verified event: ${event.type} (${event.id})`);
+
+      // Process webhook
+      await ctx.runAction(internal.actions.mux.processMuxWebhook, {
+        eventType: event.type,
+        eventId: event.id,
+        eventData: event.data,
+      });
+
+      console.log(`[Mux Webhook] ✅ Event queued for processing`);
+
+      return new Response(JSON.stringify({ received: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (error) {
+      console.error("[Mux Webhook] ❌ Processing error:", error);
+      return new Response("Internal server error", { status: 500 });
+    }
+  }),
+});
+
+/**
+ * ==========================================
+ * WEBINAR API v1 ENDPOINTS
+ * ==========================================
+ */
+
+// Import webinar API handlers (these are httpAction wrapped - use directly as handlers)
+import {
+  updateWebinar,
+  deleteWebinar,
+  webinarGetRouter,
+  webinarPostRouter,
+} from "./api/v1/webinars";
+
+// OPTIONS /api/v1/webinars/* - CORS preflight
+http.route({
+  pathPrefix: "/api/v1/webinars",
+  method: "OPTIONS",
+  handler: httpAction(async (ctx, request) => {
+    const origin = request.headers.get("origin");
+    return handleOptionsRequest(origin);
+  }),
+});
+
+// GET /api/v1/webinars/* - Master router for all GET requests
+http.route({
+  pathPrefix: "/api/v1/webinars",
+  method: "GET",
+  handler: webinarGetRouter,
+});
+
+// POST /api/v1/webinars/* - Master router for all POST requests
+http.route({
+  pathPrefix: "/api/v1/webinars",
+  method: "POST",
+  handler: webinarPostRouter,
+});
+
+// PATCH /api/v1/webinars/:id - Update webinar (authenticated)
+http.route({
+  pathPrefix: "/api/v1/webinars/",
+  method: "PATCH",
+  handler: updateWebinar,
+});
+
+// DELETE /api/v1/webinars/:id - Delete webinar (authenticated)
+http.route({
+  pathPrefix: "/api/v1/webinars/",
+  method: "DELETE",
+  handler: deleteWebinar,
+});
+
 export default http;
