@@ -17,6 +17,10 @@ import { requireAuthenticatedUser, checkPermission } from "./rbacHelpers";
  * GET AVAILABLE CHECKOUT TEMPLATES FOR ORGANIZATION
  *
  * Returns checkout templates that are available to the specified organization.
+ *
+ * UPDATED: All published checkout templates are now available to all organizations.
+ * The tier-based licensing system (tierConfigs.ts) handles feature limits.
+ * Legacy availability rules are no longer checked.
  */
 export const getAvailableCheckoutTemplates = query({
   args: {
@@ -54,32 +58,9 @@ export const getAvailableCheckoutTemplates = query({
       );
     }
 
-    // Get enabled availability rules for this organization (opt-in model)
-    const availabilityRules = await ctx.db
-      .query("objects")
-      .withIndex("by_org_type", (q) =>
-        q
-          .eq("organizationId", args.organizationId)
-          .eq("type", "checkout_template_availability")
-      )
-      .filter((q) => q.eq(q.field("customProperties.available"), true))
-      .collect();
-
-    // Get the list of enabled template codes
-    const enabledTemplateCodes = availabilityRules.map(
-      (rule) => rule.customProperties?.templateCode
-    ).filter(Boolean);
-
-    // Filter to only enabled templates (opt-in: must be explicitly enabled)
-    const availableTemplates = systemTemplates.filter((template) => {
-      const code = template.customProperties?.code;
-      if (!code) return false;
-
-      // Template must be explicitly enabled for this organization
-      return enabledTemplateCodes.includes(code);
-    });
-
-    return availableTemplates;
+    // All published templates are now available to all organizations
+    // Feature limits are enforced by the tier system (tierConfigs.ts)
+    return systemTemplates;
   },
 });
 

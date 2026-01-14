@@ -397,8 +397,36 @@ export const findOrCreateUserFromOAuth = internalMutation({
       updatedAt: Date.now(),
     });
 
-    // TODO: Create API key, assign apps, provision templates (reuse onboarding logic)
-    // For now, we'll skip these to keep this focused on OAuth signup
+    // Log audit event (same as web onboarding)
+    await ctx.db.insert("auditLogs", {
+      organizationId,
+      userId,
+      action: "user.signup",
+      resource: "users",
+      resourceId: userId,
+      metadata: {
+        signupMethod: "oauth",
+        planTier: "free",
+        organizationName: orgName,
+      },
+      success: true,
+      createdAt: Date.now(),
+    });
+
+    // Schedule async tasks (same as web onboarding)
+    // Record signup event for growth tracking
+    await ctx.scheduler.runAfter(0, internal.growthTracking.recordSignupEvent, {
+      userId,
+      organizationId,
+      email,
+      planTier: "free",
+    });
+
+    // Assign all apps to the new organization (teaser model)
+    await ctx.scheduler.runAfter(0, internal.onboarding.assignAllAppsToOrg, {
+      organizationId,
+      userId,
+    });
 
     return {
       userId,
@@ -473,6 +501,46 @@ export const completeOAuthSignup = action({
       lastName: userInfo.name.lastName,
       organizationName: stateRecord.organizationName,
     });
+
+    // For new users, trigger additional onboarding tasks (async, don't block login)
+    if (userResult.isNewUser) {
+      // Get organization name for async tasks
+      const orgName = stateRecord.organizationName || `${userInfo.name.firstName}${userInfo.name.lastName ? ` ${userInfo.name.lastName}` : ''}'s Organization`;
+
+      // Send welcome email (async)
+      await ctx.scheduler.runAfter(0, internal.actions.welcomeEmail.sendWelcomeEmail, {
+        email: userInfo.email,
+        firstName: userInfo.name.firstName,
+        organizationName: orgName,
+        apiKeyPrefix: "n/a", // OAuth users don't get API key on signup
+      });
+
+      // Send sales notification (async)
+      await ctx.scheduler.runAfter(0, internal.actions.salesNotificationEmail.sendSalesNotification, {
+        eventType: "free_signup",
+        user: {
+          email: userInfo.email,
+          firstName: userInfo.name.firstName,
+          lastName: userInfo.name.lastName,
+        },
+        organization: {
+          name: orgName,
+          planTier: "free",
+        },
+      });
+
+      // Create Stripe customer (async) - enables upgrade path
+      try {
+        await ctx.runAction(internal.onboarding.createStripeCustomerForFreeUser, {
+          organizationId: userResult.organizationId,
+          organizationName: orgName,
+          email: userInfo.email,
+        });
+      } catch (error) {
+        // Log but don't fail signup if Stripe customer creation fails
+        console.error("[OAuth Signup] Failed to create Stripe customer:", error);
+      }
+    }
 
     // Create session based on sessionType
     if (args.sessionType === "cli") {

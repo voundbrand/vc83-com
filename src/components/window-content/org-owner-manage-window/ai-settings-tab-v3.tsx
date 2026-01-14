@@ -167,29 +167,35 @@ export function AISettingsTabV3() {
     const allModels = getAllModelsForTier(tier);
     const allModelIds = allModels.map(m => m.id);
 
-    // If no models are enabled, or tier changed and incompatible models exist
-    const hasIncompatibleModels = enabledModels.some(m => !allModelIds.includes(m.modelId));
+    // Use functional update to check current state without adding enabledModels to deps
+    setEnabledModels(currentModels => {
+      // If no models are enabled, or tier changed and incompatible models exist
+      const hasIncompatibleModels = currentModels.some(m => !allModelIds.includes(m.modelId));
 
-    if (enabledModels.length === 0 || hasIncompatibleModels) {
-      // Get system defaults (models marked as recommended by super admin)
-      const systemDefaultModels = allModels.filter(m => m.recommended);
+      if (currentModels.length === 0 || hasIncompatibleModels) {
+        // Get system defaults (models marked as recommended by super admin)
+        const systemDefaultModels = allModels.filter(m => m.recommended);
 
-      // Auto-select system defaults
-      const newModels = systemDefaultModels.map((m, index) => ({
-        modelId: m.id,
-        isDefault: index === 0, // First system default is the default
-        enabledAt: Date.now()
-      }));
+        // Auto-select system defaults
+        const newModels = systemDefaultModels.map((m, index) => ({
+          modelId: m.id,
+          isDefault: index === 0, // First system default is the default
+          enabledAt: Date.now()
+        }));
 
-      // Set first model as the default
-      if (newModels.length > 0) {
-        newModels[0].isDefault = true;
-        setDefaultModelId(newModels[0].modelId);
+        // Set first model as the default
+        if (newModels.length > 0) {
+          newModels[0].isDefault = true;
+          setDefaultModelId(newModels[0].modelId);
+        }
+
+        return newModels;
       }
 
-      setEnabledModels(newModels);
-    }
-  }, [tier, enabledModels, getAllModelsForTier]);
+      // No change needed
+      return currentModels;
+    });
+  }, [tier, getAllModelsForTier]);
 
   // Get all available models based on tier
   const allAvailableModels = getAllModelsForTier(tier);

@@ -34,7 +34,10 @@ import {
   cliSessions,
   cliLoginStates,
   oauthSignupStates,
-  webhookSubscriptions
+  webhookSubscriptions,
+  // Multi-provider identity system
+  userIdentities,
+  accountLinkingStates,
 } from "./schemas/coreSchemas";
 // NOTE: apiKeyDomains table removed - now using unified domain configurations in objects table
 import { apps, appInstallations, snapshots, snapshotLoads, purchases, appAvailabilities } from "./schemas/appStoreSchemas";
@@ -136,6 +139,10 @@ export default defineSchema({
   cliLoginStates,
   oauthSignupStates,
   webhookSubscriptions,
+
+  // 🔑 MULTI-PROVIDER IDENTITY: OAuth identity linking
+  userIdentities,          // Links OAuth providers (Google, Apple, Microsoft) to users
+  accountLinkingStates,    // Temporary state for account linking confirmation flow
 
   // 🔐 RBAC: Role-Based Access Control
   roles,

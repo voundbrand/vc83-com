@@ -37,8 +37,9 @@ export function AllFormsTab({ forms, onCreateForm, onEditForm, onEditSchema }: A
   const [subTab, setSubTab] = useState<FormSubTab>("published"); // Default to Active (published) forms
 
   // Separate forms by status
-  const draftForms = forms.filter(f => f.status === "draft");
-  const publishedForms = forms.filter(f => f.status === "published");
+  // Note: "active" is legacy status from AI tool - treat as "published" for backwards compatibility
+  const draftForms = forms.filter(f => f.status === "draft" || !f.status);
+  const publishedForms = forms.filter(f => f.status === "published" || f.status === "active");
 
   return (
     <div className="flex flex-col h-full">

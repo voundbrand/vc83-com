@@ -79,16 +79,16 @@ export function TemplatesTab({ onUseTemplate }: TemplatesTabProps) {
     );
   }
 
-  // If no templates are available, show empty state
+  // If no templates are available, show friendly empty state (not an error)
   if (availableTemplates.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-        <FileText size={48} className="mb-4" style={{ color: "var(--neutral-gray)" }} />
+        <FileText size={48} className="mb-4" style={{ color: "var(--win95-highlight)" }} />
         <h3 className="text-sm font-bold mb-2" style={{ color: "var(--win95-text)" }}>
-          {t("ui.forms.templates.empty_title")}
+          No Templates Available
         </h3>
-        <p className="text-xs max-w-md" style={{ color: "var(--neutral-gray)" }}>
-          {t("ui.forms.templates.empty_description")}
+        <p className="text-xs max-w-md mb-4" style={{ color: "var(--neutral-gray)" }}>
+          You can create forms from scratch using the Form Builder tab. Templates are optional and help you get started faster.
         </p>
       </div>
     );

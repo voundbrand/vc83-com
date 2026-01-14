@@ -138,15 +138,17 @@ export function TemplateSelector({
             {description}
           </p>
         )}
-        <div className="border-2 p-3" style={{ borderColor: '#F59E0B', background: 'rgba(245, 158, 11, 0.1)' }}>
+        <div className="border-2 p-3" style={{ borderColor: '#6B7280', background: 'rgba(107, 114, 128, 0.1)' }}>
           <div className="flex items-start gap-2">
-            <AlertCircle size={16} className="flex-shrink-0 mt-0.5" style={{ color: '#F59E0B' }} />
+            <AlertCircle size={16} className="flex-shrink-0 mt-0.5" style={{ color: '#6B7280' }} />
             <div>
-              <h4 className="font-bold text-xs mb-1" style={{ color: '#F59E0B' }}>
-                No {category} templates available
+              <h4 className="font-bold text-xs mb-1" style={{ color: '#6B7280' }}>
+                No {category} templates available yet
               </h4>
-              <p className="text-xs" style={{ color: '#F59E0B' }}>
-                Run template seeding to create default templates.
+              <p className="text-xs" style={{ color: '#6B7280' }}>
+                {required
+                  ? "Templates will be auto-created when needed, or contact support for custom templates."
+                  : "Optional - you can proceed without selecting a template."}
               </p>
             </div>
           </div>

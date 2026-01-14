@@ -208,8 +208,9 @@ export const disableTemplateSet = mutation({
 /**
  * Get available Template Sets for an organization
  *
- * Returns only template sets that are enabled for this org.
- * Used by org owners when configuring checkouts and products.
+ * UPDATED: All template sets are now available to all organizations.
+ * The tier-based licensing system (tierConfigs.ts) handles feature limits.
+ * Legacy availability rules are no longer checked.
  */
 export const getAvailableTemplateSets = query({
   args: {
@@ -236,23 +237,6 @@ export const getAvailableTemplateSets = query({
       throw new Error("Cannot view template sets for another organization");
     }
 
-    // Get enabled availabilities for this org
-    const availabilities = await ctx.db
-      .query("objects")
-      .withIndex("by_org_type", (q) =>
-        q.eq("organizationId", args.organizationId).eq("type", "template_set_availability")
-      )
-      .filter((q) => q.eq(q.field("customProperties.available"), true))
-      .collect();
-
-    const enabledSetIds = availabilities.map(
-      (a) => a.customProperties?.templateSetId
-    ).filter(Boolean);
-
-    if (enabledSetIds.length === 0) {
-      return [];
-    }
-
     // Get system organization
     const systemOrg = await ctx.db
       .query("organizations")
@@ -272,13 +256,11 @@ export const getAvailableTemplateSets = query({
       .filter((q) => q.neq(q.field("status"), "deleted"))
       .collect();
 
-    // Filter to only enabled sets
-    const availableSets = systemSets.filter((set) =>
-      enabledSetIds.includes(set._id)
-    );
+    // All template sets are now available to all organizations
+    // Feature limits are enforced by the tier system (tierConfigs.ts)
 
     // Format results
-    return availableSets.map((set) => {
+    return systemSets.map((set) => {
       const props = set.customProperties || {};
       return {
         _id: set._id,

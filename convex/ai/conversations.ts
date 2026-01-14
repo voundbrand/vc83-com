@@ -372,6 +372,8 @@ export const cancelToolExecution = mutation({
 
 /**
  * Provide custom instruction for a proposed execution
+ * This rejects the current proposal and sends the user's feedback to the AI
+ * so it can propose a revised approach
  */
 export const customInstructionForExecution = mutation({
   args: {
@@ -388,6 +390,30 @@ export const customInstructionForExecution = mutation({
       status: "rejected",  // Mark as rejected, user wants different approach
       userResponse: "custom",
       customInstruction: args.instruction,
+    });
+
+    // Get the conversation to find organizationId and userId
+    const conversation = await ctx.db.get(execution.conversationId);
+    if (!conversation) {
+      throw new Error("Conversation not found");
+    }
+
+    // Build context message for the AI with the user's feedback
+    const feedbackMessage = `The user reviewed your proposed "${execution.toolName}" action and wants changes:
+
+**Original proposal:** ${execution.proposalMessage || "No description provided"}
+
+**User's feedback:** ${args.instruction}
+
+Please revise your approach based on this feedback and propose again.`;
+
+    // Schedule the AI to process the feedback and respond
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await ctx.scheduler.runAfter(0, "ai/chat:sendMessage" as any, {
+      conversationId: execution.conversationId,
+      message: feedbackMessage,
+      organizationId: conversation.organizationId,
+      userId: conversation.userId,
     });
 
     return { success: true, instruction: args.instruction };

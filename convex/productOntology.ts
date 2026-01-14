@@ -699,16 +699,17 @@ export const updateProduct = mutation({
 });
 
 /**
- * DELETE PRODUCT
+ * ARCHIVE PRODUCT
  * Soft delete a product (set status to archived)
+ * Products can be restored from archive or permanently deleted
  */
-export const deleteProduct = mutation({
+export const archiveProduct = mutation({
   args: {
     sessionId: v.string(),
     productId: v.id("objects"),
   },
   handler: async (ctx, args) => {
-    await requireAuthenticatedUser(ctx, args.sessionId);
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
     const product = await ctx.db.get(args.productId);
 
@@ -716,10 +717,136 @@ export const deleteProduct = mutation({
       throw new Error("Product not found");
     }
 
+    const previousStatus = product.status;
+
     await ctx.db.patch(args.productId, {
       status: "archived",
+      customProperties: {
+        ...product.customProperties,
+        archivedAt: Date.now(),
+        previousStatus, // Store previous status for restore
+      },
       updatedAt: Date.now(),
     });
+
+    // Log the action
+    await ctx.db.insert("objectActions", {
+      organizationId: product.organizationId,
+      objectId: args.productId,
+      actionType: "archived",
+      performedBy: userId,
+      performedAt: Date.now(),
+      actionData: { previousStatus },
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * RESTORE PRODUCT
+ * Restore a product from archive to its previous status (or draft)
+ */
+export const restoreProduct = mutation({
+  args: {
+    sessionId: v.string(),
+    productId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const product = await ctx.db.get(args.productId);
+
+    if (!product || product.type !== "product") {
+      throw new Error("Product not found");
+    }
+
+    if (product.status !== "archived") {
+      throw new Error("Product is not archived");
+    }
+
+    // Restore to previous status or default to draft
+    const previousStatus = (product.customProperties?.previousStatus as string) || "draft";
+
+    await ctx.db.patch(args.productId, {
+      status: previousStatus,
+      customProperties: {
+        ...product.customProperties,
+        archivedAt: undefined,
+        previousStatus: undefined,
+        restoredAt: Date.now(),
+      },
+      updatedAt: Date.now(),
+    });
+
+    // Log the action
+    await ctx.db.insert("objectActions", {
+      organizationId: product.organizationId,
+      objectId: args.productId,
+      actionType: "restored",
+      performedBy: userId,
+      performedAt: Date.now(),
+      actionData: { restoredTo: previousStatus },
+    });
+
+    return { success: true, restoredTo: previousStatus };
+  },
+});
+
+/**
+ * DELETE PRODUCT (Permanent)
+ * Permanently delete a product - only allowed for archived products
+ * This removes the product and all associated links from the database
+ */
+export const deleteProduct = mutation({
+  args: {
+    sessionId: v.string(),
+    productId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const product = await ctx.db.get(args.productId);
+
+    if (!product || product.type !== "product") {
+      throw new Error("Product not found");
+    }
+
+    // Only allow permanent delete of archived products
+    if (product.status !== "archived") {
+      throw new Error("Only archived products can be permanently deleted. Archive the product first.");
+    }
+
+    // Delete associated objectLinks (product -> form, event -> product)
+    const linksFromProduct = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_from_object", (q) => q.eq("fromObjectId", args.productId))
+      .collect();
+
+    const linksToProduct = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_to_object", (q) => q.eq("toObjectId", args.productId))
+      .collect();
+
+    for (const link of [...linksFromProduct, ...linksToProduct]) {
+      await ctx.db.delete(link._id);
+    }
+
+    // Log before deletion (so we have a record)
+    await ctx.db.insert("objectActions", {
+      organizationId: product.organizationId,
+      objectId: args.productId,
+      actionType: "permanently_deleted",
+      performedBy: userId,
+      performedAt: Date.now(),
+      actionData: {
+        productName: product.name,
+        productSubtype: product.subtype,
+      },
+    });
+
+    // Permanently delete the product
+    await ctx.db.delete(args.productId);
 
     return { success: true };
   },

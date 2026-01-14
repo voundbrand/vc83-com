@@ -11,8 +11,13 @@
  */
 
 import { httpAction } from "../../_generated/server";
-import { internal } from "../../_generated/api";
+import type { Id } from "../../_generated/dataModel";
 import { getCorsHeaders, handleOptionsRequest } from "./corsHeaders";
+
+// Work around Convex type inference depth issues (TS2589) with large schemas
+// The internal API references are typed as any to avoid type depth overflow
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const internal = require("../../_generated/api").internal;
 
 /**
  * Verify Google ID Token
@@ -220,16 +225,173 @@ export const mobileOAuthHandler = httpAction(async (ctx, request) => {
       firstName = normalizedEmail.split("@")[0] || "User";
     }
 
-    // Find or create user using the existing OAuth signup mutation
-    // This reuses the same logic as web OAuth signup
-    const userResult = await ctx.runMutation(
-      internal.api.v1.oauthSignup.findOrCreateUserFromOAuth,
+    // Check if Apple private relay email
+    const isApplePrivateRelay = normalizedEmail.includes("privaterelay.appleid.com");
+
+    // ========================================================================
+    // IDENTITY-AWARE AUTHENTICATION FLOW
+    // ========================================================================
+    // 1. Check if this provider+providerUserId already has an identity
+    // 2. If not, check if email matches an existing user (trigger linking)
+    // 3. If no collision, create new user with identity
+    // ========================================================================
+
+    // Step 1: Check for existing identity by provider + providerUserId
+    // Note: Using type annotations to work around Convex type inference depth issues (TS2589)
+    type ExistingIdentityResult = {
+      identity: { _id: Id<"userIdentities"> };
+      user: { _id: Id<"users">; defaultOrgId: Id<"organizations"> | null; email: string };
+    } | null;
+    const existingIdentity: ExistingIdentityResult = await ctx.runQuery(
+      internal.auth.identity.findByProviderUser,
       {
-        email: normalizedEmail,
-        firstName,
-        lastName,
+        provider: provider as "google" | "apple",
+        providerUserId,
       }
     );
+
+    let userResult: { userId: Id<"users">; organizationId: Id<"organizations">; isNewUser: boolean };
+
+    if (existingIdentity) {
+      // User has signed in with this provider before - log them in
+      console.log("[Mobile OAuth] Found existing identity, logging in user:", existingIdentity.user._id);
+
+      // Update last used timestamp
+      await ctx.runMutation(internal.auth.identity.updateLastUsed, {
+        identityId: existingIdentity.identity._id,
+      });
+
+      userResult = {
+        userId: existingIdentity.user._id,
+        organizationId: existingIdentity.user.defaultOrgId!,
+        isNewUser: false,
+      };
+    } else {
+      // Step 2: Check for email collision (only if not Apple private relay)
+      if (!isApplePrivateRelay) {
+        // Type annotation to work around Convex type inference depth issue (TS2589)
+        type EmailCollisionResult = {
+          identities: Array<{ userId: Id<"users">; provider: string; isPrimary: boolean }>;
+          users: Array<{ _id: Id<"users">; email: string } | null>;
+        } | null;
+        const emailCollision: EmailCollisionResult = await ctx.runQuery(
+          internal.auth.identity.findByEmail,
+          { email: normalizedEmail }
+        );
+
+        if (emailCollision && emailCollision.users.length > 0) {
+          // Email matches existing user - trigger account linking flow
+          const existingUser = emailCollision.users[0]!;
+          const primaryIdentity = emailCollision.identities.find((i) => i.isPrimary);
+
+          console.log("[Mobile OAuth] Email collision detected, triggering linking flow:", {
+            existingUserId: existingUser._id,
+            newProvider: provider,
+            existingProvider: primaryIdentity?.provider,
+          });
+
+          // Create linking state
+          const linkingState: string = await ctx.runMutation(
+            internal.auth.identity.createLinkingState,
+            {
+              sourceProvider: provider as "google" | "apple",
+              sourceProviderUserId: providerUserId,
+              sourceEmail: normalizedEmail,
+              sourceName: name,
+              targetUserId: existingUser._id,
+              targetEmail: existingUser.email,
+              targetProvider: primaryIdentity?.provider,
+            }
+          );
+
+          // Return linking required response
+          return new Response(
+            JSON.stringify({
+              success: false,
+              requiresLinking: true,
+              linkingState,
+              existingAccountEmail: existingUser.email,
+              existingAccountProvider: primaryIdentity?.provider || "unknown",
+              message: "An account with this email already exists. Please confirm to link accounts.",
+            }),
+            {
+              status: 200, // Not an error, just requires additional action
+              headers: {
+                "Content-Type": "application/json",
+                ...getCorsHeaders(origin),
+              },
+            }
+          );
+        }
+      }
+
+      // Step 3: No collision - create new user with identity
+      console.log("[Mobile OAuth] Creating new user with identity");
+
+      // Create user using existing OAuth signup mutation
+      const createResult = await ctx.runMutation(
+        internal.api.v1.oauthSignup.findOrCreateUserFromOAuth,
+        {
+          email: normalizedEmail,
+          firstName,
+          lastName,
+        }
+      );
+
+      // Create identity for new user
+      await ctx.runMutation(internal.auth.identity.createIdentity, {
+        userId: createResult.userId,
+        provider: provider as "google" | "apple",
+        providerUserId,
+        providerEmail: normalizedEmail,
+        isPrimary: true,
+        isApplePrivateRelay,
+        metadata: { name, provider },
+      });
+
+      // For new mobile users, trigger additional onboarding tasks (async, don't block login)
+      if (createResult.isNewUser) {
+        // Get organization for name
+        const org = await ctx.runQuery(
+          internal.api.v1.mobileOAuthInternal.getOrganizationById,
+          { organizationId: createResult.organizationId }
+        );
+        const orgName = org?.name || `${firstName}'s Organization`;
+
+        // Send welcome email (async)
+        await ctx.scheduler.runAfter(0, internal.actions.welcomeEmail.sendWelcomeEmail, {
+          email: normalizedEmail,
+          firstName,
+          organizationName: orgName,
+          apiKeyPrefix: "n/a", // Mobile OAuth users don't get API key on signup
+        });
+
+        // Send sales notification (async)
+        await ctx.scheduler.runAfter(0, internal.actions.salesNotificationEmail.sendSalesNotification, {
+          eventType: "free_signup",
+          user: {
+            email: normalizedEmail,
+            firstName,
+            lastName,
+          },
+          organization: {
+            name: orgName,
+            planTier: "free",
+          },
+        });
+
+        // Create Stripe customer (async) - enables upgrade path
+        await ctx.scheduler.runAfter(0, internal.onboarding.createStripeCustomerForFreeUser, {
+          organizationId: createResult.organizationId,
+          organizationName: orgName,
+          email: normalizedEmail,
+        });
+
+        console.log("[Mobile OAuth] Triggered onboarding tasks for new user:", normalizedEmail);
+      }
+
+      userResult = createResult;
+    }
 
     console.log("[Mobile OAuth] User result:", {
       userId: userResult.userId,
@@ -238,7 +400,7 @@ export const mobileOAuthHandler = httpAction(async (ctx, request) => {
     });
 
     // Create platform session (same as web OAuth)
-    const sessionId = await ctx.runMutation(
+    const sessionId: Id<"sessions"> = await ctx.runMutation(
       internal.api.v1.oauthSignup.createPlatformSession,
       {
         userId: userResult.userId,

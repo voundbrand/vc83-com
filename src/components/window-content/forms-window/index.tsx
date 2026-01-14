@@ -7,7 +7,7 @@ import type { Id } from "../../../../convex/_generated/dataModel";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
-import { Loader2, Plus, FileText, ClipboardList, Palette } from "lucide-react";
+import { Loader2, Plus, Edit, FileText, ClipboardList, Palette } from "lucide-react";
 import { FormBuilder } from "./form-builder";
 import { AllFormsTab } from "./all-forms-tab";
 import { TemplatesTab } from "./templates-tab";
@@ -145,8 +145,9 @@ export function FormsWindow() {
           }}
           onClick={() => setActiveTab("create")}
         >
-          <Plus size={14} />
-          {t("ui.forms.tabs.create")}
+          {/* Dynamic icon and title based on whether we're editing or creating */}
+          {selectedFormId ? <Edit size={14} /> : <Plus size={14} />}
+          {selectedFormId ? t("ui.forms.tabs.edit") : t("ui.forms.tabs.create")}
         </button>
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"

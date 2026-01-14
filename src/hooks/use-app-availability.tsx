@@ -4,36 +4,24 @@ import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { useAuth, useCurrentOrganization } from "./use-auth";
-import { AppUnavailable } from "@/components/app-unavailable";
 
 /**
  * Hook to check if a specific app is available to the current organization
  *
- * @param appCode - The app code to check (e.g., "payments", "web-publishing", "media-library")
- * @returns Object with availability status and helper functions
+ * LEGACY: This hook used to check the appAvailabilities table for per-org app enablement.
+ * NOW: All apps are available to all organizations. Feature gating is handled by the
+ * tier-based licensing system (tierConfigs.ts + licensing/helpers.ts).
+ *
+ * @param appCode - The app code (kept for backwards compatibility, but ignored)
+ * @returns Object with availability status - always returns isAvailable: true
  */
 export function useAppAvailability(appCode: string) {
-  const { sessionId, isSignedIn } = useAuth();
   const currentOrg = useCurrentOrganization();
-  const organizationId = currentOrg?.id;
 
-  // Get all available apps for the organization
-  const availableApps = useQuery(
-    api.appAvailability.getAvailableApps,
-    sessionId && organizationId && isSignedIn
-      ? { sessionId, organizationId: organizationId as Id<"organizations"> }
-      : "skip"
-  );
-
-  const isAvailable = availableApps
-    ? availableApps.some((app) => app.code === appCode)
-    : false;
-
-  const isLoading = availableApps === undefined;
-
+  // All apps are now available - feature limits are enforced by the tier system
   return {
-    isAvailable,
-    isLoading,
+    isAvailable: true,
+    isLoading: false,
     appCode,
     organizationName: currentOrg?.name || "your organization",
   };
@@ -41,13 +29,16 @@ export function useAppAvailability(appCode: string) {
 
 /**
  * Hook to get all available apps for the current organization
- * Useful for building dynamic menus and checking multiple apps at once
+ *
+ * UPDATED: Still queries getAvailableApps for the app catalog display,
+ * but isAppAvailable always returns true since tier system handles limits.
  */
 export function useAvailableApps() {
   const { sessionId, isSignedIn } = useAuth();
   const currentOrg = useCurrentOrganization();
   const organizationId = currentOrg?.id;
 
+  // Query apps for the catalog display (AllAppsWindow, etc.)
   const availableApps = useQuery(
     api.appAvailability.getAvailableApps,
     sessionId && organizationId && isSignedIn
@@ -55,10 +46,8 @@ export function useAvailableApps() {
       : "skip"
   );
 
-  const isAppAvailable = (appCode: string): boolean => {
-    if (!availableApps) return false;
-    return availableApps.some((app) => app.code === appCode);
-  };
+  // All apps are available - tier system handles feature limits
+  const isAppAvailable = (_appCode: string): boolean => true;
 
   return {
     availableApps: availableApps || [],
@@ -81,7 +70,9 @@ export interface AppConfig {
  * Hook that returns a guard component if the app is unavailable or loading
  * Returns null if the app is available (allowing normal rendering to proceed)
  *
- * This reduces boilerplate from ~13 lines to 2 lines per app.
+ * LEGACY: Used to show AppUnavailable screen for unlicensed apps.
+ * NOW: Always returns null since all apps are available.
+ * Feature limits are enforced by the tier system at the action level.
  *
  * @example
  * ```typescript
@@ -89,42 +80,15 @@ export interface AppConfig {
  *   const guard = useAppAvailabilityGuard({
  *     code: "payments",
  *     name: "Payment Management",
- *     description: "Stripe integration for processing payments"
  *   });
  *
- *   if (guard) return guard; // Returns loading or unavailable UI
+ *   if (guard) return guard; // Will always be null now
  *
- *   // Your actual app content here
  *   return <PaymentsContent />;
  * }
  * ```
  */
-export function useAppAvailabilityGuard(appConfig: AppConfig) {
-  const { isAvailable, isLoading, organizationName } = useAppAvailability(
-    appConfig.code
-  );
-
-  // Return null if available (no guard needed - render normally)
-  if (!isLoading && isAvailable) {
-    return null;
-  }
-
-  // Return loading state
-  if (isLoading) {
-    return (
-      <div className="h-full flex items-center justify-center" style={{ background: 'var(--win95-bg)' }}>
-        <div style={{ color: 'var(--neutral-gray)' }}>Loading...</div>
-      </div>
-    );
-  }
-
-  // Return unavailable screen
-  return (
-    <AppUnavailable
-      appName={appConfig.name}
-      appCode={appConfig.code}
-      organizationName={organizationName}
-      message={appConfig.description}
-    />
-  );
+export function useAppAvailabilityGuard(_appConfig: AppConfig) {
+  // All apps are available - tier system handles feature limits
+  return null;
 }

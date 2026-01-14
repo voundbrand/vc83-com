@@ -194,6 +194,17 @@ export const executeBehavior = action({
             }
           );
 
+        case "activecampaign-sync":
+          return await ctx.runAction(
+            api.workflows.behaviors.activeCampaignSync.executeActiveCampaignSync,
+            {
+              sessionId: args.sessionId,
+              organizationId: args.organizationId,
+              config: args.config,
+              context: args.context,
+            }
+          );
+
         // Checkout behaviors (client-side)
         case "employer-detection":
         case "invoice-mapping":

@@ -685,6 +685,21 @@ import {
   completeResourceBooking,
   cancelResourceBooking,
 } from "./api/v1/resourceBookings";
+import {
+  handleOptions as aiChatHandleOptions,
+  createConversation as aiChatCreateConversation,
+  listConversations as aiChatListConversations,
+  getConversation as aiChatGetConversation,
+  sendMessage as aiChatSendMessage,
+  getSettings as aiChatGetSettings,
+  getModels as aiChatGetModels,
+  handleToolAction as aiChatHandleToolAction,
+  getPendingTools as aiChatGetPendingTools,
+  updateConversation as aiChatUpdateConversation,
+  archiveConversation as aiChatArchiveConversation,
+  listOrganizations as aiChatListOrganizations,
+  switchOrganization as aiChatSwitchOrganization,
+} from "./api/v1/aiChat";
 
 /**
  * Layer 1: READ APIs (Before Checkout)
@@ -2164,6 +2179,14 @@ import {
   mobileOAuthOptionsHandler,
 } from "./api/v1/mobileOAuth";
 
+// Import Account Linking handlers
+import {
+  confirmLinking,
+  rejectLinking,
+  getLinkingStatus,
+  handleOptions as accountLinkingHandleOptions,
+} from "./api/v1/accountLinking";
+
 /**
  * ==========================================
  * MOBILE OAUTH API
@@ -2186,6 +2209,57 @@ http.route({
   path: "/api/v1/auth/mobile-oauth",
   method: "POST",
   handler: mobileOAuthHandler,
+});
+
+/**
+ * ==========================================
+ * ACCOUNT LINKING API
+ * ==========================================
+ *
+ * Handles account linking when a user signs in with a new OAuth provider
+ * but their email matches an existing account.
+ */
+
+// OPTIONS /api/v1/auth/link-account/confirm - CORS preflight
+http.route({
+  path: "/api/v1/auth/link-account/confirm",
+  method: "OPTIONS",
+  handler: accountLinkingHandleOptions,
+});
+
+// POST /api/v1/auth/link-account/confirm - Confirm account linking
+http.route({
+  path: "/api/v1/auth/link-account/confirm",
+  method: "POST",
+  handler: confirmLinking,
+});
+
+// OPTIONS /api/v1/auth/link-account/reject - CORS preflight
+http.route({
+  path: "/api/v1/auth/link-account/reject",
+  method: "OPTIONS",
+  handler: accountLinkingHandleOptions,
+});
+
+// POST /api/v1/auth/link-account/reject - Reject account linking
+http.route({
+  path: "/api/v1/auth/link-account/reject",
+  method: "POST",
+  handler: rejectLinking,
+});
+
+// OPTIONS /api/v1/auth/link-account/status - CORS preflight
+http.route({
+  path: "/api/v1/auth/link-account/status",
+  method: "OPTIONS",
+  handler: accountLinkingHandleOptions,
+});
+
+// GET /api/v1/auth/link-account/status - Get linking status
+http.route({
+  path: "/api/v1/auth/link-account/status",
+  method: "GET",
+  handler: getLinkingStatus,
 });
 
 // OPTIONS /api/v1/auth/cli/validate - CORS preflight
@@ -2448,6 +2522,160 @@ http.route({
   pathPrefix: "/api/v1/resource-bookings/",
   method: "POST",
   handler: confirmResourceBooking,
+});
+
+// ============================================================================
+// AI CHAT API (Mobile App Integration)
+// ============================================================================
+//
+// REST API for AI chat functionality, used by mobile apps (iOS/Android).
+// Authentication: Bearer token (session ID from mobile OAuth)
+//
+// These endpoints wrap the existing Convex AI chat functions to provide
+// HTTP access for mobile clients. Both web and mobile apps share the same
+// underlying data and AI system.
+// ============================================================================
+
+// OPTIONS /api/v1/ai/conversations - CORS preflight
+http.route({
+  path: "/api/v1/ai/conversations",
+  method: "OPTIONS",
+  handler: aiChatHandleOptions,
+});
+
+// POST /api/v1/ai/conversations - Create new conversation
+http.route({
+  path: "/api/v1/ai/conversations",
+  method: "POST",
+  handler: aiChatCreateConversation,
+});
+
+// GET /api/v1/ai/conversations - List user's conversations
+http.route({
+  path: "/api/v1/ai/conversations",
+  method: "GET",
+  handler: aiChatListConversations,
+});
+
+// OPTIONS /api/v1/ai/conversations/:id - CORS preflight
+http.route({
+  pathPrefix: "/api/v1/ai/conversations/",
+  method: "OPTIONS",
+  handler: aiChatHandleOptions,
+});
+
+// GET /api/v1/ai/conversations/:id - Get conversation with messages
+http.route({
+  pathPrefix: "/api/v1/ai/conversations/",
+  method: "GET",
+  handler: aiChatGetConversation,
+});
+
+// PATCH /api/v1/ai/conversations/:id - Update conversation (rename)
+http.route({
+  pathPrefix: "/api/v1/ai/conversations/",
+  method: "PATCH",
+  handler: aiChatUpdateConversation,
+});
+
+// DELETE /api/v1/ai/conversations/:id - Archive conversation
+http.route({
+  pathPrefix: "/api/v1/ai/conversations/",
+  method: "DELETE",
+  handler: aiChatArchiveConversation,
+});
+
+// OPTIONS /api/v1/ai/chat - CORS preflight
+http.route({
+  path: "/api/v1/ai/chat",
+  method: "OPTIONS",
+  handler: aiChatHandleOptions,
+});
+
+// POST /api/v1/ai/chat - Send message and get AI response
+http.route({
+  path: "/api/v1/ai/chat",
+  method: "POST",
+  handler: aiChatSendMessage,
+});
+
+// OPTIONS /api/v1/ai/settings - CORS preflight
+http.route({
+  path: "/api/v1/ai/settings",
+  method: "OPTIONS",
+  handler: aiChatHandleOptions,
+});
+
+// GET /api/v1/ai/settings - Get organization AI settings
+http.route({
+  path: "/api/v1/ai/settings",
+  method: "GET",
+  handler: aiChatGetSettings,
+});
+
+// OPTIONS /api/v1/ai/models - CORS preflight
+http.route({
+  path: "/api/v1/ai/models",
+  method: "OPTIONS",
+  handler: aiChatHandleOptions,
+});
+
+// GET /api/v1/ai/models - Get available AI models
+http.route({
+  path: "/api/v1/ai/models",
+  method: "GET",
+  handler: aiChatGetModels,
+});
+
+// OPTIONS /api/v1/ai/tools/:id/* - CORS preflight
+http.route({
+  pathPrefix: "/api/v1/ai/tools/",
+  method: "OPTIONS",
+  handler: aiChatHandleOptions,
+});
+
+// POST /api/v1/ai/tools/:id/approve - Approve tool execution
+// POST /api/v1/ai/tools/:id/reject - Reject tool execution
+http.route({
+  pathPrefix: "/api/v1/ai/tools/",
+  method: "POST",
+  handler: aiChatHandleToolAction,
+});
+
+// ============================================================================
+// ORGANIZATION MANAGEMENT API (Mobile App Integration)
+// ============================================================================
+//
+// REST API for organization switching, used by mobile apps.
+// Allows users to switch between organizations they have access to.
+// ============================================================================
+
+// OPTIONS /api/v1/auth/organizations - CORS preflight
+http.route({
+  path: "/api/v1/auth/organizations",
+  method: "OPTIONS",
+  handler: aiChatHandleOptions,
+});
+
+// GET /api/v1/auth/organizations - List user's organizations
+http.route({
+  path: "/api/v1/auth/organizations",
+  method: "GET",
+  handler: aiChatListOrganizations,
+});
+
+// OPTIONS /api/v1/auth/switch-organization - CORS preflight
+http.route({
+  path: "/api/v1/auth/switch-organization",
+  method: "OPTIONS",
+  handler: aiChatHandleOptions,
+});
+
+// POST /api/v1/auth/switch-organization - Switch active organization
+http.route({
+  path: "/api/v1/auth/switch-organization",
+  method: "POST",
+  handler: aiChatSwitchOrganization,
 });
 
 export default http;

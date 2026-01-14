@@ -229,8 +229,9 @@ export const disableTemplateForOrg = mutation({
 /**
  * Get available templates for an organization
  *
- * Returns only templates that are enabled for this org.
- * Used by org owners when creating published pages.
+ * UPDATED: All published templates are now available to all organizations.
+ * The tier-based licensing system (tierConfigs.ts) handles feature limits.
+ * Legacy availability rules are no longer checked.
  */
 export const getAvailableTemplatesForOrg = query({
   args: {
@@ -258,19 +259,6 @@ export const getAvailableTemplatesForOrg = query({
       throw new Error("Cannot view templates for another organization");
     }
 
-    // Get enabled availabilities for this org
-    const availabilities = await ctx.db
-      .query("objects")
-      .withIndex("by_org_type", (q) =>
-        q.eq("organizationId", args.organizationId).eq("type", "template_availability")
-      )
-      .filter((q) => q.eq(q.field("customProperties.available"), true))
-      .collect();
-
-    const enabledTemplateCodes = availabilities.map(
-      (a) => a.customProperties?.templateCode
-    );
-
     // Get system organization
     const systemOrg = await ctx.db
       .query("organizations")
@@ -282,7 +270,7 @@ export const getAvailableTemplatesForOrg = query({
     }
 
     // Get all system templates
-    const allTemplates = await ctx.db
+    let allTemplates = await ctx.db
       .query("objects")
       .withIndex("by_org_type", (q) =>
         q.eq("organizationId", systemOrg._id).eq("type", "template")
@@ -290,32 +278,22 @@ export const getAvailableTemplatesForOrg = query({
       .filter((q) => q.eq(q.field("status"), "published"))
       .collect();
 
-    // Filter to only enabled templates
-    let availableTemplates = allTemplates.filter((template) =>
-      enabledTemplateCodes.includes(template.customProperties?.code)
-    );
-
     // Filter by category if specified
     if (args.category) {
-      availableTemplates = availableTemplates.filter(
+      allTemplates = allTemplates.filter(
         (template) => template.customProperties?.category === args.category
       );
     }
 
-    // Enhance with availability info
-    return availableTemplates.map((template) => {
-      const availability = availabilities.find(
-        (a) => a.customProperties?.templateCode === template.customProperties?.code
-      );
-
-      return {
-        ...template,
-        availability: {
-          customSettings: availability?.customProperties?.customSettings || {},
-          enabledAt: availability?.customProperties?.enabledAt,
-        },
-      };
-    });
+    // All published templates are now available to all organizations
+    // Feature limits are enforced by the tier system (tierConfigs.ts)
+    return allTemplates.map((template) => ({
+      ...template,
+      availability: {
+        customSettings: {},
+        enabledAt: undefined,
+      },
+    }));
   },
 });
 

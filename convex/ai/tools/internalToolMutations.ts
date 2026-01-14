@@ -81,7 +81,7 @@ export const internalCreateContact = internalMutation({
 });
 
 /**
- * Internal: Create Event
+ * Internal: Create Event (legacy - basic event creation)
  */
 export const internalCreateEvent = internalMutation({
   args: {
@@ -145,7 +145,121 @@ export const internalCreateEvent = internalMutation({
 });
 
 /**
- * Internal: Create Form
+ * Internal: Create Event With Details (enhanced - agenda, tickets, virtual support)
+ *
+ * Creates an event with full details including:
+ * - Agenda/schedule with sessions and speakers
+ * - Ticket types (stored in customProperties, can be converted to products later)
+ * - Virtual event support
+ * - Registration settings
+ */
+export const internalCreateEventWithDetails = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+    subtype: v.string(),
+    name: v.string(),
+    description: v.optional(v.string()),
+    startDate: v.number(),
+    endDate: v.number(),
+    location: v.string(),
+    capacity: v.optional(v.number()),
+    timezone: v.optional(v.string()),
+    published: v.optional(v.boolean()),
+    agenda: v.optional(v.array(v.any())), // Array of agenda items
+    ticketTypes: v.optional(v.array(v.any())), // Array of ticket type definitions
+    virtualEventUrl: v.optional(v.string()),
+    registrationRequired: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    // Validate dates
+    if (args.endDate < args.startDate) {
+      throw new Error("End date must be after start date");
+    }
+
+    // Validate minimum duration (15 minutes)
+    const durationMs = args.endDate - args.startDate;
+    if (durationMs < 15 * 60 * 1000) {
+      throw new Error("Event must be at least 15 minutes long");
+    }
+
+    // Generate slug
+    const slug = args.name
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+
+    const now = Date.now();
+
+    // Determine if this is a virtual event
+    const isVirtual = args.location?.toLowerCase().includes("virtual") ||
+      args.location?.toLowerCase().includes("online") ||
+      !!args.virtualEventUrl;
+
+    // Build customProperties with all event details
+    const customProperties: Record<string, unknown> = {
+      slug,
+      startDate: args.startDate,
+      endDate: args.endDate,
+      location: args.location,
+      timezone: args.timezone || "America/Los_Angeles",
+      maxCapacity: args.capacity || null,
+      // Agenda with sessions
+      agenda: args.agenda || [],
+      // Ticket types (can be converted to products later)
+      ticketTypes: args.ticketTypes || [],
+      // Virtual event settings
+      isVirtual,
+      virtualEventUrl: args.virtualEventUrl || null,
+      // Registration settings
+      registrationRequired: args.registrationRequired !== false,
+      // Stats
+      stats: {
+        views: 0,
+        registrations: 0,
+        checkins: 0,
+      },
+      // Metadata
+      createdVia: "ai_tool",
+    };
+
+    // Create the event
+    const eventId = await ctx.db.insert("objects", {
+      organizationId: args.organizationId,
+      type: "event",
+      subtype: args.subtype,
+      name: args.name,
+      description: args.description || "",
+      status: args.published === true ? "published" : "draft", // Default to draft
+      createdAt: now,
+      updatedAt: now,
+      createdBy: args.userId,
+      customProperties,
+    });
+
+    // Log the action
+    await ctx.db.insert("objectActions", {
+      organizationId: args.organizationId,
+      objectId: eventId,
+      actionType: "created",
+      performedBy: args.userId,
+      performedAt: now,
+      actionData: {
+        status: args.published === true ? "published" : "draft",
+        agendaItemCount: (args.agenda || []).length,
+        ticketTypeCount: (args.ticketTypes || []).length,
+        isVirtual,
+        createdVia: "ai_tool",
+      },
+    });
+
+    return eventId;
+  },
+});
+
+/**
+ * Internal: Create Form (legacy - minimal fields support)
  */
 export const internalCreateForm = internalMutation({
   args: {
@@ -193,7 +307,145 @@ export const internalCreateForm = internalMutation({
 });
 
 /**
- * Internal: Create Product
+ * Internal: Create Form With Fields (enhanced - full FormSchema support)
+ *
+ * Creates a form with properly structured sections and fields.
+ * Supports all 17 field types with options, validation, and help text.
+ */
+export const internalCreateFormWithFields = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+    subtype: v.string(),
+    name: v.string(),
+    description: v.optional(v.string()),
+    fields: v.array(v.any()), // Array of field definitions
+    sectionTitle: v.optional(v.string()),
+    settings: v.optional(v.any()),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+
+    // Generate unique IDs for fields and convert options to proper format
+    const processedFields = args.fields.map((field, index) => {
+      const fieldId = `field_${index + 1}_${Date.now()}`;
+
+      // Base field structure
+      const processedField: Record<string, unknown> = {
+        id: fieldId,
+        type: field.type,
+        label: field.label,
+        required: field.required || false,
+      };
+
+      // Add optional properties if provided
+      if (field.placeholder) {
+        processedField.placeholder = field.placeholder;
+      }
+      if (field.helpText) {
+        processedField.helpText = field.helpText;
+      }
+      if (field.defaultValue !== undefined) {
+        processedField.defaultValue = field.defaultValue;
+      }
+
+      // Convert options array of strings to array of {value, label} objects
+      if (field.options && Array.isArray(field.options)) {
+        processedField.options = field.options.map((opt: string | { value: string; label: string }) => {
+          if (typeof opt === "string") {
+            // Convert string to proper option format
+            const value = opt.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
+            return { value, label: opt };
+          }
+          // Already in correct format
+          return opt;
+        });
+      }
+
+      // Add validation if provided
+      if (field.validation) {
+        processedField.validation = field.validation;
+      }
+
+      // For text_block/description fields, add content
+      if (field.content) {
+        processedField.content = field.content;
+      }
+      if (field.formatting) {
+        processedField.formatting = field.formatting;
+      }
+
+      return processedField;
+    });
+
+    // Create the section with all fields
+    const section = {
+      id: `section_main_${Date.now()}`,
+      title: args.sectionTitle || "Form Fields",
+      description: "",
+      fields: processedFields,
+    };
+
+    // Build form settings with defaults
+    const formSettings = {
+      allowMultipleSubmissions: args.settings?.allowMultipleSubmissions ?? false,
+      showProgressBar: args.settings?.showProgressBar ?? true,
+      submitButtonText: args.settings?.submitButtonText || "Submit",
+      successMessage: args.settings?.successMessage || "Thank you for your submission!",
+      redirectUrl: args.settings?.redirectUrl || null,
+      requireAuth: args.settings?.requireAuth ?? false,
+      saveProgress: args.settings?.saveProgress ?? false,
+      displayMode: args.settings?.displayMode || "all",
+    };
+
+    // Create the complete FormSchema
+    const formSchema = {
+      version: "1.0",
+      sections: [section],
+      settings: formSettings,
+    };
+
+    // Insert the form
+    const formId = await ctx.db.insert("objects", {
+      organizationId: args.organizationId,
+      type: "form",
+      subtype: args.subtype,
+      name: args.name,
+      description: args.description || "",
+      status: "draft",
+      createdAt: now,
+      updatedAt: now,
+      createdBy: args.userId,
+      customProperties: {
+        formSchema,
+        stats: {
+          views: 0,
+          submissions: 0,
+          completionRate: 0,
+        },
+      },
+    });
+
+    // Log the action
+    await ctx.db.insert("objectActions", {
+      organizationId: args.organizationId,
+      objectId: formId,
+      actionType: "created",
+      performedBy: args.userId,
+      performedAt: now,
+      actionData: {
+        status: "draft",
+        fieldCount: processedFields.length,
+        createdVia: "ai_tool",
+      },
+    });
+
+    return formId;
+  },
+});
+
+/**
+ * Internal: Create Product (legacy - basic product creation)
  */
 export const internalCreateProduct = internalMutation({
   args: {
@@ -229,6 +481,273 @@ export const internalCreateProduct = internalMutation({
     });
 
     return productId;
+  },
+});
+
+/**
+ * Internal: Create Product With Details (enhanced - tickets, bookables, sale dates)
+ *
+ * Creates a product with full details including:
+ * - Ticket tiers (standard, VIP, early bird)
+ * - Event linking
+ * - Sale date windows
+ * - Bookable settings (for rooms, staff, equipment, etc.)
+ * - Tax behavior
+ */
+export const internalCreateProductWithDetails = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+    subtype: v.string(),
+    name: v.string(),
+    description: v.optional(v.string()),
+    price: v.number(), // In cents
+    currency: v.optional(v.string()),
+    inventory: v.optional(v.number()),
+    status: v.optional(v.string()),
+    // Ticket options
+    ticketTier: v.optional(v.string()),
+    eventId: v.optional(v.string()),
+    salesStart: v.optional(v.union(v.number(), v.null())),
+    salesEnd: v.optional(v.union(v.number(), v.null())),
+    earlyBirdEndDate: v.optional(v.union(v.number(), v.null())),
+    // Bookable options
+    bookingSettings: v.optional(v.any()),
+    // Tax
+    taxBehavior: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+
+    // Determine if this is a bookable product
+    const bookableTypes = ["room", "staff", "equipment", "space", "appointment", "class", "treatment"];
+    const isBookable = bookableTypes.includes(args.subtype);
+
+    // Build customProperties with all product details
+    const customProperties: Record<string, unknown> = {
+      price: args.price,
+      currency: args.currency || "EUR",
+      inventory: args.inventory ?? null,
+      sold: 0,
+      // Event linking (also stored here for quick access, objectLinks is source of truth)
+      eventId: args.eventId || null,
+      // Ticket-specific
+      ticketTier: args.ticketTier || null,
+      // Sale date windows
+      startSaleDateTime: args.salesStart || null,
+      endSaleDateTime: args.salesEnd || null,
+      earlyBirdEndDate: args.earlyBirdEndDate || null,
+      // Tax behavior
+      taxBehavior: args.taxBehavior || null,
+      // Metadata
+      createdVia: "ai_tool",
+    };
+
+    // Add bookable settings if this is a bookable product
+    if (isBookable && args.bookingSettings) {
+      const settings = args.bookingSettings;
+      customProperties.bookingMode = "calendar";
+      customProperties.minDuration = settings.minDuration || 30;
+      customProperties.maxDuration = settings.maxDuration || 480;
+      customProperties.durationUnit = settings.durationUnit || "minutes";
+      customProperties.slotIncrement = settings.slotIncrement || 30;
+      customProperties.bufferBefore = settings.bufferBefore || 0;
+      customProperties.bufferAfter = settings.bufferAfter || 0;
+      customProperties.capacity = settings.capacity || 1;
+      customProperties.confirmationRequired = settings.confirmationRequired ?? false;
+      customProperties.pricePerUnit = args.price;
+      customProperties.priceUnit = settings.priceUnit || "session";
+    }
+
+    // Create the product
+    const productId = await ctx.db.insert("objects", {
+      organizationId: args.organizationId,
+      type: "product",
+      subtype: args.subtype,
+      name: args.name,
+      description: args.description || "",
+      status: args.status || "draft",
+      createdAt: now,
+      updatedAt: now,
+      createdBy: args.userId,
+      customProperties,
+    });
+
+    // Create event->product link if eventId provided (for tickets)
+    if (args.eventId) {
+      try {
+        // Validate that it's a valid ID format before using
+        await ctx.db.insert("objectLinks", {
+          organizationId: args.organizationId,
+          fromObjectId: args.eventId as unknown as Id<"objects">,
+          toObjectId: productId,
+          linkType: "offers",
+          properties: {
+            displayOrder: 0,
+            isFeatured: false,
+            ticketTier: args.ticketTier || "standard",
+          },
+          createdAt: now,
+        });
+      } catch {
+        // Event link failed - product still created, just not linked
+        console.warn(`Failed to link product ${productId} to event ${args.eventId}`);
+      }
+    }
+
+    // Log the action
+    await ctx.db.insert("objectActions", {
+      organizationId: args.organizationId,
+      objectId: productId,
+      actionType: "created",
+      performedBy: args.userId,
+      performedAt: now,
+      actionData: {
+        status: args.status || "draft",
+        subtype: args.subtype,
+        price: args.price,
+        currency: args.currency || "EUR",
+        ticketTier: args.ticketTier || null,
+        eventId: args.eventId || null,
+        isBookable,
+        createdVia: "ai_tool",
+      },
+    });
+
+    return productId;
+  },
+});
+
+/**
+ * Internal: Activate Product
+ * Changes product status from draft to active (available for sale)
+ */
+export const internalActivateProduct = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+    productId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const product = await ctx.db.get(args.productId);
+    if (!product || product.type !== "product" || product.organizationId !== args.organizationId) {
+      throw new Error("Product not found");
+    }
+
+    const previousStatus = product.status;
+
+    await ctx.db.patch(args.productId, {
+      status: "active",
+      updatedAt: Date.now(),
+    });
+
+    // Log the action
+    await ctx.db.insert("objectActions", {
+      organizationId: args.organizationId,
+      objectId: args.productId,
+      actionType: "activated",
+      performedBy: args.userId,
+      performedAt: Date.now(),
+      actionData: {
+        previousStatus,
+        newStatus: "active",
+        source: "ai_assistant",
+      },
+    });
+
+    return { success: true, productId: args.productId, previousStatus };
+  },
+});
+
+/**
+ * Internal: Deactivate Product
+ * Changes product status back to draft (no longer available for sale)
+ */
+export const internalDeactivateProduct = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+    productId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const product = await ctx.db.get(args.productId);
+    if (!product || product.type !== "product" || product.organizationId !== args.organizationId) {
+      throw new Error("Product not found");
+    }
+
+    const previousStatus = product.status;
+
+    await ctx.db.patch(args.productId, {
+      status: "draft",
+      updatedAt: Date.now(),
+    });
+
+    // Log the action
+    await ctx.db.insert("objectActions", {
+      organizationId: args.organizationId,
+      objectId: args.productId,
+      actionType: "deactivated",
+      performedBy: args.userId,
+      performedAt: Date.now(),
+      actionData: {
+        previousStatus,
+        newStatus: "draft",
+        source: "ai_assistant",
+      },
+    });
+
+    return { success: true, productId: args.productId, previousStatus };
+  },
+});
+
+/**
+ * Internal: Publish Checkout
+ * Changes checkout status to published (ready to accept orders)
+ */
+export const internalPublishCheckout = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+    checkoutId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const checkout = await ctx.db.get(args.checkoutId);
+    if (!checkout || checkout.type !== "checkout" || checkout.organizationId !== args.organizationId) {
+      throw new Error("Checkout not found");
+    }
+
+    const previousStatus = checkout.status;
+
+    // Generate public URL for checkout
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.l4yercak3.com";
+    const publicUrl = `${baseUrl}/c/${args.checkoutId}`;
+
+    await ctx.db.patch(args.checkoutId, {
+      status: "published",
+      customProperties: {
+        ...checkout.customProperties,
+        publicUrl,
+        publishedAt: Date.now(),
+      },
+      updatedAt: Date.now(),
+    });
+
+    // Log the action
+    await ctx.db.insert("objectActions", {
+      organizationId: args.organizationId,
+      objectId: args.checkoutId,
+      actionType: "published",
+      performedBy: args.userId,
+      performedAt: Date.now(),
+      actionData: {
+        previousStatus,
+        newStatus: "published",
+        publicUrl,
+        source: "ai_assistant",
+      },
+    });
+
+    return { success: true, checkoutId: args.checkoutId, previousStatus, publicUrl };
   },
 });
 
@@ -1375,8 +1894,10 @@ export const internalPublishForm = internalMutation({
       throw new Error("Form not found");
     }
 
+    // Use "published" status to be consistent with UI publishForm mutation
+    // (not "active" which was previously causing forms to disappear from UI)
     await ctx.db.patch(args.formId, {
-      status: "active",
+      status: "published",
       updatedAt: Date.now(),
     });
 
@@ -2083,6 +2604,262 @@ export const internalCreateCheckoutPage = internalMutation({
         source: "ai_assistant",
         publicSlug: slug,
         productCount: args.productIds.length,
+      },
+      performedBy: args.userId,
+      performedAt: now,
+    });
+
+    return { checkoutId, publicSlug: slug };
+  },
+});
+
+/**
+ * Internal: Create Checkout Page with Full Details (Behavior-Driven)
+ *
+ * Enhanced checkout creation using the behavior-driven template.
+ * Ties together products, forms, events, and payment providers into a complete checkout experience.
+ */
+export const internalCreateCheckoutPageWithDetails = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+    name: v.string(),
+    description: v.optional(v.string()),
+    productIds: v.array(v.id("objects")),
+    formId: v.optional(v.id("objects")),
+    eventId: v.optional(v.id("objects")),
+    paymentMode: v.optional(v.string()), // "b2c", "b2b", "hybrid"
+    paymentProviders: v.optional(v.array(v.string())),
+    behaviors: v.optional(v.array(v.object({
+      type: v.string(),
+      config: v.optional(v.any()),
+      priority: v.optional(v.number()),
+    }))),
+    settings: v.optional(v.object({
+      language: v.optional(v.string()),
+      maxQuantityPerOrder: v.optional(v.number()),
+      requiresAccount: v.optional(v.boolean()),
+      showProgressBar: v.optional(v.boolean()),
+      allowBackNavigation: v.optional(v.boolean()),
+      debugMode: v.optional(v.boolean()),
+      currency: v.optional(v.string()),
+      successRedirectUrl: v.optional(v.string()),
+      cancelRedirectUrl: v.optional(v.string()),
+    })),
+    branding: v.optional(v.object({
+      headerText: v.optional(v.string()),
+      footerText: v.optional(v.string()),
+      primaryColor: v.optional(v.string()),
+      logoUrl: v.optional(v.string()),
+      theme: v.optional(v.string()),
+    })),
+  },
+  handler: async (ctx, args) => {
+    // Verify products exist and belong to org
+    const products: Array<{ _id: string; name?: string; customProperties?: Record<string, unknown> }> = [];
+    for (const productId of args.productIds) {
+      const product = await ctx.db.get(productId);
+      if (!product || product.type !== "product" || product.organizationId !== args.organizationId) {
+        throw new Error(`Product ${productId} not found or not accessible`);
+      }
+      products.push(product as { _id: string; name?: string; customProperties?: Record<string, unknown> });
+    }
+
+    // Verify form exists if provided
+    if (args.formId) {
+      const form = await ctx.db.get(args.formId);
+      if (!form || form.type !== "form" || form.organizationId !== args.organizationId) {
+        throw new Error(`Form ${args.formId} not found or not accessible`);
+      }
+    }
+
+    // Verify event exists if provided
+    if (args.eventId) {
+      const event = await ctx.db.get(args.eventId);
+      if (!event || event.type !== "event" || event.organizationId !== args.organizationId) {
+        throw new Error(`Event ${args.eventId} not found or not accessible`);
+      }
+    }
+
+    // Generate unique slug
+    const slug = args.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "") +
+      "-" +
+      Math.random().toString(36).substring(2, 8);
+
+    // Determine payment providers based on mode
+    let paymentProviders = args.paymentProviders;
+    if (!paymentProviders) {
+      switch (args.paymentMode) {
+        case "b2b":
+          paymentProviders = ["invoice"];
+          break;
+        case "hybrid":
+          paymentProviders = ["stripe-connect", "invoice"];
+          break;
+        default: // b2c or undefined
+          paymentProviders = ["stripe-connect"];
+      }
+    }
+
+    // Build behaviors array with defaults
+    const behaviors = args.behaviors || [];
+
+    // Auto-add form-collection behavior if form is linked
+    if (args.formId && !behaviors.some(b => b.type === "form-collection")) {
+      behaviors.push({
+        type: "form-collection",
+        config: { formId: args.formId },
+        priority: 100,
+      });
+    }
+
+    // Auto-add employer-detection for B2B/hybrid modes
+    if ((args.paymentMode === "b2b" || args.paymentMode === "hybrid") &&
+        !behaviors.some(b => b.type === "employer-detection")) {
+      behaviors.push({
+        type: "employer-detection",
+        config: {},
+        priority: 90,
+      });
+    }
+
+    // Auto-add invoice-mapping for B2B/hybrid modes
+    if ((args.paymentMode === "b2b" || args.paymentMode === "hybrid") &&
+        !behaviors.some(b => b.type === "invoice-mapping")) {
+      behaviors.push({
+        type: "invoice-mapping",
+        config: {},
+        priority: 80,
+      });
+    }
+
+    const now = Date.now();
+
+    // Create the checkout instance
+    const checkoutId = await ctx.db.insert("objects", {
+      organizationId: args.organizationId,
+      type: "checkout_instance",
+      subtype: "behavior-driven",
+      name: args.name,
+      description: args.description || `Checkout for ${args.productIds.length} product(s)`,
+      status: "draft",
+      customProperties: {
+        // Template reference
+        templateCode: "behavior-driven-checkout",
+
+        // Public access
+        publicSlug: slug,
+
+        // Linked entities
+        linkedProducts: args.productIds,
+        linkedFormId: args.formId,
+        linkedEventId: args.eventId,
+
+        // Payment configuration
+        paymentMode: args.paymentMode || "b2c",
+        paymentProviders,
+
+        // Behaviors for dynamic checkout logic
+        behaviors,
+
+        // Default language (stored at top level for UI consistency)
+        // UI stores this at customProperties.defaultLanguage
+        defaultLanguage: args.settings?.language || "en",
+
+        // Settings with defaults
+        settings: {
+          language: args.settings?.language || "en", // Also kept here for backwards compatibility
+          maxQuantityPerOrder: args.settings?.maxQuantityPerOrder || 10,
+          requiresAccount: args.settings?.requiresAccount || false,
+          showProgressBar: args.settings?.showProgressBar !== false,
+          allowBackNavigation: args.settings?.allowBackNavigation !== false,
+          debugMode: args.settings?.debugMode || false,
+          currency: args.settings?.currency,
+          successRedirectUrl: args.settings?.successRedirectUrl,
+          cancelRedirectUrl: args.settings?.cancelRedirectUrl,
+        },
+
+        // Branding
+        branding: args.branding || {},
+
+        // Checkout flow configuration (behavior-driven 6-step flow)
+        checkoutFlow: {
+          steps: [
+            { id: "product", name: "Select Products", enabled: true },
+            { id: "form", name: "Registration", enabled: !!args.formId },
+            { id: "customer", name: "Customer Info", enabled: true },
+            { id: "review", name: "Review Order", enabled: true },
+            { id: "payment", name: "Payment", enabled: args.paymentMode !== "b2b" }, // Skip for pure B2B
+            { id: "confirmation", name: "Confirmation", enabled: true },
+          ],
+        },
+
+        // Metadata
+        createdVia: "ai_tool",
+        version: "1.0.0",
+      },
+      createdBy: args.userId,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // Create object links for relationships
+    const linkPromises = [];
+
+    // Link to products
+    for (const productId of args.productIds) {
+      linkPromises.push(ctx.db.insert("objectLinks", {
+        organizationId: args.organizationId,
+        fromObjectId: checkoutId,
+        toObjectId: productId,
+        linkType: "checkout_product",
+        createdAt: now,
+      }));
+    }
+
+    // Link to form if provided
+    if (args.formId) {
+      linkPromises.push(ctx.db.insert("objectLinks", {
+        organizationId: args.organizationId,
+        fromObjectId: checkoutId,
+        toObjectId: args.formId,
+        linkType: "checkout_form",
+        createdAt: now,
+      }));
+    }
+
+    // Link to event if provided
+    if (args.eventId) {
+      linkPromises.push(ctx.db.insert("objectLinks", {
+        organizationId: args.organizationId,
+        fromObjectId: checkoutId,
+        toObjectId: args.eventId,
+        linkType: "checkout_event",
+        createdAt: now,
+      }));
+    }
+
+    await Promise.all(linkPromises);
+
+    // Log action with full context
+    await ctx.db.insert("objectActions", {
+      organizationId: args.organizationId,
+      objectId: checkoutId,
+      actionType: "created",
+      actionData: {
+        source: "ai_assistant",
+        createdVia: "ai_tool",
+        template: "behavior-driven-checkout",
+        publicSlug: slug,
+        productCount: args.productIds.length,
+        hasForm: !!args.formId,
+        hasEvent: !!args.eventId,
+        paymentMode: args.paymentMode || "b2c",
+        paymentProviders,
+        behaviorCount: behaviors.length,
       },
       performedBy: args.userId,
       performedAt: now,

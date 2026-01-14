@@ -158,17 +158,20 @@ export function OrganizationsList({ selectedId, onSelect, onNavigateToPipelines 
                   className="w-full text-left p-3 transition-colors group relative"
                   style={{
                     background: selectedId === org._id ? 'var(--win95-selected-bg)' : 'transparent',
+                    color: selectedId === org._id ? 'var(--win95-hover-text)' : 'var(--win95-text)',
                     borderLeftWidth: selectedId === org._id ? '4px' : '0',
                     borderLeftColor: selectedId === org._id ? 'var(--win95-highlight)' : 'transparent'
                   }}
                   onMouseEnter={(e) => {
                     if (selectedId !== org._id) {
                       e.currentTarget.style.background = 'var(--win95-hover-bg)'
+                      e.currentTarget.style.color = 'var(--win95-hover-text)'
                     }
                   }}
                   onMouseLeave={(e) => {
                     if (selectedId !== org._id) {
                       e.currentTarget.style.background = 'transparent'
+                      e.currentTarget.style.color = ''
                     }
                   }}
                 >
@@ -177,14 +180,14 @@ export function OrganizationsList({ selectedId, onSelect, onNavigateToPipelines 
                     className="cursor-pointer"
                   >
                     <div className="flex items-start gap-2">
-                      <Building2 size={20} className="mt-0.5 flex-shrink-0" style={{ color: 'var(--win95-highlight)' }} />
+                      <Building2 size={20} className="mt-0.5 flex-shrink-0" style={{ color: 'inherit' }} />
                       <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-sm truncate" style={{ color: 'var(--win95-text)' }}>{org.name}</div>
+                        <div className="font-semibold text-sm truncate" style={{ color: 'inherit' }}>{org.name}</div>
                         {website && (
-                          <div className="text-xs truncate" style={{ color: 'var(--neutral-gray)' }}>{website}</div>
+                          <div className="text-xs truncate" style={{ color: 'inherit', opacity: 0.8 }}>{website}</div>
                         )}
                         {(industry || size) && (
-                          <div className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
+                          <div className="text-xs mt-1" style={{ color: 'inherit', opacity: 0.8 }}>
                             {[industry, size].filter(Boolean).join(" • ")}
                           </div>
                         )}

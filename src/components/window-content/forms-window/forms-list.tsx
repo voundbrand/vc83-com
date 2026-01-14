@@ -249,12 +249,26 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
                       <h4 className="font-bold text-sm" style={{ color: "var(--win95-text)" }}>
                         {form.name}
                       </h4>
-                      <span
-                        className="px-2 py-0.5 text-xs font-bold"
+                      {/* Clickable status badge - toggles publish/unpublish */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePublish(form._id, form.status || "draft");
+                        }}
+                        disabled={isDeleting || isPublishing || isDuplicating}
+                        className="px-2 py-0.5 text-xs font-bold transition-opacity hover:opacity-80 disabled:opacity-50 cursor-pointer"
                         style={{ backgroundColor: statusStyle.bg, color: statusStyle.text }}
+                        title={isPublished ? t("ui.forms.action_deactivate_tooltip") : t("ui.forms.action_activate_tooltip")}
                       >
-                        {statusStyle.label}
-                      </span>
+                        {isPublishing ? (
+                          <span className="flex items-center gap-1">
+                            <Loader2 size={10} className="animate-spin" />
+                            {statusStyle.label}
+                          </span>
+                        ) : (
+                          statusStyle.label
+                        )}
+                      </button>
                     </div>
 
                     {/* Type badge */}

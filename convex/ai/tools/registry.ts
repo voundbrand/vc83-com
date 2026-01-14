@@ -16,6 +16,7 @@ import { projectsToolDefinition } from "./projectsTool";
 import { crmToolDefinition } from "./crmTool";
 import { benefitsToolDefinition } from "./benefitsTool";
 import { bookingToolDefinition } from "./bookingTool";
+import { activeCampaignToolDefinition } from "./activeCampaignTool";
 import { api } from "../../_generated/api";
 import { internal } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
@@ -140,6 +141,7 @@ const checkOAuthConnectionTool: AITool = {
     }
 
     // Check if user has connected their Microsoft account
+    // @ts-ignore - Deep type instantiation in Convex generated types
     const connection = await ctx.runQuery(api.oauth.microsoft.getUserMicrosoftConnection, {
       sessionId: ctx.sessionId
     });
@@ -585,38 +587,153 @@ const tagContactsTool: AITool = {
 
 const createEventTool: AITool = {
   name: "create_event",
-  description: "Create a new event with dates, location, and details",
+  description: `Create a new event with dates, location, agenda, and optional ticket types. Supports: conference, workshop, concert, meetup, seminar, webinar, training, networking, exhibition, other.
+
+CRITICAL: Before creating a new event:
+1. ALWAYS use list_events first to check if a similar event already exists
+2. If an event with a similar name or date exists, use update_event instead of create_event
+3. Only create a new event if you're certain no matching event exists
+
+IMPORTANT: Before calling this tool, have a conversation with the user to gather:
+1. Event basics: name, date/time (start AND end), location (physical or virtual)
+2. Event type and expected duration
+3. Agenda/schedule: sessions, speakers, breaks (optional but recommended for conferences/workshops)
+4. Ticket types needed: free, paid tiers, early bird, VIP (optional)
+5. Capacity limits (optional)
+
+Example agenda array:
+[
+  { "time": "9:00 AM", "title": "Registration & Coffee", "duration": "30 min" },
+  { "time": "9:30 AM", "title": "Keynote: Future of AI", "speaker": "Jane Smith", "duration": "1 hour" },
+  { "time": "10:30 AM", "title": "Break", "duration": "15 min" },
+  { "time": "10:45 AM", "title": "Workshop: Hands-on ML", "speaker": "John Doe", "duration": "2 hours" }
+]
+
+Example ticketTypes array:
+[
+  { "name": "Early Bird", "price": 49, "description": "Limited early access pricing", "capacity": 50 },
+  { "name": "General Admission", "price": 99, "description": "Standard ticket" },
+  { "name": "VIP", "price": 199, "description": "Front row + speaker dinner", "capacity": 20 }
+]`,
   status: "ready",
   parameters: {
     type: "object",
     properties: {
-      title: { type: "string", description: "Event title" },
-      description: { type: "string", description: "Event description" },
-      startDate: { type: "string", description: "Start date (ISO 8601)" },
-      endDate: { type: "string", description: "End date (optional, ISO 8601). If not provided, duration is based on event type." },
-      location: { type: "string", description: "Event location" },
-      capacity: { type: "number", description: "Maximum attendees (optional)" },
-      eventType: { type: "string", enum: ["conference", "workshop", "concert", "meetup", "seminar"], description: "Type of event", default: "meetup" },
-      timezone: { type: "string", description: "Timezone (e.g., 'America/Los_Angeles', 'America/New_York'). Defaults to organization timezone.", default: "America/Los_Angeles" },
-      published: { type: "boolean", description: "Publish event immediately (true) or keep as draft (false)", default: true }
+      title: { type: "string", description: "Event title/name" },
+      description: { type: "string", description: "Event description shown to attendees" },
+      startDate: { type: "string", description: "Start date and time (ISO 8601, e.g., '2024-03-15T09:00:00')" },
+      endDate: { type: "string", description: "End date and time (optional). If not provided, auto-calculated based on event type." },
+      location: { type: "string", description: "Event location - physical address or 'Virtual' / 'Online' for webinars" },
+      eventType: {
+        type: "string",
+        enum: ["conference", "workshop", "concert", "meetup", "seminar", "webinar", "training", "networking", "exhibition", "other"],
+        description: "Type of event - affects default duration and display",
+        default: "meetup"
+      },
+      capacity: { type: "number", description: "Maximum total attendees (optional, leave empty for unlimited)" },
+      timezone: {
+        type: "string",
+        description: "Timezone (e.g., 'America/Los_Angeles', 'America/New_York', 'Europe/London', 'UTC')",
+        default: "America/Los_Angeles"
+      },
+      agenda: {
+        type: "array",
+        description: "Event schedule/agenda with sessions. Each item has time, title, optional speaker, and duration.",
+        items: {
+          type: "object",
+          properties: {
+            time: { type: "string", description: "Start time (e.g., '9:00 AM', '14:30')" },
+            title: { type: "string", description: "Session title" },
+            description: { type: "string", description: "Session description (optional)" },
+            speaker: { type: "string", description: "Speaker name (optional)" },
+            duration: { type: "string", description: "Duration (e.g., '30 min', '1 hour', '2 hours')" },
+            type: { type: "string", enum: ["session", "keynote", "workshop", "break", "networking", "meal", "other"], description: "Session type" }
+          },
+          required: ["time", "title"]
+        }
+      },
+      ticketTypes: {
+        type: "array",
+        description: "Ticket tiers/types for the event. Leave empty for free events.",
+        items: {
+          type: "object",
+          properties: {
+            name: { type: "string", description: "Ticket type name (e.g., 'General Admission', 'VIP', 'Early Bird')" },
+            price: { type: "number", description: "Price in cents (e.g., 4999 for $49.99). Use 0 for free tickets." },
+            description: { type: "string", description: "What's included with this ticket" },
+            capacity: { type: "number", description: "Max tickets of this type (optional)" },
+            salesStart: { type: "string", description: "When tickets go on sale (ISO 8601, optional)" },
+            salesEnd: { type: "string", description: "When ticket sales end (ISO 8601, optional)" }
+          },
+          required: ["name", "price"]
+        }
+      },
+      virtualEventUrl: { type: "string", description: "URL for virtual/online events (Zoom, Teams, etc.)" },
+      registrationRequired: { type: "boolean", description: "Whether registration is required (default: true)", default: true },
+      published: { type: "boolean", description: "Publish immediately (true) or keep as draft (false)", default: false }
     },
     required: ["title", "startDate", "location"]
   },
   execute: async (ctx, args) => {
+    // CHECK FOR DUPLICATES: Look for existing events with similar names
+    const existingEvents = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalListEvents, {
+      organizationId: ctx.organizationId,
+      upcoming: false, // Check all events, not just upcoming
+      limit: 100,
+    });
+
+    const normalizedTitle = args.title.toLowerCase().trim();
+    const duplicateEvent = existingEvents.find((e: { name: string; _id: string }) =>
+      e.name.toLowerCase().trim() === normalizedTitle
+    );
+
+    if (duplicateEvent) {
+      return {
+        success: false,
+        requiresUserDecision: true,
+        duplicateFound: true,
+        error: `An event named "${args.title}" already exists`,
+        existingEventId: duplicateEvent._id,
+        existingEventName: duplicateEvent.name,
+        userPrompt: `I found an existing event called "${duplicateEvent.name}". What would you like me to do?\n\n1. **Update the existing event** - I'll modify the event that's already there\n2. **Create with a different name** - Tell me what to call the new event\n3. **Replace it** - Delete the old one and create fresh`,
+        hint: "IMPORTANT: Ask the user which option they prefer. Present the options from userPrompt. Do NOT automatically choose - let the user decide.",
+        existingEvents: existingEvents.slice(0, 5).map((e: { _id: string; name: string; status: string; startDate?: number }) => ({
+          id: e._id,
+          name: e.name,
+          status: e.status,
+          startDate: e.startDate ? new Date(e.startDate).toISOString() : null
+        }))
+      };
+    }
+
     // Convert ISO dates to timestamps
     const startTimestamp = new Date(args.startDate).getTime();
 
+    // Validate start date is valid
+    if (isNaN(startTimestamp)) {
+      return {
+        success: false,
+        error: `Invalid start date format: "${args.startDate}". Please use ISO 8601 format (e.g., "2024-03-15T09:00:00").`,
+        hint: "Ask the user for the event date and time, then format it correctly."
+      };
+    }
+
     // Smart duration defaults based on event type
     const durationDefaults: Record<string, number> = {
-      conference: 8 * 60 * 60 * 1000,  // 8 hours
+      conference: 8 * 60 * 60 * 1000,   // 8 hours
       workshop: 4 * 60 * 60 * 1000,     // 4 hours
       concert: 3 * 60 * 60 * 1000,      // 3 hours
       meetup: 2 * 60 * 60 * 1000,       // 2 hours
       seminar: 90 * 60 * 1000,          // 90 minutes
+      webinar: 60 * 60 * 1000,          // 1 hour
+      training: 6 * 60 * 60 * 1000,     // 6 hours
+      networking: 2 * 60 * 60 * 1000,   // 2 hours
+      exhibition: 8 * 60 * 60 * 1000,   // 8 hours
+      other: 2 * 60 * 60 * 1000,        // 2 hours
     };
 
     const eventType = args.eventType || "meetup";
-    const defaultDuration = durationDefaults[eventType] || 2 * 60 * 60 * 1000; // 2 hours fallback
+    const defaultDuration = durationDefaults[eventType] || 2 * 60 * 60 * 1000;
 
     const endTimestamp = args.endDate
       ? new Date(args.endDate).getTime()
@@ -624,16 +741,60 @@ const createEventTool: AITool = {
 
     // Validate: end must be after start
     if (endTimestamp <= startTimestamp) {
-      throw new Error("Event end time must be after start time");
+      return {
+        success: false,
+        error: "Event end time must be after start time.",
+        hint: "Check the start and end dates - end date should be later than start date."
+      };
     }
 
     // Validate: minimum duration of 15 minutes
     const durationMs = endTimestamp - startTimestamp;
     if (durationMs < 15 * 60 * 1000) {
-      throw new Error("Event must be at least 15 minutes long");
+      return {
+        success: false,
+        error: "Event must be at least 15 minutes long.",
+        hint: "Either extend the end time or remove it to use the default duration."
+      };
     }
 
-    const eventId = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateEvent, {
+    // Process agenda items - add IDs
+    const processedAgenda = (args.agenda || []).map((item: {
+      time: string;
+      title: string;
+      description?: string;
+      speaker?: string;
+      duration?: string;
+      type?: string;
+    }, index: number) => ({
+      id: `agenda_${index + 1}_${Date.now()}`,
+      time: item.time,
+      title: item.title,
+      description: item.description || "",
+      speaker: item.speaker || null,
+      duration: item.duration || "30 min",
+      type: item.type || "session",
+    }));
+
+    // Process ticket types - will create products later if needed
+    const processedTicketTypes = (args.ticketTypes || []).map((ticket: {
+      name: string;
+      price: number;
+      description?: string;
+      capacity?: number;
+      salesStart?: string;
+      salesEnd?: string;
+    }, index: number) => ({
+      id: `ticket_${index + 1}_${Date.now()}`,
+      name: ticket.name,
+      price: ticket.price,
+      description: ticket.description || "",
+      capacity: ticket.capacity || null,
+      salesStart: ticket.salesStart ? new Date(ticket.salesStart).getTime() : null,
+      salesEnd: ticket.salesEnd ? new Date(ticket.salesEnd).getTime() : null,
+    }));
+
+    const eventId = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateEventWithDetails, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       subtype: eventType,
@@ -644,36 +805,53 @@ const createEventTool: AITool = {
       location: args.location,
       capacity: args.capacity,
       timezone: args.timezone || "America/Los_Angeles",
-      published: args.published !== false, // Default to true (published)
+      published: args.published === true, // Default to draft (false)
+      agenda: processedAgenda,
+      ticketTypes: processedTicketTypes,
+      virtualEventUrl: args.virtualEventUrl,
+      registrationRequired: args.registrationRequired !== false,
     });
 
     // Format duration for display
-    const durationHours = Math.round(durationMs / (60 * 60 * 1000) * 10) / 10; // Round to 1 decimal
+    const durationHours = Math.round(durationMs / (60 * 60 * 1000) * 10) / 10;
     const durationDisplay = durationHours < 1
       ? `${Math.round(durationMs / (60 * 1000))} minutes`
       : `${durationHours} hours`;
 
     return {
       success: true,
-      message: `✅ Created event: ${args.title}`,
+      message: `Created event "${args.title}"${processedAgenda.length > 0 ? ` with ${processedAgenda.length} agenda item(s)` : ""}${processedTicketTypes.length > 0 ? ` and ${processedTicketTypes.length} ticket type(s)` : ""}`,
       eventId,
       details: {
         name: args.title,
-        startDate: args.startDate,
-        endDate: args.endDate || `Auto: ${durationDisplay} after start`,
+        type: eventType,
+        startDate: new Date(startTimestamp).toLocaleString(),
+        endDate: new Date(endTimestamp).toLocaleString(),
+        duration: durationDisplay,
         location: args.location,
         capacity: args.capacity || "Unlimited",
-        type: eventType,
         timezone: args.timezone || "America/Los_Angeles",
-        status: args.published !== false ? "Published" : "Draft",
-      }
+        status: args.published === true ? "Published" : "Draft",
+        agendaItems: processedAgenda.length,
+        ticketTypes: processedTicketTypes.length,
+        isVirtual: args.location?.toLowerCase().includes("virtual") || args.location?.toLowerCase().includes("online") || !!args.virtualEventUrl,
+      },
+      nextSteps: [
+        args.published !== true ? "Event is in draft mode - publish when ready" : null,
+        processedAgenda.length === 0 ? "Consider adding an agenda with sessions and speakers" : null,
+        processedTicketTypes.length === 0 ? "Add ticket types if this is a paid event" : null,
+        "You can update the event details anytime using the update_event tool",
+      ].filter(Boolean)
     };
   }
 };
 
 const listEventsTool: AITool = {
   name: "list_events",
-  description: "Get a list of all events (upcoming or past)",
+  description: `Get a list of all events (upcoming or past).
+
+IMPORTANT: Use this tool BEFORE creating a new event to check if a similar event already exists.
+This helps avoid creating duplicate events when the user wants to modify an existing one.`,
   status: "ready",
   windowName: "Events",
   parameters: {
@@ -972,48 +1150,163 @@ const manageBookingsTool: AITool = {
 
 const createFormTool: AITool = {
   name: "create_form",
-  description: "Create a new form (registration, survey, application, etc.)",
+  description: `Create a new form with custom fields/questions. Supports 17 field types: text, textarea, email, phone, number, date, time, datetime, select (dropdown), radio (single choice), checkbox (yes/no), multi_select (multiple choice), file, rating (stars), section_header, text_block, description.
+
+IMPORTANT: Before calling this tool, have a conversation with the user to gather:
+1. What information they need to collect (name, email, phone, etc.)
+2. Which fields should be required vs optional
+3. For select/radio/multi_select fields: what are the options?
+4. Any special validation needs (min/max values, patterns)
+
+Example fields array:
+[
+  { "label": "Full Name", "type": "text", "required": true },
+  { "label": "Email", "type": "email", "required": true },
+  { "label": "Session", "type": "select", "options": ["Morning", "Afternoon", "Evening"], "required": true },
+  { "label": "Dietary Needs", "type": "multi_select", "options": ["Vegetarian", "Vegan", "Gluten-free", "None"] },
+  { "label": "Comments", "type": "textarea" }
+]`,
   status: "ready",
   parameters: {
     type: "object",
     properties: {
-      title: { type: "string", description: "Form title" },
-      description: { type: "string", description: "Form description" },
-      formType: { type: "string", enum: ["registration", "survey", "application"], description: "Type of form", default: "registration" },
+      title: { type: "string", description: "Form title/name" },
+      description: { type: "string", description: "Form description shown to users" },
+      formType: {
+        type: "string",
+        enum: ["registration", "survey", "application", "contact", "booking", "order", "donation", "membership", "rsvp", "feedback", "quiz", "volunteer", "other"],
+        description: "Type of form - determines icon and categorization",
+        default: "survey"
+      },
       fields: {
         type: "array",
-        description: "Form fields (optional, can add later)",
+        description: "Array of form fields/questions. Each field needs at minimum: label and type. For select/radio/multi_select, include options array.",
         items: {
           type: "object",
           properties: {
-            label: { type: "string" },
-            type: { type: "string", enum: ["text", "email", "number", "select", "textarea"] },
-            required: { type: "boolean" }
-          }
+            label: { type: "string", description: "Field label/question text shown to user" },
+            type: {
+              type: "string",
+              enum: ["text", "textarea", "email", "phone", "number", "date", "time", "datetime", "select", "radio", "checkbox", "multi_select", "file", "rating", "section_header", "text_block", "description"],
+              description: "Field type"
+            },
+            required: { type: "boolean", description: "Whether field is required (default: false)" },
+            placeholder: { type: "string", description: "Placeholder text for input fields" },
+            helpText: { type: "string", description: "Help text shown below the field" },
+            options: {
+              type: "array",
+              items: { type: "string" },
+              description: "Options for select/radio/multi_select fields (e.g., ['Option 1', 'Option 2'])"
+            },
+            validation: {
+              type: "object",
+              description: "Validation rules",
+              properties: {
+                min: { type: "number", description: "Minimum value (for number) or length (for text)" },
+                max: { type: "number", description: "Maximum value (for number) or length (for text)" },
+                pattern: { type: "string", description: "Regex pattern for validation" },
+                customMessage: { type: "string", description: "Custom error message" }
+              }
+            }
+          },
+          required: ["label", "type"]
+        }
+      },
+      sectionTitle: { type: "string", description: "Optional title for the main section (default: 'Form Fields')" },
+      settings: {
+        type: "object",
+        description: "Form settings",
+        properties: {
+          submitButtonText: { type: "string", description: "Text for submit button (default: 'Submit')" },
+          successMessage: { type: "string", description: "Message shown after successful submission" },
+          allowMultipleSubmissions: { type: "boolean", description: "Allow same user to submit multiple times" },
+          showProgressBar: { type: "boolean", description: "Show progress bar for multi-section forms" }
         }
       }
     },
-    required: ["title"]
+    required: ["title", "fields"]
   },
   execute: async (ctx, args) => {
-    const formId = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateForm, {
+    // Validate fields array
+    if (!args.fields || !Array.isArray(args.fields) || args.fields.length === 0) {
+      return {
+        success: false,
+        error: "Fields array is required and must contain at least one field",
+        hint: "Ask the user what information they want to collect, then provide a fields array with label and type for each field."
+      };
+    }
+
+    // Validate each field has required properties
+    for (const field of args.fields) {
+      if (!field.label || !field.type) {
+        return {
+          success: false,
+          error: `Each field must have a 'label' and 'type'. Invalid field: ${JSON.stringify(field)}`,
+          hint: "Ensure every field object has at minimum: { label: 'Question text', type: 'text' }"
+        };
+      }
+    }
+
+    // CHECK FOR DUPLICATES: Look for existing forms with similar names
+    const existingForms = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalListForms, {
+      organizationId: ctx.organizationId,
+      status: "all",
+      limit: 100,
+    });
+
+    const normalizedTitle = args.title.toLowerCase().trim();
+    const duplicateForm = existingForms.find((f: { name: string; _id: string }) =>
+      f.name.toLowerCase().trim() === normalizedTitle
+    );
+
+    if (duplicateForm) {
+      return {
+        success: false,
+        requiresUserDecision: true,
+        duplicateFound: true,
+        error: `A form named "${args.title}" already exists`,
+        existingFormId: duplicateForm._id,
+        existingFormName: duplicateForm.name,
+        userPrompt: `I found an existing form called "${duplicateForm.name}". What would you like me to do?\n\n1. **Use the existing form** - I'll use the form that's already there\n2. **Create with a different name** - Tell me what to call the new form\n3. **Replace it** - Delete the old one and create fresh`,
+        hint: "IMPORTANT: Ask the user which option they prefer. Present the options from userPrompt. Do NOT automatically choose - let the user decide.",
+        existingForms: existingForms.slice(0, 5).map((f: { _id: string; name: string; status: string }) => ({
+          id: f._id,
+          name: f.name,
+          status: f.status
+        }))
+      };
+    }
+
+    const formId = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateFormWithFields, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
-      subtype: args.formType || "registration",
+      subtype: args.formType || "survey",
       name: args.title,
       description: args.description,
       fields: args.fields,
+      sectionTitle: args.sectionTitle,
+      settings: args.settings,
     });
 
     return {
       success: true,
-      message: `✅ Created form: ${args.title}`,
+      message: `Created form "${args.title}" with ${args.fields.length} field(s)`,
       formId,
       details: {
         name: args.title,
-        type: args.formType || "registration",
-        fieldCount: args.fields?.length || 0,
-      }
+        type: args.formType || "survey",
+        fieldCount: args.fields.length,
+        fields: args.fields.map((f: { label: string; type: string; required?: boolean }) => ({
+          label: f.label,
+          type: f.type,
+          required: f.required || false
+        }))
+      },
+      nextSteps: [
+        "The form is created in 'draft' status",
+        "User can view and edit it in the Forms window",
+        "To publish, use the publish_form tool or the Forms UI"
+      ]
     };
   }
 };
@@ -1152,45 +1445,204 @@ const manageFormsTool: AITool = {
 
 const createProductTool: AITool = {
   name: "create_product",
-  description: "Create a new product or service to sell",
+  description: `Create a new product, ticket, or bookable service. Supports multiple product types:
+
+PRODUCT TYPES:
+- ticket: Event tickets (general admission, VIP, early bird, etc.)
+- physical: Physical goods (merchandise, swag, equipment)
+- digital: Digital products (downloads, access codes, online courses)
+- room: Bookable rooms (hotel rooms, meeting rooms, studios)
+- staff: Bookable staff (therapists, consultants, instructors)
+- equipment: Bookable equipment (vehicles, projectors, tools)
+- space: Bookable spaces (desks, parking spots, lockers)
+- appointment: 1:1 meetings, consultations
+- class: Group sessions with max participants
+- treatment: Spa, medical treatments
+
+IMPORTANT: Before calling this tool, have a conversation with the user to gather:
+1. Product type and name
+2. Price and currency
+3. For tickets: tier (standard, VIP, early bird), event to link to, sale dates
+4. For bookables: duration, capacity, buffer times
+5. Inventory limits (optional)
+
+Example ticket:
+{
+  "name": "VIP Access Pass",
+  "productType": "ticket",
+  "price": 199.99,
+  "ticketTier": "vip",
+  "description": "Front row seating + backstage access",
+  "inventory": 50,
+  "salesStart": "2024-01-15",
+  "salesEnd": "2024-03-01"
+}`,
   status: "ready",
   parameters: {
     type: "object",
     properties: {
-      name: { type: "string", description: "Product name" },
-      description: { type: "string", description: "Product description" },
-      price: { type: "number", description: "Price in dollars (will be converted to cents)" },
-      currency: { type: "string", description: "Currency code (USD, EUR, etc.)", default: "USD" },
-      inventory: { type: "number", description: "Stock quantity (optional)" },
-      productType: { type: "string", enum: ["ticket", "physical", "digital"], description: "Type of product", default: "physical" }
+      name: { type: "string", description: "Product/ticket name" },
+      description: { type: "string", description: "Product description - what's included, benefits, etc." },
+      productType: {
+        type: "string",
+        enum: ["ticket", "physical", "digital", "room", "staff", "equipment", "space", "appointment", "class", "treatment"],
+        description: "Type of product - determines available options and behavior",
+        default: "physical"
+      },
+      price: { type: "number", description: "Price in dollars (e.g., 49.99). Use 0 for free products." },
+      currency: { type: "string", description: "Currency code (USD, EUR, GBP, etc.)", default: "EUR" },
+      inventory: { type: "number", description: "Available quantity (leave empty for unlimited)" },
+      // Ticket-specific options
+      ticketTier: {
+        type: "string",
+        enum: ["standard", "earlybird", "vip", "premium", "student", "group"],
+        description: "For tickets: pricing tier (affects display and may have special rules)"
+      },
+      eventId: { type: "string", description: "For tickets: ID of the event this ticket is for (REQUIRED for ticket products - links ticket to event)" },
+      salesStart: { type: "string", description: "When sales begin (ISO 8601 date, e.g., '2024-01-15')" },
+      salesEnd: { type: "string", description: "When sales end (ISO 8601 date)" },
+      earlyBirdEndDate: { type: "string", description: "For early bird tickets: when early bird pricing ends" },
+      // Bookable-specific options
+      bookingSettings: {
+        type: "object",
+        description: "For bookable products (room, staff, equipment, appointment, class, treatment)",
+        properties: {
+          minDuration: { type: "number", description: "Minimum booking duration (in minutes or days based on durationUnit)" },
+          maxDuration: { type: "number", description: "Maximum booking duration" },
+          durationUnit: { type: "string", enum: ["minutes", "hours", "days", "nights"], description: "Unit for duration" },
+          slotIncrement: { type: "number", description: "Time slot increment in minutes (15, 30, 60)" },
+          bufferBefore: { type: "number", description: "Buffer time before booking (minutes)" },
+          bufferAfter: { type: "number", description: "Buffer time after booking (minutes)" },
+          capacity: { type: "number", description: "Max participants (for classes) or occupancy (for rooms)" },
+          confirmationRequired: { type: "boolean", description: "Require manual confirmation (default: auto-confirm)" },
+          priceUnit: { type: "string", enum: ["hour", "day", "night", "session", "flat"], description: "How price is calculated" }
+        }
+      },
+      // Tax settings
+      taxBehavior: {
+        type: "string",
+        enum: ["inclusive", "exclusive", "automatic"],
+        description: "Tax handling: inclusive (price includes tax), exclusive (tax added on top), automatic (system decides)"
+      },
+      // Status
+      status: {
+        type: "string",
+        enum: ["draft", "active"],
+        description: "Product status: draft (hidden) or active (available for sale)",
+        default: "draft"
+      }
     },
     required: ["name", "price"]
   },
   execute: async (ctx, args) => {
+    // CHECK FOR DUPLICATES: Look for existing products with same name
+    const existingProducts = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalListProducts, {
+      organizationId: ctx.organizationId,
+      limit: 100,
+    });
+
+    const normalizedName = args.name.toLowerCase().trim();
+    const duplicateProduct = existingProducts.find((p: { name: string; _id: string }) =>
+      p.name.toLowerCase().trim() === normalizedName
+    );
+
+    if (duplicateProduct) {
+      return {
+        success: false,
+        requiresUserDecision: true,
+        duplicateFound: true,
+        error: `A product named "${args.name}" already exists`,
+        existingProductId: duplicateProduct._id,
+        existingProductName: duplicateProduct.name,
+        userPrompt: `I found an existing product called "${duplicateProduct.name}". What would you like me to do?\n\n1. **Use the existing product** - I'll use the product that's already there\n2. **Create with a different name** - Tell me what to call the new product\n3. **Replace it** - Delete the old one and create fresh`,
+        hint: "IMPORTANT: Ask the user which option they prefer. Present the options from userPrompt. Do NOT automatically choose - let the user decide.",
+        existingProducts: existingProducts.slice(0, 5).map((p: { _id: string; name: string; status: string; subtype?: string }) => ({
+          id: p._id,
+          name: p.name,
+          type: p.subtype,
+          status: p.status
+        }))
+      };
+    }
+
     // Convert dollars to cents
     const priceInCents = Math.round(args.price * 100);
 
-    const productId = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateProduct, {
+    // Validate price
+    if (args.price < 0) {
+      return {
+        success: false,
+        error: "Price cannot be negative",
+        hint: "Use 0 for free products"
+      };
+    }
+
+    // Note: Tickets CAN be linked to events but it's not required
+    // The eventId is optional - tickets can exist independently
+
+    // Process dates
+    const salesStart = args.salesStart ? new Date(args.salesStart).getTime() : null;
+    const salesEnd = args.salesEnd ? new Date(args.salesEnd).getTime() : null;
+    const earlyBirdEndDate = args.earlyBirdEndDate ? new Date(args.earlyBirdEndDate).getTime() : null;
+
+    // Validate sale dates
+    if (salesStart && salesEnd && salesEnd <= salesStart) {
+      return {
+        success: false,
+        error: "Sales end date must be after sales start date",
+        hint: "Check your date values"
+      };
+    }
+
+    const productId = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateProductWithDetails, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       subtype: args.productType || "physical",
       name: args.name,
       description: args.description,
       price: priceInCents,
-      currency: args.currency || "USD",
+      currency: args.currency || "EUR",
       inventory: args.inventory,
+      status: args.status || "draft",
+      // Ticket options
+      ticketTier: args.ticketTier,
+      eventId: args.eventId,
+      salesStart,
+      salesEnd,
+      earlyBirdEndDate,
+      // Bookable options
+      bookingSettings: args.bookingSettings,
+      // Tax
+      taxBehavior: args.taxBehavior,
     });
+
+    // Determine product category for message
+    const isTicket = args.productType === "ticket";
+    const isBookable = ["room", "staff", "equipment", "space", "appointment", "class", "treatment"].includes(args.productType || "");
 
     return {
       success: true,
-      message: `✅ Created product: ${args.name}`,
+      message: `Created ${isTicket ? "ticket" : isBookable ? "bookable" : "product"} "${args.name}" at ${args.currency || "EUR"} ${args.price.toFixed(2)}`,
       productId,
       details: {
         name: args.name,
-        price: `$${args.price} ${args.currency || "USD"}`,
         type: args.productType || "physical",
+        price: `${args.currency || "EUR"} ${args.price.toFixed(2)}`,
+        priceInCents,
         inventory: args.inventory || "Unlimited",
-      }
+        status: args.status || "draft",
+        ticketTier: args.ticketTier || null,
+        salesWindow: salesStart || salesEnd ? {
+          start: salesStart ? new Date(salesStart).toLocaleDateString() : "Immediate",
+          end: salesEnd ? new Date(salesEnd).toLocaleDateString() : "No end date"
+        } : null,
+        isBookable,
+      },
+      nextSteps: [
+        args.status !== "active" ? "Product is in draft mode - set status to 'active' when ready to sell" : null,
+        isTicket && !args.eventId ? "Consider linking this ticket to an event using the eventId parameter" : null,
+        "You can update the product anytime using update tools",
+      ].filter(Boolean)
     };
   }
 };
@@ -1270,6 +1722,234 @@ const updateProductPriceTool: AITool = {
       productId: result.productId,
       oldPrice: result.oldPrice ? `$${(result.oldPrice as number) / 100}` : null,
       newPrice: `$${args.newPrice}`,
+    };
+  }
+};
+
+const activateProductTool: AITool = {
+  name: "activate_product",
+  description: "Activate a product to make it available for sale. Changes status from 'draft' to 'active'.",
+  status: "ready",
+  windowName: "Products",
+  parameters: {
+    type: "object",
+    properties: {
+      productId: { type: "string", description: "Product ID to activate" }
+    },
+    required: ["productId"]
+  },
+  execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalActivateProduct, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      productId: args.productId as Id<"objects">,
+    });
+
+    return {
+      success: result.success,
+      message: "Product activated! It's now available for purchase.",
+      productId: result.productId,
+      previousStatus: result.previousStatus,
+    };
+  }
+};
+
+const deactivateProductTool: AITool = {
+  name: "deactivate_product",
+  description: "Deactivate a product to remove it from sale. Changes status from 'active' to 'draft'.",
+  status: "ready",
+  windowName: "Products",
+  parameters: {
+    type: "object",
+    properties: {
+      productId: { type: "string", description: "Product ID to deactivate" }
+    },
+    required: ["productId"]
+  },
+  execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalDeactivateProduct, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      productId: args.productId as Id<"objects">,
+    });
+
+    return {
+      success: result.success,
+      message: "Product deactivated. It's no longer available for purchase.",
+      productId: result.productId,
+      previousStatus: result.previousStatus,
+    };
+  }
+};
+
+const publishCheckoutTool: AITool = {
+  name: "publish_checkout",
+  description: "Publish a checkout page to make it live and ready to accept orders. Generates a public URL.",
+  status: "ready",
+  windowName: "Checkout",
+  parameters: {
+    type: "object",
+    properties: {
+      checkoutId: { type: "string", description: "Checkout page ID to publish" }
+    },
+    required: ["checkoutId"]
+  },
+  execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalPublishCheckout, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      checkoutId: args.checkoutId as Id<"objects">,
+    });
+
+    return {
+      success: result.success,
+      message: `Checkout published! Public URL: ${result.publicUrl}`,
+      checkoutId: result.checkoutId,
+      publicUrl: result.publicUrl,
+      previousStatus: result.previousStatus,
+    };
+  }
+};
+
+const publishAllTool: AITool = {
+  name: "publish_all",
+  description: `Publish/activate multiple entities at once. Use this when the user asks to "publish everything", "activate all", or "make everything live".
+
+This tool takes arrays of IDs and publishes/activates them all:
+- Events: status changed to "active"
+- Products: status changed to "active"
+- Forms: status changed to "published"
+- Checkouts: status changed to "published" with public URL generated
+
+Example: After creating an event with tickets and a checkout, use this to make them all live at once.`,
+  status: "ready",
+  windowName: "Settings",
+  parameters: {
+    type: "object",
+    properties: {
+      eventIds: {
+        type: "array",
+        items: { type: "string" },
+        description: "Array of event IDs to activate"
+      },
+      productIds: {
+        type: "array",
+        items: { type: "string" },
+        description: "Array of product/ticket IDs to activate"
+      },
+      formIds: {
+        type: "array",
+        items: { type: "string" },
+        description: "Array of form IDs to publish"
+      },
+      checkoutIds: {
+        type: "array",
+        items: { type: "string" },
+        description: "Array of checkout page IDs to publish"
+      }
+    }
+  },
+  execute: async (ctx, args) => {
+    const results: {
+      events: { id: string; success: boolean }[];
+      products: { id: string; success: boolean }[];
+      forms: { id: string; success: boolean }[];
+      checkouts: { id: string; success: boolean; publicUrl?: string }[];
+    } = {
+      events: [],
+      products: [],
+      forms: [],
+      checkouts: [],
+    };
+
+    // Activate events
+    if (args.eventIds && Array.isArray(args.eventIds)) {
+      for (const eventId of args.eventIds) {
+        try {
+          await ctx.runMutation(internal.ai.tools.internalToolMutations.internalUpdateEvent, {
+            organizationId: ctx.organizationId,
+            userId: ctx.userId,
+            eventId: eventId as Id<"objects">,
+            status: "active",
+          });
+          results.events.push({ id: eventId, success: true });
+        } catch {
+          results.events.push({ id: eventId, success: false });
+        }
+      }
+    }
+
+    // Activate products
+    if (args.productIds && Array.isArray(args.productIds)) {
+      for (const productId of args.productIds) {
+        try {
+          await ctx.runMutation(internal.ai.tools.internalToolMutations.internalActivateProduct, {
+            organizationId: ctx.organizationId,
+            userId: ctx.userId,
+            productId: productId as Id<"objects">,
+          });
+          results.products.push({ id: productId, success: true });
+        } catch {
+          results.products.push({ id: productId, success: false });
+        }
+      }
+    }
+
+    // Publish forms
+    if (args.formIds && Array.isArray(args.formIds)) {
+      for (const formId of args.formIds) {
+        try {
+          await ctx.runMutation(internal.ai.tools.internalToolMutations.internalPublishForm, {
+            organizationId: ctx.organizationId,
+            userId: ctx.userId,
+            formId: formId as Id<"objects">,
+          });
+          results.forms.push({ id: formId, success: true });
+        } catch {
+          results.forms.push({ id: formId, success: false });
+        }
+      }
+    }
+
+    // Publish checkouts
+    if (args.checkoutIds && Array.isArray(args.checkoutIds)) {
+      for (const checkoutId of args.checkoutIds) {
+        try {
+          const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalPublishCheckout, {
+            organizationId: ctx.organizationId,
+            userId: ctx.userId,
+            checkoutId: checkoutId as Id<"objects">,
+          });
+          results.checkouts.push({ id: checkoutId, success: true, publicUrl: result.publicUrl });
+        } catch {
+          results.checkouts.push({ id: checkoutId, success: false });
+        }
+      }
+    }
+
+    const totalSuccessful =
+      results.events.filter(r => r.success).length +
+      results.products.filter(r => r.success).length +
+      results.forms.filter(r => r.success).length +
+      results.checkouts.filter(r => r.success).length;
+
+    const totalAttempted =
+      results.events.length +
+      results.products.length +
+      results.forms.length +
+      results.checkouts.length;
+
+    return {
+      success: totalSuccessful > 0,
+      message: `Published ${totalSuccessful}/${totalAttempted} items successfully`,
+      summary: {
+        events: `${results.events.filter(r => r.success).length}/${results.events.length} activated`,
+        products: `${results.products.filter(r => r.success).length}/${results.products.length} activated`,
+        forms: `${results.forms.filter(r => r.success).length}/${results.forms.length} published`,
+        checkouts: `${results.checkouts.filter(r => r.success).length}/${results.checkouts.length} published`,
+      },
+      results,
+      checkoutUrls: results.checkouts.filter(c => c.publicUrl).map(c => c.publicUrl),
     };
   }
 };
@@ -1847,36 +2527,266 @@ const publishPageTool: AITool = {
  * 11. CHECKOUT TOOLS
  */
 
+/**
+ * Enhanced checkout page tool using behavior-driven checkout template
+ *
+ * This tool ties together products, forms, and events into a complete checkout experience.
+ * It uses the behavior-driven checkout template which provides:
+ * - 6-step adaptive flow: Product → Form → Customer Info → Review → Payment → Confirmation
+ * - Smart step skipping (auto-skips payment for invoice checkouts)
+ * - Dynamic form collection
+ * - Employer detection and B2B invoice mapping
+ * - Full behavior system integration
+ *
+ * CONVERSATIONAL GUIDANCE:
+ * When a user wants to create a checkout, guide them through these questions:
+ *
+ * 1. "What is this checkout for?" → Determines naming and context
+ * 2. "What products or tickets should be available?" → Use create_product first if needed
+ * 3. "Do you need to collect additional information?" → Use create_form first if needed
+ * 4. "Is this for B2B (invoicing) or B2C (direct payment)?" → Sets payment mode
+ * 5. "Any specific payment methods needed?" → stripe-connect, invoice, manual
+ *
+ * WORKFLOW INTEGRATION:
+ * This tool works best when combined with other tools in sequence:
+ * 1. create_event → Creates the event (if event-related)
+ * 2. create_product → Creates tickets/products linked to the event
+ * 3. create_form → Creates registration forms if needed
+ * 4. create_checkout_page → Ties everything together into a purchasable experience
+ */
 const createCheckoutPageTool: AITool = {
   name: "create_checkout_page",
-  description: "Create a custom checkout page for products",
+  description: `Create a behavior-driven checkout page that ties together products, forms, and payment methods.
+
+IMPORTANT: Before creating a checkout, ensure you have:
+1. Created products/tickets using create_product (get the productIds)
+2. Created registration forms using create_form if needed (get the formId)
+3. Created events using create_event if this is event-related
+
+ASK THE USER about these aspects before creating the checkout:
+- What products/tickets to include (or help them create products first)
+- Whether they need a registration form (or help them create one first)
+- Payment mode: B2C (Stripe payments) or B2B (invoicing)
+- Any special settings (language, max quantity, etc.)
+
+The checkout uses the behavior-driven template with a 6-step flow:
+Product Selection → Form Collection → Customer Info → Review → Payment → Confirmation
+
+This template automatically adapts based on product behaviors and can skip steps when appropriate.`,
   status: "ready",
   windowName: "Checkout",
   parameters: {
     type: "object",
     properties: {
-      name: { type: "string", description: "Checkout page name" },
-      productIds: { type: "array", items: { type: "string" }, description: "Product IDs to include" },
-      paymentMethods: { type: "array", items: { type: "string" }, description: "Payment methods (stripe-connect, paypal, etc.)" }
+      // Basic info
+      name: {
+        type: "string",
+        description: "Checkout page name (e.g., 'Conference 2024 Registration', 'Workshop Booking')"
+      },
+      description: {
+        type: "string",
+        description: "Description shown to customers during checkout"
+      },
+
+      // Product linking
+      productIds: {
+        type: "array",
+        items: { type: "string" },
+        description: "Array of product IDs to include in checkout (from create_product tool)"
+      },
+
+      // Form integration
+      formId: {
+        type: "string",
+        description: "Optional form ID for registration/data collection (from create_form tool)"
+      },
+
+      // Event linking (for context)
+      eventId: {
+        type: "string",
+        description: "Optional event ID if this checkout is for event registration"
+      },
+
+      // Payment configuration
+      paymentMode: {
+        type: "string",
+        enum: ["b2c", "b2b", "hybrid"],
+        description: "Payment mode: 'b2c' for direct Stripe payments, 'b2b' for invoicing, 'hybrid' for both options"
+      },
+      paymentProviders: {
+        type: "array",
+        items: {
+          type: "string",
+          enum: ["stripe-connect", "invoice", "manual", "free"]
+        },
+        description: "Payment methods: stripe-connect (card payments), invoice (B2B billing), manual (offline), free (no payment)"
+      },
+
+      // Behaviors
+      behaviors: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            type: {
+              type: "string",
+              enum: ["employer-detection", "invoice-mapping", "capacity-checking", "discount-rules", "form-collection"],
+              description: "Behavior type"
+            },
+            config: { type: "object", description: "Behavior-specific configuration" },
+            priority: { type: "number", description: "Execution priority (higher = earlier)" }
+          }
+        },
+        description: "Checkout behaviors for dynamic logic (employer detection, invoice mapping, etc.)"
+      },
+
+      // Settings
+      settings: {
+        type: "object",
+        properties: {
+          language: {
+            type: "string",
+            enum: ["en", "de", "es", "fr", "pl", "ja"],
+            description: "Checkout language (en=English, de=German, es=Spanish, fr=French, pl=Polish, ja=Japanese)"
+          },
+          maxQuantityPerOrder: {
+            type: "number",
+            description: "Maximum items per order (default: 10)"
+          },
+          requiresAccount: {
+            type: "boolean",
+            description: "Require user account to checkout"
+          },
+          showProgressBar: {
+            type: "boolean",
+            description: "Show progress indicator (default: true)"
+          },
+          allowBackNavigation: {
+            type: "boolean",
+            description: "Allow going back to previous steps (default: true)"
+          },
+          debugMode: {
+            type: "boolean",
+            description: "Enable debug panel for testing (default: false)"
+          },
+          currency: {
+            type: "string",
+            enum: ["USD", "EUR", "GBP", "CAD", "AUD", "CHF"],
+            description: "Display currency (default: from organization)"
+          },
+          successRedirectUrl: {
+            type: "string",
+            description: "URL to redirect after successful checkout"
+          },
+          cancelRedirectUrl: {
+            type: "string",
+            description: "URL to redirect if checkout is cancelled"
+          }
+        },
+        description: "Checkout page settings"
+      },
+
+      // Branding
+      branding: {
+        type: "object",
+        properties: {
+          headerText: { type: "string", description: "Custom header text" },
+          footerText: { type: "string", description: "Custom footer text" },
+          primaryColor: { type: "string", description: "Primary brand color (hex)" },
+          logoUrl: { type: "string", description: "Logo URL to display" },
+          theme: {
+            type: "string",
+            enum: ["light", "dark", "auto"],
+            description: "Color theme"
+          }
+        },
+        description: "Visual branding options"
+      }
     },
     required: ["name", "productIds"]
   },
   execute: async (ctx, args) => {
-    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateCheckoutPage, {
+    // CHECK FOR DUPLICATES: Look for existing checkout pages with same name
+    const existingCheckouts = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalListCheckouts, {
+      organizationId: ctx.organizationId,
+      limit: 100,
+    });
+
+    const normalizedName = args.name.toLowerCase().trim();
+    const duplicateCheckout = existingCheckouts.find((c: { name: string; _id: string }) =>
+      c.name.toLowerCase().trim() === normalizedName
+    );
+
+    if (duplicateCheckout) {
+      return {
+        success: false,
+        requiresUserDecision: true,
+        duplicateFound: true,
+        error: `A checkout page named "${args.name}" already exists`,
+        existingCheckoutId: duplicateCheckout._id,
+        existingCheckoutName: duplicateCheckout.name,
+        userPrompt: `I found an existing checkout page called "${duplicateCheckout.name}". What would you like me to do?\n\n1. **Use the existing checkout** - I'll use the checkout page that's already there\n2. **Create with a different name** - Tell me what to call the new checkout page\n3. **Replace it** - Delete the old one and create fresh`,
+        hint: "IMPORTANT: Ask the user which option they prefer. Present the options from userPrompt. Do NOT automatically choose - let the user decide.",
+        existingCheckouts: existingCheckouts.slice(0, 5).map((c: { _id: string; name: string; status: string }) => ({
+          id: c._id,
+          name: c.name,
+          status: c.status
+        }))
+      };
+    }
+
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateCheckoutPageWithDetails, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       name: args.name,
+      description: args.description,
       productIds: args.productIds.map((id: string) => id as Id<"objects">),
-      paymentMethods: args.paymentMethods,
+      formId: args.formId ? (args.formId as Id<"objects">) : undefined,
+      eventId: args.eventId ? (args.eventId as Id<"objects">) : undefined,
+      paymentMode: args.paymentMode,
+      paymentProviders: args.paymentProviders,
+      behaviors: args.behaviors,
+      settings: args.settings,
+      branding: args.branding,
     });
+
+    // Build helpful response message
+    let message = `Created checkout page "${args.name}" using the behavior-driven template.\n\n`;
+    message += `📋 6-Step Flow: Product → Form → Customer → Review → Payment → Confirmation\n`;
+
+    if (args.productIds.length > 0) {
+      message += `📦 ${args.productIds.length} product(s) linked\n`;
+    }
+    if (args.formId) {
+      message += `📝 Registration form attached\n`;
+    }
+    if (args.eventId) {
+      message += `📅 Linked to event\n`;
+    }
+
+    const paymentInfo = args.paymentMode === "b2b" ? "Invoice billing" :
+                        args.paymentMode === "hybrid" ? "Card + Invoice" : "Card payments";
+    message += `💳 Payment: ${paymentInfo}\n`;
+
+    message += `\n🔗 Checkout URL: https://checkout.l4yercak3.com/${result.publicSlug}`;
 
     return {
       success: true,
-      message: `Created checkout page "${args.name}"`,
+      message,
       checkoutId: result.checkoutId,
       publicSlug: result.publicSlug,
       checkoutUrl: `https://checkout.l4yercak3.com/${result.publicSlug}`,
+      template: "behavior-driven-checkout",
+      linkedProducts: args.productIds.length,
+      linkedForm: args.formId || null,
+      linkedEvent: args.eventId || null,
+      paymentMode: args.paymentMode || "b2c",
       status: "draft",
+      nextSteps: [
+        "Preview your checkout page",
+        "Test the checkout flow",
+        "Publish when ready to accept orders"
+      ]
     };
   }
 };
@@ -2036,6 +2946,8 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
   create_product: createProductTool,
   list_products: listProductsTool,
   set_product_price: updateProductPriceTool,
+  activate_product: activateProductTool,
+  deactivate_product: deactivateProductTool,
 
   // Payments/Invoicing
   create_invoice: createInvoiceTool,
@@ -2065,6 +2977,10 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
 
   // Checkout
   create_checkout_page: createCheckoutPageTool,
+  publish_checkout: publishCheckoutTool,
+
+  // Batch Operations
+  publish_all: publishAllTool,
 
   // Certificates
   generate_certificate: generateCertificateTool,
@@ -2072,6 +2988,9 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
   // Settings
   update_organization_settings: updateOrganizationSettingsTool,
   configure_ai_models: configureAIModelsTool,
+
+  // Integrations - ActiveCampaign
+  activecampaign: activeCampaignToolDefinition,
 };
 
 /**

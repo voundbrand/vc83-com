@@ -412,10 +412,9 @@ async function listBookings(
     limit?: number;
   }
 ) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const result = await (ctx as any).runQuery(
-    internal.bookingOntology.listBookingsInternal,
-    {
+  // @ts-ignore - Deep type instantiation in Convex generated types
+  const listBookingsFn = internal.bookingOntology.listBookingsInternal;
+  const result = await (ctx as any).runQuery(listBookingsFn, {
       organizationId,
       status: args.filterStatus,
       subtype: args.filterSubtype,

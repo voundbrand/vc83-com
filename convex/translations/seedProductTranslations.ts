@@ -113,6 +113,77 @@ export function getProductTranslations(): TranslationEntry[] {
     { locale: "en", key: "ui.products.list.error.publishFailed", value: "Failed to publish product" },
     { locale: "de", key: "ui.products.list.error.publishFailed", value: "Produkt konnte nicht veröffentlicht werden" },
 
+    // Archive/Restore/Delete functionality
+    { locale: "en", key: "ui.products.list.confirm.archive", value: "Archive this product? It can be restored later." },
+    { locale: "de", key: "ui.products.list.confirm.archive", value: "Dieses Produkt archivieren? Es kann später wiederhergestellt werden." },
+    { locale: "pl", key: "ui.products.list.confirm.archive", value: "Zarchiwizować ten produkt? Można go później przywrócić." },
+    { locale: "es", key: "ui.products.list.confirm.archive", value: "¿Archivar este producto? Se puede restaurar más tarde." },
+    { locale: "fr", key: "ui.products.list.confirm.archive", value: "Archiver ce produit? Il pourra être restauré plus tard." },
+    { locale: "ja", key: "ui.products.list.confirm.archive", value: "この製品をアーカイブしますか？後で復元できます。" },
+
+    { locale: "en", key: "ui.products.list.confirm.permanentDelete", value: "PERMANENTLY delete this product? This cannot be undone!" },
+    { locale: "de", key: "ui.products.list.confirm.permanentDelete", value: "Dieses Produkt DAUERHAFT löschen? Dies kann nicht rückgängig gemacht werden!" },
+    { locale: "pl", key: "ui.products.list.confirm.permanentDelete", value: "TRWALE usunąć ten produkt? Tego nie można cofnąć!" },
+    { locale: "es", key: "ui.products.list.confirm.permanentDelete", value: "¿Eliminar PERMANENTEMENTE este producto? ¡Esto no se puede deshacer!" },
+    { locale: "fr", key: "ui.products.list.confirm.permanentDelete", value: "Supprimer DÉFINITIVEMENT ce produit? Cette action est irréversible!" },
+    { locale: "ja", key: "ui.products.list.confirm.permanentDelete", value: "この製品を完全に削除しますか？元に戻せません！" },
+
+    { locale: "en", key: "ui.products.list.error.archiveFailed", value: "Failed to archive product" },
+    { locale: "de", key: "ui.products.list.error.archiveFailed", value: "Produkt konnte nicht archiviert werden" },
+    { locale: "pl", key: "ui.products.list.error.archiveFailed", value: "Nie udało się zarchiwizować produktu" },
+    { locale: "es", key: "ui.products.list.error.archiveFailed", value: "No se pudo archivar el producto" },
+    { locale: "fr", key: "ui.products.list.error.archiveFailed", value: "Échec de l'archivage du produit" },
+    { locale: "ja", key: "ui.products.list.error.archiveFailed", value: "製品のアーカイブに失敗しました" },
+
+    { locale: "en", key: "ui.products.list.error.restoreFailed", value: "Failed to restore product" },
+    { locale: "de", key: "ui.products.list.error.restoreFailed", value: "Produkt konnte nicht wiederhergestellt werden" },
+    { locale: "pl", key: "ui.products.list.error.restoreFailed", value: "Nie udało się przywrócić produktu" },
+    { locale: "es", key: "ui.products.list.error.restoreFailed", value: "No se pudo restaurar el producto" },
+    { locale: "fr", key: "ui.products.list.error.restoreFailed", value: "Échec de la restauration du produit" },
+    { locale: "ja", key: "ui.products.list.error.restoreFailed", value: "製品の復元に失敗しました" },
+
+    { locale: "en", key: "ui.products.list.button.restore", value: "Restore" },
+    { locale: "de", key: "ui.products.list.button.restore", value: "Wiederherstellen" },
+    { locale: "pl", key: "ui.products.list.button.restore", value: "Przywróć" },
+    { locale: "es", key: "ui.products.list.button.restore", value: "Restaurar" },
+    { locale: "fr", key: "ui.products.list.button.restore", value: "Restaurer" },
+    { locale: "ja", key: "ui.products.list.button.restore", value: "復元" },
+
+    { locale: "en", key: "ui.products.list.button.permanentDelete", value: "Delete Permanently" },
+    { locale: "de", key: "ui.products.list.button.permanentDelete", value: "Dauerhaft löschen" },
+    { locale: "pl", key: "ui.products.list.button.permanentDelete", value: "Usuń trwale" },
+    { locale: "es", key: "ui.products.list.button.permanentDelete", value: "Eliminar permanentemente" },
+    { locale: "fr", key: "ui.products.list.button.permanentDelete", value: "Supprimer définitivement" },
+    { locale: "ja", key: "ui.products.list.button.permanentDelete", value: "完全に削除" },
+
+    { locale: "en", key: "ui.products.list.button.archive", value: "Archive" },
+    { locale: "de", key: "ui.products.list.button.archive", value: "Archivieren" },
+    { locale: "pl", key: "ui.products.list.button.archive", value: "Archiwizuj" },
+    { locale: "es", key: "ui.products.list.button.archive", value: "Archivar" },
+    { locale: "fr", key: "ui.products.list.button.archive", value: "Archiver" },
+    { locale: "ja", key: "ui.products.list.button.archive", value: "アーカイブ" },
+
+    { locale: "en", key: "ui.products.list.button.duplicate", value: "Duplicate" },
+    { locale: "de", key: "ui.products.list.button.duplicate", value: "Duplizieren" },
+    { locale: "pl", key: "ui.products.list.button.duplicate", value: "Duplikuj" },
+    { locale: "es", key: "ui.products.list.button.duplicate", value: "Duplicar" },
+    { locale: "fr", key: "ui.products.list.button.duplicate", value: "Dupliquer" },
+    { locale: "ja", key: "ui.products.list.button.duplicate", value: "複製" },
+
+    { locale: "en", key: "ui.products.list.archivedSection", value: "Archived Products" },
+    { locale: "de", key: "ui.products.list.archivedSection", value: "Archivierte Produkte" },
+    { locale: "pl", key: "ui.products.list.archivedSection", value: "Zarchiwizowane produkty" },
+    { locale: "es", key: "ui.products.list.archivedSection", value: "Productos archivados" },
+    { locale: "fr", key: "ui.products.list.archivedSection", value: "Produits archivés" },
+    { locale: "ja", key: "ui.products.list.archivedSection", value: "アーカイブ済み製品" },
+
+    { locale: "en", key: "ui.products.list.noMatchingProducts", value: "No products match your filters" },
+    { locale: "de", key: "ui.products.list.noMatchingProducts", value: "Keine Produkte entsprechen Ihren Filtern" },
+    { locale: "pl", key: "ui.products.list.noMatchingProducts", value: "Żadne produkty nie pasują do filtrów" },
+    { locale: "es", key: "ui.products.list.noMatchingProducts", value: "Ningún producto coincide con tus filtros" },
+    { locale: "fr", key: "ui.products.list.noMatchingProducts", value: "Aucun produit ne correspond à vos filtres" },
+    { locale: "ja", key: "ui.products.list.noMatchingProducts", value: "フィルターに一致する製品がありません" },
+
     // ========================================
     // PRODUCT FORM - BASIC INFO
     // ========================================

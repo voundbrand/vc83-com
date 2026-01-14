@@ -829,6 +829,124 @@ export const createPublicFormResponse = internalMutation({
 });
 
 /**
+ * SUBMIT PUBLIC FORM (Public mutation)
+ * Submit a form response without authentication - called directly from frontend
+ * This is the client-callable version for /f/{formId} pages
+ */
+export const submitPublicForm = mutation({
+  args: {
+    formId: v.id("objects"),
+    responses: v.any(), // The actual form data (key-value pairs)
+    metadata: v.optional(v.any()), // userAgent, submittedAt, etc.
+  },
+  handler: async (ctx, args) => {
+    // Get the form to verify it exists and is published
+    const form = await ctx.db.get(args.formId);
+    if (!form || !("type" in form) || form.type !== "form") {
+      throw new Error("Form not found");
+    }
+
+    // Only allow submissions to published forms
+    if (form.status !== "published") {
+      throw new Error("Form is not published");
+    }
+
+    // CHECK LICENSE LIMIT: Enforce form response limit per form
+    const existingResponses = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", form.organizationId).eq("type", "formResponse")
+      )
+      .filter((q) => {
+        const customProps = q.field("customProperties") as { formId?: string } | undefined;
+        return customProps?.formId === args.formId;
+      })
+      .collect();
+
+    const responsesCount = existingResponses.length;
+    const license = await getLicenseInternal(ctx, form.organizationId);
+    const limit = license.limits.maxResponsesPerForm;
+
+    if (limit !== -1 && responsesCount >= limit) {
+      throw new ConvexError({
+        code: "LIMIT_EXCEEDED",
+        message: `This form has reached its response limit. Please contact the organization.`,
+        limitKey: "maxResponsesPerForm",
+        currentCount: responsesCount,
+        limit,
+        planTier: license.planTier,
+        nextTier: getNextTier(license.planTier),
+        isNested: true,
+        parentId: args.formId,
+      });
+    }
+
+    // Generate a name from responses (first + last name if available)
+    const firstName = args.responses.first_name || args.responses.firstName || args.responses.contact_name || "";
+    const lastName = args.responses.last_name || args.responses.lastName || "";
+    const responseName = firstName && lastName
+      ? `Response from ${firstName} ${lastName}`
+      : firstName
+      ? `Response from ${firstName}`
+      : `Response ${new Date().toLocaleDateString()}`;
+
+    // Create the form response
+    const now = Date.now();
+    const responseId = await ctx.db.insert("objects", {
+      organizationId: form.organizationId,
+      type: "formResponse",
+      subtype: form.subtype || "registration",
+      name: responseName,
+      description: `Public form submission for ${form.name}`,
+      status: "complete",
+      customProperties: {
+        formId: args.formId,
+        responses: args.responses,
+        submittedAt: args.metadata?.submittedAt || now,
+        userAgent: args.metadata?.userAgent,
+        isPublicSubmission: true,
+      },
+      createdBy: undefined, // No user ID for public submissions
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // Update form stats
+    const currentStats = (form.customProperties as Record<string, unknown>)?.stats as { views?: number; submissions?: number; completionRate?: number } || {
+      views: 0,
+      submissions: 0,
+      completionRate: 0,
+    };
+
+    await ctx.db.patch(args.formId, {
+      customProperties: {
+        ...form.customProperties,
+        stats: {
+          ...currentStats,
+          submissions: (currentStats.submissions || 0) + 1,
+        },
+      },
+      updatedAt: Date.now(),
+    });
+
+    // Log the action (no user, public submission)
+    await ctx.db.insert("objectActions", {
+      organizationId: form.organizationId,
+      objectId: responseId,
+      actionType: "created",
+      performedBy: undefined, // No user ID for public submissions
+      performedAt: now,
+      actionData: {
+        status: "complete",
+        isPublicSubmission: true,
+      },
+    });
+
+    return responseId;
+  },
+});
+
+/**
  * GET FORM RESPONSE
  * Get a single form response
  */
@@ -936,6 +1054,7 @@ export const getLinkedForm = query({
 /**
  * PUBLISH FORM
  * Changes form status from draft to published
+ * Generates a public URL for standalone form access
  */
 export const publishForm = mutation({
   args: {
@@ -962,9 +1081,20 @@ export const publishForm = mutation({
       throw new Error("Permission denied: manage_forms required to publish forms");
     }
 
-    // Update status to published
+    // Generate public URL for standalone form access
+    // Forms are rendered at /f/{formId} on the internal app platform
+    // Uses NEXT_PUBLIC_APP_URL env var (localhost:3000 in dev, app.l4yercak3.com in prod)
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.l4yercak3.com";
+    const publicUrl = `${baseUrl}/f/${args.formId}`;
+
+    // Update status to published and store public URL
     await ctx.db.patch(args.formId, {
       status: "published",
+      customProperties: {
+        ...form.customProperties,
+        publicUrl,
+        publishedAt: Date.now(),
+      },
       updatedAt: Date.now(),
     });
 
@@ -973,18 +1103,21 @@ export const publishForm = mutation({
       organizationId: form.organizationId,
       objectId: args.formId,
       actionType: "form_published",
-      actionData: {},
+      actionData: {
+        publicUrl,
+      },
       performedBy: userId,
       performedAt: Date.now(),
     });
 
-    return { success: true };
+    return { success: true, publicUrl };
   },
 });
 
 /**
  * UNPUBLISH FORM
  * Changes form status from published back to draft
+ * Clears the public URL
  */
 export const unpublishForm = mutation({
   args: {
@@ -1011,9 +1144,15 @@ export const unpublishForm = mutation({
       throw new Error("Permission denied: manage_forms required to unpublish forms");
     }
 
-    // Update status to draft
+    // Update status to draft and clear public URL
+    const { publicUrl: _removedUrl, publishedAt: _removedAt, ...restCustomProperties } = form.customProperties || {};
+
     await ctx.db.patch(args.formId, {
       status: "draft",
+      customProperties: {
+        ...restCustomProperties,
+        unpublishedAt: Date.now(),
+      },
       updatedAt: Date.now(),
     });
 

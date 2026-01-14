@@ -92,6 +92,17 @@ export const seed = mutation({
         }
       },
       {
+        key: "ui.forms.tabs.edit",
+        values: {
+          en: "Edit",
+          de: "Bearbeiten",
+          pl: "Edytuj",
+          es: "Editar",
+          fr: "Modifier",
+          ja: "編集",
+        }
+      },
+      {
         key: "ui.forms.tabs.all_forms",
         values: {
           en: "All Forms",
