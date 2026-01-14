@@ -136,18 +136,31 @@ export function RegistrationFormStep({
     return Array.from({ length: totalTicketCount }, (_, i) => i + 1);
   }, [totalTicketCount]);
 
-  // Calculate which tickets have custom forms (legacy support)
+  // Calculate which tickets have custom forms
+  // Priority 1: Workflow behavior form applies to ALL tickets
+  // Priority 2: Product-level form (legacy) applies only to that product's tickets
   const ticketsNeedingForms = useMemo(() => {
+    // If we have a workflow-level form, ALL tickets need it
+    if (formId && activeFormBehavior) {
+      return allTickets;
+    }
+
+    // Legacy: Check product-level formId
     return selectedProducts
       .filter((sp) => {
         const product = products.find((p) => p._id === sp.productId);
         return product?.customProperties?.formId;
       })
       .flatMap((sp) => Array.from({ length: sp.quantity }, (_, i) => i + 1));
-  }, [selectedProducts, products]);
+  }, [selectedProducts, products, formId, activeFormBehavior, allTickets]);
 
-  // Check if ticket has a custom form
-  const ticketHasCustomForm = (ticketNum: number) => ticketsNeedingForms.includes(ticketNum);
+  // Check if ticket has a custom form (workflow-level OR product-level)
+  const ticketHasCustomForm = (ticketNum: number) => {
+    // If workflow provides a form, ALL tickets have a custom form
+    if (formId && activeFormBehavior) return true;
+    // Otherwise check legacy product-level
+    return ticketsNeedingForms.includes(ticketNum);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
