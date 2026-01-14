@@ -416,63 +416,12 @@ export const processMuxWebhook = internalAction({
   },
 });
 
-/**
- * VERIFY MUX WEBHOOK SIGNATURE
- *
- * Verifies the authenticity of Mux webhook requests.
- * Uses the webhook signature header and secret.
- *
- * Note: Uses dynamic import for crypto to work with Convex bundler.
- */
-export async function verifyMuxWebhookSignature(
-  body: string,
-  signature: string,
-  secret: string
-): Promise<boolean> {
-  // Dynamic import for crypto
-  const crypto = await import("crypto");
-
-  // Mux uses a simple HMAC-SHA256 signature
-  // The signature header format is: "t=<timestamp>,v1=<signature>"
-  try {
-    const parts = signature.split(",");
-    const timestamp = parts.find((p: string) => p.startsWith("t="))?.slice(2);
-    const sig = parts.find((p: string) => p.startsWith("v1="))?.slice(3);
-
-    if (!timestamp || !sig) {
-      console.error("[Mux Webhook] Invalid signature format");
-      return false;
-    }
-
-    // Reconstruct the signed payload
-    const signedPayload = `${timestamp}.${body}`;
-
-    // Compute expected signature
-    const expectedSig = crypto
-      .createHmac("sha256", secret)
-      .update(signedPayload)
-      .digest("hex");
-
-    // Compare signatures
-    const isValid = crypto.timingSafeEqual(
-      Buffer.from(sig),
-      Buffer.from(expectedSig)
-    );
-
-    if (!isValid) {
-      console.error("[Mux Webhook] Signature mismatch");
-    }
-
-    return isValid;
-  } catch (error) {
-    console.error("[Mux Webhook] Signature verification error:", error);
-    return false;
-  }
-}
-
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
+
+// Note: verifyMuxWebhookSignature has been moved to convex/muxWebhookVerify.ts
+// as an internalAction to avoid crypto bundler issues.
 
 /**
  * Get thumbnail URL at a specific time

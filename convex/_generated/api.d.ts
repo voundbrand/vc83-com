@@ -214,6 +214,7 @@ import type * as migrations_deleteOldSessions from "../migrations/deleteOldSessi
 import type * as migrations_migratePageTemplates from "../migrations/migratePageTemplates.js";
 import type * as migrations_migratePaymentProviders from "../migrations/migratePaymentProviders.js";
 import type * as migrations_updateExistingHaffForms from "../migrations/updateExistingHaffForms.js";
+import type * as muxWebhookVerify from "../muxWebhookVerify.js";
 import type * as oauth_activecampaign from "../oauth/activecampaign.js";
 import type * as oauth_activecampaignSync from "../oauth/activecampaignSync.js";
 import type * as oauth_activecampaignWebhook from "../oauth/activecampaignWebhook.js";
@@ -716,6 +717,7 @@ declare const fullApi: ApiFromModules<{
   "migrations/migratePageTemplates": typeof migrations_migratePageTemplates;
   "migrations/migratePaymentProviders": typeof migrations_migratePaymentProviders;
   "migrations/updateExistingHaffForms": typeof migrations_updateExistingHaffForms;
+  muxWebhookVerify: typeof muxWebhookVerify;
   "oauth/activecampaign": typeof oauth_activecampaign;
   "oauth/activecampaignSync": typeof oauth_activecampaignSync;
   "oauth/activecampaignWebhook": typeof oauth_activecampaignWebhook;

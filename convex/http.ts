@@ -2188,9 +2188,12 @@ http.route({
         return new Response("Webhook secret not configured", { status: 500 });
       }
 
-      // Verify signature using Mux's format
-      const { verifyMuxWebhookSignature } = await import("./actions/mux");
-      const isValid = await verifyMuxWebhookSignature(body, signature, webhookSecret);
+      // Verify signature using internal action (to avoid crypto bundler issues)
+      const isValid = await ctx.runAction(internal.muxWebhookVerify.verifyMuxWebhookSignature, {
+        body,
+        signature,
+        secret: webhookSecret,
+      });
 
       if (!isValid) {
         console.error("[Mux Webhook] ❌ Signature verification failed");
