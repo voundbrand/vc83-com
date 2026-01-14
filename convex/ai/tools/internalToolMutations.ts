@@ -2233,51 +2233,6 @@ export const internalUpdateTicketStatus = internalMutation({
 // ============================================================================
 
 /**
- * Internal: List Workflows
- */
-export const internalListWorkflows = internalQuery({
-  args: {
-    organizationId: v.id("organizations"),
-    status: v.optional(v.string()),
-    limit: v.optional(v.number()),
-  },
-  handler: async (ctx, args) => {
-    let workflows = await ctx.db
-      .query("objects")
-      .withIndex("by_org_type", (q) =>
-        q.eq("organizationId", args.organizationId).eq("type", "workflow")
-      )
-      .collect();
-
-    if (args.status) {
-      workflows = workflows.filter((w) => w.status === args.status);
-    }
-
-    // Sort by update time descending
-    workflows.sort((a, b) => b.updatedAt - a.updatedAt);
-
-    const limit = args.limit || 20;
-    return workflows.slice(0, limit).map((w) => {
-      const props = w.customProperties as {
-        execution?: { triggerOn?: string };
-        behaviors?: unknown[];
-      };
-      return {
-        _id: w._id,
-        name: w.name,
-        description: w.description,
-        subtype: w.subtype,
-        status: w.status,
-        triggerOn: props.execution?.triggerOn,
-        behaviorCount: props.behaviors?.length || 0,
-        createdAt: w.createdAt,
-        updatedAt: w.updatedAt,
-      };
-    });
-  },
-});
-
-/**
  * Internal: Create Workflow
  */
 export const internalCreateWorkflow = internalMutation({
@@ -3894,5 +3849,52 @@ export const internalRemoveFormFromCheckoutWorkflow = internalMutation({
       workflowName: workflow.name,
       previousFormId,
     };
+  },
+});
+
+/**
+ * LIST WORKFLOWS
+ *
+ * Returns all workflows for an organization with their behaviors and triggers.
+ */
+export const internalListWorkflows = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    const workflows = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", q => q.eq("organizationId", args.organizationId).eq("type", "workflow"))
+      .collect();
+
+    return workflows.map(w => {
+      const customProps = w.customProperties as Record<string, unknown> | undefined;
+      const execution = customProps?.execution as { triggerOn?: string; errorHandling?: string } | undefined;
+      const behaviors = (customProps?.behaviors || []) as Array<{
+        id: string;
+        type: string;
+        enabled: boolean;
+        priority?: number;
+        config?: Record<string, unknown>;
+      }>;
+
+      return {
+        _id: w._id,
+        name: w.name,
+        description: w.description,
+        status: w.status,
+        subtype: w.subtype,
+        triggerOn: execution?.triggerOn,
+        behaviors: behaviors.map(b => ({
+          id: b.id,
+          type: b.type,
+          enabled: b.enabled,
+          priority: b.priority,
+          config: b.config,
+        })),
+        createdAt: w.createdAt,
+        updatedAt: w.updatedAt,
+      };
+    });
   },
 });

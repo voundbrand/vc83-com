@@ -2493,6 +2493,74 @@ const enableWorkflowTool: AITool = {
 };
 
 /**
+ * LIST WORKFLOWS TOOL
+ *
+ * Lists all workflows with their triggers and behaviors.
+ * Use this to understand what workflows exist before creating or modifying them.
+ */
+const listWorkflowsTool: AITool = {
+  name: "list_workflows",
+  description: `List all workflows in the organization with their triggers and behaviors.
+
+Use this tool to:
+- See what workflows already exist before creating new ones
+- Find checkout_start workflows that control form display
+- Understand what behaviors are configured
+- Debug why forms aren't showing in checkout
+
+The response includes:
+- Workflow name, status, and trigger (checkout_start, form_submit, etc.)
+- All behaviors attached to each workflow with their configs
+- Whether the workflow is active or draft`,
+  status: "ready",
+  windowName: "Workflows",
+  parameters: {
+    type: "object",
+    properties: {},
+    required: []
+  },
+  execute: async (ctx) => {
+    const workflows = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalListWorkflows, {
+      organizationId: ctx.organizationId,
+    });
+
+    // Format for readability
+    type WorkflowResult = {
+      _id: string;
+      name: string;
+      status: string;
+      triggerOn?: string;
+      behaviors: Array<{ type: string; enabled: boolean; config?: Record<string, unknown> }>;
+    };
+    const formatted = (workflows as unknown as WorkflowResult[]).map(w => ({
+      id: w._id,
+      name: w.name,
+      status: w.status,
+      triggerOn: w.triggerOn || "none",
+      behaviorCount: w.behaviors.length,
+      behaviors: w.behaviors.map(b => ({
+        type: b.type,
+        enabled: b.enabled,
+        config: b.config,
+      })),
+    }));
+
+    // Find checkout workflows specifically
+    const checkoutWorkflows = formatted.filter(w => w.triggerOn === "checkout_start");
+
+    return {
+      success: true,
+      totalWorkflows: workflows.length,
+      checkoutWorkflows: checkoutWorkflows.length,
+      workflows: formatted,
+      hint: checkoutWorkflows.length === 0
+        ? "No checkout_start workflows found. Use link_form_to_checkout to create one with a form."
+        : `Found ${checkoutWorkflows.length} checkout workflow(s). Check their behaviors to see if form_linking is configured.`,
+    };
+  }
+};
+
+/**
  * 8. MEDIA LIBRARY TOOLS
  */
 
@@ -3185,6 +3253,7 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
   // Workflows
   create_workflow: createWorkflowTool,
   enable_workflow: enableWorkflowTool,
+  list_workflows: listWorkflowsTool,
 
   // Media
   upload_media: uploadMediaTool,
