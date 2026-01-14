@@ -1897,14 +1897,20 @@ const publishCheckoutTool: AITool = {
 /**
  * LINK FORM TO CHECKOUT TOOL
  *
- * Links a form to a checkout page, adding a form collection step.
- * The form will be shown during checkout to collect additional information.
+ * Links a form to checkout via a workflow with form_linking behavior.
+ * This creates/updates a checkout workflow that triggers on checkout_start.
+ *
+ * Using workflows instead of direct checkout modification allows:
+ * - External applications to trigger the same checkout flow
+ * - Reusable checkout configurations across multiple checkouts
+ * - Multiple behaviors in a single workflow (form + other behaviors)
  */
 const linkFormToCheckoutTool: AITool = {
   name: "link_form_to_checkout",
-  description: `Link a form to a checkout page to add a form collection step during checkout.
+  description: `Link a form to be shown during ALL checkouts for this organization.
 
-When a form is linked, the checkout flow will include a step where customers fill out the form fields before completing their purchase.
+This creates a checkout workflow that automatically shows the specified form during checkout.
+The form will appear as a step where customers fill out the form fields before completing their purchase.
 
 USE CASES:
 - Registration forms for event tickets
@@ -1913,82 +1919,71 @@ USE CASES:
 - Additional attendee information
 - Custom questionnaires
 
-WORKFLOW:
-1. First, ensure you have created the form using create_form
-2. Then, ensure you have created the checkout using create_checkout_page
-3. Use this tool to link them together
+IMPORTANT: This links the form to ALL checkouts in the organization via a workflow.
+The workflow-based approach allows external applications to trigger the same checkout flow.
 
-If the user doesn't specify which form or checkout to use, list the available ones and ask them to choose.`,
+If the user doesn't specify which form to use, list the available ones and ask them to choose.`,
   status: "ready",
-  windowName: "Checkout",
+  windowName: "Workflows",
   parameters: {
     type: "object",
     properties: {
-      checkoutId: {
-        type: "string",
-        description: "The checkout page ID to add the form to"
-      },
       formId: {
         type: "string",
-        description: "The form ID to link to the checkout"
+        description: "The form ID to link to checkouts"
+      },
+      workflowName: {
+        type: "string",
+        description: "Optional name for the checkout workflow (default: 'Checkout Form Collection')"
       }
     },
-    required: ["checkoutId", "formId"]
+    required: ["formId"]
   },
   execute: async (ctx, args) => {
-    // First, let's provide context if user hasn't specified IDs
-    if (!args.checkoutId || !args.formId) {
-      // List available forms and checkouts
-      const [forms, checkouts] = await Promise.all([
-        ctx.runQuery(internal.ai.tools.internalToolMutations.internalListForms, {
-          organizationId: ctx.organizationId,
-          status: "all",
-          limit: 20,
-        }),
-        ctx.runQuery(internal.ai.tools.internalToolMutations.internalListCheckouts, {
-          organizationId: ctx.organizationId,
-          limit: 20,
-        }),
-      ]);
+    // If no formId, list available forms
+    if (!args.formId) {
+      const forms = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalListForms, {
+        organizationId: ctx.organizationId,
+        status: "all",
+        limit: 20,
+      });
 
       return {
         success: false,
         requiresUserDecision: true,
-        error: "Please specify which form and checkout to link",
-        userPrompt: "I need to know which form to add to which checkout. Here's what you have:",
+        error: "Please specify which form to link to checkouts",
+        userPrompt: "I need to know which form to add to the checkout flow. Here are your available forms:",
         availableForms: forms.map((f: { _id: string; name: string; status: string }) => ({
           id: f._id,
           name: f.name,
           status: f.status
         })),
-        availableCheckouts: checkouts.map((c: { _id: string; name: string; status: string; customProperties?: { linkedFormId?: string } }) => ({
-          id: c._id,
-          name: c.name,
-          status: c.status,
-          hasForm: !!c.customProperties?.linkedFormId
-        })),
-        hint: "Ask the user which form should be added to which checkout page."
+        hint: "Ask the user which form should be shown during checkout."
       };
     }
 
-    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalLinkFormToCheckout, {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalAddFormToCheckoutWorkflow, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
-      checkoutId: args.checkoutId as Id<"objects">,
       formId: args.formId as Id<"objects">,
+      workflowName: args.workflowName,
     });
+
+    const actionVerb = result.action === "created" ? "Created new" : "Updated existing";
 
     return {
       success: true,
-      message: `Linked form "${result.formName}" to checkout "${result.checkoutName}". The checkout will now include a form collection step.`,
-      checkoutId: result.checkoutId,
-      checkoutName: result.checkoutName,
+      message: `${actionVerb} checkout workflow "${result.workflowName}" with form "${result.formName}". The form will now appear during checkout.`,
+      workflowId: result.workflowId,
+      workflowName: result.workflowName,
       formId: result.formId,
       formName: result.formName,
+      action: result.action,
       nextSteps: [
-        "The form will appear as a step in the checkout flow",
+        "The form will appear as a step in ALL checkout flows",
         "Customers will fill out the form before payment",
-        "Form responses are stored with the order"
+        "Form responses are stored with the order",
+        "External applications can trigger the same checkout workflow"
       ]
     };
   }
@@ -1997,35 +1992,37 @@ If the user doesn't specify which form or checkout to use, list the available on
 /**
  * UNLINK FORM FROM CHECKOUT TOOL
  *
- * Removes a form from a checkout page.
+ * Removes the form_linking behavior from the checkout workflow.
+ * This stops forms from being shown during checkout.
  */
 const unlinkFormFromCheckoutTool: AITool = {
   name: "unlink_form_from_checkout",
-  description: "Remove a form from a checkout page. The checkout will no longer include the form collection step.",
+  description: "Remove the form from the checkout workflow. Checkouts will no longer include a form collection step.",
   status: "ready",
-  windowName: "Checkout",
+  windowName: "Workflows",
   parameters: {
     type: "object",
-    properties: {
-      checkoutId: {
-        type: "string",
-        description: "The checkout page ID to remove the form from"
-      }
-    },
-    required: ["checkoutId"]
+    properties: {},
+    required: []
   },
-  execute: async (ctx, args) => {
-    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalUnlinkFormFromCheckout, {
+  execute: async (ctx) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalRemoveFormFromCheckoutWorkflow, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
-      checkoutId: args.checkoutId as Id<"objects">,
     });
+
+    if (!result.success) {
+      return {
+        success: false,
+        error: result.error || "No checkout workflow with form found",
+      };
+    }
 
     return {
       success: true,
-      message: `Removed form from checkout "${result.checkoutName}". The checkout will no longer include a form collection step.`,
-      checkoutId: result.checkoutId,
-      checkoutName: result.checkoutName,
+      message: `Removed form from checkout workflow "${result.workflowName}". Checkouts will no longer include a form collection step.`,
+      workflowId: result.workflowId,
+      workflowName: result.workflowName,
       previousFormId: result.previousFormId,
     };
   }

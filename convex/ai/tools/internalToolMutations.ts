@@ -3643,3 +3643,258 @@ export const internalUnlinkFormFromCheckout = internalMutation({
     };
   },
 });
+
+/**
+ * ADD FORM TO CHECKOUT WORKFLOW
+ *
+ * Creates or updates a checkout workflow to include a form_linking behavior.
+ * This is the proper way to add forms to checkouts - via workflows, not direct checkout modification.
+ *
+ * The workflow approach allows:
+ * - External applications to trigger the same checkout flow
+ * - Reusable checkout configurations
+ * - Multiple behaviors in a single workflow
+ */
+export const internalAddFormToCheckoutWorkflow = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+    formId: v.id("objects"),
+    workflowName: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Verify form exists and belongs to org
+    const form = await ctx.db.get(args.formId);
+    if (!form || form.type !== "form" || form.organizationId !== args.organizationId) {
+      throw new Error("Form not found or not accessible");
+    }
+
+    const now = Date.now();
+
+    // Find existing checkout_start workflow or create one
+    let workflow = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", q => q.eq("organizationId", args.organizationId).eq("type", "workflow"))
+      .filter(q => {
+        // Filter for active workflows with checkout_start trigger
+        return q.and(
+          q.neq(q.field("status"), "archived"),
+          q.neq(q.field("status"), "deleted")
+        );
+      })
+      .first();
+
+    // Check if it has checkout_start trigger
+    if (workflow) {
+      const customProps = workflow.customProperties as Record<string, unknown> | undefined;
+      const execution = customProps?.execution as { triggerOn?: string } | undefined;
+      if (execution?.triggerOn !== "checkout_start") {
+        workflow = null; // Not a checkout workflow, need to create one
+      }
+    }
+
+    if (!workflow) {
+      // Create new checkout workflow
+      const workflowId = await ctx.db.insert("objects", {
+        organizationId: args.organizationId,
+        type: "workflow",
+        subtype: "checkout_behavior",
+        name: args.workflowName || "Checkout Form Collection",
+        description: `Automatically collects form "${form.name}" during checkout`,
+        status: "active", // Auto-enable so it works immediately
+        createdBy: args.userId,
+        createdAt: now,
+        updatedAt: now,
+        customProperties: {
+          objects: [],
+          behaviors: [{
+            id: `bhv_form_${now}`,
+            type: "form_linking",
+            enabled: true,
+            priority: 100,
+            config: {
+              formId: args.formId,
+              timing: "duringCheckout",
+            },
+            metadata: {
+              createdAt: now,
+              createdBy: args.userId,
+              formName: form.name,
+            },
+          }],
+          execution: {
+            triggerOn: "checkout_start",
+            errorHandling: "continue",
+          },
+        },
+      });
+
+      // Log action
+      await ctx.db.insert("objectActions", {
+        organizationId: args.organizationId,
+        objectId: workflowId,
+        actionType: "workflow_created_with_form",
+        actionData: {
+          source: "ai_assistant",
+          formId: args.formId,
+          formName: form.name,
+        },
+        performedBy: args.userId,
+        performedAt: now,
+      });
+
+      return {
+        success: true,
+        action: "created",
+        workflowId,
+        workflowName: args.workflowName || "Checkout Form Collection",
+        formId: args.formId,
+        formName: form.name,
+      };
+    }
+
+    // Update existing workflow - add or replace form_linking behavior
+    const customProps = (workflow.customProperties || {}) as Record<string, unknown>;
+    const existingBehaviors = (customProps.behaviors || []) as Array<{
+      id: string;
+      type: string;
+      enabled: boolean;
+      priority?: number;
+      config?: Record<string, unknown>;
+      metadata?: Record<string, unknown>;
+    }>;
+
+    // Remove any existing form_linking behaviors
+    const filteredBehaviors = existingBehaviors.filter(b => b.type !== "form_linking");
+
+    // Add new form_linking behavior
+    filteredBehaviors.push({
+      id: `bhv_form_${now}`,
+      type: "form_linking",
+      enabled: true,
+      priority: 100,
+      config: {
+        formId: args.formId,
+        timing: "duringCheckout",
+      },
+      metadata: {
+        createdAt: now,
+        createdBy: args.userId,
+        formName: form.name,
+      },
+    });
+
+    // Update workflow
+    await ctx.db.patch(workflow._id, {
+      customProperties: {
+        ...customProps,
+        behaviors: filteredBehaviors,
+      },
+      updatedAt: now,
+    });
+
+    // Log action
+    await ctx.db.insert("objectActions", {
+      organizationId: args.organizationId,
+      objectId: workflow._id,
+      actionType: "workflow_form_updated",
+      actionData: {
+        source: "ai_assistant",
+        formId: args.formId,
+        formName: form.name,
+        previousBehaviorCount: existingBehaviors.length,
+        newBehaviorCount: filteredBehaviors.length,
+      },
+      performedBy: args.userId,
+      performedAt: now,
+    });
+
+    return {
+      success: true,
+      action: "updated",
+      workflowId: workflow._id,
+      workflowName: workflow.name,
+      formId: args.formId,
+      formName: form.name,
+    };
+  },
+});
+
+/**
+ * REMOVE FORM FROM CHECKOUT WORKFLOW
+ *
+ * Removes form_linking behavior from checkout workflow.
+ */
+export const internalRemoveFormFromCheckoutWorkflow = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+
+    // Find checkout_start workflow
+    const workflows = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", q => q.eq("organizationId", args.organizationId).eq("type", "workflow"))
+      .filter(q => q.neq(q.field("status"), "archived"))
+      .collect();
+
+    // Find the one with checkout_start trigger
+    const workflow = workflows.find(w => {
+      const customProps = w.customProperties as Record<string, unknown> | undefined;
+      const execution = customProps?.execution as { triggerOn?: string } | undefined;
+      return execution?.triggerOn === "checkout_start";
+    });
+
+    if (!workflow) {
+      return {
+        success: false,
+        error: "No checkout workflow found",
+      };
+    }
+
+    const customProps = (workflow.customProperties || {}) as Record<string, unknown>;
+    const existingBehaviors = (customProps.behaviors || []) as Array<{
+      id: string;
+      type: string;
+      config?: Record<string, unknown>;
+    }>;
+
+    // Find the form_linking behavior to get form info before removing
+    const formBehavior = existingBehaviors.find(b => b.type === "form_linking");
+    const previousFormId = formBehavior?.config?.formId;
+
+    // Remove form_linking behaviors
+    const filteredBehaviors = existingBehaviors.filter(b => b.type !== "form_linking");
+
+    // Update workflow
+    await ctx.db.patch(workflow._id, {
+      customProperties: {
+        ...customProps,
+        behaviors: filteredBehaviors,
+      },
+      updatedAt: now,
+    });
+
+    // Log action
+    await ctx.db.insert("objectActions", {
+      organizationId: args.organizationId,
+      objectId: workflow._id,
+      actionType: "workflow_form_removed",
+      actionData: {
+        source: "ai_assistant",
+        previousFormId,
+      },
+      performedBy: args.userId,
+      performedAt: now,
+    });
+
+    return {
+      success: true,
+      workflowId: workflow._id,
+      workflowName: workflow.name,
+      previousFormId,
+    };
+  },
+});
