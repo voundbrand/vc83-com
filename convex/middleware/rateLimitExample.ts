@@ -16,8 +16,6 @@ import {
   getRateLimitIdentifier,
   getRateLimitPlan,
 } from "./rateLimit";
-import { internal } from "../_generated/api";
-import { Id } from "../_generated/dataModel";
 
 /**
  * EXAMPLE API ENDPOINT WITH RATE LIMITING
@@ -155,12 +153,12 @@ export const exampleEndpoint = httpAction(async (ctx, request) => {
     // ============================================================================
     return addRateLimitHeaders(response, rateLimitResult);
 
-  } catch (error) {
+  } catch (err) {
     // Handle errors
     const response = new Response(
       JSON.stringify({
         error: "Internal server error",
-        message: error instanceof Error ? error.message : "Unknown error",
+        message: err instanceof Error ? err.message : "Unknown error",
       }),
       {
         status: 500,

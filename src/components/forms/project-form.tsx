@@ -19,7 +19,7 @@ interface ProjectFormProps {
   showJson?: boolean
 }
 
-export function ProjectForm({ mode, initialValues, onChange, showJson }: ProjectFormProps) {
+export function ProjectForm({ initialValues, onChange, showJson }: ProjectFormProps) {
   const [formData, setFormData] = useState<ProjectFormData>(initialValues)
 
   // Update parent when form changes

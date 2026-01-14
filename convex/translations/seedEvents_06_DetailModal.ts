@@ -70,6 +70,7 @@ const translations: Translation[] = [
   { locale: "en", key: "ui.events.detail.tooltip.loading", value: "Loading attendees..." },
   { locale: "en", key: "ui.events.detail.tooltip.no_attendees", value: "No attendees to download" },
   { locale: "en", key: "ui.events.detail.tooltip.download_pdf", value: "Download attendee list PDF" },
+  { locale: "en", key: "ui.events.detail.tooltip.download_csv", value: "Download attendee list CSV" },
 
   // Error Messages
   { locale: "en", key: "ui.events.detail.error.download_failed", value: "Failed to download attendee list. Please try again." },
@@ -123,6 +124,7 @@ const translations: Translation[] = [
   { locale: "de", key: "ui.events.detail.tooltip.loading", value: "Teilnehmer werden geladen..." },
   { locale: "de", key: "ui.events.detail.tooltip.no_attendees", value: "Keine Teilnehmer zum Herunterladen" },
   { locale: "de", key: "ui.events.detail.tooltip.download_pdf", value: "Teilnehmerliste als PDF herunterladen" },
+  { locale: "de", key: "ui.events.detail.tooltip.download_csv", value: "Teilnehmerliste als CSV herunterladen" },
 
   // Error Messages
   { locale: "de", key: "ui.events.detail.error.download_failed", value: "Download der Teilnehmerliste fehlgeschlagen. Bitte versuchen Sie es erneut." },
@@ -176,6 +178,7 @@ const translations: Translation[] = [
   { locale: "es", key: "ui.events.detail.tooltip.loading", value: "Cargando asistentes..." },
   { locale: "es", key: "ui.events.detail.tooltip.no_attendees", value: "No hay asistentes para descargar" },
   { locale: "es", key: "ui.events.detail.tooltip.download_pdf", value: "Descargar lista de asistentes en PDF" },
+  { locale: "es", key: "ui.events.detail.tooltip.download_csv", value: "Descargar lista de asistentes en CSV" },
 
   // Error Messages
   { locale: "es", key: "ui.events.detail.error.download_failed", value: "Error al descargar la lista de asistentes. Por favor, intente de nuevo." },
@@ -229,6 +232,7 @@ const translations: Translation[] = [
   { locale: "fr", key: "ui.events.detail.tooltip.loading", value: "Chargement des participants..." },
   { locale: "fr", key: "ui.events.detail.tooltip.no_attendees", value: "Aucun participant à télécharger" },
   { locale: "fr", key: "ui.events.detail.tooltip.download_pdf", value: "Télécharger la liste des participants en PDF" },
+  { locale: "fr", key: "ui.events.detail.tooltip.download_csv", value: "Télécharger la liste des participants en CSV" },
 
   // Error Messages
   { locale: "fr", key: "ui.events.detail.error.download_failed", value: "Échec du téléchargement de la liste des participants. Veuillez réessayer." },
@@ -282,6 +286,7 @@ const translations: Translation[] = [
   { locale: "ja", key: "ui.events.detail.tooltip.loading", value: "参加者を読み込み中..." },
   { locale: "ja", key: "ui.events.detail.tooltip.no_attendees", value: "ダウンロードする参加者がいません" },
   { locale: "ja", key: "ui.events.detail.tooltip.download_pdf", value: "参加者リストのPDFをダウンロード" },
+  { locale: "ja", key: "ui.events.detail.tooltip.download_csv", value: "参加者リストのCSVをダウンロード" },
 
   // Error Messages
   { locale: "ja", key: "ui.events.detail.error.download_failed", value: "参加者リストのダウンロードに失敗しました。もう一度お試しください。" },
@@ -335,6 +340,7 @@ const translations: Translation[] = [
   { locale: "pl", key: "ui.events.detail.tooltip.loading", value: "Ładowanie uczestników..." },
   { locale: "pl", key: "ui.events.detail.tooltip.no_attendees", value: "Brak uczestników do pobrania" },
   { locale: "pl", key: "ui.events.detail.tooltip.download_pdf", value: "Pobierz listę uczestników w formacie PDF" },
+  { locale: "pl", key: "ui.events.detail.tooltip.download_csv", value: "Pobierz listę uczestników w formacie CSV" },
 
   // Error Messages
   { locale: "pl", key: "ui.events.detail.error.download_failed", value: "Nie udało się pobrać listy uczestników. Spróbuj ponownie." },

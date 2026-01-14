@@ -69,8 +69,8 @@ export function CreateApiKeyDialog({
       if (onSuccess) {
         onSuccess(result.key);
       }
-    } catch (error: any) {
-      alert(`Failed to create API key: ${error.message}`);
+    } catch (error: unknown) {
+      alert(`Failed to create API key: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setIsCreating(false);
     }
@@ -83,7 +83,7 @@ export function CreateApiKeyDialog({
       await navigator.clipboard.writeText(createdKey);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
+    } catch {
       alert("Failed to copy to clipboard");
     }
   };

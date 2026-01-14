@@ -142,11 +142,11 @@ export const invoicePaymentHandler: BehaviorHandler<InvoicePaymentConfig> = {
   apply: (
     config: InvoicePaymentConfig,
     extractedData: unknown,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     context: Readonly<BehaviorContext>
   ): BehaviorResult<unknown> => {
     const data = extractedData as Record<string, unknown>;
     const {
-      organizationId,
       customerInfo,
       employerId,
       employerName,
@@ -317,6 +317,7 @@ export const invoicePaymentHandler: BehaviorHandler<InvoicePaymentConfig> = {
   /**
    * Validate invoice payment configuration
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   validate: (config: InvoicePaymentConfig, _context?: Partial<BehaviorContext>) => {
     const errors: string[] = [];
 

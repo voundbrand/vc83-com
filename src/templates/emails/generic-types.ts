@@ -5,8 +5,6 @@
  * Designed for AI-driven content generation and adaptation.
  */
 
-import type { Id } from "../../../convex/_generated/dataModel";
-
 /**
  * Email Section Types
  *

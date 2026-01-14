@@ -33,7 +33,7 @@ export function generateVercelDeployUrl(
     throw new Error("Invalid GitHub URL format. Expected: https://github.com/owner/repo");
   }
 
-  const [, owner, repo] = repoMatch;
+  const [, , repo] = repoMatch;
   const defaultProjectName = projectName || repo;
 
   // Build base URL

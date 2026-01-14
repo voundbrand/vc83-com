@@ -45,8 +45,6 @@ const BEHAVIOR_TYPES = [
 ];
 
 export function InsertBehaviorModal({
-  afterBehaviorId,
-  beforeBehaviorId,
   onInsert,
   onCancel,
 }: InsertBehaviorModalProps) {

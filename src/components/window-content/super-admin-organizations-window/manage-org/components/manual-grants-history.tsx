@@ -68,10 +68,10 @@ export function ManualGrantsHistory({
   }
 
   const totalRetailValue = grants.reduce(
-    (sum, g) => sum + ((g.customProperties as any)?.retailValueInCents || 0),
+    (sum, g) => sum + ((g.customProperties as { retailValueInCents?: number } | undefined)?.retailValueInCents || 0),
     0
   );
-  const uninvoicedGrants = grants.filter((g) => !(g.customProperties as any)?.invoiced);
+  const uninvoicedGrants = grants.filter((g) => !(g.customProperties as { invoiced?: boolean } | undefined)?.invoiced);
 
   return (
     <div
@@ -155,7 +155,7 @@ export function ManualGrantsHistory({
             </thead>
             <tbody>
               {grants.map((grant) => {
-                const props = grant.customProperties as any;
+                const props = grant.customProperties as { invoiced?: boolean; invoiceId?: string; grantType?: string; tier?: string; tokensAmount?: number; retailValueInCents?: number } | undefined;
                 const isInvoiced = props?.invoiced || false;
                 return (
                   <tr

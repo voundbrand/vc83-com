@@ -1,151 +1,128 @@
-# l4yercak3.com Development Guide
+# Claude Code Configuration - SPARC Development Environment
 
-This document provides guidance for Claude Code when working on the l4yercak3.com retro desktop podcast website.
+## Core Principles
 
-## IMPORTANT: Quality Check Policy
+**Claude Flow coordinates, Claude Code executes.** MCP tools handle planning and memory; Claude Code does all file operations, code generation, and bash commands.
 
-**Claude Code MUST run `npm run typecheck` and `npm run lint` after implementing each feature or modifying each file.** If errors are found, they must be fixed immediately before proceeding to the next task. This prevents technical debt accumulation.
+## Critical Rules
 
-## Project Overview
+### 1. Batch All Operations in Single Messages
 
-l4yercak3.com is a retro desktop-style workflow tool built with Next.js, TypeScript, and Convex (backend). The platform provides a retro desktop where you layer on marketing superpowers: invoicing that syncs with your CRM, analytics that visualize your funnels, scheduling that automates your workflows—all in one cozy workspace.
+Every message should contain ALL related operations:
 
-## Core Features
+```javascript
+// ✅ CORRECT: Everything in ONE message
+[Single Message]:
+  - TodoWrite { todos: [5-10+ todos] }
+  - Task("Agent 1 with full instructions")
+  - Task("Agent 2 with full instructions")
+  - Read("file1.js"), Read("file2.js")
+  - Write("output1.js"), Write("output2.js")
+  - Bash("npm install && npm test && npm build")
+```
 
-### Retro Desktop UI System
-- **Window Management**: Floating, draggable windows that can be opened, closed, and layered
-- **Desktop Metaphor**: Icons, taskbar, and authentic OS-style interactions
-- **Retro Aesthetic**: 1983 tech nostalgia with CRT scanlines, pixelated fonts, and period-appropriate colors
+**Never send sequential messages for related operations.**
 
-### Content Windows
-- **Episodes Window**: Browse and play podcast episodes in a retro file browser style
-- **About Window**: Information about the podcast and hosts
-- **Subscribe Window**: Links to major podcast platforms (Apple Podcasts, Spotify, etc.)
-- **Contact Window**: Contact form and information
+### 2. Tool Responsibilities
 
-## Technology Stack
+**Claude Code executes:**
+- All file operations (Read, Write, Edit, MultiEdit)
+- All bash commands and system operations
+- All code generation and implementation
+- TodoWrite and task management
+- Git operations, testing, debugging
 
-### Frontend
-- **Framework**: Next.js 15 with TypeScript
-- **Styling**: Tailwind CSS v4 with custom retro theme
-- **Fonts**: Press Start 2P (pixelated retro font)
-- **Icons**: Lucide React with custom retro styling
-- **Interactions**: React Draggable for window management
+**MCP Tools coordinate:**
+- `swarm_init` - Set up coordination topology
+- `agent_spawn` - Create cognitive patterns
+- `task_orchestrate` - Break down complex tasks
+- `memory_usage` - Persistent context storage
+- `swarm_status/monitor` - Track progress
 
-### Backend
-- **Database/Backend**: Convex (serverless backend with real-time features)
-- **File Storage**: Convex storage for podcast episodes and images
-- **Email**: Custom email service through Convex actions
+### 3. TodoWrite Requirements
 
-### Design System
-- **Color Palette**: Purple (#6B46C1, #9F7AEA), white, black, grays
-- **Typography**: Press Start 2P for headers, system fonts for body text
-- **Components**: Custom retro-styled buttons, windows, and UI elements
+Always batch 5-10+ todos in ONE call with priorities and statuses:
 
-## Development Commands
+```javascript
+TodoWrite { todos: [
+  { id: "1", content: "Design architecture", status: "in_progress", priority: "high" },
+  { id: "2", content: "Implement core", status: "pending", priority: "high" },
+  { id: "3", content: "Write tests", status: "pending", priority: "medium" },
+  // ... continue for 5-10+ todos
+]}
+```
 
-### During Development (Run After Each File Change)
-**IMPORTANT**: To prevent technical debt accumulation, run these commands after implementing each feature or fixing each file:
-- `npm run typecheck` - Check for TypeScript errors immediately
-- `npm run lint` - Fix any linting issues right away
+### 4. Agent Coordination Protocol
 
-If errors are found, fix them before moving to the next task. This prevents accumulating hundreds of errors that become overwhelming to fix later.
+Every spawned agent MUST use coordination hooks:
 
-### Development Server
-- `npm run dev` - Start Next.js development server
-- `npx convex dev` - Start Convex backend (run in separate terminal)
+```bash
+# Before work
+npx claude-flow@alpha hooks pre-task --description "[task]"
 
-### Before Committing
-Always run these commands before committing:
-- `npm run lint` - Check code style and fix issues
-- `npm run typecheck` - TypeScript type checking
-- `npm run build` - Ensure production build works
+# After each file operation
+npx claude-flow@alpha hooks post-edit --file "[file]" --memory-key "agent/[step]"
 
-## Key Development Patterns
+# After completion
+npx claude-flow@alpha hooks post-task --task-id "[task]" --analyze-performance true
+```
 
-### Window Management System
-- **WindowManager Hook**: Central state management for open windows
-- **FloatingWindow Component**: Reusable draggable window container
-- **Window Content Components**: Individual content for each window type
-- **Z-Index Management**: Proper layering when multiple windows are open
+### 5. Agent Count Selection
 
-### Retro Design Principles
-- **Authentic 1983 Aesthetic**: Research period-appropriate design elements
-- **Skeuomorphic Elements**: Buttons should look pressable, windows should have depth
-- **Limited Color Palette**: Stick to the defined purple/white/black scheme
-- **Pixelated Typography**: Use Press Start 2P sparingly for headers only
+1. Check CLI args first: `npx claude-flow@alpha --agents N`
+2. If no args, auto-decide by complexity:
+   - Simple (1-3 components): 3-4 agents
+   - Medium (4-6 components): 5-7 agents
+   - Complex (7+ components): 8-12 agents
 
-### Component Architecture
-\`\`\`
-app/
-├── page.tsx (Desktop with icons and taskbar)
-├── layout.tsx (Theme provider and fonts)
-└── globals.css (Retro theme and CRT effects)
+## Quick Reference
 
-components/
-├── floating-window.tsx (Draggable window container)
-├── retro-window.tsx (Static window styling)
-├── retro-button.tsx (Retro-styled buttons)
-├── desktop-icon.tsx (Desktop icons)
-└── window-content/ (Individual window contents)
+### Standard Commands
+```bash
+npm run build      # Build project
+npm run test       # Run tests
+npm run lint       # Lint and format
+npm run typecheck  # TypeScript checks
+```
 
-hooks/
-└── use-window-manager.tsx (Window state management)
-\`\`\`
+### SPARC Commands
+```bash
+npx claude-flow sparc run <mode> "<task>"     # Execute SPARC mode
+npx claude-flow sparc tdd "<feature>"         # TDD workflow
+npx claude-flow sparc batch <modes> "<task>"  # Parallel modes
+```
 
-## Retro UI Guidelines
+### MCP Setup
+```bash
+claude mcp add claude-flow npx claude-flow@alpha mcp start
+```
 
-### Color Usage
-- **Primary Purple**: #6B46C1 for active elements and highlights
-- **Secondary Purple**: #9F7AEA for hover states and accents
-- **Backgrounds**: Light gray (#F3F4F6) for window content, dark for desktop
-- **Text**: Dark gray (#2A2A2A) on light backgrounds, light gray on dark
+## Code Style
 
-### Typography Hierarchy
-- **Headers**: Press Start 2P, purple color, limited use
-- **Body Text**: System fonts (font-sans), proper line height (leading-relaxed)
-- **UI Elements**: Small, readable fonts for buttons and labels
+- Keep files under 500 lines
+- Never hardcode secrets
+- Write tests before implementation
+- Separate concerns cleanly
+- Document architectural decisions
 
-### Window Behavior
-- **Draggable**: All windows should be draggable by title bar
-- **Closable**: X button in top-right corner
-- **Focusable**: Clicking brings window to front
-- **Resizable**: Future enhancement, not currently implemented
+## Visual Status Format
 
-## Critical Development Notes
+```
+📊 Progress: 12 tasks (4 ✅, 6 🔄, 2 ⭕)
 
-### Window Management
-- **State Persistence**: Windows don't persist across page reloads (by design)
-- **Mobile Responsiveness**: Windows should adapt to smaller screens
-- **Performance**: Limit number of simultaneously open windows
-- **Accessibility**: Ensure keyboard navigation works for window controls
+🔄 In Progress
+   ├── 🔴 001: Design API [HIGH]
+   └── 🟡 002: Build endpoints [MED]
 
-### Retro Aesthetic Maintenance
-- **Consistency**: All new components should match the retro theme
-- **Authenticity**: Research 1983 computer interfaces for inspiration
-- **Performance**: CRT effects and animations should not impact performance
-- **Browser Support**: Ensure retro effects work across modern browsers
+📋 Todo
+   └── 🟢 003: Documentation [LOW]
+```
 
-### Content Management
-- **Podcast Episodes**: Store episode data in Convex with proper metadata
-- **Images**: Use appropriate retro-style placeholder images
-- **Links**: External links (podcast platforms) should open in new tabs
-- **SEO**: Maintain good SEO despite the retro aesthetic
+Priority: 🔴 HIGH, 🟡 MEDIUM, 🟢 LOW
 
-## Testing Strategy
-- **Component Testing**: Test window management functionality
-- **Visual Testing**: Ensure retro aesthetic renders correctly
-- **Interaction Testing**: Test dragging, clicking, and window behaviors
-- **Responsive Testing**: Verify mobile experience
+---
 
-## Deployment
-- **Vercel**: Primary deployment platform
-- **Environment Variables**: Configure Convex deployment URLs
-- **Performance**: Monitor Core Web Vitals despite retro effects
-- **Analytics**: Track user interactions with windows and content
+See `docs/AGENTS.md` for agent catalog and `docs/SWARM-PATTERNS.md` for detailed workflows.
 
-## Future Enhancements
-- **Audio Player**: Integrated retro-style podcast player
-- **Window Minimization**: Minimize windows to taskbar
-- **Desktop Customization**: User-configurable desktop backgrounds
-- **Keyboard Shortcuts**: Alt+Tab window switching, etc.
+# 6 - App Registrations
+We have a specific method for creating new modules in our code, see: `/Users/foundbrand_001/Development/vc83-com-benefits-platform/docs/APP_REGISTRATION_WORKFLOW.md`

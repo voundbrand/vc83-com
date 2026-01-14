@@ -54,7 +54,7 @@ export const updateToolExecutionSettings = mutation({
     }
 
     // Build update object with only provided fields
-    const updates: any = {
+    const updates: Record<string, unknown> = {
       updatedAt: Date.now(),
     };
 

@@ -6,7 +6,7 @@ import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Save, Loader2, Zap, DollarSign, Brain, Database, RefreshCw, AlertTriangle } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { PrivacyBadge, PrivacyBadgeGroup } from "@/components/ai-billing/privacy-badge";
@@ -70,7 +70,7 @@ export function AISettingsTab() {
   const [isRefreshingModels, setIsRefreshingModels] = useState(false);
 
   // Model filtering based on privacy tier
-  const isModelCompatibleWithTier = (modelId: string, tier: typeof privacyTier): boolean => {
+  const isModelCompatibleWithTier = useCallback((modelId: string, tier: typeof privacyTier): boolean => {
     // Standard tier: All models allowed
     if (tier === "standard") return true;
 
@@ -100,7 +100,7 @@ export function AISettingsTab() {
     if (tier === "private-llm") return false;
 
     return false;
-  };
+  }, []);
 
   // Get privacy badges for a model based on tier
   const getModelPrivacyBadges = (modelId: string, tier: typeof privacyTier): Array<'eu' | 'zdr' | 'no-training'> => {
@@ -142,7 +142,7 @@ export function AISettingsTab() {
       // NEW: Handle multi-select models
       if (settings.llm.enabledModels && settings.llm.enabledModels.length > 0) {
         setEnabledModels(settings.llm.enabledModels);
-        setDefaultModelId(settings.llm.defaultModelId || settings.llm.enabledModels.find((m: any) => m.isDefault)?.modelId || "");
+        setDefaultModelId(settings.llm.defaultModelId || settings.llm.enabledModels.find((m) => m.isDefault)?.modelId || "");
       } else if (settings.llm.provider && settings.llm.model) {
         // LEGACY: Convert old single model format to new multi-select
         const modelId = settings.llm.model.includes("/")
@@ -170,14 +170,6 @@ export function AISettingsTab() {
     }
   }, [settings]);
 
-  // Auto-refresh models if cache is stale or empty
-  useEffect(() => {
-    if (modelsByProvider && modelsByProvider.isStale) {
-      console.log("Model cache is stale, fetching fresh data...");
-      handleRefreshModels();
-    }
-  }, [modelsByProvider?.isStale]);
-
   // Filter out incompatible models when tier changes
   useEffect(() => {
     const incompatibleModels = enabledModels.filter(m => !isModelCompatibleWithTier(m.modelId, privacyTier));
@@ -196,7 +188,7 @@ export function AISettingsTab() {
 
       setEnabledModels(newModels);
     }
-  }, [privacyTier]); // Run when privacy tier changes
+  }, [privacyTier, enabledModels, isModelCompatibleWithTier]); // Run when privacy tier changes
 
   const handleSave = async () => {
     if (!organizationId) return;
@@ -249,7 +241,7 @@ export function AISettingsTab() {
     }
   };
 
-  const handleRefreshModels = async () => {
+  const handleRefreshModels = useCallback(async () => {
     setIsRefreshingModels(true);
     try {
       await refreshModelsAction({});
@@ -259,7 +251,15 @@ export function AISettingsTab() {
     } finally {
       setIsRefreshingModels(false);
     }
-  };
+  }, [refreshModelsAction]);
+
+  // Auto-refresh models if cache is stale or empty
+  useEffect(() => {
+    if (modelsByProvider && modelsByProvider.isStale) {
+      console.log("Model cache is stale, fetching fresh data...");
+      handleRefreshModels();
+    }
+  }, [modelsByProvider, handleRefreshModels]);
 
   // Helper: Check if a model is enabled
   const isModelEnabled = (modelId: string) => {
@@ -311,10 +311,18 @@ export function AISettingsTab() {
     setDefaultModelId(modelId);
   };
 
+  // Model type from OpenRouter discovery
+  type DiscoveredModel = {
+    id: string;
+    name: string;
+    context_length: number;
+    pricing: { prompt: string; completion: string };
+  };
+
   // Get current provider's models for UI - filtered by privacy tier
   const currentProviderModels = modelsByProvider
-    ? (modelsByProvider[selectedProvider as keyof typeof modelsByProvider] as any[] || [])
-        .filter((m: any) => isModelCompatibleWithTier(m.id, privacyTier))
+    ? ((modelsByProvider[selectedProvider as keyof typeof modelsByProvider] as DiscoveredModel[] | undefined) || [])
+        .filter((m) => isModelCompatibleWithTier(m.id, privacyTier))
     : [];
 
   // Count filtered models
@@ -322,8 +330,8 @@ export function AISettingsTab() {
     ? Object.keys(modelsByProvider)
         .filter(key => key !== 'isStale')
         .reduce((sum, key) => {
-          const models = (modelsByProvider as any)[key] as any[];
-          return sum + (models?.filter((m: any) => isModelCompatibleWithTier(m.id, privacyTier)).length || 0);
+          const models = modelsByProvider[key as keyof typeof modelsByProvider] as DiscoveredModel[] | undefined;
+          return sum + (models?.filter((m) => isModelCompatibleWithTier(m.id, privacyTier)).length || 0);
         }, 0)
     : 0;
 
@@ -808,7 +816,7 @@ export function AISettingsTab() {
                       backgroundColor: 'var(--win95-bg-light)',
                     }}
                   >
-                    {currentProviderModels.map((m: any) => {
+                    {currentProviderModels.map((m) => {
                       const enabled = isModelEnabled(m.id);
                       const isDefault = defaultModelId === m.id;
 

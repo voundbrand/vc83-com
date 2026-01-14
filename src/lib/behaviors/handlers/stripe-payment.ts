@@ -135,14 +135,14 @@ export const stripePaymentHandler: BehaviorHandler<StripePaymentConfig> = {
   apply: (
     config: StripePaymentConfig,
     extractedData: unknown,
-    context: Readonly<BehaviorContext>
+    _context: Readonly<BehaviorContext>
   ): BehaviorResult<unknown> => {
+    void _context; // Required by interface but not used in this handler
     const data = extractedData as Record<string, unknown>;
     const {
       customerInfo,
       totalAmount,
       currency,
-      taxCalculation,
       billingAddress,
       metadata,
     } = data;
@@ -207,6 +207,7 @@ export const stripePaymentHandler: BehaviorHandler<StripePaymentConfig> = {
    * Validate Stripe payment configuration
    */
   validate: (config: StripePaymentConfig, _context?: Partial<BehaviorContext>) => {
+    void _context; // Required by interface but not used in this handler
     const errors: string[] = [];
 
     // Validate retry settings

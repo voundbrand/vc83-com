@@ -152,8 +152,15 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
       const themeCode = formSchema?.themeCode;
 
       // Load hosting mode settings
-      // Default to internal only if not specified
-      setEnableInternalHosting(formSchema?.enableInternalHosting !== false);
+      // If enableInternalHosting was explicitly set, use that value
+      // Otherwise, default to true ONLY if a theme is selected (has themeCode)
+      // This prevents requiring theme for forms created without templates
+      const hasTheme = !!themeCode;
+      setEnableInternalHosting(
+        formSchema?.enableInternalHosting !== undefined
+          ? formSchema.enableInternalHosting
+          : hasTheme // Only default to true if theme exists
+      );
       setEnableExternalHosting(formSchema?.enableExternalHosting === true);
 
       // Load published page if external hosting is enabled
@@ -262,27 +269,8 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
     );
   }
 
-  if (availableTemplates.length === 0 || availableThemes.length === 0) {
-    return (
-      <div className="p-4">
-        <div className="border-2 p-4" style={{ borderColor: "var(--warning)", background: "rgba(251, 191, 36, 0.1)" }}>
-          <div className="flex items-start gap-2">
-            <AlertCircle size={20} style={{ color: "var(--warning)" }} className="flex-shrink-0 mt-0.5" />
-            <div>
-              <h4 className="font-bold text-sm" style={{ color: "var(--warning)" }}>
-                {t("ui.forms.templates_unavailable_title")}
-              </h4>
-              <p className="text-xs mt-1" style={{ color: "var(--warning)" }}>
-                {availableTemplates.length === 0 && t("ui.forms.no_templates_message") + " "}
-                {availableThemes.length === 0 && t("ui.forms.no_themes_message") + " "}
-                {t("ui.forms.contact_admin")}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // NOTE: Templates and themes are optional - users can create forms from scratch
+  // No blocking check needed here anymore
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -299,8 +287,9 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
       return;
     }
 
-    // Theme is only required for internal hosting (external frontend handles styling)
-    if (enableInternalHosting && !selectedThemeId) {
+    // Theme is only required for internal hosting on NEW forms
+    // Existing forms can be updated without requiring theme (schema-only forms are valid)
+    if (enableInternalHosting && !selectedThemeId && !formId) {
       alert(t("ui.forms.select_template_theme_required") || "Internal hosting requires theme selection");
       return;
     }
@@ -977,7 +966,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
             >
               {FORM_TYPES.map((formType) => (
                 <option key={formType.code} value={formType.code}>
-                  {getFormTypeIcon(formType.code)} {t(formType.translationKey as any)}
+                  {getFormTypeIcon(formType.code)} {t(formType.translationKey as Parameters<typeof t>[0])}
                 </option>
               ))}
             </select>
@@ -1299,9 +1288,15 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
         </div>
 
         {/* Preview content */}
-        {/* Show preview if EITHER internal hosting has requirements OR external hosting has requirements */}
+        {/* Show preview if:
+            1. Internal hosting with template+theme selected, OR
+            2. External hosting with published page selected, OR
+            3. Form has schema fields (editing existing form without template)
+        */}
         {(enableInternalHosting && selectedTemplateId && selectedThemeId) ||
-         (enableExternalHosting && selectedPublishedPageId) ? (
+         (enableExternalHosting && selectedPublishedPageId) ||
+         (existingForm?.customProperties?.formSchema &&
+          (existingForm.customProperties.formSchema as { sections?: unknown[] }).sections?.length) ? (
           <div className="space-y-4">
             {/* Debug: Show preview mode state */}
             {(() => {
@@ -1491,8 +1486,93 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
               </div>
               </div>
             )}
+            {/* SCHEMA-BASED PREVIEW - For forms without templates but with schema fields */}
+            {!selectedTemplateId && existingForm?.customProperties?.formSchema && (() => {
+              const formSchema = existingForm.customProperties.formSchema as {
+                sections?: Array<{
+                  id?: string;
+                  title?: string;
+                  fields?: Array<{
+                    id: string;
+                    type: string;
+                    label?: string;
+                    placeholder?: string;
+                    required?: boolean;
+                    options?: Array<{ label: string; value: string }>;
+                    content?: string;
+                  }>;
+                }>;
+              };
 
-            {/* Template Info */}
+              if (!formSchema.sections?.length) return null;
+
+              return (
+                <div className="border-2" style={{ borderColor: "var(--win95-border)" }}>
+                  <div className="px-3 py-2 border-b-2 flex items-center gap-2" style={{
+                    background: "var(--win95-bg-light)",
+                    borderColor: "var(--win95-border)"
+                  }}>
+                    <FileText size={14} style={{ color: "var(--win95-highlight)" }} />
+                    <p className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                      Schema Preview (No Template)
+                    </p>
+                  </div>
+                  <div className="p-4 space-y-4" style={{ background: "var(--win95-input-bg)" }}>
+                    <p className="text-xs mb-4" style={{ color: "var(--neutral-gray)" }}>
+                      This form was created without a template. Select a template and theme above to see a styled preview, or view the form fields below:
+                    </p>
+                    {formSchema.sections.map((section, sectionIdx) => (
+                      <div key={section.id || sectionIdx} className="border-2 p-3" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}>
+                        {section.title && (
+                          <h4 className="text-sm font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                            {section.title}
+                          </h4>
+                        )}
+                        <div className="space-y-2">
+                          {section.fields?.map((field, fieldIdx) => (
+                            <div key={field.id || fieldIdx} className="flex items-start gap-2">
+                              <span className="text-xs px-1.5 py-0.5 rounded font-mono" style={{
+                                background: "var(--win95-highlight)",
+                                color: "white",
+                                fontSize: "10px"
+                              }}>
+                                {field.type}
+                              </span>
+                              <div className="flex-1">
+                                <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                                  {field.label || field.id}
+                                </span>
+                                {field.required && (
+                                  <span className="text-xs ml-1" style={{ color: "var(--error)" }}>*</span>
+                                )}
+                                {field.placeholder && (
+                                  <span className="text-xs ml-2" style={{ color: "var(--neutral-gray)" }}>
+                                    ({field.placeholder})
+                                  </span>
+                                )}
+                                {field.type === "text_block" && field.content && (
+                                  <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+                                    {field.content.substring(0, 100)}...
+                                  </p>
+                                )}
+                                {field.options && (
+                                  <div className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+                                    Options: {field.options.map(o => o.label).join(", ")}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Template Info - only show if template is selected */}
+            {selectedTemplateId && (
             <div className="border-2 p-4" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
               <h4 className="text-xs font-bold mb-2 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
                 <FileText size={14} />
@@ -1512,8 +1592,10 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                 }
               </code>
             </div>
+            )}
 
-            {/* Theme Info */}
+            {/* Theme Info - only show if theme is selected */}
+            {selectedThemeId && (
             <div className="border-2 p-4" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
               <h4 className="text-xs font-bold mb-2 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
                 <Palette size={14} />
@@ -1572,6 +1654,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                 }
               </code>
             </div>
+            )}
           </div>
         ) : (
           <div className="border-2 p-8 text-center" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>

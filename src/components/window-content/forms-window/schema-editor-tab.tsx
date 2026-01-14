@@ -15,7 +15,7 @@ interface SchemaEditorTabProps {
 
 export function SchemaEditorTab({ formId }: SchemaEditorTabProps) {
   const { sessionId } = useAuth();
-  const { t } = useNamespaceTranslations("ui.forms");
+  useNamespaceTranslations("ui.forms");
 
   const [schemaJson, setSchemaJson] = useState<string>("");
   const [originalSchema, setOriginalSchema] = useState<string>("");

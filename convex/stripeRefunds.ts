@@ -7,7 +7,6 @@
 import { v } from "convex/values";
 import { action, ActionCtx, mutation, MutationCtx } from "./_generated/server";
 import { api } from "./_generated/api";
-import { Id } from "./_generated/dataModel";
 
 /**
  * Internal mutation to update transaction with refund information

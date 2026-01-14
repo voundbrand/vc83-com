@@ -6,7 +6,6 @@ import { ManageWindow } from "./org-owner-manage-window";
 import { TranslationsWindow } from "./translations-window";
 import { OrganizationsWindow } from "./super-admin-organizations-window";
 import { IntegrationsWindow } from "./integrations-window";
-import { QuickStartICPSelector } from "@/components/quick-start";
 import { usePermissions } from "@/contexts/permission-context";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";

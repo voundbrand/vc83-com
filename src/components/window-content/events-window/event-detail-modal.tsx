@@ -1,7 +1,7 @@
 "use client";
 
 import { Doc, Id } from "../../../../convex/_generated/dataModel";
-import { X, Download, Loader2, Calendar, MapPin, Users, Clock, ExternalLink } from "lucide-react";
+import { X, Download, Loader2, Calendar, MapPin, Users, Clock, ExternalLink, FileSpreadsheet } from "lucide-react";
 import { useState } from "react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useAction, useQuery } from "convex/react";
@@ -17,10 +17,12 @@ interface EventDetailModalProps {
 export function EventDetailModal({ event, onClose }: EventDetailModalProps) {
   const { t, isLoading } = useNamespaceTranslations("ui.events");
   const [isDownloadingAttendees, setIsDownloadingAttendees] = useState(false);
+  const [isDownloadingCSV, setIsDownloadingCSV] = useState(false);
   const { openWindow } = useWindowManager();
 
-  // PDF generation action
+  // PDF and CSV generation actions
   const generateAttendeeListPDF = useAction(api.pdfGeneration.generateEventAttendeeListPDF);
+  const generateAttendeeListCSV = useAction(api.pdfGeneration.generateEventAttendeeListCSV);
 
   // Query to get attendee count (public query, no auth needed)
   // IMPORTANT: Must be called before any conditional returns (Rules of Hooks)
@@ -102,6 +104,28 @@ export function EventDetailModal({ event, onClose }: EventDetailModalProps) {
       alert(t("ui.events.detail.error.download_failed"));
     } finally {
       setIsDownloadingAttendees(false);
+    }
+  };
+
+  const handleDownloadAttendeeCSV = async () => {
+    setIsDownloadingCSV(true);
+    try {
+      const csv = await generateAttendeeListCSV({
+        eventId: event._id,
+      });
+
+      if (csv) {
+        // Create download link
+        const link = document.createElement("a");
+        link.href = `data:${csv.contentType};base64,${csv.content}`;
+        link.download = csv.filename;
+        link.click();
+      }
+    } catch (error) {
+      console.error("Failed to download attendee CSV:", error);
+      alert(t("ui.events.detail.error.download_failed"));
+    } finally {
+      setIsDownloadingCSV(false);
     }
   };
 
@@ -306,40 +330,58 @@ export function EventDetailModal({ event, onClose }: EventDetailModalProps) {
 
               {/* Action Buttons */}
               <div className="mt-4 space-y-2">
-                <button
-                  onClick={handleDownloadAttendeeList}
-                  disabled={isDownloadingAttendees || isLoadingAttendees || !hasAttendees}
-                  className="w-full px-4 py-2 border-2 flex items-center justify-center gap-2 hover:bg-opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-button-face)",
-                    color: "var(--win95-text)",
-                  }}
-                  title={
-                    isLoadingAttendees
-                      ? t("ui.events.detail.tooltip.loading")
-                      : !hasAttendees
-                      ? t("ui.events.detail.tooltip.no_attendees")
-                      : t("ui.events.detail.tooltip.download_pdf")
-                  }
-                >
-                  {isDownloadingAttendees ? (
-                    <>
+                {/* Download buttons row */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleDownloadAttendeeList}
+                    disabled={isDownloadingAttendees || isLoadingAttendees || !hasAttendees}
+                    className="flex-1 px-3 py-2 border-2 flex items-center justify-center gap-2 hover:bg-opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    style={{
+                      borderColor: "var(--win95-border)",
+                      background: "var(--win95-button-face)",
+                      color: "var(--win95-text)",
+                    }}
+                    title={
+                      isLoadingAttendees
+                        ? t("ui.events.detail.tooltip.loading")
+                        : !hasAttendees
+                        ? t("ui.events.detail.tooltip.no_attendees")
+                        : t("ui.events.detail.tooltip.download_pdf")
+                    }
+                  >
+                    {isDownloadingAttendees ? (
                       <Loader2 size={16} className="animate-spin" />
-                      <span className="text-sm">{t("ui.events.detail.button.downloading")}</span>
-                    </>
-                  ) : isLoadingAttendees ? (
-                    <>
-                      <Loader2 size={16} className="animate-spin" />
-                      <span className="text-sm">{t("ui.events.detail.loading.button")}</span>
-                    </>
-                  ) : (
-                    <>
+                    ) : (
                       <Download size={16} />
-                      <span className="text-sm">{t("ui.events.detail.button.download_attendees")}</span>
-                    </>
-                  )}
-                </button>
+                    )}
+                    <span className="text-sm">PDF</span>
+                  </button>
+
+                  <button
+                    onClick={handleDownloadAttendeeCSV}
+                    disabled={isDownloadingCSV || isLoadingAttendees || !hasAttendees}
+                    className="flex-1 px-3 py-2 border-2 flex items-center justify-center gap-2 hover:bg-opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    style={{
+                      borderColor: "var(--win95-border)",
+                      background: "var(--win95-button-face)",
+                      color: "var(--win95-text)",
+                    }}
+                    title={
+                      isLoadingAttendees
+                        ? t("ui.events.detail.tooltip.loading")
+                        : !hasAttendees
+                        ? t("ui.events.detail.tooltip.no_attendees")
+                        : t("ui.events.detail.tooltip.download_csv")
+                    }
+                  >
+                    {isDownloadingCSV ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <FileSpreadsheet size={16} />
+                    )}
+                    <span className="text-sm">CSV</span>
+                  </button>
+                </div>
 
                 <button
                   onClick={handleViewAllAttendees}

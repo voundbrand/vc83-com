@@ -24,6 +24,7 @@
 
 import { httpAction } from "../../_generated/server";
 import { internal } from "../../_generated/api";
+import { Id } from "../../_generated/dataModel";
 import { authenticateRequest, requireScopes, getEffectiveOrganizationId } from "../../middleware/auth";
 
 /**
@@ -810,7 +811,7 @@ export const syncInvoiceToStripe = httpAction(async (ctx, request) => {
     const result = await ctx.runAction(
       internal.stripeInvoices.syncInvoiceToStripe,
       {
-        invoiceId: invoiceId as any, // Type cast for Convex ID
+        invoiceId: invoiceId as Id<"objects">,
         sendImmediately,
       }
     );
@@ -895,7 +896,7 @@ export const getInvoicesForClient = httpAction(async (ctx, request) => {
       internal.api.v1.invoicesInternal.getInvoicesForClientInternal,
       {
         organizationId,
-        crmOrganizationId: crmOrganizationId as any,
+        crmOrganizationId: crmOrganizationId as Id<"objects">,
         status,
         limit,
         offset,

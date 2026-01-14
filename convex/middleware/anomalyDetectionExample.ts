@@ -9,7 +9,6 @@
 
 import { httpAction } from "../_generated/server";
 import { authenticateRequest } from "./auth";
-import { detectAnomalies, logFailedAuthAttempt, UsageContext } from "./anomalyDetection";
 import { internal } from "../_generated/api";
 
 /**
@@ -78,26 +77,12 @@ export const exampleEndpointWithAnomalyDetection = httpAction(
       authMethod: authContext.authMethod,
     };
 
-    const responseTimeMs = Date.now() - startTime;
+    // Response time captured for future anomaly detection integration
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _responseTimeMs = Date.now() - startTime;
 
     // 3. Schedule anomaly detection (ASYNC - doesn't block response)
     // This runs AFTER the response is sent to the client
-    const usageContext: UsageContext = {
-      organizationId: authContext.organizationId,
-      authMethod: authContext.authMethod,
-      apiKeyId: undefined, // Would come from authContext if API key auth
-      userId: authContext.userId,
-      endpoint,
-      method,
-      statusCode: 200,
-      ipAddress,
-      country,
-      scopes: authContext.scopes,
-      responseTimeMs,
-      userAgent,
-    };
-
-    // Schedule detection for after response is sent (0ms delay = run after current function)
     // Note: Since detectAnomalies uses ctx.runMutation internally, we need to create an action wrapper
     // For now, we'll call detectAnomalies directly (it already logs usage metadata)
 
@@ -105,6 +90,7 @@ export const exampleEndpointWithAnomalyDetection = httpAction(
     // detectAnomalies() is called from within the rate limit check or as a separate scheduled task
 
     // For a complete implementation, you would create a separate action file:
+    // const usageContext: UsageContext = { ... };
     // ctx.scheduler.runAfter(0, internal.security.detectAnomaliesAction, { usage: usageContext });
 
     return new Response(JSON.stringify(result), {

@@ -51,6 +51,8 @@ export function RolesPermissionsEditTab() {
     setExpandedRoles(newExpanded);
   };
 
+  // Preserved for future UI enhancements
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const toggleResource = (resource: string) => {
     const newExpanded = new Set(expandedResources);
     if (newExpanded.has(resource)) {
@@ -108,6 +110,8 @@ export function RolesPermissionsEditTab() {
     return acc;
   }, {} as Record<string, typeof allPermissions>);
 
+  // Preserved for future UI enhancements - human-readable resource names
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const resourceNames: Record<string, string> = {
     organizations: "Organizations",
     users: "Users & Teams",

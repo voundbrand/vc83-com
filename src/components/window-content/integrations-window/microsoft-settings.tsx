@@ -56,7 +56,7 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
     }
 
     setPrevConnectionStatus(connection.status);
-  }, [connection?.status, connection?.lastSyncError, notification, prevConnectionStatus]);
+  }, [connection, notification, prevConnectionStatus]);
 
   // Check URL params for OAuth callback messages
   useEffect(() => {

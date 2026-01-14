@@ -42,7 +42,13 @@ export const syncEmailsFromMicrosoft = action({
     }
 
     // Fetch emails from Microsoft Graph API
-    const emailsData: { value?: Array<{
+    const emailsResponse = await ctx.runAction(api.oauth.graphClient.getEmails, {
+      connectionId: args.connectionId,
+      top: args.top || 50, // Default to 50 most recent emails
+    });
+
+    // Type the response - can be null or have a value array
+    const emailsData = emailsResponse as { value?: Array<{
       id: string;
       subject?: string;
       from?: { emailAddress?: { address?: string; name?: string } };
@@ -57,15 +63,12 @@ export const syncEmailsFromMicrosoft = action({
       importance?: string;
       conversationId?: string;
       internetMessageId?: string;
-    }> } = await ctx.runAction(api.oauth.graphClient.getEmails, {
-      connectionId: args.connectionId,
-      top: args.top || 50, // Default to 50 most recent emails
-    });
+    }> } | null;
 
     // Store emails in objects table using ontology pattern
     const storedEmails: Id<"objects">[] = [];
 
-    for (const email of emailsData.value || []) {
+    for (const email of emailsData?.value || []) {
       try {
         const emailObjectId = await ctx.runMutation(internal.emails.createEmailObject, {
           organizationId: connection.organizationId,
@@ -75,9 +78,9 @@ export const syncEmailsFromMicrosoft = action({
             subject: email.subject || "(No Subject)",
             from: email.from?.emailAddress?.address || "unknown",
             fromName: email.from?.emailAddress?.name,
-            to: email.toRecipients?.map((r: any) => r.emailAddress?.address) || [],
-            cc: email.ccRecipients?.map((r: any) => r.emailAddress?.address) || [],
-            bcc: email.bccRecipients?.map((r: any) => r.emailAddress?.address) || [],
+            to: (email.toRecipients?.map((r: { emailAddress?: { address?: string } }) => r.emailAddress?.address).filter((addr): addr is string => !!addr)) || [],
+            cc: (email.ccRecipients?.map((r: { emailAddress?: { address?: string } }) => r.emailAddress?.address).filter((addr): addr is string => !!addr)) || [],
+            bcc: (email.bccRecipients?.map((r: { emailAddress?: { address?: string } }) => r.emailAddress?.address).filter((addr): addr is string => !!addr)) || [],
             receivedDateTime: email.receivedDateTime,
             sentDateTime: email.sentDateTime,
             isRead: email.isRead || false,
@@ -104,7 +107,7 @@ export const syncEmailsFromMicrosoft = action({
     return {
       success: true,
       emailsStored: storedEmails.length,
-      totalFetched: emailsData.value?.length || 0,
+      totalFetched: emailsData?.value?.length || 0,
     };
   },
 });

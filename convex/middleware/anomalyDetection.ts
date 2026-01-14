@@ -23,7 +23,7 @@ import { Id } from "../_generated/dataModel";
  */
 export interface UsageContext {
   organizationId: Id<"organizations">;
-  authMethod: "api_key" | "oauth" | "none";
+  authMethod: "api_key" | "oauth" | "cli_session" | "none";
   apiKeyId?: Id<"apiKeys">;
   apiKeyPrefix?: string;
   userId?: Id<"users">;

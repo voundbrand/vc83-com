@@ -14,6 +14,10 @@ import type {
   BehaviorContext,
   InputSource,
 } from "../types";
+import type { Id } from "../../../../convex/_generated/dataModel";
+
+// Helper to create a mock organization ID for tests
+const mockOrgId = "testOrg" as Id<"organizations">;
 
 describe("BehaviorRegistry", () => {
   let registry: BehaviorRegistry;
@@ -23,12 +27,14 @@ describe("BehaviorRegistry", () => {
     type: "test_behavior",
     name: "Test Behavior",
     description: "A test behavior for unit tests",
-    extract: (config: Record<string, unknown>, inputs: InputSource[], context: BehaviorContext) => {
+    extract: (config: Record<string, unknown>, inputs: InputSource[], _context: BehaviorContext) => {
+      void _context;
       const formInput = inputs.find((i) => i.type === "form");
       if (!formInput) return null;
       return { value: (formInput.data as Record<string, unknown>).testField };
     },
-    apply: (config: Record<string, unknown>, extracted: Record<string, unknown>, context: BehaviorContext) => {
+    apply: (config: Record<string, unknown>, extracted: Record<string, unknown>, _context: BehaviorContext) => {
+      void _context;
       return {
         success: true,
         data: { processed: extracted.value },
@@ -141,7 +147,7 @@ describe("BehaviorRegistry", () => {
       };
 
       const context: BehaviorContext = {
-        organizationId: "testOrg" as any,
+        organizationId: mockOrgId,
         workflow: "test",
         objects: [],
         inputs: [
@@ -170,7 +176,7 @@ describe("BehaviorRegistry", () => {
       };
 
       const context: BehaviorContext = {
-        organizationId: "testOrg" as any,
+        organizationId: mockOrgId,
         workflow: "test",
         objects: [],
         inputs: [
@@ -198,7 +204,7 @@ describe("BehaviorRegistry", () => {
       };
 
       const context: BehaviorContext = {
-        organizationId: "testOrg" as any,
+        organizationId: mockOrgId,
         workflow: "test",
         objects: [],
         inputs: [],
@@ -217,7 +223,7 @@ describe("BehaviorRegistry", () => {
       };
 
       const context: BehaviorContext = {
-        organizationId: "testOrg" as any,
+        organizationId: mockOrgId,
         workflow: "test",
         objects: [],
         inputs: [],
@@ -259,7 +265,7 @@ describe("BehaviorRegistry", () => {
       ];
 
       const context: BehaviorContext = {
-        organizationId: "testOrg" as any,
+        organizationId: mockOrgId,
         workflow: "test",
         objects: [],
         inputs: [
@@ -287,7 +293,7 @@ describe("BehaviorRegistry", () => {
       ];
 
       const context: BehaviorContext = {
-        organizationId: "testOrg" as any,
+        organizationId: mockOrgId,
         workflow: "test",
         objects: [],
         inputs: [],
@@ -305,7 +311,7 @@ describe("BehaviorRegistry", () => {
       ];
 
       const context: BehaviorContext = {
-        organizationId: "testOrg" as any,
+        organizationId: mockOrgId,
         workflow: "test",
         objects: [],
         inputs: [
@@ -384,7 +390,7 @@ describe("BehaviorRegistry", () => {
       ];
 
       const context: BehaviorContext = {
-        organizationId: "testOrg" as any,
+        organizationId: mockOrgId,
         workflow: "test",
         objects: [],
         inputs: [],
@@ -428,7 +434,7 @@ describe("BehaviorRegistry", () => {
       };
 
       const context: BehaviorContext = {
-        organizationId: "testOrg" as any,
+        organizationId: mockOrgId,
         workflow: "test",
         objects: [],
         inputs: [
@@ -452,7 +458,7 @@ describe("BehaviorRegistry", () => {
       const object = {};
 
       const context: BehaviorContext = {
-        organizationId: "testOrg" as any,
+        organizationId: mockOrgId,
         workflow: "test",
         objects: [],
         inputs: [],

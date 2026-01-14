@@ -9,7 +9,6 @@ import { query, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { Id, Doc } from "./_generated/dataModel";
 import { resolveTemplateSet, resolveIndividualTemplate } from "./templateSetResolver";
-import { requireAuthenticatedUser, getUserContext } from "./rbacHelpers";
 
 /**
  * Get Available Template Sets
@@ -78,11 +77,6 @@ export const getTemplateSetById = query({
     }
 
     const props = set.customProperties || {};
-    const templates = (props.templates || []) as Array<{
-      templateId: string;
-      templateType: string;
-      isRequired?: boolean;
-    }>;
 
     return {
       _id: set._id,

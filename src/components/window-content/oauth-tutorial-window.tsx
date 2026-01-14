@@ -11,7 +11,6 @@ import {
   Copy,
   CheckCircle,
   AlertCircle,
-  ExternalLink,
   Key,
   Lock,
   Globe
@@ -47,7 +46,8 @@ export function OAuthTutorialWindow({
   portalUrl,
   onComplete,
   onSkip,
-  onClose,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  onClose: _onClose,
 }: OAuthTutorialWindowProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [oauthCredentials, setOauthCredentials] = useState<OAuthCredentials | null>(null);
@@ -112,9 +112,9 @@ export function OAuthTutorialWindow({
 
       // Auto-advance to next step
       setCurrentStep(2);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to create OAuth app:", err);
-      setError(err.message || "Failed to create OAuth application");
+      setError(err instanceof Error ? err.message : "Failed to create OAuth application");
     } finally {
       setIsCreating(false);
     }
@@ -518,7 +518,8 @@ function Step2SaveCredentials({
 /**
  * Step 3: Complete
  */
-function Step3Complete({ portalUrl }: { portalUrl: string }) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function Step3Complete({ portalUrl: _portalUrl }: { portalUrl: string }) {
   return (
     <div className="space-y-4 text-center">
       <div className="flex justify-center">

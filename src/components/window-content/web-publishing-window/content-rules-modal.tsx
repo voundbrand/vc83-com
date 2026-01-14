@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
@@ -30,7 +30,19 @@ interface ContentRulesModalProps {
     };
   };
   onClose: () => void;
-  onSaveRules?: (rules: any) => void; // Callback for temp pages
+  onSaveRules?: (rules: {
+    events: {
+      enabled: boolean;
+      filter: "all" | "future" | "past" | "featured";
+      visibility: "all" | "public" | "private";
+      subtypes?: string[];
+      limit: number;
+      sortBy: string;
+      sortOrder: "asc" | "desc";
+    };
+    checkoutId?: string;
+    formIds?: string[];
+  }) => void; // Callback for temp pages
 }
 
 /**

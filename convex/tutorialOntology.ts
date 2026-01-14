@@ -10,7 +10,6 @@
 
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser, getUserContext } from "./rbacHelpers";
 
 /**
@@ -184,7 +183,7 @@ export const getAllTutorialProgress = query({
 
     if (!organizationId) {
       // User has no organization context - return tutorials without progress
-      return Object.entries(TUTORIALS).map(([_key, tutorial]) => ({
+      return Object.values(TUTORIALS).map((tutorial) => ({
         id: tutorial.id,
         name: tutorial.name,
         description: tutorial.description,
@@ -223,7 +222,7 @@ export const getAllTutorialProgress = query({
     );
 
     // Return all tutorials with their progress
-    return Object.entries(TUTORIALS).map(([_key, tutorial]) => ({
+    return Object.values(TUTORIALS).map((tutorial) => ({
       id: tutorial.id,
       name: tutorial.name,
       description: tutorial.description,

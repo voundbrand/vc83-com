@@ -7,7 +7,7 @@
  */
 
 import { internalMutation } from "../_generated/server";
-import { getExistingTranslationKeys, insertTranslationIfNew } from "./_translationHelpers";
+import { getExistingTranslationKeys, upsertTranslation } from "./_translationHelpers";
 
 export const seed = internalMutation({
   handler: async (ctx) => {
@@ -72,18 +72,18 @@ export const seed = internalMutation({
         const value = trans.values[locale.code as keyof typeof trans.values];
 
         if (value) {
-          const inserted = await insertTranslationIfNew(
+          const result = await upsertTranslation(
             ctx.db,
-            existingKeys,
             systemOrg._id,
             systemUser._id,
             trans.key,
             value,
             locale.code,
+            "ui",
             "integrations-window"
           );
 
-          if (inserted) {
+          if (result.inserted || result.updated) {
             count++;
           }
         }

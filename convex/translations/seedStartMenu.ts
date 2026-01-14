@@ -333,6 +333,50 @@ export const seed = internalMutation({
           ja: "ユーザーアカウント",
         }
       },
+      {
+        key: "ui.app.benefits",
+        values: {
+          en: "Benefits",
+          de: "Vorteile",
+          pl: "Korzyści",
+          es: "Beneficios",
+          fr: "Avantages",
+          ja: "特典",
+        }
+      },
+      {
+        key: "ui.windows.benefits.title",
+        values: {
+          en: "Benefits",
+          de: "Vorteile",
+          pl: "Korzyści",
+          es: "Beneficios",
+          fr: "Avantages",
+          ja: "特典",
+        }
+      },
+      {
+        key: "ui.app.booking",
+        values: {
+          en: "Booking",
+          de: "Buchungen",
+          pl: "Rezerwacje",
+          es: "Reservas",
+          fr: "Réservations",
+          ja: "予約",
+        }
+      },
+      {
+        key: "ui.windows.booking.title",
+        values: {
+          en: "Booking",
+          de: "Buchungen",
+          pl: "Rezerwacje",
+          es: "Reservas",
+          fr: "Réservations",
+          ja: "予約",
+        }
+      },
 
       // === SYSTEM APPS ===
       {

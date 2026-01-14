@@ -193,6 +193,7 @@ export const addonCalculationHandler: BehaviorHandler<
     inputs: InputSource[],
     _context: Readonly<BehaviorContext>
   ): ExtractedAddonData | null => {
+    void _context; // Required by interface but not used in this handler
     const addonQuantities: ExtractedAddonData["addonQuantities"] = [];
     const missingFields: string[] = [];
 
@@ -302,6 +303,7 @@ export const addonCalculationHandler: BehaviorHandler<
     config: AddonCalculationConfig,
     _context?: Partial<BehaviorContext>
   ): ValidationError[] => {
+    void _context; // Required by interface but not used in this handler
     const errors: ValidationError[] = [];
 
     // Check required fields
@@ -418,6 +420,7 @@ export const addonCalculationHandler: BehaviorHandler<
     extracted: ExtractedAddonData,
     _context: Readonly<BehaviorContext>
   ): BehaviorResult<AddonCalculationResult> => {
+    void _context; // Required by interface but not used in this handler
     const { addonQuantities, missingFields } = extracted;
 
     // Check for missing required fields

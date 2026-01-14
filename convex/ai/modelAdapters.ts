@@ -22,7 +22,8 @@ export type ToolCallMessage = {
 export type ToolResultMessage = {
   role: "tool";
   content: string;
-  [key: string]: any; // Allow provider-specific fields
+  tool_call_id?: string;
+  name?: string;
 };
 
 /**
@@ -45,7 +46,7 @@ export function formatToolResult(
   provider: string,
   toolCallId: string,
   toolName: string,
-  result: any
+  result: unknown
 ): ToolResultMessage {
   const baseMessage: ToolResultMessage = {
     role: "tool",

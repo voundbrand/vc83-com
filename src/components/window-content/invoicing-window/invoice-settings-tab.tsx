@@ -38,7 +38,7 @@ import { Id } from "../../../../convex/_generated/dataModel";
 export function InvoiceSettingsTab() {
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
-  const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.invoicing_window");
+  const { isLoading: translationsLoading } = useNamespaceTranslations("ui.invoicing_window");
   const notification = useNotification();
   const { openWindow } = useWindowManager();
 
@@ -379,6 +379,7 @@ export function InvoiceSettingsTab() {
                 }}
               >
                 {logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img src={logoUrl} alt="Company Logo" className="max-w-full max-h-full object-contain" />
                 ) : (
                   <div className="text-center">

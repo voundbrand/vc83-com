@@ -1,52 +1,56 @@
 "use client"
 
 import { useState } from "react"
-import { Code2, FileText, CheckCircle, XCircle, AlertTriangle } from "lucide-react"
-import { ProjectForm } from "@/components/forms/project-form"
-import { MilestoneForm } from "@/components/forms/milestone-form"
-import { ContactForm } from "@/components/forms/contact-form"
+import { FileText, AlertTriangle } from "lucide-react"
 import type { Id } from "../../../../../convex/_generated/dataModel"
+
+// Type for tool execution parameters with common fields
+interface ToolParameters {
+  action?: string
+  name?: string
+  description?: string
+  status?: string
+  startDate?: string
+  endDate?: string
+  dueDate?: string
+  progress?: number
+  email?: string
+  phone?: string
+  organization?: string
+  jobTitle?: string
+  location?: string
+  notes?: string
+  [key: string]: unknown
+}
 
 interface ToolExecution {
   _id: Id<"aiToolExecutions">
   toolName: string
-  parameters: any
+  parameters: ToolParameters
   proposalMessage?: string
   status: string
 }
 
 interface EditableProposalViewProps {
   execution: ToolExecution
-  showJson: boolean
-  onToggleJson: () => void
-  onApprove: (executionId: Id<"aiToolExecutions">, dontAskAgain: boolean, editedParams?: any) => void
+  onApprove: (executionId: Id<"aiToolExecutions">, dontAskAgain: boolean) => void
   onReject: (executionId: Id<"aiToolExecutions">) => void
   onCustomInstruction?: (executionId: Id<"aiToolExecutions">, instruction: string) => void
 }
 
 export function EditableProposalView({
   execution,
-  showJson,
-  onToggleJson,
   onApprove,
   onReject,
   onCustomInstruction,
 }: EditableProposalViewProps) {
-  const [editMode, setEditMode] = useState(false) // Start in review mode
-  const [editedParams, setEditedParams] = useState(execution.parameters)
-  const [hasChanges, setHasChanges] = useState(false)
   const [showCustomInput, setShowCustomInput] = useState(false)
   const [customText, setCustomText] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleFormChange = (newParams: any) => {
-    setEditedParams(newParams)
-    setHasChanges(JSON.stringify(newParams) !== JSON.stringify(execution.parameters))
-  }
-
   const handleApprove = async (dontAskAgain: boolean = false) => {
     setIsLoading(true)
-    await onApprove(execution._id, dontAskAgain, hasChanges ? editedParams : execution.parameters)
+    await onApprove(execution._id, dontAskAgain)
     setIsLoading(false)
   }
 
@@ -65,83 +69,7 @@ export function EditableProposalView({
     setIsLoading(false)
   }
 
-  // Determine which form to show based on tool name and action
-  const getFormComponent = () => {
-    const action = execution.parameters?.action || ""
-
-    if (execution.toolName === "manage_projects") {
-      if (action === "create_project") {
-        return (
-          <ProjectForm
-            mode="create"
-            initialValues={{
-              name: execution.parameters.name || "",
-              description: execution.parameters.description,
-              status: execution.parameters.status,
-              startDate: execution.parameters.startDate,
-              endDate: execution.parameters.endDate,
-            }}
-            onChange={handleFormChange}
-            showJson={showJson}
-          />
-        )
-      }
-
-      if (action === "create_milestone") {
-        return (
-          <MilestoneForm
-            mode="create"
-            initialValues={{
-              name: execution.parameters.name || "",
-              description: execution.parameters.description,
-              dueDate: execution.parameters.dueDate,
-              status: execution.parameters.status,
-              progress: execution.parameters.progress,
-            }}
-            onChange={handleFormChange}
-            showJson={showJson}
-          />
-        )
-      }
-    }
-
-    if (execution.toolName === "manage_crm") {
-      if (action === "create_contact") {
-        return (
-          <ContactForm
-            mode="create"
-            initialValues={{
-              name: execution.parameters.name || "",
-              email: execution.parameters.email,
-              phone: execution.parameters.phone,
-              organization: execution.parameters.organization,
-              jobTitle: execution.parameters.jobTitle,
-              location: execution.parameters.location,
-              notes: execution.parameters.notes,
-            }}
-            onChange={handleFormChange}
-            showJson={showJson}
-          />
-        )
-      }
-    }
-
-    // Fallback: Show JSON for unsupported tools
-    return (
-      <pre
-        className="text-xs p-3 rounded overflow-x-auto font-mono"
-        style={{
-          background: 'var(--win95-input-bg)',
-          color: 'var(--win95-text)',
-          border: '2px solid var(--win95-border)'
-        }}
-      >
-        {JSON.stringify(execution.parameters, null, 2)}
-      </pre>
-    )
-  }
-
-  // Get read-only parameter preview (for review mode)
+  // Get read-only parameter preview
   const getParameterPreview = () => {
     const action = execution.parameters?.action || ""
 
@@ -150,26 +78,26 @@ export function EditableProposalView({
         return (
           <div className="space-y-2 text-sm" style={{ color: 'var(--win95-text)' }}>
             <div>
-              <span className="font-semibold">Name:</span> {execution.parameters.name || "N/A"}
+              <span className="font-semibold">Name:</span> {String(execution.parameters.name || "N/A")}
             </div>
             {execution.parameters.description && (
               <div>
-                <span className="font-semibold">Description:</span> {execution.parameters.description}
+                <span className="font-semibold">Description:</span> {String(execution.parameters.description)}
               </div>
             )}
             {execution.parameters.status && (
               <div>
-                <span className="font-semibold">Status:</span> {execution.parameters.status}
+                <span className="font-semibold">Status:</span> {String(execution.parameters.status)}
               </div>
             )}
             {execution.parameters.startDate && (
               <div>
-                <span className="font-semibold">Start Date:</span> {new Date(execution.parameters.startDate).toLocaleDateString()}
+                <span className="font-semibold">Start Date:</span> {new Date(String(execution.parameters.startDate)).toLocaleDateString()}
               </div>
             )}
             {execution.parameters.endDate && (
               <div>
-                <span className="font-semibold">End Date:</span> {new Date(execution.parameters.endDate).toLocaleDateString()}
+                <span className="font-semibold">End Date:</span> {new Date(String(execution.parameters.endDate)).toLocaleDateString()}
               </div>
             )}
           </div>
@@ -180,26 +108,26 @@ export function EditableProposalView({
         return (
           <div className="space-y-2 text-sm" style={{ color: 'var(--win95-text)' }}>
             <div>
-              <span className="font-semibold">Name:</span> {execution.parameters.name || "N/A"}
+              <span className="font-semibold">Name:</span> {String(execution.parameters.name || "N/A")}
             </div>
             {execution.parameters.description && (
               <div>
-                <span className="font-semibold">Description:</span> {execution.parameters.description}
+                <span className="font-semibold">Description:</span> {String(execution.parameters.description)}
               </div>
             )}
             {execution.parameters.dueDate && (
               <div>
-                <span className="font-semibold">Due Date:</span> {new Date(execution.parameters.dueDate).toLocaleDateString()}
+                <span className="font-semibold">Due Date:</span> {new Date(String(execution.parameters.dueDate)).toLocaleDateString()}
               </div>
             )}
             {execution.parameters.status && (
               <div>
-                <span className="font-semibold">Status:</span> {execution.parameters.status}
+                <span className="font-semibold">Status:</span> {String(execution.parameters.status)}
               </div>
             )}
             {execution.parameters.progress !== undefined && (
               <div>
-                <span className="font-semibold">Progress:</span> {execution.parameters.progress}%
+                <span className="font-semibold">Progress:</span> {String(execution.parameters.progress)}%
               </div>
             )}
           </div>
@@ -212,36 +140,36 @@ export function EditableProposalView({
         return (
           <div className="space-y-2 text-sm" style={{ color: 'var(--win95-text)' }}>
             <div>
-              <span className="font-semibold">Name:</span> {execution.parameters.name || "N/A"}
+              <span className="font-semibold">Name:</span> {String(execution.parameters.name || "N/A")}
             </div>
             {execution.parameters.email && (
               <div>
-                <span className="font-semibold">Email:</span> {execution.parameters.email}
+                <span className="font-semibold">Email:</span> {String(execution.parameters.email)}
               </div>
             )}
             {execution.parameters.phone && (
               <div>
-                <span className="font-semibold">Phone:</span> {execution.parameters.phone}
+                <span className="font-semibold">Phone:</span> {String(execution.parameters.phone)}
               </div>
             )}
             {execution.parameters.organization && (
               <div>
-                <span className="font-semibold">Organization:</span> {execution.parameters.organization}
+                <span className="font-semibold">Organization:</span> {String(execution.parameters.organization)}
               </div>
             )}
             {execution.parameters.jobTitle && (
               <div>
-                <span className="font-semibold">Job Title:</span> {execution.parameters.jobTitle}
+                <span className="font-semibold">Job Title:</span> {String(execution.parameters.jobTitle)}
               </div>
             )}
             {execution.parameters.location && (
               <div>
-                <span className="font-semibold">Location:</span> {execution.parameters.location}
+                <span className="font-semibold">Location:</span> {String(execution.parameters.location)}
               </div>
             )}
             {execution.parameters.notes && (
               <div>
-                <span className="font-semibold">Notes:</span> {execution.parameters.notes}
+                <span className="font-semibold">Notes:</span> {String(execution.parameters.notes)}
               </div>
             )}
           </div>
@@ -268,70 +196,16 @@ export function EditableProposalView({
     <div className="flex flex-col h-full">
       {/* Header */}
       <div
-        className="flex items-center justify-between gap-2 p-3 border-b-2"
+        className="flex items-center gap-2 p-3 border-b-2"
         style={{
           borderColor: 'var(--win95-border-dark)',
           background: 'var(--win95-title-bg)'
         }}
       >
-        <div className="flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4" style={{ color: 'var(--warning)' }} />
-          <span className="text-sm font-semibold" style={{ color: 'var(--win95-text)' }}>
-            {editMode ? "Edit Proposal" : "Review Proposal"}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Edit Mode Toggle */}
-          <button
-            onClick={() => setEditMode(!editMode)}
-            className="px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors"
-            style={{
-              borderColor: 'var(--win95-border)',
-              background: editMode ? 'var(--win95-highlight)' : 'var(--win95-bg-light)',
-              color: editMode ? 'white' : 'var(--win95-text)',
-            }}
-            onMouseEnter={(e) => {
-              if (!editMode) {
-                e.currentTarget.style.background = 'var(--win95-hover-light)'
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!editMode) {
-                e.currentTarget.style.background = 'var(--win95-bg-light)'
-              }
-            }}
-          >
-            <FileText className="w-3 h-3" />
-            {editMode ? "Review Mode" : "Edit Mode"}
-          </button>
-
-          {/* JSON Toggle (only in edit mode) */}
-          {editMode && (
-            <button
-              onClick={onToggleJson}
-              className="px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors"
-              style={{
-                borderColor: 'var(--win95-border)',
-                background: showJson ? 'var(--win95-highlight)' : 'var(--win95-bg-light)',
-                color: showJson ? 'white' : 'var(--win95-text)',
-              }}
-              onMouseEnter={(e) => {
-                if (!showJson) {
-                  e.currentTarget.style.background = 'var(--win95-hover-light)'
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!showJson) {
-                  e.currentTarget.style.background = 'var(--win95-bg-light)'
-                }
-              }}
-            >
-              <Code2 className="w-3 h-3" />
-              {showJson ? "Form View" : "JSON View"}
-            </button>
-          )}
-        </div>
+        <AlertTriangle className="w-4 h-4" style={{ color: 'var(--warning)' }} />
+        <span className="text-sm font-semibold" style={{ color: 'var(--win95-text)' }}>
+          Review Proposal
+        </span>
       </div>
 
       {/* Content */}
@@ -365,46 +239,25 @@ export function EditableProposalView({
             Tool: <span className="font-mono" style={{ color: 'var(--win95-text)' }}>{execution.toolName}</span>
           </p>
           <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
-            Action: <span className="font-mono" style={{ color: 'var(--win95-text)' }}>{execution.parameters?.action || "N/A"}</span>
+            Action: <span className="font-mono" style={{ color: 'var(--win95-text)' }}>{String(execution.parameters?.action || "N/A")}</span>
           </p>
         </div>
 
-        {/* Parameters: Review or Edit Mode */}
+        {/* Parameters */}
         <div className="mb-4">
           <p className="text-xs font-semibold mb-2" style={{ color: 'var(--win95-text)' }}>
-            {editMode && hasChanges ? "✏️ Modified Parameters" : "Parameters"}
+            Parameters
           </p>
-
-          {editMode ? (
-            // Edit Mode: Show editable forms
-            getFormComponent()
-          ) : (
-            // Review Mode: Show read-only preview
-            <div
-              className="p-3 rounded border-2"
-              style={{
-                background: 'var(--win95-bg)',
-                borderColor: 'var(--win95-border)'
-              }}
-            >
-              {getParameterPreview()}
-            </div>
-          )}
-        </div>
-
-        {/* Change Indicator (only in edit mode) */}
-        {editMode && hasChanges && !showJson && (
           <div
-            className="p-2 border-2 rounded text-xs"
+            className="p-3 rounded border-2"
             style={{
-              borderColor: 'var(--warning)',
-              background: 'var(--warning-bg)',
-              color: 'var(--warning)'
+              background: 'var(--win95-bg)',
+              borderColor: 'var(--win95-border)'
             }}
           >
-            ⚠️ You have modified the AI's proposal. The tool will execute with your changes.
+            {getParameterPreview()}
           </div>
-        )}
+        </div>
       </div>
 
       {/* Custom Instruction Input */}
@@ -462,7 +315,7 @@ export function EditableProposalView({
           }}
         >
           <span className="font-bold" style={{ color: 'var(--win95-highlight)' }}>1</span>
-          {" "}Yes{hasChanges ? " (with edits)" : ""}
+          {" "}Yes
         </button>
 
         <button

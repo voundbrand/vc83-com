@@ -20,7 +20,7 @@ import { modernMinimalTranslations } from "./translations";
  * Uses purple (#6B46C1) to match Professional PDF ticket and invoice templates.
  */
 export function ModernMinimalTemplate(props: EmailTemplateProps): EmailTemplateOutput {
-  const { ticket, event, attendee, domain, branding, language } = props;
+  const { event, attendee, domain, branding, language } = props;
 
   const t = modernMinimalTranslations[language];
   const primaryColor = branding.primaryColor || '#6B46C1'; // Professional purple (matches PDFs)

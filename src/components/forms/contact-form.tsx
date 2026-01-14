@@ -20,7 +20,7 @@ interface ContactFormProps {
   showJson?: boolean
 }
 
-export function ContactForm({ mode, initialValues, onChange, showJson }: ContactFormProps) {
+export function ContactForm({ initialValues, onChange, showJson }: ContactFormProps) {
   const [formData, setFormData] = useState<ContactFormData>(initialValues)
 
   // Update parent when form changes

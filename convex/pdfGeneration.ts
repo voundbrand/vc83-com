@@ -109,3 +109,15 @@ export const generateEventAttendeeListPDF = action({
     return await ctx.runAction(api.pdf.ticketPdf.generateEventAttendeeListPDF, args);
   },
 });
+
+/**
+ * GENERATE EVENT ATTENDEE LIST CSV
+ */
+export const generateEventAttendeeListCSV = action({
+  args: {
+    eventId: v.id("objects"),
+  },
+  handler: async (ctx, args): Promise<PDFAttachment | null> => {
+    return await ctx.runAction(api.pdf.ticketPdf.generateEventAttendeeListCSV, args);
+  },
+});

@@ -161,8 +161,9 @@ export const invoiceMappingHandler: BehaviorHandler<
   extract: (
     config: InvoiceMappingConfig,
     inputs: InputSource[],
-    context: Readonly<BehaviorContext>
+    _context: Readonly<BehaviorContext>
   ): ExtractedInvoiceData | null => {
+    void _context; // Required by interface but not used in this handler
     // Find first input that has the organization field
     for (const input of inputs) {
       const orgValue = input.data[config.organizationSourceField];
@@ -299,8 +300,9 @@ export const invoiceMappingHandler: BehaviorHandler<
    */
   validate: (
     config: InvoiceMappingConfig,
-    context?: Partial<BehaviorContext>
+    _context?: Partial<BehaviorContext>
   ): ValidationError[] => {
+    void _context; // Required by interface but not used in this handler
     const errors: ValidationError[] = [];
 
     // Check required fields

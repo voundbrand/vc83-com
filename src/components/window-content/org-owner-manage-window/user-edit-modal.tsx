@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, User, Shield, Save, AlertCircle, Mail, Trash2, Clock } from "lucide-react";
+import { X, User, Shield, Save, AlertCircle, Mail, Clock } from "lucide-react";
 import { useMutation, useQuery, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";

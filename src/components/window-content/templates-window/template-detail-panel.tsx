@@ -38,7 +38,6 @@ import type { Id } from "../../../../convex/_generated/dataModel";
 import { useState } from "react";
 import {
   getTemplateTypeIcon,
-  getTemplateTypeTranslationKey,
   isValidEmailTemplateType,
   isValidPdfTemplateType,
 } from "@/templates/template-types";

@@ -193,8 +193,9 @@ function inferVariableType(name: string): EmailTemplateVariable["type"] {
  */
 export function renderEmailFromSchema(
   schema: EmailTemplateSchema,
-  options: EmailTemplateRenderOptions
+  _options: EmailTemplateRenderOptions
 ): string {
+  void _options; // Preserved for future renderer implementation
   // This will be implemented with the email renderer
   // For now, return a placeholder
   return `<!-- Email template: ${schema.name} -->`;

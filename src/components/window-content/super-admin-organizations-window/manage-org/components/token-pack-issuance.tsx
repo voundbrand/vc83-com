@@ -192,7 +192,7 @@ export function TokenPackIssuance({
           </label>
           <select
             value={packSize}
-            onChange={(e) => handlePackChange(e.target.value as any)}
+            onChange={(e) => handlePackChange(e.target.value as "1M" | "5M" | "10M" | "50M" | "custom")}
             className="w-full px-3 py-2 text-sm border-2"
             style={{
               borderColor: "var(--win95-border)",

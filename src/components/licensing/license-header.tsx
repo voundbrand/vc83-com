@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, AlertCircle, User } from "lucide-react";
+import { Clock, AlertCircle } from "lucide-react";
 
 interface LicenseHeaderProps {
   license: {

@@ -423,12 +423,14 @@ export const oauthConnections = defineTable({
   provider: v.union(
     v.literal("microsoft"),
     v.literal("google"),
+    v.literal("apple"),
     v.literal("slack"),
     v.literal("salesforce"),
     v.literal("dropbox"),
     v.literal("github"),
     v.literal("vercel"),
-    v.literal("okta")
+    v.literal("okta"),
+    v.literal("activecampaign")
     // Add more providers as needed - no DB migration required!
   ),
   providerAccountId: v.string(),               // Provider's unique user ID
@@ -480,18 +482,25 @@ export const oauthConnections = defineTable({
   .index("by_status", ["status"])                                       // Find connections by status
   .index("by_org_and_provider", ["organizationId", "provider"]);        // Find connections by org and provider
 
-// OAuth State Tokens - CSRF protection for OAuth flows
+// CLI Sessions - Authenticated CLI users (bcrypt hashed tokens)
 export const cliSessions = defineTable({
   // CLI session for authenticated CLI users
   userId: v.id("users"),
   email: v.string(),
   organizationId: v.id("organizations"),
-  cliToken: v.string(),                        // Format: cli_session_{32_random_bytes}
+
+  // Token storage (bcrypt hashed for security)
+  // DEPRECATED: cliToken - kept for backward compatibility during migration
+  cliToken: v.optional(v.string()),            // OLD: plaintext token (to be removed)
+  tokenHash: v.optional(v.string()),           // NEW: bcrypt hash of full token
+  tokenPrefix: v.optional(v.string()),         // NEW: first 20 chars for lookup ("cli_session_abc123")
+
   createdAt: v.number(),
   expiresAt: v.number(),                       // 30 days from creation
   lastUsedAt: v.number(),
 })
-  .index("by_token", ["cliToken"])
+  .index("by_token", ["cliToken"])             // DEPRECATED: for backward compat during migration
+  .index("by_token_prefix", ["tokenPrefix"])   // NEW: fast prefix lookup, then bcrypt verify
   .index("by_user", ["userId"])
   .index("by_organization", ["organizationId"]);
 
@@ -514,6 +523,7 @@ export const oauthSignupStates = defineTable({
   provider: v.union(v.literal("microsoft"), v.literal("google"), v.literal("github")), // OAuth provider
   organizationName: v.optional(v.string()),    // Optional organization name for new accounts
   cliToken: v.optional(v.string()),            // Pre-generated CLI token (only for CLI sessions)
+  cliState: v.optional(v.string()),            // CLI's original state for CSRF protection (returned in callback)
   createdAt: v.number(),
   expiresAt: v.number(),                      // 10 minutes
 })
@@ -532,12 +542,13 @@ export const oauthStates = defineTable({
     v.literal("microsoft"),
     v.literal("github"),
     v.literal("google"),
+    v.literal("apple"),
     v.literal("slack"),
     v.literal("salesforce"),
     v.literal("dropbox"),
-    v.literal("github"),
     v.literal("vercel"),
-    v.literal("okta")
+    v.literal("okta"),
+    v.literal("activecampaign")
   ),
   connectionType: v.union(
     v.literal("personal"),
@@ -567,3 +578,109 @@ export const webhookSubscriptions = defineTable({
   .index("by_organization", ["organizationId"])
   .index("by_event", ["event", "isActive"])
   .index("by_organization_event", ["organizationId", "event"]);
+
+// ============================================================================
+// MULTI-PROVIDER IDENTITY SYSTEM
+// ============================================================================
+// Enables users to sign in with multiple OAuth providers (Google, Apple, Microsoft)
+// and link them to a single user account. Supports account collision detection
+// and explicit linking confirmation.
+
+/**
+ * User Identities - Links OAuth providers to platform users
+ *
+ * Each user can have multiple identities (e.g., Google + Apple + Microsoft).
+ * Primary identity is used for display purposes and email preferences.
+ *
+ * Key lookup patterns:
+ * 1. By provider + providerUserId: Find user by OAuth provider's unique ID
+ * 2. By email: Detect account collisions when same email from different provider
+ * 3. By user: List all linked providers for a user
+ */
+export const userIdentities = defineTable({
+  // Link to platform user
+  userId: v.id("users"),
+
+  // OAuth provider identification
+  provider: v.union(
+    v.literal("google"),
+    v.literal("apple"),
+    v.literal("microsoft"),
+    v.literal("github"),
+    v.literal("password")                      // For users who sign up with email/password
+  ),
+  providerUserId: v.string(),                  // Provider's unique user ID (e.g., Apple's "sub", Google's "id")
+  providerEmail: v.string(),                   // Email from provider (may be Apple relay)
+
+  // Apple-specific: Handle private relay emails
+  isApplePrivateRelay: v.optional(v.boolean()), // True if @privaterelay.appleid.com
+  realEmailHint: v.optional(v.string()),        // User-provided real email for linking
+
+  // Identity status
+  isPrimary: v.boolean(),                      // Primary identity for this user
+  isVerified: v.boolean(),                     // Email verified by provider
+
+  // Timestamps
+  connectedAt: v.number(),                     // When identity was linked
+  lastUsedAt: v.optional(v.number()),          // Last successful login with this identity
+
+  // Provider-specific metadata (profile picture, name, etc.)
+  metadata: v.optional(v.any()),
+})
+  .index("by_user", ["userId"])                                    // List all identities for a user
+  .index("by_provider_user", ["provider", "providerUserId"])       // Primary lookup: find user by OAuth ID
+  .index("by_email", ["providerEmail"])                            // Collision detection: find by email
+  .index("by_user_provider", ["userId", "provider"]);              // Check if user has specific provider
+
+/**
+ * Account Linking States - Temporary state for account linking flow
+ *
+ * When a user signs in with a new provider but the email matches an existing account,
+ * we create a linking state and prompt the user to confirm linking.
+ *
+ * Flow:
+ * 1. User signs in with Apple → email matches existing Google account
+ * 2. Backend creates linking state, returns { requiresLinking: true, linkingState: "..." }
+ * 3. Mobile shows prompt: "Link to existing account?"
+ * 4. User confirms → POST /api/v1/auth/link-account/confirm
+ * 5. Backend links identity, completes login
+ *
+ * States expire after 15 minutes for security.
+ */
+export const accountLinkingStates = defineTable({
+  // Security token
+  state: v.string(),                           // UUID for request validation
+
+  // Source: The new OAuth login attempt
+  sourceProvider: v.union(
+    v.literal("google"),
+    v.literal("apple"),
+    v.literal("microsoft"),
+    v.literal("github")
+  ),
+  sourceProviderUserId: v.string(),            // Provider's user ID
+  sourceEmail: v.string(),                     // Email from new provider
+  sourceName: v.optional(v.string()),          // Name from new provider
+  sourceIdToken: v.optional(v.string()),       // Encrypted ID token for re-verification
+
+  // Target: The existing account to link to
+  targetUserId: v.id("users"),                 // Existing user ID
+  targetEmail: v.string(),                     // Existing user's email (for display)
+  targetProvider: v.optional(v.string()),      // Primary provider of existing account
+
+  // Linking status
+  status: v.union(
+    v.literal("pending"),                      // Awaiting user confirmation
+    v.literal("confirmed"),                    // User confirmed, linking complete
+    v.literal("rejected"),                     // User rejected linking
+    v.literal("expired")                       // State expired (15 min timeout)
+  ),
+
+  // Timestamps
+  createdAt: v.number(),
+  expiresAt: v.number(),                       // 15 minutes from creation
+  resolvedAt: v.optional(v.number()),          // When confirmed/rejected
+})
+  .index("by_state", ["state"])                // Primary lookup
+  .index("by_target_user", ["targetUserId", "status"])  // Find pending links for user
+  .index("by_source_provider", ["sourceProvider", "sourceProviderUserId"]); // Prevent duplicate link requests

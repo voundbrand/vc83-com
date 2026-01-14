@@ -28,10 +28,11 @@ export async function GET(request: NextRequest) {
     // If provider was specified, redirect directly to OAuth
     // Otherwise, redirect to provider selection page
     return NextResponse.redirect(result.authUrl);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("CLI login initiation error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Failed to initiate CLI login", error_description: error.message },
+      { error: "Failed to initiate CLI login", error_description: errorMessage },
       { status: 500 }
     );
   }

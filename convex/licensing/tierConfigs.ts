@@ -63,6 +63,11 @@ export interface TierLimits {
   maxWorkflows: number;
   maxBehaviorsPerWorkflow: number;
 
+  // Sequences (Multi-channel automation)
+  maxSequences: number;
+  maxStepsPerSequence: number;
+  maxMessageTemplates: number;
+
   // Templates
   maxCustomTemplates: number;
 
@@ -84,6 +89,19 @@ export interface TierLimits {
 
   // Audit
   auditLogRetentionDays: number;
+
+  // Benefits Platform
+  maxBenefits: number;
+  maxCommissions: number;
+  maxBenefitClaimsPerMonth: number;
+  maxCommissionPayoutsPerMonth: number;
+
+  // Bookings
+  maxLocations: number;
+  maxBookableResources: number;
+  maxBookingsPerMonth: number;
+  maxRecurringSeriesLength: number;
+  maxResourcesPerBooking: number;
 }
 
 export interface TierFeatures {
@@ -95,24 +113,29 @@ export interface TierFeatures {
   whiteLabelLevel: "none" | "badge_removal" | "full" | "full_with_api_domain";
 
   // CRM
+  crmEnabled: boolean;
   contactImportExportEnabled: boolean;
   contactSyncEnabled: boolean;
   bulkEmailEnabled: boolean;
 
   // Projects
+  projectsEnabled: boolean;
   budgetTrackingEnabled: boolean;
   advancedReportsEnabled: boolean;
 
   // Events
+  eventsEnabled: boolean;
   mediaGalleryEnabled: boolean;
   eventAnalyticsEnabled: boolean;
 
   // Products
+  productsEnabled: boolean;
   inventoryTrackingEnabled: boolean;
   b2bInvoicingEnabled: boolean;
   templateSetOverridesEnabled: boolean;
 
   // Checkout
+  checkoutEnabled: boolean;
   stripeConnectEnabled: boolean;
   invoicePaymentEnabled: boolean;
   manualPaymentEnabled: boolean;
@@ -121,6 +144,7 @@ export interface TierFeatures {
   stripeTaxEnabled: boolean;
 
   // Invoicing
+  invoicingEnabled: boolean;
   consolidatedInvoicingEnabled: boolean;
   multiCurrencyEnabled: boolean;
   automatedGenerationEnabled: boolean;
@@ -128,27 +152,34 @@ export interface TierFeatures {
   customTemplatesEnabled: boolean;
 
   // Forms
+  formsEnabled: boolean;
   multiStepFormsEnabled: boolean;
   conditionalLogicEnabled: boolean;
   fileUploadsEnabled: boolean;
   formAnalyticsEnabled: boolean;
 
   // Web Publishing
+  webPublishingEnabled: boolean;
   seoToolsEnabled: boolean;
   contentRulesEnabled: boolean;
   pageAnalyticsEnabled: boolean;
   vercelDeploymentEnabled: boolean;
 
   // Workflows
+  workflowsEnabled: boolean;
   workflowTemplatesEnabled: boolean;
   advancedConditionsEnabled: boolean;
   testModeEnabled: boolean;
 
   // Templates
+  templatesEnabled: boolean;
   templateSetsEnabled: boolean;
   templateVersioningEnabled: boolean;
   advancedEditorEnabled: boolean;
   templateSharingEnabled: boolean;
+
+  // Certificates
+  certificatesEnabled: boolean;
 
   // Media
   folderOrganizationEnabled: boolean;
@@ -188,6 +219,24 @@ export interface TierFeatures {
   // Audit
   detailedLogsEnabled: boolean;
   auditLogExportEnabled: boolean;
+
+  // Benefits Platform
+  benefitsEnabled: boolean;
+  commissionsEnabled: boolean;
+  cryptoPayoutsEnabled: boolean;
+  benefitsAnalyticsEnabled: boolean;
+
+  // Bookings
+  bookingsEnabled: boolean;
+  recurringBookingsEnabled: boolean;
+  multiResourceBookingsEnabled: boolean;
+  depositPaymentsEnabled: boolean;
+  bookingRemindersEnabled: boolean;
+  bufferTimeEnabled: boolean;
+  multiLocationEnabled: boolean;
+
+  // Sequences (Multi-channel automation)
+  sequencesEnabled: boolean;
 }
 
 export interface TierConfig {
@@ -261,6 +310,11 @@ export const FREE_TIER: TierConfig = {
     maxWorkflows: 2,
     maxBehaviorsPerWorkflow: 5,
 
+    // Sequences
+    maxSequences: 0,
+    maxStepsPerSequence: 0,
+    maxMessageTemplates: 0,
+
     // Templates
     maxCustomTemplates: 0,
 
@@ -282,6 +336,19 @@ export const FREE_TIER: TierConfig = {
 
     // Audit
     auditLogRetentionDays: 7,
+
+    // Benefits Platform
+    maxBenefits: 0,
+    maxCommissions: 0,
+    maxBenefitClaimsPerMonth: 0,
+    maxCommissionPayoutsPerMonth: 0,
+
+    // Bookings
+    maxLocations: 1,
+    maxBookableResources: 3,
+    maxBookingsPerMonth: 20,
+    maxRecurringSeriesLength: 0, // No recurring on Free
+    maxResourcesPerBooking: 1,
   },
 
   features: {
@@ -293,24 +360,29 @@ export const FREE_TIER: TierConfig = {
     whiteLabelLevel: "none",
 
     // CRM
+    crmEnabled: false,
     contactImportExportEnabled: false,
     contactSyncEnabled: false,
     bulkEmailEnabled: false,
 
     // Projects
+    projectsEnabled: false,
     budgetTrackingEnabled: false,
     advancedReportsEnabled: false,
 
     // Events
+    eventsEnabled: false,
     mediaGalleryEnabled: false,
     eventAnalyticsEnabled: false,
 
     // Products
+    productsEnabled: false,
     inventoryTrackingEnabled: false,
     b2bInvoicingEnabled: false,
     templateSetOverridesEnabled: false,
 
     // Checkout
+    checkoutEnabled: false,
     stripeConnectEnabled: false,
     invoicePaymentEnabled: false,
     manualPaymentEnabled: false,
@@ -319,6 +391,7 @@ export const FREE_TIER: TierConfig = {
     stripeTaxEnabled: false,
 
     // Invoicing
+    invoicingEnabled: false,
     consolidatedInvoicingEnabled: false,
     multiCurrencyEnabled: false,
     automatedGenerationEnabled: false,
@@ -326,33 +399,40 @@ export const FREE_TIER: TierConfig = {
     customTemplatesEnabled: false,
 
     // Forms
+    formsEnabled: false,
     multiStepFormsEnabled: false,
     conditionalLogicEnabled: false,
     fileUploadsEnabled: false,
     formAnalyticsEnabled: false,
 
     // Web Publishing
+    webPublishingEnabled: false,
     seoToolsEnabled: false,
     contentRulesEnabled: false,
     pageAnalyticsEnabled: false,
     vercelDeploymentEnabled: true, // Free tier can deploy to Vercel
 
     // Workflows
+    workflowsEnabled: false,
     workflowTemplatesEnabled: false,
     advancedConditionsEnabled: false,
     testModeEnabled: false,
 
     // Templates (enabled for Free to allow system template access)
+    templatesEnabled: false,
     templateSetsEnabled: true,
     templateVersioningEnabled: false,
     advancedEditorEnabled: false,
     templateSharingEnabled: false,
 
+    // Certificates
+    certificatesEnabled: false,
+
     // Media
     folderOrganizationEnabled: false,
     cloudIntegrationEnabled: false,
 
-    // Certificates
+    // Certificates (sub-features)
     customCertificateTemplatesEnabled: false,
     automatedCertificateDeliveryEnabled: false,
     qrCodeEnabled: false,
@@ -386,6 +466,24 @@ export const FREE_TIER: TierConfig = {
     // Audit
     detailedLogsEnabled: false,
     auditLogExportEnabled: false,
+
+    // Benefits Platform
+    benefitsEnabled: false,
+    commissionsEnabled: false,
+    cryptoPayoutsEnabled: false,
+    benefitsAnalyticsEnabled: false,
+
+    // Bookings
+    bookingsEnabled: true,
+    recurringBookingsEnabled: false,
+    multiResourceBookingsEnabled: false,
+    depositPaymentsEnabled: false,
+    bookingRemindersEnabled: false,
+    bufferTimeEnabled: false,
+    multiLocationEnabled: false,
+
+    // Sequences
+    sequencesEnabled: false,
   },
 };
 
@@ -443,6 +541,11 @@ export const STARTER_TIER: TierConfig = {
     maxWorkflows: 10,
     maxBehaviorsPerWorkflow: 20,
 
+    // Sequences
+    maxSequences: 10,
+    maxStepsPerSequence: 10,
+    maxMessageTemplates: 20,
+
     // Templates
     maxCustomTemplates: 10,
 
@@ -464,6 +567,19 @@ export const STARTER_TIER: TierConfig = {
 
     // Audit
     auditLogRetentionDays: 30,
+
+    // Benefits Platform
+    maxBenefits: 10,
+    maxCommissions: 5,
+    maxBenefitClaimsPerMonth: 50,
+    maxCommissionPayoutsPerMonth: 10,
+
+    // Bookings
+    maxLocations: 3,
+    maxBookableResources: 20,
+    maxBookingsPerMonth: 200,
+    maxRecurringSeriesLength: 12, // 12 weeks
+    maxResourcesPerBooking: 3,
   },
 
   features: {
@@ -475,24 +591,29 @@ export const STARTER_TIER: TierConfig = {
     whiteLabelLevel: "none",
 
     // CRM
+    crmEnabled: true,
     contactImportExportEnabled: true,
     contactSyncEnabled: false,
     bulkEmailEnabled: true,
 
     // Projects
+    projectsEnabled: true,
     budgetTrackingEnabled: true,
     advancedReportsEnabled: false,
 
     // Events
+    eventsEnabled: true,
     mediaGalleryEnabled: true,
     eventAnalyticsEnabled: false,
 
     // Products
+    productsEnabled: true,
     inventoryTrackingEnabled: true,
     b2bInvoicingEnabled: true,
     templateSetOverridesEnabled: false,
 
     // Checkout
+    checkoutEnabled: true,
     stripeConnectEnabled: true,
     invoicePaymentEnabled: true,
     manualPaymentEnabled: true,
@@ -501,6 +622,7 @@ export const STARTER_TIER: TierConfig = {
     stripeTaxEnabled: true,
 
     // Invoicing
+    invoicingEnabled: true,
     consolidatedInvoicingEnabled: true,
     multiCurrencyEnabled: true,
     automatedGenerationEnabled: true,
@@ -508,33 +630,40 @@ export const STARTER_TIER: TierConfig = {
     customTemplatesEnabled: false,
 
     // Forms
+    formsEnabled: true,
     multiStepFormsEnabled: true,
     conditionalLogicEnabled: true,
     fileUploadsEnabled: true,
     formAnalyticsEnabled: false,
 
     // Web Publishing
+    webPublishingEnabled: true,
     seoToolsEnabled: false,
     contentRulesEnabled: false,
     pageAnalyticsEnabled: false,
     vercelDeploymentEnabled: true,
 
     // Workflows
+    workflowsEnabled: true,
     workflowTemplatesEnabled: true,
     advancedConditionsEnabled: true,
     testModeEnabled: true,
 
     // Templates
+    templatesEnabled: true,
     templateSetsEnabled: true,
     templateVersioningEnabled: false,
     advancedEditorEnabled: true,
     templateSharingEnabled: false,
 
+    // Certificates
+    certificatesEnabled: true,
+
     // Media
     folderOrganizationEnabled: true,
     cloudIntegrationEnabled: false,
 
-    // Certificates
+    // Certificates (sub-features)
     customCertificateTemplatesEnabled: true,
     automatedCertificateDeliveryEnabled: true,
     qrCodeEnabled: true,
@@ -568,6 +697,24 @@ export const STARTER_TIER: TierConfig = {
     // Audit
     detailedLogsEnabled: true,
     auditLogExportEnabled: false,
+
+    // Benefits Platform
+    benefitsEnabled: true,
+    commissionsEnabled: true,
+    cryptoPayoutsEnabled: false,
+    benefitsAnalyticsEnabled: false,
+
+    // Bookings
+    bookingsEnabled: true,
+    recurringBookingsEnabled: true,
+    multiResourceBookingsEnabled: true,
+    depositPaymentsEnabled: true,
+    bookingRemindersEnabled: true,
+    bufferTimeEnabled: true,
+    multiLocationEnabled: false,
+
+    // Sequences
+    sequencesEnabled: true,
   },
 };
 
@@ -625,6 +772,11 @@ export const PROFESSIONAL_TIER: TierConfig = {
     maxWorkflows: 50,
     maxBehaviorsPerWorkflow: 50,
 
+    // Sequences
+    maxSequences: 50,
+    maxStepsPerSequence: 20,
+    maxMessageTemplates: 100,
+
     // Templates
     maxCustomTemplates: 50,
 
@@ -646,6 +798,19 @@ export const PROFESSIONAL_TIER: TierConfig = {
 
     // Audit
     auditLogRetentionDays: 90,
+
+    // Benefits Platform
+    maxBenefits: 50,
+    maxCommissions: 25,
+    maxBenefitClaimsPerMonth: 250,
+    maxCommissionPayoutsPerMonth: 50,
+
+    // Bookings
+    maxLocations: 10,
+    maxBookableResources: 100,
+    maxBookingsPerMonth: 1000,
+    maxRecurringSeriesLength: 52, // 52 weeks (1 year)
+    maxResourcesPerBooking: 10,
   },
 
   features: {
@@ -657,24 +822,29 @@ export const PROFESSIONAL_TIER: TierConfig = {
     whiteLabelLevel: "badge_removal",
 
     // CRM
+    crmEnabled: true,
     contactImportExportEnabled: true,
     contactSyncEnabled: true,
     bulkEmailEnabled: true,
 
     // Projects
+    projectsEnabled: true,
     budgetTrackingEnabled: true,
     advancedReportsEnabled: true,
 
     // Events
+    eventsEnabled: true,
     mediaGalleryEnabled: true,
     eventAnalyticsEnabled: true,
 
     // Products
+    productsEnabled: true,
     inventoryTrackingEnabled: true,
     b2bInvoicingEnabled: true,
     templateSetOverridesEnabled: true,
 
     // Checkout
+    checkoutEnabled: true,
     stripeConnectEnabled: true,
     invoicePaymentEnabled: true,
     manualPaymentEnabled: true,
@@ -683,6 +853,7 @@ export const PROFESSIONAL_TIER: TierConfig = {
     stripeTaxEnabled: true,
 
     // Invoicing
+    invoicingEnabled: true,
     consolidatedInvoicingEnabled: true,
     multiCurrencyEnabled: true,
     automatedGenerationEnabled: true,
@@ -690,33 +861,40 @@ export const PROFESSIONAL_TIER: TierConfig = {
     customTemplatesEnabled: false,
 
     // Forms
+    formsEnabled: true,
     multiStepFormsEnabled: true,
     conditionalLogicEnabled: true,
     fileUploadsEnabled: true,
     formAnalyticsEnabled: true,
 
     // Web Publishing
+    webPublishingEnabled: true,
     seoToolsEnabled: true,
     contentRulesEnabled: true,
     pageAnalyticsEnabled: true,
     vercelDeploymentEnabled: true,
 
     // Workflows
+    workflowsEnabled: true,
     workflowTemplatesEnabled: true,
     advancedConditionsEnabled: true,
     testModeEnabled: true,
 
     // Templates
+    templatesEnabled: true,
     templateSetsEnabled: true,
     templateVersioningEnabled: true,
     advancedEditorEnabled: true,
     templateSharingEnabled: false,
 
+    // Certificates
+    certificatesEnabled: true,
+
     // Media
     folderOrganizationEnabled: true,
     cloudIntegrationEnabled: true,
 
-    // Certificates
+    // Certificates (sub-features)
     customCertificateTemplatesEnabled: true,
     automatedCertificateDeliveryEnabled: true,
     qrCodeEnabled: true,
@@ -750,6 +928,24 @@ export const PROFESSIONAL_TIER: TierConfig = {
     // Audit
     detailedLogsEnabled: true,
     auditLogExportEnabled: true,
+
+    // Benefits Platform
+    benefitsEnabled: true,
+    commissionsEnabled: true,
+    cryptoPayoutsEnabled: true,
+    benefitsAnalyticsEnabled: true,
+
+    // Bookings
+    bookingsEnabled: true,
+    recurringBookingsEnabled: true,
+    multiResourceBookingsEnabled: true,
+    depositPaymentsEnabled: true,
+    bookingRemindersEnabled: true,
+    bufferTimeEnabled: true,
+    multiLocationEnabled: true,
+
+    // Sequences
+    sequencesEnabled: true,
   },
 };
 
@@ -807,6 +1003,11 @@ export const AGENCY_TIER: TierConfig = {
     maxWorkflows: UNLIMITED,
     maxBehaviorsPerWorkflow: UNLIMITED,
 
+    // Sequences
+    maxSequences: UNLIMITED,
+    maxStepsPerSequence: UNLIMITED,
+    maxMessageTemplates: UNLIMITED,
+
     // Templates
     maxCustomTemplates: UNLIMITED,
 
@@ -828,6 +1029,19 @@ export const AGENCY_TIER: TierConfig = {
 
     // Audit
     auditLogRetentionDays: 180,
+
+    // Benefits Platform
+    maxBenefits: 200,
+    maxCommissions: 100,
+    maxBenefitClaimsPerMonth: 1000,
+    maxCommissionPayoutsPerMonth: 200,
+
+    // Bookings
+    maxLocations: UNLIMITED,
+    maxBookableResources: UNLIMITED,
+    maxBookingsPerMonth: UNLIMITED,
+    maxRecurringSeriesLength: UNLIMITED,
+    maxResourcesPerBooking: UNLIMITED,
   },
 
   features: {
@@ -839,24 +1053,29 @@ export const AGENCY_TIER: TierConfig = {
     whiteLabelLevel: "full",
 
     // CRM
+    crmEnabled: true,
     contactImportExportEnabled: true,
     contactSyncEnabled: true,
     bulkEmailEnabled: true,
 
     // Projects
+    projectsEnabled: true,
     budgetTrackingEnabled: true,
     advancedReportsEnabled: true,
 
     // Events
+    eventsEnabled: true,
     mediaGalleryEnabled: true,
     eventAnalyticsEnabled: true,
 
     // Products
+    productsEnabled: true,
     inventoryTrackingEnabled: true,
     b2bInvoicingEnabled: true,
     templateSetOverridesEnabled: true,
 
     // Checkout
+    checkoutEnabled: true,
     stripeConnectEnabled: true,
     invoicePaymentEnabled: true,
     manualPaymentEnabled: true,
@@ -865,6 +1084,7 @@ export const AGENCY_TIER: TierConfig = {
     stripeTaxEnabled: true,
 
     // Invoicing
+    invoicingEnabled: true,
     consolidatedInvoicingEnabled: true,
     multiCurrencyEnabled: true,
     automatedGenerationEnabled: true,
@@ -872,33 +1092,40 @@ export const AGENCY_TIER: TierConfig = {
     customTemplatesEnabled: true,
 
     // Forms
+    formsEnabled: true,
     multiStepFormsEnabled: true,
     conditionalLogicEnabled: true,
     fileUploadsEnabled: true,
     formAnalyticsEnabled: true,
 
     // Web Publishing
+    webPublishingEnabled: true,
     seoToolsEnabled: true,
     contentRulesEnabled: true,
     pageAnalyticsEnabled: true,
     vercelDeploymentEnabled: true,
 
     // Workflows
+    workflowsEnabled: true,
     workflowTemplatesEnabled: true,
     advancedConditionsEnabled: true,
     testModeEnabled: true,
 
     // Templates
+    templatesEnabled: true,
     templateSetsEnabled: true,
     templateVersioningEnabled: true,
     advancedEditorEnabled: true,
     templateSharingEnabled: true,
 
+    // Certificates
+    certificatesEnabled: true,
+
     // Media
     folderOrganizationEnabled: true,
     cloudIntegrationEnabled: true,
 
-    // Certificates
+    // Certificates (sub-features)
     customCertificateTemplatesEnabled: true,
     automatedCertificateDeliveryEnabled: true,
     qrCodeEnabled: true,
@@ -932,6 +1159,24 @@ export const AGENCY_TIER: TierConfig = {
     // Audit
     detailedLogsEnabled: true,
     auditLogExportEnabled: true,
+
+    // Benefits Platform
+    benefitsEnabled: true,
+    commissionsEnabled: true,
+    cryptoPayoutsEnabled: true,
+    benefitsAnalyticsEnabled: true,
+
+    // Bookings
+    bookingsEnabled: true,
+    recurringBookingsEnabled: true,
+    multiResourceBookingsEnabled: true,
+    depositPaymentsEnabled: true,
+    bookingRemindersEnabled: true,
+    bufferTimeEnabled: true,
+    multiLocationEnabled: true,
+
+    // Sequences
+    sequencesEnabled: true,
   },
 };
 
@@ -989,6 +1234,11 @@ export const ENTERPRISE_TIER: TierConfig = {
     maxWorkflows: UNLIMITED,
     maxBehaviorsPerWorkflow: UNLIMITED,
 
+    // Sequences
+    maxSequences: UNLIMITED,
+    maxStepsPerSequence: UNLIMITED,
+    maxMessageTemplates: UNLIMITED,
+
     // Templates
     maxCustomTemplates: UNLIMITED,
 
@@ -1010,6 +1260,19 @@ export const ENTERPRISE_TIER: TierConfig = {
 
     // Audit
     auditLogRetentionDays: 365,
+
+    // Benefits Platform
+    maxBenefits: UNLIMITED,
+    maxCommissions: UNLIMITED,
+    maxBenefitClaimsPerMonth: UNLIMITED,
+    maxCommissionPayoutsPerMonth: UNLIMITED,
+
+    // Bookings
+    maxLocations: UNLIMITED,
+    maxBookableResources: UNLIMITED,
+    maxBookingsPerMonth: UNLIMITED,
+    maxRecurringSeriesLength: UNLIMITED,
+    maxResourcesPerBooking: UNLIMITED,
   },
 
   features: {
@@ -1021,24 +1284,29 @@ export const ENTERPRISE_TIER: TierConfig = {
     whiteLabelLevel: "full_with_api_domain",
 
     // CRM
+    crmEnabled: true,
     contactImportExportEnabled: true,
     contactSyncEnabled: true,
     bulkEmailEnabled: true,
 
     // Projects
+    projectsEnabled: true,
     budgetTrackingEnabled: true,
     advancedReportsEnabled: true,
 
     // Events
+    eventsEnabled: true,
     mediaGalleryEnabled: true,
     eventAnalyticsEnabled: true,
 
     // Products
+    productsEnabled: true,
     inventoryTrackingEnabled: true,
     b2bInvoicingEnabled: true,
     templateSetOverridesEnabled: true,
 
     // Checkout
+    checkoutEnabled: true,
     stripeConnectEnabled: true,
     invoicePaymentEnabled: true,
     manualPaymentEnabled: true,
@@ -1047,6 +1315,7 @@ export const ENTERPRISE_TIER: TierConfig = {
     stripeTaxEnabled: true,
 
     // Invoicing
+    invoicingEnabled: true,
     consolidatedInvoicingEnabled: true,
     multiCurrencyEnabled: true,
     automatedGenerationEnabled: true,
@@ -1054,33 +1323,40 @@ export const ENTERPRISE_TIER: TierConfig = {
     customTemplatesEnabled: true,
 
     // Forms
+    formsEnabled: true,
     multiStepFormsEnabled: true,
     conditionalLogicEnabled: true,
     fileUploadsEnabled: true,
     formAnalyticsEnabled: true,
 
     // Web Publishing
+    webPublishingEnabled: true,
     seoToolsEnabled: true,
     contentRulesEnabled: true,
     pageAnalyticsEnabled: true,
     vercelDeploymentEnabled: true,
 
     // Workflows
+    workflowsEnabled: true,
     workflowTemplatesEnabled: true,
     advancedConditionsEnabled: true,
     testModeEnabled: true,
 
     // Templates
+    templatesEnabled: true,
     templateSetsEnabled: true,
     templateVersioningEnabled: true,
     advancedEditorEnabled: true,
     templateSharingEnabled: true,
 
+    // Certificates
+    certificatesEnabled: true,
+
     // Media
     folderOrganizationEnabled: true,
     cloudIntegrationEnabled: true,
 
-    // Certificates
+    // Certificates (sub-features)
     customCertificateTemplatesEnabled: true,
     automatedCertificateDeliveryEnabled: true,
     qrCodeEnabled: true,
@@ -1114,6 +1390,24 @@ export const ENTERPRISE_TIER: TierConfig = {
     // Audit
     detailedLogsEnabled: true,
     auditLogExportEnabled: true,
+
+    // Benefits Platform
+    benefitsEnabled: true,
+    commissionsEnabled: true,
+    cryptoPayoutsEnabled: true,
+    benefitsAnalyticsEnabled: true,
+
+    // Bookings
+    bookingsEnabled: true,
+    recurringBookingsEnabled: true,
+    multiResourceBookingsEnabled: true,
+    depositPaymentsEnabled: true,
+    bookingRemindersEnabled: true,
+    bufferTimeEnabled: true,
+    multiLocationEnabled: true,
+
+    // Sequences
+    sequencesEnabled: true,
   },
 };
 

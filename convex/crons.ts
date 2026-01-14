@@ -96,4 +96,43 @@ crons.daily(
   internal.licensing.badgeVerification.verifyAllBadgesInternal
 );
 
+/**
+ * Process Sequence Messages
+ *
+ * Runs every 5 minutes to process scheduled sequence messages.
+ * Handles time-delayed emails, SMS, and WhatsApp for booking reminders,
+ * follow-ups, and customer lifecycle messaging.
+ *
+ * What it does:
+ * 1. Finds messages with scheduledFor <= now and status="scheduled"
+ * 2. Routes each message to appropriate channel (email/SMS/WhatsApp)
+ * 3. Updates message status and enrollment progress
+ * 4. Handles retries for failed messages
+ */
+crons.interval(
+  "Process sequence messages",
+  { minutes: 5 },
+  internal.sequences.messageQueueProcessor.processScheduledMessages
+);
+
+/**
+ * Cleanup Old Sequence Messages
+ *
+ * Runs daily at 6 AM UTC to remove old sent/cancelled messages.
+ * Prevents database bloat from historical message records.
+ *
+ * What it does:
+ * 1. Deletes sent messages older than 30 days
+ * 2. Deletes cancelled messages older than 30 days
+ * 3. Logs cleanup count
+ */
+crons.daily(
+  "Cleanup old sequence messages",
+  {
+    hourUTC: 6, // 6 AM UTC (after badge verification)
+    minuteUTC: 0,
+  },
+  internal.sequences.messageQueueProcessor.cleanupOldMessages
+);
+
 export default crons;

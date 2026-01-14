@@ -89,8 +89,8 @@ export const exchangeOAuthCode = internalAction({
         });
 
         if (emailsResponse.ok) {
-          const emails = await emailsResponse.json();
-          const primaryEmail = emails.find((e: any) => e.primary);
+          const emails = await emailsResponse.json() as Array<{ email: string; primary?: boolean; verified?: boolean }>;
+          const primaryEmail = emails.find((e) => e.primary);
           email = primaryEmail?.email || emails[0]?.email || `${profile.login}@github.com`;
         } else {
           email = `${profile.login}@github.com`;
@@ -397,8 +397,36 @@ export const findOrCreateUserFromOAuth = internalMutation({
       updatedAt: Date.now(),
     });
 
-    // TODO: Create API key, assign apps, provision templates (reuse onboarding logic)
-    // For now, we'll skip these to keep this focused on OAuth signup
+    // Log audit event (same as web onboarding)
+    await ctx.db.insert("auditLogs", {
+      organizationId,
+      userId,
+      action: "user.signup",
+      resource: "users",
+      resourceId: userId,
+      metadata: {
+        signupMethod: "oauth",
+        planTier: "free",
+        organizationName: orgName,
+      },
+      success: true,
+      createdAt: Date.now(),
+    });
+
+    // Schedule async tasks (same as web onboarding)
+    // Record signup event for growth tracking
+    await ctx.scheduler.runAfter(0, internal.growthTracking.recordSignupEvent, {
+      userId,
+      organizationId,
+      email,
+      planTier: "free",
+    });
+
+    // Assign all apps to the new organization (teaser model)
+    await ctx.scheduler.runAfter(0, internal.onboarding.assignAllAppsToOrg, {
+      organizationId,
+      userId,
+    });
 
     return {
       userId,
@@ -474,11 +502,53 @@ export const completeOAuthSignup = action({
       organizationName: stateRecord.organizationName,
     });
 
+    // For new users, trigger additional onboarding tasks (async, don't block login)
+    if (userResult.isNewUser) {
+      // Get organization name for async tasks
+      const orgName = stateRecord.organizationName || `${userInfo.name.firstName}${userInfo.name.lastName ? ` ${userInfo.name.lastName}` : ''}'s Organization`;
+
+      // Send welcome email (async)
+      await ctx.scheduler.runAfter(0, internal.actions.welcomeEmail.sendWelcomeEmail, {
+        email: userInfo.email,
+        firstName: userInfo.name.firstName,
+        organizationName: orgName,
+        apiKeyPrefix: "n/a", // OAuth users don't get API key on signup
+      });
+
+      // Send sales notification (async)
+      await ctx.scheduler.runAfter(0, internal.actions.salesNotificationEmail.sendSalesNotification, {
+        eventType: "free_signup",
+        user: {
+          email: userInfo.email,
+          firstName: userInfo.name.firstName,
+          lastName: userInfo.name.lastName,
+        },
+        organization: {
+          name: orgName,
+          planTier: "free",
+        },
+      });
+
+      // Create Stripe customer (async) - enables upgrade path
+      try {
+        await ctx.runAction(internal.onboarding.createStripeCustomerForFreeUser, {
+          organizationId: userResult.organizationId,
+          organizationName: orgName,
+          email: userInfo.email,
+        });
+      } catch (error) {
+        // Log but don't fail signup if Stripe customer creation fails
+        console.error("[OAuth Signup] Failed to create Stripe customer:", error);
+      }
+    }
+
     // Create session based on sessionType
     if (args.sessionType === "cli") {
       // Create CLI session
       const cliToken = stateRecord.cliToken || `cli_session_${crypto.randomUUID().replace(/-/g, '')}`;
-      const sessionId = await ctx.runMutation(internal.api.v1.cliAuth.createCliSession, {
+      console.log(`[completeOAuthSignup] CLI session - stateRecord.cliToken: ${stateRecord.cliToken?.substring(0, 20) || 'undefined'}, using cliToken: ${cliToken.substring(0, 20)}...`);
+      // createCliSession is now an Action (uses bcrypt for hashing)
+      const sessionId = await ctx.runAction(internal.api.v1.cliAuth.createCliSession, {
         userId: userResult.userId,
         email: userInfo.email,
         organizationId: userResult.organizationId,
@@ -632,6 +702,7 @@ export const storeOAuthSignupState = action({
     provider: v.union(v.literal("microsoft"), v.literal("google"), v.literal("github")),
     organizationName: v.optional(v.string()),
     cliToken: v.optional(v.string()), // Only for CLI sessions
+    cliState: v.optional(v.string()), // CLI's original state for CSRF protection
     createdAt: v.number(),
     expiresAt: v.number(),
   },
@@ -643,6 +714,7 @@ export const storeOAuthSignupState = action({
       provider: args.provider,
       organizationName: args.organizationName,
       cliToken: args.cliToken,
+      cliState: args.cliState,
       createdAt: args.createdAt,
       expiresAt: args.expiresAt,
     });
@@ -662,6 +734,7 @@ export const storeOAuthSignupStateInternal = internalMutation({
     provider: v.union(v.literal("microsoft"), v.literal("google"), v.literal("github")),
     organizationName: v.optional(v.string()),
     cliToken: v.optional(v.string()), // Only for CLI sessions
+    cliState: v.optional(v.string()), // CLI's original state for CSRF protection
     createdAt: v.number(),
     expiresAt: v.number(),
   },
@@ -673,6 +746,7 @@ export const storeOAuthSignupStateInternal = internalMutation({
       provider: args.provider,
       organizationName: args.organizationName,
       cliToken: args.cliToken,
+      cliState: args.cliState,
       createdAt: args.createdAt,
       expiresAt: args.expiresAt,
     });
@@ -695,6 +769,7 @@ export const getOAuthSignupState = action({
     provider: "microsoft" | "google" | "github";
     organizationName?: string;
     cliToken?: string;
+    cliState?: string;
     expiresAt: number;
   } | null> => {
     return await ctx.runQuery(internal.api.v1.oauthSignup.getOAuthSignupStateInternal, {
@@ -715,7 +790,7 @@ export const getOAuthSignupStateInternal = internalQuery({
       .query("oauthSignupStates")
       .withIndex("by_state", (q) => q.eq("state", args.state))
       .first();
-    
+
     if (!stateRecord) {
       return null;
     }
@@ -726,6 +801,7 @@ export const getOAuthSignupStateInternal = internalQuery({
       provider: stateRecord.provider,
       organizationName: stateRecord.organizationName,
       cliToken: stateRecord.cliToken,
+      cliState: stateRecord.cliState,
       expiresAt: stateRecord.expiresAt,
     };
   },

@@ -82,6 +82,7 @@ export function MappingList({
   };
 
   // Get organization name by ID
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getOrgName = (orgId: string | null) => {
     if (!orgId) return nullOptionLabel;
     const org = organizations.find((o) => o._id === orgId);

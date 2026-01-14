@@ -43,7 +43,10 @@ export function DeploymentSettingsModal({ page, onClose, onSaved }: DeploymentSe
   // Form state
   const [githubRepo, setGithubRepo] = useState(deployment.githubRepo || "");
   const [vercelDeployButton, setVercelDeployButton] = useState(deployment.vercelDeployButton || "");
+  // Preserved for future guide and demo URL features
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [deploymentGuide, setDeploymentGuide] = useState(deployment.deploymentGuide || "");
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [demoUrl, setDemoUrl] = useState(deployment.demoUrl || "");
 
   // Validation errors

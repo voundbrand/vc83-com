@@ -32,8 +32,10 @@ export function EmployerDetectionConfigForm({
   sessionId,
   organizationId,
   availableForms = [],
-  availableCrmOrganizations: _availableCrmOrganizations = [],
+  availableCrmOrganizations = [],
 }: EmployerDetectionConfigFormProps) {
+  // Mark as intentionally unused - preserved for future CRM org selection UI
+  void availableCrmOrganizations;
   // Fetch CRM organizations
   // Note: getCrmOrganizations expects Id<"organizations"> but we're passing Id<"objects">
   // This works because both are in the objects table with different type fields

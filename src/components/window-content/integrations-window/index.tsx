@@ -10,6 +10,7 @@ import { MicrosoftSettings } from "./microsoft-settings";
 import { GitHubSettings } from "./github-settings";
 import { VercelSettings } from "./vercel-settings";
 import { ApiKeysPanel } from "./api-keys-panel";
+import { ActiveCampaignSettings } from "./activecampaign-settings";
 import { CreateIntegrationDialog } from "./create-integration-dialog";
 import { CustomIntegrationModal } from "./custom-integration-modal";
 import { useWindowManager } from "@/hooks/use-window-manager";
@@ -114,6 +115,17 @@ const BUILT_IN_INTEGRATIONS = [
     iconColor: "#ea4b71",
     status: "coming_soon" as const,
     type: "verified" as const,
+    // Platform integrations use maxThirdPartyIntegrations limit (Free: 0, Starter+: available)
+    accessCheck: { type: "limit" as const, key: "maxThirdPartyIntegrations" },
+  },
+  {
+    id: "activecampaign",
+    name: "ActiveCampaign",
+    description: "Email marketing & CRM automation",
+    icon: "fas fa-envelope-open-text",
+    iconColor: "#356ae6",
+    status: "available" as const,
+    type: "builtin" as const,
     // Platform integrations use maxThirdPartyIntegrations limit (Free: 0, Starter+: available)
     accessCheck: { type: "limit" as const, key: "maxThirdPartyIntegrations" },
   },
@@ -863,6 +875,9 @@ export function IntegrationsWindow({ initialPanel = null }: IntegrationsWindowPr
     }
     if (selectedIntegration.type === "builtin" && selectedIntegration.id === "microsoft") {
       return <MicrosoftSettings onBack={handleBack} />;
+    }
+    if (selectedIntegration.type === "builtin" && selectedIntegration.id === "activecampaign") {
+      return <ActiveCampaignSettings onBack={handleBack} />;
     }
     if (selectedIntegration.type === "special" && selectedIntegration.id === "api-keys") {
       return <ApiKeysPanel onBack={handleBack} />;

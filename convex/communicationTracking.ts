@@ -9,7 +9,18 @@
 
 import { internalMutation } from "./_generated/server";
 import { v } from "convex/values";
-import type { Id } from "./_generated/dataModel";
+
+// Interface for communication log entries stored in customProperties
+interface CommunicationLogEntry {
+  timestamp: number;
+  recipientEmail: string;
+  subject: string;
+  emailType: string;
+  success: boolean;
+  messageId?: string;
+  errorMessage?: string;
+  metadata?: Record<string, unknown>;
+}
 
 /**
  * LOG EMAIL COMMUNICATION
@@ -83,7 +94,7 @@ export const logEmailCommunication = internalMutation({
     if (args.crmContactId) {
       const contact = await ctx.db.get(args.crmContactId);
       if (contact && contact.type === "crm_contact") {
-        const existingHistory = (contact.customProperties?.communicationHistory as any[]) || [];
+        const existingHistory = (contact.customProperties?.communicationHistory as CommunicationLogEntry[]) || [];
         const updatedHistory = [communicationLog, ...existingHistory].slice(0, 50); // Keep last 50 communications
 
         await ctx.db.patch(args.crmContactId, {
@@ -100,7 +111,7 @@ export const logEmailCommunication = internalMutation({
     if (args.crmOrganizationId) {
       const crmOrg = await ctx.db.get(args.crmOrganizationId);
       if (crmOrg && crmOrg.type === "crm_organization") {
-        const existingHistory = (crmOrg.customProperties?.communicationHistory as any[]) || [];
+        const existingHistory = (crmOrg.customProperties?.communicationHistory as CommunicationLogEntry[]) || [];
         const updatedHistory = [communicationLog, ...existingHistory].slice(0, 50); // Keep last 50 communications
 
         await ctx.db.patch(args.crmOrganizationId, {

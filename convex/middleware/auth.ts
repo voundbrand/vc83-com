@@ -1,9 +1,10 @@
 /**
  * UNIVERSAL AUTHENTICATION MIDDLEWARE
  *
- * Supports dual authentication:
- * 1. API Keys (existing system) - Full access, no scope restrictions
- * 2. OAuth Tokens (new OAuth 2.0) - Scope-based access control
+ * Supports three authentication methods:
+ * 1. API Keys (existing system) - Full access or scoped permissions
+ * 2. OAuth Tokens (OAuth 2.0) - Scope-based access control
+ * 3. CLI Sessions (MCP tools) - Full organization access via CLI login
  *
  * Usage in HTTP actions:
  * ```typescript
@@ -40,7 +41,7 @@ export interface AuthContext {
   /** Sub-organization ID (for OAuth token scoping) */
   subOrganizationId?: Id<"organizations"> | null;
   /** Authentication method used */
-  authMethod: "api_key" | "oauth";
+  authMethod: "api_key" | "oauth" | "cli_session";
   /** OAuth scopes (only present for OAuth tokens) */
   scopes?: string[];
 }
@@ -70,16 +71,26 @@ export type AuthResult = AuthSuccess | AuthError;
 /**
  * UNIVERSAL AUTHENTICATION MIDDLEWARE
  *
- * Authenticates HTTP requests using either:
- * - API keys (existing system) - identified by "api_key_" or "org_" prefix
- * - OAuth JWT tokens (new system) - identified by JWT format (3 parts)
+ * Authenticates HTTP requests using:
+ * - API keys - identified by "api_key_" or "org_" prefix
+ * - CLI sessions - identified by "cli_session_" prefix
+ * - OAuth JWT tokens - identified by JWT format (3 dot-separated parts)
  *
  * @param ctx - Convex action context
  * @param request - HTTP request
  * @returns Authentication result with context or error
  */
+// Use a permissive type for the context to avoid compatibility issues with Convex's ActionCtx
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ConvexContextLike = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  runQuery: (query: any, args: any) => Promise<any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  runAction: (action: any, args: any) => Promise<any>;
+};
+
 export async function authenticateRequest(
-  ctx: { runQuery: (query: any, args: any) => Promise<any>; runAction: (action: any, args: any) => Promise<any> },
+  ctx: ConvexContextLike,
   request: Request
 ): Promise<AuthResult> {
   const authHeader = request.headers.get("Authorization");
@@ -105,15 +116,18 @@ export async function authenticateRequest(
 
   // Determine token type by format
   // API keys: start with "org_" or "api_key_"
+  // CLI session tokens: start with "cli_session_"
   // OAuth tokens: JWT format with 3 parts separated by dots
   if (token.startsWith("org_") || token.startsWith("api_key_")) {
     return await authenticateApiKey(ctx, token);
+  } else if (token.startsWith("cli_session_")) {
+    return await authenticateCliSession(ctx, token);
   } else if (token.split(".").length === 3) {
     return await authenticateOAuthToken(ctx, token);
   } else {
     return {
       success: false,
-      error: "Invalid token format. Must be either an API key or OAuth JWT token",
+      error: "Invalid token format. Must be an API key, CLI session token, or OAuth JWT token",
       status: 401,
     };
   }
@@ -134,15 +148,22 @@ export async function authenticateRequest(
  * NOTE: Usage tracking is now async (0ms added latency)
  * See: convex/security/usageTracking.ts
  */
+interface ApiKeyAuthContext {
+  userId: Id<"users">;
+  organizationId: Id<"organizations">;
+  scopes?: string[];
+}
+
 async function authenticateApiKey(
-  ctx: { runAction: (action: any, args: any) => Promise<any> },
+  ctx: Pick<ConvexContextLike, "runAction">,
   apiKey: string
 ): Promise<AuthResult> {
   try {
     // Call the bcrypt Action for secure verification
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const authContext = await ctx.runAction(internal.actions.apiKeys.verifyApiKey as any, {
       apiKey,
-    });
+    }) as ApiKeyAuthContext | null;
 
     if (!authContext) {
       return {
@@ -165,10 +186,67 @@ async function authenticateApiKey(
         scopes: authContext.scopes, // API keys now have scopes!
       },
     };
-  } catch (error) {
+  } catch {
     return {
       success: false,
       error: "API key verification failed",
+      status: 500,
+    };
+  }
+}
+
+/**
+ * Authenticate using CLI session token
+ *
+ * CLI session tokens are created via the /api/v1/auth/cli/login endpoint
+ * and validated against the cliSessions table.
+ *
+ * SECURITY: Now uses bcrypt hash verification via internal action.
+ * CLI sessions grant full access (scopes: ["*"]) within their organization.
+ */
+async function authenticateCliSession(
+  ctx: Pick<ConvexContextLike, "runAction">,
+  sessionToken: string
+): Promise<AuthResult> {
+  try {
+    // Validate CLI session using the internal action (bcrypt verification)
+    const sessionInfo = await ctx.runAction(
+      internal.api.v1.cliAuth.validateCliSessionInternal,
+      { sessionToken }
+    );
+
+    if (!sessionInfo) {
+      return {
+        success: false,
+        error: "Invalid or expired CLI session",
+        status: 401,
+      };
+    }
+
+    // Check if session is expired (already checked in action, but double-check)
+    if (sessionInfo.expiresAt < Date.now()) {
+      return {
+        success: false,
+        error: "CLI session expired. Please login again.",
+        status: 401,
+      };
+    }
+
+    return {
+      success: true,
+      context: {
+        userId: sessionInfo.userId,
+        organizationId: sessionInfo.organizationId,
+        authMethod: "cli_session",
+        // CLI sessions get full access within their organization
+        scopes: sessionInfo.permissions,
+      },
+    };
+  } catch (error) {
+    console.error("CLI session verification error:", error);
+    return {
+      success: false,
+      error: "CLI session verification failed",
       status: 500,
     };
   }
@@ -184,7 +262,7 @@ async function authenticateApiKey(
  * - Required claims: sub (userId), org (organizationId), scope
  */
 async function authenticateOAuthToken(
-  ctx: { runQuery: (query: any, args: any) => Promise<any> },
+  ctx: Pick<ConvexContextLike, "runQuery">,
   token: string
 ): Promise<AuthResult> {
   try {

@@ -25,7 +25,7 @@ interface TemplateUsageBadgesProps {
   usageData: TemplateUsageData;
 }
 
-export function TemplateUsageBadges({ templateId, usageData }: TemplateUsageBadgesProps) {
+export function TemplateUsageBadges({ usageData }: TemplateUsageBadgesProps) {
   const { inSetCount, lastUsed, usedForTickets, usedForInvoices } = usageData;
 
   // Determine if template is orphaned (not used anywhere)

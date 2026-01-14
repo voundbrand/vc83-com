@@ -15,9 +15,8 @@
 
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState } from "react";
 import {
-  ALL_SCOPES,
   WILDCARD_SCOPE,
   SCOPE_CATEGORIES,
   getScopesByCategory,
@@ -93,7 +92,9 @@ export function ScopeSelector({ selectedScopes, onChange, disabled }: ScopeSelec
     }
   };
 
-  const getRiskColor = (risk: "low" | "medium" | "high") => {
+  // Risk color helper - preserved for future scope UI enhancements
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _getRiskColor = (risk: "low" | "medium" | "high") => {
     switch (risk) {
       case "low":
         return "text-green-600";

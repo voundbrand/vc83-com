@@ -8,7 +8,7 @@
  */
 
 import type { QueryCtx, MutationCtx } from "./_generated/server";
-import type { Id, Doc } from "./_generated/dataModel";
+import type { Id } from "./_generated/dataModel";
 
 /**
  * Resolved PDF Template

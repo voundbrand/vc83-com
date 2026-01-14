@@ -7,6 +7,37 @@ import { Id } from "../../../../convex/_generated/dataModel";
 import { useAuth } from "@/hooks/use-auth";
 import { Loader2, AlertCircle, Package, Star, CheckCircle, Plus, X, Trash2, Edit, Check } from "lucide-react";
 
+/** Template interface for audit data templates */
+interface AuditTemplate {
+  _id: string;
+  name: string;
+  code?: string;
+  subtype?: string;
+  category?: string;
+  hasSchema?: boolean;
+}
+
+/** Template set interface */
+interface TemplateSet {
+  _id: string;
+  name: string;
+  description?: string;
+  customProperties?: {
+    isDefault?: boolean;
+    version?: string;
+    tags?: string[];
+    templates?: TemplateSetItem[];
+  };
+}
+
+/** Template item in a template set */
+interface TemplateSetItem {
+  templateId: string;
+  templateType?: string;
+  isRequired?: boolean;
+  displayOrder?: number;
+}
+
 /**
  * Template Sets Tab (v2.0 - Flexible Schema-Driven)
  *
@@ -49,16 +80,16 @@ export function TemplateSetsTab() {
   );
 
   // Get only schema-driven templates (all types) - combine system + org templates
-  const systemSchemaTemplates = [
+  const systemSchemaTemplates: AuditTemplate[] = [
     ...(auditData?.templates.schemaEmail || []),
-    ...(auditData?.templates.pdf.filter((t: any) => t.hasSchema) || []),
+    ...(auditData?.templates.pdf.filter((t: AuditTemplate) => t.hasSchema) || []),
   ];
 
   // Merge organization templates with system templates, dedupe by ID
-  const allSchemaTemplates = [
+  const allSchemaTemplates: AuditTemplate[] = [
     ...systemSchemaTemplates,
-    ...(orgTemplates || []).filter((orgT: any) =>
-      !systemSchemaTemplates.some((sysT: any) => sysT._id === orgT._id)
+    ...((orgTemplates || []) as AuditTemplate[]).filter((orgT: AuditTemplate) =>
+      !systemSchemaTemplates.some((sysT: AuditTemplate) => sysT._id === orgT._id)
     ),
   ];
 
@@ -202,8 +233,8 @@ function TemplateSetCard({
   sessionId,
   systemOrgId,
 }: {
-  templateSet: any;
-  allTemplates: any[];
+  templateSet: TemplateSet;
+  allTemplates: AuditTemplate[];
   sessionId: string;
   systemOrgId: Id<"organizations">;
 }) {
@@ -378,7 +409,7 @@ function TemplateSetCard({
           </p>
         ) : (
           <div className="space-y-1">
-            {templatesList.map((item: any, idx: number) => {
+            {templatesList.map((item: TemplateSetItem, idx: number) => {
               const type = item.templateType || getTemplateType(item.templateId);
               const icon = getTemplateIcon(type);
               const name = getTemplateName(item.templateId);
@@ -524,7 +555,7 @@ function CreateTemplateSetModal({
   onClose: () => void;
   sessionId: string;
   systemOrgId: Id<"organizations">;
-  allTemplates: any[];
+  allTemplates: AuditTemplate[];
 }) {
   const [formData, setFormData] = useState({
     name: "",
@@ -843,17 +874,18 @@ function EditTemplateSetModal({
   systemOrgId,
   onClose,
 }: {
-  templateSet: any;
-  allTemplates: any[];
+  templateSet: TemplateSet;
+  allTemplates: AuditTemplate[];
   sessionId: string;
   systemOrgId: Id<"organizations">;
   onClose: () => void;
 }) {
+  void systemOrgId; // Preserved for future org-scoped template management
   const props = templateSet.customProperties || {};
   const existingTemplates = props.templates || [];
 
   const [selectedTemplates, setSelectedTemplates] = useState<string[]>(
-    existingTemplates.map((t: any) => t.templateId)
+    existingTemplates.map((t: TemplateSetItem) => t.templateId)
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);

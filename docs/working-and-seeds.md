@@ -8,13 +8,32 @@ We need to make sure the following ui in our app is using our theme system corre
 
 
 # SEEDS TO RUN ON PROD
-npx convex run translations/seedOnboarding:seed
-npx convex run seedEmailTemplates:seedEmailTemplates
-npx convex run translations/seedCheckoutTemplate_05a_PaymentMethods:seed
-npx convex run translations/seedCommonMonths:default
-npx convex run translations/seedManage_02_Organization:default 
-npx convex run translations/seedCheckoutTemplate_02_RegistrationForm:seed
-npx convex run seedSystemDomainConfig:seedSystemDomainConfig
+npx convex run seedApps:registerBenefitsApp   
+npx convex run translations/seedStartMenu:seed
+npx convex run translations/seedBenefitsWindowTranslations:seed
+
+# Register the Booking app in database
+npx convex run seedApps:registerBookingApp
+
+# Seed the translations  
+npx convex run translations/seedStartMenu:seed
+
+# To seed the new CSV translation keys, run:
+npx convex run translations/seedEvents_06_DetailModal:seed
+
+
+# Projects
+vc83-com
+vc83-com-ai-feature
+vc83-com-benefits-platform
+vc83-com-microsaas
+vc83-com-mux-video
+
+l4yercak3-boiler-test
+l4yercak3-boilerplate
+l4yercak3-cli
+l4yercak3-landing
+l4yercak3-zapier
 
 
 

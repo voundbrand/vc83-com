@@ -11,6 +11,7 @@ import { getTaxCodesForCountry } from "@/lib/tax-calculator";
 import { AddonManager } from "./addon-manager";
 import { ProductAddon } from "@/types/product-addons";
 import { InvoicingConfigSection, InvoiceConfig } from "./invoicing-config-section";
+import { BookableConfigSection, BookableConfig, DEFAULT_BOOKABLE_CONFIG, BOOKABLE_PRESETS } from "./bookable-config-section";
 import { usePostHog } from "posthog-js/react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { TemplateSelector } from "@/components/template-selector";
@@ -21,11 +22,34 @@ import { TemplateSetSelector } from "@/components/template-set-selector";
  */
 function getDefaultCategoryLabel(subtype: string): string {
   const labels: Record<string, string> = {
+    // Standard product types
     ticket: "Event Ticket",
     physical: "Physical Product",
     digital: "Digital Product",
+    // Bookable resource types
+    room: "Room / Meeting Space",
+    staff: "Staff / Service Provider",
+    equipment: "Equipment",
+    space: "Workspace / Desk",
+    vehicle: "Vehicle",
+    accommodation: "Accommodation",
+    // Bookable service types
+    appointment: "Appointment Service",
+    class: "Class / Group Session",
+    treatment: "Treatment / Spa Service",
   };
   return labels[subtype] || "Product";
+}
+
+/**
+ * Helper: Check if subtype is a bookable type
+ */
+function isBookableSubtype(subtype: string): boolean {
+  const bookableTypes = [
+    "room", "staff", "equipment", "space", "vehicle", "accommodation",
+    "appointment", "class", "treatment"
+  ];
+  return bookableTypes.includes(subtype);
 }
 
 /**
@@ -168,6 +192,8 @@ export function ProductForm({
     templateSetId: "" as string, // Template set ID for unified branding
     // NEW: Ticket Template Override (legacy - for ticket subtype only)
     ticketTemplateId: "" as string, // Template ID for ticket PDF generation (overrides template set)
+    // NEW: Bookable Configuration (for bookable subtypes)
+    bookableConfig: null as BookableConfig | null,
   });
   const [saving, setSaving] = useState(false);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
@@ -293,6 +319,12 @@ export function ProductForm({
         templateSetId: (props.templateSetId as string) || "",
         // Ticket Template (legacy)
         ticketTemplateId: (props.ticketTemplateId as string) || "",
+        // Bookable Configuration
+        bookableConfig: (props.bookableConfig as BookableConfig) || (
+          isBookableSubtype(subtype)
+            ? { ...DEFAULT_BOOKABLE_CONFIG, ...(BOOKABLE_PRESETS[subtype as keyof typeof BOOKABLE_PRESETS] || {}) }
+            : null
+        ),
       });
     }
   }, [existingProduct]);
@@ -354,6 +386,11 @@ export function ProductForm({
       // Ticket Template (only for ticket subtype - overrides template set ticket template)
       if (formData.subtype === "ticket" && formData.ticketTemplateId) {
         customProperties.ticketTemplateId = formData.ticketTemplateId;
+      }
+
+      // Bookable Configuration (for bookable resource/service types)
+      if (isBookableSubtype(formData.subtype) && formData.bookableConfig) {
+        customProperties.bookableConfig = formData.bookableConfig;
       }
 
       // Form linking (generalized - works for all product types)
@@ -554,7 +591,11 @@ export function ProductForm({
               // Auto-update categoryLabel to default when subtype changes (only if not manually edited)
               categoryLabel: formData.categoryLabel === getDefaultCategoryLabel(formData.subtype)
                 ? getDefaultCategoryLabel(newSubtype)
-                : formData.categoryLabel
+                : formData.categoryLabel,
+              // Auto-apply bookable preset when switching to a bookable type
+              bookableConfig: isBookableSubtype(newSubtype)
+                ? { ...DEFAULT_BOOKABLE_CONFIG, ...(BOOKABLE_PRESETS[newSubtype as keyof typeof BOOKABLE_PRESETS] || {}) }
+                : null
             });
           }}
           disabled={!!productId}
@@ -566,9 +607,24 @@ export function ProductForm({
           }}
           required
         >
-          <option value="ticket">{t("ui.products.form.type.ticket")}</option>
-          <option value="physical">{t("ui.products.form.type.physical")}</option>
-          <option value="digital">{t("ui.products.form.type.digital")}</option>
+          <optgroup label="Standard Products">
+            <option value="ticket">{t("ui.products.form.type.ticket")}</option>
+            <option value="physical">{t("ui.products.form.type.physical")}</option>
+            <option value="digital">{t("ui.products.form.type.digital")}</option>
+          </optgroup>
+          <optgroup label="Bookable Resources">
+            <option value="room">🏠 Room / Meeting Space</option>
+            <option value="staff">👤 Staff / Service Provider</option>
+            <option value="equipment">🔧 Equipment</option>
+            <option value="space">🪑 Workspace / Desk</option>
+            <option value="vehicle">🚗 Vehicle</option>
+            <option value="accommodation">🏨 Accommodation</option>
+          </optgroup>
+          <optgroup label="Bookable Services">
+            <option value="appointment">📅 Appointment Service</option>
+            <option value="class">👥 Class / Group Session</option>
+            <option value="treatment">💆 Treatment / Spa Service</option>
+          </optgroup>
         </select>
         {productId && (
           <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
@@ -922,6 +978,15 @@ export function ProductForm({
         onChange={(addons) => setFormData({ ...formData, addons })}
         availableFormFields={availableFormFields}
       />
+
+      {/* BOOKABLE CONFIGURATION - Only show for bookable subtypes */}
+      {isBookableSubtype(formData.subtype) && (
+        <BookableConfigSection
+          config={formData.bookableConfig || DEFAULT_BOOKABLE_CONFIG}
+          onChange={(bookableConfig) => setFormData({ ...formData, bookableConfig })}
+          subtype={formData.subtype}
+        />
+      )}
 
       {/* B2B INVOICING CONFIGURATION - Only show if form is linked */}
       {formData.formId && (

@@ -8,7 +8,7 @@ import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
 import { Briefcase, Plus, List, Loader2, AlertCircle, Building2, CheckCircle } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { ProjectsList } from "./ProjectsList";
-import { ProjectForm } from "./ProjectForm";
+import { ProjectBuilder } from "./ProjectBuilder";
 import { ProjectFilters } from "./ProjectFilters";
 import SearchBar from "./SearchBar";
 import ProjectDetailView from "./ProjectDetailView";
@@ -45,6 +45,8 @@ export function ProjectsWindow() {
     priority?: string;
   }>({});
   const [searchQuery, setSearchQuery] = useState("");
+  // Preserved for future search result display
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [searchResults, setSearchResults] = useState<Project[] | null>(null);
   const [notification, setNotification] = useState<{
     type: "success" | "error";
@@ -277,7 +279,7 @@ export function ProjectsWindow() {
         )}
 
         {(viewMode === "create" || viewMode === "edit") && (
-          <ProjectForm
+          <ProjectBuilder
             sessionId={sessionId}
             organizationId={organizationId as Id<"organizations">}
             projectId={selectedProjectId || undefined}

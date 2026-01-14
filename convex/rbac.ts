@@ -1,7 +1,7 @@
 import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { Id, Doc } from "./_generated/dataModel";
-import { internal } from "./_generated/api";
+// Note: internal API removed - not currently used
 
 /**
  * RBAC (Role-Based Access Control) System

@@ -15,6 +15,23 @@ import { api, internal } from "./_generated/api";
 import { httpAction } from "./_generated/server";
 import { getProviderByCode } from "./paymentProviders";
 import { getCorsHeaders, handleOptionsRequest } from "./api/v1/corsHeaders";
+import type { Id } from "./_generated/dataModel";
+import type Stripe from "stripe";
+
+// Helper to get error message from unknown error
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
+
+// Helper to check if error has data property with code
+function getErrorCode(error: unknown): string | undefined {
+  if (error && typeof error === "object" && "data" in error) {
+    const data = (error as { data?: { code?: string } }).data;
+    return data?.code;
+  }
+  return undefined;
+}
 
 const http = httpRouter();
 
@@ -273,7 +290,7 @@ http.route({
       });
 
       // Verify signature - MUST use async version in Convex runtime
-      let event: any;
+      let event: Stripe.Event;
       try {
         event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret);
         console.log(`[Invoice Webhooks] ✅ Signature verified for event: ${event.type}`);
@@ -289,7 +306,7 @@ http.route({
       await ctx.runAction(internal.api.v1.stripeInvoiceWebhooks.processStripeInvoiceWebhook, {
         eventType: event.type,
         eventId: event.id,
-        invoiceData: event.data.object,
+        invoiceData: event.data.object as Stripe.Invoice,
         created: event.created,
       });
 
@@ -367,7 +384,7 @@ http.route({
       });
 
       // Verify signature - MUST use async version in Convex runtime
-      let event: any;
+      let event: Stripe.Event;
       try {
         event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret);
         console.log(`[AI Webhooks] ✅ Signature verified for event: ${event.type}`);
@@ -379,7 +396,8 @@ http.route({
 
       // Parse event (already parsed by constructEvent)
       console.log(`[AI Webhooks] 📦 Processing: ${event.type} (${event.id})`);
-      console.log(`[AI Webhooks] 📧 Customer email: ${(event.data.object as any).customer_email || 'N/A'}`);
+      const eventObject = event.data.object as unknown as Record<string, unknown>;
+      console.log(`[AI Webhooks] 📧 Customer email: ${eventObject.customer_email || 'N/A'}`);
 
       // Schedule async processing
       await ctx.runAction(internal.stripe.aiWebhooks.processAIWebhook, {
@@ -507,24 +525,66 @@ http.route({
  */
 
 // Import API handlers
-import { getEvents, getEventBySlug, getEventById, getEventProducts } from "./api/v1/events";
-import { getProduct } from "./api/v1/products";
-import { getForm, getPublicForm, submitPublicForm } from "./api/v1/forms";
+import {
+  listEvents,
+  createEvent,
+  getEvent,
+  updateEvent,
+  getEventAttendees,
+  getEventBySlug,
+  getEventProducts,
+  cancelEvent,
+} from "./api/v1/events";
+import {
+  listProducts,
+  handleProductsGet,
+  handleProductsPost,
+  handleProductsPatch,
+  handleProductsDelete,
+  handleOptions as productsHandleOptions,
+} from "./api/v1/products";
+import {
+  listForms,
+  createForm,
+  getForm,
+  getFormResponses,
+  submitFormResponse,
+  deleteForm,
+  getPublicForm,
+  submitPublicForm,
+} from "./api/v1/forms";
 import { triggerWorkflow } from "./api/v1/workflows";
 import { getTransaction } from "./api/v1/transactions";
-import { getTicketPdf } from "./api/v1/tickets";
+import {
+  getTicketPdf,
+  listTickets,
+  validateTicket,
+  handleTicketsGet,
+  handleTicketsPost,
+  handleOptions as ticketsHandleOptions,
+} from "./api/v1/tickets";
 import {
   getCheckoutConfig,
   createCheckoutSession,
   confirmPayment,
+  listCheckoutSessions,
+  handleCheckoutSessionsGet,
+  handleCheckoutSessionsPost,
+  handleOptions as checkoutHandleOptions,
 } from "./api/v1/checkout";
 import {
   createContactFromEvent,
   createContact,
   listContacts,
   getContact,
+  updateContact,
+  deleteContact,
   bulkImportContacts,
   exportContacts,
+  listCrmOrganizations,
+  createCrmOrganization,
+  getCrmOrganization,
+  updateCrmOrganization,
 } from "./api/v1/crm";
 import { createBooking } from "./api/v1/bookings";
 import {
@@ -558,6 +618,88 @@ import {
   getInvoicePdf,
   syncInvoiceToStripe,
 } from "./api/v1/invoices";
+import {
+  createBenefit,
+  listBenefits,
+  getBenefit,
+  updateBenefit,
+  deleteBenefit,
+  createClaim,
+  listClaims,
+  createCommission,
+  listCommissions,
+  getCommission,
+  createPayout,
+  listPayouts,
+} from "./api/v1/benefits";
+import {
+  listCertificates,
+  getCertificate,
+  createCertificate,
+  updateCertificate,
+  deleteCertificate,
+  batchIssueCertificates,
+  verifyCertificate,
+  getCertificatesByRecipient,
+  handleOptions as certificatesHandleOptions,
+  handleCertificatePost,
+} from "./api/v1/certificates";
+import {
+  listPublishedPages,
+  createPublishedPage,
+  updatePublishedPage,
+  deletePublishedPage,
+  handlePublishingPost,
+  handlePublishingGet,
+  handleOptions as publishingHandleOptions,
+} from "./api/v1/publishing";
+import {
+  listOAuthConnections,
+  handleOAuthConnectionsGet,
+  handleOAuthConnectionsPost,
+  handleOAuthConnectionsPatch,
+  handleOAuthConnectionsDelete,
+  handleOptions as oauthConnectionsHandleOptions,
+} from "./api/v1/oauthConnections";
+import {
+  listLocations,
+  createLocation,
+  getLocation,
+  updateLocation,
+  deleteLocation,
+} from "./api/v1/locations";
+import {
+  getResourceAvailability,
+  setWeeklySchedule,
+  createException,
+  createBlock,
+  deleteAvailability,
+  getAvailableSlots,
+} from "./api/v1/availability";
+import {
+  listResourceBookings,
+  createResourceBooking,
+  getResourceBooking,
+  confirmResourceBooking,
+  checkInResourceBooking,
+  completeResourceBooking,
+  cancelResourceBooking,
+} from "./api/v1/resourceBookings";
+import {
+  handleOptions as aiChatHandleOptions,
+  createConversation as aiChatCreateConversation,
+  listConversations as aiChatListConversations,
+  getConversation as aiChatGetConversation,
+  sendMessage as aiChatSendMessage,
+  getSettings as aiChatGetSettings,
+  getModels as aiChatGetModels,
+  handleToolAction as aiChatHandleToolAction,
+  getPendingTools as aiChatGetPendingTools,
+  updateConversation as aiChatUpdateConversation,
+  archiveConversation as aiChatArchiveConversation,
+  listOrganizations as aiChatListOrganizations,
+  switchOrganization as aiChatSwitchOrganization,
+} from "./api/v1/aiChat";
 
 /**
  * Layer 1: READ APIs (Before Checkout)
@@ -577,7 +719,14 @@ http.route({
 http.route({
   path: "/api/v1/events",
   method: "GET",
-  handler: getEvents,
+  handler: listEvents,
+});
+
+// POST /api/v1/events (create event)
+http.route({
+  path: "/api/v1/events",
+  method: "POST",
+  handler: createEvent,
 });
 
 // OPTIONS /api/v1/events/by-slug/:slug (CORS preflight)
@@ -597,7 +746,7 @@ http.route({
   handler: getEventBySlug,
 });
 
-// OPTIONS /api/v1/events/:eventId (CORS preflight for both /:eventId and /:eventId/products)
+// OPTIONS /api/v1/events/:eventId (CORS preflight for event paths)
 http.route({
   pathPrefix: "/api/v1/events/",
   method: "OPTIONS",
@@ -607,153 +756,143 @@ http.route({
   }),
 });
 
-// GET /api/v1/events/:eventId (get event by ID)
+// GET /api/v1/events/:eventId/attendees (get event attendees)
+http.route({
+  path: "/api/v1/events/:eventId/attendees",
+  method: "GET",
+  handler: getEventAttendees,
+});
+
 // GET /api/v1/events/:eventId/products (get event products)
+http.route({
+  path: "/api/v1/events/:eventId/products",
+  method: "GET",
+  handler: getEventProducts,
+});
+
+// POST /api/v1/events/:eventId/cancel (cancel event)
+// Uses pathPrefix because Convex doesn't support Express-style :param in path
+http.route({
+  pathPrefix: "/api/v1/events/",
+  method: "POST",
+  handler: cancelEvent,
+});
+
+// GET /api/v1/events/:eventId (get event by ID)
+// Uses pathPrefix to handle dynamic eventId parameter
 http.route({
   pathPrefix: "/api/v1/events/",
   method: "GET",
-  handler: httpAction(async (ctx, request) => {
-    try {
-      const url = new URL(request.url);
-      const pathname = url.pathname;
-      const origin = request.headers.get("origin");
-      const corsHeaders = getCorsHeaders(origin);
-
-      // Skip if it's the by-slug route (handled above)
-      if (pathname.includes("/by-slug/")) {
-        return new Response("Route handled elsewhere", { status: 404 });
-      }
-
-      // Verify API key first
-      const authHeader = request.headers.get("Authorization");
-      if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        return new Response(
-          JSON.stringify({ error: "Missing or invalid Authorization header" }),
-          {
-            status: 401,
-            headers: {
-              "Content-Type": "application/json",
-              ...corsHeaders,
-            }
-          }
-        );
-      }
-
-      const apiKey = authHeader.substring(7);
-      const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, { apiKey });
-
-      if (!authContext) {
-        return new Response(
-          JSON.stringify({ error: "Invalid API key" }),
-          {
-            status: 401,
-            headers: {
-              "Content-Type": "application/json",
-              ...corsHeaders,
-            }
-          }
-        );
-      }
-
-      const { organizationId } = authContext;
-
-      // Parse path
-      const afterPrefix = pathname.substring("/api/v1/events/".length);
-      const parts = afterPrefix.split("/").filter(p => p);
-
-      // Route: /api/v1/events/{eventId}/products
-      if (parts.length === 2 && parts[1] === "products") {
-        const eventId = parts[0];
-        const products = await ctx.runQuery(
-          internal.api.v1.eventsInternal.getEventProductsInternal,
-          { eventId: eventId as any, organizationId }
-        );
-
-        return new Response(
-          JSON.stringify({ success: true, products, total: products.length }),
-          {
-            status: 200,
-            headers: {
-              "Content-Type": "application/json",
-              "X-Organization-Id": organizationId,
-              ...corsHeaders,
-            },
-          }
-        );
-      }
-
-      // Route: /api/v1/events/{eventId}
-      if (parts.length === 1) {
-        const eventId = parts[0];
-        const event = await ctx.runQuery(
-          internal.api.v1.eventsInternal.getEventByIdInternal,
-          { eventId: eventId as any, organizationId }
-        );
-
-        if (!event) {
-          return new Response(
-            JSON.stringify({ error: "Event not found" }),
-            {
-              status: 404,
-              headers: {
-                "Content-Type": "application/json",
-                ...corsHeaders,
-              }
-            }
-          );
-        }
-
-        return new Response(
-          JSON.stringify({ success: true, event }),
-          {
-            status: 200,
-            headers: {
-              "Content-Type": "application/json",
-              "X-Organization-Id": organizationId,
-              ...corsHeaders,
-            },
-          }
-        );
-      }
-
-      // No matching route
-      return new Response("No matching routes found", {
-        status: 404,
-        headers: {
-          "Content-Type": "text/plain",
-          ...corsHeaders,
-        },
-      });
-    } catch (error) {
-      console.error("API /events/* error:", error);
-      const origin = request.headers.get("origin");
-      const corsHeaders = getCorsHeaders(origin);
-      return new Response(
-        JSON.stringify({ error: "Internal server error" }),
-        {
-          status: 500,
-          headers: {
-            "Content-Type": "application/json",
-            ...corsHeaders,
-          }
-        }
-      );
-    }
-  }),
+  handler: getEvent,
 });
 
-// GET /api/v1/products/:productId
+// PATCH /api/v1/events/:eventId (update event)
 http.route({
-  path: "/api/v1/products/:productId",
-  method: "GET",
-  handler: getProduct,
+  pathPrefix: "/api/v1/events/",
+  method: "PATCH",
+  handler: updateEvent,
 });
 
-// GET /api/v1/forms/:formId (authenticated)
+// ============================================================================
+// LAYER 4: PRODUCTS API (Full CRUD)
+// ============================================================================
+
+// GET /api/v1/products (list products)
 http.route({
-  path: "/api/v1/forms/:formId",
+  path: "/api/v1/products",
   method: "GET",
-  handler: getForm,
+  handler: listProducts,
+});
+
+// POST /api/v1/products (create product)
+http.route({
+  path: "/api/v1/products",
+  method: "POST",
+  handler: handleProductsPost,
+});
+
+// OPTIONS /api/v1/products (CORS preflight)
+http.route({
+  path: "/api/v1/products",
+  method: "OPTIONS",
+  handler: productsHandleOptions,
+});
+
+// GET /api/v1/products/:productId (get product by ID)
+http.route({
+  pathPrefix: "/api/v1/products/",
+  method: "GET",
+  handler: handleProductsGet,
+});
+
+// POST /api/v1/products/:productId/* (publish, archive, price)
+http.route({
+  pathPrefix: "/api/v1/products/",
+  method: "POST",
+  handler: handleProductsPost,
+});
+
+// PATCH /api/v1/products/:productId (update product)
+http.route({
+  pathPrefix: "/api/v1/products/",
+  method: "PATCH",
+  handler: handleProductsPatch,
+});
+
+// DELETE /api/v1/products/:productId (delete product)
+http.route({
+  pathPrefix: "/api/v1/products/",
+  method: "DELETE",
+  handler: handleProductsDelete,
+});
+
+// OPTIONS /api/v1/products/:productId/* (CORS preflight)
+http.route({
+  pathPrefix: "/api/v1/products/",
+  method: "OPTIONS",
+  handler: productsHandleOptions,
+});
+
+// ============================================================================
+// LAYER 5: FORMS API
+// ============================================================================
+
+// GET /api/v1/forms (list forms - authenticated)
+http.route({
+  path: "/api/v1/forms",
+  method: "GET",
+  handler: listForms,
+});
+
+// POST /api/v1/forms (create form - authenticated)
+http.route({
+  path: "/api/v1/forms",
+  method: "POST",
+  handler: createForm,
+});
+
+// GET /api/v1/forms/:formId/responses (get form responses - authenticated)
+// Uses pathPrefix because Convex doesn't support Express-style :param in path
+http.route({
+  pathPrefix: "/api/v1/forms/",
+  method: "GET",
+  handler: getForm, // Handler checks for /responses suffix internally
+});
+
+// POST /api/v1/forms/:formId/responses (submit form response - authenticated)
+// Uses pathPrefix because Convex doesn't support Express-style :param in path
+http.route({
+  pathPrefix: "/api/v1/forms/",
+  method: "POST",
+  handler: submitFormResponse, // Handler checks for /responses suffix internally
+});
+
+// DELETE /api/v1/forms/:formId (delete form - authenticated)
+// Uses pathPrefix because Convex doesn't support Express-style :param in path
+http.route({
+  pathPrefix: "/api/v1/forms/",
+  method: "DELETE",
+  handler: deleteForm,
 });
 
 // OPTIONS /api/v1/forms/public/:formId (CORS preflight)
@@ -781,7 +920,7 @@ http.route({
 });
 
 /**
- * Layer 2: CHECKOUT APIs (Payment Processing)
+ * Layer 2: CHECKOUT APIs (Payment Processing + Session CRUD)
  */
 
 // GET /api/v1/checkout/config - Get payment provider configuration
@@ -791,11 +930,46 @@ http.route({
   handler: getCheckoutConfig,
 });
 
+// GET /api/v1/checkout/sessions - List checkout sessions
+http.route({
+  path: "/api/v1/checkout/sessions",
+  method: "GET",
+  handler: listCheckoutSessions,
+});
+
 // POST /api/v1/checkout/sessions - Create checkout session
 http.route({
   path: "/api/v1/checkout/sessions",
   method: "POST",
   handler: createCheckoutSession,
+});
+
+// OPTIONS /api/v1/checkout/sessions (CORS preflight)
+http.route({
+  path: "/api/v1/checkout/sessions",
+  method: "OPTIONS",
+  handler: checkoutHandleOptions,
+});
+
+// GET /api/v1/checkout/sessions/:sessionId - Get session details
+http.route({
+  pathPrefix: "/api/v1/checkout/sessions/",
+  method: "GET",
+  handler: handleCheckoutSessionsGet,
+});
+
+// POST /api/v1/checkout/sessions/:sessionId/cancel - Cancel session
+http.route({
+  pathPrefix: "/api/v1/checkout/sessions/",
+  method: "POST",
+  handler: handleCheckoutSessionsPost,
+});
+
+// OPTIONS /api/v1/checkout/sessions/:sessionId/* (CORS preflight)
+http.route({
+  pathPrefix: "/api/v1/checkout/sessions/",
+  method: "OPTIONS",
+  handler: checkoutHandleOptions,
 });
 
 // POST /api/v1/checkout/confirm - Confirm payment and fulfill order
@@ -837,11 +1011,55 @@ http.route({
   handler: getTransaction,
 });
 
-// GET /api/v1/tickets/:ticketId/pdf
+/**
+ * Layer 4b: TICKETS API
+ *
+ * Endpoints for managing event tickets.
+ * Security: Dual auth (API keys + OAuth tokens with tickets:read/write scopes)
+ */
+
+// OPTIONS /api/v1/tickets - CORS preflight
 http.route({
-  path: "/api/v1/tickets/:ticketId/pdf",
+  path: "/api/v1/tickets",
+  method: "OPTIONS",
+  handler: ticketsHandleOptions,
+});
+
+// OPTIONS /api/v1/tickets/* - CORS preflight for all ticket paths
+http.route({
+  pathPrefix: "/api/v1/tickets/",
+  method: "OPTIONS",
+  handler: ticketsHandleOptions,
+});
+
+// GET /api/v1/tickets - List tickets
+http.route({
+  path: "/api/v1/tickets",
   method: "GET",
-  handler: getTicketPdf,
+  handler: listTickets,
+});
+
+// POST /api/v1/tickets/validate - Validate ticket by QR code
+http.route({
+  path: "/api/v1/tickets/validate",
+  method: "POST",
+  handler: validateTicket,
+});
+
+// GET /api/v1/tickets/:ticketId or /pdf
+// Combined handler routes based on URL path
+http.route({
+  pathPrefix: "/api/v1/tickets/",
+  method: "GET",
+  handler: handleTicketsGet,
+});
+
+// POST /api/v1/tickets/:ticketId/redeem or /void
+// Combined handler routes based on URL path
+http.route({
+  pathPrefix: "/api/v1/tickets/",
+  method: "POST",
+  handler: handleTicketsPost,
 });
 
 /**
@@ -885,87 +1103,57 @@ http.route({
 
 // GET /api/v1/crm/contacts/:contactId - Get contact details
 // Uses pathPrefix to handle dynamic contactId parameter
+// Uses the exported getContact handler from crm.ts which supports CLI sessions
 http.route({
   pathPrefix: "/api/v1/crm/contacts/",
   method: "GET",
-  handler: httpAction(async (ctx, request) => {
-    try {
-      const url = new URL(request.url);
-      const pathname = url.pathname;
+  handler: getContact,
+});
 
-      // Extract contactId from path
-      const afterPrefix = pathname.substring("/api/v1/crm/contacts/".length);
-      const contactId = afterPrefix.split("/")[0];
+// PATCH /api/v1/crm/contacts/:contactId - Update contact
+http.route({
+  pathPrefix: "/api/v1/crm/contacts/",
+  method: "PATCH",
+  handler: updateContact,
+});
 
-      // If no contactId, this is the list endpoint (handled above)
-      if (!contactId) {
-        return new Response(
-          JSON.stringify({ error: "Contact ID required" }),
-          { status: 400, headers: { "Content-Type": "application/json" } }
-        );
-      }
+// DELETE /api/v1/crm/contacts/:contactId - Delete contact
+http.route({
+  pathPrefix: "/api/v1/crm/contacts/",
+  method: "DELETE",
+  handler: deleteContact,
+});
 
-      // Verify API key
-      const authHeader = request.headers.get("Authorization");
-      if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        return new Response(
-          JSON.stringify({ error: "Missing or invalid Authorization header" }),
-          { status: 401, headers: { "Content-Type": "application/json" } }
-        );
-      }
+/**
+ * Layer 5b: CRM Organization APIs
+ */
 
-      const apiKey = authHeader.substring(7);
-      const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
-        apiKey,
-      });
+// GET /api/v1/crm/organizations - List CRM organizations
+http.route({
+  path: "/api/v1/crm/organizations",
+  method: "GET",
+  handler: listCrmOrganizations,
+});
 
-      if (!authContext) {
-        return new Response(
-          JSON.stringify({ error: "Invalid API key" }),
-          { status: 401, headers: { "Content-Type": "application/json" } }
-        );
-      }
+// POST /api/v1/crm/organizations - Create CRM organization
+http.route({
+  path: "/api/v1/crm/organizations",
+  method: "POST",
+  handler: createCrmOrganization,
+});
 
-      const { organizationId } = authContext;
+// GET /api/v1/crm/organizations/:organizationId - Get CRM organization details
+http.route({
+  pathPrefix: "/api/v1/crm/organizations/",
+  method: "GET",
+  handler: getCrmOrganization,
+});
 
-      // Update API key usage tracking
-      // TODO: Implement async usage tracking - await ctx.scheduler.runAfter(0, internal.apiKeys.trackUsage, { apiKeyId, ipAddress });
-
-      // Query contact
-      const contact = await ctx.runQuery(
-        internal.api.v1.crmInternal.getContactInternal,
-        {
-          organizationId,
-          contactId,
-        }
-      );
-
-      if (!contact) {
-        return new Response(
-          JSON.stringify({ error: "Contact not found" }),
-          { status: 404, headers: { "Content-Type": "application/json" } }
-        );
-      }
-
-      // Return response
-      return new Response(
-        JSON.stringify(contact),
-        {
-          status: 200,
-          headers: {
-            "Content-Type": "application/json",
-            "X-Organization-Id": organizationId,
-          },
-        }
-      );
-    } catch (error) {
-      console.error("API /crm/contacts/:id error:", error);
-      return new Response(
-        JSON.stringify({ error: "Internal server error" }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
-      );
-    }
-  }),
+// PATCH /api/v1/crm/organizations/:organizationId - Update CRM organization
+http.route({
+  pathPrefix: "/api/v1/crm/organizations/",
+  method: "PATCH",
+  handler: updateCrmOrganization,
 });
 
 /**
@@ -1216,7 +1404,7 @@ http.route({
         internal.api.v1.invoicesInternal.getInvoicesForClientInternal,
         {
           organizationId,
-          crmOrganizationId: crmOrganizationId as any,
+          crmOrganizationId: crmOrganizationId as Id<"objects">,
           status,
           limit,
           offset,
@@ -1245,8 +1433,347 @@ http.route({
 });
 
 /**
+ * Layer 7.6: BENEFITS API (Benefits & Commissions Management)
+ *
+ * Endpoints for managing benefits, claims, commissions, and payouts.
+ * Security: Dual auth (API keys + OAuth tokens with benefits:read/write scopes)
+ */
+
+// OPTIONS /api/v1/benefits - CORS preflight
+http.route({
+  path: "/api/v1/benefits",
+  method: "OPTIONS",
+  handler: httpAction(async (ctx, request) => {
+    const origin = request.headers.get("origin");
+    return handleOptionsRequest(origin);
+  }),
+});
+
+// OPTIONS /api/v1/benefits/:benefitId - CORS preflight
+http.route({
+  pathPrefix: "/api/v1/benefits/",
+  method: "OPTIONS",
+  handler: httpAction(async (ctx, request) => {
+    const origin = request.headers.get("origin");
+    return handleOptionsRequest(origin);
+  }),
+});
+
+// OPTIONS /api/v1/commissions - CORS preflight
+http.route({
+  path: "/api/v1/commissions",
+  method: "OPTIONS",
+  handler: httpAction(async (ctx, request) => {
+    const origin = request.headers.get("origin");
+    return handleOptionsRequest(origin);
+  }),
+});
+
+// OPTIONS /api/v1/commissions/:commissionId - CORS preflight
+http.route({
+  pathPrefix: "/api/v1/commissions/",
+  method: "OPTIONS",
+  handler: httpAction(async (ctx, request) => {
+    const origin = request.headers.get("origin");
+    return handleOptionsRequest(origin);
+  }),
+});
+
+// POST /api/v1/benefits - Create benefit
+http.route({
+  path: "/api/v1/benefits",
+  method: "POST",
+  handler: createBenefit,
+});
+
+// GET /api/v1/benefits - List benefits
+http.route({
+  path: "/api/v1/benefits",
+  method: "GET",
+  handler: listBenefits,
+});
+
+// GET /api/v1/benefits/:benefitId - Get benefit details
+http.route({
+  path: "/api/v1/benefits/:benefitId",
+  method: "GET",
+  handler: getBenefit,
+});
+
+// PATCH /api/v1/benefits/:benefitId - Update benefit
+http.route({
+  path: "/api/v1/benefits/:benefitId",
+  method: "PATCH",
+  handler: updateBenefit,
+});
+
+// DELETE /api/v1/benefits/:benefitId - Delete benefit (draft only)
+http.route({
+  path: "/api/v1/benefits/:benefitId",
+  method: "DELETE",
+  handler: deleteBenefit,
+});
+
+// POST /api/v1/benefits/:benefitId/claims - Create claim
+http.route({
+  path: "/api/v1/benefits/:benefitId/claims",
+  method: "POST",
+  handler: createClaim,
+});
+
+// GET /api/v1/benefits/:benefitId/claims - List claims for benefit
+http.route({
+  path: "/api/v1/benefits/:benefitId/claims",
+  method: "GET",
+  handler: listClaims,
+});
+
+// POST /api/v1/commissions - Create commission
+http.route({
+  path: "/api/v1/commissions",
+  method: "POST",
+  handler: createCommission,
+});
+
+// GET /api/v1/commissions - List commissions
+http.route({
+  path: "/api/v1/commissions",
+  method: "GET",
+  handler: listCommissions,
+});
+
+// GET /api/v1/commissions/:commissionId - Get commission details
+http.route({
+  path: "/api/v1/commissions/:commissionId",
+  method: "GET",
+  handler: getCommission,
+});
+
+// POST /api/v1/commissions/:commissionId/payouts - Create payout
+http.route({
+  path: "/api/v1/commissions/:commissionId/payouts",
+  method: "POST",
+  handler: createPayout,
+});
+
+// GET /api/v1/commissions/:commissionId/payouts - List payouts
+http.route({
+  path: "/api/v1/commissions/:commissionId/payouts",
+  method: "GET",
+  handler: listPayouts,
+});
+
+/**
+ * Layer 7.7: CERTIFICATES API (CE/CME/CPD Credits)
+ *
+ * Endpoints for managing certificates and continuing education credits.
+ * Security: Dual auth (API keys + OAuth tokens with certificates:read/write scopes)
+ */
+
+// OPTIONS /api/v1/certificates - CORS preflight
+http.route({
+  path: "/api/v1/certificates",
+  method: "OPTIONS",
+  handler: certificatesHandleOptions,
+});
+
+// OPTIONS /api/v1/certificates/* - CORS preflight for all certificate paths
+http.route({
+  pathPrefix: "/api/v1/certificates/",
+  method: "OPTIONS",
+  handler: certificatesHandleOptions,
+});
+
+// GET /api/v1/certificates/verify/:certificateNumber - Verify certificate (PUBLIC - no auth)
+// Must be before the pathPrefix route for /:certificateId
+http.route({
+  pathPrefix: "/api/v1/certificates/verify/",
+  method: "GET",
+  handler: verifyCertificate,
+});
+
+// GET /api/v1/certificates/recipient/:email - Get certificates by recipient
+http.route({
+  pathPrefix: "/api/v1/certificates/recipient/",
+  method: "GET",
+  handler: getCertificatesByRecipient,
+});
+
+// POST /api/v1/certificates/batch - Batch issue certificates
+http.route({
+  path: "/api/v1/certificates/batch",
+  method: "POST",
+  handler: batchIssueCertificates,
+});
+
+// POST /api/v1/certificates - Create certificate
+http.route({
+  path: "/api/v1/certificates",
+  method: "POST",
+  handler: createCertificate,
+});
+
+// GET /api/v1/certificates - List certificates
+http.route({
+  path: "/api/v1/certificates",
+  method: "GET",
+  handler: listCertificates,
+});
+
+// POST /api/v1/certificates/:certificateId/revoke or /reinstate
+// Combined handler routes based on URL path suffix
+http.route({
+  pathPrefix: "/api/v1/certificates/",
+  method: "POST",
+  handler: handleCertificatePost,
+});
+
+// GET /api/v1/certificates/:certificateId - Get certificate details
+http.route({
+  pathPrefix: "/api/v1/certificates/",
+  method: "GET",
+  handler: getCertificate,
+});
+
+// PATCH /api/v1/certificates/:certificateId - Update certificate
+http.route({
+  pathPrefix: "/api/v1/certificates/",
+  method: "PATCH",
+  handler: updateCertificate,
+});
+
+// DELETE /api/v1/certificates/:certificateId - Delete certificate
+http.route({
+  pathPrefix: "/api/v1/certificates/",
+  method: "DELETE",
+  handler: deleteCertificate,
+});
+
+/**
  * Layer 8: BOOKINGS API (Event Registration)
  */
+
+/**
+ * Layer 7.8: PUBLISHING API (Published Pages Management)
+ *
+ * Endpoints for managing published pages via CLI/MCP.
+ * Security: Dual auth (API keys + OAuth tokens with publishing:read/write scopes)
+ */
+
+// OPTIONS /api/v1/publishing/pages - CORS preflight
+http.route({
+  path: "/api/v1/publishing/pages",
+  method: "OPTIONS",
+  handler: publishingHandleOptions,
+});
+
+// OPTIONS /api/v1/publishing/pages/* - CORS preflight for all publishing paths
+http.route({
+  pathPrefix: "/api/v1/publishing/pages/",
+  method: "OPTIONS",
+  handler: publishingHandleOptions,
+});
+
+// GET /api/v1/publishing/pages/:pageId or /analytics
+// Combined handler routes based on URL path
+http.route({
+  pathPrefix: "/api/v1/publishing/pages/",
+  method: "GET",
+  handler: handlePublishingGet,
+});
+
+// POST /api/v1/publishing/pages - Create published page
+http.route({
+  path: "/api/v1/publishing/pages",
+  method: "POST",
+  handler: createPublishedPage,
+});
+
+// GET /api/v1/publishing/pages - List published pages
+http.route({
+  path: "/api/v1/publishing/pages",
+  method: "GET",
+  handler: listPublishedPages,
+});
+
+// POST /api/v1/publishing/pages/:pageId/publish or /unpublish
+// Combined handler routes based on URL path suffix
+http.route({
+  pathPrefix: "/api/v1/publishing/pages/",
+  method: "POST",
+  handler: handlePublishingPost,
+});
+
+// PATCH /api/v1/publishing/pages/:pageId - Update page
+http.route({
+  pathPrefix: "/api/v1/publishing/pages/",
+  method: "PATCH",
+  handler: updatePublishedPage,
+});
+
+// DELETE /api/v1/publishing/pages/:pageId - Delete page
+http.route({
+  pathPrefix: "/api/v1/publishing/pages/",
+  method: "DELETE",
+  handler: deletePublishedPage,
+});
+
+/**
+ * Layer 7.9: OAUTH CONNECTIONS API (OAuth Account Management)
+ *
+ * Endpoints for managing OAuth connections via CLI/MCP.
+ * Security: Triple auth (API keys, OAuth tokens, CLI sessions) with oauth:read/write scopes
+ * NOTE: Token values are NEVER exposed via these endpoints for security.
+ */
+
+// OPTIONS /api/v1/oauth/connections - CORS preflight
+http.route({
+  path: "/api/v1/oauth/connections",
+  method: "OPTIONS",
+  handler: oauthConnectionsHandleOptions,
+});
+
+// OPTIONS /api/v1/oauth/connections/* - CORS preflight for all oauth paths
+http.route({
+  pathPrefix: "/api/v1/oauth/connections/",
+  method: "OPTIONS",
+  handler: oauthConnectionsHandleOptions,
+});
+
+// GET /api/v1/oauth/connections - List OAuth connections
+http.route({
+  path: "/api/v1/oauth/connections",
+  method: "GET",
+  handler: listOAuthConnections,
+});
+
+// GET /api/v1/oauth/connections/:connectionId - Get connection details
+http.route({
+  pathPrefix: "/api/v1/oauth/connections/",
+  method: "GET",
+  handler: handleOAuthConnectionsGet,
+});
+
+// POST /api/v1/oauth/connections/:connectionId/disconnect - Disconnect connection
+http.route({
+  pathPrefix: "/api/v1/oauth/connections/",
+  method: "POST",
+  handler: handleOAuthConnectionsPost,
+});
+
+// PATCH /api/v1/oauth/connections/:connectionId - Update sync settings
+http.route({
+  pathPrefix: "/api/v1/oauth/connections/",
+  method: "PATCH",
+  handler: handleOAuthConnectionsPatch,
+});
+
+// DELETE /api/v1/oauth/connections/:connectionId - Delete connection permanently
+http.route({
+  pathPrefix: "/api/v1/oauth/connections/",
+  method: "DELETE",
+  handler: handleOAuthConnectionsDelete,
+});
 
 // OPTIONS /api/v1/bookings/create - CORS preflight
 http.route({
@@ -1394,12 +1921,13 @@ http.route({
         status: 201,
         headers: { "Content-Type": "application/json" },
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("[Webhooks API] Subscribe error:", error);
+      const errorCode = getErrorCode(error);
       return new Response(
-        JSON.stringify({ error: error.message || "Failed to subscribe webhook" }),
+        JSON.stringify({ error: getErrorMessage(error) || "Failed to subscribe webhook" }),
         {
-          status: error.data?.code === "UNAUTHORIZED" ? 401 : 400,
+          status: errorCode === "UNAUTHORIZED" ? 401 : 400,
           headers: { "Content-Type": "application/json" },
         }
       );
@@ -1429,19 +1957,20 @@ http.route({
 
       // Call Convex mutation to delete subscription
       await ctx.runMutation(api.zapier.webhooks.unsubscribeWebhook, {
-        subscriptionId: subscriptionId as any,
+        subscriptionId: subscriptionId as Id<"webhookSubscriptions">,
       });
 
       return new Response(JSON.stringify({ success: true }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("[Webhooks API] Unsubscribe error:", error);
+      const errorCode = getErrorCode(error);
       return new Response(
-        JSON.stringify({ error: error.message || "Failed to unsubscribe webhook" }),
+        JSON.stringify({ error: getErrorMessage(error) || "Failed to unsubscribe webhook" }),
         {
-          status: error.data?.code === "UNAUTHORIZED" ? 401 : 404,
+          status: errorCode === "UNAUTHORIZED" ? 401 : 404,
           headers: { "Content-Type": "application/json" },
         }
       );
@@ -1453,7 +1982,8 @@ http.route({
 http.route({
   path: "/api/v1/community/subscriptions",
   method: "GET",
-  handler: httpAction(async (ctx, request) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  handler: httpAction(async (_ctx, _request) => {
     try {
       // This endpoint is for Zapier's "Load Sample Data" feature
       // Returns example community subscriptions for testing triggers
@@ -1476,7 +2006,7 @@ http.route({
         status: 200,
         headers: { "Content-Type": "application/json" },
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("[Community API] List subscriptions error:", error);
       return new Response(
         JSON.stringify({ error: "Failed to list subscriptions" }),
@@ -1580,27 +2110,28 @@ http.route({
           },
         }
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Signup error:", error);
 
       // Handle specific error codes
-      const errorMessage = error.data?.code === "EMAIL_EXISTS"
+      const errorCode = getErrorCode(error);
+      const errorMessage = errorCode === "EMAIL_EXISTS"
         ? "An account with this email already exists"
-        : error.data?.code === "WEAK_PASSWORD"
+        : errorCode === "WEAK_PASSWORD"
         ? "Password must be at least 8 characters long"
-        : error.data?.code === "INVALID_EMAIL"
+        : errorCode === "INVALID_EMAIL"
         ? "Invalid email format"
-        : error.data?.code === "DISPOSABLE_EMAIL"
+        : errorCode === "DISPOSABLE_EMAIL"
         ? "Please use a permanent email address"
-        : error.message || "Signup failed";
+        : getErrorMessage(error) || "Signup failed";
 
       return new Response(
         JSON.stringify({
           error: errorMessage,
-          code: error.data?.code,
+          code: errorCode,
         }),
         {
-          status: error.data?.code === "EMAIL_EXISTS" ? 409 : 400,
+          status: errorCode === "EMAIL_EXISTS" ? 409 : 400,
           headers: {
             "Content-Type": "application/json",
             ...getCorsHeaders(request.headers.get("origin")),
@@ -1690,6 +2221,56 @@ http.route({
   }),
 });
 
+// Import CLI auth HTTP handlers
+import {
+  validateSession as cliValidateSession,
+  refreshSession as cliRefreshSession,
+  revokeSession as cliRevokeSession,
+  listOrganizations as cliListOrganizations,
+  createOrganization as cliCreateOrganization,
+  listApiKeys as cliListApiKeys,
+  generateApiKey as cliGenerateApiKey,
+  handleOptions as cliAuthHandleOptions,
+} from "./api/v1/cliAuthHttp";
+
+// Import Mobile OAuth handlers
+import {
+  mobileOAuthHandler,
+  mobileOAuthOptionsHandler,
+} from "./api/v1/mobileOAuth";
+
+// Import Account Linking handlers
+import {
+  confirmLinking,
+  rejectLinking,
+  getLinkingStatus,
+  handleOptions as accountLinkingHandleOptions,
+} from "./api/v1/accountLinking";
+
+/**
+ * ==========================================
+ * MOBILE OAUTH API
+ * ==========================================
+ *
+ * Native mobile OAuth authentication for iOS/Android apps.
+ * Accepts user info from native OAuth SDKs (Google Sign-In, Apple Sign-In)
+ * and creates/logs into platform users.
+ */
+
+// OPTIONS /api/v1/auth/mobile-oauth - CORS preflight
+http.route({
+  path: "/api/v1/auth/mobile-oauth",
+  method: "OPTIONS",
+  handler: mobileOAuthOptionsHandler,
+});
+
+// POST /api/v1/auth/mobile-oauth - Native mobile OAuth authentication
+http.route({
+  path: "/api/v1/auth/mobile-oauth",
+  method: "POST",
+  handler: mobileOAuthHandler,
+});
+
 /**
  * ==========================================
  * WEBINAR API v1 ENDPOINTS
@@ -1740,6 +2321,605 @@ http.route({
   pathPrefix: "/api/v1/webinars/",
   method: "DELETE",
   handler: deleteWebinar,
+});
+
+/**
+ * ==========================================
+ * ACCOUNT LINKING API
+ * ==========================================
+ *
+ * Handles account linking when a user signs in with a new OAuth provider
+ * but their email matches an existing account.
+ */
+
+// OPTIONS /api/v1/auth/link-account/confirm - CORS preflight
+http.route({
+  path: "/api/v1/auth/link-account/confirm",
+  method: "OPTIONS",
+  handler: accountLinkingHandleOptions,
+});
+
+// POST /api/v1/auth/link-account/confirm - Confirm account linking
+http.route({
+  path: "/api/v1/auth/link-account/confirm",
+  method: "POST",
+  handler: confirmLinking,
+});
+
+// OPTIONS /api/v1/auth/link-account/reject - CORS preflight
+http.route({
+  path: "/api/v1/auth/link-account/reject",
+  method: "OPTIONS",
+  handler: accountLinkingHandleOptions,
+});
+
+// POST /api/v1/auth/link-account/reject - Reject account linking
+http.route({
+  path: "/api/v1/auth/link-account/reject",
+  method: "POST",
+  handler: rejectLinking,
+});
+
+// OPTIONS /api/v1/auth/link-account/status - CORS preflight
+http.route({
+  path: "/api/v1/auth/link-account/status",
+  method: "OPTIONS",
+  handler: accountLinkingHandleOptions,
+});
+
+// GET /api/v1/auth/link-account/status - Get linking status
+http.route({
+  path: "/api/v1/auth/link-account/status",
+  method: "GET",
+  handler: getLinkingStatus,
+});
+
+// OPTIONS /api/v1/auth/cli/validate - CORS preflight
+http.route({
+  path: "/api/v1/auth/cli/validate",
+  method: "OPTIONS",
+  handler: cliAuthHandleOptions,
+});
+
+// GET /api/v1/auth/cli/validate - Validate CLI session
+http.route({
+  path: "/api/v1/auth/cli/validate",
+  method: "GET",
+  handler: cliValidateSession,
+});
+
+// OPTIONS /api/v1/auth/cli/refresh - CORS preflight
+http.route({
+  path: "/api/v1/auth/cli/refresh",
+  method: "OPTIONS",
+  handler: cliAuthHandleOptions,
+});
+
+// POST /api/v1/auth/cli/refresh - Refresh CLI session
+http.route({
+  path: "/api/v1/auth/cli/refresh",
+  method: "POST",
+  handler: cliRefreshSession,
+});
+
+// OPTIONS /api/v1/auth/cli/revoke - CORS preflight
+http.route({
+  path: "/api/v1/auth/cli/revoke",
+  method: "OPTIONS",
+  handler: cliAuthHandleOptions,
+});
+
+// POST /api/v1/auth/cli/revoke - Revoke CLI session (logout)
+http.route({
+  path: "/api/v1/auth/cli/revoke",
+  method: "POST",
+  handler: cliRevokeSession,
+});
+
+// OPTIONS /api/v1/auth/cli/organizations - CORS preflight
+http.route({
+  path: "/api/v1/auth/cli/organizations",
+  method: "OPTIONS",
+  handler: cliAuthHandleOptions,
+});
+
+// GET /api/v1/auth/cli/organizations - List user's organizations
+http.route({
+  path: "/api/v1/auth/cli/organizations",
+  method: "GET",
+  handler: cliListOrganizations,
+});
+
+// POST /api/v1/auth/cli/organizations - Create organization
+http.route({
+  path: "/api/v1/auth/cli/organizations",
+  method: "POST",
+  handler: cliCreateOrganization,
+});
+
+// OPTIONS /api/v1/auth/cli/api-keys - CORS preflight
+http.route({
+  path: "/api/v1/auth/cli/api-keys",
+  method: "OPTIONS",
+  handler: cliAuthHandleOptions,
+});
+
+// GET /api/v1/auth/cli/api-keys - List API keys
+http.route({
+  path: "/api/v1/auth/cli/api-keys",
+  method: "GET",
+  handler: cliListApiKeys,
+});
+
+// POST /api/v1/auth/cli/api-keys - Generate API key
+http.route({
+  path: "/api/v1/auth/cli/api-keys",
+  method: "POST",
+  handler: cliGenerateApiKey,
+});
+
+/**
+ * ==========================================
+ * CLI APPLICATIONS API
+ * ==========================================
+ *
+ * Endpoints for CLI-connected application management.
+ * Uses CLI session token authentication (Bearer token).
+ */
+
+// Import CLI applications handlers
+import {
+  registerApplication as cliRegisterApplication,
+  listApplications as cliListApplications,
+  getApplicationByPath as cliGetApplicationByPath,
+  getApplication as cliGetApplication,
+  updateApplication as cliUpdateApplication,
+  syncApplication as cliSyncApplication,
+  handleOptions as cliHandleOptions,
+} from "./api/v1/cliApplications";
+
+// OPTIONS /api/v1/cli/applications - CORS preflight
+http.route({
+  path: "/api/v1/cli/applications",
+  method: "OPTIONS",
+  handler: cliHandleOptions,
+});
+
+// POST /api/v1/cli/applications - Register new application
+http.route({
+  path: "/api/v1/cli/applications",
+  method: "POST",
+  handler: cliRegisterApplication,
+});
+
+// GET /api/v1/cli/applications - List all applications
+http.route({
+  path: "/api/v1/cli/applications",
+  method: "GET",
+  handler: cliListApplications,
+});
+
+// OPTIONS /api/v1/cli/applications/by-path - CORS preflight
+http.route({
+  path: "/api/v1/cli/applications/by-path",
+  method: "OPTIONS",
+  handler: cliHandleOptions,
+});
+
+// GET /api/v1/cli/applications/by-path?hash={hash} - Find by project path
+http.route({
+  path: "/api/v1/cli/applications/by-path",
+  method: "GET",
+  handler: cliGetApplicationByPath,
+});
+
+// GET /api/v1/cli/applications/:id - Get application details (uses pathPrefix for dynamic ID)
+http.route({
+  pathPrefix: "/api/v1/cli/applications/",
+  method: "OPTIONS",
+  handler: cliHandleOptions,
+});
+
+http.route({
+  pathPrefix: "/api/v1/cli/applications/",
+  method: "GET",
+  handler: cliGetApplication,
+});
+
+// PATCH /api/v1/cli/applications/:id - Update application
+http.route({
+  pathPrefix: "/api/v1/cli/applications/",
+  method: "PATCH",
+  handler: cliUpdateApplication,
+});
+
+// POST /api/v1/cli/applications/:id/sync - Sync application data
+http.route({
+  pathPrefix: "/api/v1/cli/applications/",
+  method: "POST",
+  handler: cliSyncApplication,
+});
+
+// ============================================================================
+// LOCATIONS API
+// ============================================================================
+
+// GET /api/v1/locations - List all locations
+http.route({
+  path: "/api/v1/locations",
+  method: "GET",
+  handler: listLocations,
+});
+
+// POST /api/v1/locations - Create location
+http.route({
+  path: "/api/v1/locations",
+  method: "POST",
+  handler: createLocation,
+});
+
+// GET /api/v1/locations/:id - Get location details
+http.route({
+  pathPrefix: "/api/v1/locations/",
+  method: "GET",
+  handler: getLocation,
+});
+
+// PATCH /api/v1/locations/:id - Update location
+http.route({
+  pathPrefix: "/api/v1/locations/",
+  method: "PATCH",
+  handler: updateLocation,
+});
+
+// DELETE /api/v1/locations/:id - Archive location
+http.route({
+  pathPrefix: "/api/v1/locations/",
+  method: "DELETE",
+  handler: deleteLocation,
+});
+
+// ============================================================================
+// AVAILABILITY API
+// ============================================================================
+
+// GET /api/v1/resources/:id/availability - Get resource availability
+http.route({
+  pathPrefix: "/api/v1/resources/",
+  method: "GET",
+  handler: getResourceAvailability,
+});
+
+// POST /api/v1/resources/:id/availability/schedule - Set weekly schedule
+http.route({
+  pathPrefix: "/api/v1/resources/",
+  method: "POST",
+  handler: setWeeklySchedule,
+});
+
+// DELETE /api/v1/resources/:id/availability/:availId - Delete availability item
+http.route({
+  pathPrefix: "/api/v1/resources/",
+  method: "DELETE",
+  handler: deleteAvailability,
+});
+
+// ============================================================================
+// RESOURCE BOOKINGS API
+// ============================================================================
+
+// GET /api/v1/resource-bookings - List all resource bookings
+http.route({
+  path: "/api/v1/resource-bookings",
+  method: "GET",
+  handler: listResourceBookings,
+});
+
+// POST /api/v1/resource-bookings - Create resource booking
+http.route({
+  path: "/api/v1/resource-bookings",
+  method: "POST",
+  handler: createResourceBooking,
+});
+
+// GET /api/v1/resource-bookings/:id - Get booking details
+http.route({
+  pathPrefix: "/api/v1/resource-bookings/",
+  method: "GET",
+  handler: getResourceBooking,
+});
+
+// POST /api/v1/resource-bookings/:id/confirm - Confirm booking
+http.route({
+  pathPrefix: "/api/v1/resource-bookings/",
+  method: "POST",
+  handler: confirmResourceBooking,
+});
+
+// ============================================================================
+// AI CHAT API (Mobile App Integration)
+// ============================================================================
+//
+// REST API for AI chat functionality, used by mobile apps (iOS/Android).
+// Authentication: Bearer token (session ID from mobile OAuth)
+//
+// These endpoints wrap the existing Convex AI chat functions to provide
+// HTTP access for mobile clients. Both web and mobile apps share the same
+// underlying data and AI system.
+// ============================================================================
+
+// OPTIONS /api/v1/ai/conversations - CORS preflight
+http.route({
+  path: "/api/v1/ai/conversations",
+  method: "OPTIONS",
+  handler: aiChatHandleOptions,
+});
+
+// POST /api/v1/ai/conversations - Create new conversation
+http.route({
+  path: "/api/v1/ai/conversations",
+  method: "POST",
+  handler: aiChatCreateConversation,
+});
+
+// GET /api/v1/ai/conversations - List user's conversations
+http.route({
+  path: "/api/v1/ai/conversations",
+  method: "GET",
+  handler: aiChatListConversations,
+});
+
+// OPTIONS /api/v1/ai/conversations/:id - CORS preflight
+http.route({
+  pathPrefix: "/api/v1/ai/conversations/",
+  method: "OPTIONS",
+  handler: aiChatHandleOptions,
+});
+
+// GET /api/v1/ai/conversations/:id - Get conversation with messages
+http.route({
+  pathPrefix: "/api/v1/ai/conversations/",
+  method: "GET",
+  handler: aiChatGetConversation,
+});
+
+// PATCH /api/v1/ai/conversations/:id - Update conversation (rename)
+http.route({
+  pathPrefix: "/api/v1/ai/conversations/",
+  method: "PATCH",
+  handler: aiChatUpdateConversation,
+});
+
+// DELETE /api/v1/ai/conversations/:id - Archive conversation
+http.route({
+  pathPrefix: "/api/v1/ai/conversations/",
+  method: "DELETE",
+  handler: aiChatArchiveConversation,
+});
+
+// OPTIONS /api/v1/ai/chat - CORS preflight
+http.route({
+  path: "/api/v1/ai/chat",
+  method: "OPTIONS",
+  handler: aiChatHandleOptions,
+});
+
+// POST /api/v1/ai/chat - Send message and get AI response
+http.route({
+  path: "/api/v1/ai/chat",
+  method: "POST",
+  handler: aiChatSendMessage,
+});
+
+// OPTIONS /api/v1/ai/settings - CORS preflight
+http.route({
+  path: "/api/v1/ai/settings",
+  method: "OPTIONS",
+  handler: aiChatHandleOptions,
+});
+
+// GET /api/v1/ai/settings - Get organization AI settings
+http.route({
+  path: "/api/v1/ai/settings",
+  method: "GET",
+  handler: aiChatGetSettings,
+});
+
+// OPTIONS /api/v1/ai/models - CORS preflight
+http.route({
+  path: "/api/v1/ai/models",
+  method: "OPTIONS",
+  handler: aiChatHandleOptions,
+});
+
+// GET /api/v1/ai/models - Get available AI models
+http.route({
+  path: "/api/v1/ai/models",
+  method: "GET",
+  handler: aiChatGetModels,
+});
+
+// OPTIONS /api/v1/ai/tools/:id/* - CORS preflight
+http.route({
+  pathPrefix: "/api/v1/ai/tools/",
+  method: "OPTIONS",
+  handler: aiChatHandleOptions,
+});
+
+// POST /api/v1/ai/tools/:id/approve - Approve tool execution
+// POST /api/v1/ai/tools/:id/reject - Reject tool execution
+http.route({
+  pathPrefix: "/api/v1/ai/tools/",
+  method: "POST",
+  handler: aiChatHandleToolAction,
+});
+
+// ============================================================================
+// ORGANIZATION MANAGEMENT API (Mobile App Integration)
+// ============================================================================
+//
+// REST API for organization switching, used by mobile apps.
+// Allows users to switch between organizations they have access to.
+// ============================================================================
+
+// OPTIONS /api/v1/auth/organizations - CORS preflight
+http.route({
+  path: "/api/v1/auth/organizations",
+  method: "OPTIONS",
+  handler: aiChatHandleOptions,
+});
+
+// GET /api/v1/auth/organizations - List user's organizations
+http.route({
+  path: "/api/v1/auth/organizations",
+  method: "GET",
+  handler: aiChatListOrganizations,
+});
+
+// OPTIONS /api/v1/auth/switch-organization - CORS preflight
+http.route({
+  path: "/api/v1/auth/switch-organization",
+  method: "OPTIONS",
+  handler: aiChatHandleOptions,
+});
+
+// POST /api/v1/auth/switch-organization - Switch active organization
+http.route({
+  path: "/api/v1/auth/switch-organization",
+  method: "POST",
+  handler: aiChatSwitchOrganization,
+});
+
+// ============================================================================
+// ACTIVITY PROTOCOL API
+// ============================================================================
+// Activity monitoring, page detection, and event logging for connected apps
+
+// Import Activity Protocol handlers
+import {
+  logEvent as activityLogEvent,
+  getEvents as activityGetEvents,
+  getStats as activityGetStats,
+  registerPage as activityRegisterPage,
+  bulkRegisterPages as activityBulkRegisterPages,
+  getPages as activityGetPages,
+  updatePageBindings as activityUpdatePageBindings,
+  deletePage as activityDeletePage,
+  getSettings as activityGetSettings,
+  updateSettings as activityUpdateSettings,
+  handleOptions as activityHandleOptions,
+} from "./api/v1/activityProtocol";
+
+// OPTIONS /api/v1/activity/events - CORS preflight
+http.route({
+  path: "/api/v1/activity/events",
+  method: "OPTIONS",
+  handler: activityHandleOptions,
+});
+
+// POST /api/v1/activity/events - Log an activity event
+http.route({
+  path: "/api/v1/activity/events",
+  method: "POST",
+  handler: activityLogEvent,
+});
+
+// GET /api/v1/activity/events - Get activity events
+http.route({
+  path: "/api/v1/activity/events",
+  method: "GET",
+  handler: activityGetEvents,
+});
+
+// OPTIONS /api/v1/activity/stats - CORS preflight
+http.route({
+  path: "/api/v1/activity/stats",
+  method: "OPTIONS",
+  handler: activityHandleOptions,
+});
+
+// GET /api/v1/activity/stats - Get activity statistics
+http.route({
+  path: "/api/v1/activity/stats",
+  method: "GET",
+  handler: activityGetStats,
+});
+
+// OPTIONS /api/v1/activity/pages - CORS preflight
+http.route({
+  path: "/api/v1/activity/pages",
+  method: "OPTIONS",
+  handler: activityHandleOptions,
+});
+
+// POST /api/v1/activity/pages - Register a single page
+http.route({
+  path: "/api/v1/activity/pages",
+  method: "POST",
+  handler: activityRegisterPage,
+});
+
+// GET /api/v1/activity/pages - Get application pages
+http.route({
+  path: "/api/v1/activity/pages",
+  method: "GET",
+  handler: activityGetPages,
+});
+
+// OPTIONS /api/v1/activity/pages/bulk - CORS preflight
+http.route({
+  path: "/api/v1/activity/pages/bulk",
+  method: "OPTIONS",
+  handler: activityHandleOptions,
+});
+
+// POST /api/v1/activity/pages/bulk - Bulk register pages
+http.route({
+  path: "/api/v1/activity/pages/bulk",
+  method: "POST",
+  handler: activityBulkRegisterPages,
+});
+
+// OPTIONS /api/v1/activity/pages/:id - CORS preflight for page operations
+http.route({
+  pathPrefix: "/api/v1/activity/pages/",
+  method: "OPTIONS",
+  handler: activityHandleOptions,
+});
+
+// PATCH /api/v1/activity/pages/:id/bindings - Update page bindings
+http.route({
+  pathPrefix: "/api/v1/activity/pages/",
+  method: "PATCH",
+  handler: activityUpdatePageBindings,
+});
+
+// DELETE /api/v1/activity/pages/:id - Delete a page
+http.route({
+  pathPrefix: "/api/v1/activity/pages/",
+  method: "DELETE",
+  handler: activityDeletePage,
+});
+
+// OPTIONS /api/v1/activity/settings - CORS preflight
+http.route({
+  path: "/api/v1/activity/settings",
+  method: "OPTIONS",
+  handler: activityHandleOptions,
+});
+
+// GET /api/v1/activity/settings - Get activity settings
+http.route({
+  path: "/api/v1/activity/settings",
+  method: "GET",
+  handler: activityGetSettings,
+});
+
+// PATCH /api/v1/activity/settings - Update activity settings
+http.route({
+  path: "/api/v1/activity/settings",
+  method: "PATCH",
+  handler: activityUpdateSettings,
 });
 
 export default http;

@@ -5,7 +5,7 @@ import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useState, useEffect } from "react";
-import { Save, AlertCircle, Loader2, Zap, DollarSign, Brain, Database } from "lucide-react";
+import { Save, Loader2, Zap, DollarSign, Brain, Database } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 
 export function AISettingsTab() {

@@ -15,13 +15,30 @@ import { formsToolDefinition } from "./formsTool";
 import { projectsToolDefinition } from "./projectsTool";
 import { crmToolDefinition } from "./crmTool";
 import { webinarToolDefinition } from "./webinarTool";
+import { benefitsToolDefinition } from "./benefitsTool";
+import { bookingToolDefinition } from "./bookingTool";
+import { activeCampaignToolDefinition } from "./activeCampaignTool";
+import { activityProtocolToolDefinition } from "./activityProtocolTool";
+import { sequencesToolDefinition } from "./sequencesTool";
 import { api } from "../../_generated/api";
 import { internal } from "../../_generated/api";
+import type { Id } from "../../_generated/dataModel";
+import type { ActionCtx } from "../../_generated/server";
 
 /**
  * Tool status types
  */
 export type ToolStatus = "ready" | "placeholder" | "beta";
+
+/**
+ * Extended context for AI tool execution
+ */
+export interface ToolExecutionContext extends ActionCtx {
+  organizationId: Id<"organizations">;
+  userId: Id<"users">;
+  conversationId?: Id<"aiConversations">;
+  sessionId?: string;
+}
 
 /**
  * Tool definition interface
@@ -32,13 +49,14 @@ export interface AITool {
   status: ToolStatus;
   parameters: {
     type: "object";
-    properties: Record<string, any>;
+    properties: Record<string, unknown>;
     required?: string[];
   };
   permissions?: string[];
   tutorialSteps?: string[]; // For placeholder tools
   windowName?: string; // Which window to open for this feature
-  execute: (ctx: any, args: any) => Promise<any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  execute: (ctx: ToolExecutionContext, args: any) => Promise<unknown>;
 }
 
 /**
@@ -65,18 +83,18 @@ const requestFeatureTool: AITool = {
     ctx.runAction(internal.ai.featureRequestEmail.sendFeatureRequest, {
       userId: ctx.userId,
       organizationId: ctx.organizationId,
-      toolName: args.suggestedToolName || "unknown_feature",
+      toolName: (args.suggestedToolName as string) || "unknown_feature",
       toolParameters: {
         featureDescription: args.featureDescription,
         category: args.category || "general",
         userElaboration: args.userElaboration, // Include user's detailed explanation
       },
       errorMessage: `Feature requested by user: ${args.featureDescription}`,
-      conversationId: ctx.conversationId,
-      userMessage: args.userMessage, // Original request
+      conversationId: ctx.conversationId!, // Will be set when called from chat
+      userMessage: args.userMessage as string, // Original request
       aiResponse: undefined,
       occurredAt: Date.now(),
-    }).catch((err: any) => {
+    }).catch((err: unknown) => {
       // Don't fail if email fails
       console.error("[request_feature] Email failed:", err);
     });
@@ -126,6 +144,7 @@ const checkOAuthConnectionTool: AITool = {
     }
 
     // Check if user has connected their Microsoft account
+    // @ts-ignore - Deep type instantiation in Convex generated types
     const connection = await ctx.runQuery(api.oauth.microsoft.getUserMicrosoftConnection, {
       sessionId: ctx.sessionId
     });
@@ -358,7 +377,7 @@ const sendBulkCRMEmailTool: AITool = {
 
     // Execute the actual bulk email via the implementation
     const result = await ctx.runAction(api.ai.tools.bulkCRMEmailTool.executeSendBulkCRMEmail, {
-      sessionId: ctx.sessionId,
+      sessionId: ctx.sessionId!, // Required by tool
       target: args.target,
       content: args.content,
       options: args.options,
@@ -436,13 +455,8 @@ const createContactTool: AITool = {
 const searchContactsTool: AITool = {
   name: "search_contacts",
   description: "Search for contacts by name, email, or company",
-  status: "placeholder",
+  status: "ready",
   windowName: "CRM",
-  tutorialSteps: [
-    "Click the **CRM** icon in your taskbar",
-    "Use the search bar at the top to search by name, email, or company",
-    "Click on a contact to view details"
-  ],
   parameters: {
     type: "object",
     properties: {
@@ -451,16 +465,34 @@ const searchContactsTool: AITool = {
     },
     required: ["query"]
   },
-  execute: async (_ctx, args) => {
+  execute: async (ctx, args) => {
+    const contacts = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalSearchContacts, {
+      organizationId: ctx.organizationId,
+      searchQuery: args.query,
+      limit: args.limit || 10,
+    });
+
+    if (contacts.length === 0) {
+      return {
+        success: true,
+        message: `No contacts found matching "${args.query}"`,
+        contacts: [],
+        count: 0,
+      };
+    }
+
     return {
-      success: false,
-      status: "placeholder",
-      message: `Let me help you search for: ${args.query}`,
-      tutorialSteps: [
-        "Click the **CRM** icon in your taskbar",
-        `Use the search bar at the top and search for: **${args.query}**`,
-        "Click on any contact to view their full details"
-      ]
+      success: true,
+      message: `Found ${contacts.length} contact(s) matching "${args.query}"`,
+      contacts: contacts.map((c: { _id: string; name: string; customProperties?: { email?: string; phone?: string; company?: string; tags?: string[] } }) => ({
+        id: c._id,
+        name: c.name,
+        email: c.customProperties?.email,
+        phone: c.customProperties?.phone,
+        company: c.customProperties?.company,
+        tags: c.customProperties?.tags || [],
+      })),
+      count: contacts.length,
     };
   }
 };
@@ -468,28 +500,55 @@ const searchContactsTool: AITool = {
 const updateContactTool: AITool = {
   name: "update_contact",
   description: "Update an existing contact's information",
-  status: "placeholder",
+  status: "ready",
   windowName: "CRM",
   parameters: {
     type: "object",
     properties: {
       contactId: { type: "string", description: "Contact ID to update" },
-      updates: { type: "object", description: "Fields to update (email, phone, etc.)" }
+      firstName: { type: "string", description: "First name" },
+      lastName: { type: "string", description: "Last name" },
+      email: { type: "string", description: "Email address" },
+      phone: { type: "string", description: "Phone number" },
+      company: { type: "string", description: "Company name" },
+      jobTitle: { type: "string", description: "Job title" },
+      notes: { type: "string", description: "Notes about the contact" }
     },
-    required: ["contactId", "updates"]
+    required: ["contactId"]
   },
-  execute: async (_ctx, _args) => {
+  execute: async (ctx, args) => {
+    const updateArgs: {
+      organizationId: Id<"organizations">;
+      userId: Id<"users">;
+      contactId: Id<"objects">;
+      firstName?: string;
+      lastName?: string;
+      email?: string;
+      phone?: string;
+      company?: string;
+      jobTitle?: string;
+      notes?: string;
+    } = {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      contactId: args.contactId as Id<"objects">,
+    };
+
+    if (args.firstName) updateArgs.firstName = args.firstName;
+    if (args.lastName) updateArgs.lastName = args.lastName;
+    if (args.email) updateArgs.email = args.email;
+    if (args.phone) updateArgs.phone = args.phone;
+    if (args.company) updateArgs.company = args.company;
+    if (args.jobTitle) updateArgs.jobTitle = args.jobTitle;
+    if (args.notes) updateArgs.notes = args.notes;
+
+    await ctx.runMutation(internal.ai.tools.internalToolMutations.internalUpdateContact, updateArgs);
+
     return {
-      success: false,
-      status: "placeholder",
-      message: "I can guide you through updating a contact!",
-      tutorialSteps: [
-        "Open the **CRM** window",
-        "Find and click on the contact you want to update",
-        "Click the **Edit** button",
-        "Make your changes",
-        "Click **Save**"
-      ]
+      success: true,
+      message: "Contact updated successfully",
+      contactId: args.contactId,
+      updatedFields: Object.keys(args).filter(k => k !== "contactId"),
     };
   }
 };
@@ -497,7 +556,7 @@ const updateContactTool: AITool = {
 const tagContactsTool: AITool = {
   name: "tag_contacts",
   description: "Add tags to one or more contacts for organization",
-  status: "placeholder",
+  status: "ready",
   windowName: "CRM",
   parameters: {
     type: "object",
@@ -507,18 +566,20 @@ const tagContactsTool: AITool = {
     },
     required: ["contactIds", "tags"]
   },
-  execute: async (_ctx, args) => {
+  execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalTagContacts, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      contactIds: args.contactIds.map((id: string) => id as Id<"objects">),
+      tags: args.tags,
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: `Let me help you add tags: ${args.tags.join(", ")}`,
-      tutorialSteps: [
-        "Open the **CRM** window",
-        "Select the contacts you want to tag (use checkboxes)",
-        "Click the **Add Tags** button",
-        `Add these tags: **${args.tags.join(", ")}**`,
-        "Click **Apply**"
-      ]
+      success: true,
+      message: `Added tags [${args.tags.join(", ")}] to ${result.success} contact(s)`,
+      total: result.total,
+      successCount: result.success,
+      failedCount: result.failed,
     };
   }
 };
@@ -529,38 +590,153 @@ const tagContactsTool: AITool = {
 
 const createEventTool: AITool = {
   name: "create_event",
-  description: "Create a new event with dates, location, and details",
+  description: `Create a new event with dates, location, agenda, and optional ticket types. Supports: conference, workshop, concert, meetup, seminar, webinar, training, networking, exhibition, other.
+
+CRITICAL: Before creating a new event:
+1. ALWAYS use list_events first to check if a similar event already exists
+2. If an event with a similar name or date exists, use update_event instead of create_event
+3. Only create a new event if you're certain no matching event exists
+
+IMPORTANT: Before calling this tool, have a conversation with the user to gather:
+1. Event basics: name, date/time (start AND end), location (physical or virtual)
+2. Event type and expected duration
+3. Agenda/schedule: sessions, speakers, breaks (optional but recommended for conferences/workshops)
+4. Ticket types needed: free, paid tiers, early bird, VIP (optional)
+5. Capacity limits (optional)
+
+Example agenda array:
+[
+  { "time": "9:00 AM", "title": "Registration & Coffee", "duration": "30 min" },
+  { "time": "9:30 AM", "title": "Keynote: Future of AI", "speaker": "Jane Smith", "duration": "1 hour" },
+  { "time": "10:30 AM", "title": "Break", "duration": "15 min" },
+  { "time": "10:45 AM", "title": "Workshop: Hands-on ML", "speaker": "John Doe", "duration": "2 hours" }
+]
+
+Example ticketTypes array:
+[
+  { "name": "Early Bird", "price": 49, "description": "Limited early access pricing", "capacity": 50 },
+  { "name": "General Admission", "price": 99, "description": "Standard ticket" },
+  { "name": "VIP", "price": 199, "description": "Front row + speaker dinner", "capacity": 20 }
+]`,
   status: "ready",
   parameters: {
     type: "object",
     properties: {
-      title: { type: "string", description: "Event title" },
-      description: { type: "string", description: "Event description" },
-      startDate: { type: "string", description: "Start date (ISO 8601)" },
-      endDate: { type: "string", description: "End date (optional, ISO 8601). If not provided, duration is based on event type." },
-      location: { type: "string", description: "Event location" },
-      capacity: { type: "number", description: "Maximum attendees (optional)" },
-      eventType: { type: "string", enum: ["conference", "workshop", "concert", "meetup", "seminar"], description: "Type of event", default: "meetup" },
-      timezone: { type: "string", description: "Timezone (e.g., 'America/Los_Angeles', 'America/New_York'). Defaults to organization timezone.", default: "America/Los_Angeles" },
-      published: { type: "boolean", description: "Publish event immediately (true) or keep as draft (false)", default: true }
+      title: { type: "string", description: "Event title/name" },
+      description: { type: "string", description: "Event description shown to attendees" },
+      startDate: { type: "string", description: "Start date and time (ISO 8601, e.g., '2024-03-15T09:00:00')" },
+      endDate: { type: "string", description: "End date and time (optional). If not provided, auto-calculated based on event type." },
+      location: { type: "string", description: "Event location - physical address or 'Virtual' / 'Online' for webinars" },
+      eventType: {
+        type: "string",
+        enum: ["conference", "workshop", "concert", "meetup", "seminar", "webinar", "training", "networking", "exhibition", "other"],
+        description: "Type of event - affects default duration and display",
+        default: "meetup"
+      },
+      capacity: { type: "number", description: "Maximum total attendees (optional, leave empty for unlimited)" },
+      timezone: {
+        type: "string",
+        description: "Timezone (e.g., 'America/Los_Angeles', 'America/New_York', 'Europe/London', 'UTC')",
+        default: "America/Los_Angeles"
+      },
+      agenda: {
+        type: "array",
+        description: "Event schedule/agenda with sessions. Each item has time, title, optional speaker, and duration.",
+        items: {
+          type: "object",
+          properties: {
+            time: { type: "string", description: "Start time (e.g., '9:00 AM', '14:30')" },
+            title: { type: "string", description: "Session title" },
+            description: { type: "string", description: "Session description (optional)" },
+            speaker: { type: "string", description: "Speaker name (optional)" },
+            duration: { type: "string", description: "Duration (e.g., '30 min', '1 hour', '2 hours')" },
+            type: { type: "string", enum: ["session", "keynote", "workshop", "break", "networking", "meal", "other"], description: "Session type" }
+          },
+          required: ["time", "title"]
+        }
+      },
+      ticketTypes: {
+        type: "array",
+        description: "Ticket tiers/types for the event. Leave empty for free events.",
+        items: {
+          type: "object",
+          properties: {
+            name: { type: "string", description: "Ticket type name (e.g., 'General Admission', 'VIP', 'Early Bird')" },
+            price: { type: "number", description: "Price in cents (e.g., 4999 for $49.99). Use 0 for free tickets." },
+            description: { type: "string", description: "What's included with this ticket" },
+            capacity: { type: "number", description: "Max tickets of this type (optional)" },
+            salesStart: { type: "string", description: "When tickets go on sale (ISO 8601, optional)" },
+            salesEnd: { type: "string", description: "When ticket sales end (ISO 8601, optional)" }
+          },
+          required: ["name", "price"]
+        }
+      },
+      virtualEventUrl: { type: "string", description: "URL for virtual/online events (Zoom, Teams, etc.)" },
+      registrationRequired: { type: "boolean", description: "Whether registration is required (default: true)", default: true },
+      published: { type: "boolean", description: "Publish immediately (true) or keep as draft (false)", default: false }
     },
     required: ["title", "startDate", "location"]
   },
   execute: async (ctx, args) => {
+    // CHECK FOR DUPLICATES: Look for existing events with similar names
+    const existingEvents = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalListEvents, {
+      organizationId: ctx.organizationId,
+      upcoming: false, // Check all events, not just upcoming
+      limit: 100,
+    });
+
+    const normalizedTitle = args.title.toLowerCase().trim();
+    const duplicateEvent = existingEvents.find((e: { name: string; _id: string }) =>
+      e.name.toLowerCase().trim() === normalizedTitle
+    );
+
+    if (duplicateEvent) {
+      return {
+        success: false,
+        requiresUserDecision: true,
+        duplicateFound: true,
+        error: `An event named "${args.title}" already exists`,
+        existingEventId: duplicateEvent._id,
+        existingEventName: duplicateEvent.name,
+        userPrompt: `I found an existing event called "${duplicateEvent.name}". What would you like me to do?\n\n1. **Update the existing event** - I'll modify the event that's already there\n2. **Create with a different name** - Tell me what to call the new event\n3. **Replace it** - Delete the old one and create fresh`,
+        hint: "IMPORTANT: Ask the user which option they prefer. Present the options from userPrompt. Do NOT automatically choose - let the user decide.",
+        existingEvents: existingEvents.slice(0, 5).map((e: { _id: string; name: string; status: string; startDate?: number }) => ({
+          id: e._id,
+          name: e.name,
+          status: e.status,
+          startDate: e.startDate ? new Date(e.startDate).toISOString() : null
+        }))
+      };
+    }
+
     // Convert ISO dates to timestamps
     const startTimestamp = new Date(args.startDate).getTime();
 
+    // Validate start date is valid
+    if (isNaN(startTimestamp)) {
+      return {
+        success: false,
+        error: `Invalid start date format: "${args.startDate}". Please use ISO 8601 format (e.g., "2024-03-15T09:00:00").`,
+        hint: "Ask the user for the event date and time, then format it correctly."
+      };
+    }
+
     // Smart duration defaults based on event type
     const durationDefaults: Record<string, number> = {
-      conference: 8 * 60 * 60 * 1000,  // 8 hours
+      conference: 8 * 60 * 60 * 1000,   // 8 hours
       workshop: 4 * 60 * 60 * 1000,     // 4 hours
       concert: 3 * 60 * 60 * 1000,      // 3 hours
       meetup: 2 * 60 * 60 * 1000,       // 2 hours
       seminar: 90 * 60 * 1000,          // 90 minutes
+      webinar: 60 * 60 * 1000,          // 1 hour
+      training: 6 * 60 * 60 * 1000,     // 6 hours
+      networking: 2 * 60 * 60 * 1000,   // 2 hours
+      exhibition: 8 * 60 * 60 * 1000,   // 8 hours
+      other: 2 * 60 * 60 * 1000,        // 2 hours
     };
 
     const eventType = args.eventType || "meetup";
-    const defaultDuration = durationDefaults[eventType] || 2 * 60 * 60 * 1000; // 2 hours fallback
+    const defaultDuration = durationDefaults[eventType] || 2 * 60 * 60 * 1000;
 
     const endTimestamp = args.endDate
       ? new Date(args.endDate).getTime()
@@ -568,16 +744,60 @@ const createEventTool: AITool = {
 
     // Validate: end must be after start
     if (endTimestamp <= startTimestamp) {
-      throw new Error("Event end time must be after start time");
+      return {
+        success: false,
+        error: "Event end time must be after start time.",
+        hint: "Check the start and end dates - end date should be later than start date."
+      };
     }
 
     // Validate: minimum duration of 15 minutes
     const durationMs = endTimestamp - startTimestamp;
     if (durationMs < 15 * 60 * 1000) {
-      throw new Error("Event must be at least 15 minutes long");
+      return {
+        success: false,
+        error: "Event must be at least 15 minutes long.",
+        hint: "Either extend the end time or remove it to use the default duration."
+      };
     }
 
-    const eventId = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateEvent, {
+    // Process agenda items - add IDs
+    const processedAgenda = (args.agenda || []).map((item: {
+      time: string;
+      title: string;
+      description?: string;
+      speaker?: string;
+      duration?: string;
+      type?: string;
+    }, index: number) => ({
+      id: `agenda_${index + 1}_${Date.now()}`,
+      time: item.time,
+      title: item.title,
+      description: item.description || "",
+      speaker: item.speaker || null,
+      duration: item.duration || "30 min",
+      type: item.type || "session",
+    }));
+
+    // Process ticket types - will create products later if needed
+    const processedTicketTypes = (args.ticketTypes || []).map((ticket: {
+      name: string;
+      price: number;
+      description?: string;
+      capacity?: number;
+      salesStart?: string;
+      salesEnd?: string;
+    }, index: number) => ({
+      id: `ticket_${index + 1}_${Date.now()}`,
+      name: ticket.name,
+      price: ticket.price,
+      description: ticket.description || "",
+      capacity: ticket.capacity || null,
+      salesStart: ticket.salesStart ? new Date(ticket.salesStart).getTime() : null,
+      salesEnd: ticket.salesEnd ? new Date(ticket.salesEnd).getTime() : null,
+    }));
+
+    const eventId = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateEventWithDetails, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       subtype: eventType,
@@ -588,37 +808,54 @@ const createEventTool: AITool = {
       location: args.location,
       capacity: args.capacity,
       timezone: args.timezone || "America/Los_Angeles",
-      published: args.published !== false, // Default to true (published)
+      published: args.published === true, // Default to draft (false)
+      agenda: processedAgenda,
+      ticketTypes: processedTicketTypes,
+      virtualEventUrl: args.virtualEventUrl,
+      registrationRequired: args.registrationRequired !== false,
     });
 
     // Format duration for display
-    const durationHours = Math.round(durationMs / (60 * 60 * 1000) * 10) / 10; // Round to 1 decimal
+    const durationHours = Math.round(durationMs / (60 * 60 * 1000) * 10) / 10;
     const durationDisplay = durationHours < 1
       ? `${Math.round(durationMs / (60 * 1000))} minutes`
       : `${durationHours} hours`;
 
     return {
       success: true,
-      message: `✅ Created event: ${args.title}`,
+      message: `Created event "${args.title}"${processedAgenda.length > 0 ? ` with ${processedAgenda.length} agenda item(s)` : ""}${processedTicketTypes.length > 0 ? ` and ${processedTicketTypes.length} ticket type(s)` : ""}`,
       eventId,
       details: {
         name: args.title,
-        startDate: args.startDate,
-        endDate: args.endDate || `Auto: ${durationDisplay} after start`,
+        type: eventType,
+        startDate: new Date(startTimestamp).toLocaleString(),
+        endDate: new Date(endTimestamp).toLocaleString(),
+        duration: durationDisplay,
         location: args.location,
         capacity: args.capacity || "Unlimited",
-        type: eventType,
         timezone: args.timezone || "America/Los_Angeles",
-        status: args.published !== false ? "Published" : "Draft",
-      }
+        status: args.published === true ? "Published" : "Draft",
+        agendaItems: processedAgenda.length,
+        ticketTypes: processedTicketTypes.length,
+        isVirtual: args.location?.toLowerCase().includes("virtual") || args.location?.toLowerCase().includes("online") || !!args.virtualEventUrl,
+      },
+      nextSteps: [
+        args.published !== true ? "Event is in draft mode - publish when ready" : null,
+        processedAgenda.length === 0 ? "Consider adding an agenda with sessions and speakers" : null,
+        processedTicketTypes.length === 0 ? "Add ticket types if this is a paid event" : null,
+        "You can update the event details anytime using the update_event tool",
+      ].filter(Boolean)
     };
   }
 };
 
 const listEventsTool: AITool = {
   name: "list_events",
-  description: "Get a list of all events (upcoming or past)",
-  status: "placeholder",
+  description: `Get a list of all events (upcoming or past).
+
+IMPORTANT: Use this tool BEFORE creating a new event to check if a similar event already exists.
+This helps avoid creating duplicate events when the user wants to modify an existing one.`,
+  status: "ready",
   windowName: "Events",
   parameters: {
     type: "object",
@@ -628,15 +865,34 @@ const listEventsTool: AITool = {
     }
   },
   execute: async (ctx, args) => {
+    const events = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalListEvents, {
+      organizationId: ctx.organizationId,
+      upcoming: args.upcoming !== false,
+      limit: args.limit || 20,
+    });
+
+    if (events.length === 0) {
+      return {
+        success: true,
+        message: args.upcoming ? "No upcoming events found." : "No events found.",
+        events: [],
+        count: 0,
+      };
+    }
+
     return {
-      success: false,
-      status: "placeholder",
-      message: `Let me help you view your ${args.upcoming ? "upcoming" : "all"} events!`,
-      tutorialSteps: [
-        "Click the **Events** icon in your taskbar (📅)",
-        args.upcoming ? "You'll see upcoming events by default" : "Click **View All Events** to see past events too",
-        "Click on any event to view details"
-      ]
+      success: true,
+      message: `Found ${events.length} ${args.upcoming ? "upcoming " : ""}event(s)`,
+      events: events.map((e: { _id: string; name: string; startDate?: number; endDate?: number; location?: string; status: string; subtype?: string }) => ({
+        id: e._id,
+        name: e.name,
+        startDate: e.startDate ? new Date(e.startDate).toISOString() : null,
+        endDate: e.endDate ? new Date(e.endDate).toISOString() : null,
+        location: e.location,
+        status: e.status,
+        type: e.subtype,
+      })),
+      count: events.length,
     };
   }
 };
@@ -644,28 +900,55 @@ const listEventsTool: AITool = {
 const updateEventTool: AITool = {
   name: "update_event",
   description: "Update an existing event's details",
-  status: "placeholder",
+  status: "ready",
   windowName: "Events",
   parameters: {
     type: "object",
     properties: {
       eventId: { type: "string", description: "Event ID" },
-      updates: { type: "object", description: "Fields to update" }
+      name: { type: "string", description: "New event name" },
+      description: { type: "string", description: "New description" },
+      startDate: { type: "string", description: "New start date (ISO format)" },
+      endDate: { type: "string", description: "New end date (ISO format)" },
+      location: { type: "string", description: "New location" },
+      capacity: { type: "number", description: "New max capacity" },
+      status: { type: "string", description: "New status (draft, active, cancelled)" }
     },
-    required: ["eventId", "updates"]
+    required: ["eventId"]
   },
   execute: async (ctx, args) => {
+    const updateArgs: {
+      organizationId: Id<"organizations">;
+      userId: Id<"users">;
+      eventId: Id<"objects">;
+      name?: string;
+      description?: string;
+      startDate?: number;
+      endDate?: number;
+      location?: string;
+      capacity?: number;
+      status?: string;
+    } = {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      eventId: args.eventId as Id<"objects">,
+    };
+
+    if (args.name) updateArgs.name = args.name;
+    if (args.description) updateArgs.description = args.description;
+    if (args.startDate) updateArgs.startDate = new Date(args.startDate).getTime();
+    if (args.endDate) updateArgs.endDate = new Date(args.endDate).getTime();
+    if (args.location) updateArgs.location = args.location;
+    if (args.capacity) updateArgs.capacity = args.capacity;
+    if (args.status) updateArgs.status = args.status;
+
+    await ctx.runMutation(internal.ai.tools.internalToolMutations.internalUpdateEvent, updateArgs);
+
     return {
-      success: false,
-      status: "placeholder",
-      message: "I can guide you through updating an event!",
-      tutorialSteps: [
-        "Open the **Events** window",
-        "Find and click on the event you want to update",
-        "Click the **Edit** button",
-        "Make your changes",
-        "Click **Save Changes**"
-      ]
+      success: true,
+      message: `Event updated successfully`,
+      eventId: args.eventId,
+      updatedFields: Object.keys(args).filter(k => k !== "eventId"),
     };
   }
 };
@@ -673,30 +956,33 @@ const updateEventTool: AITool = {
 const registerAttendeeTool: AITool = {
   name: "register_attendee",
   description: "Register an attendee for an event",
-  status: "placeholder",
+  status: "ready",
   windowName: "Events",
   parameters: {
     type: "object",
     properties: {
       eventId: { type: "string", description: "Event ID" },
       attendeeEmail: { type: "string", description: "Attendee email" },
-      attendeeName: { type: "string", description: "Attendee name" }
+      attendeeName: { type: "string", description: "Attendee name" },
+      ticketType: { type: "string", description: "Ticket type (general, vip, etc.)" }
     },
-    required: ["eventId", "attendeeEmail"]
+    required: ["eventId", "attendeeEmail", "attendeeName"]
   },
   execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalRegisterAttendee, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      eventId: args.eventId as Id<"objects">,
+      attendeeName: args.attendeeName,
+      attendeeEmail: args.attendeeEmail,
+      ticketType: args.ticketType,
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: `Let me help you register ${args.attendeeName || args.attendeeEmail} for this event!`,
-      tutorialSteps: [
-        "Open the **Events** window",
-        "Click on the event",
-        "Go to the **Attendees** tab",
-        "Click **+ Add Attendee**",
-        `Enter: **${args.attendeeName || ""} (${args.attendeeEmail})**`,
-        "Click **Register**"
-      ]
+      success: result.success,
+      message: result.message,
+      contactId: result.contactId,
+      registrationId: result.linkId,
     };
   }
 };
@@ -754,53 +1040,356 @@ const manageProjectsTool: AITool = {
 };
 
 /**
+ * 2.5 BENEFITS TOOLS
+ */
+
+const manageBenefitsTool: AITool = {
+  name: "manage_benefits",
+  description: "Comprehensive benefits and commissions management: create benefits, list benefits, create commissions, manage claims, track payouts. Use this for ALL member benefits, discounts, commissions, and referral programs.",
+  status: "ready",
+  parameters: benefitsToolDefinition.function.parameters,
+  execute: async (ctx, args) => {
+    const result = await ctx.runAction(api.ai.tools.benefitsTool.executeManageBenefits, {
+      sessionId: ctx.sessionId,
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      conversationId: ctx.conversationId,
+      action: args.action,
+      mode: args.mode,
+      workItemId: args.workItemId,
+      // Benefit fields
+      benefitId: args.benefitId,
+      subtype: args.subtype,
+      name: args.name,
+      description: args.description,
+      discountValue: args.discountValue,
+      category: args.category,
+      validFrom: args.validFrom,
+      validUntil: args.validUntil,
+      maxTotalClaims: args.maxTotalClaims,
+      maxClaimsPerMember: args.maxClaimsPerMember,
+      requirements: args.requirements,
+      contactEmail: args.contactEmail,
+      contactPhone: args.contactPhone,
+      status: args.status,
+      // Commission fields
+      commissionId: args.commissionId,
+      commissionSubtype: args.commissionSubtype,
+      commissionRate: args.commissionRate,
+      minDealSize: args.minDealSize,
+      maxDealSize: args.maxDealSize,
+      payoutTerms: args.payoutTerms,
+      // Claim fields
+      claimId: args.claimId,
+      claimDetails: args.claimDetails,
+      claimStatus: args.claimStatus,
+      // Filters
+      filterSubtype: args.filterSubtype,
+      filterCategory: args.filterCategory,
+      filterStatus: args.filterStatus,
+      includeInactive: args.includeInactive,
+      limit: args.limit,
+    });
+
+    return result;
+  }
+};
+
+/**
+ * 2.6 BOOKINGS TOOL
+ */
+
+const manageBookingsTool: AITool = {
+  name: "manage_bookings",
+  description: "Comprehensive booking, location, and availability management: create bookings, manage appointments/reservations/rentals, confirm/check-in/complete bookings, manage locations, check available time slots.",
+  status: "ready",
+  parameters: bookingToolDefinition.function.parameters,
+  execute: async (ctx, args) => {
+    const result = await ctx.runAction(api.ai.tools.bookingTool.executeManageBookings, {
+      sessionId: ctx.sessionId,
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      conversationId: ctx.conversationId,
+      action: args.action,
+      mode: args.mode,
+      workItemId: args.workItemId,
+      // Booking fields
+      bookingId: args.bookingId,
+      subtype: args.subtype,
+      resourceId: args.resourceId,
+      customerName: args.customerName,
+      customerEmail: args.customerEmail,
+      customerPhone: args.customerPhone,
+      startDateTime: args.startDateTime,
+      endDateTime: args.endDateTime,
+      duration: args.duration,
+      participants: args.participants,
+      notes: args.notes,
+      cancellationReason: args.cancellationReason,
+      confirmationRequired: args.confirmationRequired,
+      // Location fields
+      locationId: args.locationId,
+      locationName: args.locationName,
+      locationType: args.locationType,
+      address: args.address,
+      timezone: args.timezone,
+      contactEmail: args.contactEmail,
+      contactPhone: args.contactPhone,
+      // Filters
+      filterStatus: args.filterStatus,
+      filterSubtype: args.filterSubtype,
+      dateFrom: args.dateFrom,
+      dateTo: args.dateTo,
+      limit: args.limit,
+    });
+
+    return result;
+  }
+};
+
+/**
+ * 2.7 ACTIVITY PROTOCOL TOOL
+ */
+
+const manageActivityProtocolTool: AITool = {
+  name: "manage_activity_protocol",
+  description: "Manage activity monitoring for connected applications: view events, check statistics, manage pages, configure bindings. Use for debugging, monitoring data flow, and configuring page-level object access.",
+  status: "ready",
+  parameters: activityProtocolToolDefinition.function.parameters,
+  execute: async (ctx, args) => {
+    const result = await ctx.runAction(api.ai.tools.activityProtocolTool.executeManageActivityProtocol, {
+      sessionId: ctx.sessionId,
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      action: args.action,
+      applicationId: args.applicationId,
+      // Event filters
+      severity: args.severity,
+      category: args.category,
+      debugMode: args.debugMode,
+      timeRange: args.timeRange,
+      limit: args.limit,
+      // Page fields
+      pageId: args.pageId,
+      path: args.path,
+      pageName: args.pageName,
+      pageType: args.pageType,
+      // Bindings
+      objectBindings: args.objectBindings,
+      // Settings
+      enabled: args.enabled,
+      debugModeDefault: args.debugModeDefault,
+      retentionDays: args.retentionDays,
+      alertsEnabled: args.alertsEnabled,
+    });
+
+    return result;
+  }
+};
+
+/**
+ * 2.8 SEQUENCES TOOL
+ */
+
+const manageSequencesTool: AITool = {
+  name: "manage_sequences",
+  description: "Comprehensive automation sequence management for multi-channel messaging: list sequences, create new sequences, activate/pause/resume sequences, enroll contacts, manage enrollments, view statistics. Use for all sequence automation operations.",
+  status: "ready",
+  parameters: sequencesToolDefinition.function.parameters,
+  execute: async (ctx, args) => {
+    const result = await ctx.runAction(api.ai.tools.sequencesTool.executeManageSequences, {
+      sessionId: ctx.sessionId,
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      conversationId: ctx.conversationId,
+      action: args.action,
+      mode: args.mode,
+      workItemId: args.workItemId,
+      // Sequence fields
+      sequenceId: args.sequenceId,
+      name: args.name,
+      description: args.description,
+      subtype: args.subtype,
+      triggerEvent: args.triggerEvent,
+      channels: args.channels,
+      // Enrollment fields
+      enrollmentId: args.enrollmentId,
+      contactId: args.contactId,
+      bookingId: args.bookingId,
+      cancelReason: args.cancelReason,
+      // Filters
+      filterStatus: args.filterStatus,
+      filterTriggerEvent: args.filterTriggerEvent,
+      limit: args.limit,
+    });
+
+    return result;
+  }
+};
+
+/**
  * 3. FORMS TOOLS
  */
 
 const createFormTool: AITool = {
   name: "create_form",
-  description: "Create a new form (registration, survey, application, etc.)",
+  description: `Create a new form with custom fields/questions. Supports 17 field types: text, textarea, email, phone, number, date, time, datetime, select (dropdown), radio (single choice), checkbox (yes/no), multi_select (multiple choice), file, rating (stars), section_header, text_block, description.
+
+IMPORTANT: Before calling this tool, have a conversation with the user to gather:
+1. What information they need to collect (name, email, phone, etc.)
+2. Which fields should be required vs optional
+3. For select/radio/multi_select fields: what are the options?
+4. Any special validation needs (min/max values, patterns)
+
+Example fields array:
+[
+  { "label": "Full Name", "type": "text", "required": true },
+  { "label": "Email", "type": "email", "required": true },
+  { "label": "Session", "type": "select", "options": ["Morning", "Afternoon", "Evening"], "required": true },
+  { "label": "Dietary Needs", "type": "multi_select", "options": ["Vegetarian", "Vegan", "Gluten-free", "None"] },
+  { "label": "Comments", "type": "textarea" }
+]`,
   status: "ready",
   parameters: {
     type: "object",
     properties: {
-      title: { type: "string", description: "Form title" },
-      description: { type: "string", description: "Form description" },
-      formType: { type: "string", enum: ["registration", "survey", "application"], description: "Type of form", default: "registration" },
+      title: { type: "string", description: "Form title/name" },
+      description: { type: "string", description: "Form description shown to users" },
+      formType: {
+        type: "string",
+        enum: ["registration", "survey", "application", "contact", "booking", "order", "donation", "membership", "rsvp", "feedback", "quiz", "volunteer", "other"],
+        description: "Type of form - determines icon and categorization",
+        default: "survey"
+      },
       fields: {
         type: "array",
-        description: "Form fields (optional, can add later)",
+        description: "Array of form fields/questions. Each field needs at minimum: label and type. For select/radio/multi_select, include options array.",
         items: {
           type: "object",
           properties: {
-            label: { type: "string" },
-            type: { type: "string", enum: ["text", "email", "number", "select", "textarea"] },
-            required: { type: "boolean" }
-          }
+            label: { type: "string", description: "Field label/question text shown to user" },
+            type: {
+              type: "string",
+              enum: ["text", "textarea", "email", "phone", "number", "date", "time", "datetime", "select", "radio", "checkbox", "multi_select", "file", "rating", "section_header", "text_block", "description"],
+              description: "Field type"
+            },
+            required: { type: "boolean", description: "Whether field is required (default: false)" },
+            placeholder: { type: "string", description: "Placeholder text for input fields" },
+            helpText: { type: "string", description: "Help text shown below the field" },
+            options: {
+              type: "array",
+              items: { type: "string" },
+              description: "Options for select/radio/multi_select fields (e.g., ['Option 1', 'Option 2'])"
+            },
+            validation: {
+              type: "object",
+              description: "Validation rules",
+              properties: {
+                min: { type: "number", description: "Minimum value (for number) or length (for text)" },
+                max: { type: "number", description: "Maximum value (for number) or length (for text)" },
+                pattern: { type: "string", description: "Regex pattern for validation" },
+                customMessage: { type: "string", description: "Custom error message" }
+              }
+            }
+          },
+          required: ["label", "type"]
+        }
+      },
+      sectionTitle: { type: "string", description: "Optional title for the main section (default: 'Form Fields')" },
+      settings: {
+        type: "object",
+        description: "Form settings",
+        properties: {
+          submitButtonText: { type: "string", description: "Text for submit button (default: 'Submit')" },
+          successMessage: { type: "string", description: "Message shown after successful submission" },
+          allowMultipleSubmissions: { type: "boolean", description: "Allow same user to submit multiple times" },
+          showProgressBar: { type: "boolean", description: "Show progress bar for multi-section forms" }
         }
       }
     },
-    required: ["title"]
+    required: ["title", "fields"]
   },
   execute: async (ctx, args) => {
-    const formId = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateForm, {
+    // Validate fields array
+    if (!args.fields || !Array.isArray(args.fields) || args.fields.length === 0) {
+      return {
+        success: false,
+        error: "Fields array is required and must contain at least one field",
+        hint: "Ask the user what information they want to collect, then provide a fields array with label and type for each field."
+      };
+    }
+
+    // Validate each field has required properties
+    for (const field of args.fields) {
+      if (!field.label || !field.type) {
+        return {
+          success: false,
+          error: `Each field must have a 'label' and 'type'. Invalid field: ${JSON.stringify(field)}`,
+          hint: "Ensure every field object has at minimum: { label: 'Question text', type: 'text' }"
+        };
+      }
+    }
+
+    // CHECK FOR DUPLICATES: Look for existing forms with similar names
+    const existingForms = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalListForms, {
+      organizationId: ctx.organizationId,
+      status: "all",
+      limit: 100,
+    });
+
+    const normalizedTitle = args.title.toLowerCase().trim();
+    const duplicateForm = existingForms.find((f: { name: string; _id: string }) =>
+      f.name.toLowerCase().trim() === normalizedTitle
+    );
+
+    if (duplicateForm) {
+      return {
+        success: false,
+        requiresUserDecision: true,
+        duplicateFound: true,
+        error: `A form named "${args.title}" already exists`,
+        existingFormId: duplicateForm._id,
+        existingFormName: duplicateForm.name,
+        userPrompt: `I found an existing form called "${duplicateForm.name}". What would you like me to do?\n\n1. **Use the existing form** - I'll use the form that's already there\n2. **Create with a different name** - Tell me what to call the new form\n3. **Replace it** - Delete the old one and create fresh`,
+        hint: "IMPORTANT: Ask the user which option they prefer. Present the options from userPrompt. Do NOT automatically choose - let the user decide.",
+        existingForms: existingForms.slice(0, 5).map((f: { _id: string; name: string; status: string }) => ({
+          id: f._id,
+          name: f.name,
+          status: f.status
+        }))
+      };
+    }
+
+    const formId = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateFormWithFields, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
-      subtype: args.formType || "registration",
+      subtype: args.formType || "survey",
       name: args.title,
       description: args.description,
       fields: args.fields,
+      sectionTitle: args.sectionTitle,
+      settings: args.settings,
     });
 
     return {
       success: true,
-      message: `✅ Created form: ${args.title}`,
+      message: `Created form "${args.title}" with ${args.fields.length} field(s)`,
       formId,
       details: {
         name: args.title,
-        type: args.formType || "registration",
-        fieldCount: args.fields?.length || 0,
-      }
+        type: args.formType || "survey",
+        fieldCount: args.fields.length,
+        fields: args.fields.map((f: { label: string; type: string; required?: boolean }) => ({
+          label: f.label,
+          type: f.type,
+          required: f.required || false
+        }))
+      },
+      nextSteps: [
+        "The form is created in 'draft' status",
+        "User can view and edit it in the Forms window",
+        "To publish, use the publish_form tool or the Forms UI"
+      ]
     };
   }
 };
@@ -808,7 +1397,7 @@ const createFormTool: AITool = {
 const listFormsTool: AITool = {
   name: "list_forms",
   description: "Get a list of all forms",
-  status: "placeholder",
+  status: "ready",
   windowName: "Forms",
   parameters: {
     type: "object",
@@ -818,15 +1407,33 @@ const listFormsTool: AITool = {
     }
   },
   execute: async (ctx, args) => {
+    const forms = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalListForms, {
+      organizationId: ctx.organizationId,
+      status: args.status,
+      limit: args.limit || 20,
+    });
+
+    if (forms.length === 0) {
+      return {
+        success: true,
+        message: "No forms found",
+        forms: [],
+        count: 0,
+      };
+    }
+
     return {
-      success: false,
-      status: "placeholder",
-      message: "Let me help you view your forms!",
-      tutorialSteps: [
-        "Click the **Forms** icon in your taskbar",
-        args.status !== "all" ? `Filter by status: **${args.status}**` : "You'll see all your forms here",
-        "Click on any form to view details or edit"
-      ]
+      success: true,
+      message: `Found ${forms.length} form(s)`,
+      forms: forms.map((f: { _id: string; name: string; subtype?: string; status: string; stats?: { views: number; submissions: number } }) => ({
+        id: f._id,
+        name: f.name,
+        type: f.subtype,
+        status: f.status,
+        views: f.stats?.views || 0,
+        submissions: f.stats?.submissions || 0,
+      })),
+      count: forms.length,
     };
   }
 };
@@ -834,7 +1441,7 @@ const listFormsTool: AITool = {
 const publishFormTool: AITool = {
   name: "publish_form",
   description: "Make a form live and available for submissions",
-  status: "placeholder",
+  status: "ready",
   windowName: "Forms",
   parameters: {
     type: "object",
@@ -844,16 +1451,16 @@ const publishFormTool: AITool = {
     required: ["formId"]
   },
   execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalPublishForm, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      formId: args.formId as Id<"objects">,
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: "I can help you publish your form!",
-      tutorialSteps: [
-        "Open the **Forms** window",
-        "Find and click on your form",
-        "Click the **Publish** button",
-        "Copy the form URL to share with others"
-      ]
+      success: result.success,
+      message: "Form published successfully! It's now live and accepting submissions.",
+      formId: result.formId,
     };
   }
 };
@@ -861,7 +1468,7 @@ const publishFormTool: AITool = {
 const getFormResponsesTool: AITool = {
   name: "get_form_responses",
   description: "Retrieve submissions for a specific form",
-  status: "placeholder",
+  status: "ready",
   windowName: "Forms",
   parameters: {
     type: "object",
@@ -872,17 +1479,19 @@ const getFormResponsesTool: AITool = {
     required: ["formId"]
   },
   execute: async (ctx, args) => {
+    const result = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalGetFormResponses, {
+      organizationId: ctx.organizationId,
+      formId: args.formId as Id<"objects">,
+      limit: args.limit || 50,
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: "Let me help you view form responses!",
-      tutorialSteps: [
-        "Open the **Forms** window",
-        "Click on your form",
-        "Go to the **Responses** tab",
-        "You'll see all submissions here",
-        "Click **Export** to download as CSV"
-      ]
+      success: true,
+      message: `Found ${result.total} response(s) for "${result.formName}"`,
+      formId: result.formId,
+      formName: result.formName,
+      total: result.total,
+      responses: result.responses,
     };
   }
 };
@@ -919,45 +1528,204 @@ const manageFormsTool: AITool = {
 
 const createProductTool: AITool = {
   name: "create_product",
-  description: "Create a new product or service to sell",
+  description: `Create a new product, ticket, or bookable service. Supports multiple product types:
+
+PRODUCT TYPES:
+- ticket: Event tickets (general admission, VIP, early bird, etc.)
+- physical: Physical goods (merchandise, swag, equipment)
+- digital: Digital products (downloads, access codes, online courses)
+- room: Bookable rooms (hotel rooms, meeting rooms, studios)
+- staff: Bookable staff (therapists, consultants, instructors)
+- equipment: Bookable equipment (vehicles, projectors, tools)
+- space: Bookable spaces (desks, parking spots, lockers)
+- appointment: 1:1 meetings, consultations
+- class: Group sessions with max participants
+- treatment: Spa, medical treatments
+
+IMPORTANT: Before calling this tool, have a conversation with the user to gather:
+1. Product type and name
+2. Price and currency
+3. For tickets: tier (standard, VIP, early bird), event to link to, sale dates
+4. For bookables: duration, capacity, buffer times
+5. Inventory limits (optional)
+
+Example ticket:
+{
+  "name": "VIP Access Pass",
+  "productType": "ticket",
+  "price": 199.99,
+  "ticketTier": "vip",
+  "description": "Front row seating + backstage access",
+  "inventory": 50,
+  "salesStart": "2024-01-15",
+  "salesEnd": "2024-03-01"
+}`,
   status: "ready",
   parameters: {
     type: "object",
     properties: {
-      name: { type: "string", description: "Product name" },
-      description: { type: "string", description: "Product description" },
-      price: { type: "number", description: "Price in dollars (will be converted to cents)" },
-      currency: { type: "string", description: "Currency code (USD, EUR, etc.)", default: "USD" },
-      inventory: { type: "number", description: "Stock quantity (optional)" },
-      productType: { type: "string", enum: ["ticket", "physical", "digital"], description: "Type of product", default: "physical" }
+      name: { type: "string", description: "Product/ticket name" },
+      description: { type: "string", description: "Product description - what's included, benefits, etc." },
+      productType: {
+        type: "string",
+        enum: ["ticket", "physical", "digital", "room", "staff", "equipment", "space", "appointment", "class", "treatment"],
+        description: "Type of product - determines available options and behavior",
+        default: "physical"
+      },
+      price: { type: "number", description: "Price in dollars (e.g., 49.99). Use 0 for free products." },
+      currency: { type: "string", description: "Currency code (USD, EUR, GBP, etc.)", default: "EUR" },
+      inventory: { type: "number", description: "Available quantity (leave empty for unlimited)" },
+      // Ticket-specific options
+      ticketTier: {
+        type: "string",
+        enum: ["standard", "earlybird", "vip", "premium", "student", "group"],
+        description: "For tickets: pricing tier (affects display and may have special rules)"
+      },
+      eventId: { type: "string", description: "For tickets: ID of the event this ticket is for (REQUIRED for ticket products - links ticket to event)" },
+      salesStart: { type: "string", description: "When sales begin (ISO 8601 date, e.g., '2024-01-15')" },
+      salesEnd: { type: "string", description: "When sales end (ISO 8601 date)" },
+      earlyBirdEndDate: { type: "string", description: "For early bird tickets: when early bird pricing ends" },
+      // Bookable-specific options
+      bookingSettings: {
+        type: "object",
+        description: "For bookable products (room, staff, equipment, appointment, class, treatment)",
+        properties: {
+          minDuration: { type: "number", description: "Minimum booking duration (in minutes or days based on durationUnit)" },
+          maxDuration: { type: "number", description: "Maximum booking duration" },
+          durationUnit: { type: "string", enum: ["minutes", "hours", "days", "nights"], description: "Unit for duration" },
+          slotIncrement: { type: "number", description: "Time slot increment in minutes (15, 30, 60)" },
+          bufferBefore: { type: "number", description: "Buffer time before booking (minutes)" },
+          bufferAfter: { type: "number", description: "Buffer time after booking (minutes)" },
+          capacity: { type: "number", description: "Max participants (for classes) or occupancy (for rooms)" },
+          confirmationRequired: { type: "boolean", description: "Require manual confirmation (default: auto-confirm)" },
+          priceUnit: { type: "string", enum: ["hour", "day", "night", "session", "flat"], description: "How price is calculated" }
+        }
+      },
+      // Tax settings
+      taxBehavior: {
+        type: "string",
+        enum: ["inclusive", "exclusive", "automatic"],
+        description: "Tax handling: inclusive (price includes tax), exclusive (tax added on top), automatic (system decides)"
+      },
+      // Status
+      status: {
+        type: "string",
+        enum: ["draft", "active"],
+        description: "Product status: draft (hidden) or active (available for sale)",
+        default: "draft"
+      }
     },
     required: ["name", "price"]
   },
   execute: async (ctx, args) => {
+    // CHECK FOR DUPLICATES: Look for existing products with same name
+    const existingProducts = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalListProducts, {
+      organizationId: ctx.organizationId,
+      limit: 100,
+    });
+
+    const normalizedName = args.name.toLowerCase().trim();
+    const duplicateProduct = existingProducts.find((p: { name: string; _id: string }) =>
+      p.name.toLowerCase().trim() === normalizedName
+    );
+
+    if (duplicateProduct) {
+      return {
+        success: false,
+        requiresUserDecision: true,
+        duplicateFound: true,
+        error: `A product named "${args.name}" already exists`,
+        existingProductId: duplicateProduct._id,
+        existingProductName: duplicateProduct.name,
+        userPrompt: `I found an existing product called "${duplicateProduct.name}". What would you like me to do?\n\n1. **Use the existing product** - I'll use the product that's already there\n2. **Create with a different name** - Tell me what to call the new product\n3. **Replace it** - Delete the old one and create fresh`,
+        hint: "IMPORTANT: Ask the user which option they prefer. Present the options from userPrompt. Do NOT automatically choose - let the user decide.",
+        existingProducts: existingProducts.slice(0, 5).map((p: { _id: string; name: string; status: string; subtype?: string }) => ({
+          id: p._id,
+          name: p.name,
+          type: p.subtype,
+          status: p.status
+        }))
+      };
+    }
+
     // Convert dollars to cents
     const priceInCents = Math.round(args.price * 100);
 
-    const productId = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateProduct, {
+    // Validate price
+    if (args.price < 0) {
+      return {
+        success: false,
+        error: "Price cannot be negative",
+        hint: "Use 0 for free products"
+      };
+    }
+
+    // Note: Tickets CAN be linked to events but it's not required
+    // The eventId is optional - tickets can exist independently
+
+    // Process dates
+    const salesStart = args.salesStart ? new Date(args.salesStart).getTime() : null;
+    const salesEnd = args.salesEnd ? new Date(args.salesEnd).getTime() : null;
+    const earlyBirdEndDate = args.earlyBirdEndDate ? new Date(args.earlyBirdEndDate).getTime() : null;
+
+    // Validate sale dates
+    if (salesStart && salesEnd && salesEnd <= salesStart) {
+      return {
+        success: false,
+        error: "Sales end date must be after sales start date",
+        hint: "Check your date values"
+      };
+    }
+
+    const productId = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateProductWithDetails, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       subtype: args.productType || "physical",
       name: args.name,
       description: args.description,
       price: priceInCents,
-      currency: args.currency || "USD",
+      currency: args.currency || "EUR",
       inventory: args.inventory,
+      status: args.status || "draft",
+      // Ticket options
+      ticketTier: args.ticketTier,
+      eventId: args.eventId,
+      salesStart,
+      salesEnd,
+      earlyBirdEndDate,
+      // Bookable options
+      bookingSettings: args.bookingSettings,
+      // Tax
+      taxBehavior: args.taxBehavior,
     });
+
+    // Determine product category for message
+    const isTicket = args.productType === "ticket";
+    const isBookable = ["room", "staff", "equipment", "space", "appointment", "class", "treatment"].includes(args.productType || "");
 
     return {
       success: true,
-      message: `✅ Created product: ${args.name}`,
+      message: `Created ${isTicket ? "ticket" : isBookable ? "bookable" : "product"} "${args.name}" at ${args.currency || "EUR"} ${args.price.toFixed(2)}`,
       productId,
       details: {
         name: args.name,
-        price: `$${args.price} ${args.currency || "USD"}`,
         type: args.productType || "physical",
+        price: `${args.currency || "EUR"} ${args.price.toFixed(2)}`,
+        priceInCents,
         inventory: args.inventory || "Unlimited",
-      }
+        status: args.status || "draft",
+        ticketTier: args.ticketTier || null,
+        salesWindow: salesStart || salesEnd ? {
+          start: salesStart ? new Date(salesStart).toLocaleDateString() : "Immediate",
+          end: salesEnd ? new Date(salesEnd).toLocaleDateString() : "No end date"
+        } : null,
+        isBookable,
+      },
+      nextSteps: [
+        args.status !== "active" ? "Product is in draft mode - set status to 'active' when ready to sell" : null,
+        isTicket && !args.eventId ? "Consider linking this ticket to an event using the eventId parameter" : null,
+        "You can update the product anytime using update tools",
+      ].filter(Boolean)
     };
   }
 };
@@ -965,7 +1733,7 @@ const createProductTool: AITool = {
 const listProductsTool: AITool = {
   name: "list_products",
   description: "Get a list of all products",
-  status: "placeholder",
+  status: "ready",
   windowName: "Products",
   parameters: {
     type: "object",
@@ -975,15 +1743,33 @@ const listProductsTool: AITool = {
     }
   },
   execute: async (ctx, args) => {
+    const products = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalListProducts, {
+      organizationId: ctx.organizationId,
+      status: args.status,
+      limit: args.limit || 20,
+    });
+
+    if (products.length === 0) {
+      return {
+        success: true,
+        message: "No products found",
+        products: [],
+        count: 0,
+      };
+    }
+
     return {
-      success: false,
-      status: "placeholder",
-      message: "Let me help you view your products!",
-      tutorialSteps: [
-        "Click the **Products** icon in your taskbar",
-        args.status !== "all" ? `Filter by status: **${args.status}**` : "You'll see all your products here",
-        "Click on any product to edit details or view sales"
-      ]
+      success: true,
+      message: `Found ${products.length} product(s)`,
+      products: products.map((p) => ({
+        id: p._id,
+        name: p.name,
+        type: p.subtype,
+        status: p.status,
+        price: p.priceDollars ? `$${p.priceDollars} ${p.currency || "USD"}` : "No price set",
+        sold: p.sold || 0,
+      })),
+      count: products.length,
     };
   }
 };
@@ -991,28 +1777,262 @@ const listProductsTool: AITool = {
 const updateProductPriceTool: AITool = {
   name: "set_product_price",
   description: "Update the price of a product",
-  status: "placeholder",
+  status: "ready",
   windowName: "Products",
   parameters: {
     type: "object",
     properties: {
       productId: { type: "string", description: "Product ID" },
-      newPrice: { type: "number", description: "New price in dollars" }
+      newPrice: { type: "number", description: "New price in dollars" },
+      currency: { type: "string", description: "Currency (USD, EUR, etc.)" }
     },
     required: ["productId", "newPrice"]
   },
   execute: async (ctx, args) => {
+    const priceInCents = Math.round(args.newPrice * 100);
+
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalSetProductPrice, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      productId: args.productId as Id<"objects">,
+      priceInCents,
+      currency: args.currency,
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: `Let me help you update the price to $${args.newPrice}!`,
-      tutorialSteps: [
-        "Open the **Products** window",
-        "Find and click on the product",
-        "Click the **Edit** button",
-        `Change the price to: **$${args.newPrice}**`,
-        "Click **Save Changes**"
-      ]
+      success: result.success,
+      message: `Price updated from $${(result.oldPrice as number) / 100} to $${args.newPrice}`,
+      productId: result.productId,
+      oldPrice: result.oldPrice ? `$${(result.oldPrice as number) / 100}` : null,
+      newPrice: `$${args.newPrice}`,
+    };
+  }
+};
+
+const activateProductTool: AITool = {
+  name: "activate_product",
+  description: "Activate a product to make it available for sale. Changes status from 'draft' to 'active'.",
+  status: "ready",
+  windowName: "Products",
+  parameters: {
+    type: "object",
+    properties: {
+      productId: { type: "string", description: "Product ID to activate" }
+    },
+    required: ["productId"]
+  },
+  execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalActivateProduct, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      productId: args.productId as Id<"objects">,
+    });
+
+    return {
+      success: result.success,
+      message: "Product activated! It's now available for purchase.",
+      productId: result.productId,
+      previousStatus: result.previousStatus,
+    };
+  }
+};
+
+const deactivateProductTool: AITool = {
+  name: "deactivate_product",
+  description: "Deactivate a product to remove it from sale. Changes status from 'active' to 'draft'.",
+  status: "ready",
+  windowName: "Products",
+  parameters: {
+    type: "object",
+    properties: {
+      productId: { type: "string", description: "Product ID to deactivate" }
+    },
+    required: ["productId"]
+  },
+  execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalDeactivateProduct, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      productId: args.productId as Id<"objects">,
+    });
+
+    return {
+      success: result.success,
+      message: "Product deactivated. It's no longer available for purchase.",
+      productId: result.productId,
+      previousStatus: result.previousStatus,
+    };
+  }
+};
+
+const publishCheckoutTool: AITool = {
+  name: "publish_checkout",
+  description: "Publish a checkout page to make it live and ready to accept orders. Generates a public URL.",
+  status: "ready",
+  windowName: "Checkout",
+  parameters: {
+    type: "object",
+    properties: {
+      checkoutId: { type: "string", description: "Checkout page ID to publish" }
+    },
+    required: ["checkoutId"]
+  },
+  execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalPublishCheckout, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      checkoutId: args.checkoutId as Id<"objects">,
+    });
+
+    return {
+      success: result.success,
+      message: `Checkout published! Public URL: ${result.publicUrl}`,
+      checkoutId: result.checkoutId,
+      publicUrl: result.publicUrl,
+      previousStatus: result.previousStatus,
+    };
+  }
+};
+
+const publishAllTool: AITool = {
+  name: "publish_all",
+  description: `Publish/activate multiple entities at once. Use this when the user asks to "publish everything", "activate all", or "make everything live".
+
+This tool takes arrays of IDs and publishes/activates them all:
+- Events: status changed to "active"
+- Products: status changed to "active"
+- Forms: status changed to "published"
+- Checkouts: status changed to "published" with public URL generated
+
+Example: After creating an event with tickets and a checkout, use this to make them all live at once.`,
+  status: "ready",
+  windowName: "Settings",
+  parameters: {
+    type: "object",
+    properties: {
+      eventIds: {
+        type: "array",
+        items: { type: "string" },
+        description: "Array of event IDs to activate"
+      },
+      productIds: {
+        type: "array",
+        items: { type: "string" },
+        description: "Array of product/ticket IDs to activate"
+      },
+      formIds: {
+        type: "array",
+        items: { type: "string" },
+        description: "Array of form IDs to publish"
+      },
+      checkoutIds: {
+        type: "array",
+        items: { type: "string" },
+        description: "Array of checkout page IDs to publish"
+      }
+    }
+  },
+  execute: async (ctx, args) => {
+    const results: {
+      events: { id: string; success: boolean }[];
+      products: { id: string; success: boolean }[];
+      forms: { id: string; success: boolean }[];
+      checkouts: { id: string; success: boolean; publicUrl?: string }[];
+    } = {
+      events: [],
+      products: [],
+      forms: [],
+      checkouts: [],
+    };
+
+    // Activate events
+    if (args.eventIds && Array.isArray(args.eventIds)) {
+      for (const eventId of args.eventIds) {
+        try {
+          await ctx.runMutation(internal.ai.tools.internalToolMutations.internalUpdateEvent, {
+            organizationId: ctx.organizationId,
+            userId: ctx.userId,
+            eventId: eventId as Id<"objects">,
+            status: "active",
+          });
+          results.events.push({ id: eventId, success: true });
+        } catch {
+          results.events.push({ id: eventId, success: false });
+        }
+      }
+    }
+
+    // Activate products
+    if (args.productIds && Array.isArray(args.productIds)) {
+      for (const productId of args.productIds) {
+        try {
+          await ctx.runMutation(internal.ai.tools.internalToolMutations.internalActivateProduct, {
+            organizationId: ctx.organizationId,
+            userId: ctx.userId,
+            productId: productId as Id<"objects">,
+          });
+          results.products.push({ id: productId, success: true });
+        } catch {
+          results.products.push({ id: productId, success: false });
+        }
+      }
+    }
+
+    // Publish forms
+    if (args.formIds && Array.isArray(args.formIds)) {
+      for (const formId of args.formIds) {
+        try {
+          await ctx.runMutation(internal.ai.tools.internalToolMutations.internalPublishForm, {
+            organizationId: ctx.organizationId,
+            userId: ctx.userId,
+            formId: formId as Id<"objects">,
+          });
+          results.forms.push({ id: formId, success: true });
+        } catch {
+          results.forms.push({ id: formId, success: false });
+        }
+      }
+    }
+
+    // Publish checkouts
+    if (args.checkoutIds && Array.isArray(args.checkoutIds)) {
+      for (const checkoutId of args.checkoutIds) {
+        try {
+          const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalPublishCheckout, {
+            organizationId: ctx.organizationId,
+            userId: ctx.userId,
+            checkoutId: checkoutId as Id<"objects">,
+          });
+          results.checkouts.push({ id: checkoutId, success: true, publicUrl: result.publicUrl });
+        } catch {
+          results.checkouts.push({ id: checkoutId, success: false });
+        }
+      }
+    }
+
+    const totalSuccessful =
+      results.events.filter(r => r.success).length +
+      results.products.filter(r => r.success).length +
+      results.forms.filter(r => r.success).length +
+      results.checkouts.filter(r => r.success).length;
+
+    const totalAttempted =
+      results.events.length +
+      results.products.length +
+      results.forms.length +
+      results.checkouts.length;
+
+    return {
+      success: totalSuccessful > 0,
+      message: `Published ${totalSuccessful}/${totalAttempted} items successfully`,
+      summary: {
+        events: `${results.events.filter(r => r.success).length}/${results.events.length} activated`,
+        products: `${results.products.filter(r => r.success).length}/${results.products.length} activated`,
+        forms: `${results.forms.filter(r => r.success).length}/${results.forms.length} published`,
+        checkouts: `${results.checkouts.filter(r => r.success).length}/${results.checkouts.length} published`,
+      },
+      results,
+      checkoutUrls: results.checkouts.filter(c => c.publicUrl).map(c => c.publicUrl),
     };
   }
 };
@@ -1024,19 +2044,14 @@ const updateProductPriceTool: AITool = {
 const createInvoiceTool: AITool = {
   name: "create_invoice",
   description: "Generate a new invoice for a customer",
-  status: "placeholder",
+  status: "ready",
   windowName: "Payments",
-  tutorialSteps: [
-    "Click the **Payments** icon in your taskbar",
-    "Go to the **Invoices** tab",
-    "Click **+ New Invoice**",
-    "Select customer and add line items",
-    "Click **Generate Invoice**"
-  ],
   parameters: {
     type: "object",
     properties: {
-      customerId: { type: "string", description: "Customer ID or email" },
+      customerId: { type: "string", description: "Customer ID (optional)" },
+      customerEmail: { type: "string", description: "Customer email address" },
+      customerName: { type: "string", description: "Customer name" },
       items: {
         type: "array",
         description: "Invoice line items",
@@ -1045,29 +2060,43 @@ const createInvoiceTool: AITool = {
           properties: {
             description: { type: "string" },
             quantity: { type: "number" },
-            price: { type: "number" }
+            unitPrice: { type: "number", description: "Price per unit in cents" }
           }
         }
       },
-      dueDate: { type: "string", description: "Payment due date (ISO 8601)" }
+      dueDate: { type: "string", description: "Payment due date (ISO 8601)" },
+      notes: { type: "string", description: "Additional notes" },
+      currency: { type: "string", description: "Currency (USD, EUR, etc.)", default: "USD" }
     },
-    required: ["customerId", "items"]
+    required: ["items"]
   },
   execute: async (ctx, args) => {
-    const total = args.items.reduce((sum: number, item: any) => sum + (item.quantity * item.price), 0);
+    const items = (args.items as Array<{ description: string; quantity: number; unitPrice: number }>).map(item => ({
+      description: item.description || "Item",
+      quantity: item.quantity || 1,
+      unitPrice: item.unitPrice || 0,
+    }));
+
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateInvoice, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      customerId: args.customerId ? (args.customerId as Id<"objects">) : undefined,
+      customerEmail: args.customerEmail,
+      customerName: args.customerName,
+      items,
+      dueDate: args.dueDate ? new Date(args.dueDate).getTime() : undefined,
+      notes: args.notes,
+      currency: args.currency,
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: `I can help you create an invoice for ${args.customerId}!`,
-      tutorialSteps: [
-        "Click the **Payments** icon in your taskbar",
-        "Go to the **Invoices** tab",
-        "Click **+ New Invoice**",
-        `Select customer: **${args.customerId}**`,
-        `Add line items (Total: $${total.toFixed(2)})`,
-        args.dueDate ? `Set due date: **${args.dueDate}**` : "Set a due date",
-        "Click **Generate Invoice**"
-      ]
+      success: true,
+      message: `Invoice ${result.invoiceNumber} created for $${(result.total / 100).toFixed(2)} ${result.currency}`,
+      invoiceId: result.invoiceId,
+      invoiceNumber: result.invoiceNumber,
+      total: `$${(result.total / 100).toFixed(2)}`,
+      currency: result.currency,
+      status: result.status,
     };
   }
 };
@@ -1075,7 +2104,7 @@ const createInvoiceTool: AITool = {
 const sendInvoiceTool: AITool = {
   name: "send_invoice",
   description: "Email an invoice to a customer",
-  status: "placeholder",
+  status: "ready",
   windowName: "Payments",
   parameters: {
     type: "object",
@@ -1086,49 +2115,61 @@ const sendInvoiceTool: AITool = {
     required: ["invoiceId"]
   },
   execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalSendInvoice, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      invoiceId: args.invoiceId as Id<"objects">,
+      emailMessage: args.emailMessage,
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: "Let me help you send this invoice!",
-      tutorialSteps: [
-        "Open the **Payments** window → **Invoices** tab",
-        "Find and click on the invoice",
-        "Click the **Send Invoice** button",
-        args.emailMessage ? `Add your message: "${args.emailMessage}"` : "Add a message (optional)",
-        "Click **Send Email**"
-      ]
+      success: result.success,
+      message: `Invoice ${result.invoiceNumber} sent to ${result.customerEmail}`,
+      invoiceId: result.invoiceId,
+      invoiceNumber: result.invoiceNumber,
+      customerEmail: result.customerEmail,
+      previousStatus: result.previousStatus,
+      newStatus: result.newStatus,
     };
   }
 };
 
 const processPaymentTool: AITool = {
   name: "process_payment",
-  description: "Charge a customer's credit card or payment method",
-  status: "placeholder",
+  description: "Record a payment or mark an invoice as paid",
+  status: "ready",
   windowName: "Payments",
   parameters: {
     type: "object",
     properties: {
-      customerId: { type: "string", description: "Customer ID" },
-      amount: { type: "number", description: "Amount in dollars" },
-      description: { type: "string", description: "Payment description" }
+      invoiceId: { type: "string", description: "Invoice ID to mark as paid (optional)" },
+      customerId: { type: "string", description: "Customer ID (optional)" },
+      amount: { type: "number", description: "Amount in cents" },
+      paymentMethod: { type: "string", description: "Payment method (card, cash, bank_transfer)", default: "manual" },
+      description: { type: "string", description: "Payment description" },
+      transactionId: { type: "string", description: "External transaction ID (optional)" }
     },
-    required: ["customerId", "amount"]
+    required: ["amount"]
   },
   execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalProcessPayment, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      invoiceId: args.invoiceId ? (args.invoiceId as Id<"objects">) : undefined,
+      customerId: args.customerId ? (args.customerId as Id<"objects">) : undefined,
+      amount: args.amount,
+      paymentMethod: args.paymentMethod,
+      description: args.description,
+      transactionId: args.transactionId,
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: `⚠️ Processing payments requires manual confirmation. Let me guide you through charging $${args.amount}:`,
-      tutorialSteps: [
-        "Open the **Payments** window",
-        "Go to the **Process Payment** tab",
-        `Select customer: **${args.customerId}**`,
-        `Enter amount: **$${args.amount}**`,
-        args.description ? `Description: ${args.description}` : "Add a description",
-        "**Review carefully before proceeding**",
-        "Click **Charge Card**"
-      ]
+      success: result.success,
+      message: `Payment of $${(args.amount / 100).toFixed(2)} recorded`,
+      paymentId: result.paymentId,
+      amount: `$${(result.amount / 100).toFixed(2)}`,
+      invoiceId: result.invoiceId,
+      transactionId: result.transactionId,
     };
   }
 };
@@ -1140,40 +2181,32 @@ const processPaymentTool: AITool = {
 const createTicketTool: AITool = {
   name: "create_ticket",
   description: "Create a support ticket or help desk request",
-  status: "placeholder",
+  status: "ready",
   windowName: "Tickets",
-  tutorialSteps: [
-    "Click the **Tickets** icon in your taskbar",
-    "Click **+ New Ticket**",
-    "Fill in ticket subject and description",
-    "Set priority and assign to team member",
-    "Click **Create Ticket**"
-  ],
   parameters: {
     type: "object",
     properties: {
       subject: { type: "string", description: "Ticket subject/title" },
       description: { type: "string", description: "Detailed description" },
-      priority: { type: "string", enum: ["low", "medium", "high", "urgent"], default: "medium" },
-      assignee: { type: "string", description: "Team member to assign" }
+      priority: { type: "string", enum: ["low", "medium", "high", "urgent"], default: "medium" }
     },
     required: ["subject", "description"]
   },
   execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateTicket, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      subject: args.subject,
+      description: args.description,
+      priority: args.priority || "medium",
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: `I can help you create a ticket: "${args.subject}"`,
-      tutorialSteps: [
-        "Click the **Tickets** icon in your taskbar",
-        "Click **+ New Ticket**",
-        `Fill in:
-   - Subject: **${args.subject}**
-   - Description: ${args.description}
-   - Priority: **${args.priority || "Medium"}**
-   - Assignee: ${args.assignee || "[Select team member]"}`,
-        "Click **Create Ticket**"
-      ]
+      success: true,
+      message: `Created ticket ${result.ticketNumber}: "${args.subject}"`,
+      ticketId: result.ticketId,
+      ticketNumber: result.ticketNumber,
+      priority: args.priority || "medium",
     };
   }
 };
@@ -1181,7 +2214,7 @@ const createTicketTool: AITool = {
 const updateTicketStatusTool: AITool = {
   name: "update_ticket_status",
   description: "Change a ticket's status (open, in-progress, resolved, closed)",
-  status: "placeholder",
+  status: "ready",
   windowName: "Tickets",
   parameters: {
     type: "object",
@@ -1192,17 +2225,19 @@ const updateTicketStatusTool: AITool = {
     required: ["ticketId", "newStatus"]
   },
   execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalUpdateTicketStatus, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      ticketId: args.ticketId as Id<"objects">,
+      newStatus: args.newStatus,
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: `Let me help you update the ticket status to "${args.newStatus}"!`,
-      tutorialSteps: [
-        "Open the **Tickets** window",
-        "Find and click on the ticket",
-        "Click the **Status** dropdown",
-        `Select: **${args.newStatus}**`,
-        "The ticket status will update automatically"
-      ]
+      success: result.success,
+      message: `Ticket status updated from "${result.oldStatus}" to "${result.newStatus}"`,
+      ticketId: args.ticketId,
+      oldStatus: result.oldStatus,
+      newStatus: result.newStatus,
     };
   }
 };
@@ -1210,7 +2245,7 @@ const updateTicketStatusTool: AITool = {
 const listTicketsTool: AITool = {
   name: "list_tickets",
   description: "Get a list of all support tickets",
-  status: "placeholder",
+  status: "ready",
   windowName: "Tickets",
   parameters: {
     type: "object",
@@ -1220,15 +2255,33 @@ const listTicketsTool: AITool = {
     }
   },
   execute: async (ctx, args) => {
+    const tickets = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalListTickets, {
+      organizationId: ctx.organizationId,
+      status: args.status !== "all" ? args.status : undefined,
+      limit: args.limit || 20,
+    });
+
+    if (tickets.length === 0) {
+      return {
+        success: true,
+        message: "No tickets found",
+        tickets: [],
+        count: 0,
+      };
+    }
+
     return {
-      success: false,
-      status: "placeholder",
-      message: "Let me help you view your tickets!",
-      tutorialSteps: [
-        "Click the **Tickets** icon in your taskbar",
-        args.status !== "all" ? `Filter by status: **${args.status}**` : "You'll see all tickets here",
-        "Click on any ticket to view details and add comments"
-      ]
+      success: true,
+      message: `Found ${tickets.length} ticket(s)`,
+      tickets: tickets.map((t) => ({
+        id: t._id,
+        ticketNumber: t.ticketNumber,
+        subject: t.name,
+        status: t.status,
+        priority: t.priority,
+        createdAt: new Date(t.createdAt).toISOString(),
+      })),
+      count: tickets.length,
     };
   }
 };
@@ -1240,64 +2293,67 @@ const listTicketsTool: AITool = {
 const createWorkflowTool: AITool = {
   name: "create_workflow",
   description: "Create an automated workflow (if-this-then-that style)",
-  status: "placeholder",
+  status: "ready",
   windowName: "Workflows",
-  tutorialSteps: [
-    "Click the **Workflows** icon in your taskbar",
-    "Click **+ New Workflow**",
-    "Choose a trigger (event happens, form submitted, etc.)",
-    "Add actions (send email, create contact, etc.)",
-    "Click **Save & Enable Workflow**"
-  ],
   parameters: {
     type: "object",
     properties: {
       name: { type: "string", description: "Workflow name" },
-      trigger: { type: "string", description: "What triggers this workflow" },
-      actions: { type: "array", items: { type: "string" }, description: "Actions to perform" }
+      trigger: { type: "string", description: "What triggers this workflow (e.g., form_submitted, event_registered, contact_created)" },
+      actions: { type: "array", items: { type: "string" }, description: "Actions to perform (e.g., send_email, add_tag, create_task)" }
     },
     required: ["name", "trigger"]
   },
   execute: async (ctx, args) => {
+    const workflowId = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateWorkflow, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      name: args.name,
+      trigger: args.trigger,
+      actions: args.actions,
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: `I can help you create the "${args.name}" workflow!`,
-      tutorialSteps: [
-        "Click the **Workflows** icon in your taskbar",
-        "Click **+ New Workflow**",
-        `Name it: **${args.name}**`,
-        `Set trigger: ${args.trigger}`,
-        args.actions ? `Add these actions: ${args.actions.join(", ")}` : "Add your actions",
-        "Click **Save & Enable Workflow**"
-      ]
+      success: true,
+      message: `Created workflow "${args.name}" (draft mode). Enable it to activate.`,
+      workflowId,
+      name: args.name,
+      trigger: args.trigger,
+      actions: args.actions || [],
+      status: "draft",
     };
   }
 };
 
 const enableWorkflowTool: AITool = {
   name: "enable_workflow",
-  description: "Activate an automation workflow",
-  status: "placeholder",
+  description: "Activate or deactivate an automation workflow",
+  status: "ready",
   windowName: "Workflows",
   parameters: {
     type: "object",
     properties: {
-      workflowId: { type: "string", description: "Workflow ID to enable" }
+      workflowId: { type: "string", description: "Workflow ID to enable/disable" },
+      enabled: { type: "boolean", description: "True to enable, false to disable", default: true }
     },
     required: ["workflowId"]
   },
   execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalSetWorkflowStatus, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      workflowId: args.workflowId as Id<"objects">,
+      enabled: args.enabled !== false,
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: "Let me help you enable this workflow!",
-      tutorialSteps: [
-        "Open the **Workflows** window",
-        "Find your workflow in the list",
-        "Click the **Enable** toggle switch",
-        "The workflow is now active! ✅"
-      ]
+      success: result.success,
+      message: args.enabled !== false
+        ? "Workflow enabled and now active!"
+        : "Workflow disabled",
+      workflowId: args.workflowId,
+      oldStatus: result.oldStatus,
+      newStatus: result.newStatus,
     };
   }
 };
@@ -1308,37 +2364,45 @@ const enableWorkflowTool: AITool = {
 
 const uploadMediaTool: AITool = {
   name: "upload_media",
-  description: "Upload a file or image to your media library",
-  status: "placeholder",
+  description: "Create a media library entry for tracking uploaded files",
+  status: "ready",
   windowName: "Media",
-  tutorialSteps: [
-    "Click the **Media** icon in your taskbar",
-    "Click **Upload File** or drag-and-drop",
-    "Select your file",
-    "Add a title and description (optional)",
-    "Click **Upload**"
-  ],
   parameters: {
     type: "object",
     properties: {
       fileName: { type: "string", description: "File name" },
       fileType: { type: "string", description: "File type (image, video, document)" },
-      folder: { type: "string", description: "Folder to organize file" }
+      mimeType: { type: "string", description: "MIME type (e.g., image/png)" },
+      size: { type: "number", description: "File size in bytes" },
+      folder: { type: "string", description: "Folder to organize file" },
+      description: { type: "string", description: "File description" },
+      tags: { type: "array", items: { type: "string" }, description: "Tags for searching" },
+      url: { type: "string", description: "URL if already hosted" },
+      storageId: { type: "string", description: "Convex storage ID if uploaded" }
     },
     required: ["fileName"]
   },
   execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateMediaEntry, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      fileName: args.fileName,
+      fileType: args.fileType,
+      mimeType: args.mimeType,
+      size: args.size,
+      folder: args.folder,
+      description: args.description,
+      tags: args.tags as string[] | undefined,
+      url: args.url,
+      storageId: args.storageId,
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: `I can help you upload "${args.fileName}"!`,
-      tutorialSteps: [
-        "Click the **Media** icon in your taskbar",
-        "Click **Upload File** or drag-and-drop your file",
-        `Select your file: **${args.fileName}**`,
-        args.folder ? `Choose folder: **${args.folder}**` : "Choose a folder (optional)",
-        "Click **Upload**"
-      ]
+      success: true,
+      message: `Media entry created for "${args.fileName}"`,
+      mediaId: result.mediaId,
+      fileName: result.fileName,
+      folder: args.folder,
     };
   }
 };
@@ -1346,27 +2410,47 @@ const uploadMediaTool: AITool = {
 const searchMediaTool: AITool = {
   name: "search_media",
   description: "Search for files in your media library",
-  status: "placeholder",
+  status: "ready",
   windowName: "Media",
   parameters: {
     type: "object",
     properties: {
       query: { type: "string", description: "Search term (file name, tag, etc.)" },
-      fileType: { type: "string", enum: ["all", "images", "videos", "documents"], default: "all" }
+      fileType: { type: "string", enum: ["all", "images", "videos", "documents"], default: "all" },
+      limit: { type: "number", description: "Maximum results", default: 20 }
     },
     required: ["query"]
   },
   execute: async (ctx, args) => {
+    const media = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalSearchMedia, {
+      organizationId: ctx.organizationId,
+      query: args.query,
+      fileType: args.fileType,
+      limit: args.limit || 20,
+    });
+
+    if (media.length === 0) {
+      return {
+        success: true,
+        message: `No media found matching "${args.query}"`,
+        results: [],
+        count: 0,
+      };
+    }
+
     return {
-      success: false,
-      status: "placeholder",
-      message: `Let me help you search for: ${args.query}`,
-      tutorialSteps: [
-        "Open the **Media** window",
-        `Use the search bar and type: **${args.query}**`,
-        args.fileType !== "all" ? `Filter by: **${args.fileType}**` : "You'll see all matching files",
-        "Click on any file to view details or download"
-      ]
+      success: true,
+      message: `Found ${media.length} file(s) matching "${args.query}"`,
+      results: media.map((m) => ({
+        id: m._id,
+        name: m.name,
+        fileName: m.fileName,
+        fileType: m.fileType,
+        mimeType: m.mimeType,
+        size: m.size ? `${(m.size / 1024).toFixed(1)} KB` : undefined,
+        url: m.url,
+      })),
+      count: media.length,
     };
   }
 };
@@ -1378,37 +2462,35 @@ const searchMediaTool: AITool = {
 const createTemplateTool: AITool = {
   name: "create_template",
   description: "Create an email template for reuse",
-  status: "placeholder",
+  status: "ready",
   windowName: "Templates",
-  tutorialSteps: [
-    "Click the **Templates** icon in your taskbar",
-    "Click **+ New Template**",
-    "Design your email (subject, body, variables)",
-    "Click **Save Template**"
-  ],
   parameters: {
     type: "object",
     properties: {
       name: { type: "string", description: "Template name" },
       subject: { type: "string", description: "Email subject line" },
       body: { type: "string", description: "Email body (supports HTML)" },
-      variables: { type: "array", items: { type: "string" }, description: "Merge variables (e.g., {{firstName}})" }
+      variables: { type: "array", items: { type: "string" }, description: "Merge variables (e.g., firstName, company)" }
     },
     required: ["name", "subject", "body"]
   },
   execute: async (ctx, args) => {
+    const templateId = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateEmailTemplate, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      name: args.name,
+      subject: args.subject,
+      body: args.body,
+      variables: args.variables,
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: `I can help you create the "${args.name}" email template!`,
-      tutorialSteps: [
-        "Click the **Templates** icon in your taskbar",
-        "Click **+ New Template**",
-        `Template name: **${args.name}**`,
-        `Subject: ${args.subject}`,
-        "Write your email body (use {{firstName}}, {{company}}, etc. for personalization)",
-        "Click **Save Template**"
-      ]
+      success: true,
+      message: `Created email template "${args.name}"`,
+      templateId,
+      name: args.name,
+      subject: args.subject,
+      variables: args.variables || [],
     };
   }
 };
@@ -1416,30 +2498,35 @@ const createTemplateTool: AITool = {
 const sendEmailFromTemplateTool: AITool = {
   name: "send_email_from_template",
   description: "Send an email using a saved template",
-  status: "placeholder",
+  status: "ready",
   windowName: "Templates",
   parameters: {
     type: "object",
     properties: {
       templateId: { type: "string", description: "Template ID to use" },
       recipientEmail: { type: "string", description: "Recipient email address" },
+      recipientName: { type: "string", description: "Recipient name (for personalization)" },
       variables: { type: "object", description: "Variables to fill in (firstName, company, etc.)" }
     },
     required: ["templateId", "recipientEmail"]
   },
   execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalSendEmailFromTemplate, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      templateId: args.templateId as Id<"objects">,
+      recipientEmail: args.recipientEmail,
+      recipientName: args.recipientName,
+      variables: args.variables,
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: `Let me help you send an email to ${args.recipientEmail}!`,
-      tutorialSteps: [
-        "Open the **Templates** window",
-        "Find and click on your template",
-        "Click **Use Template**",
-        `Enter recipient: **${args.recipientEmail}**`,
-        args.variables ? "Fill in personalization variables" : "Review the email content",
-        "Click **Send Email**"
-      ]
+      success: result.success,
+      message: `Email queued to ${args.recipientEmail} using template "${result.templateName}"`,
+      emailLogId: result.emailLogId,
+      templateName: result.templateName,
+      recipientEmail: result.recipientEmail,
+      subject: result.subject,
     };
   }
 };
@@ -1451,38 +2538,39 @@ const sendEmailFromTemplateTool: AITool = {
 const createPageTool: AITool = {
   name: "create_page",
   description: "Create a new website page",
-  status: "placeholder",
+  status: "ready",
   windowName: "Web Publishing",
-  tutorialSteps: [
-    "Click the **Web Publishing** icon in your taskbar",
-    "Click **+ New Page**",
-    "Choose a template or start blank",
-    "Design your page with the visual editor",
-    "Click **Publish Page**"
-  ],
   parameters: {
     type: "object",
     properties: {
       title: { type: "string", description: "Page title" },
       slug: { type: "string", description: "URL slug (e.g., 'about-us')" },
-      template: { type: "string", description: "Template to use" }
+      template: { type: "string", description: "Template to use" },
+      content: { type: "object", description: "Page content (blocks structure)" },
+      metaTitle: { type: "string", description: "SEO meta title" },
+      metaDescription: { type: "string", description: "SEO meta description" }
     },
     required: ["title", "slug"]
   },
   execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreatePage, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      title: args.title,
+      slug: args.slug,
+      template: args.template,
+      content: args.content,
+      metaTitle: args.metaTitle,
+      metaDescription: args.metaDescription,
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: `I can help you create a page: "${args.title}"!`,
-      tutorialSteps: [
-        "Click the **Web Publishing** icon in your taskbar",
-        "Click **+ New Page**",
-        `Page title: **${args.title}**`,
-        `URL slug: **${args.slug}**`,
-        args.template ? `Choose template: **${args.template}**` : "Choose a template or start blank",
-        "Design your page content",
-        "Click **Publish Page**"
-      ]
+      success: true,
+      message: `Page "${args.title}" created at /${args.slug}`,
+      pageId: result.pageId,
+      title: args.title,
+      slug: result.slug,
+      status: "draft",
     };
   }
 };
@@ -1490,7 +2578,7 @@ const createPageTool: AITool = {
 const publishPageTool: AITool = {
   name: "publish_page",
   description: "Make a page live on your website",
-  status: "placeholder",
+  status: "ready",
   windowName: "Web Publishing",
   parameters: {
     type: "object",
@@ -1500,17 +2588,20 @@ const publishPageTool: AITool = {
     required: ["pageId"]
   },
   execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalPublishPage, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      pageId: args.pageId as Id<"objects">,
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: "Let me help you publish this page!",
-      tutorialSteps: [
-        "Open the **Web Publishing** window",
-        "Find and click on your page",
-        "Click the **Publish** button",
-        "Your page is now live! 🚀",
-        "Click **View Live Page** to see it"
-      ]
+      success: result.success,
+      message: `Page "${result.title}" is now live at /${result.slug}`,
+      pageId: result.pageId,
+      title: result.title,
+      slug: result.slug,
+      previousStatus: result.oldStatus,
+      newStatus: result.newStatus,
     };
   }
 };
@@ -1519,40 +2610,265 @@ const publishPageTool: AITool = {
  * 11. CHECKOUT TOOLS
  */
 
+/**
+ * Enhanced checkout page tool using behavior-driven checkout template
+ *
+ * This tool ties together products, forms, and events into a complete checkout experience.
+ * It uses the behavior-driven checkout template which provides:
+ * - 6-step adaptive flow: Product → Form → Customer Info → Review → Payment → Confirmation
+ * - Smart step skipping (auto-skips payment for invoice checkouts)
+ * - Dynamic form collection
+ * - Employer detection and B2B invoice mapping
+ * - Full behavior system integration
+ *
+ * CONVERSATIONAL GUIDANCE:
+ * When a user wants to create a checkout, guide them through these questions:
+ *
+ * 1. "What is this checkout for?" → Determines naming and context
+ * 2. "What products or tickets should be available?" → Use create_product first if needed
+ * 3. "Do you need to collect additional information?" → Use create_form first if needed
+ * 4. "Is this for B2B (invoicing) or B2C (direct payment)?" → Sets payment mode
+ * 5. "Any specific payment methods needed?" → stripe-connect, invoice, manual
+ *
+ * WORKFLOW INTEGRATION:
+ * This tool works best when combined with other tools in sequence:
+ * 1. create_event → Creates the event (if event-related)
+ * 2. create_product → Creates tickets/products linked to the event
+ * 3. create_form → Creates registration forms if needed
+ * 4. create_checkout_page → Ties everything together into a purchasable experience
+ */
 const createCheckoutPageTool: AITool = {
   name: "create_checkout_page",
-  description: "Create a custom checkout page for products",
-  status: "placeholder",
+  description: `Create a behavior-driven checkout page that ties together products, forms, and payment methods.
+
+IMPORTANT: Before creating a checkout, ensure you have:
+1. Created products/tickets using create_product (get the productIds)
+2. Created registration forms using create_form if needed (get the formId)
+3. Created events using create_event if this is event-related
+
+ASK THE USER about these aspects before creating the checkout:
+- What products/tickets to include (or help them create products first)
+- Whether they need a registration form (or help them create one first)
+- Payment mode: B2C (Stripe payments) or B2B (invoicing)
+- Any special settings (language, max quantity, etc.)
+
+The checkout uses the behavior-driven template with a 6-step flow:
+Product Selection → Form Collection → Customer Info → Review → Payment → Confirmation
+
+This template automatically adapts based on product behaviors and can skip steps when appropriate.`,
+  status: "ready",
   windowName: "Checkout",
-  tutorialSteps: [
-    "Click the **Checkout** icon in your taskbar",
-    "Click **+ New Checkout**",
-    "Select products to include",
-    "Configure payment methods (Stripe, PayPal)",
-    "Click **Create Checkout**"
-  ],
   parameters: {
     type: "object",
     properties: {
-      name: { type: "string", description: "Checkout page name" },
-      productIds: { type: "array", items: { type: "string" }, description: "Products to include" },
-      paymentMethods: { type: "array", items: { type: "string" }, description: "Payment methods (stripe, paypal, etc.)" }
+      // Basic info
+      name: {
+        type: "string",
+        description: "Checkout page name (e.g., 'Conference 2024 Registration', 'Workshop Booking')"
+      },
+      description: {
+        type: "string",
+        description: "Description shown to customers during checkout"
+      },
+
+      // Product linking
+      productIds: {
+        type: "array",
+        items: { type: "string" },
+        description: "Array of product IDs to include in checkout (from create_product tool)"
+      },
+
+      // Form integration
+      formId: {
+        type: "string",
+        description: "Optional form ID for registration/data collection (from create_form tool)"
+      },
+
+      // Event linking (for context)
+      eventId: {
+        type: "string",
+        description: "Optional event ID if this checkout is for event registration"
+      },
+
+      // Payment configuration
+      paymentMode: {
+        type: "string",
+        enum: ["b2c", "b2b", "hybrid"],
+        description: "Payment mode: 'b2c' for direct Stripe payments, 'b2b' for invoicing, 'hybrid' for both options"
+      },
+      paymentProviders: {
+        type: "array",
+        items: {
+          type: "string",
+          enum: ["stripe-connect", "invoice", "manual", "free"]
+        },
+        description: "Payment methods: stripe-connect (card payments), invoice (B2B billing), manual (offline), free (no payment)"
+      },
+
+      // Behaviors
+      behaviors: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            type: {
+              type: "string",
+              enum: ["employer-detection", "invoice-mapping", "capacity-checking", "discount-rules", "form-collection"],
+              description: "Behavior type"
+            },
+            config: { type: "object", description: "Behavior-specific configuration" },
+            priority: { type: "number", description: "Execution priority (higher = earlier)" }
+          }
+        },
+        description: "Checkout behaviors for dynamic logic (employer detection, invoice mapping, etc.)"
+      },
+
+      // Settings
+      settings: {
+        type: "object",
+        properties: {
+          language: {
+            type: "string",
+            enum: ["en", "de", "es", "fr", "pl", "ja"],
+            description: "Checkout language (en=English, de=German, es=Spanish, fr=French, pl=Polish, ja=Japanese)"
+          },
+          maxQuantityPerOrder: {
+            type: "number",
+            description: "Maximum items per order (default: 10)"
+          },
+          requiresAccount: {
+            type: "boolean",
+            description: "Require user account to checkout"
+          },
+          showProgressBar: {
+            type: "boolean",
+            description: "Show progress indicator (default: true)"
+          },
+          allowBackNavigation: {
+            type: "boolean",
+            description: "Allow going back to previous steps (default: true)"
+          },
+          debugMode: {
+            type: "boolean",
+            description: "Enable debug panel for testing (default: false)"
+          },
+          currency: {
+            type: "string",
+            enum: ["USD", "EUR", "GBP", "CAD", "AUD", "CHF"],
+            description: "Display currency (default: from organization)"
+          },
+          successRedirectUrl: {
+            type: "string",
+            description: "URL to redirect after successful checkout"
+          },
+          cancelRedirectUrl: {
+            type: "string",
+            description: "URL to redirect if checkout is cancelled"
+          }
+        },
+        description: "Checkout page settings"
+      },
+
+      // Branding
+      branding: {
+        type: "object",
+        properties: {
+          headerText: { type: "string", description: "Custom header text" },
+          footerText: { type: "string", description: "Custom footer text" },
+          primaryColor: { type: "string", description: "Primary brand color (hex)" },
+          logoUrl: { type: "string", description: "Logo URL to display" },
+          theme: {
+            type: "string",
+            enum: ["light", "dark", "auto"],
+            description: "Color theme"
+          }
+        },
+        description: "Visual branding options"
+      }
     },
     required: ["name", "productIds"]
   },
   execute: async (ctx, args) => {
+    // CHECK FOR DUPLICATES: Look for existing checkout pages with same name
+    const existingCheckouts = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalListCheckouts, {
+      organizationId: ctx.organizationId,
+      limit: 100,
+    });
+
+    const normalizedName = args.name.toLowerCase().trim();
+    const duplicateCheckout = existingCheckouts.find((c: { name: string; _id: string }) =>
+      c.name.toLowerCase().trim() === normalizedName
+    );
+
+    if (duplicateCheckout) {
+      return {
+        success: false,
+        requiresUserDecision: true,
+        duplicateFound: true,
+        error: `A checkout page named "${args.name}" already exists`,
+        existingCheckoutId: duplicateCheckout._id,
+        existingCheckoutName: duplicateCheckout.name,
+        userPrompt: `I found an existing checkout page called "${duplicateCheckout.name}". What would you like me to do?\n\n1. **Use the existing checkout** - I'll use the checkout page that's already there\n2. **Create with a different name** - Tell me what to call the new checkout page\n3. **Replace it** - Delete the old one and create fresh`,
+        hint: "IMPORTANT: Ask the user which option they prefer. Present the options from userPrompt. Do NOT automatically choose - let the user decide.",
+        existingCheckouts: existingCheckouts.slice(0, 5).map((c: { _id: string; name: string; status: string }) => ({
+          id: c._id,
+          name: c.name,
+          status: c.status
+        }))
+      };
+    }
+
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateCheckoutPageWithDetails, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      name: args.name,
+      description: args.description,
+      productIds: args.productIds.map((id: string) => id as Id<"objects">),
+      formId: args.formId ? (args.formId as Id<"objects">) : undefined,
+      eventId: args.eventId ? (args.eventId as Id<"objects">) : undefined,
+      paymentMode: args.paymentMode,
+      paymentProviders: args.paymentProviders,
+      behaviors: args.behaviors,
+      settings: args.settings,
+      branding: args.branding,
+    });
+
+    // Build helpful response message
+    let message = `Created checkout page "${args.name}" using the behavior-driven template.\n\n`;
+    message += `📋 6-Step Flow: Product → Form → Customer → Review → Payment → Confirmation\n`;
+
+    if (args.productIds.length > 0) {
+      message += `📦 ${args.productIds.length} product(s) linked\n`;
+    }
+    if (args.formId) {
+      message += `📝 Registration form attached\n`;
+    }
+    if (args.eventId) {
+      message += `📅 Linked to event\n`;
+    }
+
+    const paymentInfo = args.paymentMode === "b2b" ? "Invoice billing" :
+                        args.paymentMode === "hybrid" ? "Card + Invoice" : "Card payments";
+    message += `💳 Payment: ${paymentInfo}\n`;
+
+    message += `\n🔗 Checkout URL: https://checkout.l4yercak3.com/${result.publicSlug}`;
+
     return {
-      success: false,
-      status: "placeholder",
-      message: `I can help you create a checkout page: "${args.name}"!`,
-      tutorialSteps: [
-        "Click the **Checkout** icon in your taskbar",
-        "Click **+ New Checkout**",
-        `Name: **${args.name}**`,
-        "Select products to sell",
-        args.paymentMethods ? `Enable: **${args.paymentMethods.join(", ")}**` : "Configure payment methods",
-        "Click **Create Checkout**",
-        "Copy the checkout URL to share"
+      success: true,
+      message,
+      checkoutId: result.checkoutId,
+      publicSlug: result.publicSlug,
+      checkoutUrl: `https://checkout.l4yercak3.com/${result.publicSlug}`,
+      template: "behavior-driven-checkout",
+      linkedProducts: args.productIds.length,
+      linkedForm: args.formId || null,
+      linkedEvent: args.eventId || null,
+      paymentMode: args.paymentMode || "b2c",
+      status: "draft",
+      nextSteps: [
+        "Preview your checkout page",
+        "Test the checkout flow",
+        "Publish when ready to accept orders"
       ]
     };
   }
@@ -1565,40 +2881,41 @@ const createCheckoutPageTool: AITool = {
 const generateCertificateTool: AITool = {
   name: "generate_certificate",
   description: "Create a certificate of completion or achievement",
-  status: "placeholder",
+  status: "ready",
   windowName: "Certificates",
-  tutorialSteps: [
-    "Click the **Certificates** icon in your taskbar",
-    "Click **+ New Certificate**",
-    "Choose a template",
-    "Fill in recipient details",
-    "Click **Generate**"
-  ],
   parameters: {
     type: "object",
     properties: {
       recipientName: { type: "string", description: "Certificate recipient name" },
-      certificateType: { type: "string", description: "Type of certificate (completion, achievement, etc.)" },
+      recipientEmail: { type: "string", description: "Certificate recipient email (for delivery)" },
+      certificateType: { type: "string", description: "Type of certificate (completion, achievement, attendance)" },
       eventName: { type: "string", description: "Related event or course name" },
-      issueDate: { type: "string", description: "Date of issue" }
+      issueDate: { type: "string", description: "Date of issue (ISO 8601 format)" },
+      pointsAwarded: { type: "number", description: "Points/credits to award", default: 1 }
     },
     required: ["recipientName", "certificateType"]
   },
   execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalGenerateCertificate, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      recipientName: args.recipientName,
+      recipientEmail: args.recipientEmail,
+      certificateType: args.certificateType,
+      eventName: args.eventName,
+      issueDate: args.issueDate ? new Date(args.issueDate).getTime() : undefined,
+      pointsAwarded: args.pointsAwarded,
+    });
+
     return {
-      success: false,
-      status: "placeholder",
-      message: `I can help you generate a certificate for ${args.recipientName}!`,
-      tutorialSteps: [
-        "Click the **Certificates** icon in your taskbar",
-        "Click **+ New Certificate**",
-        "Choose a certificate template",
-        `Recipient: **${args.recipientName}**`,
-        `Type: **${args.certificateType}**`,
-        args.eventName ? `For: **${args.eventName}**` : "Add event/course name",
-        "Click **Generate Certificate**",
-        "Download PDF or send via email"
-      ]
+      success: true,
+      message: `Certificate generated for ${args.recipientName}`,
+      certificateId: result.certificateId,
+      certificateNumber: result.certificateNumber,
+      recipientName: args.recipientName,
+      certificateType: args.certificateType,
+      eventName: args.eventName,
+      verificationUrl: `https://l4yercak3.com/verify/${result.certificateNumber}`,
     };
   }
 };
@@ -1695,6 +3012,18 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
   // Projects
   manage_projects: manageProjectsTool,
 
+  // Benefits
+  manage_benefits: manageBenefitsTool,
+
+  // Bookings
+  manage_bookings: manageBookingsTool,
+
+  // Activity Protocol
+  manage_activity_protocol: manageActivityProtocolTool,
+
+  // Sequences
+  manage_sequences: manageSequencesTool,
+
   // Forms
   create_form: createFormTool,
   list_forms: listFormsTool,
@@ -1706,6 +3035,8 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
   create_product: createProductTool,
   list_products: listProductsTool,
   set_product_price: updateProductPriceTool,
+  activate_product: activateProductTool,
+  deactivate_product: deactivateProductTool,
 
   // Payments/Invoicing
   create_invoice: createInvoiceTool,
@@ -1735,6 +3066,10 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
 
   // Checkout
   create_checkout_page: createCheckoutPageTool,
+  publish_checkout: publishCheckoutTool,
+
+  // Batch Operations
+  publish_all: publishAllTool,
 
   // Certificates
   generate_certificate: generateCertificateTool,
@@ -1743,7 +3078,7 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
   update_organization_settings: updateOrganizationSettingsTool,
   configure_ai_models: configureAIModelsTool,
 
-  // Webinars
+// Webinars
   manage_webinars: {
     name: "manage_webinars",
     description: webinarToolDefinition.function.description,
@@ -1778,6 +3113,9 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
       return result;
     }
   },
+
+  // Integrations - ActiveCampaign
+  activecampaign: activeCampaignToolDefinition,
 };
 
 /**
@@ -1797,11 +3135,21 @@ export function getToolsByStatus() {
   return { ready, placeholder, beta };
 }
 
+// OpenAI function schema type
+interface OpenAIFunctionSchema {
+  type: "function";
+  function: {
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+  };
+}
+
 /**
  * Convert tool definitions to OpenAI function calling format
  * ONLY return tools that are "ready" - placeholder tools handled by AI system prompt
  */
-export function getToolSchemas(): Array<any> {
+export function getToolSchemas(): OpenAIFunctionSchema[] {
   // Return ALL tools (ready + placeholder) so AI can attempt to use them
   // The execute() function will return tutorial guidance for placeholder tools
   return Object.values(TOOL_REGISTRY).map((tool) => ({
@@ -1818,10 +3166,11 @@ export function getToolSchemas(): Array<any> {
  * Execute a tool by name
  */
 export async function executeTool(
-  ctx: any,
+  ctx: ToolExecutionContext,
   toolName: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   args: any
-): Promise<any> {
+): Promise<unknown> {
   const tool = TOOL_REGISTRY[toolName];
   if (!tool) {
     throw new Error(`Unknown tool: ${toolName}`);

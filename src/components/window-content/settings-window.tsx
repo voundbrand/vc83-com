@@ -74,9 +74,9 @@ export function SettingsWindow() {
 
   const handleMediaSelect = async (media: {
     _id: Id<"organizationMedia">;
-    url: string | null;
+    url?: string | null;
     filename: string;
-    mimeType: string;
+    mimeType?: string;
   }) => {
     if (!media.url || !sessionId || !currentOrg?.id) {
       console.error("Missing required data for desktop background update");

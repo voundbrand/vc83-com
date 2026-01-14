@@ -27,9 +27,9 @@ import { PaymentStep } from "./steps/payment";
 import { ConfirmationStep } from "./steps/confirmation";
 
 export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
-  const config = { ...DEFAULT_CONFIG, ...props };
+  const config = useMemo(() => ({ ...DEFAULT_CONFIG, ...props }), [props]);
   const { locale } = useTranslation(); // For locale management only - browser-detected language
-  const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.checkout_template.behavior_driven");
+  const { t } = useNamespaceTranslations("ui.checkout_template.behavior_driven");
 
   // State
   const [currentStep, setCurrentStep] = useState<CheckoutStep>("product-selection");
@@ -160,7 +160,7 @@ export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
     };
 
     initializeSession();
-  }, [checkoutSessionId, createCheckoutSession, config.organizationId]);
+  }, [checkoutSessionId, createCheckoutSession, config.organizationId, config.checkoutInstanceId, locale]);
 
   // Debug logging
   useEffect(() => {
@@ -263,12 +263,12 @@ export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
         if (checkoutSessionId) {
           try {
             // Helper: Convert Date objects to timestamps recursively
-            const convertDatesToTimestamps = (obj: any): any => {
+            const convertDatesToTimestamps = (obj: unknown): unknown => {
               if (obj === null || obj === undefined) return obj;
               if (obj instanceof Date) return obj.getTime();
               if (Array.isArray(obj)) return obj.map(convertDatesToTimestamps);
               if (typeof obj === 'object') {
-                const converted: any = {};
+                const converted: Record<string, unknown> = {};
                 for (const [key, value] of Object.entries(obj)) {
                   converted[key] = convertDatesToTimestamps(value);
                 }
@@ -519,7 +519,7 @@ export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
         setIsProcessing(false);
       }
     },
-    [checkoutData, currentStep, config, executeBehaviors, checkoutSessionId, updateCheckoutSession, initiateInvoice, sessionId]
+    [checkoutData, currentStep, config, executeBehaviors, checkoutSessionId, updateCheckoutSession, initiateInvoice, sessionId, orgLocaleSettings]
   );
 
   /**

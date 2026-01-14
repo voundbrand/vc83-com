@@ -6,7 +6,8 @@ import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { ClientSelector } from "./ClientSelector";
 import RichTextEditor from "./RichTextEditor";
-import { Loader2, Save, X, AlertCircle } from "lucide-react";
+import MeetingsTab from "./MeetingsTab";
+import { Loader2, Save, X, AlertCircle, Calendar, Globe, ExternalLink } from "lucide-react";
 
 interface ProjectFormProps {
   sessionId: string;
@@ -27,6 +28,7 @@ export function ProjectForm({
 }: ProjectFormProps) {
   const createProject = useMutation(api.projectOntology.createProject);
   const updateProject = useMutation(api.projectOntology.updateProject);
+  const updatePublicPage = useMutation(api.projectOntology.updateProjectPublicPage);
 
   // Load existing project if editing
   const existingProject = useQuery(
@@ -47,6 +49,14 @@ export function ProjectForm({
   const [targetEndDate, setTargetEndDate] = useState("");
   const [clientOrgId, setClientOrgId] = useState<Id<"objects"> | undefined>();
   const [detailedDescription, setDetailedDescription] = useState("");
+
+  // Public page state
+  const [publicPageEnabled, setPublicPageEnabled] = useState(false);
+  const [publicPageSlug, setPublicPageSlug] = useState("");
+  const [publicPagePassword, setPublicPagePassword] = useState("");
+  const [publicPageTheme, setPublicPageTheme] = useState("purple");
+  const [publicPageTemplate, setPublicPageTemplate] = useState("simple");
+  const [publicPageSaving, setPublicPageSaving] = useState(false);
 
   // UI state
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -74,8 +84,49 @@ export function ProjectForm({
 
       setClientOrgId(props.clientOrgId as Id<"objects"> | undefined);
       setDetailedDescription((props.detailedDescription as string) || "");
+
+      // Load public page config
+      const publicPage = props.publicPage as {
+        enabled?: boolean;
+        slug?: string;
+        password?: string;
+        theme?: string;
+        template?: string;
+      } | undefined;
+      if (publicPage) {
+        setPublicPageEnabled(publicPage.enabled || false);
+        setPublicPageSlug(publicPage.slug || "");
+        setPublicPagePassword(publicPage.password || "");
+        setPublicPageTheme(publicPage.theme || "purple");
+        setPublicPageTemplate(publicPage.template || "simple");
+      }
     }
   }, [mode, existingProject]);
+
+  // Handle public page save
+  const handleSavePublicPage = async () => {
+    if (!projectId || !publicPageSlug) return;
+    setPublicPageSaving(true);
+    setError(null);
+
+    try {
+      await updatePublicPage({
+        sessionId,
+        projectId,
+        publicPage: {
+          enabled: publicPageEnabled,
+          slug: publicPageSlug,
+          password: publicPagePassword || undefined,
+          theme: publicPageTheme,
+          template: publicPageTemplate,
+        },
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save public page settings");
+    } finally {
+      setPublicPageSaving(false);
+    }
+  };
 
   // Handle submit
   const handleSubmit = async (e: React.FormEvent) => {
@@ -445,6 +496,206 @@ export function ProjectForm({
           disabled={isSubmitting}
         />
       </div>
+
+      {/* Meetings Section (only for edit mode) */}
+      {mode === "edit" && projectId && (
+        <div
+          className="p-4 border-2"
+          style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        >
+          <h3 className="text-sm font-bold mb-2 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+            <Calendar size={16} />
+            Project Meetings
+          </h3>
+          <p className="text-xs mb-4" style={{ color: "var(--neutral-gray)" }}>
+            Manage client-facing meetings for this project. These will be visible in the Project Drawer.
+          </p>
+
+          <div
+            className="border-2 rounded overflow-hidden"
+            style={{ borderColor: "var(--win95-border)" }}
+          >
+            <MeetingsTab
+              projectId={projectId}
+              sessionId={sessionId}
+              organizationId={organizationId}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Public Project Page Section (only for edit mode) */}
+      {mode === "edit" && projectId && (
+        <div
+          className="p-4 border-2"
+          style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        >
+          <h3 className="text-sm font-bold mb-2 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+            <Globe size={16} />
+            Public Project Page
+          </h3>
+          <p className="text-xs mb-4" style={{ color: "var(--neutral-gray)" }}>
+            Create a public-facing page for this project that clients can access via a unique URL.
+          </p>
+
+          {/* Enable Toggle */}
+          <div className="mb-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={publicPageEnabled}
+                onChange={(e) => setPublicPageEnabled(e.target.checked)}
+                className="w-4 h-4"
+                disabled={publicPageSaving}
+              />
+              <span className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+                Enable public page
+              </span>
+            </label>
+          </div>
+
+          {publicPageEnabled && (
+            <div className="space-y-4 pl-6 border-l-2" style={{ borderColor: "var(--win95-highlight)" }}>
+              {/* Slug */}
+              <div>
+                <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                  URL Slug <span style={{ color: "var(--error)" }}>*</span>
+                </label>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                    /project/
+                  </span>
+                  <input
+                    type="text"
+                    value={publicPageSlug}
+                    onChange={(e) => setPublicPageSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                    placeholder="my-project"
+                    className="flex-1 px-2 py-1 text-sm border-2 focus:outline-none focus:border-black"
+                    style={{
+                      borderColor: "var(--win95-border)",
+                      background: "var(--win95-bg)",
+                      color: "var(--win95-text)",
+                    }}
+                    disabled={publicPageSaving}
+                    maxLength={50}
+                  />
+                </div>
+                <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+                  Only lowercase letters, numbers, and hyphens. 3-50 characters.
+                </p>
+              </div>
+
+              {/* Password */}
+              <div>
+                <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                  Password Protection
+                </label>
+                <input
+                  type="text"
+                  value={publicPagePassword}
+                  onChange={(e) => setPublicPagePassword(e.target.value)}
+                  placeholder="Leave empty for no password"
+                  className="w-full px-2 py-1 text-sm border-2 focus:outline-none focus:border-black"
+                  style={{
+                    borderColor: "var(--win95-border)",
+                    background: "var(--win95-bg)",
+                    color: "var(--win95-text)",
+                  }}
+                  disabled={publicPageSaving}
+                />
+              </div>
+
+              {/* Theme */}
+              <div>
+                <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                  Theme Color
+                </label>
+                <select
+                  value={publicPageTheme}
+                  onChange={(e) => setPublicPageTheme(e.target.value)}
+                  className="w-full px-2 py-1 text-sm border-2 focus:outline-none focus:border-black"
+                  style={{
+                    borderColor: "var(--win95-border)",
+                    background: "var(--win95-bg)",
+                    color: "var(--win95-text)",
+                  }}
+                  disabled={publicPageSaving}
+                >
+                  <option value="purple">Purple (Default)</option>
+                  <option value="amber">Amber/Orange</option>
+                  <option value="blue">Blue</option>
+                  <option value="green">Green</option>
+                  <option value="neutral">Neutral/Gray</option>
+                </select>
+              </div>
+
+              {/* Template */}
+              <div>
+                <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                  Page Template
+                </label>
+                <select
+                  value={publicPageTemplate}
+                  onChange={(e) => setPublicPageTemplate(e.target.value)}
+                  className="w-full px-2 py-1 text-sm border-2 focus:outline-none focus:border-black"
+                  style={{
+                    borderColor: "var(--win95-border)",
+                    background: "var(--win95-bg)",
+                    color: "var(--win95-text)",
+                  }}
+                  disabled={publicPageSaving}
+                >
+                  <option value="simple">Simple (Meetings Only)</option>
+                  <option value="proposal">Proposal (Full Landing Page)</option>
+                  <option value="rikscha">Rikscha (Hamburg Pedicab)</option>
+                  <option value="gerrit">Gerrit (Sailing School)</option>
+                  <option value="portfolio">Portfolio (Project Showcase)</option>
+                </select>
+              </div>
+
+              {/* Save Button & Preview Link */}
+              <div className="flex items-center justify-between pt-2">
+                <button
+                  type="button"
+                  onClick={handleSavePublicPage}
+                  disabled={publicPageSaving || !publicPageSlug || publicPageSlug.length < 3}
+                  className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{
+                    borderColor: "var(--win95-border)",
+                    background: "var(--win95-highlight)",
+                    color: "white",
+                  }}
+                >
+                  {publicPageSaving ? (
+                    <>
+                      <Loader2 size={12} className="animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save size={12} />
+                      Save Public Page
+                    </>
+                  )}
+                </button>
+
+                {publicPageSlug && publicPageSlug.length >= 3 && (
+                  <a
+                    href={`/project/${publicPageSlug}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs flex items-center gap-1 hover:underline"
+                    style={{ color: "var(--win95-highlight)" }}
+                  >
+                    <ExternalLink size={12} />
+                    Preview: /project/{publicPageSlug}
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Action Buttons */}
       <div className="flex items-center gap-3 justify-end">

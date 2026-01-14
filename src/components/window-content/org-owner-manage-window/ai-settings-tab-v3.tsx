@@ -4,8 +4,8 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
-import { useState, useEffect, useMemo } from "react";
-import { Save, Loader2, Brain, AlertTriangle, Lock, CreditCard, CheckCircle2, XCircle, ShoppingCart, Check } from "lucide-react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { Save, Loader2, Brain, AlertTriangle, Lock, CheckCircle2, XCircle, ShoppingCart, Check } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { PrivacyBadge } from "@/components/ai-billing/privacy-badge";
 import { useWindowManager } from "@/hooks/use-window-manager";
@@ -69,6 +69,51 @@ export function AISettingsTabV3() {
   const [showOnlyRecommended, setShowOnlyRecommended] = useState(false);
   const [showOnlyEnabled, setShowOnlyEnabled] = useState(false);
 
+  // Model type definition (moved before useEffects)
+  type ModelOption = {
+    id: string;
+    name: string;
+    provider?: string;
+    location: string;
+    zdr: boolean;
+    noTraining: boolean;
+    toolCalling?: boolean;
+    multimodal?: boolean;
+    vision?: boolean;
+    description: string;
+    recommended?: boolean;
+  };
+
+  // Get all available models from platform-enabled models (moved before useEffects)
+  const getAllModelsForTier = useCallback((tierValue: typeof tier): ModelOption[] => {
+    if (!platformModels) return [];
+
+    const models: ModelOption[] = platformModels.map((model) => ({
+      id: model.id,
+      name: model.name,
+      provider: model.provider,
+      location: model.provider === "mistral" ? "🇪🇺" :
+                model.provider === "anthropic" || model.provider === "openai" || model.provider === "google" ? "🇺🇸" :
+                model.provider === "cohere" ? "🇨🇦" : "🌍",
+      zdr: model.provider === "mistral" || model.provider === "meta-llama",
+      noTraining: model.provider === "mistral" || model.provider === "anthropic" || model.provider === "meta-llama",
+      toolCalling: model.capabilities.toolCalling,
+      multimodal: model.capabilities.multimodal,
+      vision: model.capabilities.vision,
+      description: `${(model.contextLength / 1000).toFixed(0)}K context. ${model.capabilities.toolCalling ? "Tool calling. " : ""}${model.capabilities.vision ? "Vision. " : ""}`,
+      recommended: model.isSystemDefault ?? false,
+    }));
+
+    if (tierValue === "privacy-enhanced") {
+      return models.filter(m => m.zdr && m.noTraining);
+    }
+
+    return models;
+  }, [platformModels]);
+
+  // Helper function for model management (moved before useEffects)
+  const isModelEnabled = useCallback((modelId: string) => enabledModels.some(m => m.modelId === modelId), [enabledModels]);
+
   // Initialize form from settings
   useEffect(() => {
     if (settings) {
@@ -115,83 +160,42 @@ export function AISettingsTabV3() {
         setEnabled(true); // Auto-enable AI features
       }
     }
-  }, [settings, platformModels]);
+  }, [settings, platformModels, enabledModels.length, getAllModelsForTier]);
 
   // Auto-select system default models when tier changes
   useEffect(() => {
     const allModels = getAllModelsForTier(tier);
     const allModelIds = allModels.map(m => m.id);
 
-    // If no models are enabled, or tier changed and incompatible models exist
-    const hasIncompatibleModels = enabledModels.some(m => !allModelIds.includes(m.modelId));
+    // Use functional update to check current state without adding enabledModels to deps
+    setEnabledModels(currentModels => {
+      // If no models are enabled, or tier changed and incompatible models exist
+      const hasIncompatibleModels = currentModels.some(m => !allModelIds.includes(m.modelId));
 
-    if (enabledModels.length === 0 || hasIncompatibleModels) {
-      // Get system defaults (models marked as recommended by super admin)
-      const systemDefaultModels = allModels.filter(m => m.recommended);
+      if (currentModels.length === 0 || hasIncompatibleModels) {
+        // Get system defaults (models marked as recommended by super admin)
+        const systemDefaultModels = allModels.filter(m => m.recommended);
 
-      // Auto-select system defaults
-      const newModels = systemDefaultModels.map((m, index) => ({
-        modelId: m.id,
-        isDefault: index === 0, // First system default is the default
-        enabledAt: Date.now()
-      }));
+        // Auto-select system defaults
+        const newModels = systemDefaultModels.map((m, index) => ({
+          modelId: m.id,
+          isDefault: index === 0, // First system default is the default
+          enabledAt: Date.now()
+        }));
 
-      // Set first model as the default
-      if (newModels.length > 0) {
-        newModels[0].isDefault = true;
-        setDefaultModelId(newModels[0].modelId);
+        // Set first model as the default
+        if (newModels.length > 0) {
+          newModels[0].isDefault = true;
+          setDefaultModelId(newModels[0].modelId);
+        }
+
+        return newModels;
       }
 
-      setEnabledModels(newModels);
-    }
-  }, [tier]);
-
-  // Model type definition
-  type ModelOption = {
-    id: string;
-    name: string;
-    provider?: string; // Provider name
-    location: string; // Flag emoji for location
-    zdr: boolean; // Zero Data Retention
-    noTraining: boolean; // No training on data
-    toolCalling?: boolean; // Tool calling capability
-    multimodal?: boolean; // Multimodal capability
-    vision?: boolean; // Vision capability
-    description: string;
-    recommended?: boolean;
-  };
-
-  // Get all available models from platform-enabled models
-  const getAllModelsForTier = (tierValue: typeof tier): ModelOption[] => {
-    if (!platformModels) return [];
-
-    // Convert platform models to ModelOption format
-    const models: ModelOption[] = platformModels.map((model) => ({
-      id: model.id,
-      name: model.name,
-      provider: model.provider,
-      location: model.provider === "mistral" ? "🇪🇺" :
-                model.provider === "anthropic" || model.provider === "openai" || model.provider === "google" ? "🇺🇸" :
-                model.provider === "cohere" ? "🇨🇦" : "🌍",
-      // Assume ZDR for EU models and open-source models
-      zdr: model.provider === "mistral" || model.provider === "meta-llama",
-      noTraining: model.provider === "mistral" || model.provider === "anthropic" || model.provider === "meta-llama",
-      toolCalling: model.capabilities.toolCalling,
-      multimodal: model.capabilities.multimodal,
-      vision: model.capabilities.vision,
-      description: `${(model.contextLength / 1000).toFixed(0)}K context. ${model.capabilities.toolCalling ? "Tool calling. " : ""}${model.capabilities.vision ? "Vision. " : ""}`,
-      recommended: model.isSystemDefault ?? false,
-    }));
-
-    // Filter based on tier
-    if (tierValue === "privacy-enhanced") {
-      // Only EU-based or ZDR-enabled models
-      return models.filter(m => m.zdr && m.noTraining);
-    }
-
-    // Standard tier: all platform-enabled models
-    return models;
-  };
+      // No change needed
+      return currentModels;
+    });
+  }, [tier, getAllModelsForTier]);
 
   // Get all available models based on tier
   const allAvailableModels = getAllModelsForTier(tier);
@@ -233,7 +237,7 @@ export function AISettingsTabV3() {
 
       return true;
     });
-  }, [allAvailableModels, filterProvider, filterCapability, showOnlyRecommended, showOnlyEnabled, searchQuery]);
+  }, [allAvailableModels, filterProvider, filterCapability, showOnlyRecommended, showOnlyEnabled, searchQuery, isModelEnabled]);
 
   // Count enabled models and privacy features
   const enabledModelCount = enabledModels.length;
@@ -272,8 +276,6 @@ export function AISettingsTabV3() {
   }, [enabledModels]);
 
   // Helper functions for model management
-  const isModelEnabled = (modelId: string) => enabledModels.some(m => m.modelId === modelId);
-
   const toggleModel = (modelId: string) => {
     if (isModelEnabled(modelId)) {
       // Remove model
@@ -903,7 +905,7 @@ export function AISettingsTabV3() {
                   </label>
                   <select
                     value={filterCapability}
-                    onChange={(e) => setFilterCapability(e.target.value as any)}
+                    onChange={(e) => setFilterCapability(e.target.value as "all" | "tool_calling" | "multimodal" | "vision")}
                     className="w-full px-2 py-1 text-xs"
                     style={{
                       backgroundColor: 'var(--win95-input-bg)',

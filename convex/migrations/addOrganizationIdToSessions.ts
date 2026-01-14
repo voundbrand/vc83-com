@@ -8,7 +8,6 @@
  */
 
 import { internalMutation } from "../_generated/server";
-import { Doc } from "../_generated/dataModel";
 
 export const migrateExistingSessions = internalMutation({
   args: {},

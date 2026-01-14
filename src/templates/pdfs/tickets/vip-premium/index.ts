@@ -26,7 +26,7 @@ export async function VIPPremiumTemplate(
 ): Promise<PdfTicketTemplateOutput> {
   const { jsPDF } = await import("jspdf");
 
-  const { ticket, event, order, qrCode, branding, organization } = props;
+  const { ticket, event, order, qrCode, organization } = props;
 
   const doc = new jsPDF({
     orientation: "portrait",

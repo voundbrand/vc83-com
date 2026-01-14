@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Globe, FileText, Plus, BarChart3, Rocket, Settings } from "lucide-react";
+import { Globe, FileText, Plus, BarChart3, Rocket, Settings, Box } from "lucide-react";
 import { PublishedPagesTab } from "./published-pages-tab";
 import { CreatePageTab } from "./create-page-tab";
 import { DeploymentsTab } from "./deployments-tab";
 import { DeploymentSettingsTab } from "./deployment-settings-tab";
+import { ApplicationsTab } from "./applications-tab";
+import { ApplicationDetailsTab } from "./application-details-tab";
 import { VercelDeploymentModal } from "./vercel-deployment-modal";
 import { EnvVarsModal } from "./env-vars-modal";
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
@@ -26,7 +28,12 @@ import type { Id } from "../../../../convex/_generated/dataModel";
  * - Analytics: Page views, conversions (future)
  */
 
-type TabType = "pages" | "create" | "deployments" | "settings" | "analytics";
+type TabType = "pages" | "create" | "deployments" | "settings" | "applications" | "application-details" | "analytics";
+
+interface SelectedApplication {
+  _id: Id<"objects">;
+  name: string;
+}
 
 interface EditMode {
   pageId: Id<"objects">;
@@ -49,13 +56,25 @@ interface SelectedPage {
   name: string;
 }
 
+interface SelectedDeployment {
+  id: string;
+  name: string;
+  provider?: string;
+  status?: string;
+  lastDeployed?: number | null;
+  deployedUrl?: string | null;
+  githubRepo?: string;
+  vercelUrl?: string;
+}
+
 export function WebPublishingWindow() {
   const [activeTab, setActiveTab] = useState<TabType>("pages");
   const [editMode, setEditMode] = useState<EditMode | null>(null);
   const [selectedPage, setSelectedPage] = useState<SelectedPage | null>(null);
-  const [selectedDeployment, setSelectedDeployment] = useState<any | null>(null);
+  const [selectedDeployment, setSelectedDeployment] = useState<SelectedDeployment | null>(null);
   const [showDeployModal, setShowDeployModal] = useState(false);
   const [showEnvVarsModal, setShowEnvVarsModal] = useState(false);
+  const [selectedApplication, setSelectedApplication] = useState<SelectedApplication | null>(null);
   const { t } = useNamespaceTranslations("ui.web_publishing");
 
   // Check app availability - returns guard component if unavailable/loading, null if available
@@ -147,6 +166,20 @@ export function WebPublishingWindow() {
           </>
         )}
 
+        {/* Applications Tab */}
+        <button
+          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
+          style={{
+            borderColor: 'var(--win95-border)',
+            background: activeTab === "applications" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+            color: activeTab === "applications" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+          }}
+          onClick={() => setActiveTab("applications")}
+        >
+          <Box size={14} />
+          Applications
+        </button>
+
         {/* Analytics Tab (future) */}
         <button
           className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2 opacity-50 cursor-not-allowed"
@@ -213,6 +246,28 @@ export function WebPublishingWindow() {
             pageName={selectedPage.name}
             deployment={selectedDeployment}
             onOpenEnvVarsModal={() => setShowEnvVarsModal(true)}
+          />
+        )}
+
+        {/* Connected Applications */}
+        {activeTab === "applications" && (
+          <ApplicationsTab
+            onSelectApplication={(app) => {
+              setSelectedApplication({ _id: app._id, name: app.name });
+              setActiveTab("application-details");
+            }}
+          />
+        )}
+
+        {/* Application Details (Activity Protocol, Pages, Settings) */}
+        {activeTab === "application-details" && selectedApplication && (
+          <ApplicationDetailsTab
+            applicationId={selectedApplication._id}
+            applicationName={selectedApplication.name}
+            onBack={() => {
+              setSelectedApplication(null);
+              setActiveTab("applications");
+            }}
           />
         )}
 

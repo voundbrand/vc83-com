@@ -62,10 +62,39 @@ export function DomainConfigModal({
     metaDescription: "",
   });
 
+  // Type for domain config custom properties
+  interface DomainConfigProperties {
+    domainName?: string;
+    branding?: {
+      logoUrl?: string;
+      primaryColor?: string;
+      secondaryColor?: string;
+      accentColor?: string;
+      fontFamily?: string;
+    };
+    email?: {
+      emailDomain?: string;
+      senderEmail?: string;
+      systemEmail?: string;
+      salesEmail?: string;
+      replyToEmail?: string;
+      defaultTemplateCode?: string;
+    };
+    webPublishing?: {
+      templateId?: string;
+      isExternal?: boolean;
+      siteUrl?: string;
+      metaTags?: {
+        title?: string;
+        description?: string;
+      };
+    };
+  }
+
   // Load existing config data
   useEffect(() => {
     if (config) {
-      const props = config.customProperties as any;
+      const props = config.customProperties as DomainConfigProperties;
       setFormData({
         domainName: props.domainName || "",
         logoUrl: props.branding?.logoUrl || "",
@@ -331,6 +360,7 @@ export function DomainConfigModal({
                 {/* Logo Preview */}
                 {formData.logoUrl && (
                   <div className="mt-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={formData.logoUrl}
                       alt="Domain Logo Preview"

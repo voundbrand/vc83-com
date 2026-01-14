@@ -3,8 +3,9 @@
 import { useEffect, useRef } from "react"
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
 import { useAIChatContext } from "@/contexts/ai-chat-context"
+import type { Id } from "../../../../../convex/_generated/dataModel"
 import { SystemMessage } from "../single-pane/message-types/system-message"
-import { Sparkles, Wrench, CheckCircle2, XCircle, AlertTriangle } from "lucide-react"
+import { Sparkles, Wrench, CheckCircle2, XCircle } from "lucide-react"
 
 // User Message Component - LEFT SIDE (flipped from original)
 function UserMessage({ content }: { content: string }) {
@@ -143,7 +144,7 @@ export function ChatMessages() {
         role: "system" as const,
         content: t("ui.ai_assistant.welcome.message"),
         timestamp: Date.now(),
-        conversationId: "" as any,
+        conversationId: "" as unknown as Id<"aiConversations">,
       }]
     : messages
 

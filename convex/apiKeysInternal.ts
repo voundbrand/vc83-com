@@ -10,6 +10,7 @@
 import { internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
+import { getLicenseInternal } from "./licensing/helpers";
 
 /**
  * INTERNAL: Store API Key in Database
@@ -119,9 +120,6 @@ export const checkApiKeyLimit = internalQuery({
     organizationId: v.id("organizations"),
   },
   handler: async (ctx, args) => {
-    // Import license helper
-    const { getLicenseInternal } = await import("./licensing/helpers");
-
     const license = await getLicenseInternal(ctx, args.organizationId);
     const limit = license.limits.maxApiKeys;
 
@@ -174,10 +172,6 @@ export const checkWebsitesPerKeyLimit = internalQuery({
     allowedDomains: v.array(v.string()),
   },
   handler: async (ctx, args) => {
-    // Import license helper
-    const { getLicenseInternal } = await import("./licensing/helpers");
-    const { ConvexError } = await import("convex/values");
-
     const license = await getLicenseInternal(ctx, args.organizationId);
     const limit = license.limits.maxWebsitesPerKey;
 

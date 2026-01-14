@@ -63,6 +63,7 @@ interface TemplateRendererProps extends Omit<TemplateRenderOptions, "data"> {
 export function TemplateRenderer({
   schema,
   data,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   mode: _mode = "preview",
   scale = 1,
   interactive = false,
@@ -275,6 +276,7 @@ function renderHeader(section: HeaderSection, resolveVariable: (template: string
       }}
     >
       {logoUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={logoUrl}
           alt="Logo"
@@ -322,6 +324,7 @@ function renderHeroImage(section: HeroImageSection, resolveVariable: (template: 
 
   return (
     <div style={{ position: "relative", height: content.height, overflow: "hidden" }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={imageUrl}
         alt={altText}
@@ -589,6 +592,7 @@ function renderDataTable(
  * Render Ticket Details Section
  * (Pre-configured section for ticket info)
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function renderTicketDetails(_section: TicketDetailsSection, _schema: TemplateSchema) {
   return (
     <div style={{ padding: "24px" }}>
@@ -603,6 +607,7 @@ function renderTicketDetails(_section: TicketDetailsSection, _schema: TemplateSc
  * Render Event Details Section
  * (Pre-configured section for event info)
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function renderEventDetails(_section: EventDetailsSection, _schema: TemplateSchema) {
   return (
     <div style={{ padding: "24px" }}>
@@ -623,6 +628,7 @@ function renderSpacer(section: SpacerSection) {
 /**
  * Render Divider Section
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function renderDivider(section: DividerSection, _resolveVariable: (template: string) => string) {
   const { content } = section;
 
@@ -659,6 +665,7 @@ function renderEmailHero(section: EmailHeroSection, resolveVariable: (template: 
   return (
     <div style={{ padding: "32px 24px", textAlign: "center", backgroundColor: "#F9FAFB" }}>
       {image && (
+        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={image}
           alt={title}

@@ -6,6 +6,7 @@
  */
 
 import { action } from "../../_generated/server";
+import type { ActionCtx } from "../../_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "../../_generated/api";
 import { Id } from "../../_generated/dataModel";
@@ -379,6 +380,7 @@ export const executeSendBulkCRMEmail = action({
  * Get recipients based on target criteria
  */
 async function getRecipients(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ctx: any,
   sessionId: string,
   organizationId: Id<"organizations">,
@@ -396,6 +398,7 @@ async function getRecipients(
   if (target.type === "contacts" && target.contactIds) {
     // Specific contacts
     for (const contactId of target.contactIds) {
+      // @ts-ignore - Deep type instantiation in Convex generated types
       const contact = await ctx.runQuery(api.crmOntology.getContact, {
         sessionId,
         contactId: contactId as Id<"objects">
@@ -421,7 +424,7 @@ async function getRecipients(
       });
 
       // Find primary contact
-      const primaryContact = contacts.find((c: any) => c.relationship?.isPrimaryContact);
+      const primaryContact = contacts.find((c: { relationship?: { isPrimaryContact?: boolean } }) => c.relationship?.isPrimaryContact);
       const contact = primaryContact || contacts[0];
 
       if (contact && contact.customProperties?.email) {
@@ -486,6 +489,7 @@ async function getRecipients(
  * Personalize email for a recipient using merge fields
  */
 async function personalizeEmail(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ctx: any,
   recipient: EmailRecipient,
   content: {
@@ -493,9 +497,10 @@ async function personalizeEmail(
     body?: string;
     template?: string;
     aiTone?: string;
-    personalization?: any;
+    personalization?: Record<string, unknown>;
   },
-  sessionId: string
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _sessionId: string
 ): Promise<PersonalizedEmail> {
   const firstName = recipient.customProperties?.firstName || recipient.name.split(" ")[0];
   const lastName = recipient.customProperties?.lastName || recipient.name.split(" ").slice(1).join(" ");
@@ -534,6 +539,7 @@ async function personalizeEmail(
  * Send email via Microsoft Graph
  */
 async function sendEmail(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ctx: any,
   connectionId: Id<"oauthConnections">,
   email: PersonalizedEmail
@@ -556,6 +562,7 @@ async function sendEmail(
     }
   };
 
+  // @ts-ignore - Deep type instantiation in Convex generated types
   await ctx.runAction(internal.oauth.graphClient.graphRequest, {
     connectionId,
     endpoint: "/me/sendMail",

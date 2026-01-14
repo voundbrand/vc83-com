@@ -73,7 +73,7 @@ export function StoreWindow() {
   const [modalTitle, setModalTitle] = useState("Enterprise Solutions");
 
   // Get current organization's plan
-  const { sessionId, user } = useAuth();
+  const { sessionId } = useAuth();
   const currentOrganization = useCurrentOrganization();
   const organization = useQuery(
     api.organizations.getById,
@@ -412,6 +412,7 @@ function PlatformPlansTab({
   isLoadingStatus,
   onCancelPendingChange,
   isCancelingPending,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   t,
 }: PlatformPlansTabProps) {
   // Default to annual billing (better value)
@@ -419,6 +420,8 @@ function PlatformPlansTab({
 
   // Plan configurations with both monthly and annual pricing
   // Note: Stripe Price IDs are managed on the backend via Convex env vars
+  // API key limits from convex/licensing/tierConfigs.ts:
+  // - Free: 1 API key, Starter: 1 API key, Professional: 3 API keys, Agency: 5 API keys, Enterprise: Unlimited
   const plans = [
     {
       id: "free",
@@ -470,8 +473,8 @@ function PlatformPlansTab({
         "3 users",
         "1,000 contacts",
         "20 projects",
+        "1 API key",
         "500 emails/month",
-        "Stripe Connect",
         "Email support (48h)",
       ],
       cta: "Subscribe",
@@ -489,8 +492,8 @@ function PlatformPlansTab({
         "10 users",
         "5,000 contacts",
         "Unlimited projects",
+        "3 API keys",
         "2,500 emails/month",
-        "Custom domains",
         "Email support (24h)",
       ],
       cta: "Subscribe",
@@ -509,8 +512,8 @@ function PlatformPlansTab({
         "15 users",
         "10,000 contacts",
         "Sub-organizations",
+        "5 API keys (+1/sub-org)",
         "10,000 emails/month",
-        "White-label",
         "Priority support (12h)",
       ],
       cta: "Subscribe",
@@ -528,10 +531,10 @@ function PlatformPlansTab({
       features: [
         "Unlimited users",
         "Unlimited contacts",
+        "Unlimited API keys",
         "Custom SLA",
         "SSO/SAML",
         "Dedicated support",
-        "Custom integrations",
       ],
       cta: "Contact Sales",
       highlight: false,
@@ -984,6 +987,7 @@ interface AIAddonsTabProps {
   t: (key: string) => string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function AIAddonsTab({ onAddToCart, onContactSales, t }: AIAddonsTabProps) {
   return (
     <div className="space-y-6">

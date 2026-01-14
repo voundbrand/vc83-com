@@ -14,7 +14,7 @@
  */
 
 import { SignJWT, jwtVerify, JWTPayload } from 'jose';
-import { action, internalAction, internalMutation, internalQuery } from '../_generated/server';
+import { action, internalAction, internalMutation } from '../_generated/server';
 import { v } from 'convex/values';
 import { OAUTH_CONFIG, JWT_CONFIG } from './config';
 import { internal } from '../_generated/api';
@@ -723,7 +723,7 @@ export const revokeToken = action({
 
           return { revoked: true, token_type: "access_token" };
         }
-      } catch (error) {
+      } catch {
         // Token invalid or expired - that's okay
       }
     }

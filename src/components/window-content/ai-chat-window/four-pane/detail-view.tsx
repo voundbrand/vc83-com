@@ -8,7 +8,6 @@ import { useAIChatContext } from "@/contexts/ai-chat-context"
 import { useQuery, useMutation } from "convex/react"
 import { api } from "../../../../../convex/_generated/api"
 import { useNotification } from "@/hooks/use-notification"
-import { useState } from "react"
 import type { Id } from "../../../../../convex/_generated/dataModel"
 
 interface WorkItem {
@@ -26,13 +25,13 @@ interface WorkItem {
 
 interface ToolExecution {
   id: string
-  _id?: any
+  _id?: Id<"aiToolExecutions">
   toolName: string
   status: "proposed" | "approved" | "executing" | "running" | "success" | "error" | "rejected" | "cancelled"
   startTime?: Date
   endTime?: Date
   input?: Record<string, unknown>
-  parameters?: any
+  parameters?: Record<string, unknown>
   output?: unknown
   error?: string
   isMinimized?: boolean
@@ -51,8 +50,6 @@ interface DetailViewProps {
 export function DetailView({ selectedWorkItem, onClearSelection, selectedToolExecution, onClearToolExecution, showSettings, onCloseSettings }: DetailViewProps) {
   const { currentConversationId } = useAIChatContext()
   const notification = useNotification()
-  const [showJson, setShowJson] = useState(false)
-
   // Query pending tool executions (approval prompts)
   const pendingExecutions = useQuery(
     api.ai.conversations.getPendingToolExecutions,
@@ -62,29 +59,17 @@ export function DetailView({ selectedWorkItem, onClearSelection, selectedToolExe
   // Mutations for approval/rejection
   const approveExecution = useMutation(api.ai.conversations.approveToolExecution)
   const rejectExecution = useMutation(api.ai.conversations.rejectToolExecution)
-  const updateParameters = useMutation(api.ai.conversations.updateToolExecutionParameters)
   const customInstruction = useMutation(api.ai.conversations.customInstructionForExecution)
 
-  const handleApprove = async (executionId: Id<"aiToolExecutions">, dontAskAgain: boolean, editedParams?: any) => {
+  const handleApprove = async (executionId: Id<"aiToolExecutions">, dontAskAgain: boolean) => {
     try {
-      // If parameters were edited, update them first
-      if (editedParams) {
-        await updateParameters({ executionId, parameters: editedParams })
-      }
-
-      // Then approve
       await approveExecution({ executionId, dontAskAgain })
       notification.success(
         "Approved",
-        editedParams
-          ? "Modified parameters saved and action approved!"
-          : dontAskAgain
+        dontAskAgain
           ? "Action approved. Similar actions will run automatically."
           : "Action approved and executing..."
       )
-
-      // Reset JSON view for next proposal
-      setShowJson(false)
     } catch (error) {
       notification.error(
         "Approval Failed",
@@ -97,7 +82,6 @@ export function DetailView({ selectedWorkItem, onClearSelection, selectedToolExe
     try {
       await rejectExecution({ executionId })
       notification.info("Rejected", "Action has been cancelled")
-      setShowJson(false)
       onClearToolExecution() // Clear selection after rejection
     } catch (error) {
       notification.error(
@@ -127,14 +111,12 @@ export function DetailView({ selectedWorkItem, onClearSelection, selectedToolExe
       return (
         <EditableProposalView
           execution={{
-            _id: selectedToolExecution._id || selectedToolExecution.id as any,
+            _id: selectedToolExecution._id || selectedToolExecution.id as Id<"aiToolExecutions">,
             toolName: selectedToolExecution.toolName,
             parameters: selectedToolExecution.parameters || selectedToolExecution.input || {},
             proposalMessage: selectedToolExecution.proposalMessage,
             status: selectedToolExecution.status
           }}
-          showJson={showJson}
-          onToggleJson={() => setShowJson(!showJson)}
           onApprove={handleApprove}
           onReject={handleReject}
           onCustomInstruction={handleCustomInstruction}
@@ -297,8 +279,6 @@ export function DetailView({ selectedWorkItem, onClearSelection, selectedToolExe
     return (
       <EditableProposalView
         execution={currentExecution}
-        showJson={showJson}
-        onToggleJson={() => setShowJson(!showJson)}
         onApprove={handleApprove}
         onReject={handleReject}
         onCustomInstruction={handleCustomInstruction}

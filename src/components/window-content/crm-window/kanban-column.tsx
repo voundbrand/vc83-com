@@ -6,12 +6,15 @@ import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
 import { useNotification } from "@/hooks/use-notification"
 import { useRetroConfirm } from "@/components/retro-confirm-dialog"
 import { ContactCard } from "./contact-card"
-import type { Doc, Id } from "../../../../convex/_generated/dataModel"
+import type { Id } from "../../../../convex/_generated/dataModel"
+
+// Contact type for CRM pipeline (from API query result)
+type PipelineContact = Record<string, unknown>;
 
 interface KanbanColumnProps {
   stageId: string
   stageLabel: string
-  contacts: Doc<"objects">[]
+  contacts: PipelineContact[]
   isEditMode?: boolean
   onDeleteStage?: (stageId: Id<"objects">) => void
 }
@@ -45,7 +48,8 @@ export function KanbanColumn({ stageId, stageLabel, contacts, isEditMode = false
   })
 
   const totalValue = contacts.reduce((sum, contact) => {
-    const value = contact.customProperties?.totalSpent || 0
+    const props = (contact.customProperties || {}) as Record<string, unknown>
+    const value = props?.totalSpent || 0
     return sum + (typeof value === 'number' ? value : 0)
   }, 0)
 
@@ -120,7 +124,7 @@ export function KanbanColumn({ stageId, stageLabel, contacts, isEditMode = false
       {/* Contact Cards */}
       <div className="flex-1 overflow-y-auto p-2 space-y-2">
         {contacts.map(contact => (
-          <ContactCard key={contact._id} contact={contact} />
+          <ContactCard key={contact._id as string} contact={contact} />
         ))}
         {contacts.length === 0 && (
           <div

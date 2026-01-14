@@ -19,7 +19,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser } from "./rbacHelpers";
-import type { Id } from "./_generated/dataModel";
 
 // ============================================================================
 // TAG QUERIES

@@ -6,7 +6,7 @@
  */
 
 import { v } from "convex/values";
-import { internalQuery, internalMutation } from "../../_generated/server";
+import { internalQuery, internalMutation, MutationCtx } from "../../_generated/server";
 import { Id } from "../../_generated/dataModel";
 import { addressesValidator } from "../../crmOntology";
 
@@ -15,15 +15,24 @@ import { addressesValidator } from "../../crmOntology";
  * Handles organization deduplication by name
  * Supports both old address format and new addresses array
  */
+interface AddressData {
+  street?: string;
+  street2?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+}
+
 async function findOrCreateOrganization(
-  ctx: any,
+  ctx: MutationCtx,
   args: {
     organizationId: Id<"organizations">;
     name: string;
     website?: string;
     industry?: string;
     // BACKWARD COMPATIBLE: Support old single address
-    address?: any;
+    address?: AddressData;
     // NEW: Support multiple addresses
     addresses?: Array<{
       type: "billing" | "shipping" | "mailing" | "physical" | "warehouse" | "other";
@@ -45,13 +54,13 @@ async function findOrCreateOrganization(
   // 1. Try to find existing organization by name (case-insensitive match)
   const existingOrgs = await ctx.db
     .query("objects")
-    .withIndex("by_org_type", (q: any) =>
+    .withIndex("by_org_type", (q) =>
       q.eq("organizationId", args.organizationId).eq("type", "crm_organization")
     )
     .collect();
 
   const existingOrg = existingOrgs.find(
-    (org: any) => org.name.toLowerCase() === args.name.toLowerCase()
+    (org) => org.name.toLowerCase() === args.name.toLowerCase()
   );
 
   // Handle addresses: convert old address format to new format if needed
@@ -159,7 +168,14 @@ export const createContactFromEventInternal = internalMutation({
       website: v.optional(v.string()),
       industry: v.optional(v.string()),
       // BACKWARD COMPATIBLE: Support old single address
-      address: v.optional(v.any()),
+      address: v.optional(v.object({
+        street: v.optional(v.string()),
+        street2: v.optional(v.string()),
+        city: v.optional(v.string()),
+        state: v.optional(v.string()),
+        postalCode: v.optional(v.string()),
+        country: v.optional(v.string()),
+      })),
       // NEW: Support multiple addresses
       addresses: v.optional(addressesValidator),
       taxId: v.optional(v.string()),
@@ -437,7 +453,14 @@ export const createContactInternal = internalMutation({
       website: v.optional(v.string()),
       industry: v.optional(v.string()),
       // BACKWARD COMPATIBLE: Support old single address
-      address: v.optional(v.any()),
+      address: v.optional(v.object({
+        street: v.optional(v.string()),
+        street2: v.optional(v.string()),
+        city: v.optional(v.string()),
+        state: v.optional(v.string()),
+        postalCode: v.optional(v.string()),
+        country: v.optional(v.string()),
+      })),
       // NEW: Support multiple addresses
       addresses: v.optional(addressesValidator),
       taxId: v.optional(v.string()),
@@ -486,7 +509,7 @@ export const createContactInternal = internalMutation({
         // Merge tags
         tags: mergedTags,
         // Merge custom fields
-        ...args.customFields,
+        ...(args.customFields as Record<string, unknown> | undefined || {}),
       };
 
       // Construct full name from updated properties
@@ -534,7 +557,7 @@ export const createContactInternal = internalMutation({
           sourceRef: args.sourceRef,
           tags: args.tags || ["api-created"],
           notes: args.notes,
-          ...args.customFields,
+          ...(args.customFields as Record<string, unknown> | undefined || {}),
         },
         createdBy: args.performedBy,
         createdAt: Date.now(),
@@ -845,7 +868,7 @@ export const bulkImportContactsInternal = internalMutation({
             jobTitle: contactData.jobTitle || existingContact.customProperties?.jobTitle,
             notes: contactData.notes || existingContact.customProperties?.notes,
             tags: mergedTags,
-            ...contactData.customFields,
+            ...((contactData.customFields as Record<string, unknown> | undefined) || {}),
             lastBulkImport: Date.now(),
           };
 
@@ -876,7 +899,7 @@ export const bulkImportContactsInternal = internalMutation({
               source: contactData.source || "bulk-import",
               tags: contactData.tags || ["bulk-imported"],
               notes: contactData.notes,
-              ...contactData.customFields,
+              ...((contactData.customFields as Record<string, unknown> | undefined) || {}),
               importedAt: Date.now(),
             },
             createdBy: args.performedBy,
@@ -920,6 +943,497 @@ export const bulkImportContactsInternal = internalMutation({
     }
 
     return results;
+  },
+});
+
+/**
+ * UPDATE CONTACT (INTERNAL)
+ *
+ * Updates an existing CRM contact.
+ */
+export const updateContactInternal = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    contactId: v.string(),
+    updates: v.object({
+      firstName: v.optional(v.string()),
+      lastName: v.optional(v.string()),
+      email: v.optional(v.string()),
+      phone: v.optional(v.string()),
+      jobTitle: v.optional(v.string()),
+      company: v.optional(v.string()),
+      subtype: v.optional(v.string()), // "customer" | "lead" | "prospect"
+      status: v.optional(v.string()), // "active" | "inactive" | "unsubscribed" | "archived"
+      tags: v.optional(v.array(v.string())),
+      notes: v.optional(v.string()),
+      customFields: v.optional(v.any()),
+      // Address support
+      address: v.optional(v.object({
+        street: v.optional(v.string()),
+        street2: v.optional(v.string()),
+        city: v.optional(v.string()),
+        state: v.optional(v.string()),
+        postalCode: v.optional(v.string()),
+        country: v.optional(v.string()),
+      })),
+      addresses: v.optional(addressesValidator),
+    }),
+    performedBy: v.optional(v.id("users")),
+  },
+  handler: async (ctx, args) => {
+    // 1. Get contact
+    const contact = await ctx.db.get(args.contactId as Id<"objects">);
+
+    if (!contact) {
+      throw new Error("Contact not found");
+    }
+
+    // 2. Verify organization access
+    if (contact.organizationId !== args.organizationId) {
+      throw new Error("Contact not found");
+    }
+
+    // 3. Verify it's a CRM contact
+    if (contact.type !== "crm_contact") {
+      throw new Error("Contact not found");
+    }
+
+    // 4. Build updated properties
+    const currentProps = (contact.customProperties || {}) as Record<string, unknown>;
+    const updatedProps: Record<string, unknown> = { ...currentProps };
+
+    if (args.updates.firstName !== undefined) updatedProps.firstName = args.updates.firstName;
+    if (args.updates.lastName !== undefined) updatedProps.lastName = args.updates.lastName;
+    if (args.updates.email !== undefined) updatedProps.email = args.updates.email;
+    if (args.updates.phone !== undefined) updatedProps.phone = args.updates.phone;
+    if (args.updates.jobTitle !== undefined) updatedProps.jobTitle = args.updates.jobTitle;
+    if (args.updates.company !== undefined) updatedProps.company = args.updates.company;
+    if (args.updates.tags !== undefined) updatedProps.tags = args.updates.tags;
+    if (args.updates.notes !== undefined) updatedProps.notes = args.updates.notes;
+    if (args.updates.address !== undefined) updatedProps.address = args.updates.address;
+    if (args.updates.addresses !== undefined) updatedProps.addresses = args.updates.addresses;
+    if (args.updates.customFields !== undefined) {
+      const customFields = args.updates.customFields as Record<string, unknown> | undefined;
+      if (customFields) {
+        Object.assign(updatedProps, customFields);
+      }
+    }
+
+    // 5. Update name if first/last name changed
+    let newName = contact.name;
+    if (args.updates.firstName || args.updates.lastName) {
+      const firstName = args.updates.firstName || currentProps.firstName || "";
+      const lastName = args.updates.lastName || currentProps.lastName || "";
+      newName = `${firstName} ${lastName}`.trim();
+    }
+
+    // 6. Apply updates
+    await ctx.db.patch(contact._id, {
+      name: newName,
+      subtype: args.updates.subtype || contact.subtype,
+      status: args.updates.status || contact.status,
+      customProperties: updatedProps,
+      updatedAt: Date.now(),
+    });
+
+    // 7. Log update action (only if performedBy is provided)
+    if (args.performedBy) {
+      await ctx.db.insert("objectActions", {
+        organizationId: args.organizationId,
+        objectId: contact._id,
+        actionType: "updated_via_api",
+        actionData: {
+          source: "api",
+          fieldsUpdated: Object.keys(args.updates).filter((k) => args.updates[k as keyof typeof args.updates] !== undefined),
+        },
+        performedBy: args.performedBy,
+        performedAt: Date.now(),
+      });
+    }
+
+    return { success: true };
+  },
+});
+
+/**
+ * DELETE CONTACT (INTERNAL)
+ *
+ * Permanently deletes a CRM contact and all associated links.
+ */
+export const deleteContactInternal = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    contactId: v.string(),
+    performedBy: v.optional(v.id("users")),
+  },
+  handler: async (ctx, args) => {
+    // 1. Get contact
+    const contact = await ctx.db.get(args.contactId as Id<"objects">);
+
+    if (!contact) {
+      throw new Error("Contact not found");
+    }
+
+    // 2. Verify organization access
+    if (contact.organizationId !== args.organizationId) {
+      throw new Error("Contact not found");
+    }
+
+    // 3. Verify it's a CRM contact
+    if (contact.type !== "crm_contact") {
+      throw new Error("Contact not found");
+    }
+
+    // 4. Log deletion action BEFORE deleting (so we have the data)
+    if (args.performedBy) {
+      await ctx.db.insert("objectActions", {
+        organizationId: args.organizationId,
+        objectId: contact._id,
+        actionType: "deleted_via_api",
+        actionData: {
+          contactName: contact.name,
+          email: contact.customProperties?.email,
+          source: "api",
+        },
+        performedBy: args.performedBy,
+        performedAt: Date.now(),
+      });
+    }
+
+    // 5. Delete all links involving this contact
+    const linksFrom = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_from_object", (q) => q.eq("fromObjectId", contact._id))
+      .collect();
+
+    const linksTo = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_to_object", (q) => q.eq("toObjectId", contact._id))
+      .collect();
+
+    for (const link of [...linksFrom, ...linksTo]) {
+      await ctx.db.delete(link._id);
+    }
+
+    // 6. Permanently delete the contact
+    await ctx.db.delete(contact._id);
+
+    return { success: true };
+  },
+});
+
+// ============================================================================
+// CRM ORGANIZATION OPERATIONS (FOR CLI API)
+// ============================================================================
+
+/**
+ * CREATE CRM ORGANIZATION (INTERNAL)
+ *
+ * Creates a CRM organization (company/account).
+ */
+export const createCrmOrganizationInternal = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    subtype: v.string(), // "customer" | "prospect" | "partner" | "sponsor"
+    name: v.string(),
+    website: v.optional(v.string()),
+    industry: v.optional(v.string()),
+    size: v.optional(v.string()), // "1-10" | "11-50" | "51-200" | "201-500" | "501+"
+    address: v.optional(v.object({
+      street: v.optional(v.string()),
+      street2: v.optional(v.string()),
+      city: v.optional(v.string()),
+      state: v.optional(v.string()),
+      postalCode: v.optional(v.string()),
+      country: v.optional(v.string()),
+    })),
+    addresses: v.optional(addressesValidator),
+    phone: v.optional(v.string()),
+    taxId: v.optional(v.string()),
+    billingEmail: v.optional(v.string()),
+    tags: v.optional(v.array(v.string())),
+    notes: v.optional(v.string()),
+    customFields: v.optional(v.any()),
+    performedBy: v.optional(v.id("users")),
+  },
+  handler: async (ctx, args) => {
+    // Handle addresses: convert old address format to new format if needed
+    let addressesToStore = args.addresses;
+    if (!addressesToStore && args.address) {
+      addressesToStore = [{
+        type: "mailing" as const,
+        isPrimary: true,
+        label: "Primary Address",
+        ...args.address,
+      }];
+    }
+
+    // Create organization
+    const orgId = await ctx.db.insert("objects", {
+      organizationId: args.organizationId,
+      type: "crm_organization",
+      subtype: args.subtype,
+      name: args.name,
+      description: `${args.industry || "Company"} organization`,
+      status: "active",
+      customProperties: {
+        website: args.website,
+        industry: args.industry,
+        size: args.size,
+        address: args.address,
+        addresses: addressesToStore,
+        phone: args.phone,
+        taxId: args.taxId,
+        billingEmail: args.billingEmail,
+        tags: args.tags || ["api-created"],
+        notes: args.notes,
+        source: "api",
+        ...((args.customFields as Record<string, unknown> | undefined) || {}),
+      },
+      createdBy: args.performedBy,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    // Log creation action
+    if (args.performedBy) {
+      await ctx.db.insert("objectActions", {
+        organizationId: args.organizationId,
+        objectId: orgId,
+        actionType: "created",
+        actionData: {
+          source: "api",
+          subtype: args.subtype,
+        },
+        performedBy: args.performedBy,
+        performedAt: Date.now(),
+      });
+    }
+
+    return { crmOrganizationId: orgId };
+  },
+});
+
+/**
+ * LIST CRM ORGANIZATIONS (INTERNAL)
+ *
+ * Lists CRM organizations with filtering and pagination.
+ */
+export const listCrmOrganizationsInternal = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    subtype: v.optional(v.string()),
+    status: v.optional(v.string()),
+    limit: v.number(),
+    offset: v.number(),
+  },
+  handler: async (ctx, args) => {
+    // 1. Query all CRM organizations for organization
+    const query = ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "crm_organization")
+      );
+
+    const allOrgs = await query.collect();
+
+    // 2. Apply filters
+    let filteredOrgs = allOrgs;
+
+    if (args.subtype) {
+      filteredOrgs = filteredOrgs.filter((o) => o.subtype === args.subtype);
+    }
+
+    if (args.status) {
+      filteredOrgs = filteredOrgs.filter((o) => o.status === args.status);
+    }
+
+    // 3. Sort by creation date (newest first)
+    filteredOrgs.sort((a, b) => b.createdAt - a.createdAt);
+
+    // 4. Apply pagination
+    const total = filteredOrgs.length;
+    const paginatedOrgs = filteredOrgs.slice(args.offset, args.offset + args.limit);
+
+    // 5. Format response
+    const organizations = paginatedOrgs.map((org) => ({
+      id: org._id,
+      organizationId: org.organizationId,
+      name: org.name,
+      subtype: org.subtype,
+      status: org.status,
+      website: org.customProperties?.website,
+      industry: org.customProperties?.industry,
+      size: org.customProperties?.size,
+      address: org.customProperties?.address,
+      addresses: org.customProperties?.addresses,
+      phone: org.customProperties?.phone,
+      taxId: org.customProperties?.taxId,
+      billingEmail: org.customProperties?.billingEmail,
+      tags: org.customProperties?.tags || [],
+      createdAt: org.createdAt,
+      updatedAt: org.updatedAt,
+    }));
+
+    return {
+      organizations,
+      total,
+      limit: args.limit,
+      offset: args.offset,
+    };
+  },
+});
+
+/**
+ * GET CRM ORGANIZATION (INTERNAL)
+ *
+ * Gets a specific CRM organization by ID.
+ */
+export const getCrmOrganizationInternal = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    crmOrganizationId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // 1. Get organization
+    const org = await ctx.db.get(args.crmOrganizationId as Id<"objects">);
+
+    if (!org) {
+      return null;
+    }
+
+    // 2. Verify organization access
+    if (org.organizationId !== args.organizationId) {
+      return null;
+    }
+
+    // 3. Verify it's a CRM organization
+    if (org.type !== "crm_organization") {
+      return null;
+    }
+
+    // 4. Format response
+    return {
+      id: org._id,
+      organizationId: org.organizationId,
+      name: org.name,
+      subtype: org.subtype,
+      status: org.status,
+      website: org.customProperties?.website,
+      industry: org.customProperties?.industry,
+      size: org.customProperties?.size,
+      address: org.customProperties?.address,
+      addresses: org.customProperties?.addresses,
+      phone: org.customProperties?.phone,
+      taxId: org.customProperties?.taxId,
+      billingEmail: org.customProperties?.billingEmail,
+      tags: org.customProperties?.tags || [],
+      notes: org.customProperties?.notes,
+      customFields: org.customProperties,
+      createdAt: org.createdAt,
+      updatedAt: org.updatedAt,
+    };
+  },
+});
+
+/**
+ * UPDATE CRM ORGANIZATION (INTERNAL)
+ *
+ * Updates an existing CRM organization.
+ */
+export const updateCrmOrganizationInternal = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    crmOrganizationId: v.string(),
+    updates: v.object({
+      name: v.optional(v.string()),
+      subtype: v.optional(v.string()), // "customer" | "prospect" | "partner" | "sponsor"
+      status: v.optional(v.string()), // "active" | "inactive" | "archived"
+      website: v.optional(v.string()),
+      industry: v.optional(v.string()),
+      size: v.optional(v.string()),
+      address: v.optional(v.object({
+        street: v.optional(v.string()),
+        street2: v.optional(v.string()),
+        city: v.optional(v.string()),
+        state: v.optional(v.string()),
+        postalCode: v.optional(v.string()),
+        country: v.optional(v.string()),
+      })),
+      addresses: v.optional(addressesValidator),
+      phone: v.optional(v.string()),
+      taxId: v.optional(v.string()),
+      billingEmail: v.optional(v.string()),
+      tags: v.optional(v.array(v.string())),
+      notes: v.optional(v.string()),
+      customFields: v.optional(v.any()),
+    }),
+    performedBy: v.optional(v.id("users")),
+  },
+  handler: async (ctx, args) => {
+    // 1. Get organization
+    const org = await ctx.db.get(args.crmOrganizationId as Id<"objects">);
+
+    if (!org) {
+      throw new Error("CRM organization not found");
+    }
+
+    // 2. Verify organization access
+    if (org.organizationId !== args.organizationId) {
+      throw new Error("CRM organization not found");
+    }
+
+    // 3. Verify it's a CRM organization
+    if (org.type !== "crm_organization") {
+      throw new Error("CRM organization not found");
+    }
+
+    // 4. Build updated properties
+    const currentProps = (org.customProperties || {}) as Record<string, unknown>;
+    const updatedProps: Record<string, unknown> = { ...currentProps };
+
+    if (args.updates.website !== undefined) updatedProps.website = args.updates.website;
+    if (args.updates.industry !== undefined) updatedProps.industry = args.updates.industry;
+    if (args.updates.size !== undefined) updatedProps.size = args.updates.size;
+    if (args.updates.address !== undefined) updatedProps.address = args.updates.address;
+    if (args.updates.addresses !== undefined) updatedProps.addresses = args.updates.addresses;
+    if (args.updates.phone !== undefined) updatedProps.phone = args.updates.phone;
+    if (args.updates.taxId !== undefined) updatedProps.taxId = args.updates.taxId;
+    if (args.updates.billingEmail !== undefined) updatedProps.billingEmail = args.updates.billingEmail;
+    if (args.updates.tags !== undefined) updatedProps.tags = args.updates.tags;
+    if (args.updates.notes !== undefined) updatedProps.notes = args.updates.notes;
+    if (args.updates.customFields !== undefined) {
+      const customFields = args.updates.customFields as Record<string, unknown> | undefined;
+      if (customFields) {
+        Object.assign(updatedProps, customFields);
+      }
+    }
+
+    // 5. Apply updates
+    await ctx.db.patch(org._id, {
+      name: args.updates.name || org.name,
+      subtype: args.updates.subtype || org.subtype,
+      status: args.updates.status || org.status,
+      customProperties: updatedProps,
+      updatedAt: Date.now(),
+    });
+
+    // 6. Log update action
+    if (args.performedBy) {
+      await ctx.db.insert("objectActions", {
+        organizationId: args.organizationId,
+        objectId: org._id,
+        actionType: "updated_via_api",
+        actionData: {
+          source: "api",
+          fieldsUpdated: Object.keys(args.updates).filter((k) => args.updates[k as keyof typeof args.updates] !== undefined),
+        },
+        performedBy: args.performedBy,
+        performedAt: Date.now(),
+      });
+    }
+
+    return { success: true };
   },
 });
 

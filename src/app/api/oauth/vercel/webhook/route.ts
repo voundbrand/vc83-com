@@ -68,7 +68,25 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function handleDeploymentCreated(payload: any) {
+/** Vercel webhook payload structure */
+interface VercelWebhookPayload {
+  type: string;
+  id?: string;
+  createdAt?: number;
+  payload?: {
+    deployment?: {
+      id?: string;
+      url?: string;
+      errorMessage?: string;
+    };
+    project?: {
+      id?: string;
+      name?: string;
+    };
+  };
+}
+
+async function handleDeploymentCreated(payload: VercelWebhookPayload) {
   console.log("[Vercel Webhook] Deployment created:", {
     deploymentId: payload.payload?.deployment?.id,
     url: payload.payload?.deployment?.url,
@@ -79,7 +97,7 @@ async function handleDeploymentCreated(payload: any) {
   // TODO: Notify user via WebSocket or polling
 }
 
-async function handleDeploymentSucceeded(payload: any) {
+async function handleDeploymentSucceeded(payload: VercelWebhookPayload) {
   console.log("[Vercel Webhook] Deployment succeeded:", {
     deploymentId: payload.payload?.deployment?.id,
     url: payload.payload?.deployment?.url,
@@ -90,7 +108,7 @@ async function handleDeploymentSucceeded(payload: any) {
   // TODO: Notify user with success message and live URL
 }
 
-async function handleDeploymentError(payload: any) {
+async function handleDeploymentError(payload: VercelWebhookPayload) {
   console.log("[Vercel Webhook] Deployment error:", {
     deploymentId: payload.payload?.deployment?.id,
     errorMessage: payload.payload?.deployment?.errorMessage,
@@ -100,7 +118,7 @@ async function handleDeploymentError(payload: any) {
   // TODO: Notify user with error details and troubleshooting link
 }
 
-async function handleDeploymentCanceled(payload: any) {
+async function handleDeploymentCanceled(payload: VercelWebhookPayload) {
   console.log("[Vercel Webhook] Deployment canceled:", {
     deploymentId: payload.payload?.deployment?.id,
   });
@@ -109,7 +127,7 @@ async function handleDeploymentCanceled(payload: any) {
   // TODO: Notify user that deployment was canceled
 }
 
-async function handleProjectCreated(payload: any) {
+async function handleProjectCreated(payload: VercelWebhookPayload) {
   console.log("[Vercel Webhook] Project created:", {
     projectId: payload.payload?.project?.id,
     projectName: payload.payload?.project?.name,
@@ -119,7 +137,7 @@ async function handleProjectCreated(payload: any) {
   // TODO: Link project to l4yercak3 published page if applicable
 }
 
-async function handleProjectRemoved(payload: any) {
+async function handleProjectRemoved(payload: VercelWebhookPayload) {
   console.log("[Vercel Webhook] Project removed:", {
     projectId: payload.payload?.project?.id,
   });

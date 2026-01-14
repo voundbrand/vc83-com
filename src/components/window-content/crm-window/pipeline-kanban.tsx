@@ -8,7 +8,7 @@ import { useAuth, useCurrentOrganization } from "@/hooks/use-auth"
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
 import { KanbanColumn } from "./kanban-column"
 import { ContactCard } from "./contact-card"
-import type { Id, Doc } from "../../../../convex/_generated/dataModel"
+import type { Id } from "../../../../convex/_generated/dataModel"
 
 export function PipelineKanban() {
   const { sessionId } = useAuth()

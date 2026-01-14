@@ -37,7 +37,7 @@ export function PaymentStep({
   onComplete,
   onBack
 }: PaymentStepProps) {
-  const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.checkout_template.behavior_driven");
+  const { t } = useNamespaceTranslations("ui.checkout_template.behavior_driven");
 
   // UI State
   const [isProcessing, setIsProcessing] = useState(false);

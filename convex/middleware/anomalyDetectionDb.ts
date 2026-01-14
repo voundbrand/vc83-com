@@ -11,7 +11,6 @@
 
 import { internalMutation, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
-import { Id } from "../_generated/dataModel";
 
 /**
  * CREATE SECURITY EVENT
@@ -81,7 +80,7 @@ export const createSecurityEvent = internalMutation({
 export const logUsageMetadata = internalMutation({
   args: {
     organizationId: v.id("organizations"),
-    authMethod: v.union(v.literal("api_key"), v.literal("oauth"), v.literal("none")),
+    authMethod: v.union(v.literal("api_key"), v.literal("oauth"), v.literal("cli_session"), v.literal("none")),
     apiKeyId: v.optional(v.id("apiKeys")),
     userId: v.optional(v.id("users")),
     endpoint: v.string(),

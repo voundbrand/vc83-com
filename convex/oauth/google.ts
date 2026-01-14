@@ -5,7 +5,7 @@
  * Supports both personal Google accounts and Google Workspace accounts
  */
 
-import { action, mutation, query, internalMutation, internalQuery, internalAction } from "../_generated/server";
+import { action, mutation, query, internalMutation, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
 import { api, internal } from "../_generated/api";

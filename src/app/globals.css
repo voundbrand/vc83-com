@@ -1657,3 +1657,46 @@ body {
   box-shadow: revert !important;
   color: revert !important;
 }
+
+/* Maritime shimmer button animation for sailing school landing pages */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.shimmer-button {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.shimmer-button::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.4) 50%, transparent 100%);
+  transform: translateX(-100%);
+  pointer-events: none;
+  opacity: 0;
+}
+
+.shimmer-button:hover::before {
+  animation: shimmer 1.5s ease-out forwards;
+  opacity: 1;
+}
+
+/* Maritime fonts for Gerrit offer page */
+.font-sans {
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+.font-serif {
+  font-family: var(--font-playfair), ui-serif, Georgia, serif;
+}

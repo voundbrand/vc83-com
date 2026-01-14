@@ -20,7 +20,6 @@ interface DataInspectorModalProps {
 }
 
 export function DataInspectorModal({
-  behaviorId,
   behaviorType,
   input,
   output,

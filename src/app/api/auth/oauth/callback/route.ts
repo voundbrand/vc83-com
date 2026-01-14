@@ -12,6 +12,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { api } from "@convex/_generated/api";
 import { fetchAction } from "convex/nextjs";
 
+// Helper to wait for session to be readable (handles Convex eventual consistency)
+// validateCliSession is now an Action (uses bcrypt verification)
+async function waitForSession(token: string, maxAttempts = 5, delayMs = 100): Promise<boolean> {
+  for (let i = 0; i < maxAttempts; i++) {
+    const session = await fetchAction(api.api.v1.cliAuth.validateCliSession, { token });
+    if (session) {
+      console.log(`[OAuth Callback] Session verified after ${i + 1} attempt(s)`);
+      return true;
+    }
+    if (i < maxAttempts - 1) {
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+  }
+  console.error(`[OAuth Callback] Session not found after ${maxAttempts} attempts`);
+  return false;
+}
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const state = searchParams.get("state");
@@ -39,7 +56,7 @@ export async function GET(request: NextRequest) {
           );
         }
       }
-    } catch (e) {
+    } catch {
       // Fall through to platform error handling
     }
     
@@ -90,9 +107,28 @@ export async function GET(request: NextRequest) {
 
     // Route based on session type
     if (stateRecord.sessionType === "cli") {
-      // CLI: Redirect to CLI callback URL with token
+      // Debug: Log token details
+      console.log(`[OAuth Callback] CLI result.token: ${result.token.substring(0, 30)}... (length: ${result.token.length})`);
+
+      // Wait for session to be readable before redirecting (handles Convex eventual consistency)
+      const sessionReady = await waitForSession(result.token);
+      if (!sessionReady) {
+        console.error("[OAuth Callback] CLI session creation may have failed - session not readable");
+        // Still redirect, but log the issue - CLI will get 401 and can retry
+      }
+
+      // CLI: Redirect to CLI callback URL with token and original state
       const redirectUrl = new URL(stateRecord.callbackUrl);
       redirectUrl.searchParams.set("token", result.token);
+      // Include CLI's original state for CSRF validation on the CLI side
+      if (stateRecord.cliState) {
+        redirectUrl.searchParams.set("state", stateRecord.cliState);
+      }
+
+      // Debug: Log the full redirect URL
+      console.log(`[OAuth Callback] Redirect URL: ${redirectUrl.toString()}`);
+      console.log(`[OAuth Callback] Token in URL: ${redirectUrl.searchParams.get("token")?.substring(0, 30)}...`);
+
       return NextResponse.redirect(redirectUrl.toString());
     } else {
       // Platform: Redirect to platform home with session
@@ -103,13 +139,14 @@ export async function GET(request: NextRequest) {
       redirectUrl.searchParams.set("oauthProvider", oauthProvider); // Store provider for "last used" tracking
       return NextResponse.redirect(redirectUrl.toString());
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("OAuth callback error:", error);
-    
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+
     // Try to determine if this is CLI or platform from error context
     // For now, return JSON error (CLI-friendly) - platform can handle it
     return NextResponse.json(
-      { error: "Failed to complete OAuth signup", error_description: error.message },
+      { error: "Failed to complete OAuth signup", error_description: errorMessage },
       { status: 500 }
     );
   }

@@ -54,8 +54,8 @@ export const processWebhook = internalAction({
       // Handle specific actions based on webhook result
       if (result.actionTaken === "account_updated" && result.metadata) {
         // Update organization in database
-        const accountId = result.metadata.accountId;
-        const status = result.metadata.status;
+        const accountId = result.metadata.accountId as string;
+        const status = result.metadata.status as string;
 
         // Find organization by account ID
         const org = await ctx.runQuery(
@@ -91,7 +91,7 @@ export const processWebhook = internalAction({
 
       if (result.actionTaken === "account_disabled" && result.metadata) {
         // Clear Stripe connection
-        const accountId = result.metadata.accountId;
+        const accountId = result.metadata.accountId as string;
 
         const org = await ctx.runQuery(
           internal.stripeConnect.findOrgByStripeAccount,
@@ -261,6 +261,7 @@ export const checkEventProcessed = internalQuery({
   args: {
     eventId: v.string(),
   },
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   handler: async (ctx, args) => {
     // TODO: Check database for processed events
     // For now, always return false (no idempotency check)

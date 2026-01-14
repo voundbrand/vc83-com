@@ -11,6 +11,10 @@ import { query, mutation, action, internalMutation } from "../_generated/server"
 import { v } from "convex/values";
 import { requireAuthenticatedUser } from "../rbacHelpers";
 import { api, internal } from "../_generated/api";
+import { Doc } from "../_generated/dataModel";
+
+// Helper to safely get customProperties as Record
+const getProps = (obj: Doc<"objects">) => obj.customProperties as Record<string, unknown> | undefined;
 
 /**
  * Get all pending AI drafts for the current user's organization
@@ -33,7 +37,7 @@ export const getPendingDrafts = query({
     return allObjects.filter(
       (obj) =>
         obj.status === "draft" &&
-        (obj.customProperties as any)?.aiGenerated === true
+        getProps(obj)?.aiGenerated === true
     );
   },
 });
@@ -60,8 +64,8 @@ export const getDraftsByConversation = query({
     return allObjects.filter(
       (obj) =>
         obj.status === "draft" &&
-        (obj.customProperties as any)?.aiGenerated === true &&
-        (obj.customProperties as any)?.aiConversationId === args.conversationId
+        getProps(obj)?.aiGenerated === true &&
+        getProps(obj)?.aiConversationId === args.conversationId
     );
   },
 });
@@ -275,7 +279,7 @@ export const updateDraft = mutation({
     }
 
     // Prepare update object
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       updatedAt: Date.now(),
     };
 
@@ -288,18 +292,19 @@ export const updateDraft = mutation({
     }
 
     if (args.updates.customProperties !== undefined) {
+      const props = getProps(draft);
       // Merge with existing customProperties, preserving AI metadata
       updateData.customProperties = {
         ...draft.customProperties,
         ...args.updates.customProperties,
         // Preserve AI metadata
-        aiGenerated: (draft.customProperties as any)?.aiGenerated,
-        aiToolName: (draft.customProperties as any)?.aiToolName,
-        aiConversationId: (draft.customProperties as any)?.aiConversationId,
-        aiUserMessage: (draft.customProperties as any)?.aiUserMessage,
-        aiReasoning: (draft.customProperties as any)?.aiReasoning,
-        aiCreatedAt: (draft.customProperties as any)?.aiCreatedAt,
-        aiParameters: (draft.customProperties as any)?.aiParameters,
+        aiGenerated: props?.aiGenerated,
+        aiToolName: props?.aiToolName,
+        aiConversationId: props?.aiConversationId,
+        aiUserMessage: props?.aiUserMessage,
+        aiReasoning: props?.aiReasoning,
+        aiCreatedAt: props?.aiCreatedAt,
+        aiParameters: props?.aiParameters,
         // Track that it was edited
         aiEditedBy: userId,
         aiEditedAt: Date.now(),
@@ -405,7 +410,7 @@ export const executeApprovedTool = action({
 
     try {
       // 1. Get the execution record
-      const execution: any = await ctx.runQuery(api.ai.conversations.getToolExecution, {
+      const execution = await ctx.runQuery(api.ai.conversations.getToolExecution, {
         executionId: args.executionId,
       });
 
@@ -524,8 +529,9 @@ Now that I have this information, let me continue with the task. What should I d
         executionId: args.executionId,
         result,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       const durationMs = Date.now() - startTime;
+      const errorMessage = error instanceof Error ? error.message : String(error);
 
       console.error("[Tool Approval] Tool execution failed:", error);
 
@@ -533,14 +539,14 @@ Now that I have this information, let me continue with the task. What should I d
       await ctx.runMutation(internal.ai.drafts.updateExecutionStatus, {
         executionId: args.executionId,
         status: "failed",
-        error: error.message,
+        error: errorMessage,
         durationMs,
       });
 
       return {
         success: false,
         executionId: args.executionId,
-        error: error.message,
+        error: errorMessage,
       };
     }
   },
@@ -563,7 +569,7 @@ export const updateExecutionStatus = internalMutation({
     durationMs: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const updates: any = {
+    const updates: Record<string, unknown> = {
       status: args.status,
     };
 
@@ -602,10 +608,12 @@ export const updateExecutionStatus = internalMutation({
  */
 function extractWorkItemsFromResult(
   toolName: string,
-  result: any,
-  parameters: any
-): Array<{ type: string; name: string; data: any }> {
-  const items: Array<{ type: string; name: string; data: any }> = [];
+  result: unknown,
+  parameters: unknown
+): Array<{ type: string; name: string; data: unknown }> {
+  const items: Array<{ type: string; name: string; data: unknown }> = [];
+  const res = result as Record<string, unknown> | null;
+  const params = parameters as Record<string, unknown> | null;
 
   if (!result || typeof result !== 'object') {
     return items;
@@ -613,61 +621,64 @@ function extractWorkItemsFromResult(
 
   // Handle manage_projects tool
   if (toolName === "manage_projects") {
-    const action = parameters?.action || result?.action;
+    const action = params?.action || res?.action;
+    const data = res?.data as Record<string, unknown> | undefined;
 
-    if (action === "create_project" && result.success && result.data) {
+    if (action === "create_project" && res?.success && data) {
       items.push({
         type: "project",
-        name: result.data.name || "New Project",
-        data: result.data,
+        name: (data.name as string) || "New Project",
+        data: data,
       });
     }
 
-    if (action === "create_milestone" && result.success && result.data) {
+    if (action === "create_milestone" && res?.success && data) {
       items.push({
         type: "milestone",
-        name: result.data.name || "New Milestone",
-        data: result.data,
+        name: (data.name as string) || "New Milestone",
+        data: data,
       });
     }
 
     // Handle multiple milestones created at once
-    if (result.data?.milestones && Array.isArray(result.data.milestones)) {
-      result.data.milestones.forEach((milestone: any) => {
+    const milestones = data?.milestones;
+    if (milestones && Array.isArray(milestones)) {
+      milestones.forEach((milestone: Record<string, unknown>) => {
         items.push({
           type: "milestone",
-          name: milestone.name || "New Milestone",
+          name: (milestone.name as string) || "New Milestone",
           data: milestone,
         });
       });
     }
 
-    if (action === "create_task" && result.success && result.data) {
+    if (action === "create_task" && res?.success && data) {
       items.push({
         type: "task",
-        name: result.data.name || "New Task",
-        data: result.data,
+        name: (data.name as string) || "New Task",
+        data: data,
       });
     }
   }
 
   // Handle CRM tools
   if (toolName === "manage_crm") {
-    const action = parameters?.action || result?.action;
+    const action = params?.action || res?.action;
+    const data = res?.data as Record<string, unknown> | undefined;
 
-    if (action === "create_contact" && result.success && result.data) {
+    if (action === "create_contact" && res?.success && data) {
       items.push({
         type: "contact",
-        name: result.data.name || result.data.email || "New Contact",
-        data: result.data,
+        name: (data.name as string) || (data.email as string) || "New Contact",
+        data: data,
       });
     }
 
-    if (action === "create_organization" && result.success && result.data) {
+    if (action === "create_organization" && res?.success && data) {
       items.push({
         type: "organization",
-        name: result.data.name || "New Organization",
-        data: result.data,
+        name: (data.name as string) || "New Organization",
+        data: data,
       });
     }
   }

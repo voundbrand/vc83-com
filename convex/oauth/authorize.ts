@@ -18,7 +18,6 @@ import {
   generateAuthorizationCode,
   validateRedirectUri,
   validateScopes,
-  verifyCodeChallenge,
 } from "./helpers";
 import { OAUTH_SCOPES } from "./scopes";
 

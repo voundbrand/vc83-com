@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react"
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
 import { useAIChatContext } from "@/contexts/ai-chat-context"
+import type { Id } from "../../../../../convex/_generated/dataModel"
 import { SystemMessage } from "./message-types/system-message"
 import { UserMessage } from "./message-types/user-message"
 import { AssistantMessage } from "./message-types/assistant-message"
@@ -23,7 +24,7 @@ export function ChatMessages() {
         role: "system" as const,
         content: t("ui.ai_assistant.welcome.message"),
         timestamp: Date.now(),
-        conversationId: "" as any,
+        conversationId: "" as unknown as Id<"aiConversations">,
       }]
     : messages
 

@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
   const sessionType = (searchParams.get("sessionType") as "platform" | "cli") || "platform";
   const callback = searchParams.get("callback");
   const organizationName = searchParams.get("organizationName");
+  const cliState = searchParams.get("cliState"); // CLI's original state for CSRF protection
 
   if (!provider || !["microsoft", "google", "github"].includes(provider)) {
     return NextResponse.json(
@@ -46,6 +47,11 @@ export async function GET(request: NextRequest) {
     const state = crypto.randomUUID();
     const cliToken = sessionType === "cli" ? `cli_session_${crypto.randomUUID().replace(/-/g, '')}` : undefined;
 
+    // Debug: Log the token being stored
+    if (cliToken) {
+      console.log(`[OAuth Signup] Storing CLI token: ${cliToken.substring(0, 30)}... (length: ${cliToken.length})`);
+    }
+
     // Store state
     await fetchAction(api.api.v1.oauthSignup.storeOAuthSignupState, {
       state,
@@ -54,6 +60,7 @@ export async function GET(request: NextRequest) {
       provider,
       organizationName: organizationName || undefined,
       cliToken,
+      cliState: cliState || undefined, // CLI's original state for CSRF protection
       createdAt: Date.now(),
       expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
     });
@@ -127,10 +134,11 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.redirect(authUrl);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("OAuth signup initiation error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Failed to initiate OAuth signup", error_description: error.message },
+      { error: "Failed to initiate OAuth signup", error_description: errorMessage },
       { status: 500 }
     );
   }

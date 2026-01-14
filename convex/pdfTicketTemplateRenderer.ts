@@ -372,6 +372,8 @@ export const generatePdfTicketWithTemplateIo = action({
       const eventProps = templateData.event.customProperties || {};
 
       // Format prices for display (convert cents to currency)
+      // Preserved for future ticket price display support
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const formatPrice = (cents: number) => (cents / 100).toFixed(2);
 
       const ticketPdfData = {

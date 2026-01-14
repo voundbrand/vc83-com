@@ -36,6 +36,8 @@ import { TutorialsDocsWindow } from "@/components/window-content/tutorials-docs-
 import { IntegrationsWindow } from "@/components/window-content/integrations-window"
 import { ComplianceWindow } from "@/components/window-content/compliance-window"
 import { OrganizationSwitcherWindow } from "@/components/window-content/organization-switcher-window"
+import { BenefitsWindow } from "@/components/window-content/benefits-window"
+import { BookingWindow } from "@/components/window-content/booking-window"
 import { OnboardingWelcomeScreen } from "@/components/onboarding-welcome-screen"
 import { useIsMobile } from "@/hooks/use-media-query"
 import { useAuth, useOrganizations, useCurrentOrganization, useIsSuperAdmin, useAccountDeletionStatus } from "@/hooks/use-auth"
@@ -45,6 +47,7 @@ import { useTheme } from "@/contexts/theme-context"
 import { getThemeFamily, isLightTheme, getOppositeTheme } from "@/contexts/theme-context"
 import { useQuery } from "convex/react"
 import { api } from "../../convex/_generated/api"
+import { Id } from "../../convex/_generated/dataModel"
 
 export default function HomePage() {
   // Load translations for start menu and app names
@@ -79,7 +82,7 @@ export default function HomePage() {
   const brandingSettings = useQuery(
     api.organizationOntology.getOrganizationSettings,
     currentOrg?.id ? {
-      organizationId: currentOrg.id as any,
+      organizationId: currentOrg.id as Id<"organizations">,
       subtype: "branding"
     } : "skip"
   )
@@ -206,6 +209,14 @@ export default function HomePage() {
     openWindow("compliance", "Compliance", <ComplianceWindow />, { x: 150, y: 100 }, { width: 900, height: 600 }, 'ui.app.compliance', '⚖️')
   }
 
+  const openBenefitsWindow = () => {
+    openWindow("benefits", "Benefits", <BenefitsWindow />, { x: 150, y: 100 }, { width: 1100, height: 700 }, 'ui.app.benefits', '🎁')
+  }
+
+  const openBookingWindow = () => {
+    openWindow("booking", "Booking", <BookingWindow />, { x: 150, y: 100 }, { width: 1100, height: 700 }, 'ui.app.booking', '📅')
+  }
+
   const openOrganizationSwitcherWindow = () => {
     const centerX = typeof window !== 'undefined' ? (window.innerWidth - 400) / 2 : 300;
     const centerY = typeof window !== 'undefined' ? (window.innerHeight - 400) / 2 : 150;
@@ -225,6 +236,8 @@ export default function HomePage() {
     );
   };
 
+  // Preserved for future tutorial access from desktop icons
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const openTutorialWindow = (tutorialId: string) => {
     // Define action handler
     const handleTutorialAction = (action: string) => {
@@ -270,6 +283,8 @@ export default function HomePage() {
     );
   };
 
+  // Preserved for future tutorials/docs access from desktop icons
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const openTutorialsDocsWindow = (initialItem?: string) => {
     openWindow(
       "tutorials-docs",
@@ -361,18 +376,74 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSignedIn]);
 
-  // Handle return from Stripe onboarding
+  // Handle generic window opening via URL parameters
+  // Supports: ?openWindow=<window-id>&panel=<panel-id>
+  // This enables deep linking to any registered window from CLI or external links
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const openWindowParam = params.get('openWindow');
+    const panelParam = params.get('panel');
+    const upgradeReason = params.get('upgradeReason');
+    const upgradeResource = params.get('upgradeResource');
 
-    if (openWindowParam === 'payments' && isSignedIn) {
-      // Open the Payments window
-      openPaymentsWindow();
+    // Skip if no openWindow param or user not signed in
+    if (!openWindowParam || !isSignedIn) return;
 
-      // Clean up the URL (remove query params)
-      window.history.replaceState({}, '', window.location.pathname);
-    }
+    // Import window registry to check if window exists
+    import('@/hooks/window-registry').then(({ WINDOW_REGISTRY }) => {
+      const windowConfig = WINDOW_REGISTRY[openWindowParam];
+
+      if (windowConfig) {
+        // Build props object if panel parameter is provided
+        const props: Record<string, unknown> = {};
+        if (panelParam) {
+          // Map panel param to the appropriate prop name based on window type
+          // Most windows use 'initialPanel', some use 'initialTab'
+          props.initialPanel = panelParam;
+          props.initialTab = panelParam; // Some windows may use this
+        }
+
+        // Log for debugging
+        console.log('[HomePage] Opening window via URL param:', {
+          windowId: openWindowParam,
+          panel: panelParam,
+          props
+        });
+
+        // Get default config from registry
+        const { defaultConfig } = windowConfig;
+
+        // Create the component with props
+        const component = windowConfig.createComponent(Object.keys(props).length > 0 ? props : undefined);
+
+        // Open the window
+        openWindow(
+          openWindowParam,
+          defaultConfig.title,
+          component,
+          defaultConfig.position,
+          defaultConfig.size,
+          defaultConfig.titleKey,
+          defaultConfig.icon,
+          Object.keys(props).length > 0 ? props : undefined
+        );
+
+        // Prevent initial window effect from opening another window
+        setHasOpenedInitialWindow(true);
+
+        // Log upgrade context for analytics (if present)
+        if (upgradeReason || upgradeResource) {
+          console.log('[HomePage] CLI upgrade redirect:', { upgradeReason, upgradeResource });
+        }
+
+        // Clean up the URL (remove query params)
+        window.history.replaceState({}, '', window.location.pathname);
+      } else {
+        console.warn('[HomePage] Unknown window ID in URL param:', openWindowParam);
+        // Still clean up URL for unknown windows
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSignedIn])
 
@@ -536,6 +607,10 @@ export default function HomePage() {
     { label: t('ui.app.compliance') || "Compliance", icon: "⚖️", onClick: requireAuth(openComplianceWindow) },
     // Templates app - Browse and preview all templates
     { label: t('ui.app.templates'), icon: "📄", onClick: requireAuth(openTemplatesWindow) },
+    // Benefits app - Member benefits and commission referrals
+    { label: t('ui.app.benefits') || "Benefits", icon: "🎁", onClick: requireAuth(openBenefitsWindow) },
+    // Booking app - Resource scheduling and appointments
+    { label: t('ui.app.booking') || "Booking", icon: "📅", onClick: requireAuth(openBookingWindow) },
     //{ label: "l4yercak3 Podcast", icon: "🎙️", onClick: requireAuth(openEpisodesWindow) },
     //{ label: "Subscribe", icon: "🔊", onClick: requireAuth(openSubscribeWindow) },
   ]

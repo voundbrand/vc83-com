@@ -8,7 +8,6 @@
 
 import { action } from "../_generated/server";
 import { v } from "convex/values";
-import { Id } from "../_generated/dataModel";
 import { api } from "../_generated/api";
 
 interface BehaviorConfig {

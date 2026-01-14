@@ -2,7 +2,7 @@
 
 import { useQuery } from "convex/react"
 import { api } from "../../../../../convex/_generated/api"
-import { Package, Flag, CheckSquare, User, Building2, Calendar, FileText } from "lucide-react"
+import { Package, Flag, CheckSquare, User, Building2, FileText } from "lucide-react"
 import type { Id } from "../../../../../convex/_generated/dataModel"
 
 interface AIWorkItemDetailProps {
@@ -114,20 +114,22 @@ export function AIWorkItemDetail({ itemId }: AIWorkItemDetailProps) {
 
         {workItem.results ? (
           <div className="space-y-2">
-            {Object.entries(workItem.results as Record<string, any>).map(([key, value]) => {
+            {Object.entries(workItem.results as Record<string, unknown>).map(([key, value]) => {
               // Skip internal fields
               if (key.startsWith('_') || key === 'createdAt' || key === 'updatedAt') {
                 return null
               }
 
-              // Format value based on type
-              let displayValue = value
+              // Format value based on type - always convert to string for display
+              let displayValue: string
               if (typeof value === 'object' && value !== null) {
                 displayValue = JSON.stringify(value, null, 2)
               } else if (typeof value === 'boolean') {
                 displayValue = value ? 'Yes' : 'No'
               } else if (value === null || value === undefined) {
                 displayValue = '-'
+              } else {
+                displayValue = String(value)
               }
 
               return (
@@ -142,7 +144,7 @@ export function AIWorkItemDetail({ itemId }: AIWorkItemDetailProps) {
                   <p className="text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
                     {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
                   </p>
-                  {typeof displayValue === 'string' && displayValue.startsWith('{') ? (
+                  {displayValue.startsWith('{') ? (
                     <pre
                       className="text-xs whitespace-pre-wrap font-mono"
                       style={{ color: 'var(--win95-text-muted)' }}

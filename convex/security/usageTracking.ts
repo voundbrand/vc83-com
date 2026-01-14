@@ -16,7 +16,7 @@
 import { internalAction, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
-import { Id } from "../_generated/dataModel";
+// Id type not needed - commented for clarity
 
 /**
  * Track API Usage (Async Action)
@@ -43,7 +43,7 @@ import { Id } from "../_generated/dataModel";
 export const trackUsageAsync = internalAction({
   args: {
     organizationId: v.id("organizations"),
-    authMethod: v.union(v.literal("api_key"), v.literal("oauth"), v.literal("none")),
+    authMethod: v.union(v.literal("api_key"), v.literal("oauth"), v.literal("cli_session"), v.literal("none")),
     apiKeyId: v.optional(v.id("apiKeys")),
     userId: v.optional(v.id("users")),
     endpoint: v.string(),
@@ -110,7 +110,7 @@ export const trackUsageAsync = internalAction({
 export const storeUsageMetadata = internalMutation({
   args: {
     organizationId: v.id("organizations"),
-    authMethod: v.union(v.literal("api_key"), v.literal("oauth"), v.literal("none")),
+    authMethod: v.union(v.literal("api_key"), v.literal("oauth"), v.literal("cli_session"), v.literal("none")),
     apiKeyId: v.optional(v.id("apiKeys")),
     userId: v.optional(v.id("users")),
     endpoint: v.string(),
@@ -209,7 +209,10 @@ export const trackFailedAuthAsync = internalAction({
 
     // Check for failed auth spike (brute force detection)
     const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
-    const recentFailures = await ctx.runMutation(
+    // TODO: Use recentFailures count for security event triggering
+    // Currently commented out as createSecurityEvent is not exported
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _recentFailures = await ctx.runMutation(
       internal.security.usageTracking.getRecentFailedAuthCount,
       {
         ipAddress: args.ipAddress,

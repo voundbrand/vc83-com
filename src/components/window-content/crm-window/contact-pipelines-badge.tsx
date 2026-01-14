@@ -11,6 +11,19 @@ import type { Id } from "../../../../convex/_generated/dataModel";
  * Shows small badges for each pipeline a contact is in
  */
 
+// Type for pipeline item data from Convex query
+interface ContactPipelineItem {
+  pipeline: {
+    _id: Id<"objects">;
+    name?: string;
+    customProperties?: Record<string, unknown>;
+  } | null;
+  stage: {
+    _id: Id<"objects">;
+    name?: string;
+  } | null;
+}
+
 interface ContactPipelinesBadgeProps {
   contactId: Id<"objects">;
 }
@@ -31,7 +44,7 @@ export function ContactPipelinesBadge({ contactId }: ContactPipelinesBadgeProps)
 
   return (
     <div className="flex gap-1 flex-wrap mt-1">
-      {contactPipelines.map((item: any) => {
+      {(contactPipelines as ContactPipelineItem[]).map((item) => {
         const pipelineColor = (item.pipeline?.customProperties as { color?: string })?.color || "#6B46C1";
         const stageName = item.stage?.name || "Unknown";
         const pipelineName = item.pipeline?.name || "Unknown";

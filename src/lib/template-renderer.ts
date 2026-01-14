@@ -148,9 +148,12 @@ function renderVariables(template: string, data: TemplateData): string {
  * Example: "bill_to.company_name" -> data.bill_to.company_name
  */
 function getNestedValue(obj: TemplateData, path: string): unknown {
-  return path.split(".").reduce((current: any, key: string) => {
-    return current?.[key];
-  }, obj);
+  return path.split(".").reduce((current: unknown, key: string) => {
+    if (current && typeof current === 'object' && key in current) {
+      return (current as Record<string, unknown>)[key];
+    }
+    return undefined;
+  }, obj as unknown);
 }
 
 /**
@@ -321,6 +324,7 @@ export function createMockInvoiceData(templateCode: string): TemplateData {
  * Create mock ticket data for preview
  */
 export function createMockTicketData(_templateCode: string): TemplateData {
+  void _templateCode; // Preserved for future template-specific mock data
   const baseData = {
     // Organization (seller/organizer)
     organization_name: "l4yercak3 Events",

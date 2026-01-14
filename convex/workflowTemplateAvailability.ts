@@ -18,6 +18,10 @@ import { checkFeatureAccess } from "./licensing/helpers";
  * GET AVAILABLE WORKFLOW TEMPLATES FOR ORGANIZATION
  *
  * Returns workflow templates that are available to the specified organization.
+ *
+ * UPDATED: All published workflow templates are now available to all organizations.
+ * The tier-based licensing system (tierConfigs.ts) handles feature limits.
+ * Legacy availability rules are no longer checked.
  */
 export const getAvailableWorkflowTemplates = query({
   args: {
@@ -55,32 +59,9 @@ export const getAvailableWorkflowTemplates = query({
       );
     }
 
-    // Get enabled availability rules for this organization (opt-in model)
-    const availabilityRules = await ctx.db
-      .query("objects")
-      .withIndex("by_org_type", (q) =>
-        q
-          .eq("organizationId", args.organizationId)
-          .eq("type", "workflow_template_availability")
-      )
-      .filter((q) => q.eq(q.field("customProperties.available"), true))
-      .collect();
-
-    // Get the list of enabled template codes
-    const enabledTemplateCodes = availabilityRules.map(
-      (rule) => rule.customProperties?.templateCode
-    ).filter(Boolean);
-
-    // Filter to only enabled templates (opt-in: must be explicitly enabled)
-    const availableTemplates = systemTemplates.filter((template) => {
-      const code = template.customProperties?.code;
-      if (!code) return false;
-
-      // Template must be explicitly enabled for this organization
-      return enabledTemplateCodes.includes(code);
-    });
-
-    return availableTemplates;
+    // All published templates are now available to all organizations
+    // Feature limits are enforced by the tier system (tierConfigs.ts)
+    return systemTemplates;
   },
 });
 
@@ -551,32 +532,12 @@ export const createWorkflowFromTemplate = mutation({
       throw new Error("Template code not found");
     }
 
-    const availability = await ctx.db
-      .query("objects")
-      .withIndex("by_org_type", (q) =>
-        q
-          .eq("organizationId", args.organizationId)
-          .eq("type", "workflow_template_availability")
-      )
-      .filter((q) =>
-        q.eq(q.field("customProperties.templateCode"), templateCode)
-      )
-      .filter((q) => q.eq(q.field("customProperties.available"), true))
-      .first();
-
-    console.log("🔵 [Backend] Availability check:", {
+    // UPDATED: All published templates are now available to all organizations
+    // The tier-based licensing system (tierConfigs.ts) handles feature limits
+    // Legacy availability check removed
+    console.log("🔵 [Backend] Template availability check bypassed - all templates available:", {
       templateCode,
-      availabilityFound: !!availability,
-      available: availability?.customProperties?.available,
     });
-
-    if (!availability) {
-      console.error("❌ [Backend] Template not available to organization:", {
-        templateCode,
-        organizationId: args.organizationId,
-      });
-      throw new Error("Template not available to this organization");
-    }
 
     // Clone template configuration (behaviors/objects/execution are directly in customProperties, not nested in workflowConfig)
     const templateConfig = template.customProperties || {};

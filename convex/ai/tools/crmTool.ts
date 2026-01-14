@@ -25,6 +25,7 @@
  */
 
 import { action } from "../../_generated/server";
+import type { ActionCtx } from "../../_generated/server";
 import { v } from "convex/values";
 import { internal } from "../../_generated/api";
 import { Id } from "../../_generated/dataModel";
@@ -226,7 +227,7 @@ export const executeManageCRM = action({
     mode?: string;
     workItemId?: string;
     workItemType?: string;
-    data?: any; // Flexible for different return formats
+    data?: unknown; // Flexible for different return formats
     message?: string;
     error?: string;
   }> => {
@@ -306,12 +307,13 @@ export const executeManageCRM = action({
             message: "Action must be one of: search_organizations, create_organization, search_contacts, create_contact, link_contact_to_org, get_organization_contacts"
           };
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       return {
         success: false,
         action: args.action,
-        error: error.message,
-        message: `Failed to ${args.action}: ${error.message}`
+        error: errorMessage,
+        message: `Failed to ${args.action}: ${errorMessage}`
       };
     }
   }
@@ -325,8 +327,10 @@ export const executeManageCRM = action({
  * Search for CRM organizations by name
  */
 async function searchOrganizations(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ctx: any,
   platformOrgId: Id<"organizations">,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   args: any
 ) {
   const orgs = await ctx.runQuery(
@@ -339,7 +343,8 @@ async function searchOrganizations(
     }
   );
 
-  const summary = orgs.map((org: any) => ({
+  const summary = orgs.map(// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(org: any) => ({
     id: org._id,
     name: org.name,
     type: org.subtype,
@@ -367,9 +372,11 @@ async function searchOrganizations(
  * Create a new CRM organization
  */
 async function createOrganization(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ctx: any,
   platformOrgId: Id<"organizations">,
   userId: Id<"users">,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   args: any
 ) {
   const mode = args.mode || "preview";
@@ -491,8 +498,10 @@ async function createOrganization(
  * Search for contacts
  */
 async function searchContacts(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ctx: any,
   platformOrgId: Id<"organizations">,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   args: any
 ) {
   const contacts = await ctx.runQuery(
@@ -505,7 +514,8 @@ async function searchContacts(
     }
   );
 
-  const summary = contacts.map((contact: any) => ({
+  const summary = contacts.map(// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(contact: any) => ({
     id: contact._id,
     name: contact.name,
     email: contact.customProperties?.email,
@@ -538,9 +548,11 @@ async function searchContacts(
  * This is someone you're doing business WITH (client, prospect, partner).
  */
 async function createContact(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ctx: any,
   platformOrgId: Id<"organizations">,
   userId: Id<"users">, // ← Platform user creating the contact
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   args: any
 ) {
   // Create CRM contact in objects table (NOT users table!)
@@ -587,9 +599,11 @@ async function createContact(
  * DO NOT use IDs from users table (platform users)!
  */
 async function linkContactToOrg(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ctx: any,
   platformOrgId: Id<"organizations">, // ← Your platform organization
   userId: Id<"users">, // ← Platform user performing the link (YOU)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   args: any
 ) {
   // ⚠️ VALIDATION: Ensure contactId is provided and looks like a valid Convex ID
@@ -628,8 +642,10 @@ async function linkContactToOrg(
  * Get all contacts for an organization
  */
 async function getOrganizationContacts(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ctx: any,
   platformOrgId: Id<"organizations">,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   args: any
 ) {
   const contacts = await ctx.runQuery(
@@ -640,7 +656,8 @@ async function getOrganizationContacts(
     }
   );
 
-  const summary = contacts.map((contact: any) => ({
+  const summary = contacts.map(// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(contact: any) => ({
     id: contact._id,
     name: contact.name,
     email: contact.customProperties?.email,

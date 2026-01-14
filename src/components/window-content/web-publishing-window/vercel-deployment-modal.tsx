@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Rocket, AlertCircle, CheckCircle, ExternalLink, Settings, Loader2, RefreshCw, Copy, Key, Plus, Trash2 } from "lucide-react";
+import { X, Rocket, AlertCircle, CheckCircle, ExternalLink, Settings, Loader2, RefreshCw, Copy, Key, Plus } from "lucide-react";
 import { RetroButton } from "@/components/retro-button";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
@@ -49,6 +49,7 @@ interface ValidationCheck {
  * - Database query for active API keys
  * - Database query for environment variables documentation
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeploymentModalProps) {
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
@@ -66,8 +67,16 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
     sessionId ? { sessionId, pageId: page._id } : "skip"
   );
 
+  // Deployment info interface
+  interface DeploymentInfo {
+    githubRepo?: string;
+    vercelDeployButton?: string;
+    deployedUrl?: string | null;
+    status?: string;
+  }
+
   // Use fresh data if available, fall back to prop
-  const deployment = (freshPage?.customProperties?.deployment as any) || page.customProperties?.deployment || {};
+  const deployment = (freshPage?.customProperties?.deployment as DeploymentInfo | undefined) || page.customProperties?.deployment || {};
 
   // Actions for real HTTP validation
   const validateGithubRepo = useAction(api.publishingOntology.validateGithubRepo);
@@ -294,7 +303,7 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
       message: envVars === undefined
         ? "Loading environment variables configuration..."
         : (envVars && Array.isArray(envVars) && envVars.length > 0
-          ? `✓ ${envVars.length} environment variable${envVars.length > 1 ? "s" : ""} documented (${Array.isArray(envVars) ? envVars.filter((v: any) => v.required).length : 0} required)`
+          ? `✓ ${envVars.length} environment variable${envVars.length > 1 ? "s" : ""} documented (${Array.isArray(envVars) ? envVars.filter((v: { required?: boolean }) => v.required).length : 0} required)`
           : "No environment variables configured - using defaults"),
       fixAction: () => setShowEnvVarsModal(true),
     };
@@ -564,7 +573,7 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
                   Copy these values and paste them into Vercel during deployment:
                 </p>
                 <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                  {Array.isArray(envVars) && envVars.map((envVar: any) => (
+                  {Array.isArray(envVars) && envVars.map((envVar: { _id: string; key: string; value?: string; required?: boolean; description?: string }) => (
                     <div
                       key={envVar._id}
                       className="flex items-center justify-between p-2 border-2"

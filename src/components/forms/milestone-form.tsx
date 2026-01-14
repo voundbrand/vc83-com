@@ -18,7 +18,7 @@ interface MilestoneFormProps {
   showJson?: boolean
 }
 
-export function MilestoneForm({ mode, initialValues, onChange, showJson }: MilestoneFormProps) {
+export function MilestoneForm({ initialValues, onChange, showJson }: MilestoneFormProps) {
   const [formData, setFormData] = useState<MilestoneFormData>(initialValues)
 
   // Update parent when form changes

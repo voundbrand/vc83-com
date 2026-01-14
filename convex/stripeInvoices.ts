@@ -21,11 +21,13 @@
  * - Webhooks: Keep status in sync
  */
 
-import { action, internalAction, internalMutation, internalQuery } from "./_generated/server";
+import { internalAction, internalMutation, internalQuery, ActionCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import { Id } from "./_generated/dataModel";
+import { Doc } from "./_generated/dataModel";
 import Stripe from "stripe";
+import { OrganizationProviderConfig } from "./paymentProviders/types";
+import { BillingAddress } from "./paymentProviders/types";
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -194,7 +196,7 @@ export const syncInvoiceToStripe = internalAction({
     });
 
     const stripeProvider = org.paymentProviders?.find(
-      (p: any) => p.providerCode === "stripe-connect"
+      (p: OrganizationProviderConfig) => p.providerCode === "stripe-connect"
     );
 
     if (!stripeProvider?.accountId) {
@@ -330,12 +332,12 @@ export const syncInvoiceToStripe = internalAction({
  * Get or create Stripe customer for invoice recipient
  */
 async function getOrCreateStripeCustomer(
-  ctx: any,
+  ctx: ActionCtx,
   stripe: Stripe,
   stripeAccountId: string,
-  invoice: any
+  invoice: Doc<"objects">
 ): Promise<string> {
-  const customProperties = invoice.customProperties || {};
+  const customProperties = invoice.customProperties as Record<string, unknown> | undefined || {};
 
   // Check if we already have a customer ID
   const existingCustomerId = customProperties.stripeCustomerId as string | undefined;
@@ -346,7 +348,7 @@ async function getOrCreateStripeCustomer(
   // Get billing details from invoice
   const billToEmail = customProperties.billToEmail as string;
   const billToName = customProperties.billToName as string;
-  const billToAddress = customProperties.billToAddress as any;
+  const billToAddress = customProperties.billToAddress as BillingAddress | undefined;
 
   // Create new customer
   const customer = await stripe.customers.create(
@@ -354,7 +356,8 @@ async function getOrCreateStripeCustomer(
       email: billToEmail,
       name: billToName,
       address: billToAddress ? {
-        line1: billToAddress.street,
+        line1: billToAddress.line1,
+        line2: billToAddress.line2,
         city: billToAddress.city,
         state: billToAddress.state,
         postal_code: billToAddress.postalCode,
@@ -374,22 +377,30 @@ async function getOrCreateStripeCustomer(
 /**
  * Sync line items to Stripe invoice
  */
+interface InvoiceLineItem {
+  description: string;
+  totalPriceInCents: number;
+  quantity?: number;
+  unitPriceInCents?: number;
+}
+
 async function syncLineItemsToStripe(
   stripe: Stripe,
   stripeAccountId: string,
   stripeInvoiceId: string,
-  invoice: any
+  invoice: Doc<"objects">
 ): Promise<void> {
-  const lineItems = invoice.customProperties?.lineItems as any[] || [];
+  const customProps = invoice.customProperties as Record<string, unknown> | undefined;
+  const lineItems = (customProps?.lineItems as InvoiceLineItem[] | undefined) || [];
 
   for (const item of lineItems) {
     await stripe.invoiceItems.create(
       {
-        customer: invoice.customProperties?.stripeCustomerId as string,
+        customer: (customProps?.stripeCustomerId as string | undefined) || "",
         invoice: stripeInvoiceId,
         description: item.description,
         amount: item.totalPriceInCents, // Total price (Stripe expects total, not unit price)
-        currency: invoice.customProperties?.currency as string || "usd",
+        currency: (customProps?.currency as string | undefined) || "usd",
       },
       { stripeAccount: stripeAccountId }
     );
@@ -440,8 +451,9 @@ export const updateInvoiceStripeDataInternal = internalMutation({
       throw new Error("Invoice not found");
     }
 
-    const updates: any = {
-      ...invoice.customProperties,
+    const customProps = invoice.customProperties as Record<string, unknown> | undefined;
+    const updates: Record<string, unknown> = {
+      ...customProps,
     };
 
     // Update Stripe fields if provided

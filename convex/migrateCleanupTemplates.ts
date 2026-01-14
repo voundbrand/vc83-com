@@ -23,6 +23,45 @@
 
 import { internalMutation } from "./_generated/server";
 import { v } from "convex/values";
+import { Id } from "./_generated/dataModel";
+
+// Type for template information during cleanup
+interface TemplateInfo {
+  _id: Id<"objects">;
+  name: string;
+  code: string;
+  category: string;
+  subtype: string | undefined;
+  status: string;
+  hasSchema: boolean;
+  reason: string;
+}
+
+// Type for deletion errors
+interface DeletionError {
+  template: string;
+  code: string;
+  error: string;
+}
+
+// Type for restored template info
+interface RestoredTemplateInfo {
+  originalId: Id<"objects">;
+  newId: Id<"objects">;
+  name: string;
+}
+
+// Type for failed restoration info
+interface FailedRestorationInfo {
+  template: string;
+  error: string;
+}
+
+// Helper to get error message from unknown error
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
 
 export const cleanupOldTemplates = internalMutation({
   args: {
@@ -36,9 +75,9 @@ export const cleanupOldTemplates = internalMutation({
       toDelete: number;
       deleted: number;
     };
-    protected: any[];
-    deleted: any[];
-    errors: any[];
+    protected: TemplateInfo[];
+    deleted: TemplateInfo[];
+    errors: DeletionError[];
   }> => {
     const dryRun = args.dryRun !== false; // Default to true (safe mode)
 
@@ -85,10 +124,10 @@ export const cleanupOldTemplates = internalMutation({
     // Also protect ALL PDF templates (they're still functional)
     const protectedCategories = ["ticket", "invoice", "receipt", "badge", "eventdoc", "quote", "leadmagnet"];
 
-    const protectedTemplates: any[] = [];
-    const toDelete: any[] = [];
-    const deleted: any[] = [];
-    const errors: any[] = [];
+    const protectedTemplates: TemplateInfo[] = [];
+    const toDelete: TemplateInfo[] = [];
+    const deleted: TemplateInfo[] = [];
+    const errors: DeletionError[] = [];
 
     // Categorize each template
     for (const template of allTemplates) {
@@ -96,7 +135,6 @@ export const cleanupOldTemplates = internalMutation({
       const code = props.code || props.templateCode || "";
       const category = props.category || "";
       const hasSchema = !!props.emailTemplateSchema;
-      const isPublished = template.status === "published";
 
       const templateInfo = {
         _id: template._id,
@@ -190,14 +228,15 @@ export const cleanupOldTemplates = internalMutation({
           await ctx.db.delete(template._id);
           deleted.push(template);
           console.log(`   ✅ Deleted: ${template.name} (${template.code})`);
-        } catch (error: any) {
-          const errorInfo = {
+        } catch (error: unknown) {
+          const errorMessage = getErrorMessage(error);
+          const errorInfo: DeletionError = {
             template: template.name,
             code: template.code,
-            error: error.message,
+            error: errorMessage,
           };
           errors.push(errorInfo);
-          console.error(`   ❌ Error deleting ${template.name}: ${error.message}`);
+          console.error(`   ❌ Error deleting ${template.name}: ${errorMessage}`);
         }
       }
 
@@ -249,21 +288,34 @@ export const cleanupOldTemplates = internalMutation({
  * npx convex run migrateCleanupTemplates:rollbackDeletion '{"backupFile": "path/to/backup.json"}'
  * ```
  */
+// Type for deleted template data (from backup)
+interface DeletedTemplateData {
+  _id: Id<"objects">;
+  organizationId: Id<"organizations">;
+  type: string;
+  subtype: string;
+  name: string;
+  status: string;
+  customProperties: Record<string, unknown>;
+  createdBy: Id<"users">;
+}
+
 export const rollbackDeletion = internalMutation({
   args: {
-    deletedTemplates: v.array(v.any()), // Array of deleted template objects
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    deletedTemplates: v.array(v.any()), // Array of deleted template objects (from backup)
   },
   handler: async (ctx, args) => {
     console.log("\n⏪ ==============================================");
     console.log("⏪ ROLLBACK MIGRATION - RESTORING TEMPLATES");
     console.log("⏪ ==============================================\n");
 
-    const { deletedTemplates } = args;
+    const deletedTemplates = args.deletedTemplates as DeletedTemplateData[];
 
     console.log(`📦 Attempting to restore ${deletedTemplates.length} templates...\n`);
 
-    const restored: any[] = [];
-    const failed: any[] = [];
+    const restored: RestoredTemplateInfo[] = [];
+    const failed: FailedRestorationInfo[] = [];
 
     for (const template of deletedTemplates) {
       try {
@@ -283,9 +335,10 @@ export const rollbackDeletion = internalMutation({
 
         restored.push({ originalId: template._id, newId, name: template.name });
         console.log(`   ✅ Restored: ${template.name} (new ID: ${newId})`);
-      } catch (error: any) {
-        failed.push({ template: template.name, error: error.message });
-        console.error(`   ❌ Failed to restore ${template.name}: ${error.message}`);
+      } catch (error: unknown) {
+        const errorMessage = getErrorMessage(error);
+        failed.push({ template: template.name, error: errorMessage });
+        console.error(`   ❌ Failed to restore ${template.name}: ${errorMessage}`);
       }
     }
 

@@ -197,8 +197,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: org.role,
         permissions: org.permissions
           .filter((p): p is NonNullable<typeof p> => p !== null)
-          .map(p => ({
-            id: p.id,
+          .map((p) => ({
+            id: String(p.id),
             name: p.name,
             resource: p.resource,
             action: p.action,
@@ -213,8 +213,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       role: userQuery.currentOrganization.role,
       permissions: userQuery.currentOrganization.permissions
         .filter((p): p is NonNullable<typeof p> => p !== null)
-        .map(p => ({
-          id: p.id,
+        .map((p) => ({
+          id: String(p.id),
           name: p.name,
           resource: p.resource,
           action: p.action,

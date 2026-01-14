@@ -55,7 +55,6 @@ export function WorkflowExecutionPanel({ executionId, onClose }: ExecutionPanelP
   const behaviorStatuses = React.useMemo(() => {
     if (!executionLogs) return [];
 
-    const statuses: BehaviorStatus[] = [];
     const behaviorMap = new Map<string, BehaviorStatus>();
 
     // Parse logs to extract behavior statuses
@@ -161,10 +160,6 @@ export function WorkflowExecutionPanel({ executionId, onClose }: ExecutionPanelP
         return "var(--neutral-gray)";
     }
   };
-
-  const selectedBehaviorData = selectedBehavior
-    ? behaviorStatuses.find((b) => b.behaviorType === selectedBehavior)
-    : null;
 
   if (!executionId) {
     return (

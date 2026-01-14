@@ -34,7 +34,10 @@ import {
   cliSessions,
   cliLoginStates,
   oauthSignupStates,
-  webhookSubscriptions
+  webhookSubscriptions,
+  // Multi-provider identity system
+  userIdentities,
+  accountLinkingStates,
 } from "./schemas/coreSchemas";
 // NOTE: apiKeyDomains table removed - now using unified domain configurations in objects table
 import { apps, appInstallations, snapshots, snapshotLoads, purchases, appAvailabilities } from "./schemas/appStoreSchemas";
@@ -102,6 +105,30 @@ import {
 // 📧 EMAIL QUEUE SCHEMA (Email delivery tracking)
 import { emailQueue } from "./schemas/emailQueueSchemas";
 
+// 🔄 SEQUENCES MESSAGE QUEUE SCHEMA (Multi-channel automation delivery)
+import { sequenceMessageQueue } from "./schemas/messageQueueSchema";
+
+// 🎁 BENEFITS PLATFORM SCHEMAS (Benefits & Commissions tracking)
+import {
+  benefitClaims,
+  commissionPayouts,
+  memberWallets,
+  platformFees
+} from "./schemas/benefitsSchemas";
+
+// ✏️ PROJECT CONTENT: Uses ontology (objects table) with types:
+// - type="project_content", subtype="block" for content blocks
+// - type="project_content", subtype="revision" for revision history
+// - type="project_edit_session" for edit session locking
+// See convex/projectContent.ts for implementation
+
+// 📡 ACTIVITY PROTOCOL SCHEMAS (Data flow tracing for connected apps)
+// NOTE: Application pages use ontology (objects table with type="application_page")
+import {
+  activityEvents,
+  activityProtocolSettings
+} from "./schemas/activityProtocolSchemas";
+
 /**
  * MAIN SCHEMA EXPORT
  *
@@ -128,6 +155,10 @@ export default defineSchema({
   cliLoginStates,
   oauthSignupStates,
   webhookSubscriptions,
+
+  // 🔑 MULTI-PROVIDER IDENTITY: OAuth identity linking
+  userIdentities,          // Links OAuth providers (Google, Apple, Microsoft) to users
+  accountLinkingStates,    // Temporary state for account linking confirmation flow
 
   // 🔐 RBAC: Role-Based Access Control
   roles,
@@ -213,6 +244,25 @@ export default defineSchema({
 
   // 📧 EMAIL QUEUE: Email delivery tracking
   emailQueue,                // Outbound email queue
+
+  // 🔄 SEQUENCES MESSAGE QUEUE: Multi-channel automation delivery
+  sequenceMessageQueue,      // Scheduled messages for sequences (email, SMS, WhatsApp)
+
+  // 🎁 BENEFITS PLATFORM: Benefits & Commissions tracking
+  benefitClaims,             // Benefit claim workflow tracking
+  commissionPayouts,         // Commission payout workflow tracking
+  memberWallets,             // Crypto wallet links for members
+  platformFees,              // Platform fee tracking for billing
+
+  // ✏️ PROJECT CONTENT: Uses ontology (objects table)
+  // - type="project_content", subtype="block" for content blocks
+  // - type="project_content", subtype="revision" for revisions (linked via objectLinks)
+  // - type="project_edit_session" for edit session locking
+
+  // 📡 ACTIVITY PROTOCOL: Data flow tracing for connected apps
+  activityEvents,            // High-frequency event stream (rolling window)
+  // NOTE: Application pages stored in objects table with type="application_page"
+  activityProtocolSettings,  // Per-org activity tracking configuration
 
   // ❌ OLD TRANSLATIONS - Replaced by ontology
   // systemTranslations,

@@ -48,31 +48,21 @@ export const previewInvoiceEmail = action({
       throw new Error("Invoice not found");
     }
 
-    const invoiceProps = invoice.customProperties as any;
-
     // 2. Determine language (default to German)
     const language: EmailLanguage = args.language || 'de';
 
     // 3. Load domain config for branding (or use system defaults)
-    let domainProps: any = null;
-    let emailSettings: any = null;
-
+    // Note: domainProps prepared for future use with advanced branding
     if (args.domainConfigId) {
       // Use custom domain configuration
       const domainConfig = await ctx.runQuery(api.domainConfigOntology.getDomainConfig, {
         configId: args.domainConfigId,
       });
-      domainProps = domainConfig.customProperties as any;
-      emailSettings = domainProps.email;
+      // Note: Domain config loaded for future branding features
+      void domainConfig;
     } else {
       // No domain config - resolver will cascade to organization settings → neutral defaults
       console.log(`📧 No domain config, will use organization settings or neutral defaults`);
-      domainProps = null; // Let resolver handle branding cascade
-      emailSettings = {
-        senderEmail: "invoices@mail.l4yercak3.com",
-        replyToEmail: "billing@l4yercak3.com",
-        defaultTemplateCode: "invoice-email-v2", // Default to schema-based B2B template
-      };
     }
 
     // 4. Resolve email template from organization's template set

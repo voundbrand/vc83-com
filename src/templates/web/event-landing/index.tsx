@@ -108,26 +108,31 @@ export function EventLandingTemplate({
 
   // Extract gallery/media items from event data
   // Media can be in customProperties.media.items or directly in media.items
-  const mediaData = ((eventData?.customProperties as any)?.media || (eventData as any)?.media) as {
-    items?: Array<{
-      id: string;
-      type?: string;
-      url?: string;
-      thumbnailUrl?: string;
-      videoUrl?: string;
-      alt?: string;
-      filename?: string;
-      storageId?: string;
-      mimeType?: string;
-    }>;
+  interface MediaItem {
+    id: string;
+    type?: string;
+    url?: string;
+    thumbnailUrl?: string;
+    videoUrl?: string;
+    alt?: string;
+    filename?: string;
+    storageId?: string;
+    mimeType?: string;
+    loop?: boolean;
+    autostart?: boolean;
+  }
+  interface MediaData {
+    items?: MediaItem[];
     showVideoFirst?: boolean;
-  } | undefined;
+  }
+  const eventDataCustomProps = eventData?.customProperties as Record<string, unknown> | undefined;
+  const mediaData = (eventDataCustomProps?.media || eventData?.media) as MediaData | undefined;
 
   // Get the showVideoFirst setting from event media
   const showVideoFirst = mediaData?.showVideoFirst ?? false;
 
   // Helper to get media URL - handles both direct URLs and Convex storage IDs
-  const getMediaUrl = (item: any): string => {
+  const getMediaUrl = (item: MediaItem): string => {
     // If it has a videoUrl, it's a video
     if (item.videoUrl) return item.videoUrl;
 
@@ -146,8 +151,8 @@ export function EventLandingTemplate({
   let galleryItems = mediaData?.items?.map(item => {
     const isVideo = item.type === 'video' || !!item.videoUrl;
     const url = getMediaUrl(item);
-    const loopValue = (item as any).loop ?? false;
-    const autostartValue = (item as any).autostart ?? false;
+    const loopValue = item.loop ?? false;
+    const autostartValue = item.autostart ?? false;
 
     // Debug logging for video settings
     if (isVideo) {

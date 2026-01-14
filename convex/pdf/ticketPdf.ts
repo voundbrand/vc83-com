@@ -954,3 +954,86 @@ export const generateEventAttendeeListPDF = action({
         }
     },
 });
+
+/**
+ * GENERATE EVENT ATTENDEE LIST CSV
+ * Creates a CSV file with all attendees for an event
+ */
+export const generateEventAttendeeListCSV = action({
+    args: {
+        eventId: v.id("objects"),
+    },
+    handler: async (ctx, args): Promise<PDFAttachment | null> => {
+        try {
+            // 1. Get event data
+            const event = await ctx.runQuery(internal.eventOntology.getEventInternal, {
+                eventId: args.eventId,
+            }) as Doc<"objects"> | null;
+
+            if (!event || event.type !== "event") {
+                throw new Error("Event not found");
+            }
+
+            // 2. Get attendees
+            const attendees = await ctx.runQuery(api.eventOntology.getEventAttendees, {
+                eventId: args.eventId,
+            });
+
+            // 3. Helper function to escape CSV values
+            const escapeCSV = (value: string | number | null | undefined): string => {
+                if (value === null || value === undefined) return "";
+                const str = String(value);
+                // Escape quotes by doubling them and wrap in quotes if contains comma, quote, or newline
+                if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+                    return `"${str.replace(/"/g, '""')}"`;
+                }
+                return str;
+            };
+
+            // 4. Build CSV content
+            const headers = ["#", "Name", "Email", "Phone", "Ticket Number", "Ticket Type", "Status", "Purchase Date", "Price Paid"];
+            const rows: string[] = [headers.join(",")];
+
+            attendees.forEach((attendee: {
+                holderName: string;
+                holderEmail: string;
+                holderPhone: string;
+                ticketNumber: string;
+                ticketType: string;
+                status: string;
+                purchaseDate: number;
+                pricePaid: number;
+            }, index: number) => {
+                const row = [
+                    (index + 1).toString(),
+                    escapeCSV(attendee.holderName || "Unknown"),
+                    escapeCSV(attendee.holderEmail || ""),
+                    escapeCSV(attendee.holderPhone || ""),
+                    escapeCSV(attendee.ticketNumber || ""),
+                    escapeCSV(attendee.ticketType || "Standard"),
+                    escapeCSV(attendee.status || "issued"),
+                    attendee.purchaseDate ? new Date(attendee.purchaseDate).toISOString().split("T")[0] : "",
+                    attendee.pricePaid ? (attendee.pricePaid / 100).toFixed(2) : "0.00",
+                ];
+                rows.push(row.join(","));
+            });
+
+            const csvContent = rows.join("\n");
+
+            // 5. Convert to base64 (browser-compatible, no Node.js Buffer)
+            // Use TextEncoder to convert string to bytes, then btoa for base64
+            const encoder = new TextEncoder();
+            const uint8Array = encoder.encode(csvContent);
+            const csvBase64 = btoa(String.fromCharCode(...uint8Array));
+
+            return {
+                filename: `attendee-list-${event._id.substring(0, 12)}.csv`,
+                content: csvBase64,
+                contentType: "text/csv",
+            };
+        } catch (error) {
+            console.error("Failed to generate attendee list CSV:", error);
+            return null;
+        }
+    },
+});

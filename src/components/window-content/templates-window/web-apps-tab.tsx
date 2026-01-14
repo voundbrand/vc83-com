@@ -3,16 +3,41 @@
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
-import { Loader2, Download, ExternalLink, Globe, Key, Code, Settings, AlertCircle } from "lucide-react";
+import { Loader2, Download, ExternalLink, Globe, Code, Settings, AlertCircle } from "lucide-react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { useMemo, useState } from "react";
 import { RetroButton } from "@/components/retro-button";
+
+/** Web app template interface */
+interface WebAppTemplate {
+  _id: string;
+  name: string;
+  description?: string;
+  status?: string;
+  customProperties?: {
+    features?: string[];
+    deployment?: {
+      githubRepo?: string;
+      vercelDeployButton?: string;
+      demoUrl?: string;
+    };
+    category?: string;
+    tags?: string[];
+  };
+}
+
+/** Template settings for save callback */
+interface TemplateSettings {
+  githubRepo: string;
+  vercelDeployButton: string;
+}
 
 interface WebAppsTabProps {
   onEditTemplate: (templateId: string) => void;
   onViewSchema?: (templateId: string) => void;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function WebAppsTab({ onEditTemplate, onViewSchema }: WebAppsTabProps) {
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
@@ -79,12 +104,12 @@ function WebAppCard({
   template,
   onView
 }: {
-  template: any;
+  template: WebAppTemplate;
   onView: () => void;
 }) {
   const customProps = template.customProperties || {};
   const features = customProps.features || [];
-  const deployment = customProps.deployment || {};
+  const deployment = useMemo(() => customProps.deployment || {}, [customProps.deployment]);
   const category = customProps.category || "web_app";
   const tags = customProps.tags || [];
   const [showEditModal, setShowEditModal] = useState(false);
@@ -308,9 +333,9 @@ function TemplateSettingsEditorModal({
   onClose,
   onSave
 }: {
-  template: any;
+  template: WebAppTemplate;
   onClose: () => void;
-  onSave: (settings: any) => void;
+  onSave: (settings: TemplateSettings) => void;
 }) {
   const deployment = template.customProperties?.deployment || {};
   const [githubRepo, setGithubRepo] = useState(deployment.githubRepo || '');

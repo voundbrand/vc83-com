@@ -186,7 +186,7 @@ interface WorkItemListProps {
 }
 
 export function WorkItemList({ organizationId, selectedItem, onSelectItem }: WorkItemListProps) {
-  const { t } = useNamespaceTranslations("ui.ai_assistant");
+  useNamespaceTranslations("ui.ai_assistant");
 
   // Get active work items (contact syncs + email campaigns)
   const workItems = useQuery(

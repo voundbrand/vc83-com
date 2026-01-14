@@ -119,8 +119,15 @@ function NavItem({ icon, label, active, onClick }: NavItemProps) {
   );
 }
 
+interface FolderNode {
+  _id: string;
+  name: string;
+  customProperties?: { color?: string };
+  children?: FolderNode[];
+}
+
 interface FolderTreeViewProps {
-  folders: any[];
+  folders: FolderNode[];
   selectedFolderId: string | null;
   expandedFolders: Set<string>;
   onFolderSelect: (folderId: string) => void;
@@ -176,7 +183,7 @@ function FolderTreeView({
 
             {hasChildren && isExpanded && (
               <FolderTreeView
-                folders={folder.children}
+                folders={folder.children || []}
                 selectedFolderId={selectedFolderId}
                 expandedFolders={expandedFolders}
                 onFolderSelect={onFolderSelect}

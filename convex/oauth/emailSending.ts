@@ -126,7 +126,7 @@ export const sendEmailViaMicrosoft = internalAction({
 
       return {
         success: true,
-        messageId: response?.id || "sent", // Graph API doesn't always return message ID
+        messageId: (response?.id as string | undefined) || "sent", // Graph API doesn't always return message ID
       };
 
     } catch (error) {

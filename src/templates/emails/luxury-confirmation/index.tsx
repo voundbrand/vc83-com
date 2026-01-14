@@ -17,7 +17,7 @@ import { luxuryConfirmationTranslations } from "./translations";
  * Generates beautiful HTML email with inline styles (no CSS bleeding).
  */
 export function LuxuryConfirmationTemplate(props: EmailTemplateProps): EmailTemplateOutput {
-  const { ticket, event, attendee, domain, branding, language } = props;
+  const { event, attendee, domain, branding, language } = props;
 
   const t = luxuryConfirmationTranslations[language];
   const primaryColor = branding.primaryColor || '#d4af37';

@@ -9,6 +9,29 @@ import type { Id } from "../../../../convex/_generated/dataModel";
 import { usePostHog } from "posthog-js/react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
+// Types for pipeline-related data from Convex queries
+interface PipelineStageFromQuery {
+  _id: Id<"objects">;
+  name: string;
+  customProperties?: Record<string, unknown>;
+}
+
+interface ContactPipelineItem {
+  pipeline: {
+    _id: Id<"objects">;
+    name?: string;
+    description?: string;
+    customProperties?: Record<string, unknown>;
+  } | null;
+  stage: {
+    _id: Id<"objects">;
+    name?: string;
+  } | null;
+  stages?: PipelineStageFromQuery[];
+  properties?: Record<string, unknown>;
+  linkId?: Id<"objectLinks">;
+}
+
 interface ContactFormModalProps {
   editId?: Id<"objects">;
   onClose: () => void;
@@ -409,7 +432,7 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
     if (!newPipelineId || !newStageId) return;
 
     const pipeline = availablePipelines?.find((p) => p._id === newPipelineId);
-    const stage = newPipelineStages?.stages?.find((s: any) => s._id === newStageId);
+    const stage = (newPipelineStages?.stages as PipelineStageFromQuery[] | undefined)?.find((s) => s._id === newStageId);
 
     setPipelineSelections([
       ...pipelineSelections,
@@ -434,7 +457,7 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
   // Filter out pipelines already selected or contact is already in
   const availableToAdd = availablePipelines?.filter((p) => {
     const alreadySelected = pipelineSelections.some((s) => s.pipelineId === p._id);
-    const alreadyIn = currentContactPipelines?.some((cp: any) => cp.pipeline?._id === p._id);
+    const alreadyIn = (currentContactPipelines as ContactPipelineItem[] | undefined)?.some((cp) => cp.pipeline?._id === p._id);
     return !alreadySelected && !alreadyIn;
   });
 
@@ -631,7 +654,7 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                     <p className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
                       Current Pipelines:
                     </p>
-                    {currentContactPipelines.map((item: any) => (
+                    {(currentContactPipelines as ContactPipelineItem[]).map((item) => (
                       <div
                         key={item.pipeline?._id}
                         className="flex items-center justify-between p-2 border-2 rounded"
@@ -750,7 +773,7 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                           }}
                         >
                           <option value="">-- Select Stage --</option>
-                          {newPipelineStages.stages.map((stage: any) => (
+                          {(newPipelineStages.stages as PipelineStageFromQuery[]).map((stage) => (
                             <option key={stage._id} value={stage._id}>
                               {stage.name}
                             </option>

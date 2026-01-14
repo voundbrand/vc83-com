@@ -9,9 +9,7 @@ import {
   AlertCircle,
   User,
   Building2,
-  AtSign,
   Phone,
-  MapPin,
   Briefcase,
   Check,
   X,
@@ -317,22 +315,22 @@ function ContactSyncDetail({
                     {/* Contact Details */}
                     {contact.data && (
                       <div className="mt-2 pt-2 border-t space-y-1" style={{ borderColor: 'var(--win95-border-light)' }}>
-                        {(contact.data as any).companyName && (
+                        {(contact.data as { companyName?: string; jobTitle?: string; mobilePhone?: string }).companyName && (
                           <div className="flex items-center gap-1 text-xs">
                             <Building2 className="w-3 h-3" style={{ color: 'var(--win95-text-muted)' }} />
-                            <span style={{ color: 'var(--win95-text)' }}>{(contact.data as any).companyName}</span>
+                            <span style={{ color: 'var(--win95-text)' }}>{(contact.data as { companyName?: string }).companyName}</span>
                           </div>
                         )}
-                        {(contact.data as any).jobTitle && (
+                        {(contact.data as { companyName?: string; jobTitle?: string; mobilePhone?: string }).jobTitle && (
                           <div className="flex items-center gap-1 text-xs">
                             <Briefcase className="w-3 h-3" style={{ color: 'var(--win95-text-muted)' }} />
-                            <span style={{ color: 'var(--win95-text)' }}>{(contact.data as any).jobTitle}</span>
+                            <span style={{ color: 'var(--win95-text)' }}>{(contact.data as { jobTitle?: string }).jobTitle}</span>
                           </div>
                         )}
-                        {(contact.data as any).mobilePhone && (
+                        {(contact.data as { companyName?: string; jobTitle?: string; mobilePhone?: string }).mobilePhone && (
                           <div className="flex items-center gap-1 text-xs">
                             <Phone className="w-3 h-3" style={{ color: 'var(--win95-text-muted)' }} />
-                            <span style={{ color: 'var(--win95-text)' }}>{(contact.data as any).mobilePhone}</span>
+                            <span style={{ color: 'var(--win95-text)' }}>{(contact.data as { mobilePhone?: string }).mobilePhone}</span>
                           </div>
                         )}
                       </div>
@@ -514,7 +512,7 @@ function EmailCampaignDetail({
 
 // Main Detail Component
 export function WorkItemDetail({ item, onActionComplete }: WorkItemDetailProps): ReactNode {
-  const { t } = useNamespaceTranslations("ui.ai_assistant");
+  useNamespaceTranslations("ui.ai_assistant"); // Hook called for side effects
 
   // Check if this is an AI work item (starts with "ai_")
   const isAIWorkItem = item.type.startsWith("ai_")

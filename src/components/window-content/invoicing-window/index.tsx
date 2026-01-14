@@ -11,7 +11,7 @@ import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useNotification } from "@/hooks/use-notification";
 import { useOrganizationCurrency } from "@/hooks/use-organization-currency";
 import { useFormatCurrency } from "@/hooks/use-format-currency";
-import { EmailSendModal, type EmailSendConfig, type EmailSendResult } from "@/components/email-send-modal";
+import { EmailSendModal, type EmailSendConfig } from "@/components/email-send-modal";
 import { TemplatesTab } from "./templates-tab";
 import { TransactionsSection } from "../payments-window/transactions-section";
 import { CreateInvoiceTab } from "./create-invoice-tab";
@@ -465,8 +465,8 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
   const [isSealing, setIsSealing] = React.useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = React.useState(false);
   const [isRefunding, setIsRefunding] = React.useState(false);
-  const [pdfError, setPdfError] = React.useState<string | null>(null);
-  const [pdfSuccess, setPdfSuccess] = React.useState(false);
+  const [pdfError] = React.useState<string | null>(null);
+  const [pdfSuccess] = React.useState(false);
   const [refundError, setRefundError] = React.useState<string | null>(null);
   const [refundSuccess, setRefundSuccess] = React.useState(false);
 
@@ -641,9 +641,10 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
     });
   };
 
-  const handlePdfPreview = async (config: EmailSendConfig) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handlePdfPreview = async (_config: EmailSendConfig) => {
     // Check if invoice already has a PDF URL
-    const invoiceProps = invoice.customProperties as any;
+    const invoiceProps = invoice.customProperties as { pdfUrl?: string } | undefined;
     const existingPdfUrl = invoiceProps?.pdfUrl;
 
     if (existingPdfUrl) {

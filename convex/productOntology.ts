@@ -9,6 +9,37 @@
  * - "physical" - Physical goods (merchandise, swag)
  * - "digital" - Digital products (downloads, access codes)
  *
+ * BOOKABLE RESOURCE TYPES (subtype):
+ * - "room" - Hotel rooms, meeting rooms, studios
+ * - "staff" - Therapists, consultants, instructors
+ * - "equipment" - Vehicles, projectors, tools
+ * - "space" - Desks, parking spots, lockers
+ *
+ * BOOKABLE SERVICE TYPES (subtype):
+ * - "appointment" - 1:1 meetings, consultations
+ * - "class" - Group sessions with max participants
+ * - "treatment" - Spa, medical (may require multiple resources)
+ *
+ * Bookable Resource customProperties:
+ * - bookingMode: "calendar" | "date-range" | "both"
+ * - minDuration: number (minutes or days)
+ * - maxDuration: number
+ * - durationUnit: "minutes" | "hours" | "days" | "nights"
+ * - slotIncrement: number (15, 30, 60 minutes)
+ * - bufferBefore: number (minutes before booking)
+ * - bufferAfter: number (minutes after booking)
+ * - capacity: number (1 for staff, 10 for room)
+ * - confirmationRequired: boolean (false = auto-confirm)
+ * - pricePerUnit: number (cents)
+ * - priceUnit: "hour" | "day" | "night" | "session" | "flat"
+ * - depositRequired: boolean
+ * - depositAmountCents: number
+ * - depositPercent: number (alternative: 20% of total)
+ * - locationId: Id<"objects"> (link to location object)
+ * - amenities: string[] (["wifi", "ac", "projector"])
+ * - maxOccupancy: number (for rooms)
+ * - specialties: string[] (for staff: ["massage", "facial"])
+ *
  * Status Workflow:
  * - "draft" - Being created
  * - "active" - Available for sale
@@ -62,7 +93,7 @@ import { internalQuery } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser } from "./rbacHelpers";
-import { checkResourceLimit, checkFeatureAccess, checkNestedResourceLimit, getLicenseInternal } from "./licensing/helpers";
+import { checkResourceLimit, checkFeatureAccess, getLicenseInternal } from "./licensing/helpers";
 
 /**
  * PRODUCT AVAILABILITY VALIDATION
@@ -436,7 +467,14 @@ export const createProduct = mutation({
     await checkResourceLimit(ctx, args.organizationId, "product", "maxProducts");
 
     // Validate subtype
-    const validSubtypes = ["ticket", "physical", "digital"];
+    const validSubtypes = [
+      // Standard product types
+      "ticket", "physical", "digital",
+      // Bookable resource types
+      "room", "staff", "equipment", "space",
+      // Bookable service types
+      "appointment", "class", "treatment",
+    ];
     if (!validSubtypes.includes(args.subtype)) {
       throw new Error(
         `Invalid product subtype. Must be one of: ${validSubtypes.join(", ")}`
@@ -661,16 +699,17 @@ export const updateProduct = mutation({
 });
 
 /**
- * DELETE PRODUCT
+ * ARCHIVE PRODUCT
  * Soft delete a product (set status to archived)
+ * Products can be restored from archive or permanently deleted
  */
-export const deleteProduct = mutation({
+export const archiveProduct = mutation({
   args: {
     sessionId: v.string(),
     productId: v.id("objects"),
   },
   handler: async (ctx, args) => {
-    await requireAuthenticatedUser(ctx, args.sessionId);
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
     const product = await ctx.db.get(args.productId);
 
@@ -678,10 +717,136 @@ export const deleteProduct = mutation({
       throw new Error("Product not found");
     }
 
+    const previousStatus = product.status;
+
     await ctx.db.patch(args.productId, {
       status: "archived",
+      customProperties: {
+        ...product.customProperties,
+        archivedAt: Date.now(),
+        previousStatus, // Store previous status for restore
+      },
       updatedAt: Date.now(),
     });
+
+    // Log the action
+    await ctx.db.insert("objectActions", {
+      organizationId: product.organizationId,
+      objectId: args.productId,
+      actionType: "archived",
+      performedBy: userId,
+      performedAt: Date.now(),
+      actionData: { previousStatus },
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * RESTORE PRODUCT
+ * Restore a product from archive to its previous status (or draft)
+ */
+export const restoreProduct = mutation({
+  args: {
+    sessionId: v.string(),
+    productId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const product = await ctx.db.get(args.productId);
+
+    if (!product || product.type !== "product") {
+      throw new Error("Product not found");
+    }
+
+    if (product.status !== "archived") {
+      throw new Error("Product is not archived");
+    }
+
+    // Restore to previous status or default to draft
+    const previousStatus = (product.customProperties?.previousStatus as string) || "draft";
+
+    await ctx.db.patch(args.productId, {
+      status: previousStatus,
+      customProperties: {
+        ...product.customProperties,
+        archivedAt: undefined,
+        previousStatus: undefined,
+        restoredAt: Date.now(),
+      },
+      updatedAt: Date.now(),
+    });
+
+    // Log the action
+    await ctx.db.insert("objectActions", {
+      organizationId: product.organizationId,
+      objectId: args.productId,
+      actionType: "restored",
+      performedBy: userId,
+      performedAt: Date.now(),
+      actionData: { restoredTo: previousStatus },
+    });
+
+    return { success: true, restoredTo: previousStatus };
+  },
+});
+
+/**
+ * DELETE PRODUCT (Permanent)
+ * Permanently delete a product - only allowed for archived products
+ * This removes the product and all associated links from the database
+ */
+export const deleteProduct = mutation({
+  args: {
+    sessionId: v.string(),
+    productId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const product = await ctx.db.get(args.productId);
+
+    if (!product || product.type !== "product") {
+      throw new Error("Product not found");
+    }
+
+    // Only allow permanent delete of archived products
+    if (product.status !== "archived") {
+      throw new Error("Only archived products can be permanently deleted. Archive the product first.");
+    }
+
+    // Delete associated objectLinks (product -> form, event -> product)
+    const linksFromProduct = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_from_object", (q) => q.eq("fromObjectId", args.productId))
+      .collect();
+
+    const linksToProduct = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_to_object", (q) => q.eq("toObjectId", args.productId))
+      .collect();
+
+    for (const link of [...linksFromProduct, ...linksToProduct]) {
+      await ctx.db.delete(link._id);
+    }
+
+    // Log before deletion (so we have a record)
+    await ctx.db.insert("objectActions", {
+      organizationId: product.organizationId,
+      objectId: args.productId,
+      actionType: "permanently_deleted",
+      performedBy: userId,
+      performedAt: Date.now(),
+      actionData: {
+        productName: product.name,
+        productSubtype: product.subtype,
+      },
+    });
+
+    // Permanently delete the product
+    await ctx.db.delete(args.productId);
 
     return { success: true };
   },

@@ -48,7 +48,7 @@ export function ComplianceWindow() {
   const [markdownContent, setMarkdownContent] = useState("");
   const [documentTitle, setDocumentTitle] = useState("");
   const [pdfUrl, setPdfUrl] = useState("");
-  const [mediaId, setMediaId] = useState("");
+  const [, setMediaId] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
   // Data export state
@@ -65,7 +65,7 @@ export function ComplianceWindow() {
   const { user, isLoading, sessionId, signOut } = useAuth();
   const currentOrganization = useCurrentOrganization();
   const organizationId = currentOrganization?.id || user?.defaultOrgId;
-  const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.compliance");
+  const { t } = useNamespaceTranslations("ui.compliance");
   const { openWindow } = useWindowManager();
 
   const convertToPdf = useAction(api.compliance.convertMarkdownToPdf);

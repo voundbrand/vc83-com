@@ -90,7 +90,7 @@ export const securitySchemas = {
     organizationId: v.id("organizations"),
 
     // Authentication method
-    authMethod: v.union(v.literal("api_key"), v.literal("oauth"), v.literal("none")),
+    authMethod: v.union(v.literal("api_key"), v.literal("oauth"), v.literal("cli_session"), v.literal("none")),
     apiKeyId: v.optional(v.id("apiKeys")),
     userId: v.optional(v.id("users")),
 

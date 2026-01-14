@@ -13,12 +13,10 @@ import { useQuery, useAction } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
 import { useState } from "react";
-import { useTranslation } from "@/contexts/translation-context";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 export function ConfirmationStep({ checkoutData, products, organizationId }: StepProps) {
-  const { locale } = useTranslation(); // For locale management only
-  const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.checkout_template.behavior_driven");
+  const { t } = useNamespaceTranslations("ui.checkout_template.behavior_driven");
   const [isDownloadingTickets, setIsDownloadingTickets] = useState(false);
   const [isDownloadingReceipt, setIsDownloadingReceipt] = useState(false);
 

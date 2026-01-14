@@ -4,7 +4,7 @@ import React, { useState, useMemo } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
-import { X, Send, Eye, Loader2, FileText } from "lucide-react";
+import { X, Send, Eye, Loader2 } from "lucide-react";
 import { TemplateSelector } from "./template-selector";
 
 /**
@@ -314,7 +314,7 @@ export function EmailSendModal({
               <>
                 <option disabled>──────────</option>
                 {domainConfigs.map((config) => {
-                  const props = config.customProperties as any;
+                  const props = config.customProperties as { domainName?: string; email?: { senderEmail?: string } } | undefined;
                   return (
                     <option key={config._id} value={config._id}>
                       {props?.domainName} ({props?.email?.senderEmail})

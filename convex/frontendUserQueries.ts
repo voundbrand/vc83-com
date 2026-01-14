@@ -41,6 +41,7 @@
 
 import { v } from "convex/values";
 import { internalQuery, internalMutation } from "./_generated/server";
+import type { QueryCtx, MutationCtx } from "./_generated/server";
 import { Id, Doc } from "./_generated/dataModel";
 
 /**
@@ -51,7 +52,7 @@ import { Id, Doc } from "./_generated/dataModel";
  * Session.organizationId provides org-scoped security - same email can exist in multiple orgs.
  */
 async function getFrontendUserFromSession(
-  ctx: any,
+  ctx: QueryCtx | MutationCtx,
   sessionId: string
 ): Promise<{ frontendUser: Doc<"objects">; session: Doc<"frontendSessions"> } | null> {
   // 1. Validate frontend session
@@ -64,10 +65,10 @@ async function getFrontendUserFromSession(
   // The organizationId comes from the API key that created the session - server-side security!
   const frontendUser = await ctx.db
     .query("objects")
-    .withIndex("by_org_type", (q: any) =>
+    .withIndex("by_org_type", (q) =>
       q.eq("organizationId", session.organizationId).eq("type", "frontend_user")
     )
-    .filter((q: any) => q.eq(q.field("name"), session.email))
+    .filter((q) => q.eq(q.field("name"), session.contactEmail))
     .first();
 
   if (!frontendUser) return null;
@@ -78,11 +79,11 @@ async function getFrontendUserFromSession(
 /**
  * HELPER: Get linked CRM contact
  */
-async function getLinkedCrmContact(ctx: any, frontendUserId: Id<"objects">) {
+async function getLinkedCrmContact(ctx: QueryCtx | MutationCtx, frontendUserId: Id<"objects">) {
   const links = await ctx.db
     .query("objectLinks")
-    .withIndex("by_from_object", (q: any) => q.eq("fromObjectId", frontendUserId))
-    .filter((q: any) => q.eq(q.field("linkType"), "authenticates_as"))
+    .withIndex("by_from_object", (q) => q.eq("fromObjectId", frontendUserId))
+    .filter((q) => q.eq(q.field("linkType"), "authenticates_as"))
     .collect();
 
   if (links.length === 0) return null;
@@ -94,11 +95,11 @@ async function getLinkedCrmContact(ctx: any, frontendUserId: Id<"objects">) {
 /**
  * HELPER: Get linked CRM organization
  */
-async function getLinkedCrmOrganization(ctx: any, contactId: Id<"objects">) {
+async function getLinkedCrmOrganization(ctx: QueryCtx | MutationCtx, contactId: Id<"objects">) {
   const links = await ctx.db
     .query("objectLinks")
-    .withIndex("by_from_object", (q: any) => q.eq("fromObjectId", contactId))
-    .filter((q: any) => q.eq(q.field("linkType"), "works_at"))
+    .withIndex("by_from_object", (q) => q.eq("fromObjectId", contactId))
+    .filter((q) => q.eq(q.field("linkType"), "works_at"))
     .collect();
 
   if (links.length === 0) return null;
@@ -111,7 +112,7 @@ async function getLinkedCrmOrganization(ctx: any, contactId: Id<"objects">) {
  * HELPER: Get recent transactions
  */
 async function getRecentTransactions(
-  ctx: any,
+  ctx: QueryCtx | MutationCtx,
   contactId?: Id<"objects">,
   organizationId?: Id<"objects">,
   limit = 10,
@@ -123,16 +124,16 @@ async function getRecentTransactions(
   const contactLinks = contactId
     ? await ctx.db
         .query("objectLinks")
-        .withIndex("by_from_object", (q: any) => q.eq("fromObjectId", contactId))
-        .filter((q: any) => q.eq(q.field("linkType"), "purchased"))
+        .withIndex("by_from_object", (q) => q.eq("fromObjectId", contactId))
+        .filter((q) => q.eq(q.field("linkType"), "purchased"))
         .collect()
     : [];
 
   const orgLinks = organizationId
     ? await ctx.db
         .query("objectLinks")
-        .withIndex("by_from_object", (q: any) => q.eq("fromObjectId", organizationId))
-        .filter((q: any) => q.eq(q.field("linkType"), "purchased"))
+        .withIndex("by_from_object", (q) => q.eq("fromObjectId", organizationId))
+        .filter((q) => q.eq(q.field("linkType"), "purchased"))
         .collect()
     : [];
 
@@ -148,28 +149,31 @@ async function getRecentTransactions(
     .filter((t): t is Doc<"objects"> => t !== null && t.type === "transaction")
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
     .slice(offset, offset + limit)
-    .map((t) => ({
-      id: t._id,
-      amount: (t.customProperties as any)?.totalAmount || 0,
-      currency: (t.customProperties as any)?.currency || "USD",
-      status: t.status,
-      items: (t.customProperties as any)?.items || [],
-      createdAt: t.createdAt,
-      updatedAt: t.updatedAt,
-    }));
+    .map((t) => {
+      const props = t.customProperties as Record<string, unknown> | undefined;
+      return {
+        id: t._id,
+        amount: (props?.totalAmount as number) || 0,
+        currency: (props?.currency as string) || "USD",
+        status: t.status,
+        items: (props?.items as unknown[]) || [],
+        createdAt: t.createdAt,
+        updatedAt: t.updatedAt,
+      };
+    });
 }
 
 /**
  * HELPER: Get active tickets
  */
-async function getActiveTickets(ctx: any, contactId?: Id<"objects">) {
+async function getActiveTickets(ctx: QueryCtx | MutationCtx, contactId?: Id<"objects">) {
   if (!contactId) return [];
 
   // Find ticket links
   const links = await ctx.db
     .query("objectLinks")
-    .withIndex("by_from_object", (q: any) => q.eq("fromObjectId", contactId))
-    .filter((q: any) => q.eq(q.field("linkType"), "has_ticket"))
+    .withIndex("by_from_object", (q) => q.eq("fromObjectId", contactId))
+    .filter((q) => q.eq(q.field("linkType"), "has_ticket"))
     .collect();
 
   // Get ticket objects with event info
@@ -181,24 +185,26 @@ async function getActiveTickets(ctx: any, contactId?: Id<"objects">) {
       // Get linked event
       const eventLinks = await ctx.db
         .query("objectLinks")
-        .withIndex("by_from_object", (q: any) => q.eq("fromObjectId", ticket._id))
-        .filter((q: any) => q.eq(q.field("linkType"), "for_event"))
+        .withIndex("by_from_object", (q) => q.eq("fromObjectId", ticket._id))
+        .filter((q) => q.eq(q.field("linkType"), "for_event"))
         .collect();
 
       const eventId = eventLinks[0]?.toObjectId;
       const event = eventId ? await ctx.db.get(eventId) : null;
+      const ticketProps = ticket.customProperties as Record<string, unknown> | undefined;
+      const eventProps = event?.customProperties as Record<string, unknown> | undefined;
 
       return {
         id: ticket._id,
-        ticketType: (ticket.customProperties as any)?.ticketType || "General",
+        ticketType: (ticketProps?.ticketType as string) || "General",
         status: ticket.status,
-        qrCode: (ticket.customProperties as any)?.qrCode,
+        qrCode: ticketProps?.qrCode as string | undefined,
         event: event
           ? {
               id: event._id,
               name: event.name,
-              startDate: (event.customProperties as any)?.startDate,
-              location: (event.customProperties as any)?.location,
+              startDate: eventProps?.startDate as number | undefined,
+              location: eventProps?.location as string | undefined,
             }
           : null,
         createdAt: ticket.createdAt,
@@ -212,14 +218,14 @@ async function getActiveTickets(ctx: any, contactId?: Id<"objects">) {
 /**
  * HELPER: Get upcoming events
  */
-async function getUpcomingEvents(ctx: any, contactId?: Id<"objects">, limit = 5) {
+async function getUpcomingEvents(ctx: QueryCtx | MutationCtx, contactId?: Id<"objects">, limit = 5) {
   if (!contactId) return [];
 
   // Find event registration links
   const links = await ctx.db
     .query("objectLinks")
-    .withIndex("by_from_object", (q: any) => q.eq("fromObjectId", contactId))
-    .filter((q: any) => q.eq(q.field("linkType"), "registered_for"))
+    .withIndex("by_from_object", (q) => q.eq("fromObjectId", contactId))
+    .filter((q) => q.eq(q.field("linkType"), "registered_for"))
     .collect();
 
   // Get event objects
@@ -228,33 +234,37 @@ async function getUpcomingEvents(ctx: any, contactId?: Id<"objects">, limit = 5)
   );
 
   const now = Date.now();
+  const getProps = (e: Doc<"objects">) => e.customProperties as Record<string, unknown> | undefined;
 
   // Filter for upcoming events, sort by date
   return events
-    .filter((e): e is Doc<"objects"> => e !== null && e.type === "event" && ((e.customProperties as any)?.startDate || 0) > now)
-    .sort((a, b) => ((a.customProperties as any)?.startDate || 0) - ((b.customProperties as any)?.startDate || 0))
+    .filter((e): e is Doc<"objects"> => e !== null && e.type === "event" && ((getProps(e)?.startDate as number) || 0) > now)
+    .sort((a, b) => ((getProps(a)?.startDate as number) || 0) - ((getProps(b)?.startDate as number) || 0))
     .slice(0, limit)
-    .map((e) => ({
-      id: e._id,
-      name: e.name,
-      startDate: (e.customProperties as any)?.startDate,
-      endDate: (e.customProperties as any)?.endDate,
-      location: (e.customProperties as any)?.location,
-      status: e.status,
-    }));
+    .map((e) => {
+      const props = getProps(e);
+      return {
+        id: e._id,
+        name: e.name,
+        startDate: props?.startDate as number | undefined,
+        endDate: props?.endDate as number | undefined,
+        location: props?.location as string | undefined,
+        status: e.status,
+      };
+    });
 }
 
 /**
  * HELPER: Get certificates
  */
-async function getCertificates(ctx: any, contactId?: Id<"objects">) {
+async function getCertificates(ctx: QueryCtx | MutationCtx, contactId?: Id<"objects">) {
   if (!contactId) return [];
 
   // Find certificate links
   const links = await ctx.db
     .query("objectLinks")
-    .withIndex("by_from_object", (q: any) => q.eq("fromObjectId", contactId))
-    .filter((q: any) => q.eq(q.field("linkType"), "earned"))
+    .withIndex("by_from_object", (q) => q.eq("fromObjectId", contactId))
+    .filter((q) => q.eq(q.field("linkType"), "earned"))
     .collect();
 
   // Get certificate objects
@@ -266,18 +276,19 @@ async function getCertificates(ctx: any, contactId?: Id<"objects">) {
       // Get linked event (if any)
       const eventLinks = await ctx.db
         .query("objectLinks")
-        .withIndex("by_from_object", (q: any) => q.eq("fromObjectId", cert._id))
-        .filter((q: any) => q.eq(q.field("linkType"), "for_event"))
+        .withIndex("by_from_object", (q) => q.eq("fromObjectId", cert._id))
+        .filter((q) => q.eq(q.field("linkType"), "for_event"))
         .collect();
 
       const eventId = eventLinks[0]?.toObjectId;
       const event = eventId ? await ctx.db.get(eventId) : null;
+      const certProps = cert.customProperties as Record<string, unknown> | undefined;
 
       return {
         id: cert._id,
-        certificateType: (cert.customProperties as any)?.certificateType || "attendance",
+        certificateType: (certProps?.certificateType as string) || "attendance",
         issuedAt: cert.createdAt,
-        downloadUrl: (cert.customProperties as any)?.downloadUrl,
+        downloadUrl: certProps?.downloadUrl as string | undefined,
         event: event ? { id: event._id, name: event.name } : null,
       };
     })
@@ -297,38 +308,41 @@ export const getCurrentUserInternal = internalQuery({
     if (!result) return null;
 
     const { frontendUser } = result;
+    const userProps = frontendUser.customProperties as Record<string, unknown> | undefined;
 
     // Get linked CRM contact
     const crmContact = await getLinkedCrmContact(ctx, frontendUser._id);
+    const contactProps = crmContact?.customProperties as Record<string, unknown> | undefined;
 
     // Get linked CRM organization
     const crmOrganization = crmContact
       ? await getLinkedCrmOrganization(ctx, crmContact._id)
       : null;
+    const orgProps = crmOrganization?.customProperties as Record<string, unknown> | undefined;
 
     return {
       userId: frontendUser._id,
       email: frontendUser.name,
-      displayName: (frontendUser.customProperties as any)?.displayName || frontendUser.name,
+      displayName: (userProps?.displayName as string) || frontendUser.name,
       accountStatus: frontendUser.status,
       crmContact: crmContact
         ? {
             id: crmContact._id,
-            firstName: (crmContact.customProperties as any)?.firstName,
-            lastName: (crmContact.customProperties as any)?.lastName,
-            company: (crmContact.customProperties as any)?.company,
-            phone: (crmContact.customProperties as any)?.phone,
+            firstName: contactProps?.firstName as string | undefined,
+            lastName: contactProps?.lastName as string | undefined,
+            company: contactProps?.company as string | undefined,
+            phone: contactProps?.phone as string | undefined,
           }
         : null,
       crmOrganization: crmOrganization
         ? {
             id: crmOrganization._id,
             name: crmOrganization.name,
-            billingAddress: (crmOrganization.customProperties as any)?.billingAddress,
+            billingAddress: orgProps?.billingAddress,
           }
         : null,
       createdAt: frontendUser.createdAt,
-      lastLogin: (frontendUser.customProperties as any)?.lastLogin || frontendUser.createdAt,
+      lastLogin: (userProps?.lastLogin as number) || frontendUser.createdAt,
     };
   },
 });
@@ -344,14 +358,17 @@ export const getCompleteProfileInternal = internalQuery({
     if (!result) return null;
 
     const { frontendUser } = result;
+    const userProps = frontendUser.customProperties as Record<string, unknown> | undefined;
 
     // Get linked CRM contact
     const crmContact = await getLinkedCrmContact(ctx, frontendUser._id);
+    const contactProps = crmContact?.customProperties as Record<string, unknown> | undefined;
 
     // Get linked CRM organization
     const crmOrganization = crmContact
       ? await getLinkedCrmOrganization(ctx, crmContact._id)
       : null;
+    const orgProps = crmOrganization?.customProperties as Record<string, unknown> | undefined;
 
     // PARALLEL fetch of all related data
     const [transactions, tickets, events, certificates] = await Promise.all([
@@ -365,27 +382,27 @@ export const getCompleteProfileInternal = internalQuery({
       user: {
         id: frontendUser._id,
         email: frontendUser.name,
-        displayName: (frontendUser.customProperties as any)?.displayName || frontendUser.name,
+        displayName: (userProps?.displayName as string) || frontendUser.name,
         accountStatus: frontendUser.status,
         createdAt: frontendUser.createdAt,
-        lastLogin: (frontendUser.customProperties as any)?.lastLogin || frontendUser.createdAt,
+        lastLogin: (userProps?.lastLogin as number) || frontendUser.createdAt,
       },
       contact: crmContact
         ? {
             id: crmContact._id,
-            firstName: (crmContact.customProperties as any)?.firstName,
-            lastName: (crmContact.customProperties as any)?.lastName,
-            company: (crmContact.customProperties as any)?.company,
-            phone: (crmContact.customProperties as any)?.phone,
-            email: (crmContact.customProperties as any)?.email,
+            firstName: contactProps?.firstName as string | undefined,
+            lastName: contactProps?.lastName as string | undefined,
+            company: contactProps?.company as string | undefined,
+            phone: contactProps?.phone as string | undefined,
+            email: contactProps?.email as string | undefined,
           }
         : null,
       organization: crmOrganization
         ? {
             id: crmOrganization._id,
             name: crmOrganization.name,
-            billingAddress: (crmOrganization.customProperties as any)?.billingAddress,
-            taxId: (crmOrganization.customProperties as any)?.taxId,
+            billingAddress: orgProps?.billingAddress,
+            taxId: orgProps?.taxId as string | undefined,
           }
         : null,
       activity: {
@@ -475,8 +492,8 @@ export const getEventsInternal = internalQuery({
     // Find all event registration links
     const links = await ctx.db
       .query("objectLinks")
-      .withIndex("by_from_object", (q: any) => q.eq("fromObjectId", crmContact._id))
-      .filter((q: any) => q.eq(q.field("linkType"), "registered_for"))
+      .withIndex("by_from_object", (q) => q.eq("fromObjectId", crmContact._id))
+      .filter((q) => q.eq(q.field("linkType"), "registered_for"))
       .collect();
 
     // Get all event objects
@@ -484,30 +501,37 @@ export const getEventsInternal = internalQuery({
 
     const now = Date.now();
     const validEvents = events.filter((e): e is Doc<"objects"> => e !== null && e.type === "event");
+    const getProps = (e: Doc<"objects">) => e.customProperties as Record<string, unknown> | undefined;
 
     const upcomingEvents = validEvents
-      .filter((e) => ((e.customProperties as any)?.startDate || 0) > now)
-      .sort((a, b) => ((a.customProperties as any)?.startDate || 0) - ((b.customProperties as any)?.startDate || 0))
-      .map((e) => ({
-        id: e._id,
-        name: e.name,
-        startDate: (e.customProperties as any)?.startDate,
-        endDate: (e.customProperties as any)?.endDate,
-        location: (e.customProperties as any)?.location,
-        status: e.status,
-      }));
+      .filter((e) => ((getProps(e)?.startDate as number) || 0) > now)
+      .sort((a, b) => ((getProps(a)?.startDate as number) || 0) - ((getProps(b)?.startDate as number) || 0))
+      .map((e) => {
+        const props = getProps(e);
+        return {
+          id: e._id,
+          name: e.name,
+          startDate: props?.startDate as number | undefined,
+          endDate: props?.endDate as number | undefined,
+          location: props?.location as string | undefined,
+          status: e.status,
+        };
+      });
 
     const pastEvents = validEvents
-      .filter((e) => ((e.customProperties as any)?.startDate || 0) <= now)
-      .sort((a, b) => ((b.customProperties as any)?.startDate || 0) - ((a.customProperties as any)?.startDate || 0))
-      .map((e) => ({
-        id: e._id,
-        name: e.name,
-        startDate: (e.customProperties as any)?.startDate,
-        endDate: (e.customProperties as any)?.endDate,
-        location: (e.customProperties as any)?.location,
-        status: e.status,
-      }));
+      .filter((e) => ((getProps(e)?.startDate as number) || 0) <= now)
+      .sort((a, b) => ((getProps(b)?.startDate as number) || 0) - ((getProps(a)?.startDate as number) || 0))
+      .map((e) => {
+        const props = getProps(e);
+        return {
+          id: e._id,
+          name: e.name,
+          startDate: props?.startDate as number | undefined,
+          endDate: props?.endDate as number | undefined,
+          location: props?.location as string | undefined,
+          status: e.status,
+        };
+      });
 
     return {
       upcomingEvents: args.upcoming === false ? [] : upcomingEvents,

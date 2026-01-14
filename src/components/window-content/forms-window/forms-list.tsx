@@ -215,7 +215,7 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
         {/* Forms list - list style like web publishing */}
         <div className="space-y-2">
           {forms.map((form) => {
-            const fieldCount = countInputFields(form.customProperties?.formSchema as any);
+            const fieldCount = countInputFields(form.customProperties?.formSchema as { sections?: Array<{ fields?: FormField[] }> } | undefined);
             const submissions = form.customProperties?.stats?.submissions || 0;
             const isDeleting = deletingFormId === form._id;
             const isPublishing = publishingFormId === form._id;
@@ -249,17 +249,31 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
                       <h4 className="font-bold text-sm" style={{ color: "var(--win95-text)" }}>
                         {form.name}
                       </h4>
-                      <span
-                        className="px-2 py-0.5 text-xs font-bold"
+                      {/* Clickable status badge - toggles publish/unpublish */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePublish(form._id, form.status || "draft");
+                        }}
+                        disabled={isDeleting || isPublishing || isDuplicating}
+                        className="px-2 py-0.5 text-xs font-bold transition-opacity hover:opacity-80 disabled:opacity-50 cursor-pointer"
                         style={{ backgroundColor: statusStyle.bg, color: statusStyle.text }}
+                        title={isPublished ? t("ui.forms.action_deactivate_tooltip") : t("ui.forms.action_activate_tooltip")}
                       >
-                        {statusStyle.label}
-                      </span>
+                        {isPublishing ? (
+                          <span className="flex items-center gap-1">
+                            <Loader2 size={10} className="animate-spin" />
+                            {statusStyle.label}
+                          </span>
+                        ) : (
+                          statusStyle.label
+                        )}
+                      </button>
                     </div>
 
                     {/* Type badge */}
                     <div className="text-xs mb-1 capitalize" style={{ color: "var(--neutral-gray)" }}>
-                      {t("ui.forms.type_label")} <span className="font-bold">{form.subtype ? t(`ui.forms.type_${form.subtype}` as any) : t("ui.forms.type_form")}</span>
+                      {t("ui.forms.type_label")} <span className="font-bold">{form.subtype ? t(`ui.forms.type_${form.subtype}` as Parameters<typeof t>[0]) : t("ui.forms.type_form")}</span>
                     </div>
 
                     {/* Description (if exists) */}

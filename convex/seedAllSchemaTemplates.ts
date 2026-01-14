@@ -30,21 +30,26 @@ export const seedAllSchemaTemplates = internalMutation({
   args: {
     overwrite: v.optional(v.boolean()), // Set to true to update existing templates
   },
-  handler: async (ctx, args): Promise<{
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  handler: async (ctx, _args): Promise<{
     message: string;
     totalTemplates: number;
     successCount: number;
     failedCount: number;
-    results: any[];
+    results: Array<{ template: string; status: string; result?: unknown; error?: string }>;
     allSuccess: boolean;
   }> => {
     console.log("\n🌱 ==============================================");
     console.log("🌱 SEEDING ALL SCHEMA-DRIVEN TEMPLATES (v2.0)");
     console.log("🌱 ==============================================\n");
 
-    const results: any[] = [];
+    const results: Array<{ template: string; status: string; result?: unknown; error?: string }> = [];
     let totalSuccess = 0;
     let totalFailed = 0;
+
+    // Helper to get error message
+    const getErrorMessage = (error: unknown): string =>
+      error instanceof Error ? error.message : String(error);
 
     // 1. Seed Event Confirmation Email
     console.log("📧 [1/5] Seeding Event Confirmation Email...");
@@ -56,10 +61,11 @@ export const seedAllSchemaTemplates = internalMutation({
       results.push({ template: "Event Confirmation Email", status: "success", result: eventResult });
       totalSuccess++;
       console.log("✅ Event Confirmation Email seeded successfully\n");
-    } catch (error: any) {
-      results.push({ template: "Event Confirmation Email", status: "failed", error: error.message });
+    } catch (error: unknown) {
+      const msg = getErrorMessage(error);
+      results.push({ template: "Event Confirmation Email", status: "failed", error: msg });
       totalFailed++;
-      console.error("❌ Failed to seed Event Confirmation Email:", error.message, "\n");
+      console.error("❌ Failed to seed Event Confirmation Email:", msg, "\n");
     }
 
     // 2. Seed Transaction Receipt Email
@@ -72,10 +78,11 @@ export const seedAllSchemaTemplates = internalMutation({
       results.push({ template: "Transaction Receipt Email", status: "success", result: receiptResult });
       totalSuccess++;
       console.log("✅ Transaction Receipt Email seeded successfully\n");
-    } catch (error: any) {
-      results.push({ template: "Transaction Receipt Email", status: "failed", error: error.message });
+    } catch (error: unknown) {
+      const msg = getErrorMessage(error);
+      results.push({ template: "Transaction Receipt Email", status: "failed", error: msg });
       totalFailed++;
-      console.error("❌ Failed to seed Transaction Receipt Email:", error.message, "\n");
+      console.error("❌ Failed to seed Transaction Receipt Email:", msg, "\n");
     }
 
     // 3. Seed Newsletter Confirmation Email
@@ -88,10 +95,11 @@ export const seedAllSchemaTemplates = internalMutation({
       results.push({ template: "Newsletter Confirmation Email", status: "success", result: newsletterResult });
       totalSuccess++;
       console.log("✅ Newsletter Confirmation Email seeded successfully\n");
-    } catch (error: any) {
-      results.push({ template: "Newsletter Confirmation Email", status: "failed", error: error.message });
+    } catch (error: unknown) {
+      const msg = getErrorMessage(error);
+      results.push({ template: "Newsletter Confirmation Email", status: "failed", error: msg });
       totalFailed++;
-      console.error("❌ Failed to seed Newsletter Confirmation Email:", error.message, "\n");
+      console.error("❌ Failed to seed Newsletter Confirmation Email:", msg, "\n");
     }
 
     // 4. Seed Invoice Email v2.0
@@ -104,10 +112,11 @@ export const seedAllSchemaTemplates = internalMutation({
       results.push({ template: "Invoice Email v2.0", status: "success", result: invoiceEmailResult });
       totalSuccess++;
       console.log("✅ Invoice Email v2.0 seeded successfully\n");
-    } catch (error: any) {
-      results.push({ template: "Invoice Email v2.0", status: "failed", error: error.message });
+    } catch (error: unknown) {
+      const msg = getErrorMessage(error);
+      results.push({ template: "Invoice Email v2.0", status: "failed", error: msg });
       totalFailed++;
-      console.error("❌ Failed to seed Invoice Email v2.0:", error.message, "\n");
+      console.error("❌ Failed to seed Invoice Email v2.0:", msg, "\n");
     }
 
     // 5. Seed B2B Invoice PDF
@@ -120,10 +129,11 @@ export const seedAllSchemaTemplates = internalMutation({
       results.push({ template: "B2B Invoice PDF", status: "success", result: invoicePdfResult });
       totalSuccess++;
       console.log("✅ B2B Invoice PDF seeded successfully\n");
-    } catch (error: any) {
-      results.push({ template: "B2B Invoice PDF", status: "failed", error: error.message });
+    } catch (error: unknown) {
+      const msg = getErrorMessage(error);
+      results.push({ template: "B2B Invoice PDF", status: "failed", error: msg });
       totalFailed++;
-      console.error("❌ Failed to seed B2B Invoice PDF:", error.message, "\n");
+      console.error("❌ Failed to seed B2B Invoice PDF:", msg, "\n");
     }
 
     // 6. Seed System Default Template Set v2.0
@@ -136,10 +146,11 @@ export const seedAllSchemaTemplates = internalMutation({
       results.push({ template: "System Default Template Set v2.0", status: "success", result: templateSetResult });
       totalSuccess++;
       console.log("✅ System Default Template Set v2.0 seeded successfully\n");
-    } catch (error: any) {
-      results.push({ template: "System Default Template Set v2.0", status: "failed", error: error.message });
+    } catch (error: unknown) {
+      const msg = getErrorMessage(error);
+      results.push({ template: "System Default Template Set v2.0", status: "failed", error: msg });
       totalFailed++;
-      console.error("❌ Failed to seed System Default Template Set:", error.message, "\n");
+      console.error("❌ Failed to seed System Default Template Set:", msg, "\n");
     }
 
     // Final summary
@@ -196,14 +207,18 @@ export const deleteAllSchemaTemplates = internalMutation({
   handler: async (ctx): Promise<{
     message: string;
     deletedCount: number;
-    results: any[];
+    results: Array<{ template: string; deleted?: boolean; error?: string }>;
   }> => {
     console.log("\n🗑️  ==============================================");
     console.log("🗑️  DELETING ALL SCHEMA-DRIVEN TEMPLATES");
     console.log("🗑️  ==============================================\n");
 
-    const results: any[] = [];
+    const results: Array<{ template: string; deleted?: boolean; error?: string }> = [];
     let totalDeleted = 0;
+
+    // Helper to get error message
+    const getErrorMessage = (error: unknown): string =>
+      error instanceof Error ? error.message : String(error);
 
     // Delete Event Confirmation
     try {
@@ -213,8 +228,8 @@ export const deleteAllSchemaTemplates = internalMutation({
       );
       results.push({ template: "Event Confirmation", deleted: r1.deleted });
       if (r1.deleted) totalDeleted++;
-    } catch (e: any) {
-      results.push({ template: "Event Confirmation", error: e.message });
+    } catch (e: unknown) {
+      results.push({ template: "Event Confirmation", error: getErrorMessage(e) });
     }
 
     // Delete Transaction Receipt
@@ -225,8 +240,8 @@ export const deleteAllSchemaTemplates = internalMutation({
       );
       results.push({ template: "Transaction Receipt", deleted: r2.deleted });
       if (r2.deleted) totalDeleted++;
-    } catch (e: any) {
-      results.push({ template: "Transaction Receipt", error: e.message });
+    } catch (e: unknown) {
+      results.push({ template: "Transaction Receipt", error: getErrorMessage(e) });
     }
 
     // Delete Newsletter
@@ -237,8 +252,8 @@ export const deleteAllSchemaTemplates = internalMutation({
       );
       results.push({ template: "Newsletter", deleted: r3.deleted });
       if (r3.deleted) totalDeleted++;
-    } catch (e: any) {
-      results.push({ template: "Newsletter", error: e.message });
+    } catch (e: unknown) {
+      results.push({ template: "Newsletter", error: getErrorMessage(e) });
     }
 
     // Delete Invoice Email v2
@@ -249,8 +264,8 @@ export const deleteAllSchemaTemplates = internalMutation({
       );
       results.push({ template: "Invoice Email v2", deleted: r4.deleted });
       if (r4.deleted) totalDeleted++;
-    } catch (e: any) {
-      results.push({ template: "Invoice Email v2", error: e.message });
+    } catch (e: unknown) {
+      results.push({ template: "Invoice Email v2", error: getErrorMessage(e) });
     }
 
     console.log(`\n✅ Deleted ${totalDeleted} templates\n`);

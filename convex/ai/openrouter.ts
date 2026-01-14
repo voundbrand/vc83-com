@@ -5,6 +5,34 @@
  * This client handles chat completions, tool calling, cost tracking, and streaming.
  */
 
+// Type definitions for OpenRouter API
+interface ToolCall {
+  id: string;
+  type: string;
+  function: {
+    name: string;
+    arguments: string;
+  };
+}
+
+interface ToolSchema {
+  type: string;
+  function: {
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+  };
+}
+
+interface OpenRouterError {
+  error?: {
+    message?: string;
+    type?: string;
+    code?: string;
+  };
+  message?: string;
+}
+
 /**
  * OpenRouter client for AI completions
  */
@@ -25,9 +53,10 @@ export class OpenRouterClient {
       role: "system" | "user" | "assistant" | "tool";
       content: string | null;
       name?: string;
-      tool_calls?: any;
+      tool_calls?: unknown;
+      tool_call_id?: string;
     }>;
-    tools?: Array<any>;
+    tools?: ToolSchema[];
     temperature?: number;
     max_tokens?: number;
     stream?: boolean;
@@ -77,16 +106,16 @@ export class OpenRouterClient {
     if (!response.ok) {
       // Try to parse error response
       let errorMessage = "Unknown error";
-      let errorDetails: any = null;
+      let errorDetails: OpenRouterError | null = null;
 
       try {
         const errorBody = await response.text();
-        errorDetails = JSON.parse(errorBody);
+        errorDetails = JSON.parse(errorBody) as OpenRouterError;
 
         // Extract error message from various possible structures
-        errorMessage = errorDetails.error?.message
-          || errorDetails.message
-          || errorDetails.error
+        errorMessage = errorDetails?.error?.message
+          || errorDetails?.message
+          || (typeof errorDetails?.error === 'string' ? errorDetails.error : null)
           || "Provider returned error";
 
         // Log detailed error for debugging

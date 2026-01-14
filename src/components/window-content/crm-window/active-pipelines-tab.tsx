@@ -610,8 +610,8 @@ export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProp
             <DragOverlay>
               {activeContactId && (() => {
                 const allContacts = Object.values(pipelineWithStages.contactsByStage).flat();
-                const activeContact = allContacts.find((c: any) => c?._id === activeContactId);
-                return activeContact ? <ContactCard contact={activeContact} /> : null;
+                const activeContact = allContacts.find((c) => c?._id === activeContactId);
+                return activeContact ? <ContactCard contact={activeContact as Record<string, unknown> & { _id: string }} /> : null;
               })()}
             </DragOverlay>
           </DndContext>

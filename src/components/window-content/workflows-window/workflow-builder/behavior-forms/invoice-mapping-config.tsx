@@ -33,8 +33,10 @@ export function InvoiceMappingConfigForm({
   sessionId,
   organizationId,
   availableForms = [],
-  availableCrmOrganizations: _availableCrmOrganizations = [],
+  availableCrmOrganizations = [],
 }: InvoiceMappingConfigFormProps) {
+  // Mark as intentionally unused - preserved for future CRM org selection UI
+  void availableCrmOrganizations;
   const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.workflows.invoice_mapping");
 
   // Fetch CRM organizations

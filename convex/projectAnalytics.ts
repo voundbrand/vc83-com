@@ -209,7 +209,6 @@ export const getOrganizationProjectReports = query({
       progress: {
         averageProgress: Math.round(avgProgress),
         onTrack: projects.filter((p) => {
-          const progress = p.customProperties?.progress || 0;
           const targetEnd = p.customProperties?.targetEndDate;
           return !targetEnd || Date.now() <= targetEnd;
         }).length,

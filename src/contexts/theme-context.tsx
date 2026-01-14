@@ -370,7 +370,9 @@ const WINDOW_STYLE_STORAGE_KEY = "l4yercak3-window-style";
 
 /**
  * Adjust color brightness for titlebar gradient
+ * Preserved for future theme customization features
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function adjustBrightness(color: string, factor: number): string {
   // Convert hex to RGB
   const hex = color.replace("#", "");

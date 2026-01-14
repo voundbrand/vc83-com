@@ -100,7 +100,7 @@ export const executeWorkflowInternal = internalAction({
 
         // Spread ALL input data from frontend
         // This allows behaviors to access: products[], formId, metadata, etc.
-        ...args.inputData,
+        ...(args.inputData as Record<string, unknown>),
 
         // API-specific metadata
         webhookUrl: args.webhookUrl,
