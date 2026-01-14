@@ -162,8 +162,8 @@ export default function MeetingFormAdmin({
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* Form Content - using div to avoid nested form error when rendered inside ProjectForm */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {error && (
             <div className="p-2 bg-red-100 border border-red-400 text-red-700 text-xs rounded">
               {error}
@@ -362,7 +362,7 @@ export default function MeetingFormAdmin({
               </p>
             </div>
           )}
-        </form>
+        </div>
 
         {/* Actions */}
         <div

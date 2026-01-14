@@ -315,6 +315,34 @@ export const seedSystemApps = mutation({
       console.log("Created Booking app:", bookingAppId);
     }
 
+    // Check if Sequences app already exists
+    const existingSequences = await ctx.db
+      .query("apps")
+      .withIndex("by_code", (q) => q.eq("code", "sequences"))
+      .first();
+
+    let sequencesAppId;
+    if (existingSequences) {
+      sequencesAppId = existingSequences._id;
+      console.log("Sequences app already exists:", sequencesAppId);
+    } else {
+      sequencesAppId = await ctx.db.insert("apps", {
+        code: "sequences",
+        name: "Sequences",
+        description: "Multi-channel automation sequences for booking reminders, follow-ups, and customer lifecycle messaging",
+        icon: "🔄",
+        category: "business",
+        plans: ["pro", "business", "enterprise"],
+        creatorOrgId: systemOrg._id,
+        dataScope: "installer-owned",
+        status: "active",
+        version: "1.0.0",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+      console.log("Created Sequences app:", sequencesAppId);
+    }
+
     return {
       paymentsAppId,
       publishingAppId,
@@ -325,6 +353,7 @@ export const seedSystemApps = mutation({
       aiAssistantAppId,
       benefitsAppId,
       bookingAppId,
+      sequencesAppId,
       systemOrgId: systemOrg._id,
     };
   },
@@ -1753,6 +1782,77 @@ export const registerBookingApp = mutation({
     return {
       appId,
       message: "Booking app registered successfully",
+      app,
+    };
+  },
+});
+
+/**
+ * Register Sequences app only
+ *
+ * Simple mutation to register the Sequences app for multi-channel automation.
+ * No authentication required - this is a one-time setup mutation.
+ *
+ * @returns App ID if created, or existing app ID if already registered
+ */
+export const registerSequencesApp = mutation({
+  args: {},
+  handler: async (ctx) => {
+    // Check if Sequences app already exists
+    const existing = await ctx.db
+      .query("apps")
+      .withIndex("by_code", (q) => q.eq("code", "sequences"))
+      .first();
+
+    if (existing) {
+      console.log("Sequences app already registered:", existing._id);
+      return {
+        appId: existing._id,
+        message: "Sequences app already registered",
+        app: existing,
+      };
+    }
+
+    // Find or create a system organization to own the app
+    let systemOrg = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", "system"))
+      .first();
+
+    // If no system org exists, just use the first organization
+    if (!systemOrg) {
+      const firstOrg = await ctx.db.query("organizations").first();
+      if (!firstOrg) {
+        throw new Error(
+          "No organizations found. Create an organization first before registering apps."
+        );
+      }
+      systemOrg = firstOrg;
+    }
+
+    // Create the Sequences app record
+    const appId = await ctx.db.insert("apps", {
+      code: "sequences",
+      name: "Sequences",
+      description: "Multi-channel automation sequences for booking reminders, follow-ups, and customer lifecycle messaging",
+      icon: "🔄",
+      category: "business",
+      plans: ["pro", "business", "enterprise"],
+      creatorOrgId: systemOrg._id,
+      dataScope: "installer-owned",
+      status: "active",
+      version: "1.0.0",
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    const app = await ctx.db.get(appId);
+
+    console.log("Sequences app registered successfully:", appId);
+
+    return {
+      appId,
+      message: "Sequences app registered successfully",
       app,
     };
   },

@@ -17,6 +17,8 @@ import { crmToolDefinition } from "./crmTool";
 import { benefitsToolDefinition } from "./benefitsTool";
 import { bookingToolDefinition } from "./bookingTool";
 import { activeCampaignToolDefinition } from "./activeCampaignTool";
+import { activityProtocolToolDefinition } from "./activityProtocolTool";
+import { sequencesToolDefinition } from "./sequencesTool";
 import { api } from "../../_generated/api";
 import { internal } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
@@ -1137,6 +1139,86 @@ const manageBookingsTool: AITool = {
       filterSubtype: args.filterSubtype,
       dateFrom: args.dateFrom,
       dateTo: args.dateTo,
+      limit: args.limit,
+    });
+
+    return result;
+  }
+};
+
+/**
+ * 2.7 ACTIVITY PROTOCOL TOOL
+ */
+
+const manageActivityProtocolTool: AITool = {
+  name: "manage_activity_protocol",
+  description: "Manage activity monitoring for connected applications: view events, check statistics, manage pages, configure bindings. Use for debugging, monitoring data flow, and configuring page-level object access.",
+  status: "ready",
+  parameters: activityProtocolToolDefinition.function.parameters,
+  execute: async (ctx, args) => {
+    const result = await ctx.runAction(api.ai.tools.activityProtocolTool.executeManageActivityProtocol, {
+      sessionId: ctx.sessionId,
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      action: args.action,
+      applicationId: args.applicationId,
+      // Event filters
+      severity: args.severity,
+      category: args.category,
+      debugMode: args.debugMode,
+      timeRange: args.timeRange,
+      limit: args.limit,
+      // Page fields
+      pageId: args.pageId,
+      path: args.path,
+      pageName: args.pageName,
+      pageType: args.pageType,
+      // Bindings
+      objectBindings: args.objectBindings,
+      // Settings
+      enabled: args.enabled,
+      debugModeDefault: args.debugModeDefault,
+      retentionDays: args.retentionDays,
+      alertsEnabled: args.alertsEnabled,
+    });
+
+    return result;
+  }
+};
+
+/**
+ * 2.8 SEQUENCES TOOL
+ */
+
+const manageSequencesTool: AITool = {
+  name: "manage_sequences",
+  description: "Comprehensive automation sequence management for multi-channel messaging: list sequences, create new sequences, activate/pause/resume sequences, enroll contacts, manage enrollments, view statistics. Use for all sequence automation operations.",
+  status: "ready",
+  parameters: sequencesToolDefinition.function.parameters,
+  execute: async (ctx, args) => {
+    const result = await ctx.runAction(api.ai.tools.sequencesTool.executeManageSequences, {
+      sessionId: ctx.sessionId,
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      conversationId: ctx.conversationId,
+      action: args.action,
+      mode: args.mode,
+      workItemId: args.workItemId,
+      // Sequence fields
+      sequenceId: args.sequenceId,
+      name: args.name,
+      description: args.description,
+      subtype: args.subtype,
+      triggerEvent: args.triggerEvent,
+      channels: args.channels,
+      // Enrollment fields
+      enrollmentId: args.enrollmentId,
+      contactId: args.contactId,
+      bookingId: args.bookingId,
+      cancelReason: args.cancelReason,
+      // Filters
+      filterStatus: args.filterStatus,
+      filterTriggerEvent: args.filterTriggerEvent,
       limit: args.limit,
     });
 
@@ -2934,6 +3016,12 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
 
   // Bookings
   manage_bookings: manageBookingsTool,
+
+  // Activity Protocol
+  manage_activity_protocol: manageActivityProtocolTool,
+
+  // Sequences
+  manage_sequences: manageSequencesTool,
 
   // Forms
   create_form: createFormTool,

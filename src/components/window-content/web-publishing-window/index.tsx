@@ -7,6 +7,7 @@ import { CreatePageTab } from "./create-page-tab";
 import { DeploymentsTab } from "./deployments-tab";
 import { DeploymentSettingsTab } from "./deployment-settings-tab";
 import { ApplicationsTab } from "./applications-tab";
+import { ApplicationDetailsTab } from "./application-details-tab";
 import { VercelDeploymentModal } from "./vercel-deployment-modal";
 import { EnvVarsModal } from "./env-vars-modal";
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
@@ -27,7 +28,12 @@ import type { Id } from "../../../../convex/_generated/dataModel";
  * - Analytics: Page views, conversions (future)
  */
 
-type TabType = "pages" | "create" | "deployments" | "settings" | "applications" | "analytics";
+type TabType = "pages" | "create" | "deployments" | "settings" | "applications" | "application-details" | "analytics";
+
+interface SelectedApplication {
+  _id: Id<"objects">;
+  name: string;
+}
 
 interface EditMode {
   pageId: Id<"objects">;
@@ -68,6 +74,7 @@ export function WebPublishingWindow() {
   const [selectedDeployment, setSelectedDeployment] = useState<SelectedDeployment | null>(null);
   const [showDeployModal, setShowDeployModal] = useState(false);
   const [showEnvVarsModal, setShowEnvVarsModal] = useState(false);
+  const [selectedApplication, setSelectedApplication] = useState<SelectedApplication | null>(null);
   const { t } = useNamespaceTranslations("ui.web_publishing");
 
   // Check app availability - returns guard component if unavailable/loading, null if available
@@ -244,7 +251,24 @@ export function WebPublishingWindow() {
 
         {/* Connected Applications */}
         {activeTab === "applications" && (
-          <ApplicationsTab />
+          <ApplicationsTab
+            onSelectApplication={(app) => {
+              setSelectedApplication({ _id: app._id, name: app.name });
+              setActiveTab("application-details");
+            }}
+          />
+        )}
+
+        {/* Application Details (Activity Protocol, Pages, Settings) */}
+        {activeTab === "application-details" && selectedApplication && (
+          <ApplicationDetailsTab
+            applicationId={selectedApplication._id}
+            applicationName={selectedApplication.name}
+            onBack={() => {
+              setSelectedApplication(null);
+              setActiveTab("applications");
+            }}
+          />
         )}
 
         {/* Analytics (future) */}

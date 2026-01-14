@@ -13,7 +13,7 @@ This document tracks the implementation progress of the all-purpose booking syst
 | Phase 1: Data Model Foundation | ✅ Complete | Product subtypes, schemas, tier configs |
 | Phase 2: Core Ontologies | ✅ Complete | Location, Availability, Booking ontologies |
 | Phase 3: API Endpoints | ✅ Complete | HTTP handlers and route registration |
-| Phase 4: Payments & Confirmation | 🔄 Partial | Transaction types defined, integration pending |
+| Phase 4: Payments & Confirmation | ✅ Complete | Transaction types, payment processing, refunds |
 | Phase 5: Advanced Features | ⭕ Pending | Recurring bookings, multi-resource, reminders |
 | Phase 6: UI Components | ✅ Complete | Admin windows, booking forms, calendars |
 | Phase 7: Internationalization | ⭕ Pending | Hardcoded English strings need i18n keys |
@@ -249,18 +249,24 @@ All routes registered with triple authentication support:
 
 ## Remaining Work
 
-### Phase 4: Payments & Confirmation 🔄
+### Phase 4: Payments & Confirmation ✅
 
-**Status:** Transaction types defined, full integration pending
+**Status:** Complete (January 2026)
 
-- [ ] Add transaction subtypes to `transactionOntology.ts`:
+- [x] Add transaction subtypes to `transactionOntology.ts`:
   - `resource_booking` - Full booking payment
   - `booking_deposit` - Deposit payment
   - `booking_balance` - Remaining balance payment
-- [ ] Create `createBookingTransaction` workflow behavior
-- [ ] Integrate payment processing into booking creation flow
-- [ ] Add refund logic to cancellation flow
-- [ ] Handle deposit → balance payment on check-in
+  - `booking_refund` - Refund for cancelled bookings
+- [x] Create `createBookingTransactionInternal` mutation
+- [x] Create `processBookingPaymentInternal` workflow
+- [x] Add `recordBookingPayment` public mutation for admin UI
+- [x] Add `getBookingTransactions` query
+- [x] Add `getBookingPaymentSummary` query
+- [x] Add `processBookingRefundInternal` mutation
+- [x] Add `cancelWithRefund` mutation with refund support
+- [x] Add `processBalanceOnCheckIn` mutation
+- [x] Add `checkInWithPayment` mutation for balance collection
 
 ### Phase 5: Advanced Features ⭕
 
@@ -435,7 +441,7 @@ From [BOOKING_SYSTEM_ARCHITECTURE.md](./BOOKING_SYSTEM_ARCHITECTURE.md#future-en
 | `convex/api/v1/resourceBookings.ts` | ✅ Created | Booking HTTP handlers |
 | `convex/licensing/tierConfigs.ts` | ✅ Modified | Added booking limits/features |
 | `convex/http.ts` | ✅ Modified | Registered new routes |
-| `convex/transactionOntology.ts` | ⭕ Pending | Add booking transaction subtypes |
+| `convex/transactionOntology.ts` | ✅ Modified | Added booking transaction subtypes & functions |
 | `convex/aiTools/manageBookings.ts` | ⭕ Pending | AI tool for bookings |
 
 ### UI Components (Hardcoded English - i18n pending)

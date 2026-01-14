@@ -9,6 +9,15 @@
  * - Filter by status, transaction type (B2B/B2C), date range
  * - Transaction detail view with full checkout info
  * - Transaction statistics and analytics
+ *
+ * Transaction Subtypes:
+ * - "ticket_purchase"     - Event ticket purchase
+ * - "product_purchase"    - Physical/digital product purchase
+ * - "service_purchase"    - Service purchase
+ * - "resource_booking"    - Full booking payment (Phase 4)
+ * - "booking_deposit"     - Deposit payment for booking (Phase 4)
+ * - "booking_balance"     - Remaining balance payment (Phase 4)
+ * - "booking_refund"      - Refund for cancelled booking (Phase 4)
  */
 
 import { query } from "./_generated/server";
@@ -445,6 +454,7 @@ export const getTransactionInvoice = query({
 // replaces checkout-session-based approach with proper transaction records
 
 import { internalMutation, internalQuery } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 /**
  * CREATE TRANSACTION (INTERNAL)
@@ -1138,5 +1148,440 @@ export const getTransactionStatsNew = query({
     }
 
     return stats;
+  },
+});
+
+// ============================================================================
+// PHASE 4: BOOKING TRANSACTION FUNCTIONS
+// ============================================================================
+// Added: 2026-01
+// Purpose: Transaction handling for booking payments (deposits, full, balance, refunds)
+
+/**
+ * Booking transaction subtypes for validation
+ */
+export const BOOKING_TRANSACTION_SUBTYPES = [
+  "resource_booking",  // Full booking payment
+  "booking_deposit",   // Deposit payment
+  "booking_balance",   // Remaining balance payment
+  "booking_refund",    // Refund for cancelled booking
+] as const;
+
+export type BookingTransactionSubtype = typeof BOOKING_TRANSACTION_SUBTYPES[number];
+
+/**
+ * CREATE BOOKING TRANSACTION (INTERNAL)
+ *
+ * Creates a transaction record for booking payments.
+ * Supports full payment, deposit, balance, and refund scenarios.
+ *
+ * @param ctx - Mutation context
+ * @param args - Booking transaction details
+ * @returns Transaction ID
+ */
+export const createBookingTransactionInternal = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    bookingId: v.id("objects"),
+
+    // Transaction type
+    subtype: v.union(
+      v.literal("resource_booking"),
+      v.literal("booking_deposit"),
+      v.literal("booking_balance"),
+      v.literal("booking_refund")
+    ),
+
+    // Resource info
+    resourceId: v.id("objects"),
+    resourceName: v.string(),
+    resourceSubtype: v.optional(v.string()),
+
+    // Booking info
+    bookingSubtype: v.string(), // appointment, reservation, rental, class_enrollment
+    startDateTime: v.number(),
+    endDateTime: v.number(),
+    duration: v.number(), // in minutes
+
+    // Location (optional)
+    locationId: v.optional(v.id("objects")),
+    locationName: v.optional(v.string()),
+
+    // Customer
+    customerName: v.string(),
+    customerEmail: v.string(),
+    customerPhone: v.optional(v.string()),
+    customerId: v.optional(v.id("objects")),
+
+    // Financial
+    amountInCents: v.number(),
+    currency: v.string(),
+    taxRatePercent: v.optional(v.number()),
+
+    // Payment details
+    paymentMethod: v.optional(v.string()),
+    paymentStatus: v.optional(v.string()),
+    paymentIntentId: v.optional(v.string()),
+
+    // For refunds
+    originalTransactionId: v.optional(v.id("objects")),
+    refundReason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Get system user for createdBy
+    const systemUser = await ctx.db
+      .query("users")
+      .filter(q => q.eq(q.field("email"), "system@l4yercak3.com"))
+      .first();
+
+    if (!systemUser) {
+      throw new Error("System user not found - run seed script first");
+    }
+
+    // Calculate tax
+    const taxRatePercent = args.taxRatePercent || 0;
+    const taxAmountInCents = Math.round((args.amountInCents * taxRatePercent) / 100);
+    const totalInCents = args.amountInCents + taxAmountInCents;
+
+    // Build transaction name
+    const subtypeLabels: Record<BookingTransactionSubtype, string> = {
+      resource_booking: "Full Payment",
+      booking_deposit: "Deposit",
+      booking_balance: "Balance",
+      booking_refund: "Refund",
+    };
+    const label = subtypeLabels[args.subtype];
+    const transactionName = `${args.resourceName} - ${label} - ${args.customerName}`;
+
+    // Format date for description
+    const bookingDate = new Date(args.startDateTime);
+    const dateStr = bookingDate.toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+    const timeStr = bookingDate.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    console.log(`💰 [createBookingTransactionInternal] Creating ${args.subtype} transaction`);
+    console.log(`   Resource: ${args.resourceName}`);
+    console.log(`   Amount: €${(args.amountInCents / 100).toFixed(2)}`);
+    console.log(`   Customer: ${args.customerName}`);
+
+    const transactionId = await ctx.db.insert("objects", {
+      organizationId: args.organizationId,
+      type: "transaction",
+      subtype: args.subtype,
+      name: transactionName,
+      description: `${args.bookingSubtype} on ${dateStr} at ${timeStr}`,
+      status: "active",
+      createdBy: systemUser._id,
+      customProperties: {
+        // Booking reference
+        bookingId: args.bookingId,
+        bookingSubtype: args.bookingSubtype,
+        startDateTime: args.startDateTime,
+        endDateTime: args.endDateTime,
+        duration: args.duration,
+
+        // Resource
+        resourceId: args.resourceId,
+        resourceName: args.resourceName,
+        resourceSubtype: args.resourceSubtype,
+
+        // Location
+        locationId: args.locationId,
+        locationName: args.locationName,
+
+        // Customer
+        customerName: args.customerName,
+        customerEmail: args.customerEmail,
+        customerPhone: args.customerPhone,
+        customerId: args.customerId,
+        payerType: "individual" as const,
+
+        // Financial
+        amountInCents: args.amountInCents,
+        taxRatePercent,
+        taxAmountInCents,
+        totalInCents,
+        currency: args.currency,
+
+        // Payment
+        paymentMethod: args.paymentMethod || "pending",
+        paymentStatus: args.paymentStatus || "pending",
+        paymentIntentId: args.paymentIntentId,
+
+        // Refund info (if applicable)
+        originalTransactionId: args.originalTransactionId,
+        refundReason: args.refundReason,
+
+        // Invoicing
+        invoicingStatus: "pending" as const,
+        transactionDate: Date.now(),
+      },
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    // Link transaction to booking
+    await ctx.db.insert("objectLinks", {
+      organizationId: args.organizationId,
+      fromObjectId: transactionId,
+      toObjectId: args.bookingId,
+      linkType: "payment_for_booking",
+      createdBy: systemUser._id,
+      createdAt: Date.now(),
+    });
+
+    // Link to original transaction if this is a refund
+    if (args.originalTransactionId) {
+      await ctx.db.insert("objectLinks", {
+        organizationId: args.organizationId,
+        fromObjectId: transactionId,
+        toObjectId: args.originalTransactionId,
+        linkType: "refunds_transaction",
+        createdBy: systemUser._id,
+        createdAt: Date.now(),
+      });
+    }
+
+    console.log(`✅ [createBookingTransactionInternal] Created transaction ${transactionId}`);
+    return transactionId;
+  },
+});
+
+/**
+ * GET BOOKING TRANSACTIONS
+ *
+ * Returns all transactions for a specific booking.
+ */
+export const getBookingTransactions = query({
+  args: {
+    sessionId: v.string(),
+    bookingId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    // Find all transactions linked to this booking
+    const links = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_to_link_type", (q) =>
+        q.eq("toObjectId", args.bookingId).eq("linkType", "payment_for_booking")
+      )
+      .collect();
+
+    const transactions = await Promise.all(
+      links.map(async (link) => {
+        const tx = await ctx.db.get(link.fromObjectId);
+        if (!tx || tx.type !== "transaction") return null;
+        return tx;
+      })
+    );
+
+    // Filter nulls and sort by date (newest first)
+    return transactions
+      .filter((tx): tx is NonNullable<typeof tx> => tx !== null)
+      .sort((a, b) => b._creationTime - a._creationTime);
+  },
+});
+
+/**
+ * GET BOOKING PAYMENT SUMMARY
+ *
+ * Returns payment summary for a booking (total due, paid, remaining).
+ */
+export const getBookingPaymentSummary = query({
+  args: {
+    sessionId: v.string(),
+    bookingId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const booking = await ctx.db.get(args.bookingId);
+    if (!booking || booking.type !== "booking") {
+      throw new Error("Booking not found");
+    }
+
+    const props = booking.customProperties as Record<string, unknown>;
+    const totalAmountCents = (props.totalAmountCents as number) || 0;
+    const depositAmountCents = (props.depositAmountCents as number) || 0;
+
+    // Get all transactions for this booking
+    const links = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_to_link_type", (q) =>
+        q.eq("toObjectId", args.bookingId).eq("linkType", "payment_for_booking")
+      )
+      .collect();
+
+    let paidAmountCents = 0;
+    let refundedAmountCents = 0;
+
+    for (const link of links) {
+      const tx = await ctx.db.get(link.fromObjectId);
+      if (!tx || tx.type !== "transaction") continue;
+
+      const txProps = tx.customProperties as Record<string, unknown>;
+      const paymentStatus = txProps.paymentStatus as string;
+      const amountInCents = (txProps.amountInCents as number) || 0;
+
+      if (paymentStatus === "paid") {
+        if (tx.subtype === "booking_refund") {
+          refundedAmountCents += amountInCents;
+        } else {
+          paidAmountCents += amountInCents;
+        }
+      }
+    }
+
+    const netPaidAmountCents = paidAmountCents - refundedAmountCents;
+    const remainingBalanceCents = Math.max(0, totalAmountCents - netPaidAmountCents);
+
+    return {
+      totalAmountCents,
+      depositAmountCents,
+      paidAmountCents: netPaidAmountCents,
+      refundedAmountCents,
+      remainingBalanceCents,
+      isFullyPaid: remainingBalanceCents === 0,
+      isDepositPaid: netPaidAmountCents >= depositAmountCents,
+    };
+  },
+});
+
+/**
+ * PROCESS BOOKING REFUND (INTERNAL)
+ *
+ * Creates a refund transaction and updates booking payment status.
+ */
+export const processBookingRefundInternal = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    bookingId: v.id("objects"),
+    refundAmountCents: v.number(),
+    reason: v.optional(v.string()),
+    originalTransactionId: v.optional(v.id("objects")),
+  },
+  handler: async (ctx, args): Promise<Id<"objects">> => {
+    const booking = await ctx.db.get(args.bookingId);
+    if (!booking || booking.type !== "booking") {
+      throw new Error("Booking not found");
+    }
+
+    const props = booking.customProperties as Record<string, unknown>;
+
+    // Get resource info
+    const resourceLinks = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_from_link_type", (q) =>
+        q.eq("fromObjectId", args.bookingId).eq("linkType", "books_resource")
+      )
+      .first();
+
+    let resourceName = "Resource";
+    let resourceId: Id<"objects"> | undefined;
+    let resourceSubtype: string | undefined;
+
+    if (resourceLinks) {
+      const resource = await ctx.db.get(resourceLinks.toObjectId);
+      if (resource) {
+        resourceName = resource.name || "Resource";
+        resourceId = resource._id;
+        resourceSubtype = resource.subtype || undefined;
+      }
+    }
+
+    // Get location info
+    let locationName: string | undefined;
+    if (props.locationId) {
+      const location = await ctx.db.get(props.locationId as Id<"objects">);
+      if (location) {
+        locationName = location.name || undefined;
+      }
+    }
+
+    // Create refund transaction
+    const refundTransactionId: Id<"objects"> = await ctx.runMutation(
+      internal.transactionOntology.createBookingTransactionInternal,
+      {
+        organizationId: args.organizationId,
+        bookingId: args.bookingId,
+        subtype: "booking_refund",
+        resourceId: resourceId!,
+        resourceName,
+        resourceSubtype,
+        bookingSubtype: booking.subtype || "appointment",
+        startDateTime: props.startDateTime as number,
+        endDateTime: props.endDateTime as number,
+        duration: props.duration as number,
+        locationId: props.locationId as Id<"objects"> | undefined,
+        locationName,
+        customerName: props.customerName as string,
+        customerEmail: props.customerEmail as string,
+        customerPhone: props.customerPhone as string | undefined,
+        customerId: props.customerId as Id<"objects"> | undefined,
+        amountInCents: args.refundAmountCents,
+        currency: "EUR", // TODO: Get from org settings
+        paymentStatus: "paid", // Refunds are immediately marked as processed
+        originalTransactionId: args.originalTransactionId,
+        refundReason: args.reason,
+      }
+    );
+
+    // Update booking's refund amount
+    const currentRefundAmount = (props.refundAmountCents as number) || 0;
+    await ctx.db.patch(args.bookingId, {
+      customProperties: {
+        ...props,
+        refundAmountCents: currentRefundAmount + args.refundAmountCents,
+      },
+      updatedAt: Date.now(),
+    });
+
+    console.log(`💸 [processBookingRefundInternal] Processed refund of €${(args.refundAmountCents / 100).toFixed(2)} for booking ${args.bookingId}`);
+
+    return refundTransactionId;
+  },
+});
+
+/**
+ * UPDATE BOOKING PAYMENT STATUS (INTERNAL)
+ *
+ * Updates the paidAmountCents on a booking after a successful payment.
+ */
+export const updateBookingPaymentInternal = internalMutation({
+  args: {
+    bookingId: v.id("objects"),
+    paidAmountCents: v.number(),
+    transactionId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const booking = await ctx.db.get(args.bookingId);
+    if (!booking || booking.type !== "booking") {
+      throw new Error("Booking not found");
+    }
+
+    const props = booking.customProperties as Record<string, unknown>;
+    const currentPaid = (props.paidAmountCents as number) || 0;
+    const newPaid = currentPaid + args.paidAmountCents;
+
+    await ctx.db.patch(args.bookingId, {
+      customProperties: {
+        ...props,
+        paidAmountCents: newPaid,
+        transactionId: args.transactionId,
+      },
+      updatedAt: Date.now(),
+    });
+
+    console.log(`💳 [updateBookingPaymentInternal] Updated booking ${args.bookingId} paid amount to €${(newPaid / 100).toFixed(2)}`);
+
+    return { bookingId: args.bookingId, paidAmountCents: newPaid };
   },
 });

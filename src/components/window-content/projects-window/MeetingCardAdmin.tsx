@@ -5,7 +5,7 @@
 
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   Calendar,
   Clock,
@@ -19,9 +19,12 @@ import {
   Link as LinkIcon,
   Plus,
   X,
+  Upload,
+  Download,
+  Loader2,
 } from "lucide-react";
 import { format } from "date-fns";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
@@ -54,10 +57,73 @@ interface MeetingCardAdminProps {
   onDelete: (meetingId: Id<"objects">) => void;
 }
 
+/**
+ * File item component that fetches and displays file metadata
+ */
+function FileItem({
+  mediaId,
+  onRemove,
+}: {
+  mediaId: string;
+  onRemove: () => void;
+}) {
+  const media = useQuery(api.organizationMedia.getMedia, {
+    mediaId: mediaId as Id<"organizationMedia">,
+  });
+
+  if (!media) {
+    return (
+      <div className="flex items-center gap-2 p-2 bg-white rounded border text-xs">
+        <Loader2 size={12} className="text-gray-400 animate-spin" />
+        <span className="text-gray-400">Loading...</span>
+      </div>
+    );
+  }
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  return (
+    <div className="flex items-center justify-between p-2 bg-white rounded border text-xs">
+      <div className="flex items-center gap-2 min-w-0 flex-1">
+        <FileText size={12} className="text-gray-400 flex-shrink-0" />
+        <span className="font-medium truncate">{media.filename}</span>
+        <span className="text-gray-400 flex-shrink-0">
+          ({formatFileSize(media.sizeBytes)})
+        </span>
+      </div>
+      <div className="flex items-center gap-1 flex-shrink-0">
+        {media.url && (
+          <a
+            href={media.url}
+            download={media.filename}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="p-1 hover:bg-blue-100 rounded"
+            title="Download file"
+          >
+            <Download size={12} className="text-blue-600" />
+          </a>
+        )}
+        <button
+          onClick={onRemove}
+          className="p-1 hover:bg-red-100 rounded"
+          title="Remove file"
+        >
+          <X size={12} className="text-red-600" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function MeetingCardAdmin({
   meeting,
   sessionId,
-  organizationId: _organizationId,
+  organizationId,
   onEdit,
   onDelete,
 }: MeetingCardAdminProps) {
@@ -66,9 +132,16 @@ export default function MeetingCardAdmin({
   const [videoUrl, setVideoUrl] = useState("");
   const [videoTitle, setVideoTitle] = useState("");
   const [addingVideo, setAddingVideo] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const addEmbeddedVideo = useMutation(api.meetingOntology.addEmbeddedVideo);
   const removeEmbeddedVideo = useMutation(api.meetingOntology.removeEmbeddedVideo);
+  const generateUploadUrl = useMutation(api.organizationMedia.generateUploadUrl);
+  const saveMedia = useMutation(api.organizationMedia.saveMedia);
+  const attachFileToMeeting = useMutation(api.meetingOntology.attachFileToMeeting);
+  const detachFileFromMeeting = useMutation(api.meetingOntology.detachFileFromMeeting);
 
   const date = meeting.customProperties?.date;
   const time = meeting.customProperties?.time;
@@ -116,6 +189,78 @@ export default function MeetingCardAdmin({
       });
     } catch (error) {
       console.error("Failed to remove video:", error);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingFile(true);
+    setUploadError(null);
+
+    try {
+      // Step 1: Generate upload URL
+      const uploadUrl = await generateUploadUrl({
+        sessionId,
+        organizationId,
+        estimatedSizeBytes: file.size,
+      });
+
+      // Step 2: Upload file to storage
+      const response = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to upload file");
+      }
+
+      const { storageId } = await response.json();
+
+      // Step 3: Save media metadata
+      const result = await saveMedia({
+        sessionId,
+        organizationId,
+        storageId,
+        filename: file.name,
+        mimeType: file.type,
+        sizeBytes: file.size,
+        category: "general",
+      });
+
+      // Step 4: Attach to meeting
+      await attachFileToMeeting({
+        sessionId,
+        meetingId: meeting._id,
+        mediaId: result.mediaId,
+      });
+
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    } catch (error) {
+      console.error("Failed to upload file:", error);
+      setUploadError(error instanceof Error ? error.message : "Upload failed");
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
+  const handleRemoveFile = async (mediaId: string) => {
+    if (!confirm("Remove this file from the meeting?")) return;
+
+    try {
+      await detachFileFromMeeting({
+        sessionId,
+        meetingId: meeting._id,
+        mediaId: mediaId as Id<"organizationMedia">,
+      });
+    } catch (error) {
+      console.error("Failed to remove file:", error);
     }
   };
 
@@ -335,26 +480,53 @@ export default function MeetingCardAdmin({
 
           {/* Files Section */}
           <div>
-            <h5 className="font-bold text-xs text-gray-700 mb-2 flex items-center gap-1">
-              <FileText size={12} />
-              Files ({files.length})
-            </h5>
+            <div className="flex items-center justify-between mb-2">
+              <h5 className="font-bold text-xs text-gray-700 flex items-center gap-1">
+                <FileText size={12} />
+                Files ({files.length})
+              </h5>
+              <label className="text-xs text-purple-600 hover:text-purple-700 flex items-center gap-1 cursor-pointer">
+                {uploadingFile ? (
+                  <>
+                    <Loader2 size={12} className="animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload size={12} />
+                    Upload File
+                  </>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  onChange={handleFileUpload}
+                  disabled={uploadingFile}
+                  className="hidden"
+                />
+              </label>
+            </div>
+
+            {/* Upload Error */}
+            {uploadError && (
+              <div className="mb-2 p-2 text-xs text-red-600 bg-red-50 rounded border border-red-200">
+                {uploadError}
+              </div>
+            )}
+
+            {/* File List */}
             {files.length > 0 ? (
-              <div className="space-y-1">
+              <div className="space-y-2">
                 {files.map((file, index) => (
-                  <div
+                  <FileItem
                     key={index}
-                    className="flex items-center gap-2 p-2 bg-white rounded border text-xs"
-                  >
-                    <FileText size={12} className="text-gray-400" />
-                    <span className="text-gray-600">File ID: {file.mediaId}</span>
-                  </div>
+                    mediaId={file.mediaId}
+                    onRemove={() => handleRemoveFile(file.mediaId)}
+                  />
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-gray-500">
-                No files attached. Use the edit form to attach files.
-              </p>
+              <p className="text-xs text-gray-500">No files attached</p>
             )}
           </div>
         </div>

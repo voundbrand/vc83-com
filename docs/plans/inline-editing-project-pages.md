@@ -2,11 +2,30 @@
 
 ## Overview
 
-Add inline editing capability to project pages (like `/project/gerrit`) so team members can collaboratively edit content directly on the page. Uses the existing `frontendSessions` auth system.
+Add inline editing capability to project pages (like `/project/gerrit`, `/project/rikscha`) so **clients and team members can collaboratively edit content** directly on the page. This is a collaboration tool that allows customers to give input on proposals, flyers, and marketing materials.
+
+Uses the existing `frontendSessions` auth system.
+
+## Primary Use Cases
+
+1. **Proposal Collaboration**: Clients can edit headlines, descriptions, and copy on proposal pages
+2. **Flyer Design Input**: Clients can edit text for multi-page flyer designs (e.g., Rikscha 6-page flyer)
+3. **Content Iteration**: Track changes over time with revision history for accountability
 
 ## Key Design Decisions
 
-### 1. Multi-Language Handling
+### 1. Ontology-Based Storage (NOT Dedicated Tables)
+
+**IMPORTANT**: This feature uses the universal ontology system (`objects` table) instead of dedicated tables. This follows the same pattern as projects, contacts, events, and other entities in the codebase.
+
+**Why ontology?**
+- Consistency with existing architecture
+- Built-in audit trail via `objectActions`
+- Relationships via `objectLinks` (content → revisions)
+- No schema bloat - reuses existing tables
+- Extensibility via `customProperties`
+
+### 2. Multi-Language Handling
 - Each content block stores both languages: `{ de: "...", en: "..." }`
 - When user saves an edit, prompt: "Apply to other language too?"
   - **Yes, translate** → Use AI to translate and save both
@@ -14,53 +33,102 @@ Add inline editing capability to project pages (like `/project/gerrit`) so team 
   - **No, just this language** → Only update current language
 - Edit mode shows which language you're currently editing
 
-### 2. Default Content Seeding
-- On first load, if block doesn't exist in DB → use hardcoded default
-- Optional: "Seed defaults" admin action to bulk-insert all defaults
+### 3. Default Content Seeding
+- On first load, if block doesn't exist in DB → use hardcoded default from template
 - Content key format: `{pageSlug}.{section}.{field}` e.g., `gerrit.hero.title`
+- Templates define their editable blocks in a manifest
 
-### 3. Edit Sessions (Conflict Prevention)
-- Reuse pattern from guitar project
+### 4. Revision History
+- Keep last 20 revisions per content block
+- Each revision stores: content, timestamp, who edited, optional comment
+- Revisions linked to content blocks via `objectLinks` with `linkType="has_revision"`
+- UI shows "Version history" with ability to compare and restore
+- Older revisions auto-pruned to keep storage manageable
+
+### 5. Edit Sessions (Conflict Prevention)
 - Show "Sarah is editing this section..." indicator
 - 5-minute timeout for stale sessions
 - Lock at section level, not individual field level
 
 ---
 
-## Schema Design
+## Ontology Schema Design
+
+Uses the existing `objects` and `objectLinks` tables with these types:
 
 ```typescript
-// convex/schema.ts - ADD these tables
+// Content Block (type="project_content", subtype="block")
+// Stored in objects table
+{
+  organizationId: Id<"organizations">,
+  type: "project_content",
+  subtype: "block",
+  name: "rikscha.hero.title",  // {projectSlug}.{blockId}
+  description: "Content block: hero.title",
+  status: "active",
+  customProperties: {
+    content: { de: "German text...", en: "English text..." },
+    version: 3,
+    projectSlug: "rikscha",
+    blockId: "hero.title",
+    modifiedBy: "user@example.com",
+    modifiedByName: "Sarah",
+  },
+  createdAt: timestamp,
+  updatedAt: timestamp,
+}
 
-// Project page content (multi-language)
-projectContent: defineTable({
-  projectId: v.string(),           // "gerrit", "other-client"
-  blockId: v.string(),             // "hero.title", "flywheel.touchpoint.1.subject"
-  content: v.object({
-    de: v.string(),
-    en: v.string(),
-  }),
-  metadata: v.object({
-    lastModifiedAt: v.number(),
-    lastModifiedBy: v.optional(v.string()), // email or session ID
-    modifiedByName: v.optional(v.string()), // display name
-  }),
-})
-  .index("by_project", ["projectId"])
-  .index("by_block", ["projectId", "blockId"]),
+// Content Revision (type="project_content", subtype="revision")
+// Linked to block via objectLinks with linkType="has_revision"
+{
+  organizationId: Id<"organizations">,
+  type: "project_content",
+  subtype: "revision",
+  name: "rikscha.hero.title.v2",
+  description: "Revision 2 of rikscha.hero.title",
+  status: "archived",
+  customProperties: {
+    version: 2,
+    content: { de: "Previous German text...", en: "Previous English text..." },
+    createdByName: "John",
+    changeNote: "Updated per client feedback",
+  },
+  createdAt: timestamp,
+  updatedAt: timestamp,
+}
 
-// Edit sessions for conflict resolution
-projectEditSessions: defineTable({
-  projectId: v.string(),
-  sectionId: v.string(),           // "hero", "flywheel", "pricing"
-  sessionId: v.string(),           // from frontendSessions
-  userEmail: v.string(),
-  userName: v.optional(v.string()),
-  startedAt: v.number(),
-  lastActivity: v.number(),
-})
-  .index("by_project_section", ["projectId", "sectionId"])
-  .index("by_session", ["sessionId"]),
+// Edit Session (type="project_edit_session")
+{
+  organizationId: Id<"organizations">,
+  type: "project_edit_session",
+  subtype: "active",
+  name: "rikscha.hero.session123",
+  description: "Edit session for sarah@example.com",
+  status: "active",
+  customProperties: {
+    projectId: "rikscha",
+    sectionId: "hero",
+    sessionId: "session123",
+    userEmail: "sarah@example.com",
+    userName: "Sarah",
+    startedAt: timestamp,
+    lastActivity: timestamp,
+  },
+  createdAt: timestamp,
+  updatedAt: timestamp,
+}
+```
+
+**Object Links for Revisions:**
+```typescript
+// objectLinks table
+{
+  organizationId: Id<"organizations">,
+  fromObjectId: contentBlockId,  // The current content block
+  toObjectId: revisionId,        // The historical revision
+  linkType: "has_revision",
+  createdAt: timestamp,
+}
 ```
 
 ---
@@ -70,7 +138,6 @@ projectEditSessions: defineTable({
 ### 1. EditableText Component
 ```tsx
 <EditableText
-  projectId="gerrit"
   blockId="hero.title"
   defaultValue={t("hero.title", language)}  // Fallback
   as="h1"                                    // Renders as <h1>
@@ -88,7 +155,10 @@ projectEditSessions: defineTable({
 
 ### 2. EditModeProvider (Context)
 ```tsx
-<EditModeProvider projectId="gerrit">
+<EditModeProvider
+  projectId="gerrit"
+  organizationId={config.organizationId}  // Required for ontology storage
+>
   {/* Page content */}
 </EditModeProvider>
 ```
@@ -106,18 +176,24 @@ projectEditSessions: defineTable({
 - "Save all" / "Discard changes" buttons
 - Only visible to authenticated users
 
-### 4. SaveLanguagePrompt (Modal)
-When saving, shows:
-```
-You edited the German text.
-What about English?
-
-[ Translate automatically ] [ Use same text ] [ Skip ]
+### 4. EditableProjectWrapper (Convenience)
+```tsx
+<EditableProjectWrapper
+  projectId="rikscha"
+  organizationId={config.organizationId}
+  sessionId={session?.id}
+  userEmail={session?.email}
+  userName={session?.name}
+>
+  <YourTemplateContent />
+</EditableProjectWrapper>
 ```
 
 ---
 
 ## Convex Functions
+
+All functions in `convex/projectContent.ts` use the ontology pattern:
 
 ### Queries
 ```typescript
@@ -126,6 +202,9 @@ getProjectContent(projectId: string)
 
 // Get single block
 getContentBlock(projectId: string, blockId: string)
+
+// Get revision history for a block
+getContentRevisions(projectId: string, blockId: string)
 
 // Get active editors for a project
 getActiveEditors(projectId: string)
@@ -136,74 +215,76 @@ checkSectionLock(projectId: string, sectionId: string)
 
 ### Mutations
 ```typescript
-// Save content block (with optional translation)
+// Save content block (with automatic versioning)
 saveContentBlock({
   projectId: string,
   blockId: string,
+  organizationId: Id<"organizations">,
   content: { de?: string, en?: string },
-  translateTo?: "de" | "en",  // If set, AI translates
-  sessionId: string,
+  modifiedBy?: string,
+  modifiedByName?: string,
+  changeNote?: string,
+})
+
+// Restore a previous version
+restoreContentVersion({
+  projectId: string,
+  blockId: string,
+  organizationId: Id<"organizations">,
+  targetVersion: number,
+  restoredBy?: string,
+  restoredByName?: string,
 })
 
 // Seed default content (admin)
-seedProjectDefaults(projectId: string, defaults: Record<string, {de: string, en: string}>)
+seedProjectDefaults({
+  projectId: string,
+  organizationId: Id<"organizations">,
+  defaults: Array<{ blockId: string, de: string, en: string }>,
+})
 
 // Edit session management
-startEditSession(projectId, sectionId, sessionId)
+startEditSession(projectId, sectionId, organizationId, sessionId, userEmail)
 updateEditSession(projectId, sectionId, sessionId)
 endEditSession(projectId, sectionId, sessionId)
 cleanupStaleSessions()
 ```
 
-### Actions
-```typescript
-// Translate content using AI
-translateContent(text: string, from: "de" | "en", to: "de" | "en")
-```
-
 ---
 
-## Implementation Steps
+## Implementation Status
 
-### Phase 1: Schema & Backend (Day 1)
-1. [ ] Add `projectContent` table to schema
-2. [ ] Add `projectEditSessions` table to schema
-3. [ ] Create `convex/projectContent.ts` with CRUD operations
-4. [ ] Create `convex/projectEditSessions.ts` for locking
-5. [ ] Run `npx convex dev` to deploy schema
+### Phase 1: Schema & Backend ✅ COMPLETE
+- [x] Ontology-based storage design (no dedicated tables)
+- [x] Create `convex/projectContent.ts` with CRUD operations
+- [x] Revision history via `objectLinks`
+- [x] Edit session management
 
-### Phase 2: Core Components (Day 1-2)
-1. [ ] Create `EditModeContext` provider
-2. [ ] Create `EditableText` component
-3. [ ] Create `EditModeToolbar` floating UI
-4. [ ] Create `SaveLanguagePrompt` modal
+### Phase 2: Core Components ✅ COMPLETE
+- [x] Create `EditModeContext` provider
+- [x] Create `EditableText` component
+- [x] Create `EditModeToolbar` floating UI
+- [x] Create `EditableProjectWrapper` convenience component
 
-### Phase 3: Integration (Day 2)
-1. [ ] Wrap Gerrit page with `EditModeProvider`
+### Phase 3: Integration (NEXT)
+1. [ ] Wrap template page with `EditModeProvider`
 2. [ ] Replace key text elements with `EditableText`
    - Hero title, subtitle, description
    - Section headings
    - Key content blocks
-3. [ ] Add edit mode toggle (only for authenticated users)
+3. [ ] Pass user session info from authentication
 4. [ ] Test save/load cycle
 
-### Phase 4: Multi-Language (Day 3)
+### Phase 4: Multi-Language
 1. [ ] Implement `SaveLanguagePrompt` flow
 2. [ ] Add AI translation action (using existing OpenRouter)
 3. [ ] Test DE↔EN translation workflow
 
-### Phase 5: Conflict Handling (Day 3)
-1. [ ] Implement edit session locking
-2. [ ] Show "X is editing..." indicators
-3. [ ] Auto-cleanup stale sessions
-4. [ ] Test multi-user scenarios
-
-### Phase 6: Polish (Day 4)
+### Phase 5: Polish
 1. [ ] Add keyboard shortcuts (Escape to cancel, Ctrl+Enter to save)
 2. [ ] Add undo/redo within session
-3. [ ] Add "Seed defaults" admin function
-4. [ ] Visual polish (animations, transitions)
-5. [ ] Run typecheck and lint
+3. [ ] Visual polish (animations, transitions)
+4. [ ] Run typecheck and lint
 
 ---
 
@@ -222,6 +303,11 @@ gerrit.flywheel.touchpoint.1.subject
 gerrit.flywheel.touchpoint.1.preview
 gerrit.pricing.option.1.title
 gerrit.pricing.option.1.price
+
+rikscha.executive.headline
+rikscha.flyer.page1.headline
+rikscha.flyer.page1.body
+rikscha.calendar.post1.caption
 ```
 
 ---
@@ -232,7 +318,36 @@ gerrit.pricing.option.1.price
 2. **Authorization**: Check session belongs to project's organization
 3. **Rate Limiting**: Debounce saves (500ms minimum between saves)
 4. **Validation**: Sanitize HTML input, max length limits
-5. **Audit Trail**: All changes logged with who/when
+5. **Audit Trail**: All changes logged with who/when (via ontology `updatedAt` and `customProperties`)
+
+---
+
+## Template Editable Blocks Manifest
+
+Each template defines which blocks are editable:
+
+```typescript
+// Example: RikschaTemplate editable blocks
+const RIKSCHA_EDITABLE_BLOCKS = {
+  // Executive Summary
+  "executive.headline": { type: "text", maxLength: 100 },
+  "executive.subheadline": { type: "text", maxLength: 200 },
+  "executive.stats.reach": { type: "text", maxLength: 50 },
+  "executive.stats.impressions": { type: "text", maxLength: 50 },
+
+  // Flyer Pages (6 pages)
+  "flyer.page1.headline": { type: "text", maxLength: 80 },
+  "flyer.page1.body": { type: "multiline", maxLength: 500 },
+  "flyer.page2.headline": { type: "text", maxLength: 80 },
+  "flyer.page2.body": { type: "multiline", maxLength: 500 },
+  // ... etc for all 6 pages
+
+  // Content Calendar
+  "calendar.post1.caption": { type: "multiline", maxLength: 300 },
+  "calendar.post1.hashtags": { type: "text", maxLength: 200 },
+  // ... etc
+};
+```
 
 ---
 
@@ -240,7 +355,8 @@ gerrit.pricing.option.1.price
 
 - [ ] Rich text editing (bold, links, lists)
 - [ ] Image upload/replacement
-- [ ] Version history with rollback
 - [ ] Comments on specific blocks
 - [ ] Approval workflow before publishing
 - [ ] Bulk export/import for translations
+- [ ] Side-by-side version comparison view
+- [ ] Email notifications when content is edited

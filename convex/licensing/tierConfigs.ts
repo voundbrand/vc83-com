@@ -63,6 +63,11 @@ export interface TierLimits {
   maxWorkflows: number;
   maxBehaviorsPerWorkflow: number;
 
+  // Sequences (Multi-channel automation)
+  maxSequences: number;
+  maxStepsPerSequence: number;
+  maxMessageTemplates: number;
+
   // Templates
   maxCustomTemplates: number;
 
@@ -229,6 +234,9 @@ export interface TierFeatures {
   bookingRemindersEnabled: boolean;
   bufferTimeEnabled: boolean;
   multiLocationEnabled: boolean;
+
+  // Sequences (Multi-channel automation)
+  sequencesEnabled: boolean;
 }
 
 export interface TierConfig {
@@ -301,6 +309,11 @@ export const FREE_TIER: TierConfig = {
     // Workflows
     maxWorkflows: 2,
     maxBehaviorsPerWorkflow: 5,
+
+    // Sequences
+    maxSequences: 0,
+    maxStepsPerSequence: 0,
+    maxMessageTemplates: 0,
 
     // Templates
     maxCustomTemplates: 0,
@@ -468,6 +481,9 @@ export const FREE_TIER: TierConfig = {
     bookingRemindersEnabled: false,
     bufferTimeEnabled: false,
     multiLocationEnabled: false,
+
+    // Sequences
+    sequencesEnabled: false,
   },
 };
 
@@ -524,6 +540,11 @@ export const STARTER_TIER: TierConfig = {
     // Workflows
     maxWorkflows: 10,
     maxBehaviorsPerWorkflow: 20,
+
+    // Sequences
+    maxSequences: 10,
+    maxStepsPerSequence: 10,
+    maxMessageTemplates: 20,
 
     // Templates
     maxCustomTemplates: 10,
@@ -691,6 +712,9 @@ export const STARTER_TIER: TierConfig = {
     bookingRemindersEnabled: true,
     bufferTimeEnabled: true,
     multiLocationEnabled: false,
+
+    // Sequences
+    sequencesEnabled: true,
   },
 };
 
@@ -747,6 +771,11 @@ export const PROFESSIONAL_TIER: TierConfig = {
     // Workflows
     maxWorkflows: 50,
     maxBehaviorsPerWorkflow: 50,
+
+    // Sequences
+    maxSequences: 50,
+    maxStepsPerSequence: 20,
+    maxMessageTemplates: 100,
 
     // Templates
     maxCustomTemplates: 50,
@@ -914,6 +943,9 @@ export const PROFESSIONAL_TIER: TierConfig = {
     bookingRemindersEnabled: true,
     bufferTimeEnabled: true,
     multiLocationEnabled: true,
+
+    // Sequences
+    sequencesEnabled: true,
   },
 };
 
@@ -970,6 +1002,11 @@ export const AGENCY_TIER: TierConfig = {
     // Workflows
     maxWorkflows: UNLIMITED,
     maxBehaviorsPerWorkflow: UNLIMITED,
+
+    // Sequences
+    maxSequences: UNLIMITED,
+    maxStepsPerSequence: UNLIMITED,
+    maxMessageTemplates: UNLIMITED,
 
     // Templates
     maxCustomTemplates: UNLIMITED,
@@ -1137,6 +1174,9 @@ export const AGENCY_TIER: TierConfig = {
     bookingRemindersEnabled: true,
     bufferTimeEnabled: true,
     multiLocationEnabled: true,
+
+    // Sequences
+    sequencesEnabled: true,
   },
 };
 
@@ -1193,6 +1233,11 @@ export const ENTERPRISE_TIER: TierConfig = {
     // Workflows
     maxWorkflows: UNLIMITED,
     maxBehaviorsPerWorkflow: UNLIMITED,
+
+    // Sequences
+    maxSequences: UNLIMITED,
+    maxStepsPerSequence: UNLIMITED,
+    maxMessageTemplates: UNLIMITED,
 
     // Templates
     maxCustomTemplates: UNLIMITED,
@@ -1360,6 +1405,9 @@ export const ENTERPRISE_TIER: TierConfig = {
     bookingRemindersEnabled: true,
     bufferTimeEnabled: true,
     multiLocationEnabled: true,
+
+    // Sequences
+    sequencesEnabled: true,
   },
 };
 

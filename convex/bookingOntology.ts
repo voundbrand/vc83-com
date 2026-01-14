@@ -974,6 +974,12 @@ export const confirmBooking = mutation({
       updatedAt: Date.now(),
     });
 
+    // Trigger sequence enrollment for booking_confirmed
+    await ctx.runMutation(internal.sequences.sequenceProcessor.processBookingTrigger, {
+      bookingId: args.bookingId,
+      triggerEvent: "booking_confirmed",
+    });
+
     return { bookingId: args.bookingId, status: "confirmed" };
   },
 });
@@ -1011,6 +1017,12 @@ export const checkInBooking = mutation({
       updatedAt: Date.now(),
     });
 
+    // Trigger sequence enrollment for booking_checked_in
+    await ctx.runMutation(internal.sequences.sequenceProcessor.processBookingTrigger, {
+      bookingId: args.bookingId,
+      triggerEvent: "booking_checked_in",
+    });
+
     return { bookingId: args.bookingId, status: "checked_in" };
   },
 });
@@ -1039,6 +1051,12 @@ export const completeBooking = mutation({
     await ctx.db.patch(args.bookingId, {
       status: "completed",
       updatedAt: Date.now(),
+    });
+
+    // Trigger sequence enrollment for booking_completed
+    await ctx.runMutation(internal.sequences.sequenceProcessor.processBookingTrigger, {
+      bookingId: args.bookingId,
+      triggerEvent: "booking_completed",
     });
 
     return { bookingId: args.bookingId, status: "completed" };
@@ -1080,6 +1098,12 @@ export const cancelBooking = mutation({
         refundAmountCents: args.refundAmountCents || 0,
       },
       updatedAt: Date.now(),
+    });
+
+    // Handle booking cancellation - exit enrollments and cancel pending messages
+    await ctx.runMutation(internal.sequences.sequenceProcessor.processBookingTrigger, {
+      bookingId: args.bookingId,
+      triggerEvent: "booking_cancelled",
     });
 
     return { bookingId: args.bookingId, status: "cancelled" };
@@ -1430,3 +1454,500 @@ function formatDate(ts: number): string {
   const d = new Date(ts);
   return d.toISOString().split("T")[0];
 }
+
+// ============================================================================
+// PHASE 4: PAYMENT INTEGRATION
+// ============================================================================
+// Added: 2026-01
+// Purpose: Integrate booking payments with transaction system
+
+/**
+ * Helper type for payment result
+ */
+interface BookingPaymentResult {
+  transactionId: Id<"objects">;
+  bookingId: Id<"objects">;
+  paidAmountCents: number;
+  remainingBalanceCents: number;
+  isFullyPaid: boolean;
+}
+
+/**
+ * PROCESS BOOKING PAYMENT (INTERNAL)
+ *
+ * Creates a transaction for a booking payment (deposit, full, or balance).
+ * Updates the booking's paidAmountCents.
+ *
+ * Payment Flow:
+ * 1. Validate booking and payment type
+ * 2. Determine transaction subtype (deposit, full, balance)
+ * 3. Create transaction record
+ * 4. Update booking payment status
+ * 5. Return transaction ID
+ */
+export const processBookingPaymentInternal = internalMutation({
+  args: {
+    bookingId: v.id("objects"),
+    organizationId: v.id("organizations"),
+
+    // Payment details
+    paymentType: v.union(
+      v.literal("deposit"),
+      v.literal("full"),
+      v.literal("balance")
+    ),
+    amountInCents: v.number(),
+    currency: v.optional(v.string()),
+
+    // Payment method info
+    paymentMethod: v.optional(v.string()),
+    paymentIntentId: v.optional(v.string()),
+
+    // Tax
+    taxRatePercent: v.optional(v.number()),
+  },
+  handler: async (ctx, args): Promise<BookingPaymentResult> => {
+    const booking = await ctx.db.get(args.bookingId);
+    if (!booking || booking.type !== "booking") {
+      throw new Error("Booking not found");
+    }
+    if (booking.organizationId !== args.organizationId) {
+      throw new Error("Booking not found");
+    }
+
+    const props = booking.customProperties as Record<string, unknown>;
+    const totalAmountCents = (props.totalAmountCents as number) || 0;
+    const depositAmountCents = (props.depositAmountCents as number) || 0;
+    const currentPaidCents = (props.paidAmountCents as number) || 0;
+
+    // Validate payment amount
+    if (args.paymentType === "deposit" && args.amountInCents !== depositAmountCents) {
+      console.warn(`Deposit amount mismatch: expected ${depositAmountCents}, got ${args.amountInCents}`);
+    }
+    if (args.paymentType === "full" && args.amountInCents !== totalAmountCents) {
+      console.warn(`Full payment amount mismatch: expected ${totalAmountCents}, got ${args.amountInCents}`);
+    }
+    if (args.paymentType === "balance") {
+      const expectedBalance = totalAmountCents - currentPaidCents;
+      if (args.amountInCents !== expectedBalance) {
+        console.warn(`Balance amount mismatch: expected ${expectedBalance}, got ${args.amountInCents}`);
+      }
+    }
+
+    // Get resource info
+    const resourceLinks = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_from_link_type", (q) =>
+        q.eq("fromObjectId", args.bookingId).eq("linkType", "books_resource")
+      )
+      .first();
+
+    let resourceName = "Resource";
+    let resourceId: Id<"objects"> | undefined;
+    let resourceSubtype: string | undefined;
+
+    if (resourceLinks) {
+      const resource = await ctx.db.get(resourceLinks.toObjectId);
+      if (resource) {
+        resourceName = resource.name || "Resource";
+        resourceId = resource._id;
+        resourceSubtype = resource.subtype || undefined;
+      }
+    }
+
+    if (!resourceId) {
+      throw new Error("Booking has no linked resource");
+    }
+
+    // Get location info
+    let locationName: string | undefined;
+    if (props.locationId) {
+      const location = await ctx.db.get(props.locationId as Id<"objects">);
+      if (location) {
+        locationName = location.name || undefined;
+      }
+    }
+
+    // Determine transaction subtype
+    const transactionSubtype = args.paymentType === "deposit"
+      ? "booking_deposit"
+      : args.paymentType === "balance"
+        ? "booking_balance"
+        : "resource_booking";
+
+    // Create the transaction
+    const transactionId: Id<"objects"> = await ctx.runMutation(
+      internal.transactionOntology.createBookingTransactionInternal,
+      {
+        organizationId: args.organizationId,
+        bookingId: args.bookingId,
+        subtype: transactionSubtype as "resource_booking" | "booking_deposit" | "booking_balance" | "booking_refund",
+        resourceId,
+        resourceName,
+        resourceSubtype,
+        bookingSubtype: booking.subtype || "appointment",
+        startDateTime: props.startDateTime as number,
+        endDateTime: props.endDateTime as number,
+        duration: props.duration as number,
+        locationId: props.locationId as Id<"objects"> | undefined,
+        locationName,
+        customerName: props.customerName as string,
+        customerEmail: props.customerEmail as string,
+        customerPhone: props.customerPhone as string | undefined,
+        customerId: props.customerId as Id<"objects"> | undefined,
+        amountInCents: args.amountInCents,
+        currency: args.currency || "EUR",
+        taxRatePercent: args.taxRatePercent,
+        paymentMethod: args.paymentMethod,
+        paymentStatus: "paid",
+        paymentIntentId: args.paymentIntentId,
+      }
+    );
+
+    // Update booking's paid amount
+    const newPaidCents = currentPaidCents + args.amountInCents;
+    await ctx.db.patch(args.bookingId, {
+      customProperties: {
+        ...props,
+        paidAmountCents: newPaidCents,
+        transactionId, // Latest transaction ID
+      },
+      updatedAt: Date.now(),
+    });
+
+    console.log(`💳 [processBookingPaymentInternal] Processed ${args.paymentType} payment of €${(args.amountInCents / 100).toFixed(2)} for booking ${args.bookingId}`);
+
+    return {
+      transactionId,
+      bookingId: args.bookingId,
+      paidAmountCents: newPaidCents,
+      remainingBalanceCents: Math.max(0, totalAmountCents - newPaidCents),
+      isFullyPaid: newPaidCents >= totalAmountCents,
+    };
+  },
+});
+
+/**
+ * RECORD BOOKING PAYMENT
+ *
+ * Public mutation for recording a payment on a booking.
+ * Used by admin UI to manually record payments.
+ */
+export const recordBookingPayment = mutation({
+  args: {
+    sessionId: v.string(),
+    bookingId: v.id("objects"),
+
+    // Payment details
+    paymentType: v.union(
+      v.literal("deposit"),
+      v.literal("full"),
+      v.literal("balance"),
+      v.literal("partial")
+    ),
+    amountInCents: v.number(),
+
+    // Payment method
+    paymentMethod: v.optional(v.string()),
+    paymentIntentId: v.optional(v.string()),
+
+    // Notes
+    notes: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<BookingPaymentResult> => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const booking = await ctx.db.get(args.bookingId);
+    if (!booking || booking.type !== "booking") {
+      throw new Error("Booking not found");
+    }
+
+    const props = booking.customProperties as Record<string, unknown>;
+
+    // Handle partial payments differently - they don't map to a specific transaction type
+    const paymentType = args.paymentType === "partial" ? "balance" : args.paymentType;
+
+    const result: BookingPaymentResult = await ctx.runMutation(internal.bookingOntology.processBookingPaymentInternal, {
+      bookingId: args.bookingId,
+      organizationId: booking.organizationId,
+      paymentType: paymentType as "deposit" | "full" | "balance",
+      amountInCents: args.amountInCents,
+      paymentMethod: args.paymentMethod || "manual",
+      paymentIntentId: args.paymentIntentId,
+    });
+
+    // Add notes if provided
+    if (args.notes) {
+      const currentNotes = (props.internalNotes as string) || "";
+      const paymentNote = `[${new Date().toISOString()}] Payment recorded: €${(args.amountInCents / 100).toFixed(2)} (${args.paymentType})${args.notes ? ` - ${args.notes}` : ""}`;
+      await ctx.db.patch(args.bookingId, {
+        customProperties: {
+          ...props,
+          paidAmountCents: result.paidAmountCents,
+          transactionId: result.transactionId,
+          internalNotes: currentNotes ? `${currentNotes}\n${paymentNote}` : paymentNote,
+        },
+        updatedAt: Date.now(),
+      });
+    }
+
+    return result;
+  },
+});
+
+/**
+ * Helper type for cancellation result
+ */
+interface BookingCancellationResult {
+  bookingId: Id<"objects">;
+  status: "cancelled";
+  refundAmountCents: number;
+  refundTransactionId: Id<"objects"> | undefined;
+}
+
+/**
+ * PROCESS BOOKING CANCELLATION WITH REFUND
+ *
+ * Internal mutation that handles cancellation with optional refund.
+ * Called by cancelBooking when refund is requested.
+ */
+export const processBookingCancellationWithRefund = internalMutation({
+  args: {
+    bookingId: v.id("objects"),
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+    reason: v.optional(v.string()),
+    refundAmountCents: v.optional(v.number()),
+  },
+  handler: async (ctx, args): Promise<BookingCancellationResult> => {
+    const booking = await ctx.db.get(args.bookingId);
+    if (!booking || booking.type !== "booking") {
+      throw new Error("Booking not found");
+    }
+
+    const props = booking.customProperties as Record<string, unknown>;
+    const paidAmountCents = (props.paidAmountCents as number) || 0;
+    const refundAmountCents = args.refundAmountCents || 0;
+
+    // Validate refund amount
+    if (refundAmountCents > paidAmountCents) {
+      throw new Error(`Cannot refund €${(refundAmountCents / 100).toFixed(2)} - only €${(paidAmountCents / 100).toFixed(2)} has been paid`);
+    }
+
+    // Create refund transaction if amount > 0
+    let refundTransactionId: Id<"objects"> | undefined;
+    if (refundAmountCents > 0) {
+      refundTransactionId = await ctx.runMutation(
+        internal.transactionOntology.processBookingRefundInternal,
+        {
+          organizationId: args.organizationId,
+          bookingId: args.bookingId,
+          refundAmountCents,
+          reason: args.reason,
+        }
+      );
+    }
+
+    // Update booking status to cancelled
+    await ctx.db.patch(args.bookingId, {
+      status: "cancelled",
+      customProperties: {
+        ...props,
+        cancelledAt: Date.now(),
+        cancelledBy: args.userId,
+        cancellationReason: args.reason || null,
+        refundAmountCents,
+        refundTransactionId,
+      },
+      updatedAt: Date.now(),
+    });
+
+    console.log(`❌ [processBookingCancellationWithRefund] Cancelled booking ${args.bookingId} with refund of €${(refundAmountCents / 100).toFixed(2)}`);
+
+    return {
+      bookingId: args.bookingId,
+      status: "cancelled",
+      refundAmountCents,
+      refundTransactionId,
+    };
+  },
+});
+
+/**
+ * Helper type for balance collection result
+ */
+interface BalanceCollectionResult {
+  bookingId: Id<"objects">;
+  balanceCollected: boolean;
+  remainingBalanceCents?: number;
+  balanceAmountCents?: number;
+  transactionId?: Id<"objects">;
+  isFullyPaid?: boolean;
+}
+
+/**
+ * PROCESS BALANCE PAYMENT ON CHECK-IN
+ *
+ * Internal mutation that collects remaining balance when customer checks in.
+ * Used when paymentType is "deposit" and balance is due on arrival.
+ */
+export const processBalanceOnCheckIn = internalMutation({
+  args: {
+    bookingId: v.id("objects"),
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+    paymentMethod: v.optional(v.string()),
+    paymentIntentId: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<BalanceCollectionResult> => {
+    const booking = await ctx.db.get(args.bookingId);
+    if (!booking || booking.type !== "booking") {
+      throw new Error("Booking not found");
+    }
+
+    const props = booking.customProperties as Record<string, unknown>;
+    const totalAmountCents = (props.totalAmountCents as number) || 0;
+    const paidAmountCents = (props.paidAmountCents as number) || 0;
+    const remainingBalanceCents = totalAmountCents - paidAmountCents;
+
+    if (remainingBalanceCents <= 0) {
+      // Already fully paid - just proceed with check-in
+      return {
+        bookingId: args.bookingId,
+        balanceCollected: false,
+        remainingBalanceCents: 0,
+      };
+    }
+
+    // Process the balance payment
+    const result: BookingPaymentResult = await ctx.runMutation(internal.bookingOntology.processBookingPaymentInternal, {
+      bookingId: args.bookingId,
+      organizationId: args.organizationId,
+      paymentType: "balance",
+      amountInCents: remainingBalanceCents,
+      paymentMethod: args.paymentMethod || "on_arrival",
+      paymentIntentId: args.paymentIntentId,
+    });
+
+    console.log(`💳 [processBalanceOnCheckIn] Collected balance of €${(remainingBalanceCents / 100).toFixed(2)} for booking ${args.bookingId}`);
+
+    return {
+      bookingId: args.bookingId,
+      balanceCollected: true,
+      balanceAmountCents: remainingBalanceCents,
+      transactionId: result.transactionId,
+      isFullyPaid: result.isFullyPaid,
+    };
+  },
+});
+
+/**
+ * Helper type for check-in result
+ */
+interface CheckInResult {
+  bookingId: Id<"objects">;
+  status: "checked_in";
+  balanceCollected: boolean;
+  balanceAmountCents: number;
+}
+
+/**
+ * CHECK IN WITH PAYMENT
+ *
+ * Enhanced check-in mutation that optionally collects balance payment.
+ */
+export const checkInWithPayment = mutation({
+  args: {
+    sessionId: v.string(),
+    bookingId: v.id("objects"),
+
+    // Payment options
+    collectBalance: v.optional(v.boolean()),
+    paymentMethod: v.optional(v.string()),
+    paymentIntentId: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<CheckInResult> => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const booking = await ctx.db.get(args.bookingId);
+    if (!booking || booking.type !== "booking") {
+      throw new Error("Booking not found");
+    }
+
+    if (booking.status !== "confirmed") {
+      throw new Error("Booking must be confirmed before check-in");
+    }
+
+    const props = booking.customProperties as Record<string, unknown>;
+    let balanceResult = null;
+
+    // Collect balance if requested
+    if (args.collectBalance) {
+      balanceResult = await ctx.runMutation(internal.bookingOntology.processBalanceOnCheckIn, {
+        bookingId: args.bookingId,
+        organizationId: booking.organizationId,
+        userId,
+        paymentMethod: args.paymentMethod,
+        paymentIntentId: args.paymentIntentId,
+      });
+    }
+
+    // Update booking status to checked_in
+    await ctx.db.patch(args.bookingId, {
+      status: "checked_in",
+      customProperties: {
+        ...props,
+        checkedInAt: Date.now(),
+        checkedInBy: userId,
+        ...(balanceResult?.transactionId && { transactionId: balanceResult.transactionId }),
+        ...(balanceResult?.balanceAmountCents && {
+          paidAmountCents: (props.paidAmountCents as number || 0) + balanceResult.balanceAmountCents,
+        }),
+      },
+      updatedAt: Date.now(),
+    });
+
+    return {
+      bookingId: args.bookingId,
+      status: "checked_in",
+      balanceCollected: balanceResult?.balanceCollected || false,
+      balanceAmountCents: balanceResult?.balanceAmountCents || 0,
+    };
+  },
+});
+
+/**
+ * CANCEL WITH REFUND
+ *
+ * Enhanced cancellation mutation with refund support.
+ */
+export const cancelWithRefund = mutation({
+  args: {
+    sessionId: v.string(),
+    bookingId: v.id("objects"),
+    reason: v.optional(v.string()),
+    refundAmountCents: v.optional(v.number()),
+  },
+  handler: async (ctx, args): Promise<BookingCancellationResult> => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const booking = await ctx.db.get(args.bookingId);
+    if (!booking || booking.type !== "booking") {
+      throw new Error("Booking not found");
+    }
+
+    if (booking.status === "cancelled" || booking.status === "completed") {
+      throw new Error("Cannot cancel a booking that is already cancelled or completed");
+    }
+
+    const result: BookingCancellationResult = await ctx.runMutation(internal.bookingOntology.processBookingCancellationWithRefund, {
+      bookingId: args.bookingId,
+      organizationId: booking.organizationId,
+      userId,
+      reason: args.reason,
+      refundAmountCents: args.refundAmountCents,
+    });
+
+    return result;
+  },
+});

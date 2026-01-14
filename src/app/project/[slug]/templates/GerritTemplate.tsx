@@ -5,6 +5,17 @@ import { Inter, Playfair_Display } from "next/font/google";
 import { Anchor, Ship, Wind, Calendar, Mail, Phone, CheckCircle2, ArrowRight, ArrowUp, Play, ChevronDown, ChevronUp, TrendingUp, Users, Globe, Zap, FileText, Clock, Shield, Sparkles, Search, Target, Bot, Megaphone, Home, AlertCircle, Star, MessageSquare, Award, Bell, Heart, Package, MapPin, X, Info, Layers, Link2, FileSearch, PenTool, BarChart2, Eye, Lightbulb, Video, Camera, Film, Scissors, Instagram, Mic, Smartphone, Send, RefreshCw } from "lucide-react";
 import { useLanguage, LanguageToggle, LanguageProvider } from "./gerrit-language-context";
 import { t } from "./gerrit-translations";
+import {
+  EditModeProvider,
+  EditableText,
+  EditableMultilineText,
+  EditModeToolbar,
+} from "@/components/project-editing";
+import {
+  EditableEmailSubject,
+  EditableEmailPreview,
+} from "./EditableEmailContent";
+import { useProjectDrawer } from "@/components/project-drawer";
 
 // Initialize fonts
 const inter = Inter({
@@ -4277,33 +4288,55 @@ function DynamicLTVBooster() {
                 <div className="flex-1 w-full">
                   {"emails" in item && item.emails && (
                     <div className="space-y-3">
-                      {item.emails.map((email, emailIdx) => (
-                        <button
-                          key={emailIdx}
-                          onClick={() => handleTouchpointClick(email)}
-                          className="w-full text-left bg-white p-4 border border-stone-200 hover:border-sky-400 hover:shadow-md transition-all cursor-pointer group"
-                        >
-                          <div className="flex items-center gap-3 mb-2">
-                            <div className={`p-2 ${colors.bg} group-hover:bg-sky-100 transition-colors`}>
-                              <span className={`${colors.text} group-hover:text-sky-600 transition-colors`}>{email.icon}</span>
+                      {item.emails.map((email, emailIdx) => {
+                        // Generate unique block ID for this email
+                        const emailBlockId = `systems.${activeBusiness}.${activePhase}.item${idx}.email${emailIdx}`;
+                        return (
+                          <div
+                            key={emailIdx}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => handleTouchpointClick(email)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                handleTouchpointClick(email);
+                              }
+                            }}
+                            className="w-full text-left bg-white p-4 border border-stone-200 hover:border-sky-400 hover:shadow-md transition-all cursor-pointer group"
+                          >
+                            <div className="flex items-center gap-3 mb-2">
+                              <div className={`p-2 ${colors.bg} group-hover:bg-sky-100 transition-colors`}>
+                                <span className={`${colors.text} group-hover:text-sky-600 transition-colors`}>{email.icon}</span>
+                              </div>
+                              <div className="flex-1">
+                                <div className="text-xs text-slate-500">{email.day}</div>
+                                <div className="font-semibold text-slate-800 text-sm group-hover:text-sky-700 transition-colors">
+                                  <EditableEmailSubject
+                                    blockId={emailBlockId}
+                                    defaultValue={email.subject}
+                                  />
+                                </div>
+                              </div>
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                <RefreshCw className="w-4 h-4 text-sky-500" />
+                              </div>
                             </div>
-                            <div className="flex-1">
-                              <div className="text-xs text-slate-500">{email.day}</div>
-                              <div className="font-semibold text-slate-800 text-sm group-hover:text-sky-700 transition-colors">{email.subject}</div>
+                            <div className="text-slate-500 text-sm pl-12 leading-relaxed">
+                              <EditableEmailPreview
+                                blockId={emailBlockId}
+                                defaultValue={email.preview}
+                              />
                             </div>
-                            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                              <RefreshCw className="w-4 h-4 text-sky-500" />
+                            <div className="mt-2 pl-12 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <span className="text-xs text-sky-600 font-medium flex items-center gap-1">
+                                {language === "de" ? "Flywheel ansehen" : "View Flywheel"}
+                                <ArrowRight className="w-3 h-3" />
+                              </span>
                             </div>
                           </div>
-                          <p className="text-slate-500 text-sm pl-12 leading-relaxed">{email.preview}</p>
-                          <div className="mt-2 pl-12 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <span className="text-xs text-sky-600 font-medium flex items-center gap-1">
-                              {language === "de" ? "Flywheel ansehen" : "View Flywheel"}
-                              <ArrowRight className="w-3 h-3" />
-                            </span>
-                          </div>
-                        </button>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
 
@@ -6410,15 +6443,29 @@ function GerritOfferPageInner({ config }: { config: ProjectPageConfig }) {
             </div>
 
             <h1 className="text-4xl md:text-6xl font-serif font-bold text-slate-800 mb-6 leading-tight">
-              {t("hero.title", language)}
+              <EditableText
+                blockId="hero.title"
+                defaultValue={t("hero.title", language)}
+                as="span"
+                sectionId="hero"
+              />
               <span className="block text-sky-700 mt-2">
-                {t("hero.titleHighlight", language)}
+                <EditableText
+                  blockId="hero.highlight"
+                  defaultValue={t("hero.titleHighlight", language)}
+                  as="span"
+                  sectionId="hero"
+                />
               </span>
             </h1>
 
-            <p className="text-xl text-slate-600 mb-10 max-w-2xl mx-auto leading-relaxed">
-              {t("hero.description", language)}
-            </p>
+            <EditableMultilineText
+              blockId="hero.description"
+              defaultValue={t("hero.description", language)}
+              as="p"
+              className="text-xl text-slate-600 mb-10 max-w-2xl mx-auto leading-relaxed"
+              sectionId="hero"
+            />
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <a
@@ -6465,11 +6512,22 @@ function GerritOfferPageInner({ config }: { config: ProjectPageConfig }) {
                   <div className="text-sky-600">
                     <Ship className="w-5 h-5 text-sky-600" />
                   </div>
-                  <h3 className="font-serif font-semibold text-slate-800">{t("understanding.sailing.title", language)}</h3>
+                  <h3 className="font-serif font-semibold text-slate-800">
+                    <EditableText
+                      blockId="understanding.sailing.title"
+                      defaultValue={t("understanding.sailing.title", language)}
+                      as="span"
+                      sectionId="understanding"
+                    />
+                  </h3>
                 </div>
-                <p className="text-slate-600 text-sm leading-relaxed mb-4">
-                  {t("understanding.sailing.description", language)} <strong className="text-sky-700">{t("understanding.sailing.highlight", language)}</strong> {t("understanding.sailing.descriptionEnd", language)}
-                </p>
+                <EditableMultilineText
+                  blockId="understanding.sailing.description"
+                  defaultValue={`${t("understanding.sailing.description", language)} ${t("understanding.sailing.highlight", language)} ${t("understanding.sailing.descriptionEnd", language)}`}
+                  as="p"
+                  className="text-slate-600 text-sm leading-relaxed mb-4"
+                  sectionId="understanding"
+                />
                 <p className="text-slate-500 text-sm italic">
                   {t("understanding.sailing.quote", language)}
                 </p>
@@ -6484,12 +6542,22 @@ function GerritOfferPageInner({ config }: { config: ProjectPageConfig }) {
                   <div className="text-sky-600">
                     <MapPin className="w-5 h-5 text-sky-700" />
                   </div>
-                  <h3 className="font-serif font-semibold text-slate-800">{t("understanding.location.title", language)}</h3>
+                  <h3 className="font-serif font-semibold text-slate-800">
+                    <EditableText
+                      blockId="understanding.location.title"
+                      defaultValue={t("understanding.location.title", language)}
+                      as="span"
+                      sectionId="understanding"
+                    />
+                  </h3>
                 </div>
-                <p className="text-slate-600 text-sm leading-relaxed mb-4">
-                  {t("understanding.location.description", language)}
-                  <strong className="text-sky-700">{t("understanding.location.highlight", language)}</strong>
-                </p>
+                <EditableMultilineText
+                  blockId="understanding.location.description"
+                  defaultValue={`${t("understanding.location.description", language)} ${t("understanding.location.highlight", language)}`}
+                  as="p"
+                  className="text-slate-600 text-sm leading-relaxed mb-4"
+                  sectionId="understanding"
+                />
                 <p className="text-slate-500 text-sm italic">
                   {t("understanding.location.quote", language)}
                 </p>
@@ -6504,11 +6572,22 @@ function GerritOfferPageInner({ config }: { config: ProjectPageConfig }) {
                   <div className="text-amber-600">
                     <Home className="w-5 h-5 text-amber-600" />
                   </div>
-                  <h3 className="font-serif font-semibold text-slate-800">{t("understanding.house.title", language)}</h3>
+                  <h3 className="font-serif font-semibold text-slate-800">
+                    <EditableText
+                      blockId="understanding.house.title"
+                      defaultValue={t("understanding.house.title", language)}
+                      as="span"
+                      sectionId="understanding"
+                    />
+                  </h3>
                 </div>
-                <p className="text-slate-600 text-sm leading-relaxed mb-4">
-                  {t("understanding.house.description", language)} <strong className="text-amber-700">{t("understanding.house.highlight", language)}</strong>{t("understanding.house.descriptionEnd", language)}
-                </p>
+                <EditableMultilineText
+                  blockId="understanding.house.description"
+                  defaultValue={`${t("understanding.house.description", language)} ${t("understanding.house.highlight", language)}${t("understanding.house.descriptionEnd", language)}`}
+                  as="p"
+                  className="text-slate-600 text-sm leading-relaxed mb-4"
+                  sectionId="understanding"
+                />
                 <p className="text-slate-500 text-xs mt-2">
                   {t("understanding.house.note", language)}
                 </p>
@@ -6947,11 +7026,20 @@ function GerritOfferPageInner({ config }: { config: ProjectPageConfig }) {
             <div className="bg-gradient-to-br from-sky-100 to-sky-50 p-8 md:p-12 border border-sky-200 shadow-xl shadow-sky-900/10">
               <Wind className="w-12 h-12 text-sky-600 mx-auto mb-6" />
               <h2 className="text-3xl md:text-4xl font-serif font-bold text-slate-800 mb-4">
-                {t("finalCta.title", language)}
+                <EditableText
+                  blockId="cta.title"
+                  defaultValue={t("finalCta.title", language)}
+                  as="span"
+                  sectionId="cta"
+                />
               </h2>
-              <p className="text-slate-600 mb-8 max-w-xl mx-auto">
-                {t("finalCta.description", language)}
-              </p>
+              <EditableMultilineText
+                blockId="cta.description"
+                defaultValue={t("finalCta.description", language)}
+                as="p"
+                className="text-slate-600 mb-8 max-w-xl mx-auto"
+                sectionId="cta"
+              />
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4 flex-wrap">
                 <a
                   href="https://cal.com/voundbrand/open-end-meeting"
@@ -7007,15 +7095,40 @@ function GerritOfferPageInner({ config }: { config: ProjectPageConfig }) {
 }
 
 // ============================================
+// EDIT MODE WRAPPER (bridges ProjectDrawer session to EditModeProvider)
+// ============================================
+
+function EditModeWrapper({ config, children }: { config: ProjectPageConfig; children: React.ReactNode }) {
+  // Get session from ProjectDrawer context
+  const { session, isAuthenticated } = useProjectDrawer();
+
+  return (
+    <EditModeProvider
+      projectId={config.projectId}
+      organizationId={config.organizationId as Id<"organizations">}
+      sessionId={session?.sessionId ?? null}
+      userEmail={session?.contactEmail ?? null}
+      userName={null} // Could be enhanced to get contact name from CRM
+    >
+      {children}
+      {/* Only show edit toolbar when authenticated via drawer */}
+      {isAuthenticated && <EditModeToolbar />}
+    </EditModeProvider>
+  );
+}
+
+// ============================================
 // EXPORTED TEMPLATE COMPONENT (Wrapper with fonts and language provider)
 // ============================================
 
 export default function GerritTemplate({ config }: GerritTemplateProps) {
   return (
     <LanguageProvider>
-      <div className={`${inter.variable} ${playfair.variable} font-sans`}>
-        <GerritOfferPageInner config={config} />
-      </div>
+      <EditModeWrapper config={config}>
+        <div className={`${inter.variable} ${playfair.variable} font-sans`}>
+          <GerritOfferPageInner config={config} />
+        </div>
+      </EditModeWrapper>
     </LanguageProvider>
   );
 }

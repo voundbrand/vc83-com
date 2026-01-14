@@ -44,6 +44,7 @@ export const APP_FEATURE_MAPPING: Record<string, AppFeatureFlag> = {
   // Automation apps
   workflows: "workflowsEnabled",
   "ai-assistant": "aiEnabled",
+  sequences: "sequencesEnabled",
 };
 
 /**

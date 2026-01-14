@@ -2678,4 +2678,136 @@ http.route({
   handler: aiChatSwitchOrganization,
 });
 
+// ============================================================================
+// ACTIVITY PROTOCOL API
+// ============================================================================
+// Activity monitoring, page detection, and event logging for connected apps
+
+// Import Activity Protocol handlers
+import {
+  logEvent as activityLogEvent,
+  getEvents as activityGetEvents,
+  getStats as activityGetStats,
+  registerPage as activityRegisterPage,
+  bulkRegisterPages as activityBulkRegisterPages,
+  getPages as activityGetPages,
+  updatePageBindings as activityUpdatePageBindings,
+  deletePage as activityDeletePage,
+  getSettings as activityGetSettings,
+  updateSettings as activityUpdateSettings,
+  handleOptions as activityHandleOptions,
+} from "./api/v1/activityProtocol";
+
+// OPTIONS /api/v1/activity/events - CORS preflight
+http.route({
+  path: "/api/v1/activity/events",
+  method: "OPTIONS",
+  handler: activityHandleOptions,
+});
+
+// POST /api/v1/activity/events - Log an activity event
+http.route({
+  path: "/api/v1/activity/events",
+  method: "POST",
+  handler: activityLogEvent,
+});
+
+// GET /api/v1/activity/events - Get activity events
+http.route({
+  path: "/api/v1/activity/events",
+  method: "GET",
+  handler: activityGetEvents,
+});
+
+// OPTIONS /api/v1/activity/stats - CORS preflight
+http.route({
+  path: "/api/v1/activity/stats",
+  method: "OPTIONS",
+  handler: activityHandleOptions,
+});
+
+// GET /api/v1/activity/stats - Get activity statistics
+http.route({
+  path: "/api/v1/activity/stats",
+  method: "GET",
+  handler: activityGetStats,
+});
+
+// OPTIONS /api/v1/activity/pages - CORS preflight
+http.route({
+  path: "/api/v1/activity/pages",
+  method: "OPTIONS",
+  handler: activityHandleOptions,
+});
+
+// POST /api/v1/activity/pages - Register a single page
+http.route({
+  path: "/api/v1/activity/pages",
+  method: "POST",
+  handler: activityRegisterPage,
+});
+
+// GET /api/v1/activity/pages - Get application pages
+http.route({
+  path: "/api/v1/activity/pages",
+  method: "GET",
+  handler: activityGetPages,
+});
+
+// OPTIONS /api/v1/activity/pages/bulk - CORS preflight
+http.route({
+  path: "/api/v1/activity/pages/bulk",
+  method: "OPTIONS",
+  handler: activityHandleOptions,
+});
+
+// POST /api/v1/activity/pages/bulk - Bulk register pages
+http.route({
+  path: "/api/v1/activity/pages/bulk",
+  method: "POST",
+  handler: activityBulkRegisterPages,
+});
+
+// OPTIONS /api/v1/activity/pages/:id - CORS preflight for page operations
+http.route({
+  pathPrefix: "/api/v1/activity/pages/",
+  method: "OPTIONS",
+  handler: activityHandleOptions,
+});
+
+// PATCH /api/v1/activity/pages/:id/bindings - Update page bindings
+http.route({
+  pathPrefix: "/api/v1/activity/pages/",
+  method: "PATCH",
+  handler: activityUpdatePageBindings,
+});
+
+// DELETE /api/v1/activity/pages/:id - Delete a page
+http.route({
+  pathPrefix: "/api/v1/activity/pages/",
+  method: "DELETE",
+  handler: activityDeletePage,
+});
+
+// OPTIONS /api/v1/activity/settings - CORS preflight
+http.route({
+  path: "/api/v1/activity/settings",
+  method: "OPTIONS",
+  handler: activityHandleOptions,
+});
+
+// GET /api/v1/activity/settings - Get activity settings
+http.route({
+  path: "/api/v1/activity/settings",
+  method: "GET",
+  handler: activityGetSettings,
+});
+
+// PATCH /api/v1/activity/settings - Update activity settings
+http.route({
+  path: "/api/v1/activity/settings",
+  method: "PATCH",
+  handler: activityUpdateSettings,
+});
+
 export default http;

@@ -34,6 +34,14 @@ import {
   Bell,
   Smartphone,
 } from "lucide-react";
+import { useProjectDrawer } from "@/components/project-drawer";
+import {
+  EditModeProvider,
+  EditModeToolbar,
+  EditableText,
+  EditableMultilineText,
+} from "@/components/project-editing";
+import type { Id } from "@convex/_generated/dataModel";
 
 // Initialize fonts
 const inter = Inter({
@@ -177,23 +185,27 @@ function ExecutiveSummarySection() {
               <div className="text-amber-200 text-xs font-medium mb-2">
                 FÜR FAHRGÄSTE
               </div>
-              <p className="text-sm leading-relaxed italic">
-                &quot;Viele ältere Menschen vermissen die Freiheit, draußen
-                unterwegs zu sein. Mit unseren kostenlosen Rikscha-Fahrten
-                schenken wir Mobilität, frische Luft und wertvolle Begegnungen.
-                Rufen Sie an und buchen Sie Ihre Fahrt.&quot;
-              </p>
+              <EditableMultilineText
+                blockId="summary.oneliner.passengers"
+                defaultValue="&quot;Viele ältere Menschen vermissen die Freiheit, draußen unterwegs zu sein. Mit unseren kostenlosen Rikscha-Fahrten schenken wir Mobilität, frische Luft und wertvolle Begegnungen. Rufen Sie an und buchen Sie Ihre Fahrt.&quot;"
+                as="p"
+                className="text-sm leading-relaxed italic"
+                sectionId="summary"
+                blockLabel="One-Liner Passengers"
+              />
             </div>
             <div>
               <div className="text-amber-200 text-xs font-medium mb-2">
                 FÜR PILOTEN
               </div>
-              <p className="text-sm leading-relaxed italic">
-                &quot;Viele Menschen möchten etwas Sinnvolles für ihre
-                Gemeinschaft tun. Als Rikscha-Pilot schenken Sie älteren
-                Menschen Mobilität und Freude – und bleiben dabei selbst aktiv.
-                Melden Sie sich für Ihre Einweisung.&quot;
-              </p>
+              <EditableMultilineText
+                blockId="summary.oneliner.pilots"
+                defaultValue="&quot;Viele Menschen möchten etwas Sinnvolles für ihre Gemeinschaft tun. Als Rikscha-Pilot schenken Sie älteren Menschen Mobilität und Freude – und bleiben dabei selbst aktiv. Melden Sie sich für Ihre Einweisung.&quot;"
+                as="p"
+                className="text-sm leading-relaxed italic"
+                sectionId="summary"
+                blockLabel="One-Liner Pilots"
+              />
             </div>
           </div>
         </div>
@@ -233,11 +245,14 @@ function StoryBrandFahrgaesteSection() {
               </p>
             </div>
           </div>
-          <p className="text-gray-700 leading-relaxed">
-            Ältere Menschen in Torgelow und Umgebung, die eingeschränkte
-            Mobilität haben und die Freiheit vermissen, an der frischen Luft
-            unterwegs zu sein und am Stadtleben teilzunehmen.
-          </p>
+          <EditableMultilineText
+            blockId="fahrgaeste.hero.description"
+            defaultValue="Ältere Menschen in Torgelow und Umgebung, die eingeschränkte Mobilität haben und die Freiheit vermissen, an der frischen Luft unterwegs zu sein und am Stadtleben teilzunehmen."
+            as="p"
+            className="text-gray-700 leading-relaxed"
+            sectionId="fahrgaeste"
+            blockLabel="Hero Description (Fahrgäste)"
+          />
         </div>
 
         {/* The Problem - 3 Levels */}
@@ -259,27 +274,40 @@ function StoryBrandFahrgaesteSection() {
               <div className="text-xs font-medium text-red-600 mb-2">
                 EXTERN (sichtbar)
               </div>
-              <p className="text-sm text-gray-700">
-                Kann nicht mehr selbstständig spazieren gehen, ist auf andere
-                angewiesen
-              </p>
+              <EditableMultilineText
+                blockId="fahrgaeste.problem.external"
+                defaultValue="Kann nicht mehr selbstständig spazieren gehen, ist auf andere angewiesen"
+                as="p"
+                className="text-sm text-gray-700"
+                sectionId="fahrgaeste"
+                blockLabel="External Problem"
+              />
             </div>
             <div className="p-4 bg-red-50 border border-red-100">
               <div className="text-xs font-medium text-red-600 mb-2">
                 INTERN (Gefühl)
               </div>
-              <p className="text-sm text-gray-700">
-                Fühlt sich isoliert, vergessen, als Belastung für andere
-              </p>
+              <EditableMultilineText
+                blockId="fahrgaeste.problem.internal"
+                defaultValue="Fühlt sich isoliert, vergessen, als Belastung für andere"
+                as="p"
+                className="text-sm text-gray-700"
+                sectionId="fahrgaeste"
+                blockLabel="Internal Problem"
+              />
             </div>
             <div className="p-4 bg-red-50 border border-red-100">
               <div className="text-xs font-medium text-red-600 mb-2">
                 PHILOSOPHISCH
               </div>
-              <p className="text-sm text-gray-700">
-                &quot;Nur weil ich älter bin, sollte ich nicht von der Welt
-                ausgeschlossen sein&quot;
-              </p>
+              <EditableMultilineText
+                blockId="fahrgaeste.problem.philosophical"
+                defaultValue="&quot;Nur weil ich älter bin, sollte ich nicht von der Welt ausgeschlossen sein&quot;"
+                as="p"
+                className="text-sm text-gray-700"
+                sectionId="fahrgaeste"
+                blockLabel="Philosophical Problem"
+              />
             </div>
           </div>
         </div>
@@ -306,10 +334,14 @@ function StoryBrandFahrgaesteSection() {
                   EMPATHIE
                 </span>
               </div>
-              <p className="text-sm text-gray-700">
-                &quot;Wir verstehen, dass Mobilität Lebensqualität
-                bedeutet&quot;
-              </p>
+              <EditableMultilineText
+                blockId="fahrgaeste.guide.empathy"
+                defaultValue="&quot;Wir verstehen, dass Mobilität Lebensqualität bedeutet&quot;"
+                as="p"
+                className="text-sm text-gray-700"
+                sectionId="fahrgaeste"
+                blockLabel="Guide Empathy"
+              />
             </div>
             <div className="p-4 bg-violet-50 border border-violet-100">
               <div className="flex items-center gap-2 mb-2">
@@ -318,10 +350,14 @@ function StoryBrandFahrgaesteSection() {
                   AUTORITÄT
                 </span>
               </div>
-              <p className="text-sm text-gray-700">
-                Moderne, sichere Rikschas mit E-Unterstützung, geschulte
-                Piloten, umfassender Versicherungsschutz
-              </p>
+              <EditableMultilineText
+                blockId="fahrgaeste.guide.authority"
+                defaultValue="Moderne, sichere Rikschas mit E-Unterstützung, geschulte Piloten, umfassender Versicherungsschutz"
+                as="p"
+                className="text-sm text-gray-700"
+                sectionId="fahrgaeste"
+                blockLabel="Guide Authority"
+              />
             </div>
           </div>
         </div>
@@ -496,10 +532,14 @@ function StoryBrandPilotenSection() {
               <p className="text-sm text-gray-500">Der potenzielle Pilot</p>
             </div>
           </div>
-          <p className="text-gray-700 leading-relaxed">
-            Aktive Menschen (oft 50+), die fit sind, Zeit haben und etwas
-            Sinnvolles für ihre Gemeinschaft tun wollen.
-          </p>
+          <EditableMultilineText
+            blockId="piloten.hero.description"
+            defaultValue="Aktive Menschen (oft 50+), die fit sind, Zeit haben und etwas Sinnvolles für ihre Gemeinschaft tun wollen."
+            as="p"
+            className="text-gray-700 leading-relaxed"
+            sectionId="piloten"
+            blockLabel="Hero Description (Piloten)"
+          />
         </div>
 
         {/* The Problem - 3 Levels */}
@@ -519,25 +559,38 @@ function StoryBrandPilotenSection() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             <div className="p-4 bg-red-50 border border-red-100">
               <div className="text-xs font-medium text-red-600 mb-2">EXTERN</div>
-              <p className="text-sm text-gray-700">
-                Sucht eine sinnvolle Beschäftigung, möchte aktiv bleiben
-              </p>
+              <EditableMultilineText
+                blockId="piloten.problem.external"
+                defaultValue="Sucht eine sinnvolle Beschäftigung, möchte aktiv bleiben"
+                as="p"
+                className="text-sm text-gray-700"
+                sectionId="piloten"
+                blockLabel="External Problem (Piloten)"
+              />
             </div>
             <div className="p-4 bg-red-50 border border-red-100">
               <div className="text-xs font-medium text-red-600 mb-2">INTERN</div>
-              <p className="text-sm text-gray-700">
-                Fühlt sich unterfordert, möchte gebraucht werden, sucht soziale
-                Kontakte
-              </p>
+              <EditableMultilineText
+                blockId="piloten.problem.internal"
+                defaultValue="Fühlt sich unterfordert, möchte gebraucht werden, sucht soziale Kontakte"
+                as="p"
+                className="text-sm text-gray-700"
+                sectionId="piloten"
+                blockLabel="Internal Problem (Piloten)"
+              />
             </div>
             <div className="p-4 bg-red-50 border border-red-100">
               <div className="text-xs font-medium text-red-600 mb-2">
                 PHILOSOPHISCH
               </div>
-              <p className="text-sm text-gray-700">
-                &quot;Ich habe noch viel zu geben und möchte einen Unterschied
-                machen&quot;
-              </p>
+              <EditableMultilineText
+                blockId="piloten.problem.philosophical"
+                defaultValue="&quot;Ich habe noch viel zu geben und möchte einen Unterschied machen&quot;"
+                as="p"
+                className="text-sm text-gray-700"
+                sectionId="piloten"
+                blockLabel="Philosophical Problem (Piloten)"
+              />
             </div>
           </div>
         </div>
@@ -564,9 +617,14 @@ function StoryBrandPilotenSection() {
                   EMPATHIE
                 </span>
               </div>
-              <p className="text-sm text-gray-700">
-                &quot;Wir wissen, dass Sie mehr zu bieten haben&quot;
-              </p>
+              <EditableMultilineText
+                blockId="piloten.guide.empathy"
+                defaultValue="&quot;Wir wissen, dass Sie mehr zu bieten haben&quot;"
+                as="p"
+                className="text-sm text-gray-700"
+                sectionId="piloten"
+                blockLabel="Guide Empathy (Piloten)"
+              />
             </div>
             <div className="p-4 bg-violet-50 border border-violet-100">
               <div className="flex items-center gap-2 mb-2">
@@ -575,10 +633,14 @@ function StoryBrandPilotenSection() {
                   AUTORITÄT
                 </span>
               </div>
-              <p className="text-sm text-gray-700">
-                Umfassende Einweisung, Probefahrt, Versicherungsschutz, flexible
-                Zeiteinteilung
-              </p>
+              <EditableMultilineText
+                blockId="piloten.guide.authority"
+                defaultValue="Umfassende Einweisung, Probefahrt, Versicherungsschutz, flexible Zeiteinteilung"
+                as="p"
+                className="text-sm text-gray-700"
+                sectionId="piloten"
+                blockLabel="Guide Authority (Piloten)"
+              />
             </div>
           </div>
         </div>
@@ -1496,13 +1558,22 @@ function ContactSection() {
   return (
     <section className="py-10 sm:py-16 bg-gradient-to-br from-amber-600 to-orange-600 text-white">
       <div className="max-w-4xl mx-auto px-4 text-center">
-        <h2 className="text-2xl sm:text-3xl font-serif font-bold mb-3 sm:mb-4">
-          Bereit, Torgelow ins Rollen zu bringen?
-        </h2>
-        <p className="text-amber-100 mb-6 sm:mb-8 max-w-xl mx-auto text-sm sm:text-base">
-          Bei Fragen stehe ich jederzeit zur Verfügung. Lassen Sie uns gemeinsam
-          dieses wunderbare Projekt zum Leben erwecken.
-        </p>
+        <EditableText
+          blockId="cta.title"
+          defaultValue="Bereit, Torgelow ins Rollen zu bringen?"
+          as="h2"
+          className="text-2xl sm:text-3xl font-serif font-bold mb-3 sm:mb-4"
+          sectionId="cta"
+          blockLabel="CTA Title"
+        />
+        <EditableMultilineText
+          blockId="cta.description"
+          defaultValue="Bei Fragen stehe ich jederzeit zur Verfügung. Lassen Sie uns gemeinsam dieses wunderbare Projekt zum Leben erwecken."
+          as="p"
+          className="text-amber-100 mb-6 sm:mb-8 max-w-xl mx-auto text-sm sm:text-base"
+          sectionId="cta"
+          blockLabel="CTA Description"
+        />
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 flex-wrap">
           <a
@@ -1552,10 +1623,37 @@ function ContactSection() {
 }
 
 // ============================================
-// MAIN TEMPLATE COMPONENT
+// EDIT MODE WRAPPER
 // ============================================
 
-export default function RikschaTemplate({ config }: RikschaTemplateProps) {
+function EditModeWrapper({
+  config,
+  children,
+}: {
+  config: ProjectPageConfig;
+  children: React.ReactNode;
+}) {
+  const { session, isAuthenticated } = useProjectDrawer();
+
+  return (
+    <EditModeProvider
+      projectId={config.projectId}
+      organizationId={config.organizationId as Id<"organizations">}
+      sessionId={session?.sessionId ?? null}
+      userEmail={session?.contactEmail ?? null}
+      userName={null}
+    >
+      {children}
+      {isAuthenticated && <EditModeToolbar />}
+    </EditModeProvider>
+  );
+}
+
+// ============================================
+// RIKSCHA PAGE INNER (with editable content)
+// ============================================
+
+function RikschaPageInner({ config }: { config: ProjectPageConfig }) {
   return (
     <div className={`${inter.variable} ${playfair.variable} font-sans min-h-screen bg-white`}>
       {/* Header */}
@@ -1609,15 +1707,30 @@ export default function RikschaTemplate({ config }: RikschaTemplateProps) {
         <div className="max-w-4xl mx-auto px-4 text-center">
           <div className="inline-flex items-center gap-2 bg-amber-100 text-amber-800 px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-medium mb-4 sm:mb-6">
             <MapPin className="w-3 h-3 sm:w-4 sm:h-4" />
-            TuS Pommern Torgelow e.V.
+            <EditableText
+              blockId="hero.badge"
+              defaultValue="TuS Pommern Torgelow e.V."
+              as="span"
+              sectionId="hero"
+              blockLabel="Hero Badge"
+            />
           </div>
-          <h1 className="text-2xl sm:text-4xl md:text-5xl font-serif font-bold text-gray-800 mb-3 sm:mb-4">
-            Gemeinsam bringen wir Torgelow ins Rollen
-          </h1>
-          <p className="text-base sm:text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
-            Eine umfassende Marketingstrategie für das Rikscha-Projekt –
-            basierend auf dem StoryBrand-Framework
-          </p>
+          <EditableText
+            blockId="hero.title"
+            defaultValue="Gemeinsam bringen wir Torgelow ins Rollen"
+            as="h1"
+            className="text-2xl sm:text-4xl md:text-5xl font-serif font-bold text-gray-800 mb-3 sm:mb-4"
+            sectionId="hero"
+            blockLabel="Hero Title"
+          />
+          <EditableMultilineText
+            blockId="hero.subtitle"
+            defaultValue="Eine umfassende Marketingstrategie für das Rikscha-Projekt – basierend auf dem StoryBrand-Framework"
+            as="p"
+            className="text-base sm:text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed"
+            sectionId="hero"
+            blockLabel="Hero Subtitle"
+          />
           <div className="mt-6 sm:mt-8 flex flex-wrap justify-center gap-2 sm:gap-3">
             <span className="bg-amber-100 text-amber-800 px-2 sm:px-3 py-1 text-xs sm:text-sm">
               6-Seiten Flyer
@@ -1647,5 +1760,17 @@ export default function RikschaTemplate({ config }: RikschaTemplateProps) {
         <ContactSection />
       </main>
     </div>
+  );
+}
+
+// ============================================
+// MAIN TEMPLATE COMPONENT
+// ============================================
+
+export default function RikschaTemplate({ config }: RikschaTemplateProps) {
+  return (
+    <EditModeWrapper config={config}>
+      <RikschaPageInner config={config} />
+    </EditModeWrapper>
   );
 }
