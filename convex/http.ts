@@ -2290,7 +2290,7 @@ import {
 
 // OPTIONS /api/v1/webinars/* - CORS preflight
 http.route({
-  pathPrefix: "/api/v1/webinars",
+  pathPrefix: "/api/v1/webinars/",
   method: "OPTIONS",
   handler: httpAction(async (ctx, request) => {
     const origin = request.headers.get("origin");
@@ -2300,14 +2300,14 @@ http.route({
 
 // GET /api/v1/webinars/* - Master router for all GET requests
 http.route({
-  pathPrefix: "/api/v1/webinars",
+  pathPrefix: "/api/v1/webinars/",
   method: "GET",
   handler: webinarGetRouter,
 });
 
 // POST /api/v1/webinars/* - Master router for all POST requests
 http.route({
-  pathPrefix: "/api/v1/webinars",
+  pathPrefix: "/api/v1/webinars/",
   method: "POST",
   handler: webinarPostRouter,
 });
