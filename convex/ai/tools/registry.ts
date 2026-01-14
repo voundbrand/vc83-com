@@ -1894,6 +1894,143 @@ const publishCheckoutTool: AITool = {
   }
 };
 
+/**
+ * LINK FORM TO CHECKOUT TOOL
+ *
+ * Links a form to a checkout page, adding a form collection step.
+ * The form will be shown during checkout to collect additional information.
+ */
+const linkFormToCheckoutTool: AITool = {
+  name: "link_form_to_checkout",
+  description: `Link a form to a checkout page to add a form collection step during checkout.
+
+When a form is linked, the checkout flow will include a step where customers fill out the form fields before completing their purchase.
+
+USE CASES:
+- Registration forms for event tickets
+- Dietary requirements for catering
+- T-shirt sizes for merchandise
+- Additional attendee information
+- Custom questionnaires
+
+WORKFLOW:
+1. First, ensure you have created the form using create_form
+2. Then, ensure you have created the checkout using create_checkout_page
+3. Use this tool to link them together
+
+If the user doesn't specify which form or checkout to use, list the available ones and ask them to choose.`,
+  status: "ready",
+  windowName: "Checkout",
+  parameters: {
+    type: "object",
+    properties: {
+      checkoutId: {
+        type: "string",
+        description: "The checkout page ID to add the form to"
+      },
+      formId: {
+        type: "string",
+        description: "The form ID to link to the checkout"
+      }
+    },
+    required: ["checkoutId", "formId"]
+  },
+  execute: async (ctx, args) => {
+    // First, let's provide context if user hasn't specified IDs
+    if (!args.checkoutId || !args.formId) {
+      // List available forms and checkouts
+      const [forms, checkouts] = await Promise.all([
+        ctx.runQuery(internal.ai.tools.internalToolMutations.internalListForms, {
+          organizationId: ctx.organizationId,
+          status: "all",
+          limit: 20,
+        }),
+        ctx.runQuery(internal.ai.tools.internalToolMutations.internalListCheckouts, {
+          organizationId: ctx.organizationId,
+          limit: 20,
+        }),
+      ]);
+
+      return {
+        success: false,
+        requiresUserDecision: true,
+        error: "Please specify which form and checkout to link",
+        userPrompt: "I need to know which form to add to which checkout. Here's what you have:",
+        availableForms: forms.map((f: { _id: string; name: string; status: string }) => ({
+          id: f._id,
+          name: f.name,
+          status: f.status
+        })),
+        availableCheckouts: checkouts.map((c: { _id: string; name: string; status: string; customProperties?: { linkedFormId?: string } }) => ({
+          id: c._id,
+          name: c.name,
+          status: c.status,
+          hasForm: !!c.customProperties?.linkedFormId
+        })),
+        hint: "Ask the user which form should be added to which checkout page."
+      };
+    }
+
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalLinkFormToCheckout, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      checkoutId: args.checkoutId as Id<"objects">,
+      formId: args.formId as Id<"objects">,
+    });
+
+    return {
+      success: true,
+      message: `Linked form "${result.formName}" to checkout "${result.checkoutName}". The checkout will now include a form collection step.`,
+      checkoutId: result.checkoutId,
+      checkoutName: result.checkoutName,
+      formId: result.formId,
+      formName: result.formName,
+      nextSteps: [
+        "The form will appear as a step in the checkout flow",
+        "Customers will fill out the form before payment",
+        "Form responses are stored with the order"
+      ]
+    };
+  }
+};
+
+/**
+ * UNLINK FORM FROM CHECKOUT TOOL
+ *
+ * Removes a form from a checkout page.
+ */
+const unlinkFormFromCheckoutTool: AITool = {
+  name: "unlink_form_from_checkout",
+  description: "Remove a form from a checkout page. The checkout will no longer include the form collection step.",
+  status: "ready",
+  windowName: "Checkout",
+  parameters: {
+    type: "object",
+    properties: {
+      checkoutId: {
+        type: "string",
+        description: "The checkout page ID to remove the form from"
+      }
+    },
+    required: ["checkoutId"]
+  },
+  execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalUnlinkFormFromCheckout, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      checkoutId: args.checkoutId as Id<"objects">,
+    });
+
+    return {
+      success: true,
+      message: `Removed form from checkout "${result.checkoutName}". The checkout will no longer include a form collection step.`,
+      checkoutId: result.checkoutId,
+      checkoutName: result.checkoutName,
+      previousFormId: result.previousFormId,
+    };
+  }
+};
+
 const publishAllTool: AITool = {
   name: "publish_all",
   description: `Publish/activate multiple entities at once. Use this when the user asks to "publish everything", "activate all", or "make everything live".
@@ -3067,6 +3204,8 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
   // Checkout
   create_checkout_page: createCheckoutPageTool,
   publish_checkout: publishCheckoutTool,
+  link_form_to_checkout: linkFormToCheckoutTool,
+  unlink_form_from_checkout: unlinkFormFromCheckoutTool,
 
   // Batch Operations
   publish_all: publishAllTool,

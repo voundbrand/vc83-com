@@ -3470,3 +3470,169 @@ export const internalPublishPage = internalMutation({
     };
   },
 });
+
+/**
+ * LINK FORM TO CHECKOUT
+ *
+ * Links a form to a checkout page, adding the form-collection behavior
+ * so the checkout will include a form step.
+ */
+export const internalLinkFormToCheckout = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+    checkoutId: v.id("objects"),
+    formId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    // Verify checkout exists and belongs to org
+    const checkout = await ctx.db.get(args.checkoutId);
+    if (!checkout || checkout.type !== "checkout_instance" || checkout.organizationId !== args.organizationId) {
+      throw new Error("Checkout not found or not accessible");
+    }
+
+    // Verify form exists and belongs to org
+    const form = await ctx.db.get(args.formId);
+    if (!form || form.type !== "form" || form.organizationId !== args.organizationId) {
+      throw new Error("Form not found or not accessible");
+    }
+
+    const customProps = (checkout.customProperties || {}) as Record<string, unknown>;
+    const existingBehaviors = (customProps.behaviors || []) as Array<{ type: string; config?: Record<string, unknown>; priority?: number }>;
+
+    // Remove any existing form-collection behavior
+    const filteredBehaviors = existingBehaviors.filter(b => b.type !== "form-collection");
+
+    // Add new form-collection behavior
+    filteredBehaviors.push({
+      type: "form-collection",
+      config: { formId: args.formId },
+      priority: 100,
+    });
+
+    const now = Date.now();
+
+    // Update checkout with new form link and behavior
+    await ctx.db.patch(args.checkoutId, {
+      customProperties: {
+        ...customProps,
+        linkedFormId: args.formId,
+        behaviors: filteredBehaviors,
+      },
+      updatedAt: now,
+    });
+
+    // Check if link already exists
+    const existingLink = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_from_link_type", q => q.eq("fromObjectId", args.checkoutId).eq("linkType", "checkout_form"))
+      .first();
+
+    // Remove old link if exists
+    if (existingLink) {
+      await ctx.db.delete(existingLink._id);
+    }
+
+    // Create new object link
+    await ctx.db.insert("objectLinks", {
+      organizationId: args.organizationId,
+      fromObjectId: args.checkoutId,
+      toObjectId: args.formId,
+      linkType: "checkout_form",
+      createdAt: now,
+    });
+
+    // Log action
+    await ctx.db.insert("objectActions", {
+      organizationId: args.organizationId,
+      objectId: args.checkoutId,
+      actionType: "checkout_form_linked",
+      actionData: {
+        source: "ai_assistant",
+        formId: args.formId,
+        formName: form.name,
+        checkoutName: checkout.name,
+      },
+      performedBy: args.userId,
+      performedAt: now,
+    });
+
+    return {
+      success: true,
+      checkoutId: args.checkoutId,
+      checkoutName: checkout.name,
+      formId: args.formId,
+      formName: form.name,
+    };
+  },
+});
+
+/**
+ * UNLINK FORM FROM CHECKOUT
+ *
+ * Removes a form from a checkout page, removing the form-collection behavior.
+ */
+export const internalUnlinkFormFromCheckout = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+    checkoutId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    // Verify checkout exists and belongs to org
+    const checkout = await ctx.db.get(args.checkoutId);
+    if (!checkout || checkout.type !== "checkout_instance" || checkout.organizationId !== args.organizationId) {
+      throw new Error("Checkout not found or not accessible");
+    }
+
+    const customProps = (checkout.customProperties || {}) as Record<string, unknown>;
+    const existingBehaviors = (customProps.behaviors || []) as Array<{ type: string; config?: Record<string, unknown>; priority?: number }>;
+    const previousFormId = customProps.linkedFormId;
+
+    // Remove form-collection behavior
+    const filteredBehaviors = existingBehaviors.filter(b => b.type !== "form-collection");
+
+    const now = Date.now();
+
+    // Update checkout to remove form link
+    await ctx.db.patch(args.checkoutId, {
+      customProperties: {
+        ...customProps,
+        linkedFormId: undefined,
+        behaviors: filteredBehaviors,
+      },
+      updatedAt: now,
+    });
+
+    // Remove object link
+    const existingLink = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_from_link_type", q => q.eq("fromObjectId", args.checkoutId).eq("linkType", "checkout_form"))
+      .first();
+
+    if (existingLink) {
+      await ctx.db.delete(existingLink._id);
+    }
+
+    // Log action
+    await ctx.db.insert("objectActions", {
+      organizationId: args.organizationId,
+      objectId: args.checkoutId,
+      actionType: "checkout_form_unlinked",
+      actionData: {
+        source: "ai_assistant",
+        previousFormId,
+        checkoutName: checkout.name,
+      },
+      performedBy: args.userId,
+      performedAt: now,
+    });
+
+    return {
+      success: true,
+      checkoutId: args.checkoutId,
+      checkoutName: checkout.name,
+      previousFormId,
+    };
+  },
+});
