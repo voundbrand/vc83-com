@@ -160,19 +160,24 @@ export function AISettingsTabV3() {
         setEnabled(true); // Auto-enable AI features
       }
     }
-  }, [settings, platformModels, enabledModels.length, getAllModelsForTier]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Only run on initial load, not when user modifies local state
+  }, [settings, platformModels]);
 
   // Auto-select system default models when tier changes
+  // This effect handles filtering out incompatible models when switching privacy tiers
   useEffect(() => {
+    if (!platformModels) return; // Wait for models to load
+
     const allModels = getAllModelsForTier(tier);
     const allModelIds = allModels.map(m => m.id);
 
     // Use functional update to check current state without adding enabledModels to deps
     setEnabledModels(currentModels => {
-      // If no models are enabled, or tier changed and incompatible models exist
-      const hasIncompatibleModels = currentModels.some(m => !allModelIds.includes(m.modelId));
+      // Only act if we have existing models that are now incompatible with the new tier
+      const hasIncompatibleModels = currentModels.length > 0 &&
+        currentModels.some(m => !allModelIds.includes(m.modelId));
 
-      if (currentModels.length === 0 || hasIncompatibleModels) {
+      if (hasIncompatibleModels) {
         // Get system defaults (models marked as recommended by super admin)
         const systemDefaultModels = allModels.filter(m => m.recommended);
 
@@ -195,7 +200,8 @@ export function AISettingsTabV3() {
       // No change needed
       return currentModels;
     });
-  }, [tier, getAllModelsForTier]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Only run when tier changes, not on platformModels updates
+  }, [tier]);
 
   // Get all available models based on tier
   const allAvailableModels = getAllModelsForTier(tier);
