@@ -3671,27 +3671,25 @@ export const internalAddFormToCheckoutWorkflow = internalMutation({
 
     const now = Date.now();
 
-    // Find existing checkout_start workflow or create one
-    let workflow = await ctx.db
+    // Find existing checkout_start workflow
+    const allWorkflows = await ctx.db
       .query("objects")
       .withIndex("by_org_type", q => q.eq("organizationId", args.organizationId).eq("type", "workflow"))
       .filter(q => {
-        // Filter for active workflows with checkout_start trigger
+        // Filter out archived/deleted workflows
         return q.and(
           q.neq(q.field("status"), "archived"),
           q.neq(q.field("status"), "deleted")
         );
       })
-      .first();
+      .collect();
 
-    // Check if it has checkout_start trigger
-    if (workflow) {
-      const customProps = workflow.customProperties as Record<string, unknown> | undefined;
+    // Find the one with checkout_start trigger
+    let workflow = allWorkflows.find(w => {
+      const customProps = w.customProperties as Record<string, unknown> | undefined;
       const execution = customProps?.execution as { triggerOn?: string } | undefined;
-      if (execution?.triggerOn !== "checkout_start") {
-        workflow = null; // Not a checkout workflow, need to create one
-      }
-    }
+      return execution?.triggerOn === "checkout_start";
+    }) || null;
 
     if (!workflow) {
       // Create new checkout workflow
