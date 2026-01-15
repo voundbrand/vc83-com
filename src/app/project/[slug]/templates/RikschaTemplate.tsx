@@ -791,27 +791,46 @@ function FlyerConceptSection() {
             <div className="space-y-3 text-sm">
               <div>
                 <span className="text-gray-500 text-xs">HEADLINE:</span>
-                <p className="font-serif font-semibold text-gray-800">
-                  &quot;Wieder Wind im Haar – mit der Rikscha durch
-                  Torgelow&quot;
-                </p>
+                <EditableText
+                  blockId="flyer.page1.headline"
+                  defaultValue="&quot;Wieder Wind im Haar – mit der Rikscha durch Torgelow&quot;"
+                  as="p"
+                  className="font-serif font-semibold text-gray-800"
+                  sectionId="flyer"
+                  blockLabel="Page 1 Headline"
+                />
               </div>
               <div>
                 <span className="text-gray-500 text-xs">SUBHEADLINE:</span>
-                <p className="text-gray-700">
-                  Kostenlose Fahrten für Menschen, die die Freiheit vermissen
-                </p>
+                <EditableText
+                  blockId="flyer.page1.subheadline"
+                  defaultValue="Kostenlose Fahrten für Menschen, die die Freiheit vermissen"
+                  as="p"
+                  className="text-gray-700"
+                  sectionId="flyer"
+                  blockLabel="Page 1 Subheadline"
+                />
               </div>
               <div>
                 <span className="text-gray-500 text-xs">VISUAL:</span>
-                <p className="text-gray-600 italic">
-                  Emotionales Foto: Lächelnde ältere Person in Rikscha
-                </p>
+                <EditableText
+                  blockId="flyer.page1.visual"
+                  defaultValue="Emotionales Foto: Lächelnde ältere Person in Rikscha"
+                  as="p"
+                  className="text-gray-600 italic"
+                  sectionId="flyer"
+                  blockLabel="Page 1 Visual Description"
+                />
               </div>
               <div className="bg-amber-100 p-2 text-center">
-                <span className="text-amber-800 font-medium text-xs">
-                  CTA: Jetzt Fahrt buchen: 0170 / 558 528 7
-                </span>
+                <EditableText
+                  blockId="flyer.page1.cta"
+                  defaultValue="CTA: Jetzt Fahrt buchen: 0170 / 558 528 7"
+                  as="span"
+                  className="text-amber-800 font-medium text-xs"
+                  sectionId="flyer"
+                  blockLabel="Page 1 CTA"
+                />
               </div>
             </div>
           </div>
@@ -825,21 +844,69 @@ function FlyerConceptSection() {
               Einschlagseite
             </div>
             <div className="space-y-2">
-              <p className="font-serif font-semibold text-gray-800 text-sm mb-3">
-                &quot;Auf einen Blick&quot;
-              </p>
-              {[
-                "Komplett kostenlos",
-                "E-Unterstützung – kein Kraftaufwand",
-                "Vollversichert",
-                "Ihre Route, Ihre Entscheidung",
-                "Geschulte, ehrenamtliche Piloten",
-              ].map((item, idx) => (
-                <div key={idx} className="flex items-center gap-2 text-sm">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                  <span className="text-gray-700">{item}</span>
-                </div>
-              ))}
+              <EditableText
+                blockId="flyer.page2.title"
+                defaultValue="&quot;Auf einen Blick&quot;"
+                as="p"
+                className="font-serif font-semibold text-gray-800 text-sm mb-3"
+                sectionId="flyer"
+                blockLabel="Page 2 Title"
+              />
+              <div className="flex items-center gap-2 text-sm">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                <EditableText
+                  blockId="flyer.page2.fact1"
+                  defaultValue="Komplett kostenlos"
+                  as="span"
+                  className="text-gray-700"
+                  sectionId="flyer"
+                  blockLabel="Page 2 Fact 1"
+                />
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                <EditableText
+                  blockId="flyer.page2.fact2"
+                  defaultValue="E-Unterstützung – kein Kraftaufwand"
+                  as="span"
+                  className="text-gray-700"
+                  sectionId="flyer"
+                  blockLabel="Page 2 Fact 2"
+                />
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                <EditableText
+                  blockId="flyer.page2.fact3"
+                  defaultValue="Vollversichert"
+                  as="span"
+                  className="text-gray-700"
+                  sectionId="flyer"
+                  blockLabel="Page 2 Fact 3"
+                />
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                <EditableText
+                  blockId="flyer.page2.fact4"
+                  defaultValue="Ihre Route, Ihre Entscheidung"
+                  as="span"
+                  className="text-gray-700"
+                  sectionId="flyer"
+                  blockLabel="Page 2 Fact 4"
+                />
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                <EditableText
+                  blockId="flyer.page2.fact5"
+                  defaultValue="Geschulte, ehrenamtliche Piloten"
+                  as="span"
+                  className="text-gray-700"
+                  sectionId="flyer"
+                  blockLabel="Page 2 Fact 5"
+                />
+              </div>
             </div>
           </div>
 
@@ -854,32 +921,64 @@ function FlyerConceptSection() {
             <div className="space-y-3 text-sm">
               <div>
                 <span className="text-gray-500 text-xs">HEADLINE:</span>
-                <p className="font-serif font-semibold text-gray-800">
-                  &quot;Mobilität schenken, Freude teilen&quot;
-                </p>
+                <EditableText
+                  blockId="flyer.page3.headline"
+                  defaultValue="&quot;Mobilität schenken, Freude teilen&quot;"
+                  as="p"
+                  className="font-serif font-semibold text-gray-800"
+                  sectionId="flyer"
+                  blockLabel="Page 3 Headline"
+                />
               </div>
               <div>
                 <span className="text-gray-500 text-xs">PROBLEM:</span>
-                <p className="text-gray-700">
-                  &quot;Viele Menschen vermissen es, draußen zu sein...&quot;
-                </p>
+                <EditableText
+                  blockId="flyer.page3.problem"
+                  defaultValue="&quot;Viele Menschen vermissen es, draußen zu sein...&quot;"
+                  as="p"
+                  className="text-gray-700"
+                  sectionId="flyer"
+                  blockLabel="Page 3 Problem"
+                />
               </div>
               <div>
                 <span className="text-gray-500 text-xs">LÖSUNG:</span>
-                <p className="text-gray-700">
-                  &quot;Unsere Rikscha-Fahrten bringen Ihnen die Freiheit
-                  zurück&quot;
-                </p>
+                <EditableText
+                  blockId="flyer.page3.solution"
+                  defaultValue="&quot;Unsere Rikscha-Fahrten bringen Ihnen die Freiheit zurück&quot;"
+                  as="p"
+                  className="text-gray-700"
+                  sectionId="flyer"
+                  blockLabel="Page 3 Solution"
+                />
               </div>
               <div className="flex gap-2 mt-2">
                 <div className="flex-1 bg-amber-50 p-2 text-center text-xs">
-                  Anrufen
+                  <EditableText
+                    blockId="flyer.page3.step1"
+                    defaultValue="Anrufen"
+                    as="span"
+                    sectionId="flyer"
+                    blockLabel="Page 3 Step 1"
+                  />
                 </div>
                 <div className="flex-1 bg-amber-50 p-2 text-center text-xs">
-                  Termin
+                  <EditableText
+                    blockId="flyer.page3.step2"
+                    defaultValue="Termin"
+                    as="span"
+                    sectionId="flyer"
+                    blockLabel="Page 3 Step 2"
+                  />
                 </div>
                 <div className="flex-1 bg-amber-50 p-2 text-center text-xs">
-                  Genießen
+                  <EditableText
+                    blockId="flyer.page3.step3"
+                    defaultValue="Genießen"
+                    as="span"
+                    sectionId="flyer"
+                    blockLabel="Page 3 Step 3"
+                  />
                 </div>
               </div>
             </div>
@@ -895,28 +994,58 @@ function FlyerConceptSection() {
             </div>
             <div className="space-y-3 text-xs">
               <div>
-                <p className="font-medium text-gray-800">
-                  Ist die Fahrt wirklich kostenlos?
-                </p>
-                <p className="text-gray-600">
-                  Ja! Es ist eine Geste der Gemeinschaft.
-                </p>
+                <EditableText
+                  blockId="flyer.page4.faq1.question"
+                  defaultValue="Ist die Fahrt wirklich kostenlos?"
+                  as="p"
+                  className="font-medium text-gray-800"
+                  sectionId="flyer"
+                  blockLabel="FAQ 1 Question"
+                />
+                <EditableText
+                  blockId="flyer.page4.faq1.answer"
+                  defaultValue="Ja! Es ist eine Geste der Gemeinschaft."
+                  as="p"
+                  className="text-gray-600"
+                  sectionId="flyer"
+                  blockLabel="FAQ 1 Answer"
+                />
               </div>
               <div>
-                <p className="font-medium text-gray-800">
-                  Sind die Fahrten sicher?
-                </p>
-                <p className="text-gray-600">
-                  Sicherheit hat Vorrang. Moderne Rikschas, Versicherungsschutz.
-                </p>
+                <EditableText
+                  blockId="flyer.page4.faq2.question"
+                  defaultValue="Sind die Fahrten sicher?"
+                  as="p"
+                  className="font-medium text-gray-800"
+                  sectionId="flyer"
+                  blockLabel="FAQ 2 Question"
+                />
+                <EditableText
+                  blockId="flyer.page4.faq2.answer"
+                  defaultValue="Sicherheit hat Vorrang. Moderne Rikschas, Versicherungsschutz."
+                  as="p"
+                  className="text-gray-600"
+                  sectionId="flyer"
+                  blockLabel="FAQ 2 Answer"
+                />
               </div>
               <div>
-                <p className="font-medium text-gray-800">
-                  Was bieten wir nicht an?
-                </p>
-                <p className="text-gray-600">
-                  Keine Taxidienste. Nur Genussfahrten für die soziale Teilhabe.
-                </p>
+                <EditableText
+                  blockId="flyer.page4.faq3.question"
+                  defaultValue="Was bieten wir nicht an?"
+                  as="p"
+                  className="font-medium text-gray-800"
+                  sectionId="flyer"
+                  blockLabel="FAQ 3 Question"
+                />
+                <EditableText
+                  blockId="flyer.page4.faq3.answer"
+                  defaultValue="Keine Taxidienste. Nur Genussfahrten für die soziale Teilhabe."
+                  as="p"
+                  className="text-gray-600"
+                  sectionId="flyer"
+                  blockLabel="FAQ 3 Answer"
+                />
               </div>
             </div>
           </div>
@@ -931,26 +1060,55 @@ function FlyerConceptSection() {
             </div>
             <div className="space-y-3 text-sm">
               <div className="flex items-center gap-2">
-                <Phone className="w-4 h-4 text-amber-600" />
-                <span className="text-gray-700">0170 / 558 528 7</span>
+                <Phone className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                <EditableText
+                  blockId="flyer.page5.phone"
+                  defaultValue="0170 / 558 528 7"
+                  as="span"
+                  className="text-gray-700"
+                  sectionId="flyer"
+                  blockLabel="Page 5 Phone"
+                />
               </div>
               <div className="flex items-center gap-2">
-                <Globe className="w-4 h-4 text-amber-600" />
-                <span className="text-gray-700">tus-torgelow.de</span>
+                <Globe className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                <EditableText
+                  blockId="flyer.page5.website"
+                  defaultValue="tus-torgelow.de"
+                  as="span"
+                  className="text-gray-700"
+                  sectionId="flyer"
+                  blockLabel="Page 5 Website"
+                />
               </div>
               <div className="bg-emerald-50 p-3 border border-emerald-200">
                 <p className="text-xs font-medium text-emerald-700 mb-1">
                   SPENDEN:
                 </p>
-                <p className="text-xs text-gray-600">
-                  TuS Pommern Torgelow e.V.
-                </p>
-                <p className="text-xs text-gray-600">
-                  IBAN: DE 42 1506 1638 0003 1067 72
-                </p>
-                <p className="text-xs text-gray-500">
-                  Verwendungszweck: Rikschaprojekt Torgelow
-                </p>
+                <EditableText
+                  blockId="flyer.page5.donation.name"
+                  defaultValue="TuS Pommern Torgelow e.V."
+                  as="p"
+                  className="text-xs text-gray-600"
+                  sectionId="flyer"
+                  blockLabel="Page 5 Donation Name"
+                />
+                <EditableText
+                  blockId="flyer.page5.donation.iban"
+                  defaultValue="IBAN: DE 42 1506 1638 0003 1067 72"
+                  as="p"
+                  className="text-xs text-gray-600"
+                  sectionId="flyer"
+                  blockLabel="Page 5 Donation IBAN"
+                />
+                <EditableText
+                  blockId="flyer.page5.donation.reference"
+                  defaultValue="Verwendungszweck: Rikschaprojekt Torgelow"
+                  as="p"
+                  className="text-xs text-gray-500"
+                  sectionId="flyer"
+                  blockLabel="Page 5 Donation Reference"
+                />
               </div>
             </div>
           </div>
@@ -966,28 +1124,56 @@ function FlyerConceptSection() {
             <div className="space-y-3 text-sm">
               <div>
                 <span className="text-gray-500 text-xs">HEADLINE:</span>
-                <p className="font-serif font-semibold text-gray-800">
-                  &quot;Werden Sie Pilot – schenken Sie Freude&quot;
-                </p>
+                <EditableText
+                  blockId="flyer.page6.headline"
+                  defaultValue="&quot;Werden Sie Pilot – schenken Sie Freude&quot;"
+                  as="p"
+                  className="font-serif font-semibold text-gray-800"
+                  sectionId="flyer"
+                  blockLabel="Page 6 Headline"
+                />
               </div>
               <div className="space-y-1">
                 <span className="text-gray-500 text-xs">BENEFITS:</span>
                 <div className="flex flex-wrap gap-2">
                   <span className="bg-amber-100 text-amber-800 px-2 py-1 text-xs">
-                    Bleiben Sie aktiv
+                    <EditableText
+                      blockId="flyer.page6.benefit1"
+                      defaultValue="Bleiben Sie aktiv"
+                      as="span"
+                      sectionId="flyer"
+                      blockLabel="Page 6 Benefit 1"
+                    />
                   </span>
                   <span className="bg-amber-100 text-amber-800 px-2 py-1 text-xs">
-                    Begegnungen
+                    <EditableText
+                      blockId="flyer.page6.benefit2"
+                      defaultValue="Begegnungen"
+                      as="span"
+                      sectionId="flyer"
+                      blockLabel="Page 6 Benefit 2"
+                    />
                   </span>
                   <span className="bg-amber-100 text-amber-800 px-2 py-1 text-xs">
-                    Flexible Zeiten
+                    <EditableText
+                      blockId="flyer.page6.benefit3"
+                      defaultValue="Flexible Zeiten"
+                      as="span"
+                      sectionId="flyer"
+                      blockLabel="Page 6 Benefit 3"
+                    />
                   </span>
                 </div>
               </div>
               <div className="bg-amber-100 p-2 text-center">
-                <span className="text-amber-800 font-medium text-xs">
-                  CTA: Melden Sie sich bei Frau Conrad
-                </span>
+                <EditableText
+                  blockId="flyer.page6.cta"
+                  defaultValue="CTA: Melden Sie sich bei Frau Conrad"
+                  as="span"
+                  className="text-amber-800 font-medium text-xs"
+                  sectionId="flyer"
+                  blockLabel="Page 6 CTA"
+                />
               </div>
             </div>
           </div>
@@ -997,7 +1183,13 @@ function FlyerConceptSection() {
         <div className="bg-white p-4 border border-gray-200 text-center">
           <p className="text-sm text-gray-600">
             <strong className="text-gray-800">Partner-Logos auf allen Seiten:</strong>{" "}
-            TuS Pommern, Bürgerbündnis Vorpommern, Ehrenamtsstiftung MV
+            <EditableText
+              blockId="flyer.partners"
+              defaultValue="TuS Pommern, Bürgerbündnis Vorpommern, Ehrenamtsstiftung MV"
+              as="span"
+              sectionId="flyer"
+              blockLabel="Partner Logos"
+            />
           </p>
         </div>
       </div>

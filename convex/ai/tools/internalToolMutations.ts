@@ -515,6 +515,8 @@ export const internalCreateProductWithDetails = internalMutation({
     bookingSettings: v.optional(v.any()),
     // Tax
     taxBehavior: v.optional(v.string()),
+    // Form linking (product-level form overrides workflow-level)
+    formId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -539,6 +541,8 @@ export const internalCreateProductWithDetails = internalMutation({
       earlyBirdEndDate: args.earlyBirdEndDate || null,
       // Tax behavior
       taxBehavior: args.taxBehavior || null,
+      // Form linking (product-level form overrides workflow-level)
+      formId: args.formId || null,
       // Metadata
       createdVia: "ai_tool",
     };
@@ -697,6 +701,58 @@ export const internalDeactivateProduct = internalMutation({
     });
 
     return { success: true, productId: args.productId, previousStatus };
+  },
+});
+
+/**
+ * Internal: Set Product Form
+ * Links a registration form to a product (product-level forms override workflow-level)
+ */
+export const internalSetProductForm = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+    productId: v.id("objects"),
+    formId: v.union(v.string(), v.null()),
+  },
+  handler: async (ctx, args) => {
+    const product = await ctx.db.get(args.productId);
+    if (!product || product.type !== "product" || product.organizationId !== args.organizationId) {
+      return { success: false, error: "Product not found" };
+    }
+
+    const customProperties = (product.customProperties || {}) as Record<string, unknown>;
+    const previousFormId = customProperties.formId as string | null;
+
+    // Update customProperties with new formId
+    await ctx.db.patch(args.productId, {
+      customProperties: {
+        ...customProperties,
+        formId: args.formId,
+      },
+      updatedAt: Date.now(),
+    });
+
+    // Log the action
+    await ctx.db.insert("objectActions", {
+      organizationId: args.organizationId,
+      objectId: args.productId,
+      actionType: args.formId ? "form_linked" : "form_unlinked",
+      performedBy: args.userId,
+      performedAt: Date.now(),
+      actionData: {
+        previousFormId,
+        newFormId: args.formId,
+        source: "ai_assistant",
+      },
+    });
+
+    return {
+      success: true,
+      productId: args.productId,
+      productName: product.name,
+      previousFormId,
+    };
   },
 });
 

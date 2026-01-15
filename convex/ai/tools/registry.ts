@@ -1607,6 +1607,11 @@ Example ticket:
         enum: ["inclusive", "exclusive", "automatic"],
         description: "Tax handling: inclusive (price includes tax), exclusive (tax added on top), automatic (system decides)"
       },
+      // Form linking
+      formId: {
+        type: "string",
+        description: "Link a registration form to this product. Customers buying this product will be asked to fill out this form during checkout. The product-level form overrides any workflow-level forms."
+      },
       // Status
       status: {
         type: "string",
@@ -1697,6 +1702,8 @@ Example ticket:
       bookingSettings: args.bookingSettings,
       // Tax
       taxBehavior: args.taxBehavior,
+      // Form linking
+      formId: args.formId,
     });
 
     // Determine product category for message
@@ -1833,6 +1840,59 @@ const activateProductTool: AITool = {
       message: "Product activated! It's now available for purchase.",
       productId: result.productId,
       previousStatus: result.previousStatus,
+    };
+  }
+};
+
+const setProductFormTool: AITool = {
+  name: "set_product_form",
+  description: `Link a registration form to a product. When customers purchase this product, they'll be asked to fill out the form during checkout.
+
+Product-level forms OVERRIDE workflow-level forms. This allows:
+- Default form for all products via workflow
+- Specific products can have their own custom form
+
+Use cases:
+- Link a dietary preferences form to meal tickets
+- Link a t-shirt size form to merchandise
+- Link a safety waiver form to adventure activities
+- Remove form by setting formId to null`,
+  status: "ready",
+  windowName: "Products",
+  parameters: {
+    type: "object",
+    properties: {
+      productId: { type: "string", description: "Product ID to link form to" },
+      formId: { type: "string", description: "Form ID to link. Use null to remove existing form link." }
+    },
+    required: ["productId"]
+  },
+  execute: async (ctx, args) => {
+    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalSetProductForm, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      productId: args.productId as Id<"objects">,
+      formId: args.formId || null,
+    });
+
+    if (!result.success) {
+      return {
+        success: false,
+        error: result.error,
+      };
+    }
+
+    const message = args.formId
+      ? `Linked form to product "${result.productName}". Customers will now fill out the form when purchasing this product.`
+      : `Removed form link from product "${result.productName}".`;
+
+    return {
+      success: true,
+      message,
+      productId: result.productId,
+      productName: result.productName,
+      formId: args.formId || null,
+      previousFormId: result.previousFormId,
     };
   }
 };
@@ -3275,6 +3335,7 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
   create_product: createProductTool,
   list_products: listProductsTool,
   set_product_price: updateProductPriceTool,
+  set_product_form: setProductFormTool,
   activate_product: activateProductTool,
   deactivate_product: deactivateProductTool,
 

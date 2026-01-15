@@ -63,7 +63,7 @@ export function RegistrationFormStep({
   const selectedProducts = useMemo(() => checkoutData.selectedProducts || [], [checkoutData.selectedProducts]);
 
   // ============================================================================
-  // PRIORITY 1: Get form from workflow behaviors (new behavior-driven approach)
+  // FORM RESOLUTION: Product-level forms override workflow forms
   // ============================================================================
 
   interface FormLinkingConfig {
@@ -75,92 +75,151 @@ export function RegistrationFormStep({
     };
   }
 
+  // Get workflow-level form (default for all tickets without product-specific form)
   const formBehaviors = workflowBehaviors?.filter(b =>
     b.type === "form_linking" &&
     (b.config as FormLinkingConfig).timing === "duringCheckout"
   ) || [];
 
-  // Evaluate trigger conditions to find active form
   const activeFormBehavior = formBehaviors.find(behavior => {
     const config = behavior.config as FormLinkingConfig;
-
-    // Check product subtype condition
     if (config.triggerConditions?.productSubtype) {
       const selectedSubtypes = selectedProducts.map(sp =>
         products.find(p => p._id === sp.productId)?.subtype
       ).filter((st): st is string => st !== undefined);
-      const matches = selectedSubtypes.some(st =>
-        config.triggerConditions?.productSubtype?.includes(st)
-      );
-      if (!matches) return false;
+      if (!selectedSubtypes.some(st => config.triggerConditions?.productSubtype?.includes(st))) return false;
     }
-
-    // Check min quantity condition
     if (config.triggerConditions?.minQuantity) {
       const totalQty = selectedProducts.reduce((sum, sp) => sum + sp.quantity, 0);
       if (totalQty < config.triggerConditions.minQuantity) return false;
     }
-
-    return true; // No conditions or all conditions met
+    return true;
   });
 
-  // Get formId from workflow behavior
-  let formId = activeFormBehavior?.config?.formId as string | undefined;
+  const workflowFormId = activeFormBehavior?.config?.formId as string | undefined;
 
   // ============================================================================
-  // PRIORITY 2: Fallback to product-level form (legacy support)
+  // BUILD TICKET-TO-FORM MAPPING
+  // Priority: Product-level form > Workflow form > No form
   // ============================================================================
 
-  if (!formId) {
-    const firstProduct = products.find((p) => p._id === selectedProducts[0]?.productId);
-    formId = firstProduct?.customProperties?.formId as string | undefined;
-  }
+  // Build expanded ticket list with product info
+  const ticketsWithProducts = useMemo(() => {
+    const tickets: Array<{ ticketNum: number; productId: string; product: typeof products[0] | undefined }> = [];
+    let ticketNum = 1;
+    for (const sp of selectedProducts) {
+      const product = products.find(p => p._id === sp.productId);
+      for (let i = 0; i < sp.quantity; i++) {
+        tickets.push({ ticketNum, productId: sp.productId as string, product });
+        ticketNum++;
+      }
+    }
+    return tickets;
+  }, [selectedProducts, products]);
 
-  // Fetch form definition (public query - no auth required)
-  const form = useQuery(
+  // Map each ticket to its form (product-level overrides workflow-level)
+  const ticketFormMap = useMemo(() => {
+    const map: Record<number, string | undefined> = {};
+    for (const ticket of ticketsWithProducts) {
+      // Priority 1: Product-level form
+      const productFormId = ticket.product?.customProperties?.formId as string | undefined;
+      if (productFormId) {
+        map[ticket.ticketNum] = productFormId;
+      }
+      // Priority 2: Workflow-level form (fallback)
+      else if (workflowFormId) {
+        map[ticket.ticketNum] = workflowFormId;
+      }
+      // No form for this ticket
+      else {
+        map[ticket.ticketNum] = undefined;
+      }
+    }
+    return map;
+  }, [ticketsWithProducts, workflowFormId]);
+
+  // Get unique form IDs we need to fetch
+  const uniqueFormIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const formId of Object.values(ticketFormMap)) {
+      if (formId) ids.add(formId);
+    }
+    return Array.from(ids);
+  }, [ticketFormMap]);
+
+  // For backwards compatibility, use first form as "primary" (for single-form cases)
+  const formId = uniqueFormIds[0];
+
+  // ============================================================================
+  // MULTI-FORM SUPPORT: Fetch all unique forms needed
+  // ============================================================================
+
+  // Fetch form definitions - we fetch up to 3 different forms (typical max per checkout)
+  const form1 = useQuery(
     api.formsOntology.getPublicForm,
-    formId ? { formId: formId as Id<"objects"> } : "skip"
+    uniqueFormIds[0] ? { formId: uniqueFormIds[0] as Id<"objects"> } : "skip"
   );
+  const form2 = useQuery(
+    api.formsOntology.getPublicForm,
+    uniqueFormIds[1] ? { formId: uniqueFormIds[1] as Id<"objects"> } : "skip"
+  );
+  const form3 = useQuery(
+    api.formsOntology.getPublicForm,
+    uniqueFormIds[2] ? { formId: uniqueFormIds[2] as Id<"objects"> } : "skip"
+  );
+
+  // Build a map of formId -> form data
+  const formDataMap = useMemo(() => {
+    const map: Record<string, typeof form1> = {};
+    if (uniqueFormIds[0] && form1) map[uniqueFormIds[0]] = form1;
+    if (uniqueFormIds[1] && form2) map[uniqueFormIds[1]] = form2;
+    if (uniqueFormIds[2] && form3) map[uniqueFormIds[2]] = form3;
+    return map;
+  }, [uniqueFormIds, form1, form2, form3]);
+
+  // Get form data for a specific ticket
+  const getFormForTicket = (ticketNum: number) => {
+    const ticketFormId = ticketFormMap[ticketNum];
+    if (!ticketFormId) return null;
+    return formDataMap[ticketFormId] || null;
+  };
+
+  // Check if all required forms are loaded
+  const allFormsLoaded = useMemo(() => {
+    for (const fId of uniqueFormIds) {
+      if (!formDataMap[fId]) return false;
+    }
+    return true;
+  }, [uniqueFormIds, formDataMap]);
+
+  // Legacy: single form for backwards compatibility
+  const form = form1;
 
   // Track responses per ticket (includes attendeeName for all tickets)
   const [responses, setResponses] = useState<Record<number, Record<string, unknown>>>({});
 
-  // Calculate total ticket count across all products
-  // Every ticket needs at least an attendee name, regardless of custom form
-  const totalTicketCount = useMemo(() => {
-    return selectedProducts.reduce((sum, sp) => sum + sp.quantity, 0);
-  }, [selectedProducts]);
+  // Calculate total ticket count
+  const totalTicketCount = ticketsWithProducts.length;
 
   // Generate ticket numbers [1, 2, 3, ...] for all tickets
   const allTickets = useMemo(() => {
-    return Array.from({ length: totalTicketCount }, (_, i) => i + 1);
-  }, [totalTicketCount]);
+    return ticketsWithProducts.map(t => t.ticketNum);
+  }, [ticketsWithProducts]);
 
-  // Calculate which tickets have custom forms
-  // Priority 1: Workflow behavior form applies to ALL tickets
-  // Priority 2: Product-level form (legacy) applies only to that product's tickets
-  const ticketsNeedingForms = useMemo(() => {
-    // If we have a workflow-level form, ALL tickets need it
-    if (formId && activeFormBehavior) {
-      return allTickets;
-    }
-
-    // Legacy: Check product-level formId
-    return selectedProducts
-      .filter((sp) => {
-        const product = products.find((p) => p._id === sp.productId);
-        return product?.customProperties?.formId;
-      })
-      .flatMap((sp) => Array.from({ length: sp.quantity }, (_, i) => i + 1));
-  }, [selectedProducts, products, formId, activeFormBehavior, allTickets]);
-
-  // Check if ticket has a custom form (workflow-level OR product-level)
+  // Check if ticket has a custom form
   const ticketHasCustomForm = (ticketNum: number) => {
-    // If workflow provides a form, ALL tickets have a custom form
-    if (formId && activeFormBehavior) return true;
-    // Otherwise check legacy product-level
-    return ticketsNeedingForms.includes(ticketNum);
+    return !!ticketFormMap[ticketNum];
   };
+
+  // Get the form ID for a specific ticket
+  const getTicketFormId = (ticketNum: number) => {
+    return ticketFormMap[ticketNum];
+  };
+
+  // Legacy: tickets needing forms (for validation)
+  const ticketsNeedingForms = useMemo(() => {
+    return allTickets.filter(ticketNum => !!ticketFormMap[ticketNum]);
+  }, [allTickets, ticketFormMap]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -193,14 +252,17 @@ export function RegistrationFormStep({
     }
 
     // Build form responses for ALL tickets (even those without custom forms)
+    // Uses per-ticket form mapping for multi-form support
     const formResponsesWithCosts = await Promise.all(
-      allTickets.map(async (ticketNum) => {
+      ticketsWithProducts.map(async (ticket) => {
+        const ticketNum = ticket.ticketNum;
         const ticketResponses = responses[ticketNum] || {};
         const hasCustomForm = ticketHasCustomForm(ticketNum);
+        const ticketFormId = ticketFormMap[ticketNum]; // Per-ticket form ID
 
         // Only execute behaviors for tickets with custom forms
         let addedCosts = 0;
-        if (hasCustomForm && formId) {
+        if (hasCustomForm && ticketFormId) {
           // Execute behaviors for this specific form response to calculate addons
           const behaviorResult = await executeCheckoutBehaviors(
             {
@@ -215,9 +277,9 @@ export function RegistrationFormStep({
                 customProperties: p.customProperties,
               })),
               formResponses: [{
-                productId: selectedProducts[0].productId,
+                productId: ticket.productId as Id<"objects">,
                 ticketNumber: ticketNum,
-                formId: formId,
+                formId: ticketFormId,
                 responses: ticketResponses,
                 addedCosts: 0,
                 submittedAt: Date.now(),
@@ -233,10 +295,10 @@ export function RegistrationFormStep({
         }
 
         return {
-          productId: selectedProducts[0].productId,
+          productId: ticket.productId as Id<"objects">,
           ticketNumber: ticketNum,
           // Only include formId if ticket has a custom form (backend expects valid ID or undefined)
-          ...(hasCustomForm && formId ? { formId } : {}),
+          ...(hasCustomForm && ticketFormId ? { formId: ticketFormId } : {}),
           responses: ticketResponses,
           addedCosts,
           submittedAt: Date.now(),
@@ -276,14 +338,21 @@ export function RegistrationFormStep({
     return null;
   }
 
-  // Show loading only if we have a custom form that's still loading
-  if (formId && !form) {
+  // Show loading only if we have forms that are still loading
+  if (uniqueFormIds.length > 0 && !allFormsLoaded) {
     return <div className="p-6">{t("ui.checkout_template.behavior_driven.registration_form.messages.loading")}</div>;
   }
 
-  // Extract form schema with proper typing
+  // Extract form schema with proper typing (legacy - for single form)
   const formSchema = (form as { customProperties?: { formSchema?: FormSchema } })?.customProperties
     ?.formSchema;
+
+  // Get form schema for a specific ticket
+  const getFormSchemaForTicket = (ticketNum: number): FormSchema | undefined => {
+    const ticketForm = getFormForTicket(ticketNum);
+    if (!ticketForm) return undefined;
+    return (ticketForm as { customProperties?: { formSchema?: FormSchema } })?.customProperties?.formSchema;
+  };
 
   /**
    * Evaluate conditional rules to determine if a section should be shown
@@ -328,12 +397,14 @@ export function RegistrationFormStep({
 
   /**
    * Get visible sections based on conditional logic for a specific ticket
+   * Uses the ticket's specific form schema (per-product forms)
    */
   const getVisibleSections = (ticketNum: number) => {
-    if (!formSchema?.sections) return [];
+    const ticketFormSchema = getFormSchemaForTicket(ticketNum);
+    if (!ticketFormSchema?.sections) return [];
 
     const ticketResponses = responses[ticketNum] || {};
-    return formSchema.sections.filter((section) => evaluateConditional(section.conditional, ticketResponses));
+    return ticketFormSchema.sections.filter((section) => evaluateConditional(section.conditional, ticketResponses));
   };
 
   /**
@@ -564,33 +635,38 @@ export function RegistrationFormStep({
                 </div>
               </div>
 
-              {/* Custom form fields (if configured) */}
-              {hasCustomForm && formSchema && (
-                <>
-                  {/* Render sections if form has sections */}
-                  {formSchema.sections && visibleSections.length > 0 ? (
-                    visibleSections.map((section) => (
-                      <div key={section.id} className="mb-6">
-                        {/* Section Header */}
-                        {section.title && (
-                          <div className="mb-4">
-                            <h4 className="text-lg font-bold">{section.title}</h4>
-                            {section.description && (
-                              <p className="text-sm text-gray-600 mt-1">{section.description}</p>
-                            )}
-                          </div>
-                        )}
+              {/* Custom form fields (if configured) - uses per-ticket form schema */}
+              {(() => {
+                const ticketFormSchema = getFormSchemaForTicket(ticketNum);
+                if (!hasCustomForm || !ticketFormSchema) return null;
 
-                        {/* Section Fields */}
-                        {section.fields.map((field) => renderField(field, ticketNum))}
-                      </div>
-                    ))
-                  ) : (
-                    // Legacy: Flat fields array (no sections)
-                    formSchema.fields?.map((field) => renderField(field, ticketNum))
-                  )}
-                </>
-              )}
+                return (
+                  <>
+                    {/* Render sections if form has sections */}
+                    {ticketFormSchema.sections && visibleSections.length > 0 ? (
+                      visibleSections.map((section) => (
+                        <div key={section.id} className="mb-6">
+                          {/* Section Header */}
+                          {section.title && (
+                            <div className="mb-4">
+                              <h4 className="text-lg font-bold">{section.title}</h4>
+                              {section.description && (
+                                <p className="text-sm text-gray-600 mt-1">{section.description}</p>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Section Fields */}
+                          {section.fields.map((field) => renderField(field, ticketNum))}
+                        </div>
+                      ))
+                    ) : (
+                      // Legacy: Flat fields array (no sections)
+                      ticketFormSchema.fields?.map((field) => renderField(field, ticketNum))
+                    )}
+                  </>
+                );
+              })()}
             </div>
           );
         })}
