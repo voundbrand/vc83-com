@@ -431,6 +431,7 @@ export function ProjectBuilder({
           <ProjectPublishingTab
             projectId={effectiveProjectId}
             sessionId={sessionId}
+            organizationId={organizationId}
             publicPage={publicPage}
             onChange={setPublicPage}
           />

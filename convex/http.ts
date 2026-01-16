@@ -2250,6 +2250,12 @@ import {
   handleOptions as accountLinkingHandleOptions,
 } from "./api/v1/accountLinking";
 
+// Import Domain Lookup handlers
+import {
+  domainLookupHandler,
+  domainLookupOptionsHandler,
+} from "./api/v1/domainLookup";
+
 /**
  * ==========================================
  * MOBILE OAUTH API
@@ -2375,6 +2381,29 @@ http.route({
   path: "/api/v1/auth/link-account/status",
   method: "GET",
   handler: getLinkingStatus,
+});
+
+/**
+ * ==========================================
+ * DOMAIN LOOKUP API
+ * ==========================================
+ *
+ * Public endpoint for Next.js middleware to look up custom domain routing.
+ * Returns project slug for a given hostname.
+ */
+
+// OPTIONS /api/v1/domain-lookup - CORS preflight
+http.route({
+  path: "/api/v1/domain-lookup",
+  method: "OPTIONS",
+  handler: domainLookupOptionsHandler,
+});
+
+// POST /api/v1/domain-lookup - Look up domain routing
+http.route({
+  path: "/api/v1/domain-lookup",
+  method: "POST",
+  handler: domainLookupHandler,
 });
 
 // OPTIONS /api/v1/auth/cli/validate - CORS preflight

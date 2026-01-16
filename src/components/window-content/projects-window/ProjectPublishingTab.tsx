@@ -11,10 +11,12 @@ import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { ExternalLink, Loader2, Save, Globe, Lock, Palette, Layout } from "lucide-react";
 import type { PublicPageConfig } from "./ProjectBuilder";
+import { CustomDomainSection } from "./CustomDomainSection";
 
 interface ProjectPublishingTabProps {
   projectId: Id<"objects">;
   sessionId: string;
+  organizationId: Id<"organizations">;
   publicPage: PublicPageConfig;
   onChange: (config: PublicPageConfig) => void;
 }
@@ -22,6 +24,7 @@ interface ProjectPublishingTabProps {
 export function ProjectPublishingTab({
   projectId,
   sessionId,
+  organizationId,
   publicPage,
   onChange,
 }: ProjectPublishingTabProps) {
@@ -338,6 +341,16 @@ export function ProjectPublishingTab({
               )}
             </button>
           </div>
+
+          {/* Custom Domain Section - only show when slug is valid */}
+          {publicPage.slug && publicPage.slug.length >= 3 && (
+            <CustomDomainSection
+              sessionId={sessionId}
+              organizationId={organizationId}
+              projectId={projectId}
+              projectSlug={publicPage.slug}
+            />
+          )}
         </>
       )}
     </div>
