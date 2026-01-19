@@ -21,16 +21,16 @@ type TranslationValues = {
 };
 
 const translations: Array<{ key: string; values: TranslationValues }> = [
-  // Main Title
+  // Main Title - unified message for all payment types
   {
     key: "ui.checkout_success.title",
     values: {
-      en: "Payment Successful! 🎉",
-      de: "Zahlung erfolgreich! 🎉",
-      pl: "Płatność udana! 🎉",
-      es: "¡Pago exitoso! 🎉",
-      fr: "Paiement réussi! 🎉",
-      ja: "お支払い完了！🎉",
+      en: "Order Confirmed! 🎉",
+      de: "Bestellung bestätigt! 🎉",
+      pl: "Zamówienie potwierdzone! 🎉",
+      es: "¡Pedido confirmado! 🎉",
+      fr: "Commande confirmée! 🎉",
+      ja: "注文確認！🎉",
     },
   },
   {

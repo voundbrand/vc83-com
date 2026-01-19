@@ -157,9 +157,7 @@ export function ConfirmationStep({ checkoutData, products, organizationId }: Ste
           <CheckCircle size={64} className="text-green-600" />
         </div>
         <h2 className="text-4xl font-bold mb-3">
-          {isInvoiceCheckout
-            ? t('ui.checkout_template.behavior_driven.confirmation.headers.title_invoice')
-            : t('ui.checkout_template.behavior_driven.confirmation.headers.title')}
+          {t('ui.checkout_template.behavior_driven.confirmation.headers.title')}
         </h2>
         <p className="text-xl text-gray-600">
           {isInvoiceCheckout

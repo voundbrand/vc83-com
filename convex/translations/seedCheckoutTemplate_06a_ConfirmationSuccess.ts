@@ -40,27 +40,28 @@ export const seed = internalMutation({
     ];
 
     const translations = [
-      // Success headers
+      // Success headers - unified message for all payment types
       {
         key: "ui.checkout_template.behavior_driven.confirmation.headers.title",
         values: {
-          en: "Payment Successful!",
-          de: "Zahlung erfolgreich!",
-          pl: "Płatność zakończona sukcesem!",
-          es: "¡Pago exitoso!",
-          fr: "Paiement réussi !",
-          ja: "支払い成功！",
+          en: "Order Confirmed!",
+          de: "Bestellung bestätigt!",
+          pl: "Zamówienie potwierdzone!",
+          es: "¡Pedido confirmado!",
+          fr: "Commande confirmée !",
+          ja: "注文確認！",
         }
       },
+      // Keep invoice title for backwards compatibility (same as unified title now)
       {
         key: "ui.checkout_template.behavior_driven.confirmation.headers.title_invoice",
         values: {
-          en: "Registration Complete!",
-          de: "Registrierung abgeschlossen!",
-          pl: "Rejestracja zakończona!",
-          es: "¡Registro completo!",
-          fr: "Inscription terminée !",
-          ja: "登録完了！",
+          en: "Order Confirmed!",
+          de: "Bestellung bestätigt!",
+          pl: "Zamówienie potwierdzone!",
+          es: "¡Pedido confirmado!",
+          fr: "Commande confirmée !",
+          ja: "注文確認！",
         }
       },
       {

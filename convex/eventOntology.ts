@@ -1069,6 +1069,7 @@ export const updateEventMedia = mutation({
         )),
         loop: v.optional(v.boolean()),
         autostart: v.optional(v.boolean()),
+        videoFit: v.optional(v.union(v.literal('cover'), v.literal('contain'))), // Video display mode
         thumbnailStorageId: v.optional(v.string()),
         // Common fields
         caption: v.optional(v.string()),

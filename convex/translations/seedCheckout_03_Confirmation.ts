@@ -61,15 +61,16 @@ export const seed = internalMutation({
       // ============================================================
       // CATEGORY: HEADERS & SUCCESS MESSAGES
       // ============================================================
+      // Unified message for all payment types
       {
         key: "ui.checkout.confirmation.headers.success_title",
         values: {
-          en: "Payment Successful!",
-          de: "Zahlung erfolgreich!",
-          pl: "Płatność udana!",
-          es: "¡Pago exitoso!",
-          fr: "Paiement réussi !",
-          ja: "支払い成功！",
+          en: "Order Confirmed!",
+          de: "Bestellung bestätigt!",
+          pl: "Zamówienie potwierdzone!",
+          es: "¡Pedido confirmado!",
+          fr: "Commande confirmée !",
+          ja: "注文確認！",
         },
       },
       {
