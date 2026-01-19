@@ -111,6 +111,22 @@ export const generateTicketPDF = action({
 
             console.log("🎨 [generateTicketPDF] Organization branding loaded:", organizationBranding);
 
+            // 4.7. Load organization locale settings for language
+            const localeSettings = await ctx.runQuery(api.organizationOntology.getOrganizationSettings, {
+                organizationId,
+                subtype: "locale",
+            });
+
+            const localeSettingsObj = Array.isArray(localeSettings) ? localeSettings[0] : localeSettings;
+
+            // Get language from organization settings with fallback to English
+            let ticketLanguage = "en";
+            if (localeSettingsObj?.customProperties?.language) {
+                const orgLanguage = localeSettingsObj.customProperties.language as string;
+                ticketLanguage = orgLanguage.toLowerCase().split("-")[0]; // Normalize "de-DE" → "de"
+                console.log(`🎫 [generateTicketPDF] Using ticket language from organization settings: ${ticketLanguage}`);
+            }
+
             // 5. Extract event data - prefer from session, fallback to product
             const eventName = (session.customProperties?.eventName as string) || product.name;
             const eventSponsors = session.customProperties?.eventSponsors as Array<{ name: string; level?: string }> | undefined;
@@ -160,9 +176,17 @@ export const generateTicketPDF = action({
                 taxRate = netPrice > 0 ? ((taxAmount / netPrice) * 100) : 0;
             }
 
-            // 7. Format dates for template
+            // 7. Format dates for template using organization language
+            const languageLocaleMap: Record<string, string> = {
+                de: "de-DE",
+                en: "en-US",
+                es: "es-ES",
+                fr: "fr-FR",
+            };
+            const locale = languageLocaleMap[ticketLanguage] || "en-US";
+
             const formatDate = (timestamp: number) => {
-                return new Date(timestamp).toLocaleDateString("en-US", {
+                return new Date(timestamp).toLocaleDateString(locale, {
                     year: "numeric",
                     month: "long",
                     day: "numeric",
@@ -170,7 +194,7 @@ export const generateTicketPDF = action({
             };
 
             const formatDateTime = (timestamp: number) => {
-                return new Date(timestamp).toLocaleDateString("en-US", {
+                return new Date(timestamp).toLocaleDateString(locale, {
                     weekday: "long",
                     month: "long",
                     day: "numeric",
@@ -182,6 +206,65 @@ export const generateTicketPDF = action({
 
             // 8. Get additional event details
             const eventAddress = (session.customProperties?.eventAddress as string) || "";
+
+            // 8.5. Load ticket translations from database
+            const { getBackendTranslations } = await import("../helpers/backendTranslationHelper");
+            const ticketTranslationKeys = [
+                // Field labels
+                "pdf.ticket.attendee",
+                "pdf.ticket.ticketHolder",
+                "pdf.ticket.date",
+                "pdf.ticket.dateTime",
+                "pdf.ticket.time",
+                "pdf.ticket.location",
+                "pdf.ticket.venue",
+                "pdf.ticket.event",
+                "pdf.ticket.guests",
+                "pdf.ticket.guest",
+                "pdf.ticket.ticketNumber",
+                "pdf.ticket.ticketId",
+                "pdf.ticket.ticketInfo",
+                "pdf.ticket.ticketType",
+                "pdf.ticket.ticketHash",
+                // Order summary
+                "pdf.ticket.orderSummary",
+                "pdf.ticket.orderNumber",
+                "pdf.ticket.purchased",
+                "pdf.ticket.subtotal",
+                "pdf.ticket.tax",
+                "pdf.ticket.total",
+                // QR and verification
+                "pdf.ticket.scanToVerify",
+                "pdf.ticket.scanAtEntrance",
+                "pdf.ticket.presentTicket",
+                "pdf.ticket.presentAtDoor",
+                // Sections
+                "pdf.ticket.eventPolicies",
+                "pdf.ticket.contactInfo",
+                "pdf.ticket.reservedFor",
+                "pdf.ticket.presentedBy",
+                // Policy items
+                "pdf.ticket.arrival",
+                "pdf.ticket.arrivalPolicy",
+                "pdf.ticket.identification",
+                "pdf.ticket.identificationPolicy",
+                "pdf.ticket.transfers",
+                "pdf.ticket.transfersPolicy",
+                "pdf.ticket.refunds",
+                "pdf.ticket.refundsPolicy",
+                "pdf.ticket.accessibility",
+                "pdf.ticket.accessibilityPolicy",
+                "pdf.ticket.photography",
+                "pdf.ticket.photographyPolicy",
+                // Footer and closing
+                "pdf.ticket.forQuestions",
+                "pdf.ticket.lookForward",
+                "pdf.ticket.privateEvent",
+                "pdf.ticket.curatedEvent",
+            ];
+
+            const ticketTranslations = await getBackendTranslations(ctx, ticketLanguage, ticketTranslationKeys);
+            console.log(`🎫 [generateTicketPDF] Loaded ${Object.keys(ticketTranslations).length} ticket translations for language: ${ticketLanguage}`);
 
             // 9. Prepare ticket data for API Template.io
             const ticketData = {
@@ -221,6 +304,61 @@ export const generateTicketPDF = action({
                 tax_amount: taxAmount,
                 tax_rate: taxRate,
                 total_price: totalPrice,
+
+                // Language for template translations
+                language: ticketLanguage,
+
+                // Translations (from database) - Field labels
+                t_attendee: ticketTranslations["pdf.ticket.attendee"],
+                t_ticketHolder: ticketTranslations["pdf.ticket.ticketHolder"],
+                t_date: ticketTranslations["pdf.ticket.date"],
+                t_dateTime: ticketTranslations["pdf.ticket.dateTime"],
+                t_time: ticketTranslations["pdf.ticket.time"],
+                t_location: ticketTranslations["pdf.ticket.location"],
+                t_venue: ticketTranslations["pdf.ticket.venue"],
+                t_event: ticketTranslations["pdf.ticket.event"],
+                t_guests: ticketTranslations["pdf.ticket.guests"],
+                t_guest: ticketTranslations["pdf.ticket.guest"],
+                t_ticketNumber: ticketTranslations["pdf.ticket.ticketNumber"],
+                t_ticketId: ticketTranslations["pdf.ticket.ticketId"],
+                t_ticketInfo: ticketTranslations["pdf.ticket.ticketInfo"],
+                t_ticketType: ticketTranslations["pdf.ticket.ticketType"],
+                t_ticketHash: ticketTranslations["pdf.ticket.ticketHash"],
+                // Translations - Order summary
+                t_orderSummary: ticketTranslations["pdf.ticket.orderSummary"],
+                t_orderNumber: ticketTranslations["pdf.ticket.orderNumber"],
+                t_purchased: ticketTranslations["pdf.ticket.purchased"],
+                t_subtotal: ticketTranslations["pdf.ticket.subtotal"],
+                t_tax: ticketTranslations["pdf.ticket.tax"],
+                t_total: ticketTranslations["pdf.ticket.total"],
+                // Translations - QR and verification
+                t_scanToVerify: ticketTranslations["pdf.ticket.scanToVerify"],
+                t_scanAtEntrance: ticketTranslations["pdf.ticket.scanAtEntrance"],
+                t_presentTicket: ticketTranslations["pdf.ticket.presentTicket"],
+                t_presentAtDoor: ticketTranslations["pdf.ticket.presentAtDoor"],
+                // Translations - Sections
+                t_eventPolicies: ticketTranslations["pdf.ticket.eventPolicies"],
+                t_contactInfo: ticketTranslations["pdf.ticket.contactInfo"],
+                t_reservedFor: ticketTranslations["pdf.ticket.reservedFor"],
+                t_presentedBy: ticketTranslations["pdf.ticket.presentedBy"],
+                // Translations - Policy items
+                t_arrival: ticketTranslations["pdf.ticket.arrival"],
+                t_arrivalPolicy: ticketTranslations["pdf.ticket.arrivalPolicy"],
+                t_identification: ticketTranslations["pdf.ticket.identification"],
+                t_identificationPolicy: ticketTranslations["pdf.ticket.identificationPolicy"],
+                t_transfers: ticketTranslations["pdf.ticket.transfers"],
+                t_transfersPolicy: ticketTranslations["pdf.ticket.transfersPolicy"],
+                t_refunds: ticketTranslations["pdf.ticket.refunds"],
+                t_refundsPolicy: ticketTranslations["pdf.ticket.refundsPolicy"],
+                t_accessibility: ticketTranslations["pdf.ticket.accessibility"],
+                t_accessibilityPolicy: ticketTranslations["pdf.ticket.accessibilityPolicy"],
+                t_photography: ticketTranslations["pdf.ticket.photography"],
+                t_photographyPolicy: ticketTranslations["pdf.ticket.photographyPolicy"],
+                // Translations - Footer and closing
+                t_forQuestions: ticketTranslations["pdf.ticket.forQuestions"],
+                t_lookForward: ticketTranslations["pdf.ticket.lookForward"],
+                t_privateEvent: ticketTranslations["pdf.ticket.privateEvent"],
+                t_curatedEvent: ticketTranslations["pdf.ticket.curatedEvent"],
             };
 
             // 10. RESOLVE TEMPLATE FROM TEMPLATE SET (New unified resolver)
