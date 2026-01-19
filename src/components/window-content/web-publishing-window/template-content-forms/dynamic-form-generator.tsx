@@ -464,6 +464,7 @@ function RichTextInput({
           <div
             className="w-full max-w-4xl max-h-[90vh] flex flex-col border-2 shadow-lg"
             style={{ background: 'var(--win95-bg)', borderColor: 'var(--win95-border)' }}
+            onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
             <div
