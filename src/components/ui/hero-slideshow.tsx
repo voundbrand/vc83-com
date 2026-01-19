@@ -86,6 +86,15 @@ export function HeroSlideshow({
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept keyboard events when focus is on form elements
+      const target = e.target as HTMLElement;
+      const isFormElement = target.tagName === 'INPUT' ||
+                           target.tagName === 'TEXTAREA' ||
+                           target.tagName === 'SELECT' ||
+                           target.isContentEditable;
+
+      if (isFormElement) return;
+
       if (e.key === 'ArrowLeft') goToPrevious();
       if (e.key === 'ArrowRight') goToNext();
       if (e.key === ' ') {
