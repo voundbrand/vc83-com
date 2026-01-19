@@ -837,6 +837,7 @@ function EventLinkInput({
   const { isAvailable: isEventAppAvailable, organizationName } = useAppAvailability("events");
 
   // Fetch available events
+  // @ts-ignore - Deep type instantiation in Convex generated types
   const availableEvents = useQuery(
     api.eventOntology.getEvents,
     sessionId && currentOrg?.id && isEventAppAvailable

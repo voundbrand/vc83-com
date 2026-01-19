@@ -279,6 +279,8 @@ export function EventLandingTemplate({
       videoUrl: (eventData?.media as { items?: Array<{ videoUrl?: string }> })?.items?.[0]?.videoUrl || content.hero?.videoUrl,
       imageUrl: content.hero?.imageUrl, // Keep template image as it's typically uploaded separately
       ctaButtons: content.hero?.ctaButtons || [],
+      showTitle: content.hero?.showTitle, // Preserve visibility settings
+      showSubtitle: content.hero?.showSubtitle, // Preserve visibility settings
     },
     agenda: agendaDays && agendaDays.length > 0
       ? {
