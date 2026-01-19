@@ -76,6 +76,41 @@ export const generateTicketPDF = action({
                 { organizationId }
             ) as Doc<"objects"> | null;
 
+            // 4.5. Load domain branding (if domainConfigId exists)
+            let domainBranding: { primaryColor?: string; secondaryColor?: string; logoUrl?: string } = {};
+            const domainConfigId = session.customProperties?.domainConfigId as Id<"objects"> | undefined;
+
+            if (domainConfigId) {
+                const domainConfig = await ctx.runQuery(api.domainConfigOntology.getDomainConfig, {
+                    configId: domainConfigId,
+                });
+
+                if (domainConfig?.customProperties?.branding) {
+                    const branding = domainConfig.customProperties.branding as Record<string, unknown>;
+                    domainBranding = {
+                        primaryColor: branding.primaryColor as string | undefined,
+                        secondaryColor: branding.secondaryColor as string | undefined,
+                        logoUrl: branding.logoUrl as string | undefined,
+                    };
+                    console.log("🌐 [generateTicketPDF] Domain branding loaded:", domainBranding);
+                }
+            }
+
+            // 4.6. Load organization branding settings
+            const brandingSettings = await ctx.runQuery(api.organizationOntology.getOrganizationSettings, {
+                organizationId,
+                subtype: "branding",
+            });
+
+            const brandingSettingsObj = Array.isArray(brandingSettings) ? brandingSettings[0] : brandingSettings;
+            const organizationBranding = {
+                primaryColor: brandingSettingsObj?.customProperties?.primaryColor as string | undefined,
+                secondaryColor: brandingSettingsObj?.customProperties?.secondaryColor as string | undefined,
+                logoUrl: brandingSettingsObj?.customProperties?.logoUrl as string | undefined,
+            };
+
+            console.log("🎨 [generateTicketPDF] Organization branding loaded:", organizationBranding);
+
             // 5. Extract event data - prefer from session, fallback to product
             const eventName = (session.customProperties?.eventName as string) || product.name;
             const eventSponsors = session.customProperties?.eventSponsors as Array<{ name: string; level?: string }> | undefined;
@@ -173,8 +208,9 @@ export const generateTicketPDF = action({
                 organization_email: (sellerContact?.customProperties?.primaryEmail as string) || "support@yourcompany.com",
                 organization_phone: (sellerContact?.customProperties?.primaryPhone as string) || "",
                 organization_website: (sellerContact?.customProperties?.website as string) || "",
-                logo_url: undefined, // TODO: Add organization logo support
-                highlight_color: "#6B46C1", // Brand purple
+                // Branding cascade: domain → organization → default
+                logo_url: domainBranding.logoUrl || organizationBranding.logoUrl,
+                highlight_color: domainBranding.primaryColor || organizationBranding.primaryColor || "#6B46C1",
 
                 // Order info
                 order_id: session._id.substring(0, 12),
