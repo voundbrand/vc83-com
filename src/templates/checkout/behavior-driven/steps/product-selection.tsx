@@ -143,18 +143,18 @@ export function ProductSelectionStep({ organizationId, products, checkoutData, o
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div className="w-full sm:max-w-4xl mx-auto p-4 sm:p-6 box-border">
       {/* Header */}
-      <div className="mb-8">
-        <h2 className="text-3xl font-bold mb-2 flex items-center gap-3">
-          <ShoppingCart size={32} />
-          {t("ui.checkout_template.behavior_driven.product_selection.headers.title")}
+      <div className="mb-6 sm:mb-8">
+        <h2 className="text-xl sm:text-3xl font-bold mb-2 flex items-center gap-2 sm:gap-3 flex-wrap">
+          <ShoppingCart size={24} className="sm:w-8 sm:h-8 flex-shrink-0" />
+          <span className="break-words">{t("ui.checkout_template.behavior_driven.product_selection.headers.title")}</span>
         </h2>
-        <p style={{ color: 'var(--color-textLight, #6B7280)' }}>{t("ui.checkout_template.behavior_driven.product_selection.headers.subtitle")}</p>
+        <p className="text-sm sm:text-base break-words" style={{ color: 'var(--color-textLight, #6B7280)' }}>{t("ui.checkout_template.behavior_driven.product_selection.headers.subtitle")}</p>
       </div>
 
       {/* Product Grid */}
-      <div className="grid gap-6 mb-8">
+      <div className="grid gap-4 sm:gap-6 mb-6 sm:mb-8 w-full">
         {products.map((product) => {
           const quantity = quantities[product._id] || 0;
           const maxQty = product.customProperties?.maxQuantity || 99;
@@ -162,46 +162,51 @@ export function ProductSelectionStep({ organizationId, products, checkoutData, o
           return (
             <div
               key={product._id}
-              className="bg-white border-2 border-gray-300 rounded-lg p-6 hover:border-purple-400 transition-colors"
+              className="bg-white border-2 border-gray-300 rounded-lg p-4 sm:p-6 hover:border-purple-400 transition-colors w-full box-border overflow-hidden"
             >
-              <div className="flex gap-6">
-                {/* Product Info */}
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold mb-2">{product.name}</h3>
-                  {product.description && (
-                    <p className="mb-4" style={{ color: 'var(--color-textLight, #6B7280)' }}>{product.description}</p>
-                  )}
+              {/* Product Info - Stack vertically on mobile */}
+              <div className="w-full min-w-0">
+                <h3 className="text-lg sm:text-xl font-bold mb-2 break-words overflow-wrap-anywhere">{product.name}</h3>
+                {product.description && (
+                  <p className="text-sm sm:text-base mb-4 break-words overflow-wrap-anywhere" style={{ color: 'var(--color-textLight, #6B7280)' }}>{product.description}</p>
+                )}
 
-                  {/* Price and Quantity */}
-                  <div className="flex items-center gap-4">
-                    <div className="text-2xl font-bold" style={{ color: 'var(--color-primary, #6B46C1)' }}>
+                {/* Price and Quantity - On mobile: price + controls on one line, total on second line */}
+                <div className="w-full">
+                  {/* Price and quantity controls row */}
+                  <div className="flex items-center justify-between gap-2 sm:gap-4 w-full">
+                    <div className="text-xl sm:text-2xl font-bold flex-shrink-0" style={{ color: 'var(--color-primary, #6B46C1)' }}>
                       {formatPrice(product.price, product.currency)}
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-shrink-0">
                       <button
                         onClick={() => setQuantities({ ...quantities, [product._id]: Math.max(0, quantity - 1) })}
                         disabled={quantity === 0}
-                        className="px-3 py-1 border-2 border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-3 py-1 border-2 border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed min-w-[40px]"
                       >
                         −
                       </button>
-                      <span className="w-12 text-center font-bold">{quantity}</span>
+                      <span className="w-10 sm:w-12 text-center font-bold">{quantity}</span>
                       <button
                         onClick={() => setQuantities({ ...quantities, [product._id]: Math.min(maxQty, quantity + 1) })}
                         disabled={quantity >= maxQty}
-                        className="px-3 py-1 border-2 border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-3 py-1 border-2 border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed min-w-[40px]"
                       >
                         +
                       </button>
                     </div>
-
-                    {quantity > 0 && (
-                      <div className="ml-auto text-lg font-bold">
-                        {formatPrice(product.price * quantity, product.currency)}
-                      </div>
-                    )}
                   </div>
+
+                  {/* Total on separate line on mobile, inline on desktop */}
+                  {quantity > 0 && (
+                    <div className="mt-3 pt-3 border-t border-gray-200 sm:border-0 sm:mt-0 sm:pt-0 text-right">
+                      <span className="text-sm text-gray-500 sm:hidden mr-2">{t("ui.checkout_template.behavior_driven.product_selection.cart.total")}:</span>
+                      <span className="text-base sm:text-lg font-bold">
+                        {formatPrice(product.price * quantity, product.currency)}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -211,17 +216,17 @@ export function ProductSelectionStep({ organizationId, products, checkoutData, o
 
       {/* Cart Summary with Tax Breakdown */}
       {selectedProducts.length > 0 && (
-        <div className="bg-purple-50 border-2 border-purple-300 rounded-lg p-6 mb-6">
-          <h3 className="text-lg font-bold mb-4">{t("ui.checkout_template.behavior_driven.product_selection.cart.title")}</h3>
+        <div className="bg-purple-50 border-2 border-purple-300 rounded-lg p-4 sm:p-6 mb-6 w-full box-border">
+          <h3 className="text-base sm:text-lg font-bold mb-4">{t("ui.checkout_template.behavior_driven.product_selection.cart.title")}</h3>
           <div className="space-y-2 mb-4">
             {selectedProducts.map((sp) => {
               const product = products.find((p) => p._id === sp.productId);
               return (
-                <div key={sp.productId} className="flex justify-between text-sm">
-                  <span>
+                <div key={sp.productId} className="flex flex-wrap justify-between gap-2 text-sm">
+                  <span className="break-words min-w-0 flex-1">
                     {product?.name} × {sp.quantity}
                   </span>
-                  <span className="font-medium">
+                  <span className="font-medium flex-shrink-0">
                     {formatPrice(sp.price * sp.quantity, product?.currency || "EUR")}
                   </span>
                 </div>
@@ -230,7 +235,7 @@ export function ProductSelectionStep({ organizationId, products, checkoutData, o
           </div>
           {/* Tax Breakdown */}
           <div className="space-y-2 pt-4 border-t-2 border-purple-200">
-            <div className="flex justify-between text-sm">
+            <div className="flex flex-wrap justify-between gap-2 text-sm">
               <span>{t("ui.checkout_template.behavior_driven.product_selection.cart.subtotal")}</span>
               <span className="font-medium">{formatPrice(subtotalNet, products[0]?.currency || "EUR")}</span>
             </div>
@@ -261,17 +266,17 @@ export function ProductSelectionStep({ organizationId, products, checkoutData, o
                     // Ensure rate is a valid number
                     const rateDisplay = typeof rate === 'number' && !isNaN(rate) ? rate.toFixed(1) : '0.0';
                     return (
-                      <div key={rate} className="flex justify-between text-sm">
-                        <span>
+                      <div key={rate} className="flex flex-wrap justify-between gap-2 text-sm">
+                        <span className="break-words">
                           {t("ui.checkout_template.behavior_driven.product_selection.cart.tax")} ({rateDisplay}%)
-                        <span className="text-xs ml-1 opacity-70">
-                          {taxCalculation.taxBehavior === "inclusive"
-                            ? t("ui.checkout_template.behavior_driven.product_selection.cart.tax_included")
-                            : t("ui.checkout_template.behavior_driven.product_selection.cart.tax_added")
-                          }
+                          <span className="text-xs ml-1 opacity-70">
+                            {taxCalculation.taxBehavior === "inclusive"
+                              ? t("ui.checkout_template.behavior_driven.product_selection.cart.tax_included")
+                              : t("ui.checkout_template.behavior_driven.product_selection.cart.tax_added")
+                            }
+                          </span>
                         </span>
-                        </span>
-                        <span className="font-medium">{formatPrice(amounts.taxAmount, products[0]?.currency || "EUR")}</span>
+                        <span className="font-medium flex-shrink-0">{formatPrice(amounts.taxAmount, products[0]?.currency || "EUR")}</span>
                       </div>
                     );
                   })}
@@ -279,9 +284,9 @@ export function ProductSelectionStep({ organizationId, products, checkoutData, o
               );
             })()}
           </div>
-          <div className="pt-4 border-t-2 border-purple-400 flex justify-between items-center">
-            <span className="text-xl font-bold">{t("ui.checkout_template.behavior_driven.product_selection.cart.total")}</span>
-            <span className="text-2xl font-bold" style={{ color: 'var(--color-primary, #6B46C1)' }}>
+          <div className="pt-4 border-t-2 border-purple-400 flex flex-wrap justify-between items-center gap-2">
+            <span className="text-lg sm:text-xl font-bold">{t("ui.checkout_template.behavior_driven.product_selection.cart.total")}</span>
+            <span className="text-xl sm:text-2xl font-bold" style={{ color: 'var(--color-primary, #6B46C1)' }}>
               {formatPrice(total, products[0]?.currency || "EUR")}
             </span>
           </div>
@@ -293,7 +298,7 @@ export function ProductSelectionStep({ organizationId, products, checkoutData, o
         <button
           onClick={handleContinue}
           disabled={selectedProducts.length === 0}
-          className="flex-1 px-6 py-3 text-lg font-bold border-2 border-purple-600 bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed rounded transition-colors"
+          className="flex-1 px-4 sm:px-6 py-3 text-base sm:text-lg font-bold border-2 border-purple-600 bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed rounded transition-colors break-words"
         >
           {t("ui.checkout_template.behavior_driven.product_selection.buttons.continue")}
         </button>

@@ -125,7 +125,15 @@ const SimpleTiptapEditor: React.FC<SimpleTiptapEditorProps> = ({
   }) => (
     <button
       type="button"
-      onClick={onClick}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onClick();
+      }}
+      onMouseDown={(e) => {
+        // Prevent editor from losing focus when clicking toolbar buttons
+        e.preventDefault();
+      }}
       disabled={disabled}
       className={`p-1.5 border-2 ${isActive ? 'shadow-inner' : ''} ${disabled ? 'opacity-30 cursor-not-allowed' : ''}`}
       style={{

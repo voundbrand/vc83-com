@@ -33,7 +33,7 @@ export function ConfirmationStep({
   linkedProducts,
   checkoutSessionId,
 }: ConfirmationStepProps) {
-  const { t } = useNamespaceTranslations("checkout");
+  const { t } = useNamespaceTranslations("ui.checkout");
   const posthog = usePostHog();
   const [isDownloadingReceipt, setIsDownloadingReceipt] = useState(false);
   const [isDownloadingTicket, setIsDownloadingTicket] = useState(false);

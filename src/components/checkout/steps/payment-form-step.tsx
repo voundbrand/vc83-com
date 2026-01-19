@@ -62,7 +62,7 @@ interface PaymentFormStepProps {
 }
 
 export function PaymentFormStep(props: PaymentFormStepProps) {
-  const { t } = useNamespaceTranslations("checkout");
+  const { t } = useNamespaceTranslations("ui.checkout");
 
   // Route to provider-specific component based on paymentProvider
   switch (props.paymentProvider) {
@@ -105,7 +105,7 @@ function StripePaymentForm({
   onComplete,
   onBack,
 }: PaymentFormStepProps) {
-  const { t } = useNamespaceTranslations("checkout");
+  const { t } = useNamespaceTranslations("ui.checkout");
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stripe, setStripe] = useState<Stripe | null>(null);
@@ -683,7 +683,7 @@ function InvoicePaymentForm({
   onComplete,
   onBack,
 }: PaymentFormStepProps) {
-  const { t } = useNamespaceTranslations("checkout");
+  const { t } = useNamespaceTranslations("ui.checkout");
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

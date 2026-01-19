@@ -101,7 +101,7 @@ export function CustomerInfoStep({
   onBack,
 }: CustomerInfoStepProps) {
   // Translation hook
-  const { t } = useNamespaceTranslations("checkout");
+  const { t } = useNamespaceTranslations("ui.checkout");
   const posthog = usePostHog();
 
   // 🚨 STEP 1: Extract CRM organization ID from form responses and product mapping

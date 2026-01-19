@@ -15,6 +15,7 @@ import { Loader2, AlertCircle, Home, ShoppingCart } from "lucide-react";
 import { getCheckoutComponent } from "@/templates/checkout/registry";
 import { getThemeByCode } from "@/templates/themes";
 import type { CheckoutTemplateProps } from "@/templates/checkout/types";
+import { TranslationProvider } from "@/contexts/translation-context";
 import Link from "next/link";
 
 type CheckoutPageClientProps = {
@@ -111,6 +112,8 @@ export function CheckoutPageClient({ orgSlug, slug }: CheckoutPageClientProps) {
   const templateCode = (config.templateCode as string) || "ticket-checkout";
   const themeCode = (config.themeCode as string) || "modern-gradient";
   const settings = (config.settings as Record<string, unknown>) || {};
+  // Extract default language from checkout configuration (forces checkout to use this language)
+  const defaultLanguage = (config.defaultLanguage as string) || undefined;
 
   // Load theme from theme code
   const theme = getThemeByCode(themeCode);
@@ -254,72 +257,77 @@ export function CheckoutPageClient({ orgSlug, slug }: CheckoutPageClientProps) {
       } as React.CSSProperties)
     : {};
 
+  // Wrap checkout with TranslationProvider using the checkout's configured default language
+  // This forces the checkout UI to use the configured language (e.g., German)
+  // regardless of the user's browser language settings
   return (
-    <div
-      className="min-h-screen"
-      style={{
-        ...themeStyles,
-        background: theme?.colors.background || "#ffffff",
-        color: theme?.colors.text || "#1F2937", // Override admin theme's white text
-      }}
-    >
-      {/* Header */}
-      <header
-        className="border-b backdrop-blur sticky top-0 z-50"
+    <TranslationProvider forceLocale={defaultLanguage}>
+      <div
+        className="min-h-screen w-full max-w-full overflow-x-hidden"
         style={{
-          background: `${theme?.colors.background || "#ffffff"}cc`,
-          borderColor: theme?.colors.border || "#D1D5DB",
+          ...themeStyles,
+          background: theme?.colors.background || "#ffffff",
+          color: theme?.colors.text || "#1F2937", // Override admin theme's white text
         }}
       >
-        <div className="container mx-auto px-4 py-4">
-          <h1
-            className="text-xl font-bold"
-            style={{ color: theme?.colors.textDark || "#111827" }}
-          >
-            {String(settings.title || checkoutInstance.name)}
-          </h1>
-          {typeof settings.description === "string" && settings.description && (
-            <p
-              className="text-sm mt-1"
-              style={{ color: theme?.colors.textLight || "#6B7280" }}
-            >
-              {settings.description}
-            </p>
-          )}
-        </div>
-      </header>
-
-      {/* Main Content - Render Template */}
-      <main className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto">
-          <CheckoutComponent {...templateProps} />
-        </div>
-      </main>
-
-      {/* Footer */}
-      <footer
-        className="border-t backdrop-blur mt-12"
-        style={{
-          background: `${theme?.colors.background || "#ffffff"}cc`,
-          borderColor: theme?.colors.border || "#D1D5DB",
-        }}
-      >
-        <div
-          className="container mx-auto px-4 py-6 text-center text-sm"
-          style={{ color: theme?.colors.textLight || "#6B7280" }}
+        {/* Header */}
+        <header
+          className="border-b backdrop-blur sticky top-0 z-50"
+          style={{
+            background: `${theme?.colors.background || "#ffffff"}cc`,
+            borderColor: theme?.colors.border || "#D1D5DB",
+          }}
         >
-          <p className="mb-2">🔒 Secured by Stripe | Your payment info is encrypted</p>
-          <p>
-            Powered by{" "}
-            <span
-              className="font-semibold"
-              style={{ color: theme?.colors.primary || "#6B46C1" }}
+          <div className="container mx-auto px-4 py-4">
+            <h1
+              className="text-xl font-bold"
+              style={{ color: theme?.colors.textDark || "#111827" }}
             >
-              l4yercak3
-            </span>
-          </p>
-        </div>
-      </footer>
-    </div>
+              {String(settings.title || checkoutInstance.name)}
+            </h1>
+            {typeof settings.description === "string" && settings.description && (
+              <p
+                className="text-sm mt-1"
+                style={{ color: theme?.colors.textLight || "#6B7280" }}
+              >
+                {settings.description}
+              </p>
+            )}
+          </div>
+        </header>
+
+        {/* Main Content - Render Template */}
+        <main className="container mx-auto px-4 py-8 overflow-x-hidden">
+          <div className="max-w-4xl mx-auto w-full min-w-0 overflow-x-hidden">
+            <CheckoutComponent {...templateProps} />
+          </div>
+        </main>
+
+        {/* Footer */}
+        <footer
+          className="border-t backdrop-blur mt-12"
+          style={{
+            background: `${theme?.colors.background || "#ffffff"}cc`,
+            borderColor: theme?.colors.border || "#D1D5DB",
+          }}
+        >
+          <div
+            className="container mx-auto px-4 py-6 text-center text-sm"
+            style={{ color: theme?.colors.textLight || "#6B7280" }}
+          >
+            <p className="mb-2">🔒 Secured by Stripe | Your payment info is encrypted</p>
+            <p>
+              Powered by{" "}
+              <span
+                className="font-semibold"
+                style={{ color: theme?.colors.primary || "#6B46C1" }}
+              >
+                l4yercak3
+              </span>
+            </p>
+          </div>
+        </footer>
+      </div>
+    </TranslationProvider>
   );
 }

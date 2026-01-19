@@ -502,11 +502,12 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
   };
 
   // Format slug: convert spaces to hyphens, remove invalid chars
+  // NOTE: Slashes are NOT allowed - the backend adds the path structure
   const formatSlug = (value: string): string => {
     return value
       .toLowerCase()
       .replace(/\s+/g, "-") // Replace spaces with hyphens
-      .replace(/[^a-z0-9/-]/g, "") // Remove invalid characters (keep hyphens and slashes)
+      .replace(/[^a-z0-9-]/g, "") // Remove invalid characters (only allow alphanumeric and hyphens)
       .replace(/-+/g, "-") // Replace multiple hyphens with single hyphen
       .replace(/^-|-$/g, ""); // Remove leading/trailing hyphens
   };
@@ -758,10 +759,10 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
             onChange={(e) => handleSlugChange(e.target.value)}
             className="w-full border-2 px-2 py-1 text-sm"
             style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)', color: 'var(--win95-text)' }}
-            placeholder="e.g., / or /events or /amazing-product"
+            placeholder="e.g., events, amazing-product, our-team"
             required
-            pattern="[a-z0-9/-]+"
-            title="Use / for root URL, or /page-name for sub-pages"
+            pattern="[a-z0-9-]+"
+            title="Use lowercase letters, numbers, and hyphens only"
           />
           {!isExternalPage && (
             <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>

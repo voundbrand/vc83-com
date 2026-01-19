@@ -15,6 +15,10 @@
   gap: var(--spacing-lg);
   container-type: inline-size;
   container-name: checkout;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 /* Progress Bar - Simple minimal design */
@@ -105,10 +109,15 @@
   max-width: 600px;
   margin: 0 auto;
   background: var(--color-background);
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .stepContent {
   width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 /* Step Header */
@@ -137,6 +146,9 @@
   display: flex;
   flex-direction: column;
   gap: var(--spacing-md);
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .productCard {
@@ -149,6 +161,9 @@
   display: flex;
   align-items: flex-start;
   gap: var(--spacing-md);
+  overflow: hidden;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .productCard:hover {
@@ -194,6 +209,9 @@
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .productCardHeader {
@@ -201,10 +219,15 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: var(--spacing-md);
+  flex-wrap: wrap;
+  min-width: 0;
+  width: 100%;
 }
 
 .productInfo {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .productName {
@@ -212,12 +235,16 @@
   font-weight: var(--font-weight-semibold);
   color: var(--color-text);
   margin-bottom: 0.25rem;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .productDescription {
   font-size: var(--font-size-sm);
   color: var(--color-textLight);
   line-height: var(--line-height-normal);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .productPricing {
@@ -1146,64 +1173,135 @@
 /* Container Query - For narrow containers like sidebar (< 500px) */
 @container checkout (max-width: 500px) {
   .checkoutContainer {
-    padding: var(--spacing-md);
+    padding: var(--spacing-sm);
     min-height: auto;
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .stepContent {
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+    box-sizing: border-box;
   }
 
   .stepContainer {
+    width: 100%;
     max-width: 100%;
+    padding: 0;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+
+  .stepHeader {
+    margin-bottom: var(--spacing-md);
   }
 
   .progressBar {
     max-width: 100%;
+    padding: var(--spacing-sm) 0;
+  }
+
+  .productGrid {
+    gap: var(--spacing-sm);
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
   }
 
   .productCard {
     flex-direction: column;
-    padding: var(--spacing-md);
+    padding: var(--spacing-sm);
+    overflow: hidden;
+    margin: 0;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .productCardContent {
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+    box-sizing: border-box;
   }
 
   .productCardHeader {
     flex-direction: column;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs);
+    width: 100%;
+  }
+
+  .productInfo {
+    width: 100%;
+    overflow: hidden;
   }
 
   .productPricing {
     text-align: left;
+    width: 100%;
   }
 
   .productPrice {
-    font-size: var(--font-size-xl);
+    font-size: var(--font-size-lg);
   }
 
   .productName {
     font-size: var(--font-size-sm);
+    word-break: break-word;
+    hyphens: auto;
   }
 
   .productDescription {
     font-size: var(--font-size-xs);
+    word-break: break-word;
+    hyphens: auto;
+  }
+
+  .quantitySection {
+    width: 100%;
+    margin-top: var(--spacing-sm);
+    padding-top: var(--spacing-sm);
+  }
+
+  .quantityControls {
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .actionButtons {
     flex-direction: column;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-md);
   }
 
   .primaryButton,
   .secondaryButton {
     width: 100%;
     padding: var(--spacing-sm) var(--spacing-md);
+    font-size: var(--font-size-xs);
+    white-space: normal;
+    word-break: break-word;
+    min-height: 44px; /* Touch-friendly minimum */
   }
 
   .stepTitle {
-    font-size: var(--font-size-lg);
+    font-size: var(--font-size-base);
+    flex-wrap: wrap;
+    word-break: break-word;
   }
 
   .stepSubtitle {
     font-size: var(--font-size-xs);
+    word-break: break-word;
+    hyphens: auto;
   }
 
   .confirmationTitle {
-    font-size: var(--font-size-xl);
+    font-size: var(--font-size-lg);
   }
 
   .ticketProgressBar {
@@ -1217,27 +1315,38 @@
   }
 
   .stepCircle {
-    width: 1.75rem;
-    height: 1.75rem;
-    font-size: var(--font-size-xs);
-  }
-
-  .stepLabel {
+    width: 1.5rem;
+    height: 1.5rem;
     font-size: 0.65rem;
   }
 
+  .stepLabel {
+    font-size: 0.6rem;
+    white-space: normal;
+    max-width: 50px;
+    text-align: center;
+    word-break: break-word;
+    hyphens: auto;
+  }
+
   .progressSteps {
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs);
   }
 
   .lineItem {
     flex-direction: column;
     align-items: flex-start;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs);
   }
 
   .lineItemInfo {
     width: 100%;
+  }
+
+  .lineItemName {
+    word-break: break-word;
+    hyphens: auto;
   }
 
   .lineItemPricing {
@@ -1245,17 +1354,37 @@
     justify-content: space-between;
   }
 
+  .lineItemsContainer {
+    padding: var(--spacing-sm);
+  }
+
   .pricingSummary {
-    padding: var(--spacing-md);
+    padding: var(--spacing-sm);
+  }
+
+  .priceRow {
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+  }
+
+  .priceLabel {
+    flex: 1;
+    min-width: 0;
+    word-break: break-word;
   }
 
   .totalValue,
   .totalAmount {
-    font-size: var(--font-size-xl);
+    font-size: var(--font-size-lg);
   }
 
   .formField {
     margin-bottom: var(--spacing-md);
+  }
+
+  .fieldLabel {
+    flex-wrap: wrap;
+    word-break: break-word;
   }
 
   .copyButton {
@@ -1268,14 +1397,44 @@
   }
 
   .paymentOption {
-    padding: var(--spacing-md);
+    padding: var(--spacing-sm);
   }
 
   .paymentOptionContent {
     flex-wrap: wrap;
+    gap: var(--spacing-sm);
+  }
+
+  .paymentName {
+    word-break: break-word;
+  }
+
+  .paymentDescription {
+    word-break: break-word;
+    hyphens: auto;
   }
 
   .orderSummary {
-    padding: var(--spacing-md);
+    padding: var(--spacing-sm);
+  }
+
+  /* Form elements need to stay within bounds */
+  .form {
+    gap: var(--spacing-md);
+  }
+
+  .input,
+  .textarea,
+  .select {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Ensure B2B address grid stacks on narrow screens */
+  .formField > div[style*="grid-template-columns"] {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: var(--spacing-md) !important;
   }
 }

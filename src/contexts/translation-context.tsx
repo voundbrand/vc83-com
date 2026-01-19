@@ -50,11 +50,27 @@ function detectBrowserLanguage(): string {
   return DEFAULT_LOCALE;
 }
 
-export function TranslationProvider({ children }: { children: ReactNode }) {
+interface TranslationProviderProps {
+  children: ReactNode;
+  /** Optional: Force a specific locale (overrides browser detection and user preferences) */
+  forceLocale?: string;
+}
+
+export function TranslationProvider({ children, forceLocale }: TranslationProviderProps) {
   const { sessionId } = useAuth();
 
+  // Normalize forceLocale to always be a string (for stable dependency arrays)
+  const normalizedForceLocale = forceLocale || "";
+  const hasValidForceLocale = normalizedForceLocale !== "" && AVAILABLE_LOCALES.includes(normalizedForceLocale);
+
   // Initialize with browser language detection (only runs once on mount)
+  // If forceLocale is provided, use it directly
   const [locale, setLocaleState] = useState<string>(() => {
+    // If forced locale is provided and valid, use it
+    if (hasValidForceLocale) {
+      return normalizedForceLocale;
+    }
+
     // Server-side: use default
     if (typeof window === "undefined") return DEFAULT_LOCALE;
 
@@ -68,6 +84,13 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
     return detectBrowserLanguage();
   });
 
+  // Update locale if forceLocale changes
+  useEffect(() => {
+    if (hasValidForceLocale) {
+      setLocaleState(normalizedForceLocale);
+    }
+  }, [normalizedForceLocale, hasValidForceLocale]);
+
   const [isHydrated, setIsHydrated] = useState(false);
 
   // Load preferences from Convex (only if signed in)
@@ -80,7 +103,14 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
 
   // Load language from Convex when available (signed-in users only)
   // This will override the initial browser/localStorage detection
+  // BUT: Skip this if forceLocale is set (checkout-specific override takes priority)
   useEffect(() => {
+    // Don't override forced locale with user preferences
+    if (hasValidForceLocale) {
+      setIsHydrated(true);
+      return;
+    }
+
     if (sessionId && userPrefs && !isHydrated) {
       if (userPrefs.language && AVAILABLE_LOCALES.includes(userPrefs.language)) {
         setLocaleState(userPrefs.language);
@@ -90,7 +120,7 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
       // Mark as hydrated for non-signed-in users (already set in useState)
       setIsHydrated(true);
     }
-  }, [sessionId, userPrefs, isHydrated]);
+  }, [sessionId, userPrefs, isHydrated, hasValidForceLocale]);
 
   // NOTE: We no longer load translations upfront to avoid Convex's 1024 field limit.
   // Each component should use useNamespaceTranslations() hook to load its own namespace.

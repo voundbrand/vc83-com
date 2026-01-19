@@ -680,7 +680,11 @@ export const completeCheckoutAndFulfill = action({
       sessionId: args.sessionId,
       checkoutSessionId: args.checkoutSessionId,
       paymentIntentId: args.paymentIntentId,
+      paymentMethod: args.paymentMethod,
     });
+
+    // STEP 0: Fetch checkout session
+    console.log("📋 [STEP 0] Fetching checkout session...");
 
     // 1. Get checkout session (single source of truth!)
     const session = await ctx.runQuery(internal.checkoutSessionOntology.getCheckoutSessionInternal, {
@@ -688,16 +692,16 @@ export const completeCheckoutAndFulfill = action({
     });
 
     if (!session) {
-      console.error("❌ [completeCheckoutAndFulfill] Checkout session not found!");
+      console.error("❌ [STEP 0] Checkout session not found!");
       throw new Error("Checkout session not found");
     }
 
     if (session.type !== "checkout_session") {
-      console.error("❌ [completeCheckoutAndFulfill] Invalid session type:", session.type);
+      console.error("❌ [STEP 0] Invalid session type:", session.type);
       throw new Error("Invalid session type");
     }
 
-    console.log("🔍 [completeCheckoutAndFulfill] Session data:", {
+    console.log("✅ [STEP 0] Checkout session found:", {
       sessionId: session._id,
       type: session.type,
       hasCustomProperties: !!session.customProperties,
@@ -781,25 +785,29 @@ export const completeCheckoutAndFulfill = action({
       fullBehaviorContext: JSON.stringify(behaviorContext, null, 2),
     });
 
-    // 2. Get organization and connected account (needed for payment verification)
+    // STEP 1: Get organization
+    console.log("📋 [STEP 1] Fetching organization...");
     const org = await ctx.runQuery(internal.checkoutSessions.getOrganizationInternal, {
       organizationId,
     });
 
     if (!org) {
+      console.error("❌ [STEP 1] Organization not found:", organizationId);
       throw new Error("Organization not found");
     }
+    console.log("✅ [STEP 1] Organization found:", org.name);
 
     let paymentResult: { success: boolean; paymentId: string; amount: number; currency: string };
 
-    // 3. Determine payment method - use explicit parameter or fall back to legacy detection
+    // STEP 2: Determine payment method
+    console.log("📋 [STEP 2] Determining payment method...");
     const paymentMethod = args.paymentMethod || (
       args.paymentIntentId === 'free' || args.paymentIntentId.startsWith('free_') ? 'free' :
       args.paymentIntentId.startsWith('inv_') || args.paymentIntentId === 'invoice' ? 'invoice' :
       'stripe'
     );
 
-    console.log("💳 [completeCheckoutAndFulfill] Payment method:", paymentMethod, "PaymentIntentId:", args.paymentIntentId);
+    console.log("✅ [STEP 2] Payment method determined:", paymentMethod, "PaymentIntentId:", args.paymentIntentId);
 
     // 4. Verify payment based on payment method
     if (paymentMethod === 'free') {
@@ -844,31 +852,31 @@ export const completeCheckoutAndFulfill = action({
       }
     }
 
-    console.log("✅ [completeCheckoutAndFulfill] Payment verification complete:", {
-      method: args.paymentIntentId.startsWith('free') ? 'free' :
-              args.paymentIntentId.startsWith('inv') ? 'invoice' : 'stripe',
+    console.log("✅ [STEP 3] Payment verification complete:", {
+      method: paymentMethod,
       amount: paymentResult.amount,
       currency: paymentResult.currency,
     });
 
     const createdPurchaseItems: string[] = [];
 
-    // 4. AUTO-CREATE CRM CONTACT & B2B ORGANIZATION (if applicable)
-    // Do this BEFORE creating purchase items so we can link them
+    // STEP 4: AUTO-CREATE CRM CONTACT & B2B ORGANIZATION
+    console.log("📋 [STEP 4] Creating CRM contact and B2B organization...");
     let crmContactId: Id<"objects"> | undefined;
     let crmOrganizationId: Id<"objects"> | undefined;
-    let frontendUserId: Id<"objects"> | undefined; // ✅ Declare here for wider scope
+    let frontendUserId: Id<"objects"> | undefined;
 
     try {
+      console.log("   [STEP 4a] Calling autoCreateContactFromCheckoutInternal...");
       const contactResult = await ctx.runMutation(internal.crmIntegrations.autoCreateContactFromCheckoutInternal, {
         checkoutSessionId: args.checkoutSessionId,
       });
       crmContactId = contactResult.contactId;
+      console.log("   ✅ [STEP 4a] CRM contact created:", crmContactId);
 
-      // ✅ NEW: Create dormant frontend user for guest checkout
-      // This allows customers to activate their account later to view tickets/registrations
+      // STEP 4b: Create dormant frontend user for guest checkout
       try {
-        console.log("👤 [completeCheckoutAndFulfill] Creating dormant frontend user for guest checkout...");
+        console.log("   [STEP 4b] Creating dormant frontend user for guest checkout...");
 
         // Extract name parts from customerName
         const nameParts = customerName.split(' ');
@@ -879,14 +887,12 @@ export const completeCheckoutAndFulfill = action({
           email: customerEmail,
           firstName,
           lastName,
-          organizationId, // Pass the platform organization ID
+          organizationId,
         });
 
-        console.log(`✅ [completeCheckoutAndFulfill] Created/found dormant frontend user: ${frontendUserId}`);
-        console.log(`   Email: ${customerEmail}, Organization: ${organizationId}`);
+        console.log(`   ✅ [STEP 4b] Created/found dormant frontend user: ${frontendUserId}`);
       } catch (userError) {
-        console.error("❌ [completeCheckoutAndFulfill] Failed to create frontend user (non-critical):", userError);
-        // Don't fail checkout if user creation fails - this is a nice-to-have feature
+        console.error("   ⚠️ [STEP 4b] Failed to create frontend user (non-critical):", userError);
       }
 
       // 🔥 FIRST: Check if employer-detection behavior already identified a CRM org
@@ -963,11 +969,12 @@ export const completeCheckoutAndFulfill = action({
         }
       }
     } catch (error) {
-      console.error("Failed to create CRM contact:", error);
-      // Don't fail the whole checkout if CRM creation fails
+      console.error("   ⚠️ [STEP 4] Failed to create CRM contact (non-critical):", error);
     }
+    console.log("✅ [STEP 4] CRM setup complete. crmContactId:", crmContactId, "crmOrganizationId:", crmOrganizationId);
 
-    // 5. Create form responses for audit trail (only for tickets WITH custom forms)
+    // STEP 5: Create form responses for audit trail (only for tickets WITH custom forms)
+    console.log("📋 [STEP 5] Creating form responses for audit trail...");
     if (formResponses && formResponses.length > 0) {
       for (const formResp of formResponses) {
         // Only create form response if a custom form was actually used
@@ -990,28 +997,30 @@ export const completeCheckoutAndFulfill = action({
         }
       }
     }
+    console.log("✅ [STEP 5] Form responses created:", formResponses?.length || 0);
 
-    // 4. Create purchase_items for each purchased product (PRODUCT-AGNOSTIC!)
-    console.log("🛍️ [completeCheckoutAndFulfill] Creating purchase items for", selectedProducts.length, "products");
+    // STEP 6: Create purchase_items for each purchased product
+    console.log("📋 [STEP 6] Creating purchase items for", selectedProducts.length, "products...");
 
     if (selectedProducts.length === 0) {
-      console.error("❌ [completeCheckoutAndFulfill] NO SELECTED PRODUCTS! Cannot complete checkout.");
+      console.error("❌ [STEP 6] NO SELECTED PRODUCTS! Cannot complete checkout.");
       throw new Error("No products selected - cannot complete checkout");
     }
 
-    for (const selectedProduct of selectedProducts) {
-      console.log("🔍 [completeCheckoutAndFulfill] Processing product:", selectedProduct.productId);
+    for (let productIndex = 0; productIndex < selectedProducts.length; productIndex++) {
+      const selectedProduct = selectedProducts[productIndex];
+      console.log(`   [STEP 6.${productIndex + 1}] Processing product ${productIndex + 1}/${selectedProducts.length}:`, selectedProduct.productId);
 
       const product = await ctx.runQuery(internal.productOntology.getProductInternal, {
         productId: selectedProduct.productId,
       });
 
       if (!product) {
-        console.error(`❌ [completeCheckoutAndFulfill] Product ${selectedProduct.productId} not found, skipping purchase item creation`);
+        console.error(`   ❌ [STEP 6.${productIndex + 1}] Product ${selectedProduct.productId} not found, skipping`);
         continue;
       }
 
-      console.log("✅ [completeCheckoutAndFulfill] Product found:", {
+      console.log(`   ✅ [STEP 6.${productIndex + 1}] Product found:`, {
         productId: product._id,
         name: product.name,
         subtype: product.subtype,
@@ -1025,14 +1034,15 @@ export const completeCheckoutAndFulfill = action({
       const companyName = session.customProperties?.companyName as string | undefined;
       const vatNumber = session.customProperties?.vatNumber as string | undefined;
 
-      console.log("🛍️ [completeCheckoutAndFulfill] Creating purchase items...", {
+      console.log(`   [STEP 6.${productIndex + 1}] Creating purchase items...`, {
         quantity: selectedProduct.quantity,
         fulfillmentType,
       });
 
       // Create purchase_items (one per quantity)
-      // Use internal mutation since we're in a backend action (no user session)
-      const purchaseItemsResult = await ctx.runMutation(internal.purchaseOntology.createPurchaseItemInternal, {
+      let purchaseItemsResult;
+      try {
+        purchaseItemsResult = await ctx.runMutation(internal.purchaseOntology.createPurchaseItemInternal, {
         organizationId,
         checkoutSessionId: args.checkoutSessionId,
         productId: selectedProduct.productId,
@@ -1049,21 +1059,26 @@ export const completeCheckoutAndFulfill = action({
         crmOrganizationId, // Link to CRM organization if B2B
         fulfillmentType,
         registrationData: undefined, // Will be set below if forms exist
-        userId: frontendUserId, // ✅ CHANGED: Pass dormant user ID
-      });
+          userId: frontendUserId,
+        });
 
-      console.log("✅ [completeCheckoutAndFulfill] Purchase items created:", {
-        count: purchaseItemsResult.purchaseItemIds.length,
-        ids: purchaseItemsResult.purchaseItemIds,
-      });
+        console.log(`   ✅ [STEP 6.${productIndex + 1}] Purchase items created:`, {
+          count: purchaseItemsResult.purchaseItemIds.length,
+          ids: purchaseItemsResult.purchaseItemIds,
+        });
+      } catch (purchaseError) {
+        console.error(`   ❌ [STEP 6.${productIndex + 1}] Failed to create purchase items:`, purchaseError);
+        throw purchaseError;
+      }
 
       createdPurchaseItems.push(...purchaseItemsResult.purchaseItemIds);
 
-      // 5. PRODUCT-SPECIFIC FULFILLMENT
-      // For each purchase_item, create fulfillment object based on product type
+      // STEP 6.x.FULFILLMENT: Create fulfillment object based on product type
+      console.log(`   [STEP 6.${productIndex + 1}] Creating fulfillment for ${purchaseItemsResult.purchaseItemIds.length} items...`);
       for (let i = 0; i < purchaseItemsResult.purchaseItemIds.length; i++) {
         const purchaseItemId = purchaseItemsResult.purchaseItemIds[i];
         const itemNumber = i + 1;
+        console.log(`      [STEP 6.${productIndex + 1}.${i + 1}] Processing item ${itemNumber}/${purchaseItemsResult.purchaseItemIds.length}...`);
 
         // Find corresponding form response for this item
         const formResponse = formResponses?.find(
@@ -1094,9 +1109,10 @@ export const completeCheckoutAndFulfill = action({
         if (fulfillmentType === "ticket") {
           // Create event ticket for access control
           const eventId = product.customProperties?.eventId as Id<"objects"> | undefined;
+          console.log(`      [STEP 6.${productIndex + 1}.${i + 1}] Creating ticket (eventId: ${eventId})...`);
 
-          // Use internal mutation since we're in a backend action (no user session)
-          const ticketId = await ctx.runMutation(internal.ticketOntology.createTicketInternal, {
+          try {
+            const ticketId = await ctx.runMutation(internal.ticketOntology.createTicketInternal, {
             organizationId,
             productId: selectedProduct.productId,
             eventId,
@@ -1118,55 +1134,62 @@ export const completeCheckoutAndFulfill = action({
               crmOrganizationId, // Detected by employer-detection behavior
               contactId: crmContactId, // Link to individual contact
             },
-          });
+            });
 
-          // Update purchase_item with fulfillment info
-          // Use internal mutation since we're in a backend action
-          await ctx.runMutation(internal.purchaseOntology.updateFulfillmentStatusInternal, {
-            purchaseItemId: purchaseItemId as Id<"objects">,
-            fulfillmentStatus: "fulfilled",
-            fulfillmentData: {
-              ticketId,
-              eventId,
-            },
-            userId: frontendUserId, // ✅ Pass dormant user ID
-          });
+            console.log(`      ✅ [STEP 6.${productIndex + 1}.${i + 1}] Ticket created:`, ticketId);
+
+            // Update purchase_item with fulfillment info
+            await ctx.runMutation(internal.purchaseOntology.updateFulfillmentStatusInternal, {
+              purchaseItemId: purchaseItemId as Id<"objects">,
+              fulfillmentStatus: "fulfilled",
+              fulfillmentData: {
+                ticketId,
+                eventId,
+              },
+              userId: frontendUserId,
+            });
+            console.log(`      ✅ [STEP 6.${productIndex + 1}.${i + 1}] Fulfillment status updated`);
+          } catch (ticketError) {
+            console.error(`      ❌ [STEP 6.${productIndex + 1}.${i + 1}] Failed to create ticket:`, ticketError);
+            throw ticketError;
+          }
         }
-        // TODO: Add more fulfillment types here:
-        // else if (fulfillmentType === "subscription") { ... }
-        // else if (fulfillmentType === "download") { ... }
-        // else if (fulfillmentType === "shipment") { ... }
+        // TODO: Add more fulfillment types here
       }
     }
+    console.log("✅ [STEP 6] All purchase items and tickets created:", createdPurchaseItems.length);
 
-    // 6. Mark session as completed
-    // Use internal mutation since we're in a backend action
-    await ctx.runMutation(internal.checkoutSessionOntology.completeCheckoutSessionInternal, {
-      checkoutSessionId: args.checkoutSessionId,
-      paymentIntentId: args.paymentIntentId,
-      purchasedItemIds: createdPurchaseItems, // Store purchase_item IDs (generic!)
-      crmContactId,
-      crmOrganizationId, // Pass B2B organization ID
-      userId: frontendUserId, // ✅ Pass dormant user ID
-      paymentMethod, // ✅ Store payment method so invoice creation knows if it's pay-later
-    });
+    // STEP 7: Mark session as completed
+    console.log("📋 [STEP 7] Marking session as completed...");
+    try {
+      await ctx.runMutation(internal.checkoutSessionOntology.completeCheckoutSessionInternal, {
+        checkoutSessionId: args.checkoutSessionId,
+        paymentIntentId: args.paymentIntentId,
+        purchasedItemIds: createdPurchaseItems,
+        crmContactId,
+        crmOrganizationId,
+        userId: frontendUserId,
+        paymentMethod,
+      });
+      console.log("✅ [STEP 7] Session marked as completed");
+    } catch (sessionError) {
+      console.error("❌ [STEP 7] Failed to mark session as completed:", sessionError);
+      throw sessionError;
+    }
 
-    // 6.5. CREATE TRANSACTIONS AND LINK TO TICKETS
-    // 🔥 CRITICAL: Must run BEFORE email/PDF generation so tax data is available!
-    // Previously this was scheduled asynchronously, causing race condition where
-    // PDFs/emails generated before transaction IDs were linked to tickets.
-    console.log("📝 [completeCheckoutAndFulfill] Creating transactions and linking to tickets...");
+    // STEP 8: CREATE TRANSACTIONS AND LINK TO TICKETS
+    console.log("📋 [STEP 8] Creating transactions and linking to tickets...");
     try {
       await ctx.runAction(internal.createTransactionsFromCheckout.createTransactionsFromCheckout, {
         checkoutSessionId: args.checkoutSessionId,
       });
-      console.log("✅ [completeCheckoutAndFulfill] Transactions created and linked successfully");
+      console.log("✅ [STEP 8] Transactions created and linked successfully");
     } catch (transactionError) {
-      console.error("❌ [completeCheckoutAndFulfill] Transaction creation failed:", transactionError);
-      // Don't fail checkout, but log the error
+      console.error("⚠️ [STEP 8] Transaction creation failed (non-critical):", transactionError);
     }
 
-    // 6.6. Determine invoice handling based on payment method
+    // STEP 9: Determine invoice handling based on payment method
+    console.log("📋 [STEP 9] Determining invoice handling...");
     const isEmployerBilled = !!crmOrganizationId && behaviorContext?.metadata?.isEmployerBilling === true;
     const isManualInvoice = args.paymentIntentId.startsWith('inv_') || args.paymentIntentId === 'invoice';
     const isFreeRegistration = args.paymentIntentId === 'free' || args.paymentIntentId.startsWith('free_');
@@ -1209,25 +1232,26 @@ export const completeCheckoutAndFulfill = action({
       // Stripe payment - include receipt/invoice
       includeInvoicePDF = true;
       invoiceType = 'receipt';
-      console.log("📋 [completeCheckoutAndFulfill] Stripe payment - will include receipt/invoice PDF");
+      console.log("   Stripe payment - will include receipt/invoice PDF");
     }
+    console.log("✅ [STEP 9] Invoice handling determined:", { invoiceType, includeInvoicePDF });
 
-    // 7. SEND ORDER CONFIRMATION EMAIL (non-blocking)
-    // Sends ONE email with all ticket PDFs and (optionally) invoice PDF attached
+    // STEP 10: SEND ORDER CONFIRMATION EMAIL
+    console.log("📋 [STEP 10] Sending order confirmation email...");
     try {
       await ctx.runAction(internal.ticketGeneration.sendOrderConfirmationEmail, {
         checkoutSessionId: args.checkoutSessionId,
         recipientEmail: customerEmail,
         recipientName: customerName,
-        includeInvoicePDF, // ✅ Intelligent flag: skip PDF for employer billing
+        includeInvoicePDF,
       });
+      console.log("✅ [STEP 10] Order confirmation email sent");
     } catch (emailError) {
-      // Don't fail checkout if emails fail - log and continue
-      console.error("Email sending failed (non-critical):", emailError);
+      console.error("⚠️ [STEP 10] Email sending failed (non-critical):", emailError);
     }
 
-    // 8. SEND SALES NOTIFICATION EMAIL (non-blocking)
-    // Sends internal notification to sales team about the new order
+    // STEP 11: SEND SALES NOTIFICATION EMAIL
+    console.log("📋 [STEP 11] Sending sales notification email...");
     try {
       // Get checkout instance to retrieve sales notification settings
       const checkoutInstanceId = session.customProperties?.checkoutInstanceId as Id<"objects"> | undefined;
@@ -1256,13 +1280,14 @@ export const completeCheckoutAndFulfill = action({
           console.log("📧 [completeCheckoutAndFulfill] No sales notification recipient configured, skipping");
         }
       } else {
-        console.log("📧 [completeCheckoutAndFulfill] No checkout instance ID, skipping sales notification");
+        console.log("   No checkout instance ID, skipping sales notification");
       }
+      console.log("✅ [STEP 11] Sales notification handled");
     } catch (salesEmailError) {
-      // Don't fail checkout if sales notification fails - log and continue
-      console.error("Sales notification email failed (non-critical):", salesEmailError);
+      console.error("⚠️ [STEP 11] Sales notification email failed (non-critical):", salesEmailError);
     }
 
+    console.log("🎉 [completeCheckoutAndFulfill] CHECKOUT COMPLETE! Returning success...");
     return {
       success: true,
       purchasedItemIds: createdPurchaseItems, // Generic! Works for any product type

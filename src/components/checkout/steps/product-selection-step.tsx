@@ -56,7 +56,7 @@ export function ProductSelectionStep({
   initialSelection,
   onComplete,
 }: ProductSelectionStepProps) {
-  const { t } = useNamespaceTranslations("checkout");
+  const { t } = useNamespaceTranslations("ui.products");
 
   // Fetch organization tax settings
   const taxSettings = useQuery(api.organizationTaxSettings.getPublicTaxSettings, {

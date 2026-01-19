@@ -385,6 +385,7 @@ function TextareaInput({
 
 /**
  * Rich Text Input Component (WYSIWYG Editor)
+ * Opens in a modal for better editing experience
  */
 function RichTextInput({
   field,
@@ -395,20 +396,143 @@ function RichTextInput({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [tempValue, setTempValue] = useState(value || "");
+
+  // Strip HTML tags for preview
+  const getPlainTextPreview = (html: string) => {
+    if (!html) return "";
+    const text = html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+    return text.length > 150 ? text.substring(0, 150) + "..." : text;
+  };
+
+  const handleOpen = () => {
+    setTempValue(value || "");
+    setIsModalOpen(true);
+  };
+
+  const handleSave = () => {
+    onChange(tempValue);
+    setIsModalOpen(false);
+  };
+
+  const handleCancel = () => {
+    setTempValue(value || "");
+    setIsModalOpen(false);
+  };
+
   return (
     <div>
       <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
         {field.label}
         {field.required && <span className="ml-1" style={{ color: 'var(--error)' }}>*</span>}
       </label>
-      <SimpleTiptapEditor
-        value={value || ""}
-        onChange={onChange}
-        placeholder={field.placeholder || "Start typing..."}
-        minHeight="200px"
-      />
+
+      {/* Preview box that opens the modal */}
+      <button
+        type="button"
+        onClick={handleOpen}
+        className="w-full text-left border-2 p-3 min-h-[80px] transition-colors"
+        style={{
+          borderColor: 'var(--win95-border)',
+          background: 'var(--win95-input-bg)',
+          color: value ? 'var(--win95-text)' : 'var(--neutral-gray)',
+        }}
+        onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--win95-highlight)'}
+        onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--win95-border)'}
+      >
+        {value ? (
+          <span className="text-xs">{getPlainTextPreview(value)}</span>
+        ) : (
+          <span className="text-xs italic">{field.placeholder || "Click to edit rich text..."}</span>
+        )}
+      </button>
+
       {field.helpText && (
         <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>{field.helpText}</p>
+      )}
+
+      {/* Modal */}
+      {isModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: 'rgba(0, 0, 0, 0.5)' }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) handleCancel();
+          }}
+        >
+          <div
+            className="w-full max-w-4xl max-h-[90vh] flex flex-col border-2 shadow-lg"
+            style={{ background: 'var(--win95-bg)', borderColor: 'var(--win95-border)' }}
+          >
+            {/* Modal Header */}
+            <div
+              className="flex items-center justify-between px-4 py-2 border-b-2"
+              style={{ background: 'var(--win95-highlight)', borderColor: 'var(--win95-border)' }}
+            >
+              <h3 className="text-sm font-bold" style={{ color: 'var(--win95-bg-light)' }}>
+                {field.label}
+              </h3>
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="w-6 h-6 flex items-center justify-center border-2 text-xs font-bold"
+                style={{
+                  background: 'var(--win95-button-face)',
+                  borderColor: 'var(--win95-border)',
+                  color: 'var(--win95-text)',
+                }}
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            {/* Modal Body - Editor */}
+            <div className="flex-1 overflow-auto p-4">
+              <SimpleTiptapEditor
+                value={tempValue}
+                onChange={setTempValue}
+                placeholder={field.placeholder || "Start typing..."}
+                minHeight="400px"
+              />
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              className="flex items-center justify-end gap-2 px-4 py-3 border-t-2"
+              style={{ borderColor: 'var(--win95-border)' }}
+            >
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="px-4 py-2 text-xs font-bold border-2 transition-colors"
+                style={{
+                  background: 'var(--win95-button-face)',
+                  borderColor: 'var(--win95-border)',
+                  color: 'var(--win95-text)',
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--win95-hover-light)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'var(--win95-button-face)'}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                className="px-4 py-2 text-xs font-bold border-2 transition-colors"
+                style={{
+                  background: 'var(--win95-highlight)',
+                  borderColor: 'var(--win95-border)',
+                  color: 'var(--win95-bg-light)',
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
+                onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -60,7 +60,7 @@ export function RegistrationFormStep({
   onComplete,
   onBack,
 }: RegistrationFormStepProps) {
-  const { t } = useNamespaceTranslations("checkout");
+  const { t } = useNamespaceTranslations("ui.checkout");
 
   // Calculate total tickets needed across all products
   const totalTickets = selectedProducts.reduce((sum, item) => sum + item.quantity, 0);

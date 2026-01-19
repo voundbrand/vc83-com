@@ -123,6 +123,11 @@ export function HeroSlideshow({
                 if (videoId && (provider === 'youtube' || provider === 'vimeo')) {
                   // YouTube/Vimeo video - use iframe with video-utils
                   // Scale video to cover container without black bars (like object-fit: cover)
+                  // The trick: make iframe larger than container and center it
+                  // For 16:9 video to cover any container, we need:
+                  // - Width to be at least container width
+                  // - Height to be at least container height
+                  // - Maintain 16:9 ratio (1.7778)
                   const embedUrl = getVideoEmbedUrl(
                     videoId,
                     provider,
@@ -131,15 +136,31 @@ export function HeroSlideshow({
                   );
 
                   return index === currentIndex ? (
-                    <div className="absolute inset-0 w-full h-full overflow-hidden">
+                    <div className="absolute inset-0 w-full h-full overflow-hidden bg-black">
+                      {/*
+                        Object-fit cover simulation for iframes:
+                        - Container has overflow:hidden
+                        - Iframe is positioned at center with transform
+                        - Size uses viewport units: 177.78vh = 100vh * 16/9 (for wide containers)
+                        - Size uses viewport units: 56.25vw = 100vw * 9/16 (for tall containers)
+                        - min-width/min-height ensure it always covers
+                      */}
                       <iframe
                         key={`${provider}-${item.id}-${currentIndex}`}
                         src={embedUrl}
-                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[177.78vh] h-[56.25vw] min-w-full min-h-full"
+                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-auto"
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                         allowFullScreen
                         title={item.alt || `Video ${index + 1}`}
-                        style={{ border: 'none' }}
+                        style={{
+                          border: 'none',
+                          // Cover simulation using viewport-relative sizing
+                          // This ensures the 16:9 video fills any container aspect ratio
+                          width: '177.78vh', // 100vh * 16/9 - works when container is taller than 16:9
+                          height: '56.25vw', // 100vw * 9/16 - works when container is wider than 16:9
+                          minWidth: '100%',
+                          minHeight: '100%',
+                        }}
                       />
                     </div>
                   ) : null;
