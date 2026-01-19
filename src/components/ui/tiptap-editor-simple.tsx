@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from 'react';
-import { useEditor, EditorContent } from '@tiptap/react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useEditor, EditorContent, Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import TextAlign from '@tiptap/extension-text-align';
@@ -24,6 +24,253 @@ import {
   Redo,
   Code2
 } from 'lucide-react';
+
+/**
+ * Toolbar Button - Defined OUTSIDE the main component to prevent recreation on every render
+ * Uses onMouseDown with preventDefault to maintain editor focus
+ */
+interface ToolbarButtonProps {
+  onAction: () => void;
+  isActive?: boolean;
+  title: string;
+  children: React.ReactNode;
+  disabled?: boolean;
+}
+
+const ToolbarButton: React.FC<ToolbarButtonProps> = ({
+  onAction,
+  isActive,
+  title,
+  children,
+  disabled = false
+}) => (
+  <button
+    type="button"
+    // Use onMouseDown instead of onClick - this fires before blur event
+    // and preventDefault keeps focus in the editor
+    onMouseDown={(e) => {
+      e.preventDefault(); // Crucial: prevents editor from losing focus
+      if (!disabled) {
+        onAction();
+      }
+    }}
+    disabled={disabled}
+    className={`p-1.5 border-2 ${isActive ? 'shadow-inner' : ''} ${disabled ? 'opacity-30 cursor-not-allowed' : ''}`}
+    style={{
+      borderColor: "var(--win95-border)",
+      background: isActive ? "var(--win95-border)" : "var(--win95-button-face)",
+      color: "var(--win95-text)",
+      cursor: disabled ? "not-allowed" : "pointer",
+    }}
+    title={title}
+  >
+    {children}
+  </button>
+);
+
+const Divider: React.FC = () => (
+  <div className="w-px h-6 mx-1" style={{ background: "var(--win95-border)" }} />
+);
+
+/**
+ * Menu Bar Component - Separated to optimize rendering
+ */
+interface MenuBarProps {
+  editor: Editor;
+  isCodeView: boolean;
+  onCodeViewToggle: () => void;
+}
+
+const MenuBar: React.FC<MenuBarProps> = ({ editor, isCodeView, onCodeViewToggle }) => {
+  // Force re-render when editor state changes (selection, content)
+  const [, forceUpdate] = useState({});
+
+  useEffect(() => {
+    // Subscribe to editor updates for reactive toolbar state
+    const handleUpdate = () => forceUpdate({});
+    const handleSelectionUpdate = () => forceUpdate({});
+
+    editor.on('update', handleUpdate);
+    editor.on('selectionUpdate', handleSelectionUpdate);
+    editor.on('focus', handleUpdate);
+    editor.on('blur', handleUpdate);
+
+    return () => {
+      editor.off('update', handleUpdate);
+      editor.off('selectionUpdate', handleSelectionUpdate);
+      editor.off('focus', handleUpdate);
+      editor.off('blur', handleUpdate);
+    };
+  }, [editor]);
+
+  const addLink = useCallback(() => {
+    const url = window.prompt('Enter URL:');
+    if (url) {
+      editor.chain().focus().setLink({ href: url }).run();
+    }
+  }, [editor]);
+
+  const removeLink = useCallback(() => {
+    editor.chain().focus().unsetLink().run();
+  }, [editor]);
+
+  return (
+    <div
+      className="border-b-2 p-1 flex flex-wrap gap-1"
+      style={{
+        borderColor: "var(--win95-border)",
+        background: "var(--win95-button-face)",
+      }}
+    >
+      {/* Text formatting */}
+      <ToolbarButton
+        onAction={() => editor.chain().focus().toggleBold().run()}
+        isActive={editor.isActive('bold')}
+        title="Bold"
+      >
+        <Bold size={14} />
+      </ToolbarButton>
+
+      <ToolbarButton
+        onAction={() => editor.chain().focus().toggleItalic().run()}
+        isActive={editor.isActive('italic')}
+        title="Italic"
+      >
+        <Italic size={14} />
+      </ToolbarButton>
+
+      <ToolbarButton
+        onAction={() => editor.chain().focus().toggleUnderline().run()}
+        isActive={editor.isActive('underline')}
+        title="Underline"
+      >
+        <UnderlineIcon size={14} />
+      </ToolbarButton>
+
+      <ToolbarButton
+        onAction={() => editor.chain().focus().toggleStrike().run()}
+        isActive={editor.isActive('strike')}
+        title="Strikethrough"
+      >
+        <Strikethrough size={14} />
+      </ToolbarButton>
+
+      <Divider />
+
+      {/* Headings */}
+      <ToolbarButton
+        onAction={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+        isActive={editor.isActive('heading', { level: 1 })}
+        title="Heading 1"
+      >
+        <Heading1 size={14} />
+      </ToolbarButton>
+
+      <ToolbarButton
+        onAction={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+        isActive={editor.isActive('heading', { level: 2 })}
+        title="Heading 2"
+      >
+        <Heading2 size={14} />
+      </ToolbarButton>
+
+      <ToolbarButton
+        onAction={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+        isActive={editor.isActive('heading', { level: 3 })}
+        title="Heading 3"
+      >
+        <Heading3 size={14} />
+      </ToolbarButton>
+
+      <Divider />
+
+      {/* Lists */}
+      <ToolbarButton
+        onAction={() => editor.chain().focus().toggleBulletList().run()}
+        isActive={editor.isActive('bulletList')}
+        title="Bullet List"
+      >
+        <List size={14} />
+      </ToolbarButton>
+
+      <ToolbarButton
+        onAction={() => editor.chain().focus().toggleOrderedList().run()}
+        isActive={editor.isActive('orderedList')}
+        title="Numbered List"
+      >
+        <ListOrdered size={14} />
+      </ToolbarButton>
+
+      <Divider />
+
+      {/* Alignment */}
+      <ToolbarButton
+        onAction={() => editor.chain().focus().setTextAlign('left').run()}
+        isActive={editor.isActive({ textAlign: 'left' })}
+        title="Align Left"
+      >
+        <AlignLeft size={14} />
+      </ToolbarButton>
+
+      <ToolbarButton
+        onAction={() => editor.chain().focus().setTextAlign('center').run()}
+        isActive={editor.isActive({ textAlign: 'center' })}
+        title="Align Center"
+      >
+        <AlignCenter size={14} />
+      </ToolbarButton>
+
+      <ToolbarButton
+        onAction={() => editor.chain().focus().setTextAlign('right').run()}
+        isActive={editor.isActive({ textAlign: 'right' })}
+        title="Align Right"
+      >
+        <AlignRight size={14} />
+      </ToolbarButton>
+
+      <Divider />
+
+      {/* Link */}
+      <ToolbarButton
+        onAction={editor.isActive('link') ? removeLink : addLink}
+        isActive={editor.isActive('link')}
+        title={editor.isActive('link') ? 'Remove Link' : 'Add Link'}
+      >
+        <Link2 size={14} />
+      </ToolbarButton>
+
+      <Divider />
+
+      {/* Undo/Redo */}
+      <ToolbarButton
+        onAction={() => editor.chain().focus().undo().run()}
+        disabled={!editor.can().undo()}
+        title="Undo"
+      >
+        <Undo size={14} />
+      </ToolbarButton>
+
+      <ToolbarButton
+        onAction={() => editor.chain().focus().redo().run()}
+        disabled={!editor.can().redo()}
+        title="Redo"
+      >
+        <Redo size={14} />
+      </ToolbarButton>
+
+      <Divider />
+
+      {/* Code View Toggle */}
+      <ToolbarButton
+        onAction={onCodeViewToggle}
+        isActive={isCodeView}
+        title={isCodeView ? "Visual Editor" : "Source Code"}
+      >
+        <Code2 size={14} />
+      </ToolbarButton>
+    </div>
+  );
+};
 
 interface SimpleTiptapEditorProps {
   value: string;
@@ -95,221 +342,38 @@ const SimpleTiptapEditor: React.FC<SimpleTiptapEditorProps> = ({
     }
   }, [value, editor]);
 
+  const handleCodeViewToggle = useCallback(() => {
+    if (!editor) return;
+
+    if (!isCodeView) {
+      // Switching to code view - update code content from editor
+      setCodeContent(editor.getHTML());
+    } else {
+      // Switching back to visual - update editor from code content
+      editor.commands.setContent(codeContent, { emitUpdate: false });
+      onChange(codeContent);
+    }
+    setIsCodeView(!isCodeView);
+  }, [editor, isCodeView, codeContent, onChange]);
+
   if (!editor) {
     return null;
   }
 
-  const addLink = () => {
-    const url = window.prompt('Enter URL:');
-    if (url) {
-      editor.chain().focus().setLink({ href: url }).run();
-    }
-  };
-
-  const removeLink = () => {
-    editor.chain().focus().unsetLink().run();
-  };
-
-  const ToolbarButton = ({
-    onClick,
-    isActive,
-    title,
-    children,
-    disabled = false
-  }: {
-    onClick: () => void;
-    isActive?: boolean;
-    title: string;
-    children: React.ReactNode;
-    disabled?: boolean;
-  }) => (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        onClick();
-      }}
-      onMouseDown={(e) => {
-        // Prevent editor from losing focus when clicking toolbar buttons
-        e.preventDefault();
-      }}
-      disabled={disabled}
-      className={`p-1.5 border-2 ${isActive ? 'shadow-inner' : ''} ${disabled ? 'opacity-30 cursor-not-allowed' : ''}`}
+  return (
+    <div
+      className="border-2 overflow-hidden"
       style={{
         borderColor: "var(--win95-border)",
-        background: isActive ? "var(--win95-border)" : "var(--win95-button-face)",
-        color: "var(--win95-text)"
+        background: "var(--win95-input-bg)",
       }}
-      title={title}
     >
-      {children}
-    </button>
-  );
-
-  const Divider = () => <div className="w-px h-6 mx-1" style={{ background: "var(--win95-border)" }} />;
-
-  return (
-    <div className="border-2 overflow-hidden" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
       {/* Toolbar */}
-      <div className="border-b-2 p-1 flex flex-wrap gap-1" style={{ borderColor: "var(--win95-border)", background: "var(--win95-button-face)" }}>
-        {/* Text formatting */}
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleBold().run()}
-          isActive={editor.isActive('bold')}
-          title="Bold"
-        >
-          <Bold size={14} />
-        </ToolbarButton>
-
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleItalic().run()}
-          isActive={editor.isActive('italic')}
-          title="Italic"
-        >
-          <Italic size={14} />
-        </ToolbarButton>
-
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleUnderline().run()}
-          isActive={editor.isActive('underline')}
-          title="Underline"
-        >
-          <UnderlineIcon size={14} />
-        </ToolbarButton>
-
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleStrike().run()}
-          isActive={editor.isActive('strike')}
-          title="Strikethrough"
-        >
-          <Strikethrough size={14} />
-        </ToolbarButton>
-
-        <Divider />
-
-        {/* Headings */}
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-          isActive={editor.isActive('heading', { level: 1 })}
-          title="Heading 1"
-        >
-          <Heading1 size={14} />
-        </ToolbarButton>
-
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-          isActive={editor.isActive('heading', { level: 2 })}
-          title="Heading 2"
-        >
-          <Heading2 size={14} />
-        </ToolbarButton>
-
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-          isActive={editor.isActive('heading', { level: 3 })}
-          title="Heading 3"
-        >
-          <Heading3 size={14} />
-        </ToolbarButton>
-
-        <Divider />
-
-        {/* Lists */}
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleBulletList().run()}
-          isActive={editor.isActive('bulletList')}
-          title="Bullet List"
-        >
-          <List size={14} />
-        </ToolbarButton>
-
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleOrderedList().run()}
-          isActive={editor.isActive('orderedList')}
-          title="Numbered List"
-        >
-          <ListOrdered size={14} />
-        </ToolbarButton>
-
-        <Divider />
-
-        {/* Alignment */}
-        <ToolbarButton
-          onClick={() => editor.chain().focus().setTextAlign('left').run()}
-          isActive={editor.isActive({ textAlign: 'left' })}
-          title="Align Left"
-        >
-          <AlignLeft size={14} />
-        </ToolbarButton>
-
-        <ToolbarButton
-          onClick={() => editor.chain().focus().setTextAlign('center').run()}
-          isActive={editor.isActive({ textAlign: 'center' })}
-          title="Align Center"
-        >
-          <AlignCenter size={14} />
-        </ToolbarButton>
-
-        <ToolbarButton
-          onClick={() => editor.chain().focus().setTextAlign('right').run()}
-          isActive={editor.isActive({ textAlign: 'right' })}
-          title="Align Right"
-        >
-          <AlignRight size={14} />
-        </ToolbarButton>
-
-        <Divider />
-
-        {/* Link */}
-        <ToolbarButton
-          onClick={editor.isActive('link') ? removeLink : addLink}
-          isActive={editor.isActive('link')}
-          title={editor.isActive('link') ? 'Remove Link' : 'Add Link'}
-        >
-          <Link2 size={14} />
-        </ToolbarButton>
-
-        <Divider />
-
-        {/* Undo/Redo */}
-        <ToolbarButton
-          onClick={() => editor.chain().focus().undo().run()}
-          disabled={!editor.can().undo()}
-          title="Undo"
-        >
-          <Undo size={14} />
-        </ToolbarButton>
-
-        <ToolbarButton
-          onClick={() => editor.chain().focus().redo().run()}
-          disabled={!editor.can().redo()}
-          title="Redo"
-        >
-          <Redo size={14} />
-        </ToolbarButton>
-
-        <Divider />
-
-        {/* Code View Toggle */}
-        <ToolbarButton
-          onClick={() => {
-            if (!isCodeView) {
-              // Switching to code view - update code content from editor
-              setCodeContent(editor.getHTML());
-            } else {
-              // Switching back to visual - update editor from code content
-              editor.commands.setContent(codeContent, { emitUpdate: false });
-              onChange(codeContent);
-            }
-            setIsCodeView(!isCodeView);
-          }}
-          isActive={isCodeView}
-          title={isCodeView ? "Visual Editor" : "Source Code"}
-        >
-          <Code2 size={14} />
-        </ToolbarButton>
-      </div>
+      <MenuBar
+        editor={editor}
+        isCodeView={isCodeView}
+        onCodeViewToggle={handleCodeViewToggle}
+      />
 
       {/* Editor Content or Code View */}
       {isCodeView ? (

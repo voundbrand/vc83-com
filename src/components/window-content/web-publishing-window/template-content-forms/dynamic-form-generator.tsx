@@ -5,7 +5,8 @@
  * This eliminates the need for template-specific form components!
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { useWindowManager } from "@/hooks/use-window-manager";
 import { useAppAvailability } from "@/hooks/use-app-availability";
@@ -386,6 +387,7 @@ function TextareaInput({
 /**
  * Rich Text Input Component (WYSIWYG Editor)
  * Opens in a modal for better editing experience
+ * Uses createPortal to render modal outside parent stacking contexts
  */
 function RichTextInput({
   field,
@@ -398,6 +400,12 @@ function RichTextInput({
 }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [tempValue, setTempValue] = useState(value || "");
+  const [mounted, setMounted] = useState(false);
+
+  // Ensure we're client-side for portal
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Strip HTML tags for preview
   const getPlainTextPreview = (html: string) => {
@@ -420,6 +428,105 @@ function RichTextInput({
     setTempValue(value || "");
     setIsModalOpen(false);
   };
+
+  // Modal content - rendered via portal
+  // Note: Using portal to document.body with explicit transform/isolation reset
+  // to ensure modal is not affected by parent transforms (e.g., scale-75 in preview)
+  const modalContent = isModalOpen && mounted ? createPortal(
+    <div
+      className="fixed inset-0 flex items-center justify-center"
+      style={{
+        background: 'rgba(0, 0, 0, 0.5)',
+        zIndex: 99999,
+        // Reset any inherited transforms and create new stacking context
+        transform: 'none',
+        isolation: 'isolate',
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) handleCancel();
+      }}
+    >
+      <div
+        className="w-full max-w-4xl max-h-[90vh] flex flex-col border-2 shadow-lg"
+        style={{
+          background: 'var(--win95-bg)',
+          borderColor: 'var(--win95-border)',
+          // Ensure this element is not affected by transforms
+          transform: 'none',
+          pointerEvents: 'auto',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Modal Header */}
+        <div
+          className="flex items-center justify-between px-4 py-2 border-b-2"
+          style={{ background: 'var(--win95-highlight)', borderColor: 'var(--win95-border)' }}
+        >
+          <h3 className="text-sm font-bold" style={{ color: 'var(--win95-bg-light)' }}>
+            {field.label}
+          </h3>
+          <button
+            type="button"
+            onClick={handleCancel}
+            className="w-6 h-6 flex items-center justify-center border-2 text-xs font-bold"
+            style={{
+              background: 'var(--win95-button-face)',
+              borderColor: 'var(--win95-border)',
+              color: 'var(--win95-text)',
+            }}
+          >
+            <X size={14} />
+          </button>
+        </div>
+
+        {/* Modal Body - Editor */}
+        <div className="flex-1 overflow-auto p-4">
+          <SimpleTiptapEditor
+            value={tempValue}
+            onChange={setTempValue}
+            placeholder={field.placeholder || "Start typing..."}
+            minHeight="400px"
+          />
+        </div>
+
+        {/* Modal Footer */}
+        <div
+          className="flex items-center justify-end gap-2 px-4 py-3 border-t-2"
+          style={{ borderColor: 'var(--win95-border)' }}
+        >
+          <button
+            type="button"
+            onClick={handleCancel}
+            className="px-4 py-2 text-xs font-bold border-2 transition-colors"
+            style={{
+              background: 'var(--win95-button-face)',
+              borderColor: 'var(--win95-border)',
+              color: 'var(--win95-text)',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--win95-hover-light)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'var(--win95-button-face)'}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            className="px-4 py-2 text-xs font-bold border-2 transition-colors"
+            style={{
+              background: 'var(--win95-highlight)',
+              borderColor: 'var(--win95-border)',
+              color: 'var(--win95-bg-light)',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
+            onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  ) : null;
 
   return (
     <div>
@@ -452,89 +559,8 @@ function RichTextInput({
         <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>{field.helpText}</p>
       )}
 
-      {/* Modal */}
-      {isModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center"
-          style={{ background: 'rgba(0, 0, 0, 0.5)' }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) handleCancel();
-          }}
-        >
-          <div
-            className="w-full max-w-4xl max-h-[90vh] flex flex-col border-2 shadow-lg"
-            style={{ background: 'var(--win95-bg)', borderColor: 'var(--win95-border)' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div
-              className="flex items-center justify-between px-4 py-2 border-b-2"
-              style={{ background: 'var(--win95-highlight)', borderColor: 'var(--win95-border)' }}
-            >
-              <h3 className="text-sm font-bold" style={{ color: 'var(--win95-bg-light)' }}>
-                {field.label}
-              </h3>
-              <button
-                type="button"
-                onClick={handleCancel}
-                className="w-6 h-6 flex items-center justify-center border-2 text-xs font-bold"
-                style={{
-                  background: 'var(--win95-button-face)',
-                  borderColor: 'var(--win95-border)',
-                  color: 'var(--win95-text)',
-                }}
-              >
-                <X size={14} />
-              </button>
-            </div>
-
-            {/* Modal Body - Editor */}
-            <div className="flex-1 overflow-auto p-4">
-              <SimpleTiptapEditor
-                value={tempValue}
-                onChange={setTempValue}
-                placeholder={field.placeholder || "Start typing..."}
-                minHeight="400px"
-              />
-            </div>
-
-            {/* Modal Footer */}
-            <div
-              className="flex items-center justify-end gap-2 px-4 py-3 border-t-2"
-              style={{ borderColor: 'var(--win95-border)' }}
-            >
-              <button
-                type="button"
-                onClick={handleCancel}
-                className="px-4 py-2 text-xs font-bold border-2 transition-colors"
-                style={{
-                  background: 'var(--win95-button-face)',
-                  borderColor: 'var(--win95-border)',
-                  color: 'var(--win95-text)',
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--win95-hover-light)'}
-                onMouseLeave={(e) => e.currentTarget.style.background = 'var(--win95-button-face)'}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSave}
-                className="px-4 py-2 text-xs font-bold border-2 transition-colors"
-                style={{
-                  background: 'var(--win95-highlight)',
-                  borderColor: 'var(--win95-border)',
-                  color: 'var(--win95-bg-light)',
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
-                onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Modal rendered via portal to document.body */}
+      {modalContent}
     </div>
   );
 }
