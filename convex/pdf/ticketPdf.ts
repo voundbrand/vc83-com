@@ -52,7 +52,23 @@ export const generateTicketPDF = action({
                 throw new Error("Product not found");
             }
 
-            // 3. Get checkout session for order details
+            // 2.5. Get transaction (PRIMARY SOURCE OF TRUTH)
+            // Transaction captures complete event data, seller info, and branding at checkout time
+            const transactionId = ticket.customProperties?.transactionId as Id<"objects"> | undefined;
+            let transaction: Doc<"objects"> | null = null;
+            let txProps: Record<string, unknown> = {};
+
+            if (transactionId) {
+                transaction = await ctx.runQuery(internal.transactionOntology.getTransactionInternal, {
+                    transactionId,
+                });
+                if (transaction && transaction.type === "transaction") {
+                    txProps = transaction.customProperties || {};
+                    console.log("🎫 [generateTicketPDF] Using TRANSACTION as source of truth:", transactionId);
+                }
+            }
+
+            // 3. Get checkout session for order details (fallback and template resolution)
             const session = await ctx.runQuery(
                 internal.checkoutSessionOntology.getCheckoutSessionInternal,
                 {
@@ -64,21 +80,58 @@ export const generateTicketPDF = action({
                 throw new Error("Checkout session not found");
             }
 
-            // 4. Get seller organization info for footer
             const organizationId = session.organizationId;
-            const sellerOrg = await ctx.runQuery(
-                api.organizationOntology.getOrganizationProfile,
-                { organizationId }
-            ) as Doc<"objects"> | null;
 
-            const sellerContact = await ctx.runQuery(
-                api.organizationOntology.getOrganizationContact,
-                { organizationId }
-            ) as Doc<"objects"> | null;
+            // 4. Extract seller info FROM TRANSACTION (if available)
+            const txSeller = txProps.seller as {
+                name?: string;
+                address?: string;
+                city?: string;
+                postalCode?: string;
+                country?: string;
+                phone?: string;
+                email?: string;
+                website?: string;
+            } | undefined;
 
-            // 4.5. Load domain branding (if domainConfigId exists)
+            // 4.5. Extract branding FROM TRANSACTION (if available)
+            const txBranding = txProps.branding as {
+                logoUrl?: string;
+                primaryColor?: string;
+                secondaryColor?: string;
+            } | undefined;
+
+            // Fallback: Load organization branding if not in transaction
+            let organizationBranding = {
+                primaryColor: txBranding?.primaryColor,
+                secondaryColor: txBranding?.secondaryColor,
+                logoUrl: txBranding?.logoUrl,
+            };
+
+            if (!organizationBranding.primaryColor) {
+                const brandingSettings = await ctx.runQuery(api.organizationOntology.getOrganizationSettings, {
+                    organizationId,
+                    subtype: "branding",
+                });
+                const brandingSettingsObj = Array.isArray(brandingSettings) ? brandingSettings[0] : brandingSettings;
+                organizationBranding = {
+                    primaryColor: brandingSettingsObj?.customProperties?.primaryColor as string | undefined,
+                    secondaryColor: brandingSettingsObj?.customProperties?.secondaryColor as string | undefined,
+                    logoUrl: (brandingSettingsObj?.customProperties?.logo as string | undefined) ||
+                             (brandingSettingsObj?.customProperties?.logoUrl as string | undefined),
+                };
+            }
+
+            console.log("🎨 [generateTicketPDF] Branding:", {
+                source: txBranding ? "transaction" : "organization",
+                hasLogo: !!organizationBranding.logoUrl,
+                primaryColor: organizationBranding.primaryColor,
+            });
+
+            // 4.6. Domain branding override (highest priority)
             let domainBranding: { primaryColor?: string; secondaryColor?: string; logoUrl?: string } = {};
-            const domainConfigId = session.customProperties?.domainConfigId as Id<"objects"> | undefined;
+            const domainConfigId = (txProps.domainConfigId as Id<"objects">) ||
+                (session.customProperties?.domainConfigId as Id<"objects"> | undefined);
 
             if (domainConfigId) {
                 const domainConfig = await ctx.runQuery(api.domainConfigOntology.getDomainConfig, {
@@ -92,79 +145,83 @@ export const generateTicketPDF = action({
                         secondaryColor: branding.secondaryColor as string | undefined,
                         logoUrl: branding.logoUrl as string | undefined,
                     };
-                    console.log("🌐 [generateTicketPDF] Domain branding loaded:", domainBranding);
+                    console.log("🌐 [generateTicketPDF] Domain branding override loaded");
                 }
             }
 
-            // 4.6. Load organization branding settings
-            const brandingSettings = await ctx.runQuery(api.organizationOntology.getOrganizationSettings, {
-                organizationId,
-                subtype: "branding",
-            });
+            // 4.7. Get seller contact info (from transaction or fallback)
+            let sellerOrg: Doc<"objects"> | null = null;
+            let sellerContact: Doc<"objects"> | null = null;
 
-            const brandingSettingsObj = Array.isArray(brandingSettings) ? brandingSettings[0] : brandingSettings;
-            const organizationBranding = {
-                primaryColor: brandingSettingsObj?.customProperties?.primaryColor as string | undefined,
-                secondaryColor: brandingSettingsObj?.customProperties?.secondaryColor as string | undefined,
-                // Check both 'logo' (used by invoices) and 'logoUrl' field names for compatibility
-                logoUrl: (brandingSettingsObj?.customProperties?.logo as string | undefined) ||
-                         (brandingSettingsObj?.customProperties?.logoUrl as string | undefined),
-            };
+            if (!txSeller?.email) {
+                sellerOrg = await ctx.runQuery(
+                    api.organizationOntology.getOrganizationProfile,
+                    { organizationId }
+                ) as Doc<"objects"> | null;
 
-            console.log("🎨 [generateTicketPDF] Organization branding loaded:", organizationBranding);
-
-            // 4.7. Load organization locale settings for language
-            const localeSettings = await ctx.runQuery(api.organizationOntology.getOrganizationSettings, {
-                organizationId,
-                subtype: "locale",
-            });
-
-            const localeSettingsObj = Array.isArray(localeSettings) ? localeSettings[0] : localeSettings;
-
-            // Get language from organization settings with fallback to English
-            let ticketLanguage = "en";
-            if (localeSettingsObj?.customProperties?.language) {
-                const orgLanguage = localeSettingsObj.customProperties.language as string;
-                ticketLanguage = orgLanguage.toLowerCase().split("-")[0]; // Normalize "de-DE" → "de"
-                console.log(`🎫 [generateTicketPDF] Using ticket language from organization settings: ${ticketLanguage}`);
+                sellerContact = await ctx.runQuery(
+                    api.organizationOntology.getOrganizationContact,
+                    { organizationId }
+                ) as Doc<"objects"> | null;
             }
 
-            // 5. Extract event data - prefer from session, fallback to product
-            const eventName = (session.customProperties?.eventName as string) || product.name;
-            const eventSponsors = session.customProperties?.eventSponsors as Array<{ name: string; level?: string }> | undefined;
-            // Fix: Checkout sessions store as eventStartDate, events use startDate
-            const eventDate = (session.customProperties?.eventStartDate as number) ||
+            // 4.8. Get language FROM TRANSACTION (or fallback to org settings)
+            let ticketLanguage = (txProps.language as string) || "en";
+
+            if (!txProps.language) {
+                const localeSettings = await ctx.runQuery(api.organizationOntology.getOrganizationSettings, {
+                    organizationId,
+                    subtype: "locale",
+                });
+                const localeSettingsObj = Array.isArray(localeSettings) ? localeSettings[0] : localeSettings;
+                if (localeSettingsObj?.customProperties?.language) {
+                    const orgLanguage = localeSettingsObj.customProperties.language as string;
+                    ticketLanguage = orgLanguage.toLowerCase().split("-")[0];
+                }
+            }
+
+            console.log(`🎫 [generateTicketPDF] Using language: ${ticketLanguage}`);
+
+            // 5. Extract event data FROM TRANSACTION (single source of truth)
+            const eventName = (txProps.eventName as string) ||
+                (session.customProperties?.eventName as string) ||
+                product.name;
+            const eventSponsors = (txProps.eventSponsors as Array<{ name: string; level?: string }>) ||
+                (session.customProperties?.eventSponsors as Array<{ name: string; level?: string }> | undefined);
+            const eventDate = (txProps.eventStartDate as number) ||
+                (session.customProperties?.eventStartDate as number) ||
                 (session.customProperties?.eventDate as number) ||
-                (session.customProperties?.startDate as number) ||
-                (product.customProperties?.startDate as number | undefined) ||
-                (product.customProperties?.eventDate as number | undefined);
-            const eventLocation = (session.customProperties?.eventLocation as string) ||
+                (product.customProperties?.startDate as number | undefined);
+            const eventLocation = (txProps.eventFormattedAddress as string) ||
+                (txProps.eventLocation as string) ||
+                (session.customProperties?.eventLocation as string) ||
                 (product.customProperties?.location as string | undefined);
 
-            // 6. Get pricing from transaction
-            const transactionId = ticket.customProperties?.transactionId as Id<"objects"> | undefined;
-            const currency = (session.customProperties?.currency as string) || "EUR";
+            console.log("📅 [generateTicketPDF] Event data:", {
+                eventName,
+                eventDate,
+                eventLocation,
+                source: txProps.eventName ? "transaction" : session.customProperties?.eventName ? "session" : "product",
+            });
+
+            // 6. Get pricing FROM TRANSACTION (already loaded above)
+            const currency = (txProps.currency as string) || (session.customProperties?.currency as string) || "EUR";
 
             let netPrice = 0;
             let taxAmount = 0;
             let totalPrice = 0;
             let taxRate = 0;
 
-            if (transactionId) {
-                const transaction = await ctx.runQuery(internal.transactionOntology.getTransactionInternal, {
-                    transactionId,
-                });
+            if (transaction) {
+                // Use transaction pricing data (already loaded)
+                const unitPriceInCents = (txProps.unitPriceInCents as number) || 0;
+                const totalPriceInCents = (txProps.totalPriceInCents as number) || 0;
+                const taxAmountInCents = (txProps.taxAmountInCents as number) || 0;
 
-                if (transaction && transaction.type === "transaction") {
-                    const unitPriceInCents = (transaction.customProperties?.unitPriceInCents as number) || 0;
-                    const totalPriceInCents = (transaction.customProperties?.totalPriceInCents as number) || 0;
-                    const taxAmountInCents = (transaction.customProperties?.taxAmountInCents as number) || 0;
-
-                    netPrice = unitPriceInCents / 100;
-                    totalPrice = totalPriceInCents / 100;
-                    taxAmount = taxAmountInCents / 100;
-                    taxRate = netPrice > 0 ? ((taxAmount / netPrice) * 100) : 0;
-                }
+                netPrice = unitPriceInCents / 100;
+                totalPrice = totalPriceInCents / 100;
+                taxAmount = taxAmountInCents / 100;
+                taxRate = netPrice > 0 ? ((taxAmount / netPrice) * 100) : 0;
             }
 
             // Fallback to session totals
@@ -207,8 +264,10 @@ export const generateTicketPDF = action({
                 });
             };
 
-            // 8. Get additional event details
-            const eventAddress = (session.customProperties?.eventAddress as string) || "";
+            // 8. Get additional event details FROM TRANSACTION
+            // Note: event_location is the full formatted address for display
+            // event_address is only used if it's DIFFERENT from event_location (e.g., venue name vs street address)
+            const eventAddress = "";
 
             // 8.5. Load ticket translations from database
             const { getBackendTranslations } = await import("../helpers/backendTranslationHelper");
@@ -280,21 +339,22 @@ export const generateTicketPDF = action({
 
                 // Event info
                 event_name: eventName,
-                event_date: eventDate ? formatDate(eventDate) : "TBD",
-                event_time: eventDate ? formatDateTime(eventDate) : "TBD",
+                // Only send formatted datetime (includes date + time) - no separate date field
+                event_date: eventDate ? formatDateTime(eventDate) : "TBD",
+                event_time: "", // Empty - date field already includes time
                 event_location: eventLocation || "Location TBD",
-                event_address: eventAddress,
+                event_address: "", // Empty - location field already has full address
                 event_sponsors: eventSponsors,
 
                 // QR code URL (API Template.io will fetch it)
                 qr_code_data: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`${process.env.NEXT_PUBLIC_APP_URL || "https://app.yourcompany.com"}/verify-ticket/${args.ticketId}`)}`,
 
-                // Organization/branding
-                organization_name: sellerOrg?.name || "Event Organizer",
-                organization_email: (sellerContact?.customProperties?.primaryEmail as string) || "support@yourcompany.com",
-                organization_phone: (sellerContact?.customProperties?.primaryPhone as string) || "",
-                organization_website: (sellerContact?.customProperties?.website as string) || "",
-                // Branding cascade: domain → organization → default
+                // Organization/branding - use transaction snapshot first, then fallback
+                organization_name: txSeller?.name || sellerOrg?.name || "Event Organizer",
+                organization_email: txSeller?.email || (sellerContact?.customProperties?.primaryEmail as string) || "",
+                organization_phone: txSeller?.phone || (sellerContact?.customProperties?.primaryPhone as string) || "",
+                organization_website: txSeller?.website || (sellerContact?.customProperties?.website as string) || "",
+                // Branding cascade: domain → transaction → organization → default
                 logo_url: domainBranding.logoUrl || organizationBranding.logoUrl,
                 highlight_color: domainBranding.primaryColor || organizationBranding.primaryColor || "#6B46C1",
 
@@ -494,8 +554,38 @@ export const generateTicketPDFFromTicket = action({
                 throw new Error("Product not found");
             }
 
-            // 2.5. Load domain config if available (for domain-specific branding)
-            const domainConfigId = product.customProperties?.domainConfigId as Id<"objects"> | undefined;
+            // 2.5. Load TRANSACTION (PRIMARY SOURCE OF TRUTH)
+            const transactionId = ticketProps.transactionId as Id<"objects"> | undefined;
+            let transaction: Doc<"objects"> | null = null;
+            let txProps: Record<string, unknown> = {};
+
+            if (transactionId) {
+                transaction = await ctx.runQuery(internal.transactionOntology.getTransactionInternal, {
+                    transactionId,
+                });
+                if (transaction && transaction.type === "transaction") {
+                    txProps = transaction.customProperties || {};
+                    console.log("🎫 [generateTicketPDFFromTicket] Using TRANSACTION as source of truth:", transactionId);
+                }
+            }
+
+            // 2.6. Extract seller, branding, event from transaction
+            const txSeller = txProps.seller as {
+                name?: string;
+                email?: string;
+                phone?: string;
+                website?: string;
+            } | undefined;
+
+            const txBranding = txProps.branding as {
+                logoUrl?: string;
+                primaryColor?: string;
+                secondaryColor?: string;
+            } | undefined;
+
+            // 3. Load domain config if available (for domain-specific branding override)
+            const domainConfigId = (txProps.domainConfigId as Id<"objects">) ||
+                (product.customProperties?.domainConfigId as Id<"objects"> | undefined);
             let domainBranding = {
                 primaryColor: undefined as string | undefined,
                 secondaryColor: undefined as string | undefined,
@@ -514,91 +604,111 @@ export const generateTicketPDFFromTicket = action({
                         secondaryColor: branding.secondaryColor as string | undefined,
                         logoUrl: branding.logoUrl as string | undefined,
                     };
-                    console.log("🌐 Domain branding loaded:", domainBranding);
+                    console.log("🌐 Domain branding override loaded");
                 }
             }
 
-            // 3. Get organization info for branding
-            const sellerOrg = await ctx.runQuery(
-                api.organizationOntology.getOrganizationProfile,
-                { organizationId }
-            ) as Doc<"objects"> | null;
+            // 3.5. Get organization info (fallback if not in transaction)
+            let sellerOrg: Doc<"objects"> | null = null;
+            let sellerContact: Doc<"objects"> | null = null;
 
-            const sellerContact = await ctx.runQuery(
-                api.organizationOntology.getOrganizationContact,
-                { organizationId }
-            ) as Doc<"objects"> | null;
+            if (!txSeller?.email) {
+                sellerOrg = await ctx.runQuery(
+                    api.organizationOntology.getOrganizationProfile,
+                    { organizationId }
+                ) as Doc<"objects"> | null;
 
-            // 3.5. Load organization locale settings for language/currency
-            const localeSettings = await ctx.runQuery(api.organizationOntology.getOrganizationSettings, {
-                organizationId,
-                subtype: "locale",
-            });
-
-            const localeSettingsObj = Array.isArray(localeSettings) ? localeSettings[0] : localeSettings;
-
-            // Get language from organization settings with fallback to English
-            let ticketLanguage = "en";
-            if (localeSettingsObj?.customProperties?.language) {
-                const orgLanguage = localeSettingsObj.customProperties.language as string;
-                ticketLanguage = orgLanguage.toLowerCase().split("-")[0]; // Normalize "de-DE" → "de"
-                console.log(`🎫 Using ticket language from organization settings: ${ticketLanguage}`);
+                sellerContact = await ctx.runQuery(
+                    api.organizationOntology.getOrganizationContact,
+                    { organizationId }
+                ) as Doc<"objects"> | null;
             }
 
-            // 3.6. Load organization branding settings
-            const brandingSettings = await ctx.runQuery(api.organizationOntology.getOrganizationSettings, {
-                organizationId,
-                subtype: "branding",
-            });
+            // 3.6. Get language FROM TRANSACTION (or fallback to org settings)
+            let ticketLanguage = (txProps.language as string) || "en";
 
-            const brandingSettingsObj = Array.isArray(brandingSettings) ? brandingSettings[0] : brandingSettings;
-            const organizationBranding = {
-                primaryColor: brandingSettingsObj?.customProperties?.primaryColor as string | undefined,
-                secondaryColor: brandingSettingsObj?.customProperties?.secondaryColor as string | undefined,
-                // Check both 'logo' (used by invoices) and 'logoUrl' field names for compatibility
-                logoUrl: (brandingSettingsObj?.customProperties?.logo as string | undefined) ||
-                         (brandingSettingsObj?.customProperties?.logoUrl as string | undefined),
+            if (!txProps.language) {
+                const localeSettings = await ctx.runQuery(api.organizationOntology.getOrganizationSettings, {
+                    organizationId,
+                    subtype: "locale",
+                });
+                const localeSettingsObj = Array.isArray(localeSettings) ? localeSettings[0] : localeSettings;
+                if (localeSettingsObj?.customProperties?.language) {
+                    const orgLanguage = localeSettingsObj.customProperties.language as string;
+                    ticketLanguage = orgLanguage.toLowerCase().split("-")[0];
+                }
+            }
+
+            console.log(`🎫 [generateTicketPDFFromTicket] Using language: ${ticketLanguage}`);
+
+            // 3.7. Get branding - use transaction snapshot first, then fallback
+            let organizationBranding = {
+                primaryColor: txBranding?.primaryColor,
+                secondaryColor: txBranding?.secondaryColor,
+                logoUrl: txBranding?.logoUrl,
             };
 
-            console.log("🎨 Organization branding loaded:", organizationBranding);
+            if (!organizationBranding.primaryColor) {
+                const brandingSettings = await ctx.runQuery(api.organizationOntology.getOrganizationSettings, {
+                    organizationId,
+                    subtype: "branding",
+                });
+                const brandingSettingsObj = Array.isArray(brandingSettings) ? brandingSettings[0] : brandingSettings;
+                organizationBranding = {
+                    primaryColor: brandingSettingsObj?.customProperties?.primaryColor as string | undefined,
+                    secondaryColor: brandingSettingsObj?.customProperties?.secondaryColor as string | undefined,
+                    logoUrl: (brandingSettingsObj?.customProperties?.logo as string | undefined) ||
+                             (brandingSettingsObj?.customProperties?.logoUrl as string | undefined),
+                };
+            }
 
-            // 4. Extract event data from ticket or product
-            const eventName = (ticketProps.eventName as string) || product.name;
-            // Check eventStartDate first (from checkout), then eventDate, then startDate
-            const eventDate = (ticketProps.eventStartDate as number) ||
+            console.log("🎨 [generateTicketPDFFromTicket] Branding:", {
+                source: txBranding ? "transaction" : "organization",
+                hasLogo: !!organizationBranding.logoUrl,
+            });
+
+            // 4. Extract event data FROM TRANSACTION (single source of truth)
+            const eventName = (txProps.eventName as string) ||
+                (ticketProps.eventName as string) ||
+                product.name;
+            const eventDate = (txProps.eventStartDate as number) ||
+                (ticketProps.eventStartDate as number) ||
                 (ticketProps.eventDate as number) ||
-                (ticketProps.startDate as number) ||
-                (product.customProperties?.startDate as number | undefined) ||
-                (product.customProperties?.eventDate as number | undefined);
-            const eventLocation = (ticketProps.eventLocation as string) ||
+                (product.customProperties?.startDate as number | undefined);
+            const eventLocation = (txProps.eventFormattedAddress as string) ||
+                (txProps.eventLocation as string) ||
+                (ticketProps.eventLocation as string) ||
                 (product.customProperties?.location as string | undefined);
-            const eventAddress = (ticketProps.eventAddress as string) || "";
-            const eventSponsors = ticketProps.eventSponsors as Array<{ name: string; level?: string }> | undefined;
+            // Note: event_location is the full formatted address for display
+            // event_address is empty to avoid duplication in the template
+            const eventAddress = "";
+            const eventSponsors = (txProps.eventSponsors as Array<{ name: string; level?: string }>) ||
+                (ticketProps.eventSponsors as Array<{ name: string; level?: string }> | undefined);
 
-            // 5. Get pricing from transaction or fallback to ticket data
-            const transactionId = ticketProps.transactionId as Id<"objects"> | undefined;
-            const currency = (ticketProps.currency as string) || "EUR";
+            console.log("📅 [generateTicketPDFFromTicket] Event data:", {
+                eventName,
+                eventDate,
+                eventLocation,
+                source: txProps.eventName ? "transaction" : ticketProps.eventName ? "ticket" : "product",
+            });
+
+            // 5. Get pricing FROM TRANSACTION (already loaded)
+            const currency = (txProps.currency as string) || (ticketProps.currency as string) || "EUR";
 
             let netPrice = 0;
             let taxAmount = 0;
             let totalPrice = 0;
             let taxRate = 0;
 
-            if (transactionId) {
-                const transaction = await ctx.runQuery(internal.transactionOntology.getTransactionInternal, {
-                    transactionId,
-                });
+            if (transaction) {
+                const unitPriceInCents = (txProps.unitPriceInCents as number) || 0;
+                const totalPriceInCents = (txProps.totalPriceInCents as number) || 0;
+                const taxAmountInCents = (txProps.taxAmountInCents as number) || 0;
 
-                if (transaction && transaction.type === "transaction") {
-                    const unitPriceInCents = (transaction.customProperties?.unitPriceInCents as number) || 0;
-                    const totalPriceInCents = (transaction.customProperties?.totalPriceInCents as number) || 0;
-                    const taxAmountInCents = (transaction.customProperties?.taxAmountInCents as number) || 0;
-
-                    netPrice = unitPriceInCents / 100;
-                    totalPrice = totalPriceInCents / 100;
-                    taxAmount = taxAmountInCents / 100;
-                    taxRate = netPrice > 0 ? ((taxAmount / netPrice) * 100) : 0;
-                }
+                netPrice = unitPriceInCents / 100;
+                totalPrice = totalPriceInCents / 100;
+                taxAmount = taxAmountInCents / 100;
+                taxRate = netPrice > 0 ? ((taxAmount / netPrice) * 100) : 0;
             } else {
                 // Fallback to ticket or product pricing
                 const priceInCents = (ticketProps.priceInCents as number) || (product.customProperties?.priceInCents as number) || 0;
@@ -707,19 +817,21 @@ export const generateTicketPDFFromTicket = action({
                 guest_count: 1,
 
                 event_name: eventName,
-                event_date: eventDate ? formatDate(eventDate) : "TBD",
-                event_time: eventDate ? formatDateTime(eventDate) : "TBD",
+                // Only send formatted datetime (includes date + time) - no separate date field
+                event_date: eventDate ? formatDateTime(eventDate) : "TBD",
+                event_time: "", // Empty - date field already includes time
                 event_location: eventLocation || "Location TBD",
-                event_address: eventAddress,
+                event_address: "", // Empty - location field already has full address
                 event_sponsors: eventSponsors,
 
                 qr_code_data: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`${process.env.NEXT_PUBLIC_APP_URL || "https://app.yourcompany.com"}/verify-ticket/${args.ticketId}`)}`,
 
-                organization_name: sellerOrg?.name || "Event Organizer",
-                organization_email: (sellerContact?.customProperties?.primaryEmail as string) || "support@yourcompany.com",
-                organization_phone: (sellerContact?.customProperties?.primaryPhone as string) || "",
-                organization_website: (sellerContact?.customProperties?.website as string) || "",
-                // Branding cascade: domain → organization → default
+                // Organization/branding - use transaction snapshot first, then fallback
+                organization_name: txSeller?.name || sellerOrg?.name || "Event Organizer",
+                organization_email: txSeller?.email || (sellerContact?.customProperties?.primaryEmail as string) || "",
+                organization_phone: txSeller?.phone || (sellerContact?.customProperties?.primaryPhone as string) || "",
+                organization_website: txSeller?.website || (sellerContact?.customProperties?.website as string) || "",
+                // Branding cascade: domain → transaction → organization → default
                 logo_url: domainBranding.logoUrl || organizationBranding.logoUrl,
                 highlight_color: domainBranding.primaryColor || organizationBranding.primaryColor || "#6B46C1",
 

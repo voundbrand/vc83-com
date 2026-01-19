@@ -160,6 +160,27 @@ export const getContactInternal = internalQuery({
 });
 
 /**
+ * GET CRM ORGANIZATION (INTERNAL)
+ *
+ * Internal query to fetch a CRM organization without auth check.
+ * Used by transaction helpers to fetch buyer/sponsor info.
+ */
+export const getCrmOrganizationInternal = internalQuery({
+  args: {
+    organizationId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const org = await ctx.db.get(args.organizationId);
+
+    if (!org || org.type !== "crm_organization") {
+      return null;
+    }
+
+    return org;
+  },
+});
+
+/**
  * CREATE CONTACT
  * Create a new CRM contact
  *

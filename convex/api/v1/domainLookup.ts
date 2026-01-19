@@ -33,11 +33,7 @@ export const domainLookupHandler = httpAction(async (ctx, request) => {
     }
 
     // Look up domain configuration
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore - Convex internal types deep instantiation issue
     const result = await ctx.runQuery(
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
       internal.api.v1.domainLookupInternal.lookupByHostname,
       { hostname }
     );

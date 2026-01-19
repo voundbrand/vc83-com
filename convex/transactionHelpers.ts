@@ -6,20 +6,22 @@
  *
  * Key Features:
  * - Universal transaction creation for ANY payment method
- * - Fetches complete product/event context automatically
+ * - Fetches COMPLETE context: product, event, seller, branding, buyer
+ * - Transaction is SINGLE SOURCE OF TRUTH for invoices, tickets, emails
  * - Handles B2B (organization payer) and B2C (individual payer)
  * - Links transactions to tickets for easy reference
  *
  * Usage Pattern:
  * 1. Payment provider processes payment and creates tickets
  * 2. Payment provider calls createTransactionsForPurchase()
- * 3. Transactions are created with complete context
+ * 3. Transactions are created with COMPLETE context (event, seller, branding, etc.)
  * 4. Transactions are linked to tickets
+ * 5. PDF/email generation reads from transaction ONLY (no link chasing)
  */
 
 import { internal } from "./_generated/api";
 import type { ActionCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import type { Id, Doc } from "./_generated/dataModel";
 
 /**
  * CREATE TRANSACTIONS FOR PURCHASE
@@ -105,10 +107,183 @@ export async function createTransactionsForPurchase(
   console.log(`   Payment Status: ${params.paymentInfo.status}`);
   console.log(`   Customer: ${params.customerInfo.name} (${params.customerInfo.email})`);
 
-  // NEW APPROACH: Build lineItems array for ALL products
+  // ========================================================================
+  // 1. LOAD CHECKOUT SESSION for additional context
+  // ========================================================================
+  // Note: Using explicit type cast to avoid deep type instantiation issues with Convex's generated types
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const session = await (ctx as any).runQuery(
+    (internal as any).checkoutSessionOntology.getCheckoutSessionInternal,
+    { checkoutSessionId: params.checkoutSessionId }
+  ) as Doc<"objects"> | null;
+
+  const sessionProps = session?.customProperties || {};
+  const language = (sessionProps.defaultLanguage as string) || "en";
+  const domainConfigId = sessionProps.domainConfigId as Id<"objects"> | undefined;
+  const checkoutInstanceId = sessionProps.checkoutInstanceId as Id<"objects"> | undefined;
+
+  console.log(`   Language: ${language}, DomainConfig: ${domainConfigId || "none"}`);
+
+  // ========================================================================
+  // 2. LOAD SELLER ORGANIZATION INFO (for invoices/receipts)
+  // ========================================================================
+  const organization = await (ctx as any).runQuery(
+    (internal as any).checkoutSessions.getOrganizationInternal,
+    { organizationId: params.organizationId }
+  );
+
+  // Load organization contact settings (using internal query to avoid deep type instantiation)
+  const contactSettings = await ctx.runQuery(
+    internal.organizationOntology.getOrganizationSettingsInternal,
+    { organizationId: params.organizationId, subtype: "contact" }
+  ) as Doc<"objects"> | null;
+  const contactProps = contactSettings?.customProperties || {};
+
+  // Load organization invoicing settings (for VAT number)
+  const invoicingSettings = await ctx.runQuery(
+    internal.organizationOntology.getOrganizationSettingsInternal,
+    { organizationId: params.organizationId, subtype: "invoicing" }
+  ) as Doc<"objects"> | null;
+  const invoicingProps = invoicingSettings?.customProperties || {};
+
+  // Load primary address
+  const primaryAddress = await ctx.runQuery(
+    internal.organizationOntology.getPrimaryAddressInternal,
+    { organizationId: params.organizationId }
+  ) as Doc<"objects"> | null;
+  const addressProps = primaryAddress?.customProperties || {};
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+
+  const seller = {
+    organizationId: params.organizationId,
+    name: organization?.name || organization?.businessName || "Unknown Organization",
+    address: addressProps.line1 as string | undefined,
+    city: addressProps.city as string | undefined,
+    state: addressProps.state as string | undefined,
+    postalCode: addressProps.postalCode as string | undefined,
+    country: addressProps.country as string | undefined,
+    phone: contactProps.phone as string | undefined,
+    email: contactProps.email as string | undefined,
+    website: contactProps.website as string | undefined,
+    vatNumber: invoicingProps.vatNumber as string | undefined,
+    taxId: invoicingProps.taxId as string | undefined,
+  };
+
+  console.log(`   Seller: ${seller.name} (VAT: ${seller.vatNumber || "none"})`);
+
+  // ========================================================================
+  // 3. LOAD BRANDING (domain -> organization -> default)
+  // ========================================================================
+  const branding = {
+    logoUrl: undefined as string | undefined,
+    primaryColor: "#6B46C1" as string,
+    secondaryColor: undefined as string | undefined,
+  };
+
+  // Try domain branding first
+  if (domainConfigId) {
+    try {
+      const domainConfig = await ctx.runQuery(internal.domainConfigOntology.getDomainConfigInternal, {
+        configId: domainConfigId,
+      });
+      if (domainConfig?.customProperties?.branding) {
+        const domainBranding = domainConfig.customProperties.branding as Record<string, unknown>;
+        branding.logoUrl = domainBranding.logoUrl as string | undefined;
+        branding.primaryColor = (domainBranding.primaryColor as string) || branding.primaryColor;
+        branding.secondaryColor = domainBranding.secondaryColor as string | undefined;
+        console.log(`   Branding: from domain config`);
+      }
+    } catch {
+      console.warn(`   Could not load domain config branding`);
+    }
+  }
+
+  // Fall back to organization branding
+  if (!branding.logoUrl) {
+    const brandingSettings = await ctx.runQuery(internal.organizationOntology.getOrganizationSettingsInternal, {
+      organizationId: params.organizationId,
+      subtype: "branding",
+    }) as Doc<"objects"> | null;
+    const brandingProps = brandingSettings?.customProperties || {};
+
+    branding.logoUrl = (brandingProps.logo as string) || (brandingProps.logoUrl as string) || undefined;
+    branding.primaryColor = (brandingProps.primaryColor as string) || branding.primaryColor;
+    branding.secondaryColor = (brandingProps.secondaryColor as string) || branding.secondaryColor;
+    console.log(`   Branding: from organization settings (logo: ${branding.logoUrl ? "yes" : "no"})`);
+  }
+
+  // ========================================================================
+  // 4. LOAD BUYER INFO (for B2B invoices)
+  // ========================================================================
+  let buyer: {
+    companyName?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+    vatNumber?: string;
+    contactName?: string;
+    contactEmail?: string;
+  } | undefined;
+
+  if (params.billingInfo?.crmOrganizationId) {
+    // Load CRM organization for B2B billing
+    const crmOrg = await ctx.runQuery(internal.crmOntology.getCrmOrganizationInternal, {
+      organizationId: params.billingInfo.crmOrganizationId,
+    }) as Doc<"objects"> | null;
+
+    if (crmOrg) {
+      const crmProps = crmOrg.customProperties || {};
+      buyer = {
+        companyName: crmOrg.name || params.billingInfo.employerName,
+        address: (crmProps.billingAddress as { line1?: string })?.line1 || sessionProps.billingLine1 as string,
+        city: (crmProps.billingAddress as { city?: string })?.city || sessionProps.billingCity as string,
+        state: (crmProps.billingAddress as { state?: string })?.state || sessionProps.billingState as string,
+        postalCode: (crmProps.billingAddress as { postalCode?: string })?.postalCode || sessionProps.billingPostalCode as string,
+        country: (crmProps.billingAddress as { country?: string })?.country || sessionProps.billingCountry as string,
+        vatNumber: crmProps.vatNumber as string | undefined,
+        contactName: crmProps.billingContact as string | undefined,
+        contactEmail: crmProps.billingEmail as string | undefined,
+      };
+      console.log(`   Buyer (B2B): ${buyer.companyName}`);
+    }
+  } else if (sessionProps.companyName) {
+    // B2B from session (no CRM org yet)
+    buyer = {
+      companyName: sessionProps.companyName as string,
+      address: sessionProps.billingLine1 as string,
+      city: sessionProps.billingCity as string,
+      state: sessionProps.billingState as string,
+      postalCode: sessionProps.billingPostalCode as string,
+      country: sessionProps.billingCountry as string,
+      vatNumber: sessionProps.vatNumber as string | undefined,
+      contactName: sessionProps.customerName as string | undefined,
+      contactEmail: sessionProps.customerEmail as string | undefined,
+    };
+    console.log(`   Buyer (B2B from session): ${buyer.companyName}`);
+  }
+
+  // ========================================================================
+  // 5. BUILD LINE ITEMS with full event data
+  // ========================================================================
+  // Track event data at top level (for single-event checkouts)
+  let topLevelEvent: {
+    eventId?: Id<"objects">;
+    eventName?: string;
+    eventLocation?: string;
+    eventFormattedAddress?: string;
+    eventGoogleMapsUrl?: string;
+    eventAppleMapsUrl?: string;
+    eventStartDate?: number;
+    eventEndDate?: number;
+    eventTimezone?: string;
+    eventSponsors?: Array<{ name: string; level?: string; logoUrl?: string }>;
+  } = {};
+
   const lineItems = await Promise.all(
     params.purchasedItems.map(async (item) => {
-      // 1. Fetch product details
+      // 5.1. Fetch product details
       const product = await ctx.runQuery(internal.productOntology.getProductInternal, {
         productId: item.productId,
       });
@@ -120,12 +295,17 @@ export async function createTransactionsForPurchase(
 
       console.log(`   Product: ${product.name} (${product.subtype}) - Qty: ${item.quantity}`);
 
-      // 2. Fetch event details if product is a ticket
+      // 5.2. Fetch FULL event details if product is a ticket
       let eventId: Id<"objects"> | undefined;
       let eventName: string | undefined;
       let eventLocation: string | undefined;
+      let eventFormattedAddress: string | undefined;
+      let eventGoogleMapsUrl: string | undefined;
+      let eventAppleMapsUrl: string | undefined;
       let eventStartDate: number | undefined;
       let eventEndDate: number | undefined;
+      let eventTimezone: string | undefined;
+      let eventSponsors: Array<{ name: string; level?: string; logoUrl?: string }> | undefined;
 
       if (product.subtype === "ticket" && product.customProperties?.eventId) {
         const eventIdFromProduct = product.customProperties.eventId as Id<"objects">;
@@ -134,77 +314,139 @@ export async function createTransactionsForPurchase(
         });
 
         if (event && event.type === "event") {
+          const eventProps = event.customProperties || {};
           eventId = event._id;
           eventName = event.name;
-          eventLocation = event.customProperties?.location as string;
-          eventStartDate = event.customProperties?.startDate as number;
-          eventEndDate = event.customProperties?.endDate as number;
+          eventLocation = eventProps.location as string | undefined;
+          eventFormattedAddress = eventProps.formattedAddress as string | undefined;
+          eventGoogleMapsUrl = eventProps.googleMapsUrl as string | undefined;
+          // Generate Apple Maps URL from coordinates (same logic as event landing page)
+          const latitude = eventProps.latitude as number | undefined;
+          const longitude = eventProps.longitude as number | undefined;
+          if (latitude && longitude) {
+            eventAppleMapsUrl = `https://maps.apple.com/?daddr=${latitude},${longitude}`;
+          }
+          eventStartDate = eventProps.startDate as number | undefined;
+          eventEndDate = eventProps.endDate as number | undefined;
+          eventTimezone = eventProps.timezone as string | undefined;
 
-          console.log(`   Event: ${eventName} at ${eventLocation}`);
+          console.log(`   Event: ${eventName} at ${eventFormattedAddress || eventLocation}`);
+
+          // 5.3. Fetch event sponsors
+          const sponsorLinks = await ctx.runQuery(internal.objectLinksInternal.getLinksFromObject, {
+            fromObjectId: event._id,
+            linkType: "sponsored_by",
+          });
+
+          if (sponsorLinks && sponsorLinks.length > 0) {
+            const sponsors = await Promise.all(
+              sponsorLinks.map(async (link: { toObjectId: Id<"objects">; properties?: Record<string, unknown> }) => {
+                const sponsor = await ctx.runQuery(internal.crmOntology.getCrmOrganizationInternal, {
+                  organizationId: link.toObjectId,
+                });
+                if (sponsor && sponsor.type === "crm_organization") {
+                  return {
+                    name: sponsor.name,
+                    level: link.properties?.sponsorLevel as string | undefined,
+                    logoUrl: sponsor.customProperties?.logoUrl as string | undefined,
+                  };
+                }
+                return null;
+              })
+            );
+            eventSponsors = sponsors.filter((s): s is NonNullable<typeof s> => s !== null);
+            console.log(`   Sponsors: ${eventSponsors.length} found`);
+          }
+
+          // Store for top-level (first event wins)
+          if (!topLevelEvent.eventId) {
+            topLevelEvent = {
+              eventId,
+              eventName,
+              eventLocation,
+              eventFormattedAddress,
+              eventGoogleMapsUrl,
+              eventAppleMapsUrl,
+              eventStartDate,
+              eventEndDate,
+              eventTimezone,
+              eventSponsors,
+            };
+          }
         }
       }
 
-      // 3. Calculate tax for this line item
-      // Priority: product taxBehavior > organization defaultTaxBehavior
-      const taxRatePercent = params.taxInfo?.taxRatePercent || 19;
-      
-      // Check product's taxBehavior first, then fall back to organization default
-      // Priority: product taxBehavior > organization defaultTaxBehavior
-      const productTaxBehavior = product.customProperties?.taxBehavior as "inclusive" | "exclusive" | "automatic" | undefined;
-      const orgTaxBehavior = params.taxInfo?.taxBehavior || "inclusive"; // Organization default (fallback)
-      // Use product taxBehavior if set, otherwise use organization default
-      // Note: "automatic" will be treated as "exclusive" in the calculation below
-      const taxBehavior = productTaxBehavior || orgTaxBehavior;
+      // 5.4. Get ticket/attendee data if ticket exists
+      let attendeeName: string | undefined;
+      let attendeeEmail: string | undefined;
+      let ticketNumber: string | undefined;
 
-      console.log(`   Tax behavior: Product=${productTaxBehavior || "none"}, Org=${orgTaxBehavior}, Using=${taxBehavior}`);
+      if (item.ticketId) {
+        const ticket = await ctx.runQuery(internal.ticketOntology.getTicketInternal, {
+          ticketId: item.ticketId,
+        });
+        if (ticket) {
+          const ticketProps = ticket.customProperties || {};
+          attendeeName = ticketProps.attendeeName as string | undefined;
+          attendeeEmail = ticketProps.attendeeEmail as string | undefined;
+          ticketNumber = ticketProps.ticketHash as string | undefined;
+        }
+      }
+
+      // 5.5. Calculate tax for this line item
+      const taxRatePercent = params.taxInfo?.taxRatePercent || 19;
+      const productTaxBehavior = product.customProperties?.taxBehavior as "inclusive" | "exclusive" | "automatic" | undefined;
+      const orgTaxBehavior = params.taxInfo?.taxBehavior || "inclusive";
+      const taxBehavior = productTaxBehavior || orgTaxBehavior;
 
       let unitPriceInCents: number;
       let totalPriceInCents: number;
       let taxAmountInCents: number;
 
       if (taxBehavior === "inclusive") {
-        // Prices ALREADY include tax - extract tax from price
-        // Formula: tax = gross * rate / (100 + rate)
-        totalPriceInCents = item.totalPrice; // This IS the gross (tax-included) price
+        totalPriceInCents = item.totalPrice;
         taxAmountInCents = Math.round((item.totalPrice * taxRatePercent) / (100 + taxRatePercent));
-        unitPriceInCents = Math.round((item.pricePerUnit * 100) / (100 + taxRatePercent)); // Net price per unit
-
-        console.log(`   Tax behavior: INCLUSIVE - Price €${(item.totalPrice / 100).toFixed(2)} includes €${(taxAmountInCents / 100).toFixed(2)} tax`);
+        unitPriceInCents = Math.round((item.pricePerUnit * 100) / (100 + taxRatePercent));
       } else {
-        // Prices are NET (excluding tax) - add tax on top
-        // This handles both "exclusive" and "automatic" (automatic treated as exclusive)
-        // Formula: tax = net * rate / 100
         taxAmountInCents = Math.round((item.totalPrice * taxRatePercent) / 100);
-        totalPriceInCents = item.totalPrice + taxAmountInCents; // Add tax to get gross
-        unitPriceInCents = item.pricePerUnit; // Already net
-
-        const behaviorLabel = taxBehavior === "automatic" ? "AUTOMATIC (treated as exclusive)" : "EXCLUSIVE";
-        console.log(`   Tax behavior: ${behaviorLabel} - Price €${(item.totalPrice / 100).toFixed(2)} + €${(taxAmountInCents / 100).toFixed(2)} tax`);
+        totalPriceInCents = item.totalPrice + taxAmountInCents;
+        unitPriceInCents = item.pricePerUnit;
       }
 
-      // 4. Build line item
+      // 5.6. Build complete line item
       return {
+        // Product
         productId: product._id,
         productName: product.name,
         productDescription: product.description,
         productSubtype: product.subtype,
         quantity: item.quantity,
-        unitPriceInCents, // Net price per unit (excluding tax)
-        totalPriceInCents, // Gross total (including tax)
+        // Pricing
+        unitPriceInCents,
+        totalPriceInCents,
         taxRatePercent,
         taxAmountInCents,
-        taxBehavior, // Store for reference
+        taxBehavior,
+        // Ticket
         ticketId: item.ticketId,
+        attendeeName,
+        attendeeEmail,
+        ticketNumber,
+        // Event (full data)
         eventId,
         eventName,
         eventLocation,
+        eventFormattedAddress,
+        eventGoogleMapsUrl,
+        eventAppleMapsUrl,
         eventStartDate,
         eventEndDate,
+        eventTimezone,
       };
     })
   );
 
-  // Filter out any null items (products not found)
+  // Filter out any null items
   const validLineItems = lineItems.filter((item): item is NonNullable<typeof item> => item !== null);
 
   if (validLineItems.length === 0) {
@@ -212,17 +454,21 @@ export async function createTransactionsForPurchase(
     return [];
   }
 
-  // 5. Calculate aggregate totals
-  const subtotalInCents = validLineItems.reduce((sum, item) => sum + (item.unitPriceInCents * item.quantity), 0); // Net subtotal (before tax)
+  // ========================================================================
+  // 6. CALCULATE AGGREGATE TOTALS
+  // ========================================================================
+  const subtotalInCents = validLineItems.reduce((sum, item) => sum + (item.unitPriceInCents * item.quantity), 0);
   const taxAmountInCents = validLineItems.reduce((sum, item) => sum + item.taxAmountInCents, 0);
-  const totalInCents = subtotalInCents + taxAmountInCents; // Gross total (net + tax)
+  const totalInCents = subtotalInCents + taxAmountInCents;
 
   console.log(`💰 Transaction Totals:`);
   console.log(`   Subtotal: €${(subtotalInCents / 100).toFixed(2)}`);
   console.log(`   Tax (${params.taxInfo?.taxRatePercent || 19}%): €${(taxAmountInCents / 100).toFixed(2)}`);
   console.log(`   Total: €${(totalInCents / 100).toFixed(2)}`);
 
-  // 6. Determine transaction subtype based on primary product
+  // ========================================================================
+  // 7. DETERMINE TRANSACTION SUBTYPE
+  // ========================================================================
   const primaryProduct = validLineItems[0];
   let subtype: "ticket_purchase" | "product_purchase" | "service_purchase" = "product_purchase";
   if (primaryProduct.productSubtype === "ticket") {
@@ -231,7 +477,20 @@ export async function createTransactionsForPurchase(
     subtype = "service_purchase";
   }
 
-  // 7. Determine payer info
+  // ========================================================================
+  // 8. EXTRACT FORM RESPONSES (if any)
+  // ========================================================================
+  const formResponses = sessionProps.formResponses as Array<{
+    productId: Id<"objects">;
+    ticketNumber: number;
+    formId?: string;
+    responses: Record<string, unknown>;
+    addedCosts: number;
+  }> | undefined;
+
+  // ========================================================================
+  // 9. DETERMINE PAYER INFO
+  // ========================================================================
   const payerType = params.billingInfo?.crmOrganizationId ? "organization" : "individual";
   const payerId = params.billingInfo?.crmOrganizationId;
 
@@ -241,20 +500,30 @@ export async function createTransactionsForPurchase(
     console.log(`   Payer: ${params.customerInfo.name} (B2C)`);
   }
 
-  // 8. Create SINGLE transaction with ALL line items
+  // ========================================================================
+  // 10. CREATE TRANSACTION WITH COMPLETE SNAPSHOT
+  // ========================================================================
   const transactionId = await ctx.runMutation(
     internal.transactionOntology.createTransactionInternal,
     {
       organizationId: params.organizationId,
       subtype,
 
-      // NEW: Line items array
+      // Line items (with full event data per item)
       lineItems: validLineItems,
 
-      // NEW: Aggregate totals
+      // Aggregate totals
       subtotalInCents,
       taxAmountInCents,
       totalInCents,
+
+      // Top-level event data (for single-event checkouts)
+      eventId: topLevelEvent.eventId,
+      eventName: topLevelEvent.eventName,
+      eventLocation: topLevelEvent.eventLocation,
+      eventStartDate: topLevelEvent.eventStartDate,
+      eventEndDate: topLevelEvent.eventEndDate,
+      eventSponsors: topLevelEvent.eventSponsors,
 
       // Links
       checkoutSessionId: params.checkoutSessionId,
@@ -279,9 +548,48 @@ export async function createTransactionsForPurchase(
     }
   );
 
-  console.log(`✅ [createTransactionsForPurchase] Created single transaction ${transactionId} with ${validLineItems.length} line items`);
+  // ========================================================================
+  // 11. UPDATE TRANSACTION WITH ADDITIONAL CONTEXT (via customProperties)
+  // ========================================================================
+  // The createTransactionInternal has a fixed schema, so we add extra data via patch
+  await ctx.runMutation(internal.transactionOntology.updateTransactionCustomProperties, {
+    transactionId,
+    customProperties: {
+      // Seller (complete snapshot)
+      seller,
 
-  // Return single transaction ID in array for backward compatibility
+      // Branding (snapshot at time of purchase)
+      branding,
+
+      // Buyer (for B2B)
+      buyer,
+
+      // Extended event data
+      eventFormattedAddress: topLevelEvent.eventFormattedAddress,
+      eventGoogleMapsUrl: topLevelEvent.eventGoogleMapsUrl,
+      eventAppleMapsUrl: topLevelEvent.eventAppleMapsUrl,
+      eventTimezone: topLevelEvent.eventTimezone,
+      eventSponsors: topLevelEvent.eventSponsors,
+      eventStartDate: topLevelEvent.eventStartDate,
+      eventEndDate: topLevelEvent.eventEndDate,
+
+      // Metadata
+      language,
+      domainConfigId,
+      checkoutInstanceId,
+
+      // Form responses
+      formResponses,
+    },
+  });
+
+  console.log(`✅ [createTransactionsForPurchase] Created transaction ${transactionId} with complete snapshot`);
+  console.log(`   - Seller: ${seller.name}`);
+  console.log(`   - Branding: logo=${branding.logoUrl ? "yes" : "no"}, color=${branding.primaryColor}`);
+  console.log(`   - Buyer: ${buyer?.companyName || "individual"}`);
+  console.log(`   - Event: ${topLevelEvent.eventName || "none"}`);
+  console.log(`   - Language: ${language}`);
+
   return [transactionId];
 }
 

@@ -398,7 +398,7 @@ async function getRecipients(
   if (target.type === "contacts" && target.contactIds) {
     // Specific contacts
     for (const contactId of target.contactIds) {
-      // @ts-ignore - Deep type instantiation in Convex generated types
+      // @ts-expect-error - Deep type instantiation in Convex generated types
       const contact: any = await ctx.runQuery(api.crmOntology.getContact, {
         sessionId,
         contactId: contactId as Id<"objects">

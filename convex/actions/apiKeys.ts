@@ -55,7 +55,7 @@ export const generateApiKey = action({
     warning: string;
   }> => {
     // 1. Verify session
-    // @ts-ignore - Deep type instantiation in Convex generated types
+    // @ts-expect-error - Deep type instantiation in Convex generated types
     const session: { valid: boolean; error?: string; userId?: Id<"users"> } = await ctx.runQuery(internal.apiKeysInternal.verifySession, {
       sessionId: args.sessionId,
       organizationId: args.organizationId,

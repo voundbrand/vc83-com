@@ -486,12 +486,21 @@ export const createTransactionInternal = internalMutation({
       taxRatePercent: v.number(),
       taxAmountInCents: v.number(),
       taxBehavior: v.optional(v.union(v.literal("inclusive"), v.literal("exclusive"), v.literal("automatic"))),
+      // Ticket reference
       ticketId: v.optional(v.id("objects")),
+      attendeeName: v.optional(v.string()),
+      attendeeEmail: v.optional(v.string()),
+      ticketNumber: v.optional(v.string()),
+      // Event data (full snapshot for PDFs/emails)
       eventId: v.optional(v.id("objects")),
       eventName: v.optional(v.string()),
       eventLocation: v.optional(v.string()),
+      eventFormattedAddress: v.optional(v.string()),
+      eventGoogleMapsUrl: v.optional(v.string()),
+      eventAppleMapsUrl: v.optional(v.string()),
       eventStartDate: v.optional(v.number()),
       eventEndDate: v.optional(v.number()),
+      eventTimezone: v.optional(v.string()),
     }))),
 
     // Aggregate totals (for multi-line transactions)
@@ -735,6 +744,70 @@ export const getTransactionInternal = internalQuery({
   },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.transactionId);
+  },
+});
+
+/**
+ * GET TRANSACTION BY CHECKOUT SESSION (INTERNAL)
+ *
+ * Finds the transaction associated with a checkout session.
+ * Used by invoice PDF generation to read all data from transaction.
+ */
+export const getTransactionByCheckoutSessionInternal = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    checkoutSessionId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    // Query transactions for this organization
+    const transactions = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "transaction")
+      )
+      .collect();
+
+    // Find the one linked to this checkout session
+    const transaction = transactions.find(
+      (tx) => tx.customProperties?.checkoutSessionId === args.checkoutSessionId
+    );
+
+    return transaction || null;
+  },
+});
+
+/**
+ * UPDATE TRANSACTION CUSTOM PROPERTIES (INTERNAL)
+ *
+ * Internal mutation to add/update customProperties on a transaction.
+ * Used to add additional context like seller info, branding, buyer data.
+ * Merges with existing customProperties (doesn't replace).
+ */
+export const updateTransactionCustomProperties = internalMutation({
+  args: {
+    transactionId: v.id("objects"),
+    customProperties: v.record(v.string(), v.any()),
+  },
+  handler: async (ctx, args) => {
+    const transaction = await ctx.db.get(args.transactionId);
+    if (!transaction || transaction.type !== "transaction") {
+      throw new Error("Transaction not found");
+    }
+
+    // Merge new properties with existing
+    const existingProps = transaction.customProperties || {};
+    const mergedProps = {
+      ...existingProps,
+      ...args.customProperties,
+    };
+
+    await ctx.db.patch(args.transactionId, {
+      customProperties: mergedProps,
+      updatedAt: Date.now(),
+    });
+
+    console.log(`✅ [updateTransactionCustomProperties] Updated transaction ${args.transactionId}`);
+    return { success: true };
   },
 });
 

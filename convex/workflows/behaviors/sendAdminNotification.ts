@@ -56,7 +56,31 @@ export const executeSendAdminNotification = action({
       };
     }
 
-    // Get event details
+    // Get TRANSACTION (PRIMARY SOURCE OF TRUTH)
+    // Transaction captures complete event data at checkout time
+    let txEventName: string | undefined;
+    let txEventDate: number | undefined;
+    let txEventLocation: string | undefined;
+
+    if (context.transactionId) {
+      // Use generic getObject to avoid deep type instantiation issues
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const transaction: any = await ctx.runQuery(api.ontologyHelpers.getObject, {
+        objectId: context.transactionId as Id<"objects">,
+      });
+
+      if (transaction && transaction.type === "transaction") {
+        const txProps = transaction.customProperties || {};
+        txEventName = txProps.eventName as string | undefined;
+        txEventDate = txProps.eventStartDate as number | undefined;
+        txEventLocation = (txProps.eventFormattedAddress as string) ||
+          (txProps.eventLocation as string) || undefined;
+        console.log("📧 [sendAdminNotification] Using transaction data for event info");
+      }
+    }
+
+    // Get event details (for admin emails and fallback data)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const event: any = await ctx.runQuery(api.ontologyHelpers.getObject, {
       objectId: context.eventId as Id<"objects">,
     });
@@ -73,7 +97,15 @@ export const executeSendAdminNotification = action({
       notificationEmails?: string[];
       startDate?: number;
       location?: string;
+      formattedAddress?: string;
     };
+
+    // Use transaction data first, fallback to event data
+    const finalEventName = txEventName || (event.name as string);
+    const finalEventDate = txEventDate || eventCustomProps.startDate;
+    const finalEventLocation = txEventLocation ||
+      eventCustomProps.formattedAddress ||
+      eventCustomProps.location;
 
     // Get admin email addresses
     const adminEmails = [
@@ -94,9 +126,9 @@ export const executeSendAdminNotification = action({
       };
     }
 
-    // Format event date
-    const eventDate = eventCustomProps.startDate
-      ? new Date(eventCustomProps.startDate).toLocaleDateString("de-DE", {
+    // Format event date - use transaction date first
+    const eventDateFormatted = finalEventDate
+      ? new Date(finalEventDate).toLocaleDateString("de-DE", {
           day: "2-digit",
           month: "2-digit",
           year: "numeric",
@@ -109,9 +141,9 @@ export const executeSendAdminNotification = action({
       ? `€${(context.finalPrice / 100).toFixed(2)}`
       : "€0.00";
 
-    const emailSubject: string = `Neue Anmeldung: ${event.name}`;
+    const emailSubject: string = `Neue Anmeldung: ${finalEventName}`;
     const emailBody = `
-Neue Anmeldung für ${event.name}
+Neue Anmeldung für ${finalEventName}
 
 TEILNEHMER:
 Name: ${customerName}
@@ -120,9 +152,9 @@ Telefon: ${context.customerData.phone || "Nicht angegeben"}
 Kategorie: ${context.formResponses?.attendee_category || "Nicht angegeben"}
 
 VERANSTALTUNG:
-Event: ${event.name}
-Datum: ${eventDate}
-Ort: ${eventCustomProps.location || "Nicht angegeben"}
+Event: ${finalEventName}
+Datum: ${eventDateFormatted}
+Ort: ${finalEventLocation || "Nicht angegeben"}
 
 BUCHUNG:
 Preis: ${priceFormatted}

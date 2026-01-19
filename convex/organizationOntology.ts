@@ -13,7 +13,7 @@
  * - address (with subtypes): Physical, billing, shipping, mailing addresses
  */
 
-import { query, mutation, internalMutation } from "./_generated/server";
+import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser, requirePermission } from "./rbacHelpers";
 import { translateObject, translateObjects } from "./translationResolver";
@@ -182,6 +182,57 @@ export const getPrimaryAddress = query({
 
     // ✅ Translate address fields based on locale
     return await translateObject(ctx, address, locale);
+  },
+});
+
+// ============================================================================
+// INTERNAL QUERIES (for use in actions without triggering deep type instantiation)
+// ============================================================================
+
+/**
+ * GET ORGANIZATION SETTINGS (INTERNAL)
+ * Internal version without auth check, for use in actions
+ */
+export const getOrganizationSettingsInternal = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    subtype: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const baseQuery = ctx.db
+      .query("objects")
+      .withIndex("by_org_type", q =>
+        q.eq("organizationId", args.organizationId)
+         .eq("type", "organization_settings")
+      );
+
+    if (args.subtype) {
+      return await baseQuery
+        .filter(q => q.eq(q.field("subtype"), args.subtype))
+        .first();
+    }
+
+    return await baseQuery.collect();
+  },
+});
+
+/**
+ * GET PRIMARY ADDRESS (INTERNAL)
+ * Internal version without auth check, for use in actions
+ */
+export const getPrimaryAddressInternal = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, { organizationId }) => {
+    return await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", q =>
+        q.eq("organizationId", organizationId)
+         .eq("type", "address")
+      )
+      .filter(q => q.eq(q.field("customProperties.isPrimary"), true))
+      .first();
   },
 });
 

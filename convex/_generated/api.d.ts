@@ -244,6 +244,8 @@ import type * as oauth_scopes from "../oauth/scopes.js";
 import type * as oauth_tokens from "../oauth/tokens.js";
 import type * as oauth_vercel from "../oauth/vercel.js";
 import type * as oauth_verifiedIntegrations from "../oauth/verifiedIntegrations.js";
+import type * as objectLinksInternal from "../objectLinksInternal.js";
+import type * as objectsInternal from "../objectsInternal.js";
 import type * as onboarding from "../onboarding.js";
 import type * as ontologyHelpers from "../ontologyHelpers.js";
 import type * as ontologyTranslations from "../ontologyTranslations.js";
@@ -756,6 +758,8 @@ declare const fullApi: ApiFromModules<{
   "oauth/tokens": typeof oauth_tokens;
   "oauth/vercel": typeof oauth_vercel;
   "oauth/verifiedIntegrations": typeof oauth_verifiedIntegrations;
+  objectLinksInternal: typeof objectLinksInternal;
+  objectsInternal: typeof objectsInternal;
   onboarding: typeof onboarding;
   ontologyHelpers: typeof ontologyHelpers;
   ontologyTranslations: typeof ontologyTranslations;

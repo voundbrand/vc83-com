@@ -15,6 +15,9 @@ interface OrderEmailData {
   eventName: string;
   eventSponsors?: Array<{ name: string; level?: string }>;
   eventLocation?: string;
+  eventFormattedAddress?: string; // Full address for display
+  eventGoogleMapsUrl?: string;    // Clickable Google Maps link
+  eventAppleMapsUrl?: string;     // Clickable Apple Maps link
   formattedDate: string;
   ticketCount: number;
   orderNumber: string;
@@ -70,6 +73,9 @@ export function generateOrderConfirmationHtml(
     eventName,
     eventSponsors,
     eventLocation,
+    eventFormattedAddress,
+    eventGoogleMapsUrl,
+    eventAppleMapsUrl,
     formattedDate,
     ticketCount,
     orderNumber,
@@ -78,6 +84,9 @@ export function generateOrderConfirmationHtml(
     logoUrl,
     organizationName = "Event Team",
   } = data;
+
+  // Prefer formatted address, fall back to location
+  const displayLocation = eventFormattedAddress || eventLocation;
 
   const year = new Date().getFullYear();
 
@@ -145,11 +154,22 @@ export function generateOrderConfirmationHtml(
             <td style="padding: 14px 0; font-size: 13px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">${translations.date}</td>
             <td style="padding: 14px 0; font-size: 16px; color: #0f172a; font-weight: 500; text-align: right;">${formattedDate}</td>
           </tr>
-          ${eventLocation ? `
+          ${displayLocation ? `
           <tr style="border-top: 1px solid #e2e8f0;">
             <td style="padding: 14px 0; font-size: 13px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">${translations.location}</td>
-            <td style="padding: 14px 0; font-size: 16px; color: #0f172a; font-weight: 500; text-align: right;">${eventLocation}</td>
+            <td style="padding: 14px 0; font-size: 16px; color: #0f172a; font-weight: 500; text-align: right;">
+              ${displayLocation}
+            </td>
           </tr>
+          ${(eventGoogleMapsUrl || eventAppleMapsUrl) ? `
+          <tr style="border-top: 1px solid #e2e8f0;">
+            <td style="padding: 14px 0; font-size: 13px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">DIRECTIONS</td>
+            <td style="padding: 14px 0; text-align: right;">
+              ${eventGoogleMapsUrl ? `<a href="${eventGoogleMapsUrl}" style="display: inline-block; padding: 6px 12px; margin-left: 8px; font-size: 13px; color: ${primaryColor}; text-decoration: none; border: 1px solid ${primaryColor}; border-radius: 6px;">Google Maps</a>` : ''}
+              ${eventAppleMapsUrl ? `<a href="${eventAppleMapsUrl}" style="display: inline-block; padding: 6px 12px; margin-left: 8px; font-size: 13px; color: ${primaryColor}; text-decoration: none; border: 1px solid ${primaryColor}; border-radius: 6px;">Apple Maps</a>` : ''}
+            </td>
+          </tr>
+          ` : ''}
           ` : ""}
         </table>
       </div>

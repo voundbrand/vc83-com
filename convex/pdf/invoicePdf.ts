@@ -84,29 +84,89 @@ export const generateInvoicePDF = action({
                 paymentTerms: invoice?.customProperties?.paymentTerms,
             });
 
-            // 2. Get seller organization info
+            // 2. Get TRANSACTION (PRIMARY SOURCE OF TRUTH)
+            // Transaction captures complete seller, buyer, branding data at checkout time
             const organizationId = session.organizationId;
-
-            // Get the actual organization record (has businessName field)
-            const organization = await ctx.runQuery(
-                internal.checkoutSessions.getOrganizationInternal,
-                { organizationId }
+            const transaction = await ctx.runQuery(
+                internal.transactionOntology.getTransactionByCheckoutSessionInternal,
+                {
+                    organizationId,
+                    checkoutSessionId: args.checkoutSessionId,
+                }
             );
 
-            const sellerOrg = await ctx.runQuery(
-                api.organizationOntology.getOrganizationProfile,
-                { organizationId }
-            ) as Doc<"objects"> | null;
+            const txProps = transaction?.customProperties || {};
+            console.log("📄 [generateInvoicePDF] Transaction lookup:", {
+                found: !!transaction,
+                hasSeller: !!txProps.seller,
+                hasBranding: !!txProps.branding,
+                hasBuyer: !!txProps.buyer,
+                hasLineItems: !!(txProps.lineItems as unknown[])?.length,
+            });
 
-            const sellerLegal = await ctx.runQuery(
-                api.organizationOntology.getOrganizationLegal,
-                { organizationId }
-            ) as Doc<"objects"> | null;
+            // 2.1. Extract seller from TRANSACTION (if available)
+            const txSeller = txProps.seller as {
+                organizationId?: Id<"organizations">;
+                name?: string;
+                address?: string;
+                city?: string;
+                state?: string;
+                postalCode?: string;
+                country?: string;
+                phone?: string;
+                email?: string;
+                website?: string;
+                vatNumber?: string;
+                taxId?: string;
+            } | undefined;
 
-            const sellerContact = await ctx.runQuery(
-                api.organizationOntology.getOrganizationContact,
-                { organizationId }
-            ) as Doc<"objects"> | null;
+            // 2.2. Extract branding from TRANSACTION (if available)
+            const txBranding = txProps.branding as {
+                logoUrl?: string;
+                primaryColor?: string;
+                secondaryColor?: string;
+            } | undefined;
+
+            // 2.3. Extract buyer from TRANSACTION (for B2B)
+            const txBuyer = txProps.buyer as {
+                companyName?: string;
+                address?: string;
+                city?: string;
+                state?: string;
+                postalCode?: string;
+                country?: string;
+                vatNumber?: string;
+                contactName?: string;
+                contactEmail?: string;
+            } | undefined;
+
+            // 2.4. FALLBACK: Load organization data only if not in transaction
+            let sellerOrg: Doc<"objects"> | null = null;
+            let sellerLegal: Doc<"objects"> | null = null;
+            let sellerContact: Doc<"objects"> | null = null;
+            let organization: { businessName?: string; name?: string } | null = null;
+
+            if (!txSeller?.name) {
+                organization = await ctx.runQuery(
+                    internal.checkoutSessions.getOrganizationInternal,
+                    { organizationId }
+                );
+
+                sellerOrg = await ctx.runQuery(
+                    api.organizationOntology.getOrganizationProfile,
+                    { organizationId }
+                ) as Doc<"objects"> | null;
+
+                sellerLegal = await ctx.runQuery(
+                    api.organizationOntology.getOrganizationLegal,
+                    { organizationId }
+                ) as Doc<"objects"> | null;
+
+                sellerContact = await ctx.runQuery(
+                    api.organizationOntology.getOrganizationContact,
+                    { organizationId }
+                ) as Doc<"objects"> | null;
+            }
 
             // Get locale settings for currency formatting
             const localeSettings = await ctx.runQuery(
@@ -114,49 +174,50 @@ export const generateInvoicePDF = action({
                 { organizationId }
             );
 
-            const invoiceCurrency = (localeSettings?.customProperties?.currency as string) || "eur";
+            const invoiceCurrency = (txProps.currency as string) || (localeSettings?.customProperties?.currency as string) || "eur";
             const invoiceLocale = (localeSettings?.customProperties?.locale as string) || "de-DE";
             const dateFormat = (localeSettings?.customProperties?.dateFormat as string) || "DD.MM.YYYY";
 
-            // Get tax settings for origin address
+            // Get tax settings for origin address (still needed for tax display)
             const taxSettings = await ctx.runQuery(
                 api.organizationTaxSettings.getPublicTaxSettings,
                 { organizationId }
             );
 
-            // 2.4. Get organization branding settings from organization_settings table
-            const brandingSettingsResult = await ctx.runQuery(
-                api.organizationOntology.getOrganizationSettings,
-                { organizationId, subtype: "branding" }
-            );
+            // 2.5. Set branding - use transaction snapshot first, then fallback
+            let brandPrimaryColor = txBranding?.primaryColor || "#6B46C1";
+            let brandSecondaryColor = txBranding?.secondaryColor || "#9F7AEA";
+            let brandLogoUrl = txBranding?.logoUrl;
 
-            // Extract single object (query returns single object when subtype is provided)
-            const brandingSettings = Array.isArray(brandingSettingsResult) ? undefined : brandingSettingsResult;
+            if (!txBranding?.primaryColor) {
+                const brandingSettingsResult = await ctx.runQuery(
+                    api.organizationOntology.getOrganizationSettings,
+                    { organizationId, subtype: "branding" }
+                );
+                const brandingSettings = Array.isArray(brandingSettingsResult) ? undefined : brandingSettingsResult;
+                brandPrimaryColor = brandingSettings?.customProperties?.primaryColor as string || "#6B46C1";
+                brandSecondaryColor = brandingSettings?.customProperties?.secondaryColor as string || "#9F7AEA";
+                brandLogoUrl = brandingSettings?.customProperties?.logo as string || sellerOrg?.customProperties?.logoUrl as string | undefined;
+            }
 
-            // Set initial branding from organization settings or defaults
-            let brandPrimaryColor = brandingSettings?.customProperties?.primaryColor as string || "#6B46C1"; // Default purple
-            let brandSecondaryColor = brandingSettings?.customProperties?.secondaryColor as string || "#9F7AEA"; // Default light purple
-            let brandLogoUrl = brandingSettings?.customProperties?.logo as string || sellerOrg?.customProperties?.logoUrl as string | undefined;
-
-            console.log("🎨 [Invoice Branding] Loaded organization settings:", {
+            console.log("🎨 [Invoice Branding]:", {
+                source: txBranding ? "transaction" : "organization",
                 primaryColor: brandPrimaryColor,
-                secondaryColor: brandSecondaryColor,
                 hasLogo: !!brandLogoUrl,
-                logoUrl: brandLogoUrl
             });
 
-            // Debug: Log contact information
-            console.log("📞 [Invoice Contact] Organization contact data:", {
-                contactPhone: sellerContact?.customProperties?.contactPhone,
-                contactEmail: sellerContact?.customProperties?.contactEmail,
-                billingEmail: sellerContact?.customProperties?.billingEmail,
-                supportEmail: sellerContact?.customProperties?.supportEmail,
-                website: sellerContact?.customProperties?.website,
+            // Debug: Log seller information
+            console.log("📞 [Invoice Seller]:", {
+                source: txSeller ? "transaction" : "organization",
+                name: txSeller?.name || sellerOrg?.name,
+                email: txSeller?.email || sellerContact?.customProperties?.contactEmail,
+                vatNumber: txSeller?.vatNumber || sellerLegal?.customProperties?.vatNumber,
                 faxNumber: sellerContact?.customProperties?.faxNumber,
             });
 
-            // Try domain config first (if available) - can override organization settings
-            const domainConfigId = session.customProperties?.domainConfigId as Id<"objects"> | undefined;
+            // Try domain config (if available) - can override branding
+            const domainConfigId = (txProps.domainConfigId as Id<"objects">) ||
+                (session.customProperties?.domainConfigId as Id<"objects"> | undefined);
             if (domainConfigId) {
                 try {
                     const domainConfig = await ctx.runQuery(api.domainConfigOntology.getDomainConfig, {
@@ -164,53 +225,41 @@ export const generateInvoicePDF = action({
                     });
 
                     if (domainConfig?.customProperties?.branding) {
-                        const domainBranding = domainConfig.customProperties.branding as any;
-                        brandPrimaryColor = domainBranding.primaryColor || brandPrimaryColor;
-                        brandSecondaryColor = domainBranding.secondaryColor || brandSecondaryColor;
-                        brandLogoUrl = domainBranding.logoUrl || brandLogoUrl;
-                        console.log("🎨 [Invoice Branding] Using domain branding:", {
-                            primaryColor: brandPrimaryColor,
-                            secondaryColor: brandSecondaryColor,
-                            hasLogo: !!brandLogoUrl
-                        });
+                        const domainBranding = domainConfig.customProperties.branding as Record<string, unknown>;
+                        brandPrimaryColor = (domainBranding.primaryColor as string) || brandPrimaryColor;
+                        brandSecondaryColor = (domainBranding.secondaryColor as string) || brandSecondaryColor;
+                        brandLogoUrl = (domainBranding.logoUrl as string) || brandLogoUrl;
+                        console.log("🎨 [Invoice Branding] Domain override applied");
                     }
                 } catch {
-                    console.warn("⚠️ Could not fetch domain config branding, falling back to organization");
+                    console.warn("⚠️ Could not fetch domain config branding");
                 }
             }
 
-            // Note: Organization branding is now loaded above from organization_settings table
-            // Domain config can override if present. No additional fallback needed.
-
-            // 2.5. Get buyer CRM organization info (if B2B invoice with employerOrgId)
+            // 2.6. Get buyer info - use TRANSACTION buyer snapshot first, then CRM fallback
             let buyerCrmOrg: Doc<"objects"> | null = null;
-            if (args.crmOrganizationId) {
+            let buyerCrmContact: Doc<"objects"> | null = null;
+
+            // Only load CRM data if not already in transaction
+            if (!txBuyer?.companyName && args.crmOrganizationId) {
                 buyerCrmOrg = await ctx.runQuery(api.crmOntology.getPublicCrmOrganizationBilling, {
                     crmOrganizationId: args.crmOrganizationId,
                 }) as Doc<"objects"> | null;
-                console.log("📄 [generateInvoicePDF] Found CRM org for BILL TO:", {
-                    orgId: args.crmOrganizationId,
-                    orgName: buyerCrmOrg?.name,
-                    hasBillingAddress: !!buyerCrmOrg?.customProperties?.billingAddress,
-                    // 🔍 DEBUG: Show actual billing address data
-                    billingAddressData: buyerCrmOrg?.customProperties?.billingAddress,
-                    vatNumber: buyerCrmOrg?.customProperties?.vatNumber,
-                });
+                console.log("📄 [generateInvoicePDF] Loading buyer from CRM org:", buyerCrmOrg?.name);
             }
 
-            // 2.6. Get buyer CRM contact info (if B2C invoice with customer contact)
-            let buyerCrmContact: Doc<"objects"> | null = null;
-            if (args.crmContactId) {
+            if (!txBuyer && args.crmContactId) {
                 buyerCrmContact = await ctx.runQuery(internal.crmOntology.getContactInternal, {
                     contactId: args.crmContactId,
                 }) as Doc<"objects"> | null;
-                console.log("📄 [generateInvoicePDF] Found CRM contact for BILL TO:", {
-                    contactId: args.crmContactId,
-                    contactName: buyerCrmContact?.name,
-                    email: buyerCrmContact?.customProperties?.email,
-                    phone: buyerCrmContact?.customProperties?.phone,
-                });
+                console.log("📄 [generateInvoicePDF] Loading buyer from CRM contact:", buyerCrmContact?.name);
             }
+
+            console.log("📄 [Invoice Buyer]:", {
+                source: txBuyer ? "transaction" : (buyerCrmOrg ? "CRM org" : (buyerCrmContact ? "CRM contact" : "session")),
+                companyName: txBuyer?.companyName || buyerCrmOrg?.name,
+                vatNumber: txBuyer?.vatNumber || buyerCrmOrg?.customProperties?.vatNumber,
+            });
 
             // 3. Get purchase items and GROUP by product
             const purchaseItemIds = (session.customProperties?.purchasedItemIds as Id<"objects">[]) || [];
@@ -482,8 +531,7 @@ export const generateInvoicePDF = action({
                 organizationAddress = sellerLegal.customProperties.address as string;
             }
 
-            // 8. Build bill_to information
-            const isCRMBilling = !!buyerCrmOrg;
+            // 8. Build bill_to information - prefer TRANSACTION buyer snapshot first
             let billTo: {
                 company_name: string;
                 vat_number?: string;
@@ -494,7 +542,19 @@ export const generateInvoicePDF = action({
                 country?: string;
             };
 
-            if (isCRMBilling && buyerCrmOrg) {
+            if (txBuyer?.companyName) {
+                // Use TRANSACTION buyer snapshot (captures data at checkout time)
+                billTo = {
+                    company_name: txBuyer.companyName,
+                    vat_number: txBuyer.vatNumber,
+                    address: txBuyer.address,
+                    city: txBuyer.city,
+                    state: txBuyer.state,
+                    zip_code: txBuyer.postalCode,
+                    country: txBuyer.country,
+                };
+                console.log("📄 [generateInvoicePDF] billTo from TRANSACTION:", billTo.company_name);
+            } else if (buyerCrmOrg) {
                 // Use CRM organization billing data
                 // NEW: Try to get billing address from addresses array first
                 let crmBillingAddress: {
@@ -856,22 +916,31 @@ export const generateInvoicePDF = action({
             const paymentTermsTranslationKey = `pdf.invoice.paymentTerms.${invoicePaymentTerms}`;
             const translatedPaymentTerms = translations[paymentTermsTranslationKey] || invoicePaymentTerms;
 
-            // 11. Prepare invoice template data
+            // 11. Prepare invoice template data - prefer TRANSACTION seller snapshot
+            // Build seller address from transaction or organization data
+            const sellerAddress = txSeller?.address
+                ? [txSeller.address, txSeller.city, txSeller.postalCode, txSeller.country].filter(Boolean).join(", ")
+                : organizationAddress;
+
             const invoiceData = {
-                // Organization info (use real settings only - no fake placeholders)
-                organization_name: businessName,
-                organization_address: organizationAddress,
-                organization_phone: ((sellerOrg as any)?.customProperties?.phone as string) ||
+                // Organization info - prefer TRANSACTION seller snapshot
+                organization_name: txSeller?.name || businessName,
+                organization_address: sellerAddress,
+                organization_phone: txSeller?.phone ||
+                    ((sellerOrg as Record<string, unknown>)?.customProperties as Record<string, unknown>)?.phone as string ||
                     (sellerContact?.customProperties?.contactPhone as string) ||
-                    undefined, // No phone set - leave empty on invoice
-                organization_email: ((sellerOrg as any)?.customProperties?.email as string) ||
+                    undefined,
+                organization_email: txSeller?.email ||
+                    ((sellerOrg as Record<string, unknown>)?.customProperties as Record<string, unknown>)?.email as string ||
                     (sellerContact?.customProperties?.contactEmail as string) ||
                     (sellerContact?.customProperties?.billingEmail as string) ||
-                    undefined, // No email set - leave empty on invoice
-                organization_website: (sellerContact?.customProperties?.website as string) || undefined,
+                    undefined,
+                organization_website: txSeller?.website ||
+                    (sellerContact?.customProperties?.website as string) ||
+                    undefined,
                 logo_url: brandLogoUrl,
-                tax_id: sellerLegal?.customProperties?.taxId as string | undefined,
-                vat_number: sellerLegal?.customProperties?.vatNumber as string | undefined,
+                tax_id: txSeller?.taxId || (sellerLegal?.customProperties?.taxId as string | undefined),
+                vat_number: txSeller?.vatNumber || (sellerLegal?.customProperties?.vatNumber as string | undefined),
 
                 // Branding colors (cascading: domain → organization → default)
                 brand_primary_color: brandPrimaryColor,

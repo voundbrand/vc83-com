@@ -8,7 +8,7 @@
  */
 
 import { mutation } from "../_generated/server";
-import { insertTranslationIfNew } from "./_translationHelpers";
+import { upsertTranslation } from "./_translationHelpers";
 
 export default mutation(async ({ db }) => {
   // Get system organization
@@ -36,9 +36,9 @@ export default mutation(async ({ db }) => {
     throw new Error("No users found in database - please create at least one user first");
   }
 
-  const existingKeys = new Set<string>();
   const category = "email_templates";
   let insertedCount = 0;
+  let updatedCount = 0;
 
   // ============================================================================
   // ENGLISH TRANSLATIONS
@@ -76,9 +76,8 @@ export default mutation(async ({ db }) => {
   ];
 
   for (const t of englishTranslations) {
-    const inserted = await insertTranslationIfNew(
+    const result = await upsertTranslation(
       db,
-      existingKeys,
       systemOrg._id,
       systemUser._id,
       t.key,
@@ -86,7 +85,8 @@ export default mutation(async ({ db }) => {
       "en",
       category
     );
-    if (inserted) insertedCount++;
+    if (result.inserted) insertedCount++;
+    if (result.updated) updatedCount++;
   }
 
   // ============================================================================
@@ -125,9 +125,8 @@ export default mutation(async ({ db }) => {
   ];
 
   for (const t of germanTranslations) {
-    const inserted = await insertTranslationIfNew(
+    const result = await upsertTranslation(
       db,
-      existingKeys,
       systemOrg._id,
       systemUser._id,
       t.key,
@@ -135,7 +134,8 @@ export default mutation(async ({ db }) => {
       "de",
       category
     );
-    if (inserted) insertedCount++;
+    if (result.inserted) insertedCount++;
+    if (result.updated) updatedCount++;
   }
 
   // ============================================================================
@@ -174,9 +174,8 @@ export default mutation(async ({ db }) => {
   ];
 
   for (const t of spanishTranslations) {
-    const inserted = await insertTranslationIfNew(
+    const result = await upsertTranslation(
       db,
-      existingKeys,
       systemOrg._id,
       systemUser._id,
       t.key,
@@ -184,7 +183,8 @@ export default mutation(async ({ db }) => {
       "es",
       category
     );
-    if (inserted) insertedCount++;
+    if (result.inserted) insertedCount++;
+    if (result.updated) updatedCount++;
   }
 
   // ============================================================================
@@ -223,9 +223,8 @@ export default mutation(async ({ db }) => {
   ];
 
   for (const t of frenchTranslations) {
-    const inserted = await insertTranslationIfNew(
+    const result = await upsertTranslation(
       db,
-      existingKeys,
       systemOrg._id,
       systemUser._id,
       t.key,
@@ -233,9 +232,10 @@ export default mutation(async ({ db }) => {
       "fr",
       category
     );
-    if (inserted) insertedCount++;
+    if (result.inserted) insertedCount++;
+    if (result.updated) updatedCount++;
   }
 
-  console.log(`✅ Email template translations seeded: ${insertedCount} new translations`);
-  return { success: true, inserted: insertedCount };
+  console.log(`✅ Email template translations seeded: ${insertedCount} new, ${updatedCount} updated`);
+  return { success: true, inserted: insertedCount, updated: updatedCount };
 });

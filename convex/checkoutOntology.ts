@@ -891,7 +891,6 @@ export const getPublicCheckoutProducts = query({
         }
 
         // Use shared validation function from productOntology
-        // @ts-ignore
         const availability = await ctx.runQuery(
           internal.productOntology.checkProductAvailability,
           { productId: p._id }

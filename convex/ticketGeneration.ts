@@ -459,35 +459,82 @@ export const sendOrderConfirmationEmail = internalAction({
         }
       }
 
-      // 5. Create Eventbrite-style email HTML
-      // Prefer event data from checkout session (which we now store), fallback to product
-      console.log("📧 [sendOrderConfirmationEmail] Session custom properties:", {
-        hasEventName: !!session.customProperties?.eventName,
-        eventName: session.customProperties?.eventName,
-        hasEventSponsors: !!session.customProperties?.eventSponsors,
-        eventSponsors: session.customProperties?.eventSponsors,
-        allSessionKeys: Object.keys(session.customProperties || {})
-      });
+      // 5. Get event data from TRANSACTION (single source of truth)
+      // The transaction captures complete event data at checkout time
+      let eventName = "Event";
+      let eventLocation: string | undefined;
+      let eventFormattedAddress: string | undefined;
+      let eventGoogleMapsUrl: string | undefined;
+      let eventAppleMapsUrl: string | undefined;
+      let eventDate: number | undefined;
+      let eventSponsors: Array<{ name: string; level?: string }> | undefined;
+      let transactionBranding: { logoUrl?: string; primaryColor?: string; secondaryColor?: string } | undefined;
 
-      const eventName = (session.customProperties?.eventName as string) || firstProduct?.name || "Event";
-      const eventSponsors = session.customProperties?.eventSponsors as Array<{ name: string; level?: string }> | undefined;
+      // Get data from first ticket's transaction (all tickets in same checkout share event data)
+      if (allTickets.length > 0) {
+        const firstTicket = allTickets[0];
+        const transactionId = firstTicket.customProperties?.transactionId as Id<"objects"> | undefined;
 
-      // Fix: Checkout sessions store as eventStartDate, events use startDate
-      const eventDate = (session.customProperties?.eventStartDate as number) ||
-        (session.customProperties?.eventDate as number) ||
-        (session.customProperties?.startDate as number) ||
-        (firstProduct?.customProperties?.startDate as number | undefined) ||
-        (firstProduct?.customProperties?.eventDate as number | undefined);
+        if (transactionId) {
+          const transaction = await ctx.runQuery(internal.transactionOntology.getTransactionInternal, {
+            transactionId,
+          });
 
-      const eventLocation = (session.customProperties?.eventLocation as string) ||
-        (session.customProperties?.location as string) ||
-        (firstProduct?.customProperties?.location as string | undefined);
+          if (transaction && transaction.type === "transaction") {
+            const txProps = transaction.customProperties || {};
 
-      console.log("✅ [sendOrderConfirmationEmail] Extracted event data for email:", {
+            // Top-level event data (from transaction snapshot)
+            eventName = (txProps.eventName as string) || eventName;
+            eventLocation = txProps.eventLocation as string | undefined;
+            eventFormattedAddress = txProps.eventFormattedAddress as string | undefined;
+            eventGoogleMapsUrl = txProps.eventGoogleMapsUrl as string | undefined;
+            eventAppleMapsUrl = txProps.eventAppleMapsUrl as string | undefined;
+            eventDate = txProps.eventStartDate as number | undefined;
+            eventSponsors = txProps.eventSponsors as Array<{ name: string; level?: string }> | undefined;
+            transactionBranding = txProps.branding as typeof transactionBranding;
+
+            console.log("📧 [sendOrderConfirmationEmail] Using transaction data:", {
+              eventName,
+              eventLocation,
+              eventFormattedAddress: eventFormattedAddress?.substring(0, 50),
+              eventGoogleMapsUrl: eventGoogleMapsUrl ? "yes" : "no",
+              eventAppleMapsUrl: eventAppleMapsUrl ? "yes" : "no",
+              eventDate,
+              hasSponsors: !!eventSponsors,
+              sponsorCount: eventSponsors?.length || 0,
+              hasBranding: !!transactionBranding,
+            });
+          }
+        }
+      }
+
+      // Fallback to session/product data if transaction doesn't have event data
+      if (!eventName || eventName === "Event") {
+        eventName = (session.customProperties?.eventName as string) || firstProduct?.name || "Event";
+      }
+      if (!eventDate) {
+        eventDate = (session.customProperties?.eventStartDate as number) ||
+          (session.customProperties?.eventDate as number) ||
+          (session.customProperties?.startDate as number) ||
+          (firstProduct?.customProperties?.startDate as number | undefined);
+      }
+      if (!eventLocation) {
+        eventLocation = (session.customProperties?.eventLocation as string) ||
+          (session.customProperties?.location as string) ||
+          (firstProduct?.customProperties?.location as string | undefined);
+      }
+      if (!eventSponsors) {
+        eventSponsors = session.customProperties?.eventSponsors as Array<{ name: string; level?: string }> | undefined;
+      }
+
+      console.log("✅ [sendOrderConfirmationEmail] Final event data for email:", {
         eventName,
+        eventLocation,
+        eventFormattedAddress,
+        eventGoogleMapsUrl: eventGoogleMapsUrl ? "yes" : "no",
+        eventAppleMapsUrl: eventAppleMapsUrl ? "yes" : "no",
         hasSponsors: !!eventSponsors,
         sponsorCount: eventSponsors?.length || 0,
-        sponsors: eventSponsors
       });
       const orderNumber = session._id.substring(0, 12);
       const ticketCount = allTickets.length;
@@ -694,18 +741,25 @@ export const sendOrderConfirmationEmail = internalAction({
       // 6. Generate email HTML using template-driven renderer with translations
       const { generateOrderConfirmationHtml, generateOrderConfirmationSubject } = await import("./helpers/orderEmailRenderer");
 
+      // Use transaction branding if available, otherwise fall back to org/domain branding
+      const finalPrimaryColor = transactionBranding?.primaryColor || brandPrimaryColor;
+      const finalLogoUrl = transactionBranding?.logoUrl || brandLogoUrl;
+
       const emailHtml = generateOrderConfirmationHtml(
         {
           recipientName: args.recipientName,
           eventName,
           eventSponsors,
           eventLocation,
+          eventFormattedAddress,
+          eventGoogleMapsUrl,
+          eventAppleMapsUrl,
           formattedDate,
           ticketCount,
           orderNumber,
           orderDate: new Date(session.createdAt).toLocaleDateString(),
-          primaryColor: brandPrimaryColor,
-          logoUrl: brandLogoUrl,
+          primaryColor: finalPrimaryColor,
+          logoUrl: finalLogoUrl,
           organizationName,
         },
         emailTranslations // ✅ Pass translations from database
