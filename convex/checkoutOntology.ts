@@ -130,6 +130,25 @@ export const createCheckoutInstance = mutation({
       debugMode: v.optional(v.boolean()), // Enable debug logging
       executeBehaviorsOnStepChange: v.optional(v.boolean()), // Execute behaviors when changing steps
       showProgressBar: v.optional(v.boolean()), // Show progress indicator
+
+      // Behavior-driven checkout configuration
+      behaviors: v.optional(v.array(v.object({
+        type: v.string(),
+        config: v.optional(v.any()),
+        priority: v.optional(v.number()),
+      }))),
+      branding: v.optional(v.any()), // Custom branding configuration
+      checkoutFlow: v.optional(v.object({
+        steps: v.optional(v.array(v.object({
+          id: v.string(),
+          name: v.string(),
+          enabled: v.optional(v.boolean()),
+        }))),
+      })),
+      createdVia: v.optional(v.string()), // How the checkout was created (e.g., "ai_tool", "manual")
+      linkedEventId: v.optional(v.id("objects")), // Linked event
+      linkedFormId: v.optional(v.id("objects")), // Linked form for registration
+      paymentMode: v.optional(v.string()), // Payment mode (e.g., "hybrid", "stripe-only", "invoice-only")
     })),
   },
   handler: async (ctx, args) => {
@@ -274,6 +293,25 @@ export const updateCheckoutInstance = mutation({
       debugMode: v.optional(v.boolean()), // Enable debug logging
       executeBehaviorsOnStepChange: v.optional(v.boolean()), // Execute behaviors when changing steps
       showProgressBar: v.optional(v.boolean()), // Show progress indicator
+
+      // Behavior-driven checkout configuration
+      behaviors: v.optional(v.array(v.object({
+        type: v.string(),
+        config: v.optional(v.any()),
+        priority: v.optional(v.number()),
+      }))),
+      branding: v.optional(v.any()), // Custom branding configuration
+      checkoutFlow: v.optional(v.object({
+        steps: v.optional(v.array(v.object({
+          id: v.string(),
+          name: v.string(),
+          enabled: v.optional(v.boolean()),
+        }))),
+      })),
+      createdVia: v.optional(v.string()), // How the checkout was created (e.g., "ai_tool", "manual")
+      linkedEventId: v.optional(v.id("objects")), // Linked event
+      linkedFormId: v.optional(v.id("objects")), // Linked form for registration
+      paymentMode: v.optional(v.string()), // Payment mode (e.g., "hybrid", "stripe-only", "invoice-only")
     })),
   },
   handler: async (ctx, args) => {
