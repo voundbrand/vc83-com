@@ -472,11 +472,12 @@ export const sendOrderConfirmationEmail = internalAction({
       const eventName = (session.customProperties?.eventName as string) || firstProduct?.name || "Event";
       const eventSponsors = session.customProperties?.eventSponsors as Array<{ name: string; level?: string }> | undefined;
 
-      // Fix: Events use startDate, not eventDate
-      const eventDate = (session.customProperties?.eventDate as number) ||
+      // Fix: Checkout sessions store as eventStartDate, events use startDate
+      const eventDate = (session.customProperties?.eventStartDate as number) ||
+        (session.customProperties?.eventDate as number) ||
         (session.customProperties?.startDate as number) ||
-        (firstProduct?.customProperties?.eventDate as number | undefined) ||
-        (firstProduct?.customProperties?.startDate as number | undefined);
+        (firstProduct?.customProperties?.startDate as number | undefined) ||
+        (firstProduct?.customProperties?.eventDate as number | undefined);
 
       const eventLocation = (session.customProperties?.eventLocation as string) ||
         (session.customProperties?.location as string) ||

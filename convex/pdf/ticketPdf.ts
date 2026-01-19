@@ -132,11 +132,12 @@ export const generateTicketPDF = action({
             // 5. Extract event data - prefer from session, fallback to product
             const eventName = (session.customProperties?.eventName as string) || product.name;
             const eventSponsors = session.customProperties?.eventSponsors as Array<{ name: string; level?: string }> | undefined;
-            // Fix: Events use startDate, not eventDate
-            const eventDate = (session.customProperties?.eventDate as number) ||
+            // Fix: Checkout sessions store as eventStartDate, events use startDate
+            const eventDate = (session.customProperties?.eventStartDate as number) ||
+                (session.customProperties?.eventDate as number) ||
                 (session.customProperties?.startDate as number) ||
-                (product.customProperties?.eventDate as number | undefined) ||
-                (product.customProperties?.startDate as number | undefined);
+                (product.customProperties?.startDate as number | undefined) ||
+                (product.customProperties?.eventDate as number | undefined);
             const eventLocation = (session.customProperties?.eventLocation as string) ||
                 (product.customProperties?.location as string | undefined);
 
@@ -563,10 +564,12 @@ export const generateTicketPDFFromTicket = action({
 
             // 4. Extract event data from ticket or product
             const eventName = (ticketProps.eventName as string) || product.name;
-            const eventDate = (ticketProps.eventDate as number) ||
+            // Check eventStartDate first (from checkout), then eventDate, then startDate
+            const eventDate = (ticketProps.eventStartDate as number) ||
+                (ticketProps.eventDate as number) ||
                 (ticketProps.startDate as number) ||
-                (product.customProperties?.eventDate as number | undefined) ||
-                (product.customProperties?.startDate as number | undefined);
+                (product.customProperties?.startDate as number | undefined) ||
+                (product.customProperties?.eventDate as number | undefined);
             const eventLocation = (ticketProps.eventLocation as string) ||
                 (product.customProperties?.location as string | undefined);
             const eventAddress = (ticketProps.eventAddress as string) || "";
