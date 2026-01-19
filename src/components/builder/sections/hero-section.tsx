@@ -27,6 +27,8 @@ export function HeroSection({
   titleClassName = "text-4xl sm:text-5xl md:text-6xl font-bold text-gray-900 tracking-tight",
   subtitleClassName = "text-lg sm:text-xl text-gray-600 mt-6 max-w-2xl mx-auto",
   alignment = "center",
+  showTitle = true,
+  showSubtitle = true,
   cta,
   secondaryCta,
   image,
@@ -82,21 +84,23 @@ export function HeroSection({
         )}
 
         {/* Title */}
-        {isEditMode ? (
-          <EditableText
-            blockId={`${sectionId}.title`}
-            defaultValue={title}
-            as="h1"
-            className={titleClassName}
-            sectionId={sectionId}
-            blockLabel="Hero Title"
-          />
-        ) : (
-          <h1 className={titleClassName}>{title}</h1>
+        {showTitle && (
+          isEditMode ? (
+            <EditableText
+              blockId={`${sectionId}.title`}
+              defaultValue={title}
+              as="h1"
+              className={titleClassName}
+              sectionId={sectionId}
+              blockLabel="Hero Title"
+            />
+          ) : (
+            <h1 className={titleClassName}>{title}</h1>
+          )
         )}
 
         {/* Subtitle */}
-        {subtitle && (
+        {showSubtitle && subtitle && (
           <div className={`${align.text} max-w-2xl`}>
             {isEditMode ? (
               <EditableText

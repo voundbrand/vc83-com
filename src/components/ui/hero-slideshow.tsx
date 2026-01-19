@@ -122,6 +122,7 @@ export function HeroSlideshow({
 
                 if (videoId && (provider === 'youtube' || provider === 'vimeo')) {
                   // YouTube/Vimeo video - use iframe with video-utils
+                  // Scale video to cover container without black bars (like object-fit: cover)
                   const embedUrl = getVideoEmbedUrl(
                     videoId,
                     provider,
@@ -130,14 +131,17 @@ export function HeroSlideshow({
                   );
 
                   return index === currentIndex ? (
-                    <iframe
-                      key={`${provider}-${item.id}-${currentIndex}`}
-                      src={embedUrl}
-                      className="w-full h-full"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                      title={item.alt || `Video ${index + 1}`}
-                    />
+                    <div className="absolute inset-0 w-full h-full overflow-hidden">
+                      <iframe
+                        key={`${provider}-${item.id}-${currentIndex}`}
+                        src={embedUrl}
+                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[177.78vh] h-[56.25vw] min-w-full min-h-full"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        title={item.alt || `Video ${index + 1}`}
+                        style={{ border: 'none' }}
+                      />
+                    </div>
                   ) : null;
                 } else {
                   // Direct video file - use video tag

@@ -23,6 +23,8 @@ export interface EventLandingContent {
   hero: {
     headline: string;
     subheadline: string;
+    showTitle?: boolean; // Toggle title visibility (default: true)
+    showSubtitle?: boolean; // Toggle subtitle visibility (default: true)
     date: string;
     location: string;
     format: string;
@@ -251,6 +253,22 @@ export const eventLandingSchema: TemplateContentSchema<EventLandingContent> = {
           type: FieldType.Boolean,
           required: false,
           helpText: "Toggle the sticky navigation bar at the top of the page",
+          defaultValue: true,
+        },
+        {
+          id: "hero.showTitle",
+          label: "Show Hero Title",
+          type: FieldType.Boolean,
+          required: false,
+          helpText: "Toggle the headline/title text over the video/image",
+          defaultValue: true,
+        },
+        {
+          id: "hero.showSubtitle",
+          label: "Show Hero Subtitle",
+          type: FieldType.Boolean,
+          required: false,
+          helpText: "Toggle the subtitle text over the video/image",
           defaultValue: true,
         },
       ],

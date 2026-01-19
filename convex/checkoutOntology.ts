@@ -149,6 +149,7 @@ export const createCheckoutInstance = mutation({
       linkedEventId: v.optional(v.id("objects")), // Linked event
       linkedFormId: v.optional(v.id("objects")), // Linked form for registration
       paymentMode: v.optional(v.string()), // Payment mode (e.g., "hybrid", "stripe-only", "invoice-only")
+      version: v.optional(v.string()), // Schema version for migrations
     })),
   },
   handler: async (ctx, args) => {
@@ -312,6 +313,7 @@ export const updateCheckoutInstance = mutation({
       linkedEventId: v.optional(v.id("objects")), // Linked event
       linkedFormId: v.optional(v.id("objects")), // Linked form for registration
       paymentMode: v.optional(v.string()), // Payment mode (e.g., "hybrid", "stripe-only", "invoice-only")
+      version: v.optional(v.string()), // Schema version for migrations
     })),
   },
   handler: async (ctx, args) => {
@@ -889,6 +891,7 @@ export const getPublicCheckoutProducts = query({
         }
 
         // Use shared validation function from productOntology
+        // @ts-ignore
         const availability = await ctx.runQuery(
           internal.productOntology.checkProductAvailability,
           { productId: p._id }

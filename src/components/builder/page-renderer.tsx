@@ -19,6 +19,7 @@ import {
   ProcessSection,
   BookingSection,
 } from "./sections";
+import { PageHeader } from "./page-header";
 import type { AIGeneratedPageSchema } from "@/lib/page-builder/page-schema";
 import type { PageSection, SectionType } from "@/lib/page-builder/section-registry";
 
@@ -85,6 +86,14 @@ export function PageRenderer({
       className="min-h-screen"
       style={themeStyles as React.CSSProperties}
     >
+      {/* Optional header/navigation */}
+      {schema.header?.enabled !== false && schema.header && (
+        <PageHeader
+          {...schema.header}
+          pageTitle={schema.metadata.title}
+        />
+      )}
+
       {/* Render each section */}
       {schema.sections.map((section) => {
         const SectionComponent = sectionComponents[section.type];

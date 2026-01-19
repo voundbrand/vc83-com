@@ -356,7 +356,7 @@ export function EventLandingTemplate({
   } as React.CSSProperties;
 
   return (
-    <div className={styles.template} style={cssVars}>
+    <div className={`${styles.template} ${mergedContent.showNavigation === false ? styles.templateNoNav : ''}`} style={cssVars}>
       {/* Navigation - Sticky at top (conditionally rendered) */}
       {mergedContent.showNavigation !== false && (
         <nav className={styles.nav}>
@@ -402,9 +402,11 @@ export function EventLandingTemplate({
               <div className={styles.heroGradientOverlay} />
 
               {/* Minimal overlay text - just the title */}
-              <div className={styles.heroContent}>
-                <h1 className={styles.heroTitle}>{mergedContent.hero.headline}</h1>
-              </div>
+              {mergedContent.hero.showTitle !== false && (
+                <div className={styles.heroContent}>
+                  <h1 className={styles.heroTitle}>{mergedContent.hero.headline}</h1>
+                </div>
+              )}
             </section>
           )}
 
@@ -429,10 +431,14 @@ export function EventLandingTemplate({
 
               <div className={styles.heroContent}>
                 <div className={styles.heroDateBadge}>{mergedContent.hero.date}</div>
-                <h1 className={styles.heroTitle}>{mergedContent.hero.headline}</h1>
-                <p className={styles.heroSubtitle}>
-                  {mergedContent.hero.subheadline}
-                </p>
+                {mergedContent.hero.showTitle !== false && (
+                  <h1 className={styles.heroTitle}>{mergedContent.hero.headline}</h1>
+                )}
+                {mergedContent.hero.showSubtitle !== false && (
+                  <p className={styles.heroSubtitle}>
+                    {mergedContent.hero.subheadline}
+                  </p>
+                )}
               </div>
             </section>
           )}
@@ -442,13 +448,17 @@ export function EventLandingTemplate({
             <section className={styles.heroContentBelow}>
               <div className={styles.heroDateBadge}>{mergedContent.hero.date}</div>
 
-              <h2 className={styles.heroTitleBelow} style={{ display: galleryItems.length > 0 ? 'none' : 'block' }}>
-                {mergedContent.hero.headline}
-              </h2>
+              {mergedContent.hero.showTitle !== false && (
+                <h2 className={styles.heroTitleBelow} style={{ display: galleryItems.length > 0 ? 'none' : 'block' }}>
+                  {mergedContent.hero.headline}
+                </h2>
+              )}
 
-              <p className={styles.heroSubtitle}>
-                {mergedContent.hero.subheadline}
-              </p>
+              {mergedContent.hero.showSubtitle !== false && (
+                <p className={styles.heroSubtitle}>
+                  {mergedContent.hero.subheadline}
+                </p>
+              )}
 
               <div className={styles.heroInfo}>
                 <a

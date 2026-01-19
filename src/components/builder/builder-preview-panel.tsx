@@ -10,6 +10,7 @@
 import { useState } from "react";
 import { useBuilder } from "@/contexts/builder-context";
 import { PageRenderer } from "./page-renderer";
+import { SectionPropertiesPanel } from "./section-properties-panel";
 import {
   Monitor,
   Tablet,
@@ -174,8 +175,10 @@ export function BuilderPreviewPanel() {
         </div>
       </div>
 
-      {/* Section info bar (when section selected) */}
-      {selectedSectionId && pageSchema && (
+      {/* Section properties panel (in edit mode) OR info bar (in preview mode) */}
+      {selectedSectionId && pageSchema && isEditMode ? (
+        <SectionPropertiesPanel />
+      ) : selectedSectionId && pageSchema ? (
         <div className="px-4 py-2 border-t border-gray-200 bg-indigo-50 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-indigo-600" />
@@ -194,7 +197,7 @@ export function BuilderPreviewPanel() {
             Clear selection
           </button>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

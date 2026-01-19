@@ -62,6 +62,10 @@ export interface HeroSectionProps {
   subtitleClassName?: string;
   backgroundClassName?: string;
   alignment?: "left" | "center" | "right";
+  /** Hide/show title (default: true) */
+  showTitle?: boolean;
+  /** Hide/show subtitle (default: true) */
+  showSubtitle?: boolean;
   cta?: CTAConfig;
   secondaryCta?: CTAConfig;
   image?: {

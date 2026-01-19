@@ -20,6 +20,11 @@
   scroll-behavior: smooth;
 }
 
+/* When navigation is hidden, add top padding to prevent content from touching the edge */
+.templateNoNav {
+  padding-top: var(--spacing-lg);
+}
+
 /* ==========================================================================
    Navigation
    ========================================================================== */

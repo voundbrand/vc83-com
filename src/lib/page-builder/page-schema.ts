@@ -27,6 +27,29 @@ export interface PageTheme {
 }
 
 // ============================================================================
+// PAGE HEADER/NAVIGATION CONFIG
+// ============================================================================
+
+export interface PageHeaderConfig {
+  /** Show/hide the header (default: true) */
+  enabled?: boolean;
+  /** Logo image URL */
+  logoUrl?: string;
+  /** Logo alt text */
+  logoAlt?: string;
+  /** Navigation links */
+  navLinks?: Array<{
+    label: string;
+    href: string;
+    isExternal?: boolean;
+  }>;
+  /** Header background style */
+  variant?: "transparent" | "white" | "dark";
+  /** Sticky header */
+  sticky?: boolean;
+}
+
+// ============================================================================
 // PAGE METADATA
 // ============================================================================
 
@@ -85,6 +108,9 @@ export interface AIGeneratedPageSchema {
 
   /** Page metadata (title, slug, etc.) */
   metadata: PageMetadata;
+
+  /** Optional header/navigation config */
+  header?: PageHeaderConfig;
 
   /** Optional theme customization */
   theme?: PageTheme;
