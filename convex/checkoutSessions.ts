@@ -974,14 +974,14 @@ export const completeCheckoutAndFulfill = action({
     console.log("✅ [STEP 4] CRM setup complete. crmContactId:", crmContactId, "crmOrganizationId:", crmOrganizationId);
 
     // STEP 5: Create form responses for audit trail (only for tickets WITH custom forms)
+    // Uses internal mutation to avoid auth requirement (supports guest checkout)
     console.log("📋 [STEP 5] Creating form responses for audit trail...");
     if (formResponses && formResponses.length > 0) {
       for (const formResp of formResponses) {
         // Only create form response if a custom form was actually used
         // (formId is only set when ticket has a custom form configured)
         if (formResp.formId) {
-          await ctx.runMutation(api.formsOntology.createFormResponse, {
-            sessionId: args.sessionId,
+          await ctx.runMutation(internal.formsOntology.createCheckoutFormResponse, {
             organizationId,
             formId: formResp.formId as Id<"objects">,
             responses: formResp.responses,

@@ -709,6 +709,124 @@ export const createFormResponse = mutation({
 });
 
 /**
+ * CREATE CHECKOUT FORM RESPONSE (Internal)
+ * Submit a form response during checkout flow - no auth required
+ * Used by completeCheckoutAndFulfill for guest and authenticated checkouts
+ */
+export const createCheckoutFormResponse = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    formId: v.id("objects"),
+    responses: v.any(), // The actual form data (key-value pairs)
+    calculatedPricing: v.optional(v.any()), // Pricing data if applicable
+    metadata: v.optional(v.any()), // checkoutSessionId, ticketNumber, submittedAt, etc.
+  },
+  handler: async (ctx, args) => {
+    // Get the form to verify it exists
+    const form = await ctx.db.get(args.formId);
+    if (!form || !("type" in form) || form.type !== "form") {
+      throw new Error("Form not found");
+    }
+
+    // CHECK LICENSE LIMIT: Enforce form response limit per form
+    const existingResponses = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "formResponse")
+      )
+      .filter((q) => {
+        const customProps = q.field("customProperties") as { formId?: string } | undefined;
+        return customProps?.formId === args.formId;
+      })
+      .collect();
+
+    const responsesCount = existingResponses.length;
+    const license = await getLicenseInternal(ctx, args.organizationId);
+    const limit = license.limits.maxResponsesPerForm;
+
+    if (limit !== -1 && responsesCount >= limit) {
+      throw new ConvexError({
+        code: "LIMIT_EXCEEDED",
+        message: `You've reached your maxResponsesPerForm limit (${limit}). ` +
+          `Upgrade to ${getNextTier(license.planTier)} for more capacity.`,
+        limitKey: "maxResponsesPerForm",
+        currentCount: responsesCount,
+        limit,
+        planTier: license.planTier,
+        nextTier: getNextTier(license.planTier),
+        isNested: true,
+        parentId: args.formId,
+      });
+    }
+
+    // Generate a name from responses (first + last name if available)
+    const firstName = args.responses.first_name || args.responses.firstName || "";
+    const lastName = args.responses.last_name || args.responses.lastName || "";
+    const responseName = firstName && lastName
+      ? `Response from ${firstName} ${lastName}`
+      : `Response ${new Date().toLocaleDateString()}`;
+
+    // Create the form response
+    const now = Date.now();
+    const responseId = await ctx.db.insert("objects", {
+      organizationId: args.organizationId,
+      type: "formResponse",
+      subtype: form.subtype || "registration",
+      name: responseName,
+      description: `Checkout form submission for ${form.name}`,
+      status: "complete",
+      customProperties: {
+        formId: args.formId,
+        responses: args.responses,
+        calculatedPricing: args.calculatedPricing,
+        submittedAt: args.metadata?.submittedAt || now,
+        checkoutSessionId: args.metadata?.checkoutSessionId,
+        ticketNumber: args.metadata?.ticketNumber,
+        isCheckoutSubmission: true,
+      },
+      createdBy: undefined, // No user ID for checkout submissions (may be guest)
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // Update form stats
+    const currentStats = form.customProperties?.stats || {
+      views: 0,
+      submissions: 0,
+      completionRate: 0,
+    };
+
+    await ctx.db.patch(args.formId, {
+      customProperties: {
+        ...form.customProperties,
+        stats: {
+          ...currentStats,
+          submissions: currentStats.submissions + 1,
+          lastSubmittedAt: now,
+        },
+      },
+      updatedAt: Date.now(),
+    });
+
+    // Log the action
+    await ctx.db.insert("objectActions", {
+      organizationId: args.organizationId,
+      objectId: responseId,
+      actionType: "created",
+      performedBy: undefined, // No user ID for checkout submissions
+      performedAt: now,
+      actionData: {
+        status: "complete",
+        isCheckoutSubmission: true,
+        checkoutSessionId: args.metadata?.checkoutSessionId,
+      },
+    });
+
+    return responseId;
+  },
+});
+
+/**
  * CREATE PUBLIC FORM RESPONSE (Internal)
  * Submit a form response without authentication
  * Used by public submission API endpoint
