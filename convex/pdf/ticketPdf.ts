@@ -106,7 +106,9 @@ export const generateTicketPDF = action({
             const organizationBranding = {
                 primaryColor: brandingSettingsObj?.customProperties?.primaryColor as string | undefined,
                 secondaryColor: brandingSettingsObj?.customProperties?.secondaryColor as string | undefined,
-                logoUrl: brandingSettingsObj?.customProperties?.logoUrl as string | undefined,
+                // Check both 'logo' (used by invoices) and 'logoUrl' field names for compatibility
+                logoUrl: (brandingSettingsObj?.customProperties?.logo as string | undefined) ||
+                         (brandingSettingsObj?.customProperties?.logoUrl as string | undefined),
             };
 
             console.log("🎨 [generateTicketPDF] Organization branding loaded:", organizationBranding);
@@ -552,7 +554,9 @@ export const generateTicketPDFFromTicket = action({
             const organizationBranding = {
                 primaryColor: brandingSettingsObj?.customProperties?.primaryColor as string | undefined,
                 secondaryColor: brandingSettingsObj?.customProperties?.secondaryColor as string | undefined,
-                logoUrl: brandingSettingsObj?.customProperties?.logoUrl as string | undefined,
+                // Check both 'logo' (used by invoices) and 'logoUrl' field names for compatibility
+                logoUrl: (brandingSettingsObj?.customProperties?.logo as string | undefined) ||
+                         (brandingSettingsObj?.customProperties?.logoUrl as string | undefined),
             };
 
             console.log("🎨 Organization branding loaded:", organizationBranding);
