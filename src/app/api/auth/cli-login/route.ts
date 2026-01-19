@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // Initiate CLI login (creates state and returns OAuth URL or selection page)
+    // @ts-expect-error - Deep type instantiation in Convex generated types
     const result = await fetchAction(api.api.v1.cliAuth.initiateCliLogin, {
       callbackUrl,
       provider: provider || undefined,

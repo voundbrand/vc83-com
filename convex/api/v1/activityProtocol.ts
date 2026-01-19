@@ -480,7 +480,7 @@ export const getPages = httpAction(async (ctx, request) => {
     return new Response(
       JSON.stringify({
         success: true,
-        pages: pages.map((p) => ({
+        pages: pages.map((p: (typeof pages)[number]) => ({
           id: p._id,
           name: p.name,
           path: (p.customProperties as { path?: string })?.path,

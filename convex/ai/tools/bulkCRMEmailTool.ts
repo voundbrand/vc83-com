@@ -399,7 +399,7 @@ async function getRecipients(
     // Specific contacts
     for (const contactId of target.contactIds) {
       // @ts-ignore - Deep type instantiation in Convex generated types
-      const contact = await ctx.runQuery(api.crmOntology.getContact, {
+      const contact: any = await ctx.runQuery(api.crmOntology.getContact, {
         sessionId,
         contactId: contactId as Id<"objects">
       });
@@ -562,8 +562,8 @@ async function sendEmail(
     }
   };
 
-  // @ts-ignore - Deep type instantiation in Convex generated types
-  await ctx.runAction(internal.oauth.graphClient.graphRequest, {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await ctx.runAction(internal.oauth.graphClient.graphRequest as any, {
     connectionId,
     endpoint: "/me/sendMail",
     method: "POST",

@@ -150,7 +150,7 @@ export const createPublishedPage = mutation({
     } else {
       // For internal pages, use app domain
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.l4yercak3.com";
-      const slugPart = args.slug === "/" ? "" : args.slug;
+      const slugPart = args.slug === "/" ? "" : `/${args.slug}`;
       publicUrl = `${baseUrl}/p/${org.slug}${slugPart}`;
     }
 
@@ -572,7 +572,7 @@ export const updatePublishedPage = mutation({
           // For internal pages, use app domain
           const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.l4yercak3.com";
           // Handle root slug (/) specially to avoid double slashes
-          const slugPart = currentSlug === "/" ? "" : currentSlug;
+          const slugPart = currentSlug === "/" ? "" : `/${currentSlug}`;
           updates.publicUrl = `${baseUrl}/p/${org.slug}${slugPart}`;
         }
       }

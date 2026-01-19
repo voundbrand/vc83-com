@@ -16,7 +16,7 @@ import { getCorsHeaders, handleOptionsRequest } from "./corsHeaders";
 
 // Work around Convex type inference depth issues (TS2589) with large schemas
 // The internal API references are typed as any to avoid type depth overflow
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const internal = require("../../_generated/api").internal;
 
 /**

@@ -129,6 +129,12 @@ import {
   activityProtocolSettings
 } from "./schemas/activityProtocolSchemas";
 
+// 🎨 DESIGN ENGINE SCHEMAS (RAG-based design pattern library)
+import {
+  designPatterns,
+  prototypeMetadata
+} from "./schemas/designPatternSchemas";
+
 /**
  * MAIN SCHEMA EXPORT
  *
@@ -263,6 +269,10 @@ export default defineSchema({
   activityEvents,            // High-frequency event stream (rolling window)
   // NOTE: Application pages stored in objects table with type="application_page"
   activityProtocolSettings,  // Per-org activity tracking configuration
+
+  // 🎨 DESIGN ENGINE: RAG-based design pattern library for page builder
+  designPatterns,            // Extracted design patterns with vector embeddings
+  prototypeMetadata,         // Indexed prototype metadata and extraction status
 
   // ❌ OLD TRANSLATIONS - Replaced by ontology
   // systemTranslations,

@@ -412,7 +412,6 @@ async function listBookings(
     limit?: number;
   }
 ) {
-  // @ts-ignore - Deep type instantiation in Convex generated types
   const listBookingsFn = internal.bookingOntology.listBookingsInternal;
   const result = await (ctx as any).runQuery(listBookingsFn, {
       organizationId,

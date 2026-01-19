@@ -3,8 +3,9 @@
 import { useEffect } from "react";
 import SimpleTemplate from "./templates/SimpleTemplate";
 import ProposalTemplate from "./templates/ProposalTemplate";
-import RikschaTemplate from "./templates/RikschaTemplate";
-import GerritTemplate from "./templates/GerritTemplate";
+import RikschaTemplate from "./templates/rikscha/RikschaTemplate";
+import GerritTemplate from "./templates/gerrit/GerritTemplate";
+import AIGeneratedTemplate from "./templates/AIGeneratedTemplate";
 
 interface ProjectPageConfig {
   projectId: string;
@@ -71,6 +72,8 @@ export default function ProjectPageTemplate({
       return <RikschaTemplate config={config} slug={slug} />;
     case "gerrit":
       return <GerritTemplate config={config} slug={slug} />;
+    case "ai-generated":
+      return <AIGeneratedTemplate config={config} slug={slug} />;
     case "simple":
     default:
       return <SimpleTemplate config={config} slug={slug} />;

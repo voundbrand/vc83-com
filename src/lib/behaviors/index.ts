@@ -308,6 +308,11 @@ import { stripePaymentHandler } from "./handlers/stripe-payment";
 import { invoicePaymentHandler } from "./handlers/invoice-payment";
 import { taxCalculationHandler } from "./handlers/tax-calculation";
 import { consolidatedInvoiceGenerationHandler } from "./handlers/consolidated-invoice-generation";
+// Booking/Availability behaviors
+import { availabilitySlotSelectionHandler } from "./handlers/availability-slot-selection";
+import { capacityValidationHandler } from "./handlers/capacity-validation";
+import { bookingCreationHandler } from "./handlers/booking-creation";
+import { slotReservationHandler } from "./handlers/slot-reservation";
 
 // Register core behaviors on module load
 behaviorRegistry.register(invoiceMappingHandler);
@@ -319,6 +324,11 @@ behaviorRegistry.register(stripePaymentHandler);
 behaviorRegistry.register(invoicePaymentHandler);
 behaviorRegistry.register(taxCalculationHandler);
 behaviorRegistry.register(consolidatedInvoiceGenerationHandler);
+// Booking/Availability behaviors
+behaviorRegistry.register(availabilitySlotSelectionHandler);
+behaviorRegistry.register(capacityValidationHandler);
+behaviorRegistry.register(bookingCreationHandler);
+behaviorRegistry.register(slotReservationHandler);
 
 /**
  * Helper: Register multiple handlers at once

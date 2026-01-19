@@ -20,6 +20,8 @@ import { bookingToolDefinition } from "./bookingTool";
 import { activeCampaignToolDefinition } from "./activeCampaignTool";
 import { activityProtocolToolDefinition } from "./activityProtocolTool";
 import { sequencesToolDefinition } from "./sequencesTool";
+import { bookingWorkflowToolDefinition } from "./bookingWorkflowTool";
+import { searchUnsplashImagesTool } from "./unsplashTool";
 import { api } from "../../_generated/api";
 import { internal } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
@@ -144,7 +146,6 @@ const checkOAuthConnectionTool: AITool = {
     }
 
     // Check if user has connected their Microsoft account
-    // @ts-ignore - Deep type instantiation in Convex generated types
     const connection = await ctx.runQuery(api.oauth.microsoft.getUserMicrosoftConnection, {
       sessionId: ctx.sessionId
     });
@@ -1768,7 +1769,7 @@ const listProductsTool: AITool = {
     return {
       success: true,
       message: `Found ${products.length} product(s)`,
-      products: products.map((p) => ({
+      products: products.map((p: (typeof products)[number]) => ({
         id: p._id,
         name: p.name,
         type: p.subtype,
@@ -2333,7 +2334,7 @@ const listTicketsTool: AITool = {
     return {
       success: true,
       message: `Found ${tickets.length} ticket(s)`,
-      tickets: tickets.map((t) => ({
+      tickets: tickets.map((t: (typeof tickets)[number]) => ({
         id: t._id,
         ticketNumber: t.ticketNumber,
         subject: t.name,
@@ -2741,7 +2742,7 @@ const searchMediaTool: AITool = {
     return {
       success: true,
       message: `Found ${media.length} file(s) matching "${args.query}"`,
-      results: media.map((m) => ({
+      results: media.map((m: (typeof media)[number]) => ({
         id: m._id,
         name: m.name,
         fileName: m.fileName,
@@ -3420,6 +3421,36 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
 
   // Integrations - ActiveCampaign
   activecampaign: activeCampaignToolDefinition,
+
+  // Booking Workflow Configuration
+  configure_booking_workflow: {
+    name: "configure_booking_workflow",
+    description: bookingWorkflowToolDefinition.function.description,
+    status: "ready" as ToolStatus,
+    windowName: "Checkout",
+    parameters: bookingWorkflowToolDefinition.function.parameters,
+    execute: async (ctx, args) => {
+      const result = await ctx.runAction(api.ai.tools.bookingWorkflowTool.executeConfigureBookingWorkflow, {
+        sessionId: ctx.sessionId,
+        organizationId: ctx.organizationId,
+        userId: ctx.userId,
+        conversationId: ctx.conversationId,
+        action: args.action,
+        mode: args.mode,
+        workItemId: args.workItemId,
+        workflowId: args.workflowId,
+        workflowName: args.workflowName,
+        productId: args.productId,
+        behaviorType: args.behaviorType,
+        behaviorConfig: args.behaviorConfig,
+        priority: args.priority,
+      });
+      return result;
+    }
+  },
+
+  // Page Builder - Image Search
+  search_unsplash_images: searchUnsplashImagesTool,
 };
 
 /**

@@ -11,6 +11,7 @@ import { mutation, query } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser, requirePermission } from "./rbacHelpers";
+import { getLicenseInternal } from "./licensing/helpers";
 
 /**
  * Get storage quota from licensing system (in bytes)
@@ -20,7 +21,6 @@ async function getStorageQuotaFromLicense(
   ctx: QueryCtx,
   organizationId: Id<"organizations">
 ): Promise<number> {
-  const { getLicenseInternal } = await import("./licensing/helpers");
   const license = await getLicenseInternal(ctx, organizationId);
   const totalStorageGB = license.limits.totalStorageGB;
   

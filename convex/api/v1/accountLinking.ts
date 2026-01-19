@@ -17,7 +17,7 @@ import type { Id } from "../../_generated/dataModel";
 import { getCorsHeaders, handleOptionsRequest } from "./corsHeaders";
 
 // Work around Convex type inference depth issues (TS2589) with large schemas
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const internal = require("../../_generated/api").internal;
 
 // Helper to create JSON response

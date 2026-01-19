@@ -17,6 +17,7 @@ import {
   getProviderConfig,
 } from "./modelAdapters";
 import { getFeatureRequestMessage, detectUserLanguage } from "./i18nHelper";
+import { PAGE_BUILDER_SYSTEM_PROMPT } from "./prompts/pageBuilderSystem";
 
 // Type definitions for OpenRouter API
 interface ChatMessage {
@@ -80,6 +81,7 @@ export const sendMessage = action({
     userId: v.id("users"),
     selectedModel: v.optional(v.string()),
     isAutoRecovery: v.optional(v.boolean()), // Flag to bypass proposals for auto-recovery
+    context: v.optional(v.union(v.literal("normal"), v.literal("page_builder"))), // Context for system prompt selection
   },
   handler: async (ctx, args): Promise<{
     conversationId: Id<"aiConversations">;
@@ -147,10 +149,15 @@ export const sendMessage = action({
     const provider = detectProvider(model);
     const providerConfig = getProviderConfig(provider);
 
-    console.log(`[AI Chat] Using model: ${model}, provider: ${provider}, selectedModel: ${args.selectedModel}`);
+    console.log(`[AI Chat] Using model: ${model}, provider: ${provider}, selectedModel: ${args.selectedModel}, context: ${args.context || 'normal'}`);
 
     // 6. Prepare messages for AI with enhanced reasoning capabilities
-    const systemPrompt = `You are an AI assistant for l4yercak3, a comprehensive platform for managing events, forms, contacts, products, payments, and more. You are the PRIMARY INTERFACE for users - help them accomplish tasks through conversation.
+    // Select system prompt based on context
+    const isPageBuilderContext = args.context === "page_builder";
+
+    // Page builder uses its specialized prompt that includes tool usage patterns
+    // Normal chat uses the comprehensive assistant prompt
+    const normalChatPrompt = `You are an AI assistant for l4yercak3, a comprehensive platform for managing events, forms, contacts, products, payments, and more. You are the PRIMARY INTERFACE for users - help them accomplish tasks through conversation.
 
 **CRITICAL: When Tools Fail**
 If a tool execution fails:
@@ -397,6 +404,35 @@ Would you like me to walk you through any of these steps in detail?"
 - Platform: l4yercak3 (pronounced "layer cake")
 
 Remember: You're not just answering questions - you're helping users accomplish their goals. Be their guide, their tutor, and their automation assistant all in one.`;
+
+    // Select the appropriate system prompt based on context
+    let systemPrompt = isPageBuilderContext
+      ? PAGE_BUILDER_SYSTEM_PROMPT
+      : normalChatPrompt;
+
+    // For page builder context, inject RAG design patterns if available
+    if (isPageBuilderContext && args.message) {
+      try {
+        const ragContext = await ctx.runAction(
+          internal.designEngine.buildRAGContext,
+          {
+            userMessage: args.message,
+            limit: 5,
+          }
+        );
+
+        if (ragContext) {
+          // Inject RAG context at the end of the system prompt
+          systemPrompt = `${systemPrompt}\n\n---\n\n${ragContext}`;
+          console.log("[AI Chat] Injected RAG design patterns into system prompt");
+        }
+      } catch (ragError) {
+        // Don't fail the request if RAG fails - just log and continue
+        console.log("[AI Chat] RAG retrieval skipped:", ragError instanceof Error ? ragError.message : ragError);
+      }
+    }
+
+    console.log(`[AI Chat] Using ${isPageBuilderContext ? 'page builder' : 'normal chat'} system prompt`);
 
     // Build messages array, filtering out incomplete tool calling sequences
     // (assistant messages with tool_calls but no corresponding tool results)

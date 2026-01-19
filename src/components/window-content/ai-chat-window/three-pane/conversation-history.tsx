@@ -58,8 +58,14 @@ export function ConversationHistory() {
           style={{
             color: 'var(--win95-text)'
           }}
-          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--win95-hover-bg)'}
-          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'var(--win95-hover-bg)'
+            e.currentTarget.style.color = 'var(--win95-hover-text)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'transparent'
+            e.currentTarget.style.color = 'var(--win95-text)'
+          }}
           title={t("ui.ai_assistant.history.new_chat")}
         >
           <Plus className="w-4 h-4" />

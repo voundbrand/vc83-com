@@ -97,7 +97,7 @@ export const listResourceBookings = httpAction(async (ctx, request) => {
     });
 
     // Transform bookings for API response
-    const bookings = result.bookings.map((booking) => {
+    const bookings = result.bookings.map((booking: (typeof result.bookings)[number]) => {
       const props = booking.customProperties as Record<string, unknown>;
       return {
         id: booking._id,
