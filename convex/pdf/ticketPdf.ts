@@ -638,8 +638,8 @@ export const generateTicketPDFFromTicket = action({
             }
 
             if (!templateCode) {
-                // Final fallback to system default
-                templateCode = "ticket_elegant_gold_v1";
+                // Final fallback to system default - Professional template
+                templateCode = "ticket_professional_v1";
                 console.log("🎫 [Template] Using system default template:", templateCode);
             }
 

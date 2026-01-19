@@ -112,9 +112,9 @@ export const resolvePdfTicketTemplateCode = action({
     // This would query for org-specific templates and use the first one
     // TODO: Implement org-level default template setting
 
-    // 6. Default fallback to hard-coded system template
-    console.log(`✅ Using fallback PDF template: elegant-gold`);
-    return "elegant-gold";
+    // 6. Default fallback to hard-coded system template - Professional
+    console.log(`✅ Using fallback PDF template: ticket_professional_v1`);
+    return "ticket_professional_v1";
   },
 });
 

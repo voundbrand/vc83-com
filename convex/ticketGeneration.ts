@@ -653,8 +653,42 @@ export const sendOrderConfirmationEmail = internalAction({
       const templateCode = emailTemplate.templateCode;
       console.log("📧 [Email Template Resolution] Using template code:", templateCode, "from template:", emailTemplate.name);
 
-      // TODO: Extract primaryColor from template's customProperties if available
-      const primaryColor = "#d4af37"; // Default elegant gold (changed from purple)
+      // 5.5. GET ORGANIZATION BRANDING for email styling
+      // Resolution: Organization branding settings → Domain config override → Defaults
+      const orgBrandingSettings = await ctx.runQuery(api.organizationOntology.getOrganizationSettings, {
+        organizationId: session.organizationId,
+        subtype: "branding",
+      });
+
+      // Extract branding or use professional defaults
+      const orgBranding = Array.isArray(orgBrandingSettings) ? undefined : orgBrandingSettings;
+      let brandPrimaryColor = orgBranding?.customProperties?.primaryColor as string || "#6B46C1"; // Professional purple
+      let brandLogoUrl = orgBranding?.customProperties?.logo as string | undefined;
+
+      // Check for domain config override
+      const domainConfigIdForBranding = session.customProperties?.domainConfigId as Id<"objects"> | undefined;
+      if (domainConfigIdForBranding) {
+        try {
+          const domainConfig = await ctx.runQuery(api.domainConfigOntology.getDomainConfig, {
+            configId: domainConfigIdForBranding,
+          });
+          if (domainConfig?.customProperties?.branding) {
+            const domainBranding = domainConfig.customProperties.branding as { primaryColor?: string; logoUrl?: string };
+            brandPrimaryColor = domainBranding.primaryColor || brandPrimaryColor;
+            brandLogoUrl = domainBranding.logoUrl || brandLogoUrl;
+          }
+        } catch {
+          console.warn("⚠️ Could not fetch domain config branding for email, using org defaults");
+        }
+      }
+
+      // Get organization name for footer
+      const organization = await ctx.runQuery(internal.checkoutSessions.getOrganizationInternal, {
+        organizationId: session.organizationId,
+      });
+      const organizationName = organization?.businessName || organization?.name || "Event Team";
+
+      console.log("🎨 [Email Branding] Using:", { primaryColor: brandPrimaryColor, hasLogo: !!brandLogoUrl, organizationName });
 
       // 6. Generate email HTML using template-driven renderer with translations
       const { generateOrderConfirmationHtml, generateOrderConfirmationSubject } = await import("./helpers/orderEmailRenderer");
@@ -669,8 +703,9 @@ export const sendOrderConfirmationEmail = internalAction({
           ticketCount,
           orderNumber,
           orderDate: new Date(session.createdAt).toLocaleDateString(),
-          primaryColor,
-          organizationName: "l4yercak3",
+          primaryColor: brandPrimaryColor,
+          logoUrl: brandLogoUrl,
+          organizationName,
         },
         emailTranslations // ✅ Pass translations from database
       );
