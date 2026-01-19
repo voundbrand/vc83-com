@@ -18,8 +18,10 @@ const PRIMARY_DOMAINS = [
   "127.0.0.1",
   "l4yercak3.com",
   "www.l4yercak3.com",
+  "app.l4yercak3.com",
   "vc83.com",
   "www.vc83.com",
+  "app.vc83.com",
   // Vercel domains
   ".vercel.app",
   ".vercel.sh",
