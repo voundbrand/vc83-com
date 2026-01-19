@@ -13,6 +13,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--spacing-lg);
+  container-type: inline-size;
+  container-name: checkout;
 }
 
 /* Progress Bar - Simple minimal design */
@@ -1095,7 +1097,7 @@
   accent-color: var(--color-primary);
 }
 
-/* Responsive */
+/* Responsive - Viewport-based */
 @media (max-width: 768px) {
   .checkoutContainer {
     padding: var(--spacing-md);
@@ -1138,5 +1140,142 @@
   .copyButton {
     width: 100%;
     justify-content: center;
+  }
+}
+
+/* Container Query - For narrow containers like sidebar (< 500px) */
+@container checkout (max-width: 500px) {
+  .checkoutContainer {
+    padding: var(--spacing-md);
+    min-height: auto;
+  }
+
+  .stepContainer {
+    max-width: 100%;
+  }
+
+  .progressBar {
+    max-width: 100%;
+  }
+
+  .productCard {
+    flex-direction: column;
+    padding: var(--spacing-md);
+  }
+
+  .productCardHeader {
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+
+  .productPricing {
+    text-align: left;
+  }
+
+  .productPrice {
+    font-size: var(--font-size-xl);
+  }
+
+  .productName {
+    font-size: var(--font-size-sm);
+  }
+
+  .productDescription {
+    font-size: var(--font-size-xs);
+  }
+
+  .actionButtons {
+    flex-direction: column;
+  }
+
+  .primaryButton,
+  .secondaryButton {
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+  }
+
+  .stepTitle {
+    font-size: var(--font-size-lg);
+  }
+
+  .stepSubtitle {
+    font-size: var(--font-size-xs);
+  }
+
+  .confirmationTitle {
+    font-size: var(--font-size-xl);
+  }
+
+  .ticketProgressBar {
+    gap: var(--spacing-2xs);
+  }
+
+  .ticketProgressDot {
+    width: 1.5rem;
+    height: 1.5rem;
+    font-size: 0.6rem;
+  }
+
+  .stepCircle {
+    width: 1.75rem;
+    height: 1.75rem;
+    font-size: var(--font-size-xs);
+  }
+
+  .stepLabel {
+    font-size: 0.65rem;
+  }
+
+  .progressSteps {
+    gap: var(--spacing-sm);
+  }
+
+  .lineItem {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+  }
+
+  .lineItemInfo {
+    width: 100%;
+  }
+
+  .lineItemPricing {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .pricingSummary {
+    padding: var(--spacing-md);
+  }
+
+  .totalValue,
+  .totalAmount {
+    font-size: var(--font-size-xl);
+  }
+
+  .formField {
+    margin-bottom: var(--spacing-md);
+  }
+
+  .copyButton {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .downloadButtons {
+    flex-direction: column;
+  }
+
+  .paymentOption {
+    padding: var(--spacing-md);
+  }
+
+  .paymentOptionContent {
+    flex-wrap: wrap;
+  }
+
+  .orderSummary {
+    padding: var(--spacing-md);
   }
 }
