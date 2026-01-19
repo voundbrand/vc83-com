@@ -688,7 +688,7 @@ export function RegistrationFormStep({
             type="submit"
             className="flex-1 px-6 py-3 text-lg font-bold border-2 border-purple-600 bg-purple-600 text-white hover:bg-purple-700 rounded transition-colors"
           >
-            {t("ui.checkout_template.behavior_driven.registration_form.buttons.continue")}
+            {t("ui.checkout_template.behavior_driven.buttons.next")}
           </button>
         </div>
       </form>

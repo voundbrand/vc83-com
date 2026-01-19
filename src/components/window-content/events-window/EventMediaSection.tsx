@@ -4,11 +4,11 @@ import React, { useState } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '../../../../convex/_generated/api';
 import { Id } from '../../../../convex/_generated/dataModel';
-import { ChevronDown, ChevronUp, Plus, X, Video } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus, X, Video, Copy, ExternalLink } from 'lucide-react';
 import Image from 'next/image';
 import { useWindowManager } from '@/hooks/use-window-manager';
 import MediaLibraryWindow from '@/components/window-content/media-library-window';
-import { validateVideoUrl, type VideoProvider } from '@/lib/video-utils';
+import { validateVideoUrl, extractVideoId, getVideoEmbedUrl, type VideoProvider } from '@/lib/video-utils';
 import { useNamespaceTranslations } from '@/hooks/use-namespace-translations';
 
 interface MediaItem {
@@ -30,6 +30,8 @@ interface VideoItem {
   loop: boolean;
   autostart: boolean;
   order: number;
+  /** Video display mode: 'cover' fills container (may crop), 'contain' shows full video (may letterbox) */
+  videoFit?: 'cover' | 'contain';
 }
 
 interface EventMediaSectionProps {
@@ -67,6 +69,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
   const [videoUrl, setVideoUrl] = useState('');
   const [videoLoop, setVideoLoop] = useState(false);
   const [videoAutostart, setVideoAutostart] = useState(false);
+  const [videoFit, setVideoFit] = useState<'cover' | 'contain'>('cover');
   const [videoError, setVideoError] = useState<string | null>(null);
 
   // Mini slider state
@@ -123,6 +126,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
       loop: videoLoop,
       autostart: videoAutostart,
       order: linkedMediaIds.length + videos.length,
+      videoFit: videoFit,
     };
 
     // Update videos array
@@ -134,6 +138,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
     setVideoUrl('');
     setVideoLoop(false);
     setVideoAutostart(false);
+    setVideoFit('cover');
     setVideoError(null);
   };
 
@@ -213,19 +218,37 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                 />
               )}
 
-              {/* Video Display */}
-              {currentSlideIndex >= linkedMedia.length && videos[currentSlideIndex - linkedMedia.length] && (
-                <div className="w-full h-full flex items-center justify-center">
-                  <Video size={48} style={{ color: "var(--primary)" }} />
-                  <div className="absolute bottom-2 left-2 px-2 py-1 text-xs font-bold border-2" style={{
-                    background: "var(--primary)",
-                    borderColor: "var(--win95-border)",
-                    color: "white"
-                  }}>
-                    📹 {videos[currentSlideIndex - linkedMedia.length].videoProvider.toUpperCase()}
+              {/* Video Display - Embedded Player */}
+              {currentSlideIndex >= linkedMedia.length && videos[currentSlideIndex - linkedMedia.length] && (() => {
+                const currentVideo = videos[currentSlideIndex - linkedMedia.length];
+                const videoId = extractVideoId(currentVideo.videoUrl, currentVideo.videoProvider);
+                const embedUrl = videoId ? getVideoEmbedUrl(videoId, currentVideo.videoProvider, false, false) : null;
+
+                return (
+                  <div className="w-full h-full">
+                    {embedUrl ? (
+                      <iframe
+                        src={embedUrl}
+                        className="w-full h-full"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        title={`${currentVideo.videoProvider} video`}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Video size={48} style={{ color: "var(--primary)" }} />
+                      </div>
+                    )}
+                    <div className="absolute bottom-2 left-2 px-2 py-1 text-xs font-bold border-2" style={{
+                      background: "var(--primary)",
+                      borderColor: "var(--win95-border)",
+                      color: "white"
+                    }}>
+                      📹 {currentVideo.videoProvider.toUpperCase()}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Navigation Arrows */}
               {linkedMedia.length + videos.length > 1 && (
@@ -352,7 +375,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                       {video.videoProvider.toUpperCase()}
                     </span>
                   </div>
-                  {/* Loop and autostart indicators */}
+                  {/* Loop, autostart, and videoFit indicators */}
                   <div className="absolute top-1 right-1 flex gap-1">
                     {video.loop && (
                       <div className="px-1 py-0.5 text-xs font-bold" style={{
@@ -370,6 +393,15 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                         fontSize: "10px"
                       }}>
                         ▶️
+                      </div>
+                    )}
+                    {(video.videoFit === 'contain') && (
+                      <div className="px-1 py-0.5 text-xs font-bold" style={{
+                        background: "var(--win95-button-face)",
+                        color: "var(--win95-text)",
+                        fontSize: "10px"
+                      }} title="Contain (letterbox)">
+                        📐
                       </div>
                     )}
                   </div>
@@ -422,6 +454,26 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                   >
                     {video.autostart ? t('ui.events.form.auto_on') : t('ui.events.form.auto_off')}
                   </button>
+                  {/* Toggle Video Fit Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onVideosChange) {
+                        onVideosChange(videos.map(v =>
+                          v.id === video.id ? { ...v, videoFit: v.videoFit === 'contain' ? 'cover' : 'contain' } : v
+                        ));
+                      }
+                    }}
+                    className="px-2 py-1 text-xs font-bold border-2"
+                    style={{
+                      background: "var(--win95-button-face)",
+                      borderColor: "var(--win95-border)",
+                      color: "var(--win95-text)"
+                    }}
+                    title={video.videoFit === 'contain' ? 'Show video cropped (fill container)' : 'Show full video (letterbox)'}
+                  >
+                    {video.videoFit === 'contain' ? (t('ui.events.form.fit_cover') || '📐 Cover') : (t('ui.events.form.fit_contain') || '📐 Contain')}
+                  </button>
                   {/* Remove Button */}
                   <button
                     type="button"
@@ -436,6 +488,75 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                   >
                     <X size={14} />
                   </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Video URL Display - Shows URL for selected video with copy/open buttons */}
+        {videos.length > 0 && (
+          <div className="space-y-2">
+            <h4 className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+              📹 {t('ui.events.form.existing_videos') || 'Existing Videos'}
+            </h4>
+            {videos.map((video) => (
+              <div
+                key={video.id}
+                className="flex items-center gap-2 p-2 border-2"
+                style={{
+                  borderColor: "var(--win95-border)",
+                  background: "var(--win95-bg-light)",
+                }}
+              >
+                <div className="flex-shrink-0 px-2 py-0.5 text-xs font-bold" style={{
+                  background: "var(--primary)",
+                  color: "white",
+                }}>
+                  {video.videoProvider.toUpperCase()}
+                </div>
+                <input
+                  type="text"
+                  value={video.videoUrl}
+                  readOnly
+                  className="flex-1 px-2 py-1 text-xs border-2 bg-white"
+                  style={{
+                    borderColor: "var(--win95-border)",
+                    color: "var(--win95-text)",
+                  }}
+                  onClick={(e) => (e.target as HTMLInputElement).select()}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(video.videoUrl);
+                  }}
+                  className="px-2 py-1 border-2 hover:opacity-80"
+                  style={{
+                    borderColor: "var(--win95-border)",
+                    background: "var(--win95-button-face)",
+                  }}
+                  title={t('ui.events.form.copy_url') || 'Copy URL'}
+                >
+                  <Copy size={14} style={{ color: "var(--win95-text)" }} />
+                </button>
+                <a
+                  href={video.videoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2 py-1 border-2 hover:opacity-80"
+                  style={{
+                    borderColor: "var(--win95-border)",
+                    background: "var(--win95-button-face)",
+                  }}
+                  title={t('ui.events.form.open_video') || 'Open in new tab'}
+                >
+                  <ExternalLink size={14} style={{ color: "var(--win95-text)" }} />
+                </a>
+                <div className="flex gap-1 text-xs">
+                  {video.loop && <span title="Loop">🔁</span>}
+                  {video.autostart && <span title="Autostart">▶️</span>}
+                  {video.videoFit === 'contain' && <span title="Contain (letterbox)">📐</span>}
                 </div>
               </div>
             ))}
@@ -547,6 +668,18 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                   className="w-4 h-4"
                 />
                 <span style={{ color: "var(--win95-text)" }}>{t('ui.events.form.video_autostart')}</span>
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={videoFit === 'contain'}
+                  onChange={(e) => setVideoFit(e.target.checked ? 'contain' : 'cover')}
+                  className="w-4 h-4"
+                />
+                <span style={{ color: "var(--win95-text)" }} title="Show full video with letterboxing (black bars) instead of cropping to fill">
+                  {t('ui.events.form.video_contain') || 'Show full video (letterbox)'}
+                </span>
               </label>
 
               <label className="flex items-center gap-2 cursor-pointer">

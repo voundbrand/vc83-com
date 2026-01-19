@@ -198,6 +198,30 @@ export const seed = internalMutation({
         }
       },
 
+      // Common Buttons (shared across steps)
+      {
+        key: "ui.checkout_template.behavior_driven.buttons.next",
+        values: {
+          en: "Next",
+          de: "Weiter",
+          pl: "Dalej",
+          es: "Siguiente",
+          fr: "Suivant",
+          ja: "次へ",
+        }
+      },
+      {
+        key: "ui.checkout_template.behavior_driven.buttons.back",
+        values: {
+          en: "Back",
+          de: "Zurück",
+          pl: "Wstecz",
+          es: "Atrás",
+          fr: "Retour",
+          ja: "戻る",
+        }
+      },
+
       // Common
       {
         key: "ui.checkout_template.behavior_driven.main.common.required",

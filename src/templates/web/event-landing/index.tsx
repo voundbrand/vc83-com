@@ -120,6 +120,8 @@ export function EventLandingTemplate({
     mimeType?: string;
     loop?: boolean;
     autostart?: boolean;
+    /** Video display mode: 'cover' fills container (may crop), 'contain' shows full video (may letterbox) */
+    videoFit?: 'cover' | 'contain';
   }
   interface MediaData {
     items?: MediaItem[];
@@ -153,6 +155,7 @@ export function EventLandingTemplate({
     const url = getMediaUrl(item);
     const loopValue = item.loop ?? false;
     const autostartValue = item.autostart ?? false;
+    const videoFitValue = item.videoFit ?? 'cover'; // Default to cover
 
     // Debug logging for video settings
     if (isVideo) {
@@ -161,6 +164,7 @@ export function EventLandingTemplate({
         videoUrl: item.videoUrl,
         loop: loopValue,
         autostart: autostartValue,
+        videoFit: videoFitValue,
         rawItem: item
       });
     }
@@ -173,6 +177,7 @@ export function EventLandingTemplate({
       alt: item.alt || item.filename,
       loop: isVideo ? loopValue : undefined, // Pass loop setting for videos
       autostart: isVideo ? autostartValue : undefined, // Pass autostart setting for videos
+      videoFit: isVideo ? videoFitValue : undefined, // Pass video fit setting for videos
     };
   }).filter(item => item.url) || [];
 
