@@ -1007,6 +1007,10 @@ export const completeCheckoutAndFulfill = action({
       throw new Error("No products selected - cannot complete checkout");
     }
 
+    // Track global ticket number across all products (for matching with form responses)
+    // Form responses use a global ticket number (1, 2, 3... across all products)
+    let globalTicketOffset = 0;
+
     for (let productIndex = 0; productIndex < selectedProducts.length; productIndex++) {
       const selectedProduct = selectedProducts[productIndex];
       console.log(`   [STEP 6.${productIndex + 1}] Processing product ${productIndex + 1}/${selectedProducts.length}:`, selectedProduct.productId);
@@ -1078,13 +1082,16 @@ export const completeCheckoutAndFulfill = action({
       for (let i = 0; i < purchaseItemsResult.purchaseItemIds.length; i++) {
         const purchaseItemId = purchaseItemsResult.purchaseItemIds[i];
         const itemNumber = i + 1;
-        console.log(`      [STEP 6.${productIndex + 1}.${i + 1}] Processing item ${itemNumber}/${purchaseItemsResult.purchaseItemIds.length}...`);
+        // Calculate global ticket number (form responses use global numbering: 1, 2, 3... across all products)
+        const globalTicketNumber = globalTicketOffset + itemNumber;
+        console.log(`      [STEP 6.${productIndex + 1}.${i + 1}] Processing item ${itemNumber}/${purchaseItemsResult.purchaseItemIds.length} (global ticket #${globalTicketNumber})...`);
 
-        // Find corresponding form response for this item
+        // Find corresponding form response for this item using GLOBAL ticket number
+        // Form responses are stored with global ticketNumber (e.g., product A qty 2 = tickets 1,2; product B qty 1 = ticket 3)
         const formResponse = formResponses?.find(
           (fr) =>
             fr.productId === selectedProduct.productId &&
-            fr.ticketNumber === itemNumber
+            fr.ticketNumber === globalTicketNumber
         );
 
         // Extract registration data
@@ -1095,10 +1102,26 @@ export const completeCheckoutAndFulfill = action({
         if (formResponse) {
           registrationData = formResponse.responses as Record<string, unknown>;
           holderEmail = (formResponse.responses.email as string) || customerEmail;
-          holderName =
-            (formResponse.responses.name as string) ||
-            (formResponse.responses.fullName as string) ||
-            customerName;
+
+          // Extract attendee name from form responses
+          // Priority: firstName+lastName > name > fullName > customerName (buyer)
+          const firstName = formResponse.responses.firstName as string | undefined;
+          const lastName = formResponse.responses.lastName as string | undefined;
+
+          if (firstName && lastName) {
+            // Form collected firstName and lastName separately (standard flow)
+            holderName = `${firstName} ${lastName}`.trim();
+          } else if (firstName) {
+            // Only first name provided
+            holderName = firstName;
+          } else {
+            // Fallback to legacy field names or buyer name
+            holderName =
+              (formResponse.responses.name as string) ||
+              (formResponse.responses.fullName as string) ||
+              (formResponse.responses.attendeeName as string) ||
+              customerName;
+          }
         } else {
           registrationData = undefined;
           holderEmail = customerEmail;
@@ -1156,6 +1179,10 @@ export const completeCheckoutAndFulfill = action({
         }
         // TODO: Add more fulfillment types here
       }
+
+      // Update global ticket offset for next product
+      // This ensures form response matching works correctly across multiple products
+      globalTicketOffset += selectedProduct.quantity;
     }
     console.log("✅ [STEP 6] All purchase items and tickets created:", createdPurchaseItems.length);
 

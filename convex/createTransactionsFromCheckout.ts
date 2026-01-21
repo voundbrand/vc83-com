@@ -143,24 +143,31 @@ export const createTransactionsFromCheckout = internalAction({
       })
     );
 
-    // Map products to their ticket IDs (if they have tickets)
-    const productToTicketMap = new Map<string, Id<"objects">>();
+    // Collect ALL ticket IDs from purchase items
+    // (Multiple purchase items may exist per product when quantity > 1)
+    const allTicketIds: Id<"objects">[] = [];
     for (const item of purchaseItems) {
       if (item && item.customProperties?.fulfillmentData) {
         const fulfillmentData = item.customProperties.fulfillmentData as { ticketId?: Id<"objects"> };
         if (fulfillmentData.ticketId) {
-          const productId = item.customProperties.productId as Id<"objects">;
-          productToTicketMap.set(productId, fulfillmentData.ticketId);
+          allTicketIds.push(fulfillmentData.ticketId);
         }
       }
     }
 
-    console.log(`✓ Mapped ${productToTicketMap.size} products to tickets`);
+    console.log(`✓ Found ${allTicketIds.length} tickets to link`);
 
     // 7. Create transactions using helper
+    // Note: ticketId is optional per line item (used for attendee info enrichment)
+    // For multiple tickets of the same product, only the first ticket is used for line item enrichment
+    // All tickets will be linked to the transaction in step 8
     const purchasedItems = selectedProducts.map((product) => {
       const priceInCents = product.priceInCents || product.pricePerUnit || product.totalPrice || 0;
-      const ticketId = productToTicketMap.get(product.productId);
+      // Find first ticket for this product (for line item attendee info)
+      const ticketId = purchaseItems.find(
+        (pi) => pi?.customProperties?.productId === product.productId &&
+                pi?.customProperties?.fulfillmentData?.ticketId
+      )?.customProperties?.fulfillmentData?.ticketId as Id<"objects"> | undefined;
 
       return {
         ticketId,
@@ -213,16 +220,23 @@ export const createTransactionsFromCheckout = internalAction({
     console.log(`✅ [createTransactionsFromCheckout] Created ${transactionIds.length} transactions`);
 
     // 8. Link transactions to tickets (if applicable)
-    const ticketLinks = purchasedItems
-      .filter(item => item.ticketId !== undefined)
-      .map((item, index) => ({
-        ticketId: item.ticketId!,
-        transactionId: transactionIds[index],
+    // NOTE: createTransactionsForPurchase creates ONE transaction per checkout (not per item)
+    // All tickets in this checkout should link to the same transaction
+    const transactionId = transactionIds[0]; // Single transaction per checkout
+
+    if (transactionId && allTicketIds.length > 0) {
+      // Link ALL tickets to the single transaction
+      const ticketLinks = allTicketIds.map((ticketId) => ({
+        ticketId,
+        transactionId, // All tickets link to the SAME transaction
       }));
 
-    if (ticketLinks.length > 0) {
       await linkTransactionsToTickets(ctx, ticketLinks);
-      console.log(`✅ [createTransactionsFromCheckout] Linked ${ticketLinks.length} transactions to tickets`);
+      console.log(`✅ [createTransactionsFromCheckout] Linked ${ticketLinks.length} tickets to transaction ${transactionId}`);
+    } else if (!transactionId) {
+      console.warn("⚠️ [createTransactionsFromCheckout] No transaction created, skipping ticket linking");
+    } else {
+      console.log("ℹ️ [createTransactionsFromCheckout] No tickets to link");
     }
 
     // 9. CREATE INVOICE RECORD (NOW that transactions exist!)
