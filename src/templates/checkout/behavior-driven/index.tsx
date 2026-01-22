@@ -121,7 +121,10 @@ export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
     }
 
     // 2. SECOND: Extract behaviors from workflows (lower priority, but only non-form behaviors)
-    // Skip form_linking from workflows if we already have it from the checkout instance
+    // Skip form_linking from workflows if the checkout instance has its own behaviors array
+    // (even if empty - an empty array means "no behaviors wanted")
+    const instanceProps = checkoutInstance?.customProperties as Record<string, unknown> | undefined;
+    const instanceHasBehaviorsArray = instanceProps && 'behaviors' in instanceProps && Array.isArray(instanceProps.behaviors);
     const hasInstanceFormLinking = behaviors.some(b => b.type === "form_linking");
 
     if (workflows && workflows.length > 0) {
@@ -135,10 +138,11 @@ export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
           for (const behaviorDef of customProps.behaviors) {
             const behavior = behaviorDef as { type: string; enabled: boolean; priority?: number; config?: Record<string, unknown>; triggers?: Record<string, unknown> };
 
-            // Skip form_linking from workflows if checkout instance already has it
+            // Skip form_linking from workflows if checkout instance has its own behaviors array
             // This prevents cross-contamination between checkouts
-            if (behavior.type === "form_linking" && hasInstanceFormLinking) {
-              console.log("⏭️ [Behavior Extraction] Skipping workflow form_linking (instance has one)");
+            // An empty behaviors array on the instance means "don't inherit form behaviors"
+            if (behavior.type === "form_linking" && (hasInstanceFormLinking || instanceHasBehaviorsArray)) {
+              console.log("⏭️ [Behavior Extraction] Skipping workflow form_linking (instance has behaviors array)");
               continue;
             }
 
