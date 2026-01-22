@@ -53,6 +53,14 @@ export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
     }
   );
 
+  // 🎯 FIX: Load checkout instance to get instance-specific behaviors (e.g., form_linking)
+  // This ensures forms are only shown for the specific checkout they were linked to,
+  // not for ALL checkouts in the organization
+  const checkoutInstance = useQuery(
+    api.checkoutOntology.getPublicCheckoutInstanceById,
+    config.checkoutInstanceId ? { instanceId: config.checkoutInstanceId } : "skip"
+  );
+
   // Load organization locale settings (currency, locale) for proper formatting
   const orgLocaleSettings = useQuery(
     api.checkoutSessions.getOrgLocaleSettingsPublic,
@@ -82,48 +90,84 @@ export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
     }
   }, [workflows, config.organizationId]);
 
-  // Extract behaviors from active workflows
+  // 🎯 Extract behaviors from checkout instance (PRIORITY) and workflows (FALLBACK)
+  // Checkout instance behaviors take precedence for form_linking to ensure
+  // forms are only shown for the specific checkout they were linked to
   const workflowBehaviors = useMemo(() => {
     console.log("🧠 [Behavior Extraction] Starting extraction...");
-    console.log("🧠 [Behavior Extraction] workflows:", workflows);
-
-    if (!workflows || workflows.length === 0) {
-      console.log("❌ [Behavior Extraction] No workflows found!");
-      return undefined;
-    }
 
     const behaviors: Behavior[] = [];
-    for (const workflow of workflows) {
-      console.log("🔍 [Behavior Extraction] Processing workflow:", workflow.name);
-      const customProps = workflow.customProperties as Record<string, unknown> | undefined;
-      console.log("🔍 [Behavior Extraction] customProperties:", customProps);
-      console.log("🔍 [Behavior Extraction] behaviors array:", (customProps as { behaviors?: unknown[] })?.behaviors);
 
-      if (customProps && 'behaviors' in customProps && Array.isArray(customProps.behaviors)) {
-        // Convert workflow behaviors to execution engine format
-        for (const behaviorDef of customProps.behaviors) {
-          const behavior = behaviorDef as { type: string; enabled: boolean; priority?: number; config?: Record<string, unknown>; triggers?: Record<string, unknown> };
-          console.log("🔍 [Behavior Extraction] Found behavior:", behavior.type, "enabled:", behavior.enabled);
-          if (behavior.enabled) {
-            behaviors.push({
-              type: behavior.type,
-              priority: behavior.priority || 0,
-              config: behavior.config || {},
-              triggers: behavior.triggers || {},
-            });
+    // 1. FIRST: Extract behaviors from checkout instance (highest priority)
+    // These are instance-specific behaviors like form_linking added via internalLinkFormToCheckout
+    if (checkoutInstance) {
+      const instanceProps = checkoutInstance.customProperties as Record<string, unknown> | undefined;
+      const instanceBehaviors = instanceProps?.behaviors as Array<{ type: string; config?: Record<string, unknown>; priority?: number }> | undefined;
+
+      console.log("🎯 [Behavior Extraction] Checkout instance:", checkoutInstance.name);
+      console.log("🎯 [Behavior Extraction] Instance behaviors:", instanceBehaviors?.length || 0);
+
+      if (instanceBehaviors && Array.isArray(instanceBehaviors)) {
+        for (const behaviorDef of instanceBehaviors) {
+          console.log("🎯 [Behavior Extraction] Instance behavior:", behaviorDef.type);
+          behaviors.push({
+            type: behaviorDef.type,
+            priority: (behaviorDef.priority || 0) + 1000, // High priority for instance behaviors
+            config: behaviorDef.config || {},
+            triggers: {},
+          });
+        }
+      }
+    }
+
+    // 2. SECOND: Extract behaviors from workflows (lower priority, but only non-form behaviors)
+    // Skip form_linking from workflows if we already have it from the checkout instance
+    const hasInstanceFormLinking = behaviors.some(b => b.type === "form_linking");
+
+    if (workflows && workflows.length > 0) {
+      console.log("🧠 [Behavior Extraction] Processing", workflows.length, "workflows");
+
+      for (const workflow of workflows) {
+        console.log("🔍 [Behavior Extraction] Processing workflow:", workflow.name);
+        const customProps = workflow.customProperties as Record<string, unknown> | undefined;
+
+        if (customProps && 'behaviors' in customProps && Array.isArray(customProps.behaviors)) {
+          for (const behaviorDef of customProps.behaviors) {
+            const behavior = behaviorDef as { type: string; enabled: boolean; priority?: number; config?: Record<string, unknown>; triggers?: Record<string, unknown> };
+
+            // Skip form_linking from workflows if checkout instance already has it
+            // This prevents cross-contamination between checkouts
+            if (behavior.type === "form_linking" && hasInstanceFormLinking) {
+              console.log("⏭️ [Behavior Extraction] Skipping workflow form_linking (instance has one)");
+              continue;
+            }
+
+            if (behavior.enabled) {
+              behaviors.push({
+                type: behavior.type,
+                priority: behavior.priority || 0,
+                config: behavior.config || {},
+                triggers: behavior.triggers || {},
+              });
+            }
           }
         }
       }
     }
 
-    console.log("✅ [Behavior Extraction] Extracted behaviors:", behaviors.length);
+    if (behaviors.length === 0) {
+      console.log("❌ [Behavior Extraction] No behaviors found!");
+      return undefined;
+    }
+
+    console.log("✅ [Behavior Extraction] Total behaviors:", behaviors.length);
     behaviors.forEach(b => console.log("  -", b.type, "(priority:", b.priority + ")"));
 
     // Sort by priority (highest first)
     behaviors.sort((a, b) => (b.priority || 0) - (a.priority || 0));
 
-    return behaviors.length > 0 ? behaviors : undefined;
-  }, [workflows]);
+    return behaviors;
+  }, [workflows, checkoutInstance]);
 
   /**
    * Create checkout session on mount
