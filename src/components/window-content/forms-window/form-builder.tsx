@@ -127,9 +127,9 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
   const updateForm = useMutation(api.formsOntology.updateForm);
   const saveFormAsTemplate = useMutation(api.formsOntology.saveFormAsTemplate);
 
-  // Load existing form data when editing
+  // Load existing form basic metadata immediately (name, description, etc.)
   useEffect(() => {
-    if (existingForm && availableTemplates && availableThemes) {
+    if (existingForm) {
       setFormName(existingForm.name || "");
       setFormDescription(existingForm.description || "");
       setFormSubtype(existingForm.subtype || DEFAULT_FORM_TYPE);
@@ -140,50 +140,8 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
         setSelectedEventId(eventId);
       }
 
-      // Find template and theme IDs from codes stored in formSchema
+      // Load hosting mode and settings from formSchema
       const formSchema = existingForm.customProperties?.formSchema as {
-        templateCode?: string;
-        themeCode?: string;
-        enableInternalHosting?: boolean;
-        enableExternalHosting?: boolean;
-        publishedPageId?: string;
-      } | undefined;
-      const templateCode = formSchema?.templateCode;
-      const themeCode = formSchema?.themeCode;
-
-      // Load hosting mode settings
-      // If enableInternalHosting was explicitly set, use that value
-      // Otherwise, default to true ONLY if a theme is selected (has themeCode)
-      // This prevents requiring theme for forms created without templates
-      const hasTheme = !!themeCode;
-      setEnableInternalHosting(
-        formSchema?.enableInternalHosting !== undefined
-          ? formSchema.enableInternalHosting
-          : hasTheme // Only default to true if theme exists
-      );
-      setEnableExternalHosting(formSchema?.enableExternalHosting === true);
-
-      // Load published page if external hosting is enabled
-      if (formSchema?.enableExternalHosting && formSchema?.publishedPageId) {
-        setSelectedPublishedPageId(formSchema.publishedPageId);
-      }
-
-      // Load template if it exists (no placeholder checks needed - field exists or doesn't)
-      if (templateCode && availableTemplates) {
-        const template = availableTemplates.find(
-          (t) => t.customProperties?.code === templateCode
-        );
-        if (template) setSelectedTemplateId(template._id);
-      }
-
-      // Load theme if it exists
-      if (themeCode && availableThemes) {
-        const theme = availableThemes.find((t) => t.customProperties?.code === themeCode);
-        if (theme) setSelectedThemeId(theme._id);
-      }
-
-      // Load form settings if they exist
-      const formSchemaWithSettings = formSchema as {
         templateCode?: string;
         themeCode?: string;
         enableInternalHosting?: boolean;
@@ -199,14 +157,51 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
         };
       } | undefined;
 
-      if (formSchemaWithSettings?.settings) {
-        const settings = formSchemaWithSettings.settings;
+      const themeCode = formSchema?.themeCode;
+      const hasTheme = !!themeCode;
+      setEnableInternalHosting(
+        formSchema?.enableInternalHosting !== undefined
+          ? formSchema.enableInternalHosting
+          : hasTheme
+      );
+      setEnableExternalHosting(formSchema?.enableExternalHosting === true);
+
+      if (formSchema?.enableExternalHosting && formSchema?.publishedPageId) {
+        setSelectedPublishedPageId(formSchema.publishedPageId);
+      }
+
+      if (formSchema?.settings) {
+        const settings = formSchema.settings;
         setDisplayMode(settings.displayMode || "all");
         setShowProgressBar(settings.showProgressBar !== false);
         setSubmitButtonText(settings.submitButtonText || "Submit");
         setFormSuccessMessage(settings.successMessage || "Thank you for your submission!");
         setAllowMultipleSubmissions(settings.allowMultipleSubmissions || false);
         setRedirectUrl(settings.redirectUrl || "");
+      }
+    }
+  }, [existingForm]);
+
+  // Load template and theme selections once they're available
+  useEffect(() => {
+    if (existingForm && availableTemplates && availableThemes) {
+      const formSchema = existingForm.customProperties?.formSchema as {
+        templateCode?: string;
+        themeCode?: string;
+      } | undefined;
+      const templateCode = formSchema?.templateCode;
+      const themeCode = formSchema?.themeCode;
+
+      if (templateCode) {
+        const template = availableTemplates.find(
+          (t) => t.customProperties?.code === templateCode
+        );
+        if (template) setSelectedTemplateId(template._id);
+      }
+
+      if (themeCode) {
+        const theme = availableThemes.find((t) => t.customProperties?.code === themeCode);
+        if (theme) setSelectedThemeId(theme._id);
       }
     }
   }, [existingForm, availableTemplates, availableThemes]);
