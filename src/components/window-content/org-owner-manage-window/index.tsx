@@ -11,7 +11,7 @@ import { OrganizationSection } from "./components/organization-section";
 import { AddressCard } from "./components/address-card";
 import { AddressModal } from "./components/address-modal";
 import { OrganizationDetailsForm, OrganizationDetailsFormRef } from "./organization-details-form";
-import { Users, Building2, AlertCircle, Loader2, Shield, Save, Crown, Edit2, X, MapPin, Plus, Key, Globe, Brain } from "lucide-react";
+import { Users, Building2, AlertCircle, Loader2, Shield, Save, Crown, Edit2, X, MapPin, Plus, Key, Globe, Brain, Network } from "lucide-react";
 import { useState, useRef } from "react";
 import {
   useAuth,
@@ -22,8 +22,9 @@ import { PermissionGuard, PermissionButton } from "@/components/permission";
 import { Id, Doc } from "../../../../convex/_generated/dataModel";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { IntegrationsTab } from "../settings-window/integrations-tab";
+import { SubOrganizationsTab } from "./sub-organizations-tab";
 
-type TabType = "organization" | "users" | "ai" | "integrations" | "roles" | "domains" | "security";
+type TabType = "organization" | "users" | "ai" | "integrations" | "roles" | "domains" | "security" | "sub-orgs";
 
 interface ManageWindowProps {
   initialTab?: TabType;
@@ -344,7 +345,7 @@ export function ManageWindow({ initialTab = "organization" }: ManageWindowProps)
           {t("ui.manage.tab.domains")}
         </button>
         <button
-          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2"
+          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
           style={{
             borderColor: 'var(--win95-border)',
             background: activeTab === "security" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
@@ -355,6 +356,20 @@ export function ManageWindow({ initialTab = "organization" }: ManageWindowProps)
           <Key size={14} />
           {t("ui.manage.tab.security")}
         </button>
+        {license?.features?.subOrgsEnabled && (
+          <button
+            className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2"
+            style={{
+              borderColor: 'var(--win95-border)',
+              background: activeTab === "sub-orgs" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+              color: activeTab === "sub-orgs" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+            }}
+            onClick={() => setActiveTab("sub-orgs")}
+          >
+            <Network size={14} />
+            Sub-Orgs
+          </button>
+        )}
       </div>
 
       {/* Tab Content */}
@@ -699,6 +714,14 @@ export function ManageWindow({ initialTab = "organization" }: ManageWindowProps)
           <SecurityTab
             organizationId={organizationId as Id<"organizations">}
             sessionId={sessionId}
+          />
+        )}
+
+        {activeTab === "sub-orgs" && organizationId && sessionId && license?.features?.subOrgsEnabled && (
+          <SubOrganizationsTab
+            organizationId={organizationId as Id<"organizations">}
+            sessionId={sessionId}
+            license={license}
           />
         )}
       </div>

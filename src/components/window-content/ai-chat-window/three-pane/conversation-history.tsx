@@ -1,9 +1,10 @@
 "use client"
 
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
-import { MessageSquare, FolderOpen, Plus, Search } from "lucide-react"
+import { MessageSquare, FolderOpen, Plus, Search, Layers, ExternalLink } from "lucide-react"
 import { useState, useMemo } from "react"
 import { useAIChatContext } from "@/contexts/ai-chat-context"
+import Link from "next/link"
 import type { Id } from "../../../../../convex/_generated/dataModel"
 
 export function ConversationHistory() {
@@ -38,7 +39,23 @@ export function ConversationHistory() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
+      {/* l4yercak3 Builder Link */}
+      <Link
+        href="/builder"
+        className="flex items-center gap-2 p-3 border-b-2 transition-colors group"
+        style={{
+          borderColor: 'var(--win95-border-dark)',
+          background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)',
+        }}
+      >
+        <Layers className="w-4 h-4 text-white" />
+        <span className="text-sm font-semibold text-white flex-1">
+          l4yercak3 Builder
+        </span>
+        <ExternalLink className="w-3 h-3 text-white/70 group-hover:text-white transition-colors" />
+      </Link>
+
+      {/* Conversations Header */}
       <div
         className="flex items-center justify-between p-3 border-b-2"
         style={{

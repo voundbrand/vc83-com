@@ -6,6 +6,7 @@ import { ManageWindow } from "./org-owner-manage-window";
 import { TranslationsWindow } from "./translations-window";
 import { OrganizationsWindow } from "./super-admin-organizations-window";
 import { IntegrationsWindow } from "./integrations-window";
+import { AiSystemWindow } from "./ai-system-window";
 import { usePermissions } from "@/contexts/permission-context";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
@@ -74,6 +75,18 @@ export function ControlPanelWindow() {
       <OrganizationsWindow />,
       { x: 250, y: 140 },
       { width: 800, height: 600 }
+    );
+  };
+
+  const openAiSystem = () => {
+    openWindow(
+      "ai-system",
+      "AI System",
+      <AiSystemWindow />,
+      { x: 150, y: 100 },
+      { width: 1100, height: 700 },
+      "ui.windows.ai_system.title",
+      "🧠"
     );
   };
 
@@ -171,6 +184,17 @@ export function ControlPanelWindow() {
       label: t('ui.controlpanel.item.system_organizations'),
       onClick: openOrganizations,
       description: "Manage all organizations in the system",
+    });
+  }
+
+  // AI System - requires create_system_organization (super admin only)
+  if (canPerform('create_system_organization')) {
+    controlPanelItems.push({
+      id: "ai-system",
+      icon: "🧠",
+      label: "AI System",
+      onClick: openAiSystem,
+      description: "AI training data, model fine-tuning, and system status",
     });
   }
 

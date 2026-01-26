@@ -135,4 +135,22 @@ crons.daily(
   internal.sequences.messageQueueProcessor.cleanupOldMessages
 );
 
+/**
+ * Mark Abandoned AI Training Sessions
+ *
+ * Runs every 15 minutes to mark old AI conversations without feedback.
+ * This helps maintain accurate training data quality metrics.
+ *
+ * What it does:
+ * 1. Finds training examples older than 15 minutes with no feedback
+ * 2. Marks them as low quality (user didn't engage)
+ * 3. Helps separate genuinely useful interactions from abandoned sessions
+ */
+crons.interval(
+  "Mark abandoned AI training sessions",
+  { minutes: 15 },
+  internal.ai.trainingData.markAbandonedSessions,
+  { olderThanMinutes: 15 }
+);
+
 export default crons;

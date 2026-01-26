@@ -11,6 +11,7 @@ import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser } from "./rbacHelpers";
 import { checkResourceLimit } from "./licensing/helpers";
+import { internal } from "./_generated/api";
 
 /**
  * SAVE GENERATED PAGE
@@ -24,6 +25,7 @@ export const saveGeneratedPage = mutation({
     description: v.optional(v.string()),
     pageSchema: v.any(), // AIGeneratedPageSchema - validated client-side
     conversationId: v.optional(v.id("aiConversations")),
+    originalPageSchema: v.optional(v.any()), // Original AI-generated schema for diff comparison
   },
   handler: async (ctx, args) => {
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
@@ -98,6 +100,62 @@ export const saveGeneratedPage = mutation({
       createdAt: Date.now(),
       updatedAt: Date.now(),
     });
+
+    // Update training data with save outcome (if conversation exists)
+    if (args.conversationId) {
+      try {
+        // Calculate edit percentage if we have original schema
+        let editPercentage = 0;
+        let outcome: "accepted" | "accepted_with_edits" | "rejected" = "accepted";
+
+        if (args.originalPageSchema) {
+          // Simple diff: count changed sections
+          const originalSections = args.originalPageSchema?.sections || [];
+          const savedSections = args.pageSchema?.sections || [];
+
+          const originalJson = JSON.stringify(originalSections);
+          const savedJson = JSON.stringify(savedSections);
+
+          if (originalJson !== savedJson) {
+            // Calculate rough edit percentage based on string length diff
+            const maxLen = Math.max(originalJson.length, savedJson.length);
+            const diffLen = Math.abs(originalJson.length - savedJson.length);
+            editPercentage = diffLen / maxLen;
+
+            // Also check section-by-section changes
+            let changedSections = 0;
+            const maxSections = Math.max(originalSections.length, savedSections.length);
+            for (let i = 0; i < maxSections; i++) {
+              if (JSON.stringify(originalSections[i]) !== JSON.stringify(savedSections[i])) {
+                changedSections++;
+              }
+            }
+            if (maxSections > 0) {
+              editPercentage = Math.max(editPercentage, changedSections / maxSections);
+            }
+
+            // Determine outcome based on edit percentage
+            if (editPercentage < 0.2) {
+              outcome = "accepted_with_edits";
+            } else if (editPercentage >= 0.5) {
+              outcome = "rejected";
+            } else {
+              outcome = "accepted_with_edits";
+            }
+          }
+        }
+
+        await ctx.scheduler.runAfter(0, internal.ai.trainingData.updateExampleOutcome, {
+          conversationId: args.conversationId,
+          outcome,
+          userEdits: outcome !== "accepted" ? args.pageSchema : undefined,
+          editPercentage,
+        });
+      } catch (error) {
+        // Don't fail save if training update fails
+        console.error("[Training] Failed to update example outcome:", error);
+      }
+    }
 
     return projectId;
   },
@@ -221,6 +279,34 @@ export const getGeneratedPageBySlug = query({
 });
 
 /**
+ * LIST SAVED PAGES (Simple)
+ * Get recent AI-generated pages for an organization (for menu display)
+ */
+export const listSavedPages = query({
+  args: {
+    organizationId: v.id("organizations"),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const pages = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "project")
+      )
+      .filter((q) => q.eq(q.field("subtype"), "ai_generated_page"))
+      .order("desc")
+      .take(args.limit ?? 10);
+
+    return pages.map((page) => ({
+      _id: page._id,
+      _creationTime: page._creationTime,
+      name: page.name,
+      description: page.description,
+    }));
+  },
+});
+
+/**
  * LIST GENERATED PAGES
  * Get all AI-generated pages for an organization
  */
@@ -315,5 +401,359 @@ export const togglePageVisibility = mutation({
     });
 
     return { success: true };
+  },
+});
+
+// ============================================================================
+// THREE-MODE ARCHITECTURE: CONNECTION ANALYSIS & EXECUTION
+// ============================================================================
+
+/**
+ * Types for connection analysis
+ */
+interface DetectedItem {
+  id: string;
+  type: "product" | "event" | "contact";
+  placeholderData: {
+    name?: string;
+    price?: number | string;
+    description?: string;
+    date?: string;
+    email?: string;
+    [key: string]: unknown;
+  };
+  existingMatches: ExistingRecord[];
+}
+
+interface ExistingRecord {
+  id: string;
+  name: string;
+  similarity: number;
+  isExactMatch: boolean;
+  details?: Record<string, unknown>;
+}
+
+interface SectionConnection {
+  sectionId: string;
+  sectionType: string;
+  sectionLabel: string;
+  detectedItems: DetectedItem[];
+}
+
+/**
+ * ANALYZE PAGE FOR CONNECTIONS
+ * Analyze a prototype page to find sections that need real data connections
+ */
+export const analyzePageForConnections = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    pageSchema: v.any(), // AIGeneratedPageSchema
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const pageSchema = args.pageSchema;
+    if (!pageSchema || !pageSchema.sections) {
+      return { connections: [], totalItems: 0 };
+    }
+
+    const connections: SectionConnection[] = [];
+    let itemIdCounter = 0;
+
+    for (const section of pageSchema.sections) {
+      const sectionConnection: SectionConnection = {
+        sectionId: section.id,
+        sectionType: section.type,
+        sectionLabel: section.type.charAt(0).toUpperCase() + section.type.slice(1),
+        detectedItems: [],
+      };
+
+      // Analyze pricing sections for products
+      if (section.type === "pricing" && section.props?.tiers) {
+        const tiers = section.props.tiers as Array<{
+          name?: string;
+          price?: string | number;
+          description?: string;
+          features?: string[];
+        }>;
+
+        for (const tier of tiers) {
+          if (tier.name) {
+            // Search for existing products with similar names
+            const existingMatches = await searchExistingRecords(
+              ctx,
+              args.organizationId,
+              "product",
+              tier.name
+            );
+
+            sectionConnection.detectedItems.push({
+              id: `item_${++itemIdCounter}`,
+              type: "product",
+              placeholderData: {
+                name: tier.name,
+                price: tier.price,
+                description: tier.description,
+              },
+              existingMatches,
+            });
+          }
+        }
+      }
+
+      // Analyze team sections for contacts
+      if (section.type === "team" && section.props?.members) {
+        const members = section.props.members as Array<{
+          name?: string;
+          role?: string;
+          email?: string;
+        }>;
+
+        for (const member of members) {
+          if (member.name) {
+            const existingMatches = await searchExistingRecords(
+              ctx,
+              args.organizationId,
+              "contact",
+              member.name
+            );
+
+            sectionConnection.detectedItems.push({
+              id: `item_${++itemIdCounter}`,
+              type: "contact",
+              placeholderData: {
+                name: member.name,
+                description: member.role,
+                email: member.email,
+              },
+              existingMatches,
+            });
+          }
+        }
+      }
+
+      // Analyze hero/CTA sections for events (if they have date references)
+      if ((section.type === "hero" || section.type === "cta") && section.props) {
+        const props = section.props as Record<string, unknown>;
+        const propsStr = JSON.stringify(props);
+        const hasDateContent = propsStr.match(
+          /\d{1,2}[./]\d{1,2}[./]\d{2,4}|\d{4}-\d{2}-\d{2}|January|February|March|April|May|June|July|August|September|October|November|December/i
+        );
+
+        if (hasDateContent && props.title) {
+          const existingMatches = await searchExistingRecords(
+            ctx,
+            args.organizationId,
+            "event",
+            props.title as string
+          );
+
+          sectionConnection.detectedItems.push({
+            id: `item_${++itemIdCounter}`,
+            type: "event",
+            placeholderData: {
+              name: props.title as string,
+              description: (props.subtitle as string) || (props.description as string),
+              date: hasDateContent[0],
+            },
+            existingMatches,
+          });
+        }
+      }
+
+      // Only add sections that have detected items
+      if (sectionConnection.detectedItems.length > 0) {
+        connections.push(sectionConnection);
+      }
+    }
+
+    const totalItems = connections.reduce((sum, c) => sum + c.detectedItems.length, 0);
+
+    return {
+      connections,
+      totalItems,
+    };
+  },
+});
+
+/**
+ * Helper function to search for existing records by type
+ */
+async function searchExistingRecords(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any,
+  organizationId: Id<"organizations">,
+  recordType: "product" | "event" | "contact",
+  searchName: string
+): Promise<ExistingRecord[]> {
+  // Map record type to database type/subtype
+  const typeMapping = {
+    product: { type: "product", subtype: undefined },
+    event: { type: "event", subtype: undefined },
+    contact: { type: "contact", subtype: undefined },
+  };
+
+  const mapping = typeMapping[recordType];
+
+  const records = await ctx.db
+    .query("objects")
+    .withIndex("by_org_type", (q: { eq: (field: string, value: unknown) => { eq: (field: string, value: unknown) => unknown } }) =>
+      q.eq("organizationId", organizationId).eq("type", mapping.type)
+    )
+    .filter((q: { neq: (field: unknown, value: unknown) => unknown; field: (name: string) => unknown }) =>
+      q.neq(q.field("status"), "deleted")
+    )
+    .collect();
+
+  // Calculate similarity and filter matches
+  const matches: ExistingRecord[] = [];
+  const searchLower = searchName.toLowerCase().trim();
+
+  for (const record of records) {
+    const recordNameLower = (record.name || "").toLowerCase().trim();
+    const similarity = calculateSimilarity(searchLower, recordNameLower);
+
+    // Only include if there's some similarity (> 0.3)
+    if (similarity > 0.3) {
+      matches.push({
+        id: record._id,
+        name: record.name,
+        similarity,
+        isExactMatch: searchLower === recordNameLower,
+        details: {
+          status: record.status,
+          price: record.customProperties?.price,
+          email: record.customProperties?.email,
+        },
+      });
+    }
+  }
+
+  // Sort by similarity (highest first)
+  matches.sort((a, b) => b.similarity - a.similarity);
+
+  // Return top 5 matches
+  return matches.slice(0, 5);
+}
+
+/**
+ * Calculate string similarity (simple Jaccard-like algorithm)
+ */
+function calculateSimilarity(str1: string, str2: string): number {
+  if (str1 === str2) return 1;
+  if (!str1 || !str2) return 0;
+
+  // Simple word-based similarity
+  const words1 = new Set(str1.split(/\s+/));
+  const words2 = new Set(str2.split(/\s+/));
+
+  const intersection = new Set([...words1].filter((x) => words2.has(x)));
+  const union = new Set([...words1, ...words2]);
+
+  return intersection.size / union.size;
+}
+
+/**
+ * EXECUTE CONNECTIONS
+ * Execute all pending connections - create or link records to the page
+ */
+export const executeConnections = mutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    pageSchema: v.any(), // AIGeneratedPageSchema
+    connections: v.array(
+      v.object({
+        sectionId: v.string(),
+        sectionType: v.string(),
+        items: v.array(
+          v.object({
+            itemId: v.string(),
+            type: v.union(v.literal("product"), v.literal("event"), v.literal("contact")),
+            action: v.union(v.literal("create"), v.literal("link"), v.literal("skip")),
+            linkedRecordId: v.optional(v.string()),
+            createData: v.optional(v.any()),
+          })
+        ),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const createdRecords: Array<{ itemId: string; recordId: string; type: string }> = [];
+    const linkedRecords: Array<{ itemId: string; recordId: string; type: string }> = [];
+    const errors: Array<{ itemId: string; error: string }> = [];
+
+    for (const section of args.connections) {
+      for (const item of section.items) {
+        try {
+          if (item.action === "skip") {
+            continue;
+          }
+
+          if (item.action === "link" && item.linkedRecordId) {
+            // Verify the linked record exists
+            const record = await ctx.db.get(item.linkedRecordId as Id<"objects">);
+            if (!record) {
+              errors.push({ itemId: item.itemId, error: "Linked record not found" });
+              continue;
+            }
+
+            linkedRecords.push({
+              itemId: item.itemId,
+              recordId: item.linkedRecordId,
+              type: item.type,
+            });
+          }
+
+          if (item.action === "create" && item.createData) {
+            // Create new record based on type
+            const newRecordId = await ctx.db.insert("objects", {
+              organizationId: args.organizationId,
+              type: item.type,
+              name: item.createData.name || "Unnamed",
+              description: item.createData.description,
+              status: "active",
+              customProperties: {
+                ...item.createData,
+                createdFromPageBuilder: true,
+              },
+              createdBy: userId,
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+            });
+
+            createdRecords.push({
+              itemId: item.itemId,
+              recordId: newRecordId,
+              type: item.type,
+            });
+          }
+        } catch (error) {
+          errors.push({
+            itemId: item.itemId,
+            error: error instanceof Error ? error.message : "Unknown error",
+          });
+        }
+      }
+    }
+
+    return {
+      success: errors.length === 0,
+      createdRecords,
+      linkedRecords,
+      errors,
+      summary: {
+        created: createdRecords.length,
+        linked: linkedRecords.length,
+        skipped: args.connections.reduce(
+          (sum, s) => sum + s.items.filter((i) => i.action === "skip").length,
+          0
+        ),
+        failed: errors.length,
+      },
+    };
   },
 });

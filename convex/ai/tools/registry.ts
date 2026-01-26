@@ -3481,13 +3481,105 @@ interface OpenAIFunctionSchema {
 }
 
 /**
+ * Tools allowed in PROTOTYPE mode (page builder)
+ * These are read-only or design-focused tools that don't create database records
+ */
+export const PROTOTYPE_MODE_ALLOWED_TOOLS = [
+  // Read-only/search tools
+  "search_contacts",
+  "search_media",
+  "search_unsplash_images",
+  "list_events",
+  "list_products",
+  "list_forms",
+  "list_tickets",
+  "list_workflows",
+  // Meta tools
+  "request_feature",
+  "check_oauth_connection",
+];
+
+/**
+ * Tools that CREATE database records (not allowed in prototype mode)
+ */
+export const DATABASE_WRITE_TOOLS = [
+  // CRM
+  "create_contact",
+  "update_contact",
+  "tag_contacts",
+  "sync_contacts",
+  "send_bulk_crm_email",
+  "manage_crm",
+  // Events
+  "create_event",
+  "update_event",
+  "register_attendee",
+  // Products
+  "create_product",
+  "set_product_price",
+  "set_product_form",
+  "activate_product",
+  "deactivate_product",
+  // Forms
+  "create_form",
+  "publish_form",
+  "manage_forms",
+  // Invoicing/Payments
+  "create_invoice",
+  "send_invoice",
+  "process_payment",
+  // Tickets
+  "create_ticket",
+  "update_ticket_status",
+  // Workflows
+  "create_workflow",
+  "enable_workflow",
+  "add_behavior_to_workflow",
+  "remove_behavior_from_workflow",
+  // Media
+  "upload_media",
+  // Templates
+  "create_template",
+  "send_email_from_template",
+  // Web Publishing
+  "create_page",
+  "publish_page",
+  "create_checkout_page",
+  "publish_checkout",
+  "publish_all",
+  // Other
+  "generate_certificate",
+  "update_organization_settings",
+  "configure_ai_models",
+  "manage_projects",
+  "manage_benefits",
+  "manage_bookings",
+  "manage_activity_protocol",
+  "manage_sequences",
+  "manage_webinars",
+  "activecampaign",
+  "configure_booking_workflow",
+];
+
+export type BuilderMode = "prototype" | "connect";
+
+/**
  * Convert tool definitions to OpenAI function calling format
  * ONLY return tools that are "ready" - placeholder tools handled by AI system prompt
+ *
+ * @param builderMode - If in page_builder context, filter tools based on mode
  */
-export function getToolSchemas(): OpenAIFunctionSchema[] {
+export function getToolSchemas(builderMode?: BuilderMode): OpenAIFunctionSchema[] {
   // Return ALL tools (ready + placeholder) so AI can attempt to use them
   // The execute() function will return tutorial guidance for placeholder tools
-  return Object.values(TOOL_REGISTRY).map((tool) => ({
+  let tools = Object.values(TOOL_REGISTRY);
+
+  // In prototype mode, only allow read-only/search tools
+  if (builderMode === "prototype") {
+    tools = tools.filter(tool => PROTOTYPE_MODE_ALLOWED_TOOLS.includes(tool.name));
+  }
+
+  return tools.map((tool) => ({
     type: "function",
     function: {
       name: tool.name,

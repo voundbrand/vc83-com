@@ -28,7 +28,8 @@ export const sequenceMessageQueue = defineTable({
   channel: v.union(
     v.literal("email"),
     v.literal("sms"),
-    v.literal("whatsapp")
+    v.literal("whatsapp"),
+    v.literal("pushover")
   ),
 
   // Recipient (CRM contact reference + direct contact info for delivery)
@@ -48,6 +49,12 @@ export const sequenceMessageQueue = defineTable({
   // WhatsApp-specific (Meta-approved templates)
   whatsappTemplateName: v.optional(v.string()),
   whatsappTemplateParams: v.optional(v.array(v.string())),
+
+  // Pushover-specific
+  pushoverTitle: v.optional(v.string()),
+  pushoverPriority: v.optional(v.number()), // -2 to 2
+  pushoverSound: v.optional(v.string()),
+  pushoverUrl: v.optional(v.string()),
 
   // Scheduling
   scheduledFor: v.number(), // Unix timestamp (ms) - when to send

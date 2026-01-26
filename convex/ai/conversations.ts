@@ -8,6 +8,42 @@ import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 
 /**
+ * Generate a URL-friendly slug from a title
+ * Format: "title-words-here-abc123" where abc123 is a short unique suffix
+ */
+function generateSlug(title: string): string {
+  // Convert to lowercase, replace spaces with hyphens, remove special chars
+  const baseSlug = title
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, "") // Remove special characters
+    .replace(/\s+/g, "-")      // Replace spaces with hyphens
+    .replace(/-+/g, "-")       // Replace multiple hyphens with single
+    .replace(/^-|-$/g, "")     // Remove leading/trailing hyphens
+    .substring(0, 50);         // Limit length
+
+  // Generate a short unique suffix (similar to v0's format)
+  // Use base62 encoding of timestamp + random for uniqueness
+  const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+  const timestamp = Date.now();
+  let suffix = "";
+
+  // Encode timestamp portion (last 6 digits for variety)
+  let num = timestamp % 1000000;
+  while (num > 0 && suffix.length < 5) {
+    suffix = chars[num % 62] + suffix;
+    num = Math.floor(num / 62);
+  }
+
+  // Add 6 random chars for additional uniqueness
+  for (let i = 0; i < 6; i++) {
+    suffix += chars[Math.floor(Math.random() * 62)];
+  }
+
+  return baseSlug ? `${baseSlug}-${suffix}` : suffix;
+}
+
+/**
  * Create a new conversation
  */
 export const createConversation = mutation({
@@ -19,10 +55,14 @@ export const createConversation = mutation({
   handler: async (ctx, args) => {
     const now = Date.now();
 
+    // Generate slug from title or use a default
+    const slug = generateSlug(args.title || "new-conversation");
+
     return await ctx.db.insert("aiConversations", {
       organizationId: args.organizationId,
       userId: args.userId,
       title: args.title,
+      slug,
       status: "active",
       createdAt: now,
       updatedAt: now,
@@ -46,6 +86,36 @@ export const getConversation = query({
     const messages = await ctx.db
       .query("aiMessages")
       .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
+      .collect();
+
+    return {
+      ...conversation,
+      messages: messages.sort((a, b) => a.timestamp - b.timestamp),
+    };
+  },
+});
+
+/**
+ * Get a conversation by its slug
+ * Used for pretty URL resolution
+ */
+export const getConversationBySlug = query({
+  args: {
+    slug: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const conversation = await ctx.db
+      .query("aiConversations")
+      .withIndex("by_slug", (q) => q.eq("slug", args.slug))
+      .unique();
+
+    if (!conversation) {
+      return null;
+    }
+
+    const messages = await ctx.db
+      .query("aiMessages")
+      .withIndex("by_conversation", (q) => q.eq("conversationId", conversation._id))
       .collect();
 
     return {

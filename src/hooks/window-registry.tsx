@@ -171,6 +171,10 @@ const BookingWindow = lazy(() =>
   import("@/components/window-content/booking-window").then(m => ({ default: m.BookingWindow }))
 );
 
+const AiSystemWindow = lazy(() =>
+  import("@/components/window-content/ai-system-window").then(m => ({ default: m.AiSystemWindow }))
+);
+
 /**
  * Registry of all available windows
  */
@@ -612,6 +616,17 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
       title: "Booking",
       titleKey: "ui.windows.booking.title",
       icon: "📅",
+      position: { x: 150, y: 100 },
+      size: { width: 1100, height: 700 }
+    }
+  },
+
+  "ai-system": {
+    createComponent: () => <AiSystemWindow />,
+    defaultConfig: {
+      title: "AI System",
+      titleKey: "ui.windows.ai_system.title",
+      icon: "🧠",
       position: { x: 150, y: 100 },
       size: { width: 1100, height: 700 }
     }

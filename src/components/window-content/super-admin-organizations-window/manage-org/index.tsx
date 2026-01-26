@@ -10,8 +10,8 @@ import { OrganizationSection } from "./components/organization-section";
 import { AddressCard } from "./components/address-card";
 import { AddressModal } from "./components/address-modal";
 import { OrganizationDetailsForm, OrganizationDetailsFormRef } from "./organization-details-form";
-import { Users, Building2, AlertCircle, Loader2, Shield, Save, Crown, Edit2, X, MapPin, Plus, Key } from "lucide-react";
-import { useState, useRef } from "react";
+import { Users, Building2, AlertCircle, Loader2, Shield, Save, Crown, Edit2, X, MapPin, Plus, Key, Link2 } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Id, Doc } from "../../../../../convex/_generated/dataModel";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
@@ -31,6 +31,11 @@ export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [editingAddress, setEditingAddress] = useState<Doc<"objects"> | undefined>();
   const [isSubmittingAddress, setIsSubmittingAddress] = useState(false);
+
+  // Parent organization state
+  const [selectedParentId, setSelectedParentId] = useState<string>("");
+  const [isSavingParent, setIsSavingParent] = useState(false);
+  const [parentSaveError, setParentSaveError] = useState<string | null>(null);
 
   // Ref to organization form for accessing form data
   const organizationFormRef = useRef<OrganizationDetailsFormRef>(null);
@@ -58,6 +63,21 @@ export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
   const addresses = useQuery(api.organizationOntology.getOrganizationAddresses,
     organizationId ? { organizationId } : "skip"
   );
+
+  // Get all organizations for parent selection (super admin only)
+  const allOrganizations = useQuery(
+    api.organizations.listAll,
+    sessionId && isSuperAdmin ? { sessionId } : "skip"
+  );
+
+  // Mutation for updating parent
+  const updateOrganizationParent = useMutation(api.organizations.updateOrganizationParent);
+
+  // Filter to only show orgs that can be parents (not sub-orgs, not self)
+  const potentialParentOrgs = allOrganizations?.filter(org =>
+    org.isActive && !org.parentOrganizationId && org._id !== organizationId
+  ) || [];
+
 
   const handleCancelEdit = () => {
     setIsEditingOrg(false);
@@ -143,6 +163,40 @@ export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
       alert("Failed to set primary address. Please try again.");
     }
   };
+
+  // Initialize selectedParentId when organization loads
+  useEffect(() => {
+    if (organization?.parentOrganizationId) {
+      setSelectedParentId(organization.parentOrganizationId);
+    } else {
+      setSelectedParentId("");
+    }
+  }, [organization?.parentOrganizationId]);
+
+  // Handler for updating parent organization
+  const handleSaveParent = async () => {
+    if (!sessionId || !organizationId) return;
+
+    setIsSavingParent(true);
+    setParentSaveError(null);
+
+    try {
+      await updateOrganizationParent({
+        sessionId,
+        organizationId: organizationId as Id<"organizations">,
+        parentOrganizationId: selectedParentId ? selectedParentId as Id<"organizations"> : null,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to update parent organization";
+      setParentSaveError(message);
+      console.error("Failed to update parent organization:", error);
+    } finally {
+      setIsSavingParent(false);
+    }
+  };
+
+  // Check if parent has changed from current
+  const parentHasChanged = (organization?.parentOrganizationId || "") !== selectedParentId;
 
   // Loading state
   if (isLoading) {
@@ -459,6 +513,86 @@ export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
                 isEditing={isEditingOrg}
                 isSaving={isSavingOrg}
               />
+            )}
+
+            {/* Parent Organization Section (Super Admin Only) */}
+            {isSuperAdmin && (
+              <OrganizationSection
+                title="Parent Organization"
+                icon={<Link2 className="w-4 h-4" />}
+                collapsible={true}
+                defaultCollapsed={true}
+              >
+                <div className="space-y-4">
+                  <p className="text-sm" style={{ color: 'var(--win95-text-secondary)' }}>
+                    Set this organization as a sub-organization of another. Sub-organizations can inherit templates,
+                    forms, and other assets from their parent.
+                  </p>
+
+                  <div className="flex flex-col gap-2">
+                    <label className="text-sm font-semibold" style={{ color: 'var(--win95-text)' }}>
+                      Parent Organization
+                    </label>
+                    <select
+                      value={selectedParentId}
+                      onChange={(e) => setSelectedParentId(e.target.value)}
+                      className="w-full px-3 py-2 text-sm"
+                      style={{
+                        backgroundColor: "var(--win95-input-bg)",
+                        color: "var(--win95-input-text)",
+                        border: "2px inset",
+                        borderColor: "var(--win95-input-border-dark)",
+                      }}
+                    >
+                      <option value="">-- None (Top-level organization) --</option>
+                      {potentialParentOrgs.map((org) => (
+                        <option key={org._id} value={org._id}>
+                          {org.name} ({org.slug})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {organization?.parentOrganizationId && (
+                    <div className="p-3 rounded" style={{ backgroundColor: 'var(--win95-bg-light)', border: '1px solid var(--win95-border)' }}>
+                      <p className="text-xs" style={{ color: 'var(--win95-text-secondary)' }}>
+                        <strong>Current parent:</strong>{' '}
+                        {potentialParentOrgs.find(o => o._id === organization.parentOrganizationId)?.name ||
+                         allOrganizations?.find(o => o._id === organization.parentOrganizationId)?.name ||
+                         'Unknown'}
+                      </p>
+                    </div>
+                  )}
+
+                  {parentSaveError && (
+                    <div className="p-3 rounded" style={{ backgroundColor: 'var(--error)', color: 'white' }}>
+                      <p className="text-sm">{parentSaveError}</p>
+                    </div>
+                  )}
+
+                  {parentHasChanged && (
+                    <div className="flex justify-end">
+                      <button
+                        onClick={handleSaveParent}
+                        disabled={isSavingParent}
+                        className="beveled-button px-4 py-2 text-sm font-semibold flex items-center gap-2"
+                        style={{
+                          backgroundColor: "var(--primary)",
+                          color: "white",
+                          opacity: isSavingParent ? 0.5 : 1,
+                        }}
+                      >
+                        {isSavingParent ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <Save size={14} />
+                        )}
+                        Save Parent Relationship
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </OrganizationSection>
             )}
 
             {/* Addresses Section */}
