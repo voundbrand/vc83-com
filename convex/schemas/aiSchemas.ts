@@ -24,6 +24,7 @@ export const aiConversations = defineTable({
 
   // Conversation metadata
   title: v.optional(v.string()),
+  slug: v.optional(v.string()),  // URL-friendly identifier (legacy field)
   status: v.union(v.literal("active"), v.literal("archived")),
 
   // Track which model is being used for this conversation

@@ -71,9 +71,10 @@ export const seedSystemDomainConfig = internalMutation({
         displayName: "l4yercak3",
         isSystemDomain: true,
         // Email configuration using Resend verified domain
+        // Note: Avoid "noreply" as it triggers spam filters
         email: {
           emailDomain: "mail.l4yercak3.com",
-          senderEmail: "noreply@mail.l4yercak3.com",
+          senderEmail: "hello@mail.l4yercak3.com",
           systemEmail: "system@mail.l4yercak3.com",
           salesEmail: "sales@mail.l4yercak3.com",
           replyToEmail: "support@l4yercak3.com",
@@ -85,6 +86,10 @@ export const seedSystemDomainConfig = internalMutation({
           secondaryColor: "#9F7AEA",
           accentColor: "#ffffff",
           fontFamily: "system-ui, sans-serif",
+        },
+        // Web publishing (needed for email URL proxying)
+        webPublishing: {
+          siteUrl: "https://app.l4yercak3.com",
         },
       },
       createdBy: firstUser._id,
@@ -114,7 +119,7 @@ export const seedSystemDomainConfig = internalMutation({
     console.log("\n📧 System Domain Configuration Details:");
     console.log("   Domain: l4yercak3.com");
     console.log("   Email Domain: mail.l4yercak3.com");
-    console.log("   Sender: noreply@mail.l4yercak3.com");
+    console.log("   Sender: hello@mail.l4yercak3.com");
     console.log("   Status: active");
     console.log(`   Action: ${action}`);
 

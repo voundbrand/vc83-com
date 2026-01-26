@@ -22,6 +22,7 @@
 import { internal } from "./_generated/api";
 import type { ActionCtx } from "./_generated/server";
 import type { Id, Doc } from "./_generated/dataModel";
+import { proxyMapUrl, proxyStorageUrl } from "./lib/emailUrlHelpers";
 
 /**
  * CREATE TRANSACTIONS FOR PURCHASE
@@ -179,6 +180,8 @@ export async function createTransactionsForPurchase(
     primaryColor: "#6B46C1" as string,
     secondaryColor: undefined as string | undefined,
   };
+  // Site URL for proxying images/links in emails (improves deliverability)
+  let siteUrl: string | undefined;
 
   // Try domain branding first
   if (domainConfigId) {
@@ -192,6 +195,11 @@ export async function createTransactionsForPurchase(
         branding.primaryColor = (domainBranding.primaryColor as string) || branding.primaryColor;
         branding.secondaryColor = domainBranding.secondaryColor as string | undefined;
         console.log(`   Branding: from domain config`);
+      }
+      // Get siteUrl for proxying images/links
+      if (domainConfig?.customProperties?.webPublishing) {
+        const webPub = domainConfig.customProperties.webPublishing as Record<string, unknown>;
+        siteUrl = webPub.siteUrl as string | undefined;
       }
     } catch {
       console.warn(`   Could not load domain config branding`);
@@ -210,6 +218,36 @@ export async function createTransactionsForPurchase(
     branding.primaryColor = (brandingProps.primaryColor as string) || branding.primaryColor;
     branding.secondaryColor = (brandingProps.secondaryColor as string) || branding.secondaryColor;
     console.log(`   Branding: from organization settings (logo: ${branding.logoUrl ? "yes" : "no"})`);
+  }
+
+  // Fall back to system domain config for siteUrl if not set
+  // This ensures proxied URLs are generated even when checkout doesn't have a domainConfigId
+  if (!siteUrl) {
+    try {
+      const systemDomainConfigs = await ctx.runQuery(internal.domainConfigOntology.listDomainConfigsForOrg, {
+        organizationId: params.organizationId,
+      });
+      const activeDomainConfig = systemDomainConfigs?.find((c: Doc<"objects">) => c.status === "active");
+      if (activeDomainConfig?.customProperties?.webPublishing) {
+        const webPub = activeDomainConfig.customProperties.webPublishing as Record<string, unknown>;
+        siteUrl = webPub.siteUrl as string | undefined;
+        console.log(`   SiteUrl: from organization domain config (${siteUrl})`);
+      }
+    } catch {
+      // Ignore - will use default
+    }
+  }
+
+  // Final fallback to hardcoded system URL
+  if (!siteUrl) {
+    siteUrl = "https://app.l4yercak3.com";
+    console.log(`   SiteUrl: using system default (${siteUrl})`);
+  }
+
+  // Proxy logo URL through sending domain for better email deliverability
+  // (Image URLs matching the sending domain have lower spam scores)
+  if (branding.logoUrl && siteUrl) {
+    branding.logoUrl = proxyStorageUrl(branding.logoUrl, siteUrl) || branding.logoUrl;
   }
 
   // ========================================================================
@@ -319,12 +357,20 @@ export async function createTransactionsForPurchase(
           eventName = event.name;
           eventLocation = eventProps.location as string | undefined;
           eventFormattedAddress = eventProps.formattedAddress as string | undefined;
-          eventGoogleMapsUrl = eventProps.googleMapsUrl as string | undefined;
-          // Generate Apple Maps URL from coordinates (same logic as event landing page)
+          // Generate map URLs - use proxied URLs if siteUrl is available (better email deliverability)
           const latitude = eventProps.latitude as number | undefined;
           const longitude = eventProps.longitude as number | undefined;
-          if (latitude && longitude) {
+          if (latitude && longitude && siteUrl) {
+            // Proxied URLs match sending domain, reducing spam score
+            eventGoogleMapsUrl = proxyMapUrl("google", latitude, longitude, siteUrl);
+            eventAppleMapsUrl = proxyMapUrl("apple", latitude, longitude, siteUrl);
+          } else if (latitude && longitude) {
+            // Fallback to direct URLs if no siteUrl
+            eventGoogleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
             eventAppleMapsUrl = `https://maps.apple.com/?daddr=${latitude},${longitude}`;
+          } else {
+            // Use stored URL from event if available
+            eventGoogleMapsUrl = eventProps.googleMapsUrl as string | undefined;
           }
           eventStartDate = eventProps.startDate as number | undefined;
           eventEndDate = eventProps.endDate as number | undefined;

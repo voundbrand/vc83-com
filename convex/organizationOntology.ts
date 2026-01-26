@@ -916,3 +916,4 @@ export const getAndIncrementInvoiceNumber = internalMutation({
     };
   },
 });
+

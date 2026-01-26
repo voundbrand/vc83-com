@@ -58,6 +58,9 @@ export function PaymentStep({
   // Actions for payment processing
   const initiateInvoice = useAction(api.paymentProviders.invoice.initiateInvoicePayment);
   const createPaymentIntent = useAction(api.checkoutSessions.createPaymentIntentForSession);
+  // New: Fast checkout confirmation (returns quickly, fulfillment runs async)
+  const confirmPaymentFast = useAction(api.checkoutSessions.confirmPaymentAndStartFulfillment);
+  // Legacy: Full checkout (waits for all fulfillment to complete)
   const completeCheckout = useAction(api.checkoutSessions.completeCheckoutAndFulfill);
 
   // Check if invoice checkout via behaviors OR checkout configuration
@@ -203,9 +206,27 @@ export function PaymentStep({
   }, [elements, cardMountNode, selectedMethod]);
 
   /**
+   * Handle completion callback from ProcessingModal
+   * Called when async fulfillment completes
+   */
+  const handleFulfillmentComplete = () => {
+    // Notify parent that checkout is complete
+    onComplete({
+      selectedPaymentProvider: processingMethod || "stripe",
+      paymentResult: {
+        success: true,
+        transactionId: paymentIntentId || `${processingMethod}_${Date.now()}`,
+        receiptUrl: "#",
+        purchasedItemIds: [],
+        checkoutSessionId: checkoutSessionId || "",
+      },
+    });
+  };
+
+  /**
    * Handle Invoice Payment
-   * Uses the same flow as Stripe: initiate → completeCheckout → onComplete
-   * This ensures emails, CRM, transactions are all handled consistently
+   * Uses the new fast flow: initiate → confirmPaymentFast → async fulfillment
+   * ProcessingModal shows real progress from backend
    */
   const handleInvoicePayment = async () => {
     // Validate we have a checkout session
@@ -230,45 +251,39 @@ export function PaymentStep({
 
       if (!invoiceResult.success) {
         setError(invoiceResult.error || "Failed to initiate invoice");
+        setIsProcessing(false);
         return;
       }
 
-      console.log("✅ [Payment] Invoice initiated, calling completeCheckout...");
+      console.log("✅ [Payment] Invoice initiated, calling confirmPaymentFast...");
 
-      // Step 2: Complete checkout (same as Stripe!) - creates tickets, CRM, transactions, sends emails
-      const paymentIntentId = invoiceResult.invoiceId || `invoice_${Date.now()}`;
+      // Step 2: Fast confirmation + schedule async fulfillment
+      const paymentIntentIdForInvoice = invoiceResult.invoiceId || `inv_${Date.now()}`;
 
-      const result = await completeCheckout({
+      const confirmResult = await confirmPaymentFast({
         sessionId,
         checkoutSessionId: checkoutSessionId as Id<"objects">,
-        paymentIntentId,
-        paymentMethod: "invoice", // Explicit payment method - no prefix detection needed
+        paymentIntentId: paymentIntentIdForInvoice,
+        paymentMethod: "invoice",
       });
 
-      console.log("✅ [Payment] completeCheckout result:", result);
+      console.log("✅ [Payment] confirmPaymentFast result:", confirmResult);
 
-      // Step 3: Complete checkout flow (notify parent component)
-      onComplete({
-        selectedPaymentProvider: "invoice",
-        paymentResult: {
-          success: result.success,
-          transactionId: paymentIntentId,
-          receiptUrl: invoiceResult.pdfUrl || undefined,
-          purchasedItemIds: result.purchasedItemIds,
-          checkoutSessionId: checkoutSessionId,
-        },
-      });
+      // ProcessingModal will now track real progress and call onComplete when done
+      // The modal's onComplete callback (handleFulfillmentComplete) handles navigation
+
     } catch (err) {
       console.error("Invoice payment error:", err);
       setError(err instanceof Error ? err.message : "Failed to create invoice");
-    } finally {
       setIsProcessing(false);
     }
+    // Note: Don't setIsProcessing(false) on success - modal handles completion
   };
 
   /**
    * Handle Stripe Payment
-   * Confirms payment with Stripe, then creates tickets via backend
+   * Uses the new fast flow: confirm with Stripe → confirmPaymentFast → async fulfillment
+   * ProcessingModal shows real progress from backend
    */
   const handleStripePayment = async () => {
     if (!stripe || !cardElement || !clientSecret || !paymentIntentId) {
@@ -316,34 +331,27 @@ export function PaymentStep({
         throw new Error("Payment was not successful. Please try again.");
       }
 
-      console.log("✅ [Payment] Stripe payment confirmed, calling completeCheckout...");
+      console.log("✅ [Payment] Stripe payment confirmed, calling confirmPaymentFast...");
 
-      // Complete checkout - creates tickets and CRM records
-      const result = await completeCheckout({
+      // Fast confirmation + schedule async fulfillment
+      const confirmResult = await confirmPaymentFast({
         sessionId,
         checkoutSessionId: checkoutSessionId as Id<"objects">,
         paymentIntentId,
-        paymentMethod: "stripe", // Explicit payment method
+        paymentMethod: "stripe",
       });
 
-      console.log("✅ [Payment] completeCheckout result:", result);
+      console.log("✅ [Payment] confirmPaymentFast result:", confirmResult);
 
-      // Complete checkout flow
-      onComplete({
-        selectedPaymentProvider: "stripe",
-        paymentResult: {
-          success: result.success,
-          transactionId: result.paymentId,
-          receiptUrl: "#",
-          purchasedItemIds: result.purchasedItemIds,
-          checkoutSessionId: checkoutSessionId,
-        },
-      });
+      // ProcessingModal will now track real progress and call onComplete when done
+      // The modal's onComplete callback (handleFulfillmentComplete) handles navigation
+
     } catch (err) {
       console.error("Stripe payment error:", err);
       setError(err instanceof Error ? err.message : "Payment failed");
       setIsProcessing(false);
     }
+    // Note: Don't setIsProcessing(false) on success - modal handles completion
   };
 
   /**
@@ -529,8 +537,15 @@ export function PaymentStep({
         </p>
       </div>
 
-      {/* Processing Modal - Shows humorous loading steps during payment */}
-      <ProcessingModal isOpen={isProcessing} isInvoicePayment={processingMethod === "invoice"} />
+      {/* Processing Modal - Shows real progress from backend */}
+      {checkoutSessionId && (
+        <ProcessingModal
+          isOpen={isProcessing}
+          isInvoicePayment={processingMethod === "invoice"}
+          checkoutSessionId={checkoutSessionId as Id<"objects">}
+          onComplete={handleFulfillmentComplete}
+        />
+      )}
     </div>
   );
 }

@@ -946,3 +946,150 @@ export const patchCheckoutSessionInternal = internalMutation({
     return { success: true };
   },
 });
+
+// ============================================================================
+// CHECKOUT PROGRESS TRACKING (for real-time UI updates)
+// ============================================================================
+
+/**
+ * Session status values:
+ * - "active": Shopping in progress
+ * - "payment_confirmed": Payment succeeded, fulfillment starting
+ * - "fulfilling": Async fulfillment in progress (creating tickets, etc.)
+ * - "completed": All done
+ * - "failed": Payment or fulfillment failed
+ * - "abandoned": Customer left
+ * - "expired": Session timed out
+ */
+
+/**
+ * Fulfillment steps (tracked via fulfillmentStep field):
+ * 0: Not started
+ * 1: Creating CRM records
+ * 2: Creating purchase items & tickets
+ * 3: Creating transactions
+ * 4: Sending emails
+ * 5: Complete
+ */
+
+/**
+ * GET CHECKOUT PROGRESS (Public Query)
+ *
+ * Returns real-time progress of a checkout session.
+ * Used by ProcessingModal to show actual fulfillment status.
+ */
+export const getCheckoutProgress = query({
+  args: {
+    checkoutSessionId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.checkoutSessionId);
+
+    if (!session || session.type !== "checkout_session") {
+      return null;
+    }
+
+    return {
+      status: session.status as string,
+      fulfillmentStep: (session.customProperties?.fulfillmentStep as number) ?? 0,
+      fulfillmentStatus: (session.customProperties?.fulfillmentStatus as string) ?? "not_started",
+      totalSteps: 5, // CRM, Tickets, Transactions, Emails, Complete
+      errorMessage: session.customProperties?.errorMessage as string | undefined,
+    };
+  },
+});
+
+/**
+ * INTERNAL: Update fulfillment progress
+ *
+ * Called during async fulfillment to update progress.
+ * Allows ProcessingModal to show real status.
+ */
+export const updateFulfillmentProgress = internalMutation({
+  args: {
+    checkoutSessionId: v.id("objects"),
+    fulfillmentStep: v.number(),
+    fulfillmentStatus: v.optional(v.union(
+      v.literal("not_started"),
+      v.literal("in_progress"),
+      v.literal("completed"),
+      v.literal("failed")
+    )),
+    errorMessage: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.checkoutSessionId);
+    if (!session || session.type !== "checkout_session") {
+      throw new Error("Checkout session not found");
+    }
+
+    // Determine the session status based on fulfillment state
+    let newStatus = session.status;
+    if (args.fulfillmentStatus === "in_progress" && session.status === "active") {
+      newStatus = "fulfilling";
+    } else if (args.fulfillmentStatus === "completed") {
+      newStatus = "completed";
+    } else if (args.fulfillmentStatus === "failed") {
+      newStatus = "failed";
+    }
+
+    await ctx.db.patch(args.checkoutSessionId, {
+      status: newStatus,
+      customProperties: {
+        ...(session.customProperties || {}),
+        fulfillmentStep: args.fulfillmentStep,
+        fulfillmentStatus: args.fulfillmentStatus || session.customProperties?.fulfillmentStatus,
+        ...(args.errorMessage && { errorMessage: args.errorMessage }),
+      },
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * INTERNAL: Mark payment confirmed and start fulfillment
+ *
+ * Called after payment verification succeeds.
+ * Sets status to "payment_confirmed" and prepares for async fulfillment.
+ */
+export const markPaymentConfirmed = internalMutation({
+  args: {
+    checkoutSessionId: v.id("objects"),
+    paymentIntentId: v.string(),
+    paymentMethod: v.optional(v.union(v.literal("stripe"), v.literal("invoice"), v.literal("free"))),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.checkoutSessionId);
+    if (!session || session.type !== "checkout_session") {
+      throw new Error("Checkout session not found");
+    }
+
+    // Check idempotency - don't process if already confirmed or beyond
+    const currentStatus = session.status;
+    if (currentStatus !== "active") {
+      console.log(`[markPaymentConfirmed] Session already in status: ${currentStatus}, skipping`);
+      return {
+        success: true,
+        alreadyProcessed: true,
+        currentStatus,
+      };
+    }
+
+    await ctx.db.patch(args.checkoutSessionId, {
+      status: "payment_confirmed",
+      customProperties: {
+        ...(session.customProperties || {}),
+        paymentIntentId: args.paymentIntentId,
+        paymentMethod: args.paymentMethod || "stripe",
+        paymentConfirmedAt: Date.now(),
+        fulfillmentStatus: "not_started",
+        fulfillmentStep: 0,
+      },
+      updatedAt: Date.now(),
+    });
+
+    return { success: true, alreadyProcessed: false };
+  },
+});

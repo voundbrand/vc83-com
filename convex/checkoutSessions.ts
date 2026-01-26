@@ -11,7 +11,7 @@
  */
 
 import { v } from "convex/values";
-import { action, query, internalQuery, internalMutation } from "./_generated/server";
+import { action, internalAction, query, internalQuery, internalMutation } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { getProviderByCode, getConnectedAccountId } from "./paymentProviders";
@@ -1327,5 +1327,491 @@ export const completeCheckoutAndFulfill = action({
       frontendUserId, // For debugging/linking
       invoiceType, // 'employer' | 'manual_b2b' | 'manual_b2c' | 'receipt' | 'none'
     };
+  },
+});
+
+// ============================================================================
+// FAST CHECKOUT FLOW (Split into confirm + async fulfill)
+// ============================================================================
+
+/**
+ * CONFIRM PAYMENT AND START FULFILLMENT (FAST)
+ *
+ * Fast action (~1-2 seconds) that:
+ * 1. Verifies payment succeeded
+ * 2. Marks session as "payment_confirmed"
+ * 3. Schedules async fulfillment
+ * 4. Returns immediately
+ *
+ * This prevents frontend timeouts by returning quickly after payment is confirmed.
+ * The actual fulfillment (tickets, emails, etc.) happens asynchronously.
+ */
+export const confirmPaymentAndStartFulfillment = action({
+  args: {
+    sessionId: v.string(),
+    checkoutSessionId: v.id("objects"),
+    paymentIntentId: v.string(),
+    paymentMethod: v.optional(v.union(v.literal("stripe"), v.literal("invoice"), v.literal("free"))),
+  },
+  handler: async (ctx, args): Promise<{
+    success: boolean;
+    status: "payment_confirmed" | "already_processing" | "completed";
+    checkoutSessionId: Id<"objects">;
+  }> => {
+    console.log("⚡ [confirmPaymentAndStartFulfillment] Starting fast payment confirmation...");
+
+    // 1. Get checkout session
+    const session = await ctx.runQuery(internal.checkoutSessionOntology.getCheckoutSessionInternal, {
+      checkoutSessionId: args.checkoutSessionId,
+    });
+
+    if (!session) {
+      throw new Error("Checkout session not found");
+    }
+
+    // 2. Check idempotency - if already confirmed or completed, return early
+    const currentStatus = session.status;
+    if (currentStatus === "payment_confirmed" || currentStatus === "fulfilling") {
+      console.log("⚡ [confirmPaymentAndStartFulfillment] Already processing, returning early");
+      return {
+        success: true,
+        status: "already_processing",
+        checkoutSessionId: args.checkoutSessionId,
+      };
+    }
+
+    if (currentStatus === "completed") {
+      console.log("⚡ [confirmPaymentAndStartFulfillment] Already completed");
+      return {
+        success: true,
+        status: "completed",
+        checkoutSessionId: args.checkoutSessionId,
+      };
+    }
+
+    // 3. Determine payment method
+    const paymentMethod = args.paymentMethod || (
+      args.paymentIntentId === 'free' || args.paymentIntentId.startsWith('free_') ? 'free' :
+      args.paymentIntentId.startsWith('inv_') || args.paymentIntentId === 'invoice' ? 'invoice' :
+      'stripe'
+    );
+
+    // 4. Verify payment (fast operation)
+    if (paymentMethod === 'stripe') {
+      const org = await ctx.runQuery(internal.checkoutSessions.getOrganizationInternal, {
+        organizationId: session.organizationId,
+      });
+
+      if (!org) {
+        throw new Error("Organization not found");
+      }
+
+      const connectedAccountId = getConnectedAccountId(org, "stripe-connect");
+      if (!connectedAccountId) {
+        throw new Error("Organization has not connected Stripe");
+      }
+
+      const provider = getProviderByCode("stripe-connect");
+      const paymentResult = await provider.verifyCheckoutPayment(args.paymentIntentId, connectedAccountId);
+
+      if (!paymentResult.success) {
+        throw new Error("Payment verification failed");
+      }
+
+      console.log("⚡ [confirmPaymentAndStartFulfillment] Stripe payment verified:", paymentResult.paymentId);
+    }
+
+    // 5. Mark payment as confirmed (idempotent operation)
+    const confirmResult = await ctx.runMutation(internal.checkoutSessionOntology.markPaymentConfirmed, {
+      checkoutSessionId: args.checkoutSessionId,
+      paymentIntentId: args.paymentIntentId,
+      paymentMethod,
+    });
+
+    if (confirmResult.alreadyProcessed) {
+      console.log("⚡ [confirmPaymentAndStartFulfillment] Payment already confirmed by another process");
+      return {
+        success: true,
+        status: "already_processing",
+        checkoutSessionId: args.checkoutSessionId,
+      };
+    }
+
+    // 6. Schedule async fulfillment (fire-and-forget)
+    console.log("⚡ [confirmPaymentAndStartFulfillment] Scheduling async fulfillment...");
+    await ctx.scheduler.runAfter(0, internal.checkoutSessions.fulfillCheckoutAsync, {
+      checkoutSessionId: args.checkoutSessionId,
+      paymentIntentId: args.paymentIntentId,
+      paymentMethod,
+    });
+
+    console.log("⚡ [confirmPaymentAndStartFulfillment] Payment confirmed, fulfillment scheduled!");
+    return {
+      success: true,
+      status: "payment_confirmed",
+      checkoutSessionId: args.checkoutSessionId,
+    };
+  },
+});
+
+/**
+ * FULFILL CHECKOUT ASYNC (Internal Action)
+ *
+ * Handles the actual fulfillment after payment is confirmed:
+ * 1. CRM contact creation
+ * 2. Purchase items & tickets
+ * 3. Transaction records
+ * 4. Confirmation emails
+ *
+ * Updates progress via updateFulfillmentProgress so frontend can track.
+ */
+export const fulfillCheckoutAsync = internalAction({
+  args: {
+    checkoutSessionId: v.id("objects"),
+    paymentIntentId: v.string(),
+    paymentMethod: v.union(v.literal("stripe"), v.literal("invoice"), v.literal("free")),
+  },
+  handler: async (ctx, args) => {
+    console.log("🔄 [fulfillCheckoutAsync] Starting async fulfillment...");
+
+    // Get session data
+    const session = await ctx.runQuery(internal.checkoutSessionOntology.getCheckoutSessionInternal, {
+      checkoutSessionId: args.checkoutSessionId,
+    });
+
+    if (!session) {
+      console.error("❌ [fulfillCheckoutAsync] Session not found");
+      return;
+    }
+
+    // Check idempotency - don't run if already completed or failed
+    const fulfillmentStatus = session.customProperties?.fulfillmentStatus as string | undefined;
+    if (fulfillmentStatus === "completed" || fulfillmentStatus === "failed") {
+      console.log(`🔄 [fulfillCheckoutAsync] Already ${fulfillmentStatus}, skipping`);
+      return;
+    }
+
+    // Mark as in_progress (idempotency check)
+    if (fulfillmentStatus === "in_progress") {
+      console.log("🔄 [fulfillCheckoutAsync] Already in progress, skipping duplicate run");
+      return;
+    }
+
+    try {
+      // Update status to in_progress
+      await ctx.runMutation(internal.checkoutSessionOntology.updateFulfillmentProgress, {
+        checkoutSessionId: args.checkoutSessionId,
+        fulfillmentStep: 0,
+        fulfillmentStatus: "in_progress",
+      });
+
+      const organizationId = session.organizationId;
+      const customerEmail = (session.customProperties?.customerEmail as string) || "";
+      const customerName = (session.customProperties?.customerName as string) || "";
+      const customerPhone = session.customProperties?.customerPhone as string | undefined;
+
+      const selectedProducts = (session.customProperties?.selectedProducts || []) as Array<{
+        productId: Id<"objects">;
+        quantity: number;
+        pricePerUnit: number;
+        totalPrice: number;
+      }>;
+
+      const formResponses = session.customProperties?.formResponses as Array<{
+        productId: Id<"objects">;
+        ticketNumber: number;
+        formId?: string;
+        responses: Record<string, unknown>;
+        addedCosts: number;
+        submittedAt: number;
+      }> | undefined;
+
+      const behaviorContext = session.customProperties?.behaviorContext as {
+        metadata?: {
+          isEmployerBilling?: boolean;
+          crmOrganizationId?: string;
+        };
+      } | undefined;
+
+      // STEP 1: CRM Contact Creation
+      console.log("🔄 [fulfillCheckoutAsync] Step 1: Creating CRM contact...");
+      await ctx.runMutation(internal.checkoutSessionOntology.updateFulfillmentProgress, {
+        checkoutSessionId: args.checkoutSessionId,
+        fulfillmentStep: 1,
+      });
+
+      let crmContactId: Id<"objects"> | undefined;
+      let crmOrganizationId: Id<"objects"> | undefined;
+      let frontendUserId: Id<"objects"> | undefined;
+
+      try {
+        const contactResult = await ctx.runMutation(internal.crmIntegrations.autoCreateContactFromCheckoutInternal, {
+          checkoutSessionId: args.checkoutSessionId,
+        });
+        crmContactId = contactResult.contactId;
+
+        // Create dormant frontend user
+        const nameParts = customerName.split(' ');
+        frontendUserId = await ctx.runMutation(internal.auth.createOrGetGuestUser, {
+          email: customerEmail,
+          firstName: nameParts[0] || customerName,
+          lastName: nameParts.slice(1).join(' ') || '',
+          organizationId,
+        });
+
+        // Handle employer billing or B2B organization
+        const isEmployerBilling = behaviorContext?.metadata?.isEmployerBilling === true;
+        const employerOrgId = behaviorContext?.metadata?.crmOrganizationId;
+
+        if (isEmployerBilling && employerOrgId) {
+          crmOrganizationId = employerOrgId as Id<"objects">;
+          await ctx.runMutation(internal.crmIntegrations.linkContactToOrganization, {
+            contactId: crmContactId,
+            organizationId: crmOrganizationId,
+            role: "employee",
+          });
+        } else {
+          const transactionType = session.customProperties?.transactionType as "B2C" | "B2B" | undefined;
+          const companyName = session.customProperties?.companyName as string | undefined;
+          const vatNumber = session.customProperties?.vatNumber as string | undefined;
+
+          if (transactionType === "B2B" && companyName) {
+            const billingAddress = (session.customProperties?.billingLine1 &&
+              session.customProperties?.billingCity &&
+              session.customProperties?.billingPostalCode &&
+              session.customProperties?.billingCountry) ? {
+              line1: session.customProperties.billingLine1 as string,
+              line2: session.customProperties.billingLine2 as string | undefined,
+              city: session.customProperties.billingCity as string,
+              state: session.customProperties.billingState as string | undefined,
+              postalCode: session.customProperties.billingPostalCode as string,
+              country: session.customProperties.billingCountry as string,
+            } : undefined;
+
+            crmOrganizationId = await ctx.runMutation(internal.crmIntegrations.createCRMOrganization, {
+              organizationId,
+              companyName,
+              vatNumber,
+              billingAddress,
+              email: customerEmail,
+              phone: customerPhone,
+            });
+
+            await ctx.runMutation(internal.crmIntegrations.linkContactToOrganization, {
+              contactId: crmContactId,
+              organizationId: crmOrganizationId,
+              role: "buyer",
+            });
+          }
+        }
+      } catch (error) {
+        console.error("⚠️ [fulfillCheckoutAsync] CRM creation failed (non-critical):", error);
+      }
+
+      // STEP 2: Purchase Items & Tickets
+      console.log("🔄 [fulfillCheckoutAsync] Step 2: Creating purchase items and tickets...");
+      await ctx.runMutation(internal.checkoutSessionOntology.updateFulfillmentProgress, {
+        checkoutSessionId: args.checkoutSessionId,
+        fulfillmentStep: 2,
+      });
+
+      const createdPurchaseItems: string[] = [];
+      let globalTicketOffset = 0;
+
+      for (const selectedProduct of selectedProducts) {
+        const product = await ctx.runQuery(internal.productOntology.getProductInternal, {
+          productId: selectedProduct.productId,
+        });
+
+        if (!product) continue;
+
+        const fulfillmentType = product.subtype || "ticket";
+        const transactionType = session.customProperties?.transactionType as "B2C" | "B2B" | undefined;
+        const companyName = session.customProperties?.companyName as string | undefined;
+        const vatNumber = session.customProperties?.vatNumber as string | undefined;
+
+        const purchaseItemsResult = await ctx.runMutation(internal.purchaseOntology.createPurchaseItemInternal, {
+          organizationId,
+          checkoutSessionId: args.checkoutSessionId,
+          productId: selectedProduct.productId,
+          quantity: selectedProduct.quantity,
+          pricePerUnit: selectedProduct.pricePerUnit,
+          totalPrice: selectedProduct.totalPrice,
+          buyerEmail: customerEmail,
+          buyerName: customerName,
+          buyerPhone: customerPhone,
+          buyerTransactionType: transactionType,
+          buyerCompanyName: companyName,
+          buyerVatNumber: vatNumber,
+          crmOrganizationId,
+          fulfillmentType,
+          registrationData: undefined,
+          userId: frontendUserId,
+        });
+
+        createdPurchaseItems.push(...purchaseItemsResult.purchaseItemIds);
+
+        // Create tickets
+        for (let i = 0; i < purchaseItemsResult.purchaseItemIds.length; i++) {
+          const purchaseItemId = purchaseItemsResult.purchaseItemIds[i];
+          const itemNumber = i + 1;
+          const globalTicketNumber = globalTicketOffset + itemNumber;
+
+          const formResponse = formResponses?.find(
+            (fr) => fr.productId === selectedProduct.productId && fr.ticketNumber === globalTicketNumber
+          );
+
+          let holderEmail = customerEmail;
+          let holderName = customerName;
+          let registrationData: Record<string, unknown> | undefined;
+
+          if (formResponse) {
+            registrationData = formResponse.responses as Record<string, unknown>;
+            holderEmail = (formResponse.responses.email as string) || customerEmail;
+            const firstName = formResponse.responses.firstName as string | undefined;
+            const lastName = formResponse.responses.lastName as string | undefined;
+            if (firstName && lastName) {
+              holderName = `${firstName} ${lastName}`.trim();
+            } else if (firstName) {
+              holderName = firstName;
+            } else {
+              holderName = (formResponse.responses.name as string) || customerName;
+            }
+          }
+
+          if (fulfillmentType === "ticket") {
+            const eventId = product.customProperties?.eventId as Id<"objects"> | undefined;
+
+            const ticketId = await ctx.runMutation(internal.ticketOntology.createTicketInternal, {
+              organizationId,
+              productId: selectedProduct.productId,
+              eventId,
+              holderName,
+              holderEmail,
+              userId: frontendUserId,
+              customProperties: {
+                purchaseDate: Date.now(),
+                paymentIntentId: args.paymentIntentId,
+                pricePaid: selectedProduct.pricePerUnit,
+                totalPriceInCents: selectedProduct.pricePerUnit,
+                ticketNumber: itemNumber,
+                totalTicketsInOrder: selectedProduct.quantity,
+                checkoutSessionId: args.checkoutSessionId,
+                purchaseItemId,
+                registrationData,
+                eventId,
+                crmOrganizationId,
+                contactId: crmContactId,
+              },
+            });
+
+            await ctx.runMutation(internal.purchaseOntology.updateFulfillmentStatusInternal, {
+              purchaseItemId: purchaseItemId as Id<"objects">,
+              fulfillmentStatus: "fulfilled",
+              fulfillmentData: { ticketId, eventId },
+              userId: frontendUserId,
+            });
+          }
+        }
+
+        globalTicketOffset += selectedProduct.quantity;
+      }
+
+      // STEP 3: Create Transactions
+      console.log("🔄 [fulfillCheckoutAsync] Step 3: Creating transactions...");
+      await ctx.runMutation(internal.checkoutSessionOntology.updateFulfillmentProgress, {
+        checkoutSessionId: args.checkoutSessionId,
+        fulfillmentStep: 3,
+      });
+
+      // Mark session as completed BEFORE transactions (so UI shows progress)
+      await ctx.runMutation(internal.checkoutSessionOntology.completeCheckoutSessionInternal, {
+        checkoutSessionId: args.checkoutSessionId,
+        paymentIntentId: args.paymentIntentId,
+        purchasedItemIds: createdPurchaseItems,
+        crmContactId,
+        crmOrganizationId,
+        userId: frontendUserId,
+        paymentMethod: args.paymentMethod,
+      });
+
+      try {
+        await ctx.runAction(internal.createTransactionsFromCheckout.createTransactionsFromCheckout, {
+          checkoutSessionId: args.checkoutSessionId,
+        });
+      } catch (transactionError) {
+        console.error("⚠️ [fulfillCheckoutAsync] Transaction creation failed (non-critical):", transactionError);
+      }
+
+      // STEP 4: Send Emails
+      console.log("🔄 [fulfillCheckoutAsync] Step 4: Sending emails...");
+      await ctx.runMutation(internal.checkoutSessionOntology.updateFulfillmentProgress, {
+        checkoutSessionId: args.checkoutSessionId,
+        fulfillmentStep: 4,
+      });
+
+      // Determine invoice handling
+      const isEmployerBilled = !!crmOrganizationId && behaviorContext?.metadata?.isEmployerBilling === true;
+      const isManualInvoice = args.paymentIntentId.startsWith('inv_') || args.paymentIntentId === 'invoice';
+      const isFreeRegistration = args.paymentIntentId === 'free' || args.paymentIntentId.startsWith('free_');
+
+      let includeInvoicePDF = false;
+      if (!isEmployerBilled && !isFreeRegistration) {
+        includeInvoicePDF = isManualInvoice || args.paymentMethod === 'stripe';
+      }
+
+      try {
+        await ctx.runAction(internal.ticketGeneration.sendOrderConfirmationEmail, {
+          checkoutSessionId: args.checkoutSessionId,
+          recipientEmail: customerEmail,
+          recipientName: customerName,
+          includeInvoicePDF,
+        });
+      } catch (emailError) {
+        console.error("⚠️ [fulfillCheckoutAsync] Email sending failed (non-critical):", emailError);
+      }
+
+      // Send sales notification
+      try {
+        const checkoutInstanceId = session.customProperties?.checkoutInstanceId as Id<"objects"> | undefined;
+        if (checkoutInstanceId) {
+          const checkoutInstance = await ctx.runQuery(api.checkoutOntology.getPublicCheckoutInstanceById, {
+            instanceId: checkoutInstanceId,
+          });
+
+          const salesNotificationRecipientEmail = checkoutInstance?.customProperties?.salesNotificationRecipientEmail as string | undefined;
+          if (salesNotificationRecipientEmail) {
+            await ctx.runAction(internal.emailDelivery.sendSalesNotificationEmail, {
+              checkoutSessionId: args.checkoutSessionId,
+              recipientEmail: salesNotificationRecipientEmail,
+              templateId: checkoutInstance?.customProperties?.salesNotificationEmailTemplateId as Id<"objects"> | undefined,
+            });
+          }
+        }
+      } catch (salesEmailError) {
+        console.error("⚠️ [fulfillCheckoutAsync] Sales notification failed (non-critical):", salesEmailError);
+      }
+
+      // STEP 5: Complete
+      console.log("🔄 [fulfillCheckoutAsync] Step 5: Marking complete...");
+      await ctx.runMutation(internal.checkoutSessionOntology.updateFulfillmentProgress, {
+        checkoutSessionId: args.checkoutSessionId,
+        fulfillmentStep: 5,
+        fulfillmentStatus: "completed",
+      });
+
+      console.log("🎉 [fulfillCheckoutAsync] Async fulfillment complete!");
+
+    } catch (error) {
+      console.error("❌ [fulfillCheckoutAsync] Fulfillment failed:", error);
+
+      // Mark as failed
+      await ctx.runMutation(internal.checkoutSessionOntology.updateFulfillmentProgress, {
+        checkoutSessionId: args.checkoutSessionId,
+        fulfillmentStep: 0,
+        fulfillmentStatus: "failed",
+        errorMessage: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
   },
 });

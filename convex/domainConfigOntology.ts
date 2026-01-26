@@ -149,9 +149,10 @@ export const createDomainConfig = mutation({
     }),
 
     // Optional: Email configuration (if capabilities.email = true)
+    // Note: Avoid "noreply" senders - use "hello@", "team@", or "tickets@" for better deliverability
     email: v.optional(v.object({
       emailDomain: v.string(),        // Domain verified in Resend (e.g., "mail.pluseins.gg")
-      senderEmail: v.string(),        // Default sender (e.g., "noreply@mail.pluseins.gg")
+      senderEmail: v.string(),        // Default sender (e.g., "hello@mail.pluseins.gg") - avoid "noreply"
       systemEmail: v.string(),        // System notifications (e.g., "system@mail.pluseins.gg")
       salesEmail: v.string(),         // Sales inquiries (e.g., "sales@pluseins.gg")
       replyToEmail: v.string(),       // Reply-to address (e.g., "reply@pluseins.gg")

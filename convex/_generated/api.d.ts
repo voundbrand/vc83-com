@@ -180,6 +180,7 @@ import type * as legalEntityTypes from "../legalEntityTypes.js";
 import type * as lib_addressFormatter from "../lib/addressFormatter.js";
 import type * as lib_apiTemplateClient from "../lib/apiTemplateClient.js";
 import type * as lib_currencyFormatter from "../lib/currencyFormatter.js";
+import type * as lib_emailUrlHelpers from "../lib/emailUrlHelpers.js";
 import type * as lib_generateInvoicePdf from "../lib/generateInvoicePdf.js";
 import type * as lib_generatePdf from "../lib/generatePdf.js";
 import type * as lib_generateTicketPdf from "../lib/generateTicketPdf.js";
@@ -469,6 +470,7 @@ import type * as translations_seedOnboarding from "../translations/seedOnboardin
 import type * as translations_seedOrganizations from "../translations/seedOrganizations.js";
 import type * as translations_seedPaymentTranslations from "../translations/seedPaymentTranslations.js";
 import type * as translations_seedPdfTemplates from "../translations/seedPdfTemplates.js";
+import type * as translations_seedProcessingModal from "../translations/seedProcessingModal.js";
 import type * as translations_seedProductTranslations from "../translations/seedProductTranslations.js";
 import type * as translations_seedProductTranslations_es from "../translations/seedProductTranslations_es.js";
 import type * as translations_seedProductTranslations_fr from "../translations/seedProductTranslations_fr.js";
@@ -694,6 +696,7 @@ declare const fullApi: ApiFromModules<{
   "lib/addressFormatter": typeof lib_addressFormatter;
   "lib/apiTemplateClient": typeof lib_apiTemplateClient;
   "lib/currencyFormatter": typeof lib_currencyFormatter;
+  "lib/emailUrlHelpers": typeof lib_emailUrlHelpers;
   "lib/generateInvoicePdf": typeof lib_generateInvoicePdf;
   "lib/generatePdf": typeof lib_generatePdf;
   "lib/generateTicketPdf": typeof lib_generateTicketPdf;
@@ -983,6 +986,7 @@ declare const fullApi: ApiFromModules<{
   "translations/seedOrganizations": typeof translations_seedOrganizations;
   "translations/seedPaymentTranslations": typeof translations_seedPaymentTranslations;
   "translations/seedPdfTemplates": typeof translations_seedPdfTemplates;
+  "translations/seedProcessingModal": typeof translations_seedProcessingModal;
   "translations/seedProductTranslations": typeof translations_seedProductTranslations;
   "translations/seedProductTranslations_es": typeof translations_seedProductTranslations_es;
   "translations/seedProductTranslations_fr": typeof translations_seedProductTranslations_fr;
