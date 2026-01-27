@@ -11,7 +11,7 @@ import { OrganizationSection } from "./components/organization-section";
 import { AddressCard } from "./components/address-card";
 import { AddressModal } from "./components/address-modal";
 import { OrganizationDetailsForm, OrganizationDetailsFormRef } from "./organization-details-form";
-import { Users, Building2, AlertCircle, Loader2, Shield, Save, Crown, Edit2, X, MapPin, Plus, Key, Globe, Brain } from "lucide-react";
+import { Users, Building2, AlertCircle, Loader2, Shield, Save, Crown, Edit2, X, MapPin, Plus, Key, Globe, Brain, Network } from "lucide-react";
 import { useState, useRef } from "react";
 import {
   useAuth,
@@ -22,8 +22,9 @@ import { PermissionGuard, PermissionButton } from "@/components/permission";
 import { Id, Doc } from "../../../../convex/_generated/dataModel";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { IntegrationsTab } from "../settings-window/integrations-tab";
+import { SubOrganizationsTab } from "./sub-organizations-tab";
 
-type TabType = "organization" | "users" | "ai" | "integrations" | "roles" | "domains" | "security";
+type TabType = "organization" | "users" | "ai" | "integrations" | "roles" | "domains" | "security" | "sub-orgs";
 
 interface ManageWindowProps {
   initialTab?: TabType;
@@ -344,7 +345,7 @@ export function ManageWindow({ initialTab = "organization" }: ManageWindowProps)
           {t("ui.manage.tab.domains")}
         </button>
         <button
-          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2"
+          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
           style={{
             borderColor: 'var(--win95-border)',
             background: activeTab === "security" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
@@ -354,6 +355,18 @@ export function ManageWindow({ initialTab = "organization" }: ManageWindowProps)
         >
           <Key size={14} />
           {t("ui.manage.tab.security")}
+        </button>
+        <button
+          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2"
+          style={{
+            borderColor: 'var(--win95-border)',
+            background: activeTab === "sub-orgs" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+            color: activeTab === "sub-orgs" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+          }}
+          onClick={() => setActiveTab("sub-orgs")}
+        >
+          <Network size={14} />
+          Sub-Orgs
         </button>
       </div>
 
@@ -700,6 +713,56 @@ export function ManageWindow({ initialTab = "organization" }: ManageWindowProps)
             organizationId={organizationId as Id<"organizations">}
             sessionId={sessionId}
           />
+        )}
+
+        {activeTab === "sub-orgs" && organizationId && sessionId && (
+          license?.features?.subOrgsEnabled ? (
+            <SubOrganizationsTab
+              organizationId={organizationId as Id<"organizations">}
+              sessionId={sessionId}
+              license={license}
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <Network size={48} className="mb-4" style={{ color: 'var(--neutral-gray)', opacity: 0.5 }} />
+              <h3 className="text-lg font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
+                Sub-Organizations
+              </h3>
+              <p className="text-sm mb-4 max-w-md" style={{ color: 'var(--neutral-gray)' }}>
+                Create and manage child organizations under your account. Perfect for agencies, franchises, or multi-brand businesses.
+              </p>
+              <div
+                className="p-4 border-2 mb-4 max-w-md"
+                style={{
+                  backgroundColor: 'var(--win95-bg-light)',
+                  borderColor: 'var(--primary)',
+                }}
+              >
+                <p className="text-sm font-semibold mb-2" style={{ color: 'var(--primary)' }}>
+                  Available on Agency & Enterprise Plans
+                </p>
+                <ul className="text-xs text-left space-y-1" style={{ color: 'var(--win95-text)' }}>
+                  <li>• Agency: Up to 10 sub-organizations</li>
+                  <li>• Enterprise: Unlimited sub-organizations</li>
+                  <li>• Each sub-org has independent users & settings</li>
+                  <li>• Centralized billing & management</li>
+                </ul>
+              </div>
+              <button
+                className="beveled-button px-6 py-2 text-sm font-semibold"
+                style={{
+                  backgroundColor: 'var(--primary)',
+                  color: 'white',
+                }}
+                onClick={() => {
+                  // TODO: Open upgrade modal or redirect to billing
+                  alert('Contact sales@l4yercak3.com to upgrade your plan');
+                }}
+              >
+                Upgrade to Agency
+              </button>
+            </div>
+          )
         )}
       </div>
 
