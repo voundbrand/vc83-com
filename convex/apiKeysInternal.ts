@@ -97,8 +97,13 @@ export const verifySession = internalQuery({
       return { valid: false, error: "Session expired" };
     }
 
+    // Check organization context - session must match the requested organization
+    // This prevents users from generating API keys for organizations they don't have active sessions for
+    if (!session.organizationId) {
+      return { valid: false, error: "Session has no organization context. Please log in again." };
+    }
     if (session.organizationId !== args.organizationId) {
-      return { valid: false, error: "Organization mismatch" };
+      return { valid: false, error: "Session organization does not match. Please switch to the correct organization or log in again." };
     }
 
     return {
