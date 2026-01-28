@@ -19,6 +19,7 @@ import {
   organizations,
   organizationMembers,
   userPasswords,
+  frontendUserPasswords,
   sessions,
   frontendSessions,
   passkeys,
@@ -147,6 +148,7 @@ export default defineSchema({
   organizations,
   organizationMembers,
   userPasswords,
+  frontendUserPasswords, // Customer passwords (for frontend_user objects with email/password)
   sessions,
   frontendSessions, // Customer user sessions (separate from platform staff)
   passkeys,

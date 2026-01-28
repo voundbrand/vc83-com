@@ -83,6 +83,8 @@ import type * as api_v1_cliAuthHttp from "../api/v1/cliAuthHttp.js";
 import type * as api_v1_corsHeaders from "../api/v1/corsHeaders.js";
 import type * as api_v1_crm from "../api/v1/crm.js";
 import type * as api_v1_crmInternal from "../api/v1/crmInternal.js";
+import type * as api_v1_customerAuth from "../api/v1/customerAuth.js";
+import type * as api_v1_customerAuthInternal from "../api/v1/customerAuthInternal.js";
 import type * as api_v1_domainLookup from "../api/v1/domainLookup.js";
 import type * as api_v1_domainLookupInternal from "../api/v1/domainLookupInternal.js";
 import type * as api_v1_emailAuth from "../api/v1/emailAuth.js";
@@ -601,6 +603,8 @@ declare const fullApi: ApiFromModules<{
   "api/v1/corsHeaders": typeof api_v1_corsHeaders;
   "api/v1/crm": typeof api_v1_crm;
   "api/v1/crmInternal": typeof api_v1_crmInternal;
+  "api/v1/customerAuth": typeof api_v1_customerAuth;
+  "api/v1/customerAuthInternal": typeof api_v1_customerAuthInternal;
   "api/v1/domainLookup": typeof api_v1_domainLookup;
   "api/v1/domainLookupInternal": typeof api_v1_domainLookupInternal;
   "api/v1/emailAuth": typeof api_v1_emailAuth;

@@ -162,6 +162,16 @@ export const userPasswords = defineTable({
 })
   .index("by_user", ["userId"]);
 
+// Frontend user passwords (for customer accounts with email/password auth)
+// Separate from userPasswords which is for platform staff
+export const frontendUserPasswords = defineTable({
+  frontendUserId: v.id("objects"), // The frontend_user object ID
+  passwordHash: v.string(),
+  createdAt: v.number(),
+  updatedAt: v.optional(v.number()),
+})
+  .index("by_frontend_user", ["frontendUserId"]);
+
 export const sessions = defineTable({
   userId: v.id("users"), // Platform staff user (REQUIRED)
   email: v.string(),

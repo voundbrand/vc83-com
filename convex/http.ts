@@ -2242,13 +2242,22 @@ import {
   mobileOAuthOptionsHandler,
 } from "./api/v1/mobileOAuth";
 
-// Import Email/Password Auth handlers
+// Import Email/Password Auth handlers (platform users)
 import {
   signUpHandler,
   signInHandler,
   signOutHandler,
   emailAuthOptionsHandler,
 } from "./api/v1/emailAuth";
+
+// Import Customer Auth handlers (frontend_users - requires API key)
+import {
+  customerSignUpHandler,
+  customerSignInHandler,
+  customerSignOutHandler,
+  customerOAuthHandler,
+  customerAuthOptionsHandler,
+} from "./api/v1/customerAuth";
 
 // Import Account Linking handlers
 import {
@@ -2337,6 +2346,51 @@ http.route({
   path: "/api/v1/auth/sign-out",
   method: "POST",
   handler: signOutHandler,
+});
+
+/**
+ * ==========================================
+ * CUSTOMER AUTH API (API Key Required)
+ * ==========================================
+ *
+ * Customer authentication endpoints that create frontend_users (not platform users).
+ * Organization is determined by the API key used for authentication.
+ * Creates frontend_user + CRM contact for each new customer.
+ */
+
+// OPTIONS /api/v1/auth/customer/* - CORS preflight for all customer auth
+http.route({
+  pathPrefix: "/api/v1/auth/customer/",
+  method: "OPTIONS",
+  handler: customerAuthOptionsHandler,
+});
+
+// POST /api/v1/auth/customer/sign-up - Customer email registration
+http.route({
+  path: "/api/v1/auth/customer/sign-up",
+  method: "POST",
+  handler: customerSignUpHandler,
+});
+
+// POST /api/v1/auth/customer/sign-in - Customer email login
+http.route({
+  path: "/api/v1/auth/customer/sign-in",
+  method: "POST",
+  handler: customerSignInHandler,
+});
+
+// POST /api/v1/auth/customer/sign-out - Customer logout
+http.route({
+  path: "/api/v1/auth/customer/sign-out",
+  method: "POST",
+  handler: customerSignOutHandler,
+});
+
+// POST /api/v1/auth/customer/oauth - Customer OAuth (Google/Apple)
+http.route({
+  path: "/api/v1/auth/customer/oauth",
+  method: "POST",
+  handler: customerOAuthHandler,
 });
 
 /**
