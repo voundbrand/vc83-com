@@ -10,7 +10,7 @@
 
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { requireAuthenticatedUser, getUserContext } from "./rbacHelpers";
+import { requireAuthenticatedUser, getAuthenticatedUser, getUserContext } from "./rbacHelpers";
 
 /**
  * Available Tutorials
@@ -115,8 +115,13 @@ export const getTutorialProgress = query({
     sessionId: v.string(),
   },
   handler: async (ctx, args): Promise<TutorialProgress | null> => {
-    // Authenticate user
-    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    // Authenticate user - return null gracefully for invalid sessions
+    // This allows the frontend to handle session expiration without errors
+    const authResult = await getAuthenticatedUser(ctx, args.sessionId);
+    if (!authResult) {
+      return null; // Session invalid/expired - frontend will handle this
+    }
+    const { userId } = authResult;
 
     // Get user's organization context
     const userContext = await getUserContext(ctx, userId);
@@ -172,8 +177,12 @@ export const getAllTutorialProgress = query({
     sessionId: v.string(),
   },
   handler: async (ctx, args) => {
-    // Authenticate user
-    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    // Authenticate user - return null gracefully for invalid sessions
+    const authResult = await getAuthenticatedUser(ctx, args.sessionId);
+    if (!authResult) {
+      return null; // Session invalid/expired - frontend will handle this
+    }
+    const { userId } = authResult;
 
     // Get user's organization context
     const userContext = await getUserContext(ctx, userId);
