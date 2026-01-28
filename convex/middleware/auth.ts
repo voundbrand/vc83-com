@@ -115,10 +115,10 @@ export async function authenticateRequest(
   const token = authHeader.substring(7); // Remove "Bearer "
 
   // Determine token type by format
-  // API keys: start with "org_" or "api_key_"
+  // API keys: start with "sk_live_", "sk_test_", "org_", or "api_key_"
   // CLI session tokens: start with "cli_session_"
   // OAuth tokens: JWT format with 3 parts separated by dots
-  if (token.startsWith("org_") || token.startsWith("api_key_")) {
+  if (token.startsWith("sk_live_") || token.startsWith("sk_test_") || token.startsWith("org_") || token.startsWith("api_key_")) {
     return await authenticateApiKey(ctx, token);
   } else if (token.startsWith("cli_session_")) {
     return await authenticateCliSession(ctx, token);
