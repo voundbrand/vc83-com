@@ -85,6 +85,8 @@ import type * as api_v1_crm from "../api/v1/crm.js";
 import type * as api_v1_crmInternal from "../api/v1/crmInternal.js";
 import type * as api_v1_domainLookup from "../api/v1/domainLookup.js";
 import type * as api_v1_domainLookupInternal from "../api/v1/domainLookupInternal.js";
+import type * as api_v1_emailAuth from "../api/v1/emailAuth.js";
+import type * as api_v1_emailAuthInternal from "../api/v1/emailAuthInternal.js";
 import type * as api_v1_events from "../api/v1/events.js";
 import type * as api_v1_eventsInternal from "../api/v1/eventsInternal.js";
 import type * as api_v1_externalDomains from "../api/v1/externalDomains.js";
@@ -601,6 +603,8 @@ declare const fullApi: ApiFromModules<{
   "api/v1/crmInternal": typeof api_v1_crmInternal;
   "api/v1/domainLookup": typeof api_v1_domainLookup;
   "api/v1/domainLookupInternal": typeof api_v1_domainLookupInternal;
+  "api/v1/emailAuth": typeof api_v1_emailAuth;
+  "api/v1/emailAuthInternal": typeof api_v1_emailAuthInternal;
   "api/v1/events": typeof api_v1_events;
   "api/v1/eventsInternal": typeof api_v1_eventsInternal;
   "api/v1/externalDomains": typeof api_v1_externalDomains;

@@ -2242,6 +2242,14 @@ import {
   mobileOAuthOptionsHandler,
 } from "./api/v1/mobileOAuth";
 
+// Import Email/Password Auth handlers
+import {
+  signUpHandler,
+  signInHandler,
+  signOutHandler,
+  emailAuthOptionsHandler,
+} from "./api/v1/emailAuth";
+
 // Import Account Linking handlers
 import {
   confirmLinking,
@@ -2278,6 +2286,57 @@ http.route({
   path: "/api/v1/auth/mobile-oauth",
   method: "POST",
   handler: mobileOAuthHandler,
+});
+
+/**
+ * ==========================================
+ * EMAIL/PASSWORD AUTH API
+ * ==========================================
+ *
+ * Traditional email/password authentication for mobile apps.
+ * Complements the OAuth flows (Google Sign-In, Apple Sign-In).
+ */
+
+// OPTIONS /api/v1/auth/sign-up - CORS preflight
+http.route({
+  path: "/api/v1/auth/sign-up",
+  method: "OPTIONS",
+  handler: emailAuthOptionsHandler,
+});
+
+// POST /api/v1/auth/sign-up - Create new account with email/password
+http.route({
+  path: "/api/v1/auth/sign-up",
+  method: "POST",
+  handler: signUpHandler,
+});
+
+// OPTIONS /api/v1/auth/sign-in - CORS preflight
+http.route({
+  path: "/api/v1/auth/sign-in",
+  method: "OPTIONS",
+  handler: emailAuthOptionsHandler,
+});
+
+// POST /api/v1/auth/sign-in - Login with email/password
+http.route({
+  path: "/api/v1/auth/sign-in",
+  method: "POST",
+  handler: signInHandler,
+});
+
+// OPTIONS /api/v1/auth/sign-out - CORS preflight
+http.route({
+  path: "/api/v1/auth/sign-out",
+  method: "OPTIONS",
+  handler: emailAuthOptionsHandler,
+});
+
+// POST /api/v1/auth/sign-out - Logout (invalidate session)
+http.route({
+  path: "/api/v1/auth/sign-out",
+  method: "POST",
+  handler: signOutHandler,
 });
 
 /**
