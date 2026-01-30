@@ -363,6 +363,54 @@ export const getUserMicrosoftConnection = query({
 });
 
 /**
+ * Update sync settings for a Microsoft connection
+ */
+export const updateMicrosoftSyncSettings = mutation({
+  args: {
+    sessionId: v.string(),
+    connectionId: v.id("oauthConnections"),
+    syncSettings: v.object({
+      email: v.optional(v.boolean()),
+      calendar: v.optional(v.boolean()),
+      oneDrive: v.optional(v.boolean()),
+      sharePoint: v.optional(v.boolean()),
+    }),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId as Id<"sessions">);
+    if (!session || session.expiresAt < Date.now()) {
+      throw new Error("Invalid or expired session");
+    }
+
+    const connection = await ctx.db.get(args.connectionId);
+    if (!connection) throw new Error("Connection not found");
+    if (connection.provider !== "microsoft") throw new Error("Not a Microsoft connection");
+
+    const currentSettings = (connection.syncSettings || {}) as Record<string, unknown>;
+    const newSettings = { ...currentSettings };
+    if (args.syncSettings.email !== undefined) {
+      newSettings.email = args.syncSettings.email;
+    }
+    if (args.syncSettings.calendar !== undefined) {
+      newSettings.calendar = args.syncSettings.calendar;
+    }
+    if (args.syncSettings.oneDrive !== undefined) {
+      newSettings.oneDrive = args.syncSettings.oneDrive;
+    }
+    if (args.syncSettings.sharePoint !== undefined) {
+      newSettings.sharePoint = args.syncSettings.sharePoint;
+    }
+
+    await ctx.db.patch(args.connectionId, {
+      syncSettings: newSettings as { email: boolean; calendar: boolean; oneDrive: boolean; sharePoint: boolean },
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
  * Refresh expired Microsoft token
  */
 export const refreshMicrosoftToken = internalAction({

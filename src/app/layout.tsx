@@ -4,6 +4,7 @@ import { Geist, Geist_Mono, Press_Start_2P } from "next/font/google";
 import { Providers } from "./providers";
 import { NotificationContainer } from "@/components/ui/notification-container";
 import { SessionExpiredBoundary } from "@/components/session-expired-boundary";
+import { AffiliateCapture } from "@/components/affiliate-capture";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -88,6 +89,7 @@ export default function RootLayout({
       >
         <SessionExpiredBoundary>
           <Providers>
+            <AffiliateCapture />
             {children}
             <NotificationContainer />
           </Providers>

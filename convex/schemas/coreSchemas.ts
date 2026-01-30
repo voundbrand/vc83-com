@@ -50,6 +50,10 @@ export const organizations = defineTable({
   slug: v.string(),                    // URL-friendly identifier
   businessName: v.string(),            // Legal business name
 
+  // Sub-organization hierarchy (for Agency/Enterprise tiers)
+  // When set, this org is a sub-org of the parent and inherits certain assets
+  parentOrganizationId: v.optional(v.id("organizations")),
+
   // Plan & status
   // DEPRECATED: plan field - use organization_license object instead (single source of truth)
   // Made optional for backward compatibility during migration to organization_license
@@ -445,7 +449,8 @@ export const oauthConnections = defineTable({
     v.literal("github"),
     v.literal("vercel"),
     v.literal("okta"),
-    v.literal("activecampaign")
+    v.literal("activecampaign"),
+    v.literal("whatsapp")
     // Add more providers as needed - no DB migration required!
   ),
   providerAccountId: v.string(),               // Provider's unique user ID
@@ -563,7 +568,8 @@ export const oauthStates = defineTable({
     v.literal("dropbox"),
     v.literal("vercel"),
     v.literal("okta"),
-    v.literal("activecampaign")
+    v.literal("activecampaign"),
+    v.literal("whatsapp")
   ),
   connectionType: v.union(
     v.literal("personal"),

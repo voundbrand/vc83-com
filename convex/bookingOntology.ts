@@ -980,6 +980,12 @@ export const confirmBooking = mutation({
       triggerEvent: "booking_confirmed",
     });
 
+    // Push confirmed booking to linked external calendars
+    await ctx.scheduler.runAfter(0, internal.calendarSyncOntology.pushBookingToCalendar, {
+      bookingId: args.bookingId,
+      organizationId: booking.organizationId,
+    });
+
     return { bookingId: args.bookingId, status: "confirmed" };
   },
 });
@@ -1104,6 +1110,12 @@ export const cancelBooking = mutation({
     await ctx.runMutation(internal.sequences.sequenceProcessor.processBookingTrigger, {
       bookingId: args.bookingId,
       triggerEvent: "booking_cancelled",
+    });
+
+    // Delete cancelled booking from linked external calendars
+    await ctx.scheduler.runAfter(0, internal.calendarSyncOntology.deleteBookingFromCalendar, {
+      bookingId: args.bookingId,
+      organizationId: booking.organizationId,
     });
 
     return { bookingId: args.bookingId, status: "cancelled" };

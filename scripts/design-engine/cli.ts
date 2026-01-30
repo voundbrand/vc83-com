@@ -83,26 +83,37 @@ interface ExportedData {
 // ============================================================================
 
 async function generateEmbedding(text: string): Promise<number[]> {
-  const apiKey = process.env.OPENAI_API_KEY;
+  // Support both OpenRouter and OpenAI
+  const openRouterKey = process.env.OPENROUTER_API_KEY;
+  const openAIKey = process.env.OPENAI_API_KEY;
+
+  const apiKey = openRouterKey || openAIKey;
+  const useOpenRouter = !!openRouterKey;
+
   if (!apiKey) {
-    throw new Error("OPENAI_API_KEY environment variable is required for embedding generation");
+    throw new Error("OPENROUTER_API_KEY or OPENAI_API_KEY environment variable is required for embedding generation");
   }
 
-  const response = await fetch("https://api.openai.com/v1/embeddings", {
+  const baseUrl = useOpenRouter
+    ? "https://openrouter.ai/api/v1/embeddings"
+    : "https://api.openai.com/v1/embeddings";
+
+  const response = await fetch(baseUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
+      ...(useOpenRouter && { "HTTP-Referer": "https://vc83.com" }),
     },
     body: JSON.stringify({
-      model: "text-embedding-3-small",
+      model: "openai/text-embedding-3-small",
       input: text,
     }),
   });
 
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(`OpenAI API error: ${error}`);
+    throw new Error(`${useOpenRouter ? "OpenRouter" : "OpenAI"} API error: ${error}`);
   }
 
   const data = await response.json();
@@ -124,9 +135,9 @@ async function exportCommand(prototypesPath: string) {
     process.exit(1);
   }
 
-  // Check for OpenAI API key
-  if (!process.env.OPENAI_API_KEY) {
-    console.error("❌ OPENAI_API_KEY environment variable is required");
+  // Check for API key (OpenRouter or OpenAI)
+  if (!process.env.OPENROUTER_API_KEY && !process.env.OPENAI_API_KEY) {
+    console.error("❌ OPENROUTER_API_KEY or OPENAI_API_KEY environment variable is required");
     console.error("   Set it in your .env.local file or export it in your shell");
     process.exit(1);
   }
@@ -552,7 +563,7 @@ Workflow:
 Commands:
   export [path]    Extract patterns from prototypes, generate embeddings, save to JSON
                    Default path: ./docs/prototypes_from_v0
-                   Requires: OPENAI_API_KEY
+                   Requires: OPENROUTER_API_KEY or OPENAI_API_KEY
 
   seed             Import patterns from JSON into Convex database
                    Requires: CONVEX_URL or NEXT_PUBLIC_CONVEX_URL
@@ -562,12 +573,13 @@ Commands:
 
   search <query>   Search patterns using semantic similarity
                    Options: --limit=N  Limit results (default: 5)
-                   Requires: CONVEX_URL, OPENAI_API_KEY
+                   Requires: CONVEX_URL, OPENROUTER_API_KEY or OPENAI_API_KEY
 
   help             Show this help message
 
 Environment Variables:
-  OPENAI_API_KEY              Required for embedding generation
+  OPENROUTER_API_KEY          Preferred for embedding generation (via OpenRouter)
+  OPENAI_API_KEY              Alternative for embedding generation (direct OpenAI)
   CONVEX_URL                  Convex deployment URL (for seed/list/search)
   NEXT_PUBLIC_CONVEX_URL      Alternative to CONVEX_URL
 `);

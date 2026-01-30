@@ -120,7 +120,6 @@ export const generateUploadUrl = mutation({
     });
 
     // CHECK STORAGE LIMITS: Enforce totalStorageGB and maxFileUploadMB from licensing system
-    const { getLicenseInternal } = await import("./licensing/helpers");
     const license = await getLicenseInternal(ctx, organizationId);
     
     // Check maxFileUploadMB limit
@@ -580,7 +579,6 @@ export const createLayerCakeDocument = mutation({
     const sizeBytes = new Blob([args.documentContent]).size;
 
     // CHECK STORAGE LIMITS: Enforce totalStorageGB from licensing system
-    const { getLicenseInternal } = await import("./licensing/helpers");
     const license = await getLicenseInternal(ctx, args.organizationId);
     const totalStorageGB = license.limits.totalStorageGB;
     

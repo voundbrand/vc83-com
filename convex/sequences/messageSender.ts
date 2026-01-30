@@ -5,7 +5,7 @@
  * Currently supports:
  * - Email via Resend
  * - SMS via Infobip (placeholder)
- * - WhatsApp via Infobip (placeholder)
+ * - WhatsApp via Meta Cloud API (per-org OAuth)
  *
  * Future: Channel fallback logic (e.g., SMS → WhatsApp → Email)
  */
@@ -68,6 +68,9 @@ export const sendMessage = internalMutation({
 
       case "whatsapp":
         return await sendWhatsAppMessage(ctx, message);
+
+      case "pushover":
+        return await sendPushoverMessage(ctx, message);
 
       default:
         return { success: false, error: `Unknown channel: ${message.channel}` };
@@ -183,8 +186,47 @@ async function sendSmsMessage(
 }
 
 /**
- * Send WhatsApp message via Infobip
- * Placeholder implementation - Infobip integration not yet connected
+ * Send Pushover notification to organization admins
+ * Uses organization's Pushover credentials
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function sendPushoverMessage(
+  ctx: any,
+  message: {
+    _id: Id<"sequenceMessageQueue">;
+    body: string;
+    organizationId: Id<"organizations">;
+    pushoverTitle?: string;
+    pushoverPriority?: number;
+    pushoverSound?: string;
+    pushoverUrl?: string;
+  }
+): Promise<SendResult> {
+  try {
+    const result = await ctx.runAction(internal.integrations.pushover.sendQueuedPushoverMessage, {
+      organizationId: message.organizationId,
+      title: message.pushoverTitle,
+      body: message.body,
+      url: message.pushoverUrl,
+      priority: message.pushoverPriority,
+      sound: message.pushoverSound,
+    });
+
+    if (result.success) {
+      return { success: true, externalId: result.request };
+    } else {
+      return { success: false, error: result.error || "Pushover send failed" };
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown Pushover error";
+    console.error(`[MessageSender] Pushover error:`, error);
+    return { success: false, error: errorMessage };
+  }
+}
+
+/**
+ * Send WhatsApp message via organization's connected WhatsApp Business Account
+ * Uses Meta's WhatsApp Cloud API with per-org OAuth credentials
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function sendWhatsAppMessage(
@@ -194,51 +236,64 @@ async function sendWhatsAppMessage(
     recipientPhone?: string;
     body: string;
     organizationId: Id<"organizations">;
+    templateName?: string;
+    templateLanguage?: string;
+    templateParameters?: string[];
   }
 ): Promise<SendResult> {
   if (!message.recipientPhone) {
     return { success: false, error: "No recipient phone number" };
   }
 
-  // TODO: Implement Infobip WhatsApp integration
-  // See docs/plans/multichannel-automation/INFOBIP-INTEGRATION.md
+  // Format phone number to E.164
+  const formattedPhone = toE164(message.recipientPhone);
 
-  console.log(`[MessageSender] WhatsApp sending not yet implemented. Would send to: ${message.recipientPhone}`);
+  try {
+    // Use the org's WhatsApp connection to send
+    const result = await ctx.runAction(internal.oauth.whatsapp.sendWhatsAppMessage, {
+      organizationId: message.organizationId,
+      to: formattedPhone,
+      // For sequences, we typically use templates (required for business-initiated messages)
+      templateName: message.templateName || "booking_reminder",
+      templateLanguage: message.templateLanguage || "de",
+      templateParameters: message.templateParameters || [message.body],
+      // Text messages only work within 24h conversation window
+      textMessage: undefined,
+    });
 
-  // For now, return an error indicating not implemented
-  return {
-    success: false,
-    error: "WhatsApp delivery not yet configured. Contact support to enable WhatsApp messaging.",
-  };
+    if (result.success) {
+      return { success: true, externalId: result.messageId };
+    } else {
+      return { success: false, error: result.error || "WhatsApp send failed" };
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown WhatsApp error";
+    console.error(`[MessageSender] WhatsApp error:`, error);
+    return { success: false, error: errorMessage };
+  }
+}
 
-  /*
-  // Future implementation:
-  const INFOBIP_API_KEY = process.env.INFOBIP_API_KEY;
-  const INFOBIP_BASE_URL = process.env.INFOBIP_BASE_URL;
-  const WHATSAPP_SENDER = process.env.INFOBIP_WHATSAPP_SENDER;
+/**
+ * Convert phone number to E.164 format
+ * @param phone - Phone number in various formats
+ * @param defaultCountry - Default country code (without +)
+ */
+function toE164(phone: string, defaultCountry = "49"): string {
+  // Remove all non-digit characters except leading +
+  let cleaned = phone.replace(/[^\d+]/g, "");
 
-  if (!INFOBIP_API_KEY || !INFOBIP_BASE_URL || !WHATSAPP_SENDER) {
-    return { success: false, error: "WhatsApp not configured" };
+  // Handle different formats
+  if (cleaned.startsWith("+")) {
+    return cleaned;
+  }
+  if (cleaned.startsWith("00")) {
+    return "+" + cleaned.slice(2);
+  }
+  if (cleaned.startsWith("0")) {
+    return "+" + defaultCountry + cleaned.slice(1);
   }
 
-  const response = await fetch(`${INFOBIP_BASE_URL}/whatsapp/1/message/text`, {
-    method: "POST",
-    headers: {
-      "Authorization": `App ${INFOBIP_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: WHATSAPP_SENDER,
-      to: message.recipientPhone,
-      content: {
-        text: message.body,
-      },
-    }),
-  });
-
-  const result = await response.json();
-  // Handle response...
-  */
+  return "+" + defaultCountry + cleaned;
 }
 
 // ============================================================================
@@ -255,7 +310,8 @@ export const sendWithFallback = internalMutation({
     fallbackOrder: v.array(v.union(
       v.literal("email"),
       v.literal("sms"),
-      v.literal("whatsapp")
+      v.literal("whatsapp"),
+      v.literal("pushover")
     )),
   },
   handler: async (ctx, args): Promise<SendResult> => {

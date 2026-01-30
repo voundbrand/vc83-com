@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Eye, EyeOff, Smartphone } from "lucide-react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { startAuthentication } from "@simplewebauthn/browser";
 import { PasskeyEncouragementBanner } from "@/components/passkey-encouragement-banner";
 import { FirstLoginPasskeyModal } from "@/components/first-login-passkey-modal";
+import { captureRefCode, getRefCode, clearRefCode } from "@/lib/affiliate-capture";
 
 export function LoginWindow() {
   const [mode, setMode] = useState<"check" | "signin" | "setup" | "signup">("check");
@@ -32,6 +33,11 @@ export function LoginWindow() {
   const { user, isSignedIn, signIn, setupPassword, checkNeedsPasswordSetup, signOut, sessionId } = useAuth();
   const { t } = useNamespaceTranslations("ui.login");
 
+  // Capture affiliate referral code from ?ref= URL parameter on mount
+  useEffect(() => {
+    captureRefCode();
+  }, []);
+
   // Get last used OAuth provider from localStorage
   const getLastUsedProvider = (): "microsoft" | "google" | "github" | null => {
     if (typeof window === "undefined") return null;
@@ -53,7 +59,8 @@ export function LoginWindow() {
   const handleOAuth = (provider: "microsoft" | "google" | "github") => {
     setLastUsedProvider(provider);
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
-    const oauthUrl = `${appUrl}/api/auth/oauth-signup?provider=${provider}&sessionType=platform`;
+    const refcode = getRefCode();
+    const oauthUrl = `${appUrl}/api/auth/oauth-signup?provider=${provider}&sessionType=platform${refcode ? `&ref=${encodeURIComponent(refcode)}` : ""}`;
     window.location.href = oauthUrl;
   };
 
@@ -258,6 +265,8 @@ export function LoginWindow() {
 
       console.log("Signing up with API URL:", apiUrl);
 
+      const refcode = getRefCode();
+
       const response = await fetch(`${apiUrl}/api/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -267,6 +276,7 @@ export function LoginWindow() {
           firstName,
           lastName,
           organizationName: organizationName || undefined,
+          refcode: refcode || undefined,
         }),
       });
 
@@ -290,6 +300,23 @@ export function LoginWindow() {
 
       // Store session ID
       localStorage.setItem("convex_session_id", result.sessionId);
+
+      // Track signup for affiliate attribution (fire-and-forget)
+      if (refcode) {
+        fetch("/api/affiliate/track-signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: result.sessionId,
+            email,
+            name: `${firstName} ${lastName}`.trim(),
+            refcode,
+          }),
+        }).catch(() => {
+          // Silently ignore tracking errors
+        });
+        clearRefCode();
+      }
 
       // Show onboarding with API key
       setSignupSuccess({
@@ -378,7 +405,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
               const url = URL.createObjectURL(blob);
               const a = document.createElement("a");
               a.href = url;
-              a.download = ".env.local";
+              a.download = ".env.example";
               a.click();
               URL.revokeObjectURL(url);
             }}

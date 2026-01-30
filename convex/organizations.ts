@@ -2,7 +2,8 @@ import { action, query, mutation, internalMutation, internalQuery } from "./_gen
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
-import { requireAuthenticatedUser, getUserContext, checkPermission } from "./rbacHelpers";
+import { requireAuthenticatedUser, getUserContext, checkPermission, requirePermission } from "./rbacHelpers";
+import { getLicenseInternal } from "./licensing/helpers";
 
 // ============================================================================
 // QUERIES
@@ -301,12 +302,24 @@ export const inviteUser = action({
     }
 
     // Add user to organization
-    await ctx.runMutation(internal.organizations.addUserToOrganization, {
-      userId: newUserId,
-      organizationId: args.organizationId,
-      roleId: args.roleId,
-      invitedBy: inviterId,
-    });
+    try {
+      await ctx.runMutation(internal.organizations.addUserToOrganization, {
+        userId: newUserId,
+        organizationId: args.organizationId,
+        roleId: args.roleId,
+        invitedBy: inviterId,
+      });
+    } catch (error) {
+      // If this was a new user we created, we need to clean up
+      if (isNewUser) {
+        // Delete the newly created user since the invitation failed
+        await ctx.runMutation(internal.organizations.deleteInvitedUser, {
+          userId: newUserId,
+        });
+      }
+      // Re-throw the error with proper message
+      throw error;
+    }
 
     // Send invitation email (if enabled)
     if (args.sendEmail !== false) {
@@ -542,6 +555,19 @@ export const createInvitedUser = internalMutation({
   },
 });
 
+export const deleteInvitedUser = internalMutation({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    // Only delete users that were invited (have invitedBy set) and haven't set up their password yet
+    const user = await ctx.db.get(args.userId);
+    if (user && user.invitedBy && !user.isPasswordSet) {
+      await ctx.db.delete(args.userId);
+    }
+  },
+});
+
 export const addUserToOrganization = internalMutation({
   args: {
     userId: v.id("users"),
@@ -551,7 +577,6 @@ export const addUserToOrganization = internalMutation({
   },
   handler: async (ctx, args) => {
     // CHECK USER LIMIT: Enforce maxUsers limit for organization's tier
-    const { getLicenseInternal } = await import("./licensing/helpers");
     const license = await getLicenseInternal(ctx, args.organizationId);
     const maxUsers = license.limits.maxUsers;
 
@@ -641,6 +666,7 @@ export const createOrganization = action({
     timezone: v.optional(v.string()), // IANA timezone (e.g., "America/New_York")
     dateFormat: v.optional(v.string()), // Date format (e.g., "MM/DD/YYYY")
     language: v.optional(v.string()), // Language code (e.g., "en", "de")
+    parentOrganizationId: v.optional(v.id("organizations")), // Create as sub-org of parent
   },
   handler: async (ctx, args): Promise<{ success: boolean; organizationId: Id<"organizations">; slug: string; message: string }> => {
     // 1. Authenticate user
@@ -676,6 +702,34 @@ export const createOrganization = action({
       throw new Error(`An organization with the slug "${slug}" already exists. Please use a different business name.`);
     }
 
+    // 5.5. Validate parent organization if creating sub-org
+    if (args.parentOrganizationId) {
+      // Verify parent org exists
+      const parentOrg = await ctx.runQuery(internal.organizations.getOrgById, {
+        organizationId: args.parentOrganizationId,
+      });
+      if (!parentOrg) {
+        throw new Error("Parent organization not found");
+      }
+
+      // Check parent's license allows sub-orgs
+      const parentLicense = await ctx.runQuery(internal.licensing.helpers.getLicenseInternalQuery, {
+        organizationId: args.parentOrganizationId,
+      });
+      if (!parentLicense.features.subOrgsEnabled) {
+        throw new Error("Parent organization's plan does not support sub-organizations");
+      }
+
+      // Check sub-org limit
+      const currentSubOrgCount = await ctx.runQuery(internal.organizations.countSubOrganizations, {
+        parentOrganizationId: args.parentOrganizationId,
+      });
+      const limit = parentLicense.limits.maxSubOrganizations;
+      if (limit !== -1 && currentSubOrgCount >= limit) {
+        throw new Error(`Parent organization has reached the maximum number of sub-organizations (${limit})`);
+      }
+    }
+
     // 6. Create the organization
     const organizationId: Id<"organizations"> = await ctx.runMutation(internal.organizations.createOrgRecord, {
       businessName: args.businessName,
@@ -683,6 +737,7 @@ export const createOrganization = action({
       slug,
       description: args.description,
       createdBy: userId,
+      parentOrganizationId: args.parentOrganizationId,
     });
 
     // 7. Create organization_settings ontology object with provided locale settings
@@ -740,6 +795,8 @@ export const createOrganization = action({
         businessName: args.businessName,
         slug,
         addedCreatorAsOwner: args.addCreatorAsOwner !== false,
+        parentOrganizationId: args.parentOrganizationId || null,
+        isSubOrganization: !!args.parentOrganizationId,
       },
     });
 
@@ -747,14 +804,375 @@ export const createOrganization = action({
       success: true,
       organizationId,
       slug,
-      message: `Organization "${args.businessName}" created successfully`,
+      message: args.parentOrganizationId
+        ? `Sub-organization "${args.businessName}" created successfully`
+        : `Organization "${args.businessName}" created successfully`,
     };
   },
 });
 
 // ============================================================================
-// INTERNAL MUTATIONS FOR ORGANIZATION CREATION
+// SUB-ORGANIZATION CREATION (SELF-SERVICE)
 // ============================================================================
+
+/**
+ * Create a sub-organization (self-service for Agency/Enterprise users)
+ *
+ * This allows org_owners of organizations with subOrgsEnabled to create
+ * sub-organizations within their tier limits.
+ *
+ * Requirements:
+ * - User must be org_owner of the parent organization
+ * - Parent organization must have subOrgsEnabled feature
+ * - Parent organization must not have exceeded maxSubOrganizations limit
+ *
+ * @permission None - role-based (org_owner of parent org)
+ * @roles org_owner
+ */
+export const createSubOrganization = action({
+  args: {
+    sessionId: v.string(),
+    parentOrganizationId: v.id("organizations"), // REQUIRED: Parent org
+    businessName: v.string(), // REQUIRED: Legal business name for sub-org
+    description: v.optional(v.string()),
+    contactEmail: v.optional(v.string()),
+    contactPhone: v.optional(v.string()),
+    timezone: v.optional(v.string()),
+    dateFormat: v.optional(v.string()),
+    language: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<{ success: boolean; organizationId: Id<"organizations">; slug: string; message: string }> => {
+    // 1. Authenticate user
+    const authResult = await ctx.runQuery(internal.rbacHelpers.requireAuthenticatedUserQuery, {
+      sessionId: args.sessionId,
+    });
+    const userId: Id<"users"> = authResult.userId;
+
+    // 2. Verify parent organization exists
+    const parentOrg = await ctx.runQuery(internal.organizations.getOrgById, {
+      organizationId: args.parentOrganizationId,
+    });
+    if (!parentOrg) {
+      throw new Error("Parent organization not found");
+    }
+
+    // 3. Check user is org_owner of parent organization
+    const membership = await ctx.runQuery(internal.organizations.getUserMembership, {
+      userId,
+      organizationId: args.parentOrganizationId,
+    });
+    if (!membership || !membership.isActive) {
+      throw new Error("You are not a member of this organization");
+    }
+
+    const memberRole = await ctx.runQuery(internal.rbac.getRoleById, {
+      roleId: membership.role,
+    });
+    if (!memberRole || memberRole.name !== "org_owner") {
+      throw new Error("Only organization owners can create sub-organizations");
+    }
+
+    // 4. Check parent's license allows sub-orgs
+    const parentLicense = await ctx.runQuery(internal.licensing.helpers.getLicenseInternalQuery, {
+      organizationId: args.parentOrganizationId,
+    });
+    if (!parentLicense.features.subOrgsEnabled) {
+      throw new Error("Your organization's plan does not support sub-organizations. Please upgrade to Agency or Enterprise tier.");
+    }
+
+    // 5. Check sub-org limit
+    const currentSubOrgCount = await ctx.runQuery(internal.organizations.countSubOrganizations, {
+      parentOrganizationId: args.parentOrganizationId,
+    });
+    const limit = parentLicense.limits.maxSubOrganizations;
+    if (limit !== -1 && currentSubOrgCount >= limit) {
+      throw new Error(`You have reached the maximum number of sub-organizations (${limit}). Please contact support to increase your limit.`);
+    }
+
+    // 6. Validate business name
+    if (!args.businessName || args.businessName.trim().length === 0) {
+      throw new Error("Business name is required");
+    }
+
+    // 7. Generate slug from business name
+    const baseSlug = args.businessName
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+
+    // Add parent org slug as prefix for sub-orgs to ensure uniqueness
+    const slug = `${parentOrg.slug}-${baseSlug}`;
+
+    // 8. Check for duplicate slug
+    const existingOrg = await ctx.runQuery(internal.organizations.getOrgBySlug, {
+      slug,
+    });
+
+    if (existingOrg) {
+      throw new Error(`A sub-organization with this name already exists. Please use a different business name.`);
+    }
+
+    // 9. Create the sub-organization
+    const organizationId: Id<"organizations"> = await ctx.runMutation(internal.organizations.createOrgRecord, {
+      businessName: args.businessName,
+      name: args.businessName,
+      slug,
+      description: args.description,
+      createdBy: userId,
+      parentOrganizationId: args.parentOrganizationId,
+    });
+
+    // 10. Create organization_settings
+    await ctx.runMutation(internal.organizations.createOrgSettings, {
+      organizationId,
+      createdBy: userId,
+      timezone: args.timezone,
+      dateFormat: args.dateFormat,
+      language: args.language,
+    });
+
+    // 11. Save contact information (if provided)
+    if (args.contactEmail || args.contactPhone) {
+      await ctx.runMutation(internal.organizationOntology.createOrgContact, {
+        organizationId,
+        createdBy: userId,
+        primaryEmail: args.contactEmail,
+        primaryPhone: args.contactPhone,
+      });
+    }
+
+    // 12. Add creator as org_owner of sub-org
+    await ctx.runMutation(internal.organizations.addCreatorAsOwner, {
+      userId,
+      organizationId,
+    });
+
+    // 13. Assign all apps to new sub-organization
+    await ctx.runMutation(internal.onboarding.assignAllAppsToOrg, {
+      organizationId,
+      userId,
+    });
+
+    // 14. Log success audit
+    await ctx.runMutation(internal.rbac.logAudit, {
+      userId,
+      organizationId,
+      action: "create_sub_organization",
+      resource: "organizations",
+      resourceId: organizationId,
+      success: true,
+      metadata: {
+        businessName: args.businessName,
+        slug,
+        parentOrganizationId: args.parentOrganizationId,
+        parentOrganizationName: parentOrg.name,
+      },
+    });
+
+    return {
+      success: true,
+      organizationId,
+      slug,
+      message: `Sub-organization "${args.businessName}" created successfully`,
+    };
+  },
+});
+
+// ============================================================================
+// ORGANIZATION PARENT RELATIONSHIP MANAGEMENT
+// ============================================================================
+
+/**
+ * Update an organization's parent relationship (super admin only)
+ *
+ * This allows super admins to:
+ * - Assign a top-level org as a sub-org of another
+ * - Remove an org from its parent (make it top-level)
+ * - Move a sub-org to a different parent
+ *
+ * @permission manage_organization or super_admin
+ * @roles super_admin
+ */
+export const updateOrganizationParent = mutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    parentOrganizationId: v.union(v.id("organizations"), v.null()), // null = remove parent
+  },
+  handler: async (ctx, args) => {
+    // 1. Authenticate user
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    // 2. Get user context to check super admin status
+    const userContext = await getUserContext(ctx, userId);
+
+    // Only super admins can change parent relationships
+    if (!userContext.isGlobal || userContext.roleName !== "super_admin") {
+      throw new Error("Only super admins can change organization parent relationships");
+    }
+
+    // 3. Get the organization being updated
+    const organization = await ctx.db.get(args.organizationId);
+    if (!organization) {
+      throw new Error("Organization not found");
+    }
+
+    // 4. Validate new parent if provided
+    if (args.parentOrganizationId !== null) {
+      const parentOrg = await ctx.db.get(args.parentOrganizationId);
+      if (!parentOrg) {
+        throw new Error("Parent organization not found");
+      }
+
+      // Prevent circular references - parent can't be a descendant
+      if (parentOrg.parentOrganizationId === args.organizationId) {
+        throw new Error("Cannot create circular parent relationship");
+      }
+
+      // Prevent setting self as parent
+      if (args.parentOrganizationId === args.organizationId) {
+        throw new Error("Organization cannot be its own parent");
+      }
+
+      // Check parent's license allows sub-orgs
+      const parentLicense = await getLicenseInternal(ctx, args.parentOrganizationId);
+      if (!parentLicense.features.subOrgsEnabled) {
+        throw new Error("Parent organization's plan does not support sub-organizations");
+      }
+
+      // Check sub-org limit (only if adding, not moving)
+      if (organization.parentOrganizationId !== args.parentOrganizationId) {
+        // args.parentOrganizationId is guaranteed non-null here due to the outer if check
+        const parentId = args.parentOrganizationId!;
+        const currentSubOrgCount = await ctx.db
+          .query("organizations")
+          .withIndex("by_parent", (q) => q.eq("parentOrganizationId", parentId))
+          .filter((q) => q.eq(q.field("isActive"), true))
+          .collect();
+
+        const limit = parentLicense.limits.maxSubOrganizations;
+        if (limit !== -1 && currentSubOrgCount.length >= limit) {
+          throw new Error(`Parent organization has reached the maximum number of sub-organizations (${limit})`);
+        }
+      }
+    }
+
+    // 5. Update the organization
+    const oldParentId = organization.parentOrganizationId;
+    await ctx.db.patch(args.organizationId, {
+      parentOrganizationId: args.parentOrganizationId ?? undefined,
+      updatedAt: Date.now(),
+    });
+
+    // 6. Log to audit trail
+    await ctx.db.insert("auditLogs", {
+      userId,
+      organizationId: args.organizationId,
+      action: "update_organization_parent",
+      resource: "organizations",
+      resourceId: String(args.organizationId),
+      success: true,
+      createdAt: Date.now(),
+      metadata: {
+        oldParentId: oldParentId || null,
+        newParentId: args.parentOrganizationId,
+      },
+    });
+
+    return {
+      success: true,
+      message: args.parentOrganizationId
+        ? `Organization is now a sub-organization`
+        : `Organization is now a top-level organization`,
+    };
+  },
+});
+
+/**
+ * Get sub-organizations for a parent organization
+ *
+ * @permission view_organization
+ * @roles org_owner, business_manager, super_admin
+ */
+export const getSubOrganizations = query({
+  args: {
+    sessionId: v.string(),
+    parentOrganizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    // Authenticate user
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    // Check permission using checkPermission (for queries)
+    const hasPermission = await checkPermission(ctx, userId, "view_organization", args.parentOrganizationId);
+    if (!hasPermission) {
+      throw new Error("You do not have permission to view this organization's sub-organizations");
+    }
+
+    // Get all sub-organizations
+    const subOrgs = await ctx.db
+      .query("organizations")
+      .withIndex("by_parent", (q) => q.eq("parentOrganizationId", args.parentOrganizationId))
+      .collect();
+
+    // Get member counts for each sub-org
+    const subOrgsWithDetails = await Promise.all(
+      subOrgs.map(async (org) => {
+        const memberCount = await ctx.db
+          .query("organizationMembers")
+          .withIndex("by_organization", (q) => q.eq("organizationId", org._id))
+          .filter((q) => q.eq(q.field("isActive"), true))
+          .collect();
+
+        return {
+          ...org,
+          memberCount: memberCount.length,
+        };
+      })
+    );
+
+    return subOrgsWithDetails;
+  },
+});
+
+// ============================================================================
+// INTERNAL QUERIES FOR ORGANIZATION MANAGEMENT
+// ============================================================================
+
+export const getOrgById = internalQuery({
+  args: { organizationId: v.id("organizations") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.organizationId);
+  },
+});
+
+export const countSubOrganizations = internalQuery({
+  args: { parentOrganizationId: v.id("organizations") },
+  handler: async (ctx, args) => {
+    const subOrgs = await ctx.db
+      .query("organizations")
+      .withIndex("by_parent", (q) => q.eq("parentOrganizationId", args.parentOrganizationId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+    return subOrgs.length;
+  },
+});
+
+export const getUserMembership = internalQuery({
+  args: {
+    userId: v.id("users"),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("organizationMembers")
+      .withIndex("by_user_and_org", (q) =>
+        q.eq("userId", args.userId).eq("organizationId", args.organizationId)
+      )
+      .first();
+  },
+});
 
 export const getOrgBySlug = internalQuery({
   args: { slug: v.string() },

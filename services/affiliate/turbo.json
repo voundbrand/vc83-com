@@ -1,0 +1,51 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "tui",
+  "globalEnv": [
+    "INFISICAL_TOKEN",
+    "BETTER_AUTH_SECRET",
+    "DATABASE_URL",
+    "NEXT_PUBLIC_APP_URL",
+    "NEXT_PUBLIC_ASSETS_URL",
+    "BETTER_AUTH_URL",
+    "NODE_ENV",
+    "RESEND_API_KEY",
+    "GOOGLE_CLIENT_ID",
+    "GOOGLE_CLIENT_SECRET",
+    "REFERRAL_PROGRAM_CLIENT_ID",
+    "REFERRAL_PROGRAM_CLIENT_SECRET",
+    "NEXT_PUBLIC_REFREF_PRODUCT_ID",
+    "NEXT_PUBLIC_REFREF_PROGRAM_ID",
+    "VITE_REFREF_API_ENDPOINT"
+  ],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"],
+      "env": []
+    },
+    "lint": {
+      "dependsOn": ["^lint"]
+    },
+    "type:check": {
+      "dependsOn": ["^build", "^type:check"]
+    },
+    "test": {
+      "dependsOn": ["^build"]
+    },
+    "test:run": {
+      "dependsOn": ["^build"]
+    },
+    "dev": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "persistent": true
+    },
+    "db:generate": {},
+    "db:migrate": {},
+    "db:push": {},
+    "db:seed": {},
+    "db:studio": {}
+  }
+}

@@ -17,7 +17,7 @@ import {
   getProviderConfig,
 } from "./modelAdapters";
 import { getFeatureRequestMessage, detectUserLanguage } from "./i18nHelper";
-import { PAGE_BUILDER_SYSTEM_PROMPT } from "./prompts/pageBuilderSystem";
+import { PAGE_BUILDER_SYSTEM_PROMPT, getPageBuilderPrompt } from "./prompts/pageBuilderSystem";
 
 // Type definitions for OpenRouter API
 interface ChatMessage {
@@ -26,6 +26,58 @@ interface ChatMessage {
   // tool_calls format varies between API and DB storage
   tool_calls?: unknown;
   tool_call_id?: string;
+}
+
+/**
+ * Generate a session title from the first user message
+ * Creates a concise, descriptive title based on the context
+ */
+function generateSessionTitle(
+  message: string,
+  context?: "normal" | "page_builder"
+): string {
+  // Strip any mode prefixes like [PLANNING MODE] or [DOCS MODE]
+  const cleanMessage = message
+    .replace(/^\[(PLANNING MODE|DOCS MODE)[^\]]*\]\s*/i, "")
+    .replace(/^---[\s\S]*?---\s*/, "") // Remove attached content blocks
+    .trim();
+
+  // Extract the core intent (first sentence or up to 60 chars)
+  let title = cleanMessage.split(/[.!?\n]/)[0].trim();
+
+  // If too long, truncate intelligently
+  if (title.length > 60) {
+    // Try to break at a word boundary
+    const truncated = title.substring(0, 57);
+    const lastSpace = truncated.lastIndexOf(" ");
+    title = lastSpace > 30 ? truncated.substring(0, lastSpace) + "..." : truncated + "...";
+  }
+
+  // Add context prefix for page builder sessions
+  if (context === "page_builder") {
+    // Check for common patterns and create descriptive titles
+    const lowerMessage = cleanMessage.toLowerCase();
+
+    if (lowerMessage.includes("landing page")) {
+      const match = cleanMessage.match(/landing page (?:for |about )?(?:a |an |my )?([^.!?\n]+)/i);
+      if (match) {
+        title = `Landing: ${match[1].substring(0, 40)}${match[1].length > 40 ? "..." : ""}`;
+      }
+    } else if (lowerMessage.includes("contact form") || lowerMessage.includes("form")) {
+      title = title.startsWith("Create") ? title : `Form: ${title}`;
+    } else if (lowerMessage.includes("dashboard")) {
+      title = title.startsWith("Create") ? title : `Dashboard: ${title}`;
+    } else if (lowerMessage.includes("portfolio")) {
+      title = `Portfolio: ${title.replace(/portfolio/i, "").trim() || "Personal"}`;
+    }
+  }
+
+  // Fallback if title is empty
+  if (!title || title.length < 3) {
+    title = context === "page_builder" ? "New Page" : "New Chat";
+  }
+
+  return title;
 }
 
 interface ToolCallFromAPI {
@@ -82,9 +134,11 @@ export const sendMessage = action({
     selectedModel: v.optional(v.string()),
     isAutoRecovery: v.optional(v.boolean()), // Flag to bypass proposals for auto-recovery
     context: v.optional(v.union(v.literal("normal"), v.literal("page_builder"))), // Context for system prompt selection
+    builderMode: v.optional(v.union(v.literal("prototype"), v.literal("connect"))), // Builder mode for tool filtering
   },
   handler: async (ctx, args): Promise<{
     conversationId: Id<"aiConversations">;
+    slug?: string;
     message: string;
     toolCalls: ToolCallResult[];
     usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | null;
@@ -92,11 +146,20 @@ export const sendMessage = action({
   }> => {
     // 1. Get or create conversation
     let conversationId: Id<"aiConversations"> | undefined = args.conversationId;
+    let conversationSlug: string | undefined;
+    const isNewConversation = !conversationId;
+
     if (!conversationId) {
+      // Generate a title from the first message based on context
+      const sessionTitle = generateSessionTitle(args.message, args.context);
+
       conversationId = await ctx.runMutation(api.ai.conversations.createConversation, {
         organizationId: args.organizationId,
         userId: args.userId,
+        title: sessionTitle,
       });
+
+      console.log(`[AI Chat] Created new conversation with title: "${sessionTitle}"`);
     }
 
     // 2. Add user message
@@ -110,7 +173,12 @@ export const sendMessage = action({
     // 3. Get conversation history
     const conversation = await ctx.runQuery(api.ai.conversations.getConversation, {
       conversationId,
-    }) as { messages: ConversationMessage[] };
+    }) as { messages: ConversationMessage[]; slug?: string };
+
+    // Capture slug for new conversations (to return for URL update)
+    if (isNewConversation && conversation.slug) {
+      conversationSlug = conversation.slug;
+    }
 
     // 4. Get AI settings for model selection
     const settings = await ctx.runQuery(api.ai.settings.getAISettings, {
@@ -406,8 +474,9 @@ Would you like me to walk you through any of these steps in detail?"
 Remember: You're not just answering questions - you're helping users accomplish their goals. Be their guide, their tutor, and their automation assistant all in one.`;
 
     // Select the appropriate system prompt based on context
+    // For page builder, use mode-aware prompt (prototype mode gets special instructions)
     let systemPrompt = isPageBuilderContext
-      ? PAGE_BUILDER_SYSTEM_PROMPT
+      ? getPageBuilderPrompt(args.builderMode)
       : normalChatPrompt;
 
     // For page builder context, inject RAG design patterns if available
@@ -472,13 +541,30 @@ Remember: You're not just answering questions - you're helping users accomplish 
     console.log(`[AI Chat] Built ${messages.length} messages for OpenRouter (${conversation.messages.length} in DB)`);
 
     // 7. Call OpenRouter with tools
-    let response = await client.chatCompletion({
-      model,
-      messages,
-      tools: getToolSchemas(),
-      temperature: settings.llm.temperature,
-      max_tokens: settings.llm.maxTokens,
-    }) as ChatResponse;
+    // In prototype mode (page_builder context), only provide read-only tools
+    const builderMode = isPageBuilderContext ? args.builderMode : undefined;
+    const availableTools = getToolSchemas(builderMode);
+
+    console.log(`[AI Chat] Builder mode: ${builderMode || 'none'}, available tools: ${availableTools.length}`);
+
+    let response: ChatResponse;
+    try {
+      response = await client.chatCompletion({
+        model,
+        messages,
+        tools: availableTools,
+        temperature: settings.llm.temperature,
+        max_tokens: settings.llm.maxTokens,
+      }) as ChatResponse;
+    } catch (apiError) {
+      // Handle OpenRouter API errors gracefully
+      const errorMessage = apiError instanceof Error ? apiError.message : String(apiError);
+      console.error("[AI Chat] OpenRouter API error:", errorMessage);
+
+      // Re-throw with a cleaner error message for the client
+      // The client-side error parser will categorize this appropriately
+      throw new Error(errorMessage);
+    }
 
     // Validate response structure
     if (!response.choices || response.choices.length === 0) {
@@ -716,13 +802,20 @@ Remember: You're not just answering questions - you're helping users accomplish 
       }
 
       // Get next response after tool execution (without tools to force final answer)
-      response = await client.chatCompletion({
-        model,
-        messages,
-        temperature: settings.llm.temperature,
-        max_tokens: settings.llm.maxTokens,
-        // Don't pass tools on subsequent calls to encourage final answer
-      });
+      try {
+        response = await client.chatCompletion({
+          model,
+          messages,
+          temperature: settings.llm.temperature,
+          max_tokens: settings.llm.maxTokens,
+          // Don't pass tools on subsequent calls to encourage final answer
+        });
+      } catch (apiError) {
+        // Handle OpenRouter API errors gracefully
+        const errorMessage = apiError instanceof Error ? apiError.message : String(apiError);
+        console.error("[AI Chat] OpenRouter API error (after tool execution):", errorMessage);
+        throw new Error(errorMessage);
+      }
 
       // Validate response structure
       if (!response.choices || response.choices.length === 0) {
@@ -784,6 +877,43 @@ Remember: You're not just answering questions - you're helping users accomplish 
       costUsd: cost,
     });
 
+    // 11. Collect training data (silent, non-blocking)
+    try {
+      const exampleType = args.context === "page_builder" ? "page_generation" : "tool_invocation";
+
+      // Try to parse JSON from response for page builder
+      let generatedJson: unknown = undefined;
+      if (args.context === "page_builder" && finalMessage.content) {
+        const jsonMatch = finalMessage.content.match(/```json\s*([\s\S]*?)\s*```/);
+        if (jsonMatch) {
+          try {
+            generatedJson = JSON.parse(jsonMatch[1]);
+          } catch {
+            // Invalid JSON, leave as undefined
+          }
+        }
+      }
+
+      await ctx.runMutation(internal.ai.trainingData.collectTrainingExample, {
+        conversationId: conversationId!,
+        organizationId: args.organizationId,
+        exampleType,
+        input: {
+          userMessage: args.message,
+          // previousContext could be added if needed
+        },
+        output: {
+          response: finalMessage.content || "",
+          generatedJson,
+          toolCalls: executedToolCalls.length > 0 ? executedToolCalls : undefined,
+        },
+        modelUsed: model,
+      });
+    } catch (error) {
+      // Don't fail the main request if training data collection fails
+      console.error("[Training] Failed to collect training example:", error);
+    }
+
     // Return message only if we saved one (i.e., no proposals)
     const returnMessage = proposedToolCount > 0
       ? "" // No message for proposals - they appear in Tool Execution panel only
@@ -791,6 +921,7 @@ Remember: You're not just answering questions - you're helping users accomplish 
 
     return {
       conversationId: conversationId!, // Guaranteed set by createConversation
+      slug: conversationSlug,          // Only set for new conversations
       message: returnMessage,
       toolCalls,
       usage: response.usage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },

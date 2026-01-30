@@ -92,6 +92,7 @@ export const createPlatformCheckoutSession = action({
       email: billingDetails?.billingEmail || args.email,
       metadata: {
         organizationId: args.organizationId,
+        userEmail: args.email,
         platform: "l4yercak3",
         isB2B: args.isB2B ? "true" : "false",
       },
@@ -274,6 +275,7 @@ export const createTokenPackCheckoutSession = action({
       email: billingDetails?.billingEmail || args.email,
       metadata: {
         organizationId: args.organizationId,
+        userEmail: args.email,
         platform: "l4yercak3",
       },
       // Pre-fill billing address if we have it stored

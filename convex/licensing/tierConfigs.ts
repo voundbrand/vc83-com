@@ -59,6 +59,9 @@ export interface TierLimits {
   // Web Publishing
   maxPages: number;
 
+  // Builder Apps (v0-generated deployable apps)
+  maxBuilderApps: number;
+
   // Workflows
   maxWorkflows: number;
   maxBehaviorsPerWorkflow: number;
@@ -306,6 +309,9 @@ export const FREE_TIER: TierConfig = {
     // Web Publishing
     maxPages: 1,
 
+    // Builder Apps
+    maxBuilderApps: 1,
+
     // Workflows
     maxWorkflows: 2,
     maxBehaviorsPerWorkflow: 5,
@@ -536,6 +542,9 @@ export const STARTER_TIER: TierConfig = {
 
     // Web Publishing
     maxPages: 5,
+
+    // Builder Apps
+    maxBuilderApps: 5,
 
     // Workflows
     maxWorkflows: 10,
@@ -768,6 +777,9 @@ export const PROFESSIONAL_TIER: TierConfig = {
     // Web Publishing
     maxPages: 25,
 
+    // Builder Apps
+    maxBuilderApps: 25,
+
     // Workflows
     maxWorkflows: 50,
     maxBehaviorsPerWorkflow: 50,
@@ -999,6 +1011,9 @@ export const AGENCY_TIER: TierConfig = {
     // Web Publishing
     maxPages: 100,
 
+    // Builder Apps
+    maxBuilderApps: 100,
+
     // Workflows
     maxWorkflows: UNLIMITED,
     maxBehaviorsPerWorkflow: UNLIMITED,
@@ -1229,6 +1244,9 @@ export const ENTERPRISE_TIER: TierConfig = {
 
     // Web Publishing
     maxPages: UNLIMITED,
+
+    // Builder Apps
+    maxBuilderApps: UNLIMITED,
 
     // Workflows
     maxWorkflows: UNLIMITED,

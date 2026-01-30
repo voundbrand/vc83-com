@@ -2,9 +2,10 @@
 
 import { useLayoutMode } from "../layout-mode-context"
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
-import { MessageSquare, LayoutGrid, Sparkles } from "lucide-react"
+import { MessageSquare, LayoutGrid, Sparkles, Layers } from "lucide-react"
 import { useShoppingCart } from "@/contexts/shopping-cart-context"
 import { useWindowManager } from "@/hooks/use-window-manager"
+import Link from "next/link"
 
 export function ChatHeader() {
   const { mode, switchToThreePane, switchToSinglePane } = useLayoutMode()
@@ -63,6 +64,20 @@ export function ChatHeader() {
       </div>
 
       <div className="flex items-center gap-2">
+        {/* l4yercak3 Builder Link */}
+        <Link
+          href="/builder"
+          className="px-2 py-0.5 text-xs font-pixel flex items-center gap-1 hover:scale-105 transition-transform rounded"
+          style={{
+            background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)',
+            color: 'white',
+          }}
+          title="Open l4yercak3 Builder"
+        >
+          <Layers className="w-3 h-3" />
+          Builder
+        </Link>
+
         {/* Subscribe to AI Button */}
         <button
           className="retro-button-primary px-2 py-0.5 text-xs font-pixel flex items-center gap-1 hover:scale-105 transition-transform"

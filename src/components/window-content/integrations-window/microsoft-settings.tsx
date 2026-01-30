@@ -34,6 +34,14 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
     connection?.id ? { connectionId: connection.id } : "skip"
   );
 
+  // Query calendar sync status
+  const calendarSyncStatus = useQuery(
+    api.calendarSyncOntology.getSyncStatus,
+    sessionId && connection?.id
+      ? { sessionId, connectionId: connection.id }
+      : "skip"
+  );
+
   // Mutations and actions
   const initiateMicrosoftOAuth = useMutation(api.oauth.microsoft.initiateMicrosoftOAuth);
   const disconnectMicrosoft = useMutation(api.oauth.microsoft.disconnectMicrosoft);
@@ -172,6 +180,33 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
       notification.error(
         "Update Failed",
         error instanceof Error ? error.message : "Failed to update sync settings"
+      );
+    }
+  };
+
+  const handleCalendarSyncToggle = async (enabled: boolean) => {
+    if (!sessionId || !connection?.id) return;
+
+    try {
+      await updateSyncSettings({
+        sessionId,
+        connectionId: connection.id,
+        syncSettings: {
+          calendar: enabled,
+        },
+      });
+
+      notification.success(
+        enabled ? "Calendar Sync Enabled" : "Calendar Sync Disabled",
+        enabled
+          ? "Calendar syncing has been enabled. Events will sync every 15 minutes."
+          : "Calendar syncing has been disabled"
+      );
+    } catch (error) {
+      console.error("Failed to update calendar sync settings:", error);
+      notification.error(
+        "Update Failed",
+        error instanceof Error ? error.message : "Failed to update calendar sync settings"
       );
     }
   };
@@ -378,10 +413,35 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
                       </span>
                     )}
                   </label>
-                  <label className="flex items-center gap-2 text-xs cursor-not-allowed opacity-50">
-                    <input type="checkbox" disabled />
-                    <span style={{ color: "var(--neutral-gray)" }}>Sync Calendar (coming soon)</span>
+                  <label className="flex items-center gap-2 text-xs cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={emailSyncStatus?.calendarSyncEnabled || false}
+                      onChange={(e) => handleCalendarSyncToggle(e.target.checked)}
+                    />
+                    <span style={{ color: "var(--win95-text)" }}>Sync Calendar</span>
                   </label>
+                  {calendarSyncStatus && emailSyncStatus?.calendarSyncEnabled && (
+                    <div className="ml-5 space-y-1">
+                      {calendarSyncStatus.lastSyncAt && (
+                        <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                          Last synced: {new Date(calendarSyncStatus.lastSyncAt).toLocaleString("en-US", {
+                            month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+                          })}
+                        </p>
+                      )}
+                      {calendarSyncStatus.totalEventsSync > 0 && (
+                        <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                          {calendarSyncStatus.totalEventsSync} event{calendarSyncStatus.totalEventsSync !== 1 ? "s" : ""} synced
+                        </p>
+                      )}
+                      {calendarSyncStatus.lastSyncError && (
+                        <p className="text-xs" style={{ color: "#ef4444" }}>
+                          Error: {calendarSyncStatus.lastSyncError}
+                        </p>
+                      )}
+                    </div>
+                  )}
                   <label className="flex items-center gap-2 text-xs cursor-not-allowed opacity-50">
                     <input type="checkbox" disabled />
                     <span style={{ color: "var(--neutral-gray)" }}>Access OneDrive (coming soon)</span>

@@ -55,9 +55,12 @@ export const createTransactionsFromCheckout = internalAction({
     console.log(`📝 [createTransactionsFromCheckout] Starting transaction creation for checkout ${args.checkoutSessionId}`);
 
     // 1. Fetch the completed checkout session
-    const session = await ctx.runQuery(internal.checkoutSessionOntology.getCheckoutSessionInternal, {
-      checkoutSessionId: args.checkoutSessionId,
-    });
+    // Note: Using type cast to avoid deep type instantiation issues with Convex's generated types
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    const session = await (ctx as any).runQuery(
+      (internal as any).checkoutSessionOntology.getCheckoutSessionInternal,
+      { checkoutSessionId: args.checkoutSessionId }
+    );
 
     if (!session || session.type !== "checkout_session") {
       throw new Error("Checkout session not found");
@@ -133,9 +136,10 @@ export const createTransactionsFromCheckout = internalAction({
     const purchaseItems = await Promise.all(
       purchasedItemIds.map(async (id) => {
         try {
-          return await ctx.runQuery(internal.purchaseOntology.getPurchaseItemInternal, {
-            purchaseItemId: id as Id<"objects">,
-          });
+          return await (ctx as any).runQuery(
+            (internal as any).purchaseOntology.getPurchaseItemInternal,
+            { purchaseItemId: id as Id<"objects"> }
+          );
         } catch (err) {
           console.error(`Failed to fetch purchase item ${id}:`, err);
           return null;
@@ -184,9 +188,10 @@ export const createTransactionsFromCheckout = internalAction({
 
     // Fetch organization's tax settings to determine default tax behavior (inclusive vs exclusive)
     // NOTE: Product-level taxBehavior will override this in transactionHelpers.ts
-    const taxSettings = await ctx.runQuery(api.organizationTaxSettings.getPublicTaxSettings, {
-      organizationId: session.organizationId,
-    });
+    const taxSettings = await (ctx as any).runQuery(
+      (api as any).organizationTaxSettings.getPublicTaxSettings,
+      { organizationId: session.organizationId }
+    );
 
     // Tax behavior: "inclusive" = prices include tax, "exclusive" = tax added on top
     // This is the organization default - individual products may override this
@@ -248,10 +253,11 @@ export const createTransactionsFromCheckout = internalAction({
       const isEmployerBilled = !!sessionCrmOrganizationId && session.customProperties?.behaviorContext?.metadata?.isEmployerBilling === true;
 
       // Get all tickets for invoice linking
-      const allTickets = await ctx.runQuery(internal.ticketOntology.getTicketsByCheckoutInternal, {
-        checkoutSessionId: args.checkoutSessionId,
-      });
-      const ticketIds = allTickets.map((ticket: { _id: Id<"objects"> }) => ticket._id);
+      const allTickets = await (ctx as any).runQuery(
+        (internal as any).ticketOntology.getTicketsByCheckoutInternal,
+        { checkoutSessionId: args.checkoutSessionId }
+      ) as Array<{ _id: Id<"objects"> }>;
+      const ticketIds = allTickets.map((ticket) => ticket._id);
 
       // Build customer info for invoice
       const customerInfo = {
@@ -278,29 +284,35 @@ export const createTransactionsFromCheckout = internalAction({
       // Create invoice record with CRM links
       // isPayLater = true when payment method is "invoice" (pay later via bank transfer)
       // This ensures invoice status is "sent" (awaiting payment) instead of "paid"
-      const invoiceResult = await ctx.runMutation(internal.invoicingOntology.createSimpleInvoiceFromCheckout, {
-        checkoutSessionId: args.checkoutSessionId,
-        transactionIds, // ✅ NOW these exist!
-        ticketIds,
-        transactionType,
-        customerInfo,
-        totalInCents,
-        currency,
-        isEmployerBilled,
-        isPayLater: paymentMethod === "invoice", // ✅ Invoice payment method = awaiting payment
-        crmContactId: sessionCrmContactId,
-        crmOrganizationId: sessionCrmOrganizationId,
-      });
+      const invoiceResult = await (ctx as any).runMutation(
+        (internal as any).invoicingOntology.createSimpleInvoiceFromCheckout,
+        {
+          checkoutSessionId: args.checkoutSessionId,
+          transactionIds, // NOW these exist!
+          ticketIds,
+          transactionType,
+          customerInfo,
+          totalInCents,
+          currency,
+          isEmployerBilled,
+          isPayLater: paymentMethod === "invoice", // Invoice payment method = awaiting payment
+          crmContactId: sessionCrmContactId,
+          crmOrganizationId: sessionCrmOrganizationId,
+        }
+      ) as { invoiceId: Id<"objects">; invoiceNumber: string };
 
       // Store invoice ID in session for confirmation page
-      await ctx.runMutation(internal.checkoutSessionOntology.patchCheckoutSessionInternal, {
-        checkoutSessionId: args.checkoutSessionId,
-        customProperties: {
-          ...(session.customProperties || {}),
-          invoiceId: invoiceResult.invoiceId,
-          invoiceNumber: invoiceResult.invoiceNumber,
-        },
-      });
+      await (ctx as any).runMutation(
+        (internal as any).checkoutSessionOntology.patchCheckoutSessionInternal,
+        {
+          checkoutSessionId: args.checkoutSessionId,
+          customProperties: {
+            ...(session.customProperties || {}),
+            invoiceId: invoiceResult.invoiceId,
+            invoiceNumber: invoiceResult.invoiceNumber,
+          },
+        }
+      );
 
       console.log(`✅ [createTransactionsFromCheckout] Invoice created: ${invoiceResult.invoiceNumber}`);
     } catch (invoiceError) {

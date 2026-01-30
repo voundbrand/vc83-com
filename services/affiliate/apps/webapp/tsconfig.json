@@ -1,0 +1,29 @@
+{
+  "extends": "@refref/typescript-config/nextjs.json",
+  "compilerOptions": {
+    "types": ["vitest/globals"],
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ],
+      "@refref/ui/*": [
+        "../../packages/ui/src/*"
+      ]
+    },
+    "disableSizeLimit": false,
+    "declaration": false,
+    "declarationMap": false
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "next-env.d.ts",
+    "next.config.ts",
+    "src/types/**/*.ts",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    ".next"
+  ]
+}

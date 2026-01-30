@@ -34,13 +34,20 @@ export const aiConversations = defineTable({
   // Message count (cached for performance)
   messageCount: v.optional(v.number()),         // Total number of messages in this conversation
 
+  // V0 Integration metadata (for v0.dev Platform API conversations)
+  aiProvider: v.optional(v.union(v.literal("built-in"), v.literal("v0"))),
+  v0ChatId: v.optional(v.string()),             // v0 platform chat ID (for follow-up messages)
+  v0DemoUrl: v.optional(v.string()),            // iframe preview URL
+  v0WebUrl: v.optional(v.string()),             // link to edit on v0.dev
+
   // Messages stored in separate table (see aiMessages)
 
   createdAt: v.number(),
   updatedAt: v.number(),
 })
   .index("by_organization", ["organizationId"])
-  .index("by_user", ["userId"]);
+  .index("by_user", ["userId"])
+  .index("by_slug", ["slug"]);
 
 /**
  * AI Messages
@@ -444,3 +451,85 @@ export const aiWorkItems = defineTable({
   .index("by_conversation", ["conversationId"])
   .index("by_status", ["status"])
   .index("by_org_status", ["organizationId", "status"]);
+
+// ============================================================================
+// AI TRAINING DATA COLLECTION (Custom Model Training)
+// ============================================================================
+
+/**
+ * AI Training Examples
+ *
+ * Collects page builder AI interactions for fine-tuning custom models.
+ * Each example captures input, output, and user feedback to build
+ * a domain-specific training dataset.
+ */
+export const aiTrainingExamples = defineTable({
+  // Source tracking
+  conversationId: v.id("aiConversations"),
+  messageId: v.optional(v.id("aiMessages")),
+  organizationId: v.id("organizations"),
+
+  // Training example type
+  exampleType: v.union(
+    v.literal("page_generation"),      // Full page JSON generation
+    v.literal("section_edit"),         // Single section modification
+    v.literal("design_choice"),        // Color/font/style decision
+    v.literal("tool_invocation")       // Backend tool usage
+  ),
+
+  // Input (user message + context)
+  input: v.object({
+    userMessage: v.string(),
+    previousContext: v.optional(v.string()),     // Last N messages summarized
+    ragPatterns: v.optional(v.array(v.string())), // Pattern IDs that were retrieved
+    currentPageState: v.optional(v.any()),       // Existing page if editing
+  }),
+
+  // Output (AI response)
+  output: v.object({
+    response: v.string(),                        // Raw AI response text
+    generatedJson: v.optional(v.any()),          // Parsed page JSON (if valid)
+    toolCalls: v.optional(v.array(v.any())),     // Tool invocations
+  }),
+
+  // User feedback (critical for learning)
+  feedback: v.object({
+    outcome: v.union(
+      v.literal("accepted"),             // User saved page as-is
+      v.literal("accepted_with_edits"),  // User made minor changes (<20%)
+      v.literal("rejected"),             // User made major changes (>50%) or discarded
+      v.literal("no_feedback")           // Session ended without action
+    ),
+    userEdits: v.optional(v.any()),      // Final page state after edits
+    editPercentage: v.optional(v.number()), // Calculated diff percentage
+    feedbackScore: v.optional(v.number()), // Explicit thumbs up (1) / down (-1)
+    feedbackTimestamp: v.optional(v.number()),
+  }),
+
+  // Quality flags (for filtering training data)
+  quality: v.object({
+    isHighQuality: v.boolean(),          // Algorithm-determined
+    validJson: v.boolean(),              // Output is valid page JSON
+    followedInstructions: v.boolean(),   // Met user requirements
+  }),
+
+  // Anonymization status
+  anonymized: v.boolean(),
+  anonymizedAt: v.optional(v.number()),
+
+  // Export tracking
+  exportBatchId: v.optional(v.string()),
+  exportedAt: v.optional(v.number()),
+
+  // Metadata
+  modelUsed: v.optional(v.string()),     // "anthropic/claude-3-5-sonnet"
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_conversation", ["conversationId"])
+  .index("by_organization", ["organizationId"])
+  .index("by_type", ["exampleType"])
+  .index("by_feedback_outcome", ["feedback.outcome"])
+  .index("by_quality", ["quality.isHighQuality"])
+  .index("by_export", ["exportedAt"])
+  .index("by_created", ["createdAt"]);

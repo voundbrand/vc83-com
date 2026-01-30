@@ -135,4 +135,41 @@ crons.daily(
   internal.sequences.messageQueueProcessor.cleanupOldMessages
 );
 
+/**
+ * Sync External Calendar Events
+ *
+ * Runs every 15 minutes to pull events from connected Google and Microsoft
+ * calendars into our availability system as external busy times.
+ *
+ * What it does:
+ * 1. Finds all OAuth connections with calendar sync enabled
+ * 2. Pulls events from Google Calendar API and Microsoft Graph API
+ * 3. Upserts external events as calendar_event objects
+ * 4. Deletes stale events that no longer exist in external calendar
+ * 5. Links events to resources via blocks_resource objectLinks
+ */
+crons.interval(
+  "Sync external calendar events",
+  { minutes: 15 },
+  internal.calendarSyncOntology.syncAllConnections
+);
+
+/**
+ * Mark Abandoned AI Training Sessions
+ *
+ * Runs every 15 minutes to mark old AI conversations without feedback.
+ * This helps maintain accurate training data quality metrics.
+ *
+ * What it does:
+ * 1. Finds training examples older than 15 minutes with no feedback
+ * 2. Marks them as low quality (user didn't engage)
+ * 3. Helps separate genuinely useful interactions from abandoned sessions
+ */
+crons.interval(
+  "Mark abandoned AI training sessions",
+  { minutes: 15 },
+  internal.ai.trainingData.markAbandonedSessions,
+  { olderThanMinutes: 15 }
+);
+
 export default crons;

@@ -57,7 +57,8 @@ import {
   aiAgentTasks,
   aiAgentMemory,
   aiModels,
-  aiWorkItems
+  aiWorkItems,
+  aiTrainingExamples
 } from "./schemas/aiSchemas";
 
 // 💳 AI BILLING SCHEMAS v3.1 (VAT-inclusive pricing, EUR only)
@@ -210,6 +211,7 @@ export default defineSchema({
   aiWorkItems,            // Work items for human-in-the-loop approval workflow
   aiAgentTasks,          // Email AI tasks with approval workflow
   aiAgentMemory,         // Email templates and preferences with vector search
+  aiTrainingExamples,    // Training data collection for custom model fine-tuning
 
   // 💳 AI BILLING v3.1: Three-tier system (€49 or €2,500-€12,000/mo, VAT incl.)
   aiUsage,               // Track AI API usage for billing and monitoring (with privacy audit)

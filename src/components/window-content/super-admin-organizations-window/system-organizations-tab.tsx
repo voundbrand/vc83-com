@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, Save, AlertCircle, CheckCircle, Globe } from "lucide-react";
-import { useAction } from "convex/react";
+import { Building2, Save, AlertCircle, CheckCircle, Globe, Link2 } from "lucide-react";
+import { useAction, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
+import { Id } from "../../../../convex/_generated/dataModel";
 import { useAuth } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { TIMEZONE_OPTIONS } from "@/lib/timezone-utils";
@@ -26,6 +27,12 @@ export function SystemOrganizationsTab() {
   const { t } = useNamespaceTranslations("ui.organizations");
   const createOrganization = useAction(api.organizations.createOrganization);
 
+  // Fetch all organizations (for parent org selection)
+  const allOrganizations = useQuery(
+    api.organizations.listAll,
+    sessionId ? { sessionId } : "skip"
+  );
+
   // Form state
   const [businessName, setBusinessName] = useState("");
   const [description, setDescription] = useState("");
@@ -34,12 +41,18 @@ export function SystemOrganizationsTab() {
   const [timezone, setTimezone] = useState("America/New_York"); // Default timezone
   const [dateFormat, setDateFormat] = useState("MM/DD/YYYY"); // Default date format
   const [language, setLanguage] = useState("en"); // Default language
+  const [parentOrganizationId, setParentOrganizationId] = useState<string>(""); // Empty = no parent
 
   // UI state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+
+  // Filter to only show orgs that can be parents (not already sub-orgs themselves)
+  const potentialParentOrgs = allOrganizations?.filter(org =>
+    org.isActive && !org.parentOrganizationId
+  ) || [];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,6 +81,7 @@ export function SystemOrganizationsTab() {
         timezone,
         dateFormat,
         language,
+        parentOrganizationId: parentOrganizationId ? parentOrganizationId as Id<"organizations"> : undefined,
       });
 
       // Success!
@@ -78,6 +92,7 @@ export function SystemOrganizationsTab() {
       setBusinessName("");
       setDescription("");
       setIndustry("");
+      setParentOrganizationId("");
 
       // Hide success message after 5 seconds
       setTimeout(() => {
@@ -212,6 +227,36 @@ export function SystemOrganizationsTab() {
           />
           <p className="text-xs mt-1" style={{ color: "var(--win95-text-secondary)" }}>
             {t('ui.organizations.form.industry_hint')}
+          </p>
+        </div>
+
+        {/* Parent Organization (Sub-org) Selection */}
+        <div>
+          <label htmlFor="parentOrganization" className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+            <Link2 size={14} className="inline mr-1" />
+            Parent Organization (Optional)
+          </label>
+          <select
+            id="parentOrganization"
+            value={parentOrganizationId}
+            onChange={(e) => setParentOrganizationId(e.target.value)}
+            className="w-full px-3 py-2 text-sm"
+            style={{
+              backgroundColor: "var(--win95-input-bg)",
+              color: "var(--win95-input-text)",
+              border: "2px inset",
+              borderColor: "var(--win95-input-border-dark)",
+            }}
+          >
+            <option value="">-- None (Top-level organization) --</option>
+            {potentialParentOrgs.map((org) => (
+              <option key={org._id} value={org._id}>
+                {org.name} ({org.slug})
+              </option>
+            ))}
+          </select>
+          <p className="text-xs mt-1" style={{ color: "var(--win95-text-secondary)" }}>
+            Select a parent organization to create this as a sub-organization. Leave empty for a top-level organization.
           </p>
         </div>
 

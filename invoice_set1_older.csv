@@ -1,0 +1,19 @@
+Invoice Number,ID,Created At,Customer,Email,Amount EUR,Status
+INV-2025-0003,ns7bbj5n1kps4bz6fwfd407v7x7v8yqk,2025-11-12 14:03,TRaumgestaltung,,79.0,paid
+INV-2025-0004,ns7f0d4xahr2k9vs763t3hwzxd7v8zyb,2025-11-12 14:06,TRaumgestaltung,,79.0,paid
+INV-2025-0005,ns79jfg8cezwzt6rdvgsm2d8v17vg1bj,2025-11-16 22:28,info Büro-Organisation GmbH,,79.0,paid
+INV-2025-0006,ns7fm018657f92b0jwm7ahvpt17w2jsd,2025-11-25 08:58,FFF Media & Marketing,,79.0,paid
+INV-2025-0007,ns707sja6jc5zbk79yqyw3rmkn7w4b0b,2025-11-26 08:49,ConCept & Service GmbH,,79.0,paid
+INV-2025-0008,ns73594xmqak253cn6zsg6yv797w5pyt,2025-11-26 19:49,Lisa Böseke Immobilien,,79.0,paid
+INV-2025-0009,ns7akfdwk25v6mhkgbcyz8v7bh7wefry,2025-12-01 09:30,Hanse Versicherungsmakler Greifswald GmbH,,79.0,paid
+INV-2025-0010,ns7ag4h7crqv9vf8vzb0x8t5bx7we6wd,2025-12-01 11:11,Julia Funk,,79.0,paid
+INV-2025-0011,ns73wk26ts3aayb4mnbmbhwrn17wfj6m,2025-12-01 11:16,World Food Catering,,158.0,paid
+INV-2025-0012,ns78bcc3726mhxdtkgnqvpqc9d7wnqs1,2025-12-04 16:02,Bürobedarf Schulz,,158.0,paid
+INV-2025-0013,ns7b3vge09nhf64n9fwzkafwks7wqx7n,2025-12-05 08:38,Detlef Töpfer VP der Bonnfinanz GmbH,,158.0,paid
+INV-2025-0014,ns7enz3w59469m38d8cpajw9qx7x21yg,2025-12-11 15:22,RobertJostFinanzdienstleistungen,,158.0,paid
+INV-2025-0015,ns76a7dckwntmpbjfxe5tqv42d7x563m,2025-12-12 12:18,RobertGornitzkaConsulting,,500.0,paid
+INV-2025-0016,ns7cv7yekw6r8pq8t5btvb9swx7x8v9s,2025-12-14 09:34,Edelmann Immobilien-MVGmbH,,79.0,paid
+INV-2025-0017,ns7b02pn0bb3y60ypq8cfhttkd7x80rb,2025-12-14 14:30,KüchenKontorPenzlinGmbH,,158.0,paid
+INV-2025-0018,ns7eznge6029k3g5353p8hcn9n7xafnc,2025-12-15 11:17,Grabia Consulting - Externes Rechtsmanagement,,79.0,paid
+INV-2025-0019,ns744kvgs0nxycw5jrec9mntys7xh9gx,2025-12-18 09:52,Energieeffizienzberatung,,158.0,paid
+INV-2025-0020,ns74nvv569fwb2d49adyn9yahd7xg3xf,2025-12-18 19:04,SebastianBurghardt,,79.0,paid

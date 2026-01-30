@@ -11,6 +11,7 @@ import { GitHubSettings } from "./github-settings";
 import { VercelSettings } from "./vercel-settings";
 import { ApiKeysPanel } from "./api-keys-panel";
 import { ActiveCampaignSettings } from "./activecampaign-settings";
+import { GoogleSettings } from "./google-settings";
 import { CreateIntegrationDialog } from "./create-integration-dialog";
 import { CustomIntegrationModal } from "./custom-integration-modal";
 import { useWindowManager } from "@/hooks/use-window-manager";
@@ -69,7 +70,7 @@ const BUILT_IN_INTEGRATIONS = [
     description: "Gmail, Calendar, Drive integration",
     icon: "fab fa-google",
     iconColor: "#4285f4",
-    status: "coming_soon" as const,
+    status: "available" as const,
     type: "builtin" as const,
     // Platform integrations use maxThirdPartyIntegrations limit (Free: 0, Starter+: available)
     accessCheck: { type: "limit" as const, key: "maxThirdPartyIntegrations" },
@@ -875,6 +876,9 @@ export function IntegrationsWindow({ initialPanel = null }: IntegrationsWindowPr
     }
     if (selectedIntegration.type === "builtin" && selectedIntegration.id === "microsoft") {
       return <MicrosoftSettings onBack={handleBack} />;
+    }
+    if (selectedIntegration.type === "builtin" && selectedIntegration.id === "google") {
+      return <GoogleSettings onBack={handleBack} />;
     }
     if (selectedIntegration.type === "builtin" && selectedIntegration.id === "activecampaign") {
       return <ActiveCampaignSettings onBack={handleBack} />;

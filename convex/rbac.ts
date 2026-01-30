@@ -1083,6 +1083,20 @@ export const checkPermission = query({
 });
 
 // ============================================================================
+// INTERNAL QUERIES
+// ============================================================================
+
+/**
+ * Get a role by its ID (internal query for actions)
+ */
+export const getRoleById = internalQuery({
+  args: { roleId: v.id("roles") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.roleId);
+  },
+});
+
+// ============================================================================
 // AUDIT LOGGING
 // ============================================================================
 
