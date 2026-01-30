@@ -29,6 +29,14 @@ import type { PageSection, SectionType } from "@/lib/page-builder/section-regist
 
 // Using a more permissive type to allow dynamic prop spreading from schema
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+// Placeholder for form section until full implementation
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const FormSectionPlaceholder: React.ComponentType<any> = ({ sectionId }: { sectionId?: string }) => (
+  <section id={sectionId} className="py-16 px-4 text-center">
+    <p className="text-sm text-gray-400">Form section (coming soon)</p>
+  </section>
+);
+
 const sectionComponents: Record<SectionType, React.ComponentType<any>> = {
   hero: HeroSection,
   features: FeaturesSection,
@@ -40,6 +48,7 @@ const sectionComponents: Record<SectionType, React.ComponentType<any>> = {
   faq: FAQSection,
   process: ProcessSection,
   booking: BookingSection,
+  form: FormSectionPlaceholder,
 };
 
 // ============================================================================
@@ -219,6 +228,7 @@ export function getSectionDisplayName(type: SectionType): string {
     faq: "FAQ",
     process: "Process",
     booking: "Booking",
+    form: "Form",
   };
   return names[type] || type;
 }

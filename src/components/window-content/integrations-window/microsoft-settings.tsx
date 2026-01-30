@@ -416,12 +416,12 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
                   <label className="flex items-center gap-2 text-xs cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={emailSyncStatus?.calendarSyncEnabled || false}
+                      checked={connection?.syncSettings?.calendar || false}
                       onChange={(e) => handleCalendarSyncToggle(e.target.checked)}
                     />
                     <span style={{ color: "var(--win95-text)" }}>Sync Calendar</span>
                   </label>
-                  {calendarSyncStatus && emailSyncStatus?.calendarSyncEnabled && (
+                  {calendarSyncStatus && connection?.syncSettings?.calendar && (
                     <div className="ml-5 space-y-1">
                       {calendarSyncStatus.lastSyncAt && (
                         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>

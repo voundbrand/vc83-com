@@ -10,7 +10,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
-import { requireAuthenticatedUser, requirePermission } from "./rbacHelpers";
+import { requireAuthenticatedUser, requirePermission, checkPermission } from "./rbacHelpers";
 import { getLicenseInternal } from "./licensing/helpers";
 
 /**
@@ -668,5 +668,40 @@ export const updateLayerCakeDocument = mutation({
     });
 
     return { success: true };
+  },
+});
+
+/**
+ * Get Layer Cake Documents for an organization
+ * Requires: media_library.view permission
+ */
+export const getLayerCakeDocuments = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    const hasAccess = await checkPermission(ctx, userId, "media_library.view", args.organizationId);
+    if (!hasAccess) {
+      throw new Error("You do not have permission to view documents");
+    }
+
+    const docs = await ctx.db
+      .query("organizationMedia")
+      .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+      .filter((q) => q.eq(q.field("itemType"), "layercake_document"))
+      .collect();
+
+    return docs.map((doc) => ({
+      _id: doc._id,
+      filename: doc.filename,
+      description: doc.description,
+      documentContent: doc.documentContent,
+      tags: doc.tags,
+      sizeBytes: doc.sizeBytes,
+      createdAt: doc.createdAt,
+      updatedAt: doc.updatedAt,
+    }));
   },
 });

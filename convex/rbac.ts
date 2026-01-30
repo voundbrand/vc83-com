@@ -1867,16 +1867,6 @@ export const createTestUser = mutation({
 });
 
 /**
- * Get a role by ID - Internal query for role lookups
- */
-export const getRoleById = internalQuery({
-  args: { roleId: v.id("roles") },
-  handler: async (ctx, args) => {
-    return await ctx.db.get(args.roleId);
-  },
-});
-
-/**
  * Create a test organization - ONLY FOR TESTING
  * In production, organizations are created through proper flows
  */

@@ -767,7 +767,7 @@ export function parseAndValidateAIResponse(response: string): ValidationResult &
   console.log("[Validator] Enriched JSON with metadata, validating schema...");
   console.log("[Validator] Enriched JSON keys:", Object.keys(enrichedJson));
   console.log("[Validator] Version:", enrichedJson.version);
-  console.log("[Validator] Sections count:", (enrichedJson.sections as unknown[])?.length || 0);
+  console.log("[Validator] Sections count:", ((enrichedJson as Record<string, unknown>).sections as unknown[] | undefined)?.length || 0);
 
   const result = validatePageSchema(enrichedJson);
   console.log("[Validator] Schema validation result:", {

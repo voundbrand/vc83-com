@@ -119,8 +119,6 @@ export const organizations = defineTable({
   updatedAt: v.number(),
   email: v.optional(v.string()),        // Organization contact email
 
-  // Sub-organization hierarchy
-  parentOrganizationId: v.optional(v.id("organizations")),  // Parent org for sub-organizations
   createdBy: v.optional(v.id("users")),                     // User who created this org
 })
   .index("by_slug", ["slug"])
