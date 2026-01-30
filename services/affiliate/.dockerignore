@@ -1,0 +1,106 @@
+# Dependencies
+node_modules/
+**/node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build outputs
+.next/
+**/.next
+dist/
+**/dist
+build/
+out/
+
+# Environment files
+.env
+.env.*
+**/.env*
+.infisical.json
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+**/.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Docker
+Dockerfile*
+.dockerignore
+
+# Testing
+coverage/
+.nyc_output/
+*.lcov
+*.test.*
+*.spec.*
+**/__tests__
+
+# Logs
+logs/
+*.log
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Turbo
+.turbo/
+**/.turbo
+
+# Temporary files
+tmp/
+temp/
+
+# Cache directories
+.cache/
+.parcel-cache/
+.eslintcache
+
+# Optional npm cache directory
+.npm
+
+# Yarn Integrity file
+.yarn-integrity
+
+# Output of 'npm pack'
+*.tgz
+*.tar.gz
+
+# Documentation (top-level only)
+README.md
+/docs/
+
+# Fly.io
+fly.toml
+**/fly.toml
+
+# CI/CD
+.github/
+
+# Apps not needed for api/refer builds
+apps/www
+apps/assets
+
+# Infisical
+.infisical/

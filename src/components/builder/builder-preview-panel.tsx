@@ -172,6 +172,10 @@ export function BuilderPreviewPanel() {
     currentPageId,
     navigateToPageBySlug,
     setCurrentPage,
+    // V0 integration
+    aiProvider,
+    v0DemoUrl,
+    v0WebUrl,
   } = useBuilder();
 
   const [deviceMode, setDeviceMode] = useState<DeviceMode>("desktop");
@@ -366,12 +370,12 @@ export function BuilderPreviewPanel() {
         )}
 
         {/* Loading state - enhanced with spinning logo and shimmering text */}
-        {isGenerating && !pageSchema && (
+        {isGenerating && !pageSchema && !v0DemoUrl && (
           <PreviewLoadingState />
         )}
 
         {/* Empty state - engaging design */}
-        {!isGenerating && !pageSchema && (
+        {!isGenerating && !pageSchema && !v0DemoUrl && (
           <div className="h-full flex items-center justify-center relative overflow-hidden">
             {/* Animated background gradient */}
             <div className="absolute inset-0 bg-gradient-to-br from-purple-900/10 via-zinc-900 to-blue-900/10" />
@@ -457,8 +461,40 @@ export function BuilderPreviewPanel() {
           </div>
         )}
 
-        {/* Rendered page - only show container when there's content */}
-        {pageSchema && (
+        {/* V0 iframe preview - show when using v0 provider with demo URL */}
+        {aiProvider === "v0" && v0DemoUrl && (
+          <div className="p-4 h-full">
+            {/* V0 info bar */}
+            <div className="mb-2 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                <span className="text-xs text-zinc-400">
+                  Live preview
+                </span>
+              </div>
+            </div>
+
+            {/* Iframe container with device viewport */}
+            <div
+              className="mx-auto bg-white shadow-2xl rounded-lg overflow-hidden transition-all duration-300"
+              style={{
+                width: deviceWidths[deviceMode],
+                maxWidth: "100%",
+                height: deviceMode === "desktop" ? "calc(100vh - 200px)" : "600px",
+              }}
+            >
+              <iframe
+                src={v0DemoUrl}
+                className="w-full h-full border-0"
+                title="v0 Preview"
+                sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Built-in JSON schema renderer - show when NOT using v0 or no v0 demo URL */}
+        {(aiProvider === "built-in" || !v0DemoUrl) && pageSchema && (
           <div className="p-4">
             {/* Back button when there's navigation history */}
             {navigationHistory.length > 0 && (

@@ -372,6 +372,7 @@ export function ConnectionPanel({ onClose, onComplete }: ConnectionPanelProps) {
     updateConnectionChoice,
     executeConnections,
     setBuilderMode,
+    aiProvider,
   } = useBuilder();
 
   const [isExecuting, setIsExecuting] = useState(false);
@@ -443,9 +444,23 @@ export function ConnectionPanel({ onClose, onComplete }: ConnectionPanelProps) {
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {pendingConnections.length === 0 ? (
           <div className="text-center py-8 text-zinc-500">
-            <CheckCircle className="h-8 w-8 mx-auto mb-2 text-emerald-500" />
-            <p>No connections needed!</p>
-            <p className="text-xs mt-1">Your page doesn't have any items that need linking.</p>
+            {aiProvider === "v0" ? (
+              <>
+                <AlertTriangle className="h-8 w-8 mx-auto mb-2 text-amber-500" />
+                <p className="text-zinc-300">v0 pages use custom React components</p>
+                <p className="text-xs mt-1">
+                  Connect mode works with the built-in page builder schema.
+                  Switch to the built-in provider to use data connections,
+                  or manually link data from your dashboard.
+                </p>
+              </>
+            ) : (
+              <>
+                <CheckCircle className="h-8 w-8 mx-auto mb-2 text-emerald-500" />
+                <p>No connections needed!</p>
+                <p className="text-xs mt-1">Your page doesn't have any items that need linking.</p>
+              </>
+            )}
           </div>
         ) : (
           pendingConnections.map((connection) => (

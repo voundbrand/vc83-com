@@ -14,8 +14,34 @@ interface BookingsListProps {
   onSelect: (id: Id<"objects">) => void
 }
 
-type BookingStatus = "pending_confirmation" | "confirmed" | "checked_in" | "completed" | "cancelled" | "no_show" | ""
 type BookingSubtype = "appointment" | "reservation" | "rental" | "class_enrollment" | ""
+
+const STATUS_TABS = [
+  { key: "upcoming", label: "Upcoming" },
+  { key: "unconfirmed", label: "Unconfirmed" },
+  { key: "past", label: "Past" },
+  { key: "cancelled", label: "Cancelled" },
+] as const
+
+type StatusTab = typeof STATUS_TABS[number]["key"]
+
+const getStatusesForTab = (tab: StatusTab): string[] => {
+  switch (tab) {
+    case "upcoming": return ["confirmed", "checked_in"]
+    case "unconfirmed": return ["pending_confirmation"]
+    case "past": return ["completed"]
+    case "cancelled": return ["cancelled", "no_show"]
+  }
+}
+
+const getEmptyMessage = (tab: StatusTab): string => {
+  switch (tab) {
+    case "upcoming": return "No upcoming bookings"
+    case "unconfirmed": return "No unconfirmed bookings"
+    case "past": return "No past bookings"
+    case "cancelled": return "No cancelled bookings"
+  }
+}
 
 export function BookingsList({ selectedId, onSelect }: BookingsListProps) {
   const { sessionId } = useAuth()
@@ -24,7 +50,7 @@ export function BookingsList({ selectedId, onSelect }: BookingsListProps) {
   const notification = useNotification()
 
   const [searchQuery, setSearchQuery] = useState("")
-  const [statusFilter, setStatusFilter] = useState<BookingStatus>("")
+  const [activeTab, setActiveTab] = useState<StatusTab>("upcoming")
   const [subtypeFilter, setSubtypeFilter] = useState<BookingSubtype>("")
   const [showFilters, setShowFilters] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
@@ -36,7 +62,6 @@ export function BookingsList({ selectedId, onSelect }: BookingsListProps) {
       ? {
           sessionId,
           organizationId: currentOrganizationId as Id<"organizations">,
-          status: statusFilter || undefined,
           subtype: subtypeFilter || undefined,
         }
       : "skip"
@@ -53,8 +78,13 @@ export function BookingsList({ selectedId, onSelect }: BookingsListProps) {
 
   const bookings = bookingsData?.bookings || []
 
-  // Filter bookings by search
+  // Filter bookings by tab, search, and subtype
   const filteredBookings = bookings.filter((booking) => {
+    // Tab filter
+    const tabStatuses = getStatusesForTab(activeTab)
+    if (!tabStatuses.includes(booking.status || "")) return false
+
+    // Search filter
     if (searchQuery) {
       const searchLower = searchQuery.toLowerCase()
       const customerName = booking.customerName?.toLowerCase() || ""
@@ -69,6 +99,10 @@ export function BookingsList({ selectedId, onSelect }: BookingsListProps) {
         return false
       }
     }
+
+    // Subtype filter
+    if (subtypeFilter && booking.subtype !== subtypeFilter) return false
+
     return true
   })
 
@@ -118,6 +152,28 @@ export function BookingsList({ selectedId, onSelect }: BookingsListProps) {
 
   return (
     <div className="flex flex-col h-full">
+      {/* Status Tabs */}
+      <div
+        className="flex gap-1 px-3 pt-3 pb-1"
+        style={{ background: 'var(--win95-bg)' }}
+      >
+        {STATUS_TABS.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`px-3 py-1.5 font-pixel text-xs border-b-2 transition-colors ${
+              activeTab === tab.key ? "border-current" : "border-transparent"
+            }`}
+            style={{
+              color: activeTab === tab.key ? 'var(--win95-selected-bg)' : 'var(--neutral-gray)',
+              fontWeight: activeTab === tab.key ? 'bold' : 'normal',
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {/* Header with search and filters */}
       <div className="p-3 border-b-2 space-y-2" style={{ background: 'var(--win95-bg)', borderColor: 'var(--win95-border)' }}>
         {/* Search bar */}
@@ -166,24 +222,6 @@ export function BookingsList({ selectedId, onSelect }: BookingsListProps) {
         {showFilters && (
           <div className="flex gap-2 flex-wrap">
             <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as BookingStatus)}
-              className="px-2 py-1 border-2 text-xs"
-              style={{
-                borderColor: 'var(--win95-border)',
-                background: 'var(--win95-input-bg)',
-                color: 'var(--win95-input-text)'
-              }}
-            >
-              <option value="">All Status</option>
-              <option value="pending_confirmation">Pending</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="checked_in">Checked In</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-              <option value="no_show">No Show</option>
-            </select>
-            <select
               value={subtypeFilter}
               onChange={(e) => setSubtypeFilter(e.target.value as BookingSubtype)}
               className="px-2 py-1 border-2 text-xs"
@@ -212,8 +250,10 @@ export function BookingsList({ selectedId, onSelect }: BookingsListProps) {
         ) : filteredBookings.length === 0 ? (
           <div className="p-4 text-center" style={{ color: 'var(--neutral-gray)' }}>
             <Calendar size={32} className="mx-auto mb-2 opacity-30" />
-            <p className="text-sm">No bookings found</p>
-            <p className="text-xs mt-1">Create a new booking to get started</p>
+            <p className="text-sm">{getEmptyMessage(activeTab)}</p>
+            <p className="text-xs mt-1">
+              {activeTab === "upcoming" ? "Create a new booking to get started" : "Nothing to show here"}
+            </p>
           </div>
         ) : (
           <div className="divide-y" style={{ borderColor: 'var(--win95-border)' }}>

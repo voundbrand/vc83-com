@@ -403,7 +403,7 @@ function BuilderLandingPageInner() {
   const handleTemplateClick = (templateId: number) => {
     if (!isSignedIn) {
       sessionStorage.setItem("builder_pending_template", String(templateId));
-      router.push("/login?redirect=/builder/new");
+      router.push("/");
       return;
     }
     // Store template ID in sessionStorage for the workspace to pick up

@@ -1,0 +1,65 @@
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from "@refref/ui/components/dialog";
+import { ReferralWidgetContent } from "@refref/ui/components/referral-widget/referral-widget-dialog-content";
+import type { WidgetConfigType } from "@refref/types";
+import { ReferralWidgetDialogTrigger } from "@refref/ui/components/referral-widget/referral-widget-dialog-trigger";
+import { cn } from "@refref/ui/lib/utils";
+
+export interface ReferralWidgetPresentationProps {
+  config: WidgetConfigType;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  container?: HTMLElement | null;
+}
+
+/**
+ * Pure UI component for the referral widget, including trigger button and Dialog wrapper.
+ * Renders ReferralWidgetDialogContent inside the Dialog.
+ */
+export function ReferralWidgetPresentation({
+  config,
+  isOpen,
+  onOpenChange,
+  container,
+}: ReferralWidgetPresentationProps) {
+  const getPositionStyles = () => {
+    switch (config.position) {
+      case "bottom-right":
+        return "bottom-6 right-6";
+      case "bottom-left":
+        return "bottom-6 left-6";
+      case "top-right":
+        return "top-6 right-6";
+      case "top-left":
+        return "top-6 left-6";
+      default:
+        return "bottom-6 right-6";
+    }
+  };
+
+  // Handler for the internal close button
+  const handleClose = () => {
+    onOpenChange(false);
+  };
+
+  return (
+    <>
+      <ReferralWidgetDialogTrigger
+        className={cn(getPositionStyles(), "fixed z-50")}
+        config={config}
+        onOpenChange={onOpenChange}
+      />
+
+      {/* Dialog Wrapper */}
+      <Dialog open={isOpen} onOpenChange={onOpenChange} modal={false}>
+        <DialogContent className="sm:max-w-md p-0" container={container}>
+          <DialogTitle className="sr-only">Referral Widget</DialogTitle>
+          <ReferralWidgetContent config={config} onClose={handleClose} />
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}

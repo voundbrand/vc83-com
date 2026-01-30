@@ -1,0 +1,19 @@
+Invoice Number,ID,Created At,Customer,Email,Amount EUR,Status
+INV-2025-0003,ns745txg074dbds8rp9krjqkk17xxv18,2025-12-24 09:49,Potential² GmbH,,79.0,paid
+INV-2025-0004,ns7fzyvyrps2qj4kyp329ka00h7y6myr,2025-12-29 10:58,DMA Umzüge Yersin,,79.0,paid
+INV-2025-0005,ns74xa2aay065kqjpbcevj0xd57y6b3v,2025-12-29 16:05,Frank Fröhlich,,158.01,paid
+INV-2025-0006,ns76pdqtns5f0ejtabxzz1gt3h7y6k9y,2025-12-29 16:20,Nordic Way GmbH,,158.01,paid
+INV-2025-0007,ns79sn092xkpw7gccwyqhrh4d17y6hyb,2025-12-29 21:00,Raumfreude,,158.01,paid
+INV-2025-0008,ns78p8gxn1zqfwgypbw3ywmjb97y9vnd,2025-12-30 09:26,SwenRehwald,,158.01,paid
+INV-2025-0009,ns7az4hy656pewza5zhvatw6gd7y8axf,2025-12-30 10:41,Rechtsanwaltskanzlei,,79.0,paid
+INV-2025-0010,ns73j9hkyvap1wrr2p2p6990357y8mmh,2025-12-30 20:53,Renninger,,79.0,paid
+INV-2025-0011,ns78fefc14426rqd11wx2431ks7y8fxx,2025-12-30 21:28,Schönheitsinstitut,,79.0,paid
+INV-2025-0012,ns790dvj4fje000vhh1fa193e17ybhjd,2025-12-31 10:19,KlausSchütte,,79.0,paid
+INV-2025-0013,ns70g86f4t8ft8x9c9b9g2ggwx7ybxww,2025-12-31 12:39,ONE Managementberatung Marlen Meyer,,158.01,paid
+INV-2025-0014,ns782xyfsrsyaaeexsr1bcqm797ya9y7,2025-12-31 20:33,AROBA Personal UG haftungsbeschränkt,,79.0,paid
+INV-2025-0015,ns76rnd4rva0a8m0b58gkh994h7yb6y7,2025-12-31 21:10,Naturwahrnehmen,,79.0,paid
+INV-2025-0016,ns7bg2v2s07ctj2sjp0h9wffts7ycyms,2026-01-01 14:33,Goldmichi Edelmetallhandel Inh. Michael Bastian,,500.0,paid
+INV-2025-0017,ns77gk11pg7t04ty9jxhzangts7ymh23,2026-01-05 17:13,easy4you-Office,,109.0,paid
+INV-2025-0018,ns7eaxzf0x7904qtcmcf833zs17ypdgq,2026-01-06 12:15,arcept,,109.0,paid
+INV-2025-0019,ns77z44r8ayvz757c39pbn7b1d7zgk96,2026-01-19 15:48,BNI Nordwest GmbH,,199.0,paid
+INV-2025-0020,ns739m2fzjek4qh8t6gvfpr8v17zhjtc,2026-01-19 15:56,Remington Charles Splettstoesser,,199.0,sent

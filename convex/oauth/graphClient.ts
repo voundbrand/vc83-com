@@ -53,23 +53,37 @@ export const graphRequest = internalAction({
       throw new Error("OAuth connection has been revoked");
     }
 
-    // Check if token is expired
-    if (connection.tokenExpiresAt < Date.now()) {
-      // Refresh token
-      await ctx.runAction(internal.oauth.microsoft.refreshMicrosoftToken, {
-        connectionId: args.connectionId,
-      });
-
-      // Re-fetch connection with fresh token
-      const refreshedConnection = await ctx.runQuery(internal.oauth.microsoft.getConnection, {
+    // Check if token is expired (with 60s buffer to avoid edge cases)
+    if (connection.tokenExpiresAt < Date.now() + 60000) {
+      // Re-fetch to check if another action already refreshed the token
+      const freshCheck = await ctx.runQuery(internal.oauth.microsoft.getConnection, {
         connectionId: args.connectionId,
       }) as OAuthConnection | null;
 
-      if (!refreshedConnection) {
-        throw new Error("Failed to refresh connection");
+      if (freshCheck && freshCheck.tokenExpiresAt < Date.now() + 60000) {
+        // Token is still expired, refresh it
+        await ctx.runAction(internal.oauth.microsoft.refreshMicrosoftToken, {
+          connectionId: args.connectionId,
+        });
+
+        // Re-fetch connection with fresh token
+        const refreshedConnection = await ctx.runQuery(internal.oauth.microsoft.getConnection, {
+          connectionId: args.connectionId,
+        }) as OAuthConnection | null;
+
+        if (!refreshedConnection) {
+          throw new Error("Failed to refresh connection");
+        }
+
+        return await makeRequest(ctx, refreshedConnection, args.endpoint, args.method, args.body as GraphApiRequestBody | undefined);
       }
 
-      return await makeRequest(ctx, refreshedConnection, args.endpoint, args.method, args.body as GraphApiRequestBody | undefined);
+      // Token was already refreshed by another action
+      if (freshCheck) {
+        return await makeRequest(ctx, freshCheck, args.endpoint, args.method, args.body as GraphApiRequestBody | undefined);
+      }
+
+      throw new Error("Connection lost during refresh");
     }
 
     return await makeRequest(ctx, connection as OAuthConnection, args.endpoint, args.method, args.body as GraphApiRequestBody | undefined);
@@ -189,25 +203,116 @@ export const getEmails = action({
 });
 
 /**
- * Get user's calendar events (Phase 3 - future implementation)
+ * Get user's calendar events
+ * Uses /me/calendarView for expanded recurring events within a date range
  */
 export const getCalendarEvents = action({
   args: {
     connectionId: v.id("oauthConnections"),
     startDateTime: v.optional(v.string()),
     endDateTime: v.optional(v.string()),
+    top: v.optional(v.number()),
   },
   handler: async (ctx, args): Promise<GraphApiResponse> => {
     const { internal } = await import("../_generated/api");
     let endpoint = "/me/calendarView";
 
+    const params: string[] = [];
     if (args.startDateTime && args.endDateTime) {
-      endpoint += `?startDateTime=${args.startDateTime}&endDateTime=${args.endDateTime}`;
+      params.push(`startDateTime=${args.startDateTime}`);
+      params.push(`endDateTime=${args.endDateTime}`);
+    }
+    if (args.top) {
+      params.push(`$top=${args.top}`);
+    }
+    params.push("$orderby=start/dateTime");
+
+    if (params.length > 0) {
+      endpoint += `?${params.join("&")}`;
     }
 
     return await ctx.runAction(internal.oauth.graphClient.graphRequest, {
       connectionId: args.connectionId,
       endpoint,
+    }) as GraphApiResponse;
+  },
+});
+
+/**
+ * Create a calendar event in user's calendar
+ */
+export const createCalendarEvent = action({
+  args: {
+    connectionId: v.id("oauthConnections"),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    eventData: v.any(),
+  },
+  handler: async (ctx, args): Promise<GraphApiResponse> => {
+    const { internal } = await import("../_generated/api");
+
+    return await ctx.runAction(internal.oauth.graphClient.graphRequest, {
+      connectionId: args.connectionId,
+      endpoint: "/me/events",
+      method: "POST",
+      body: args.eventData,
+    }) as GraphApiResponse;
+  },
+});
+
+/**
+ * Update an existing calendar event
+ */
+export const updateCalendarEvent = action({
+  args: {
+    connectionId: v.id("oauthConnections"),
+    eventId: v.string(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    eventData: v.any(),
+  },
+  handler: async (ctx, args): Promise<GraphApiResponse> => {
+    const { internal } = await import("../_generated/api");
+
+    return await ctx.runAction(internal.oauth.graphClient.graphRequest, {
+      connectionId: args.connectionId,
+      endpoint: `/me/events/${args.eventId}`,
+      method: "PATCH",
+      body: args.eventData,
+    }) as GraphApiResponse;
+  },
+});
+
+/**
+ * Delete a calendar event
+ */
+export const deleteCalendarEvent = action({
+  args: {
+    connectionId: v.id("oauthConnections"),
+    eventId: v.string(),
+  },
+  handler: async (ctx, args): Promise<GraphApiResponse> => {
+    const { internal } = await import("../_generated/api");
+
+    return await ctx.runAction(internal.oauth.graphClient.graphRequest, {
+      connectionId: args.connectionId,
+      endpoint: `/me/events/${args.eventId}`,
+      method: "DELETE",
+    }) as GraphApiResponse;
+  },
+});
+
+/**
+ * Get list of user's calendars
+ */
+export const getCalendarList = action({
+  args: {
+    connectionId: v.id("oauthConnections"),
+  },
+  handler: async (ctx, args): Promise<GraphApiResponse> => {
+    const { internal } = await import("../_generated/api");
+
+    return await ctx.runAction(internal.oauth.graphClient.graphRequest, {
+      connectionId: args.connectionId,
+      endpoint: "/me/calendars",
     }) as GraphApiResponse;
   },
 });

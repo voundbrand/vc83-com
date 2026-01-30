@@ -112,6 +112,7 @@ export async function createTransactionsForPurchase(
   // ========================================================================
   // Note: Using explicit type cast to avoid deep type instantiation issues with Convex's generated types
   /* eslint-disable @typescript-eslint/no-explicit-any */
+  // @ts-ignore - Deep type instantiation in Convex generated types
   const session = await (ctx as any).runQuery(
     (internal as any).checkoutSessionOntology.getCheckoutSessionInternal,
     { checkoutSessionId: params.checkoutSessionId }
@@ -354,8 +355,8 @@ export async function createTransactionsForPurchase(
                 return null;
               })
             );
-            eventSponsors = sponsors.filter((s): s is NonNullable<typeof s> => s !== null);
-            console.log(`   Sponsors: ${eventSponsors.length} found`);
+            eventSponsors = sponsors.filter((s) => s !== null) as Array<{ name: string; level?: string; logoUrl?: string }>;
+            console.log(`   Sponsors: ${eventSponsors!.length} found`);
           }
 
           // Store for top-level (first event wins)

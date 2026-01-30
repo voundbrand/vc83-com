@@ -38,6 +38,7 @@ import {
   Loader2,
   Paperclip,
   Activity,
+  Rocket,
 } from "lucide-react";
 import { useMutation, useQuery, useAction } from "convex/react";
 import { api } from "@/../convex/_generated/api";
@@ -83,14 +84,14 @@ function CollapsedSidebar({
   // Get mode icon and color for the sidebar button
   const getModeDisplay = () => {
     switch (currentMode) {
-      case "plan":
-        return { icon: <MessageSquare className="w-5 h-5 mb-0.5" />, label: "Plan", color: "text-blue-400 bg-blue-500/10" };
       case "connect":
         return { icon: <Plug className="w-5 h-5 mb-0.5" />, label: "Connect", color: "text-emerald-400 bg-emerald-500/10" };
+      case "publish":
+        return { icon: <Rocket className="w-5 h-5 mb-0.5" />, label: "Publish", color: "text-amber-400 bg-amber-500/10" };
       case "docs":
         return { icon: <FileText className="w-5 h-5 mb-0.5" />, label: "Docs", color: "text-purple-400 bg-purple-500/10" };
       default:
-        return { icon: <Zap className="w-5 h-5 mb-0.5" />, label: "Auto", color: "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900" };
+        return { icon: <Zap className="w-5 h-5 mb-0.5" />, label: "Build", color: "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900" };
     }
   };
 
@@ -162,8 +163,8 @@ function SidebarModeButton({
     const size = large ? "w-5 h-5 mb-0.5" : "w-4 h-4";
     switch (mode) {
       case "auto": return <Zap className={size} />;
-      case "plan": return <MessageSquare className={size} />;
       case "connect": return <Plug className={size} />;
+      case "publish": return <Rocket className={size} />;
       case "docs": return <FileText className={size} />;
     }
   };
@@ -174,19 +175,19 @@ function SidebarModeButton({
     color: string;
   }> = {
     auto: {
-      label: "Auto",
-      description: "Execute directly",
+      label: "Build",
+      description: "Generate with AI",
       color: "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900",
-    },
-    plan: {
-      label: "Plan",
-      description: "Discuss first",
-      color: "text-blue-400 bg-blue-500/10",
     },
     connect: {
       label: "Connect",
       description: "Link to data",
       color: "text-emerald-400 bg-emerald-500/10",
+    },
+    publish: {
+      label: "Publish",
+      description: "GitHub & deploy",
+      color: "text-amber-400 bg-amber-500/10",
     },
     docs: {
       label: "Docs",
@@ -218,7 +219,7 @@ function SidebarModeButton({
         <>
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
           <div className="absolute left-full top-0 ml-2 w-40 bg-zinc-900 rounded-lg shadow-xl z-50 py-1 overflow-hidden border border-zinc-800">
-            {(["auto", "plan", "connect", "docs"] as BuilderUIMode[]).map((mode) => {
+            {(["auto", "connect", "publish", "docs"] as BuilderUIMode[]).map((mode) => {
               const config = modeConfig[mode];
               const isActive = currentMode === mode;
               const isDisabled = mode === "connect" && !canConnect;
@@ -288,24 +289,34 @@ function WelcomeMessage({ onSuggestionClick }: { onSuggestionClick: (text: strin
     "A professional page for my consulting business",
   ];
 
+  // Styled like AssistantMessage for consistency
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
-      <h1 className="text-3xl md:text-4xl font-semibold text-white mb-8">
-        {headline}
-      </h1>
-      <p className="text-sm text-zinc-400 max-w-sm mx-auto mb-6">
-        Describe your landing page and I&apos;ll generate it for you. Try something like:
-      </p>
-      <div className="space-y-2 w-full max-w-md">
-        {suggestions.map((suggestion, i) => (
-          <button
-            key={i}
-            onClick={() => onSuggestionClick(suggestion)}
-            className="block w-full text-left text-sm text-purple-400 hover:text-purple-300 hover:bg-zinc-800 rounded-lg px-4 py-2 transition-colors"
-          >
-            &quot;{suggestion}&quot;
-          </button>
-        ))}
+    <div className="flex justify-start">
+      <div className="max-w-[90%]">
+        {/* Message bubble - matches AssistantMessage style */}
+        <div className="bg-zinc-800 rounded-2xl rounded-tl-md px-4 py-3">
+          <h2 className="text-lg font-medium text-zinc-100 mb-3">
+            {headline}
+          </h2>
+          <p className="text-sm text-zinc-400 mb-4">
+            Describe your landing page and I&apos;ll generate it for you. Try one of these:
+          </p>
+          <div className="space-y-2">
+            {suggestions.map((suggestion, i) => (
+              <button
+                key={i}
+                onClick={() => onSuggestionClick(suggestion)}
+                className="block w-full text-left text-sm text-zinc-300 hover:text-zinc-100 bg-zinc-700/50 hover:bg-zinc-700 rounded-lg px-3 py-2 transition-colors"
+              >
+                {suggestion}
+              </button>
+            ))}
+          </div>
+        </div>
+        {/* Metadata footer - matches AssistantMessage */}
+        <div className="flex items-center gap-3 mt-1.5 px-1 text-xs text-zinc-500">
+          <span>AI Assistant</span>
+        </div>
       </div>
     </div>
   );
@@ -315,7 +326,7 @@ function WelcomeMessage({ onSuggestionClick }: { onSuggestionClick: (text: strin
 // UNIFIED MODE TYPE
 // ============================================================================
 
-type BuilderUIMode = "auto" | "plan" | "connect" | "docs";
+type BuilderUIMode = "auto" | "connect" | "publish" | "docs";
 
 // ============================================================================
 // MODE SELECTOR (All 4 modes: Auto, Plan, Connect, Docs)
@@ -347,17 +358,10 @@ function ModeSelector({
   }> = {
     auto: {
       icon: <Zap className="w-4 h-4" />,
-      label: "Auto",
-      description: "Execute directly",
+      label: "Build",
+      description: "Generate with AI",
       color: "text-zinc-400",
       bgColor: "",
-    },
-    plan: {
-      icon: <MessageSquare className="w-4 h-4" />,
-      label: "Plan",
-      description: "Discuss before executing",
-      color: "text-blue-400",
-      bgColor: "bg-blue-500/10",
     },
     connect: {
       icon: <Plug className="w-4 h-4" />,
@@ -365,6 +369,13 @@ function ModeSelector({
       description: "Link to real data",
       color: "text-emerald-400",
       bgColor: "bg-emerald-500/10",
+    },
+    publish: {
+      icon: <Rocket className="w-4 h-4" />,
+      label: "Publish",
+      description: "Push to GitHub & deploy",
+      color: "text-amber-400",
+      bgColor: "bg-amber-500/10",
     },
     docs: {
       icon: <FileText className="w-4 h-4" />,
@@ -411,7 +422,7 @@ function ModeSelector({
             onClick={() => setIsOpen(false)}
           />
           <div className={`absolute ${direction === "up" ? "bottom-full mb-2" : "top-full mt-2"} left-0 w-48 bg-zinc-900 rounded-lg shadow-xl z-50 py-1 overflow-hidden border border-zinc-800`}>
-            {(["auto", "plan", "connect", "docs"] as BuilderUIMode[]).map((mode) => {
+            {(["auto", "connect", "publish", "docs"] as BuilderUIMode[]).map((mode) => {
               const config = modeConfig[mode];
               const isActive = currentMode === mode;
               const isDisabled = mode === "connect" && !canConnect;
@@ -454,8 +465,8 @@ function ModeSelector({
 function UserMessage({ content }: { content: string }) {
   return (
     <div className="flex justify-end">
-      <div className="max-w-[85%] bg-purple-600 text-white rounded-2xl rounded-tr-md px-4 py-2">
-        <p className="text-sm whitespace-pre-wrap">{content}</p>
+      <div className="max-w-[85%] bg-zinc-700 rounded-2xl rounded-tr-md px-4 py-3">
+        <p className="text-sm text-zinc-100 whitespace-pre-wrap">{content}</p>
       </div>
     </div>
   );
@@ -981,6 +992,56 @@ function ToolApprovalCard({
 }
 
 // ============================================================================
+// AI PROVIDER TOGGLE (v0 vs Built-in)
+// ============================================================================
+
+function AIProviderToggle({
+  provider,
+  onProviderChange,
+  disabled,
+  hasV0Preview,
+}: {
+  provider: "built-in" | "v0";
+  onProviderChange: (provider: "built-in" | "v0") => void;
+  disabled?: boolean;
+  hasV0Preview?: boolean;
+}) {
+  return (
+    <div className="flex items-center bg-zinc-800 border border-zinc-700 rounded-lg p-0.5">
+      <button
+        type="button"
+        onClick={() => !disabled && onProviderChange("v0")}
+        disabled={disabled}
+        className={`flex items-center gap-1 px-2 py-1 text-xs rounded-md transition-colors ${
+          provider === "v0"
+            ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-sm"
+            : "text-zinc-400 hover:text-zinc-200"
+        } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+        title="Use v0.dev for live preview (Recommended)"
+      >
+        <span className="font-medium">v0</span>
+        {hasV0Preview && provider === "v0" && (
+          <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+        )}
+      </button>
+      <button
+        type="button"
+        onClick={() => !disabled && onProviderChange("built-in")}
+        disabled={disabled}
+        className={`flex items-center gap-1 px-2 py-1 text-xs rounded-md transition-colors ${
+          provider === "built-in"
+            ? "bg-zinc-700 text-zinc-100 shadow-sm"
+            : "text-zinc-400 hover:text-zinc-200"
+        } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+        title="Use built-in JSON schema renderer"
+      >
+        <span className="font-medium">JSON</span>
+      </button>
+    </div>
+  );
+}
+
+// ============================================================================
 // COMPACT MODEL SELECTOR (For input area)
 // ============================================================================
 
@@ -1186,13 +1247,18 @@ export function BuilderChatPanel() {
     conversationId,
     selectedModel,
     setSelectedModel,
-    isPlanningMode,
-    setIsPlanningMode,
+    // V0 integration
+    aiProvider,
+    setAiProvider,
+    v0DemoUrl,
     // Three-mode architecture
     builderMode,
     setBuilderMode,
     analyzePageForConnections,
     canSwitchToMode,
+    // Builder app (set after v0 connection)
+    builderAppId,
+    sessionId,
   } = useBuilder();
 
   const [input, setInput] = useState("");
@@ -1208,6 +1274,7 @@ export function BuilderChatPanel() {
   const [isFetchingUrls, setIsFetchingUrls] = useState(false);
   const [attachedText, setAttachedText] = useState<{ content: string; preview: string } | null>(null);
   const [showConnectionPanel, setShowConnectionPanel] = useState(false);
+  const [showPublishPanel, setShowPublishPanel] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -1223,25 +1290,21 @@ export function BuilderChatPanel() {
   // ============================================================================
   const currentUIMode: BuilderUIMode = useMemo(() => {
     if (showConnectionPanel && builderMode === "connect") return "connect";
+    if (showPublishPanel) return "publish";
     if (isDocsMode) return "docs";
-    if (isPlanningMode) return "plan";
     return "auto";
-  }, [showConnectionPanel, builderMode, isDocsMode, isPlanningMode]);
+  }, [showConnectionPanel, showPublishPanel, builderMode, isDocsMode]);
 
   // Handle unified mode change from the dropdown
   const handleUIModeChange = async (mode: BuilderUIMode) => {
     // Reset all modes first
     setIsDocsMode(false);
-    setIsPlanningMode(false);
     setShowConnectionPanel(false);
+    setShowPublishPanel(false);
 
     switch (mode) {
       case "auto":
-        // Auto mode = !isPlanningMode, prototype builder mode
-        setBuilderMode("prototype");
-        break;
-      case "plan":
-        setIsPlanningMode(true);
+        // Build mode = prototype builder mode
         setBuilderMode("prototype");
         break;
       case "connect":
@@ -1249,6 +1312,9 @@ export function BuilderChatPanel() {
         await analyzePageForConnections();
         setBuilderMode("connect");
         setShowConnectionPanel(true);
+        break;
+      case "publish":
+        setShowPublishPanel(true);
         break;
       case "docs":
         setIsDocsMode(true);
@@ -1266,6 +1332,28 @@ export function BuilderChatPanel() {
   const handleConnectionPanelClose = () => {
     setShowConnectionPanel(false);
     setBuilderMode("prototype");
+  };
+
+  // Handle publish panel close
+  const handlePublishPanelClose = () => {
+    setShowPublishPanel(false);
+  };
+
+  // Handle switching from Connect → Publish
+  const handleSwitchToPublish = () => {
+    setShowConnectionPanel(false);
+    setBuilderMode("prototype");
+    setShowPublishPanel(true);
+  };
+
+  // Handle switching from Publish → Connect
+  const handleSwitchToConnect = () => {
+    setShowPublishPanel(false);
+    if (canSwitchToMode("connect")) {
+      analyzePageForConnections();
+      setBuilderMode("connect");
+      setShowConnectionPanel(true);
+    }
   };
 
   // Training data feedback mutation
@@ -1489,10 +1577,22 @@ export function BuilderChatPanel() {
     // Otherwise, let the paste happen normally (URLs still get extracted above)
   };
 
-  // Dynamically import ConnectionPanel to avoid circular deps
+  // Dynamically import ConnectionPanel and V0ConnectionPanel to avoid circular deps
   const ConnectionPanel = useMemo(() => {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     return require("./connection-panel").ConnectionPanel;
+  }, []);
+  const V0ConnectionPanel = useMemo(() => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require("./v0-connection-panel").V0ConnectionPanel;
+  }, []);
+  const PublishConfigWizard = useMemo(() => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require("./publish-config-wizard").PublishConfigWizard;
+  }, []);
+  const PublishProvider = useMemo(() => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require("@/contexts/publish-context").PublishProvider;
   }, []);
 
   return (
@@ -1508,18 +1608,40 @@ export function BuilderChatPanel() {
         />
       </div>
 
-      {/* Connection Panel - shown when in connect mode */}
-      {showConnectionPanel && builderMode === "connect" && (
-        <div className="w-80 h-full flex-shrink-0 border-r border-zinc-800">
-          <ConnectionPanel
-            onClose={handleConnectionPanelClose}
-            onComplete={handleConnectionComplete}
-          />
-        </div>
-      )}
-
       {/* Main Chat Area - fixed height, internal scroll */}
-      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative">
+        {/* Connection Panel Drawer - overlays above the chat content */}
+        {showConnectionPanel && builderMode === "connect" && (
+          <div className="absolute inset-0 z-20 bg-zinc-950/95 backdrop-blur-sm overflow-y-auto overflow-x-hidden">
+            {aiProvider === "v0" ? (
+              <V0ConnectionPanel
+                onClose={handleConnectionPanelClose}
+                onSwitchToPublish={handleSwitchToPublish}
+              />
+            ) : (
+              <ConnectionPanel
+                onClose={handleConnectionPanelClose}
+                onComplete={handleConnectionComplete}
+              />
+            )}
+          </div>
+        )}
+
+        {/* Publish Panel Drawer - overlays above the chat content */}
+        {showPublishPanel && (
+          <div className="absolute inset-0 z-20 bg-zinc-950/95 backdrop-blur-sm overflow-y-auto overflow-x-hidden w-full max-w-full">
+            <PublishProvider
+              builderAppId={builderAppId}
+              sessionId={sessionId}
+            >
+              <PublishConfigWizard
+                onClose={handlePublishPanelClose}
+                onSwitchToConnect={handleSwitchToConnect}
+              />
+            </PublishProvider>
+          </div>
+        )}
+
         {/* Messages - this is the ONLY scrollable area */}
         <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
           {/* Welcome message if empty */}
@@ -1728,6 +1850,14 @@ export function BuilderChatPanel() {
                 )}
               </button>
 
+              {/* AI Provider Toggle (v0 vs Built-in) */}
+              <AIProviderToggle
+                provider={aiProvider}
+                onProviderChange={setAiProvider}
+                disabled={isGenerating}
+                hasV0Preview={!!v0DemoUrl}
+              />
+
               {/* Unified Mode Selector - Auto, Plan, Connect, Docs */}
               <ModeSelector
                 currentMode={currentUIMode}
@@ -1737,12 +1867,14 @@ export function BuilderChatPanel() {
                 direction="up"
               />
 
-              {/* Model Selector */}
-              <CompactModelSelector
-                selectedModel={selectedModel}
-                onModelChange={setSelectedModel}
-                disabled={isGenerating}
-              />
+              {/* Model Selector - only show for built-in provider */}
+              {aiProvider === "built-in" && (
+                <CompactModelSelector
+                  selectedModel={selectedModel}
+                  onModelChange={setSelectedModel}
+                  disabled={isGenerating}
+                />
+              )}
             </div>
 
             {/* Right side actions */}

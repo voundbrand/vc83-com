@@ -39,6 +39,8 @@ interface TimeSlot {
   startDateTime: number;  // Unix timestamp
   endDateTime: number;    // Unix timestamp
   isAvailable: boolean;
+  remainingCapacity: number;  // Seats still available in this slot
+  totalCapacity: number;      // Total capacity for this resource
 }
 
 interface WeeklyScheduleEntry {
@@ -134,6 +136,7 @@ export const getAvailableSlots = query({
     const slotIncrement = (resourceProps?.slotIncrement as number) || slotDuration;
     const bufferBefore = (resourceProps?.bufferBefore as number) || 0;
     const bufferAfter = (resourceProps?.bufferAfter as number) || 0;
+    const capacity = (resourceProps?.capacity as number) || 1;
     const timezone = args.timezone || (resourceProps?.timezone as string) || "UTC";
 
     // 3. Get availability records
@@ -152,7 +155,15 @@ export const getAvailableSlots = query({
       args.endDate + bufferAfter * 60000
     );
 
-    // 5. Generate slots
+    // 4b. Get external calendar busy times (Google/Microsoft synced events)
+    const externalBusyTimes = await getExternalBusyTimes(
+      ctx,
+      args.resourceId,
+      args.startDate,
+      args.endDate
+    );
+
+    // 5. Generate slots (capacity-aware)
     const slots: TimeSlot[] = [];
     const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -164,45 +175,53 @@ export const getAvailableSlots = query({
       // Get the day of week (0=Sunday)
       const dayOfWeek = new Date(dayTs).getUTCDay();
 
-      // Get schedule for this day (check exceptions first)
-      const schedule = getScheduleForDay(dayTs, dayOfWeek, schedules, exceptions);
-      if (!schedule || !schedule.isAvailable) continue;
+      // Get all time ranges for this day (supports multiple ranges per day)
+      const daySchedules = getSchedulesForDay(dayTs, dayOfWeek, schedules, exceptions);
+      if (daySchedules.length === 0) continue;
 
-      // Parse schedule times
-      const dayStart = parseTimeToTimestamp(schedule.startTime, dayTs);
-      const dayEnd = parseTimeToTimestamp(schedule.endTime, dayTs);
+      // Generate slots for each time range
+      for (const schedule of daySchedules) {
+        if (!schedule.isAvailable) continue;
 
-      // Generate slots for this day
-      for (let slotStart = dayStart; slotStart + slotDuration * 60000 <= dayEnd; slotStart += slotIncrement * 60000) {
-        const slotEnd = slotStart + slotDuration * 60000;
+        const dayStart = parseTimeToTimestamp(schedule.startTime, dayTs);
+        const dayEnd = parseTimeToTimestamp(schedule.endTime, dayTs);
 
-        // Check for conflicts (including buffer zones)
-        const effectiveStart = slotStart - bufferBefore * 60000;
-        const effectiveEnd = slotEnd + bufferAfter * 60000;
+        for (let slotStart = dayStart; slotStart + slotDuration * 60000 <= dayEnd; slotStart += slotIncrement * 60000) {
+          const slotEnd = slotStart + slotDuration * 60000;
 
-        const hasConflict = bookings.some((booking) => {
-          const bookingProps = booking.customProperties as Record<string, unknown>;
-          const bookingStart = bookingProps.startDateTime as number;
-          const bookingEnd = bookingProps.endDateTime as number;
-          const bookingStatus = booking.status;
+          // Check for conflicts (including buffer zones)
+          const effectiveStart = slotStart - bufferBefore * 60000;
+          const effectiveEnd = slotEnd + bufferAfter * 60000;
 
-          // Skip cancelled bookings
-          if (bookingStatus === "cancelled") return false;
+          // Count overlapping non-cancelled bookings for capacity check
+          const overlapCount = bookings.filter((booking) => {
+            if (booking.status === "cancelled") return false;
+            const bookingProps = booking.customProperties as Record<string, unknown>;
+            const bookingStart = bookingProps.startDateTime as number;
+            const bookingEnd = bookingProps.endDateTime as number;
+            return bookingStart < effectiveEnd && bookingEnd > effectiveStart;
+          }).length;
 
-          // Check overlap
-          return bookingStart < effectiveEnd && bookingEnd > effectiveStart;
-        });
+          // External calendar conflicts still block entirely
+          const hasExternalConflict = externalBusyTimes.some((busy) =>
+            busy.startDateTime < effectiveEnd && busy.endDateTime > effectiveStart
+          );
 
-        if (!hasConflict) {
-          slots.push({
-            resourceId: args.resourceId,
-            date: formatDate(dayTs),
-            startTime: formatTime(slotStart),
-            endTime: formatTime(slotEnd),
-            startDateTime: slotStart,
-            endDateTime: slotEnd,
-            isAvailable: true,
-          });
+          const remainingCapacity = capacity - overlapCount;
+
+          if (remainingCapacity > 0 && !hasExternalConflict) {
+            slots.push({
+              resourceId: args.resourceId,
+              date: formatDate(dayTs),
+              startTime: formatTime(slotStart),
+              endTime: formatTime(slotEnd),
+              startDateTime: slotStart,
+              endDateTime: slotEnd,
+              isAvailable: true,
+              remainingCapacity,
+              totalCapacity: capacity,
+            });
+          }
         }
       }
     }
@@ -213,7 +232,9 @@ export const getAvailableSlots = query({
 
 /**
  * CHECK CONFLICT
- * Check if a time slot conflicts with existing bookings
+ * Check if a time slot conflicts with existing bookings.
+ * Capacity-aware: allows concurrent bookings up to the resource's capacity.
+ * For capacity=1 (default), behaves identically to a binary conflict check.
  */
 export const checkConflict = internalQuery({
   args: {
@@ -223,13 +244,14 @@ export const checkConflict = internalQuery({
     excludeBookingId: v.optional(v.id("objects")),
   },
   handler: async (ctx, args) => {
-    // Get resource for buffer times
+    // Get resource for buffer times and capacity
     const resource = await ctx.db.get(args.resourceId);
     if (!resource) return false;
 
     const resourceProps = resource.customProperties as Record<string, unknown> | undefined;
     const bufferBefore = (resourceProps?.bufferBefore as number) || 0;
     const bufferAfter = (resourceProps?.bufferAfter as number) || 0;
+    const capacity = (resourceProps?.capacity as number) || 1;
 
     // Calculate effective time range with buffers
     const effectiveStart = args.startDateTime - bufferBefore * 60000;
@@ -243,25 +265,23 @@ export const checkConflict = internalQuery({
       effectiveEnd
     );
 
-    // Check for conflicts
+    // Count overlapping non-cancelled bookings
+    let overlapCount = 0;
     for (const booking of bookings) {
-      // Skip the booking being updated (if provided)
       if (args.excludeBookingId && booking._id === args.excludeBookingId) continue;
-
-      // Skip cancelled bookings
       if (booking.status === "cancelled") continue;
 
       const bookingProps = booking.customProperties as Record<string, unknown>;
       const bookingStart = bookingProps.startDateTime as number;
       const bookingEnd = bookingProps.endDateTime as number;
 
-      // Check overlap
       if (bookingStart < effectiveEnd && bookingEnd > effectiveStart) {
-        return true; // Conflict found
+        overlapCount++;
       }
     }
 
-    return false; // No conflict
+    // Conflict only when at or over capacity
+    return overlapCount >= capacity;
   },
 });
 
@@ -628,6 +648,495 @@ export const deleteBlock = mutation({
 });
 
 // ============================================================================
+// NAMED AVAILABILITY SCHEDULES
+// ============================================================================
+
+/**
+ * CREATE AVAILABILITY SCHEDULE
+ * Create a named, reusable availability schedule template with 7 day entries.
+ */
+export const createAvailabilitySchedule = mutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    name: v.string(),
+    timezone: v.string(),
+    isDefault: v.optional(v.boolean()),
+    days: v.array(
+      v.object({
+        dayOfWeek: v.number(),
+        timeRanges: v.array(
+          v.object({
+            startTime: v.string(),
+            endTime: v.string(),
+          })
+        ),
+        isAvailable: v.boolean(),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    // Validate days
+    for (const day of args.days) {
+      if (day.dayOfWeek < 0 || day.dayOfWeek > 6) {
+        throw new Error("Invalid day of week. Must be 0-6 (Sunday-Saturday)");
+      }
+      for (const range of day.timeRanges) {
+        if (!isValidTime(range.startTime) || !isValidTime(range.endTime)) {
+          throw new Error("Invalid time format. Use HH:MM (24-hour format)");
+        }
+        if (range.startTime >= range.endTime) {
+          throw new Error("Start time must be before end time");
+        }
+      }
+      // Validate no overlapping time ranges within a day
+      const sorted = [...day.timeRanges].sort((a, b) => a.startTime.localeCompare(b.startTime));
+      for (let i = 1; i < sorted.length; i++) {
+        if (sorted[i].startTime < sorted[i - 1].endTime) {
+          throw new Error(`Overlapping time ranges on ${getDayName(day.dayOfWeek)}`);
+        }
+      }
+    }
+
+    // If setting as default, unset all existing defaults for this org
+    if (args.isDefault) {
+      const existingTemplates = await ctx.db
+        .query("objects")
+        .withIndex("by_org_type", (q: any) =>
+          q.eq("organizationId", args.organizationId).eq("type", "availability")
+        )
+        .collect();
+
+      for (const tmpl of existingTemplates) {
+        if (tmpl.subtype === "schedule_template") {
+          const props = tmpl.customProperties as Record<string, unknown>;
+          if (props?.isDefault) {
+            await ctx.db.patch(tmpl._id, {
+              customProperties: { ...props, isDefault: false },
+              updatedAt: Date.now(),
+            });
+          }
+        }
+      }
+    }
+
+    // Create the schedule_template object
+    const templateId = await ctx.db.insert("objects", {
+      organizationId: args.organizationId,
+      type: "availability",
+      subtype: "schedule_template",
+      name: args.name,
+      status: "active",
+      customProperties: {
+        timezone: args.timezone,
+        isDefault: args.isDefault || false,
+      },
+      createdBy: userId,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    // Create schedule_entry objects for each day
+    for (const day of args.days) {
+      const entryId = await ctx.db.insert("objects", {
+        organizationId: args.organizationId,
+        type: "availability",
+        subtype: "schedule_entry",
+        name: `${getDayName(day.dayOfWeek)} Entry`,
+        status: "active",
+        customProperties: {
+          scheduleTemplateId: templateId,
+          dayOfWeek: day.dayOfWeek,
+          timeRanges: day.timeRanges,
+          isAvailable: day.isAvailable,
+        },
+        createdBy: userId,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+
+      // Link template to entry
+      await ctx.db.insert("objectLinks", {
+        organizationId: args.organizationId,
+        fromObjectId: templateId,
+        toObjectId: entryId,
+        linkType: "has_schedule_entry",
+        createdBy: userId,
+        createdAt: Date.now(),
+      });
+    }
+
+    return { scheduleId: templateId };
+  },
+});
+
+/**
+ * GET AVAILABILITY SCHEDULES
+ * List all named availability schedule templates for an organization.
+ */
+export const getAvailabilitySchedules = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    // Get all schedule_template objects for this org
+    const allAvailability = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q: any) =>
+        q.eq("organizationId", args.organizationId).eq("type", "availability")
+      )
+      .collect();
+
+    const templates = allAvailability.filter(
+      (obj) => obj.subtype === "schedule_template" && obj.status === "active"
+    );
+
+    const results = [];
+
+    for (const template of templates) {
+      const props = template.customProperties as Record<string, unknown>;
+
+      // Get entries via has_schedule_entry links
+      const entryLinks = await ctx.db
+        .query("objectLinks")
+        .withIndex("by_from_link_type", (q: any) =>
+          q.eq("fromObjectId", template._id).eq("linkType", "has_schedule_entry")
+        )
+        .collect();
+
+      const entries = [];
+      for (const link of entryLinks) {
+        const entry = await ctx.db.get(link.toObjectId);
+        if (entry && entry.subtype === "schedule_entry" && entry.status === "active") {
+          entries.push(entry);
+        }
+      }
+
+      // Build summary from entries
+      const dayEntries = entries.map((e) => {
+        const ep = e.customProperties as Record<string, unknown>;
+        return {
+          dayOfWeek: ep.dayOfWeek as number,
+          timeRanges: ep.timeRanges as Array<{ startTime: string; endTime: string }>,
+          isAvailable: ep.isAvailable as boolean,
+        };
+      });
+      dayEntries.sort((a, b) => a.dayOfWeek - b.dayOfWeek);
+
+      const summary = generateScheduleSummary(dayEntries);
+
+      results.push({
+        _id: template._id,
+        name: template.name,
+        timezone: props.timezone as string,
+        isDefault: (props.isDefault as boolean) || false,
+        summary,
+        entryCount: entries.length,
+      });
+    }
+
+    return results;
+  },
+});
+
+/**
+ * GET SCHEDULE DETAIL
+ * Get full detail (template + all day entries) for a named schedule.
+ */
+export const getScheduleDetail = query({
+  args: {
+    sessionId: v.string(),
+    scheduleId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const template = await ctx.db.get(args.scheduleId);
+    if (!template || template.type !== "availability" || template.subtype !== "schedule_template") {
+      throw new Error("Schedule template not found");
+    }
+
+    const props = template.customProperties as Record<string, unknown>;
+
+    // Get entries via has_schedule_entry links
+    const entryLinks = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_from_link_type", (q: any) =>
+        q.eq("fromObjectId", args.scheduleId).eq("linkType", "has_schedule_entry")
+      )
+      .collect();
+
+    const days = [];
+    for (const link of entryLinks) {
+      const entry = await ctx.db.get(link.toObjectId);
+      if (entry && entry.subtype === "schedule_entry" && entry.status === "active") {
+        const ep = entry.customProperties as Record<string, unknown>;
+        days.push({
+          _id: entry._id,
+          dayOfWeek: ep.dayOfWeek as number,
+          timeRanges: ep.timeRanges as Array<{ startTime: string; endTime: string }>,
+          isAvailable: ep.isAvailable as boolean,
+        });
+      }
+    }
+
+    days.sort((a, b) => a.dayOfWeek - b.dayOfWeek);
+
+    return {
+      template: {
+        _id: template._id,
+        name: template.name,
+        timezone: props.timezone as string,
+        isDefault: (props.isDefault as boolean) || false,
+        status: template.status,
+        createdAt: template.createdAt,
+        updatedAt: template.updatedAt,
+      },
+      days,
+    };
+  },
+});
+
+/**
+ * UPDATE AVAILABILITY SCHEDULE
+ * Update metadata (name, timezone, isDefault) of a named schedule template.
+ */
+export const updateAvailabilitySchedule = mutation({
+  args: {
+    sessionId: v.string(),
+    scheduleId: v.id("objects"),
+    name: v.optional(v.string()),
+    timezone: v.optional(v.string()),
+    isDefault: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const template = await ctx.db.get(args.scheduleId);
+    if (!template || template.type !== "availability" || template.subtype !== "schedule_template") {
+      throw new Error("Schedule template not found");
+    }
+
+    const props = template.customProperties as Record<string, unknown>;
+
+    // If setting as default, unset all existing defaults for this org
+    if (args.isDefault === true) {
+      const allAvailability = await ctx.db
+        .query("objects")
+        .withIndex("by_org_type", (q: any) =>
+          q.eq("organizationId", template.organizationId).eq("type", "availability")
+        )
+        .collect();
+
+      for (const tmpl of allAvailability) {
+        if (
+          tmpl.subtype === "schedule_template" &&
+          tmpl._id !== args.scheduleId
+        ) {
+          const tmplProps = tmpl.customProperties as Record<string, unknown>;
+          if (tmplProps?.isDefault) {
+            await ctx.db.patch(tmpl._id, {
+              customProperties: { ...tmplProps, isDefault: false },
+              updatedAt: Date.now(),
+            });
+          }
+        }
+      }
+    }
+
+    // Build updated fields
+    const updatedProps = {
+      ...props,
+      ...(args.timezone !== undefined ? { timezone: args.timezone } : {}),
+      ...(args.isDefault !== undefined ? { isDefault: args.isDefault } : {}),
+    };
+
+    await ctx.db.patch(args.scheduleId, {
+      ...(args.name !== undefined ? { name: args.name } : {}),
+      customProperties: updatedProps,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * UPDATE SCHEDULE DAY
+ * Update a single day entry's time ranges and availability flag.
+ */
+export const updateScheduleDay = mutation({
+  args: {
+    sessionId: v.string(),
+    scheduleEntryId: v.id("objects"),
+    timeRanges: v.array(
+      v.object({
+        startTime: v.string(),
+        endTime: v.string(),
+      })
+    ),
+    isAvailable: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const entry = await ctx.db.get(args.scheduleEntryId);
+    if (!entry || entry.type !== "availability" || entry.subtype !== "schedule_entry") {
+      throw new Error("Schedule entry not found");
+    }
+
+    // Validate time ranges
+    for (const range of args.timeRanges) {
+      if (!isValidTime(range.startTime) || !isValidTime(range.endTime)) {
+        throw new Error("Invalid time format. Use HH:MM (24-hour format)");
+      }
+      if (range.startTime >= range.endTime) {
+        throw new Error("Start time must be before end time");
+      }
+    }
+
+    // Validate no overlapping ranges
+    const sorted = [...args.timeRanges].sort((a, b) => a.startTime.localeCompare(b.startTime));
+    for (let i = 1; i < sorted.length; i++) {
+      if (sorted[i].startTime < sorted[i - 1].endTime) {
+        throw new Error("Time ranges must not overlap");
+      }
+    }
+
+    const props = entry.customProperties as Record<string, unknown>;
+
+    await ctx.db.patch(args.scheduleEntryId, {
+      customProperties: {
+        ...props,
+        timeRanges: args.timeRanges,
+        isAvailable: args.isAvailable,
+      },
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * DELETE AVAILABILITY SCHEDULE
+ * Delete a named schedule template and all its day entries.
+ * Fails if any resource is currently using this schedule.
+ */
+export const deleteAvailabilitySchedule = mutation({
+  args: {
+    sessionId: v.string(),
+    scheduleId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const template = await ctx.db.get(args.scheduleId);
+    if (!template || template.type !== "availability" || template.subtype !== "schedule_template") {
+      throw new Error("Schedule template not found");
+    }
+
+    // Check if any resources use this schedule
+    const usageLinks = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_to_link_type", (q: any) =>
+        q.eq("toObjectId", args.scheduleId).eq("linkType", "uses_schedule")
+      )
+      .collect();
+
+    if (usageLinks.length > 0) {
+      throw new Error(
+        `Cannot delete schedule: it is currently used by ${usageLinks.length} resource(s). Remove the schedule from those resources first.`
+      );
+    }
+
+    // Get all entry links
+    const entryLinks = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_from_link_type", (q: any) =>
+        q.eq("fromObjectId", args.scheduleId).eq("linkType", "has_schedule_entry")
+      )
+      .collect();
+
+    // Delete entry objects and their links
+    for (const link of entryLinks) {
+      await ctx.db.delete(link.toObjectId);
+      await ctx.db.delete(link._id);
+    }
+
+    // Delete any inbound links to the template
+    const inboundLinks = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_to_link_type", (q: any) =>
+        q.eq("toObjectId", args.scheduleId).eq("linkType", "has_schedule_entry")
+      )
+      .collect();
+
+    for (const link of inboundLinks) {
+      await ctx.db.delete(link._id);
+    }
+
+    // Delete the template itself
+    await ctx.db.delete(args.scheduleId);
+
+    return { success: true };
+  },
+});
+
+/**
+ * SET DEFAULT SCHEDULE
+ * Mark a named schedule as the organization default, unsetting any previous default.
+ */
+export const setDefaultSchedule = mutation({
+  args: {
+    sessionId: v.string(),
+    scheduleId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const template = await ctx.db.get(args.scheduleId);
+    if (!template || template.type !== "availability" || template.subtype !== "schedule_template") {
+      throw new Error("Schedule template not found");
+    }
+
+    // Get all schedule_templates for this org and unset their defaults
+    const allAvailability = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q: any) =>
+        q.eq("organizationId", template.organizationId).eq("type", "availability")
+      )
+      .collect();
+
+    for (const tmpl of allAvailability) {
+      if (tmpl.subtype === "schedule_template") {
+        const tmplProps = tmpl.customProperties as Record<string, unknown>;
+        if (tmplProps?.isDefault) {
+          await ctx.db.patch(tmpl._id, {
+            customProperties: { ...tmplProps, isDefault: false },
+            updatedAt: Date.now(),
+          });
+        }
+      }
+    }
+
+    // Set this one as default
+    const props = template.customProperties as Record<string, unknown>;
+    await ctx.db.patch(args.scheduleId, {
+      customProperties: { ...props, isDefault: true },
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+// ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
 
@@ -641,7 +1150,7 @@ async function getAvailabilityData(
   startDate: number,
   endDate: number
 ) {
-  // Get all availability links
+  // Get old-style availability links (has_availability)
   const links = await ctx.db
     .query("objectLinks")
     .withIndex("by_from_link_type", (q: any) =>
@@ -683,7 +1192,104 @@ async function getAvailabilityData(
     }
   }
 
+  // If no old-style schedules found, check for new named schedule system (uses_schedule)
+  if (schedules.length === 0) {
+    const scheduleLinks = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_from_link_type", (q: any) =>
+        q.eq("fromObjectId", resourceId).eq("linkType", "uses_schedule")
+      )
+      .collect();
+
+    for (const scheduleLink of scheduleLinks) {
+      const template = await ctx.db.get(scheduleLink.toObjectId);
+      if (!template || template.type !== "availability" || template.subtype !== "schedule_template") continue;
+      if (template.status !== "active") continue;
+
+      // Fetch schedule_entry children via has_schedule_entry links
+      const entryLinks = await ctx.db
+        .query("objectLinks")
+        .withIndex("by_from_link_type", (q: any) =>
+          q.eq("fromObjectId", template._id).eq("linkType", "has_schedule_entry")
+        )
+        .collect();
+
+      for (const entryLink of entryLinks) {
+        const entry = await ctx.db.get(entryLink.toObjectId);
+        if (!entry || entry.type !== "availability" || entry.subtype !== "schedule_entry") continue;
+
+        const entryProps = entry.customProperties as Record<string, unknown>;
+        const isAvailable = entryProps.isAvailable as boolean;
+        const dayOfWeek = entryProps.dayOfWeek as number;
+        const timeRanges = (entryProps.timeRanges as Array<{ startTime: string; endTime: string }>) || [];
+
+        if (!isAvailable || timeRanges.length === 0) {
+          // Push an unavailable marker so getScheduleForDay knows this day exists but is off
+          schedules.push({
+            customProperties: { dayOfWeek, startTime: "00:00", endTime: "00:00", isAvailable: false },
+            status: "active",
+          });
+          continue;
+        }
+
+        // Convert each time range into a synthetic old-style schedule object
+        for (const range of timeRanges) {
+          schedules.push({
+            customProperties: {
+              dayOfWeek,
+              startTime: range.startTime,
+              endTime: range.endTime,
+              isAvailable: true,
+            },
+            status: "active",
+          });
+        }
+      }
+      // Only use the first linked schedule template
+      break;
+    }
+  }
+
   return { schedules, exceptions, blocks };
+}
+
+/**
+ * Get external calendar events that block a resource in a date range
+ * These come from synced Google/Microsoft calendars via calendarSyncOntology
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function getExternalBusyTimes(
+  ctx: any,
+  resourceId: Id<"objects">,
+  startDate: number,
+  endDate: number
+): Promise<Array<{ startDateTime: number; endDateTime: number }>> {
+  // Find all calendar_event objects linked to this resource via blocks_resource
+  const links = await ctx.db
+    .query("objectLinks")
+    .withIndex("by_to_link_type", (q: any) =>
+      q.eq("toObjectId", resourceId).eq("linkType", "blocks_resource")
+    )
+    .collect();
+
+  const busyTimes: Array<{ startDateTime: number; endDateTime: number }> = [];
+
+  for (const link of links) {
+    const event = await ctx.db.get(link.fromObjectId);
+    if (!event || event.type !== "calendar_event") continue;
+    if (event.status !== "active") continue;
+
+    const props = event.customProperties as Record<string, unknown>;
+    const eventStart = props.startDateTime as number;
+    const eventEnd = props.endDateTime as number;
+
+    // Check if event overlaps with date range
+    if (eventStart < endDate && eventEnd > startDate) {
+      busyTimes.push({ startDateTime: eventStart, endDateTime: eventEnd });
+    }
+  }
+
+  return busyTimes;
 }
 
 /**
@@ -743,7 +1349,8 @@ function isDateBlocked(
 }
 
 /**
- * Get schedule for a specific day, checking exceptions first
+ * Get schedule for a specific day, checking exceptions first.
+ * Returns the first matching time range (legacy single-range behavior).
  */
 function getScheduleForDay(
   dateTs: number,
@@ -751,6 +1358,20 @@ function getScheduleForDay(
   schedules: Array<{ customProperties?: unknown }>,
   exceptions: Array<{ customProperties?: unknown }>
 ): { startTime: string; endTime: string; isAvailable: boolean } | null {
+  const ranges = getSchedulesForDay(dateTs, dayOfWeek, schedules, exceptions);
+  return ranges.length > 0 ? ranges[0] : null;
+}
+
+/**
+ * Get ALL schedule time ranges for a specific day, checking exceptions first.
+ * Supports multiple time ranges per day (e.g., 9:00-12:00 and 14:00-17:00).
+ */
+function getSchedulesForDay(
+  dateTs: number,
+  dayOfWeek: number,
+  schedules: Array<{ customProperties?: unknown }>,
+  exceptions: Array<{ customProperties?: unknown }>
+): Array<{ startTime: string; endTime: string; isAvailable: boolean }> {
   // Check for exception first
   for (const exception of exceptions) {
     const props = exception.customProperties as Record<string, unknown>;
@@ -759,32 +1380,36 @@ function getScheduleForDay(
     // Check if same day (compare dates without time)
     if (isSameDay(dateTs, exceptionDate)) {
       if (!props.isAvailable) {
-        return null; // Day is unavailable
+        return []; // Day is unavailable
       }
       if (props.customHours) {
         const hours = props.customHours as { startTime: string; endTime: string };
-        return {
+        return [{
           startTime: hours.startTime,
           endTime: hours.endTime,
           isAvailable: true,
-        };
+        }];
       }
     }
   }
 
-  // Fall back to weekly schedule
+  // Fall back to weekly schedule - collect ALL matching ranges for this day
+  const dayRanges: Array<{ startTime: string; endTime: string; isAvailable: boolean }> = [];
   for (const schedule of schedules) {
     const props = schedule.customProperties as Record<string, unknown>;
     if (props.dayOfWeek === dayOfWeek) {
-      return {
+      if (!(props.isAvailable as boolean)) {
+        return []; // Day is explicitly unavailable
+      }
+      dayRanges.push({
         startTime: props.startTime as string,
         endTime: props.endTime as string,
-        isAvailable: props.isAvailable as boolean,
-      };
+        isAvailable: true,
+      });
     }
   }
 
-  return null; // No schedule for this day
+  return dayRanges;
 }
 
 /**
@@ -886,6 +1511,98 @@ function getDayName(dayOfWeek: number): string {
   return days[dayOfWeek] || "Unknown";
 }
 
+/**
+ * Get short day name from day of week number
+ */
+function getDayNameShort(dayOfWeek: number): string {
+  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  return days[dayOfWeek] || "???";
+}
+
+/**
+ * Format a 24-hour time string ("09:00") to 12-hour format ("9:00 AM")
+ */
+function formatTime12h(time: string): string {
+  const [hoursStr, minutesStr] = time.split(":");
+  let hours = parseInt(hoursStr, 10);
+  const minutes = minutesStr;
+  const period = hours >= 12 ? "PM" : "AM";
+  if (hours === 0) {
+    hours = 12;
+  } else if (hours > 12) {
+    hours -= 12;
+  }
+  return `${hours}:${minutes} ${period}`;
+}
+
+/**
+ * Generate a human-readable summary from schedule day entries.
+ * Groups consecutive days that share the same time ranges.
+ * E.g. "Mon - Fri, 9:00 AM - 5:00 PM"
+ */
+function generateScheduleSummary(
+  dayEntries: Array<{
+    dayOfWeek: number;
+    timeRanges: Array<{ startTime: string; endTime: string }>;
+    isAvailable: boolean;
+  }>
+): string {
+  if (dayEntries.length === 0) return "No days configured";
+
+  // Only include available days
+  const availableDays = dayEntries.filter((d) => d.isAvailable);
+  if (availableDays.length === 0) return "No available days";
+
+  // Build a fingerprint for each day's time ranges
+  const fingerprinted = availableDays.map((d) => ({
+    dayOfWeek: d.dayOfWeek,
+    key: d.timeRanges
+      .map((r) => `${r.startTime}-${r.endTime}`)
+      .sort()
+      .join("|"),
+    timeRanges: d.timeRanges,
+  }));
+
+  // Sort by dayOfWeek
+  fingerprinted.sort((a, b) => a.dayOfWeek - b.dayOfWeek);
+
+  // Group consecutive days with the same time range fingerprint
+  const groups: Array<{
+    startDay: number;
+    endDay: number;
+    timeRanges: Array<{ startTime: string; endTime: string }>;
+  }> = [];
+
+  for (const entry of fingerprinted) {
+    const last = groups[groups.length - 1];
+    if (last && last.endDay === entry.dayOfWeek - 1 && last.timeRanges.map((r) => `${r.startTime}-${r.endTime}`).sort().join("|") === entry.key) {
+      last.endDay = entry.dayOfWeek;
+    } else {
+      groups.push({
+        startDay: entry.dayOfWeek,
+        endDay: entry.dayOfWeek,
+        timeRanges: entry.timeRanges,
+      });
+    }
+  }
+
+  // Format each group
+  const parts = groups.map((group) => {
+    const dayRange =
+      group.startDay === group.endDay
+        ? getDayNameShort(group.startDay)
+        : `${getDayNameShort(group.startDay)} - ${getDayNameShort(group.endDay)}`;
+
+    const timeStr = group.timeRanges
+      .map((r) => `${formatTime12h(r.startTime)} - ${formatTime12h(r.endTime)}`)
+      .join(", ");
+
+    return `${dayRange}, ${timeStr}`;
+  });
+
+  return parts.join(" | ");
+}
+
 // ============================================================================
 // INTERNAL QUERIES/MUTATIONS (for API endpoints)
 // ============================================================================
@@ -916,6 +1633,7 @@ export const getAvailableSlotsInternal = internalQuery({
     const slotIncrement = (resourceProps?.slotIncrement as number) || slotDuration;
     const bufferBefore = (resourceProps?.bufferBefore as number) || 0;
     const bufferAfter = (resourceProps?.bufferAfter as number) || 0;
+    const capacity = (resourceProps?.capacity as number) || 1;
 
     // Get availability data
     const { schedules, exceptions, blocks } = await getAvailabilityData(
@@ -933,7 +1651,15 @@ export const getAvailableSlotsInternal = internalQuery({
       args.endDate + bufferAfter * 60000
     );
 
-    // Generate slots
+    // Get external calendar busy times
+    const externalBusyTimes = await getExternalBusyTimes(
+      ctx,
+      args.resourceId,
+      args.startDate,
+      args.endDate
+    );
+
+    // Generate slots (capacity-aware)
     const slots: TimeSlot[] = [];
     const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -941,35 +1667,49 @@ export const getAvailableSlotsInternal = internalQuery({
       if (isDateBlocked(dayTs, blocks)) continue;
 
       const dayOfWeek = new Date(dayTs).getUTCDay();
-      const schedule = getScheduleForDay(dayTs, dayOfWeek, schedules, exceptions);
-      if (!schedule || !schedule.isAvailable) continue;
+      const daySchedules = getSchedulesForDay(dayTs, dayOfWeek, schedules, exceptions);
+      if (daySchedules.length === 0) continue;
 
-      const dayStart = parseTimeToTimestamp(schedule.startTime, dayTs);
-      const dayEnd = parseTimeToTimestamp(schedule.endTime, dayTs);
+      for (const schedule of daySchedules) {
+        if (!schedule.isAvailable) continue;
 
-      for (let slotStart = dayStart; slotStart + slotDuration * 60000 <= dayEnd; slotStart += slotIncrement * 60000) {
-        const slotEnd = slotStart + slotDuration * 60000;
-        const effectiveStart = slotStart - bufferBefore * 60000;
-        const effectiveEnd = slotEnd + bufferAfter * 60000;
+        const dayStart = parseTimeToTimestamp(schedule.startTime, dayTs);
+        const dayEnd = parseTimeToTimestamp(schedule.endTime, dayTs);
 
-        const hasConflict = bookings.some((booking) => {
-          const bookingProps = booking.customProperties as Record<string, unknown>;
-          const bookingStart = bookingProps.startDateTime as number;
-          const bookingEnd = bookingProps.endDateTime as number;
-          if (booking.status === "cancelled") return false;
-          return bookingStart < effectiveEnd && bookingEnd > effectiveStart;
-        });
+        for (let slotStart = dayStart; slotStart + slotDuration * 60000 <= dayEnd; slotStart += slotIncrement * 60000) {
+          const slotEnd = slotStart + slotDuration * 60000;
+          const effectiveStart = slotStart - bufferBefore * 60000;
+          const effectiveEnd = slotEnd + bufferAfter * 60000;
 
-        if (!hasConflict) {
-          slots.push({
-            resourceId: args.resourceId,
-            date: formatDate(dayTs),
-            startTime: formatTime(slotStart),
-            endTime: formatTime(slotEnd),
-            startDateTime: slotStart,
-            endDateTime: slotEnd,
-            isAvailable: true,
-          });
+          // Count overlapping non-cancelled bookings for capacity check
+          const overlapCount = bookings.filter((booking) => {
+            if (booking.status === "cancelled") return false;
+            const bookingProps = booking.customProperties as Record<string, unknown>;
+            const bookingStart = bookingProps.startDateTime as number;
+            const bookingEnd = bookingProps.endDateTime as number;
+            return bookingStart < effectiveEnd && bookingEnd > effectiveStart;
+          }).length;
+
+          // External calendar conflicts still block entirely
+          const hasExternalConflict = externalBusyTimes.some((busy) =>
+            busy.startDateTime < effectiveEnd && busy.endDateTime > effectiveStart
+          );
+
+          const remainingCapacity = capacity - overlapCount;
+
+          if (remainingCapacity > 0 && !hasExternalConflict) {
+            slots.push({
+              resourceId: args.resourceId,
+              date: formatDate(dayTs),
+              startTime: formatTime(slotStart),
+              endTime: formatTime(slotEnd),
+              startDateTime: slotStart,
+              endDateTime: slotEnd,
+              isAvailable: true,
+              remainingCapacity,
+              totalCapacity: capacity,
+            });
+          }
         }
       }
     }

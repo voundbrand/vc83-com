@@ -34,6 +34,12 @@ export const aiConversations = defineTable({
   // Message count (cached for performance)
   messageCount: v.optional(v.number()),         // Total number of messages in this conversation
 
+  // V0 Integration metadata (for v0.dev Platform API conversations)
+  aiProvider: v.optional(v.union(v.literal("built-in"), v.literal("v0"))),
+  v0ChatId: v.optional(v.string()),             // v0 platform chat ID (for follow-up messages)
+  v0DemoUrl: v.optional(v.string()),            // iframe preview URL
+  v0WebUrl: v.optional(v.string()),             // link to edit on v0.dev
+
   // Messages stored in separate table (see aiMessages)
 
   createdAt: v.number(),

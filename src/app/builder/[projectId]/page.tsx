@@ -24,14 +24,14 @@ import type { Id } from "@convex/_generated/dataModel";
 
 /**
  * Check if a string looks like a Convex ID
- * Convex IDs are base64-like strings that don't contain hyphens except in the table prefix
+ * Convex IDs are base64-like alphanumeric strings (no hyphens, typically ~20 chars)
+ * Slugs contain hyphens and are human-readable
  */
 function isConvexId(str: string): boolean {
-  // Convex IDs look like: "j5718tz4rk5..." (alphanumeric, no hyphens in the main ID)
-  // Slugs look like: "sailing-school-landing-page-abc123" (contain hyphens)
-  // A simple heuristic: if it contains a hyphen after position 10, it's likely a slug
-  const hyphenIndex = str.indexOf("-");
-  return hyphenIndex === -1 || hyphenIndex < 5;
+  // Convex IDs: alphanumeric only, no hyphens (e.g., "j5718tz4rk5abc123def")
+  // Slugs: contain hyphens (e.g., "sailing-school-landing-page-abc123")
+  // If it contains any hyphen, it's definitely a slug
+  return !str.includes("-") && str.length >= 10 && /^[a-zA-Z0-9]+$/.test(str);
 }
 
 export default function BuilderWorkspacePage({
@@ -93,7 +93,7 @@ export default function BuilderWorkspacePage({
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!isLoading && !isSignedIn) {
-      router.push(`/login?redirect=/builder/${projectId}`);
+      router.push("/");
     }
   }, [isLoading, isSignedIn, router, projectId]);
 

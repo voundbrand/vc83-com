@@ -1,0 +1,1188 @@
+[
+  {
+    "_creationTime": 1766566182684.488,
+    "_id": "ns745txg074dbds8rp9krjqkk17xxv18",
+    "createdAt": 1766566182684,
+    "createdBy": "mh75gpz9zdx9zcwq09ache7z9s7sfxd1",
+    "customProperties": {
+      "billTo": {
+        "billingAddress": {
+          "city": "Frankfurt",
+          "country": "DE",
+          "line1": "Zeilweg44",
+          "postalCode": "60439"
+        },
+        "crmOrganizationId": "ns73hdz2t794ja425hagchezt97xw3aq",
+        "email": "humpel@potentialx.de",
+        "name": "Potential\u00b2 GmbH",
+        "type": "organization",
+        "vatNumber": "DE318631881"
+      },
+      "checkoutSessionId": "ns7bjwfvk3ph73y1n92w48d3y57xx74p",
+      "consolidatedTicketIds": [
+        "ns7b0j2mxvvfxwbma93v7bpkfn7xw1mr"
+      ],
+      "crmContactId": "ns74m8aw5cdxp50bgry1q2ama17xweq7",
+      "crmOrganizationId": "ns73hdz2t794ja425hagchezt97xw3aq",
+      "currency": "EUR",
+      "dueDate": 1766566182684,
+      "invoiceDate": 1766566182684,
+      "invoiceNumber": "INV-2025-0003",
+      "isConsolidated": false,
+      "isDraft": false,
+      "isEmployerInvoiced": false,
+      "lineItems": [
+        {
+          "canEdit": false,
+          "canRemove": false,
+          "customerEmail": "humpel@potentialx.de",
+          "customerName": "Sascha Humpel",
+          "description": "Ticket - Fr\u00fchbucher - BNI | MV Awards Dinner 2026",
+          "eventLocation": "Zur Alten Hofstelle 1, 18516 S\u00fcderholz, Deutschland",
+          "eventName": "BNI | MV Awards Dinner 2026",
+          "productId": "ns78knfg98a3nath031afpkg3h7tva95",
+          "productName": "Ticket - Fr\u00fchbucher",
+          "quantity": 1,
+          "taxAmountInCents": 1261,
+          "taxRatePercent": 19,
+          "ticketId": "ns7b0j2mxvvfxwbma93v7bpkfn7xw1mr",
+          "totalPriceInCents": 7900,
+          "transactionId": "ns701xz6ejew63dknh2n18cred7xx1v2",
+          "unitPriceInCents": 6639
+        }
+      ],
+      "paidAt": 1766566182684,
+      "paymentStatus": "paid",
+      "paymentTerms": "dueonreceipt",
+      "pdfUrl": "https://agreeable-lion-828.convex.cloud/api/storage/314add1d-2bc0-4d03-8c49-b2f9691873f1",
+      "subtotalInCents": 6639,
+      "taxInCents": 1261,
+      "totalInCents": 7900
+    },
+    "name": "Invoice #INV-2025-0003",
+    "organizationId": "ks79avm8ffsszv6d368y4v63yd7tssnq",
+    "status": "paid",
+    "subtype": "b2b_single",
+    "type": "invoice",
+    "updatedAt": 1766566190813
+  },
+  {
+    "_creationTime": 1767002315430.6008,
+    "_id": "ns7fzyvyrps2qj4kyp329ka00h7y6myr",
+    "createdAt": 1767002315430,
+    "createdBy": "mh75gpz9zdx9zcwq09ache7z9s7sfxd1",
+    "customProperties": {
+      "billTo": {
+        "billingAddress": {
+          "city": "Bargeshagen",
+          "country": "DE",
+          "line1": "Reuterstra\u00dfe 10",
+          "postalCode": "18211"
+        },
+        "crmOrganizationId": "ns7ejhwvkbs3d3pb456z4aad157y7wsm",
+        "email": "info@dma-umzuege.de",
+        "name": "DMA Umz\u00fcge Yersin",
+        "type": "organization"
+      },
+      "checkoutSessionId": "ns74nf7qhkt6w3sdf2w7rxte0x7y7kej",
+      "consolidatedTicketIds": [
+        "ns7b54pea3487c3s6cjtm22sd17y7kva"
+      ],
+      "crmContactId": "ns784ys60qpy9wx7gf27mrysq17y6xn5",
+      "crmOrganizationId": "ns7ejhwvkbs3d3pb456z4aad157y7wsm",
+      "currency": "EUR",
+      "dueDate": 1767002315430,
+      "invoiceDate": 1767002315430,
+      "invoiceNumber": "INV-2025-0004",
+      "isConsolidated": false,
+      "isDraft": false,
+      "isEmployerInvoiced": false,
+      "lineItems": [
+        {
+          "canEdit": false,
+          "canRemove": false,
+          "customerEmail": "info@dma-umzuege.de",
+          "customerName": "Dany Yersin",
+          "description": "Ticket - Fr\u00fchbucher - BNI | MV Awards Dinner 2026",
+          "eventLocation": "Zur Alten Hofstelle 1, 18516 S\u00fcderholz, Deutschland",
+          "eventName": "BNI | MV Awards Dinner 2026",
+          "productId": "ns78knfg98a3nath031afpkg3h7tva95",
+          "productName": "Ticket - Fr\u00fchbucher",
+          "quantity": 1,
+          "taxAmountInCents": 1261,
+          "taxRatePercent": 19,
+          "ticketId": "ns7b54pea3487c3s6cjtm22sd17y7kva",
+          "totalPriceInCents": 7900,
+          "transactionId": "ns77t68nhvhj75bq545m922y4x7y7zkp",
+          "unitPriceInCents": 6639
+        }
+      ],
+      "paidAt": 1767002315430,
+      "paymentStatus": "paid",
+      "paymentTerms": "dueonreceipt",
+      "pdfUrl": "https://agreeable-lion-828.convex.cloud/api/storage/b3762dfa-9806-4d5f-9ad1-4df03bfc29f9",
+      "subtotalInCents": 6639,
+      "taxInCents": 1261,
+      "totalInCents": 7900
+    },
+    "name": "Invoice #INV-2025-0004",
+    "organizationId": "ks79avm8ffsszv6d368y4v63yd7tssnq",
+    "status": "paid",
+    "subtype": "b2b_single",
+    "type": "invoice",
+    "updatedAt": 1767002321009
+  },
+  {
+    "_creationTime": 1767020727469.1934,
+    "_id": "ns74xa2aay065kqjpbcevj0xd57y6b3v",
+    "createdAt": 1767020727469,
+    "createdBy": "mh75gpz9zdx9zcwq09ache7z9s7sfxd1",
+    "customProperties": {
+      "billTo": {
+        "email": "froehlich-frank@gmx.de",
+        "name": "Frank Fr\u00f6hlich",
+        "type": "individual"
+      },
+      "checkoutSessionId": "ns736wtvdmwxemc9xyh50316017y76es",
+      "consolidatedTicketIds": [
+        "ns76fa92d121qyfvfzsfzstc5h7y7tgk",
+        "ns77gp14qmbfdbfgsqdpk98wx17y6ghc"
+      ],
+      "crmContactId": "ns7a1pahf111377qspy51pveqh7y6d31",
+      "currency": "EUR",
+      "dueDate": 1767020727469,
+      "invoiceDate": 1767020727469,
+      "invoiceNumber": "INV-2025-0005",
+      "isConsolidated": false,
+      "isDraft": false,
+      "isEmployerInvoiced": false,
+      "lineItems": [
+        {
+          "canEdit": false,
+          "canRemove": false,
+          "customerEmail": "froehlich-frank@gmx.de",
+          "customerName": "Frank Fr\u00f6hlich",
+          "description": "Ticket - Fr\u00fchbucher - BNI | MV Awards Dinner 2026",
+          "eventLocation": "Zur Alten Hofstelle 1, 18516 S\u00fcderholz, Deutschland",
+          "eventName": "BNI | MV Awards Dinner 2026",
+          "productId": "ns78knfg98a3nath031afpkg3h7tva95",
+          "productName": "Ticket - Fr\u00fchbucher",
+          "quantity": 2,
+          "taxAmountInCents": 2523,
+          "taxRatePercent": 19,
+          "ticketId": "ns77gp14qmbfdbfgsqdpk98wx17y6ghc",
+          "totalPriceInCents": 15800,
+          "transactionId": "ns763th6f1hjdq4hwfe4gp90ad7y7r6p",
+          "unitPriceInCents": 6639
+        }
+      ],
+      "paidAt": 1767020727469,
+      "paymentStatus": "paid",
+      "paymentTerms": "dueonreceipt",
+      "pdfUrl": "https://agreeable-lion-828.convex.cloud/api/storage/929ad41d-a5ce-4477-afc9-e0715df34b7c",
+      "subtotalInCents": 13278,
+      "taxInCents": 2523,
+      "totalInCents": 15801
+    },
+    "name": "Invoice #INV-2025-0005",
+    "organizationId": "ks79avm8ffsszv6d368y4v63yd7tssnq",
+    "status": "paid",
+    "subtype": "b2c_single",
+    "type": "invoice",
+    "updatedAt": 1767020733657
+  },
+  {
+    "_creationTime": 1767021638907.0542,
+    "_id": "ns76pdqtns5f0ejtabxzz1gt3h7y6k9y",
+    "createdAt": 1767021638907,
+    "createdBy": "mh75gpz9zdx9zcwq09ache7z9s7sfxd1",
+    "customProperties": {
+      "billTo": {
+        "billingAddress": {
+          "city": "Rostock",
+          "country": "DE",
+          "line1": "Bl\u00fccherstra\u00dfe 41A",
+          "postalCode": "18055",
+          "state": "MV"
+        },
+        "crmOrganizationId": "ns7e0v87sb7t5229fw1ffwwz757y7m9k",
+        "email": "ah@antjehuefner.com",
+        "name": "Nordic Way GmbH",
+        "type": "organization"
+      },
+      "checkoutSessionId": "ns74tkcanw5vsy4qfwm6qrbd7h7y7wx3",
+      "consolidatedTicketIds": [
+        "ns7d9apknq5v6f8j00wxegekx17y61cf",
+        "ns76px9nqarkcqes9k2stqj8n17y65ge"
+      ],
+      "crmContactId": "ns74mmkz1wenmfe81vmh738ns17y6j30",
+      "crmOrganizationId": "ns7e0v87sb7t5229fw1ffwwz757y7m9k",
+      "currency": "EUR",
+      "dueDate": 1767021638907,
+      "invoiceDate": 1767021638907,
+      "invoiceNumber": "INV-2025-0006",
+      "isConsolidated": false,
+      "isDraft": false,
+      "isEmployerInvoiced": false,
+      "lineItems": [
+        {
+          "canEdit": false,
+          "canRemove": false,
+          "customerEmail": "ah@antjehuefner.com",
+          "customerName": "Antje H\u00fcfner",
+          "description": "Ticket - Fr\u00fchbucher - BNI | MV Awards Dinner 2026",
+          "eventLocation": "Zur Alten Hofstelle 1, 18516 S\u00fcderholz, Deutschland",
+          "eventName": "BNI | MV Awards Dinner 2026",
+          "productId": "ns78knfg98a3nath031afpkg3h7tva95",
+          "productName": "Ticket - Fr\u00fchbucher",
+          "quantity": 2,
+          "taxAmountInCents": 2523,
+          "taxRatePercent": 19,
+          "ticketId": "ns76px9nqarkcqes9k2stqj8n17y65ge",
+          "totalPriceInCents": 15800,
+          "transactionId": "ns7e15ba4q3fpx2qcfxd7ph67n7y6avc",
+          "unitPriceInCents": 6639
+        }
+      ],
+      "paidAt": 1767021638907,
+      "paymentStatus": "paid",
+      "paymentTerms": "dueonreceipt",
+      "pdfUrl": "https://agreeable-lion-828.convex.cloud/api/storage/60a3d70d-1d73-4c16-bbe1-ece2b32f8ba9",
+      "subtotalInCents": 13278,
+      "taxInCents": 2523,
+      "totalInCents": 15801
+    },
+    "name": "Invoice #INV-2025-0006",
+    "organizationId": "ks79avm8ffsszv6d368y4v63yd7tssnq",
+    "status": "paid",
+    "subtype": "b2b_single",
+    "type": "invoice",
+    "updatedAt": 1767021644714
+  },
+  {
+    "_creationTime": 1767038408525.1677,
+    "_id": "ns79sn092xkpw7gccwyqhrh4d17y6hyb",
+    "createdAt": 1767038408525,
+    "createdBy": "mh75gpz9zdx9zcwq09ache7z9s7sfxd1",
+    "customProperties": {
+      "billTo": {
+        "billingAddress": {
+          "city": "Rostock",
+          "country": "DE",
+          "line1": "Kapit\u00e4nsring25c",
+          "postalCode": "18147"
+        },
+        "crmOrganizationId": "ns7bangzf20zmkww6ngm52v8vh7y7q9h",
+        "email": "lange@raumfreuderostock.de",
+        "name": "Raumfreude",
+        "type": "organization",
+        "vatNumber": "DE415575373"
+      },
+      "checkoutSessionId": "ns73cdeetr475c3gcxzntn612d7y6gjy",
+      "consolidatedTicketIds": [
+        "ns7b9j22n9a1yvx6bhc7q1fbc97y67s7",
+        "ns753sftrbz4ks99c1yfn02zd17y74pe"
+      ],
+      "crmContactId": "ns76x6c55bew3k3ck77g43hw0h7y6wjm",
+      "crmOrganizationId": "ns7bangzf20zmkww6ngm52v8vh7y7q9h",
+      "currency": "EUR",
+      "dueDate": 1767038408525,
+      "invoiceDate": 1767038408525,
+      "invoiceNumber": "INV-2025-0007",
+      "isConsolidated": false,
+      "isDraft": false,
+      "isEmployerInvoiced": false,
+      "lineItems": [
+        {
+          "canEdit": false,
+          "canRemove": false,
+          "customerEmail": "lange@raumfreuderostock.de",
+          "customerName": "Bj\u00f6rn Lange",
+          "description": "Ticket - Fr\u00fchbucher - BNI | MV Awards Dinner 2026",
+          "eventLocation": "Zur Alten Hofstelle 1, 18516 S\u00fcderholz, Deutschland",
+          "eventName": "BNI | MV Awards Dinner 2026",
+          "productId": "ns78knfg98a3nath031afpkg3h7tva95",
+          "productName": "Ticket - Fr\u00fchbucher",
+          "quantity": 2,
+          "taxAmountInCents": 2523,
+          "taxRatePercent": 19,
+          "ticketId": "ns753sftrbz4ks99c1yfn02zd17y74pe",
+          "totalPriceInCents": 15800,
+          "transactionId": "ns71wqacqwh02mfdhxdn4rfac57y7zec",
+          "unitPriceInCents": 6639
+        }
+      ],
+      "paidAt": 1767038408525,
+      "paymentStatus": "paid",
+      "paymentTerms": "dueonreceipt",
+      "pdfUrl": "https://agreeable-lion-828.convex.cloud/api/storage/a82f138f-3a68-4405-b96d-437b2af01f15",
+      "subtotalInCents": 13278,
+      "taxInCents": 2523,
+      "totalInCents": 15801
+    },
+    "name": "Invoice #INV-2025-0007",
+    "organizationId": "ks79avm8ffsszv6d368y4v63yd7tssnq",
+    "status": "paid",
+    "subtype": "b2b_single",
+    "type": "invoice",
+    "updatedAt": 1767038413865
+  },
+  {
+    "_creationTime": 1767083197362.2954,
+    "_id": "ns78p8gxn1zqfwgypbw3ywmjb97y9vnd",
+    "createdAt": 1767083197362,
+    "createdBy": "mh75gpz9zdx9zcwq09ache7z9s7sfxd1",
+    "customProperties": {
+      "billTo": {
+        "billingAddress": {
+          "city": "Waren",
+          "country": "DE",
+          "line1": "Gro\u00dfe  Burgstra\u00dfe 18",
+          "postalCode": "17192"
+        },
+        "crmOrganizationId": "ns75p52cjg2g68tnc8sggknx9x7y9x9r",
+        "email": "swen.rehwald@von-poll-hausverwaltung.com",
+        "name": "SwenRehwald",
+        "type": "organization",
+        "vatNumber": "DE369993651"
+      },
+      "checkoutSessionId": "ns7fhrmp5ep70d3mqgxthn59n97y8n1w",
+      "consolidatedTicketIds": [
+        "ns76zm8whq2hk7y48s7mrafzad7y9d8r",
+        "ns75wy8nsp61g63hvf9cpavwnd7y9qrk"
+      ],
+      "crmContactId": "ns76w6thxv3kncytvwdkprbccx7y9vj0",
+      "crmOrganizationId": "ns75p52cjg2g68tnc8sggknx9x7y9x9r",
+      "currency": "EUR",
+      "dueDate": 1767083197362,
+      "invoiceDate": 1767083197362,
+      "invoiceNumber": "INV-2025-0008",
+      "isConsolidated": false,
+      "isDraft": false,
+      "isEmployerInvoiced": false,
+      "lineItems": [
+        {
+          "canEdit": false,
+          "canRemove": false,
+          "customerEmail": "swen.rehwald@von-poll-hausverwaltung.com",
+          "customerName": "Swen Rehwald",
+          "description": "Ticket - Fr\u00fchbucher - BNI | MV Awards Dinner 2026",
+          "eventLocation": "Zur Alten Hofstelle 1, 18516 S\u00fcderholz, Deutschland",
+          "eventName": "BNI | MV Awards Dinner 2026",
+          "productId": "ns78knfg98a3nath031afpkg3h7tva95",
+          "productName": "Ticket - Fr\u00fchbucher",
+          "quantity": 2,
+          "taxAmountInCents": 2523,
+          "taxRatePercent": 19,
+          "ticketId": "ns75wy8nsp61g63hvf9cpavwnd7y9qrk",
+          "totalPriceInCents": 15800,
+          "transactionId": "ns7bbkwyqx6a639cwbd38kps0x7y8nmg",
+          "unitPriceInCents": 6639
+        }
+      ],
+      "paidAt": 1767083197362,
+      "paymentStatus": "paid",
+      "paymentTerms": "dueonreceipt",
+      "pdfUrl": "https://agreeable-lion-828.convex.cloud/api/storage/e0510a30-0ff4-44d9-b8f3-44786a4ef5e9",
+      "subtotalInCents": 13278,
+      "taxInCents": 2523,
+      "totalInCents": 15801
+    },
+    "name": "Invoice #INV-2025-0008",
+    "organizationId": "ks79avm8ffsszv6d368y4v63yd7tssnq",
+    "status": "paid",
+    "subtype": "b2b_single",
+    "type": "invoice",
+    "updatedAt": 1767083202725
+  },
+  {
+    "_creationTime": 1767087681352.2214,
+    "_id": "ns7az4hy656pewza5zhvatw6gd7y8axf",
+    "createdAt": 1767087681352,
+    "createdBy": "mh75gpz9zdx9zcwq09ache7z9s7sfxd1",
+    "customProperties": {
+      "billTo": {
+        "billingAddress": {
+          "city": "Rostock",
+          "country": "DE",
+          "line1": "Kr\u00f6peliner Str. 37",
+          "postalCode": "18055"
+        },
+        "crmOrganizationId": "ns7e90g7knkfd81p6c8s7hmwzs7y98ke",
+        "email": "ramiros@web.de",
+        "name": "Rechtsanwaltskanzlei",
+        "type": "organization"
+      },
+      "checkoutSessionId": "ns7a3n952da9a7ybkd03yb351h7y8sya",
+      "consolidatedTicketIds": [
+        "ns74bfjm24gs8abzcss7g1e4n17y9d8b"
+      ],
+      "crmContactId": "ns76tx1zqksd6dfn4kxsgw38tn7y8qkt",
+      "crmOrganizationId": "ns7e90g7knkfd81p6c8s7hmwzs7y98ke",
+      "currency": "EUR",
+      "dueDate": 1767087681352,
+      "invoiceDate": 1767087681352,
+      "invoiceNumber": "INV-2025-0009",
+      "isConsolidated": false,
+      "isDraft": false,
+      "isEmployerInvoiced": false,
+      "lineItems": [
+        {
+          "canEdit": false,
+          "canRemove": false,
+          "customerEmail": "ramiros@web.de",
+          "customerName": "BirgitMichaelis-Seegers",
+          "description": "Ticket - Fr\u00fchbucher - BNI | MV Awards Dinner 2026",
+          "eventLocation": "Zur Alten Hofstelle 1, 18516 S\u00fcderholz, Deutschland",
+          "eventName": "BNI | MV Awards Dinner 2026",
+          "productId": "ns78knfg98a3nath031afpkg3h7tva95",
+          "productName": "Ticket - Fr\u00fchbucher",
+          "quantity": 1,
+          "taxAmountInCents": 1261,
+          "taxRatePercent": 19,
+          "ticketId": "ns74bfjm24gs8abzcss7g1e4n17y9d8b",
+          "totalPriceInCents": 7900,
+          "transactionId": "ns7baq4j2dbtsk9k5d3tes2x5n7y9vzt",
+          "unitPriceInCents": 6639
+        }
+      ],
+      "paidAt": 1767087681352,
+      "paymentStatus": "paid",
+      "paymentTerms": "dueonreceipt",
+      "pdfUrl": "https://agreeable-lion-828.convex.cloud/api/storage/46a358d5-1237-4dc3-aec6-ed14a1b31722",
+      "subtotalInCents": 6639,
+      "taxInCents": 1261,
+      "totalInCents": 7900
+    },
+    "name": "Invoice #INV-2025-0009",
+    "organizationId": "ks79avm8ffsszv6d368y4v63yd7tssnq",
+    "status": "paid",
+    "subtype": "b2b_single",
+    "type": "invoice",
+    "updatedAt": 1767087686886
+  },
+  {
+    "_creationTime": 1767124395109.158,
+    "_id": "ns73j9hkyvap1wrr2p2p6990357y8mmh",
+    "createdAt": 1767124395109,
+    "createdBy": "mh75gpz9zdx9zcwq09ache7z9s7sfxd1",
+    "customProperties": {
+      "billTo": {
+        "billingAddress": {
+          "city": "Neubrandenburg",
+          "country": "DE",
+          "line1": "Nonnenhofer Stra\u00dfe 22",
+          "postalCode": "17033"
+        },
+        "crmOrganizationId": "ns79y9xtcfc6w64rrzpm2xesyh7y8fsw",
+        "email": "steffen@renninger-nb.de",
+        "name": "Renninger",
+        "type": "organization"
+      },
+      "checkoutSessionId": "ns77v526qfnrr1j6hj1csf2az17y9q77",
+      "consolidatedTicketIds": [
+        "ns73t5f4hxkqmgyjc3b1cg0zjx7y8b53"
+      ],
+      "crmContactId": "ns7cbqj8zdpd2984k5yf9dvx717y9w51",
+      "crmOrganizationId": "ns79y9xtcfc6w64rrzpm2xesyh7y8fsw",
+      "currency": "EUR",
+      "dueDate": 1767124395109,
+      "invoiceDate": 1767124395109,
+      "invoiceNumber": "INV-2025-0010",
+      "isConsolidated": false,
+      "isDraft": false,
+      "isEmployerInvoiced": false,
+      "lineItems": [
+        {
+          "canEdit": false,
+          "canRemove": false,
+          "customerEmail": "steffen@renninger-nb.de",
+          "customerName": "Steffen Renninger",
+          "description": "Ticket - Fr\u00fchbucher - BNI | MV Awards Dinner 2026",
+          "eventLocation": "Zur Alten Hofstelle 1, 18516 S\u00fcderholz, Deutschland",
+          "eventName": "BNI | MV Awards Dinner 2026",
+          "productId": "ns78knfg98a3nath031afpkg3h7tva95",
+          "productName": "Ticket - Fr\u00fchbucher",
+          "quantity": 1,
+          "taxAmountInCents": 1261,
+          "taxRatePercent": 19,
+          "ticketId": "ns73t5f4hxkqmgyjc3b1cg0zjx7y8b53",
+          "totalPriceInCents": 7900,
+          "transactionId": "ns72043tzq4qqyjz2ffvbtz02s7y9yvs",
+          "unitPriceInCents": 6639
+        }
+      ],
+      "paidAt": 1767124395109,
+      "paymentStatus": "paid",
+      "paymentTerms": "dueonreceipt",
+      "pdfUrl": "https://agreeable-lion-828.convex.cloud/api/storage/297c2ce1-e02c-4cab-8fb7-61a784190620",
+      "subtotalInCents": 6639,
+      "taxInCents": 1261,
+      "totalInCents": 7900
+    },
+    "name": "Invoice #INV-2025-0010",
+    "organizationId": "ks79avm8ffsszv6d368y4v63yd7tssnq",
+    "status": "paid",
+    "subtype": "b2b_single",
+    "type": "invoice",
+    "updatedAt": 1767124400454
+  },
+  {
+    "_creationTime": 1767126511595.4421,
+    "_id": "ns78fefc14426rqd11wx2431ks7y8fxx",
+    "createdAt": 1767126511595,
+    "createdBy": "mh75gpz9zdx9zcwq09ache7z9s7sfxd1",
+    "customProperties": {
+      "billTo": {
+        "billingAddress": {
+          "city": "Neubrandenburg",
+          "country": "DE",
+          "line1": "Koserower - Strasse 3",
+          "postalCode": "17304",
+          "state": "Mecklenburg-Vorpommern"
+        },
+        "crmOrganizationId": "ns73qg0a9176cd175xsj8hnxk17y9v0g",
+        "email": "mail@michaela-friedek.de",
+        "name": "Sch\u00f6nheitsinstitut",
+        "type": "organization",
+        "vatNumber": "DE168021704"
+      },
+      "checkoutSessionId": "ns73pd3htz34z7m89jfxna9qqn7y90wq",
+      "consolidatedTicketIds": [
+        "ns73vtrvbh5ezj4feccj1v1sxs7y87cc"
+      ],
+      "crmContactId": "ns7ayx5ar1nc1cs14723z1g7257y8z6y",
+      "crmOrganizationId": "ns73qg0a9176cd175xsj8hnxk17y9v0g",
+      "currency": "EUR",
+      "dueDate": 1767126511595,
+      "invoiceDate": 1767126511595,
+      "invoiceNumber": "INV-2025-0011",
+      "isConsolidated": false,
+      "isDraft": false,
+      "isEmployerInvoiced": false,
+      "lineItems": [
+        {
+          "canEdit": false,
+          "canRemove": false,
+          "customerEmail": "mail@michaela-friedek.de",
+          "customerName": "Michaela Friedek",
+          "description": "Ticket - Fr\u00fchbucher - BNI | MV Awards Dinner 2026",
+          "eventLocation": "Zur Alten Hofstelle 1, 18516 S\u00fcderholz, Deutschland",
+          "eventName": "BNI | MV Awards Dinner 2026",
+          "productId": "ns78knfg98a3nath031afpkg3h7tva95",
+          "productName": "Ticket - Fr\u00fchbucher",
+          "quantity": 1,
+          "taxAmountInCents": 1261,
+          "taxRatePercent": 19,
+          "ticketId": "ns73vtrvbh5ezj4feccj1v1sxs7y87cc",
+          "totalPriceInCents": 7900,
+          "transactionId": "ns7a5gjvpf7yte3fa5z7sp5sxd7y9jsm",
+          "unitPriceInCents": 6639
+        }
+      ],
+      "paidAt": 1767126511595,
+      "paymentStatus": "paid",
+      "paymentTerms": "dueonreceipt",
+      "pdfUrl": "https://agreeable-lion-828.convex.cloud/api/storage/a77968fa-acbb-4a35-a720-a6a837090326",
+      "subtotalInCents": 6639,
+      "taxInCents": 1261,
+      "totalInCents": 7900
+    },
+    "name": "Invoice #INV-2025-0011",
+    "organizationId": "ks79avm8ffsszv6d368y4v63yd7tssnq",
+    "status": "paid",
+    "subtype": "b2b_single",
+    "type": "invoice",
+    "updatedAt": 1767126517133
+  },
+  {
+    "_creationTime": 1767172780364.658,
+    "_id": "ns790dvj4fje000vhh1fa193e17ybhjd",
+    "createdAt": 1767172780364,
+    "createdBy": "mh75gpz9zdx9zcwq09ache7z9s7sfxd1",
+    "customProperties": {
+      "billTo": {
+        "billingAddress": {
+          "city": "Ribnitz-Damgarten",
+          "country": "DE",
+          "line1": "AmWaldessaum1b",
+          "postalCode": "18311"
+        },
+        "crmOrganizationId": "ns75qqcjsf6t392bba15pnmf357yans2",
+        "email": "klaus.schuette@eoptimum.info",
+        "name": "KlausSch\u00fctte",
+        "type": "organization",
+        "vatNumber": "DE170838457"
+      },
+      "checkoutSessionId": "ns7dwhb6y3rkcc1zhda7cws4ed7yb7q1",
+      "consolidatedTicketIds": [
+        "ns7eps6rbbznf4y2qffq3qrnx57yah0x"
+      ],
+      "crmContactId": "ns70faj23mm532bb15g0p9npfh7yay8m",
+      "crmOrganizationId": "ns75qqcjsf6t392bba15pnmf357yans2",
+      "currency": "EUR",
+      "dueDate": 1767172780364,
+      "invoiceDate": 1767172780364,
+      "invoiceNumber": "INV-2025-0012",
+      "isConsolidated": false,
+      "isDraft": false,
+      "isEmployerInvoiced": false,
+      "lineItems": [
+        {
+          "canEdit": false,
+          "canRemove": false,
+          "customerEmail": "klaus.schuette@eoptimum.info",
+          "customerName": "KlausSch\u00fctte",
+          "description": "Ticket - Fr\u00fchbucher - BNI | MV Awards Dinner 2026",
+          "eventLocation": "Zur Alten Hofstelle 1, 18516 S\u00fcderholz, Deutschland",
+          "eventName": "BNI | MV Awards Dinner 2026",
+          "productId": "ns78knfg98a3nath031afpkg3h7tva95",
+          "productName": "Ticket - Fr\u00fchbucher",
+          "quantity": 1,
+          "taxAmountInCents": 1261,
+          "taxRatePercent": 19,
+          "ticketId": "ns7eps6rbbznf4y2qffq3qrnx57yah0x",
+          "totalPriceInCents": 7900,
+          "transactionId": "ns709jf8sxnz9ys0m0vke6exb97yb32z",
+          "unitPriceInCents": 6639
+        }
+      ],
+      "paidAt": 1767172780364,
+      "paymentStatus": "paid",
+      "paymentTerms": "dueonreceipt",
+      "pdfUrl": "https://agreeable-lion-828.convex.cloud/api/storage/dacc11ee-dea0-4d15-891d-c8eeec111748",
+      "subtotalInCents": 6639,
+      "taxInCents": 1261,
+      "totalInCents": 7900
+    },
+    "name": "Invoice #INV-2025-0012",
+    "organizationId": "ks79avm8ffsszv6d368y4v63yd7tssnq",
+    "status": "paid",
+    "subtype": "b2b_single",
+    "type": "invoice",
+    "updatedAt": 1767172785932
+  },
+  {
+    "_creationTime": 1767181177848.155,
+    "_id": "ns70g86f4t8ft8x9c9b9g2ggwx7ybxww",
+    "createdAt": 1767181177848,
+    "createdBy": "mh75gpz9zdx9zcwq09ache7z9s7sfxd1",
+    "customProperties": {
+      "billTo": {
+        "billingAddress": {
+          "city": "Neverin",
+          "country": "DE",
+          "line1": "Neubrandenburger Stra\u00dfe 55",
+          "postalCode": "17039"
+        },
+        "crmOrganizationId": "ns74mxt7r64gf0c83hkjd94w717ybcx1",
+        "email": "buero@qmbmarlenmeyer.com",
+        "name": "ONE Managementberatung Marlen Meyer",
+        "type": "organization"
+      },
+      "checkoutSessionId": "ns7axm0y3pqzs5v5tp40wrxa9d7yamy1",
+      "consolidatedTicketIds": [
+        "ns7ct3dhg43htk9bc69h41veks7ybw81",
+        "ns730w9hy0ffh81t8ty1rdpk1n7ya5j1"
+      ],
+      "crmContactId": "ns7cc3n8x8svx18z50cs2cf1fh7yb2ta",
+      "crmOrganizationId": "ns74mxt7r64gf0c83hkjd94w717ybcx1",
+      "currency": "EUR",
+      "dueDate": 1767181177848,
+      "invoiceDate": 1767181177848,
+      "invoiceNumber": "INV-2025-0013",
+      "isConsolidated": false,
+      "isDraft": false,
+      "isEmployerInvoiced": false,
+      "lineItems": [
+        {
+          "canEdit": false,
+          "canRemove": false,
+          "customerEmail": "buero@qmbmarlenmeyer.com",
+          "customerName": "Marlen Meyer",
+          "description": "Ticket - Fr\u00fchbucher - BNI | MV Awards Dinner 2026",
+          "eventLocation": "Zur Alten Hofstelle 1, 18516 S\u00fcderholz, Deutschland",
+          "eventName": "BNI | MV Awards Dinner 2026",
+          "productId": "ns78knfg98a3nath031afpkg3h7tva95",
+          "productName": "Ticket - Fr\u00fchbucher",
+          "quantity": 2,
+          "taxAmountInCents": 2523,
+          "taxRatePercent": 19,
+          "ticketId": "ns730w9hy0ffh81t8ty1rdpk1n7ya5j1",
+          "totalPriceInCents": 15800,
+          "transactionId": "ns719cn726nshgtp311gb53m0h7yaxhx",
+          "unitPriceInCents": 6639
+        }
+      ],
+      "paidAt": 1767181177848,
+      "paymentStatus": "paid",
+      "paymentTerms": "dueonreceipt",
+      "pdfUrl": "https://agreeable-lion-828.convex.cloud/api/storage/d44b2e23-11ed-48b9-babf-e22e4c61a6b8",
+      "subtotalInCents": 13278,
+      "taxInCents": 2523,
+      "totalInCents": 15801
+    },
+    "name": "Invoice #INV-2025-0013",
+    "organizationId": "ks79avm8ffsszv6d368y4v63yd7tssnq",
+    "status": "paid",
+    "subtype": "b2b_single",
+    "type": "invoice",
+    "updatedAt": 1767181183586
+  },
+  {
+    "_creationTime": 1767209638077.052,
+    "_id": "ns782xyfsrsyaaeexsr1bcqm797ya9y7",
+    "createdAt": 1767209638077,
+    "createdBy": "mh75gpz9zdx9zcwq09ache7z9s7sfxd1",
+    "customProperties": {
+      "billTo": {
+        "billingAddress": {
+          "city": "L\u00f6cknitz",
+          "country": "DE",
+          "line1": "Werksieldung 15",
+          "postalCode": "17321"
+        },
+        "crmOrganizationId": "ns79f11495d469xnqpr81r5f317ybhey",
+        "email": "m.smolinski@aroba-personal.de",
+        "name": "AROBA Personal UG haftungsbeschr\u00e4nkt",
+        "type": "organization"
+      },
+      "checkoutSessionId": "ns7bv4k1mxqbhvkw1we8emw8gh7yaa3x",
+      "consolidatedTicketIds": [
+        "ns769fdg77tr2md7p8y8hmqgs17yba3b"
+      ],
+      "crmContactId": "ns738a4yy4mdmsrgn8v297q4as7yaw44",
+      "crmOrganizationId": "ns79f11495d469xnqpr81r5f317ybhey",
+      "currency": "EUR",
+      "dueDate": 1767209638077,
+      "invoiceDate": 1767209638077,
+      "invoiceNumber": "INV-2025-0014",
+      "isConsolidated": false,
+      "isDraft": false,
+      "isEmployerInvoiced": false,
+      "lineItems": [
+        {
+          "canEdit": false,
+          "canRemove": false,
+          "customerEmail": "m.smolinski@aroba-personal.de",
+          "customerName": "Maximilian Smolinski",
+          "description": "Ticket - Fr\u00fchbucher - BNI | MV Awards Dinner 2026",
+          "eventLocation": "Zur Alten Hofstelle 1, 18516 S\u00fcderholz, Deutschland",
+          "eventName": "BNI | MV Awards Dinner 2026",
+          "productId": "ns78knfg98a3nath031afpkg3h7tva95",
+          "productName": "Ticket - Fr\u00fchbucher",
+          "quantity": 1,
+          "taxAmountInCents": 1261,
+          "taxRatePercent": 19,
+          "ticketId": "ns769fdg77tr2md7p8y8hmqgs17yba3b",
+          "totalPriceInCents": 7900,
+          "transactionId": "ns774g7mytzcvfwacfa78fjc457ybxgf",
+          "unitPriceInCents": 6639
+        }
+      ],
+      "paidAt": 1767209638077,
+      "paymentStatus": "paid",
+      "paymentTerms": "dueonreceipt",
+      "pdfUrl": "https://agreeable-lion-828.convex.cloud/api/storage/4d31b909-365a-4680-b737-6d877865d910",
+      "subtotalInCents": 6639,
+      "taxInCents": 1261,
+      "totalInCents": 7900
+    },
+    "name": "Invoice #INV-2025-0014",
+    "organizationId": "ks79avm8ffsszv6d368y4v63yd7tssnq",
+    "status": "paid",
+    "subtype": "b2b_single",
+    "type": "invoice",
+    "updatedAt": 1767209643622
+  },
+  {
+    "_creationTime": 1767211851912.912,
+    "_id": "ns76rnd4rva0a8m0b58gkh994h7yb6y7",
+    "createdAt": 1767211851913,
+    "createdBy": "mh75gpz9zdx9zcwq09ache7z9s7sfxd1",
+    "customProperties": {
+      "billTo": {
+        "billingAddress": {
+          "city": "L\u00fcbstorf",
+          "country": "DE",
+          "line1": "Alte Dorfstra\u00dfe 5c",
+          "postalCode": "19069"
+        },
+        "crmOrganizationId": "ns700nbn8kt22epjs7v5w9wt297yakyt",
+        "email": "post@naturwahrnehmen.de",
+        "name": "Naturwahrnehmen",
+        "type": "organization"
+      },
+      "checkoutSessionId": "ns78xw79ypfhr0w3qe1amaqh597ybyf3",
+      "consolidatedTicketIds": [
+        "ns734m99yq8mz47wpb2nfc7t457ya5q0"
+      ],
+      "crmContactId": "ns7anxbehs9318vv38y1qcv5mn7yb6ek",
+      "crmOrganizationId": "ns700nbn8kt22epjs7v5w9wt297yakyt",
+      "currency": "EUR",
+      "dueDate": 1767211851913,
+      "invoiceDate": 1767211851913,
+      "invoiceNumber": "INV-2025-0015",
+      "isConsolidated": false,
+      "isDraft": false,
+      "isEmployerInvoiced": false,
+      "lineItems": [
+        {
+          "canEdit": false,
+          "canRemove": false,
+          "customerEmail": "post@naturwahrnehmen.de",
+          "customerName": "ChristineD\u00f6rband",
+          "description": "Ticket - Fr\u00fchbucher - BNI | MV Awards Dinner 2026",
+          "eventLocation": "Zur Alten Hofstelle 1, 18516 S\u00fcderholz, Deutschland",
+          "eventName": "BNI | MV Awards Dinner 2026",
+          "productId": "ns78knfg98a3nath031afpkg3h7tva95",
+          "productName": "Ticket - Fr\u00fchbucher",
+          "quantity": 1,
+          "taxAmountInCents": 1261,
+          "taxRatePercent": 19,
+          "ticketId": "ns734m99yq8mz47wpb2nfc7t457ya5q0",
+          "totalPriceInCents": 7900,
+          "transactionId": "ns76n7aztvqx6z282gd5gt6ccd7ya3sw",
+          "unitPriceInCents": 6639
+        }
+      ],
+      "paidAt": 1767211851913,
+      "paymentStatus": "paid",
+      "paymentTerms": "dueonreceipt",
+      "pdfUrl": "https://agreeable-lion-828.convex.cloud/api/storage/9f550f8d-731a-41d7-bd70-33479ec678a5",
+      "subtotalInCents": 6639,
+      "taxInCents": 1261,
+      "totalInCents": 7900
+    },
+    "name": "Invoice #INV-2025-0015",
+    "organizationId": "ks79avm8ffsszv6d368y4v63yd7tssnq",
+    "status": "paid",
+    "subtype": "b2b_single",
+    "type": "invoice",
+    "updatedAt": 1767211857282
+  },
+  {
+    "_creationTime": 1767274404282.064,
+    "_id": "ns7bg2v2s07ctj2sjp0h9wffts7ycyms",
+    "createdAt": 1767274404282,
+    "createdBy": "mh75gpz9zdx9zcwq09ache7z9s7sfxd1",
+    "customProperties": {
+      "billTo": {
+        "billingAddress": {
+          "city": "Rostock",
+          "country": "DE",
+          "line1": "Wiener Platz",
+          "line2": "6",
+          "postalCode": "18069"
+        },
+        "crmOrganizationId": "ns72r1sa9fdbvwevjs4y30sfbn7yc2zx",
+        "email": "michaelbastian.pm@gmail.com",
+        "name": "Goldmichi Edelmetallhandel Inh. Michael Bastian",
+        "type": "organization"
+      },
+      "checkoutSessionId": "ns77599pvghd1nj68mmqqfe5hd7ycqp2",
+      "consolidatedTicketIds": [
+        "ns798s1kz3fe6pbz3g17vfqyqs7yc0ja"
+      ],
+      "crmContactId": "ns7azp7mdpw5ahs6jga4bw5egx7yd9ch",
+      "crmOrganizationId": "ns72r1sa9fdbvwevjs4y30sfbn7yc2zx",
+      "currency": "EUR",
+      "dueDate": 1767274404282,
+      "invoiceDate": 1767274404282,
+      "invoiceNumber": "INV-2025-0016",
+      "isConsolidated": false,
+      "isDraft": false,
+      "isEmployerInvoiced": false,
+      "lineItems": [
+        {
+          "canEdit": false,
+          "canRemove": false,
+          "customerEmail": "michaelbastian.pm@gmail.com",
+          "customerName": "Michael Bastian",
+          "description": "Gold-Partner - BNI | MV Awards Dinner 2026",
+          "eventLocation": "Zur Alten Hofstelle 1, 18516 S\u00fcderholz, Deutschland",
+          "eventName": "BNI | MV Awards Dinner 2026",
+          "productId": "ns7eq4mwex422e6qzq84kfr5x97tvh7b",
+          "productName": "Gold-Partner",
+          "quantity": 1,
+          "taxAmountInCents": 7983,
+          "taxRatePercent": 19,
+          "ticketId": "ns798s1kz3fe6pbz3g17vfqyqs7yc0ja",
+          "totalPriceInCents": 50000,
+          "transactionId": "ns7b91kbjj9esqrernn58h0b8s7ydvfe",
+          "unitPriceInCents": 42017
+        }
+      ],
+      "paidAt": 1767274404282,
+      "paymentStatus": "paid",
+      "paymentTerms": "dueonreceipt",
+      "pdfUrl": "https://agreeable-lion-828.convex.cloud/api/storage/dbe2f185-21f9-4937-bf03-bda719276872",
+      "subtotalInCents": 42017,
+      "taxInCents": 7983,
+      "totalInCents": 50000
+    },
+    "name": "Invoice #INV-2025-0016",
+    "organizationId": "ks79avm8ffsszv6d368y4v63yd7tssnq",
+    "status": "paid",
+    "subtype": "b2b_single",
+    "type": "invoice",
+    "updatedAt": 1767274410023
+  },
+  {
+    "_creationTime": 1767629600187.8237,
+    "_id": "ns77gk11pg7t04ty9jxhzangts7ymh23",
+    "createdAt": 1767629600187,
+    "createdBy": "mh75gpz9zdx9zcwq09ache7z9s7sfxd1",
+    "customProperties": {
+      "billTo": {
+        "billingAddress": {
+          "city": "Telfs",
+          "country": "AT",
+          "line1": "Anton-Auer-Strasse7A",
+          "postalCode": "6410"
+        },
+        "crmOrganizationId": "ns78jt0e5pdamzte86bmykh0ax7ymqqf",
+        "email": "info@easy4you-office.at",
+        "name": "easy4you-Office",
+        "type": "organization",
+        "vatNumber": "ATU68997918"
+      },
+      "checkoutSessionId": "ns76b8h149h67jte3ezejvc5sn7ynqq9",
+      "consolidatedTicketIds": [
+        "ns7cm7zyy1r2n87pm35bg4ybfn7ynea3"
+      ],
+      "crmContactId": "ns74aedg7m1y8rsrppsgvra5z17yndam",
+      "crmOrganizationId": "ns78jt0e5pdamzte86bmykh0ax7ymqqf",
+      "currency": "EUR",
+      "dueDate": 1767629600187,
+      "invoiceDate": 1767629600187,
+      "invoiceNumber": "INV-2025-0017",
+      "isConsolidated": false,
+      "isDraft": false,
+      "isEmployerInvoiced": false,
+      "lineItems": [
+        {
+          "canEdit": false,
+          "canRemove": false,
+          "customerEmail": "info@easy4you-office.at",
+          "customerName": "InesLenert",
+          "description": "Ticket - BNI | MV Awards Dinner 2026",
+          "eventLocation": "Zur Alten Hofstelle 1, 18516 S\u00fcderholz, Deutschland",
+          "eventName": "BNI | MV Awards Dinner 2026",
+          "productId": "ns76qvxpg159a30ze4amf52t6d7tv07j",
+          "productName": "Ticket",
+          "quantity": 1,
+          "taxAmountInCents": 1740,
+          "taxRatePercent": 19,
+          "ticketId": "ns7cm7zyy1r2n87pm35bg4ybfn7ynea3",
+          "totalPriceInCents": 10900,
+          "transactionId": "ns7bh46whsx0d1n798kfzptd457ymk37",
+          "unitPriceInCents": 9160
+        }
+      ],
+      "paidAt": 1767629600187,
+      "paymentStatus": "paid",
+      "paymentTerms": "dueonreceipt",
+      "pdfUrl": "https://agreeable-lion-828.convex.cloud/api/storage/fdcbf2c9-9316-4231-970f-10f2a1284555",
+      "subtotalInCents": 9160,
+      "taxInCents": 1740,
+      "totalInCents": 10900
+    },
+    "name": "Invoice #INV-2025-0017",
+    "organizationId": "ks79avm8ffsszv6d368y4v63yd7tssnq",
+    "status": "paid",
+    "subtype": "b2b_single",
+    "type": "invoice",
+    "updatedAt": 1767629605696
+  },
+  {
+    "_creationTime": 1767698132323.7053,
+    "_id": "ns7eaxzf0x7904qtcmcf833zs17ypdgq",
+    "createdAt": 1767698132323,
+    "createdBy": "mh75gpz9zdx9zcwq09ache7z9s7sfxd1",
+    "customProperties": {
+      "billTo": {
+        "billingAddress": {
+          "city": "Penkun",
+          "country": "DE",
+          "line1": "Sandkuhlstr.11",
+          "postalCode": "17328"
+        },
+        "crmOrganizationId": "ns73mk2pceq4r3rvvkcs45c79d7yqhtr",
+        "email": "b.weih@arcept.de",
+        "name": "arcept",
+        "type": "organization"
+      },
+      "checkoutSessionId": "ns7ctmgshgqcm1q4y9xhzds3s17yp2hz",
+      "consolidatedTicketIds": [
+        "ns74zm0dkshvyz2y123yb0s3eh7yq2mm"
+      ],
+      "crmContactId": "ns75ns2e04hnwk83d78q2q3m5x7ypfps",
+      "crmOrganizationId": "ns73mk2pceq4r3rvvkcs45c79d7yqhtr",
+      "currency": "EUR",
+      "dueDate": 1767698132323,
+      "invoiceDate": 1767698132323,
+      "invoiceNumber": "INV-2025-0018",
+      "isConsolidated": false,
+      "isDraft": false,
+      "isEmployerInvoiced": false,
+      "lineItems": [
+        {
+          "canEdit": false,
+          "canRemove": false,
+          "customerEmail": "b.weih@arcept.de",
+          "customerName": "BodoWeih",
+          "description": "Ticket - BNI | MV Awards Dinner 2026",
+          "eventLocation": "Zur Alten Hofstelle 1, 18516 S\u00fcderholz, Deutschland",
+          "eventName": "BNI | MV Awards Dinner 2026",
+          "productId": "ns76qvxpg159a30ze4amf52t6d7tv07j",
+          "productName": "Ticket",
+          "quantity": 1,
+          "taxAmountInCents": 1740,
+          "taxRatePercent": 19,
+          "ticketId": "ns74zm0dkshvyz2y123yb0s3eh7yq2mm",
+          "totalPriceInCents": 10900,
+          "transactionId": "ns7ax18094kd9bmaa4myxm1pd57yqesv",
+          "unitPriceInCents": 9160
+        }
+      ],
+      "paidAt": 1767698132323,
+      "paymentStatus": "paid",
+      "paymentTerms": "dueonreceipt",
+      "pdfUrl": "https://agreeable-lion-828.convex.cloud/api/storage/825ee976-49a5-41d4-ac12-cfa7ca787adf",
+      "subtotalInCents": 9160,
+      "taxInCents": 1740,
+      "totalInCents": 10900
+    },
+    "name": "Invoice #INV-2025-0018",
+    "organizationId": "ks79avm8ffsszv6d368y4v63yd7tssnq",
+    "status": "paid",
+    "subtype": "b2b_single",
+    "type": "invoice",
+    "updatedAt": 1767698137574
+  },
+  {
+    "_creationTime": 1768834108394.702,
+    "_id": "ns77z44r8ayvz757c39pbn7b1d7zgk96",
+    "createdAt": 1768834108394,
+    "createdBy": "mh75gpz9zdx9zcwq09ache7z9s7sfxd1",
+    "customProperties": {
+      "billTo": {
+        "billingAddress": {
+          "city": "Osnabr\u00fcck",
+          "country": "DE",
+          "line1": "Anton-Stroch-Str. 23",
+          "postalCode": "49080",
+          "state": "Niedersachsen"
+        },
+        "crmOrganizationId": "ns76m5nbx9g55dzraynytyp4sd7zhceg",
+        "email": "m.buehren@bni.de",
+        "name": "BNI Nordwest GmbH",
+        "type": "organization"
+      },
+      "checkoutSessionId": "ns74wvcpvtfryjfdbpwj8mvz6n7zg5we",
+      "consolidatedTicketIds": [
+        "ns74hqe9gbh6v7nc9mr4ck98rh7zgj2k"
+      ],
+      "crmContactId": "ns713ec94t8zz6xygw1f8pabf57zgfs2",
+      "crmOrganizationId": "ns76m5nbx9g55dzraynytyp4sd7zhceg",
+      "currency": "EUR",
+      "dueDate": 1768834108394,
+      "invoiceDate": 1768834108394,
+      "invoiceNumber": "INV-2025-0019",
+      "isConsolidated": false,
+      "isDraft": false,
+      "isEmployerInvoiced": false,
+      "lineItems": [
+        {
+          "canEdit": false,
+          "canRemove": false,
+          "customerEmail": "m.buehren@bni.de",
+          "customerName": "Michael B\u00fchren",
+          "description": "Ticket f\u00fcr das 5. Benefizturnier der BNI Foundation D - A - 5. Benefiz-Turnier der BNI Foundation D-A",
+          "eventLocation": "GC Rheinhessen, Hofgut Wi\u00dfberg, 55578 St. Johann",
+          "eventName": "5. Benefiz-Turnier der BNI Foundation D-A",
+          "productId": "ns78x4s3js6zr72wqz999tcak57zc3bn",
+          "productName": "Ticket f\u00fcr das 5. Benefizturnier der BNI Foundation D - A",
+          "quantity": 1,
+          "taxAmountInCents": 3177,
+          "taxRatePercent": 19,
+          "ticketId": "ns74hqe9gbh6v7nc9mr4ck98rh7zgj2k",
+          "totalPriceInCents": 19900,
+          "transactionId": "ns7b0qn04jdvana8acvbrd484d7zg9g2",
+          "unitPriceInCents": 16723
+        }
+      ],
+      "paidAt": 1768834108394,
+      "paymentStatus": "paid",
+      "paymentTerms": "dueonreceipt",
+      "pdfUrl": "https://pub-cdn.apitemplate.io/2026/01/ca47b14a-0bc4-485d-9e81-1f42b6be3672.pdf",
+      "subtotalInCents": 16723,
+      "taxInCents": 3177,
+      "totalInCents": 19900
+    },
+    "name": "Invoice #INV-2025-0019",
+    "organizationId": "ks79avm8ffsszv6d368y4v63yd7tssnq",
+    "status": "paid",
+    "subtype": "b2b_single",
+    "type": "invoice",
+    "updatedAt": 1768891915948
+  },
+  {
+    "_creationTime": 1768834586591.7285,
+    "_id": "ns739m2fzjek4qh8t6gvfpr8v17zhjtc",
+    "createdAt": 1768834586591,
+    "createdBy": "mh75gpz9zdx9zcwq09ache7z9s7sfxd1",
+    "customProperties": {
+      "billTo": {
+        "email": "itsmetherealremington@gmail.com",
+        "name": "Remington Charles Splettstoesser",
+        "type": "individual"
+      },
+      "checkoutSessionId": "ns79tc7jxn4tyg5rfpdkk3vezx7zgb69",
+      "consolidatedTicketIds": [
+        "ns78vqhkn3qtfg1zme0dw71bts7zgf62"
+      ],
+      "crmContactId": "ns7972b9rz7d63gm72z1xmszbh7zhn6y",
+      "currency": "EUR",
+      "dueDate": 1771426586591,
+      "invoiceDate": 1768834586591,
+      "invoiceNumber": "INV-2025-0020",
+      "isConsolidated": false,
+      "isDraft": false,
+      "isEmployerInvoiced": false,
+      "lineItems": [
+        {
+          "canEdit": false,
+          "canRemove": false,
+          "customerEmail": "itsmetherealremington@gmail.com",
+          "customerName": "Remington Charles Splettstoesser",
+          "description": "Ticket f\u00fcr das 5. Benefizturnier der BNI Foundation D - A - 5. Benefiz-Turnier der BNI Foundation D-A",
+          "eventLocation": "GC Rheinhessen, Hofgut Wi\u00dfberg, 55578 St. Johann",
+          "eventName": "5. Benefiz-Turnier der BNI Foundation D-A",
+          "productId": "ns78x4s3js6zr72wqz999tcak57zc3bn",
+          "productName": "Ticket f\u00fcr das 5. Benefizturnier der BNI Foundation D - A",
+          "quantity": 1,
+          "taxAmountInCents": 3177,
+          "taxRatePercent": 19,
+          "ticketId": "ns78vqhkn3qtfg1zme0dw71bts7zgf62",
+          "totalPriceInCents": 19900,
+          "transactionId": "ns76fagm3brege394rj558vaj57zgdcb",
+          "unitPriceInCents": 16723
+        }
+      ],
+      "paymentStatus": "sent",
+      "paymentTerms": "net30",
+      "pdfUrl": "https://agreeable-lion-828.convex.cloud/api/storage/22f3e360-d2ee-4553-b9ee-8cc636bcaf3d",
+      "subtotalInCents": 16723,
+      "taxInCents": 3177,
+      "totalInCents": 19900
+    },
+    "name": "Invoice #INV-2025-0020",
+    "organizationId": "ks79avm8ffsszv6d368y4v63yd7tssnq",
+    "status": "sent",
+    "subtype": "b2c_single",
+    "type": "invoice",
+    "updatedAt": 1768834592659
+  }
+]

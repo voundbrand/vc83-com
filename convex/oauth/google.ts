@@ -5,7 +5,7 @@
  * Supports both personal Google accounts and Google Workspace accounts
  */
 
-import { action, mutation, query, internalMutation, internalQuery } from "../_generated/server";
+import { action, mutation, query, internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
 import { api, internal } from "../_generated/api";
@@ -498,6 +498,7 @@ export const getGoogleConnectionStatus = query({
             email: personalConnection.providerEmail,
             status: personalConnection.status,
             connectedAt: personalConnection.connectedAt,
+            syncSettings: personalConnection.syncSettings,
           }
         : null,
       organizational: orgConnection
@@ -512,3 +513,165 @@ export const getGoogleConnectionStatus = query({
   },
 });
 
+/**
+ * Get Connection (Internal Query)
+ * Used by googleClient.ts to fetch connection data
+ */
+export const getConnection = internalQuery({
+  args: { connectionId: v.id("oauthConnections") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.connectionId);
+  },
+});
+
+/**
+ * Update Connection Status (Internal Mutation)
+ * Used by googleClient.ts to mark connections as expired/error
+ */
+export const updateConnectionStatus = internalMutation({
+  args: {
+    connectionId: v.id("oauthConnections"),
+    status: v.union(v.literal("active"), v.literal("expired"), v.literal("revoked"), v.literal("error")),
+    error: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.connectionId, {
+      status: args.status,
+      updatedAt: Date.now(),
+      ...(args.error ? { lastSyncError: args.error } : {}),
+    });
+  },
+});
+
+/**
+ * Refresh Google OAuth Token (Internal Action)
+ * Exchanges a refresh token for a new access token
+ */
+export const refreshGoogleToken = internalAction({
+  args: { connectionId: v.id("oauthConnections") },
+  handler: async (ctx, args) => {
+    // Get connection
+    const connection = await ctx.runQuery(internal.oauth.google.getConnection, {
+      connectionId: args.connectionId,
+    });
+    if (!connection) throw new Error("Connection not found");
+
+    // Decrypt refresh token
+    const refreshToken = await ctx.runAction(internal.oauth.encryption.decryptToken, {
+      encrypted: connection.refreshToken,
+    });
+
+    // Exchange refresh token for new access token
+    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: process.env.GOOGLE_OAUTH_CLIENT_ID || "",
+        client_secret: process.env.GOOGLE_OAUTH_CLIENT_SECRET || "",
+        refresh_token: refreshToken,
+        grant_type: "refresh_token",
+      }),
+    });
+
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text();
+      await ctx.runMutation(internal.oauth.google.updateConnectionStatus, {
+        connectionId: args.connectionId,
+        status: "error",
+        error: `Token refresh failed: ${errorText}`,
+      });
+      throw new Error(`Google token refresh failed: ${errorText}`);
+    }
+
+    const tokenData = await tokenResponse.json();
+
+    // Encrypt new access token
+    const encryptedAccessToken = await ctx.runAction(internal.oauth.encryption.encryptToken, {
+      plaintext: tokenData.access_token,
+    });
+
+    // If Google provides a new refresh token, encrypt it too
+    let encryptedRefreshToken: string | undefined;
+    if (tokenData.refresh_token) {
+      encryptedRefreshToken = await ctx.runAction(internal.oauth.encryption.encryptToken, {
+        plaintext: tokenData.refresh_token,
+      });
+    }
+
+    // Update connection with new token
+    await ctx.runMutation(internal.oauth.google.updateConnectionTokens, {
+      connectionId: args.connectionId,
+      accessToken: encryptedAccessToken,
+      tokenExpiresAt: Date.now() + (tokenData.expires_in * 1000),
+      ...(encryptedRefreshToken ? { refreshToken: encryptedRefreshToken } : {}),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Update Connection Tokens (Internal Mutation)
+ * Stores refreshed tokens back to the connection
+ */
+export const updateConnectionTokens = internalMutation({
+  args: {
+    connectionId: v.id("oauthConnections"),
+    accessToken: v.string(),
+    tokenExpiresAt: v.number(),
+    refreshToken: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const update: Record<string, unknown> = {
+      accessToken: args.accessToken,
+      tokenExpiresAt: args.tokenExpiresAt,
+      status: "active",
+      updatedAt: Date.now(),
+    };
+    if (args.refreshToken) {
+      update.refreshToken = args.refreshToken;
+    }
+    await ctx.db.patch(args.connectionId, update);
+  },
+});
+
+/**
+ * Update Google Sync Settings
+ * Allows users to toggle which Google services to sync
+ */
+export const updateGoogleSyncSettings = mutation({
+  args: {
+    sessionId: v.string(),
+    connectionId: v.id("oauthConnections"),
+    syncSettings: v.object({
+      calendar: v.optional(v.boolean()),
+      drive: v.optional(v.boolean()),
+    }),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId as Id<"sessions">);
+    if (!session || session.expiresAt < Date.now()) {
+      throw new Error("Invalid or expired session");
+    }
+
+    const connection = await ctx.db.get(args.connectionId);
+    if (!connection) throw new Error("Connection not found");
+    if (connection.provider !== "google") throw new Error("Not a Google connection");
+
+    const currentSettings = (connection.syncSettings || {}) as Record<string, unknown>;
+    const newSettings = { ...currentSettings };
+    if (args.syncSettings.calendar !== undefined) {
+      newSettings.calendar = args.syncSettings.calendar;
+    }
+    if (args.syncSettings.drive !== undefined) {
+      newSettings.drive = args.syncSettings.drive;
+    }
+
+    await ctx.db.patch(args.connectionId, {
+      syncSettings: newSettings as { email: boolean; calendar: boolean; oneDrive: boolean; sharePoint: boolean },
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});

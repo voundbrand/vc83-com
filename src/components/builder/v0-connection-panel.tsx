@@ -1,0 +1,580 @@
+"use client";
+
+/**
+ * V0 CONNECTION PANEL
+ *
+ * API catalog UI for connecting v0-generated apps to the platform backend.
+ * Shows selectable API categories (Forms, CRM, Events, etc.) with
+ * endpoint details. Generates a scoped API key on connect.
+ */
+
+import { useState, useCallback } from "react";
+import { useBuilder } from "@/contexts/builder-context";
+import { useAction, useMutation } from "convex/react";
+import { api } from "@/../convex/_generated/api";
+import { useAuth } from "@/hooks/use-auth";
+import {
+  X,
+  Check,
+  Copy,
+  Loader2,
+  ChevronDown,
+  ChevronRight,
+  Plug,
+  FileText,
+  Users,
+  Calendar,
+  ShoppingBag,
+  Zap,
+  Receipt,
+  Ticket,
+  CalendarCheck,
+  Key,
+  Download,
+  Save,
+  Rocket,
+  ArrowRight,
+} from "lucide-react";
+import {
+  API_CATEGORIES,
+  getScopesForCategories,
+  type ApiCategory,
+} from "@/lib/api-catalog";
+
+// Icon map for dynamic rendering
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  FileText,
+  Users,
+  Calendar,
+  ShoppingBag,
+  Zap,
+  Receipt,
+  Ticket,
+  CalendarCheck,
+};
+
+interface V0ConnectionPanelProps {
+  onClose: () => void;
+  /** Callback to switch UI to Publish mode after successful connection */
+  onSwitchToPublish?: () => void;
+}
+
+interface ConnectionResult {
+  apiKey: string;
+  baseUrl: string;
+  appCode: string;
+  selectedCategories: string[];
+  envFileId: string | null;
+}
+
+export function V0ConnectionPanel({ onClose, onSwitchToPublish }: V0ConnectionPanelProps) {
+  const { sessionId, organizationId, v0ChatId, v0DemoUrl, v0WebUrl, conversationId, setBuilderAppId } = useBuilder();
+  const { sessionId: authSessionId } = useAuth();
+
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [connectionResult, setConnectionResult] = useState<ConnectionResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore - Convex type instantiation is excessively deep
+  const connectV0App = useAction(api.builderAppOntology.connectV0App);
+
+  const effectiveSessionId = authSessionId || sessionId;
+
+  const toggleCategory = useCallback((categoryId: string) => {
+    setSelectedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(categoryId)) {
+        next.delete(categoryId);
+      } else {
+        next.add(categoryId);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleExpanded = useCallback((categoryId: string) => {
+    setExpandedCategory((prev) => (prev === categoryId ? null : categoryId));
+  }, []);
+
+  const handleConnect = useCallback(async () => {
+    if (selectedCategories.size === 0 || !effectiveSessionId || !organizationId) return;
+
+    setIsConnecting(true);
+    setError(null);
+
+    try {
+      const categoryIds = Array.from(selectedCategories);
+      const scopes = getScopesForCategories(categoryIds);
+
+      const result = await connectV0App({
+        sessionId: effectiveSessionId,
+        organizationId,
+        name: v0ChatId ? `v0-app-${v0ChatId.slice(0, 8)}` : "v0-app",
+        v0ChatId: v0ChatId || undefined,
+        v0WebUrl: v0WebUrl || undefined,
+        v0DemoUrl: v0DemoUrl || undefined,
+        conversationId: conversationId || undefined,
+        selectedCategories: categoryIds,
+        scopes,
+      });
+
+      setConnectionResult({
+        apiKey: result.apiKey,
+        baseUrl: result.baseUrl,
+        appCode: result.appCode,
+        selectedCategories: categoryIds,
+        envFileId: result.envFileId,
+      });
+
+      // Store the builder app ID in context so Publish mode can use it
+      setBuilderAppId(result.appId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to connect app");
+    } finally {
+      setIsConnecting(false);
+    }
+  }, [selectedCategories, effectiveSessionId, organizationId, v0ChatId, v0WebUrl, v0DemoUrl, conversationId, connectV0App, setBuilderAppId]);
+
+  const copyToClipboard = useCallback(async (text: string, field: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+  }, []);
+
+  // ============================================================================
+  // SAVE FILE STATE
+  // ============================================================================
+
+  const [saveFileName, setSaveFileName] = useState(".env.example");
+  const [isSaving, setIsSaving] = useState(false);
+  const [fileSaved, setFileSaved] = useState(false);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+
+  const saveAsMediaDocument = useMutation(api.organizationMedia.createLayerCakeDocument);
+
+  const envContent = connectionResult
+    ? [
+        `# Generated by l4yercak3 Builder — ${connectionResult.appCode}`,
+        `# Connected APIs: ${connectionResult.selectedCategories.join(", ")}`,
+        ``,
+        `NEXT_PUBLIC_L4YERCAK3_API_KEY=${connectionResult.apiKey}`,
+        `NEXT_PUBLIC_L4YERCAK3_URL=${connectionResult.baseUrl}`,
+        `L4YERCAK3_ORG_ID=${organizationId}`,
+      ].join("\n")
+    : "";
+
+  const handleSaveToMediaLibrary = useCallback(async () => {
+    if (!effectiveSessionId || !organizationId || !connectionResult) return;
+
+    setIsSaving(true);
+    setError(null);
+    try {
+      await saveAsMediaDocument({
+        sessionId: effectiveSessionId,
+        organizationId,
+        filename: saveFileName,
+        documentContent: envContent,
+        description: `Environment variables for v0 app ${connectionResult.appCode}`,
+        tags: ["builder-app", "env", connectionResult.appCode],
+      });
+      setFileSaved(true);
+      setShowSaveDialog(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save file");
+    } finally {
+      setIsSaving(false);
+    }
+  }, [effectiveSessionId, organizationId, connectionResult, saveFileName, envContent, saveAsMediaDocument]);
+
+  const handleDownloadFile = useCallback(() => {
+    if (!envContent) return;
+    const blob = new Blob([envContent], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = saveFileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [envContent, saveFileName]);
+
+  // Connected state - show API key and config with save file UX
+  if (connectionResult) {
+    const envSnippet = [
+      `NEXT_PUBLIC_L4YERCAK3_API_KEY=${connectionResult.apiKey}`,
+      `NEXT_PUBLIC_L4YERCAK3_URL=${connectionResult.baseUrl}`,
+      `L4YERCAK3_ORG_ID=${organizationId}`,
+    ].join("\n");
+
+    return (
+      <div className="p-4 space-y-4">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Plug className="h-5 w-5 text-emerald-400" />
+            <h2 className="text-lg font-semibold text-white">Connected</h2>
+          </div>
+          <button onClick={onClose} className="p-1 rounded hover:bg-zinc-800 text-zinc-400">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Success badge */}
+        <div className="bg-emerald-950/50 border border-emerald-800 rounded-lg p-3 flex items-start gap-3">
+          <Check className="h-5 w-5 text-emerald-400 mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="text-emerald-200 text-sm font-medium">App connected successfully</p>
+            <p className="text-emerald-400/70 text-xs mt-1">
+              App code: {connectionResult.appCode} &middot; {connectionResult.selectedCategories.length} API {connectionResult.selectedCategories.length === 1 ? "category" : "categories"} enabled
+            </p>
+          </div>
+        </div>
+
+        {/* API Key */}
+        <div className="space-y-2">
+          <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+            <Key className="h-3.5 w-3.5" />
+            API Key
+          </label>
+          <div className="bg-zinc-900 border border-zinc-700 rounded-lg p-3 flex items-center justify-between gap-2">
+            <code className="text-sm text-amber-300 font-mono truncate">{connectionResult.apiKey}</code>
+            <button
+              onClick={() => copyToClipboard(connectionResult.apiKey, "apiKey")}
+              className="p-1.5 rounded hover:bg-zinc-700 text-zinc-400 flex-shrink-0"
+            >
+              {copiedField === "apiKey" ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+            </button>
+          </div>
+          <p className="text-xs text-amber-500/80">Save this key now - it won&apos;t be shown again.</p>
+        </div>
+
+        {/* Base URL */}
+        <div className="space-y-2">
+          <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Base URL</label>
+          <div className="bg-zinc-900 border border-zinc-700 rounded-lg p-3 flex items-center justify-between gap-2">
+            <code className="text-sm text-zinc-300 font-mono">{connectionResult.baseUrl}</code>
+            <button
+              onClick={() => copyToClipboard(connectionResult.baseUrl, "baseUrl")}
+              className="p-1.5 rounded hover:bg-zinc-700 text-zinc-400 flex-shrink-0"
+            >
+              {copiedField === "baseUrl" ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Environment variables snippet */}
+        <div className="space-y-2">
+          <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Environment Variables</label>
+          <div className="bg-zinc-900 border border-zinc-700 rounded-lg p-3 relative">
+            <pre className="text-xs text-zinc-300 font-mono whitespace-pre-wrap">{envSnippet}</pre>
+            <button
+              onClick={() => copyToClipboard(envSnippet, "env")}
+              className="absolute top-2 right-2 p-1.5 rounded hover:bg-zinc-700 text-zinc-400"
+            >
+              {copiedField === "env" ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Connected categories */}
+        <div className="space-y-2">
+          <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Enabled APIs</label>
+          <div className="flex flex-wrap gap-2">
+            {connectionResult.selectedCategories.map((catId) => {
+              const cat = API_CATEGORIES.find((c) => c.id === catId);
+              if (!cat) return null;
+              return (
+                <span key={catId} className="px-2.5 py-1 bg-purple-950/50 border border-purple-800 rounded-full text-xs text-purple-300">
+                  {cat.label}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Save connection file */}
+        {fileSaved ? (
+          <div className="bg-emerald-950/30 border border-emerald-800 rounded-lg p-3 flex items-center gap-3">
+            <Check className="h-4 w-4 text-emerald-400 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-emerald-200 font-medium">{saveFileName} saved</p>
+              <p className="text-xs text-emerald-400/70">Saved to your organization&apos;s Media Library</p>
+            </div>
+          </div>
+        ) : showSaveDialog ? (
+          <div className="bg-zinc-900 border border-zinc-700 rounded-lg p-4 space-y-3">
+            <div className="flex items-center gap-2 mb-1">
+              <Save className="h-4 w-4 text-purple-400" />
+              <p className="text-sm font-medium text-white">Save Connection File</p>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider block mb-1">
+                Filename
+              </label>
+              <input
+                type="text"
+                value={saveFileName}
+                onChange={(e) => setSaveFileName(e.target.value)}
+                className="w-full px-3 py-1.5 bg-zinc-800 border border-zinc-700 rounded text-sm text-white font-mono focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
+              />
+              <p className="text-[10px] text-zinc-600 mt-1">
+                Saves to your organization&apos;s Media Library
+              </p>
+            </div>
+
+            {/* Preview */}
+            <div className="bg-zinc-950 border border-zinc-800 rounded p-2.5">
+              <pre className="text-[11px] text-zinc-400 font-mono whitespace-pre-wrap">{envContent}</pre>
+            </div>
+
+            {/* Error */}
+            {error && (
+              <p className="text-xs text-red-400">{error}</p>
+            )}
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                onClick={handleSaveToMediaLibrary}
+                disabled={isSaving || !saveFileName.trim()}
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-purple-600 text-white rounded text-xs font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-3.5 w-3.5" />
+                    Save to Media Library
+                  </>
+                )}
+              </button>
+              <button
+                onClick={handleDownloadFile}
+                className="flex items-center justify-center gap-1.5 px-3 py-2 bg-zinc-800 text-zinc-300 rounded text-xs font-medium hover:bg-zinc-700 transition-colors border border-zinc-700"
+                title="Download file to your computer"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Download
+              </button>
+            </div>
+
+            <button
+              onClick={() => setShowSaveDialog(false)}
+              className="w-full text-xs text-zinc-500 hover:text-zinc-400 transition-colors pt-1"
+            >
+              Skip for now
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowSaveDialog(true)}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium text-sm"
+            >
+              <Save className="h-4 w-4" />
+              Save Connection File
+            </button>
+            <button
+              onClick={handleDownloadFile}
+              className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700 transition-colors border border-zinc-700"
+              title="Download .env.example"
+            >
+              <Download className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Publish CTA */}
+        {onSwitchToPublish && (
+          <div className="pt-2 border-t border-zinc-800">
+            <button
+              onClick={onSwitchToPublish}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-800 text-white rounded-lg hover:bg-zinc-700 transition-colors font-medium text-sm border border-zinc-700"
+            >
+              <Rocket className="h-4 w-4 text-purple-400" />
+              Ready to publish?
+              <ArrowRight className="h-3.5 w-3.5 text-zinc-400" />
+            </button>
+            <p className="text-[10px] text-zinc-600 text-center mt-1.5">
+              Configure auth, payments, and deploy to Vercel
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Selection state - show API catalog
+  return (
+    <div className="p-4 space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Plug className="h-5 w-5 text-purple-400" />
+          <h2 className="text-lg font-semibold text-white">Connect to Platform</h2>
+        </div>
+        <button onClick={onClose} className="p-1 rounded hover:bg-zinc-800 text-zinc-400">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      <p className="text-sm text-zinc-400">
+        Select the API capabilities your app needs. We&apos;ll generate a scoped API key with access to only what you select.
+      </p>
+
+      {/* Error */}
+      {error && (
+        <div className="bg-red-950/50 border border-red-800 rounded-lg p-3 text-sm text-red-300">
+          {error}
+        </div>
+      )}
+
+      {/* Category cards */}
+      <div className="space-y-2">
+        {API_CATEGORIES.map((category) => (
+          <CategoryCard
+            key={category.id}
+            category={category}
+            isSelected={selectedCategories.has(category.id)}
+            isExpanded={expandedCategory === category.id}
+            onToggleSelect={() => toggleCategory(category.id)}
+            onToggleExpand={() => toggleExpanded(category.id)}
+          />
+        ))}
+      </div>
+
+      {/* Connect button */}
+      <div className="pt-2">
+        <button
+          onClick={handleConnect}
+          disabled={selectedCategories.size === 0 || isConnecting}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+        >
+          {isConnecting ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Connecting...
+            </>
+          ) : (
+            <>
+              <Plug className="h-4 w-4" />
+              Connect ({selectedCategories.size} {selectedCategories.size === 1 ? "category" : "categories"})
+            </>
+          )}
+        </button>
+        {selectedCategories.size > 0 && (
+          <p className="text-xs text-zinc-500 mt-2 text-center">
+            {getScopesForCategories(Array.from(selectedCategories)).length} scopes will be granted
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// CATEGORY CARD
+// ============================================================================
+
+function CategoryCard({
+  category,
+  isSelected,
+  isExpanded,
+  onToggleSelect,
+  onToggleExpand,
+}: {
+  category: ApiCategory;
+  isSelected: boolean;
+  isExpanded: boolean;
+  onToggleSelect: () => void;
+  onToggleExpand: () => void;
+}) {
+  const IconComponent = ICON_MAP[category.icon] || FileText;
+
+  return (
+    <div
+      className={`border rounded-lg transition-colors ${
+        isSelected
+          ? "border-purple-700 bg-purple-950/30"
+          : "border-zinc-700 bg-zinc-900/50 hover:border-zinc-600"
+      }`}
+    >
+      {/* Main row */}
+      <div className="flex items-center gap-3 p-3">
+        {/* Checkbox */}
+        <button
+          onClick={onToggleSelect}
+          className={`w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
+            isSelected
+              ? "bg-purple-600 border-purple-600"
+              : "border-zinc-600 hover:border-zinc-500"
+          }`}
+        >
+          {isSelected && <Check className="h-3.5 w-3.5 text-white" />}
+        </button>
+
+        {/* Icon + info */}
+        <div className="flex-1 min-w-0" onClick={onToggleSelect} role="button" tabIndex={0}>
+          <div className="flex items-center gap-2">
+            <IconComponent className={`h-4 w-4 flex-shrink-0 ${isSelected ? "text-purple-400" : "text-zinc-500"}`} />
+            <span className={`text-sm font-medium ${isSelected ? "text-white" : "text-zinc-300"}`}>
+              {category.label}
+            </span>
+          </div>
+          <p className="text-xs text-zinc-500 mt-0.5 ml-6">{category.description}</p>
+        </div>
+
+        {/* Expand toggle */}
+        <button
+          onClick={onToggleExpand}
+          className="p-1 rounded hover:bg-zinc-800 text-zinc-500"
+        >
+          {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+        </button>
+      </div>
+
+      {/* Expanded endpoint list */}
+      {isExpanded && (
+        <div className="border-t border-zinc-800 px-3 py-2 space-y-1">
+          {category.endpoints.map((endpoint, idx) => (
+            <div key={idx} className="flex items-center gap-2 text-xs">
+              <span
+                className={`font-mono px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                  endpoint.method === "GET"
+                    ? "bg-emerald-950 text-emerald-400"
+                    : endpoint.method === "POST"
+                      ? "bg-blue-950 text-blue-400"
+                      : endpoint.method === "PUT"
+                        ? "bg-amber-950 text-amber-400"
+                        : endpoint.method === "DELETE"
+                          ? "bg-red-950 text-red-400"
+                          : "bg-zinc-800 text-zinc-400"
+                }`}
+              >
+                {endpoint.method}
+              </span>
+              <span className="text-zinc-500 font-mono">{endpoint.path}</span>
+              <span className="text-zinc-600 ml-auto hidden sm:inline">{endpoint.description}</span>
+            </div>
+          ))}
+          <div className="flex gap-1 mt-1.5 pt-1.5 border-t border-zinc-800/50">
+            <span className="text-[10px] text-zinc-600">Scopes:</span>
+            {category.scopes.map((scope) => (
+              <span key={scope} className="text-[10px] px-1.5 py-0.5 bg-zinc-800 rounded text-zinc-500 font-mono">
+                {scope}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

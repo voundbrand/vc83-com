@@ -611,7 +611,7 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
   },
 
   "booking": {
-    createComponent: () => <BookingWindow />,
+    createComponent: (props) => <BookingWindow initialTab={props?.initialTab as "bookings" | "locations" | "availability" | "settings" | undefined} />,
     defaultConfig: {
       title: "Booking",
       titleKey: "ui.windows.booking.title",

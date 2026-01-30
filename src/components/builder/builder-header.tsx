@@ -10,10 +10,12 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { Share2, MoreHorizontal, Gift } from "lucide-react";
+import { Share2, MoreHorizontal, Gift, ArrowLeft, Settings } from "lucide-react";
 import { FaGithub } from "react-icons/fa";
 import { BuilderLogoMenu } from "./builder-logo-menu";
 import { BuilderUserMenu } from "./builder-user-menu";
+import { useWindowManager } from "@/hooks/use-window-manager";
+import { BookingWindow } from "@/components/window-content/booking-window";
 
 interface BuilderHeaderProps {
   projectName?: string;
@@ -28,33 +30,43 @@ export function BuilderHeader({
 }: BuilderHeaderProps) {
   const [isLogoMenuOpen, setIsLogoMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const { openWindow } = useWindowManager();
 
   return (
     <>
       <header className="h-14 flex items-center relative z-50 bg-zinc-950">
-        {/* Left: Logo area - triggers slide-out drawer */}
-        <div
-          className="w-12 h-full flex-shrink-0 flex items-center justify-center"
-          onMouseEnter={() => setIsLogoMenuOpen(true)}
-        >
-          <button
-            className="flex items-center p-2 rounded-lg hover:bg-zinc-800 transition-colors"
+        {/* Left: Exit button + Logo area */}
+        <div className="flex items-center h-full flex-shrink-0">
+          <a
+            href="/"
+            className="p-2 ml-1 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition-colors"
+            title="Exit to dashboard"
           >
-            <Image
-              src="/android-chrome-512x512.png"
-              alt="l4yercak3"
-              width={28}
-              height={28}
-              className="rounded"
-            />
-          </button>
+            <ArrowLeft className="w-4 h-4" />
+          </a>
+          <div
+            className="w-12 h-full flex items-center justify-center"
+            onMouseEnter={() => setIsLogoMenuOpen(true)}
+          >
+            <button
+              className="flex items-center p-2 rounded-lg hover:bg-zinc-800 transition-colors"
+            >
+              <Image
+                src="/android-chrome-512x512.png"
+                alt="l4yercak3"
+                width={28}
+                height={28}
+                className="rounded"
+              />
+            </button>
+          </div>
         </div>
 
         {/* Main header area - no border */}
         <div className="flex-1 h-full flex items-center justify-end px-4">
           {/* Right: Actions + User */}
           <div className="flex items-center gap-2">
-            {/* Refer Button */}
+            {/* TODO: Re-enable these menu items when ready
             <button
               className="flex items-center gap-1.5 px-3 py-1.5 text-zinc-300 text-sm font-medium rounded-lg hover:bg-zinc-800 transition-colors"
             >
@@ -62,7 +74,6 @@ export function BuilderHeader({
               Refer
             </button>
 
-            {/* Three Dot Menu */}
             <button
               className="p-2 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition-colors"
               title="More options"
@@ -70,7 +81,6 @@ export function BuilderHeader({
               <MoreHorizontal className="w-5 h-5" />
             </button>
 
-            {/* GitHub Button */}
             <button
               className="p-2 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition-colors"
               title="View on GitHub"
@@ -79,7 +89,6 @@ export function BuilderHeader({
               <FaGithub className="w-5 h-5" />
             </button>
 
-            {/* Share Button */}
             <button
               onClick={onShare}
               className="flex items-center gap-1.5 px-3 py-1.5 text-zinc-300 text-sm font-medium rounded-lg hover:bg-zinc-800 transition-colors"
@@ -88,12 +97,31 @@ export function BuilderHeader({
               Share
             </button>
 
-            {/* Publish Button */}
             <button
               onClick={onPublish}
               className="flex items-center px-4 py-1.5 bg-zinc-100 text-zinc-900 text-sm font-medium rounded-lg hover:bg-white transition-colors"
             >
               Publish
+            </button>
+            */}
+
+            {/* Settings Gear */}
+            <button
+              onClick={() => {
+                openWindow(
+                  "booking-settings",
+                  "Booking Settings",
+                  <BookingWindow initialTab="settings" />,
+                  { x: 150, y: 100 },
+                  { width: 1100, height: 700 },
+                  "ui.app.booking",
+                  "📅"
+                );
+              }}
+              className="p-2 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition-colors"
+              title="Booking Settings"
+            >
+              <Settings className="w-5 h-5" />
             </button>
 
             {/* User Avatar Menu */}

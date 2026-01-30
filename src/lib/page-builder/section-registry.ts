@@ -20,7 +20,8 @@ export type SectionType =
   | "team"
   | "faq"
   | "process"
-  | "booking";
+  | "booking"
+  | "form";
 
 // ============================================================================
 // CTA ACTION TYPES
@@ -376,6 +377,67 @@ export interface BookingSection extends BaseSection {
 }
 
 // ============================================================================
+// FORM SECTION
+// ============================================================================
+
+export interface FormFieldOption {
+  label: string;
+  value: string;
+}
+
+export interface FormField {
+  id: string;
+  /** Field type */
+  type: "text" | "email" | "tel" | "textarea" | "select" | "checkbox" | "radio" | "file" | "date" | "number";
+  /** Field label */
+  label: string;
+  /** Placeholder text */
+  placeholder?: string;
+  /** Is this field required? */
+  required?: boolean;
+  /** Help text below the field */
+  helpText?: string;
+  /** Options for select/radio fields */
+  options?: FormFieldOption[];
+  /** Validation rules */
+  validation?: {
+    minLength?: number;
+    maxLength?: number;
+    min?: number;
+    max?: number;
+    pattern?: string;
+  };
+  /** Custom classes */
+  className?: string;
+}
+
+export interface FormSectionProps {
+  badge?: string;
+  title: string;
+  subtitle?: string;
+  titleClassName?: string;
+  subtitleClassName?: string;
+  backgroundClassName?: string;
+  /** Form description shown above fields */
+  description?: string;
+  /** Form fields */
+  fields: FormField[];
+  /** Submit button configuration */
+  submitButton: CTAConfig;
+  /** Success message after submission */
+  successMessage?: string;
+  /** Layout variant */
+  layout?: "single-column" | "two-column" | "card";
+  /** Reference to existing form ID (for integration) */
+  formId?: string;
+}
+
+export interface FormSection extends BaseSection {
+  type: "form";
+  props: FormSectionProps;
+}
+
+// ============================================================================
 // UNION TYPE
 // ============================================================================
 
@@ -389,7 +451,8 @@ export type PageSection =
   | TeamSection
   | FAQSection
   | ProcessSection
-  | BookingSection;
+  | BookingSection
+  | FormSection;
 
 // ============================================================================
 // SECTION DEFAULTS
@@ -481,6 +544,15 @@ export const sectionDefaults: Record<SectionType, object> = {
       showPricing: true,
     },
   },
+  form: {
+    props: {
+      layout: "single-column",
+      backgroundClassName: "bg-white py-16 sm:py-24",
+      titleClassName: "text-3xl sm:text-4xl font-bold text-gray-900",
+      subtitleClassName: "text-lg text-gray-600 mt-4 max-w-2xl mx-auto",
+      successMessage: "Thank you! Your submission has been received.",
+    },
+  },
 };
 
 // ============================================================================
@@ -562,6 +634,17 @@ export const editablePropsMap: Record<SectionType, string[]> = {
     "props.badge",
     "props.title",
     "props.subtitle",
+  ],
+  form: [
+    "props.badge",
+    "props.title",
+    "props.subtitle",
+    "props.description",
+    "props.fields.*.label",
+    "props.fields.*.placeholder",
+    "props.fields.*.helpText",
+    "props.submitButton.text",
+    "props.successMessage",
   ],
 };
 

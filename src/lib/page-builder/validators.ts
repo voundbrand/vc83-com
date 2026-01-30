@@ -292,6 +292,77 @@ const processSectionSchema = z.object({
 });
 
 // ============================================================================
+// BOOKING SECTION SCHEMA
+// ============================================================================
+
+const bookingSectionSchema = z.object({
+  id: z.string().min(1),
+  type: z.literal("booking"),
+  className: z.string().max(500).optional(),
+  props: z.object({
+    badge: z.string().max(100).optional(),
+    title: z.string().max(200).optional(),
+    subtitle: z.string().max(500).optional(),
+    titleClassName: z.string().max(500).optional(),
+    subtitleClassName: z.string().max(500).optional(),
+    backgroundClassName: z.string().max(500).optional(),
+    resourceId: z.string().min(1),
+    showPricing: z.boolean().optional(),
+    pricePerUnit: z.number().optional(),
+    priceUnit: z.enum(["night", "hour", "person", "session"]).optional(),
+    fields: z.array(z.enum(["dates", "guests", "time"])).optional(),
+    layout: z.enum(["inline", "card", "sidebar"]).optional(),
+  }),
+});
+
+// ============================================================================
+// FORM SECTION SCHEMA
+// ============================================================================
+
+const formFieldOptionSchema = z.object({
+  label: z.string().min(1).max(100),
+  value: z.string().min(1).max(100),
+});
+
+const formFieldSchema = z.object({
+  id: z.string().min(1),
+  type: z.enum(["text", "email", "tel", "textarea", "select", "checkbox", "radio", "file", "date", "number"]),
+  label: z.string().min(1).max(200),
+  placeholder: z.string().max(200).optional(),
+  required: z.boolean().optional(),
+  helpText: z.string().max(300).optional(),
+  options: z.array(formFieldOptionSchema).optional(),
+  validation: z.object({
+    minLength: z.number().optional(),
+    maxLength: z.number().optional(),
+    min: z.number().optional(),
+    max: z.number().optional(),
+    pattern: z.string().optional(),
+  }).optional(),
+  className: z.string().max(500).optional(),
+});
+
+const formSectionSchema = z.object({
+  id: z.string().min(1),
+  type: z.literal("form"),
+  className: z.string().max(500).optional(),
+  props: z.object({
+    badge: z.string().max(100).optional(),
+    title: z.string().min(1).max(200),
+    subtitle: z.string().max(500).optional(),
+    titleClassName: z.string().max(500).optional(),
+    subtitleClassName: z.string().max(500).optional(),
+    backgroundClassName: z.string().max(500).optional(),
+    description: z.string().max(1000).optional(),
+    fields: z.array(formFieldSchema).min(1).max(30),
+    submitButton: ctaConfigSchema,
+    successMessage: z.string().max(500).optional(),
+    layout: z.enum(["single-column", "two-column", "card"]).optional(),
+    formId: z.string().optional(),
+  }),
+});
+
+// ============================================================================
 // PAGE SECTION UNION
 // ============================================================================
 
@@ -305,6 +376,8 @@ const pageSectionSchema = z.discriminatedUnion("type", [
   teamSectionSchema,
   faqSectionSchema,
   processSectionSchema,
+  bookingSectionSchema,
+  formSectionSchema,
 ]);
 
 // ============================================================================
@@ -356,7 +429,8 @@ const pageMetadataSchema = z.object({
 const pageIntegrationsSchema = z.object({
   bookingResources: z.array(z.string()).optional(),
   forms: z.array(z.string()).optional(),
-  contactEmail: z.string().email().optional(),
+  // More lenient: accept any string as contactEmail (AI sometimes uses placeholders)
+  contactEmail: z.string().optional(),
 });
 
 // ============================================================================
@@ -596,7 +670,7 @@ export function parseAIResponse(response: string): {
 /**
  * Valid section types that our system supports
  */
-const VALID_SECTION_TYPES = ["hero", "features", "cta", "testimonials", "pricing", "gallery", "team", "faq", "process"];
+const VALID_SECTION_TYPES = ["hero", "features", "cta", "testimonials", "pricing", "gallery", "team", "faq", "process", "booking", "form"];
 
 /**
  * Preprocesses AI-generated JSON to fix common mistakes before validation.
@@ -678,14 +752,23 @@ export function parseAndValidateAIResponse(response: string): ValidationResult &
 
   // Add required metadata fields that the AI doesn't generate
   // These are system-level fields, not content the AI should produce
+  // Also fix common AI mistakes like version "1" instead of "1.0"
+  const version = preprocessedJson.version;
+  const normalizedVersion = version === "1" || version === 1 || version === "1.0" ? "1.0" : version;
+
   const enrichedJson = {
     ...preprocessedJson,
+    version: normalizedVersion || "1.0",
     generatedAt: preprocessedJson.generatedAt ?? Date.now(),
     generatedBy: preprocessedJson.generatedBy ?? "ai",
     revisions: preprocessedJson.revisions ?? [],
   };
 
   console.log("[Validator] Enriched JSON with metadata, validating schema...");
+  console.log("[Validator] Enriched JSON keys:", Object.keys(enrichedJson));
+  console.log("[Validator] Version:", enrichedJson.version);
+  console.log("[Validator] Sections count:", (enrichedJson.sections as unknown[])?.length || 0);
+
   const result = validatePageSchema(enrichedJson);
   console.log("[Validator] Schema validation result:", {
     valid: result.valid,
@@ -694,7 +777,11 @@ export function parseAndValidateAIResponse(response: string): ValidationResult &
   });
 
   if (!result.valid && result.errors) {
-    console.log("[Validator] Validation errors:", JSON.stringify(result.errors.issues.slice(0, 3), null, 2));
+    // Log all validation errors for debugging
+    console.log("[Validator] Validation errors:");
+    result.errors.issues.forEach((issue, i) => {
+      console.log(`[Validator] Error ${i + 1}: Path: ${issue.path.join(".")}, Code: ${issue.code}, Message: ${issue.message}`);
+    });
   }
 
   return result;

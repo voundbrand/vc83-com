@@ -295,6 +295,17 @@ interface BuilderContextType {
   selectedModel: string | undefined;
   setSelectedModel: (model: string | undefined) => void;
 
+  // V0 integration
+  aiProvider: "built-in" | "v0";
+  setAiProvider: (provider: "built-in" | "v0") => void;
+  v0ChatId: string | null;
+  v0DemoUrl: string | null;
+  v0WebUrl: string | null;
+
+  // Builder app (created when connecting v0 app to platform)
+  builderAppId: Id<"objects"> | null;
+  setBuilderAppId: (id: Id<"objects"> | null) => void;
+
   // Selected section (for highlighting)
   selectedSectionId: string | null;
   setSelectedSectionId: (id: string | null) => void;
@@ -447,6 +458,25 @@ export function BuilderProvider({
   const [isPlanningMode, setIsPlanningMode] = useState(false);
 
   // ============================================================================
+  // V0 INTEGRATION STATE
+  // ============================================================================
+
+  // AI provider: "built-in" uses our JSON schema, "v0" uses v0.dev's Platform API
+  const [aiProvider, setAiProvider] = useState<"built-in" | "v0">("v0");
+
+  // v0 chat session ID (for continuing conversations)
+  const [v0ChatId, setV0ChatId] = useState<string | null>(null);
+
+  // v0 demo URL (for iframe preview)
+  const [v0DemoUrl, setV0DemoUrl] = useState<string | null>(null);
+
+  // v0 web URL (link to edit on v0.dev)
+  const [v0WebUrl, setV0WebUrl] = useState<string | null>(null);
+
+  // Builder app ID (created when connecting v0 app to platform)
+  const [builderAppId, setBuilderAppId] = useState<Id<"objects"> | null>(null);
+
+  // ============================================================================
   // THREE-MODE ARCHITECTURE STATE
   // ============================================================================
 
@@ -528,6 +558,7 @@ export function BuilderProvider({
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Convex type instantiation is excessively deep
   const sendChatMessage = useAction(api.ai.chat.sendMessage);
+  const sendV0Message = useAction(api.integrations.v0.builderChat);
   const saveGeneratedPage = useMutation(api.pageBuilder.saveGeneratedPage);
   const sendPlatformAlert = useAction(api.ai.platformAlerts.sendPlatformAlert);
 
@@ -546,6 +577,20 @@ export function BuilderProvider({
 
     // Set the conversation ID
     setConversationId(initialConversationId);
+
+    // Restore v0 metadata if this was a v0 conversation
+    if (initialConversation.aiProvider === "v0") {
+      setAiProvider("v0");
+      if (initialConversation.v0ChatId) {
+        setV0ChatId(initialConversation.v0ChatId);
+      }
+      if (initialConversation.v0DemoUrl) {
+        setV0DemoUrl(initialConversation.v0DemoUrl);
+      }
+      if (initialConversation.v0WebUrl) {
+        setV0WebUrl(initialConversation.v0WebUrl);
+      }
+    }
 
     // Convert messages from database format to BuilderMessage format
     const loadedMessages: BuilderMessage[] = initialConversation.messages.map((msg, index) => {
@@ -614,6 +659,9 @@ export function BuilderProvider({
       return;
     }
 
+    // DEBUG: Log which provider we're using
+    console.log("[Builder:sendMessageWithMode] Starting with aiProvider:", aiProvider);
+
     setIsGenerating(true);
     setGenerationError(null);
 
@@ -631,6 +679,63 @@ export function BuilderProvider({
     setMessages((prev) => [...prev, userMessage]);
 
     try {
+      // ========================================================================
+      // V0 PROVIDER - Use v0.dev Platform API with iframe preview
+      // ========================================================================
+      if (aiProvider === "v0") {
+        console.log("[Builder:v0] Sending initial message to v0 API...");
+
+        const v0Result = await sendV0Message({
+          organizationId,
+          userId: user.id as Id<"users">,
+          message,
+          v0ChatId: v0ChatId || undefined,
+          existingConversationId: conversationId || undefined,
+        });
+
+        const processingTime = Math.round((Date.now() - startTime) / 1000);
+
+        // Store v0 session info for follow-up messages
+        setV0ChatId(v0Result.v0ChatId);
+        setV0WebUrl(v0Result.webUrl);
+
+        // Update demo URL for iframe preview
+        if (v0Result.demoUrl) {
+          console.log("[Builder:v0] Got demo URL:", v0Result.demoUrl);
+          setV0DemoUrl(v0Result.demoUrl);
+        }
+
+        // Update conversation ID if this is a new conversation
+        if (v0Result.conversationId && !conversationId) {
+          const newConversationId = v0Result.conversationId as Id<"aiConversations">;
+          setConversationId(newConversationId);
+          // Notify parent to update URL with slug for pretty URLs
+          onConversationCreated?.(newConversationId, v0Result.slug);
+        }
+
+        // Create assistant message (v0 responses are text, not JSON schemas)
+        const assistantMessage: BuilderMessage = {
+          id: generateMessageId(),
+          role: "assistant",
+          content: v0Result.message,
+          timestamp: Date.now(),
+          processingTime,
+        };
+        setMessages((prev) => [...prev, assistantMessage]);
+
+        console.log("[Builder:v0] Initial response processed:", {
+          chatId: v0Result.v0ChatId,
+          hasDemoUrl: !!v0Result.demoUrl,
+          filesCount: v0Result.files?.length || 0,
+          conversationId: v0Result.conversationId,
+        });
+
+        return;
+      }
+
+      // ========================================================================
+      // BUILT-IN PROVIDER - Use our JSON schema generation
+      // ========================================================================
       const modeIndicator = usePlanningMode ? "PLANNING MODE" : "EXECUTION MODE";
       const planningInstructions = usePlanningMode
         ? "\n[PLANNING MODE ACTIVE - Do NOT generate page JSON yet. Instead, discuss the design with the user, ask clarifying questions about their preferences (colors, style, content), and create a detailed plan. Only generate the actual page after the user explicitly approves the plan.]"
@@ -763,6 +868,9 @@ export function BuilderProvider({
       return;
     }
 
+    // DEBUG: Log which provider we're using
+    console.log("[Builder:sendMessageInternal] Starting with aiProvider:", aiProvider);
+
     setIsGenerating(true);
     setGenerationError(null);
 
@@ -782,6 +890,63 @@ export function BuilderProvider({
     setMessages((prev) => [...prev, userMessage]);
 
     try {
+      // ========================================================================
+      // V0 PROVIDER - Use v0.dev Platform API with iframe preview
+      // ========================================================================
+      if (aiProvider === "v0") {
+        console.log("[Builder:v0] Sending message to v0 API...");
+
+        const v0Result = await sendV0Message({
+          organizationId,
+          userId: user.id as Id<"users">,
+          message,
+          v0ChatId: v0ChatId || undefined,
+          existingConversationId: conversationId || undefined,
+        });
+
+        const processingTime = Math.round((Date.now() - startTime) / 1000);
+
+        // Store v0 session info for follow-up messages
+        setV0ChatId(v0Result.v0ChatId);
+        setV0WebUrl(v0Result.webUrl);
+
+        // Update demo URL for iframe preview
+        if (v0Result.demoUrl) {
+          console.log("[Builder:v0] Got demo URL:", v0Result.demoUrl);
+          setV0DemoUrl(v0Result.demoUrl);
+        }
+
+        // Update conversation ID if this is a new conversation
+        if (v0Result.conversationId && !conversationId) {
+          const newConversationId = v0Result.conversationId as Id<"aiConversations">;
+          setConversationId(newConversationId);
+          // Notify parent to update URL with slug for pretty URLs
+          onConversationCreated?.(newConversationId, v0Result.slug);
+        }
+
+        // Create assistant message (v0 responses are text, not JSON schemas)
+        const assistantMessage: BuilderMessage = {
+          id: generateMessageId(),
+          role: "assistant",
+          content: v0Result.message,
+          timestamp: Date.now(),
+          processingTime,
+        };
+        setMessages((prev) => [...prev, assistantMessage]);
+
+        console.log("[Builder:v0] Response processed:", {
+          chatId: v0Result.v0ChatId,
+          hasDemoUrl: !!v0Result.demoUrl,
+          filesCount: v0Result.files?.length || 0,
+          conversationId: v0Result.conversationId,
+        });
+
+        return;
+      }
+
+      // ========================================================================
+      // BUILT-IN PROVIDER - Use our JSON schema generation
+      // ========================================================================
       // Prepend page builder context to the message
       const modeIndicator = isPlanningMode ? "PLANNING MODE" : "EXECUTION MODE";
       const planningInstructions = isPlanningMode
@@ -921,7 +1086,7 @@ export function BuilderProvider({
     async (message: string) => {
       await sendMessageInternal(message);
     },
-    [organizationId, user, conversationId, pageSchema, sendChatMessage, selectedModel, isPlanningMode]
+    [organizationId, user, conversationId, pageSchema, sendChatMessage, sendV0Message, selectedModel, isPlanningMode, aiProvider, v0ChatId]
   );
 
   // Save the current page as a project
@@ -973,12 +1138,12 @@ export function BuilderProvider({
         // Can always go back to prototype mode
         return true;
       case "connect":
-        // Need a prototype page to connect
-        return pageSchema !== null || prototypePageJson !== null;
+        // Need a prototype page OR v0 demo URL to connect
+        return pageSchema !== null || prototypePageJson !== null || v0DemoUrl !== null;
       default:
         return false;
     }
-  }, [pageSchema, prototypePageJson]);
+  }, [pageSchema, prototypePageJson, v0DemoUrl]);
 
   /**
    * Set the builder mode with validation
@@ -1223,6 +1388,11 @@ export function BuilderProvider({
     setSelectedSectionId(null);
     setIsEditMode(false);
     setIsPlanningMode(false);
+    // Reset v0 state
+    setV0ChatId(null);
+    setV0DemoUrl(null);
+    setV0WebUrl(null);
+    setBuilderAppId(null);
     // Reset three-mode architecture state
     setBuilderModeInternal("prototype");
     setPrototypePageJson(null);
@@ -1478,6 +1648,14 @@ export function BuilderProvider({
     generationError,
     selectedModel,
     setSelectedModel,
+    // V0 integration
+    aiProvider,
+    setAiProvider,
+    v0ChatId,
+    v0DemoUrl,
+    v0WebUrl,
+    builderAppId,
+    setBuilderAppId,
     selectedSectionId,
     setSelectedSectionId,
     isEditMode,
