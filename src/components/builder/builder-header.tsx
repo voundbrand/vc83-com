@@ -10,6 +10,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { Share2, MoreHorizontal, Gift, ArrowLeft, Settings } from "lucide-react";
 import { FaGithub } from "react-icons/fa";
 import { BuilderLogoMenu } from "./builder-logo-menu";
@@ -37,13 +38,13 @@ export function BuilderHeader({
       <header className="h-14 flex items-center relative z-50 bg-zinc-950">
         {/* Left: Exit button + Logo area */}
         <div className="flex items-center h-full flex-shrink-0">
-          <a
+          <Link
             href="/"
             className="p-2 ml-1 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition-colors"
             title="Exit to dashboard"
           >
             <ArrowLeft className="w-4 h-4" />
-          </a>
+          </Link>
           <div
             className="w-12 h-full flex items-center justify-center"
             onMouseEnter={() => setIsLogoMenuOpen(true)}

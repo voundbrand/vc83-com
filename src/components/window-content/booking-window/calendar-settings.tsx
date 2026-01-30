@@ -6,9 +6,10 @@ import { useWindowManager } from "@/hooks/use-window-manager"
 import { Calendar, Plus, Globe, Mail } from "lucide-react"
 
 // Workaround for Convex deep type instantiation issue
-// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-require-imports
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _api: any
 try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   _api = require("../../../../convex/_generated/api").api
 } catch {
   _api = null
