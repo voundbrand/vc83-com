@@ -48,6 +48,9 @@ import { auditLogs, workflowExecutionLogs } from "./schemas/utilitySchemas";
 // ✅ NEW ONTOLOGY SCHEMAS
 import { objects, objectLinks, objectActions } from "./schemas/ontologySchemas";
 
+// 📁 BUILDER FILE SYSTEM SCHEMAS (Virtual File System for builder apps)
+import { builderFiles } from "./schemas/builderFileSchemas";
+
 // 🤖 AI INTEGRATION SCHEMAS
 import {
   aiConversations,
@@ -277,6 +280,9 @@ export default defineSchema({
   // 🎨 DESIGN ENGINE: RAG-based design pattern library for page builder
   designPatterns,            // Extracted design patterns with vector embeddings
   prototypeMetadata,         // Indexed prototype metadata and extraction status
+
+  // 📁 BUILDER VFS: Individual file records for builder apps
+  builderFiles,              // Per-file storage replacing customProperties.generatedFiles[]
 
   // ❌ OLD TRANSLATIONS - Replaced by ontology
   // systemTranslations,

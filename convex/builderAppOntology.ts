@@ -27,13 +27,71 @@
  * - Environment variable management
  */
 
-import { mutation, query, action, internalMutation } from "./_generated/server";
+import { mutation, query, action, internalMutation, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser, checkPermission, getUserContext } from "./rbacHelpers";
 import { checkResourceLimit } from "./licensing/helpers";
 import { generateVercelDeployUrl } from "./publishingHelpers";
+
+// ============================================================================
+// FILE SYSTEM HELPERS (inline writes to builderFiles table)
+// ============================================================================
+
+function simpleHash(content: string): string {
+  let hash = 0;
+  for (let i = 0; i < content.length; i++) {
+    const char = content.charCodeAt(i);
+    hash = ((hash << 5) - hash + char) | 0;
+  }
+  return hash.toString(36);
+}
+
+async function upsertBuilderFiles(
+  ctx: MutationCtx,
+  appId: Id<"objects">,
+  files: Array<{ path: string; content: string; language: string }>,
+  modifiedBy: "v0" | "user" | "self-heal" | "scaffold"
+) {
+  const now = Date.now();
+  const isScaffold = modifiedBy === "scaffold";
+
+  const existing = await ctx.db
+    .query("builderFiles")
+    .withIndex("by_app", (q) => q.eq("appId", appId))
+    .collect();
+
+  const existingByPath = new Map(existing.map((f) => [f.path, f]));
+
+  for (const file of files) {
+    const contentHash = simpleHash(file.content);
+    const existingFile = existingByPath.get(file.path);
+
+    if (existingFile) {
+      if (existingFile.contentHash !== contentHash) {
+        await ctx.db.patch(existingFile._id, {
+          content: file.content,
+          language: file.language,
+          contentHash,
+          lastModifiedAt: now,
+          lastModifiedBy: modifiedBy,
+        });
+      }
+    } else {
+      await ctx.db.insert("builderFiles", {
+        appId,
+        path: file.path,
+        content: file.content,
+        language: file.language,
+        contentHash,
+        lastModifiedAt: now,
+        lastModifiedBy: modifiedBy,
+        isScaffold,
+      });
+    }
+  }
+}
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -177,6 +235,34 @@ export const getBuilderAppByV0ChatId = query({
   },
 });
 
+/**
+ * GET BUILDER APP BY CONVERSATION ID
+ * Find a builder app linked to a specific AI conversation
+ */
+export const getBuilderAppByConversationId = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    conversationId: v.id("aiConversations"),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const apps = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "builder_app")
+      )
+      .collect();
+
+    const app = apps.find(
+      (a) => (a.customProperties as { conversationId?: string })?.conversationId === args.conversationId
+    );
+
+    return app || null;
+  },
+});
+
 // ============================================================================
 // MUTATIONS
 // ============================================================================
@@ -245,7 +331,6 @@ export const createBuilderApp = mutation({
       v0ChatId: args.v0ChatId,
       v0WebUrl: args.v0WebUrl,
       v0DemoUrl: args.v0DemoUrl,
-      generatedFiles: args.files || [],
       // SDK integration
       sdkVersion: "1.0.0",
       requiredEnvVars: [
@@ -301,6 +386,11 @@ export const createBuilderApp = mutation({
       createdAt: Date.now(),
       updatedAt: Date.now(),
     });
+
+    // Store files in builderFiles table (VFS)
+    if (args.files && args.files.length > 0) {
+      await upsertBuilderFiles(ctx, appId, args.files, "v0");
+    }
 
     // Audit log
     await ctx.db.insert("objectActions", {
@@ -373,7 +463,7 @@ export const updateBuilderApp = mutation({
     if (args.v0ChatId !== undefined) propsUpdates.v0ChatId = args.v0ChatId;
     if (args.v0WebUrl !== undefined) propsUpdates.v0WebUrl = args.v0WebUrl;
     if (args.v0DemoUrl !== undefined) propsUpdates.v0DemoUrl = args.v0DemoUrl;
-    if (args.files !== undefined) propsUpdates.generatedFiles = args.files;
+    // Files are now stored in builderFiles table, not in customProperties
 
     if (Object.keys(propsUpdates).length > 0) {
       updates.customProperties = {
@@ -383,6 +473,11 @@ export const updateBuilderApp = mutation({
     }
 
     await ctx.db.patch(args.appId, updates);
+
+    // Upsert files in builderFiles table if provided
+    if (args.files !== undefined) {
+      await upsertBuilderFiles(ctx, args.appId, args.files, "v0");
+    }
 
     // Audit log
     await ctx.db.insert("objectActions", {
@@ -853,6 +948,38 @@ export const connectV0App = action({
       status: "ready",
     });
 
+    // 3b. Auto-register as a connected_application so it appears in Applications
+    let applicationId: Id<"objects"> | null = null;
+    try {
+      const regResult = await ctx.runMutation(
+        internal.applicationOntology.registerApplicationInternal,
+        {
+          organizationId: args.organizationId,
+          name: args.name,
+          description: args.description || `Builder app: ${args.selectedCategories.join(", ")}`,
+          source: {
+            type: "boilerplate" as const,
+            framework: "nextjs",
+            hasTypeScript: true,
+          },
+          connection: {
+            features: args.selectedCategories,
+          },
+        }
+      );
+      applicationId = regResult.applicationId;
+
+      // Link the API key to the registered application
+      await ctx.runMutation(api.applicationOntology.linkApiKey, {
+        sessionId: args.sessionId,
+        applicationId: regResult.applicationId,
+        apiKeyId: keyResult.id,
+      });
+    } catch (e) {
+      // Non-fatal — app is still connected even if registration fails
+      console.error("[connectV0App] Failed to auto-register application:", e);
+    }
+
     // 4. Create .env.example file in the media library
     const envContent = [
       `# Generated by l4yercak3 Builder — ${appResult.appCode}`,
@@ -894,6 +1021,7 @@ export const connectV0App = action({
         scopes: args.scopes,
         connectedAt: Date.now(),
         ...(envFileId && { envFileId }),
+        ...(applicationId && { applicationId }),
       },
     });
 
@@ -925,6 +1053,7 @@ export const patchAppConnectionConfig = internalMutation({
       scopes: v.array(v.string()),
       connectedAt: v.number(),
       envFileId: v.optional(v.string()),
+      applicationId: v.optional(v.id("objects")),
     }),
   },
   handler: async (ctx, args) => {
@@ -939,6 +1068,48 @@ export const patchAppConnectionConfig = internalMutation({
       },
       updatedAt: Date.now(),
     });
+  },
+});
+
+/**
+ * UPDATE CONNECTION CATEGORIES (Public)
+ * Updates selectedCategories and scopes on an existing connectionConfig
+ * without regenerating the API key.
+ */
+export const updateConnectionCategories = mutation({
+  args: {
+    sessionId: v.string(),
+    appId: v.id("objects"),
+    selectedCategories: v.array(v.string()),
+    scopes: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const app = await ctx.db.get(args.appId);
+    if (!app || app.type !== "builder_app") {
+      throw new Error("Builder app not found");
+    }
+
+    const currentProps = (app.customProperties || {}) as Record<string, unknown>;
+    const currentConfig = currentProps.connectionConfig as Record<string, unknown> | undefined;
+    if (!currentConfig) {
+      throw new Error("App is not connected yet. Use Connect first.");
+    }
+
+    await ctx.db.patch(args.appId, {
+      customProperties: {
+        ...currentProps,
+        connectionConfig: {
+          ...currentConfig,
+          selectedCategories: args.selectedCategories,
+          scopes: args.scopes,
+        },
+      },
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
   },
 });
 
@@ -1082,5 +1253,132 @@ export const createFromV0Chat = action({
     });
 
     return result as { appId: Id<"objects">; appCode: string };
+  },
+});
+
+/**
+ * GET BUILDER APP ENV VARS
+ * Returns all environment variables needed by the builder app:
+ * 1. Platform env vars from requiredEnvVars (with values from .env.example document)
+ * 2. Additional env vars detected in builderFiles (process.env.* references)
+ */
+export const getBuilderAppEnvVars = query({
+  args: {
+    sessionId: v.string(),
+    appId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const app = await ctx.db.get(args.appId);
+    if (!app || app.type !== "builder_app") return { envVars: [] };
+
+    const props = (app.customProperties || {}) as Record<string, unknown>;
+    const connectionConfig = props.connectionConfig as {
+      envFileId?: string;
+      apiKeyPrefix?: string;
+      baseUrl?: string;
+    } | undefined;
+
+    // 1. Parse values from .env.example document (contains the full API key)
+    const envValues: Record<string, string> = {};
+    if (connectionConfig?.envFileId) {
+      try {
+        const envDoc = await ctx.db.get(
+          connectionConfig.envFileId as Id<"organizationMedia">
+        );
+        if (envDoc && envDoc.documentContent) {
+          for (const line of envDoc.documentContent.split("\n")) {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed.startsWith("#")) continue;
+            const eqIdx = trimmed.indexOf("=");
+            if (eqIdx > 0) {
+              envValues[trimmed.substring(0, eqIdx)] = trimmed.substring(eqIdx + 1);
+            }
+          }
+        }
+      } catch {
+        // envFileId may be invalid or deleted — non-fatal
+      }
+    }
+
+    // 2. Build platform env vars from requiredEnvVars metadata + parsed values
+    const requiredEnvVars = (props.requiredEnvVars || []) as Array<{
+      key: string;
+      description: string;
+      required: boolean;
+      defaultValue?: string;
+    }>;
+
+    const envVarMap = new Map<string, {
+      key: string;
+      value: string;
+      description: string;
+      sensitive: boolean;
+      source: "platform" | "codebase";
+      required: boolean;
+    }>();
+
+    for (const envDef of requiredEnvVars) {
+      const value = envValues[envDef.key] || envDef.defaultValue || "";
+      envVarMap.set(envDef.key, {
+        key: envDef.key,
+        value,
+        description: envDef.description,
+        sensitive: envDef.key.includes("API_KEY") || envDef.key.includes("SECRET"),
+        source: "platform",
+        required: envDef.required,
+      });
+    }
+
+    // 3. Scan builderFiles for additional process.env references
+    const builderFiles = await ctx.db
+      .query("builderFiles")
+      .withIndex("by_app", (q) => q.eq("appId", args.appId))
+      .collect();
+
+    const envPattern = /process\.env\.([A-Z][A-Z0-9_]*)/g;
+    const nextPublicPattern = /NEXT_PUBLIC_([A-Z][A-Z0-9_]*)/g;
+
+    for (const file of builderFiles) {
+      const content = file.content || "";
+      // Match process.env.VAR_NAME
+      let match;
+      while ((match = envPattern.exec(content)) !== null) {
+        const key = match[1];
+        if (!envVarMap.has(key) && !envVarMap.has(`NEXT_PUBLIC_${key}`)) {
+          envVarMap.set(key, {
+            key,
+            value: envValues[key] || "",
+            description: `Used in ${file.path}`,
+            sensitive: key.includes("SECRET") || key.includes("KEY") || key.includes("TOKEN"),
+            source: "codebase",
+            required: true,
+          });
+        }
+      }
+      // Match NEXT_PUBLIC_ vars that may appear in template literals etc.
+      while ((match = nextPublicPattern.exec(content)) !== null) {
+        const key = `NEXT_PUBLIC_${match[1]}`;
+        if (!envVarMap.has(key)) {
+          envVarMap.set(key, {
+            key,
+            value: envValues[key] || "",
+            description: `Used in ${file.path}`,
+            sensitive: key.includes("SECRET") || key.includes("KEY") || key.includes("TOKEN"),
+            source: "codebase",
+            required: true,
+          });
+        }
+      }
+    }
+
+    // Sort: platform vars first, then codebase-detected, alphabetically within groups
+    const envVars = Array.from(envVarMap.values()).sort((a, b) => {
+      if (a.source !== b.source) return a.source === "platform" ? -1 : 1;
+      return a.key.localeCompare(b.key);
+    });
+
+    return { envVars };
   },
 });

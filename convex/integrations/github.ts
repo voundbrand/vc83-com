@@ -13,6 +13,18 @@ import { action, query, internalQuery, ActionCtx } from "../_generated/server";
 import { v } from "convex/values";
 import { Id, Doc } from "../_generated/dataModel";
 
+// Lazy-load api/internal to avoid TS2589 deep type instantiation
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _apiCache: any = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getApi(): any {
+  if (!_apiCache) {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    _apiCache = require("../_generated/api");
+  }
+  return _apiCache;
+}
+
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -69,6 +81,26 @@ async function getGitHubAccessToken(
   }
 
   return connection.accessToken || null;
+}
+
+/**
+ * Encode a UTF-8 string to base64 without Buffer or unescape.
+ * Uses TextEncoder (available in all modern JS runtimes including Convex).
+ */
+function utf8ToBase64(str: string): string {
+  const bytes = new TextEncoder().encode(str);
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  let result = "";
+  for (let i = 0; i < bytes.length; i += 3) {
+    const b0 = bytes[i];
+    const b1 = i + 1 < bytes.length ? bytes[i + 1] : 0;
+    const b2 = i + 2 < bytes.length ? bytes[i + 2] : 0;
+    result += chars[b0 >> 2];
+    result += chars[((b0 & 3) << 4) | (b1 >> 4)];
+    result += i + 1 < bytes.length ? chars[((b1 & 15) << 2) | (b2 >> 6)] : "=";
+    result += i + 2 < bytes.length ? chars[b2 & 63] : "=";
+  }
+  return result;
 }
 
 /**
@@ -280,6 +312,70 @@ export default function RootLayout({
 }
 
 /**
+ * Generate app/globals.css - minimal global styles for Next.js
+ */
+function generateGlobalsCss(): string {
+  return `@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 0, 0, 0;
+    --background-end-rgb: 0, 0, 0;
+  }
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+}
+`;
+}
+
+/**
+ * Generate tsconfig.json for Next.js TypeScript projects
+ */
+function generateTsconfig(): string {
+  return JSON.stringify(
+    {
+      compilerOptions: {
+        lib: ["dom", "dom.iterable", "esnext"],
+        allowJs: true,
+        skipLibCheck: true,
+        strict: false,
+        noEmit: true,
+        esModuleInterop: true,
+        module: "esnext",
+        moduleResolution: "bundler",
+        resolveJsonModule: true,
+        isolatedModules: true,
+        jsx: "preserve",
+        incremental: true,
+        plugins: [{ name: "next" }],
+        paths: { "@/*": ["./*"] },
+      },
+      include: ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+      exclude: ["node_modules"],
+    },
+    null,
+    2
+  );
+}
+
+/**
  * Generate next.config.js
  */
 function generateNextConfig(): string {
@@ -300,6 +396,127 @@ const nextConfig = {
 };
 
 module.exports = nextConfig;
+`;
+}
+
+/**
+ * Generate app/page.tsx - root page that imports the main v0 component.
+ *
+ * v0 typically generates components at paths like:
+ *   components/landing-page.tsx, components/app.tsx, etc.
+ * but does NOT generate app/page.tsx. Without it, Next.js returns 404 at /.
+ *
+ * This function inspects generatedFiles to find the most likely "main" component
+ * and creates a page.tsx that imports and renders it.
+ */
+function generatePageTsx(
+  generatedFiles: Array<{ path: string; content: string; language: string }>
+): string {
+  // Strategy: find the main component from v0-generated files
+  // 1. Check if v0 generated a root page.tsx (no app/ prefix) — use it directly
+  // 2. Prefer files with names like "page", "app", "home", "landing", "main"
+  // 3. Fall back to the largest .tsx component file
+  // 4. Last resort: first .tsx component file
+
+  // Check if v0 generated a root-level page.tsx — promote it directly
+  const rootPageFile = generatedFiles.find(
+    (f) => f.path === "page.tsx" || f.path === "src/page.tsx"
+  );
+  if (rootPageFile) {
+    console.log("[GitHub:generatePageTsx] Found root page.tsx, promoting to app/page.tsx");
+    return rootPageFile.content;
+  }
+
+  const priorityNames = [
+    "page", "app", "home", "landing", "main", "index",
+    "hero", "landing-page", "home-page", "website", "site",
+  ];
+  const tsxFiles = generatedFiles.filter(
+    (f) =>
+      (f.path.endsWith(".tsx") || f.path.endsWith(".jsx")) &&
+      !f.path.includes("layout") &&
+      !f.path.includes("globals") &&
+      !f.path.includes("provider") &&
+      !f.path.includes("/ui/") // Exclude shadcn ui components
+  );
+
+  if (tsxFiles.length === 0) {
+    console.log("[GitHub:generatePageTsx] No .tsx/.jsx component files found, using placeholder");
+    return `export default function Home() {
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center p-24">
+      <h1 className="text-4xl font-bold">Welcome</h1>
+      <p className="mt-4 text-lg text-gray-600">Your app is live.</p>
+    </main>
+  );
+}
+`;
+  }
+
+  // Find best candidate by priority name
+  let bestFile: (typeof tsxFiles)[0] | null = null;
+  let selectionReason = "first-file";
+
+  for (const name of priorityNames) {
+    const match = tsxFiles.find((f) => {
+      const filename = f.path.split("/").pop()?.toLowerCase() || "";
+      return filename.includes(name);
+    });
+    if (match) {
+      bestFile = match;
+      selectionReason = `priority-name-match:"${name}"`;
+      break;
+    }
+  }
+
+  // Fallback: pick the largest component file (most likely the main page)
+  if (!bestFile) {
+    const sorted = [...tsxFiles].sort((a, b) => b.content.length - a.content.length);
+    if (sorted[0] && sorted[0].content.length > 100) {
+      bestFile = sorted[0];
+      selectionReason = "largest-file";
+    }
+  }
+
+  // Last resort: first tsx file
+  if (!bestFile) {
+    bestFile = tsxFiles[0];
+    selectionReason = "first-file";
+  }
+
+  // If the best file IS already at app/page.tsx, skip generation
+  if (bestFile.path === "app/page.tsx") {
+    console.log("[GitHub:generatePageTsx] v0 already provided app/page.tsx, skipping generation");
+    return ""; // Signal: don't add, it already exists
+  }
+
+  // Derive import path and component name
+  // e.g. "components/landing-page.tsx" -> "@/components/landing-page"
+  const importPath = "@/" + bestFile.path.replace(/\.(tsx|jsx)$/, "");
+
+  // Try to extract the default export name from the file content
+  const defaultExportMatch =
+    bestFile.content.match(/export\s+default\s+function\s+(\w+)/) ||
+    bestFile.content.match(/export\s+default\s+(\w+)/) ||
+    bestFile.content.match(/function\s+(\w+)[\s\S]*?export\s+default\s+\1/);
+  const componentName = defaultExportMatch
+    ? defaultExportMatch[1]
+    : "MainComponent";
+
+  console.log("[GitHub:generatePageTsx] Analysis:", {
+    tsxFileCount: tsxFiles.length,
+    tsxPaths: tsxFiles.map((f) => f.path),
+    selectedFile: bestFile.path,
+    selectionReason,
+    componentName,
+    importPath,
+  });
+
+  return `import ${componentName} from '${importPath}';
+
+export default function Home() {
+  return <${componentName} />;
+}
 `;
 }
 
@@ -420,7 +637,7 @@ export const createRepoFromBuilderApp = action({
     console.log("[GitHub] Creating repo from builder app:", args.repoName);
 
     // Get the builder app
-    const { api, internal } = await import("../_generated/api");
+    const { api, internal } = getApi();
     const app = await ctx.runQuery(api.builderAppOntology.getBuilderApp, {
       sessionId: args.sessionId,
       appId: args.appId,
@@ -449,35 +666,76 @@ export const createRepoFromBuilderApp = action({
       throw new Error("GitHub not connected. Please connect GitHub in Integrations settings.");
     }
 
-    // Get access token - prefer OAuth token, fall back to env var for testing
-    const accessToken: string = connection.accessToken || process.env.GITHUB_PERSONAL_ACCESS_TOKEN || "";
+    // Decrypt access token (stored encrypted via oauth/encryption)
+    let accessToken: string = "";
+    if (connection.accessToken) {
+      try {
+        accessToken = await ctx.runAction(internal.oauth.encryption.decryptToken, {
+          encrypted: connection.accessToken,
+        });
+      } catch (decryptError) {
+        console.error("[GitHub] Failed to decrypt access token:", decryptError);
+      }
+    }
+    // Fall back to env var for testing
+    if (!accessToken) {
+      accessToken = process.env.GITHUB_PERSONAL_ACCESS_TOKEN || "";
+    }
     if (!accessToken) {
       throw new Error("GitHub access token not available. Please reconnect GitHub in Integrations settings.");
     }
 
     try {
-      // 1. Create the repository
+      // 1. Create the repository (or use existing if name taken)
       console.log("[GitHub] Creating repository...");
-      const repoResponse = await githubFetch<GitHubCreateRepoResponse>("/user/repos", accessToken, {
-        method: "POST",
-        body: JSON.stringify({
-          name: args.repoName,
-          description: args.description || `${app.name} - Built with l4yercak3`,
-          private: args.isPrivate,
-          auto_init: false, // We'll add files manually
-        }),
-      });
-
-      console.log("[GitHub] Repository created:", repoResponse.html_url);
+      let repoResponse: GitHubCreateRepoResponse;
+      let isExistingRepo = false;
+      try {
+        repoResponse = await githubFetch<GitHubCreateRepoResponse>("/user/repos", accessToken, {
+          method: "POST",
+          body: JSON.stringify({
+            name: args.repoName,
+            description: args.description || `${app.name} - Built with l4yercak3`,
+            private: args.isPrivate,
+            auto_init: false, // We'll add files manually
+          }),
+        });
+        console.log("[GitHub] Repository created:", repoResponse.html_url);
+      } catch (createErr) {
+        const errMsg = createErr instanceof Error ? createErr.message : String(createErr);
+        // Handle 422 "name already exists" - fetch the existing repo instead
+        if (errMsg.includes("422") && errMsg.includes("name already exists")) {
+          console.log("[GitHub] Repo already exists, fetching existing repo...");
+          // Get authenticated user's login to construct the repo path
+          const user = await githubFetch<{ login: string }>("/user", accessToken);
+          repoResponse = await githubFetch<GitHubCreateRepoResponse>(
+            `/repos/${user.login}/${args.repoName}`,
+            accessToken
+          );
+          isExistingRepo = true;
+          console.log("[GitHub] Using existing repository:", repoResponse.html_url);
+        } else {
+          throw createErr;
+        }
+      }
 
       // 2. Prepare files to commit
       const customProps = app.customProperties as {
-        generatedFiles?: GitHubFile[];
         sdkVersion?: string;
         requiredEnvVars?: Array<{ key: string; description: string; required: boolean; defaultValue?: string }>;
       };
 
-      const generatedFiles = customProps?.generatedFiles || [];
+      // Read files from builderFiles table
+      const builderFileRecords = await ctx.runQuery(internal.fileSystemOntology.getFilesByAppInternal, {
+        appId: args.appId,
+      });
+      const generatedFiles: GitHubFile[] = builderFileRecords.map((f: { path: string; content: string; language: string }) => ({
+        path: f.path,
+        content: f.content,
+        language: f.language,
+      }));
+
+      console.log("[GitHub] v0 generatedFiles:", generatedFiles.map((f: GitHubFile) => f.path));
 
       // Build the file list: v0 files + scaffold files
       // If scaffold files are provided by the wizard, use them instead of legacy defaults.
@@ -558,6 +816,35 @@ export const createRepoFromBuilderApp = action({
                   language: "typescript",
                 },
               ]),
+          // globals.css (if not already in generated files)
+          ...(generatedFiles.some((f) => f.path === "app/globals.css")
+            ? []
+            : [
+                {
+                  path: "app/globals.css",
+                  content: generateGlobalsCss(),
+                  language: "css",
+                },
+              ]),
+          // tsconfig.json (if not already in generated files)
+          ...(generatedFiles.some((f) => f.path === "tsconfig.json")
+            ? []
+            : [
+                {
+                  path: "tsconfig.json",
+                  content: generateTsconfig(),
+                  language: "json",
+                },
+              ]),
+          // app/page.tsx - root page (if not already in generated files)
+          ...(generatedFiles.some((f) => f.path === "app/page.tsx" || f.path === "src/app/page.tsx")
+            ? []
+            : (() => {
+                const pageContent = generatePageTsx(generatedFiles);
+                return pageContent
+                  ? [{ path: "app/page.tsx", content: pageContent, language: "typescript" }]
+                  : [];
+              })()),
           // .gitignore
           {
             path: ".gitignore",
@@ -600,45 +887,137 @@ next-env.d.ts
         ];
       }
 
-      // 3. Commit all files
-      console.log("[GitHub] Committing", allFiles.length, "files...");
+      console.log("[GitHub] All files to commit:", allFiles.map((f) => f.path));
 
-      // Create initial commit with all files
-      // Note: GitHub API requires files to be committed one at a time for new repos
-      // For a more efficient approach, you'd use the Git Data API to create a tree
-      let lastCommitSha = "";
+      // 3. Commit all files in a SINGLE atomic commit using Git Trees API
+      // This avoids 409 SHA conflicts from sequential per-file commits.
+      console.log("[GitHub] Committing", allFiles.length, "files in single commit...");
+
+      const repoFullName = repoResponse.full_name;
+      const branch = repoResponse.default_branch;
+      const commitMessage = isExistingRepo
+        ? `Update: ${app.name} - Built with l4yercak3 and v0`
+        : `Initial commit: ${app.name} - Built with l4yercak3 and v0`;
+
+      // 3a. Get the latest commit SHA for the branch
+      let baseTreeSha: string | undefined;
+      let parentCommitSha: string | undefined;
+      try {
+        const refData = await githubFetch<{ object: { sha: string } }>(
+          `/repos/${repoFullName}/git/ref/heads/${branch}`,
+          accessToken
+        );
+        parentCommitSha = refData.object.sha;
+
+        const commitData = await githubFetch<{ tree: { sha: string } }>(
+          `/repos/${repoFullName}/git/commits/${parentCommitSha}`,
+          accessToken
+        );
+        baseTreeSha = commitData.tree.sha;
+      } catch {
+        // New repo with no commits yet - that's fine, no base tree
+        console.log("[GitHub] No existing commits found (new repo)");
+      }
+
+      // 3b. Create blobs for each file
+      const treeItems: Array<{
+        path: string;
+        mode: "100644";
+        type: "blob";
+        sha: string;
+      }> = [];
 
       for (const file of allFiles) {
         try {
-          const fileResponse = await githubFetch<GitHubCreateFileResponse>(
-            `/repos/${repoResponse.full_name}/contents/${file.path}`,
+          const blob = await githubFetch<{ sha: string }>(
+            `/repos/${repoFullName}/git/blobs`,
             accessToken,
             {
-              method: "PUT",
+              method: "POST",
               body: JSON.stringify({
-                message: lastCommitSha
-                  ? `Add ${file.path}`
-                  : `Initial commit: ${app.name} - Built with l4yercak3 and v0`,
-                content: Buffer.from(file.content).toString("base64"),
-                branch: repoResponse.default_branch,
+                content: utf8ToBase64(file.content),
+                encoding: "base64",
               }),
             }
           );
-          lastCommitSha = fileResponse.commit.sha;
-          console.log("[GitHub] Committed:", file.path);
+          treeItems.push({
+            path: file.path,
+            mode: "100644",
+            type: "blob",
+            sha: blob.sha,
+          });
         } catch (error) {
-          console.error("[GitHub] Failed to commit file:", file.path, error);
-          // Continue with other files even if one fails
+          console.error("[GitHub] Failed to create blob for:", file.path, error);
         }
       }
 
-      // 4. Update builder app with repo info
-      await ctx.runMutation(api.builderAppOntology.updateBuilderAppDeployment, {
-        sessionId: args.sessionId,
-        appId: args.appId,
-        githubRepo: repoResponse.html_url,
-        githubBranch: repoResponse.default_branch,
-      });
+      if (treeItems.length === 0) {
+        throw new Error("No files could be committed to GitHub");
+      }
+
+      // 3c. Create tree (with base_tree for existing repos)
+      const treePayload: Record<string, unknown> = { tree: treeItems };
+      if (baseTreeSha) {
+        treePayload.base_tree = baseTreeSha;
+      }
+      const newTree = await githubFetch<{ sha: string }>(
+        `/repos/${repoFullName}/git/trees`,
+        accessToken,
+        { method: "POST", body: JSON.stringify(treePayload) }
+      );
+
+      // 3d. Create commit
+      const commitPayload: Record<string, unknown> = {
+        message: commitMessage,
+        tree: newTree.sha,
+      };
+      if (parentCommitSha) {
+        commitPayload.parents = [parentCommitSha];
+      }
+      const newCommit = await githubFetch<{ sha: string }>(
+        `/repos/${repoFullName}/git/commits`,
+        accessToken,
+        { method: "POST", body: JSON.stringify(commitPayload) }
+      );
+
+      // 3e. Update branch reference to point to new commit
+      if (parentCommitSha) {
+        await githubFetch(
+          `/repos/${repoFullName}/git/refs/heads/${branch}`,
+          accessToken,
+          {
+            method: "PATCH",
+            body: JSON.stringify({ sha: newCommit.sha, force: true }),
+          }
+        );
+      } else {
+        // For brand new repos, create the ref
+        await githubFetch(
+          `/repos/${repoFullName}/git/refs`,
+          accessToken,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              ref: `refs/heads/${branch}`,
+              sha: newCommit.sha,
+            }),
+          }
+        );
+      }
+
+      console.log(`[GitHub] Committed ${treeItems.length} files in single commit: ${newCommit.sha}`);
+
+      // 4. Update builder app with repo info (skip if already set to avoid OCC conflicts
+      //    with concurrent heal status mutations writing to the same objects row)
+      const currentGithubRepo = ((app.customProperties as Record<string, unknown>)?.deployment as Record<string, unknown>)?.githubRepo;
+      if (!currentGithubRepo || currentGithubRepo !== repoResponse.html_url) {
+        await ctx.runMutation(api.builderAppOntology.updateBuilderAppDeployment, {
+          sessionId: args.sessionId,
+          appId: args.appId,
+          githubRepo: repoResponse.html_url,
+          githubBranch: repoResponse.default_branch,
+        });
+      }
 
       console.log("[GitHub] Repository setup complete:", repoResponse.html_url);
 

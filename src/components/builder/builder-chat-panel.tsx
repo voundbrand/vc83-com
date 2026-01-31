@@ -39,11 +39,15 @@ import {
   Paperclip,
   Activity,
   Rocket,
+  Wrench,
+  GitBranch,
+  FolderOpen,
 } from "lucide-react";
 import { useMutation, useQuery, useAction } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { Id } from "@/../convex/_generated/dataModel";
+import { FileExplorerPanel } from "./file-explorer-panel";
 
 // ============================================================================
 // COLLAPSED SIDEBAR (v0-style icon menu)
@@ -72,6 +76,7 @@ function CollapsedSidebar({
   const sidebarItems: SidebarItem[] = [
     { icon: MessageSquare, label: "Chat", active: activeTab === "chat" },
     { icon: Palette, label: "Design", active: activeTab === "design" },
+    { icon: FolderOpen, label: "Files", active: activeTab === "files" },
     { icon: Variable, label: "Vars", active: activeTab === "vars" },
     { icon: ScrollText, label: "Rules", active: activeTab === "rules" },
     { icon: Settings, label: "Settings", active: activeTab === "settings" },
@@ -780,6 +785,125 @@ function SystemMessage({
   );
 }
 
+// ============================================================================
+// HEAL PROGRESS MESSAGE (deployment self-heal)
+// ============================================================================
+
+function HealProgressMessage({
+  content,
+  healData,
+  onRetry,
+}: {
+  content: string;
+  healData: NonNullable<import("@/contexts/builder-context").BuilderMessage["healData"]>;
+  onRetry?: () => void;
+}) {
+  const [showLogs, setShowLogs] = useState(false);
+
+  const isStart = healData.type === "heal_start";
+  const isProgress = healData.type === "heal_progress";
+  const isSuccess = healData.type === "heal_success";
+  const isFailed = healData.type === "heal_failed";
+
+  // Color scheme based on state
+  const colors = isSuccess
+    ? { bg: "bg-emerald-950/30", border: "border-emerald-800", text: "text-emerald-300", icon: "text-emerald-400" }
+    : isFailed
+      ? { bg: "bg-red-950/30", border: "border-red-800", text: "text-red-300", icon: "text-red-400" }
+      : { bg: "bg-purple-950/30", border: "border-purple-800", text: "text-purple-300", icon: "text-purple-400" };
+
+  return (
+    <div className="flex justify-start">
+      <div className={`max-w-[90%] rounded-2xl rounded-tl-md px-4 py-3 ${colors.bg} border ${colors.border}`}>
+        {/* Header */}
+        <div className="flex items-center gap-2 mb-2">
+          {isStart && <Wrench className={`w-4 h-4 ${colors.icon}`} />}
+          {isProgress && <Loader2 className={`w-4 h-4 ${colors.icon} animate-spin`} />}
+          {isSuccess && <Check className={`w-4 h-4 ${colors.icon}`} />}
+          {isFailed && <AlertCircle className={`w-4 h-4 ${colors.icon}`} />}
+          <span className={`text-xs font-medium ${colors.text} uppercase tracking-wider`}>
+            {isStart && "Self-Heal Started"}
+            {isProgress && "Applying Fixes"}
+            {isSuccess && "Deploy Succeeded"}
+            {isFailed && "Heal Failed"}
+          </span>
+          {healData.attemptNumber && healData.maxAttempts && (
+            <span className="text-[10px] text-zinc-500 ml-auto">
+              Attempt {healData.attemptNumber}/{healData.maxAttempts}
+            </span>
+          )}
+        </div>
+
+        {/* Content - render markdown-like content */}
+        <div className={`text-sm ${colors.text} whitespace-pre-wrap`}>
+          {content.split("\n").map((line, i) => {
+            // Bold
+            const boldParsed = line.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+            // Code
+            const codeParsed = boldParsed.replace(/`(.*?)`/g, '<code class="bg-black/30 px-1 rounded text-xs">$1</code>');
+
+            if (line.startsWith("```")) {
+              // Toggle logs section
+              if (!showLogs) {
+                return (
+                  <button
+                    key={i}
+                    onClick={() => setShowLogs(true)}
+                    className="flex items-center gap-1 text-[11px] text-zinc-400 hover:text-zinc-300 mt-1"
+                  >
+                    <FileText className="w-3 h-3" />
+                    Show build logs
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+                );
+              }
+              return null;
+            }
+
+            if (showLogs && line === "```") {
+              return null;
+            }
+
+            return (
+              <p
+                key={i}
+                className={line.startsWith("```") ? "hidden" : ""}
+                dangerouslySetInnerHTML={{ __html: codeParsed }}
+              />
+            );
+          })}
+        </div>
+
+        {/* Strategy badge */}
+        {healData.strategy && (
+          <div className="flex items-center gap-2 mt-2">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/20 text-[10px] text-zinc-400">
+              <GitBranch className="w-3 h-3" />
+              {healData.strategy === "surgical" ? "Surgical Fix" : "v0 Regeneration"}
+            </span>
+            {healData.fixCount !== undefined && healData.fixCount > 0 && (
+              <span className="text-[10px] text-zinc-500">
+                {healData.fixCount} file{healData.fixCount !== 1 ? "s" : ""} changed
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Retry button for failed heals */}
+        {isFailed && onRetry && (
+          <button
+            onClick={onRetry}
+            className="mt-2 flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-medium transition-colors text-zinc-300"
+          >
+            <RefreshCw className="w-3 h-3" />
+            Retry
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Thinking phrases that cycle during generation
 const thinkingPhrases = [
   "Thinking...",
@@ -1259,6 +1383,10 @@ export function BuilderChatPanel() {
     // Builder app (set after v0 connection)
     builderAppId,
     sessionId,
+    organizationId,
+    // Programmatic message injection
+    addSystemMessage,
+    addAssistantMessage,
   } = useBuilder();
 
   const [input, setInput] = useState("");
@@ -1274,12 +1402,101 @@ export function BuilderChatPanel() {
   const [isFetchingUrls, setIsFetchingUrls] = useState(false);
   const [attachedText, setAttachedText] = useState<{ content: string; preview: string } | null>(null);
   const [showConnectionPanel, setShowConnectionPanel] = useState(false);
-  const [showPublishPanel, setShowPublishPanel] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Convex action for fetching URL content
   const fetchUrlContent = useAction(api.ai.webReader.fetchUrlContent);
+  const runChatHealAttempt = useAction(api.integrations.selfHealChat.runChatHealAttempt);
+
+  const { sessionId: authSessionId } = useAuth();
+  const effectiveSessionId = authSessionId || sessionId;
+
+  // ── BUILDER APP FILES (for Files tab) ──
+  const builderFilesRaw = useQuery(
+    api.fileSystemOntology.getFilesByApp,
+    effectiveSessionId && builderAppId
+      ? { sessionId: effectiveSessionId, appId: builderAppId }
+      : "skip"
+  );
+  const generatedFiles = useMemo(() => {
+    if (!builderFilesRaw) return [];
+    return builderFilesRaw.map((f) => ({
+      path: f.path,
+      content: f.content,
+      language: f.language,
+    }));
+  }, [builderFilesRaw]);
+
+  // ── HEAL STATE RESUME ──
+  // Query active heal state from DB to resume on page load
+  const healState = useQuery(
+    api.integrations.selfHealChat.getHealState,
+    effectiveSessionId && builderAppId
+      ? { sessionId: effectiveSessionId, appId: builderAppId }
+      : "skip"
+  );
+
+  const hasResumedHeal = useRef(false);
+
+  useEffect(() => {
+    if (!healState || hasResumedHeal.current) return;
+    if (!effectiveSessionId || !organizationId || !builderAppId) return;
+
+    // Check if there's an active heal in progress
+    if (healState.status === "analyzing" || healState.status === "fixing") {
+      hasResumedHeal.current = true;
+      addSystemMessage(
+        `**Resuming Self-Heal** - Attempt ${healState.attemptNumber} of ${healState.maxAttempts}\n\nA previous heal session was in progress. Continuing...`,
+        undefined,
+        { type: "heal_start", attemptNumber: healState.attemptNumber, maxAttempts: healState.maxAttempts }
+      );
+
+      // Auto-retry the heal attempt
+      (async () => {
+        try {
+          const result = await runChatHealAttempt({
+            sessionId: effectiveSessionId,
+            organizationId,
+            appId: builderAppId,
+          });
+
+          const message = result.progressMessages.join("\n");
+          if (result.success) {
+            addAssistantMessage(message, {
+              healData: { type: "heal_progress", strategy: result.strategy, fixCount: result.fixCount, rootCause: result.rootCause },
+            });
+            addAssistantMessage("Fixes pushed to GitHub. Vercel is rebuilding - I'll update you when it's done.", {
+              healData: { type: "heal_progress" },
+            });
+          } else {
+            addSystemMessage(message, { type: "api", canRetry: true }, {
+              type: "heal_failed", strategy: result.strategy, rootCause: result.rootCause,
+            });
+          }
+        } catch (err) {
+          addSystemMessage(
+            `Failed to resume heal: ${err instanceof Error ? err.message : "Unknown error"}`,
+            { type: "api", canRetry: true }
+          );
+        }
+      })();
+    } else if (healState.status === "building") {
+      hasResumedHeal.current = true;
+      addSystemMessage(
+        `**Deploy In Progress** - Fixes were applied, waiting for Vercel build to complete.\n\nCheck the Publish dropdown for live status.`,
+        undefined,
+        { type: "heal_progress" }
+      );
+    } else if (healState.status === "failed" && healState.attemptNumber < healState.maxAttempts) {
+      hasResumedHeal.current = true;
+      addSystemMessage(
+        `**Previous Heal Failed** (Attempt ${healState.attemptNumber} of ${healState.maxAttempts})\n\nYou can retry from the Publish dropdown.`,
+        undefined,
+        { type: "heal_failed", attemptNumber: healState.attemptNumber, maxAttempts: healState.maxAttempts }
+      );
+    }
+  }, [healState, effectiveSessionId, organizationId, builderAppId, addSystemMessage, addAssistantMessage, runChatHealAttempt]);
 
   // Docs mode state
   const [isDocsMode, setIsDocsMode] = useState(false);
@@ -1290,17 +1507,15 @@ export function BuilderChatPanel() {
   // ============================================================================
   const currentUIMode: BuilderUIMode = useMemo(() => {
     if (showConnectionPanel && builderMode === "connect") return "connect";
-    if (showPublishPanel) return "publish";
     if (isDocsMode) return "docs";
     return "auto";
-  }, [showConnectionPanel, showPublishPanel, builderMode, isDocsMode]);
+  }, [showConnectionPanel, builderMode, isDocsMode]);
 
   // Handle unified mode change from the dropdown
   const handleUIModeChange = async (mode: BuilderUIMode) => {
     // Reset all modes first
     setIsDocsMode(false);
     setShowConnectionPanel(false);
-    setShowPublishPanel(false);
 
     switch (mode) {
       case "auto":
@@ -1314,7 +1529,7 @@ export function BuilderChatPanel() {
         setShowConnectionPanel(true);
         break;
       case "publish":
-        setShowPublishPanel(true);
+        // Publishing is now handled by the header Publish dropdown
         break;
       case "docs":
         setIsDocsMode(true);
@@ -1334,27 +1549,17 @@ export function BuilderChatPanel() {
     setBuilderMode("prototype");
   };
 
-  // Handle publish panel close
-  const handlePublishPanelClose = () => {
-    setShowPublishPanel(false);
-  };
+  // Publish panel removed - now handled by header Publish dropdown
 
-  // Handle switching from Connect → Publish
+  // Handle switching from Connect → Publish (now via header dropdown)
   const handleSwitchToPublish = () => {
     setShowConnectionPanel(false);
     setBuilderMode("prototype");
-    setShowPublishPanel(true);
+    // Publishing is now done via the header Publish dropdown
   };
 
   // Handle switching from Publish → Connect
-  const handleSwitchToConnect = () => {
-    setShowPublishPanel(false);
-    if (canSwitchToMode("connect")) {
-      analyzePageForConnections();
-      setBuilderMode("connect");
-      setShowConnectionPanel(true);
-    }
-  };
+  // handleSwitchToConnect removed - publish panel no longer exists
 
   // Training data feedback mutation
   const submitFeedbackMutation = useMutation(api.ai.trainingData.submitFeedback);
@@ -1586,14 +1791,7 @@ export function BuilderChatPanel() {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     return require("./v0-connection-panel").V0ConnectionPanel;
   }, []);
-  const PublishConfigWizard = useMemo(() => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    return require("./publish-config-wizard").PublishConfigWizard;
-  }, []);
-  const PublishProvider = useMemo(() => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    return require("@/contexts/publish-context").PublishProvider;
-  }, []);
+  // PublishConfigWizard and PublishProvider removed - publishing is now via header dropdown
 
   return (
     <div className="h-full flex bg-zinc-900 overflow-hidden">
@@ -1627,21 +1825,13 @@ export function BuilderChatPanel() {
           </div>
         )}
 
-        {/* Publish Panel Drawer - overlays above the chat content */}
-        {showPublishPanel && (
-          <div className="absolute inset-0 z-20 bg-zinc-950/95 backdrop-blur-sm overflow-y-auto overflow-x-hidden w-full max-w-full">
-            <PublishProvider
-              builderAppId={builderAppId}
-              sessionId={sessionId}
-            >
-              <PublishConfigWizard
-                onClose={handlePublishPanelClose}
-                onSwitchToConnect={handleSwitchToConnect}
-              />
-            </PublishProvider>
-          </div>
-        )}
+        {/* Publish is now handled by the header Publish dropdown */}
 
+        {/* Files tab - read-only file explorer */}
+        {activeTab === "files" ? (
+          <FileExplorerPanel generatedFiles={generatedFiles} />
+        ) : (
+        <>
         {/* Messages - this is the ONLY scrollable area */}
         <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
           {/* Welcome message if empty */}
@@ -1651,6 +1841,17 @@ export function BuilderChatPanel() {
 
           {/* Message list */}
           {messages.map((message) => {
+            // Heal messages get special rendering
+            if (message.healData) {
+              return (
+                <HealProgressMessage
+                  key={message.id}
+                  content={message.content}
+                  healData={message.healData}
+                  onRetry={message.healData.type === "heal_failed" ? retryLastMessage : undefined}
+                />
+              );
+            }
             if (message.role === "user") {
               return <UserMessage key={message.id} content={message.content} />;
             }
@@ -1902,6 +2103,8 @@ export function BuilderChatPanel() {
             </div>
           </div>
         </div>
+        </>
+        )}
       </div>
 
       {/* Save Dialog */}
