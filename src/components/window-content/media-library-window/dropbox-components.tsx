@@ -10,6 +10,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import {
+  Folder,
   FolderPlus,
   FileText,
   Upload,
@@ -197,6 +198,13 @@ interface MediaItem {
   [key: string]: unknown; // Allow additional properties from query
 }
 
+interface FolderItem {
+  _id: string;
+  name: string;
+  customProperties?: { color?: string; description?: string };
+  children?: FolderItem[];
+}
+
 interface ContentAreaProps {
   activeSection: string;
   selectedFolderId: string | null;
@@ -208,6 +216,7 @@ interface ContentAreaProps {
   selectedMediaIds: Set<string>;
   onSelectMedia: (id: string) => void;
   onMediaClick: (media: MediaItem) => void;
+  onFolderNavigate?: (folderId: string) => void;
   renamingId: string | null;
   newName: string;
   onStartRename: (id: string, currentName: string) => void;
@@ -225,6 +234,7 @@ export function ContentArea({
   sessionId,
   selectedMediaIds,
   onMediaClick,
+  onFolderNavigate,
 }: ContentAreaProps) {
   // Get media based on context
   const allMedia = useQuery(
@@ -236,6 +246,41 @@ export function ContentArea({
         }
       : "skip"
   );
+
+  // Get folders for inline display
+  const folderTree = useQuery(
+    api.mediaFolderOntology.getFolderTree,
+    organizationId
+      ? { organizationId: organizationId as Id<"organizations"> }
+      : "skip"
+  );
+
+  // Get folders at the current level
+  const currentFolders = useMemo(() => {
+    if (!folderTree || activeSection === "starred") return [];
+    if (!searchQuery) {
+      // Show root-level folders in home, or children of selected folder
+      if (activeSection === "home" || !selectedFolderId) {
+        return folderTree;
+      }
+      // Find the selected folder and return its children
+      const findFolder = (nodes: FolderItem[]): FolderItem[] => {
+        for (const node of nodes) {
+          if (node._id === selectedFolderId) {
+            return node.children || [];
+          }
+          if (node.children) {
+            const found = findFolder(node.children);
+            if (found.length > 0) return found;
+          }
+        }
+        return [];
+      };
+      return findFolder(folderTree);
+    }
+    // When searching, don't show folders
+    return [];
+  }, [folderTree, activeSection, selectedFolderId, searchQuery]);
 
   // Filter and sort media
   const filteredMedia = useMemo(() => {
@@ -282,7 +327,7 @@ export function ContentArea({
     );
   }
 
-  if (filteredMedia.length === 0) {
+  if (filteredMedia.length === 0 && currentFolders.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center">
         <p className="text-lg font-bold mb-2" style={{ color: "var(--win95-text)" }}>
@@ -298,17 +343,33 @@ export function ContentArea({
   return (
     <div>
       {viewMode === "grid" ? (
-        <GridView
-          media={filteredMedia}
-          selectedMediaIds={selectedMediaIds}
-          onMediaClick={onMediaClick}
-          sessionId={sessionId}
-        />
+        <>
+          {/* Folder grid items */}
+          {currentFolders.length > 0 && (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-4">
+              {currentFolders.map((folder) => (
+                <FolderGridItem
+                  key={folder._id}
+                  folder={folder}
+                  onClick={() => onFolderNavigate?.(folder._id)}
+                />
+              ))}
+            </div>
+          )}
+          <GridView
+            media={filteredMedia}
+            selectedMediaIds={selectedMediaIds}
+            onMediaClick={onMediaClick}
+            sessionId={sessionId}
+          />
+        </>
       ) : (
         <ListView
           media={filteredMedia}
+          folders={currentFolders}
           selectedMediaIds={selectedMediaIds}
           onMediaClick={onMediaClick}
+          onFolderNavigate={onFolderNavigate}
         />
       )}
     </div>
@@ -347,14 +408,18 @@ function GridView({
 // List View Component
 interface ListViewProps {
   media: MediaItem[];
+  folders?: FolderItem[];
   selectedMediaIds: Set<string>;
   onMediaClick: (media: MediaItem) => void;
+  onFolderNavigate?: (folderId: string) => void;
 }
 
 function ListView({
   media,
+  folders = [],
   selectedMediaIds,
   onMediaClick,
+  onFolderNavigate,
 }: ListViewProps) {
   return (
     <div className="space-y-1">
@@ -369,7 +434,34 @@ function ListView({
         <div className="col-span-1"></div>
       </div>
 
-      {/* Items */}
+      {/* Folders */}
+      {folders.map((folder) => (
+        <div
+          key={folder._id}
+          onClick={() => onFolderNavigate?.(folder._id)}
+          className="grid grid-cols-12 gap-4 px-4 py-2 text-xs border-b cursor-pointer transition-colors"
+          style={{
+            borderColor: "var(--win95-border-light)",
+            color: "var(--win95-text)",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "var(--win95-highlight-bg)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent";
+          }}
+        >
+          <div className="col-span-6 flex items-center gap-2 truncate">
+            <Folder size={16} style={{ color: folder.customProperties?.color || "var(--primary)" }} />
+            <span className="truncate font-medium">{folder.name}</span>
+          </div>
+          <div className="col-span-2" style={{ color: "var(--neutral-gray)" }}>--</div>
+          <div className="col-span-3" style={{ color: "var(--neutral-gray)" }}>--</div>
+          <div className="col-span-1"></div>
+        </div>
+      ))}
+
+      {/* Files */}
       {media.map((item) => (
         <MediaListItem
           key={item._id}
@@ -458,6 +550,43 @@ function MediaGridItem({ item, isSelected, onClick, sessionId }: MediaGridItemPr
         </p>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
           {formatBytes(item.sizeBytes)}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// Folder Grid Item Component
+interface FolderGridItemProps {
+  folder: FolderItem;
+  onClick: () => void;
+}
+
+function FolderGridItem({ folder, onClick }: FolderGridItemProps) {
+  return (
+    <div
+      onClick={onClick}
+      className="relative group border-2 rounded-lg overflow-hidden cursor-pointer transition-all"
+      style={{
+        borderColor: "var(--win95-border)",
+        background: "var(--win95-bg)",
+      }}
+    >
+      {/* Folder Icon */}
+      <div
+        className="aspect-square relative flex items-center justify-center"
+        style={{ background: "var(--win95-bg-light)" }}
+      >
+        <Folder size={56} style={{ color: folder.customProperties?.color || "var(--primary)" }} />
+      </div>
+
+      {/* Info */}
+      <div className="p-2" style={{ background: "var(--win95-bg-light)" }}>
+        <p className="text-xs font-medium truncate" style={{ color: "var(--win95-text)" }}>
+          {folder.name}
+        </p>
+        <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+          Folder
         </p>
       </div>
     </div>

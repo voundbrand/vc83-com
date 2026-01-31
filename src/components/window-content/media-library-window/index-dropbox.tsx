@@ -5,13 +5,14 @@
  * Complete redesign with Dropbox-inspired interface
  */
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useCurrentOrganization, useAuth } from "@/hooks/use-auth";
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
 import { useWindowManager } from "@/hooks/use-window-manager";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { LeftSidebar } from "./components/left-sidebar";
 import { TopBar } from "./components/top-bar";
+import { FilePreviewPanel } from "./components/file-preview-panel";
 import { StorageBar } from "./dropbox-components";
 import { ContentArea } from "./dropbox-components";
 import {
@@ -34,6 +35,9 @@ type ViewMode = "grid" | "list";
 type NavigationSection = "home" | "folders" | "starred";
 type SortOption = "name" | "date" | "size";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type MediaItem = any; // Uses the shape returned by listMedia query
+
 export default function MediaLibraryDropbox({
   onSelect,
   selectionMode = false,
@@ -50,6 +54,37 @@ export default function MediaLibraryDropbox({
   const [showUpload, setShowUpload] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
+  const [previewItem, setPreviewItem] = useState<MediaItem | null>(null);
+  const [previewWidth, setPreviewWidth] = useState(320);
+  const isResizing = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizing.current = true;
+    const startX = e.clientX;
+    const startWidth = previewWidth;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (!isResizing.current) return;
+      const delta = startX - moveEvent.clientX;
+      const newWidth = Math.min(Math.max(startWidth + delta, 240), 600);
+      setPreviewWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      isResizing.current = false;
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  }, [previewWidth]);
 
   const currentOrg = useCurrentOrganization();
   const activeOrgId = currentOrg?.id || null;
@@ -88,8 +123,8 @@ export default function MediaLibraryDropbox({
         />
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      {/* Main Content + Preview */}
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Top Bar */}
         <TopBar
           searchQuery={searchQuery}
@@ -117,48 +152,92 @@ export default function MediaLibraryDropbox({
         {/* Storage Usage Bar */}
         <StorageBar organizationId={activeOrgId} sessionId={sessionId} />
 
-        {/* Content Area */}
-        <div className="flex-1 overflow-y-auto p-6">
-          <ContentArea
-            activeSection={activeSection}
-            selectedFolderId={selectedFolderId}
-            viewMode={viewMode}
-            searchQuery={searchQuery}
-            sortBy={sortBy}
-            organizationId={activeOrgId}
-            sessionId={sessionId}
-            selectedMediaIds={selectedMediaIds}
-            onSelectMedia={(id) => {
-              const newSet = new Set(selectedMediaIds);
-              if (newSet.has(id)) {
-                newSet.delete(id);
-              } else {
-                newSet.add(id);
-              }
-              setSelectedMediaIds(newSet);
-            }}
-            onMediaClick={(media) => {
-              if (selectionMode && onSelect) {
-                onSelect(media);
-                closeWindow("media-library");
-              }
-            }}
-            renamingId={renamingId}
-            newName={newName}
-            onStartRename={(id, currentName) => {
-              setRenamingId(id);
-              setNewName(currentName);
-            }}
-            onCancelRename={() => {
-              setRenamingId(null);
-              setNewName("");
-            }}
-            onSaveRename={async () => {
-              // TODO: Implement rename mutation call
-              setRenamingId(null);
-              setNewName("");
-            }}
-          />
+        {/* Content + Preview Split */}
+        <div className="flex-1 flex min-h-0" ref={containerRef}>
+          {/* File List / Grid */}
+          <div className="flex-1 min-w-0 overflow-y-auto p-6">
+            <ContentArea
+              activeSection={activeSection}
+              selectedFolderId={selectedFolderId}
+              viewMode={viewMode}
+              searchQuery={searchQuery}
+              sortBy={sortBy}
+              organizationId={activeOrgId}
+              sessionId={sessionId}
+              selectedMediaIds={selectedMediaIds}
+              onSelectMedia={(id) => {
+                const newSet = new Set(selectedMediaIds);
+                if (newSet.has(id)) {
+                  newSet.delete(id);
+                } else {
+                  newSet.add(id);
+                }
+                setSelectedMediaIds(newSet);
+              }}
+              onMediaClick={(media: MediaItem) => {
+                if (selectionMode && onSelect) {
+                  onSelect(media);
+                  closeWindow("media-library");
+                } else {
+                  setPreviewItem(media);
+                  setSelectedMediaIds(new Set([media._id]));
+                }
+              }}
+              onFolderNavigate={(folderId: string) => {
+                setActiveSection("folders");
+                setSelectedFolderId(folderId);
+                setPreviewItem(null);
+              }}
+              renamingId={renamingId}
+              newName={newName}
+              onStartRename={(id, currentName) => {
+                setRenamingId(id);
+                setNewName(currentName);
+              }}
+              onCancelRename={() => {
+                setRenamingId(null);
+                setNewName("");
+              }}
+              onSaveRename={async () => {
+                setRenamingId(null);
+                setNewName("");
+              }}
+            />
+          </div>
+
+          {/* Resize Handle + Preview Panel */}
+          {previewItem && (
+            <>
+              {/* Drag handle */}
+              <div
+                onMouseDown={handleResizeStart}
+                className="w-1.5 flex-shrink-0 cursor-col-resize group relative"
+                style={{ background: "var(--win95-border)" }}
+              >
+                <div
+                  className="absolute inset-y-0 -left-1 -right-1 z-10"
+                  title="Drag to resize"
+                />
+                {/* Visual grip dots */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="w-1 h-1 rounded-full" style={{ background: "var(--neutral-gray)" }} />
+                  <div className="w-1 h-1 rounded-full" style={{ background: "var(--neutral-gray)" }} />
+                  <div className="w-1 h-1 rounded-full" style={{ background: "var(--neutral-gray)" }} />
+                </div>
+              </div>
+              {/* Preview panel */}
+              <div className="flex-shrink-0" style={{ width: previewWidth }}>
+                <FilePreviewPanel
+                  item={previewItem}
+                  sessionId={sessionId}
+                  onClose={() => {
+                    setPreviewItem(null);
+                    setSelectedMediaIds(new Set());
+                  }}
+                />
+              </div>
+            </>
+          )}
         </div>
       </div>
 
